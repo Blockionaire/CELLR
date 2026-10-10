@@ -9,23 +9,14 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MODE="${DB_TEST_MODE:-temp}"
-PGBIN="${PGBIN:-/usr/lib/postgresql/16/bin}"
+# shellcheck source=lib/temp-cluster.sh
+source "$ROOT/scripts/lib/temp-cluster.sh"
 OUT="$(mktemp)"
-CLUSTER=""
-cleanup() {
-  [ -n "$CLUSTER" ] && { ${AS:-} "$PGBIN/pg_ctl" -D "$CLUSTER/data" stop -m fast >/dev/null 2>&1 || true; rm -rf "$CLUSTER"; }
-  rm -f "$OUT"
-}
+cleanup() { stop_temp_cluster; rm -f "$OUT"; }
 trap cleanup EXIT
 
 if [ "$MODE" = temp ]; then
-  if [ "$(id -u)" = 0 ]; then CLUSTER=/var/lib/postgresql/cellr-dbtest; AS="runuser -u postgres --"; else CLUSTER="$(mktemp -d)/cellr-dbtest"; AS=""; fi
-  rm -rf "$CLUSTER"; mkdir -p "$CLUSTER/sock"; [ "$(id -u)" = 0 ] && chown -R postgres:postgres "$CLUSTER"
-  # C.UTF-8: unicode-aware lower()/[[:alnum:]] like Supabase's UTF-8 locales
-  $AS "$PGBIN/initdb" -D "$CLUSTER/data" --auth=trust -U postgres -E UTF8 --locale=C.UTF-8 >/dev/null
-  $AS "$PGBIN/pg_ctl" -D "$CLUSTER/data" -o "-c listen_addresses='' -c unix_socket_directories=$CLUSTER/sock -c fsync=off" -l "$CLUSTER/log" start >/dev/null
-  for _ in $(seq 1 30); do psql -h "$CLUSTER/sock" -U postgres -Atqc "select 1" >/dev/null 2>&1 && break; sleep 0.3; done
-  PSQL=(psql -h "$CLUSTER/sock" -U postgres -d postgres)
+  start_temp_cluster 54999
   MODE=shim
 else
   : "${DATABASE_URL:?DATABASE_URL is required for DB_TEST_MODE=$MODE}"

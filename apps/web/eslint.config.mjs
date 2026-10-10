@@ -27,6 +27,11 @@ const NO_SERVER_INTERNALS = {
   message:
     "Go through a service. Repositories, db clients and privileged code are server-internal.",
 };
+const NO_RAW_PRIVILEGED = {
+  group: ["@/server/privileged/client", "@/server/privileged/env"],
+  message:
+    "Use a named operation from server/privileged (e.g. signup.ts), never the raw service-role client.",
+};
 const NO_UI_LAYERS = {
   group: ["@/features/*", "@/ui/*", "@/app/*"],
   message: "Server code must not depend on UI layers.",
@@ -80,7 +85,9 @@ export default defineConfig([
   {
     files: ["src/server/**/*.ts"],
     ignores: [...TESTS, ...DATA_ACCESS],
-    rules: { "no-restricted-imports": ["error", { patterns: [SUPABASE, NO_UI_LAYERS] }] },
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [SUPABASE, NO_UI_LAYERS, NO_RAW_PRIVILEGED] }],
+    },
   },
   // The only places allowed to talk to Supabase.
   {

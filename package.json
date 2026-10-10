@@ -2,7 +2,7 @@
   "name": "cellr",
   "private": true,
   "version": "0.0.0",
-  "description": "CELLR — your personal intelligent wine cellar",
+  "description": "CELLR \u2014 your personal intelligent wine cellar",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=22.12"
@@ -16,15 +16,19 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:test": "bash scripts/db-test.sh",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm db:test"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm db:test",
+    "db:types": "bash scripts/db-types.sh",
+    "db:types:check": "bash scripts/db-types.sh --check"
   },
   "devDependencies": {
-    "prettier": "3.9.10"
+    "prettier": "3.9.10",
+    "supabase": "2.120.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "sharp",
       "esbuild",
+      "sharp",
+      "supabase",
       "unrs-resolver"
     ]
   }

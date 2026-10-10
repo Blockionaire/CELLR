@@ -75,6 +75,28 @@ describe("layer boundaries are enforced", () => {
       ),
     ).not.toContain("no-restricted-imports");
   });
+  it("services cannot import the raw service-role client or key", async () => {
+    expect(
+      await violations(
+        "src/server/households/service.ts",
+        `import { createServiceClient } from "@/server/privileged/client";\nexport const c = createServiceClient;`,
+      ),
+    ).toContain("no-restricted-imports");
+    expect(
+      await violations(
+        "src/server/households/service.ts",
+        `import { getServiceRoleKey } from "@/server/privileged/env";\nexport const k = getServiceRoleKey;`,
+      ),
+    ).toContain("no-restricted-imports");
+  });
+  it("services may use a named privileged operation", async () => {
+    expect(
+      await violations(
+        "src/server/auth/service.ts",
+        `import { isSignupAllowed } from "@/server/privileged/signup";\nexport const f = isSignupAllowed;`,
+      ),
+    ).not.toContain("no-restricted-imports");
+  });
   it("process.env is only readable in the env modules", async () => {
     expect(
       await violations("src/server/households/service.ts", `export const k = process.env.SECRET;`),
@@ -96,7 +118,7 @@ describe("server modules are marked server-only", () => {
     const dir = path.join(root, "src/server");
     if (!fs.existsSync(dir)) return;
     const missing = walk(dir)
-      .filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f))
+      .filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f) && !/\.types\.ts$/.test(f))
       .filter((f) => !/^\s*import\s+["']server-only["'];?\s*$/m.test(fs.readFileSync(f, "utf8")))
       .map((f) => path.relative(root, f));
     expect(missing).toEqual([]);
