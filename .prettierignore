@@ -5,3 +5,5 @@ supabase/migrations
 supabase/seed
 docs/spikes
 apps/web/public
+supabase/templates
+supabase/config.toml
