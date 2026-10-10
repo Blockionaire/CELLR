@@ -1,0 +1,7 @@
+node_modules
+.next
+pnpm-lock.yaml
+supabase/migrations
+supabase/seed
+docs/spikes
+apps/web/public
