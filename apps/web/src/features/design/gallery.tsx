@@ -14,7 +14,7 @@ import { Skeleton } from "@/ui/skeleton";
 import { Stepper } from "@/ui/stepper";
 import { ThemeSelector, type ThemePreference } from "@/ui/theme";
 import { useToast } from "@/ui/toast";
-import { Wordmark } from "@/ui/wordmark";
+import { Logo } from "@/ui/logo";
 
 const SWATCHES = [
   ["canvas", "Page", "bg-canvas"],
@@ -52,7 +52,7 @@ export function Gallery({ initialTheme }: { initialTheme: ThemePreference }) {
   return (
     <div className="mx-auto max-w-3xl px-5 pb-24 pt-10">
       <div className="flex items-center justify-between">
-        <Wordmark />
+        <Logo className="h-16" />
         <ThemeSelector
           label="Theme"
           initial={initialTheme}

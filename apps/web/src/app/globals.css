@@ -27,6 +27,8 @@
   --accent: #7d2234;
   --accent-ink: light-dark(#f6f2ea, #f3eee6);
   --accent-fg: light-dark(#7d2234, #d98a9b);
+  /* the CELLR logo: its own burgundy on light, ivory on dark */
+  --logo: light-dark(#6a071c, #f3eee6);
   --bronze: light-dark(#85652b, #b8975f);
   --danger: light-dark(#a8362b, #f08c7e);
 
@@ -64,6 +66,7 @@
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-accent-fg: var(--accent-fg);
+  --color-logo: var(--logo);
   --color-bronze: var(--bronze);
   --color-danger: var(--danger);
 

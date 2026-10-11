@@ -15,7 +15,7 @@ import { errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { Field } from "@/ui/field";
 import { Segmented } from "@/ui/segmented";
-import { Wordmark } from "@/ui/wordmark";
+import { Logo } from "@/ui/logo";
 import { useCreateHousehold, useJoinHousehold, useMe, useUpdateProfile } from "./hooks";
 
 type Mode = "create" | "join";
@@ -80,7 +80,7 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-5 py-12 pt-safe pb-safe">
-      <Wordmark className="mb-12 text-ink-2" />
+      <Logo className="mb-10 h-28" />
       <p className="mb-4 text-caption font-medium uppercase tracking-[0.18em] text-bronze">
         {t("stepOf", { current, total: 2 })}
       </p>

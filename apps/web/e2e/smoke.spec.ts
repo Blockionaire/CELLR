@@ -256,6 +256,28 @@ test.describe("installable app", () => {
     ).toBe(true);
   });
 
+  test("the logo is public: a signed-out visitor can load it, and the sign-in screen shows it", async ({
+    page,
+    request,
+  }) => {
+    for (const file of ["logo-lockup.png", "logo-mark.png"]) {
+      const res = await request.get(`/brand/${file}`, { maxRedirects: 0 });
+      expect(res.status(), file).toBe(200);
+      expect(res.headers()["content-type"]).toContain("image/png");
+    }
+    await page.goto("/sign-in");
+    const logo = page.getByRole("img", { name: "CELLR" });
+    await expect(logo).toBeVisible();
+    // The mask is what draws it: if the image failed to load the box would be an empty (invisible) block.
+    const loaded = await logo.evaluate(async (el) => {
+      const url = getComputedStyle(el).maskImage.match(/url\("?(.+?)"?\)/)?.[1];
+      if (!url) return false;
+      const res = await fetch(url);
+      return res.ok && (res.headers.get("content-type") ?? "").includes("image/png");
+    });
+    expect(loaded).toBe(true);
+  });
+
   test("offline: navigations get the friendly page, styled, and nothing private is ever cached", async ({
     page,
     context,
