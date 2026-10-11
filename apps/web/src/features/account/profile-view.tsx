@@ -1,0 +1,224 @@
+"use client";
+
+import { useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
+import { useState, type FormEvent, type ReactNode } from "react";
+import {
+  ERROR_MESSAGES,
+  UpdateProfileSchema,
+  type HouseholdMemberView,
+  type Me,
+} from "@cellr/domain";
+import { errorMessage } from "@/lib/api";
+import { Button } from "@/ui/button";
+import { Field } from "@/ui/field";
+import { ThemeSelector, type ThemePreference } from "@/ui/theme";
+import { useToast } from "@/ui/toast";
+import { ConfirmSheet } from "./confirm-sheet";
+import {
+  useCreateInvite,
+  useHousehold,
+  useMe,
+  useRemoveMember,
+  useSignOut,
+  useUpdateProfile,
+} from "./hooks";
+import { InviteSheet } from "./invite-sheet";
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="rounded-card border border-hairline bg-surface p-5 md:p-6">
+      <h2 className="mb-4 text-caption font-medium uppercase tracking-[0.18em] text-ink-3">
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+export function ProfileView({
+  initialMe,
+  initialTheme,
+}: {
+  initialMe: Me;
+  initialTheme: ThemePreference;
+}) {
+  const t = useTranslations("profile");
+  const tc = useTranslations("common");
+  const te = useTranslations();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: me = initialMe } = useMe(initialMe);
+  const household = useHousehold(me.activeHouseholdId);
+  const updateProfile = useUpdateProfile();
+  const removeMember = useRemoveMember();
+  const invite = useCreateInvite();
+  const signOut = useSignOut();
+
+  const [name, setName] = useState(me.displayName ?? "");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [confirm, setConfirm] = useState<
+    { kind: "leave" } | { kind: "remove"; member: HouseholdMemberView } | null
+  >(null);
+
+  const message = (e: unknown) => errorMessage(e, (k) => te(k), ERROR_MESSAGES);
+  const active = me.households.find((h) => h.id === me.activeHouseholdId) ?? null;
+  const isOwner = active?.role === "owner";
+  const nameChanged = name.trim() !== (me.displayName ?? "");
+
+  async function saveName(event: FormEvent) {
+    event.preventDefault();
+    setNameError(null);
+    const parsed = UpdateProfileSchema.safeParse({ displayName: name });
+    if (!parsed.success) return setNameError(parsed.error.issues[0]?.message ?? null);
+    try {
+      await updateProfile.mutateAsync(parsed.data);
+      toast.show(tc("saved"));
+    } catch (e) {
+      setNameError(message(e));
+    }
+  }
+
+  async function confirmAction() {
+    if (!active || !confirm) return;
+    const userId = confirm.kind === "leave" ? me.userId : confirm.member.userId;
+    try {
+      await removeMember.mutateAsync({ householdId: active.id, userId });
+      setConfirm(null);
+      // Leaving may leave the person with no household: let the server decide where they belong now.
+      // Full reload on purpose: drop every cached page and query that belonged to that household.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      if (confirm.kind === "leave") window.location.assign("/");
+    } catch (e) {
+      setConfirm(null);
+      toast.show(message(e), { tone: "error" });
+    }
+  }
+
+  async function handleSignOut() {
+    try {
+      await signOut.mutateAsync();
+    } finally {
+      queryClient.clear();
+      // Full reload on purpose: no cached protected page may survive on a shared device.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign("/sign-in");
+    }
+  }
+
+  const openInvite = () => {
+    setInviteOpen(true);
+    if (active) invite.mutate({ householdId: active.id });
+  };
+
+  return (
+    <div className="mx-auto flex max-w-xl flex-col gap-4">
+      <Section title={t("accountSection")}>
+        <form onSubmit={saveName} noValidate className="flex flex-col gap-4">
+          <Field
+            label={t("nameLabel")}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            error={nameError}
+            autoComplete="given-name"
+          />
+          <div>
+            <p className="text-small font-medium text-ink-2">{t("emailLabel")}</p>
+            <p className="mt-1 break-all text-body">{me.email ?? "—"}</p>
+          </div>
+          {nameChanged && (
+            <Button type="submit" loading={updateProfile.isPending} className="self-start">
+              {tc("save")}
+            </Button>
+          )}
+        </form>
+      </Section>
+
+      {active && (
+        <Section title={t("householdSection")}>
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="font-display text-headline">{active.name}</h3>
+            <Button variant="secondary" size="sm" onClick={openInvite}>
+              {t("invite")}
+            </Button>
+          </div>
+          <p className="mb-2 mt-5 text-small font-medium text-ink-2">{t("members")}</p>
+          <ul className="divide-y divide-hairline">
+            {(household.data?.members ?? []).map((m) => (
+              <li key={m.userId} className="flex items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-body">
+                    {m.displayName ?? t("unnamed")}
+                    {m.isYou && <span className="ml-2 text-small text-ink-3">({t("you")})</span>}
+                  </p>
+                  <p className="text-small text-ink-3">
+                    {m.role === "owner" ? t("roleOwner") : t("roleMember")}
+                  </p>
+                </div>
+                {isOwner && !m.isYou && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setConfirm({ kind: "remove", member: m })}
+                  >
+                    {t("remove")}
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <Button
+            variant="danger"
+            size="sm"
+            className="mt-3 -ml-3"
+            onClick={() => setConfirm({ kind: "leave" })}
+          >
+            {t("leave")}
+          </Button>
+        </Section>
+      )}
+
+      <Section title={t("appearanceSection")}>
+        <ThemeSelector
+          label={t("themeLabel")}
+          initial={initialTheme}
+          options={[
+            { value: "system", label: t("themeSystem") },
+            { value: "light", label: t("themeLight") },
+            { value: "dark", label: t("themeDark") },
+          ]}
+        />
+      </Section>
+
+      <Button variant="ghost" size="lg" block onClick={handleSignOut} loading={signOut.isPending}>
+        {t("signOut")}
+      </Button>
+
+      {active && (
+        <InviteSheet
+          open={inviteOpen}
+          onClose={() => setInviteOpen(false)}
+          household={active}
+          invite={invite}
+        />
+      )}
+      {active && (
+        <ConfirmSheet
+          open={confirm !== null}
+          onClose={() => setConfirm(null)}
+          title={confirm?.kind === "remove" ? t("remove") : t("leave")}
+          body={
+            confirm?.kind === "remove"
+              ? t("removeConfirm", { name: confirm.member.displayName ?? t("unnamed") })
+              : t("leaveConfirm", { household: active.name })
+          }
+          confirmLabel={confirm?.kind === "remove" ? t("remove") : t("leave")}
+          onConfirm={confirmAction}
+          loading={removeMember.isPending}
+        />
+      )}
+    </div>
+  );
+}

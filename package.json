@@ -1,0 +1,40 @@
+{
+  "name": "cellr",
+  "private": true,
+  "version": "0.0.0",
+  "description": "CELLR \u2014 your personal intelligent wine cellar",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @cellr/web dev",
+    "build": "pnpm --filter @cellr/web build",
+    "lint": "pnpm -r --parallel lint",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "pnpm -r --parallel test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:test": "bash scripts/db-test.sh",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm db:test",
+    "db:types": "bash scripts/db-types.sh",
+    "db:types:check": "bash scripts/db-types.sh --check",
+    "icons": "node scripts/generate-icons.mjs",
+    "offline-page": "node scripts/generate-offline.mjs",
+    "e2e": "pnpm --filter @cellr/web e2e"
+  },
+  "devDependencies": {
+    "pg": "8.23.1",
+    "prettier": "3.9.10",
+    "sharp": "0.35.5",
+    "supabase": "2.120.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "supabase",
+      "unrs-resolver"
+    ]
+  }
+}
