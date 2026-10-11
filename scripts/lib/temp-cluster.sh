@@ -8,6 +8,10 @@ AS=""
 start_temp_cluster() {
   local port="${1:-54999}"
   if [ "$(id -u)" = 0 ]; then CLUSTER=/var/lib/postgresql/cellr-tmp-$port; AS="runuser -u postgres --"; else CLUSTER="$(mktemp -d)/cellr-tmp-$port"; AS=""; fi
+  # A previous run that was killed before it could clean up leaves a live server on this port: reclaim it.
+  if [ -f "$CLUSTER/data/postmaster.pid" ]; then
+    ${AS:-} "$PGBIN/pg_ctl" -D "$CLUSTER/data" stop -m immediate >/dev/null 2>&1 || true
+  fi
   rm -rf "$CLUSTER"; mkdir -p "$CLUSTER/sock"; [ "$(id -u)" = 0 ] && chown -R postgres:postgres "$CLUSTER"
   # C.UTF-8: unicode-aware lower()/[[:alnum:]], like Supabase's UTF-8 locales
   $AS "$PGBIN/initdb" -D "$CLUSTER/data" --auth=trust -U postgres -E UTF8 --locale=C.UTF-8 >/dev/null

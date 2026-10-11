@@ -21,6 +21,7 @@
     "db:types:check": "bash scripts/db-types.sh --check"
   },
   "devDependencies": {
+    "pg": "8.23.1",
     "prettier": "3.9.10",
     "supabase": "2.120.0"
   },

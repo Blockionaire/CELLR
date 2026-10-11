@@ -1,0 +1,149 @@
+{
+  "common": {
+    "close": "Close",
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "back": "Back",
+    "retry": "Try again",
+    "save": "Save",
+    "saved": "Saved",
+    "copy": "Copy",
+    "copied": "Copied",
+    "share": "Share",
+    "loading": "Loading",
+    "skipToContent": "Skip to content"
+  },
+  "nav": {
+    "label": "Main",
+    "home": "Home",
+    "cellar": "Cellar",
+    "scan": "Scan",
+    "sommelier": "Sommelier",
+    "profile": "Profile"
+  },
+  "signIn": {
+    "title": "Welcome to CELLR",
+    "subtitle": "Your personal intelligent wine cellar.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "emailHint": "We'll email you a 6-digit code. No password needed.",
+    "sendCode": "Send me a code",
+    "codeTitle": "Check your email",
+    "codeSubtitle": "We sent a 6-digit code to {email}.",
+    "codeLabel": "6-digit code",
+    "verify": "Sign in",
+    "resend": "Send a new code",
+    "resendIn": "Send a new code in {seconds}s",
+    "resent": "A new code is on its way.",
+    "changeEmail": "Use a different email",
+    "invalidEmail": "Enter a valid email address."
+  },
+  "onboarding": {
+    "householdTitle": "Who shares this cellar?",
+    "householdSubtitle": "A household is the people who share one cellar. You can invite others any time.",
+    "modeLabel": "Household",
+    "modeCreate": "Start one",
+    "modeJoin": "Join with a code",
+    "householdNameLabel": "Household name",
+    "householdNamePlaceholder": "Joost & Merel",
+    "createHousehold": "Create household",
+    "codeLabel": "Invite code",
+    "codePlaceholder": "abcd-ef01-2345",
+    "codeHint": "Ask whoever invited you for the code.",
+    "joinHousehold": "Join household",
+    "nameTitle": "What should we call you?",
+    "nameSubtitle": "Your name appears next to your ratings and in the household.",
+    "nameLabel": "Your name",
+    "namePlaceholder": "Joost",
+    "finish": "Let's go",
+    "stepOf": "Step {current} of {total}"
+  },
+  "home": {
+    "greetingMorning": "Good morning, {name}",
+    "greetingAfternoon": "Good afternoon, {name}",
+    "greetingEvening": "Good evening, {name}",
+    "greetingMorningAnon": "Good morning",
+    "greetingAfternoonAnon": "Good afternoon",
+    "greetingEveningAnon": "Good evening",
+    "heroEyebrow": "Tonight",
+    "heroTitle": "What should we drink tonight?",
+    "heroEmpty": "Add a few bottles and I'll help you decide what to open.",
+    "emptyTitle": "Your cellar starts here.",
+    "emptyBody": "Scan a bottle and it appears here, beautifully.",
+    "emptyAction": "Scan your first bottle"
+  },
+  "cellar": {
+    "title": "Cellar",
+    "emptyTitle": "Your cellar starts here.",
+    "emptyBody": "Every bottle you add will live here, with where it is and when to open it.",
+    "emptyAction": "Scan a bottle"
+  },
+  "scan": {
+    "title": "Scan a bottle",
+    "soonTitle": "Scanning is on its way",
+    "soonBody": "Soon you'll point your camera at a label and we'll do the rest."
+  },
+  "sommelier": {
+    "title": "Sommelier",
+    "soonTitle": "Your sommelier is warming up",
+    "soonBody": "Ask what to open tonight, and why. It gets good once your cellar has a few bottles."
+  },
+  "profile": {
+    "title": "Profile",
+    "accountSection": "Account",
+    "nameLabel": "Your name",
+    "emailLabel": "Email",
+    "householdSection": "Household",
+    "members": "Members",
+    "you": "you",
+    "roleOwner": "Owner",
+    "roleMember": "Member",
+    "invite": "Invite someone",
+    "inviteTitle": "Invite to {household}",
+    "inviteBody": "Share this code. It works for 7 days and for up to 5 people.",
+    "inviteCodeLabel": "Invite code",
+    "inviteShareText": "Join our wine cellar on CELLR with this code: {code}",
+    "makingInvite": "Creating your code…",
+    "remove": "Remove",
+    "leave": "Leave household",
+    "leaveConfirm": "Leave {household}? You'll lose access to its cellar until someone invites you again.",
+    "removeConfirm": "Remove {name} from the household?",
+    "unnamed": "Someone",
+    "appearanceSection": "Appearance",
+    "themeLabel": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "signOut": "Sign out"
+  },
+  "errors": {
+    "network": "We couldn't reach CELLR. Check your connection and try again.",
+    "UNAUTHENTICATED": "Please sign in to continue.",
+    "FORBIDDEN": "You don't have access to that.",
+    "NOT_FOUND": "We couldn't find that.",
+    "VALIDATION": "Something in that doesn't look right. Please check it and try again.",
+    "CONFLICT": "That can't be done right now.",
+    "RATE_LIMITED": "That's a lot of tries in a short time. Give it a minute and try again.",
+    "AI_UNAVAILABLE": "Our sommelier is taking a break. Please try again in a moment.",
+    "UPLOAD_REJECTED": "We couldn't use that photo. Try another one.",
+    "INVITE_INVALID": "That invite code didn't work. Check it, or ask for a new one.",
+    "OTP_INVALID": "That code didn't work. Check it, or ask for a new one.",
+    "SIGNUP_CLOSED": "CELLR is invite-only for now, and this email isn't on the list yet.",
+    "INTERNAL": "Something went wrong on our side. Please try again."
+  },
+  "offline": {
+    "title": "You're offline",
+    "body": "CELLR needs a connection for this. Your bottles are safe — reconnect and pick up where you left off.",
+    "retry": "Try again"
+  },
+  "notFound": {
+    "title": "We couldn't find that page.",
+    "body": "It may have moved, or the link is out of date.",
+    "home": "Back to home"
+  },
+  "errorPage": {
+    "title": "Something went wrong on our side.",
+    "body": "Your bottles are safe. Please try again.",
+    "retry": "Try again"
+  }
+}

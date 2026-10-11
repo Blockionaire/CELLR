@@ -1,1 +1,202 @@
 @import "tailwindcss";
+@import "@fontsource-variable/geist/wght.css";
+@import "@fontsource/instrument-serif/400.css";
+@import "@fontsource/instrument-serif/400-italic.css";
+
+/* =====================================================================================
+   CELLR design tokens  (docs/00-architecture-plan.md §7)
+   One source of truth per token via light-dark(): the page follows the system theme by
+   default and <html data-theme="light|dark"> overrides it. Dark is the primary identity.
+   Contrast ratios were computed, not eyeballed:
+     ink 16:1 · ink-2 8.8:1 · ink-3 ≥4.8:1 on every surface · accent-ink on accent 8.5:1
+   Burgundy as a thin line on dark is only 1.9:1, so it is a FILL (accent) with a light label;
+   anything thin (focus ring, marker, link) uses accent-fg.
+   ===================================================================================== */
+:root {
+  color-scheme: light dark;
+
+  --canvas: light-dark(#f6f2ea, #141211);
+  --surface: light-dark(#fbf8f2, #1b1816);
+  --raised: light-dark(#efe9de, #242019);
+  --hairline: light-dark(rgb(30 26 23 / 0.1), rgb(243 238 230 / 0.08));
+
+  --ink: light-dark(#1e1a17, #f3eee6);
+  --ink-2: light-dark(#5a524a, #b9b1a5);
+  --ink-3: light-dark(#6c645a, #948c80);
+
+  --accent: #7d2234;
+  --accent-ink: light-dark(#f6f2ea, #f3eee6);
+  --accent-fg: light-dark(#7d2234, #d98a9b);
+  --bronze: light-dark(#85652b, #b8975f);
+  --danger: light-dark(#a8362b, #f08c7e);
+
+  /* wine-type tints: decorative dots and glass only — meaning is always carried by a word too */
+  --wine-red: #7d2234;
+  --wine-white: #c9b87a;
+  --wine-rose: #d98a9b;
+  --wine-sparkling: #cdbb85;
+  --wine-orange: #c8864a;
+  --wine-dessert: #c79a3e;
+  --wine-fortified: #7a4a2a;
+
+  --shadow-raised:
+    0 1px 2px light-dark(rgb(30 26 23 / 0.06), transparent),
+    0 8px 24px light-dark(rgb(30 26 23 / 0.08), transparent);
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --nav-height: 64px;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-hairline: var(--hairline);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-fg: var(--accent-fg);
+  --color-bronze: var(--bronze);
+  --color-danger: var(--danger);
+
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Instrument Serif", ui-serif, Georgia, "Times New Roman", serif;
+
+  /* 8 inputs & chips · 14 cards · 24 sheets. No bubble UI. */
+  --radius-control: 8px;
+  --radius-card: 14px;
+  --radius-sheet: 24px;
+
+  --shadow-raised: var(--shadow-raised);
+
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.25rem;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.75rem;
+  --text-headline: 1.75rem;
+  --text-headline--line-height: 2.125rem;
+  --text-display: 2.5rem;
+  --text-display--line-height: 2.75rem;
+
+  --ease-cellr: var(--ease-out);
+}
+
+@layer base {
+  html {
+    background: var(--canvas);
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.5rem;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  /* Meaningful, always-visible keyboard focus. */
+  :focus-visible {
+    outline: 2px solid var(--accent-fg);
+    outline-offset: 2px;
+    border-radius: var(--radius-control);
+  }
+  button,
+  [role="button"],
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+  /* Tabular numerals wherever numbers are compared: prices, years, counts. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Reduced motion: cinematic movement is replaced by a plain fade, never merely shortened. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ---- Component motion ---------------------------------------------------------------------- */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 0.9;
+    transform: none;
+  }
+}
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sheet-out {
+  to {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+dialog[open] .sheet-panel {
+  animation: sheet-in 260ms var(--ease-out) both;
+}
+dialog[open][data-closing] .sheet-panel {
+  animation: sheet-out 160ms ease-in both;
+}
+dialog[open]::backdrop {
+  animation: backdrop-in 200ms ease-out both;
+}
