@@ -4,6 +4,7 @@ import { MotionConfig } from "motion/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { ApiError } from "@/lib/api";
+import { RegisterServiceWorker } from "./register-sw";
 import { ToastProvider } from "./toast";
 
 function makeQueryClient() {
@@ -26,6 +27,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <MotionConfig reducedMotion="user">
         <ToastProvider>{children}</ToastProvider>
+        <RegisterServiceWorker />
       </MotionConfig>
     </QueryClientProvider>
   );

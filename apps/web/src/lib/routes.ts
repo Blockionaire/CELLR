@@ -1,7 +1,7 @@
 /** Which pages need a session? Used by the proxy (and mirrored by the (app) layout as a second layer). */
 export type PathKind = "public" | "auth-only" | "protected";
 
-const PUBLIC_PREFIXES = ["/offline", "/design"];
+const PUBLIC_PREFIXES = ["/design"];
 const AUTH_ONLY_PREFIXES = ["/sign-in"];
 
 const matches = (pathname: string, prefix: string) =>

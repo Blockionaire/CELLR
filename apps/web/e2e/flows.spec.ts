@@ -75,6 +75,20 @@ test.describe("first run", () => {
       active: true,
       currency: "EUR",
     });
+
+    // …and the product events that flow produced (fire-and-forget, so give them a moment to land).
+    await expect
+      .poll(
+        async () =>
+          (
+            await sql<{ name: string }>(
+              "select e.name from public.analytics_events e join auth.users u on u.id = e.user_id where u.email = $1 order by e.name",
+              [email],
+            )
+          ).map((r) => r.name),
+        { timeout: 5000 },
+      )
+      .toEqual(["account_created", "household_created"]);
   });
 
   test("signing out ends the session, and protected pages send you back to sign in", async ({
@@ -364,6 +378,147 @@ test.describe("native-style API access (bearer token, no cookies)", () => {
     expect((await rest(bobToken, "GET", "rate_events?select=*")).status).toBeGreaterThanOrEqual(
       400,
     );
+  });
+
+  test("a plain MEMBER talking straight to the REST API cannot promote themselves, remove the owner, or rewrite the household", async ({
+    request,
+  }) => {
+    const ownerToken = await sessionToken(uniqueEmail("boss"));
+    const memberToken = await sessionToken(uniqueEmail("member"));
+    const { id } = await (
+      await api(request, ownerToken, "post", "/households", { name: "Boss House" })
+    ).json();
+    const invite = await (
+      await api(request, ownerToken, "post", `/households/${id}/invites`, {})
+    ).json();
+    expect(
+      (await api(request, memberToken, "post", "/households/join", { code: invite.code })).status(),
+    ).toBe(200);
+
+    const rest = (method: string, path: string, body?: unknown) =>
+      fetch(`${STACK}/rest/v1/${path}`, {
+        method,
+        headers: {
+          apikey: PUBLISHABLE_KEY,
+          authorization: `Bearer ${memberToken}`,
+          "content-type": "application/json",
+          prefer: "return=representation",
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    const changed = async (res: Response) =>
+      res.ok ? ((await res.json()) as unknown[]).length : 0;
+
+    const [{ user_id: memberId }] = (await sql<{ user_id: string }>(
+      "select user_id from public.household_members where household_id = $1 and role = 'member'",
+      [id],
+    )) as [{ user_id: string }];
+
+    // Positive control: the member really can see the household and its members through REST.
+    expect(
+      (await (await rest("GET", `household_members?household_id=eq.${id}`)).json()) as unknown[],
+    ).toHaveLength(2);
+
+    const attempts: Array<[string, Response]> = [
+      [
+        "promote self to owner",
+        await rest("PATCH", `household_members?household_id=eq.${id}&user_id=eq.${memberId}`, {
+          role: "owner",
+        }),
+      ],
+      [
+        "demote everyone",
+        await rest("PATCH", `household_members?household_id=eq.${id}`, { role: "member" }),
+      ],
+      [
+        "remove the owner",
+        await rest("DELETE", `household_members?household_id=eq.${id}&role=eq.owner`),
+      ],
+      [
+        "rename the household",
+        await rest("PATCH", `households?id=eq.${id}`, { name: "Member House" }),
+      ],
+      ["change the currency", await rest("PATCH", `households?id=eq.${id}`, { currency: "USD" })],
+      ["delete the household", await rest("DELETE", `households?id=eq.${id}`)],
+      ["list the owner's invites", await rest("GET", `household_invites?household_id=eq.${id}`)],
+      [
+        "insert an invite",
+        await rest("POST", "household_invites", {
+          household_id: id,
+          code_hash: "x",
+          expires_at: "2099-01-01",
+          created_by: memberId,
+        }),
+      ],
+    ];
+    for (const [what, res] of attempts)
+      expect(await changed(res), `${what} → HTTP ${res.status}`).toBe(0);
+
+    const [h] = await sql<{ name: string; currency: string }>(
+      "select name, currency from public.households where id = $1",
+      [id],
+    );
+    expect(h).toEqual({ name: "Boss House", currency: "EUR" });
+    const roles = await sql<{ role: string }>(
+      "select role from public.household_members where household_id = $1 order by role",
+      [id],
+    );
+    expect(roles.map((r) => r.role)).toEqual(["owner", "member"]); // enum order: owner, member
+  });
+
+  test("product events are first-party: allow-listed names only, no personal data, and floods are limited", async ({
+    request,
+  }) => {
+    const email = uniqueEmail("events");
+    const token = await sessionToken(email);
+
+    const ok = await api(request, token, "post", "/events", {
+      name: "bottle_added",
+      props: { source: "scan", count: 2 },
+    });
+    expect(ok.status()).toBe(204);
+    const [stored] = await sql<{ name: string; props: Record<string, unknown> }>(
+      "select e.name, e.props from public.analytics_events e join auth.users u on u.id = e.user_id where u.email = $1",
+      [email],
+    );
+    expect(stored).toMatchObject({ name: "bottle_added", props: { source: "scan", count: 2 } });
+
+    for (const bad of [
+      { name: "user_clicked_something" },
+      { name: "bottle_added", props: { who: "someone@example.com" } },
+      { name: "bottle_added", props: { nested: { a: 1 } } },
+      { name: "bottle_added", householdId: "not-a-uuid" },
+    ]) {
+      expect(
+        (await api(request, token, "post", "/events", bad)).status(),
+        JSON.stringify(bad),
+      ).toBe(422);
+    }
+    // no origin and no token: refused outright
+    expect(
+      (await request.post("/api/v1/events", { data: { name: "bottle_added" } })).status(),
+    ).toBe(403);
+
+    // The table has no IP / user-agent columns at all — there is nothing to leak.
+    const columns = await sql<{ column_name: string }>(
+      "select column_name from information_schema.columns where table_schema = 'public' and table_name = 'analytics_events'",
+    );
+    expect(columns.map((c) => c.column_name).sort()).toEqual([
+      "at",
+      "household_id",
+      "id",
+      "name",
+      "props",
+      "user_id",
+    ]);
+
+    // 120 per minute, then a polite 429 (one already spent above).
+    let limited = 0;
+    for (let i = 0; i < 125; i++) {
+      const res = await api(request, token, "post", "/events", { name: "drink_soon_viewed" });
+      if (res.status() === 429) limited++;
+    }
+    expect(limited).toBeGreaterThanOrEqual(5);
   });
 
   test("a garbage or missing token is a clean 401", async ({ request }) => {

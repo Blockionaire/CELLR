@@ -30,9 +30,9 @@ export default async function HomePage() {
         <h2 className="mt-3 max-w-[14ch] font-display text-display text-balance md:max-w-[18ch]">
           {t("heroTitle")}
         </h2>
-        <p className="mt-3 max-w-xs text-body text-ink-2">{t("heroEmpty")}</p>
+        <p className="mt-3 max-w-[17rem] text-body text-ink-2">{t("heroEmpty")}</p>
         <span className="mt-6 inline-flex items-center gap-1 text-small font-medium text-accent-fg">
-          {t("heroEyebrow")}
+          {t("heroCta")}
           <ChevronRightIcon
             size={18}
             className="transition-transform duration-200 group-hover:translate-x-0.5"

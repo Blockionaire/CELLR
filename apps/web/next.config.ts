@@ -17,7 +17,29 @@ const config: NextConfig = {
   transpilePackages: ["@cellr/domain"],
   turbopack: { root: path.resolve(import.meta.dirname, "../..") },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // The static offline page has no scripts and loads nothing: lock it down completely.
+      {
+        source: "/offline.html",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value:
+              "default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+          },
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+        ],
+      },
+      // The worker file itself must never be served stale, or fixes would not reach installed apps.
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+    ];
   },
 };
 

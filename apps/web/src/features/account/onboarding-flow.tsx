@@ -36,7 +36,7 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
 
   const createHousehold = useCreateHousehold();
   const joinHousehold = useJoinHousehold();
-  const updateProfile = useUpdateProfile();
+  const updateProfile = useUpdateProfile({ firstTime: me.displayName === null });
   const message = (e: unknown) => errorMessage(e, (k) => te(k), ERROR_MESSAGES);
 
   useEffect(() => {

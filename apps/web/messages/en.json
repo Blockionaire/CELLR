@@ -70,7 +70,8 @@
     "heroEmpty": "Add a few bottles and I'll help you decide what to open.",
     "emptyTitle": "Your cellar starts here.",
     "emptyBody": "Scan a bottle and it appears here, beautifully.",
-    "emptyAction": "Scan your first bottle"
+    "emptyAction": "Scan your first bottle",
+    "heroCta": "Help me choose"
   },
   "cellar": {
     "title": "Cellar",

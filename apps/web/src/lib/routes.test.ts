@@ -9,7 +9,6 @@ describe("classifyPath", () => {
     ["/onboarding", "protected"],
     ["/sign-in", "auth-only"],
     ["/sign-in/verify", "auth-only"],
-    ["/offline", "public"],
     ["/design", "public"],
     ["/design/colors", "public"],
   ])("%s → %s", (path, kind) => {
@@ -18,7 +17,7 @@ describe("classifyPath", () => {
   it("does not treat look-alike prefixes as public", () => {
     expect(classifyPath("/designs")).toBe("protected");
     expect(classifyPath("/sign-in-now")).toBe("protected");
-    expect(classifyPath("/offline-secrets")).toBe("protected");
+    expect(classifyPath("/offline")).toBe("protected");
   });
 });
 

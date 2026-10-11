@@ -18,11 +18,15 @@
     "db:test": "bash scripts/db-test.sh",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm db:test",
     "db:types": "bash scripts/db-types.sh",
-    "db:types:check": "bash scripts/db-types.sh --check"
+    "db:types:check": "bash scripts/db-types.sh --check",
+    "icons": "node scripts/generate-icons.mjs",
+    "offline-page": "node scripts/generate-offline.mjs",
+    "e2e": "pnpm --filter @cellr/web e2e"
   },
   "devDependencies": {
     "pg": "8.23.1",
     "prettier": "3.9.10",
+    "sharp": "0.35.5",
     "supabase": "2.120.0"
   },
   "pnpm": {

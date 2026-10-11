@@ -38,7 +38,7 @@ export default defineConfig({
     },
     {
       command: `pnpm exec next start -p ${PORT}`,
-      url: `http://localhost:${PORT}/offline`,
+      url: `http://localhost:${PORT}/manifest.webmanifest`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
       env: {

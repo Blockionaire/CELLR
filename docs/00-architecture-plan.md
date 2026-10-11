@@ -1,6 +1,7 @@
 # CELLR — architecture & implementation plan
 
-> Status: **proposal, nothing built yet.** Written before any application code, as requested.
+> Status: **Phase 0 built** (see [§13](#13-status-and-what-changed-since-this-plan)). Originally written before any
+> application code, as requested; §13 records what was built and every place reality changed the plan.
 > Everything marked **✅ verified** was tested in a throwaway Postgres 16 (scripts in
 > [`docs/spikes/`](spikes/)). Everything marked **⚠ assumption** has not been tested and is called
 > out so it can be killed early.
@@ -450,7 +451,7 @@ Dark is the primary identity (best for 3D); light ("ivory") is a first-class twi
 | `hairline`                                                              | warm-white @ 8%                           | ink @ 10%             |
 | `text`                                                                  | `#F3EEE6` — 16.2:1                        | `#1E1A17` — 15.5:1    |
 | `text-2`                                                                | `#B9B1A5` — 8.8:1                         | `#5A524A` — 6.9:1     |
-| `text-3`                                                                | `#8F877B` — 5.3:1                         | `#766D63` — 4.6:1     |
+| `text-3`                                                                | `#948C80` — ≥ 4.9:1                       | `#6C645A` — ≥ 4.8:1   |
 | `accent` (burgundy **fill**)                                            | `#7D2234` (warm-white label on it: 8.5:1) | same                  |
 | `accent-fg` (burgundy **on dark surfaces**: focus ring, markers, links) | `#D98A9B` — 7.2:1                         | `#7D2234` — 8.8:1     |
 | `bronze` (rare: "peak", special moments)                                | `#B8975F` — 6.8:1                         | `#85652B` — 4.8:1     |
@@ -472,7 +473,7 @@ tint of wine types, used at small sizes (dot, bottle glass).
 - 4-pt base, 8-pt rhythm; page gutter 20 px (phone) → 32 px (tablet) → content max 1200 px with a two-pane layout on desktop (never stretched cards). Touch targets ≥ 44 px; bottom controls inside thumb reach; safe-area insets honoured.
 - Radius: **8** (inputs, chips) · **14** (cards) · **24** top corners (sheets). No pills except the 5-dot scale and the toggle; no "bubble UI".
 - Depth in dark mode = **surface tone + 1 px hairline**, not shadows. Light mode: one soft two-layer shadow (`0 1px 2px / 0 8px 24px`, ink @ 6–8 %). Modals dim the world rather than boxing it.
-- Primitives (restyled from shadcn/Radix; no default look): Button, Segmented, Chip, Sheet (vaul), Dialog, Tabs, Stepper, Stars, Scale (5-notch, replaces charts), DrinkWindowBar, Skeleton, Toast, EmptyState, BottleGlyph (2-D SVG silhouette used wherever no photo exists and as the 3D fallback).
+- Primitives (restyled from shadcn/Radix; no default look): Button, Segmented, Chip, Sheet (native `<dialog>` — see §13), Dialog, Tabs, Stepper, Stars, Scale (5-notch, replaces charts), DrinkWindowBar, Skeleton, Toast, EmptyState, BottleGlyph (2-D SVG silhouette used wherever no photo exists and as the 3D fallback).
 
 ### 7.4 Motion language (Motion library)
 
@@ -591,3 +592,61 @@ Restaurant mode, blind tasting, social features, billing, native apps, backgroun
 ---
 
 **Next step on your word:** confirm/adjust D1–D10 → I start **Phase 0** on a feature branch (scaffold + CI + RLS suite first, so everything after lands on a safety net).
+
+---
+
+## 13. Status and what changed since this plan
+
+**Decisions D1–D10 were accepted** (new dedicated Supabase project in Frankfurt, email one-time codes, custom SMTP,
+English strings with i18n wired in, half-star ratings, per-household currency, PR workflow, Wijnkelder importer in
+Phase 1, label photos before Phase 2, OpenAI key via Vercel env).
+
+### Phase 0 — built and verified
+
+| Planned                                     | Done                                                                                                   | Evidence                                 |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| Repo scaffold, strict TS, boundaries, tests | pnpm workspace, Next 16, pure `packages/domain`; layer rules are lint errors and are themselves tested | 36 domain + 160 web unit tests           |
+| Supabase schema + RLS + auth                | 7 migrations, explicit grants, column-level privileges; email-code sign-in                             | **239 SQL assertions**; mutation-checked |
+| Households & permissions                    | create / invite (hashed codes) / join / leave / remove; last-owner guard                               | SQL suite + full-stack e2e               |
+| Design system, shell, navigation            | tokens, 12 primitives, bottom nav with raised Scan / desktop rail, `/design` gallery                   | e2e + axe WCAG 2.1 AA in both themes     |
+| PWA                                         | manifest, icons, service worker, static offline page                                                   | e2e incl. offline navigation             |
+| Platform bits                               | typed API client, human error map, analytics, rate limiter, i18n                                       | unit + e2e                               |
+| CI                                          | format · lint · types · unit · DB suite · e2e · secret scan · audit                                    | `.github/workflows/ci.yml`               |
+
+**Not yet exercised against real Supabase** (no Docker or network to supabase.com in the build sandbox): GoTrue's
+actual emails, hosted Storage, and the Supabase-specific role setup. CI has an advisory job for the real stack; the
+first deploy is the real test. [`SETUP.md`](SETUP.md) is the checklist.
+
+### Where reality changed the plan
+
+1. **The sign-up gate lives in the database, not the API.** The Supabase publishable key is public, so an allow-list
+   in Next.js would be decoration — anyone can call Supabase Auth directly. Now a trigger on `auth.users`
+   (migration 0007); an e2e test attacks it by bypassing the app.
+2. **Sheets use the native `<dialog>`, not `vaul`.** Runtime-injected `<style>` tags (vaul, Radix scroll-lock) are
+   blocked by the strict nonce-based CSP. Native dialog gives the focus trap, Escape and inert background for free.
+3. **Contrast fixes found by measuring:** light-mode `text-3` was 4.2:1 on `surface-2` (AA needs 4.5) → darkened;
+   burgundy as a thin line on dark is 1.9:1 → burgundy is a _fill_, `accent-fg` is used for lines and focus rings.
+4. **A real test rig without Docker.** Postgres + the real PostgREST binary (pinned checksum) + a small fake Auth that
+   mimics Supabase's gateway. It runs the whole app end to end, and let me attack the _public REST surface_ with a
+   valid user session — the real attack surface, since the REST endpoint and publishable key are public by design.
+5. **Defence in depth hid a policy regression from one test.** The service layer filters by membership too, so
+   opening a database policy did not fail the household e2e test; only a REST-level test sees it. Both layers are now
+   tested separately, and each security assertion was mutation-checked (break the policy → the suite goes red).
+6. **The offline page is a static HTML file** (inline CSS, embedded fonts, no JavaScript). The first version was a React
+   route and proved fragile offline (hydration needs JS chunks that may not be cached). A fallback must not depend on
+   the thing that is down.
+7. **Service worker never caches pages or API responses** — they are private to whoever is signed in, and a shared
+   phone must not show someone else's cellar offline. Only immutable build assets and the offline page are cached.
+8. **Postgres detail that matters:** `join_household` _returns_ NULL for a bad code instead of raising, because raising
+   rolls back the rate-limit counter and failed guesses would never count.
+9. **TypeScript 6.0.3 and ESLint 9** are pinned deliberately: `typescript-eslint` does not yet support TS 7 and
+   `eslint-config-next`'s plugins do not yet support ESLint 10. Revisit when they do.
+10. **`created_by` columns use `ON DELETE SET NULL` and are protected by column grants, not triggers** — an immutability
+    trigger would also fire on the foreign key's own action and block account deletion.
+
+### Open items carried forward
+
+- **Needs you:** create the Supabase project and deploy ([`SETUP.md`](SETUP.md)); label photos for the scan eval set (D9).
+- **Needs a device, not the sandbox:** how it _feels_ on a real iPhone (status-bar style in standalone mode, safe areas,
+  font rendering) — please review the `/design` gallery on your phone.
+- **Phase 1** next: cellar domain (wines → vintages → bottles), manual add flow, grid/list, search, racks, importer.

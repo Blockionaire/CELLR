@@ -13,6 +13,13 @@ export const metadata: Metadata = {
   // iOS home-screen app. 'default' keeps the status bar legible in both themes (verify on a device).
   appleWebApp: { capable: true, title: "CELLR", statusBarStyle: "default" },
   formatDetection: { telephone: false },
+  icons: {
+    icon: [
+      { url: "/icons/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {

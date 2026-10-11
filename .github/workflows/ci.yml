@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The local stack (Postgres + PostgREST + fake Auth) needs no secrets; these are its throwaway keys.
+  NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_localstack_0000000000
+
+jobs:
+  checks:
+    name: Format · lint · types · unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Generated files are up to date
+        run: |
+          pnpm db:types:check
+          pnpm offline-page
+          git diff --exit-code -- apps/web/public/offline.html
+
+  database:
+    name: Database · migrations + permission suite (Postgres 16)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/db-test.sh
+
+  e2e:
+    name: End to end · whole app against the local stack
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @cellr/web exec playwright install --with-deps chromium
+      - run: pnpm build
+      - name: No server secrets in the browser bundle
+        run: bash scripts/check-bundle-secrets.sh
+      - run: pnpm --filter @cellr/web e2e
+        env:
+          CI: "1"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-results
+          path: |
+            apps/web/test-results
+            apps/web/playwright-report
+          retention-days: 7
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependencies:
+    name: Dependency audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --prod --audit-level high
+
+  supabase-stack:
+    # The same permission suite against the REAL Supabase stack (GoTrue, Storage, Realtime, …).
+    # The suite is verified on plain Postgres; this job checks the parts a shim cannot — Supabase's own
+    # roles, Storage and extensions. It was written without Docker access, so it is advisory until its
+    # first green run: then delete `continue-on-error` and make it required.
+    name: Database · real Supabase stack (advisory)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with: { version: 2.120.0 }
+      - run: supabase start # applies supabase/migrations and supabase/seed
+      - run: DB_TEST_MODE=supabase DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres bash scripts/db-test.sh
+      - if: always()
+        run: supabase stop --no-backup

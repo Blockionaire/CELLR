@@ -217,10 +217,20 @@ test.describe("design gallery", () => {
   });
 });
 
-test("the offline page is human", async ({ page }) => {
-  await page.goto("/offline");
+test("the offline page is human, works with no JavaScript, and loads nothing else", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  const requests: string[] = [];
+  page.on("request", (r) => requests.push(new URL(r.url()).pathname));
+  const response = await page.goto("/offline.html");
   await expect(page.getByRole("heading", { name: "You're offline" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Try again" })).toHaveAttribute("href", "/");
+  expect(response?.headers()["content-security-policy"]).toContain("default-src 'none'");
+  expect(requests).toEqual(["/offline.html"]);
+  await page.screenshot({ path: shot(`offline-static-${test.info().project.name}`) });
+  await context.close();
 });
 
 test("unknown pages get a kind 404", async ({ page }) => {
@@ -228,4 +238,65 @@ test("unknown pages get a kind 404", async ({ page }) => {
   // /design/* is public so the 404 renders without a redirect
   expect(res?.status()).toBe(404);
   await expect(page.getByRole("heading", { name: "We couldn't find that page." })).toBeVisible();
+});
+
+test.describe("installable app", () => {
+  test("serves a valid manifest with real icons", async ({ request }) => {
+    const res = await request.get("/manifest.webmanifest");
+    expect(res.status()).toBe(200);
+    const manifest = await res.json();
+    expect(manifest).toMatchObject({ name: "CELLR", display: "standalone", start_url: "/" });
+    for (const icon of manifest.icons as Array<{ src: string; sizes: string; purpose: string }>) {
+      const png = await request.get(icon.src);
+      expect(png.status(), icon.src).toBe(200);
+      expect(png.headers()["content-type"]).toContain("image/png");
+    }
+    expect(
+      (manifest.icons as Array<{ purpose: string }>).some((i) => i.purpose === "maskable"),
+    ).toBe(true);
+  });
+
+  test("offline: navigations get the friendly page, styled, and nothing private is ever cached", async ({
+    page,
+    context,
+  }) => {
+    await page.goto("/sign-in");
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.reload(); // now controlled by the worker
+    await context.setOffline(true);
+    await page.goto("/sign-in", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "You're offline" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Try again" })).toBeVisible();
+    // Styled, not a raw page: the heading uses the serif display face from the cached CSS.
+    const family = await page
+      .getByRole("heading", { name: "You're offline" })
+      .evaluate((el) => getComputedStyle(el).fontFamily);
+    expect(family).toContain("Instrument Serif");
+    await page.screenshot({ path: shot(`offline-${test.info().project.name}`) });
+
+    // The serif really is available offline (not just named in the font stack): its file is in the cache.
+    const fontsReady = await page.evaluate(() =>
+      document.fonts.ready.then(() =>
+        [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family),
+      ),
+    );
+    expect(fontsReady.join(" ")).toContain("Instrument Serif");
+
+    const cached = await page.evaluate(async () => {
+      const urls: string[] = [];
+      for (const name of await caches.keys())
+        for (const r of await (await caches.open(name)).keys()) urls.push(new URL(r.url).pathname);
+      return urls;
+    });
+    expect(cached).toContain("/offline.html");
+    expect(cached.filter((u) => u.startsWith("/api/"))).toEqual([]);
+    expect(
+      cached.filter(
+        (u) =>
+          !(u === "/offline.html" || u.startsWith("/_next/static/") || u.startsWith("/icons/")),
+      ),
+    ).toEqual([]);
+
+    await context.setOffline(false);
+  });
 });
