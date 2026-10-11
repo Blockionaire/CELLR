@@ -1,8 +1,8 @@
 # Setting up CELLR (Supabase + Vercel)
 
 This is the one-time setup that only you can do, because it involves your accounts and your secrets.
-It takes about 30 minutes. Nothing here needs to be sent to anyone: **keys go into Vercel and your password
-manager, never into chat, issues or the repository.**
+It takes about an hour the first time. Nothing here needs to be sent to anyone: **keys go into Vercel and your
+password manager, never into chat, issues or the repository.**
 
 You need free accounts at: **Supabase**, **Vercel**, and an email sender (**Resend** is suggested below).
 You do **not** need an OpenAI key yet (that's Phase 2).
@@ -33,7 +33,7 @@ Two equivalent ways. **A is simplest**; B is better once you're comfortable with
 ### A. Paste into the SQL Editor
 
 _Supabase → SQL Editor → New query._ Run these files **in this order**, one at a time
-(open each in GitHub, copy all, paste, **Run**; each should end with "Success"):
+(open each in GitHub, use **Copy raw file**, paste, **Run**; each should end with "Success"):
 
 1. `supabase/migrations/20261010000001_foundation.sql`
 2. `…0002_identity_households.sql`
@@ -42,7 +42,9 @@ _Supabase → SQL Editor → New query._ Run these files **in this order**, one 
 5. `…0005_storage.sql`
 6. `…0006_platform.sql`
 7. `…0007_signup_allowlist.sql`
-8. `supabase/seed/001_grapes.sql` (reference data: 161 grape varieties)
+8. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
+
+If a file fails, stop: the files are not safe to re-run. Note which file and the error text.
 
 ### B. With the Supabase CLI
 
@@ -59,37 +61,70 @@ Run this in the SQL Editor:
 
 ```sql
 select
-  (select count(*) from public.grapes)                                            as grapes,          -- 161
-  (select count(*) from storage.buckets where id in
-     ('bottle-images','tasting-images','user-avatars','wine-labels'))              as buckets,         -- 4
-  (select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) as tables_without_rls; -- 0
+  (select count(*) from public.grapes)                                           as grapes,                -- 160
+  (select count(*) from storage.buckets
+     where id in ('bottle-images','tasting-images','user-avatars','wine-labels')) as buckets,                -- 4
+  (select count(*) from pg_tables
+     where schemaname = 'public' and not rowsecurity)                            as tables_without_rls,    -- 0
+  (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relkind in ('r','v','m','p')
+       and (has_any_column_privilege('anon', c.oid, 'select,insert,update,references')
+            or has_table_privilege('anon', c.oid,
+                 'select,insert,update,delete,truncate,references,trigger'))) as tables_anon_can_touch, -- 0
+  (select count(*) from pg_trigger
+     where tgname in ('on_auth_user_created','a_enforce_signup_allowlist')
+       and not tgisinternal)                                                     as auth_triggers;         -- 2
 ```
+
+(The seed file lists 161 rows but `Semillon` and `Sémillon` are the same grape once accents are ignored,
+so 160 are stored.)
 
 ## 3. Configure sign-in (email code)
 
 CELLR signs people in with a **6-digit code typed into the app**, not a magic link. (On iPhone a link tapped in
 Mail opens Safari instead of the installed app, so the session lands in the wrong place.)
 
-1. _Authentication → Sign In / Providers → Email_: provider **on**, keep **Confirm email** on.
-   Set **Email OTP length = 6** and **expiry = 900** seconds.
-2. _Authentication → Emails → Templates_: edit **both** _Confirm signup_ **and** _Magic Link_.
-   Subject: `Your CELLR code`. Body: paste the contents of `supabase/templates/otp.html`
-   (it contains `{{ .Token }}`, which becomes the code).
-3. **Custom SMTP — do this before inviting anyone.** Supabase's built-in mailer allows only a couple of
-   emails per hour; a family sign-up evening would hit that immediately.
-   _Resend_ (free tier): create an account → add and verify your domain → create an API key, then in
-   _Supabase → Project Settings → Authentication → SMTP Settings_:
-   host `smtp.resend.com`, port `465`, username `resend`, password = the Resend API key,
-   sender e.g. `CELLR <login@yourdomain.com>`.
-   Then _Authentication → Rate Limits_ → raise **emails per hour** (e.g. 100).
-4. _Authentication → URL Configuration_: set **Site URL** to your Vercel URL (step 5). Codes don't use it,
+**Order matters: Supabase only lets you edit the email templates after custom SMTP is switched on.**
+
+1. _Authentication → Sign In / Providers → Email_: provider **on**, **Confirm email** on,
+   **Email OTP length = 6**, **expiry = 900** seconds. Leave **Allow new users to sign up** on:
+   the private-beta gate (step 4) lives in the database. Don't enable other providers.
+2. **Custom SMTP — do this before inviting anyone, and before editing templates.** Supabase's built-in mailer
+   only delivers to your own team's addresses and allows about 2 emails per hour.
+   _Resend_ (free tier): create an account → create an API key (_Sending access_), then in
+   _Supabase → Authentication → Emails → SMTP Settings_ switch **Enable custom SMTP** on:
+
+   | Field                     | Value                                                                |
+   | ------------------------- | -------------------------------------------------------------------- |
+   | Sender email              | an address on your verified domain, e.g. `login@mail.yourdomain.nl`  |
+   | Sender name               | `CELLR`                                                              |
+   | Host / Port               | `smtp.resend.com` / `465`                                            |
+   | Username / Password       | `resend` / the Resend API key                                        |
+   | Minimum interval per user | **30** seconds (the app's "send a new code" countdown is 30 seconds) |
+
+   **Domain:** to email arbitrary people, add and verify a domain in Resend (_Domains → Add Domain_, a
+   subdomain such as `mail.yourdomain.nl` is fine; add the DNS records exactly as shown, then _Verify_).
+   **No domain yet?** Use Resend's test sender `onboarding@resend.dev` as _Sender email_: it only delivers to
+   the address your Resend account was created with, which is enough to sign in yourself. Switch the field
+   to your own domain later.
+
+3. _Authentication → Emails → Templates_: edit **both** _Confirm sign up_ **and** _Magic link or OTP_
+   (new users get the first, returning users the second). For each:
+   - **Subject:** `Your CELLR code`
+   - **Body → Source tab:** select everything, delete it, and paste the whole of `supabase/templates/otp.html`
+     (it contains `{{ .Token }}`, which becomes the code). Check the **Preview** tab: it must show "CELLR",
+     "Your sign-in code:" and a large number, and **no link**. If the old "Follow the link below" text is
+     still there, the paste was added to the old content instead of replacing it.
+   - **Save changes.**
+4. _Authentication → Rate Limits_: raise **emails per hour** (e.g. 30).
+5. _Authentication → URL Configuration_: set **Site URL** to your Vercel URL (step 5). Codes don't use it,
    but Supabase requires one.
-5. Leave **"Allow new users to sign up" ON.** The private-beta gate below lives in the database.
 
 ## 4. Private beta: who may create an account
 
 Anyone with your URL could otherwise create an account (and, later, spend your AI budget). The gate is a
-**database trigger**, so it can't be bypassed by calling Supabase directly. Manage the list in the SQL Editor:
+**database trigger**, so it can't be bypassed by calling Supabase directly. Manage the list in the SQL Editor
+(emails must be **lower-case**):
 
 ```sql
 -- allow specific people
@@ -105,27 +140,37 @@ select * from private.allowed_signups;
 delete from private.allowed_signups where entry = 'tom@example.com';
 ```
 
-**An empty list means sign-up is open.** People who already have an account are never locked out by changes
-to the list. Someone not on the list sees: _"CELLR is invite-only for now, and this email isn't on the list yet."_
+**An empty list means sign-up is open**, so add yourself before deploying. People who already have an account
+are never locked out by changes to the list. Someone not on the list sees: _"CELLR is invite-only for now,
+and this email isn't on the list yet."_ (no email is sent to them).
 
 ## 5. Deploy on Vercel
 
-1. _Vercel → Add New → Project →_ import `Blockionaire/CELLR`.
-2. **Root Directory: `apps/web`**, and keep **"Include source files outside of the Root Directory"** switched **on**
-   (the app uses the shared `packages/domain`). Framework: Next.js (auto-detected).
-   `apps/web/vercel.json` already pins functions to **Frankfurt (`fra1`)**, next to the database.
-3. _Settings → Environment Variables_ (Production **and** Preview), from _Supabase → Project Settings → API Keys_:
+The free **Hobby** plan is meant for personal, non-commercial use, which fits a friends-and-family project.
 
-   | Name                                   | Value                            | Notes                                                                             |
-   | -------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------- |
-   | `NEXT_PUBLIC_SUPABASE_URL`             | `https://<ref>.supabase.co`      | public                                                                            |
-   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…`               | public by design; protected by row-level security                                 |
-   | `SUPABASE_SERVICE_ROLE_KEY`            | the **secret** key `sb_secret_…` | **mark as Sensitive.** Bypasses all security; only the server uses it             |
-   | `DESIGN_GALLERY`                       | `1`                              | **Preview only.** Enables `/design` for reviewing the design system on your phone |
+1. _Vercel → Add New → Project →_ import `Blockionaire/cellr` (if it isn't listed: _Adjust GitHub App
+   Permissions_, pick the organization, tick the repository).
+2. **Root Directory must be `apps/web`**, with **"Include source files outside of the Root Directory in the Build
+   Step"** on (the app uses the shared `packages/domain`). The picker on the import screen only lists folders
+   that exist on the repository's default branch, so until the app is on `main` you can't pick it there:
+   import with `./` (that first build fails, which is expected), then set it in _Settings → Build and
+   Deployment_. `apps/web/vercel.json` already pins functions to **Frankfurt (`fra1`)**, next to the database.
+3. _Project → Environment Variables_ (a separate menu item from _Settings → Environments_, which is
+   something else), from _Supabase → Project Settings → API Keys_ and _Data API_:
 
-   Set these _before_ the first build (`NEXT_PUBLIC_*` values are compiled in).
+   | Name                                   | Value                            | Environments       | Notes                                                                 |
+   | -------------------------------------- | -------------------------------- | ------------------ | --------------------------------------------------------------------- |
+   | `NEXT_PUBLIC_SUPABASE_URL`             | `https://<ref>.supabase.co`      | Production+Preview | public; no trailing slash                                             |
+   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…`               | Production+Preview | public by design; protected by row-level security                     |
+   | `SUPABASE_SERVICE_ROLE_KEY`            | the **secret** key `sb_secret_…` | Production+Preview | **mark as Sensitive.** Bypasses all security; only the server uses it |
+   | `DESIGN_GALLERY`                       | `1`                              | **Preview only**   | Enables `/design` for reviewing the design system on your phone       |
 
-4. Deploy. Open the URL.
+   Set these _before_ the build you care about (`NEXT_PUBLIC_*` values are compiled in).
+
+4. _Settings → Build and Deployment → Node.js Version_: **22.x** (the version the project is tested on).
+5. _Settings → Deployment Protection_: switch **Vercel Authentication off**, otherwise your phone (and your
+   guests) meet a Vercel login page instead of CELLR. Access is controlled by the sign-up allow-list.
+6. Push to the branch (or merge to `main`). Preview builds appear under _Deployments_; open the URL.
 
 ## 6. First run — and installing it on your phone
 
@@ -160,14 +205,18 @@ The sign-in code in local mode is not emailed: `curl "http://localhost:54321/__t
 
 ## 8. If something goes wrong
 
-| Symptom                                                 | Likely cause                                                                      |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| No email arrives                                        | SMTP not set up (step 3.3), or the sender domain isn't verified                   |
-| "invite-only" message for someone you want in           | Add them to `private.allowed_signups` (step 4)                                    |
-| `permission denied for table …` in logs                 | A migration didn't run, or ran out of order — re-check step 2                     |
-| Build fails: "Missing or invalid environment variables" | Step 5.3 — set them, then redeploy                                                |
-| Sign-in works, then you bounce back to the sign-in page | `NEXT_PUBLIC_SUPABASE_URL` doesn't match the project the keys belong to           |
-| Codes say "invalid or expired" immediately              | The email template still shows a link — it must contain `{{ .Token }}` (step 3.2) |
+| Symptom                                                 | Likely cause                                                                     |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| No email arrives                                        | SMTP not set up (step 3.2), or the sender domain isn't verified                  |
+| Email templates can't be edited ("Set up custom SMTP")  | Switch on custom SMTP first (step 3.2), then edit the templates                  |
+| The email still contains a link instead of a code       | A template still has the old text: replace its whole body (step 3.3)             |
+| "invite-only" message for someone you want in           | Add them to `private.allowed_signups` (step 4), in lower-case                    |
+| `permission denied for table …` in logs                 | A migration didn't run, or ran out of order — re-check step 2                    |
+| Root Directory picker on Vercel shows no folders        | The app isn't on `main` yet: set `apps/web` in _Settings → Build and Deployment_ |
+| Build fails: "Missing or invalid environment variables" | Step 5.3 — set them for the right environment, then redeploy                     |
+| Preview shows a Vercel login page                       | Turn off _Deployment Protection → Vercel Authentication_ (step 5.5)              |
+| Sign-in works, then you bounce back to the sign-in page | `NEXT_PUBLIC_SUPABASE_URL` doesn't match the project the keys belong to          |
+| Codes say "invalid or expired" immediately              | The email template doesn't contain `{{ .Token }}` (step 3.3)                     |
 
 ## Security reminders
 
