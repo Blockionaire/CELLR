@@ -3,6 +3,8 @@ import { createAnalyticsRepository } from "@/server/analytics/repository";
 import { createAnalyticsService } from "@/server/analytics/service";
 import { createAuthGateway } from "@/server/auth/gateway";
 import { createAuthService } from "@/server/auth/service";
+import { createCellarRepository } from "@/server/cellar/repository";
+import { createCellarService } from "@/server/cellar/service";
 import type { RequestContext } from "@/server/context";
 import { createHouseholdRepository } from "@/server/households/repository";
 import { createHouseholdService } from "@/server/households/service";
@@ -20,6 +22,7 @@ export function servicesFor(ctx: RequestContext) {
       userId: ctx.userId,
       email: ctx.email,
     }),
+    cellar: createCellarService(createCellarRepository(ctx.db), { userId: ctx.userId }),
     analytics: createAnalyticsService(createAnalyticsRepository(ctx.db), limiter),
     limiter,
   };
