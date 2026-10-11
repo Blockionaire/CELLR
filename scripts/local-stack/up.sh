@@ -8,7 +8,18 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$ROOT/scripts/lib/temp-cluster.sh"
 NODE_PID=""
 WATCHDOG_PID=""
-trap '[ -n "$WATCHDOG_PID" ] && kill "$WATCHDOG_PID" 2>/dev/null; [ -n "$NODE_PID" ] && kill "$NODE_PID" 2>/dev/null; stop_temp_cluster' EXIT INT TERM
+
+# Under `set -e`, one failing command (e.g. `kill` on a process that is already gone, which is exactly
+# the case when the whole process group is signalled at once) would abort the trap before Postgres is
+# stopped. Cleanup must therefore be failure-tolerant from its first line.
+cleanup() {
+  set +e
+  [ -n "$WATCHDOG_PID" ] && kill "$WATCHDOG_PID" 2>/dev/null
+  [ -n "$NODE_PID" ] && kill "$NODE_PID" 2>/dev/null
+  stop_temp_cluster
+  return 0
+}
+trap cleanup EXIT INT TERM
 
 # If whoever started us is killed without a chance to signal us (a test runner's SIGKILL), shut down anyway.
 PARENT=$PPID

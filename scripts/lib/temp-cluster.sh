@@ -23,7 +23,12 @@ start_temp_cluster() {
 
 stop_temp_cluster() {
   [ -n "$CLUSTER" ] || return 0
-  ${AS:-} "$PGBIN/pg_ctl" -D "$CLUSTER/data" stop -m fast >/dev/null 2>&1 || true
+  ${AS:-} "$PGBIN/pg_ctl" -D "$CLUSTER/data" stop -m fast -t 10 >/dev/null 2>&1 || true
+  # If a clean stop did not work (e.g. the server was told to shut down "smartly" and waits for clients
+  # that will never leave), do not leave a database running behind us.
+  local pid
+  pid="$(head -1 "$CLUSTER/data/postmaster.pid" 2>/dev/null || true)"
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then kill -9 "$pid" 2>/dev/null || true; fi
   rm -rf "$CLUSTER"; CLUSTER=""
 }
 
