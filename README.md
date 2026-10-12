@@ -7,9 +7,12 @@ and what to drink tonight. A mobile-first PWA now; architected so a native app c
 
 ## Status
 
-**Phase 0 (foundation) is built:** database with a tested permission model, email-code sign-in, households and
-invites, the design system and app shell, installable PWA with an offline page, CI.
-Next: Phase 1 (the cellar itself). → [`docs/00-architecture-plan.md`](docs/00-architecture-plan.md) · [`docs/SETUP.md`](docs/SETUP.md)
+**Phase 0 (foundation)** and the first part of **Phase 1 (the cellar itself)** are built: a database with a tested
+permission model, email-code sign-in, households and invites, the design system, an installable PWA, and a working
+cellar — add bottles (one per physical bottle), grid / list / racks / **3D** views, instant search, a page per wine
+with its vintages and bottles, open (with Undo), move, edit, and your own fridges, racks and cabinets.
+Next: scan a label, "what shall we drink tonight", the sommelier, importer. →
+[`docs/00-architecture-plan.md`](docs/00-architecture-plan.md) · [`docs/SETUP.md`](docs/SETUP.md)
 
 ## Layout
 

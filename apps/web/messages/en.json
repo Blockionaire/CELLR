@@ -91,7 +91,8 @@
     "bottlesLabel": "{count, plural, one {# bottle} other {# bottles}}",
     "noPlace": "No place yet",
     "notPlaced": "{count} not placed",
-    "viewRacks": "Racks"
+    "viewRacks": "Racks",
+    "view3d": "3D"
   },
   "scan": {
     "title": "Scan a bottle",
@@ -333,5 +334,17 @@
     "delete": "Delete this place",
     "deleteConfirm": "Tap again to delete it",
     "deleted": "Place deleted."
+  },
+  "cellar3d": {
+    "hint": "Drag to turn · pinch to zoom · tap a bottle",
+    "canvasLabel": "3D view of {unit}",
+    "listLabel": "Bottles in {unit}",
+    "bottleLabel": "{wine}, shelf {row}, position {col}",
+    "noWebglTitle": "3D isn't available on this device",
+    "noWebglBody": "This browser can't draw 3D scenes. The racks view shows the same cellar in 2D.",
+    "showRacks": "Show racks",
+    "emptyTitle": "Build your cellar first",
+    "emptyBody": "Add a fridge, rack or cabinet and put some bottles in it, then come back to walk around it.",
+    "loading": "Opening your cellar…"
   }
 }

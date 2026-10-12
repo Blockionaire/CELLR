@@ -13,6 +13,7 @@ import { PageHeader } from "@/ui/page-header";
 import { Segmented } from "@/ui/segmented";
 import { useCellar } from "./hooks";
 import { CELLAR_VIEW_COOKIE, type CellarViewMode } from "./view-mode";
+import { Cellar3DView } from "./cellar-3d-view";
 import { RacksView } from "./racks-view";
 import { WineCard, WineRow } from "./wine-card";
 import { countryName } from "./wine-visuals";
@@ -89,7 +90,12 @@ export function CellarScreen({
       />
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className={cn("relative flex-1", view === "racks" && "hidden sm:block sm:invisible")}>
+        <div
+          className={cn(
+            "relative flex-1",
+            (view === "racks" || view === "3d") && "hidden sm:block sm:invisible",
+          )}
+        >
           <SearchIcon
             size={20}
             className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-3"
@@ -117,12 +123,20 @@ export function CellarScreen({
             { value: "grid", label: t("viewGrid") },
             { value: "list", label: t("viewList") },
             { value: "racks", label: t("viewRacks") },
+            { value: "3d", label: t("view3d") },
           ]}
           className="self-end sm:self-auto"
         />
       </div>
 
-      {view === "racks" ? (
+      {view === "3d" ? (
+        <Cellar3DView
+          onShowRacks={() => {
+            setView("racks");
+            rememberView("racks");
+          }}
+        />
+      ) : view === "racks" ? (
         <RacksView />
       ) : items.length === 0 ? (
         <EmptyState

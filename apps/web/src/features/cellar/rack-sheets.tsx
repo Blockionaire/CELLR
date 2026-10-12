@@ -33,7 +33,8 @@ interface PeekProps {
   busy: boolean;
   error: string | null;
   onClose: () => void;
-  onMove: () => void;
+  /** Omit where moving is not offered (the 3D view). */
+  onMove?: (() => void) | undefined;
   onOpen: () => void;
 }
 
@@ -82,12 +83,18 @@ export function BottlePeekSheet({
             <Button size="lg" className="col-span-2" loading={busy} onClick={onOpen}>
               {t("peekOpen")}
             </Button>
-            <Button size="lg" variant="secondary" onClick={onMove}>
-              {t("peekMove")}
-            </Button>
+            {onMove && (
+              <Button size="lg" variant="secondary" onClick={onMove}>
+                {t("peekMove")}
+              </Button>
+            )}
             <Link
               href={`/cellar/${bottle.vintageId}`}
-              className={buttonStyles({ variant: "secondary", size: "lg" })}
+              className={buttonStyles({
+                variant: "secondary",
+                size: "lg",
+                className: onMove ? "" : "col-span-2",
+              })}
             >
               {t("peekDetails")}
             </Link>

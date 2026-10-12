@@ -1,4 +1,4 @@
-export const CELLAR_VIEWS = ["grid", "list", "racks"] as const;
+export const CELLAR_VIEWS = ["grid", "list", "racks", "3d"] as const;
 export type CellarViewMode = (typeof CELLAR_VIEWS)[number];
 
 /** Remembered in a cookie (not local storage) so the server can render the right view on first paint. */
