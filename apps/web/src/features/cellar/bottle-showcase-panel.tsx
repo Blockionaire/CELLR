@@ -15,6 +15,7 @@ import { cn } from "@/ui/cn";
 import { CloseIcon } from "@/ui/icons";
 import { Skeleton } from "@/ui/skeleton";
 import { useDay, useMoney } from "./bottle-bits";
+import { DrinkLabel } from "./drink-bits";
 import { FavoriteButton } from "./favorite-button";
 import type { ShowcaseLayout } from "./three/layout";
 import { placeLine } from "./wine-visuals";
@@ -140,6 +141,7 @@ export function BottleShowcasePanel({
 
         <Block title={t("thisBottle")}>
           <p className="text-body text-ink">{spot}</p>
+          {detail && <DrinkLabel drink={detail.drink} className="mt-1 text-small" />}
           {detail && (
             <p className="mt-1 text-small text-ink-2">
               {t("ofThisVintage", { count: detail.bottles.length })}

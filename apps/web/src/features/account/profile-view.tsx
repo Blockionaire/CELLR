@@ -2,6 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
 import {
   ERROR_MESSAGES,
@@ -10,7 +11,7 @@ import {
   type Me,
 } from "@cellr/domain";
 import { errorMessage } from "@/lib/api";
-import { Button } from "@/ui/button";
+import { Button, buttonStyles } from "@/ui/button";
 import { Field } from "@/ui/field";
 import { ThemeSelector, type ThemePreference } from "@/ui/theme";
 import { useToast } from "@/ui/toast";
@@ -179,6 +180,13 @@ export function ProfileView({
           </Button>
         </Section>
       )}
+
+      <Section title={t("dataSection")}>
+        <p className="mb-4 text-body text-ink-2">{t("importBody")}</p>
+        <Link href="/profile/import" className={buttonStyles({ variant: "secondary", size: "md" })}>
+          {t("importLink")}
+        </Link>
+      </Section>
 
       <Section title={t("appearanceSection")}>
         <ThemeSelector

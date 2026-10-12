@@ -116,6 +116,8 @@ test.describe("favourites", () => {
 
     // Un-star it from the page of the wine itself.
     await page.getByRole("link", { name: "Pavillon Rouge" }).click();
+    // Wait until the wine's own page is there (the heart on the card has the same name).
+    await expect(page.getByRole("heading", { name: "Pavillon Rouge", level: 1 })).toBeVisible();
     const wineHeart = page.getByRole("button", {
       name: "Favourite: Château Margaux Pavillon Rouge",
     });

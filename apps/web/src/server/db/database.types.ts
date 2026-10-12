@@ -581,6 +581,78 @@ export type Database = {
           },
         ];
       };
+      tastings: {
+        Row: {
+          bottle_id: string | null;
+          created_at: string;
+          descriptors: string[];
+          household_id: string;
+          id: string;
+          note: string | null;
+          score: number | null;
+          tasted_at: string;
+          updated_at: string;
+          user_id: string;
+          vintage_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          bottle_id?: string | null;
+          created_at?: string;
+          descriptors?: string[];
+          household_id: string;
+          id?: string;
+          note?: string | null;
+          score?: number | null;
+          tasted_at?: string;
+          updated_at?: string;
+          user_id?: string;
+          vintage_id: string;
+        };
+        Update: {
+          bottle_id?: string | null;
+          created_at?: string;
+          descriptors?: string[];
+          household_id?: string;
+          id?: string;
+          note?: string | null;
+          score?: number | null;
+          tasted_at?: string;
+          updated_at?: string;
+          user_id?: string;
+          vintage_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tastings_bottle_id_fkey";
+            columns: ["bottle_id"];
+            isOneToOne: false;
+            referencedRelation: "bottles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tastings_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tastings_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tastings_vintage_id_fkey";
+            columns: ["vintage_id"];
+            isOneToOne: false;
+            referencedRelation: "wine_vintages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       wine_aliases: {
         Row: {
           alias: string;

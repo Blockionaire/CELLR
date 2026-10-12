@@ -28,6 +28,7 @@ export default async function HomePage() {
           used: 0,
           unplaced: 0,
           recentlyAdded: [],
+          drinkSoon: [],
           recentlyOpened: [],
         }
       }

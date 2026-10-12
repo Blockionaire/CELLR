@@ -10,13 +10,16 @@ import type {
   CreateStorage,
   CreateWine,
   RackView,
+  SaveTasting,
   StorageUnitView,
+  TastingView,
   UpdatePurchase,
   UpdateStorage,
   UpdateWine,
   VintageDetail,
   WineSummary,
 } from "@cellr/domain";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ERROR_MESSAGES } from "@cellr/domain";
 import { track } from "@/lib/analytics";
@@ -147,6 +150,48 @@ export function useToggleFavorite() {
         queryClient.invalidateQueries({ queryKey: cellarKey }),
         queryClient.invalidateQueries({ queryKey: ["vintage"] }),
       ]),
+  });
+}
+
+/** Saved tastings change the wine's page, the stars on cards, and Home (which the server draws). */
+function useRefreshTastings() {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  return () => {
+    router.refresh();
+    return Promise.all([
+      queryClient.invalidateQueries({ queryKey: cellarKey }),
+      queryClient.invalidateQueries({ queryKey: ["vintage"] }),
+    ]);
+  };
+}
+
+export function useSaveTasting() {
+  const refresh = useRefreshTastings();
+  const toast = useToast();
+  const t = useTranslations("tasting");
+  return useMutation({
+    mutationFn: (input: { bottleId: string; tasting: Omit<SaveTasting, never> }) =>
+      api.put<TastingView>(`/bottles/${input.bottleId}/tasting`, input.tasting),
+    onSuccess: async () => {
+      track("rating_created");
+      toast.show(t("saved"));
+      await refresh();
+    },
+  });
+}
+
+export function useDeleteTasting() {
+  const refresh = useRefreshTastings();
+  const toast = useToast();
+  const t = useTranslations("tasting");
+  return useMutation({
+    mutationFn: (bottleId: string) =>
+      api.delete<{ deleted: boolean }>(`/bottles/${bottleId}/tasting`),
+    onSuccess: async () => {
+      toast.show(t("removed"));
+      await refresh();
+    },
   });
 }
 

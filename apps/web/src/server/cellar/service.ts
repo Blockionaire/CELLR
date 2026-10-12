@@ -2,9 +2,14 @@ import "server-only";
 import {
   averagePrice,
   DomainError,
+  drinkStatusOf,
+  drinkUrgency,
   isDomainError,
   nextFreeSlots,
   orderBottles,
+  planWijnkelderImport,
+  rankForTonight,
+  summarizeScores,
   type AddBottles,
   type AddBottlesResult,
   type BottleAction,
@@ -13,10 +18,21 @@ import {
   type CellarView,
   type CreateStorage,
   type CreateWine,
+  type DrinkSummary,
   type HomeView,
+  type ImportOutcome,
+  type ImportRequest,
   type PlacedBottle,
+  type OpenedEntry,
   type RackView,
+  type SaveTasting,
   type StorageUnitView,
+  type TastingView,
+  type TonightCandidate,
+  type TonightPick,
+  type TonightPickView,
+  type TonightRequest,
+  type TonightView,
   type UpdatePurchase,
   type UpdateStorage,
   type UpdateWine,
@@ -28,10 +44,11 @@ import type {
   CellarRepository,
   InventoryRow,
   NewBottle,
-  OpenedRow,
   PurchasePatch,
   StorageRow,
+  TastingRow,
 } from "./types";
+import { runImport } from "./import-run";
 
 /** How many times a add retries when two people grab the same free spot at the same moment. */
 const PLACEMENT_ATTEMPTS = 3;
@@ -54,11 +71,53 @@ export const toStorageView = (r: StorageRow): StorageUnitView => {
  * One card per vintage: the individual bottles of a wine collapse into "×3". Newest additions first,
  * so what you just added is the first thing you see.
  */
+/** Where a wine stands in its (estimated) drinking window, as the screens need it. */
+export function toDrinkSummary(
+  wine: {
+    type: InventoryRow["type"];
+    year: number | null;
+    region: string | null;
+    appellation: string | null;
+    countryCode: string | null;
+    name: string;
+    pricePerBottleCents: number | null;
+  },
+  now: Date,
+): DrinkSummary {
+  const status = drinkStatusOf(
+    {
+      type: wine.type,
+      year: wine.year,
+      region: wine.region,
+      appellation: wine.appellation,
+      countryCode: wine.countryCode,
+      name: wine.name,
+      pricePerBottleCents: wine.pricePerBottleCents,
+    },
+    now,
+  );
+  return {
+    phase: status.phase,
+    from: status.window?.from ?? null,
+    until: status.window?.until ?? null,
+    urgency: drinkUrgency(status),
+    yearsUntilOpen: status.yearsUntilOpen,
+    yearsLeft: status.yearsLeft,
+    position: status.position,
+  };
+}
+
 export function aggregateInventory(
   rows: InventoryRow[],
   favoriteWineIds: ReadonlySet<string> = new Set(),
+  scores: ReadonlyArray<{ vintageId: string; score: number }> = [],
+  now: Date = new Date(),
 ): CellarView {
-  const byVintage = new Map<string, CellarItem & { latest: string }>();
+  const scoresByVintage = new Map<string, number[]>();
+  for (const s of scores)
+    scoresByVintage.set(s.vintageId, [...(scoresByVintage.get(s.vintageId) ?? []), s.score]);
+  const byVintage = new Map<string, Omit<CellarItem, "drink"> & { latest: string }>();
+  const facts = new Map<string, { prices: number[]; appellation: string | null }>();
   for (const r of rows) {
     let item = byVintage.get(r.vintageId);
     if (!item) {
@@ -75,10 +134,13 @@ export function aggregateInventory(
         places: [],
         unplaced: 0,
         favorite: favoriteWineIds.has(r.wineId),
+        rating: summarizeScores(scoresByVintage.get(r.vintageId) ?? []),
         latest: r.addedAt,
       };
       byVintage.set(r.vintageId, item);
+      facts.set(r.vintageId, { prices: [], appellation: r.appellation });
     }
+    if (r.priceCents !== null) facts.get(r.vintageId)?.prices.push(r.priceCents);
     item.count += 1;
     if (r.addedAt > item.latest) item.latest = r.addedAt;
     if (r.locationLabel === null) item.unplaced += 1;
@@ -91,12 +153,99 @@ export function aggregateInventory(
         a.producer.localeCompare(b.producer) ||
         a.wineName.localeCompare(b.wineName),
     )
-    .map((entry) => {
+    .map((entry): CellarItem => {
       const { latest, ...item } = entry;
       void latest; // only used for ordering above
-      return item;
+      const known = facts.get(item.vintageId);
+      const prices = known?.prices ?? [];
+      return {
+        ...item,
+        drink: toDrinkSummary(
+          {
+            type: item.type,
+            year: item.year,
+            region: item.region,
+            appellation: known?.appellation ?? null,
+            countryCode: item.countryCode,
+            name: item.wineName,
+            pricePerBottleCents: prices.length
+              ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length)
+              : null,
+          },
+          now,
+        ),
+      };
     });
   return { items, bottleCount: rows.length };
+}
+
+export const toTastingView = (row: TastingRow, viewerId: string): TastingView => ({
+  ...row,
+  mine: row.userId === viewerId,
+});
+
+/** Tonight's picks, each with the one bottle to open (the easiest to reach) and where it is. */
+export function buildTonight(
+  rows: InventoryRow[],
+  favoriteWineIds: ReadonlySet<string>,
+  scores: ReadonlyArray<{ vintageId: string; score: number }>,
+  request: TonightRequest,
+  now: Date,
+): TonightView {
+  const cellar = aggregateInventory(rows, favoriteWineIds, scores, now);
+  const prices = new Map<string, number[]>();
+  for (const r of rows)
+    if (r.priceCents !== null)
+      prices.set(r.vintageId, [...(prices.get(r.vintageId) ?? []), r.priceCents]);
+  const candidates: TonightCandidate[] = cellar.items.map((i) => {
+    const paid = prices.get(i.vintageId) ?? [];
+    return {
+      vintageId: i.vintageId,
+      wineId: i.wineId,
+      producer: i.producer,
+      wineName: i.wineName,
+      type: i.type,
+      year: i.year,
+      region: i.region,
+      countryCode: i.countryCode,
+      favorite: i.favorite,
+      rating: i.rating,
+      drink: i.drink,
+      pricePerBottleCents: paid.length
+        ? Math.round(paid.reduce((a, b) => a + b, 0) / paid.length)
+        : null,
+    };
+  });
+  const view = (pick: TonightPick): TonightPickView | null => {
+    const c = pick.candidate;
+    const bottle = orderBottles(rows.filter((r) => r.vintageId === c.vintageId))[0];
+    if (!bottle) return null;
+    return {
+      slot: pick.slot,
+      match: pick.match,
+      reasons: pick.reasons,
+      vintageId: c.vintageId,
+      bottleId: bottle.bottleId,
+      producer: c.producer,
+      wineName: c.wineName,
+      type: c.type,
+      year: c.year,
+      region: c.region,
+      countryCode: c.countryCode,
+      count: rows.filter((r) => r.vintageId === c.vintageId).length,
+      place:
+        bottle.locationLabel !== null && bottle.row !== null && bottle.col !== null
+          ? { label: bottle.locationLabel, row: bottle.row, col: bottle.col }
+          : null,
+      drinkPhase: c.drink.phase,
+    };
+  };
+  return {
+    dish: request.dish,
+    occasion: request.occasion,
+    considered: candidates.length,
+    picks: rankForTonight(candidates, request, now).flatMap((p) => view(p) ?? []),
+  };
 }
 
 /**
@@ -106,11 +255,12 @@ export function aggregateInventory(
 export function buildHome(
   rows: InventoryRow[],
   units: StorageUnitView[],
-  opened: OpenedRow[],
+  opened: OpenedEntry[],
   favoriteWineIds: ReadonlySet<string> = new Set(),
   now: Date = new Date(),
+  scores: ReadonlyArray<{ vintageId: string; score: number }> = [],
 ): HomeView {
-  const cellar = aggregateInventory(rows, favoriteWineIds);
+  const cellar = aggregateInventory(rows, favoriteWineIds, scores, now);
   const priced = rows.filter((r) => r.priceCents !== null);
   return {
     generatedAt: now.toISOString(),
@@ -123,6 +273,10 @@ export function buildHome(
     used: units.reduce((sum, u) => sum + u.used, 0),
     unplaced: rows.filter((r) => r.locationId === null).length,
     recentlyAdded: cellar.items.slice(0, 8),
+    drinkSoon: cellar.items
+      .filter((i) => i.drink.phase === "ready" || i.drink.phase === "past")
+      .sort((a, b) => a.drink.urgency - b.drink.urgency)
+      .slice(0, 3),
     recentlyOpened: opened.map((o) => ({ ...o })),
   };
 }
@@ -158,7 +312,10 @@ export function buildRacks(units: StorageUnitView[], rows: InventoryRow[]): Rack
   return { units: racks, unplaced };
 }
 
-export function createCellarService(repo: CellarRepository, { userId }: { userId: string }) {
+export function createCellarService(
+  repo: CellarRepository,
+  { userId, now = () => new Date() }: { userId: string; now?: () => Date },
+) {
   async function household(): Promise<ActiveHousehold> {
     const h = await repo.getActiveHousehold(userId);
     if (!h) throw new DomainError("NOT_FOUND", "Create or join a household first.");
@@ -216,25 +373,94 @@ export function createCellarService(repo: CellarRepository, { userId }: { userId
       return buildRacks(units.map(toStorageView), rows);
     },
 
+    /** "What shall we drink tonight?": up to three bottles from this cellar, each with why. */
+    async tonight(request: TonightRequest): Promise<TonightView> {
+      const { id } = await household();
+      const [rows, favorites, scores] = await Promise.all([
+        repo.listInventory(id),
+        repo.listFavoriteWineIds(userId),
+        repo.listScores(id),
+      ]);
+      return buildTonight(rows, new Set(favorites), scores, request, now());
+    },
+
     /** Home: the cellar at a glance. */
     async home(): Promise<HomeView> {
       const { id } = await household();
-      const [rows, units, opened, favorites] = await Promise.all([
+      const [rows, units, opened, favorites, scores] = await Promise.all([
         repo.listInventory(id),
         repo.listStorage(id),
         repo.listRecentlyOpened(id, 5),
         repo.listFavoriteWineIds(userId),
+        repo.listScores(id),
       ]);
-      return buildHome(rows, units.map(toStorageView), opened, new Set(favorites));
+      const mine = new Map(
+        (
+          await repo.listMyTastingScores(
+            userId,
+            opened.map((o) => o.bottleId),
+          )
+        ).map((t) => [t.bottleId, t.score]),
+      );
+      const entries: OpenedEntry[] = opened.map((o) => ({
+        ...o,
+        myScore: mine.get(o.bottleId) ?? null,
+        rated: mine.has(o.bottleId),
+      }));
+      return buildHome(
+        rows,
+        units.map(toStorageView),
+        entries,
+        new Set(favorites),
+        new Date(),
+        scores,
+      );
     },
 
     async inventory(): Promise<CellarView> {
       const { id } = await household();
-      const [rows, favorites] = await Promise.all([
+      const [rows, favorites, scores] = await Promise.all([
         repo.listInventory(id),
         repo.listFavoriteWineIds(userId),
+        repo.listScores(id),
       ]);
-      return aggregateInventory(rows, new Set(favorites));
+      return aggregateInventory(rows, new Set(favorites), scores, now());
+    },
+
+    /**
+     * "How was it?": the signed-in person's stars, words and note for a bottle that has been opened.
+     * Saving again replaces what they said before.
+     */
+    async saveTasting(bottleId: string, input: SaveTasting): Promise<TastingView> {
+      const { id: householdId } = await household();
+      const bottle = await repo.getBottle(householdId, bottleId);
+      if (!bottle) throw new DomainError("NOT_FOUND", "We couldn't find that bottle.");
+      if (bottle.status !== "opened")
+        throw new DomainError("CONFLICT", "Open the bottle first, then tell us how it was.");
+      const vintageId = await repo.getBottleVintage(householdId, bottleId);
+      if (!vintageId) throw new DomainError("NOT_FOUND", "We couldn't find that bottle.");
+      const patch = { score: input.score, descriptors: input.descriptors, note: input.note };
+      const existing = await repo.getMyTasting(userId, bottleId);
+      let saved: TastingRow | null;
+      if (existing) saved = await repo.updateTasting(existing.id, patch);
+      else {
+        try {
+          saved = await repo.insertTasting({ householdId, vintageId, bottleId, ...patch });
+        } catch (e) {
+          // Two taps at once: the other one won, so this one becomes the edit.
+          if (!isDomainError(e) || e.code !== "CONFLICT") throw e;
+          const again = await repo.getMyTasting(userId, bottleId);
+          saved = again ? await repo.updateTasting(again.id, patch) : null;
+        }
+      }
+      if (!saved) throw new DomainError("NOT_FOUND", "We couldn't save that.");
+      return toTastingView(saved, userId);
+    },
+
+    /** Take back what you said about a bottle. */
+    async deleteTasting(bottleId: string): Promise<{ deleted: boolean }> {
+      await household();
+      return { deleted: await repo.deleteMyTasting(userId, bottleId) };
     },
 
     /** Star or un-star a wine for the signed-in person only. */
@@ -252,9 +478,10 @@ export function createCellarService(repo: CellarRepository, { userId }: { userId
     /** One vintage with every bottle: where each is, what they cost, what has been opened. */
     async vintage(vintageId: string): Promise<VintageDetail> {
       const { id: householdId } = await household();
-      const [rows, favorites] = await Promise.all([
+      const [rows, favorites, tastings] = await Promise.all([
         repo.getVintage(householdId, vintageId),
         repo.listFavoriteWineIds(userId),
+        repo.listTastings(householdId, vintageId),
       ]);
       // A vintage you never owned a bottle of is not yours to look at, even if it is in the shared catalogue.
       if (!rows || rows.bottles.length === 0) throw new DomainError("NOT_FOUND");
@@ -263,12 +490,30 @@ export function createCellarService(repo: CellarRepository, { userId }: { userId
         .filter((b) => b.status === "opened")
         .sort((a, b) => (b.openedAt ?? "").localeCompare(a.openedAt ?? ""))
         .slice(0, 12);
+      const prices = [...inCellar, ...rows.bottles.filter((b) => b.status === "opened")].flatMap(
+        (b) => (b.priceCents === null ? [] : [b.priceCents]),
+      );
       return {
         vintageId: rows.vintageId,
+        drink: toDrinkSummary(
+          {
+            type: rows.wine.type,
+            year: rows.year,
+            region: rows.wine.region,
+            appellation: rows.wine.appellation,
+            countryCode: rows.wine.countryCode,
+            name: rows.wine.name,
+            pricePerBottleCents: prices.length
+              ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length)
+              : null,
+          },
+          now(),
+        ),
         wine: { ...rows.wine, favorite: favorites.includes(rows.wine.id) },
         year: rows.year,
         bottles: inCellar,
         opened,
+        tastings: tastings.map((t) => toTastingView(t, userId)),
         averagePriceCents: averagePrice(inCellar),
         currency: inCellar.find((b) => b.currency)?.currency ?? null,
       };
@@ -387,6 +632,17 @@ export function createCellarService(repo: CellarRepository, { userId }: { userId
      * "3 bottles of this vintage, in the wine fridge" → three physical bottle records, placed in the
      * next free spots. If the place is too full for all of them, the rest are added unplaced (never lost).
      */
+    /**
+     * Moving house from the old Wijnkelder app. A dry run only reads the backup and says what would
+     * happen; otherwise it is written, as this person, into their household.
+     */
+    async importWijnkelder(input: ImportRequest): Promise<ImportOutcome> {
+      const plan = planWijnkelderImport(input.backup, { scoreScale: input.scoreScale });
+      if (input.dryRun) return { committed: false, report: plan.report, written: null };
+      const written = await runImport(repo, await household(), userId, plan);
+      return { committed: true, report: plan.report, written };
+    },
+
     async addBottles(input: AddBottles): Promise<AddBottlesResult> {
       const { id: householdId, currency } = await household();
       const wine = await repo.getWine(input.wineId);

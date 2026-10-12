@@ -3,17 +3,28 @@
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
-import { formatVintage, historyEvents, summarizePlaces, type VintageDetail } from "@cellr/domain";
+import {
+  formatVintage,
+  historyEvents,
+  summarizePlaces,
+  summarizeScores,
+  type BottleView,
+  type VintageDetail,
+} from "@cellr/domain";
 import { BottleGlyph } from "@/ui/bottle-glyph";
+import { Stars } from "@/ui/stars";
 import { Button, buttonStyles } from "@/ui/button";
 import { ChevronRightIcon, PlusIcon } from "@/ui/icons";
 import { BottleSpot, useDay, useMoney } from "./bottle-bits";
+import { DrinkWindowBar, DrinkLabel } from "./drink-bits";
 import { EditSheet } from "./edit-sheet";
 import { FavoriteButton } from "./favorite-button";
 import { useVintage } from "./hooks";
 import { MoveBottleSheet } from "./move-bottle-sheet";
 import { NewPlaceSheet } from "./new-place-sheet";
 import { OpenBottleSheet } from "./open-bottle-sheet";
+import { RateSheet } from "./rate-sheet";
+import { TastingItem } from "./tasting-bits";
 import { placeLine, shapeFor } from "./wine-visuals";
 
 type SheetName = "open" | "move" | "edit" | "place" | null;
@@ -23,12 +34,26 @@ type SheetName = "open" | "move" | "edit" | "place" | null;
  * own and where, then what you paid and what is known about it. The three things you do with a
  * bottle — open, move, edit — are right under the title.
  */
-export function VintageScreen({ initial, currency }: { initial: VintageDetail; currency: string }) {
+export function VintageScreen({
+  initial,
+  currency,
+  initialRate,
+}: {
+  initial: VintageDetail;
+  currency: string;
+  /** An opened bottle to talk about straight away (a link from Home: "rate it"). */
+  initialRate?: string | undefined;
+}) {
   const t = useTranslations("vintage");
+  const tTasting = useTranslations("tasting");
+  const tDrink = useTranslations("drink");
   const tTypes = useTranslations("wineTypes");
   const locale = useLocale();
   const { data: detail } = useVintage(initial.vintageId, initial);
   const [sheet, setSheet] = useState<SheetName>(null);
+  const [rating, setRating] = useState<BottleView | null>(
+    () => initial.opened.find((b) => b.id === initialRate) ?? null,
+  );
   const money = useMoney(detail.currency ?? currency);
   const day = useDay();
 
@@ -40,6 +65,14 @@ export function VintageScreen({ initial, currency }: { initial: VintageDetail; c
     .flatMap((b) => (b.purchasedAt ? [b.purchasedAt] : []))
     .sort()
     .at(-1);
+  const mine = (bottleId: string) =>
+    detail.tastings.find((x) => x.mine && x.bottleId === bottleId) ?? null;
+  const summary = summarizeScores(
+    detail.tastings.flatMap((x) => (x.score === null ? [] : [x.score])),
+  );
+  const earlier = detail.tastings.filter(
+    (x) => x.bottleId === null || !detail.opened.some((b) => b.id === x.bottleId),
+  );
   const where = placeLine(wine.region, wine.countryCode, locale);
   const addMoreHref = `/cellar/add?wine=${wine.id}${detail.year === null ? "&nv=1" : `&year=${detail.year}`}`;
 
@@ -170,6 +203,20 @@ export function VintageScreen({ initial, currency }: { initial: VintageDetail; c
           )}
         </Section>
 
+        <Section title={tDrink("title")}>
+          <p className="flex items-center gap-2 font-display text-headline">
+            <DrinkLabel drink={detail.drink} className="text-headline text-ink [&>span]:size-3" />
+            {detail.drink.phase === "unknown" && tDrink("phase.unknown")}
+          </p>
+          <p className="mt-2 text-body text-ink-2" data-testid="drink-explain">
+            {tDrink(`explain.${detail.drink.phase}`, {
+              years: Math.max(1, Math.ceil(detail.drink.yearsUntilOpen ?? 1)),
+            })}
+          </p>
+          <DrinkWindowBar drink={detail.drink} />
+          <p className="mt-4 text-caption text-ink-2">{tDrink("estimate")}</p>
+        </Section>
+
         {count > 0 && (
           <Section title={t("purchase")}>
             <Facts
@@ -200,6 +247,56 @@ export function VintageScreen({ initial, currency }: { initial: VintageDetail; c
             ]}
           />
         </Section>
+
+        {(detail.opened.length > 0 || detail.tastings.length > 0) && (
+          <Section title={tTasting("sectionTitle")}>
+            {summary && (
+              <p className="mb-4 flex items-center gap-2 text-body text-ink">
+                <Stars
+                  score={Math.round(summary.average * 2)}
+                  label={tTasting("rated", { stars: summary.average })}
+                />
+                <span data-testid="rating-summary">
+                  {tTasting("ratingSummary", { average: summary.average, count: summary.count })}
+                </span>
+              </p>
+            )}
+            <ul className="flex flex-col gap-5">
+              {detail.opened.map((b) => {
+                const here = detail.tastings.filter((x) => x.bottleId === b.id);
+                return (
+                  <li key={b.id} className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-body text-ink">
+                        {tTasting("openedOn", { day: b.openedAt ? day(b.openedAt) : "" })}
+                      </p>
+                      {mine(b.id) === null && (
+                        <Button size="sm" variant="secondary" onClick={() => setRating(b)}>
+                          {tTasting("howWasIt")}
+                        </Button>
+                      )}
+                    </div>
+                    {here.map((x) => (
+                      <TastingItem
+                        key={x.id}
+                        tasting={x}
+                        onEdit={x.mine ? () => setRating(b) : undefined}
+                      />
+                    ))}
+                  </li>
+                );
+              })}
+              {earlier.length > 0 && (
+                <li className="flex flex-col gap-2">
+                  <p className="text-small font-medium text-ink-2">{tTasting("earlierNotes")}</p>
+                  {earlier.map((x) => (
+                    <TastingItem key={x.id} tasting={x} />
+                  ))}
+                </li>
+              )}
+            </ul>
+          </Section>
+        )}
 
         {history.length > 0 && (
           <Section title={t("history")}>
@@ -235,6 +332,16 @@ export function VintageScreen({ initial, currency }: { initial: VintageDetail; c
         onClose={() => setSheet("move")}
         onCreated={() => undefined}
       />
+      {rating && (
+        <RateSheet
+          key={`${rating.id}-${mine(rating.id)?.id ?? "new"}-${mine(rating.id)?.score ?? ""}`}
+          open
+          onClose={() => setRating(null)}
+          bottleId={rating.id}
+          title={`${wine.name} ${formatVintage(detail.year)}`}
+          existing={mine(rating.id)}
+        />
+      )}
     </div>
   );
 }

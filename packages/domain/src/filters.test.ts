@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { CellarItem } from "./cellar";
+import type { CellarItem, DrinkSummary } from "./cellar";
+import type { DrinkPhase } from "./drink-window";
 import {
   activeFilterCount,
   applyFilters,
@@ -9,6 +10,24 @@ import {
   vintageBand,
   type CellarFilters,
 } from "./filters";
+
+const URGENCY: Record<DrinkPhase, number> = {
+  past: -1,
+  ready: 0.3,
+  peak: 1.4,
+  developing: 2,
+  young: 4,
+  unknown: 999,
+};
+const drinkOf = (phase: DrinkPhase): DrinkSummary => ({
+  phase,
+  from: 2020,
+  until: 2030,
+  urgency: URGENCY[phase],
+  yearsUntilOpen: null,
+  yearsLeft: null,
+  position: null,
+});
 
 let n = 0;
 const item = (over: Partial<CellarItem>): CellarItem => ({
@@ -24,6 +43,8 @@ const item = (over: Partial<CellarItem>): CellarItem => ({
   places: [],
   unplaced: 0,
   favorite: false,
+  rating: null,
+  drink: drinkOf("peak"),
   ...over,
 });
 
@@ -111,6 +132,22 @@ describe("filters", () => {
     expect(names(only({ bands: ["2020s", "older"] }))).toEqual(["Chablis"]);
     expect(names(only({ bands: ["2000s", "nv"] }))).toEqual(["Special Cuvée", "Reserva"]);
   });
+  it("by what can be opened: ready now, soon, or still waiting", () => {
+    const drinkers = [
+      item({ wineName: "Young", drink: drinkOf("young") }),
+      item({ wineName: "Opening", drink: drinkOf("developing") }),
+      item({ wineName: "Peak", drink: drinkOf("peak") }),
+      item({ wineName: "Ready", drink: drinkOf("ready") }),
+      item({ wineName: "Past", drink: drinkOf("past") }),
+      item({ wineName: "Unknown", drink: drinkOf("unknown") }),
+    ];
+    const only = (drink: CellarFilters["drink"]) =>
+      names(applyFilters(drinkers, { ...NO_FILTERS, drink }));
+    expect(only(["ready"])).toEqual(["Opening", "Peak", "Ready"]);
+    expect(only(["soon"])).toEqual(["Ready", "Past"]);
+    expect(only(["waiting"])).toEqual(["Young"]);
+    expect(only(["waiting", "soon"])).toEqual(["Young", "Ready", "Past"]);
+  });
   it("favourites only", () => {
     expect(names(only({ favoritesOnly: true }))).toEqual(["Pavillon Rouge", "Tignanello"]);
   });
@@ -125,9 +162,10 @@ describe("filters", () => {
         countries: ["FR"],
         places: [],
         bands: ["nv"],
+        drink: ["soon"],
         favoritesOnly: true,
       }),
-    ).toBe(5);
+    ).toBe(6);
   });
 });
 
@@ -176,6 +214,31 @@ describe("sorting", () => {
       "Pavillon Rouge",
       "Chablis",
       "Tignanello",
+    ]);
+  });
+  it("by rating: best first, then more voices, unrated last", () => {
+    const rated = [
+      item({ wineName: "Unrated" }),
+      item({ wineName: "Good", rating: { average: 4, count: 1 } }),
+      item({ wineName: "Best", rating: { average: 4.5, count: 1 } }),
+      item({ wineName: "Good, agreed", rating: { average: 4, count: 3 } }),
+    ];
+    expect(names(sortItems(rated, "rating"))).toEqual(["Best", "Good, agreed", "Good", "Unrated"]);
+  });
+  it("by what to open first: past its best, then the end of the window, then the rest", () => {
+    const drinkers = [
+      item({ wineName: "Young", drink: drinkOf("young") }),
+      item({ wineName: "Peak", drink: drinkOf("peak") }),
+      item({ wineName: "Past", drink: drinkOf("past") }),
+      item({ wineName: "Unknown", drink: drinkOf("unknown") }),
+      item({ wineName: "Ready", drink: drinkOf("ready") }),
+    ];
+    expect(names(sortItems(drinkers, "drink"))).toEqual([
+      "Past",
+      "Ready",
+      "Peak",
+      "Young",
+      "Unknown",
     ]);
   });
   it("is stable and does not touch the input", () => {

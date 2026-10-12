@@ -4,7 +4,7 @@ import {
   normalizeText,
   type BottleStatus,
   type CreateStorage,
-  type CreateWine,
+  type Descriptor,
   type Slot,
   type StorageKind,
   type UpdateStorage,
@@ -21,7 +21,9 @@ import type {
   CellarRepository,
   InventoryRow,
   NewBottle,
+  NewWine,
   StorageRow,
+  TastingRow,
 } from "./types";
 
 type Tables = Database["public"]["Tables"];
@@ -96,6 +98,45 @@ export const toBottle = (r: {
   addedAt: r.created_at,
   openedAt: r.opened_at,
 });
+
+const TASTING_COLUMNS =
+  "id, vintage_id, bottle_id, user_id, score, descriptors, note, tasted_at, profiles(display_name)";
+
+const toTasting = (r: {
+  id: string;
+  vintage_id: string;
+  bottle_id: string | null;
+  user_id: string;
+  score: number | null;
+  descriptors: string[];
+  note: string | null;
+  tasted_at: string;
+  profiles: { display_name: string | null } | null;
+}): TastingRow => ({
+  id: r.id,
+  vintageId: r.vintage_id,
+  bottleId: r.bottle_id,
+  userId: r.user_id,
+  userName: r.profiles?.display_name ?? null,
+  score: r.score,
+  descriptors: r.descriptors as Descriptor[],
+  note: r.note,
+  tastedAt: r.tasted_at,
+});
+
+/**
+ * Ratings arrive with database step 0008. Until it has been run, the app must not break: reading says
+ * "nothing yet", and writing says plainly what is missing.
+ */
+export const isMissingTable = (error: { code?: string | undefined }) =>
+  // PGRST205: not in the schema cache · 42P01: no such relation · PGRST200: the join to it cannot be found either
+  error.code === "PGRST205" || error.code === "42P01" || error.code === "PGRST200";
+
+const ratingsNotReady = () =>
+  new DomainError(
+    "INTERNAL",
+    "Ratings need one more database step before they work. Everything else is fine. See docs/SETUP.md, “Updating the database”.",
+  );
 
 const isUniqueViolation = (error: { code?: string }) => error.code === "23505";
 
@@ -218,7 +259,7 @@ export function createCellarRepository(db: Db): CellarRepository {
       return data.id;
     },
 
-    async findOrCreateWine(householdId, producerId, input: CreateWine) {
+    async findOrCreateWine(householdId, producerId, input: NewWine) {
       const find = async (): Promise<WineSummary | null> => {
         const { data, error } = await db
           .from("wines")
@@ -242,6 +283,7 @@ export function createCellarRepository(db: Db): CellarRepository {
           wine_type: input.type,
           country_code: input.countryCode ?? null,
           region: input.region ?? null,
+          appellation: input.appellation ?? null,
           status: "provisional",
           owner_household_id: householdId,
           origin: "user_entered",
@@ -398,6 +440,8 @@ export function createCellarRepository(db: Db): CellarRepository {
         purchase_price_cents: r.priceCents,
         currency: r.currency,
         purchased_at: r.purchasedAt,
+        purchased_from: r.purchasedFrom ?? null,
+        notes: r.notes ?? null,
       }));
       const { data, error } = await db.from("bottles").insert(inserts).select("id");
       if (error) throw mapDbError(error);
@@ -408,7 +452,7 @@ export function createCellarRepository(db: Db): CellarRepository {
       const { data, error } = await db
         .from("bottles")
         .select(
-          "id, created_at, location_id, loc_row, loc_col, purchase_price_cents, currency, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, country_code, producers!inner(name))), cellar_locations(label)",
+          "id, created_at, location_id, loc_row, loc_col, purchase_price_cents, currency, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, appellation, country_code, producers!inner(name))), cellar_locations(label)",
         )
         .eq("household_id", householdId)
         .eq("status", "in_cellar")
@@ -424,6 +468,7 @@ export function createCellarRepository(db: Db): CellarRepository {
         type: b.wine_vintages.wines.wine_type as WineType,
         year: b.wine_vintages.year,
         region: b.wine_vintages.wines.region,
+        appellation: b.wine_vintages.wines.appellation,
         countryCode: b.wine_vintages.wines.country_code,
         locationId: b.location_id,
         locationLabel: b.cellar_locations?.label ?? null,
@@ -514,6 +559,29 @@ export function createCellarRepository(db: Db): CellarRepository {
       return data ? toBottle(data) : null;
     },
 
+    async deleteBottles(householdId, bottleIds) {
+      if (bottleIds.length === 0) return;
+      const { error } = await db
+        .from("bottles")
+        .delete()
+        .eq("household_id", householdId)
+        .in("id", bottleIds);
+      if (error) throw mapDbError(error);
+    },
+
+    async markOpened(householdId, bottleIds, openedAt) {
+      if (bottleIds.length === 0) return 0;
+      const { data, error } = await db
+        .from("bottles")
+        .update({ status: "opened", opened_at: openedAt })
+        .eq("household_id", householdId)
+        .eq("status", "in_cellar")
+        .in("id", bottleIds)
+        .select("id");
+      if (error) throw mapDbError(error);
+      return data?.length ?? 0;
+    },
+
     async updatePurchase(householdId, vintageId, patch) {
       const update: Tables["bottles"]["Update"] = {};
       if (patch.priceCents !== undefined) update.purchase_price_cents = patch.priceCents;
@@ -554,10 +622,149 @@ export function createCellarRepository(db: Db): CellarRepository {
       return data ? toWine(data) : null;
     },
 
+    async getBottleVintage(householdId, bottleId) {
+      const { data, error } = await db
+        .from("bottles")
+        .select("vintage_id")
+        .eq("household_id", householdId)
+        .eq("id", bottleId)
+        .maybeSingle();
+      if (error) throw mapDbError(error);
+      return data?.vintage_id ?? null;
+    },
+
+    async listTastings(householdId, vintageId) {
+      const { data, error } = await db
+        .from("tastings")
+        .select(TASTING_COLUMNS)
+        .eq("household_id", householdId)
+        .eq("vintage_id", vintageId)
+        .order("tasted_at", { ascending: false })
+        .limit(200);
+      if (error && isMissingTable(error)) return [];
+      if (error) throw mapDbError(error);
+      return (data ?? []).map(toTasting);
+    },
+
+    async listScores(householdId) {
+      const { data, error } = await db
+        .from("tastings")
+        .select("vintage_id, score")
+        .eq("household_id", householdId)
+        .not("score", "is", null)
+        .limit(5000);
+      if (error && isMissingTable(error)) return [];
+      if (error) throw mapDbError(error);
+      return (data ?? []).flatMap((r) =>
+        r.score === null ? [] : [{ vintageId: r.vintage_id, score: r.score }],
+      );
+    },
+
+    async getMyTasting(userId, bottleId) {
+      const { data, error } = await db
+        .from("tastings")
+        .select(TASTING_COLUMNS)
+        .eq("user_id", userId)
+        .eq("bottle_id", bottleId)
+        .maybeSingle();
+      if (error && isMissingTable(error)) return null;
+      if (error) throw mapDbError(error);
+      return data ? toTasting(data) : null;
+    },
+
+    async insertTasting(input) {
+      const { data, error } = await db
+        .from("tastings")
+        .insert({
+          household_id: input.householdId,
+          vintage_id: input.vintageId,
+          bottle_id: input.bottleId,
+          score: input.score,
+          descriptors: input.descriptors,
+          note: input.note,
+        })
+        .select(TASTING_COLUMNS)
+        .single();
+      if (error) {
+        if (isMissingTable(error)) throw ratingsNotReady();
+        if (isUniqueViolation(error))
+          throw new DomainError("CONFLICT", "You have already rated this bottle.");
+        throw mapDbError(error);
+      }
+      return toTasting(data);
+    },
+
+    async updateTasting(id, patch) {
+      const { data, error } = await db
+        .from("tastings")
+        .update({ score: patch.score, descriptors: patch.descriptors, note: patch.note })
+        .eq("id", id)
+        .select(TASTING_COLUMNS)
+        .maybeSingle();
+      if (error && isMissingTable(error)) throw ratingsNotReady();
+      if (error) throw mapDbError(error);
+      return data ? toTasting(data) : null;
+    },
+
+    async deleteMyTasting(userId, bottleId) {
+      const { data, error } = await db
+        .from("tastings")
+        .delete()
+        .eq("user_id", userId)
+        .eq("bottle_id", bottleId)
+        .select("id");
+      if (error && isMissingTable(error)) return false;
+      if (error) throw mapDbError(error);
+      return (data ?? []).length > 0;
+    },
+
+    async listMyTastingScores(userId, bottleIds) {
+      if (bottleIds.length === 0) return [];
+      const { data, error } = await db
+        .from("tastings")
+        .select("bottle_id, score")
+        .eq("user_id", userId)
+        .in("bottle_id", bottleIds);
+      if (error && isMissingTable(error)) return [];
+      if (error) throw mapDbError(error);
+      return (data ?? []).flatMap((r) =>
+        r.bottle_id === null ? [] : [{ bottleId: r.bottle_id, score: r.score }],
+      );
+    },
+
+    async insertTastings(rows) {
+      if (rows.length === 0) return 0;
+      const { data, error } = await db
+        .from("tastings")
+        .insert(
+          rows.map((r) => ({
+            household_id: r.householdId,
+            vintage_id: r.vintageId,
+            bottle_id: r.bottleId,
+            score: r.score,
+            note: r.note,
+            tasted_at: r.tastedAt,
+          })),
+        )
+        .select("id");
+      if (error && isMissingTable(error)) return null;
+      if (error) throw mapDbError(error);
+      return data?.length ?? 0;
+    },
+
     async listFavoriteWineIds(userId) {
       const { data, error } = await db.from("favorites").select("wine_id").eq("user_id", userId);
       if (error) throw mapDbError(error);
       return (data ?? []).map((r) => r.wine_id);
+    },
+
+    async addFavorites(userId, wineIds) {
+      if (wineIds.length === 0) return;
+      const { error } = await db.from("favorites").upsert(
+        wineIds.map((wine_id) => ({ user_id: userId, wine_id })),
+        { onConflict: "user_id,wine_id", ignoreDuplicates: true },
+      );
+      if (error) throw mapDbError(error);
     },
 
     async setFavorite(userId, wineId, favorite) {

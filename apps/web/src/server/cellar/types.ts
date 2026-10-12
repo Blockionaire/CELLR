@@ -4,6 +4,7 @@ import type {
   BottleView,
   CreateStorage,
   CreateWine,
+  Descriptor,
   Slot,
   StorageKind,
   UpdateStorage,
@@ -38,6 +39,7 @@ export interface InventoryRow {
   type: WineType;
   year: number | null;
   region: string | null;
+  appellation: string | null;
   countryCode: string | null;
   locationId: string | null;
   locationLabel: string | null;
@@ -46,6 +48,34 @@ export interface InventoryRow {
   priceCents: number | null;
   currency: string | null;
   addedAt: string;
+}
+
+/** What a person wrote about a bottle. */
+export interface TastingRow {
+  id: string;
+  vintageId: string;
+  bottleId: string | null;
+  userId: string;
+  userName: string | null;
+  score: number | null;
+  descriptors: Descriptor[];
+  note: string | null;
+  tastedAt: string;
+}
+
+export interface NewTasting {
+  householdId: string;
+  vintageId: string;
+  bottleId: string;
+  score: number | null;
+  descriptors: Descriptor[];
+  note: string | null;
+}
+
+export interface TastingPatch {
+  score: number | null;
+  descriptors: Descriptor[];
+  note: string | null;
 }
 
 /** One opened bottle, with what it was. */
@@ -59,6 +89,9 @@ export interface OpenedRow {
   openedAt: string;
 }
 
+/** A wine to find or create; an import also knows the appellation. */
+export type NewWine = CreateWine & { appellation?: string | null | undefined };
+
 export interface NewBottle {
   vintageId: string;
   formatMl: number;
@@ -68,6 +101,19 @@ export interface NewBottle {
   priceCents: number | null;
   currency: string | null;
   purchasedAt: string | null;
+  /** Only an import knows these. */
+  purchasedFrom?: string | null | undefined;
+  notes?: string | null | undefined;
+}
+
+/** A tasting carried over from an earlier app; the date it happened is kept. */
+export interface ImportedTasting {
+  householdId: string;
+  vintageId: string;
+  bottleId: string | null;
+  score: number | null;
+  note: string | null;
+  tastedAt: string;
 }
 
 export type BottleRow = BottleView;
@@ -114,11 +160,7 @@ export interface CellarRepository {
     name: string,
     countryCode: string | null,
   ): Promise<string>;
-  findOrCreateWine(
-    householdId: string,
-    producerId: string,
-    input: CreateWine,
-  ): Promise<WineSummary>;
+  findOrCreateWine(householdId: string, producerId: string, input: NewWine): Promise<WineSummary>;
   /** `year` null = non-vintage. Returns the vintage id. */
   findOrCreateVintage(wineId: string, year: number | null): Promise<string>;
 
@@ -138,6 +180,8 @@ export interface CellarRepository {
 
   getVintage(householdId: string, vintageId: string): Promise<VintageRows | null>;
   getBottle(householdId: string, bottleId: string): Promise<BottleRow | null>;
+  /** Which vintage a bottle is of. */
+  getBottleVintage(householdId: string, bottleId: string): Promise<string | null>;
   /** Updates one bottle, only if it is currently in one of `fromStatuses`. Null = no such bottle in that state. */
   updateBottle(
     householdId: string,
@@ -145,13 +189,37 @@ export interface CellarRepository {
     patch: BottlePatch,
     fromStatuses: readonly BottleStatus[],
   ): Promise<BottleRow | null>;
+  /** Removes bottles (undoing a half-finished import). */
+  deleteBottles(householdId: string, bottleIds: string[]): Promise<void>;
+  /** Marks bottles opened on the given day (an import backdates them). Returns how many changed. */
+  markOpened(householdId: string, bottleIds: string[], openedAt: string | null): Promise<number>;
   /** Purchase facts for every bottle of the vintage still in the cellar. Returns how many changed. */
   updatePurchase(householdId: string, vintageId: string, patch: PurchasePatch): Promise<number>;
   /** Null = nothing changed (not yours to edit, e.g. a shared-catalogue wine). */
   updateWine(wineId: string, patch: UpdateWine): Promise<WineSummary | null>;
 
+  /** Everyone's tastings of one vintage in this household, newest first. */
+  listTastings(householdId: string, vintageId: string): Promise<TastingRow[]>;
+  /** Every rating (not words or notes alone) in this household, to work out averages. */
+  listScores(householdId: string): Promise<Array<{ vintageId: string; score: number }>>;
+  getMyTasting(userId: string, bottleId: string): Promise<TastingRow | null>;
+  /** CONFLICT when this person already has a tasting for the bottle. */
+  insertTasting(input: NewTasting): Promise<TastingRow>;
+  updateTasting(id: string, patch: TastingPatch): Promise<TastingRow | null>;
+  deleteMyTasting(userId: string, bottleId: string): Promise<boolean>;
+  /** This person's tastings of the given bottles (score may be null when only words were left). */
+  listMyTastingScores(
+    userId: string,
+    bottleIds: string[],
+  ): Promise<Array<{ bottleId: string; score: number | null }>>;
+
+  /** Many tastings at once. Null = ratings are not switched on yet (the database step is still to do). */
+  insertTastings(rows: ImportedTasting[]): Promise<number | null>;
+
   /** The wines this person has starred. Favourites belong to a person, not to the household. */
   listFavoriteWineIds(userId: string): Promise<string[]>;
   /** Stars or un-stars a wine for this person. Doing it twice is harmless. */
   setFavorite(userId: string, wineId: string, favorite: boolean): Promise<void>;
+  /** Stars many wines at once. */
+  addFavorites(userId: string, wineIds: string[]): Promise<void>;
 }

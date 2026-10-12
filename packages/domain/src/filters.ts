@@ -1,7 +1,17 @@
 import { normalizeText, type CellarItem, type WineType } from "./cellar";
+import type { DrinkPhase } from "./drink-window";
 
 /** What the cellar can be ordered by. `recent` is the order the server sends (newest additions first). */
-export const SORTS = ["recent", "name", "producer", "vintageNew", "vintageOld", "count"] as const;
+export const SORTS = [
+  "recent",
+  "name",
+  "producer",
+  "vintageNew",
+  "vintageOld",
+  "count",
+  "rating",
+  "drink",
+] as const;
 export type CellarSort = (typeof SORTS)[number];
 
 /** Vintages grouped the way people talk about them. */
@@ -17,11 +27,22 @@ export function vintageBand(year: number | null): VintageBand {
 }
 
 /** Within one group any choice matches; across groups every group must match. Empty group = no restriction. */
+/** "What can I open?": the drinking-window groups people actually ask about. */
+export const DRINK_FILTERS = ["ready", "soon", "waiting"] as const;
+export type DrinkFilter = (typeof DRINK_FILTERS)[number];
+
+const DRINK_GROUPS: Record<DrinkFilter, readonly DrinkPhase[]> = {
+  ready: ["developing", "peak", "ready"], // fine to open now
+  soon: ["ready", "past"], // at the end of the window, or past it
+  waiting: ["young"], // give it time
+};
+
 export interface CellarFilters {
   types: WineType[];
   countries: string[];
   places: string[];
   bands: VintageBand[];
+  drink: DrinkFilter[];
   favoritesOnly: boolean;
 }
 
@@ -30,6 +51,7 @@ export const NO_FILTERS: CellarFilters = {
   countries: [],
   places: [],
   bands: [],
+  drink: [],
   favoritesOnly: false,
 };
 
@@ -40,6 +62,7 @@ export function activeFilterCount(f: CellarFilters): number {
     f.countries.length +
     f.places.length +
     f.bands.length +
+    f.drink.length +
     (f.favoritesOnly ? 1 : 0)
   );
 }
@@ -52,6 +75,7 @@ export function applyFilters(items: readonly CellarItem[], f: CellarFilters): Ce
         (i.countryCode !== null && f.countries.includes(i.countryCode))) &&
       (f.places.length === 0 || i.places.some((p) => f.places.includes(p))) &&
       (f.bands.length === 0 || f.bands.includes(vintageBand(i.year))) &&
+      (f.drink.length === 0 || f.drink.some((d) => DRINK_GROUPS[d].includes(i.drink.phase))) &&
       (!f.favoritesOnly || i.favorite),
   );
 }
@@ -80,6 +104,13 @@ export function sortItems(items: readonly CellarItem[], sort: CellarSort): Cella
     vintageNew: (a, b) => year(a, b, -1) || byName(a, b),
     vintageOld: (a, b) => year(a, b, 1) || byName(a, b),
     count: (a, b) => b.count - a.count || byName(a, b),
+    // What to open first: past its best, then the end of the window, then at its best…
+    drink: (a, b) => a.drink.urgency - b.drink.urgency || byName(a, b),
+    // Rated wines first, best first (ties: more people agreeing first); unrated last.
+    rating: (a, b) =>
+      (b.rating?.average ?? -1) - (a.rating?.average ?? -1) ||
+      (b.rating?.count ?? 0) - (a.rating?.count ?? 0) ||
+      byName(a, b),
   };
   return indexed
     .sort((x, y) => compare[sort](x.item, y.item) || x.index - y.index)

@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { DomainError, type CreateStorage, type Slot } from "@cellr/domain";
-import { aggregateInventory, buildHome, createCellarService, toStorageView } from "./service";
-import type { CellarRepository, InventoryRow, NewBottle, StorageRow } from "./types";
+import {
+  aggregateInventory,
+  buildHome,
+  buildTonight,
+  createCellarService,
+  toDrinkSummary,
+  toStorageView,
+} from "./service";
+import type {
+  CellarRepository,
+  ImportedTasting,
+  InventoryRow,
+  NewBottle,
+  StorageRow,
+} from "./types";
 
 const WINE = {
   id: "w1",
@@ -28,6 +41,18 @@ function fakeRepo(
     occupiedCalls: 0,
     conflictsLeft: options.conflictsBeforeSuccess ?? 0,
     favorites: new Set<string>(),
+    storage: [] as CreateStorage[],
+    deletedStorage: [] as string[],
+    deletedBottles: [] as string[],
+    opened: [] as Array<{ ids: string[]; at: string | null }>,
+    tastings: [] as ImportedTasting[],
+    ratingsOff: false,
+    failInsertAt: null as number | null,
+    wines: [] as Array<{
+      producerId: string;
+      name: string;
+      appellation?: string | null | undefined;
+    }>,
   };
   const household =
     options.household === undefined ? { id: "h1", currency: "EUR" } : options.household;
@@ -41,11 +66,12 @@ function fakeRepo(
     async getWine(id) {
       return id === WINE.id ? WINE : null;
     },
-    async findOrCreateProducer() {
-      return "p1";
+    async findOrCreateProducer(_h, name) {
+      return `p:${name}`;
     },
-    async findOrCreateWine() {
-      return WINE;
+    async findOrCreateWine(_h, producerId, input) {
+      state.wines.push({ producerId, name: input.name, appellation: input.appellation });
+      return { ...WINE, id: `w:${producerId}:${input.name}:${input.type}`, name: input.name };
     },
     async findOrCreateVintage(wineId, year) {
       const key = `${wineId}:${year}`;
@@ -65,12 +91,14 @@ function fakeRepo(
     async updateStorage() {
       return null;
     },
-    async deleteStorage() {
-      return false;
+    async deleteStorage(_h, id) {
+      state.deletedStorage.push(id);
+      return true;
     },
     async createStorage(_h, input: CreateStorage) {
+      state.storage.push(input);
       return {
-        id: "u9",
+        id: `u${state.storage.length + 8}`,
         label: input.label,
         kind: input.kind,
         rows: input.rows,
@@ -79,6 +107,8 @@ function fakeRepo(
       };
     },
     async insertBottles(_h, rows) {
+      if (state.failInsertAt !== null && state.inserts.length === state.failInsertAt)
+        throw new DomainError("INTERNAL", "The database went away.");
       if (state.conflictsLeft > 0) {
         state.conflictsLeft -= 1;
         throw new DomainError("CONFLICT", "That already exists.");
@@ -110,9 +140,48 @@ function fakeRepo(
     async listFavoriteWineIds() {
       return [...state.favorites];
     },
+    async getBottleVintage() {
+      return "v1";
+    },
+    async listTastings() {
+      return [];
+    },
+    async listScores() {
+      return [];
+    },
+    async getMyTasting() {
+      return null;
+    },
+    async insertTasting() {
+      throw new Error("not used here");
+    },
+    async updateTasting() {
+      return null;
+    },
+    async deleteMyTasting() {
+      return false;
+    },
+    async listMyTastingScores() {
+      return [];
+    },
     async setFavorite(_user, wineId, favorite) {
       if (favorite) state.favorites.add(wineId);
       else state.favorites.delete(wineId);
+    },
+    async addFavorites(_user, wineIds) {
+      for (const id of wineIds) state.favorites.add(id);
+    },
+    async deleteBottles(_h, ids) {
+      state.deletedBottles.push(...ids);
+    },
+    async markOpened(_h, ids, at) {
+      state.opened.push({ ids, at });
+      return ids.length;
+    },
+    async insertTastings(rows) {
+      if (state.ratingsOff) return null;
+      state.tastings.push(...rows);
+      return rows.length;
     },
   };
   return { repo, state };
@@ -310,6 +379,7 @@ describe("the cellar view", () => {
     type: "red",
     year: 2019,
     region: "Bordeaux",
+    appellation: null,
     countryCode: "FR",
     locationId: "u1",
     locationLabel: "Wine fridge",
@@ -371,6 +441,19 @@ describe("the cellar view", () => {
     expect(view.items.map((i) => i.vintageId)).toEqual(["new", "old"]);
   });
 
+  it("shows what the household thought of a wine as a rating, and none until someone has rated it", () => {
+    const view = aggregateInventory(
+      [row({ vintageId: "a" }), row({ vintageId: "b", wineId: "w2", year: 2020 })],
+      new Set(),
+      [
+        { vintageId: "a", score: 9 },
+        { vintageId: "a", score: 8 },
+      ],
+    );
+    const byId = Object.fromEntries(view.items.map((i) => [i.vintageId, i.rating]));
+    expect(byId).toEqual({ a: { average: 4.3, count: 2 }, b: null });
+  });
+
   it("is empty for an empty cellar", () => {
     expect(aggregateInventory([])).toEqual({ items: [], bottleCount: 0 });
   });
@@ -386,6 +469,7 @@ describe("the home view", () => {
     type: "red",
     year: 2019,
     region: null,
+    appellation: null,
     countryCode: "FR",
     locationId: "u1",
     locationLabel: "Wine fridge",
@@ -466,6 +550,8 @@ describe("the home view", () => {
         type: "red" as const,
         year: 2015,
         openedAt: "2026-10-09T20:00:00Z",
+        myScore: null,
+        rated: false,
       },
     ];
     const home = buildHome(rows, units, opened);
@@ -477,6 +563,7 @@ describe("the home view", () => {
   it("is quiet for an empty cellar", () => {
     expect(buildHome([], [], [], new Set(), new Date("2026-10-12T10:00:00Z"))).toEqual({
       generatedAt: "2026-10-12T10:00:00.000Z",
+      drinkSoon: [],
       bottleCount: 0,
       wineCount: 0,
       valueCents: null,
@@ -488,5 +575,314 @@ describe("the home view", () => {
       recentlyAdded: [],
       recentlyOpened: [],
     });
+  });
+});
+
+describe("when to drink it, on the cards and on Home", () => {
+  const NOW = new Date("2026-10-12T12:00:00Z");
+  const row = (over: Partial<InventoryRow>): InventoryRow => ({
+    bottleId: "b",
+    vintageId: "v1",
+    wineId: "w1",
+    producer: "Château Test",
+    wineName: "Cuvée Test",
+    type: "red",
+    year: 2019,
+    region: "Bordeaux",
+    appellation: null,
+    countryCode: "FR",
+    locationId: null,
+    locationLabel: null,
+    row: null,
+    col: null,
+    priceCents: 3000,
+    currency: "EUR",
+    addedAt: "2026-10-01T10:00:00Z",
+    ...over,
+  });
+  const phases = (rows: InventoryRow[]) =>
+    Object.fromEntries(
+      aggregateInventory(rows, new Set(), [], NOW).items.map((i) => [i.vintageId, i.drink.phase]),
+    );
+
+  it("every card says where its wine stands in its window", () => {
+    expect(
+      phases([
+        row({ vintageId: "old", year: 2008 }), // Bordeaux red, window 2011–2019
+        row({ vintageId: "mid", year: 2019 }), // 2022–2030
+        row({ vintageId: "new", year: 2025 }), // opens 2028
+        row({ vintageId: "nv", year: null }),
+      ]),
+    ).toEqual({ old: "past", mid: "peak", new: "young", nv: "unknown" });
+  });
+
+  it("uses the average of the prices paid: the dearer bottle waits longer", () => {
+    const cheap = aggregateInventory([row({ priceCents: 800 })], new Set(), [], NOW).items[0]!
+      .drink;
+    const grand = aggregateInventory([row({ priceCents: 15000 })], new Set(), [], NOW).items[0]!
+      .drink;
+    expect(grand.until).toBeGreaterThan(cheap.until!);
+  });
+
+  it("describes a single wine the same way", () => {
+    expect(
+      toDrinkSummary(
+        {
+          type: "red",
+          year: 2019,
+          region: "Bordeaux",
+          appellation: null,
+          countryCode: "FR",
+          name: "Cuvée Test",
+          pricePerBottleCents: 3000,
+        },
+        NOW,
+      ),
+    ).toMatchObject({ phase: "peak", from: 2022, until: 2030 });
+  });
+
+  it("Home lists what to open first: past its best, then the end of the window, at most three", () => {
+    const rows = [
+      row({ vintageId: "past", wineId: "w1", year: 2005, wineName: "Past" }),
+      row({
+        vintageId: "ready",
+        wineId: "w2",
+        year: 2015,
+        region: "Beaujolais",
+        wineName: "Ready",
+      }),
+      row({ vintageId: "peak", wineId: "w3", year: 2019, wineName: "Peak" }),
+      row({ vintageId: "old2", wineId: "w4", year: 2009, wineName: "Old two" }),
+      row({ vintageId: "old3", wineId: "w5", year: 2010, wineName: "Old three" }),
+    ];
+    const home = buildHome(rows, [], [], new Set(), NOW);
+    expect(home.drinkSoon.length).toBeLessThanOrEqual(3);
+    expect(home.drinkSoon.every((i) => ["ready", "past"].includes(i.drink.phase))).toBe(true);
+    expect(home.drinkSoon.map((i) => i.drink.urgency)).toEqual(
+      [...home.drinkSoon.map((i) => i.drink.urgency)].sort((a, b) => a - b),
+    );
+    expect(home.drinkSoon.some((i) => i.wineName === "Peak")).toBe(false);
+  });
+});
+
+describe("tonight", () => {
+  const NOW = new Date("2026-10-12T12:00:00Z");
+  const row = (over: Partial<InventoryRow>): InventoryRow => ({
+    bottleId: "b",
+    vintageId: "v1",
+    wineId: "w1",
+    producer: "Château Test",
+    wineName: "Cuvée Test",
+    type: "red",
+    year: 2018,
+    region: "Bordeaux",
+    appellation: null,
+    countryCode: "FR",
+    locationId: "u1",
+    locationLabel: "Wine fridge",
+    row: 1,
+    col: 1,
+    priceCents: 3000,
+    currency: "EUR",
+    addedAt: "2026-10-01T10:00:00Z",
+    ...over,
+  });
+  const ask = (rows: InventoryRow[], dish: string | null = null, occasion = "anything") =>
+    buildTonight(
+      rows,
+      new Set(),
+      [],
+      { dish, occasion } as Parameters<typeof buildTonight>[3],
+      NOW,
+    );
+
+  it("suggests from the cellar, and names the one bottle to open: the easiest to reach", () => {
+    const rows = [
+      row({ bottleId: "far", row: 3, col: 4 }),
+      row({ bottleId: "near", row: 1, col: 2 }),
+      row({ bottleId: "mid", row: 2, col: 1 }),
+    ];
+    const view = ask(rows, "steak");
+    expect(view.considered).toBe(1);
+    expect(view.picks).toHaveLength(1);
+    expect(view.picks[0]).toMatchObject({
+      slot: "best",
+      bottleId: "near",
+      count: 3,
+      place: { label: "Wine fridge", row: 1, col: 2 },
+      wineName: "Cuvée Test",
+    });
+  });
+
+  it("a bottle without a place says so", () => {
+    const view = ask([row({ locationId: null, locationLabel: null, row: null, col: null })]);
+    expect(view.picks[0]?.place).toBeNull();
+  });
+
+  it("an empty cellar has nothing to suggest", () => {
+    expect(ask([])).toEqual({ dish: null, occasion: "anything", considered: 0, picks: [] });
+  });
+
+  it("gives up to three different wines, the best match first", () => {
+    const rows = [
+      row({ vintageId: "claret", wineId: "a", wineName: "Claret", bottleId: "1" }),
+      row({
+        vintageId: "chablis",
+        wineId: "b",
+        wineName: "Chablis",
+        type: "white",
+        region: "Chablis",
+        bottleId: "2",
+      }),
+      row({
+        vintageId: "brut",
+        wineId: "c",
+        wineName: "Brut",
+        type: "sparkling",
+        region: "Champagne",
+        bottleId: "3",
+      }),
+      row({ vintageId: "extra", wineId: "d", wineName: "Extra", bottleId: "4" }),
+    ];
+    const view = ask(rows, "steak");
+    expect(view.picks.length).toBeLessThanOrEqual(3);
+    expect(new Set(view.picks.map((p) => p.vintageId)).size).toBe(view.picks.length);
+    expect(view.picks[0]?.type).toBe("red");
+    expect(view.picks.map((p) => p.slot)[0]).toBe("best");
+  });
+});
+
+describe("moving house from Wijnkelder", () => {
+  const fles = (over: Record<string, unknown> = {}) => ({
+    id: "f1",
+    naam: "Pavillon Rouge",
+    producent: "Château Margaux",
+    land: "Frankrijk",
+    kleur: "rood",
+    jaargang: 2015,
+    aantal: 2,
+    appellatie: "Margaux",
+    favoriet: true,
+    locatie: { kelder: "Kelder", rek: "1", rij: 1, vak: 1 },
+    ...over,
+  });
+  const backupOf = (over: Record<string, unknown> = {}) => ({
+    app: "wijnkelder" as const,
+    flessen: [fles()],
+    notities: [],
+    historie: [],
+    ...over,
+  });
+  const request = (over: Record<string, unknown> = {}) => ({
+    backup: backupOf(),
+    dryRun: false,
+    ...over,
+  });
+
+  it("a dry run only reports: nothing is written", async () => {
+    const { repo, state } = fakeRepo();
+    const result = await createCellarService(repo, { userId: "me" }).importWijnkelder(
+      request({ dryRun: true }) as never,
+    );
+    expect(result.committed).toBe(false);
+    expect(result.written).toBeNull();
+    expect(result.report.counts).toMatchObject({ wines: 1, bottlesInCellar: 2 });
+    expect(state.storage).toEqual([]);
+    expect(state.inserts).toEqual([]);
+  });
+
+  it("writes places, wines, bottles in their spots, the opened ones backdated, tastings and stars", async () => {
+    const { repo, state } = fakeRepo();
+    const result = await createCellarService(repo, { userId: "me" }).importWijnkelder(
+      request({
+        backup: backupOf({
+          historie: [{ type: "gedronken", flesId: "f1", aantal: 1, datum: "2026-03-01" }],
+          notities: [
+            { flesId: "f1", datum: "2026-03-01", score: 4.5, tekst: "Prachtig" },
+            { flesId: "f1", datum: "2026-04-01", score: 4 },
+          ],
+        }),
+      }) as never,
+    );
+    expect(result.written).toEqual({
+      units: 1,
+      wines: 1,
+      bottles: 2,
+      opened: 1,
+      tastings: 2,
+      favorites: 1,
+      tastingsSkipped: false,
+    });
+    expect(state.storage).toEqual([{ label: "Rack 1", kind: "rack", rows: 1, cols: 2 }]);
+    expect(state.wines).toEqual([
+      { producerId: "p:Château Margaux", name: "Pavillon Rouge", appellation: "Margaux" },
+    ]);
+    const rows = state.inserts.flat();
+    expect(rows).toHaveLength(3);
+    expect(rows.filter((r) => r.locationId === "u9").map((r) => [r.row, r.col])).toEqual([
+      [1, 1],
+      [1, 2],
+    ]);
+    // The opened bottle has no spot; it was opened on the day the old app said.
+    expect(rows.filter((r) => r.locationId === null)).toHaveLength(1);
+    expect(state.opened).toEqual([{ ids: ["b1-2"], at: "2026-03-01T12:00:00.000Z" }]);
+    // Of the two tasting notes, the first belongs to the opened bottle.
+    expect(state.tastings.map((t) => [t.bottleId, t.score, t.tastedAt])).toEqual([
+      ["b1-2", 9, "2026-03-01T12:00:00.000Z"],
+      [null, 8, "2026-04-01T12:00:00.000Z"],
+    ]);
+    expect(state.favorites.size).toBe(1);
+  });
+
+  it("without the ratings step the cellar still comes over, and it says the ratings did not", async () => {
+    const { repo, state } = fakeRepo();
+    state.ratingsOff = true;
+    const result = await createCellarService(repo, { userId: "me" }).importWijnkelder(
+      request({
+        backup: backupOf({ notities: [{ flesId: "f1", datum: "2026-03-01", score: 5 }] }),
+      }) as never,
+    );
+    expect(result.written).toMatchObject({ bottles: 2, tastings: 0, tastingsSkipped: true });
+  });
+
+  it("a place with the same name gets a number instead of failing", async () => {
+    const { repo, state } = fakeRepo({
+      unit: { id: "u1", label: "Rack 1", kind: "rack", rows: 2, cols: 2, used: 0 },
+    });
+    await createCellarService(repo, { userId: "me" }).importWijnkelder(request() as never);
+    expect(state.storage.map((s) => s.label)).toEqual(["Rack 1 (2)"]);
+  });
+
+  it("when it breaks half way, what it made is taken away again", async () => {
+    const { repo, state } = fakeRepo();
+    state.failInsertAt = 1; // the second batch of 500
+    const big = backupOf({
+      flessen: [
+        fles({ aantal: 200 }),
+        fles({ id: "f2", naam: "B", aantal: 200 }),
+        fles({ id: "f3", naam: "C", aantal: 200 }),
+      ],
+    });
+    await expect(
+      createCellarService(repo, { userId: "me" }).importWijnkelder(
+        request({ backup: big }) as never,
+      ),
+    ).rejects.toMatchObject({ code: "INTERNAL" });
+    expect(state.deletedBottles).toHaveLength(500);
+    expect(state.deletedStorage).toEqual(["u9"]);
+  });
+
+  it("refuses more than it can handle before it writes anything", async () => {
+    const { repo, state } = fakeRepo();
+    const flessen = Array.from({ length: 26 }, (_, i) =>
+      fles({ id: `f${i}`, naam: `W${i}`, aantal: 200, locatie: {} }),
+    );
+    await expect(
+      createCellarService(repo, { userId: "me" }).importWijnkelder(
+        request({ backup: backupOf({ flessen }) }) as never,
+      ),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
+    expect(state.storage).toEqual([]);
+    expect(state.inserts).toEqual([]);
   });
 });

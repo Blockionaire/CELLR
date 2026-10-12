@@ -109,3 +109,9 @@ export const SlidersIcon = (p: IconProps) => (
     <circle cx="9" cy="17" r="2" />
   </Icon>
 );
+
+export const StarIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m12 4 2.4 5 5.4.7-4 3.7 1 5.4L12 16.2 7.2 18.8l1-5.4-4-3.7L9.6 9 12 4Z" />
+  </Icon>
+);

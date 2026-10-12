@@ -5,3 +5,8 @@ export * from "./analytics";
 export * from "./cellar";
 export * from "./placement";
 export * from "./filters";
+export * from "./tasting";
+export * from "./drink-window";
+export * from "./pairing";
+export * from "./tonight";
+export * from "./wijnkelder-import";

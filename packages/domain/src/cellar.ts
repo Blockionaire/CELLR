@@ -1,4 +1,6 @@
 import { z } from "zod";
+import type { DrinkPhase } from "./drink-window";
+import type { RatingSummary, TastingView } from "./tasting";
 
 // ---- Vocabulary ---------------------------------------------------------------------------------
 // These mirror the database enums (public.wine_type, public.location_kind). Add-only evolution.
@@ -213,6 +215,21 @@ export interface StorageUnitView {
   free: number;
 }
 
+/** Where a wine stands in its (estimated) drinking window. */
+export interface DrinkSummary {
+  phase: DrinkPhase;
+  /** Calendar years of the estimated window, or null when there is none (non-vintage). */
+  from: number | null;
+  until: number | null;
+  /** Lower = more pressing to open. */
+  urgency: number;
+  /** Years until the window opens (negative once it has) and until it closes. */
+  yearsUntilOpen: number | null;
+  yearsLeft: number | null;
+  /** 0 = start of the window, 1 = end (below/above when not yet / past). */
+  position: number | null;
+}
+
 /** One card in the cellar: one vintage of one wine, however many bottles of it are in the house. */
 export interface CellarItem {
   vintageId: string;
@@ -231,6 +248,10 @@ export interface CellarItem {
   unplaced: number;
   /** Whether the signed-in person has starred this wine (personal, not shared with the household). */
   favorite: boolean;
+  /** What the household thought of it, or null while nobody has rated it. */
+  rating: RatingSummary | null;
+  /** When to drink it (an estimate: see drink-window). */
+  drink: DrinkSummary;
 }
 
 export interface CellarView {
@@ -248,6 +269,10 @@ export interface OpenedEntry {
   type: WineType;
   year: number | null;
   openedAt: string;
+  /** The signed-in person's stars for it (1..10), or null if they have not rated it. */
+  myScore: number | null;
+  /** The signed-in person has said something about it (stars, words or a note). */
+  rated: boolean;
 }
 
 /** Everything the Home screen shows, in one go. */
@@ -268,6 +293,8 @@ export interface HomeView {
   unplaced: number;
   /** Newest additions first. */
   recentlyAdded: CellarItem[];
+  /** The ones to open first: at the end of their window or past it, most pressing first (at most three). */
+  drinkSoon: CellarItem[];
   /** Newest first. */
   recentlyOpened: OpenedEntry[];
 }
@@ -384,12 +411,16 @@ export interface WineDetail extends WineSummary {
 /** One vintage of one wine: what you own, where it is, what it cost, and what you have already opened. */
 export interface VintageDetail {
   vintageId: string;
+  /** When to drink it (an estimate), from this wine's region, colour, label words and what it cost. */
+  drink: DrinkSummary;
   wine: WineDetail;
   year: number | null;
   /** In the cellar now, in a stable order: placed ones by place, shelf and position, then unplaced. */
   bottles: BottleView[];
   /** The most recently opened ones, newest first. */
   opened: BottleView[];
+  /** What people in the household said about it, newest first. */
+  tastings: TastingView[];
   /** Mean of the known prices of the bottles in the cellar, or null when none is known. */
   averagePriceCents: number | null;
   currency: string | null;

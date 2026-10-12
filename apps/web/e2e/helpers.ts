@@ -123,7 +123,7 @@ export const wineBody = {
 export async function apiClient(request: APIRequestContext, email: string) {
   const token = await sessionToken(email);
   const call = async <T = Record<string, unknown>>(
-    method: "get" | "post" | "patch" | "delete",
+    method: "get" | "post" | "patch" | "put" | "delete",
     path: string,
     data?: unknown,
     expected?: number,

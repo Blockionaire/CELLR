@@ -3,6 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import {
   activeFilterCount,
+  DRINK_FILTERS,
   facetsOf,
   NO_FILTERS,
   SORTS,
@@ -11,6 +12,7 @@ import {
   type CellarFilters,
   type CellarItem,
   type CellarSort,
+  type DrinkFilter,
   type VintageBand,
   type WineType,
 } from "@cellr/domain";
@@ -90,6 +92,11 @@ export function ActiveFilters({
       remove: without("countries", v),
     })),
     ...filters.places.map((v) => ({ key: `p-${v}`, name: v, remove: without("places", v) })),
+    ...filters.drink.map((v) => ({
+      key: `d-${v}`,
+      name: t(`drinkOptions.${v}`),
+      remove: without("drink", v),
+    })),
     ...filters.bands.map((v) => ({
       key: `b-${v}`,
       name: t(`bands.${v}`),
@@ -173,6 +180,20 @@ export function FilterSheet({
           <HeartIcon size={20} filled={filters.favoritesOnly} />
           {t("favorites")}
         </button>
+
+        <Group title={t("drinkTitle")}>
+          {DRINK_FILTERS.map((v) => (
+            <Chip
+              key={v}
+              selected={filters.drink.includes(v)}
+              onClick={() =>
+                onFilters({ ...filters, drink: toggle<DrinkFilter>(filters.drink, v) })
+              }
+            >
+              {t(`drinkOptions.${v}`)}
+            </Chip>
+          ))}
+        </Group>
 
         {facets.types.length > 1 && (
           <Group title={t("type")}>

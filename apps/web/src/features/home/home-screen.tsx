@@ -1,12 +1,21 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
-import { formatVintage, type CellarItem, type HomeView, type OpenedEntry } from "@cellr/domain";
+import {
+  formatStars,
+  formatVintage,
+  type CellarItem,
+  type HomeView,
+  type OpenedEntry,
+} from "@cellr/domain";
 import { Greeting } from "@/features/account/greeting";
 import { shapeFor } from "@/features/cellar/wine-visuals";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { buttonStyles } from "@/ui/button";
 import { ChevronRightIcon, PlusIcon } from "@/ui/icons";
+import { Stars } from "@/ui/stars";
 import { EmptyState } from "@/ui/empty-state";
+import { DrinkLabel } from "@/features/cellar/drink-bits";
+import { QuickRate } from "./quick-rate";
 
 /** "yesterday", "3 days ago", in the viewer's language. */
 function whenOpened(iso: string, locale: string, now: number): string {
@@ -43,6 +52,10 @@ export async function HomeScreen({ home, name }: { home: HomeView; name: string 
     }
   };
   const free = home.capacity - home.used;
+  // A bottle opened in the last three days that you have not said anything about: ask while it is fresh.
+  const toRate = home.recentlyOpened.find(
+    (o) => !o.rated && now - Date.parse(o.openedAt) < 3 * 86_400_000,
+  );
 
   return (
     <div className="pt-10 lg:pt-14">
@@ -52,7 +65,7 @@ export async function HomeScreen({ home, name }: { home: HomeView; name: string 
 
       {/* The one big question. Everything else on Home is secondary to it. */}
       <Link
-        href="/sommelier"
+        href="/tonight"
         className="group relative mt-6 block overflow-hidden rounded-card border border-hairline bg-surface p-6 transition-transform duration-200 ease-cellr active:scale-[0.99] md:p-8"
       >
         <p className="text-caption font-medium uppercase tracking-[0.18em] text-bronze">
@@ -79,6 +92,27 @@ export async function HomeScreen({ home, name }: { home: HomeView; name: string 
           <BottleGlyph shape="burgundy" tint="white" className="w-9 md:w-11" />
         </div>
       </Link>
+
+      {toRate && (
+        <section
+          className="mt-6 rounded-card border border-hairline bg-surface p-5"
+          aria-labelledby="rate-nudge"
+          data-testid="rate-nudge"
+        >
+          <h2 id="rate-nudge" className="font-display text-title">
+            {t("nudge", { wine: toRate.wineName })}
+          </h2>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <QuickRate bottleId={toRate.bottleId} />
+            <Link
+              href={`/cellar/${toRate.vintageId}?rate=${toRate.bottleId}`}
+              className="inline-flex min-h-11 items-center text-small font-medium text-accent-fg"
+            >
+              {t("nudgeNote")}
+            </Link>
+          </div>
+        </section>
+      )}
 
       {empty ? (
         <EmptyState
@@ -107,6 +141,39 @@ export async function HomeScreen({ home, name }: { home: HomeView; name: string 
             )}
           </dl>
 
+          {home.drinkSoon.length > 0 && (
+            <section className="mt-10" aria-labelledby="soon">
+              <SectionHeader id="soon" title={t("drinkSoon")} />
+              <ul className="divide-y divide-hairline rounded-card border border-hairline bg-surface px-4">
+                {home.drinkSoon.map((item) => (
+                  <li key={item.vintageId}>
+                    <article className="relative flex min-h-16 items-center gap-4 py-3">
+                      <BottleGlyph
+                        shape={shapeFor(item.type)}
+                        tint={item.type}
+                        className="w-4 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate font-display text-title text-ink">
+                          <Link
+                            href={`/cellar/${item.vintageId}`}
+                            className="after:absolute after:inset-0"
+                          >
+                            {item.wineName}
+                          </Link>
+                        </h3>
+                        <p className="truncate text-small text-ink-2">
+                          {item.producer} · <span className="tnum">{formatVintage(item.year)}</span>
+                        </p>
+                      </div>
+                      <DrinkLabel drink={item.drink} className="text-small" />
+                    </article>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="mt-10" aria-labelledby="added">
             <SectionHeader id="added" title={t("recentlyAdded")}>
               <Link
@@ -132,7 +199,14 @@ export async function HomeScreen({ home, name }: { home: HomeView; name: string 
               <ul className="divide-y divide-hairline rounded-card border border-hairline bg-surface px-4">
                 {home.recentlyOpened.map((o) => (
                   <li key={o.bottleId}>
-                    <OpenedRow entry={o} when={whenOpened(o.openedAt, locale, now)} />
+                    <OpenedRow
+                      entry={o}
+                      when={whenOpened(o.openedAt, locale, now)}
+                      rateLabel={t("rateIt")}
+                      starsLabel={
+                        o.myScore === null ? "" : t("ratedStars", { stars: formatStars(o.myScore) })
+                      }
+                    />
                   </li>
                 ))}
               </ul>
@@ -251,7 +325,17 @@ function MiniCard({ item }: { item: CellarItem }) {
   );
 }
 
-function OpenedRow({ entry, when }: { entry: OpenedEntry; when: string }) {
+function OpenedRow({
+  entry,
+  when,
+  rateLabel,
+  starsLabel,
+}: {
+  entry: OpenedEntry;
+  when: string;
+  rateLabel: string;
+  starsLabel: string;
+}) {
   return (
     <article className="relative flex min-h-16 items-center gap-4 py-3">
       <BottleGlyph shape={shapeFor(entry.type)} tint={entry.type} className="w-4 shrink-0" />
@@ -265,7 +349,19 @@ function OpenedRow({ entry, when }: { entry: OpenedEntry; when: string }) {
           {entry.producer} · <span className="tnum">{formatVintage(entry.year)}</span>
         </p>
       </div>
-      <p className="shrink-0 text-small text-ink-2">{when}</p>
+      <div className="relative z-10 flex shrink-0 flex-col items-end gap-1">
+        <p className="text-small text-ink-2">{when}</p>
+        {entry.myScore !== null ? (
+          <Stars score={entry.myScore} label={starsLabel} size={14} />
+        ) : !entry.rated ? (
+          <Link
+            href={`/cellar/${entry.vintageId}?rate=${entry.bottleId}`}
+            className="inline-flex min-h-8 items-center text-small font-medium text-accent-fg"
+          >
+            {rateLabel}
+          </Link>
+        ) : null}
+      </div>
     </article>
   );
 }

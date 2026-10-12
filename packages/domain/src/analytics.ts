@@ -20,6 +20,7 @@ export const ANALYTICS_EVENTS = [
   "3d_cellar_opened",
   "3d_bottle_selected",
   "drink_soon_viewed",
+  "import_completed",
 ] as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];

@@ -67,14 +67,14 @@ export function checkOrigin(request: Request): void {
 export async function readJson<T>(
   request: Request,
   schema: ZodType<T>,
-  options: { optional?: boolean } = {},
+  options: { optional?: boolean; maxBytes?: number } = {},
 ): Promise<T> {
+  const limit = options.maxBytes ?? MAX_BODY_BYTES;
   const declared = Number(request.headers.get("content-length") ?? "0");
-  if (declared > MAX_BODY_BYTES) throw new DomainError("VALIDATION", "That request is too large.");
+  if (declared > limit) throw new DomainError("VALIDATION", "That request is too large.");
 
   const text = await request.text();
-  if (text.length > MAX_BODY_BYTES)
-    throw new DomainError("VALIDATION", "That request is too large.");
+  if (text.length > limit) throw new DomainError("VALIDATION", "That request is too large.");
 
   let raw: unknown = {};
   if (text.trim() !== "") {

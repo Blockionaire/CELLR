@@ -3,6 +3,8 @@ import { useTranslations } from "next-intl";
 import { formatVintage, type CellarItem } from "@cellr/domain";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { FavoriteButton } from "./favorite-button";
+import { DrinkLabel } from "./drink-bits";
+import { RatingBadge } from "./tasting-bits";
 import { placeLine, shapeFor } from "./wine-visuals";
 
 interface ItemProps {
@@ -46,6 +48,7 @@ export function WineCard({ item, locale }: ItemProps) {
           favorite={item.favorite}
           className="absolute -left-0.5 -top-0.5"
         />
+        {item.rating && <RatingBadge rating={item.rating} className="absolute bottom-2 left-2" />}
       </div>
       <div className="mt-3 flex-1">
         <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
@@ -64,7 +67,10 @@ export function WineCard({ item, locale }: ItemProps) {
           {where && <span> · {where}</span>}
         </p>
       </div>
-      <p className="mt-3 truncate text-caption text-ink-3">{places}</p>
+      <p className="mt-3 flex items-center justify-between gap-2 text-caption text-ink-3">
+        <span className="truncate">{places}</span>
+        <DrinkLabel drink={item.drink} />
+      </p>
     </article>
   );
 }
@@ -88,6 +94,7 @@ export function WineRow({ item, locale }: ItemProps) {
         <p className="truncate text-small text-ink-2">
           <span className="tnum">{formatVintage(item.year)}</span>
           {where && <span> · {where}</span>}
+          {item.rating && <RatingBadge rating={item.rating} inline />}
         </p>
       </div>
       <FavoriteButton
@@ -99,6 +106,7 @@ export function WineRow({ item, locale }: ItemProps) {
       <div className="flex shrink-0 flex-col items-end gap-1.5">
         <CountBadge count={item.count} />
         <p className="max-w-[9rem] truncate text-caption text-ink-3">{places}</p>
+        <DrinkLabel drink={item.drink} />
       </div>
     </article>
   );
