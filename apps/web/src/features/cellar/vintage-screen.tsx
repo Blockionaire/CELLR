@@ -1,0 +1,256 @@
+"use client";
+
+import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
+import { useState, type ReactNode } from "react";
+import { formatVintage, historyEvents, summarizePlaces, type VintageDetail } from "@cellr/domain";
+import { BottleGlyph } from "@/ui/bottle-glyph";
+import { Button, buttonStyles } from "@/ui/button";
+import { ChevronRightIcon, PlusIcon } from "@/ui/icons";
+import { BottleSpot, useDay, useMoney } from "./bottle-bits";
+import { EditSheet } from "./edit-sheet";
+import { useVintage } from "./hooks";
+import { MoveBottleSheet } from "./move-bottle-sheet";
+import { NewPlaceSheet } from "./new-place-sheet";
+import { OpenBottleSheet } from "./open-bottle-sheet";
+import { placeLine, shapeFor } from "./wine-visuals";
+
+type SheetName = "open" | "move" | "edit" | "place" | null;
+
+/**
+ * One vintage of one wine. The wine comes first (name, producer, year, region), then how many you
+ * own and where, then what you paid and what is known about it. The three things you do with a
+ * bottle — open, move, edit — are right under the title.
+ */
+export function VintageScreen({ initial, currency }: { initial: VintageDetail; currency: string }) {
+  const t = useTranslations("vintage");
+  const tTypes = useTranslations("wineTypes");
+  const locale = useLocale();
+  const { data: detail } = useVintage(initial.vintageId, initial);
+  const [sheet, setSheet] = useState<SheetName>(null);
+  const money = useMoney(detail.currency ?? currency);
+  const day = useDay();
+
+  const { wine } = detail;
+  const count = detail.bottles.length;
+  const places = summarizePlaces(detail.bottles);
+  const history = historyEvents([...detail.bottles, ...detail.opened]);
+  const latestPurchase = detail.bottles
+    .flatMap((b) => (b.purchasedAt ? [b.purchasedAt] : []))
+    .sort()
+    .at(-1);
+  const where = placeLine(wine.region, wine.countryCode, locale);
+  const addMoreHref = `/cellar/add?wine=${wine.id}${detail.year === null ? "&nv=1" : `&year=${detail.year}`}`;
+
+  return (
+    <div className="mx-auto w-full max-w-3xl pt-6 lg:pt-10">
+      <Link
+        href="/cellar"
+        className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-control px-2 text-small font-medium text-ink-2 transition-colors hover:text-ink"
+      >
+        <ChevronRightIcon size={18} className="rotate-180" />
+        {t("back")}
+      </Link>
+
+      <header className="mt-2 grid gap-6 md:grid-cols-[13rem_1fr] md:items-center">
+        <div className="relative grid h-56 place-items-center rounded-card bg-raised md:h-64">
+          <BottleGlyph
+            shape={shapeFor(wine.type)}
+            tint={wine.type}
+            className="h-44 w-auto md:h-52"
+            title={tTypes(wine.type)}
+          />
+        </div>
+        <div className="min-w-0">
+          <p className="text-caption font-medium uppercase tracking-[0.14em] text-ink-3">
+            {wine.producer}
+          </p>
+          <h1 className="mt-1 font-display text-display text-balance">{wine.name}</h1>
+          <p className="mt-2 text-title text-ink-2">
+            <span className="tnum">{formatVintage(detail.year)}</span>
+            {where && <span> · {where}</span>}
+          </p>
+          <p className="mt-3 inline-flex items-center gap-2 text-small text-ink-2">
+            <span
+              aria-hidden="true"
+              className="size-2.5 rounded-full"
+              style={{ background: `var(--wine-${wine.type})` }}
+            />
+            {tTypes(wine.type)}
+          </p>
+
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
+            {count > 0 ? (
+              <Button size="lg" onClick={() => setSheet("open")} className="col-span-2 sm:min-w-48">
+                {t("open")}
+              </Button>
+            ) : (
+              <Link
+                href={addMoreHref}
+                className={buttonStyles({
+                  variant: "primary",
+                  size: "lg",
+                  className: "col-span-2",
+                })}
+              >
+                <PlusIcon size={20} />
+                {t("addMore")}
+              </Link>
+            )}
+            {count > 0 && (
+              <Button variant="secondary" size="lg" onClick={() => setSheet("move")}>
+                {t("move")}
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => setSheet("edit")}
+              className={count === 0 ? "col-span-2 sm:col-span-1" : ""}
+            >
+              {t("edit")}
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <div className="mt-10 flex flex-col gap-4">
+        <Section>
+          {count > 0 ? (
+            <>
+              <p className="flex items-baseline gap-3">
+                <span className="font-display text-display tnum" data-testid="bottle-count">
+                  {count}
+                </span>
+                <span className="text-body text-ink-2">{t("bottlesInCellar", { count })}</span>
+              </p>
+              <p className="mt-3 text-small text-ink-2">
+                {places.map((p, i) => (
+                  <span key={p.label ?? "none"}>
+                    {i > 0 && " · "}
+                    {p.label ?? t("notPlaced")} <span className="tnum">×{p.count}</span>
+                  </span>
+                ))}
+              </p>
+              <ul className="mt-4 divide-y divide-hairline" aria-label={t("bottlesTitle")}>
+                {detail.bottles.map((b) => (
+                  <li key={b.id} className="flex items-center justify-between gap-3 py-3">
+                    <span className="flex items-center gap-3 text-body text-ink">
+                      <BottleGlyph
+                        shape={shapeFor(wine.type)}
+                        tint={wine.type}
+                        className="w-3 shrink-0"
+                      />
+                      <span>
+                        <BottleSpot bottle={b} short={places.length <= 1} />
+                      </span>
+                    </span>
+                    {b.priceCents !== null && (
+                      <span className="text-small text-ink-2 tnum">{money(b.priceCents)}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <>
+              <p className="font-display text-headline">{t("noneLeft")}</p>
+              <p className="mt-1 text-body text-ink-2">{t("noneLeftBody")}</p>
+            </>
+          )}
+        </Section>
+
+        {count > 0 && (
+          <Section title={t("purchase")}>
+            <Facts
+              rows={[
+                [
+                  t("averagePrice"),
+                  detail.averagePriceCents === null
+                    ? t("notRecorded")
+                    : money(detail.averagePriceCents),
+                ],
+                [t("latestPurchase"), latestPurchase ? day(latestPurchase) : t("notRecorded")],
+              ]}
+            />
+          </Section>
+        )}
+
+        <Section title={t("about")}>
+          <Facts
+            rows={[
+              [t("style"), tTypes(wine.type)],
+              ...(wine.region ? [[t("region"), wine.region] as [string, string]] : []),
+              ...(wine.appellation
+                ? [[t("appellation"), wine.appellation] as [string, string]]
+                : []),
+              ...(wine.countryCode
+                ? [[t("country"), placeLine(null, wine.countryCode, locale)] as [string, string]]
+                : []),
+            ]}
+          />
+        </Section>
+
+        {history.length > 0 && (
+          <Section title={t("history")}>
+            <ol className="flex flex-col gap-3">
+              {history.map((e) => (
+                <li
+                  key={`${e.kind}-${e.day}`}
+                  className="flex items-baseline justify-between gap-4"
+                >
+                  <span className="text-body text-ink">
+                    {e.kind === "added"
+                      ? t("historyAdded", { count: e.count })
+                      : t("historyOpened", { count: e.count })}
+                  </span>
+                  <span className="text-small text-ink-3 tnum">{day(e.day)}</span>
+                </li>
+              ))}
+            </ol>
+          </Section>
+        )}
+      </div>
+
+      <OpenBottleSheet open={sheet === "open"} onClose={() => setSheet(null)} detail={detail} />
+      <MoveBottleSheet
+        open={sheet === "move"}
+        onClose={() => setSheet(null)}
+        detail={detail}
+        onNewPlace={() => setSheet("place")}
+      />
+      <EditSheet open={sheet === "edit"} onClose={() => setSheet(null)} detail={detail} />
+      <NewPlaceSheet
+        open={sheet === "place"}
+        onClose={() => setSheet("move")}
+        onCreated={() => undefined}
+      />
+    </div>
+  );
+}
+
+function Section({ title, children }: { title?: string; children: ReactNode }) {
+  return (
+    <section className="rounded-card border border-hairline bg-surface p-5">
+      {title && (
+        <h2 className="mb-3 text-caption font-medium uppercase tracking-[0.18em] text-ink-3">
+          {title}
+        </h2>
+      )}
+      {children}
+    </section>
+  );
+}
+
+function Facts({ rows }: { rows: ReadonlyArray<readonly [string, string]> }) {
+  return (
+    <dl className="flex flex-col gap-3">
+      {rows.map(([label, value]) => (
+        <div key={label} className="flex items-baseline justify-between gap-4">
+          <dt className="text-small text-ink-2">{label}</dt>
+          <dd className="text-right text-body text-ink">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}

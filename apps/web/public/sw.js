@@ -8,7 +8,7 @@
  *
  * Bump VERSION to drop old caches.
  */
-const VERSION = "v2";
+const VERSION = "v3"; // v3: new logo icons (same URLs, so the old cached copies must go)
 const CACHE = `cellr-static-${VERSION}`;
 const OFFLINE_URL = "/offline.html"; // fully self-contained: inline CSS and fonts, no JavaScript, no other requests
 const SHELL = [OFFLINE_URL, "/icons/icon-192.png", "/icons/icon-512.png"];

@@ -1,28 +1,19 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
-import { buttonStyles } from "@/ui/button";
-import { EmptyState } from "@/ui/empty-state";
-import { PageHeader } from "@/ui/page-header";
+import { CellarScreen } from "@/features/cellar/cellar-screen";
+import { CELLAR_VIEW_COOKIE, parseViewMode } from "@/features/cellar/view-mode";
+import { getPageContext } from "@/server/context";
+import { servicesFor } from "@/server/services";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("cellar"))("title") };
 }
 
 export default async function CellarPage() {
-  const t = await getTranslations("cellar");
-  return (
-    <>
-      <PageHeader title={t("title")} />
-      <EmptyState
-        title={t("emptyTitle")}
-        body={t("emptyBody")}
-        action={
-          <Link href="/scan" className={buttonStyles({ variant: "primary", size: "lg" })}>
-            {t("emptyAction")}
-          </Link>
-        }
-      />
-    </>
-  );
+  const ctx = await getPageContext();
+  if (!ctx) return null; // the (app) layout has already redirected signed-out visitors
+  const [initial, store] = await Promise.all([servicesFor(ctx).cellar.inventory(), cookies()]);
+  const view = parseViewMode(store.get(CELLAR_VIEW_COOKIE)?.value);
+  return <CellarScreen initial={initial} initialView={view} />;
 }

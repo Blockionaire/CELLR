@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
 export const STACK = "http://localhost:54321";
@@ -84,4 +85,52 @@ export async function api(
     headers: bearer(token),
     ...(data === undefined ? {} : { data }),
   });
+}
+
+export const stamp = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+
+/** WCAG 2.1 AA violations on the current page, as readable one-liners (empty = clean). */
+export async function audit(page: Page) {
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  return results.violations.map(
+    (v) => `${v.id}: ${v.help} (${v.nodes.length}) — ${v.nodes[0]?.target.join(" ")}`,
+  );
+}
+
+/** A signed-in person with a household, ready to use the cellar. */
+export async function arrive(page: Page, label: string) {
+  const email = uniqueEmail(label);
+  const household = `House ${stamp()}`;
+  await signIn(page, email);
+  await onboardCreate(page, household, "Joost");
+  const [row] = await sql<{ id: string }>("select id from public.households where name = $1", [
+    household,
+  ]);
+  return { email, household, householdId: row!.id };
+}
+
+export const wineBody = {
+  producer: "Domaine Test",
+  name: "Chablis Premier Cru",
+  type: "white",
+  countryCode: "FR",
+  region: "Burgundy",
+};
+
+/** What a native app would do: sign in over HTTP and call the API with a bearer token. */
+export async function apiClient(request: APIRequestContext, email: string) {
+  const token = await sessionToken(email);
+  const call = async <T = Record<string, unknown>>(
+    method: "get" | "post" | "patch" | "delete",
+    path: string,
+    data?: unknown,
+    expected?: number,
+  ) => {
+    const res = await api(request, token, method, path, data);
+    if (expected !== undefined) expect(res.status(), `${method} ${path}`).toBe(expected);
+    return { status: res.status(), body: (await res.json().catch(() => null)) as T };
+  };
+  return { token, call };
 }

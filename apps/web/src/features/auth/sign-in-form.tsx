@@ -9,7 +9,7 @@ import { api, errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { CodeField, Field } from "@/ui/field";
 import { useToast } from "@/ui/toast";
-import { Wordmark } from "@/ui/wordmark";
+import { Logo } from "@/ui/logo";
 
 const RESEND_SECONDS = 30;
 
@@ -82,7 +82,7 @@ export function SignInForm({ next }: { next: string }) {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-5 py-12 pt-safe pb-safe">
-      <Wordmark className="mb-12 text-ink-2" />
+      <Logo className="mb-10 h-28" />
 
       {step === "email" ? (
         <form onSubmit={sendCode} noValidate className="flex flex-col gap-6">

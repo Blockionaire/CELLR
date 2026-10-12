@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { buttonStyles } from "../button";
 import { cn } from "../cn";
-import { Wordmark } from "../wordmark";
+import { Logo } from "../logo";
 import { isActive, NAV_ITEMS } from "./nav-items";
 
 /** Desktop navigation: a quiet left rail; the primary action becomes a real button. */
@@ -23,7 +23,7 @@ export function Rail({ className }: { className?: string }) {
       )}
     >
       <Link href="/" className="mb-10 px-3" aria-label="CELLR">
-        <Wordmark />
+        <Logo className="h-20" />
       </Link>
       {scan && (
         <Link

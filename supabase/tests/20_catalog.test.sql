@@ -11,6 +11,15 @@ begin
   perform test.rec('normalize: hyphens and dots',               private.normalize_text('Château Lafite-Rothschild') = 'chateau lafite rothschild');
   perform test.rec('normalize: non-latin names survive',        private.normalize_text('Мерло') = 'мерло');
   perform test.rec('normalize: null / blank are empty',         private.normalize_text(null) = '' and private.normalize_text('  ') = '');
+  -- The app recognises "the same wine" with a TypeScript twin of this function (packages/domain
+  -- normalizeText); the same cases are asserted in packages/domain/src/cellar.test.ts.
+  perform test.rec('normalize (twin cases): the TypeScript and SQL versions agree',
+    private.normalize_text('Château Léoville-Las Cases') = 'chateau leoville las cases'
+    and private.normalize_text('Müller-Thurgau') = 'muller thurgau'
+    and private.normalize_text('  Gewürztraminer  ') = 'gewurztraminer'
+    and private.normalize_text('Weißburgunder') = 'weissburgunder'
+    and private.normalize_text('Cuvée Ærø') = 'cuvee aero'
+    and private.normalize_text('Pétrus 2015!') = 'petrus 2015');
 
   -- ---- seeded reference data -------------------------------------------------------------------
   perform test.as_user(1);
