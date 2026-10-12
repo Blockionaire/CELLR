@@ -150,6 +150,9 @@ function fake(
     async updateWine() {
       return options.wineUpdatable === false ? null : { ...WINE, name: "Renamed" };
     },
+    async listRecentlyOpened() {
+      return [];
+    },
     async listFavoriteWineIds() {
       return [];
     },
@@ -384,6 +387,8 @@ describe("the racks view", () => {
     locationLabel: "Wine fridge",
     row: 1,
     col: 1,
+    priceCents: null,
+    currency: null,
     addedAt: "2026-10-01T10:00:00Z",
     ...over,
   });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DomainError, type CreateStorage, type Slot } from "@cellr/domain";
-import { aggregateInventory, createCellarService, toStorageView } from "./service";
+import { aggregateInventory, buildHome, createCellarService, toStorageView } from "./service";
 import type { CellarRepository, InventoryRow, NewBottle, StorageRow } from "./types";
 
 const WINE = {
@@ -103,6 +103,9 @@ function fakeRepo(
     },
     async updateWine() {
       return null;
+    },
+    async listRecentlyOpened() {
+      return [];
     },
     async listFavoriteWineIds() {
       return [...state.favorites];
@@ -312,6 +315,8 @@ describe("the cellar view", () => {
     locationLabel: "Wine fridge",
     row: 1,
     col: 1,
+    priceCents: null,
+    currency: null,
     addedAt: "2026-10-01T10:00:00Z",
     ...over,
   });
@@ -368,5 +373,120 @@ describe("the cellar view", () => {
 
   it("is empty for an empty cellar", () => {
     expect(aggregateInventory([])).toEqual({ items: [], bottleCount: 0 });
+  });
+});
+
+describe("the home view", () => {
+  const row = (over: Partial<InventoryRow>): InventoryRow => ({
+    bottleId: "b",
+    vintageId: "v1",
+    wineId: "w1",
+    producer: "Château Test",
+    wineName: "Grand Vin",
+    type: "red",
+    year: 2019,
+    region: null,
+    countryCode: "FR",
+    locationId: "u1",
+    locationLabel: "Wine fridge",
+    row: 1,
+    col: 1,
+    priceCents: null,
+    currency: null,
+    addedAt: "2026-10-01T10:00:00Z",
+    ...over,
+  });
+  const units = [
+    toStorageView({ id: "u1", label: "Wine fridge", kind: "fridge", rows: 2, cols: 3, used: 2 }),
+    toStorageView({ id: "u2", label: "Rack", kind: "rack", rows: 2, cols: 2, used: 0 }),
+  ];
+
+  it("counts bottles and distinct wines (not vintages), and the space used", () => {
+    const home = buildHome(
+      [
+        row({ bottleId: "1", vintageId: "v1" }),
+        row({ bottleId: "2", vintageId: "v2", year: 2020 }), // same wine, other vintage
+        row({
+          bottleId: "3",
+          vintageId: "v3",
+          wineId: "w2",
+          locationId: null,
+          locationLabel: null,
+        }),
+      ],
+      units,
+      [],
+    );
+    expect(home).toMatchObject({
+      bottleCount: 3,
+      wineCount: 2,
+      capacity: 10,
+      used: 2,
+      unplaced: 1,
+    });
+  });
+
+  it("adds up only the prices that are known, and says how many that is", () => {
+    const home = buildHome(
+      [
+        row({ bottleId: "1", priceCents: 2450, currency: "EUR" }),
+        row({ bottleId: "2", priceCents: 1000, currency: "EUR" }),
+        row({ bottleId: "3" }),
+      ],
+      units,
+      [],
+    );
+    expect(home).toMatchObject({ valueCents: 3450, pricedCount: 2, currency: "EUR" });
+  });
+
+  it("has no value at all when no price is known", () => {
+    expect(buildHome([row({})], units, [])).toMatchObject({
+      valueCents: null,
+      pricedCount: 0,
+      currency: null,
+    });
+  });
+
+  it("lists what was added most recently (at most eight) and passes on what was opened", () => {
+    const rows = Array.from({ length: 10 }, (_, i) =>
+      row({
+        bottleId: `b${i}`,
+        vintageId: `v${i}`,
+        wineId: `w${i}`,
+        wineName: `Wine ${i}`,
+        addedAt: `2026-10-${String(i + 1).padStart(2, "0")}T10:00:00Z`,
+      }),
+    );
+    const opened = [
+      {
+        bottleId: "o1",
+        vintageId: "v1",
+        producer: "P",
+        wineName: "Opened",
+        type: "red" as const,
+        year: 2015,
+        openedAt: "2026-10-09T20:00:00Z",
+      },
+    ];
+    const home = buildHome(rows, units, opened);
+    expect(home.recentlyAdded).toHaveLength(8);
+    expect(home.recentlyAdded[0]?.wineName).toBe("Wine 9");
+    expect(home.recentlyOpened).toEqual(opened);
+  });
+
+  it("is quiet for an empty cellar", () => {
+    expect(buildHome([], [], [], new Set(), new Date("2026-10-12T10:00:00Z"))).toEqual({
+      generatedAt: "2026-10-12T10:00:00.000Z",
+      bottleCount: 0,
+      wineCount: 0,
+      valueCents: null,
+      pricedCount: 0,
+      currency: null,
+      capacity: 0,
+      used: 0,
+      unplaced: 0,
+      recentlyAdded: [],
+      recentlyOpened: [],
+    });
   });
 });

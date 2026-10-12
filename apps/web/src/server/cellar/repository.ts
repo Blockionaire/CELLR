@@ -408,7 +408,7 @@ export function createCellarRepository(db: Db): CellarRepository {
       const { data, error } = await db
         .from("bottles")
         .select(
-          "id, created_at, location_id, loc_row, loc_col, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, country_code, producers!inner(name))), cellar_locations(label)",
+          "id, created_at, location_id, loc_row, loc_col, purchase_price_cents, currency, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, country_code, producers!inner(name))), cellar_locations(label)",
         )
         .eq("household_id", householdId)
         .eq("status", "in_cellar")
@@ -429,7 +429,31 @@ export function createCellarRepository(db: Db): CellarRepository {
         locationLabel: b.cellar_locations?.label ?? null,
         row: b.loc_row,
         col: b.loc_col,
+        priceCents: b.purchase_price_cents,
+        currency: b.currency,
         addedAt: b.created_at,
+      }));
+    },
+    async listRecentlyOpened(householdId, limit) {
+      const { data, error } = await db
+        .from("bottles")
+        .select(
+          "id, opened_at, wine_vintages!inner(id, year, wines!inner(name, wine_type, producers!inner(name)))",
+        )
+        .eq("household_id", householdId)
+        .eq("status", "opened")
+        .not("opened_at", "is", null)
+        .order("opened_at", { ascending: false })
+        .limit(limit);
+      if (error) throw mapDbError(error);
+      return (data ?? []).map((b) => ({
+        bottleId: b.id,
+        vintageId: b.wine_vintages.id,
+        producer: b.wine_vintages.wines.producers.name,
+        wineName: b.wine_vintages.wines.name,
+        type: b.wine_vintages.wines.wine_type as WineType,
+        year: b.wine_vintages.year,
+        openedAt: b.opened_at ?? "",
       }));
     },
     async getVintage(householdId, vintageId) {

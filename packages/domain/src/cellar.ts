@@ -239,6 +239,39 @@ export interface CellarView {
   bottleCount: number;
 }
 
+/** A bottle that was opened: what it was and when. */
+export interface OpenedEntry {
+  bottleId: string;
+  vintageId: string;
+  producer: string;
+  wineName: string;
+  type: WineType;
+  year: number | null;
+  openedAt: string;
+}
+
+/** Everything the Home screen shows, in one go. */
+export interface HomeView {
+  /** When this was put together (ISO), so "3 days ago" is measured against the same clock everywhere. */
+  generatedAt: string;
+  bottleCount: number;
+  wineCount: number;
+  /** Sum of the known purchase prices of the bottles in the cellar, or null when none is known. */
+  valueCents: number | null;
+  /** How many bottles that sum is built from (the rest have no price recorded). */
+  pricedCount: number;
+  currency: string | null;
+  /** Spots across all storage places, and how many are taken. */
+  capacity: number;
+  used: number;
+  /** Bottles in the cellar that have no place yet. */
+  unplaced: number;
+  /** Newest additions first. */
+  recentlyAdded: CellarItem[];
+  /** Newest first. */
+  recentlyOpened: OpenedEntry[];
+}
+
 export interface AddBottlesResult {
   wine: WineSummary;
   year: number | null;

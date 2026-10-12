@@ -43,7 +43,20 @@ export interface InventoryRow {
   locationLabel: string | null;
   row: number | null;
   col: number | null;
+  priceCents: number | null;
+  currency: string | null;
   addedAt: string;
+}
+
+/** One opened bottle, with what it was. */
+export interface OpenedRow {
+  bottleId: string;
+  vintageId: string;
+  producer: string;
+  wineName: string;
+  type: WineType;
+  year: number | null;
+  openedAt: string;
 }
 
 export interface NewBottle {
@@ -120,6 +133,8 @@ export interface CellarRepository {
 
   insertBottles(householdId: string, rows: NewBottle[]): Promise<string[]>;
   listInventory(householdId: string): Promise<InventoryRow[]>;
+  /** The most recently opened bottles, newest first. */
+  listRecentlyOpened(householdId: string, limit: number): Promise<OpenedRow[]>;
 
   getVintage(householdId: string, vintageId: string): Promise<VintageRows | null>;
   getBottle(householdId: string, bottleId: string): Promise<BottleRow | null>;

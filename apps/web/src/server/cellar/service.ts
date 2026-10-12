@@ -13,6 +13,7 @@ import {
   type CellarView,
   type CreateStorage,
   type CreateWine,
+  type HomeView,
   type PlacedBottle,
   type RackView,
   type StorageUnitView,
@@ -27,6 +28,7 @@ import type {
   CellarRepository,
   InventoryRow,
   NewBottle,
+  OpenedRow,
   PurchasePatch,
   StorageRow,
 } from "./types";
@@ -95,6 +97,34 @@ export function aggregateInventory(
       return item;
     });
   return { items, bottleCount: rows.length };
+}
+
+/**
+ * The numbers and short lists on Home. Value counts only bottles with a recorded price, and says how many,
+ * so it never pretends to know more than it does.
+ */
+export function buildHome(
+  rows: InventoryRow[],
+  units: StorageUnitView[],
+  opened: OpenedRow[],
+  favoriteWineIds: ReadonlySet<string> = new Set(),
+  now: Date = new Date(),
+): HomeView {
+  const cellar = aggregateInventory(rows, favoriteWineIds);
+  const priced = rows.filter((r) => r.priceCents !== null);
+  return {
+    generatedAt: now.toISOString(),
+    bottleCount: cellar.bottleCount,
+    wineCount: new Set(rows.map((r) => r.wineId)).size,
+    valueCents: priced.length > 0 ? priced.reduce((sum, r) => sum + (r.priceCents ?? 0), 0) : null,
+    pricedCount: priced.length,
+    currency: priced.find((r) => r.currency)?.currency ?? null,
+    capacity: units.reduce((sum, u) => sum + u.capacity, 0),
+    used: units.reduce((sum, u) => sum + u.used, 0),
+    unplaced: rows.filter((r) => r.locationId === null).length,
+    recentlyAdded: cellar.items.slice(0, 8),
+    recentlyOpened: opened.map((o) => ({ ...o })),
+  };
 }
 
 /** Every storage unit with what sits in each spot, plus the bottles that have no place yet. */
@@ -184,6 +214,18 @@ export function createCellarService(repo: CellarRepository, { userId }: { userId
       const { id } = await household();
       const [units, rows] = await Promise.all([repo.listStorage(id), repo.listInventory(id)]);
       return buildRacks(units.map(toStorageView), rows);
+    },
+
+    /** Home: the cellar at a glance. */
+    async home(): Promise<HomeView> {
+      const { id } = await household();
+      const [rows, units, opened, favorites] = await Promise.all([
+        repo.listInventory(id),
+        repo.listStorage(id),
+        repo.listRecentlyOpened(id, 5),
+        repo.listFavoriteWineIds(userId),
+      ]);
+      return buildHome(rows, units.map(toStorageView), opened, new Set(favorites));
     },
 
     async inventory(): Promise<CellarView> {
