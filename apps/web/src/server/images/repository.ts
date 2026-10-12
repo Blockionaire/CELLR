@@ -59,7 +59,8 @@ export function createImageRepository(db: Db): ImageRepository {
 
     async remove(paths) {
       if (paths.length === 0) return;
-      await files.remove(paths); // best effort: a stray file is harmless, a failure here must not hide the real error
+      const { error } = await files.remove(paths);
+      if (error) throw new Error(`storage remove failed: ${error.message}`);
     },
 
     async insertImage(row) {

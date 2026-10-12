@@ -16,6 +16,7 @@ import {
   errorResponse,
   MAX_BODY_BYTES,
   open,
+  readForm,
   readJson,
 } from "./http";
 
@@ -67,6 +68,25 @@ describe("checkOrigin (CSRF)", () => {
       headers: { authorization: "Bearer abc.def.ghi" },
     });
     expect(() => checkOrigin(req)).not.toThrow();
+  });
+});
+
+describe("readForm", () => {
+  const form = (headers: Record<string, string>) =>
+    new Request("https://cellr.test/api/v1/images", {
+      method: "POST",
+      headers: { "content-type": "multipart/form-data; boundary=x", ...headers },
+      body: "--x--",
+    });
+
+  it("refuses an upload that doesn't say how big it is, or says it is too big", async () => {
+    await expect(readForm(form({}), 100)).rejects.toMatchObject({ code: "VALIDATION" });
+    await expect(readForm(form({ "content-length": "0" }), 100)).rejects.toMatchObject({
+      code: "VALIDATION",
+    });
+    await expect(readForm(form({ "content-length": "101" }), 100)).rejects.toMatchObject({
+      code: "UPLOAD_REJECTED",
+    });
   });
 });
 

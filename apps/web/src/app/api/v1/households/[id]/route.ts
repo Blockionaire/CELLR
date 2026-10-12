@@ -26,6 +26,6 @@ export const DELETE = authed<Params>(async ({ ctx, params }) => {
   const id = idOf(params);
   await services.households.assertOwner(id);
   // The photos are found through the household, so they go first; the rows follow with the household itself.
-  await services.images.purge(id).catch(() => {});
+  await services.images.purge(id);
   await services.households.deleteHousehold(id);
 });

@@ -81,10 +81,12 @@ export function BottleDetails({
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const units: StorageUnitView[] = storage.data ?? [];
-  const placeId =
-    chosenPlace !== undefined && (chosenPlace === null || units.some((u) => u.id === chosenPlace))
+  /** The place bottles go: the one chosen, else the first with room for all of them, else any with room. */
+  const placeIn = (list: StorageUnitView[]): string | null =>
+    chosenPlace !== undefined && (chosenPlace === null || list.some((u) => u.id === chosenPlace))
       ? chosenPlace
-      : (units.find((u) => u.free >= quantity)?.id ?? units.find((u) => u.free > 0)?.id ?? null);
+      : (list.find((u) => u.free >= quantity)?.id ?? list.find((u) => u.free > 0)?.id ?? null);
+  const placeId = placeIn(units);
   const unit = units.find((u) => u.id === placeId) ?? null;
 
   const thisYear = new Date().getFullYear();
@@ -102,18 +104,20 @@ export function BottleDetails({
     setSubmitted(true);
     setError(null);
     if (year === undefined || priceCents === undefined) return;
+    // Saved before the places had loaded? Wait for them, so the bottles go where the form would have offered.
+    const target = storage.isPending ? placeIn((await storage.refetch()).data ?? []) : placeId;
     const parsed = AddBottlesSchema.safeParse({
       wineId: wine.id,
       year,
       quantity,
-      locationId: placeId,
+      locationId: target,
       priceCents,
       purchasedAt: date || null,
       ...(imageId ? { imageId } : {}),
     });
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
     try {
-      onDone(await add.mutateAsync(parsed.data), placeId);
+      onDone(await add.mutateAsync(parsed.data), target);
     } catch (e) {
       setError(errorMessage(e, (k) => te(k), ERROR_MESSAGES));
     }

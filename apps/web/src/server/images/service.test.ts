@@ -195,7 +195,7 @@ describe("deleting a household's photos", () => {
     expect(state.files.size).toBe(0);
   });
 
-  it("goes on even if storage refuses some of it (a leftover file is harmless, a stuck delete is not)", async () => {
+  it("stops if storage refuses, so the delete can be tried again instead of orphaning the photos", async () => {
     const { repo } = fakeRepo();
     const failing: ImageRepository = {
       ...repo,
@@ -204,6 +204,6 @@ describe("deleting a household's photos", () => {
       },
       listPaths: async () => ["a/b.jpg"],
     };
-    await expect(createImageService(failing, household).purge("h")).resolves.toBeUndefined();
+    await expect(createImageService(failing, household).purge("h")).rejects.toThrow("storage down");
   });
 });

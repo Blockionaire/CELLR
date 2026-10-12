@@ -12,6 +12,9 @@ begin
   perform test.rec('every bucket has a size limit and MIME allow-list',
     (select count(*) from storage.buckets where id in ('bottle-images', 'tasting-images', 'user-avatars', 'wine-labels')
         and file_size_limit between 1 and 10485760 and allowed_mime_types is not null) = 4);
+  perform test.rec('the photo bucket takes only JPEG up to 4 MB: what the app server itself produces',
+    (select count(*) from storage.buckets where id = 'bottle-images'
+        and allowed_mime_types = array['image/jpeg'] and file_size_limit = 4194304) = 1);
   perform test.rec('HEIC / SVG / HTML are not accepted anywhere',
     (select count(*) from storage.buckets where allowed_mime_types && array['image/heic', 'image/heif', 'image/svg+xml', 'text/html']) = 0);
 

@@ -44,7 +44,8 @@ _Supabase → SQL Editor → New query._ Run these files **in this order**, one 
 7. `…0007_signup_allowlist.sql`
 8. `…0008_tastings.sql` (ratings: "how was it?" — added after the first version; see "Updating the database")
 9. `…0009_wishlist.sql` (the wishlist — also added later; see "Updating the database")
-10. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
+10. `…0010_tighten_photo_bucket.sql` (photo bucket: JPEG only, 4 MB — also added later)
+11. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
 
 If a file fails, stop: the files are not safe to re-run. Note which file and the error text.
 
@@ -64,10 +65,11 @@ New features sometimes need one more database step. They arrive as a new numbere
 (SQL Editor → New query → paste → Run → "Success"). Nothing breaks while you wait: the app notices a
 missing step and simply leaves that feature switched off.
 
-| File                          | What it switches on                                                      |
-| ----------------------------- | ------------------------------------------------------------------------ |
-| `20261012000008_tastings.sql` | Ratings: stars, words and a note after you open a bottle ("How was it?") |
-| `20261012000009_wishlist.sql` | The wishlist: wines you would like to buy, shared with your household    |
+| File                                      | What it switches on                                                      |
+| ----------------------------------------- | ------------------------------------------------------------------------ |
+| `20261012000008_tastings.sql`             | Ratings: stars, words and a note after you open a bottle ("How was it?") |
+| `20261012000009_wishlist.sql`             | The wishlist: wines you would like to buy, shared with your household    |
+| `20261013000010_tighten_photo_bucket.sql` | Photo storage accepts only the sanitised JPEGs the app itself makes      |
 
 ### Check it worked
 

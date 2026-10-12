@@ -100,7 +100,10 @@ export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 /** Reads a multipart form (a photo upload), refusing anything oversized before it is buffered. */
 export async function readForm(request: Request, maxBytes = MAX_UPLOAD_BYTES): Promise<FormData> {
-  if (Number(request.headers.get("content-length") ?? "0") > maxBytes)
+  // The size must be declared up front: a body that doesn't say how big it is would be buffered whole first.
+  const declared = Number(request.headers.get("content-length"));
+  if (!Number.isFinite(declared) || declared <= 0) throw new DomainError("VALIDATION");
+  if (declared > maxBytes)
     throw new DomainError("UPLOAD_REJECTED", "That photo is too large. Try a smaller one.");
   if (!(request.headers.get("content-type") ?? "").toLowerCase().includes("multipart/form-data"))
     throw new DomainError("VALIDATION");
