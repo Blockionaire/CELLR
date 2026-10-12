@@ -15,7 +15,7 @@ import {
 } from "@cellr/domain";
 import type { Db } from "@/server/db/clients";
 import type { Database } from "@/server/db/database.types";
-import { mapDbError } from "@/server/db/errors";
+import { isMissingTable, mapDbError } from "@/server/db/errors";
 import type {
   ActiveHousehold,
   BottleRow,
@@ -133,13 +133,9 @@ const toTasting = (r: {
   tastedAt: r.tasted_at,
 });
 
-/**
- * Ratings arrive with database step 0008. Until it has been run, the app must not break: reading says
- * "nothing yet", and writing says plainly what is missing.
- */
-export const isMissingTable = (error: { code?: string | undefined }) =>
-  // PGRST205: not in the schema cache · 42P01: no such relation · PGRST200: the join to it cannot be found either
-  error.code === "PGRST205" || error.code === "42P01" || error.code === "PGRST200";
+// Ratings arrive with database step 0008. Until it has been run, the app must not break: reading says
+// "nothing yet", and writing says plainly what is missing.
+export { isMissingTable };
 
 const ratingsNotReady = () =>
   new DomainError(

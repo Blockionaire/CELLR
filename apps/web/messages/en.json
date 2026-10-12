@@ -150,8 +150,42 @@
   },
   "sommelier": {
     "title": "Sommelier",
-    "soonTitle": "Your sommelier is warming up",
-    "soonBody": "Ask what to open tonight, and why. It gets good once your cellar has a few bottles."
+    "subtitle": "Ask what to open, and why. I only know the wines in your cellar.",
+    "question": "Your question",
+    "placeholder": "Ask about your cellar…",
+    "send": "Send",
+    "thinking": "Thinking…",
+    "conversation": "Conversation",
+    "you": "You",
+    "sommelier": "Sommelier",
+    "newChat": "New conversation",
+    "tryThese": "Try asking",
+    "chips": {
+      "tonight": "What should I open tonight?",
+      "steak": "Something for a steak dinner",
+      "peak": "What is at its peak?",
+      "guests": "A wine for guests coming over",
+      "fish": "What goes with fish?",
+      "keep": "What should I keep for later?"
+    },
+    "aiNote": "Advice from an AI that has read your cellar list. Drink windows are estimates.",
+    "basic": {
+      "pairing": "These bottles from your cellar suit that best:",
+      "soon": "These are ready, or running out of time:",
+      "favorites": "Nothing is urgent. These are your favourites and best rated:",
+      "nothing": "Nothing stands out right now. Add a few bottles and ask again."
+    },
+    "reason": {
+      "ai-off": "The AI sommelier isn’t switched on yet, so this answer comes straight from your cellar.",
+      "ai-down": "The sommelier couldn’t be reached just now, so this answer comes straight from your cellar.",
+      "limit": "You have asked a lot in a short while, so this answer comes straight from your cellar."
+    },
+    "failed": "That didn’t work.",
+    "retry": "Try again",
+    "bottles": "{count, plural, one {# bottle} other {# bottles}}",
+    "emptyTitle": "Your sommelier needs a cellar",
+    "emptyBody": "Add a few bottles, then ask what to open tonight, and why.",
+    "emptyAction": "Add your first bottle"
   },
   "profile": {
     "title": "Profile",

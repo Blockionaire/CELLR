@@ -12,3 +12,5 @@ export * from "./tonight";
 export * from "./wijnkelder-import";
 export * from "./image";
 export * from "./scan";
+export * from "./sommelier";
+export * from "./wishlist";

@@ -16,6 +16,9 @@ import { createHouseholdService } from "@/server/households/service";
 import { createRateLimitRepository } from "@/server/ratelimit/repository";
 import { createRateLimiter, LIMITS } from "@/server/ratelimit/service";
 import { createScanService } from "@/server/scans/service";
+import { createSommelierService } from "@/server/sommelier/service";
+import { createWishlistRepository } from "@/server/wishlist/repository";
+import { createWishlistService } from "@/server/wishlist/service";
 
 /**
  * Composition root. Routes and Server Components get services from here, never repositories.
@@ -30,12 +33,13 @@ export function servicesFor(ctx: RequestContext) {
     return found;
   };
   const images = createImageService(createImageRepository(ctx.db), household);
+  const cellar = createCellarService(cellars, { userId: ctx.userId });
   return {
     households: createHouseholdService(createHouseholdRepository(ctx.db), {
       userId: ctx.userId,
       email: ctx.email,
     }),
-    cellar: createCellarService(cellars, { userId: ctx.userId }),
+    cellar,
     images,
     scans: createScanService({
       images,
@@ -43,6 +47,26 @@ export function servicesFor(ctx: RequestContext) {
       householdId: async () => (await household()).id,
       llm: getLlmProvider(),
       spendScan: () => limiter.enforce(LIMITS.scans),
+      recordUsage: ({ householdId, task, status, usage }) =>
+        recordAiUsage({ userId: ctx.userId, householdId, task, status, ...usage }),
+    }),
+    wishlist: createWishlistService({
+      repo: createWishlistRepository(ctx.db),
+      household,
+      wineExists: async (wineId) => (await cellars.getWine(wineId)) !== null,
+      bottlesByWine: async (householdId) => {
+        const counts = new Map<string, number>();
+        for (const row of await cellars.listInventory(householdId))
+          counts.set(row.wineId, (counts.get(row.wineId) ?? 0) + 1);
+        return counts;
+      },
+    }),
+    sommelier: createSommelierService({
+      cellar: () => cellar.inventory(),
+      tonight: (request) => cellar.tonight(request),
+      llm: getLlmProvider(),
+      spend: () => limiter.enforce(LIMITS.chat),
+      householdId: async () => (await household()).id,
       recordUsage: ({ householdId, task, status, usage }) =>
         recordAiUsage({ userId: ctx.userId, householdId, task, status, ...usage }),
     }),

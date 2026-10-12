@@ -865,6 +865,58 @@ export type Database = {
           },
         ];
       };
+      wishlist_items: {
+        Row: {
+          added_by: string | null;
+          created_at: string;
+          household_id: string;
+          id: string;
+          max_price_cents: number | null;
+          note: string | null;
+          updated_at: string;
+          wine_id: string;
+          year: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          added_by?: string | null;
+          created_at?: string;
+          household_id: string;
+          id?: string;
+          max_price_cents?: number | null;
+          note?: string | null;
+          updated_at?: string;
+          wine_id: string;
+          year?: number | null;
+        };
+        Update: {
+          added_by?: string | null;
+          created_at?: string;
+          household_id?: string;
+          id?: string;
+          max_price_cents?: number | null;
+          note?: string | null;
+          updated_at?: string;
+          wine_id?: string;
+          year?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wishlist_items_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wishlist_items_wine_id_fkey";
+            columns: ["wine_id"];
+            isOneToOne: false;
+            referencedRelation: "wines";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;

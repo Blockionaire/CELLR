@@ -401,6 +401,7 @@ export async function startMockSupabase({
   async function handleOpenAi(req, res, url) {
     if (req.method === "POST" && url.pathname === "/__test/openai") {
       const {
+        match,
         width,
         height,
         status = 200,
@@ -409,7 +410,13 @@ export async function startMockSupabase({
         delayMs = 0,
         times = 1000,
       } = await readJson(req);
-      programmed.set(`${width}x${height}`, { status, content, sequence, delayMs, times });
+      programmed.set(match ? `text:${match}` : `${width}x${height}`, {
+        status,
+        content,
+        sequence,
+        delayMs,
+        times,
+      });
       return json(res, 200, {});
     }
     if (req.method === "DELETE" && url.pathname === "/__test/openai") {
@@ -419,7 +426,12 @@ export async function startMockSupabase({
     }
     if (req.method === "GET" && url.pathname === "/__test/openai/calls") {
       const size = url.searchParams.get("size");
-      return json(res, 200, { calls: size ? aiCalls.filter((c) => c.size === size) : aiCalls });
+      const match = url.searchParams.get("match");
+      return json(res, 200, {
+        calls: aiCalls.filter(
+          (c) => (size ? c.size === size : true) && (match ? c.user.includes(match) : true),
+        ),
+      });
     }
     if (req.method === "POST" && url.pathname === "/openai/v1/chat/completions") {
       if (!/^Bearer sk-/.test(req.headers.authorization ?? ""))
@@ -432,13 +444,28 @@ export async function startMockSupabase({
         .find((part) => part.type === "image_url")?.image_url?.url;
       const bytes = image ? Buffer.from(image.split(",")[1] ?? "", "base64") : null;
       const dims = bytes ? jpegSize(bytes) : null;
-      const key = dims ? `${dims.width}x${dims.height}` : "none";
+      const userText = (body.messages ?? [])
+        .filter((m) => m.role === "user")
+        .flatMap((m) =>
+          Array.isArray(m.content) ? m.content : [{ type: "text", text: m.content }],
+        )
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("\n");
+      // A picture is told apart by its size; a text-only request by words only that test uses, looked for in
+      // the newest question alone (the chat so far carries earlier words along).
+      const newest = userText.split("Question: ").pop() ?? userText;
+      const textKey = [...programmed.keys()].find(
+        (k) => k.startsWith("text:") && newest.includes(k.slice(5)),
+      );
+      const key = dims ? `${dims.width}x${dims.height}` : (textKey ?? "none");
       aiCalls.push({
         size: key,
         model: body.model,
         strict: body.response_format?.json_schema?.strict === true,
         system: body.messages?.[0]?.content ?? "",
-        user: body.messages?.[1]?.content ?? "",
+        user: userText,
+        images: image ? 1 : 0,
       });
       const plan = programmed.get(key);
       if (!plan || plan.times <= 0)
