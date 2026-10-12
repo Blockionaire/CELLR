@@ -195,6 +195,26 @@ The free **Hobby** plan is meant for personal, non-commercial use, which fits a 
 6. Open `/design` on a Preview deployment and look at it on your phone — **tell me what feels off**
    (fonts, spacing, colour). Those are cheap to change now and expensive later.
 
+### Turning on label scanning (optional)
+
+Scanning reads the front label of a bottle with an AI model and fills in the wine. It needs one setting in
+Vercel (_Settings → Environment Variables_, then redeploy): `OPENAI_API_KEY`. **Put the key in Vercel only; never
+paste it into a chat or a file in the repository.**
+
+| Variable          | What it does                                                                                           | Default                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------ | --------------------------- |
+| `OPENAI_API_KEY`  | Switches reading labels on. Without it, a scan still keeps the photo and you fill the wine in by hand. | _(off)_                     |
+| `AI_MODEL_VISION` | The model that reads pictures.                                                                         | `gpt-4.1`                   |
+| `AI_BASE_URL`     | Any OpenAI-compatible endpoint.                                                                        | `https://api.openai.com/v1` |
+
+To record what every AI call costs (tokens, time, outcome) the server also needs `SUPABASE_SERVICE_ROLE_KEY`;
+without it scanning works and nothing is recorded.
+
+What is sent: only the label photo, to OpenAI, to be read; the scan screen says so. Every person may read about
+40 labels per hour (the budget protects the bill); beyond that the photo is still kept and the form is shown.
+Photos live in the private `bottle-images` bucket under your household's own folder; the database step that
+creates it is migration 0005, which you have already run.
+
 ### Bringing your old Wijnkelder cellar over
 
 _Profile → Bring your cellar over_. In the old Wijnkelder app make a backup (a small `.json` file), choose it

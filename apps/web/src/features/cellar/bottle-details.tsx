@@ -29,6 +29,8 @@ interface BottleDetailsProps {
   preferredPlaceId: string | null | undefined;
   /** Pre-filled vintage (e.g. "Add more" from the detail screen): a year, null for NV, undefined for none. */
   initialYear?: number | null | undefined;
+  /** A label photo already kept (from a scan): the new bottles are given it. */
+  imageId?: string | undefined;
   onChangeWine: () => void;
   onDone: (result: AddBottlesResult, placeId: string | null) => void;
 }
@@ -51,6 +53,7 @@ export function BottleDetails({
   currency,
   preferredPlaceId,
   initialYear,
+  imageId,
   onChangeWine,
   onDone,
 }: BottleDetailsProps) {
@@ -103,6 +106,7 @@ export function BottleDetails({
       locationId: placeId,
       priceCents,
       purchasedAt: date || null,
+      ...(imageId ? { imageId } : {}),
     });
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
     try {

@@ -116,9 +116,37 @@
     "view3d": "3D"
   },
   "scan": {
-    "title": "Scan a bottle",
-    "soonTitle": "Scanning is on its way",
-    "soonBody": "Soon you'll point your camera at a label and we'll do the rest."
+    "title": "Scan a label",
+    "intro": "Point your camera at the front label. We read it and fill the wine in for you.",
+    "tips": "Good light, no glare, and the label filling the picture.",
+    "takePhoto": "Take a photo",
+    "choosePhoto": "Choose a photo",
+    "privacy": "To read the label, your photo is sent to our AI partner (OpenAI). Nothing else is shared, and the photo is kept in your own cellar.",
+    "reading": "Reading the label…",
+    "readingHint": "This takes a few seconds. Your photo is already safe.",
+    "photoAlt": "Your photo of the label",
+    "foundTitle": "We found it",
+    "foundBody": "This looks like a wine you already have.",
+    "confirmFound": "Yes, add bottles",
+    "notThisOne": "Not this one",
+    "chooseTitle": "Is it one of these?",
+    "chooseBody": "Your cellar has wines that look like this label.",
+    "noneOfThese": "None of these: it is a new wine",
+    "newTitle": "A new wine",
+    "newBody": "Here is what we read from the label. Check it and fix whatever is off.",
+    "hardToRead": "Parts of this label were hard to read. Please check the details.",
+    "typeUnclear": "We couldn’t tell the kind of wine from the label. Choose it below.",
+    "tryAnother": "Try another photo",
+    "tryAgain": "Try again",
+    "another": "Scan another",
+    "noConnection": "No connection. Your photo is still here: try again when you are back online.",
+    "unread": {
+      "ai-off": "Reading labels isn’t switched on yet. Your photo is saved: fill the wine in below.",
+      "ai-down": "We couldn’t read this label just now. Your photo is saved: fill the wine in below, or try another photo.",
+      "limit": "You have scanned a lot in a short while. Your photo is saved: fill the wine in below.",
+      "not-a-label": "That doesn’t look like a wine label. Try another photo, or fill the wine in below."
+    },
+    "unreadTitle": "Fill it in yourself"
   },
   "sommelier": {
     "title": "Sommelier",
@@ -236,7 +264,8 @@
     "placedSome": "{placed} in {place}, {unplaced} without a place yet.",
     "placedNone": "Not placed yet. You can give it a spot later.",
     "addAnother": "Add another",
-    "seeCellar": "See my cellar"
+    "seeCellar": "See my cellar",
+    "typeRequired": "Which kind of wine is it? Choose one above."
   },
   "newPlace": {
     "title": "A place for your bottles",

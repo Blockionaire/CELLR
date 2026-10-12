@@ -1,7 +1,12 @@
 import { z } from "zod";
-import { normalizeText, WINE_TYPES, type WineSummary, type WineType } from "./cellar";
+import {
+  normalizeText,
+  WINE_COUNTRIES,
+  WINE_TYPES,
+  type WineSummary,
+  type WineType,
+} from "./cellar";
 import type { ImageRef } from "./image";
-import { KNOWN_COUNTRY_CODES } from "./wijnkelder-import";
 
 /**
  * SCANNING A LABEL. A vision model reads what is printed; everything after that is ordinary, testable code:
@@ -54,6 +59,9 @@ export interface LabelFacts {
   confidence: { producer: Confidence; name: Confidence; year: Confidence };
 }
 
+/** The countries the app lets you choose, so a code read off a label can always be shown and edited. */
+const COUNTRY_CODES: ReadonlySet<string> = new Set(WINE_COUNTRIES);
+
 const MAX = { producer: 120, name: 160, region: 120, appellation: 160, grape: 40 } as const;
 
 /** Text from a model: trimmed, one line, no control characters, never longer than a field allows. */
@@ -83,7 +91,7 @@ export function normalizeExtraction(raw: RawExtraction, now: Date = new Date()):
   const type = (WINE_TYPES as readonly string[]).includes(wanted) ? (wanted as WineType) : null;
 
   const country = (raw.country_code ?? "").trim().toUpperCase();
-  const countryCode = KNOWN_COUNTRY_CODES.has(country) ? country : null;
+  const countryCode = COUNTRY_CODES.has(country) ? country : null;
 
   const ceiling = now.getUTCFullYear() + 1;
   let year: number | null = null;

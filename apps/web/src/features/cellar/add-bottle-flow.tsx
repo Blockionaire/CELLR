@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import { formatVintage, type AddBottlesResult, type WineSummary } from "@cellr/domain";
-import { buttonStyles, Button } from "@/ui/button";
-import { CheckIcon, ChevronRightIcon } from "@/ui/icons";
+import type { AddBottlesResult, WineSummary } from "@cellr/domain";
+import { Button } from "@/ui/button";
+import { ChevronRightIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
+import { AddedDone } from "./added-done";
 import { BottleDetails } from "./bottle-details";
 import { ChooseWine } from "./choose-wine";
 import { useWines } from "./hooks";
@@ -114,43 +114,7 @@ export function AddBottleFlow({
             }}
           />
         )}
-        {step === "done" && result && (
-          <div className="flex flex-col items-center gap-6 py-6 text-center">
-            <span className="grid size-16 place-items-center rounded-full bg-accent text-accent-ink">
-              <CheckIcon size={32} />
-            </span>
-            <div>
-              <p className="font-display text-headline">
-                {t("savedBottles", {
-                  count: result.bottleIds.length,
-                  wine: `${result.wine.producer} ${result.wine.name} ${formatVintage(result.year)}`,
-                })}
-              </p>
-              <p className="mt-2 text-body text-ink-2">
-                {result.placeLabel === null
-                  ? t("placedNone")
-                  : result.unplaced === 0
-                    ? t("placedAll", { place: result.placeLabel })
-                    : t("placedSome", {
-                        placed: result.placed,
-                        place: result.placeLabel,
-                        unplaced: result.unplaced,
-                      })}
-              </p>
-            </div>
-            <div className="flex w-full flex-col gap-3">
-              <Button size="lg" block onClick={reset}>
-                {t("addAnother")}
-              </Button>
-              <Link
-                href="/cellar"
-                className={buttonStyles({ variant: "secondary", size: "lg", block: true })}
-              >
-                {t("seeCellar")}
-              </Link>
-            </div>
-          </div>
-        )}
+        {step === "done" && result && <AddedDone result={result} onAnother={reset} />}
       </div>
     </>
   );
