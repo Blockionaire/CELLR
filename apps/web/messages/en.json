@@ -103,7 +103,8 @@
       "today": "Today",
       "tomorrow": "Tomorrow",
       "days": "In {days} days"
-    }
+    },
+    "shortcutInsights": "Insights"
   },
   "cellar": {
     "title": "Cellar",
@@ -597,7 +598,10 @@
     "yearsLeft": "{years, plural, one {# year left} other {# years left}}",
     "shortLabel": "{phase}",
     "homeTitle": "Drink soon",
-    "homeNone": "Nothing is urgent. Everything has time."
+    "homeNone": "Nothing is urgent. Everything has time.",
+    "chartLabel": "Chart of this wine's life: opens up from {from}, at its best {bestFrom} to {bestUntil}, to be drunk by {until}.",
+    "openedMark": "Opened {day}",
+    "openedLegend": "{count, plural, one {● 1 bottle opened} other {● # bottles opened}}"
   },
   "tonight": {
     "title": "What shall we drink tonight?",
@@ -960,5 +964,44 @@
     "unusable": "That frame doesn't look like a label yet. Move the corners to the label's corners, in the right order.",
     "use": "Use this frame",
     "skip": "Use the whole photo"
+  },
+  "insightsPage": {
+    "title": "Insights",
+    "subtitle": "Your cellar in numbers, worked out from what you already keep.",
+    "emptyTitle": "Nothing to count yet",
+    "emptyBody": "Add a few bottles and this fills itself: what you have, what it cost, when it is ready and what you drank.",
+    "emptyAction": "Add a bottle",
+    "bottles": "Bottles",
+    "wines": "Wines",
+    "spent": "Bought for",
+    "worth": "Worth now",
+    "noPrices": "No prices recorded",
+    "pricedNote": "{count, plural, one {from # bottle with a price} other {from # bottles with a price}}",
+    "noValues": "Ask for a wine profile to see values",
+    "valuedNote": "{count, plural, one {# bottle valued} other {# bottles valued}}",
+    "gainNote": "{amount} more than paid ({count, plural, one {# bottle} other {# bottles}})",
+    "lossNote": "{amount} less than paid ({count, plural, one {# bottle} other {# bottles}})",
+    "typesTitle": "What you have",
+    "whereTitle": "Where it comes from",
+    "countries": "Countries",
+    "regions": "Regions",
+    "decades": "Vintages",
+    "producers": "Most bottles from",
+    "unknown": "Not known",
+    "drinkTitle": "When to drink",
+    "drinkNow": "Bottles by stage today",
+    "readyByYear": "Ready to drink, year by year",
+    "readyByYearNote": "Each column is the bottles that are in their window that year; the golden part is at its very best.",
+    "yearText": "{year}: {ready, plural, one {# bottle} other {# bottles}} in their window, {peak} at their best",
+    "drankTitle": "What you drank",
+    "openedByMonth": "Bottles opened per month, last twelve months",
+    "monthText": "{month}: {count, plural, one {# bottle} other {# bottles}} opened",
+    "noneOpened": "No bottles opened in the last twelve months.",
+    "openedTotal": "{count, plural, =0 {Nothing opened yet.} one {# bottle opened in all.} other {# bottles opened in all.}}",
+    "lovedTitle": "What you loved",
+    "topRated": "Highest rated wines",
+    "starsOf": "{stars} out of 5",
+    "ratingByType": "Average rating by kind",
+    "toCellar": "Back to your cellar"
   }
 }

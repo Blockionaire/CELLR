@@ -18,6 +18,9 @@ export interface InsightsRepository {
   ): Promise<boolean>;
   saveMyValue(householdId: string, vintageId: string, cents: number | null): Promise<boolean>;
 
+  /** What one bottle of each vintage is worth now, where the household or the AI said so (null = not switched on). */
+  listValues(householdId: string): Promise<Array<{ vintageId: string; valueCents: number }> | null>;
+
   listExtras(bottleIds: readonly string[]): Promise<BottleExtrasView[] | null>;
   /** All-empty extras remove the row. */
   saveExtras(householdId: string, bottleId: string, extras: BottleExtras): Promise<boolean>;

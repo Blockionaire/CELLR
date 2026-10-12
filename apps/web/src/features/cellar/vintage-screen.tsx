@@ -20,7 +20,8 @@ import { Stars } from "@/ui/stars";
 import { Button, buttonStyles } from "@/ui/button";
 import { ChevronRightIcon, PlusIcon } from "@/ui/icons";
 import { BottleSpot, useDay, useMoney } from "./bottle-bits";
-import { DrinkWindowBar, DrinkLabel } from "./drink-bits";
+import { DrinkLabel } from "./drink-bits";
+import { DrinkChart } from "./drink-chart";
 import { EditSheet } from "./edit-sheet";
 import { FavoriteButton } from "./favorite-button";
 import { LabelImage } from "./label-image";
@@ -254,7 +255,7 @@ export function VintageScreen({
               years: Math.max(1, Math.ceil(detail.drink.yearsUntilOpen ?? 1)),
             })}
           </p>
-          <DrinkWindowBar drink={detail.drink} />
+          <DrinkChart drink={detail.drink} year={detail.year} opened={detail.opened} />
           <p className="mt-4 text-caption text-ink-2">{tDrink("estimate")}</p>
         </Section>
 

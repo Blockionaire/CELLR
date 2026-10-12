@@ -85,6 +85,33 @@ export function createInsightsRepository(db: Db): InsightsRepository {
     saveMyValue: (householdId, vintageId, cents) =>
       saveInsightRow(householdId, vintageId, { my_value_cents: cents }),
 
+    async listValues(householdId) {
+      const { data, error } = await allRows((a, b) =>
+        db
+          .from("vintage_insights")
+          .select("vintage_id, my_value_cents, output")
+          .eq("household_id", householdId)
+          .order("vintage_id")
+          .range(a, b),
+      );
+      if (error && isMissingTable(error)) return null;
+      if (error) throw mapDbError(error);
+      return data.flatMap((r) => {
+        if (r.my_value_cents !== null)
+          return [{ vintageId: r.vintage_id, valueCents: r.my_value_cents }];
+        const parsed = InsightOutputSchema.safeParse(r.output);
+        const value = parsed.success ? parsed.data.value : null;
+        return value
+          ? [
+              {
+                vintageId: r.vintage_id,
+                valueCents: Math.round((value.lowCents + value.highCents) / 2),
+              },
+            ]
+          : [];
+      });
+    },
+
     async listExtras(bottleIds) {
       if (bottleIds.length === 0) return [];
       const { data, error } = await db

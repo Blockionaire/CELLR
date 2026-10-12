@@ -17,3 +17,5 @@ export * from "./wishlist";
 export * from "./insights";
 export * from "./export";
 export * from "./label-crop";
+export * from "./stats";
+export * from "./drink-curve";

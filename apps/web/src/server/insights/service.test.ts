@@ -47,6 +47,7 @@ function setup(
     getInsight: vi.fn(async () => ({ row: null }) as { row: null } | null),
     saveInsight: vi.fn(async (_h, _v, i) => (saved.push(i), true)),
     saveMyValue: vi.fn(async () => true),
+    listValues: vi.fn(async () => []),
     listExtras: vi.fn(async () => []),
     saveExtras: vi.fn(async () => true),
     reminders: vi.fn(async () => []),

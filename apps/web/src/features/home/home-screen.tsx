@@ -125,11 +125,12 @@ export async function HomeScreen({
         </section>
       )}
 
-      <nav aria-label={t("shortcuts")} className="mt-4 grid grid-cols-3 gap-3">
+      <nav aria-label={t("shortcuts")} className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { href: "/scan", label: t("shortcutScan") },
           { href: "/sommelier", label: t("shortcutSommelier") },
           { href: "/wishlist", label: t("shortcutWishlist") },
+          { href: "/insights", label: t("shortcutInsights") },
         ].map((s) => (
           <Link
             key={s.href}

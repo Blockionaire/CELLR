@@ -103,7 +103,8 @@
       "today": "Vandaag",
       "tomorrow": "Morgen",
       "days": "Over {days} dagen"
-    }
+    },
+    "shortcutInsights": "Inzichten"
   },
   "cellar": {
     "title": "Kelder",
@@ -597,7 +598,10 @@
     "yearsLeft": "{years, plural, one {# jaar te gaan} other {# jaar te gaan}}",
     "shortLabel": "{phase}",
     "homeTitle": "Binnenkort drinken",
-    "homeNone": "Niets is dringend. Alles heeft tijd."
+    "homeNone": "Niets is dringend. Alles heeft tijd.",
+    "chartLabel": "Grafiek van het leven van deze wijn: opent zich vanaf {from}, op zijn best van {bestFrom} tot {bestUntil}, te drinken tot {until}.",
+    "openedMark": "Geopend op {day}",
+    "openedLegend": "{count, plural, one {● 1 fles geopend} other {● # flessen geopend}}"
   },
   "tonight": {
     "title": "Wat drinken we vanavond?",
@@ -960,5 +964,44 @@
     "unusable": "Dit kader lijkt nog niet op een etiket. Zet de hoeken op de hoeken van het etiket, in de goede volgorde.",
     "use": "Gebruik dit kader",
     "skip": "Gebruik de hele foto"
+  },
+  "insightsPage": {
+    "title": "Inzichten",
+    "subtitle": "Je kelder in cijfers, berekend uit wat je al bijhoudt.",
+    "emptyTitle": "Nog niets om te tellen",
+    "emptyBody": "Voeg een paar flessen toe en dit vult zichzelf: wat je hebt, wat het kostte, wanneer het klaar is en wat je dronk.",
+    "emptyAction": "Fles toevoegen",
+    "bottles": "Flessen",
+    "wines": "Wijnen",
+    "spent": "Gekocht voor",
+    "worth": "Waarde nu",
+    "noPrices": "Geen prijzen vastgelegd",
+    "pricedNote": "{count, plural, one {van # fles met prijs} other {van # flessen met prijs}}",
+    "noValues": "Vraag een wijnprofiel aan voor waarden",
+    "valuedNote": "{count, plural, one {# fles gewaardeerd} other {# flessen gewaardeerd}}",
+    "gainNote": "{amount} meer dan betaald ({count, plural, one {# fles} other {# flessen}})",
+    "lossNote": "{amount} minder dan betaald ({count, plural, one {# fles} other {# flessen}})",
+    "typesTitle": "Wat je hebt",
+    "whereTitle": "Waar het vandaan komt",
+    "countries": "Landen",
+    "regions": "Regio's",
+    "decades": "Jaargangen",
+    "producers": "Meeste flessen van",
+    "unknown": "Onbekend",
+    "drinkTitle": "Wanneer drinken",
+    "drinkNow": "Flessen per fase vandaag",
+    "readyByYear": "Klaar om te drinken, jaar voor jaar",
+    "readyByYearNote": "Elke kolom is het aantal flessen dat dat jaar in zijn venster zit; het gouden deel is op zijn allerbest.",
+    "yearText": "{year}: {ready, plural, one {# fles} other {# flessen}} in hun venster, {peak} op hun best",
+    "drankTitle": "Wat je dronk",
+    "openedByMonth": "Geopende flessen per maand, laatste twaalf maanden",
+    "monthText": "{month}: {count, plural, one {# fles} other {# flessen}} geopend",
+    "noneOpened": "De afgelopen twaalf maanden is er geen fles geopend.",
+    "openedTotal": "{count, plural, =0 {Nog niets geopend.} one {In totaal # fles geopend.} other {In totaal # flessen geopend.}}",
+    "lovedTitle": "Wat je geweldig vond",
+    "topRated": "Hoogst beoordeelde wijnen",
+    "starsOf": "{stars} van de 5",
+    "ratingByType": "Gemiddelde beoordeling per soort",
+    "toCellar": "Terug naar je kelder"
   }
 }
