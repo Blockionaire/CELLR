@@ -6,6 +6,7 @@ import type {
   CreateWine,
   Descriptor,
   ImageRef,
+  ImageSide,
   Slot,
   StorageKind,
   UpdateStorage,
@@ -201,7 +202,14 @@ export interface CellarRepository {
   /** The newest label photo among the bottles of a vintage, so a new bottle can share it. */
   latestImageId(householdId: string, vintageId: string): Promise<string | null>;
   /** Points every bottle of the vintage (in the cellar or already opened) at the photo. Returns how many. */
-  attachImage(householdId: string, vintageId: string, imageId: string | null): Promise<number>;
+  attachImage(
+    householdId: string,
+    vintageId: string,
+    imageId: string | null,
+    side?: ImageSide,
+  ): Promise<number>;
+  /** The newest label photo of one side among the bottles of a vintage. */
+  latestImageRef(householdId: string, vintageId: string, side: ImageSide): Promise<ImageRef | null>;
   /** Removes bottles (undoing a half-finished import). */
   deleteBottles(householdId: string, bottleIds: string[]): Promise<void>;
   /** Marks bottles opened on the given day (an import backdates them). Returns how many changed. */

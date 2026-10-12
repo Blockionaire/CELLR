@@ -118,10 +118,11 @@ export async function readForm(request: Request, maxBytes = MAX_UPLOAD_BYTES): P
  * A photo, for the signed-in person's own screens. The address of a photo never changes what it shows, so
  * the browser may keep it; "private" stops shared caches from ever holding someone's cellar.
  */
-export function imageResponse(bytes: Uint8Array): Response {
+export function imageResponse(bytes: Uint8Array, options: { changes?: boolean } = {}): Response {
   const headers = new Headers({
     "Content-Type": "image/jpeg",
-    "Cache-Control": "private, max-age=31536000, immutable",
+    // A straightened label can be redone under the same address, so that one is always checked again.
+    "Cache-Control": options.changes ? "private, no-cache" : "private, max-age=31536000, immutable",
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "default-src 'none'",
     "Content-Length": String(bytes.byteLength),

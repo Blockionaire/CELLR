@@ -21,6 +21,7 @@ import {
   type DrinkSummary,
   type HomeView,
   type ImportOutcome,
+  type ImageSide,
   type ImportRequest,
   type PlacedBottle,
   type OpenedEntry,
@@ -481,10 +482,11 @@ export function createCellarService(
     /** One vintage with every bottle: where each is, what they cost, what has been opened. */
     async vintage(vintageId: string): Promise<VintageDetail> {
       const { id: householdId } = await household();
-      const [rows, favorites, tastings] = await Promise.all([
+      const [rows, favorites, tastings, backImage] = await Promise.all([
         repo.getVintage(householdId, vintageId),
         repo.listFavoriteWineIds(userId),
         repo.listTastings(householdId, vintageId),
+        repo.latestImageRef(householdId, vintageId, "back"),
       ]);
       // A vintage you never owned a bottle of is not yours to look at, even if it is in the shared catalogue.
       if (!rows || rows.bottles.length === 0) throw new DomainError("NOT_FOUND");
@@ -515,6 +517,7 @@ export function createCellarService(
         wine: { ...rows.wine, favorite: favorites.includes(rows.wine.id) },
         year: rows.year,
         image: rows.image,
+        backImage,
         bottles: inCellar,
         opened,
         tastings: tastings.map((t) => toTastingView(t, userId)),
@@ -651,19 +654,20 @@ export function createCellarService(
     async attachPhoto(
       vintageId: string,
       imageId: string,
+      side: ImageSide = "front",
     ): Promise<{ vintageId: string; imageId: string }> {
       const { id: householdId } = await household();
       if (!(await repo.getImageRef(householdId, imageId)))
         throw new DomainError("NOT_FOUND", "We couldn't find that photo.");
-      if ((await repo.attachImage(householdId, vintageId, imageId)) === 0)
+      if ((await repo.attachImage(householdId, vintageId, imageId, side)) === 0)
         throw new DomainError("NOT_FOUND");
       return { vintageId, imageId };
     },
 
     /** Takes the label photo off a vintage (the photo itself is kept until its household is deleted). */
-    async removePhoto(vintageId: string): Promise<void> {
+    async removePhoto(vintageId: string, side: ImageSide = "front"): Promise<void> {
       const { id: householdId } = await household();
-      if ((await repo.attachImage(householdId, vintageId, null)) === 0)
+      if ((await repo.attachImage(householdId, vintageId, null, side)) === 0)
         throw new DomainError("NOT_FOUND");
     },
 

@@ -324,7 +324,10 @@ test.describe("label photos on screen", () => {
     });
     await page
       .locator('input[type="file"]')
+      .first()
       .setInputFiles({ name: "IMG_0042.jpg", mimeType: "image/jpeg", buffer: big });
+    // A front photo asks where the label is; the whole photo is always an answer.
+    await page.getByRole("button", { name: "Use the whole photo" }).click();
     await expect(page.getByText("Photo saved.")).toBeVisible();
     const photo = page.getByRole("img", { name: "Label of Domaine Test Chablis Premier Cru" });
     await expect(photo).toBeVisible();
@@ -359,11 +362,15 @@ test.describe("label photos on screen", () => {
 
     // Change it, then remove it: the bottle drawing comes back.
     await page.goto(`/cellar/${vintageId}`);
-    await page.locator('input[type="file"]').setInputFiles({
-      name: "second.jpg",
-      mimeType: "image/jpeg",
-      buffer: await makeJpeg(page, { color: "#1f4d3a" }),
-    });
+    await page
+      .locator('input[type="file"]')
+      .first()
+      .setInputFiles({
+        name: "second.jpg",
+        mimeType: "image/jpeg",
+        buffer: await makeJpeg(page, { color: "#1f4d3a" }),
+      });
+    await page.getByRole("button", { name: "Use the whole photo" }).click();
     await expect(page.getByText("Photo saved.")).toBeVisible();
     await page.getByRole("button", { name: "Remove photo" }).click();
     await expect(page.getByText("Photo removed.")).toBeVisible();
@@ -377,11 +384,14 @@ test.describe("label photos on screen", () => {
   }) => {
     const { vintageId } = await furnishPage(page, request, "photonot");
     await page.goto(`/cellar/${vintageId}`);
-    await page.locator('input[type="file"]').setInputFiles({
-      name: "notes.jpg",
-      mimeType: "image/jpeg",
-      buffer: Buffer.from("not a picture at all"),
-    });
+    await page
+      .locator('input[type="file"]')
+      .first()
+      .setInputFiles({
+        name: "notes.jpg",
+        mimeType: "image/jpeg",
+        buffer: Buffer.from("not a picture at all"),
+      });
     await expect(page.getByText("We couldn’t open that photo. Try another one.")).toBeVisible();
     await expect(page.getByRole("img", { name: /Label of/ })).toHaveCount(0);
   });

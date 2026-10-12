@@ -142,7 +142,10 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
               year: picked.year,
               place: placeLine(picked.region, picked.countryCode, locale),
               type: picked.type,
-              photoUrl: picked.image ? imageUrl(picked.image.id, "photo") : null,
+              photoUrl: picked.image
+                ? imageUrl(picked.image.id, picked.image.texture ? "texture" : "photo")
+                : null,
+              textured: picked.image?.texture === true,
             },
           }
         : null,

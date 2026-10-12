@@ -430,6 +430,8 @@ export interface VintageDetail {
   year: number | null;
   /** The label photo, when there is one. */
   image: ImageRef | null;
+  /** The back label's photo, when there is one. */
+  backImage: ImageRef | null;
   /** In the cellar now, in a stable order: placed ones by place, shelf and position, then unplaced. */
   bottles: BottleView[];
   /** The most recently opened ones, newest first. */

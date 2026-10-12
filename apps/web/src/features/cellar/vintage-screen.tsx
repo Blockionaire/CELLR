@@ -116,7 +116,7 @@ export function VintageScreen({
               />
             )}
           </div>
-          <LabelPhotoActions vintageId={detail.vintageId} hasPhoto={detail.image !== null} />
+          <LabelPhotoActions vintageId={detail.vintageId} side="front" image={detail.image} />
         </div>
         <div className="min-w-0">
           <p className="text-caption font-medium uppercase tracking-[0.14em] text-ink-3">
@@ -256,6 +256,29 @@ export function VintageScreen({
           </p>
           <DrinkWindowBar drink={detail.drink} />
           <p className="mt-4 text-caption text-ink-2">{tDrink("estimate")}</p>
+        </Section>
+
+        <Section title={tPhoto("backTitle")}>
+          <div className="flex items-start gap-4">
+            {detail.backImage && (
+              <LabelImage
+                image={detail.backImage}
+                size="thumb"
+                alt={tPhoto("backAlt", { wine: `${wine.producer} ${wine.name}` })}
+                className="h-28 w-auto rounded-control bg-raised"
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-body text-ink-2">
+                {detail.backImage ? tPhoto("backHave") : tPhoto("backBody")}
+              </p>
+              <LabelPhotoActions
+                vintageId={detail.vintageId}
+                side="back"
+                image={detail.backImage}
+              />
+            </div>
+          </div>
         </Section>
 
         <InsightCard vintageId={detail.vintageId} currency={detail.currency ?? currency} />

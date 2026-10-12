@@ -7,6 +7,7 @@ import {
   type WineType,
 } from "./cellar";
 import type { ImageRef } from "./image";
+import type { Quad } from "./label-crop";
 
 /**
  * SCANNING A LABEL. A vision model reads what is printed; everything after that is ordinary, testable code:
@@ -33,6 +34,8 @@ export const RawExtractionSchema = z.object({
   abv_percent: z.number().nullable(),
   volume_ml: z.number().nullable(),
   text_seen: z.string(),
+  /** The four corners of the label in the photo (x1, y1 … x4, y4 as fractions), when it can be located. */
+  label_corners: z.array(z.number()).nullable().default(null),
   confidence: z.object({
     producer: z.enum(CONFIDENCE_LEVELS),
     wine_name: z.enum(CONFIDENCE_LEVELS),
@@ -320,4 +323,6 @@ export interface ScanResult {
   matches: LabelMatch[];
   /** Why there is no reading, when `outcome` is `unread`. */
   reason: "ai-off" | "ai-down" | "limit" | "not-a-label" | null;
+  /** Where the model found the label in the photo, if it is believable: the start of the person's own framing. */
+  labelCorners: Quad | null;
 }

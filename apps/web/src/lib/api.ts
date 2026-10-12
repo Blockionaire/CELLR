@@ -50,7 +50,8 @@ export const api = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body ?? {}),
   /** Sends files (a photo); everything else goes as JSON. */
-  upload: <T>(path: string, form: FormData) => request<T>("POST", path, form),
+  upload: <T>(path: string, form: FormData, method: "POST" | "PUT" = "POST") =>
+    request<T>(method, path, form),
   patch: <T>(path: string, body: unknown) => request<T>("PATCH", path, body),
   put: <T>(path: string, body: unknown) => request<T>("PUT", path, body),
   delete: <T = void>(path: string) => request<T>("DELETE", path),

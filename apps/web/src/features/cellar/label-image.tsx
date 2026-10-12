@@ -2,7 +2,7 @@ import type { ImageRef } from "@cellr/domain";
 import { cn } from "@/ui/cn";
 
 /** The address of a photo: the server checks the person is allowed to see it, and the browser keeps it. */
-export const imageUrl = (id: string, size: "thumb" | "photo") =>
+export const imageUrl = (id: string, size: "thumb" | "photo" | "texture") =>
   `/api/v1/images/${id}?size=${size}`;
 
 /**

@@ -17,6 +17,7 @@ const raw = (over: Partial<RawExtraction> = {}): RawExtraction => ({
   abv_percent: 13,
   volume_ml: 750,
   text_seen: "CHÂTEAU MARGAUX",
+  label_corners: null,
   confidence: { producer: "high", wine_name: "high", vintage: "high" },
   ...over,
 });
@@ -92,6 +93,29 @@ function setup(
 const photo = new Uint8Array([1, 2, 3]);
 
 describe("scanning a label", () => {
+  it("passes on where the label is when it is believable in this photo, and only then", async () => {
+    const good = [0.2, 0.15, 0.8, 0.15, 0.8, 0.85, 0.2, 0.85];
+    const believable = await setup({ answer: raw({ label_corners: good }) }).service.scan({
+      photo,
+    });
+    expect(believable.labelCorners).toEqual([
+      { x: 0.2, y: 0.15 },
+      { x: 0.8, y: 0.15 },
+      { x: 0.8, y: 0.85 },
+      { x: 0.2, y: 0.85 },
+    ]);
+    for (const bad of [
+      [0.2, 0.15, 0.8, 0.15, 0.8], // too few
+      [0.5, 0.5, 0.52, 0.5, 0.52, 0.52, 0.5, 0.52], // a speck
+      [0.2, 0.85, 0.8, 0.85, 0.8, 0.15, 0.2, 0.15], // the wrong way round
+    ]) {
+      const result = await setup({ answer: raw({ label_corners: bad }) }).service.scan({ photo });
+      expect(result.labelCorners).toBeNull();
+      expect(result.outcome).not.toBe("unread"); // the reading itself is unaffected
+    }
+    expect((await setup().service.scan({ photo })).labelCorners).toBeNull();
+  });
+
   it("reads the label and recognises a wine you already have", async () => {
     const { service, state, cleanPhoto } = setup({
       wines: [

@@ -838,7 +838,17 @@
     "saved": "Photo saved.",
     "removed": "Photo removed.",
     "unreadable": "We couldn’t open that photo. Try another one.",
-    "alt": "Label of {wine}"
+    "alt": "Label of {wine}",
+    "adjustFrame": "Adjust label frame",
+    "framed": "Label updated.",
+    "frameFailed": "That didn't work. Try again.",
+    "addBack": "Add back label",
+    "changeBack": "Change back label",
+    "removeBack": "Remove back label",
+    "backTitle": "Back label",
+    "backBody": "A photo of the back label keeps the grapes, the importer and the small print with the bottle.",
+    "backHave": "The back label is kept with the wine.",
+    "backAlt": "Back label of {wine}"
   },
   "wishlist": {
     "title": "Wishlist",
@@ -936,5 +946,19 @@
     "myValueHint": "Your own number counts for more than any estimate. Leave empty to clear it.",
     "valueError": "That doesn't look like a price.",
     "valueSaved": "Value saved."
+  },
+  "framer": {
+    "title": "Show us where the label is",
+    "body": "Drag the four dots onto the corners of the label. Your 3D bottle will wear just this part, straightened.",
+    "photoAlt": "Your photo, with a frame around the label",
+    "corner": {
+      "tl": "Top left corner",
+      "tr": "Top right corner",
+      "br": "Bottom right corner",
+      "bl": "Bottom left corner"
+    },
+    "unusable": "That frame doesn't look like a label yet. Move the corners to the label's corners, in the right order.",
+    "use": "Use this frame",
+    "skip": "Use the whole photo"
   }
 }

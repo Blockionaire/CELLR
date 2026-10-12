@@ -7,6 +7,8 @@ export interface ImageRow extends ImageRef {
   photoPath: string;
   /** Where the small copy lives; null when only the photo was sent. */
   thumbPath: string | null;
+  /** Where the straightened picture of just the label lives; null until one is made. */
+  texturePath: string | null;
 }
 
 export interface NewImage {
@@ -25,6 +27,8 @@ export interface ImageRepository {
   download(path: string): Promise<Uint8Array | null>;
   remove(paths: string[]): Promise<void>;
   insertImage(row: NewImage): Promise<ImageRow>;
+  /** Points an image at its straightened label picture (null = none). False when it isn't one of ours. */
+  setTexturePath(id: string, path: string | null): Promise<boolean>;
   getImage(id: string): Promise<ImageRow | null>;
   /** Where every file of this household lives in storage (for taking them away with the household). */
   listPaths(householdId: string): Promise<string[]>;

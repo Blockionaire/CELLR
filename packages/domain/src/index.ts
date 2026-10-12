@@ -16,3 +16,4 @@ export * from "./sommelier";
 export * from "./wishlist";
 export * from "./insights";
 export * from "./export";
+export * from "./label-crop";

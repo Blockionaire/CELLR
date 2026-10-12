@@ -838,7 +838,17 @@
     "saved": "Foto opgeslagen.",
     "removed": "Foto verwijderd.",
     "unreadable": "We konden die foto niet openen. Probeer een andere.",
-    "alt": "Etiket van {wine}"
+    "alt": "Etiket van {wine}",
+    "adjustFrame": "Etiketkader aanpassen",
+    "framed": "Etiket bijgewerkt.",
+    "frameFailed": "Dat lukte niet. Probeer opnieuw.",
+    "addBack": "Achteretiket toevoegen",
+    "changeBack": "Achteretiket wijzigen",
+    "removeBack": "Achteretiket verwijderen",
+    "backTitle": "Achteretiket",
+    "backBody": "Een foto van het achteretiket bewaart de druiven, de importeur en de kleine lettertjes bij de fles.",
+    "backHave": "Het achteretiket wordt bij de wijn bewaard.",
+    "backAlt": "Achteretiket van {wine}"
   },
   "wishlist": {
     "title": "Wishlist",
@@ -936,5 +946,19 @@
     "myValueHint": "Je eigen getal telt zwaarder dan elke schatting. Laat leeg om te wissen.",
     "valueError": "Dat lijkt geen prijs.",
     "valueSaved": "Waarde opgeslagen."
+  },
+  "framer": {
+    "title": "Wijs aan waar het etiket zit",
+    "body": "Sleep de vier stippen naar de hoeken van het etiket. Je 3D-fles draagt alleen dit deel, recht getrokken.",
+    "photoAlt": "Je foto, met een kader om het etiket",
+    "corner": {
+      "tl": "Hoek linksboven",
+      "tr": "Hoek rechtsboven",
+      "br": "Hoek rechtsonder",
+      "bl": "Hoek linksonder"
+    },
+    "unusable": "Dit kader lijkt nog niet op een etiket. Zet de hoeken op de hoeken van het etiket, in de goede volgorde.",
+    "use": "Gebruik dit kader",
+    "skip": "Gebruik de hele foto"
   }
 }
