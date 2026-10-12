@@ -27,6 +27,7 @@ import {
 } from "./hooks";
 import { DeleteAccountSheet } from "./delete-account-sheet";
 import { HouseholdSettings } from "./household-settings";
+import { HouseholdSwitcher } from "./household-switcher";
 import { InviteSheet } from "./invite-sheet";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -185,6 +186,10 @@ export function ProfileView({
           </Button>
         </Section>
       )}
+
+      <Section title={t("yourHouseholds")}>
+        <HouseholdSwitcher me={me} />
+      </Section>
 
       {active && isOwner && (
         <Section title={t("householdSettings")}>
