@@ -53,6 +53,21 @@ test.describe("home", () => {
     await expect(page).toHaveURL(/\/cellar\/add/);
   });
 
+  test("shortcuts lead to scanning, the sommelier and the wishlist", async ({ page }) => {
+    await arrive(page, "homecuts");
+    await page.goto("/");
+    const cuts = page.getByRole("navigation", { name: "Shortcuts" });
+    for (const [name, url] of [
+      ["Ask the sommelier", /\/sommelier/],
+      ["Wishlist", /\/wishlist/],
+      ["Scan a label", /\/scan/],
+    ] as const) {
+      await cuts.getByRole("link", { name }).click();
+      await expect(page).toHaveURL(url);
+      await page.goto("/");
+    }
+  });
+
   test("a cellar at a glance: totals, value, what arrived, what was opened, space", async ({
     page,
     request,

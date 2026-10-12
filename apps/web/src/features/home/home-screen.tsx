@@ -114,6 +114,22 @@ export async function HomeScreen({ home, name }: { home: HomeView; name: string 
         </section>
       )}
 
+      <nav aria-label={t("shortcuts")} className="mt-4 grid grid-cols-3 gap-3">
+        {[
+          { href: "/scan", label: t("shortcutScan") },
+          { href: "/sommelier", label: t("shortcutSommelier") },
+          { href: "/wishlist", label: t("shortcutWishlist") },
+        ].map((s) => (
+          <Link
+            key={s.href}
+            href={s.href}
+            className="flex min-h-14 items-center justify-center rounded-card border border-hairline bg-surface px-2 py-3 text-center text-small font-medium text-ink transition-transform duration-150 ease-cellr active:scale-[0.98]"
+          >
+            {s.label}
+          </Link>
+        ))}
+      </nav>
+
       {empty ? (
         <EmptyState
           className="mt-6"
