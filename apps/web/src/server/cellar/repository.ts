@@ -5,6 +5,7 @@ import {
   type BottleStatus,
   type CreateStorage,
   type Descriptor,
+  type ImageRef,
   type Slot,
   type StorageKind,
   type UpdateStorage,
@@ -99,6 +100,14 @@ export const toBottle = (r: {
   openedAt: r.opened_at,
 });
 
+const IMAGE_REF_COLUMNS = "id, blur_color, width, height";
+const toImageRef = (r: {
+  id: string;
+  blur_color: string | null;
+  width: number | null;
+  height: number | null;
+}): ImageRef => ({ id: r.id, blurColor: r.blur_color, width: r.width, height: r.height });
+
 const TASTING_COLUMNS =
   "id, vintage_id, bottle_id, user_id, score, descriptors, note, tasted_at, profiles(display_name)";
 
@@ -157,6 +166,29 @@ export function createCellarRepository(db: Db): CellarRepository {
   }
 
   /** Every household has one cellar; people only ever see its storage units. */
+  /** The newest photo among a vintage's bottles. */
+  async function latestImage(householdId: string, vintageId: string): Promise<ImageRef | null> {
+    const newest = await db
+      .from("bottles")
+      .select("front_image_id")
+      .eq("household_id", householdId)
+      .eq("vintage_id", vintageId)
+      .not("front_image_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (newest.error) throw mapDbError(newest.error);
+    if (!newest.data?.front_image_id) return null;
+    const image = await db
+      .from("bottle_images")
+      .select(IMAGE_REF_COLUMNS)
+      .eq("household_id", householdId)
+      .eq("id", newest.data.front_image_id)
+      .maybeSingle();
+    if (image.error) throw mapDbError(image.error);
+    return image.data ? toImageRef(image.data) : null;
+  }
+
   async function ensureCellar(householdId: string): Promise<string> {
     const { data, error } = await db
       .from("cellars")
@@ -442,6 +474,7 @@ export function createCellarRepository(db: Db): CellarRepository {
         purchased_at: r.purchasedAt,
         purchased_from: r.purchasedFrom ?? null,
         notes: r.notes ?? null,
+        front_image_id: r.frontImageId ?? null,
       }));
       const { data, error } = await db.from("bottles").insert(inserts).select("id");
       if (error) throw mapDbError(error);
@@ -452,14 +485,27 @@ export function createCellarRepository(db: Db): CellarRepository {
       const { data, error } = await db
         .from("bottles")
         .select(
-          "id, created_at, location_id, loc_row, loc_col, purchase_price_cents, currency, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, appellation, country_code, producers!inner(name))), cellar_locations(label)",
+          "id, created_at, front_image_id, location_id, loc_row, loc_col, purchase_price_cents, currency, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, appellation, country_code, producers!inner(name))), cellar_locations(label)",
         )
         .eq("household_id", householdId)
         .eq("status", "in_cellar")
         .order("created_at", { ascending: false })
         .limit(5000);
       if (error) throw mapDbError(error);
+      // Photos are looked up once for the whole list, and only when some bottle has one.
+      const withPhoto = (data ?? []).some((b) => b.front_image_id !== null);
+      const images = new Map<string, ImageRef>();
+      if (withPhoto) {
+        const found = await db
+          .from("bottle_images")
+          .select(IMAGE_REF_COLUMNS)
+          .eq("household_id", householdId)
+          .limit(5000);
+        if (found.error) throw mapDbError(found.error);
+        for (const i of found.data ?? []) images.set(i.id, toImageRef(i));
+      }
       return (data ?? []).map((b) => ({
+        image: b.front_image_id ? (images.get(b.front_image_id) ?? null) : null,
         bottleId: b.id,
         vintageId: b.wine_vintages.id,
         wineId: b.wine_vintages.wines.id,
@@ -526,7 +572,35 @@ export function createCellarRepository(db: Db): CellarRepository {
         year: vintage.data.year,
         wine: { ...toWine({ ...w, producers: w.producers }), appellation: w.appellation },
         bottles: (bottles.data ?? []).map(toBottle),
+        image: await latestImage(householdId, vintageId),
       };
+    },
+
+    async getImageRef(householdId, imageId) {
+      const { data, error } = await db
+        .from("bottle_images")
+        .select(IMAGE_REF_COLUMNS)
+        .eq("household_id", householdId)
+        .eq("id", imageId)
+        .maybeSingle();
+      if (error) throw mapDbError(error);
+      return data ? toImageRef(data) : null;
+    },
+
+    async latestImageId(householdId, vintageId) {
+      return (await latestImage(householdId, vintageId))?.id ?? null;
+    },
+
+    async attachImage(householdId, vintageId, imageId) {
+      const { data, error } = await db
+        .from("bottles")
+        .update({ front_image_id: imageId })
+        .eq("household_id", householdId)
+        .eq("vintage_id", vintageId)
+        .in("status", ["in_cellar", "opened"])
+        .select("id");
+      if (error) throw mapDbError(error);
+      return data?.length ?? 0;
     },
 
     async getBottle(householdId, bottleId) {

@@ -47,6 +47,10 @@ function fakeRepo(
     opened: [] as Array<{ ids: string[]; at: string | null }>,
     tastings: [] as ImportedTasting[],
     ratingsOff: false,
+    images: new Set<string>(),
+    latestImage: null as string | null,
+    attached: [] as Array<string | null>,
+    attachable: 1,
     failInsertAt: null as number | null,
     wines: [] as Array<{
       producerId: string;
@@ -170,6 +174,16 @@ function fakeRepo(
     },
     async addFavorites(_user, wineIds) {
       for (const id of wineIds) state.favorites.add(id);
+    },
+    async getImageRef(_h, id) {
+      return state.images.has(id) ? { id, blurColor: null, width: 100, height: 100 } : null;
+    },
+    async latestImageId() {
+      return state.latestImage;
+    },
+    async attachImage(_h, _v, imageId) {
+      state.attached.push(imageId);
+      return state.attachable;
     },
     async deleteBottles(_h, ids) {
       state.deletedBottles.push(...ids);
@@ -388,6 +402,7 @@ describe("the cellar view", () => {
     priceCents: null,
     currency: null,
     addedAt: "2026-10-01T10:00:00Z",
+    image: null,
     ...over,
   });
 
@@ -478,6 +493,7 @@ describe("the home view", () => {
     priceCents: null,
     currency: null,
     addedAt: "2026-10-01T10:00:00Z",
+    image: null,
     ...over,
   });
   const units = [
@@ -598,6 +614,7 @@ describe("when to drink it, on the cards and on Home", () => {
     priceCents: 3000,
     currency: "EUR",
     addedAt: "2026-10-01T10:00:00Z",
+    image: null,
     ...over,
   });
   const phases = (rows: InventoryRow[]) =>
@@ -685,6 +702,7 @@ describe("tonight", () => {
     priceCents: 3000,
     currency: "EUR",
     addedAt: "2026-10-01T10:00:00Z",
+    image: null,
     ...over,
   });
   const ask = (rows: InventoryRow[], dish: string | null = null, occasion = "anything") =>
@@ -884,5 +902,60 @@ describe("moving house from Wijnkelder", () => {
     ).rejects.toMatchObject({ code: "VALIDATION" });
     expect(state.storage).toEqual([]);
     expect(state.inserts).toEqual([]);
+  });
+});
+
+describe("label photos on bottles", () => {
+  const add = {
+    wineId,
+    year: 2019,
+    quantity: 2,
+    locationId: null,
+    priceCents: null,
+    purchasedAt: null,
+    formatMl: 750,
+  };
+
+  it("a new bottle of a wine you already have a photo of shares that photo", async () => {
+    const { repo, state } = fakeRepo();
+    state.latestImage = "photo-1";
+    await createCellarService(repo, { userId: "me" }).addBottles(add);
+    expect(state.inserts[0]!.map((b) => b.frontImageId)).toEqual(["photo-1", "photo-1"]);
+  });
+
+  it("a photo given now wins, and must be one of this household's", async () => {
+    const { repo, state } = fakeRepo();
+    state.latestImage = "old";
+    state.images.add("new");
+    const service = createCellarService(repo, { userId: "me" });
+    await service.addBottles({ ...add, imageId: "new" });
+    expect(state.inserts[0]!.every((b) => b.frontImageId === "new")).toBe(true);
+    await expect(service.addBottles({ ...add, imageId: "someone-elses" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    expect(state.inserts).toHaveLength(1); // nothing was added for the refused one
+  });
+
+  it("adding without any photo around leaves the bottles photo-less", async () => {
+    const { repo, state } = fakeRepo();
+    await createCellarService(repo, { userId: "me" }).addBottles(add);
+    expect(state.inserts[0]!.every((b) => !b.frontImageId)).toBe(true);
+  });
+
+  it("attaching a photo needs the photo and a wine you have bottles of", async () => {
+    const { repo, state } = fakeRepo();
+    const service = createCellarService(repo, { userId: "me" });
+    await expect(service.attachPhoto("v1", "nope")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    state.images.add("p1");
+    expect(await service.attachPhoto("v1", "p1")).toEqual({ vintageId: "v1", imageId: "p1" });
+    expect(state.attached).toEqual(["p1"]);
+    state.attachable = 0; // no bottle of that wine in this household
+    await expect(service.attachPhoto("v1", "p1")).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("removing a photo clears it on the wine's bottles", async () => {
+    const { repo, state } = fakeRepo();
+    await createCellarService(repo, { userId: "me" }).removePhoto("v1");
+    expect(state.attached).toEqual([null]);
   });
 });

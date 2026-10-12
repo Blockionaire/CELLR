@@ -207,6 +207,9 @@ const COUNTRY_BY_NAME: Record<string, string> = {
   peru: "PE",
 };
 
+/** The countries a wine can plausibly come from, by ISO code: anything else an AI says is dropped. */
+export const KNOWN_COUNTRY_CODES: ReadonlySet<string> = new Set(Object.values(COUNTRY_BY_NAME));
+
 /** Bottle sizes by their old names, in millilitres. */
 const FORMAT_ML: Record<string, number> = {
   fles: 750,

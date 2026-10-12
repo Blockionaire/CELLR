@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useId, useState, type ChangeEvent, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ERROR_MESSAGES,
   parseWijnkelderBackup,
@@ -15,6 +15,7 @@ import {
 import { errorMessage } from "@/lib/api";
 import { Button, buttonStyles } from "@/ui/button";
 import { cn } from "@/ui/cn";
+import { FileButton } from "@/ui/file-button";
 import { PageHeader } from "@/ui/page-header";
 import { Segmented } from "@/ui/segmented";
 import { useImportWijnkelder } from "./hooks";
@@ -36,7 +37,6 @@ const SCALES: readonly ScoreScale[] = [5, 10, 100];
 export function ImportScreen() {
   const t = useTranslations("import");
   const te = useTranslations();
-  const fileId = useId();
   const run = useImportWijnkelder();
   const [stage, setStage] = useState<Stage>({ name: "pick" });
   const [error, setError] = useState<string | null>(null);
@@ -44,10 +44,7 @@ export function ImportScreen() {
 
   const message = (e: unknown) => errorMessage(e, (k) => te(k), ERROR_MESSAGES);
 
-  async function choose(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = ""; // choosing the same file again must work
-    if (!file) return;
+  async function choose(file: File) {
     setError(null);
     setReading(true);
     try {
@@ -101,24 +98,16 @@ export function ImportScreen() {
             <li>{t("step2")}</li>
             <li>{t("step3")}</li>
           </ol>
-          <input
-            id={fileId}
-            type="file"
+          <FileButton
             accept=".json,application/json"
-            onChange={choose}
+            variant="primary"
+            size="lg"
+            block
             disabled={reading}
-            className="peer sr-only"
-          />
-          <label
-            htmlFor={fileId}
-            className={cn(
-              buttonStyles({ variant: "primary", size: "lg", block: true }),
-              "cursor-pointer peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent",
-              reading && "pointer-events-none opacity-60",
-            )}
+            onFile={choose}
           >
             {reading ? t("reading") : t("choose")}
-          </label>
+          </FileButton>
           <p className="text-center text-small text-ink-3">{t("privacy")}</p>
           {error && (
             <p role="alert" className="text-center text-small text-danger">

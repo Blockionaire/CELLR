@@ -133,6 +133,7 @@ export function aggregateInventory(
         count: 0,
         places: [],
         unplaced: 0,
+        image: r.image,
         favorite: favoriteWineIds.has(r.wineId),
         rating: summarizeScores(scoresByVintage.get(r.vintageId) ?? []),
         latest: r.addedAt,
@@ -143,6 +144,7 @@ export function aggregateInventory(
     if (r.priceCents !== null) facts.get(r.vintageId)?.prices.push(r.priceCents);
     item.count += 1;
     if (r.addedAt > item.latest) item.latest = r.addedAt;
+    item.image ??= r.image;
     if (r.locationLabel === null) item.unplaced += 1;
     else if (!item.places.includes(r.locationLabel)) item.places.push(r.locationLabel);
   }
@@ -298,6 +300,7 @@ export function buildRacks(units: StorageUnitView[], rows: InventoryRow[]): Rack
       countryCode: r.countryCode,
       row: r.row,
       col: r.col,
+      image: r.image,
     };
     const unit =
       r.locationId && r.row !== null && r.col !== null ? byId.get(r.locationId) : undefined;
@@ -511,6 +514,7 @@ export function createCellarService(
         ),
         wine: { ...rows.wine, favorite: favorites.includes(rows.wine.id) },
         year: rows.year,
+        image: rows.image,
         bottles: inCellar,
         opened,
         tastings: tastings.map((t) => toTastingView(t, userId)),
@@ -643,6 +647,26 @@ export function createCellarService(
       return { committed: true, report: plan.report, written };
     },
 
+    /** Gives every bottle of a vintage this label photo (replacing the one it had). */
+    async attachPhoto(
+      vintageId: string,
+      imageId: string,
+    ): Promise<{ vintageId: string; imageId: string }> {
+      const { id: householdId } = await household();
+      if (!(await repo.getImageRef(householdId, imageId)))
+        throw new DomainError("NOT_FOUND", "We couldn't find that photo.");
+      if ((await repo.attachImage(householdId, vintageId, imageId)) === 0)
+        throw new DomainError("NOT_FOUND");
+      return { vintageId, imageId };
+    },
+
+    /** Takes the label photo off a vintage (the photo itself is kept until its household is deleted). */
+    async removePhoto(vintageId: string): Promise<void> {
+      const { id: householdId } = await household();
+      if ((await repo.attachImage(householdId, vintageId, null)) === 0)
+        throw new DomainError("NOT_FOUND");
+    },
+
     async addBottles(input: AddBottles): Promise<AddBottlesResult> {
       const { id: householdId, currency } = await household();
       const wine = await repo.getWine(input.wineId);
@@ -653,6 +677,10 @@ export function createCellarService(
         throw new DomainError("NOT_FOUND", "We couldn't find that place.");
 
       const vintageId = await repo.findOrCreateVintage(wine.id, input.year);
+      // A photo given now is used; otherwise a new bottle shares the photo of its siblings.
+      if (input.imageId && !(await repo.getImageRef(householdId, input.imageId)))
+        throw new DomainError("NOT_FOUND", "We couldn't find that photo.");
+      const frontImageId = input.imageId ?? (await repo.latestImageId(householdId, vintageId));
 
       for (let attempt = 1; ; attempt++) {
         const slots = unit
@@ -673,6 +701,7 @@ export function createCellarService(
             priceCents: input.priceCents,
             currency: input.priceCents === null ? null : currency,
             purchasedAt: input.purchasedAt,
+            frontImageId,
           };
         });
         try {

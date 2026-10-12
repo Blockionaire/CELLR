@@ -42,6 +42,7 @@ const item = (over: Partial<CellarItem>): CellarItem => ({
   count: 1,
   places: [],
   unplaced: 0,
+  image: null,
   favorite: false,
   rating: null,
   drink: drinkOf("peak"),

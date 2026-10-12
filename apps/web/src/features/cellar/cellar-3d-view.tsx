@@ -10,6 +10,7 @@ import { cn } from "@/ui/cn";
 import { EmptyState } from "@/ui/empty-state";
 import { Skeleton } from "@/ui/skeleton";
 import { BottleShowcasePanel } from "./bottle-showcase-panel";
+import { imageUrl } from "./label-image";
 import { useRacks, useVintageDetail } from "./hooks";
 import { MoveBottleSheet } from "./move-bottle-sheet";
 import { NewPlaceSheet } from "./new-place-sheet";
@@ -141,6 +142,7 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
               year: picked.year,
               place: placeLine(picked.region, picked.countryCode, locale),
               type: picked.type,
+              photoUrl: picked.image ? imageUrl(picked.image.id, "photo") : null,
             },
           }
         : null,

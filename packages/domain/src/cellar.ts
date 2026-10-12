@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { DrinkPhase } from "./drink-window";
+import type { ImageRef } from "./image";
 import type { RatingSummary, TastingView } from "./tasting";
 
 // ---- Vocabulary ---------------------------------------------------------------------------------
@@ -166,6 +167,8 @@ export const AddBottlesSchema = z.object({
   priceCents: z.number().int().min(0).max(MAX_PRICE_CENTS).nullable().default(null),
   purchasedAt: z.iso.date().nullable().default(null),
   formatMl: z.number().int().min(100).max(30000).default(750),
+  /** A label photo already uploaded (from a scan or the camera); bottles of a known vintage share its photo. */
+  imageId: z.uuid().optional(),
 });
 export type AddBottles = z.infer<typeof AddBottlesSchema>;
 
@@ -246,6 +249,8 @@ export interface CellarItem {
   places: string[];
   /** Bottles with no place yet. */
   unplaced: number;
+  /** The label photo, when there is one. */
+  image: ImageRef | null;
   /** Whether the signed-in person has starred this wine (personal, not shared with the household). */
   favorite: boolean;
   /** What the household thought of it, or null while nobody has rated it. */
@@ -415,6 +420,8 @@ export interface VintageDetail {
   drink: DrinkSummary;
   wine: WineDetail;
   year: number | null;
+  /** The label photo, when there is one. */
+  image: ImageRef | null;
   /** In the cellar now, in a stable order: placed ones by place, shelf and position, then unplaced. */
   bottles: BottleView[];
   /** The most recently opened ones, newest first. */
@@ -513,6 +520,8 @@ export interface PlacedBottle {
   countryCode: string | null;
   row: number | null;
   col: number | null;
+  /** The label photo, when there is one. */
+  image: ImageRef | null;
 }
 
 export interface RackUnit extends StorageUnitView {

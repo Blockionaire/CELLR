@@ -5,6 +5,7 @@ import type {
   CreateStorage,
   CreateWine,
   Descriptor,
+  ImageRef,
   Slot,
   StorageKind,
   UpdateStorage,
@@ -48,6 +49,8 @@ export interface InventoryRow {
   priceCents: number | null;
   currency: string | null;
   addedAt: string;
+  /** The label photo of this bottle, if it has one. */
+  image: ImageRef | null;
 }
 
 /** What a person wrote about a bottle. */
@@ -104,6 +107,8 @@ export interface NewBottle {
   /** Only an import knows these. */
   purchasedFrom?: string | null | undefined;
   notes?: string | null | undefined;
+  /** The label photo the bottle starts with. */
+  frontImageId?: string | null | undefined;
 }
 
 /** A tasting carried over from an earlier app; the date it happened is kept. */
@@ -125,6 +130,8 @@ export interface VintageRows {
   /** The wine itself; whether the viewer has starred it is added by the service. */
   wine: Omit<WineDetail, "favorite">;
   bottles: BottleRow[];
+  /** The newest label photo of any of these bottles. */
+  image: ImageRef | null;
 }
 
 export interface BottlePatch {
@@ -189,6 +196,12 @@ export interface CellarRepository {
     patch: BottlePatch,
     fromStatuses: readonly BottleStatus[],
   ): Promise<BottleRow | null>;
+  /** A label photo of this household, if it exists (and is theirs to see). */
+  getImageRef(householdId: string, imageId: string): Promise<ImageRef | null>;
+  /** The newest label photo among the bottles of a vintage, so a new bottle can share it. */
+  latestImageId(householdId: string, vintageId: string): Promise<string | null>;
+  /** Points every bottle of the vintage (in the cellar or already opened) at the photo. Returns how many. */
+  attachImage(householdId: string, vintageId: string, imageId: string | null): Promise<number>;
   /** Removes bottles (undoing a half-finished import). */
   deleteBottles(householdId: string, bottleIds: string[]): Promise<void>;
   /** Marks bottles opened on the given day (an import backdates them). Returns how many changed. */

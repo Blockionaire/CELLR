@@ -61,6 +61,15 @@ function fake(
   };
   const repo: CellarRepository = {
     async deleteBottles() {},
+    async getImageRef() {
+      return null;
+    },
+    async latestImageId() {
+      return null;
+    },
+    async attachImage() {
+      return 0;
+    },
     async markOpened() {
       return 0;
     },
@@ -112,7 +121,7 @@ function fake(
     },
     async getVintage(_h, vintageId): Promise<VintageRows | null> {
       return vintageId === "v1"
-        ? { vintageId, year: 2019, wine: WINE, bottles: state.bottles }
+        ? { vintageId, year: 2019, wine: WINE, bottles: state.bottles, image: null }
         : null;
     },
     async getBottle(_h, id) {
@@ -450,6 +459,7 @@ describe("the racks view", () => {
     priceCents: null,
     currency: null,
     addedAt: "2026-10-01T10:00:00Z",
+    image: null,
     ...over,
   });
   const unit = toStorageView({ ...FRIDGE, used: 2 });
@@ -604,6 +614,7 @@ describe("how was it? (tastings)", () => {
             vintageId: "v1",
             year: 2019,
             wine: WINE,
+            image: null,
             bottles: [opened],
           };
         },

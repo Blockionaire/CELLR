@@ -722,5 +722,15 @@
       "history-unknown-bottle": "A history entry about a bottle that isn’t in the backup was left out ({example}).",
       "history-no-content": "A history entry without details was left out."
     }
+  },
+  "photo": {
+    "add": "Add a photo of the label",
+    "change": "Change photo",
+    "remove": "Remove photo",
+    "saving": "Saving your photo…",
+    "saved": "Photo saved.",
+    "removed": "Photo removed.",
+    "unreadable": "We couldn’t open that photo. Try another one.",
+    "alt": "Label of {wine}"
   }
 }

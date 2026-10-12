@@ -19,6 +19,8 @@ import { BottleSpot, useDay, useMoney } from "./bottle-bits";
 import { DrinkWindowBar, DrinkLabel } from "./drink-bits";
 import { EditSheet } from "./edit-sheet";
 import { FavoriteButton } from "./favorite-button";
+import { LabelImage } from "./label-image";
+import { LabelPhotoActions } from "./label-photo-actions";
 import { useVintage } from "./hooks";
 import { MoveBottleSheet } from "./move-bottle-sheet";
 import { NewPlaceSheet } from "./new-place-sheet";
@@ -48,6 +50,7 @@ export function VintageScreen({
   const tTasting = useTranslations("tasting");
   const tDrink = useTranslations("drink");
   const tTypes = useTranslations("wineTypes");
+  const tPhoto = useTranslations("photo");
   const locale = useLocale();
   const { data: detail } = useVintage(initial.vintageId, initial);
   const [sheet, setSheet] = useState<SheetName>(null);
@@ -87,13 +90,25 @@ export function VintageScreen({
       </Link>
 
       <header className="mt-2 grid gap-6 md:grid-cols-[13rem_1fr] md:items-center">
-        <div className="relative grid h-56 place-items-center rounded-card bg-raised md:h-64">
-          <BottleGlyph
-            shape={shapeFor(wine.type)}
-            tint={wine.type}
-            className="h-44 w-auto md:h-52"
-            title={tTypes(wine.type)}
-          />
+        <div>
+          <div className="relative grid h-56 place-items-center overflow-hidden rounded-card bg-raised md:h-64">
+            {detail.image ? (
+              <LabelImage
+                image={detail.image}
+                size="photo"
+                alt={tPhoto("alt", { wine: `${wine.producer} ${wine.name}` })}
+                className="absolute inset-0 size-full"
+              />
+            ) : (
+              <BottleGlyph
+                shape={shapeFor(wine.type)}
+                tint={wine.type}
+                className="h-44 w-auto md:h-52"
+                title={tTypes(wine.type)}
+              />
+            )}
+          </div>
+          <LabelPhotoActions vintageId={detail.vintageId} hasPhoto={detail.image !== null} />
         </div>
         <div className="min-w-0">
           <p className="text-caption font-medium uppercase tracking-[0.14em] text-ink-3">

@@ -9,6 +9,7 @@ import type {
   CellarView,
   CreateStorage,
   CreateWine,
+  ImageRef,
   RackView,
   SaveTasting,
   StorageUnitView,
@@ -24,6 +25,7 @@ import { useTranslations } from "next-intl";
 import { ERROR_MESSAGES } from "@cellr/domain";
 import { track } from "@/lib/analytics";
 import { api, errorMessage } from "@/lib/api";
+import { photoForm, preparePhoto, UnreadablePhotoError } from "@/lib/photo";
 import { useToast } from "@/ui/toast";
 
 export const cellarKey = ["cellar"] as const;
@@ -192,6 +194,51 @@ export function useDeleteTasting() {
       toast.show(t("removed"));
       await refresh();
     },
+  });
+}
+
+/** Takes a photo of the label (from the camera or the library), keeps it, and gives it to every bottle of the wine. */
+export function useLabelPhoto(vintageId: string) {
+  const refresh = useRefreshCellar();
+  const toast = useToast();
+  const t = useTranslations("photo");
+  const te = useTranslations();
+  return useMutation({
+    mutationFn: async (file: Blob) => {
+      const image = await api.upload<ImageRef>("/images", photoForm(await preparePhoto(file)));
+      await api.put(`/cellar/${vintageId}/photo`, { imageId: image.id });
+      return image;
+    },
+    onSuccess: async () => {
+      toast.show(t("saved"));
+      await refresh();
+    },
+    onError: (e) =>
+      toast.show(
+        e instanceof UnreadablePhotoError
+          ? t("unreadable")
+          : errorMessage(e, (k) => te(k), ERROR_MESSAGES),
+        { tone: "error" },
+      ),
+  });
+}
+
+export function useRemoveLabelPhoto(vintageId: string) {
+  const refresh = useRefreshCellar();
+  const toast = useToast();
+  const t = useTranslations("photo");
+  const te = useTranslations();
+  return useMutation({
+    mutationFn: () => api.delete(`/cellar/${vintageId}/photo`),
+    onSuccess: async () => {
+      toast.show(t("removed"));
+      await refresh();
+    },
+    onError: (e) =>
+      toast.show(
+        errorMessage(e, (k) => te(k), ERROR_MESSAGES),
+        { tone: "error" },
+      ),
   });
 }
 

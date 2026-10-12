@@ -11,6 +11,8 @@ export interface LabelSpec {
   /** "Bordeaux, France" — may be empty. */
   place: string;
   type: WineType;
+  /** A photo of the real label: when there is one, the bottle wears that instead of the drawn label. */
+  photoUrl?: string | null | undefined;
 }
 
 export const LABEL_W = 640;
@@ -182,14 +184,40 @@ function shade(hex: string, amount: number): string {
   return `rgb(${part(16)}, ${part(8)}, ${part(0)})`;
 }
 
+/** The photo of the real label, or null when it cannot be had (offline, removed): the drawn label stands in. */
+async function loadPhoto(url: string): Promise<ImageBitmap | null> {
+  try {
+    const response = await fetch(url, { credentials: "same-origin" });
+    return response.ok ? await createImageBitmap(await response.blob()) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The photo, filling the label's shape (the middle of it when the proportions differ). */
+function drawPhoto(ctx: Ctx, photo: ImageBitmap): void {
+  const scale = Math.max(LABEL_W / photo.width, LABEL_H / photo.height);
+  const w = photo.width * scale;
+  const h = photo.height * scale;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(photo, (LABEL_W - w) / 2, (LABEL_H - h) / 2, w, h);
+}
+
 /** The label as a texture, ready to wrap round a bottle. The caller owns it and disposes it. */
 export async function makeLabelTexture(spec: LabelSpec, maxAnisotropy = 8): Promise<THREE.Texture> {
-  await fontsReady();
+  const [photo] = await Promise.all([
+    spec.photoUrl ? loadPhoto(spec.photoUrl) : null,
+    fontsReady(),
+  ]);
   const canvas = document.createElement("canvas");
   canvas.width = LABEL_W;
   canvas.height = LABEL_H;
   const ctx = canvas.getContext("2d");
-  if (ctx) drawLabel(ctx, spec);
+  if (ctx) {
+    if (photo) drawPhoto(ctx, photo);
+    else drawLabel(ctx, spec);
+  }
+  photo?.close();
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = maxAnisotropy;

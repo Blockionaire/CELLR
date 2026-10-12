@@ -95,6 +95,37 @@ export async function readJson<T>(
   return parsed.data;
 }
 
+/** The most one upload may carry: a label photo and its small copy (hosting platforms stop at ~4.5 MB). */
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+/** Reads a multipart form (a photo upload), refusing anything oversized before it is buffered. */
+export async function readForm(request: Request, maxBytes = MAX_UPLOAD_BYTES): Promise<FormData> {
+  if (Number(request.headers.get("content-length") ?? "0") > maxBytes)
+    throw new DomainError("UPLOAD_REJECTED", "That photo is too large. Try a smaller one.");
+  if (!(request.headers.get("content-type") ?? "").toLowerCase().includes("multipart/form-data"))
+    throw new DomainError("VALIDATION");
+  try {
+    return await request.formData();
+  } catch {
+    throw new DomainError("VALIDATION");
+  }
+}
+
+/**
+ * A photo, for the signed-in person's own screens. The address of a photo never changes what it shows, so
+ * the browser may keep it; "private" stops shared caches from ever holding someone's cellar.
+ */
+export function imageResponse(bytes: Uint8Array): Response {
+  const headers = new Headers({
+    "Content-Type": "image/jpeg",
+    "Cache-Control": "private, max-age=31536000, immutable",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'",
+    "Content-Length": String(bytes.byteLength),
+  });
+  return new Response(new Blob([new Uint8Array(bytes)]), { status: 200, headers });
+}
+
 type RouteContext<P> = { params: Promise<P> };
 
 /** Handler results: a Response is passed through, `undefined` becomes 204, anything else is JSON 200. */

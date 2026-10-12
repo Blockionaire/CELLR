@@ -46,6 +46,9 @@ export default defineConfig({
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_localstack_0000000000",
         SUPABASE_SERVICE_ROLE_KEY: "sb_secret_localstack_00000000000000",
         DESIGN_GALLERY: "1",
+        // An OpenAI-compatible endpoint inside the local stack: tests program what it answers.
+        OPENAI_API_KEY: "sk-local-stack-0000000000",
+        AI_BASE_URL: STACK_URL + "/openai/v1",
       },
     },
   ],
