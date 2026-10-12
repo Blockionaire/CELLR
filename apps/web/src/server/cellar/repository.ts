@@ -549,6 +549,29 @@ export function createCellarRepository(db: Db): CellarRepository {
         addedAt: b.created_at,
       }));
     },
+    async listGone(householdId, limit) {
+      const { data, error } = await db
+        .from("bottles")
+        .select(
+          "id, status, opened_at, updated_at, wine_vintages!inner(id, year, wines!inner(name, wine_type, producers!inner(name)))",
+        )
+        .eq("household_id", householdId)
+        .in("status", ["opened", "gifted", "removed"])
+        .order("updated_at", { ascending: false })
+        .limit(limit);
+      if (error) throw mapDbError(error);
+      return (data ?? []).map((b) => ({
+        bottleId: b.id,
+        vintageId: b.wine_vintages.id,
+        producer: b.wine_vintages.wines.producers.name,
+        wineName: b.wine_vintages.wines.name,
+        type: b.wine_vintages.wines.wine_type as WineType,
+        year: b.wine_vintages.year,
+        status: b.status as "opened" | "gifted" | "removed",
+        openedAt: b.opened_at ?? "",
+        at: b.opened_at ?? b.updated_at,
+      }));
+    },
     async listRecentlyOpened(householdId, limit) {
       const { data, error } = await db
         .from("bottles")

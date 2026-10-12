@@ -288,6 +288,26 @@ export interface OpenedEntry {
   rated: boolean;
 }
 
+/** A bottle that has left the cellar: opened, given away, or removed. */
+export interface HistoryItem {
+  bottleId: string;
+  vintageId: string;
+  producer: string;
+  wineName: string;
+  type: WineType;
+  year: number | null;
+  status: "opened" | "gifted" | "removed";
+  /** When: the day it was opened, else when it left. */
+  at: string;
+  /** The signed-in person's stars for it (1..10), or null. */
+  myScore: number | null;
+}
+
+export interface HistoryView {
+  /** Newest first. */
+  items: HistoryItem[];
+}
+
 /** Everything the Home screen shows, in one go. */
 export interface HomeView {
   /** When this was put together (ISO), so "3 days ago" is measured against the same clock everywhere. */
@@ -356,7 +376,11 @@ const PlacementSchema = z
 
 export const BottleActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("open") }),
-  z.object({ action: z.literal("remove") }),
+  /** Leaves the cellar: for good ("removed": a mistake, a broken bottle) or given away ("gifted"). Either can be undone. */
+  z.object({
+    action: z.literal("remove"),
+    reason: z.enum(["removed", "gifted"]).optional(),
+  }),
   z.object({ action: z.literal("move"), to: PlacementSchema }),
   /** Undo for "open" / "remove": back in the cellar, in `to` if it is still free. */
   z.object({

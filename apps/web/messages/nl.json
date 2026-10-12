@@ -126,7 +126,8 @@
     "notPlaced": "{count} zonder plek",
     "viewRacks": "Rekken",
     "view3d": "3D",
-    "wishlist": "Wishlist"
+    "wishlist": "Wishlist",
+    "history": "Geschiedenis"
   },
   "scan": {
     "title": "Scan een etiket",
@@ -1003,5 +1004,44 @@
     "starsOf": "{stars} van de 5",
     "ratingByType": "Gemiddelde beoordeling per soort",
     "toCellar": "Terug naar je kelder"
+  },
+  "bulk": {
+    "select": "Flessen selecteren",
+    "done": "Klaar",
+    "selectAll": "Alles selecteren",
+    "selectNone": "Niets selecteren",
+    "pick": "Selecteer de fles op {spot}",
+    "toolbar": "Wat te doen met de geselecteerde flessen",
+    "selected": "{count, plural, =0 {Niets geselecteerd} one {# fles geselecteerd} other {# flessen geselecteerd}}",
+    "moveTo": "Verplaats naar…",
+    "gaveAway": "Weggegeven",
+    "remove": "Verwijderen",
+    "removeTitle": "{count, plural, one {# fles verwijderen?} other {# flessen verwijderen?}}",
+    "removeBody": "Ze verdwijnen uit je kelder en staan in Geschiedenis, waar je ze terug kunt zetten.",
+    "gaveAwayTitle": "{count, plural, one {# fles als weggegeven markeren?} other {# flessen als weggegeven markeren?}}",
+    "gaveAwayBody": "Ze verlaten je kelder als cadeau en staan in Geschiedenis, waar je ze terug kunt zetten.",
+    "removed": "{count, plural, one {# fles verwijderd.} other {# flessen verwijderd.}}",
+    "gifted": "{count, plural, one {# fles als weggegeven gemarkeerd.} other {# flessen als weggegeven gemarkeerd.}}",
+    "moveTitle": "{count, plural, one {# fles verplaatsen} other {# flessen verplaatsen}}",
+    "noPlaces": "Maak eerst een plek aan, dan kun je flessen erin leggen.",
+    "free": "{free} vrij",
+    "moved": "{count, plural, one {# fles verplaatst naar {place}.} other {# flessen verplaatst naar {place}.}}",
+    "movedSome": "{moved} verplaatst naar {place}. {rest, plural, one {# fles} other {# flessen}} bleven waar ze waren: geen ruimte."
+  },
+  "history": {
+    "title": "Geschiedenis",
+    "subtitle": "Elke fles die je kelder verliet: geopend, weggegeven of verwijderd. Zet er op elk moment een terug.",
+    "back": "Kelder",
+    "emptyTitle": "Er is nog niets uit je kelder gegaan",
+    "emptyBody": "Flessen die je opent, weggeeft of verwijdert staan hier, met een weg terug.",
+    "status": {
+      "opened": "Geopend op {day}",
+      "gifted": "Weggegeven op {day}",
+      "removed": "Verwijderd op {day}"
+    },
+    "rated": "{stars} sterren",
+    "putBack": "Terugzetten",
+    "putBackLabel": "Zet {wine} terug in de kelder",
+    "restored": "Weer terug in je kelder."
   }
 }

@@ -64,6 +64,9 @@ function fake(
     async getImageRef() {
       return null;
     },
+    async listGone() {
+      return [];
+    },
     async latestImageRef() {
       return null;
     },

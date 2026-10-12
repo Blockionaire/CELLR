@@ -12,6 +12,7 @@ import {
   type BottleView,
   type VintageDetail,
 } from "@cellr/domain";
+import { BulkBar } from "./bulk-bottles";
 import { BottleExtrasSheet } from "@/features/insights/bottle-extras-sheet";
 import { useExtras } from "@/features/insights/hooks";
 import { InsightCard } from "@/features/insights/insight-card";
@@ -63,6 +64,13 @@ export function VintageScreen({
     () => initial.opened.find((b) => b.id === initialRate) ?? null,
   );
   const [extrasFor, setExtrasFor] = useState<BottleView | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<readonly string[]>([]);
+  const tBulk = useTranslations("bulk");
+  const stopSelecting = () => {
+    setSelecting(false);
+    setPicked([]);
+  };
   const tExtras = useTranslations("bottleExtras");
   const extras = useExtras(initial.vintageId);
   const extrasOf = (bottleId: string) => extras.data?.items.find((e) => e.bottleId === bottleId);
@@ -199,6 +207,29 @@ export function VintageScreen({
                   </span>
                 ))}
               </p>
+              {count > 1 && (
+                <div className="mt-3 flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
+                  >
+                    {selecting ? tBulk("done") : tBulk("select")}
+                  </Button>
+                  {selecting && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        setPicked(picked.length === count ? [] : detail.bottles.map((b) => b.id))
+                      }
+                    >
+                      {picked.length === count ? tBulk("selectNone") : tBulk("selectAll")}
+                    </Button>
+                  )}
+                </div>
+              )}
+              {selecting && <BulkBar detail={detail} selected={picked} onDone={stopSelecting} />}
               <ul className="mt-4 divide-y divide-hairline" aria-label={t("bottlesTitle")}>
                 {detail.bottles.map((b) => (
                   <li
@@ -206,6 +237,21 @@ export function VintageScreen({
                     className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3"
                   >
                     <span className="flex items-center gap-3 text-body text-ink">
+                      {selecting && (
+                        <input
+                          type="checkbox"
+                          checked={picked.includes(b.id)}
+                          onChange={(e) =>
+                            setPicked((p) =>
+                              e.target.checked ? [...p, b.id] : p.filter((id) => id !== b.id),
+                            )
+                          }
+                          aria-label={tBulk("pick", {
+                            spot: b.locationLabel ?? tExtras("unplaced"),
+                          })}
+                          className="size-5 accent-[var(--accent)]"
+                        />
+                      )}
                       <BottleGlyph
                         shape={shapeFor(wine.type)}
                         tint={wine.type}

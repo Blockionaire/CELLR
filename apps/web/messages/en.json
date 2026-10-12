@@ -126,7 +126,8 @@
     "notPlaced": "{count} not placed",
     "viewRacks": "Racks",
     "view3d": "3D",
-    "wishlist": "Wishlist"
+    "wishlist": "Wishlist",
+    "history": "History"
   },
   "scan": {
     "title": "Scan a label",
@@ -1003,5 +1004,44 @@
     "starsOf": "{stars} out of 5",
     "ratingByType": "Average rating by kind",
     "toCellar": "Back to your cellar"
+  },
+  "bulk": {
+    "select": "Select bottles",
+    "done": "Done",
+    "selectAll": "Select all",
+    "selectNone": "Select none",
+    "pick": "Select the bottle in {spot}",
+    "toolbar": "What to do with the selected bottles",
+    "selected": "{count, plural, =0 {Nothing selected} one {# bottle selected} other {# bottles selected}}",
+    "moveTo": "Move to…",
+    "gaveAway": "Gave away",
+    "remove": "Remove",
+    "removeTitle": "{count, plural, one {Remove # bottle?} other {Remove # bottles?}}",
+    "removeBody": "They leave your cellar, and appear in History, where you can put them back.",
+    "gaveAwayTitle": "{count, plural, one {Mark # bottle as given away?} other {Mark # bottles as given away?}}",
+    "gaveAwayBody": "They leave your cellar as a gift, and appear in History, where you can put them back.",
+    "removed": "{count, plural, one {# bottle removed.} other {# bottles removed.}}",
+    "gifted": "{count, plural, one {# bottle marked as given away.} other {# bottles marked as given away.}}",
+    "moveTitle": "{count, plural, one {Move # bottle} other {Move # bottles}}",
+    "noPlaces": "Create a place first, then you can move bottles into it.",
+    "free": "{free} free",
+    "moved": "{count, plural, one {# bottle moved to {place}.} other {# bottles moved to {place}.}}",
+    "movedSome": "{moved} moved to {place}. {rest, plural, one {# bottle} other {# bottles}} stayed where they were: no room."
+  },
+  "history": {
+    "title": "History",
+    "subtitle": "Every bottle that left your cellar: opened, given away or removed. Put one back any time.",
+    "back": "Cellar",
+    "emptyTitle": "Nothing has left your cellar yet",
+    "emptyBody": "Bottles you open, give away or remove show up here, with a way back.",
+    "status": {
+      "opened": "Opened {day}",
+      "gifted": "Given away {day}",
+      "removed": "Removed {day}"
+    },
+    "rated": "{stars} stars",
+    "putBack": "Put back",
+    "putBackLabel": "Put {wine} back in the cellar",
+    "restored": "Back in your cellar."
   }
 }

@@ -183,6 +183,11 @@ export interface CellarRepository {
 
   insertBottles(householdId: string, rows: NewBottle[]): Promise<string[]>;
   listInventory(householdId: string): Promise<InventoryRow[]>;
+  /** Bottles that have left the cellar (opened, given away, removed), newest first. */
+  listGone(
+    householdId: string,
+    limit: number,
+  ): Promise<Array<OpenedRow & { status: "opened" | "gifted" | "removed"; at: string }>>;
   /** The most recently opened bottles, newest first. */
   listRecentlyOpened(householdId: string, limit: number): Promise<OpenedRow[]>;
 

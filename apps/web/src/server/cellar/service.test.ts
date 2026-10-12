@@ -178,6 +178,9 @@ function fakeRepo(
     async getImageRef(_h, id) {
       return state.images.has(id) ? { id, blurColor: null, width: 100, height: 100 } : null;
     },
+    async listGone() {
+      return [];
+    },
     async latestImageRef() {
       return null;
     },

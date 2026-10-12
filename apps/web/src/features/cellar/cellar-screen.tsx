@@ -105,6 +105,9 @@ export function CellarScreen({
       <Link href="/wishlist" className={buttonStyles({ variant: "ghost", size: "md" })}>
         {t("wishlist")}
       </Link>
+      <Link href="/cellar/history" className={buttonStyles({ variant: "ghost", size: "md" })}>
+        {t("history")}
+      </Link>
       <Link href="/cellar/add" className={buttonStyles({ variant: "primary", size: "md" })}>
         <PlusIcon size={20} />
         {t("add")}

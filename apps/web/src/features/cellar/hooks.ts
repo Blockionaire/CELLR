@@ -287,7 +287,7 @@ export const useRacks = () =>
   useQuery({ queryKey: racksKey, queryFn: () => api.get<RackView>("/racks") });
 
 /** Anything that changes bottles must refresh every place that shows counts, spots or free space. */
-function useRefreshCellar() {
+export function useRefreshCellar() {
   const queryClient = useQueryClient();
   return () =>
     Promise.all([

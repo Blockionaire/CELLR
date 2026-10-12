@@ -21,6 +21,7 @@ import {
   type DrinkSummary,
   type HomeView,
   type ImportOutcome,
+  type HistoryView,
   type ImageSide,
   type ImportRequest,
   type PlacedBottle,
@@ -421,6 +422,35 @@ export function createCellarService(
       );
     },
 
+    /** Bottles that have left the cellar, with a way back. */
+    async history(): Promise<HistoryView> {
+      const { id } = await household();
+      const gone = await repo.listGone(id, 500);
+      const mine = new Map(
+        (
+          await repo.listMyTastingScores(
+            userId,
+            gone.map((g) => g.bottleId),
+          )
+        ).map((t) => [t.bottleId, t.score]),
+      );
+      return {
+        items: gone
+          .map((g) => ({
+            bottleId: g.bottleId,
+            vintageId: g.vintageId,
+            producer: g.producer,
+            wineName: g.wineName,
+            type: g.type,
+            year: g.year,
+            status: g.status,
+            at: g.at,
+            myScore: mine.get(g.bottleId) ?? null,
+          }))
+          .sort((a, b) => b.at.localeCompare(a.at)),
+      };
+    },
+
     async inventory(): Promise<CellarView> {
       const { id } = await household();
       const [rows, favorites, scores] = await Promise.all([
@@ -549,7 +579,12 @@ export function createCellarService(
 
         case "remove":
           return result(
-            await repo.updateBottle(householdId, bottleId, { status: "removed" }, ["in_cellar"]),
+            await repo.updateBottle(
+              householdId,
+              bottleId,
+              { status: action.reason === "gifted" ? "gifted" : "removed" },
+              ["in_cellar"],
+            ),
             "That bottle is no longer in the cellar.",
           );
 
