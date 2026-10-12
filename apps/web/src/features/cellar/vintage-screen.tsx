@@ -8,9 +8,13 @@ import {
   historyEvents,
   summarizePlaces,
   summarizeScores,
+  type BottleExtrasView,
   type BottleView,
   type VintageDetail,
 } from "@cellr/domain";
+import { BottleExtrasSheet } from "@/features/insights/bottle-extras-sheet";
+import { useExtras } from "@/features/insights/hooks";
+import { InsightCard } from "@/features/insights/insight-card";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { Stars } from "@/ui/stars";
 import { Button, buttonStyles } from "@/ui/button";
@@ -57,6 +61,10 @@ export function VintageScreen({
   const [rating, setRating] = useState<BottleView | null>(
     () => initial.opened.find((b) => b.id === initialRate) ?? null,
   );
+  const [extrasFor, setExtrasFor] = useState<BottleView | null>(null);
+  const tExtras = useTranslations("bottleExtras");
+  const extras = useExtras(initial.vintageId);
+  const extrasOf = (bottleId: string) => extras.data?.items.find((e) => e.bottleId === bottleId);
   const money = useMoney(detail.currency ?? currency);
   const day = useDay();
 
@@ -192,7 +200,10 @@ export function VintageScreen({
               </p>
               <ul className="mt-4 divide-y divide-hairline" aria-label={t("bottlesTitle")}>
                 {detail.bottles.map((b) => (
-                  <li key={b.id} className="flex items-center justify-between gap-3 py-3">
+                  <li
+                    key={b.id}
+                    className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3"
+                  >
                     <span className="flex items-center gap-3 text-body text-ink">
                       <BottleGlyph
                         shape={shapeFor(wine.type)}
@@ -203,9 +214,24 @@ export function VintageScreen({
                         <BottleSpot bottle={b} short={places.length <= 1} />
                       </span>
                     </span>
-                    {b.priceCents !== null && (
-                      <span className="text-small text-ink-2 tnum">{money(b.priceCents)}</span>
-                    )}
+                    <span className="flex items-center gap-3">
+                      {b.priceCents !== null && (
+                        <span className="text-small text-ink-2 tnum">{money(b.priceCents)}</span>
+                      )}
+                      {extras.data?.ready && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={tExtras("editLabel", {
+                            spot: b.locationLabel ?? tExtras("unplaced"),
+                          })}
+                          onClick={() => setExtrasFor(b)}
+                        >
+                          {tExtras("edit")}
+                        </Button>
+                      )}
+                    </span>
+                    <BottleChips extras={extrasOf(b.id)} day={day} />
                   </li>
                 ))}
               </ul>
@@ -231,6 +257,8 @@ export function VintageScreen({
           <DrinkWindowBar drink={detail.drink} />
           <p className="mt-4 text-caption text-ink-2">{tDrink("estimate")}</p>
         </Section>
+
+        <InsightCard vintageId={detail.vintageId} currency={detail.currency ?? currency} />
 
         {count > 0 && (
           <Section title={t("purchase")}>
@@ -341,6 +369,17 @@ export function VintageScreen({
         detail={detail}
         onNewPlace={() => setSheet("place")}
       />
+      {extrasFor && (
+        <BottleExtrasSheet
+          key={extrasFor.id}
+          open
+          onClose={() => setExtrasFor(null)}
+          vintageId={detail.vintageId}
+          bottleId={extrasFor.id}
+          title={`${wine.name} ${formatVintage(detail.year)}`}
+          existing={extrasOf(extrasFor.id)}
+        />
+      )}
       <EditSheet open={sheet === "edit"} onClose={() => setSheet(null)} detail={detail} />
       <NewPlaceSheet
         open={sheet === "place"}
@@ -358,6 +397,38 @@ export function VintageScreen({
         />
       )}
     </div>
+  );
+}
+
+/** "A gift from Oma · Keeping it for Christmas dinner · 25 Dec 2026" under a bottle. */
+function BottleChips({
+  extras,
+  day,
+}: {
+  extras: BottleExtrasView | undefined;
+  day: (iso: string) => string;
+}) {
+  const t = useTranslations("bottleExtras");
+  if (!extras) return null;
+  const chips = [
+    extras.acquiredHow === "gift"
+      ? extras.giftFrom
+        ? t("chipGiftFrom", { name: extras.giftFrom })
+        : t("chipGift")
+      : extras.acquiredHow === "bought"
+        ? t("chipBought")
+        : null,
+    extras.occasionTitle
+      ? extras.occasionOn
+        ? t("chipOccasionOn", { title: extras.occasionTitle, day: day(extras.occasionOn) })
+        : t("chipOccasion", { title: extras.occasionTitle })
+      : null,
+  ].filter((c): c is string => c !== null);
+  if (chips.length === 0) return null;
+  return (
+    <p className="basis-full pl-6 text-small text-ink-2" data-testid="bottle-chips">
+      {chips.join(" · ")}
+    </p>
   );
 }
 

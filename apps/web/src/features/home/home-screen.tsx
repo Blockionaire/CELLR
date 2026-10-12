@@ -6,6 +6,8 @@ import {
   type CellarItem,
   type HomeView,
   type OpenedEntry,
+  type Reminder,
+  reminderWhen,
 } from "@cellr/domain";
 import { Greeting } from "@/features/account/greeting";
 import { shapeFor } from "@/features/cellar/wine-visuals";
@@ -34,7 +36,16 @@ function whenOpened(iso: string, locale: string, now: number): string {
  * Home: a greeting, the one big question ("what shall we drink tonight?"), then your cellar at a glance —
  * how much there is, what arrived, what was opened, how much room is left.
  */
-export async function HomeScreen({ home, name }: { home: HomeView; name: string | null }) {
+export async function HomeScreen({
+  home,
+  name,
+  reminders = [],
+}: {
+  home: HomeView;
+  name: string | null;
+  /** Bottles being kept for a day that is coming up. */
+  reminders?: readonly Reminder[];
+}) {
   const t = await getTranslations("home");
   const locale = await getLocale();
   const empty = home.bottleCount === 0;
@@ -156,6 +167,48 @@ export async function HomeScreen({ home, name }: { home: HomeView; name: string 
               <Stat label={t("statFree")} value={home.capacity > 0 ? String(free) : "–"} />
             )}
           </dl>
+
+          {reminders.length > 0 && (
+            <section className="mt-10" aria-labelledby="coming-up">
+              <SectionHeader id="coming-up" title={t("comingUp")} />
+              <ul
+                className="divide-y divide-hairline rounded-card border border-hairline bg-surface px-4"
+                data-testid="reminders"
+              >
+                {reminders.map((r) => {
+                  const when = reminderWhen(r.daysUntil);
+                  return (
+                    <li key={r.bottleId}>
+                      <article className="relative flex min-h-16 items-center gap-4 py-3">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate font-display text-title text-ink">
+                            <Link
+                              href={`/cellar/${r.vintageId}`}
+                              className="after:absolute after:inset-0"
+                            >
+                              {r.title}
+                            </Link>
+                          </h3>
+                          <p className="truncate text-small text-ink-2">
+                            {r.wineName} · <span className="tnum">{formatVintage(r.year)}</span>
+                          </p>
+                        </div>
+                        <p
+                          className={
+                            when === "overdue"
+                              ? "text-small font-medium text-danger"
+                              : "text-small font-medium text-accent-fg"
+                          }
+                        >
+                          {t(`reminder.${when}`, { days: Math.abs(r.daysUntil) })}
+                        </p>
+                      </article>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
 
           {home.drinkSoon.length > 0 && (
             <section className="mt-10" aria-labelledby="soon">

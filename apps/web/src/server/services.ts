@@ -21,6 +21,8 @@ import { createRateLimitRepository } from "@/server/ratelimit/repository";
 import { createRateLimiter, LIMITS } from "@/server/ratelimit/service";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
+import { createInsightsRepository } from "@/server/insights/repository";
+import { createInsightsService } from "@/server/insights/service";
 import { createWishlistRepository } from "@/server/wishlist/repository";
 import { createWishlistService } from "@/server/wishlist/service";
 
@@ -91,6 +93,16 @@ export function servicesFor(ctx: RequestContext) {
           .map((w) => ({ producer: w.producer, wine: w.name }));
       },
       wishlist: () => wishlist.list(),
+    }),
+    insights: createInsightsService({
+      repo: createInsightsRepository(ctx.db),
+      household,
+      vintage: (vintageId) => cellar.vintage(vintageId),
+      locale: async () => (await households.me()).locale,
+      llm: getLlmProvider(),
+      spend: () => limiter.enforce(LIMITS.insights),
+      recordUsage: ({ householdId, task, status, usage }) =>
+        recordAiUsage({ userId: ctx.userId, householdId, task, status, ...usage }),
     }),
     sommelier: createSommelierService({
       cellar: () => cellar.inventory(),

@@ -701,6 +701,7 @@ export function createCellarService(
             priceCents: input.priceCents,
             currency: input.priceCents === null ? null : currency,
             purchasedAt: input.purchasedAt,
+            purchasedFrom: input.purchasedFrom ?? null,
             frontImageId,
           };
         });

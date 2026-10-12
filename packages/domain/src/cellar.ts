@@ -166,6 +166,14 @@ export const AddBottlesSchema = z.object({
   /** Price paid PER BOTTLE, in the household's currency. */
   priceCents: z.number().int().min(0).max(MAX_PRICE_CENTS).nullable().default(null),
   purchasedAt: z.iso.date().nullable().default(null),
+  /** The shop or merchant. */
+  purchasedFrom: z
+    .string()
+    .trim()
+    .max(120)
+    .transform((v) => (v === "" ? null : v))
+    .nullable()
+    .optional(),
   formatMl: z.number().int().min(100).max(30000).default(750),
   /** A label photo already uploaded (from a scan or the camera); bottles of a known vintage share its photo. */
   imageId: z.uuid().optional(),

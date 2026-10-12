@@ -14,4 +14,5 @@ export * from "./image";
 export * from "./scan";
 export * from "./sommelier";
 export * from "./wishlist";
+export * from "./insights";
 export * from "./export";

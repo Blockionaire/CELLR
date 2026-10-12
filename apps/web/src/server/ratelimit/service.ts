@@ -19,6 +19,8 @@ export const LIMITS = {
   export: { bucket: "export", limit: 10, windowSeconds: 3600 },
   /** Every label read costs money: a person scanning a whole case is fine, a script is not. */
   scans: { bucket: "scans", limit: 40, windowSeconds: 3600 },
+  /** A wine profile costs a call each; a person going through a cellar is fine, a loop is not. */
+  insights: { bucket: "insights", limit: 40, windowSeconds: 3600 },
   /** Bringing a whole cellar in is heavy and rarely needed more than once. */
   import: { bucket: "import", limit: 6, windowSeconds: 3600 },
 } as const satisfies Record<string, RateLimit>;

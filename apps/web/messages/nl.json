@@ -96,7 +96,14 @@
     "nudge": "Hoe was de {wine}?",
     "nudgeNote": "Notitie toevoegen",
     "rateIt": "Beoordeel",
-    "drinkSoon": "Binnenkort drinken"
+    "drinkSoon": "Binnenkort drinken",
+    "comingUp": "Binnenkort",
+    "reminder": {
+      "overdue": "{days, plural, one {# dag geleden} other {# dagen geleden}}",
+      "today": "Vandaag",
+      "tomorrow": "Morgen",
+      "days": "Over {days} dagen"
+    }
   },
   "cellar": {
     "title": "Kelder",
@@ -334,7 +341,9 @@
     "placedNone": "Nog niet geplaatst. Je kunt hem later een plek geven.",
     "addAnother": "Nog een toevoegen",
     "seeCellar": "Naar mijn kelder",
-    "typeRequired": "Wat voor wijn is het? Kies hierboven."
+    "typeRequired": "Wat voor wijn is het? Kies hierboven.",
+    "shopLabel": "Gekocht bij",
+    "shopPlaceholder": "Winkel of wijnhandel"
   },
   "newPlace": {
     "title": "Een plek voor je flessen",
@@ -867,5 +876,65 @@
     "savedTitle": "Op je wishlist",
     "saveFromScan": "Niet kopen? Bewaar op wishlist",
     "listLabel": "Je wishlist"
+  },
+  "bottleExtras": {
+    "title": "Over deze fles",
+    "edit": "Details",
+    "editLabel": "Details van de fles op {spot}",
+    "unplaced": "zonder plek",
+    "howLabel": "Hoe kwam je eraan?",
+    "howUnknown": "Zeg ik niet",
+    "howBought": "Gekocht",
+    "howGift": "Cadeau",
+    "giftFromLabel": "Van wie kreeg je hem?",
+    "giftFromPlaceholder": "Oma",
+    "occasionLabel": "Bewaar je hem voor een bijzonder moment?",
+    "occasionPlaceholder": "Etentje voor ons jubileum",
+    "occasionDateLabel": "Op welke dag?",
+    "occasionHint": "We herinneren je er op Home aan als de dag dichterbij komt.",
+    "chipBought": "Gekocht",
+    "chipGift": "Cadeau",
+    "chipGiftFrom": "Cadeau van {name}",
+    "chipOccasion": "Bewaard voor {title}",
+    "chipOccasionOn": "Bewaard voor {title} · {day}"
+  },
+  "insights": {
+    "title": "Over deze wijn",
+    "intro": "Vraag een AI wat die van deze wijn weet: de stijl, druiven, wat je erbij eet, hoe hij kan rijpen en ongeveer wat hij waard is.",
+    "ask": "Vertel me over deze wijn",
+    "thinking": "Even opzoeken…",
+    "refresh": "Vernieuw",
+    "notReady": "Hiervoor is nog één databasestap nodig. Al het andere werkt.",
+    "style": "Stijl",
+    "grapes": "Druiven",
+    "tasting": "In het glas",
+    "serving": "Serveren op",
+    "servingValue": "{min}–{max} °C",
+    "decant": "Karaferen",
+    "decantNone": "Niet nodig",
+    "decantValue": "Ongeveer {minutes} minuten",
+    "pairings": "Past goed bij",
+    "aging": "Hoe hij zich kan ontwikkelen",
+    "estimateNote": "Geschreven door een AI op basis van wat die van deze wijn weet: een schatting, geen feit. Zekerheid: {level}.",
+    "writtenOn": "geschreven op {day}",
+    "confidence": {
+      "low": "laag",
+      "medium": "gemiddeld",
+      "high": "hoog"
+    },
+    "valueTitle": "Waarde nu",
+    "perBottle": "per fles",
+    "valueMine": "Je eigen waarde.",
+    "valueRange": "AI-schatting: tussen {low} en {high}.",
+    "valueNone": "Nog geen waarde. Vraag hierboven de AI om een schatting, of vul je eigen waarde in.",
+    "valueSet": "Mijn eigen waarde invullen",
+    "valueChange": "Mijn waarde wijzigen",
+    "valueSave": "Opslaan",
+    "valueCancel": "Annuleren",
+    "valueClear": "Gebruik de schatting",
+    "myValueLabel": "Wat is één fles nu waard? ({currency})",
+    "myValueHint": "Je eigen getal telt zwaarder dan elke schatting. Laat leeg om te wissen.",
+    "valueError": "Dat lijkt geen prijs.",
+    "valueSaved": "Waarde opgeslagen."
   }
 }

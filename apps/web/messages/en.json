@@ -96,7 +96,14 @@
     "nudge": "How was the {wine}?",
     "nudgeNote": "Add a note",
     "rateIt": "Rate it",
-    "drinkSoon": "Drink soon"
+    "drinkSoon": "Drink soon",
+    "comingUp": "Coming up",
+    "reminder": {
+      "overdue": "{days, plural, one {# day ago} other {# days ago}}",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "days": "In {days} days"
+    }
   },
   "cellar": {
     "title": "Cellar",
@@ -334,7 +341,9 @@
     "placedNone": "Not placed yet. You can give it a spot later.",
     "addAnother": "Add another",
     "seeCellar": "See my cellar",
-    "typeRequired": "Which kind of wine is it? Choose one above."
+    "typeRequired": "Which kind of wine is it? Choose one above.",
+    "shopLabel": "Bought at",
+    "shopPlaceholder": "Shop or merchant"
   },
   "newPlace": {
     "title": "A place for your bottles",
@@ -867,5 +876,65 @@
     "savedTitle": "On your wishlist",
     "saveFromScan": "Not buying it? Save to wishlist",
     "listLabel": "Your wishlist"
+  },
+  "bottleExtras": {
+    "title": "About this bottle",
+    "edit": "Details",
+    "editLabel": "Details of the bottle in {spot}",
+    "unplaced": "unplaced",
+    "howLabel": "How did you get it?",
+    "howUnknown": "Not saying",
+    "howBought": "Bought",
+    "howGift": "A gift",
+    "giftFromLabel": "Who gave it to you?",
+    "giftFromPlaceholder": "Oma",
+    "occasionLabel": "Keeping it for a special moment?",
+    "occasionPlaceholder": "Anniversary dinner",
+    "occasionDateLabel": "On which day?",
+    "occasionHint": "We'll remind you on Home as the day gets close.",
+    "chipBought": "Bought",
+    "chipGift": "A gift",
+    "chipGiftFrom": "A gift from {name}",
+    "chipOccasion": "Kept for {title}",
+    "chipOccasionOn": "Kept for {title} · {day}"
+  },
+  "insights": {
+    "title": "About this wine",
+    "intro": "Ask an AI what it knows about this wine: its style, grapes, what to eat with it, how it may age and roughly what it is worth.",
+    "ask": "Tell me about this wine",
+    "thinking": "Reading up on it…",
+    "refresh": "Refresh",
+    "notReady": "This needs one more database step before it works. Everything else is fine.",
+    "style": "Style",
+    "grapes": "Grapes",
+    "tasting": "In the glass",
+    "serving": "Serve at",
+    "servingValue": "{min}–{max} °C",
+    "decant": "Decanting",
+    "decantNone": "Not needed",
+    "decantValue": "About {minutes} minutes",
+    "pairings": "Goes well with",
+    "aging": "How it may develop",
+    "estimateNote": "Written by an AI from what it knows about this wine: an estimate, not a fact. Confidence: {level}.",
+    "writtenOn": "written {day}",
+    "confidence": {
+      "low": "low",
+      "medium": "medium",
+      "high": "high"
+    },
+    "valueTitle": "Worth today",
+    "perBottle": "per bottle",
+    "valueMine": "Your own value.",
+    "valueRange": "AI estimate: between {low} and {high}.",
+    "valueNone": "No value yet. Ask the AI above for an estimate, or enter your own.",
+    "valueSet": "Enter my own value",
+    "valueChange": "Change my value",
+    "valueSave": "Save",
+    "valueCancel": "Cancel",
+    "valueClear": "Use the estimate instead",
+    "myValueLabel": "What is one bottle worth now? ({currency})",
+    "myValueHint": "Your own number counts for more than any estimate. Leave empty to clear it.",
+    "valueError": "That doesn't look like a price.",
+    "valueSaved": "Value saved."
   }
 }
