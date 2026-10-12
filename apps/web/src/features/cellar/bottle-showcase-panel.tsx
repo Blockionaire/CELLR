@@ -15,6 +15,7 @@ import { cn } from "@/ui/cn";
 import { CloseIcon } from "@/ui/icons";
 import { Skeleton } from "@/ui/skeleton";
 import { useDay, useMoney } from "./bottle-bits";
+import { FavoriteButton } from "./favorite-button";
 import type { ShowcaseLayout } from "./three/layout";
 import { placeLine } from "./wine-visuals";
 
@@ -105,14 +106,23 @@ export function BottleShowcasePanel({
           <p className="pt-1 text-caption font-medium uppercase tracking-[0.14em] text-ink-3">
             {bottle.producer}
           </p>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t("putBack")}
-            className="-mr-2 -mt-1 grid size-11 shrink-0 place-items-center rounded-control text-ink-2 transition-colors hover:text-ink"
-          >
-            <CloseIcon size={22} />
-          </button>
+          <div className="-mr-2 -mt-1 flex shrink-0 items-center">
+            {detail && (
+              <FavoriteButton
+                wineId={detail.wine.id}
+                wine={`${bottle.producer} ${bottle.wineName}`}
+                favorite={detail.wine.favorite}
+              />
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t("putBack")}
+              className="grid size-11 shrink-0 place-items-center rounded-control text-ink-2 transition-colors hover:text-ink"
+            >
+              <CloseIcon size={22} />
+            </button>
+          </div>
         </div>
         <h2 className="-mt-1 font-display text-display text-balance">{bottle.wineName}</h2>
         <p className="mt-1 text-title text-ink-2">

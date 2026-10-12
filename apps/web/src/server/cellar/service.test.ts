@@ -27,6 +27,7 @@ function fakeRepo(
     vintages: new Map<string, string>(),
     occupiedCalls: 0,
     conflictsLeft: options.conflictsBeforeSuccess ?? 0,
+    favorites: new Set<string>(),
   };
   const household =
     options.household === undefined ? { id: "h1", currency: "EUR" } : options.household;
@@ -102,6 +103,13 @@ function fakeRepo(
     },
     async updateWine() {
       return null;
+    },
+    async listFavoriteWineIds() {
+      return [...state.favorites];
+    },
+    async setFavorite(_user, wineId, favorite) {
+      if (favorite) state.favorites.add(wineId);
+      else state.favorites.delete(wineId);
     },
   };
   return { repo, state };
@@ -261,6 +269,27 @@ describe("adding bottles", () => {
   });
 });
 
+describe("favourites", () => {
+  it("stars and un-stars a wine for this person; doing it twice is harmless", async () => {
+    const { repo, state } = fakeRepo();
+    const service = createCellarService(repo, { userId: "me" });
+    expect(await service.setFavorite(wineId, true)).toEqual({ wineId, favorite: true });
+    await service.setFavorite(wineId, true);
+    expect([...state.favorites]).toEqual([wineId]);
+    expect(await service.setFavorite(wineId, false)).toEqual({ wineId, favorite: false });
+    expect([...state.favorites]).toEqual([]);
+  });
+
+  it("refuses a wine that does not exist, and needs a household", async () => {
+    const { repo, state } = fakeRepo();
+    const service = createCellarService(repo, { userId: "me" });
+    await expect(service.setFavorite("nope", true)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(state.favorites.size).toBe(0);
+    const lonely = createCellarService(fakeRepo({ household: null }).repo, { userId: "me" });
+    await expect(lonely.setFavorite(wineId, true)).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
 describe("storage", () => {
   it("reports capacity and free spots", () => {
     expect(toStorageView({ ...FRIDGE, used: 4 })).toMatchObject({ capacity: 6, used: 4, free: 2 });
@@ -315,6 +344,17 @@ describe("the cellar view", () => {
       count: 4,
       unplaced: 1,
       places: ["Wine fridge", "Cabinet"],
+    });
+  });
+
+  it("marks the wines the viewer has starred, and only those", () => {
+    const view = aggregateInventory(
+      [row({ vintageId: "a", wineId: "w1" }), row({ vintageId: "b", wineId: "w2", year: 2020 })],
+      new Set(["w2"]),
+    );
+    expect(Object.fromEntries(view.items.map((i) => [i.vintageId, i.favorite]))).toEqual({
+      a: false,
+      b: true,
     });
   });
 

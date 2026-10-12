@@ -529,5 +529,31 @@ export function createCellarRepository(db: Db): CellarRepository {
       }
       return data ? toWine(data) : null;
     },
+
+    async listFavoriteWineIds(userId) {
+      const { data, error } = await db.from("favorites").select("wine_id").eq("user_id", userId);
+      if (error) throw mapDbError(error);
+      return (data ?? []).map((r) => r.wine_id);
+    },
+
+    async setFavorite(userId, wineId, favorite) {
+      if (favorite) {
+        // "Already starred" is fine: ignore the duplicate instead of failing.
+        const { error } = await db
+          .from("favorites")
+          .upsert(
+            { user_id: userId, wine_id: wineId },
+            { onConflict: "user_id,wine_id", ignoreDuplicates: true },
+          );
+        if (error) throw mapDbError(error);
+      } else {
+        const { error } = await db
+          .from("favorites")
+          .delete()
+          .eq("user_id", userId)
+          .eq("wine_id", wineId);
+        if (error) throw mapDbError(error);
+      }
+    },
   };
 }

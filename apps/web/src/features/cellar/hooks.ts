@@ -17,8 +17,11 @@ import type {
   VintageDetail,
   WineSummary,
 } from "@cellr/domain";
+import { useTranslations } from "next-intl";
+import { ERROR_MESSAGES } from "@cellr/domain";
 import { track } from "@/lib/analytics";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
+import { useToast } from "@/ui/toast";
 
 export const cellarKey = ["cellar"] as const;
 export const winesKey = ["wines"] as const;
@@ -97,6 +100,55 @@ export const useVintageDetail = (vintageId: string | null) =>
     queryFn: () => api.get<VintageDetail>(`/cellar/${vintageId}`),
     enabled: vintageId !== null,
   });
+
+/**
+ * Star or un-star a wine. The heart changes the instant it is tapped (every list and page that shows it),
+ * and goes back, with a message, if the server says no.
+ */
+export function useToggleFavorite() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const t = useTranslations("favorite");
+  const te = useTranslations();
+  return useMutation({
+    mutationFn: (input: { wineId: string; favorite: boolean }) =>
+      api.put<{ wineId: string; favorite: boolean }>(`/wines/${input.wineId}/favorite`, {
+        favorite: input.favorite,
+      }),
+    onMutate: async ({ wineId, favorite }) => {
+      await queryClient.cancelQueries({ queryKey: cellarKey });
+      const cellar = queryClient.getQueryData<CellarView>(cellarKey);
+      const vintages = queryClient.getQueriesData<VintageDetail>({ queryKey: ["vintage"] });
+      queryClient.setQueryData<CellarView>(
+        cellarKey,
+        (old) =>
+          old && {
+            ...old,
+            items: old.items.map((i) => (i.wineId === wineId ? { ...i, favorite } : i)),
+          },
+      );
+      queryClient.setQueriesData<VintageDetail>({ queryKey: ["vintage"] }, (old) =>
+        old && old.wine.id === wineId ? { ...old, wine: { ...old.wine, favorite } } : old,
+      );
+      return { cellar, vintages };
+    },
+    onSuccess: (result) => toast.show(result.favorite ? t("add") : t("removed")),
+    onError: (error, _input, context) => {
+      toast.show(
+        errorMessage(error, (k) => te(k), ERROR_MESSAGES),
+        { tone: "error" },
+      );
+      if (!context) return;
+      queryClient.setQueryData(cellarKey, context.cellar);
+      for (const [key, value] of context.vintages) queryClient.setQueryData(key, value);
+    },
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: cellarKey }),
+        queryClient.invalidateQueries({ queryKey: ["vintage"] }),
+      ]),
+  });
+}
 
 export const useRacks = () =>
   useQuery({ queryKey: racksKey, queryFn: () => api.get<RackView>("/racks") });

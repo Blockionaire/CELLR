@@ -52,7 +52,10 @@ export const toStorageView = (r: StorageRow): StorageUnitView => {
  * One card per vintage: the individual bottles of a wine collapse into "×3". Newest additions first,
  * so what you just added is the first thing you see.
  */
-export function aggregateInventory(rows: InventoryRow[]): CellarView {
+export function aggregateInventory(
+  rows: InventoryRow[],
+  favoriteWineIds: ReadonlySet<string> = new Set(),
+): CellarView {
   const byVintage = new Map<string, CellarItem & { latest: string }>();
   for (const r of rows) {
     let item = byVintage.get(r.vintageId);
@@ -69,6 +72,7 @@ export function aggregateInventory(rows: InventoryRow[]): CellarView {
         count: 0,
         places: [],
         unplaced: 0,
+        favorite: favoriteWineIds.has(r.wineId),
         latest: r.addedAt,
       };
       byVintage.set(r.vintageId, item);
@@ -183,13 +187,33 @@ export function createCellarService(repo: CellarRepository, { userId }: { userId
     },
 
     async inventory(): Promise<CellarView> {
-      return aggregateInventory(await repo.listInventory((await household()).id));
+      const { id } = await household();
+      const [rows, favorites] = await Promise.all([
+        repo.listInventory(id),
+        repo.listFavoriteWineIds(userId),
+      ]);
+      return aggregateInventory(rows, new Set(favorites));
+    },
+
+    /** Star or un-star a wine for the signed-in person only. */
+    async setFavorite(
+      wineId: string,
+      favorite: boolean,
+    ): Promise<{ wineId: string; favorite: boolean }> {
+      await household();
+      if (!(await repo.getWine(wineId)))
+        throw new DomainError("NOT_FOUND", "We couldn't find that wine.");
+      await repo.setFavorite(userId, wineId, favorite);
+      return { wineId, favorite };
     },
 
     /** One vintage with every bottle: where each is, what they cost, what has been opened. */
     async vintage(vintageId: string): Promise<VintageDetail> {
       const { id: householdId } = await household();
-      const rows = await repo.getVintage(householdId, vintageId);
+      const [rows, favorites] = await Promise.all([
+        repo.getVintage(householdId, vintageId),
+        repo.listFavoriteWineIds(userId),
+      ]);
       // A vintage you never owned a bottle of is not yours to look at, even if it is in the shared catalogue.
       if (!rows || rows.bottles.length === 0) throw new DomainError("NOT_FOUND");
       const inCellar = orderBottles(rows.bottles.filter((b) => b.status === "in_cellar"));
@@ -199,7 +223,7 @@ export function createCellarService(repo: CellarRepository, { userId }: { userId
         .slice(0, 12);
       return {
         vintageId: rows.vintageId,
-        wine: rows.wine,
+        wine: { ...rows.wine, favorite: favorites.includes(rows.wine.id) },
         year: rows.year,
         bottles: inCellar,
         opened,

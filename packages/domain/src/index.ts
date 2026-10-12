@@ -4,3 +4,4 @@ export * from "./households";
 export * from "./analytics";
 export * from "./cellar";
 export * from "./placement";
+export * from "./filters";

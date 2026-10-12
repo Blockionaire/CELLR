@@ -229,6 +229,8 @@ export interface CellarItem {
   places: string[];
   /** Bottles with no place yet. */
   unplaced: number;
+  /** Whether the signed-in person has starred this wine (personal, not shared with the household). */
+  favorite: boolean;
 }
 
 export interface CellarView {
@@ -322,6 +324,10 @@ export const UpdatePurchaseSchema = z
   .refine((v) => Object.keys(v).length > 0, "Nothing to update.");
 export type UpdatePurchase = z.infer<typeof UpdatePurchaseSchema>;
 
+/** Starring a wine is personal: it is yours alone, even in a shared household. */
+export const SetFavoriteSchema = z.object({ favorite: z.boolean() });
+export type SetFavorite = z.infer<typeof SetFavoriteSchema>;
+
 export interface BottleView {
   id: string;
   status: BottleStatus;
@@ -338,6 +344,8 @@ export interface BottleView {
 
 export interface WineDetail extends WineSummary {
   appellation: string | null;
+  /** Whether the signed-in person has starred this wine. */
+  favorite: boolean;
 }
 
 /** One vintage of one wine: what you own, where it is, what it cost, and what you have already opened. */

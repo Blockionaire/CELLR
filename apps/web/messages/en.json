@@ -86,8 +86,8 @@
     "viewGrid": "Grid",
     "viewList": "List",
     "noMatchTitle": "No bottles match.",
-    "noMatchBody": "Try a producer, a region or a year.",
-    "clearSearch": "Clear search",
+    "noMatchBody": "Try a different word, or take a filter off.",
+    "clearSearch": "Clear search and filters",
     "bottlesLabel": "{count, plural, one {# bottle} other {# bottles}}",
     "noPlace": "No place yet",
     "notPlaced": "{count} not placed",
@@ -358,5 +358,40 @@
     "loading": "Loading the details…",
     "thisBottle": "This bottle",
     "spin": "Drag to turn the bottle"
+  },
+  "favorite": {
+    "label": "Favourite: {wine}",
+    "add": "Added to your favourites.",
+    "removed": "Removed from your favourites."
+  },
+  "cellarFilters": {
+    "button": "Filter",
+    "buttonActive": "Filter and sort, {count} active",
+    "title": "Filter and sort",
+    "sortBy": "Sort by",
+    "sort": {
+      "recent": "Recently added",
+      "name": "Wine name",
+      "producer": "Producer",
+      "vintageNew": "Vintage, newest",
+      "vintageOld": "Vintage, oldest",
+      "count": "Most bottles"
+    },
+    "type": "Type",
+    "country": "Country",
+    "place": "Where it is",
+    "vintage": "Vintage",
+    "bands": {
+      "2020s": "2020s",
+      "2010s": "2010s",
+      "2000s": "2000s",
+      "older": "Before 2000",
+      "nv": "Non-vintage"
+    },
+    "favorites": "Only my favourites",
+    "reset": "Reset",
+    "show": "{count, plural, =0 {Nothing matches} one {Show # wine} other {Show # wines}}",
+    "remove": "Remove filter: {name}",
+    "activeLabel": "Active filters"
   }
 }

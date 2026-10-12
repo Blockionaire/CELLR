@@ -11,7 +11,7 @@ import type {
   VintageRows,
 } from "./types";
 
-const WINE: WineDetail = {
+const WINE: Omit<WineDetail, "favorite"> = {
   id: "w1",
   producer: "Château Test",
   name: "Grand Vin",
@@ -150,6 +150,10 @@ function fake(
     async updateWine() {
       return options.wineUpdatable === false ? null : { ...WINE, name: "Renamed" };
     },
+    async listFavoriteWineIds() {
+      return [];
+    },
+    async setFavorite() {},
   };
   return {
     service: createCellarService({ ...repo, ...options.overrides }, { userId: "me" }),

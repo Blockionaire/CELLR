@@ -9,6 +9,7 @@ import { Button, buttonStyles } from "@/ui/button";
 import { ChevronRightIcon, PlusIcon } from "@/ui/icons";
 import { BottleSpot, useDay, useMoney } from "./bottle-bits";
 import { EditSheet } from "./edit-sheet";
+import { FavoriteButton } from "./favorite-button";
 import { useVintage } from "./hooks";
 import { MoveBottleSheet } from "./move-bottle-sheet";
 import { NewPlaceSheet } from "./new-place-sheet";
@@ -65,7 +66,16 @@ export function VintageScreen({ initial, currency }: { initial: VintageDetail; c
           <p className="text-caption font-medium uppercase tracking-[0.14em] text-ink-3">
             {wine.producer}
           </p>
-          <h1 className="mt-1 font-display text-display text-balance">{wine.name}</h1>
+          <div className="mt-1 flex items-start justify-between gap-2">
+            <h1 className="font-display text-display text-balance">{wine.name}</h1>
+            <FavoriteButton
+              wineId={wine.id}
+              wine={`${wine.producer} ${wine.name}`}
+              favorite={wine.favorite}
+              className="-mr-2 shrink-0"
+              size={26}
+            />
+          </div>
           <p className="mt-2 text-title text-ink-2">
             <span className="tnum">{formatVintage(detail.year)}</span>
             {where && <span> · {where}</span>}

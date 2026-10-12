@@ -63,7 +63,8 @@ export type BottleRow = BottleView;
 export interface VintageRows {
   vintageId: string;
   year: number | null;
-  wine: WineDetail;
+  /** The wine itself; whether the viewer has starred it is added by the service. */
+  wine: Omit<WineDetail, "favorite">;
   bottles: BottleRow[];
 }
 
@@ -133,4 +134,9 @@ export interface CellarRepository {
   updatePurchase(householdId: string, vintageId: string, patch: PurchasePatch): Promise<number>;
   /** Null = nothing changed (not yours to edit, e.g. a shared-catalogue wine). */
   updateWine(wineId: string, patch: UpdateWine): Promise<WineSummary | null>;
+
+  /** The wines this person has starred. Favourites belong to a person, not to the household. */
+  listFavoriteWineIds(userId: string): Promise<string[]>;
+  /** Stars or un-stars a wine for this person. Doing it twice is harmless. */
+  setFavorite(userId: string, wineId: string, favorite: boolean): Promise<void>;
 }

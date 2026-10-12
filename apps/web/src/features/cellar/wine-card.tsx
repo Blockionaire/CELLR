@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { formatVintage, type CellarItem } from "@cellr/domain";
 import { BottleGlyph } from "@/ui/bottle-glyph";
+import { FavoriteButton } from "./favorite-button";
 import { placeLine, shapeFor } from "./wine-visuals";
 
 interface ItemProps {
@@ -39,6 +40,12 @@ export function WineCard({ item, locale }: ItemProps) {
         <span className="absolute right-2 top-2">
           <CountBadge count={item.count} />
         </span>
+        <FavoriteButton
+          wineId={item.wineId}
+          wine={`${item.producer} ${item.wineName}`}
+          favorite={item.favorite}
+          className="absolute -left-0.5 -top-0.5"
+        />
       </div>
       <div className="mt-3 flex-1">
         <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
@@ -83,6 +90,12 @@ export function WineRow({ item, locale }: ItemProps) {
           {where && <span> · {where}</span>}
         </p>
       </div>
+      <FavoriteButton
+        wineId={item.wineId}
+        wine={`${item.producer} ${item.wineName}`}
+        favorite={item.favorite}
+        className="shrink-0"
+      />
       <div className="flex shrink-0 flex-col items-end gap-1.5">
         <CountBadge count={item.count} />
         <p className="max-w-[9rem] truncate text-caption text-ink-3">{places}</p>
