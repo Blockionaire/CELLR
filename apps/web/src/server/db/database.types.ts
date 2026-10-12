@@ -1031,6 +1031,7 @@ export type Database = {
         Returns: string;
       };
       join_household: { Args: { p_code: string }; Returns: string };
+      merge_wines: { Args: { p_source: string; p_target: string }; Returns: number };
     };
     Enums: {
       bottle_status: "in_cellar" | "opened" | "gifted" | "removed";

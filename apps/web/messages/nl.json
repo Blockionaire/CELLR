@@ -399,7 +399,8 @@
     "country": "Land",
     "history": "Geschiedenis",
     "historyAdded": "{count, plural, one {# fles toegevoegd} other {# flessen toegevoegd}}",
-    "historyOpened": "{count, plural, one {# fles geopend} other {# flessen geopend}}"
+    "historyOpened": "{count, plural, one {# fles geopend} other {# flessen geopend}}",
+    "merge": "Deze wijn staat er dubbel in…"
   },
   "openBottle": {
     "title": "Fles openen",
@@ -1043,5 +1044,17 @@
     "putBack": "Terugzetten",
     "putBackLabel": "Zet {wine} terug in de kelder",
     "restored": "Weer terug in je kelder."
+  },
+  "merge": {
+    "title": "Samenvoegen met een andere wijn",
+    "body": "Kies de wijn die dit echt is. Je flessen van {year}, wat je erover zei, en de wens en sterren van deze wijn gaan daarheen.",
+    "searchLabel": "Zoek de juiste wijn",
+    "searchPlaceholder": "Producent of naam van de wijn",
+    "candidates": "Wijnen om mee samen te voegen",
+    "none": "Geen andere wijnen om uit te kiezen.",
+    "confirm": "{count, plural, one {De # fles van {wine} gaat} other {De # flessen van {wine} gaan}} naar {target}, met wat je erover zei. {wine} verdwijnt dan uit je wijnen.",
+    "permanent": "Dit kan niet ongedaan worden gemaakt.",
+    "go": "Voeg samen in {target}",
+    "done": "{count, plural, one {# fles verplaatst.} other {# flessen verplaatst.}}"
   }
 }

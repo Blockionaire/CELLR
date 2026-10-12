@@ -422,6 +422,22 @@ export const UpdatePurchaseSchema = z
 export type UpdatePurchase = z.infer<typeof UpdatePurchaseSchema>;
 
 /** Starring a wine is personal: it is yours alone, even in a shared household. */
+/** Fold a duplicate wine into the right one: everything kept about it moves over, and it disappears. */
+export const MergeWineSchema = z.object({
+  intoWineId: z.uuid(),
+  /** The vintage the person is looking at, so the answer can point at where it went. */
+  year: VintageYearSchema.default(null),
+});
+export type MergeWine = z.infer<typeof MergeWineSchema>;
+
+export interface MergeWineResult {
+  /** How many bottles moved. */
+  moved: number;
+  wineId: string;
+  /** Where the vintage the person was looking at is now. */
+  vintageId: string;
+}
+
 export const SetFavoriteSchema = z.object({ favorite: z.boolean() });
 export type SetFavorite = z.infer<typeof SetFavoriteSchema>;
 

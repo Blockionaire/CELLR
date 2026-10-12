@@ -230,7 +230,10 @@ test.describe("a wine's life as a chart", () => {
     );
     await expect(chart.getByTestId("opened-mark")).toHaveCount(2);
     await expect(page.getByText("● 2 bottles opened")).toBeVisible();
-    await page.locator("figure").filter({ has: chart }).screenshot({ path: shot(`drink-chart-${project()}`) });
+    await page
+      .locator("figure")
+      .filter({ has: chart })
+      .screenshot({ path: shot(`drink-chart-${project()}`) });
     for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
       await expect.poll(() => audit(page)).toEqual([]);

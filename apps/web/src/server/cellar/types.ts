@@ -215,6 +215,8 @@ export interface CellarRepository {
   ): Promise<number>;
   /** The newest label photo of one side among the bottles of a vintage. */
   latestImageRef(householdId: string, vintageId: string, side: ImageSide): Promise<ImageRef | null>;
+  /** Folds one of the household's own wines into another (see migration 0012). Returns how many bottles moved. */
+  mergeWines(sourceWineId: string, targetWineId: string): Promise<number>;
   /** Removes bottles (undoing a half-finished import). */
   deleteBottles(householdId: string, bottleIds: string[]): Promise<void>;
   /** Marks bottles opened on the given day (an import backdates them). Returns how many changed. */

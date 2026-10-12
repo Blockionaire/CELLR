@@ -29,13 +29,14 @@ import { LabelImage } from "./label-image";
 import { LabelPhotoActions } from "./label-photo-actions";
 import { useVintage } from "./hooks";
 import { MoveBottleSheet } from "./move-bottle-sheet";
+import { MergeWineSheet } from "./merge-wine-sheet";
 import { NewPlaceSheet } from "./new-place-sheet";
 import { OpenBottleSheet } from "./open-bottle-sheet";
 import { RateSheet } from "./rate-sheet";
 import { TastingItem } from "./tasting-bits";
 import { placeLine, shapeFor } from "./wine-visuals";
 
-type SheetName = "open" | "move" | "edit" | "place" | null;
+type SheetName = "open" | "move" | "edit" | "place" | "merge" | null;
 
 /**
  * One vintage of one wine. The wine comes first (name, producer, year, region), then how many you
@@ -359,6 +360,14 @@ export function VintageScreen({
                 : []),
             ]}
           />
+          <Button
+            className="mt-4 -ml-3"
+            size="sm"
+            variant="ghost"
+            onClick={() => setSheet("merge")}
+          >
+            {t("merge")}
+          </Button>
         </Section>
 
         {(detail.opened.length > 0 || detail.tastings.length > 0) && (
@@ -451,6 +460,7 @@ export function VintageScreen({
         />
       )}
       <EditSheet open={sheet === "edit"} onClose={() => setSheet(null)} detail={detail} />
+      <MergeWineSheet open={sheet === "merge"} onClose={() => setSheet(null)} detail={detail} />
       <NewPlaceSheet
         open={sheet === "place"}
         onClose={() => setSheet("move")}

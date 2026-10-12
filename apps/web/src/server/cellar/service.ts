@@ -24,6 +24,8 @@ import {
   type HistoryView,
   type ImageSide,
   type ImportRequest,
+  type MergeWine,
+  type MergeWineResult,
   type PlacedBottle,
   type OpenedEntry,
   type RackView,
@@ -420,6 +422,21 @@ export function createCellarService(
         new Date(),
         scores,
       );
+    },
+
+    /** Folds a duplicate wine into the right one. The duplicate has to be one the household entered itself. */
+    async mergeWine(sourceWineId: string, input: MergeWine): Promise<MergeWineResult> {
+      await household();
+      if (sourceWineId === input.intoWineId)
+        throw new DomainError("VALIDATION", "Pick a different wine to merge with.");
+      const [source, target] = await Promise.all([
+        repo.getWine(sourceWineId),
+        repo.getWine(input.intoWineId),
+      ]);
+      if (!source || !target) throw new DomainError("NOT_FOUND", "We couldn't find that wine.");
+      const moved = await repo.mergeWines(sourceWineId, input.intoWineId);
+      const vintageId = await repo.findOrCreateVintage(input.intoWineId, input.year);
+      return { moved, wineId: input.intoWineId, vintageId };
     },
 
     /** Bottles that have left the cellar, with a way back. */

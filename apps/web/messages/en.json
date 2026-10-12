@@ -399,7 +399,8 @@
     "country": "Country",
     "history": "History",
     "historyAdded": "{count, plural, one {# bottle added} other {# bottles added}}",
-    "historyOpened": "{count, plural, one {# bottle opened} other {# bottles opened}}"
+    "historyOpened": "{count, plural, one {# bottle opened} other {# bottles opened}}",
+    "merge": "This wine is in here twice…"
   },
   "openBottle": {
     "title": "Open a bottle",
@@ -1043,5 +1044,17 @@
     "putBack": "Put back",
     "putBackLabel": "Put {wine} back in the cellar",
     "restored": "Back in your cellar."
+  },
+  "merge": {
+    "title": "Merge with another wine",
+    "body": "Choose the wine this really is. Your {year} bottles, what you said about them, and this wine's wish and stars move there.",
+    "searchLabel": "Find the right wine",
+    "searchPlaceholder": "Producer or wine name",
+    "candidates": "Wines to merge with",
+    "none": "No other wines to choose from.",
+    "confirm": "{count, plural, one {The # bottle of {wine} moves} other {The # bottles of {wine} move}} to {target}, with what you said about them. {wine} then disappears from your wines.",
+    "permanent": "This can't be undone.",
+    "go": "Merge into {target}",
+    "done": "{count, plural, one {# bottle moved.} other {# bottles moved.}}"
   }
 }

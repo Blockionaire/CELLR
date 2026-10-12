@@ -549,6 +549,23 @@ export function createCellarRepository(db: Db): CellarRepository {
         addedAt: b.created_at,
       }));
     },
+    async mergeWines(sourceWineId, targetWineId) {
+      const { data, error } = await db.rpc("merge_wines", {
+        p_source: sourceWineId,
+        p_target: targetWineId,
+      });
+      if (error) {
+        // PGRST202: the function isn't there, because the database step hasn't been taken.
+        if (error.code === "PGRST202" || error.code === "42883")
+          throw new DomainError(
+            "INTERNAL",
+            "Merging wines needs one more database step before it works. Everything else is fine. See docs/SETUP.md, “Updating the database”.",
+          );
+        throw mapDbError(error);
+      }
+      return Number(data ?? 0);
+    },
+
     async listGone(householdId, limit) {
       const { data, error } = await db
         .from("bottles")
