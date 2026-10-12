@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   AddBottlesSchema,
+  averagePrice,
+  BottleActionSchema,
   CreateStorageSchema,
   CreateWineSchema,
   formatVintage,
+  historyEvents,
   matchesSearch,
   MAX_BOTTLES_PER_ADD,
   normalizeText,
+  orderBottles,
   parseMoneyToCents,
+  summarizePlaces,
+  UpdatePurchaseSchema,
+  UpdateWineSchema,
 } from "./cellar";
 import { describeSlot, nextFreeSlots } from "./placement";
 
@@ -162,5 +169,131 @@ describe("nextFreeSlots", () => {
   });
   it("describes a spot in words", () => {
     expect(describeSlot({ row: 2, col: 4 })).toBe("Shelf 2 · Position 4");
+  });
+});
+
+describe("bottle actions", () => {
+  const unit = "6f1c1d1e-7a7c-4a5e-9d4e-3b6f3a1c2d4e";
+  it("open and remove need nothing else; move needs a complete place or none", () => {
+    expect(BottleActionSchema.safeParse({ action: "open" }).success).toBe(true);
+    expect(BottleActionSchema.safeParse({ action: "remove" }).success).toBe(true);
+    expect(
+      BottleActionSchema.safeParse({ action: "move", to: { locationId: unit, row: 2, col: 3 } })
+        .success,
+    ).toBe(true);
+    expect(BottleActionSchema.safeParse({ action: "move", to: { locationId: null } }).success).toBe(
+      true,
+    );
+    expect(BottleActionSchema.safeParse({ action: "move", to: { locationId: unit } }).success).toBe(
+      false,
+    );
+    expect(
+      BottleActionSchema.safeParse({ action: "move", to: { locationId: unit, row: 0, col: 1 } })
+        .success,
+    ).toBe(false);
+    expect(
+      BottleActionSchema.safeParse({ action: "move", to: { locationId: null, row: 1, col: 1 } })
+        .success,
+    ).toBe(false);
+    expect(BottleActionSchema.safeParse({ action: "shake" }).success).toBe(false);
+  });
+  it("restore defaults to 'not placed'", () => {
+    expect(BottleActionSchema.parse({ action: "restore" })).toEqual({
+      action: "restore",
+      to: { locationId: null, row: null, col: null },
+    });
+  });
+});
+
+describe("editing", () => {
+  it("wine edits: a name that is not blank, optional text becomes null when emptied, at least one field", () => {
+    expect(UpdateWineSchema.parse({ region: "  " })).toEqual({ region: null });
+    expect(UpdateWineSchema.parse({ name: " Grand Vin ", countryCode: "FR" })).toEqual({
+      name: "Grand Vin",
+      countryCode: "FR",
+    });
+    expect(UpdateWineSchema.safeParse({}).success).toBe(false);
+    expect(UpdateWineSchema.safeParse({ name: " " }).success).toBe(false);
+  });
+  it("purchase edits: price, date and shop; null clears", () => {
+    expect(UpdatePurchaseSchema.parse({ priceCents: null })).toEqual({ priceCents: null });
+    expect(UpdatePurchaseSchema.parse({ purchasedAt: "2026-10-01", purchasedFrom: "" })).toEqual({
+      purchasedAt: "2026-10-01",
+      purchasedFrom: null,
+    });
+    expect(UpdatePurchaseSchema.safeParse({}).success).toBe(false);
+    expect(UpdatePurchaseSchema.safeParse({ priceCents: -1 }).success).toBe(false);
+  });
+});
+
+describe("bottle helpers", () => {
+  const b = (
+    label: string | null,
+    row: number | null,
+    col: number | null,
+    addedAt = "2026-01-01",
+  ) => ({
+    locationLabel: label,
+    row,
+    col,
+    addedAt,
+    priceCents: null as number | null,
+  });
+  it("orders placed bottles by place, shelf and position, and unplaced last", () => {
+    const sorted = orderBottles([
+      b(null, null, null),
+      b("Rack", 2, 1),
+      b("Fridge", 3, 1),
+      b("Rack", 1, 4),
+      b("Fridge", 1, 2),
+    ]);
+    expect(sorted.map((x) => [x.locationLabel, x.row, x.col])).toEqual([
+      ["Fridge", 1, 2],
+      ["Fridge", 3, 1],
+      ["Rack", 1, 4],
+      ["Rack", 2, 1],
+      [null, null, null],
+    ]);
+  });
+  it("summarises places with the unplaced last", () => {
+    expect(
+      summarizePlaces([b("Rack", 1, 1), b(null, null, null), b("Fridge", 1, 1), b("Rack", 1, 2)]),
+    ).toEqual([
+      { label: "Fridge", count: 1 },
+      { label: "Rack", count: 2 },
+      { label: null, count: 1 },
+    ]);
+  });
+  it("averages the known prices only", () => {
+    expect(averagePrice([])).toBeNull();
+    expect(averagePrice([{ priceCents: null }])).toBeNull();
+    expect(averagePrice([{ priceCents: 2000 }, { priceCents: null }, { priceCents: 3001 }])).toBe(
+      2501,
+    );
+  });
+});
+
+describe("history", () => {
+  it("merges same-day additions and openings, newest first", () => {
+    const b = (addedAt: string, openedAt: string | null = null) => ({ addedAt, openedAt });
+    const events = historyEvents([
+      b("2026-10-03T09:00:00Z", "2026-10-12T20:00:00Z"),
+      b("2026-10-03T09:00:01Z"),
+      b("2026-10-03T09:00:02Z", "2026-10-12T21:30:00Z"),
+      b("2026-09-01T10:00:00Z"),
+    ]);
+    expect(events).toEqual([
+      { kind: "opened", day: "2026-10-12", count: 2 },
+      { kind: "added", day: "2026-10-03", count: 3 },
+      { kind: "added", day: "2026-09-01", count: 1 },
+    ]);
+  });
+  it("is empty without bottles and respects the limit", () => {
+    expect(historyEvents([])).toEqual([]);
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      addedAt: `2026-01-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
+      openedAt: null,
+    }));
+    expect(historyEvents(many, 5)).toHaveLength(5);
   });
 });

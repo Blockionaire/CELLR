@@ -4,10 +4,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AddBottles,
   AddBottlesResult,
+  BottleAction,
+  BottleActionResult,
   CellarView,
   CreateStorage,
   CreateWine,
+  RackView,
   StorageUnitView,
+  UpdatePurchase,
+  UpdateWine,
+  VintageDetail,
   WineSummary,
 } from "@cellr/domain";
 import { track } from "@/lib/analytics";
@@ -16,6 +22,8 @@ import { api } from "@/lib/api";
 export const cellarKey = ["cellar"] as const;
 export const winesKey = ["wines"] as const;
 export const storageKey = ["storage"] as const;
+export const racksKey = ["racks"] as const;
+export const vintageKey = (id: string) => ["vintage", id] as const;
 
 export function useCellar(initialData: CellarView) {
   return useQuery({
@@ -43,7 +51,11 @@ export function useCreateStorage() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateStorage) => api.post<StorageUnitView>("/storage", input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: storageKey }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: storageKey }),
+        queryClient.invalidateQueries({ queryKey: racksKey }),
+      ]),
   });
 }
 
@@ -62,7 +74,69 @@ export function useAddBottles() {
         queryClient.invalidateQueries({ queryKey: cellarKey }),
         queryClient.invalidateQueries({ queryKey: storageKey }),
         queryClient.invalidateQueries({ queryKey: winesKey }),
+        queryClient.invalidateQueries({ queryKey: racksKey }),
+        queryClient.invalidateQueries({ queryKey: ["vintage"] }),
       ]);
     },
+  });
+}
+
+export function useVintage(vintageId: string, initialData: VintageDetail) {
+  return useQuery({
+    queryKey: vintageKey(vintageId),
+    queryFn: () => api.get<VintageDetail>(`/cellar/${vintageId}`),
+    initialData,
+  });
+}
+
+export const useRacks = () =>
+  useQuery({ queryKey: racksKey, queryFn: () => api.get<RackView>("/racks") });
+
+/** Anything that changes bottles must refresh every place that shows counts, spots or free space. */
+function useRefreshCellar() {
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: cellarKey }),
+      queryClient.invalidateQueries({ queryKey: ["vintage"] }),
+      queryClient.invalidateQueries({ queryKey: racksKey }),
+      queryClient.invalidateQueries({ queryKey: storageKey }),
+    ]);
+}
+
+/** Open, move, restore or remove one bottle. Resolves after fresh data is in, so screens never flash stale counts. */
+export function useBottleAction() {
+  const refresh = useRefreshCellar();
+  return useMutation({
+    mutationFn: (input: { bottleId: string; action: BottleAction }) =>
+      api.patch<BottleActionResult>(`/bottles/${input.bottleId}`, input.action),
+    onSuccess: async (_result, input) => {
+      if (input.action.action === "open") track("bottle_opened");
+      await refresh();
+    },
+  });
+}
+
+export function useUpdateWine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { wineId: string; patch: UpdateWine }) =>
+      api.patch<WineSummary>(`/wines/${input.wineId}`, input.patch),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: cellarKey }),
+        queryClient.invalidateQueries({ queryKey: ["vintage"] }),
+        queryClient.invalidateQueries({ queryKey: winesKey }),
+        queryClient.invalidateQueries({ queryKey: racksKey }),
+      ]),
+  });
+}
+
+export function useUpdatePurchase() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { vintageId: string; patch: UpdatePurchase }) =>
+      api.patch<{ updated: number }>(`/cellar/${input.vintageId}/purchase`, input.patch),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vintage"] }),
   });
 }

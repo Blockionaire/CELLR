@@ -1,15 +1,24 @@
 import "server-only";
 import {
+  averagePrice,
   DomainError,
   isDomainError,
   nextFreeSlots,
+  orderBottles,
   type AddBottles,
   type AddBottlesResult,
+  type BottleAction,
+  type BottleActionResult,
   type CellarItem,
   type CellarView,
   type CreateStorage,
   type CreateWine,
+  type PlacedBottle,
+  type RackView,
   type StorageUnitView,
+  type UpdatePurchase,
+  type UpdateWine,
+  type VintageDetail,
   type WineSummary,
 } from "@cellr/domain";
 import type {
@@ -17,6 +26,7 @@ import type {
   CellarRepository,
   InventoryRow,
   NewBottle,
+  PurchasePatch,
   StorageRow,
 } from "./types";
 
@@ -82,6 +92,35 @@ export function aggregateInventory(rows: InventoryRow[]): CellarView {
   return { items, bottleCount: rows.length };
 }
 
+/** Every storage unit with what sits in each spot, plus the bottles that have no place yet. */
+export function buildRacks(units: StorageUnitView[], rows: InventoryRow[]): RackView {
+  const racks = units.map((u) => ({ ...u, bottles: [] as PlacedBottle[] }));
+  const byId = new Map(racks.map((r) => [r.id, r]));
+  const unplaced: PlacedBottle[] = [];
+  for (const r of rows) {
+    const bottle: PlacedBottle = {
+      bottleId: r.bottleId,
+      vintageId: r.vintageId,
+      producer: r.producer,
+      wineName: r.wineName,
+      type: r.type,
+      year: r.year,
+      row: r.row,
+      col: r.col,
+    };
+    const unit =
+      r.locationId && r.row !== null && r.col !== null ? byId.get(r.locationId) : undefined;
+    if (unit) unit.bottles.push(bottle);
+    else unplaced.push({ ...bottle, row: null, col: null });
+  }
+  for (const unit of racks)
+    unit.bottles.sort((a, b) => (a.row ?? 0) - (b.row ?? 0) || (a.col ?? 0) - (b.col ?? 0));
+  unplaced.sort(
+    (a, b) => a.producer.localeCompare(b.producer) || a.wineName.localeCompare(b.wineName),
+  );
+  return { units: racks, unplaced };
+}
+
 export function createCellarService(repo: CellarRepository, { userId }: { userId: string }) {
   async function household(): Promise<ActiveHousehold> {
     const h = await repo.getActiveHousehold(userId);
@@ -114,8 +153,146 @@ export function createCellarService(repo: CellarRepository, { userId }: { userId
       return toStorageView(await repo.createStorage((await household()).id, input));
     },
 
+    /** For the racks view and the 3D cellar: where every bottle sits. */
+    async racks(): Promise<RackView> {
+      const { id } = await household();
+      const [units, rows] = await Promise.all([repo.listStorage(id), repo.listInventory(id)]);
+      return buildRacks(units.map(toStorageView), rows);
+    },
+
     async inventory(): Promise<CellarView> {
       return aggregateInventory(await repo.listInventory((await household()).id));
+    },
+
+    /** One vintage with every bottle: where each is, what they cost, what has been opened. */
+    async vintage(vintageId: string): Promise<VintageDetail> {
+      const { id: householdId } = await household();
+      const rows = await repo.getVintage(householdId, vintageId);
+      // A vintage you never owned a bottle of is not yours to look at, even if it is in the shared catalogue.
+      if (!rows || rows.bottles.length === 0) throw new DomainError("NOT_FOUND");
+      const inCellar = orderBottles(rows.bottles.filter((b) => b.status === "in_cellar"));
+      const opened = rows.bottles
+        .filter((b) => b.status === "opened")
+        .sort((a, b) => (b.openedAt ?? "").localeCompare(a.openedAt ?? ""))
+        .slice(0, 12);
+      return {
+        vintageId: rows.vintageId,
+        wine: rows.wine,
+        year: rows.year,
+        bottles: inCellar,
+        opened,
+        averagePriceCents: averagePrice(inCellar),
+        currency: inCellar.find((b) => b.currency)?.currency ?? null,
+      };
+    },
+
+    /**
+     * Open, move, restore or remove ONE physical bottle. Each action says what it expects the bottle's
+     * state to be, so two people tapping at once cannot open the same bottle twice.
+     */
+    async bottleAction(bottleId: string, action: BottleAction): Promise<BottleActionResult> {
+      const { id: householdId } = await household();
+      const before = await repo.getBottle(householdId, bottleId);
+      if (!before) throw new DomainError("NOT_FOUND", "We couldn't find that bottle.");
+      const previous = { locationId: before.locationId, row: before.row, col: before.col };
+      const result = (bottle: typeof before | null, conflict: string): BottleActionResult => {
+        if (!bottle) throw new DomainError("CONFLICT", conflict);
+        return { bottle, previous };
+      };
+
+      switch (action.action) {
+        case "open":
+          return result(
+            await repo.updateBottle(householdId, bottleId, { status: "opened" }, ["in_cellar"]),
+            "That bottle has already been opened.",
+          );
+
+        case "remove":
+          return result(
+            await repo.updateBottle(householdId, bottleId, { status: "removed" }, ["in_cellar"]),
+            "That bottle is no longer in the cellar.",
+          );
+
+        case "move": {
+          if (before.status !== "in_cellar")
+            throw new DomainError("CONFLICT", "That bottle is no longer in the cellar.");
+          const { locationId, row, col } = action.to;
+          if (locationId === before.locationId && row === before.row && col === before.col)
+            return { bottle: before, previous };
+          if (locationId) {
+            const unit = await repo.getStorage(householdId, locationId);
+            if (!unit) throw new DomainError("NOT_FOUND", "We couldn't find that place.");
+            if ((row ?? 0) > unit.rows || (col ?? 0) > unit.cols)
+              throw new DomainError("VALIDATION", "That spot doesn't exist in this place.");
+          }
+          try {
+            return result(
+              await repo.updateBottle(householdId, bottleId, { locationId, row, col }, [
+                "in_cellar",
+              ]),
+              "That bottle is no longer in the cellar.",
+            );
+          } catch (error) {
+            if (isDomainError(error) && error.code === "CONFLICT")
+              throw new DomainError("CONFLICT", "That spot was just taken. Pick another.");
+            throw error;
+          }
+        }
+
+        case "restore": {
+          if (before.status === "in_cellar") return { bottle: before, previous }; // a second Undo is harmless
+          const attempt = (to: {
+            locationId: string | null;
+            row: number | null;
+            col: number | null;
+          }) =>
+            repo.updateBottle(
+              householdId,
+              bottleId,
+              { status: "in_cellar", ...to, openedAt: null },
+              ["opened", "removed", "gifted"],
+            );
+          const wanted = action.to;
+          let restored;
+          try {
+            restored = await attempt(wanted);
+          } catch (error) {
+            // Its old spot was taken meanwhile: put it back anyway, just without a place.
+            if (!(isDomainError(error) && error.code === "CONFLICT" && wanted.locationId))
+              throw error;
+            restored = await attempt({ locationId: null, row: null, col: null });
+          }
+          return result(restored, "That bottle can't be put back.");
+        }
+      }
+    },
+
+    /** Corrects a wine the household added itself (the shared catalogue is read-only). */
+    async updateWine(wineId: string, patch: UpdateWine): Promise<WineSummary> {
+      await household();
+      if (!(await repo.getWine(wineId))) throw new DomainError("NOT_FOUND");
+      const updated = await repo.updateWine(wineId, patch);
+      if (!updated)
+        throw new DomainError(
+          "FORBIDDEN",
+          "That wine comes from the shared catalogue, so it can't be edited.",
+        );
+      return updated;
+    },
+
+    /** Price, date and shop for every bottle of a vintage that is still in the cellar. */
+    async updatePurchase(vintageId: string, patch: UpdatePurchase): Promise<{ updated: number }> {
+      const { id: householdId, currency } = await household();
+      const rows = await repo.getVintage(householdId, vintageId);
+      if (!rows || rows.bottles.length === 0) throw new DomainError("NOT_FOUND");
+      const update: PurchasePatch = {};
+      if (patch.priceCents !== undefined) {
+        update.priceCents = patch.priceCents;
+        update.currency = patch.priceCents === null ? null : currency;
+      }
+      if (patch.purchasedAt !== undefined) update.purchasedAt = patch.purchasedAt;
+      if (patch.purchasedFrom !== undefined) update.purchasedFrom = patch.purchasedFrom;
+      return { updated: await repo.updatePurchase(householdId, vintageId, update) };
     },
 
     /**

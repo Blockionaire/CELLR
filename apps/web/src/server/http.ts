@@ -1,5 +1,5 @@
 import "server-only";
-import { ZodError, type ZodType } from "zod";
+import { z, ZodError, type ZodType } from "zod";
 import { DomainError, ERROR_HTTP_STATUS, isDomainError, type ApiErrorBody } from "@cellr/domain";
 import { requireContext, type RequestContext } from "./context";
 import { logError } from "./log";
@@ -120,6 +120,13 @@ export function open<P = Record<string, never>>(
       return errorResponse(error);
     }
   };
+}
+
+/** A path id must be a UUID; anything else is simply "not found" (never a validation hint). */
+export function uuidParam(value: string): string {
+  const parsed = z.uuid().safeParse(value);
+  if (!parsed.success) throw new DomainError("NOT_FOUND");
+  return parsed.data;
 }
 
 /** Route that requires a signed-in user (cookie session or bearer token). */

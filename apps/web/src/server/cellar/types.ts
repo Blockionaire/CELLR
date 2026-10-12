@@ -1,9 +1,13 @@
 import "server-only";
 import type {
+  BottleStatus,
+  BottleView,
   CreateStorage,
   CreateWine,
   Slot,
   StorageKind,
+  UpdateWine,
+  WineDetail,
   WineSummary,
   WineType,
 } from "@cellr/domain";
@@ -34,7 +38,10 @@ export interface InventoryRow {
   year: number | null;
   region: string | null;
   countryCode: string | null;
+  locationId: string | null;
   locationLabel: string | null;
+  row: number | null;
+  col: number | null;
   addedAt: string;
 }
 
@@ -47,6 +54,32 @@ export interface NewBottle {
   priceCents: number | null;
   currency: string | null;
   purchasedAt: string | null;
+}
+
+export type BottleRow = BottleView;
+
+/** A vintage with every bottle the household has of it that is in the cellar or already opened. */
+export interface VintageRows {
+  vintageId: string;
+  year: number | null;
+  wine: WineDetail;
+  bottles: BottleRow[];
+}
+
+export interface BottlePatch {
+  status?: BottleStatus;
+  locationId?: string | null;
+  row?: number | null;
+  col?: number | null;
+  /** Set to null when a bottle comes back into the cellar. */
+  openedAt?: null;
+}
+
+export interface PurchasePatch {
+  priceCents?: number | null;
+  currency?: string | null;
+  purchasedAt?: string | null;
+  purchasedFrom?: string | null;
 }
 
 /**
@@ -81,4 +114,18 @@ export interface CellarRepository {
 
   insertBottles(householdId: string, rows: NewBottle[]): Promise<string[]>;
   listInventory(householdId: string): Promise<InventoryRow[]>;
+
+  getVintage(householdId: string, vintageId: string): Promise<VintageRows | null>;
+  getBottle(householdId: string, bottleId: string): Promise<BottleRow | null>;
+  /** Updates one bottle, only if it is currently in one of `fromStatuses`. Null = no such bottle in that state. */
+  updateBottle(
+    householdId: string,
+    bottleId: string,
+    patch: BottlePatch,
+    fromStatuses: readonly BottleStatus[],
+  ): Promise<BottleRow | null>;
+  /** Purchase facts for every bottle of the vintage still in the cellar. Returns how many changed. */
+  updatePurchase(householdId: string, vintageId: string, patch: PurchasePatch): Promise<number>;
+  /** Null = nothing changed (not yours to edit, e.g. a shared-catalogue wine). */
+  updateWine(wineId: string, patch: UpdateWine): Promise<WineSummary | null>;
 }

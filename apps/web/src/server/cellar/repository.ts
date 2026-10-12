@@ -2,10 +2,12 @@ import "server-only";
 import {
   DomainError,
   normalizeText,
+  type BottleStatus,
   type CreateStorage,
   type CreateWine,
   type Slot,
   type StorageKind,
+  type UpdateWine,
   type WineSummary,
   type WineType,
 } from "@cellr/domain";
@@ -14,6 +16,7 @@ import type { Database } from "@/server/db/database.types";
 import { mapDbError } from "@/server/db/errors";
 import type {
   ActiveHousehold,
+  BottleRow,
   CellarRepository,
   InventoryRow,
   NewBottle,
@@ -23,6 +26,8 @@ import type {
 type Tables = Database["public"]["Tables"];
 
 const WINE_COLUMNS = "id, name, wine_type, country_code, region, producers!inner(name)";
+const BOTTLE_COLUMNS =
+  "id, status, location_id, loc_row, loc_col, purchase_price_cents, currency, purchased_at, created_at, opened_at, cellar_locations(label)";
 const STORAGE_COLUMNS = "id, label, kind, grid_rows, grid_cols";
 /** A household sees its own private rows plus the shared catalogue (owner = null). */
 const visibleTo = (householdId: string) =>
@@ -65,6 +70,32 @@ export const toStorage = (
 
 // `normalized_name` is filled by a database trigger (and is not a grantable column), but the generated
 // Insert types still list it as required, hence the two `as …["Insert"]` casts below.
+export const toBottle = (r: {
+  id: string;
+  status: string;
+  location_id: string | null;
+  loc_row: number | null;
+  loc_col: number | null;
+  purchase_price_cents: number | null;
+  currency: string | null;
+  purchased_at: string | null;
+  created_at: string;
+  opened_at: string | null;
+  cellar_locations: { label: string } | null;
+}): BottleRow => ({
+  id: r.id,
+  status: r.status as BottleStatus,
+  locationId: r.location_id,
+  locationLabel: r.cellar_locations?.label ?? null,
+  row: r.loc_row,
+  col: r.loc_col,
+  priceCents: r.purchase_price_cents,
+  currency: r.currency,
+  purchasedAt: r.purchased_at,
+  addedAt: r.created_at,
+  openedAt: r.opened_at,
+});
+
 const isUniqueViolation = (error: { code?: string }) => error.code === "23505";
 
 export function createCellarRepository(db: Db): CellarRepository {
@@ -342,7 +373,7 @@ export function createCellarRepository(db: Db): CellarRepository {
       const { data, error } = await db
         .from("bottles")
         .select(
-          "id, created_at, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, country_code, producers!inner(name))), cellar_locations(label)",
+          "id, created_at, location_id, loc_row, loc_col, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, country_code, producers!inner(name))), cellar_locations(label)",
         )
         .eq("household_id", householdId)
         .eq("status", "in_cellar")
@@ -359,9 +390,109 @@ export function createCellarRepository(db: Db): CellarRepository {
         year: b.wine_vintages.year,
         region: b.wine_vintages.wines.region,
         countryCode: b.wine_vintages.wines.country_code,
+        locationId: b.location_id,
         locationLabel: b.cellar_locations?.label ?? null,
+        row: b.loc_row,
+        col: b.loc_col,
         addedAt: b.created_at,
       }));
+    },
+    async getVintage(householdId, vintageId) {
+      const vintage = await db
+        .from("wine_vintages")
+        .select(
+          "id, year, wines!inner(id, name, wine_type, region, country_code, appellation, producers!inner(name))",
+        )
+        .eq("id", vintageId)
+        .maybeSingle();
+      if (vintage.error) throw mapDbError(vintage.error);
+      if (!vintage.data) return null;
+      const bottles = await db
+        .from("bottles")
+        .select(BOTTLE_COLUMNS)
+        .eq("household_id", householdId)
+        .eq("vintage_id", vintageId)
+        .in("status", ["in_cellar", "opened"])
+        .order("created_at", { ascending: true })
+        .limit(500);
+      if (bottles.error) throw mapDbError(bottles.error);
+      const w = vintage.data.wines;
+      return {
+        vintageId: vintage.data.id,
+        year: vintage.data.year,
+        wine: { ...toWine({ ...w, producers: w.producers }), appellation: w.appellation },
+        bottles: (bottles.data ?? []).map(toBottle),
+      };
+    },
+
+    async getBottle(householdId, bottleId) {
+      const { data, error } = await db
+        .from("bottles")
+        .select(BOTTLE_COLUMNS)
+        .eq("household_id", householdId)
+        .eq("id", bottleId)
+        .maybeSingle();
+      if (error) throw mapDbError(error);
+      return data ? toBottle(data) : null;
+    },
+
+    async updateBottle(householdId, bottleId, patch, fromStatuses) {
+      const update: Tables["bottles"]["Update"] = {};
+      if (patch.status !== undefined) update.status = patch.status;
+      if (patch.locationId !== undefined) update.location_id = patch.locationId;
+      if (patch.row !== undefined) update.loc_row = patch.row;
+      if (patch.col !== undefined) update.loc_col = patch.col;
+      if (patch.openedAt !== undefined) update.opened_at = patch.openedAt;
+      const { data, error } = await db
+        .from("bottles")
+        .update(update)
+        .eq("id", bottleId)
+        .eq("household_id", householdId)
+        .in("status", [...fromStatuses])
+        .select(BOTTLE_COLUMNS)
+        .maybeSingle();
+      if (error) throw mapDbError(error);
+      return data ? toBottle(data) : null;
+    },
+
+    async updatePurchase(householdId, vintageId, patch) {
+      const update: Tables["bottles"]["Update"] = {};
+      if (patch.priceCents !== undefined) update.purchase_price_cents = patch.priceCents;
+      if (patch.currency !== undefined) update.currency = patch.currency;
+      if (patch.purchasedAt !== undefined) update.purchased_at = patch.purchasedAt;
+      if (patch.purchasedFrom !== undefined) update.purchased_from = patch.purchasedFrom;
+      const { data, error } = await db
+        .from("bottles")
+        .update(update)
+        .eq("household_id", householdId)
+        .eq("vintage_id", vintageId)
+        .eq("status", "in_cellar")
+        .select("id");
+      if (error) throw mapDbError(error);
+      return data?.length ?? 0;
+    },
+
+    async updateWine(wineId, patch: UpdateWine) {
+      const update: Tables["wines"]["Update"] = {};
+      if (patch.name !== undefined) update.name = patch.name;
+      if (patch.region !== undefined) update.region = patch.region;
+      if (patch.countryCode !== undefined) update.country_code = patch.countryCode;
+      if (patch.appellation !== undefined) update.appellation = patch.appellation;
+      const { data, error } = await db
+        .from("wines")
+        .update(update)
+        .eq("id", wineId)
+        .select(WINE_COLUMNS)
+        .maybeSingle();
+      if (error) {
+        if (isUniqueViolation(error))
+          throw new DomainError(
+            "CONFLICT",
+            "You already have a wine with that name from this producer.",
+          );
+        throw mapDbError(error);
+      }
+      return data ? toWine(data) : null;
     },
   };
 }

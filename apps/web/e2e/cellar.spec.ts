@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import {
   expect,
   test,
@@ -6,49 +5,10 @@ import {
   type BrowserContextOptions,
   type Page,
 } from "@playwright/test";
-import {
-  api,
-  onboardCreate,
-  PUBLISHABLE_KEY,
-  sessionToken,
-  signIn,
-  sql,
-  STACK,
-  uniqueEmail,
-} from "./helpers";
+import { api, arrive, audit, PUBLISHABLE_KEY, sessionToken, sql, STACK, wineBody } from "./helpers";
 
 const shot = (name: string) => `test-results/shots/${name}.png`;
 const project = () => test.info().project.name;
-const stamp = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-
-async function audit(page: Page) {
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .analyze();
-  return results.violations.map(
-    (v) => `${v.id}: ${v.help} (${v.nodes.length}) — ${v.nodes[0]?.target.join(" ")}`,
-  );
-}
-
-/** A signed-in person with a household, ready to use the cellar. */
-async function arrive(page: Page, label: string) {
-  const email = uniqueEmail(label);
-  const household = `House ${stamp()}`;
-  await signIn(page, email);
-  await onboardCreate(page, household, "Joost");
-  const [row] = await sql<{ id: string }>("select id from public.households where name = $1", [
-    household,
-  ]);
-  return { email, household, householdId: row!.id };
-}
-
-const wineBody = {
-  producer: "Domaine Test",
-  name: "Chablis Premier Cru",
-  type: "white",
-  countryCode: "FR",
-  region: "Burgundy",
-};
 
 test.describe("the cellar loop", () => {
   test("add a new wine, three bottles into a new fridge, then find them in the grid, the list and the search", async ({
@@ -338,7 +298,12 @@ test.describe("the cellar loop", () => {
       items: [],
       bottleCount: 0,
     });
-    expect(await (await api(request, otherToken, "get", "/wines")).json()).toEqual([]);
+    // (The shared catalogue is visible to everyone, so other tests' catalogue wines may be listed:
+    // what must never appear is anything the OTHER household added privately.)
+    const visible = (await (await api(request, otherToken, "get", "/wines")).json()) as Array<{
+      id: string;
+    }>;
+    expect(visible.map((w) => w.id)).not.toContain(wine.id);
     expect(await (await api(request, otherToken, "get", "/storage")).json()).toEqual([]);
     const intoTheirWine = await api(request, otherToken, "post", "/bottles", {
       wineId: wine.id,

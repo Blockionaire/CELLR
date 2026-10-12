@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { formatVintage, type CellarItem } from "@cellr/domain";
 import { BottleGlyph } from "@/ui/bottle-glyph";
@@ -32,7 +33,7 @@ export function WineCard({ item, locale }: ItemProps) {
   const places = usePlaces(item);
   const where = placeLine(item.region, item.countryCode, locale);
   return (
-    <article className="flex h-full flex-col rounded-card border border-hairline bg-surface p-3 shadow-raised">
+    <article className="relative flex h-full flex-col rounded-card border border-hairline bg-surface p-3 shadow-raised transition-transform duration-150 ease-cellr active:scale-[0.985]">
       <div className="relative grid h-36 place-items-center rounded-control bg-raised">
         <BottleGlyph shape={shapeFor(item.type)} tint={item.type} className="w-9" />
         <span className="absolute right-2 top-2">
@@ -43,7 +44,14 @@ export function WineCard({ item, locale }: ItemProps) {
         <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
           {item.producer}
         </p>
-        <h3 className="mt-0.5 line-clamp-2 font-display text-title text-ink">{item.wineName}</h3>
+        <h3 className="mt-0.5 line-clamp-2 font-display text-title text-ink">
+          <Link
+            href={`/cellar/${item.vintageId}`}
+            className="after:absolute after:inset-0 after:rounded-card"
+          >
+            {item.wineName}
+          </Link>
+        </h3>
         <p className="mt-1 text-small text-ink-2">
           <span className="tnum">{formatVintage(item.year)}</span>
           {where && <span> · {where}</span>}
@@ -59,13 +67,17 @@ export function WineRow({ item, locale }: ItemProps) {
   const places = usePlaces(item);
   const where = placeLine(item.region, item.countryCode, locale);
   return (
-    <article className="flex min-h-[4.5rem] items-center gap-4 px-1 py-3">
+    <article className="relative flex min-h-[4.5rem] items-center gap-4 px-1 py-3 active:bg-raised">
       <BottleGlyph shape={shapeFor(item.type)} tint={item.type} className="w-5 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
           {item.producer}
         </p>
-        <h3 className="truncate font-display text-title text-ink">{item.wineName}</h3>
+        <h3 className="truncate font-display text-title text-ink">
+          <Link href={`/cellar/${item.vintageId}`} className="after:absolute after:inset-0">
+            {item.wineName}
+          </Link>
+        </h3>
         <p className="truncate text-small text-ink-2">
           <span className="tnum">{formatVintage(item.year)}</span>
           {where && <span> · {where}</span>}

@@ -82,6 +82,21 @@ function fakeRepo(
     async listInventory() {
       return [];
     },
+    async getVintage() {
+      return null;
+    },
+    async getBottle() {
+      return null;
+    },
+    async updateBottle() {
+      return null;
+    },
+    async updatePurchase() {
+      return 0;
+    },
+    async updateWine() {
+      return null;
+    },
   };
   return { repo, state };
 }
@@ -258,7 +273,10 @@ describe("the cellar view", () => {
     year: 2019,
     region: "Bordeaux",
     countryCode: "FR",
+    locationId: "u1",
     locationLabel: "Wine fridge",
+    row: 1,
+    col: 1,
     addedAt: "2026-10-01T10:00:00Z",
     ...over,
   });

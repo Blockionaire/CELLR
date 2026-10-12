@@ -18,12 +18,21 @@ type Step = "choose" | "new" | "details" | "done";
  * Pick the wine → say how many, which vintage, where → done. Two screens for the common case,
  * a third only when the wine is new. Everything you did is one tap from "Add another".
  */
-export function AddBottleFlow({ currency }: { currency: string }) {
+export function AddBottleFlow({
+  currency,
+  initialWine,
+  initialYear,
+}: {
+  currency: string;
+  /** Jump straight to "how many and where" for this wine (from "Add more"). */
+  initialWine?: WineSummary | undefined;
+  initialYear?: number | null | undefined;
+}) {
   const t = useTranslations("addBottle");
   const wines = useWines();
-  const [step, setStep] = useState<Step>("choose");
+  const [step, setStep] = useState<Step>(initialWine ? "details" : "choose");
   const [query, setQuery] = useState("");
-  const [wine, setWine] = useState<WineSummary | null>(null);
+  const [wine, setWine] = useState<WineSummary | null>(initialWine ?? null);
   const [result, setResult] = useState<AddBottlesResult | null>(null);
   const [lastPlace, setLastPlace] = useState<string | null | undefined>(undefined);
 
@@ -96,6 +105,7 @@ export function AddBottleFlow({ currency }: { currency: string }) {
             wine={wine}
             currency={currency}
             preferredPlaceId={lastPlace}
+            initialYear={result === null && wine.id === initialWine?.id ? initialYear : undefined}
             onChangeWine={() => setStep("choose")}
             onDone={(r, placeId) => {
               setResult(r);

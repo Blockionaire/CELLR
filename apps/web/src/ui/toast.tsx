@@ -15,13 +15,19 @@ import { cn } from "./cn";
 import { fade } from "./motion";
 
 type Tone = "default" | "error";
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
 interface ToastItem {
   id: number;
   message: string;
   tone: Tone;
+  action?: ToastAction;
 }
 interface ToastApi {
-  show: (message: string, options?: { tone?: Tone }) => void;
+  /** An `action` (e.g. Undo) keeps the toast around a little longer. */
+  show: (message: string, options?: { tone?: Tone; action?: ToastAction }) => void;
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -37,14 +43,24 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const nextId = useRef(1);
   const region = useRef<HTMLDivElement>(null);
 
-  const show = useCallback<ToastApi["show"]>((message, options) => {
-    const id = nextId.current++;
-    setItems((list) => [...list.slice(-2), { id, message, tone: options?.tone ?? "default" }]);
-    window.setTimeout(
-      () => setItems((list) => list.filter((t) => t.id !== id)),
-      options?.tone === "error" ? 6000 : 3500,
-    );
-  }, []);
+  const dismiss = useCallback(
+    (id: number) => setItems((list) => list.filter((t) => t.id !== id)),
+    [],
+  );
+
+  const show = useCallback<ToastApi["show"]>(
+    (message, options) => {
+      const id = nextId.current++;
+      const item: ToastItem = { id, message, tone: options?.tone ?? "default" };
+      if (options?.action) item.action = options.action;
+      setItems((list) => [...list.slice(-2), item]);
+      window.setTimeout(
+        () => dismiss(id),
+        options?.action ? 8000 : options?.tone === "error" ? 6000 : 3500,
+      );
+    },
+    [dismiss],
+  );
 
   // The region lives in the browser's top layer so toasts stay visible above an open sheet.
   useEffect(() => {
@@ -75,11 +91,23 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               exit={{ opacity: 0 }}
               transition={fade}
               className={cn(
-                "pointer-events-auto max-w-sm rounded-card bg-raised px-4 py-3 text-small shadow-raised",
+                "pointer-events-auto flex max-w-sm items-center gap-4 rounded-card bg-raised px-4 py-3 text-small shadow-raised",
                 t.tone === "error" ? "text-danger" : "text-ink",
               )}
             >
-              {t.message}
+              <span>{t.message}</span>
+              {t.action && (
+                <button
+                  type="button"
+                  className="-my-2 -mr-2 shrink-0 rounded-control px-3 py-2 font-medium text-accent-fg active:bg-surface"
+                  onClick={() => {
+                    t.action?.onClick();
+                    dismiss(t.id);
+                  }}
+                >
+                  {t.action.label}
+                </button>
+              )}
             </motion.div>
           ))}
         </AnimatePresence>

@@ -27,6 +27,8 @@ interface BottleDetailsProps {
   currency: string;
   /** Last place used, so adding a second bottle is two taps shorter. */
   preferredPlaceId: string | null | undefined;
+  /** Pre-filled vintage (e.g. "Add more" from the detail screen): a year, null for NV, undefined for none. */
+  initialYear?: number | null | undefined;
   onChangeWine: () => void;
   onDone: (result: AddBottlesResult, placeId: string | null) => void;
 }
@@ -48,6 +50,7 @@ export function BottleDetails({
   wine,
   currency,
   preferredPlaceId,
+  initialYear,
   onChangeWine,
   onDone,
 }: BottleDetailsProps) {
@@ -58,8 +61,10 @@ export function BottleDetails({
   const storage = useStorage();
   const add = useAddBottles();
 
-  const [yearText, setYearText] = useState("");
-  const [nv, setNv] = useState(false);
+  const [yearText, setYearText] = useState(
+    typeof initialYear === "number" ? String(initialYear) : "",
+  );
+  const [nv, setNv] = useState(initialYear === null);
   const [quantity, setQuantity] = useState(1);
   /** undefined = "not chosen yet": the first place with room is preselected. */
   const [chosenPlace, setChosenPlace] = useState<string | null | undefined>(preferredPlaceId);
