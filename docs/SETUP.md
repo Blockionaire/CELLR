@@ -42,7 +42,9 @@ _Supabase → SQL Editor → New query._ Run these files **in this order**, one 
 5. `…0005_storage.sql`
 6. `…0006_platform.sql`
 7. `…0007_signup_allowlist.sql`
-8. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
+8. `…0008_tastings.sql` (ratings: "how was it?" — added after the first version; see "Updating the database")
+9. `…0009_wishlist.sql` (the wishlist — also added later; see "Updating the database")
+10. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
 
 If a file fails, stop: the files are not safe to re-run. Note which file and the error text.
 
@@ -54,6 +56,18 @@ pnpm exec supabase login
 pnpm exec supabase link --project-ref <your-project-ref>   # the ref is in the project URL
 pnpm exec supabase db push --include-seed                   # asks for the database password
 ```
+
+### Updating the database later
+
+New features sometimes need one more database step. They arrive as a new numbered file in
+`supabase/migrations/`. Run only the files **you have not run yet**, in order, the same way as above
+(SQL Editor → New query → paste → Run → "Success"). Nothing breaks while you wait: the app notices a
+missing step and simply leaves that feature switched off.
+
+| File                          | What it switches on                                                      |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| `20261012000008_tastings.sql` | Ratings: stars, words and a note after you open a bottle ("How was it?") |
+| `20261012000009_wishlist.sql` | The wishlist: wines you would like to buy, shared with your household    |
 
 ### Check it worked
 
@@ -182,6 +196,37 @@ The free **Hobby** plan is meant for personal, non-commercial use, which fits a 
 5. Try airplane mode: you should get the friendly _"You're offline"_ page, not a browser error.
 6. Open `/design` on a Preview deployment and look at it on your phone — **tell me what feels off**
    (fonts, spacing, colour). Those are cheap to change now and expensive later.
+
+### Turning on label scanning (optional)
+
+Scanning reads the front label of a bottle with an AI model and fills in the wine. It needs one setting in
+Vercel (_Settings → Environment Variables_, then redeploy): `OPENAI_API_KEY`. **Put the key in Vercel only; never
+paste it into a chat or a file in the repository.**
+
+| Variable          | What it does                                                                                           | Default                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------ | --------------------------- |
+| `OPENAI_API_KEY`  | Switches reading labels on. Without it, a scan still keeps the photo and you fill the wine in by hand. | _(off)_                     |
+| `AI_MODEL_VISION` | The model that reads pictures.                                                                         | `gpt-4.1`                   |
+| `AI_BASE_URL`     | Any OpenAI-compatible endpoint.                                                                        | `https://api.openai.com/v1` |
+
+To record what every AI call costs (tokens, time, outcome) the server also needs `SUPABASE_SERVICE_ROLE_KEY`;
+without it scanning works and nothing is recorded.
+
+What is sent: only the label photo, to OpenAI, to be read; the scan screen says so. Every person may read about
+40 labels per hour (the budget protects the bill); beyond that the photo is still kept and the form is shown.
+Photos live in the private `bottle-images` bucket under your household's own folder; the database step that
+creates it is migration 0005, which you have already run.
+
+### Bringing your old Wijnkelder cellar over
+
+_Profile → Bring your cellar over_. In the old Wijnkelder app make a backup (a small `.json` file), choose it
+there, read the report of what would come over, then confirm. Nothing is written before you confirm.
+You get: one bottle per physical bottle (the old app kept a count), racks with the spots they were in, wines
+you already drank (with the day), your tasting notes and scores (turned into half stars) and your favourites.
+Whatever cannot be understood (an unknown country, an impossible year, a note about a bottle that is not in the
+file) is listed, never guessed in silence. Do it once: doing it again adds everything a second time.
+Run the ratings step (migration 0008, see "Updating the database") **before** you import if you want your old
+scores and notes: without it the cellar still comes over, but the ratings are left out and the screen says so.
 
 ## 7. Working on it locally
 

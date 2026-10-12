@@ -50,6 +50,10 @@ export const UpdateProfileSchema = z
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Nothing to update.");
 
+/** To delete your account you type your own email address: no stray tap can do it. */
+export const DeleteAccountSchema = z.object({ email: z.string().trim().min(1).max(254) });
+export type DeleteAccount = z.infer<typeof DeleteAccountSchema>;
+
 export type CreateHousehold = z.infer<typeof CreateHouseholdSchema>;
 export type UpdateHousehold = z.infer<typeof UpdateHouseholdSchema>;
 export type CreateInvite = z.infer<typeof CreateInviteSchema>;

@@ -40,3 +40,11 @@ export function mapDbError(error: DbError): DomainError {
   if (code === "PGRST301" || /jwt/i.test(message)) return new DomainError("UNAUTHENTICATED");
   return new DomainError("INTERNAL", undefined, { cause: error, retryable: true });
 }
+
+/**
+ * A table that arrives with a database step the owner has not run yet. Until then the feature says so kindly
+ * instead of breaking the app.
+ * PGRST205: not in the schema cache · 42P01: no such relation · PGRST200: a join to it cannot be found either.
+ */
+export const isMissingTable = (error: { code?: string | undefined }) =>
+  error.code === "PGRST205" || error.code === "42P01" || error.code === "PGRST200";

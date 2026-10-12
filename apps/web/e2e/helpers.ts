@@ -123,7 +123,7 @@ export const wineBody = {
 export async function apiClient(request: APIRequestContext, email: string) {
   const token = await sessionToken(email);
   const call = async <T = Record<string, unknown>>(
-    method: "get" | "post" | "patch" | "delete",
+    method: "get" | "post" | "patch" | "put" | "delete",
     path: string,
     data?: unknown,
     expected?: number,
@@ -133,4 +133,48 @@ export async function apiClient(request: APIRequestContext, email: string) {
     return { status: res.status(), body: (await res.json().catch(() => null)) as T };
   };
   return { token, call };
+}
+
+/**
+ * A real, decodable JPEG, drawn in the browser (the test machine has no image tools): a wine-coloured
+ * "label" with the given words on it. `exif` hides a position and a camera serial in the file, the way a
+ * phone does, so tests can prove they do not survive an upload.
+ */
+export async function makeJpeg(
+  page: Page,
+  options: { width?: number; height?: number; words?: string; exif?: boolean; color?: string } = {},
+): Promise<Buffer> {
+  const {
+    width = 600,
+    height = 800,
+    words = "Test Label",
+    exif = false,
+    color = "#7d2234",
+  } = options;
+  const base64 = await page.evaluate(
+    ([w, h, text, fill]) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = fill;
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#f4ecd8";
+      ctx.fillRect(w * 0.1, h * 0.12, w * 0.8, h * 0.76);
+      ctx.fillStyle = "#2a1e19";
+      ctx.font = `${Math.round(w / 10)}px serif`;
+      ctx.textAlign = "center";
+      ctx.fillText(text, w / 2, h / 2);
+      return canvas.toDataURL("image/jpeg", 0.9).split(",")[1]!;
+    },
+    [width, height, words, color] as const,
+  );
+  const jpeg = Buffer.from(base64, "base64");
+  if (!exif) return jpeg;
+  const body = Buffer.from("Exif\0\0GPS 52.3676N 4.9041E SerialNumber 0042", "latin1");
+  const segment = Buffer.concat([
+    Buffer.from([0xff, 0xe1, (body.length + 2) >> 8, (body.length + 2) & 0xff]),
+    body,
+  ]);
+  return Buffer.concat([jpeg.subarray(0, 2), segment, jpeg.subarray(2)]);
 }

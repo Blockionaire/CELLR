@@ -23,6 +23,8 @@ fs.writeFileSync(
     `db-schemas = "public"`,
     `db-anon-role = "anon"`,
     `db-pool = 5`,
+    // The same cap Supabase applies: a list longer than this must be read page by page, or it is cut short silently.
+    `db-max-rows = 1000`,
     `jwt-secret = "@${path.join(workDir, "jwks.json")}"`,
     `server-host = "127.0.0.1"`,
     `server-port = ${restPort}`,

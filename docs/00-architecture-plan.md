@@ -1,7 +1,8 @@
 # CELLR — architecture & implementation plan
 
-> Status: **Phase 0 built** (see [§13](#13-status-and-what-changed-since-this-plan)). Originally written before any
-> application code, as requested; §13 records what was built and every place reality changed the plan.
+> Status: **Phase 0 and the basic features of Phase 1–2 built** (see [§13](#13-status-and-what-changed-since-this-plan)).
+> Originally written before any application code, as requested; §13 records what was built and every place reality
+> changed the plan.
 > Everything marked **✅ verified** was tested in a throwaway Postgres 16 (scripts in
 > [`docs/spikes/`](spikes/)). Everything marked **⚠ assumption** has not been tested and is called
 > out so it can be killed early.
@@ -644,9 +645,49 @@ first deploy is the real test. [`SETUP.md`](SETUP.md) is the checklist.
 10. **`created_by` columns use `ON DELETE SET NULL` and are protected by column grants, not triggers** — an immutability
     trigger would also fire on the foreign key's own action and block account deletion.
 
+### The basic features — built and verified (checkpoints 1–14)
+
+| Feature                                                 | Notes                                                                                             |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Cellar: add by hand, grid/list/search, filters, sorting | local search, favourites; one row per physical bottle                                             |
+| Storage: racks (2D), 3D cellar, bottle showcase         | the 3D scene is a pure function of the slot data; the real label photo becomes the bottle texture |
+| Open, rate, notes, drink windows, Tonight               | heuristic windows; Tonight is deterministic, never an LLM                                         |
+| Wijnkelder importer, perf harness (500 / 2000 bottles)  | perf test also asserts _completeness_ (see 2 below)                                               |
+| Label photos, AI scan, Sommelier chat, wishlist         | every AI step has a non-AI fallback; the person never loses the photo or the question             |
+| Household settings, export my data, delete my account   | typed-name / typed-email confirmation; photos purged with the household                           |
+
+Deviations from the plan above, and why:
+
+1. **Photos go through our API, not a direct signed upload.** The server sanitises the JPEG (structural, no decode:
+   drops EXIF/ICC, keeps only the segments needed to display) and writes to the private `bottle-images` bucket under
+   `{household}/{uuid}/`; reads are served through a same-origin, private, immutable route. One origin means the CSP
+   needs no storage host, and nothing but the sanitised bytes can ever be stored. The phone also re-encodes (canvas:
+   bakes in orientation, strips metadata) before sending, so uploads are small.
+2. **Supabase caps a response at 1 000 rows (`max_rows`) and truncates silently.** `.limit(5000)` therefore returned
+   1 000 bottles for a bigger cellar with no error. Every list that can grow is read page by page (`allRows`), the
+   local PostgREST now has the same cap, and the perf test asserts the counts (mutation-checked).
+3. **The scan matcher is deterministic and in memory** (normalised producer/name/vintage scoring over the cellar,
+   catalogue and wishlist), not a database function or an LLM. The model only _reads_ the label; code decides what it
+   matches, and plausibility guards reject impossible readings (vintage in the future, a grape that isn't a grape).
+4. **AI never blocks.** Missing key, budget used up, timeout or invalid output all end in the same place: the photo is
+   kept and the person fills in the details; Sommelier falls back to the Tonight engine. Usage is recorded with the
+   service role in `ai_usage`, with per-person hourly limits in Postgres (`app:` buckets).
+5. **Deleting an account needs the service key** (only the service role may delete a sign-in), so it is the one
+   feature that is simply off without `SUPABASE_SERVICE_ROLE_KEY`. It lives in `server/privileged` like every other
+   use of that key. After the sign-in is deleted the session cookie would still validate locally (JWTs are checked
+   against the public keys), so the route signs the device out too — found by the e2e test landing on `/onboarding`.
+6. **Features whose migration isn't applied yet degrade instead of breaking** (`isMissingTable`: ratings → 0008,
+   wishlist → 0009), so a deploy never has to wait for a person to run SQL.
+
+**Not exercised against real Supabase:** hosted Storage (tested against a fake that enforces the real storage
+policies), the admin delete-user call, and OpenAI beyond one manual run through the sandbox proxy.
+
 ### Open items carried forward
 
-- **Needs you:** create the Supabase project and deploy ([`SETUP.md`](SETUP.md)); label photos for the scan eval set (D9).
+- **Needs you:** run migrations 0008 and 0009 in the Supabase SQL editor (see [`SETUP.md`](SETUP.md), "Updating the
+  database"); set `OPENAI_API_KEY` (and optionally `SUPABASE_SERVICE_ROLE_KEY`) in Vercel only; label photos for the
+  scan eval set (D9).
 - **Needs a device, not the sandbox:** how it _feels_ on a real iPhone (status-bar style in standalone mode, safe areas,
-  font rendering) — please review the `/design` gallery on your phone.
-- **Phase 1** next: cellar domain (wines → vintages → bottles), manual add flow, grid/list, search, racks, importer.
+  font rendering, camera capture) — please review the `/design` gallery and the scan flow on your phone.
+- **Later, by choice:** the friends section (find people, become friends, see each other's wine and taste), Dutch
+  translation, switching between several households.

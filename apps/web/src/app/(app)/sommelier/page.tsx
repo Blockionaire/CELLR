@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { EmptyState } from "@/ui/empty-state";
-import { PageHeader } from "@/ui/page-header";
+import { SommelierScreen } from "@/features/sommelier/sommelier-screen";
+import { getPageContext } from "@/server/context";
+import { servicesFor } from "@/server/services";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("sommelier"))("title") };
 }
 
 export default async function SommelierPage() {
-  const t = await getTranslations("sommelier");
-  return (
-    <>
-      <PageHeader title={t("title")} />
-      <EmptyState title={t("soonTitle")} body={t("soonBody")} />
-    </>
-  );
+  const ctx = await getPageContext();
+  if (!ctx) return null; // the (app) layout has already redirected signed-out visitors
+  const home = await servicesFor(ctx)
+    .cellar.home()
+    .catch(() => null);
+  return <SommelierScreen hasBottles={(home?.bottleCount ?? 0) > 0} />;
 }

@@ -1,4 +1,7 @@
 import { z } from "zod";
+import type { DrinkPhase } from "./drink-window";
+import type { ImageRef } from "./image";
+import type { RatingSummary, TastingView } from "./tasting";
 
 // ---- Vocabulary ---------------------------------------------------------------------------------
 // These mirror the database enums (public.wine_type, public.location_kind). Add-only evolution.
@@ -164,6 +167,8 @@ export const AddBottlesSchema = z.object({
   priceCents: z.number().int().min(0).max(MAX_PRICE_CENTS).nullable().default(null),
   purchasedAt: z.iso.date().nullable().default(null),
   formatMl: z.number().int().min(100).max(30000).default(750),
+  /** A label photo already uploaded (from a scan or the camera); bottles of a known vintage share its photo. */
+  imageId: z.uuid().optional(),
 });
 export type AddBottles = z.infer<typeof AddBottlesSchema>;
 
@@ -213,6 +218,21 @@ export interface StorageUnitView {
   free: number;
 }
 
+/** Where a wine stands in its (estimated) drinking window. */
+export interface DrinkSummary {
+  phase: DrinkPhase;
+  /** Calendar years of the estimated window, or null when there is none (non-vintage). */
+  from: number | null;
+  until: number | null;
+  /** Lower = more pressing to open. */
+  urgency: number;
+  /** Years until the window opens (negative once it has) and until it closes. */
+  yearsUntilOpen: number | null;
+  yearsLeft: number | null;
+  /** 0 = start of the window, 1 = end (below/above when not yet / past). */
+  position: number | null;
+}
+
 /** One card in the cellar: one vintage of one wine, however many bottles of it are in the house. */
 export interface CellarItem {
   vintageId: string;
@@ -229,12 +249,59 @@ export interface CellarItem {
   places: string[];
   /** Bottles with no place yet. */
   unplaced: number;
+  /** The label photo, when there is one. */
+  image: ImageRef | null;
+  /** Whether the signed-in person has starred this wine (personal, not shared with the household). */
+  favorite: boolean;
+  /** What the household thought of it, or null while nobody has rated it. */
+  rating: RatingSummary | null;
+  /** When to drink it (an estimate: see drink-window). */
+  drink: DrinkSummary;
 }
 
 export interface CellarView {
   items: CellarItem[];
   /** Total bottles currently in the cellar (the sum of every item's count). */
   bottleCount: number;
+}
+
+/** A bottle that was opened: what it was and when. */
+export interface OpenedEntry {
+  bottleId: string;
+  vintageId: string;
+  producer: string;
+  wineName: string;
+  type: WineType;
+  year: number | null;
+  openedAt: string;
+  /** The signed-in person's stars for it (1..10), or null if they have not rated it. */
+  myScore: number | null;
+  /** The signed-in person has said something about it (stars, words or a note). */
+  rated: boolean;
+}
+
+/** Everything the Home screen shows, in one go. */
+export interface HomeView {
+  /** When this was put together (ISO), so "3 days ago" is measured against the same clock everywhere. */
+  generatedAt: string;
+  bottleCount: number;
+  wineCount: number;
+  /** Sum of the known purchase prices of the bottles in the cellar, or null when none is known. */
+  valueCents: number | null;
+  /** How many bottles that sum is built from (the rest have no price recorded). */
+  pricedCount: number;
+  currency: string | null;
+  /** Spots across all storage places, and how many are taken. */
+  capacity: number;
+  used: number;
+  /** Bottles in the cellar that have no place yet. */
+  unplaced: number;
+  /** Newest additions first. */
+  recentlyAdded: CellarItem[];
+  /** The ones to open first: at the end of their window or past it, most pressing first (at most three). */
+  drinkSoon: CellarItem[];
+  /** Newest first. */
+  recentlyOpened: OpenedEntry[];
 }
 
 export interface AddBottlesResult {
@@ -322,6 +389,10 @@ export const UpdatePurchaseSchema = z
   .refine((v) => Object.keys(v).length > 0, "Nothing to update.");
 export type UpdatePurchase = z.infer<typeof UpdatePurchaseSchema>;
 
+/** Starring a wine is personal: it is yours alone, even in a shared household. */
+export const SetFavoriteSchema = z.object({ favorite: z.boolean() });
+export type SetFavorite = z.infer<typeof SetFavoriteSchema>;
+
 export interface BottleView {
   id: string;
   status: BottleStatus;
@@ -338,17 +409,25 @@ export interface BottleView {
 
 export interface WineDetail extends WineSummary {
   appellation: string | null;
+  /** Whether the signed-in person has starred this wine. */
+  favorite: boolean;
 }
 
 /** One vintage of one wine: what you own, where it is, what it cost, and what you have already opened. */
 export interface VintageDetail {
   vintageId: string;
+  /** When to drink it (an estimate), from this wine's region, colour, label words and what it cost. */
+  drink: DrinkSummary;
   wine: WineDetail;
   year: number | null;
+  /** The label photo, when there is one. */
+  image: ImageRef | null;
   /** In the cellar now, in a stable order: placed ones by place, shelf and position, then unplaced. */
   bottles: BottleView[];
   /** The most recently opened ones, newest first. */
   opened: BottleView[];
+  /** What people in the household said about it, newest first. */
+  tastings: TastingView[];
   /** Mean of the known prices of the bottles in the cellar, or null when none is known. */
   averagePriceCents: number | null;
   currency: string | null;
@@ -437,8 +516,12 @@ export interface PlacedBottle {
   wineName: string;
   type: WineType;
   year: number | null;
+  region: string | null;
+  countryCode: string | null;
   row: number | null;
   col: number | null;
+  /** The label photo, when there is one. */
+  image: ImageRef | null;
 }
 
 export interface RackUnit extends StorageUnitView {

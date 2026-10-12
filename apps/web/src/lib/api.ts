@@ -20,7 +20,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   let response: Response;
   try {
     const init: RequestInit = { method, credentials: "same-origin" };
-    if (body !== undefined) {
+    if (body instanceof FormData) {
+      init.body = body; // the browser adds the multipart boundary itself
+    } else if (body !== undefined) {
       init.headers = { "content-type": "application/json" };
       init.body = JSON.stringify(body);
     }
@@ -47,6 +49,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const api = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body ?? {}),
+  /** Sends files (a photo); everything else goes as JSON. */
+  upload: <T>(path: string, form: FormData) => request<T>("POST", path, form),
   patch: <T>(path: string, body: unknown) => request<T>("PATCH", path, body),
   put: <T>(path: string, body: unknown) => request<T>("PUT", path, body),
   delete: <T = void>(path: string) => request<T>("DELETE", path),

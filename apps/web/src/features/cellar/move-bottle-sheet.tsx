@@ -17,13 +17,28 @@ interface MoveBottleSheetProps {
   onClose: () => void;
   detail: VintageDetail;
   onNewPlace: () => void;
+  /** Start with this bottle chosen (when the person has already pointed at one). */
+  bottleId?: string | undefined;
 }
 
-export function MoveBottleSheet({ open, onClose, detail, onNewPlace }: MoveBottleSheetProps) {
+export function MoveBottleSheet({
+  open,
+  onClose,
+  detail,
+  onNewPlace,
+  bottleId,
+}: MoveBottleSheetProps) {
   const t = useTranslations("moveBottle");
   return (
     <Sheet open={open} onClose={onClose} title={t("title")} description={detail.wine.name}>
-      {open && <MoveBody detail={detail} onClose={onClose} onNewPlace={onNewPlace} />}
+      {open && (
+        <MoveBody
+          detail={detail}
+          onClose={onClose}
+          onNewPlace={onNewPlace}
+          initialBottleId={bottleId}
+        />
+      )}
     </Sheet>
   );
 }
@@ -33,10 +48,12 @@ function MoveBody({
   detail,
   onClose,
   onNewPlace,
+  initialBottleId,
 }: {
   detail: VintageDetail;
   onClose: () => void;
   onNewPlace: () => void;
+  initialBottleId: string | undefined;
 }) {
   const t = useTranslations("moveBottle");
   const tv = useTranslations("vintage");
@@ -47,7 +64,10 @@ function MoveBody({
   const [error, setError] = useState<string | null>(null);
 
   const bottles = detail.bottles;
-  const bottle = bottles.find((b) => b.id === bottleId) ?? bottles[0];
+  const bottle =
+    bottles.find((b) => b.id === bottleId) ??
+    bottles.find((b) => b.id === initialBottleId) ??
+    bottles[0];
   const data: RackView | undefined = racks.data;
   const unit =
     data?.units.find((u) => u.id === (unitId ?? bottle?.locationId)) ?? data?.units[0] ?? null;

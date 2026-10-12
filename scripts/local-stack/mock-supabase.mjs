@@ -5,6 +5,10 @@
 //   FAKE      GoTrue (Auth): email one-time codes and ES256-signed sessions, plus Supabase's gateway
 //             behaviour (publishable key → anon role, service key → service_role)
 //
+//   FAKE      An OpenAI-compatible chat endpoint (/openai/v1): tests program what it answers for a picture of a
+//             given size via /__test/openai, and read back what it was asked via /__test/openai/calls
+//   FAKE      Storage: the real `storage.objects` policies from our migrations decide who may read, write
+//             and delete (each call runs in a transaction AS the caller), the bytes live in memory
 // It is a test fixture, not a security boundary: it binds to localhost and exposes /__test/* helpers.
 import crypto from "node:crypto";
 import http from "node:http";
@@ -173,6 +177,17 @@ export async function startMockSupabase({
       return json(res, 200, sessionFor(rows[0]));
     }
 
+    // Deleting a sign-in is an admin act: only the service key may.
+    const admin = /^\/admin\/users\/([0-9a-f-]{36})$/.exec(path);
+    if (req.method === "DELETE" && admin) {
+      const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? "")?.[1];
+      if (bearer !== serviceKey) return goTrueError(res, 403, "not_admin", "User not allowed");
+      const result = await db.query("delete from auth.users where id = $1", [admin[1]]);
+      return result.rowCount
+        ? json(res, 200, {})
+        : goTrueError(res, 404, "user_not_found", "User not found");
+    }
+
     if (req.method === "POST" && path === "/logout") return json(res, 204);
     if (req.method === "GET" && path === "/user")
       return json(res, 401, {
@@ -210,6 +225,288 @@ export async function startMockSupabase({
     res.end(out);
   }
 
+  // ---- Storage ---------------------------------------------------------------------------------------------
+  const publicKey = crypto.createPublicKey({ key: keys.jwks.keys[0], format: "jwk" });
+  const files = new Map(); // object id → Buffer
+
+  /** Who is calling: the service key, a session signed by us, or nobody. */
+  function callerOf(req) {
+    const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? "")?.[1];
+    if (bearer === serviceKey) return { role: "service_role", claims: { role: "service_role" } };
+    if (!bearer) return null;
+    const [h, p, sig] = bearer.split(".");
+    if (!h || !p || !sig) return null;
+    try {
+      const ok = crypto.verify(
+        "sha256",
+        Buffer.from(`${h}.${p}`),
+        { key: publicKey, dsaEncoding: "ieee-p1363" },
+        Buffer.from(sig, "base64url"),
+      );
+      const claims = JSON.parse(Buffer.from(p, "base64url").toString("utf8"));
+      if (!ok || claims.exp < Date.now() / 1000) return null;
+      return { role: "authenticated", claims };
+    } catch {
+      return null;
+    }
+  }
+
+  /** Runs `work` in one transaction with the caller's role and claims, so row-level security applies. */
+  async function asCaller(caller, work) {
+    const client = await db.connect();
+    try {
+      await client.query("begin");
+      await client.query(
+        "select set_config('role', $1, true), set_config('request.jwt.claims', $2, true)",
+        [caller.role, JSON.stringify(caller.claims)],
+      );
+      const result = await work(client);
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const storageError = (res, status, error, message) =>
+    json(res, status, { statusCode: String(status), error, message });
+
+  async function handleStorage(req, res, url) {
+    const caller = callerOf(req);
+    if (!caller) return storageError(res, 400, "InvalidJWT", "Invalid Compact JWS");
+    const path = decodeURIComponent(url.pathname.replace(/^\/storage\/v1/, ""));
+
+    // POST /object/{bucket}/{path}: upload (raw body, as supabase-js sends a Buffer)
+    let m = /^\/object\/([^/]+)\/(.+)$/.exec(path);
+    if (m && req.method === "POST") {
+      const [, bucket, name] = m;
+      const body = await readBody(req);
+      const contentType = (req.headers["content-type"] ?? "application/octet-stream")
+        .split(";")[0]
+        .trim();
+      const { rows } = await db.query(
+        "select file_size_limit, allowed_mime_types from storage.buckets where id = $1",
+        [bucket],
+      );
+      if (!rows[0]) return storageError(res, 404, "Bucket not found", "Bucket not found");
+      if (rows[0].allowed_mime_types && !rows[0].allowed_mime_types.includes(contentType))
+        return storageError(
+          res,
+          415,
+          "invalid_mime_type",
+          `mime type ${contentType} is not supported`,
+        );
+      if (rows[0].file_size_limit && body.length > Number(rows[0].file_size_limit))
+        return storageError(
+          res,
+          413,
+          "Payload too large",
+          "The object exceeded the maximum allowed size",
+        );
+      try {
+        const id = await asCaller(caller, async (c) => {
+          const upsert = req.headers["x-upsert"] === "true";
+          if (upsert)
+            await c.query("delete from storage.objects where bucket_id = $1 and name = $2", [
+              bucket,
+              name,
+            ]);
+          const r = await c.query(
+            "insert into storage.objects (bucket_id, name, owner, metadata) values ($1, $2, $3, $4) returning id",
+            [
+              bucket,
+              name,
+              caller.claims.sub ?? null,
+              JSON.stringify({ mimetype: contentType, size: body.length }),
+            ],
+          );
+          return r.rows[0].id;
+        });
+        files.set(id, body);
+        return json(res, 200, { Id: id, Key: `${bucket}/${name}` });
+      } catch (error) {
+        if (error.code === "23505")
+          return storageError(res, 409, "Duplicate", "The resource already exists");
+        if (error.code === "42501")
+          return storageError(
+            res,
+            403,
+            "Unauthorized",
+            "new row violates row-level security policy",
+          );
+        throw error;
+      }
+    }
+
+    // GET /object/{bucket}/{path} (and /object/authenticated/...): download
+    m = /^\/object\/(?:authenticated\/)?([^/]+)\/(.+)$/.exec(path);
+    if (m && req.method === "GET") {
+      const [, bucket, name] = m;
+      const found = await asCaller(
+        caller,
+        async (c) =>
+          (
+            await c.query(
+              "select id, metadata from storage.objects where bucket_id = $1 and name = $2",
+              [bucket, name],
+            )
+          ).rows[0],
+      );
+      const bytes = found ? files.get(found.id) : null;
+      if (!found || !bytes) return storageError(res, 400, "not_found", "Object not found");
+      res.writeHead(200, {
+        "content-type": found.metadata?.mimetype ?? "application/octet-stream",
+        "content-length": bytes.length,
+      });
+      return res.end(bytes);
+    }
+
+    // DELETE /object/{bucket} with { prefixes: [...] }
+    m = /^\/object\/([^/]+)$/.exec(path);
+    if (m && req.method === "DELETE") {
+      const { prefixes = [] } = await readJson(req);
+      const removed = await asCaller(
+        caller,
+        async (c) =>
+          (
+            await c.query(
+              "delete from storage.objects where bucket_id = $1 and name = any($2) returning id, name",
+              [m[1], prefixes],
+            )
+          ).rows,
+      );
+      for (const r of removed) files.delete(r.id);
+      return json(
+        res,
+        200,
+        removed.map((r) => ({ id: r.id, name: r.name, bucket_id: m[1] })),
+      );
+    }
+    return storageError(res, 404, "not_found", `No such endpoint: ${req.method} ${path}`);
+  }
+
+  // ---- An OpenAI-compatible endpoint, for tests -------------------------------------------------------------
+  const programmed = new Map(); // "WxH" → { status, content, delayMs, times }
+  const aiCalls = [];
+
+  /** Width and height of a JPEG, read from its frame header. */
+  function jpegSize(bytes) {
+    let i = 2;
+    while (i + 9 < bytes.length) {
+      if (bytes[i] !== 0xff) return null;
+      const marker = bytes[i + 1];
+      const length = (bytes[i + 2] << 8) | bytes[i + 3];
+      if (marker >= 0xc0 && marker <= 0xc2)
+        return {
+          height: (bytes[i + 5] << 8) | bytes[i + 6],
+          width: (bytes[i + 7] << 8) | bytes[i + 8],
+        };
+      i += 2 + length;
+    }
+    return null;
+  }
+
+  async function handleOpenAi(req, res, url) {
+    if (req.method === "POST" && url.pathname === "/__test/openai") {
+      const {
+        match,
+        width,
+        height,
+        status = 200,
+        content,
+        sequence,
+        delayMs = 0,
+        times = 1000,
+      } = await readJson(req);
+      programmed.set(match ? `text:${match}` : `${width}x${height}`, {
+        status,
+        content,
+        sequence,
+        delayMs,
+        times,
+      });
+      return json(res, 200, {});
+    }
+    if (req.method === "DELETE" && url.pathname === "/__test/openai") {
+      programmed.clear();
+      aiCalls.length = 0;
+      return json(res, 200, {});
+    }
+    if (req.method === "GET" && url.pathname === "/__test/openai/calls") {
+      const size = url.searchParams.get("size");
+      const match = url.searchParams.get("match");
+      return json(res, 200, {
+        calls: aiCalls.filter(
+          (c) => (size ? c.size === size : true) && (match ? c.user.includes(match) : true),
+        ),
+      });
+    }
+    if (req.method === "POST" && url.pathname === "/openai/v1/chat/completions") {
+      if (!/^Bearer sk-/.test(req.headers.authorization ?? ""))
+        return json(res, 401, {
+          error: { message: "Incorrect API key provided", type: "invalid_request_error" },
+        });
+      const body = await readJson(req);
+      const image = body.messages
+        ?.flatMap((m) => (Array.isArray(m.content) ? m.content : []))
+        .find((part) => part.type === "image_url")?.image_url?.url;
+      const bytes = image ? Buffer.from(image.split(",")[1] ?? "", "base64") : null;
+      const dims = bytes ? jpegSize(bytes) : null;
+      const userText = (body.messages ?? [])
+        .filter((m) => m.role === "user")
+        .flatMap((m) =>
+          Array.isArray(m.content) ? m.content : [{ type: "text", text: m.content }],
+        )
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("\n");
+      // A picture is told apart by its size; a text-only request by words only that test uses, looked for in
+      // the newest question alone (the chat so far carries earlier words along).
+      const newest = userText.split("Question: ").pop() ?? userText;
+      const textKey = [...programmed.keys()].find(
+        (k) => k.startsWith("text:") && newest.includes(k.slice(5)),
+      );
+      const key = dims ? `${dims.width}x${dims.height}` : (textKey ?? "none");
+      aiCalls.push({
+        size: key,
+        model: body.model,
+        strict: body.response_format?.json_schema?.strict === true,
+        system: body.messages?.[0]?.content ?? "",
+        user: userText,
+        images: image ? 1 : 0,
+      });
+      const plan = programmed.get(key);
+      if (!plan || plan.times <= 0)
+        return json(res, 500, { error: { message: "no answer programmed" } });
+      plan.times -= 1;
+      if (plan.delayMs) await new Promise((r) => setTimeout(r, plan.delayMs));
+      if (plan.status !== 200)
+        return json(res, plan.status, { error: { message: "programmed failure" } });
+      // A sequence is answered in order: a bad answer first, then the correction, for instance.
+      const answer = plan.sequence ? plan.sequence.shift() : plan.content;
+      return json(res, 200, {
+        id: "chatcmpl-local",
+        object: "chat.completion",
+        model: body.model,
+        choices: [
+          {
+            index: 0,
+            finish_reason: "stop",
+            message: {
+              role: "assistant",
+              content: typeof answer === "string" ? answer : JSON.stringify(answer),
+            },
+          },
+        ],
+        usage: { prompt_tokens: 1500, completion_tokens: 120, total_tokens: 1620 },
+      });
+    }
+    return json(res, 404, { error: { message: "not found" } });
+  }
+
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, base);
     try {
@@ -228,6 +525,9 @@ export async function startMockSupabase({
       }
       if (url.pathname.startsWith("/auth/v1")) return await handleAuth(req, res, url);
       if (url.pathname.startsWith("/rest/v1")) return await handleRest(req, res, url);
+      if (url.pathname.startsWith("/openai/") || url.pathname.startsWith("/__test/openai"))
+        return await handleOpenAi(req, res, url);
+      if (url.pathname.startsWith("/storage/v1")) return await handleStorage(req, res, url);
       return json(res, 404, { message: "not found" });
     } catch (error) {
       console.error("[mock-supabase]", error);

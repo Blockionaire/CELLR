@@ -2,6 +2,11 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { formatVintage, type CellarItem } from "@cellr/domain";
 import { BottleGlyph } from "@/ui/bottle-glyph";
+import { cn } from "@/ui/cn";
+import { FavoriteButton } from "./favorite-button";
+import { LabelImage } from "./label-image";
+import { DrinkLabel } from "./drink-bits";
+import { RatingBadge } from "./tasting-bits";
 import { placeLine, shapeFor } from "./wine-visuals";
 
 interface ItemProps {
@@ -34,11 +39,22 @@ export function WineCard({ item, locale }: ItemProps) {
   const where = placeLine(item.region, item.countryCode, locale);
   return (
     <article className="relative flex h-full flex-col rounded-card border border-hairline bg-surface p-3 shadow-raised transition-transform duration-150 ease-cellr active:scale-[0.985]">
-      <div className="relative grid h-36 place-items-center rounded-control bg-raised">
-        <BottleGlyph shape={shapeFor(item.type)} tint={item.type} className="w-9" />
+      <div className="relative grid h-36 place-items-center overflow-hidden rounded-control bg-raised">
+        {item.image ? (
+          <LabelImage image={item.image} size="thumb" className="absolute inset-0 size-full" />
+        ) : (
+          <BottleGlyph shape={shapeFor(item.type)} tint={item.type} className="w-9" />
+        )}
         <span className="absolute right-2 top-2">
           <CountBadge count={item.count} />
         </span>
+        <FavoriteButton
+          wineId={item.wineId}
+          wine={`${item.producer} ${item.wineName}`}
+          favorite={item.favorite}
+          className={cn("absolute -left-0.5 -top-0.5", item.image && "m-1 size-9 bg-surface/85")}
+        />
+        {item.rating && <RatingBadge rating={item.rating} className="absolute bottom-2 left-2" />}
       </div>
       <div className="mt-3 flex-1">
         <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
@@ -57,7 +73,10 @@ export function WineCard({ item, locale }: ItemProps) {
           {where && <span> · {where}</span>}
         </p>
       </div>
-      <p className="mt-3 truncate text-caption text-ink-3">{places}</p>
+      <p className="mt-3 flex items-center justify-between gap-2 text-caption text-ink-3">
+        <span className="truncate">{places}</span>
+        <DrinkLabel drink={item.drink} />
+      </p>
     </article>
   );
 }
@@ -68,7 +87,11 @@ export function WineRow({ item, locale }: ItemProps) {
   const where = placeLine(item.region, item.countryCode, locale);
   return (
     <article className="relative flex min-h-[4.5rem] items-center gap-4 px-1 py-3 active:bg-raised">
-      <BottleGlyph shape={shapeFor(item.type)} tint={item.type} className="w-5 shrink-0" />
+      {item.image ? (
+        <LabelImage image={item.image} size="thumb" className="size-12 shrink-0 rounded-control" />
+      ) : (
+        <BottleGlyph shape={shapeFor(item.type)} tint={item.type} className="w-5 shrink-0" />
+      )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
           {item.producer}
@@ -81,11 +104,19 @@ export function WineRow({ item, locale }: ItemProps) {
         <p className="truncate text-small text-ink-2">
           <span className="tnum">{formatVintage(item.year)}</span>
           {where && <span> · {where}</span>}
+          {item.rating && <RatingBadge rating={item.rating} inline />}
         </p>
       </div>
+      <FavoriteButton
+        wineId={item.wineId}
+        wine={`${item.producer} ${item.wineName}`}
+        favorite={item.favorite}
+        className="shrink-0"
+      />
       <div className="flex shrink-0 flex-col items-end gap-1.5">
         <CountBadge count={item.count} />
         <p className="max-w-[9rem] truncate text-caption text-ink-3">{places}</p>
+        <DrinkLabel drink={item.drink} />
       </div>
     </article>
   );

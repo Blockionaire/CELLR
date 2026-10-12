@@ -20,7 +20,12 @@ export const PATCH = authed<Params>(async ({ request, ctx, params }) => {
   return servicesFor(ctx).households.updateHousehold(idOf(params), patch);
 });
 
-/** DELETE → deletes the household and everything in it. Owner only. */
+/** DELETE → deletes the household and everything in it, photos included. Owner only. */
 export const DELETE = authed<Params>(async ({ ctx, params }) => {
-  await servicesFor(ctx).households.deleteHousehold(idOf(params));
+  const services = servicesFor(ctx);
+  const id = idOf(params);
+  await services.households.assertOwner(id);
+  // The photos are found through the household, so they go first; the rows follow with the household itself.
+  await services.images.purge(id).catch(() => {});
+  await services.households.deleteHousehold(id);
 });

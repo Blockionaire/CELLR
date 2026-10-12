@@ -7,7 +7,10 @@ import { getPageContext } from "@/server/context";
 import { getPageMe } from "@/server/me";
 import { servicesFor } from "@/server/services";
 
-type Props = { params: Promise<{ vintageId: string }> };
+type Props = {
+  params: Promise<{ vintageId: string }>;
+  searchParams: Promise<{ rate?: string }>;
+};
 
 async function load(vintageId: string) {
   if (!z.uuid().safeParse(vintageId).success) notFound();
@@ -26,10 +29,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: detail ? `${detail.wine.producer} ${detail.wine.name}` : "Cellar" };
 }
 
-export default async function VintagePage({ params }: Props) {
+export default async function VintagePage({ params, searchParams }: Props) {
   const { vintageId } = await params;
+  const { rate } = await searchParams;
   const [detail, me] = await Promise.all([load(vintageId), getPageMe()]);
   if (!detail) return null;
   const currency = me?.households.find((h) => h.id === me.activeHouseholdId)?.currency ?? "EUR";
-  return <VintageScreen initial={detail} currency={currency} />;
+  return <VintageScreen initial={detail} currency={currency} initialRate={rate} />;
 }

@@ -17,15 +17,26 @@ import { Field } from "@/ui/field";
 import { useCreateWine } from "./hooks";
 import { countryName } from "./wine-visuals";
 
+/** What a scan read off the label, to start the form with. A null type means "not clear: choose". */
+export interface NewWineDraft {
+  producer: string;
+  name: string;
+  type: WineType | null;
+  countryCode: string | null;
+  region: string | null;
+}
+
 interface NewWineFormProps {
   initialName: string;
+  /** Starts the form from what a label scan read; the person checks and corrects it. */
+  draft?: NewWineDraft | undefined;
   /** Producers already in the household's list, offered as suggestions so spellings stay consistent. */
   producers: string[];
   onCreated: (wine: WineSummary) => void;
 }
 
 /** Step 1b: only what identifies the wine. Three required answers; the rest is optional. */
-export function NewWineForm({ initialName, producers, onCreated }: NewWineFormProps) {
+export function NewWineForm({ initialName, draft, producers, onCreated }: NewWineFormProps) {
   const t = useTranslations("addBottle");
   const tTypes = useTranslations("wineTypes");
   const te = useTranslations();
@@ -34,16 +45,17 @@ export function NewWineForm({ initialName, producers, onCreated }: NewWineFormPr
   const listId = useId();
   const countryId = useId();
 
-  const [producer, setProducer] = useState("");
-  const [name, setName] = useState(initialName);
-  const [type, setType] = useState<WineType>("red");
-  const [country, setCountry] = useState("");
-  const [region, setRegion] = useState("");
+  const [producer, setProducer] = useState(draft?.producer ?? "");
+  const [name, setName] = useState(draft?.name ?? initialName);
+  const [type, setType] = useState<WineType | null>(draft ? draft.type : "red");
+  const [country, setCountry] = useState(draft?.countryCode ?? "");
+  const [region, setRegion] = useState(draft?.region ?? "");
   const [error, setError] = useState<string | null>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    if (type === null) return setError(t("typeRequired"));
     const parsed = CreateWineSchema.safeParse({
       producer,
       name,

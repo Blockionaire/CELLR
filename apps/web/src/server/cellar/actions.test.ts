@@ -8,10 +8,11 @@ import type {
   InventoryRow,
   PurchasePatch,
   StorageRow,
+  TastingRow,
   VintageRows,
 } from "./types";
 
-const WINE: WineDetail = {
+const WINE: Omit<WineDetail, "favorite"> = {
   id: "w1",
   producer: "Château Test",
   name: "Grand Vin",
@@ -56,8 +57,26 @@ function fake(
     bottles: [...bottles],
     updates: [] as BottlePatch[],
     purchase: [] as PurchasePatch[],
+    tastings: [] as TastingRow[],
   };
   const repo: CellarRepository = {
+    async deleteBottles() {},
+    async getImageRef() {
+      return null;
+    },
+    async latestImageId() {
+      return null;
+    },
+    async attachImage() {
+      return 0;
+    },
+    async markOpened() {
+      return 0;
+    },
+    async insertTastings() {
+      return 0;
+    },
+    async addFavorites() {},
     async getActiveHousehold() {
       return { id: "h1", currency: "EUR" };
     },
@@ -102,7 +121,7 @@ function fake(
     },
     async getVintage(_h, vintageId): Promise<VintageRows | null> {
       return vintageId === "v1"
-        ? { vintageId, year: 2019, wine: WINE, bottles: state.bottles }
+        ? { vintageId, year: 2019, wine: WINE, bottles: state.bottles, image: null }
         : null;
     },
     async getBottle(_h, id) {
@@ -149,6 +168,62 @@ function fake(
     },
     async updateWine() {
       return options.wineUpdatable === false ? null : { ...WINE, name: "Renamed" };
+    },
+    async listRecentlyOpened() {
+      return [];
+    },
+    async listFavoriteWineIds() {
+      return [];
+    },
+    async setFavorite() {},
+    async getBottleVintage(_h, id) {
+      return state.bottles.some((b) => b.id === id) ? "v1" : null;
+    },
+    async listTastings() {
+      return state.tastings;
+    },
+    async listScores() {
+      return state.tastings.flatMap((t) =>
+        t.score === null ? [] : [{ vintageId: t.vintageId, score: t.score }],
+      );
+    },
+    async getMyTasting(userId, bottleId) {
+      return state.tastings.find((t) => t.userId === userId && t.bottleId === bottleId) ?? null;
+    },
+    async insertTasting(input) {
+      if (state.tastings.some((t) => t.userId === "me" && t.bottleId === input.bottleId))
+        throw new DomainError("CONFLICT", "You have already rated this bottle.");
+      const row: TastingRow = {
+        id: `t${state.tastings.length + 1}`,
+        vintageId: input.vintageId,
+        bottleId: input.bottleId,
+        userId: "me",
+        userName: "Joost",
+        score: input.score,
+        descriptors: input.descriptors,
+        note: input.note,
+        tastedAt: "2026-10-12T21:00:00Z",
+      };
+      state.tastings.push(row);
+      return row;
+    },
+    async updateTasting(id, patch) {
+      const found = state.tastings.find((t) => t.id === id);
+      if (!found) return null;
+      Object.assign(found, patch);
+      return found;
+    },
+    async deleteMyTasting(userId, bottleId) {
+      const before = state.tastings.length;
+      state.tastings = state.tastings.filter(
+        (t) => !(t.userId === userId && t.bottleId === bottleId),
+      );
+      return state.tastings.length < before;
+    },
+    async listMyTastingScores(userId, bottleIds) {
+      return state.tastings
+        .filter((t) => t.userId === userId && t.bottleId !== null && bottleIds.includes(t.bottleId))
+        .map((t) => ({ bottleId: t.bottleId as string, score: t.score }));
     },
   };
   return {
@@ -375,12 +450,16 @@ describe("the racks view", () => {
     type: "red",
     year: 2019,
     region: null,
+    appellation: null,
     countryCode: null,
     locationId: "u1",
     locationLabel: "Wine fridge",
     row: 1,
     col: 1,
+    priceCents: null,
+    currency: null,
     addedAt: "2026-10-01T10:00:00Z",
+    image: null,
     ...over,
   });
   const unit = toStorageView({ ...FRIDGE, used: 2 });
@@ -451,5 +530,112 @@ describe("managing places", () => {
     await expect(fake([]).service.deleteStorage("gone")).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
+  });
+});
+
+describe("how was it? (tastings)", () => {
+  const opened = bottle({ id: "o", status: "opened", locationId: null, row: null, col: null });
+
+  it("saves stars, words and a note for an opened bottle, as the signed-in person", async () => {
+    const { service, state } = fake([opened]);
+    const saved = await service.saveTasting("o", {
+      score: 9,
+      descriptors: ["fruity", "smooth"],
+      note: "With the lamb.",
+    });
+    expect(saved).toMatchObject({ score: 9, mine: true, bottleId: "o", userName: "Joost" });
+    expect(state.tastings).toHaveLength(1);
+  });
+
+  it("saving again replaces what was said, it does not add another", async () => {
+    const { service, state } = fake([opened]);
+    await service.saveTasting("o", { score: 6, descriptors: [], note: null });
+    const second = await service.saveTasting("o", {
+      score: 8,
+      descriptors: ["bold"],
+      note: "Day two.",
+    });
+    expect(state.tastings).toHaveLength(1);
+    expect(second).toMatchObject({ score: 8, descriptors: ["bold"], note: "Day two." });
+  });
+
+  it("two taps at once: the loser becomes an edit instead of an error", async () => {
+    let lookups = 0;
+    const { service, state } = fake([opened], {
+      overrides: {
+        // The first look finds nothing (the other tap has not written yet)…
+        async getMyTasting(userId, bottleId) {
+          lookups += 1;
+          if (lookups === 1) return null;
+          return state.tastings.find((t) => t.userId === userId && t.bottleId === bottleId) ?? null;
+        },
+      },
+    });
+    // …but by the time this one inserts, the other tap's tasting is there.
+    state.tastings.push({
+      id: "t0",
+      vintageId: "v1",
+      bottleId: "o",
+      userId: "me",
+      userName: "Joost",
+      score: 5,
+      descriptors: [],
+      note: null,
+      tastedAt: "2026-10-12T20:59:00Z",
+    });
+    const saved = await service.saveTasting("o", { score: 9, descriptors: [], note: null });
+    expect(saved.score).toBe(9);
+    expect(state.tastings).toHaveLength(1);
+  });
+
+  it("only a bottle that has been opened can be rated, and only one that exists", async () => {
+    const { service } = fake([bottle({ id: "a" })]);
+    await expect(
+      service.saveTasting("a", { score: 9, descriptors: [], note: null }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(
+      service.saveTasting("zzz", { score: 9, descriptors: [], note: null }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("takes a tasting back, and says whether there was one", async () => {
+    const { service, state } = fake([opened]);
+    await service.saveTasting("o", { score: 9, descriptors: [], note: null });
+    expect(await service.deleteTasting("o")).toEqual({ deleted: true });
+    expect(state.tastings).toHaveLength(0);
+    expect(await service.deleteTasting("o")).toEqual({ deleted: false });
+  });
+
+  it("shows tastings on the wine's page, and the household average on its card", async () => {
+    const { service, state } = fake([opened], {
+      overrides: {
+        async getVintage() {
+          return {
+            vintageId: "v1",
+            year: 2019,
+            wine: WINE,
+            image: null,
+            bottles: [opened],
+          };
+        },
+      },
+    });
+    await service.saveTasting("o", { score: 9, descriptors: [], note: "Lovely." });
+    state.tastings.push({
+      id: "t9",
+      vintageId: "v1",
+      bottleId: null,
+      userId: "other",
+      userName: "Merel",
+      score: 8,
+      descriptors: [],
+      note: null,
+      tastedAt: "2026-10-11T20:00:00Z",
+    });
+    const detail = await service.vintage("v1");
+    expect(detail.tastings.map((t) => [t.userName, t.mine])).toEqual([
+      ["Joost", true],
+      ["Merel", false],
+    ]);
   });
 });
