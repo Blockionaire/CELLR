@@ -1,11 +1,11 @@
 "use client";
 
 import { Canvas, useFrame, useStore, useThree } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import type { StorageKind, WineType } from "@cellr/domain";
+import type { StorageKind } from "@cellr/domain";
 import type { BottleShape } from "@/ui/bottle-glyph";
 import {
   BOTTLE_LENGTH,
@@ -21,31 +21,34 @@ import {
   lathePoints,
   slotPosition,
   unitSize,
+  type ShowcaseLayout,
 } from "./layout";
+import { Showcase } from "./showcase";
+import type { SceneBottle, ShownBottle } from "./types";
 
-export interface SceneBottle {
-  id: string;
-  row: number;
-  col: number;
-  type: WineType;
-  shape: BottleShape;
-}
+export type { SceneBottle, ShownBottle } from "./types";
 
 export interface SceneProps {
   rows: number;
   cols: number;
   kind: StorageKind;
   bottles: SceneBottle[];
-  selectedId: string | null;
+  /** The bottle to take out and put on display, or null to put it back. */
+  showcase: ShownBottle | null;
+  /** When the displayed bottle leaves: back "home" into its slot, or "gone" (it was opened). */
+  exit: "home" | "gone";
+  layout: ShowcaseLayout;
+  /** CSS colour the rack fades towards behind the displayed bottle. */
+  veil: string;
   onPick: (id: string) => void;
+  /** A tap anywhere but on the displayed bottle while it is out. */
+  onDismiss: () => void;
   reducedMotion: boolean;
   onReady?: () => void;
 }
 
 /** A tiny lift so bottles rest with their necks slightly up, like in a real rack. */
 const TILT = 0.04;
-/** How far the chosen bottle slides out towards you. */
-const PULL = 0.9;
 
 /**
  * One storage unit in 3D: a frame, its bottles lying in their spots with their necks towards you,
@@ -57,11 +60,30 @@ export default function CellarScene({
   cols,
   kind,
   bottles,
-  selectedId,
+  showcase,
+  exit,
+  layout,
+  veil,
   onPick,
+  onDismiss,
   reducedMotion,
   onReady,
 }: SceneProps) {
+  // The bottle on display stays here a little after `showcase` is cleared, while it goes back.
+  const [shown, setShown] = useState<ShownBottle | null>(showcase);
+  if (
+    showcase &&
+    (showcase.bottle.id !== shown?.bottle.id ||
+      JSON.stringify(showcase.label) !== JSON.stringify(shown.label))
+  )
+    setShown(showcase);
+  const dragged = useRef(false);
+  const onDrag = useCallback((moved: boolean) => {
+    dragged.current = moved;
+  }, []);
+  const onGone = useCallback(() => setShown(null), []);
+  const locked = showcase !== null;
+
   return (
     <Canvas
       frameloop="demand"
@@ -74,11 +96,38 @@ export default function CellarScene({
         gl.toneMappingExposure = 1.05;
         onReady?.();
       }}
+      onPointerMissed={() => {
+        if (locked && !dragged.current) onDismiss();
+      }}
     >
       <Lighting />
-      <Rig rows={rows} cols={cols} reducedMotion={reducedMotion} />
+      <Rig rows={rows} cols={cols} reducedMotion={reducedMotion} locked={locked} />
       <RackFrame rows={rows} cols={cols} kind={kind} />
-      <Bottles rows={rows} cols={cols} bottles={bottles} selectedId={selectedId} onPick={onPick} />
+      <Bottles
+        rows={rows}
+        cols={cols}
+        bottles={bottles}
+        hiddenId={shown?.bottle.id ?? null}
+        locked={locked}
+        onPick={onPick}
+        onDismiss={onDismiss}
+      />
+      {shown && (
+        <Showcase
+          key={shown.bottle.id}
+          shown={shown}
+          bottles={bottles}
+          rows={rows}
+          cols={cols}
+          open={showcase !== null}
+          exit={exit}
+          layout={layout}
+          veil={veil}
+          reducedMotion={reducedMotion}
+          onGone={onGone}
+          onDrag={onDrag}
+        />
+      )}
     </Canvas>
   );
 }
@@ -119,10 +168,13 @@ function Rig({
   rows,
   cols,
   reducedMotion,
+  locked,
 }: {
   rows: number;
   cols: number;
   reducedMotion: boolean;
+  /** A bottle is on display: the camera holds still. */
+  locked: boolean;
 }) {
   const { camera, gl, size, invalidate } = useThree();
   const controls = useRef<OrbitControls | null>(null);
@@ -166,6 +218,10 @@ function Rig({
     // The camera is placed once per unit/size; the user's own movements are never overridden afterwards.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, cols, Math.round(distance * 10), reducedMotion]);
+
+  useEffect(() => {
+    if (controls.current) controls.current.enabled = !locked;
+  }, [locked]);
 
   useFrame(() => controls.current?.update());
   return null;
@@ -220,14 +276,19 @@ function Bottles({
   rows,
   cols,
   bottles,
-  selectedId,
+  hiddenId,
+  locked,
   onPick,
+  onDismiss,
 }: {
   rows: number;
   cols: number;
   bottles: SceneBottle[];
-  selectedId: string | null;
+  /** The bottle that has left its slot (drawn separately while it is out). */
+  hiddenId: string | null;
+  locked: boolean;
   onPick: (id: string) => void;
+  onDismiss: () => void;
 }) {
   const groups = useMemo(() => {
     const map = new Map<BottleShape, SceneBottle[]>();
@@ -243,8 +304,10 @@ function Bottles({
           items={items}
           rows={rows}
           cols={cols}
-          selectedId={selectedId}
+          hiddenId={hiddenId}
+          locked={locked}
           onPick={onPick}
+          onDismiss={onDismiss}
         />
       ))}
     </>
@@ -259,21 +322,24 @@ function ShapeGroup({
   items,
   rows,
   cols,
-  selectedId,
+  hiddenId,
+  locked,
   onPick,
+  onDismiss,
 }: {
   shape: BottleShape;
   items: SceneBottle[];
   rows: number;
   cols: number;
-  selectedId: string | null;
+  hiddenId: string | null;
+  locked: boolean;
   onPick: (id: string) => void;
+  onDismiss: () => void;
 }) {
   const { invalidate } = useThree();
   const glass = useRef<THREE.InstancedMesh>(null);
   const label = useRef<THREE.InstancedMesh>(null);
   const foil = useRef<THREE.InstancedMesh>(null);
-  const pull = useRef({ id: null as string | null, value: 0 });
 
   const spec = SHAPES[shape];
   const geometries = useMemo(() => {
@@ -329,9 +395,9 @@ function ShapeGroup({
     const dummy = new THREE.Object3D();
     const local = new THREE.Matrix4().makeTranslation(0, -BOTTLE_LENGTH / 2, 0);
     const out = new THREE.Matrix4();
-    return (item: SceneBottle, extra: number): THREE.Matrix4 => {
+    return (item: SceneBottle): THREE.Matrix4 => {
       const [x, y, z] = slotPosition(item.row, item.col, rows, cols);
-      dummy.position.set(x, y, z + extra);
+      dummy.position.set(x, y, z);
       dummy.rotation.set(Math.PI / 2 - TILT, 0, 0);
       dummy.updateMatrix();
       return out.copy(dummy.matrix).multiply(local);
@@ -339,17 +405,15 @@ function ShapeGroup({
   }, [rows, cols]);
 
   const colour = useMemo(() => new THREE.Color(), []);
-  const writeAll = () => {
+  const vanished = useMemo(() => new THREE.Matrix4().makeScale(0, 0, 0), []);
+  useLayoutEffect(() => {
     const meshes = [glass.current, label.current, foil.current];
     if (meshes.some((m) => !m)) return;
     items.forEach((item, i) => {
-      const lift = item.id === pull.current.id ? pull.current.value : 0;
-      const m = place(item, lift);
+      // A bottle that is out on display leaves an empty slot behind, not a ghost.
+      const m = item.id === hiddenId ? vanished : place(item);
       for (const mesh of meshes) mesh!.setMatrixAt(i, m);
-      colour.set(GLASS[item.type]);
-      // The chosen bottle glows in its own hue (mixing towards white would turn a red bottle grey).
-      if (item.id === selectedId) colour.offsetHSL(0, 0.08, 0.14);
-      glass.current!.setColorAt(i, colour);
+      glass.current!.setColorAt(i, colour.set(GLASS[item.type]));
       label.current!.setColorAt(i, colour.set(LABEL));
       foil.current!.setColorAt(i, colour.set(FOIL[item.type]));
     });
@@ -358,31 +422,7 @@ function ShapeGroup({
       if (mesh!.instanceColor) mesh!.instanceColor.needsUpdate = true;
     }
     invalidate();
-  };
-
-  useLayoutEffect(() => {
-    // A new choice: the previous bottle slides home at once, the new one eases out (see useFrame).
-    pull.current = {
-      id: selectedId,
-      value: pull.current.id === selectedId ? pull.current.value : 0,
-    };
-    writeAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, rows, cols, selectedId, place]);
-
-  useFrame((_, delta) => {
-    const p = pull.current;
-    if (!p.id) return;
-    const index = items.findIndex((b) => b.id === p.id);
-    if (index < 0 || Math.abs(PULL - p.value) < 0.002) return;
-    p.value += (PULL - p.value) * Math.min(1, delta * 12);
-    const m = place(items[index]!, p.value);
-    for (const mesh of [glass.current, label.current, foil.current]) {
-      mesh?.setMatrixAt(index, m);
-      if (mesh) mesh.instanceMatrix.needsUpdate = true;
-    }
-    invalidate();
-  });
+  }, [items, rows, cols, hiddenId, place, vanished, colour, invalidate]);
 
   const count = items.length;
   return (
@@ -393,6 +433,8 @@ function ShapeGroup({
         frustumCulled={false}
         onClick={(e) => {
           e.stopPropagation();
+          // While a bottle is on display, a tap on the rack just puts it back.
+          if (locked) return onDismiss();
           const item = e.instanceId === undefined ? undefined : items[e.instanceId];
           if (item) onPick(item.id);
         }}

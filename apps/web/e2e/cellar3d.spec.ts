@@ -114,17 +114,26 @@ test.describe("the 3D cellar", () => {
     await expect(wine).toBeInViewport();
     await page.keyboard.press("Enter");
 
-    const dialog = page.getByRole("dialog");
-    await expect(dialog.getByText("Pavillon Rouge")).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Open", exact: true })).toBeVisible();
-    await expect(dialog.getByRole("link", { name: "Details" })).toBeVisible();
-    // Moving is a racks-view action; the 3D view does not pretend to do everything.
-    await expect(dialog.getByRole("button", { name: "Move", exact: true })).toHaveCount(0);
-    await page.screenshot({ path: shot(`3d-peek-${project()}`) });
+    // The bottle comes out of the rack and its details open: everything there is to know about it.
+    const panel = page.getByRole("dialog", { name: /Pavillon Rouge 2015/ });
+    await expect(panel).toHaveAttribute("data-open", "true");
+    await expect(panel.getByRole("heading", { name: "Pavillon Rouge" })).toBeVisible();
+    await expect(panel.getByText("Château Margaux", { exact: true })).toBeVisible();
+    await expect(panel.getByText("2015 · Bordeaux, France")).toBeVisible();
+    await expect(panel.getByText("Wine fridge · Shelf 1 · Position 4")).toBeVisible();
+    await expect(panel.getByText("2 bottles of this vintage in your cellar")).toBeVisible();
+    await expect(panel.getByText("Average price per bottle")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Move", exact: true })).toBeEnabled();
+    await expect(panel.getByRole("link", { name: "Full page" })).toHaveAttribute(
+      "href",
+      /\/cellar\/[0-9a-f-]{36}/,
+    );
+    await page.waitForTimeout(3000);
+    await page.screenshot({ path: shot(`3d-showcase-${project()}`) });
 
-    await dialog.getByRole("button", { name: "Open", exact: true }).click();
+    await panel.getByRole("button", { name: "Open this bottle" }).click();
     await expect(page.getByText("Enjoy! 1 bottle left.")).toBeVisible();
-    await expect(dialog).toBeHidden();
+    await expect(panel).toHaveAttribute("data-open", "false");
     await expect
       .poll(async () =>
         sql<{ n: string }>(
@@ -151,15 +160,36 @@ test.describe("the 3D cellar", () => {
 
     const scene = await open3D(page);
     const box = (await scene.locator("canvas").boundingBox())!;
+    const panel = page.getByRole("dialog", { name: /Pavillon Rouge 2015/ });
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    const dialog = page.getByRole("dialog");
-    await expect(dialog.getByText("Pavillon Rouge")).toBeVisible();
-    await dialog.getByRole("button", { name: "Close" }).first().click();
-    await expect(dialog).toBeHidden();
+    await expect(panel).toHaveAttribute("data-open", "true");
+    await expect(panel.getByRole("heading", { name: "Pavillon Rouge" })).toBeVisible();
+    await expect(scene).toHaveAttribute("data-showcase", "open");
 
-    // A tap on empty background selects nothing.
+    // Put it back with the button, with Escape, and by tapping away from it.
+    await panel.getByRole("button", { name: "Put it back" }).click();
+    await expect(panel).toHaveAttribute("data-open", "false");
+    await expect(scene).toHaveAttribute("data-showcase", "closed");
+
+    await page.waitForTimeout(1500); // it slides home first
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(panel).toHaveAttribute("data-open", "true");
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveAttribute("data-open", "false");
+
+    await page.waitForTimeout(1500);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(panel).toHaveAttribute("data-open", "true");
+    await page.waitForTimeout(2500); // it has settled on display
+    // (on a phone the picture now fills the screen, so measure it again)
+    const out = (await scene.boundingBox())!;
+    await page.mouse.click(out.x + 6, out.y + 6);
+    await expect(panel).toHaveAttribute("data-open", "false");
+
+    // A tap on empty background with nothing on display does nothing.
+    await page.waitForTimeout(1500);
     await page.mouse.click(box.x + 6, box.y + 6);
-    await expect(dialog).toBeHidden();
+    await expect(panel).toHaveAttribute("data-open", "false");
 
     // The other unit is empty: it still draws its frame, and it is a different scene.
     await page.getByRole("button", { name: "Empty rack" }).click();
@@ -191,6 +221,78 @@ test.describe("the 3D cellar", () => {
       .poll(async () => !(await canvas.screenshot()).equals(before), { timeout: 20_000 })
       .toBe(true);
     await page.screenshot({ path: shot(`3d-turned-${project()}`), fullPage: true });
+  });
+
+  test("from the panel you can move this very bottle to another spot", async ({
+    page,
+    request,
+  }) => {
+    const { email, householdId } = await arrive(page, "cellar3dmove");
+    const { call } = await apiClient(request, email);
+    const fridge = await addUnit(call, "Wine fridge", "fridge", 4, 5);
+    await addBottles(call, RED, 2015, 2, fridge);
+
+    await open3D(page);
+    const list = page.getByRole("list", { name: /Bottles in Wine fridge/i });
+    await list.getByRole("button", { name: /shelf 1, position 2/ }).focus();
+    await page.keyboard.press("Enter");
+    const panel = page.getByRole("dialog", { name: /Pavillon Rouge 2015/ });
+    await expect(panel.getByText("Wine fridge · Shelf 1 · Position 2")).toBeVisible();
+    await panel.getByRole("button", { name: "Move", exact: true }).click();
+
+    const sheet = page.getByRole("dialog", { name: "Move a bottle" });
+    await sheet.getByRole("button", { name: "Shelf 4, position 3, empty" }).click();
+    await expect(page.getByText("Moved to Wine fridge · Shelf 4 · Position 3.")).toBeVisible();
+    // The bottle the person pointed at (position 2) moved, not the other one.
+    await expect
+      .poll(async () =>
+        (
+          await sql<{ spot: string }>(
+            `select b.loc_row || ':' || b.loc_col as spot from public.bottles b
+               join public.wine_vintages v on v.id = b.vintage_id
+               join public.wines w on w.id = v.wine_id
+              where b.household_id = $1 and w.name = 'Pavillon Rouge' order by 1`,
+            [householdId],
+          )
+        ).map((r) => r.spot),
+      )
+      .toEqual(["1:1", "4:3"]);
+  });
+
+  test("the details are accessible with a bottle out, in both themes", async ({
+    page,
+    request,
+  }) => {
+    const { email } = await arrive(page, "cellar3dshow");
+    const { call } = await apiClient(request, email);
+    const fridge = await addUnit(call, "Wine fridge", "fridge", 4, 5);
+    await addBottles(call, wineBody, 2019, 3, fridge);
+    await addBottles(call, CUVEE, 2017, 2, fridge);
+
+    // Reduced motion: the bottle takes its place at once and the scene stops redrawing while it waits.
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await open3D(page);
+    const list = page.getByRole("list", { name: /Bottles in Wine fridge/i });
+    const panel = page.getByRole("dialog", { name: /Special Cuvée 2017/ });
+
+    for (const scheme of ["light", "dark"] as const) {
+      // The rack fades towards the card's colour, so take the bottle out again in each theme.
+      await page.emulateMedia({ colorScheme: scheme });
+      await list
+        .getByRole("button", { name: /Special Cuvée 2017/ })
+        .first()
+        .focus();
+      await page.keyboard.press("Enter");
+      await expect(panel).toHaveAttribute("data-open", "true");
+      await expect(panel.getByRole("button", { name: "Move", exact: true })).toBeEnabled();
+      // Focus lands in the panel for keyboard and screen-reader users.
+      await expect(panel).toBeFocused();
+      await expect.poll(() => audit(page), { timeout: 20_000 }).toEqual([]);
+      await page.screenshot({ path: shot(`3d-showcase-${scheme}-${project()}`) });
+
+      await page.keyboard.press("Escape");
+      await expect(panel).toHaveAttribute("data-open", "false");
+    }
   });
 
   test("no storage yet: a clear way forward, not an empty canvas", async ({ page, request }) => {

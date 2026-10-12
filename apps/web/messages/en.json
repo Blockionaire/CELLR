@@ -346,5 +346,17 @@
     "emptyTitle": "Build your cellar first",
     "emptyBody": "Add a fridge, rack or cabinet and put some bottles in it, then come back to walk around it.",
     "loading": "Opening your cellar…"
+  },
+  "showcase": {
+    "label": "{wine} {year}",
+    "putBack": "Put it back",
+    "where": "Where it is",
+    "ofThisVintage": "{count, plural, one {# bottle of this vintage in your cellar} other {# bottles of this vintage in your cellar}}",
+    "open": "Open this bottle",
+    "move": "Move",
+    "details": "Full page",
+    "loading": "Loading the details…",
+    "thisBottle": "This bottle",
+    "spin": "Drag to turn the bottle"
   }
 }

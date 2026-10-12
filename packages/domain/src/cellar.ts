@@ -437,6 +437,8 @@ export interface PlacedBottle {
   wineName: string;
   type: WineType;
   year: number | null;
+  region: string | null;
+  countryCode: string | null;
   row: number | null;
   col: number | null;
 }

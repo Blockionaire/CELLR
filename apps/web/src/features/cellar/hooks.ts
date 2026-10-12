@@ -90,6 +90,14 @@ export function useVintage(vintageId: string, initialData: VintageDetail) {
   });
 }
 
+/** One vintage's full detail, fetched on demand (the 3D view shows it in a panel; the page gets it from the server). */
+export const useVintageDetail = (vintageId: string | null) =>
+  useQuery({
+    queryKey: vintageKey(vintageId ?? "none"),
+    queryFn: () => api.get<VintageDetail>(`/cellar/${vintageId}`),
+    enabled: vintageId !== null,
+  });
+
 export const useRacks = () =>
   useQuery({ queryKey: racksKey, queryFn: () => api.get<RackView>("/racks") });
 

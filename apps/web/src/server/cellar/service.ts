@@ -106,6 +106,8 @@ export function buildRacks(units: StorageUnitView[], rows: InventoryRow[]): Rack
       wineName: r.wineName,
       type: r.type,
       year: r.year,
+      region: r.region,
+      countryCode: r.countryCode,
       row: r.row,
       col: r.col,
     };

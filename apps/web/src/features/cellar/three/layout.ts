@@ -105,3 +105,69 @@ export function cameraDistance(rows: number, cols: number, aspect: number): numb
   const fitWidth = width / 2 / (tan * Math.max(0.2, aspect));
   return Math.max(fitHeight, fitWidth) * 1.06 + RACK_DEPTH / 2;
 }
+
+// ---- The showcase: a bottle leaves its slot and stands on display -------------------------------------------
+
+const smooth = (edge0: number, edge1: number, x: number): number => {
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return t * t * t * (t * (t * 6 - 15) + 10); // smootherstep: no visible start or stop
+};
+
+/** How far a bottle slides out of its slot before it is clear of the rack. */
+export const SLIDE_OUT = BOTTLE_LENGTH + 0.15;
+
+/**
+ * The whole "bottle comes out of the rack" movement as a function of one number, `progress`
+ * (0 = lying in its slot, 1 = on display). First it slides out along its own axis, then it stands up and
+ * glides to the display spot, so the same function plays the movement backwards when it goes home.
+ */
+export function showcasePhases(progress: number): { slide: number; rise: number; glide: number } {
+  return {
+    slide: smooth(0, 0.4, progress),
+    rise: smooth(0.32, 0.92, progress),
+    glide: smooth(0.28, 1, progress),
+  };
+}
+
+export type ShowcaseLayout = "side" | "top";
+
+/**
+ * Where the standing bottle is shown, as fractions of what the camera sees (x: -0.5 left … 0.5 right,
+ * y: -0.5 bottom … 0.5 top) and how much of the view's height it fills. On a wide screen it stands on the
+ * left and the details take the right; on a phone it stands on top and the details take the bottom.
+ */
+export function showcaseSpot(layout: ShowcaseLayout): { x: number; y: number; fill: number } {
+  return layout === "side" ? { x: -0.23, y: 0.0, fill: 0.74 } : { x: 0, y: 0.26, fill: 0.42 };
+}
+
+/** The panel sits beside the picture on screens at least this wide (px), below it underneath. */
+export const SIDE_BY_SIDE_MIN_WIDTH = 720;
+export const layoutFor = (width: number): ShowcaseLayout =>
+  width >= SIDE_BY_SIDE_MIN_WIDTH ? "side" : "top";
+
+/**
+ * Breaks a name into at most `maxLines` lines no wider than `maxWidth`, by words, using the caller's
+ * way of measuring text (a canvas in the browser, a counter in tests). A single word wider than the
+ * line stays whole: the label shrinks its type instead of cutting words.
+ */
+export function wrapLines(
+  text: string,
+  measure: (s: string) => number,
+  maxWidth: number,
+  maxLines: number,
+): string[] | null {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && measure(next) > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else line = next;
+  }
+  lines.push(line);
+  if (lines.length > maxLines) return null;
+  return lines.every((l) => measure(l) <= maxWidth) ? lines : null;
+}

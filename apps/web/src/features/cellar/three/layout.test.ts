@@ -3,9 +3,14 @@ import {
   BOTTLE_LENGTH,
   cameraDistance,
   lathePoints,
+  layoutFor,
   SHAPES,
+  showcasePhases,
+  showcaseSpot,
+  SLIDE_OUT,
   slotPosition,
   unitSize,
+  wrapLines,
 } from "./layout";
 
 describe("the bottle profile", () => {
@@ -50,5 +55,70 @@ describe("framing", () => {
   });
   it("a wide unit on a tall (phone) screen is limited by its width", () => {
     expect(cameraDistance(2, 20, 0.5)).toBeGreaterThan(cameraDistance(2, 20, 2));
+  });
+});
+
+describe("the showcase movement", () => {
+  it("starts in the slot and ends on display, never overshooting", () => {
+    expect(showcasePhases(0)).toEqual({ slide: 0, rise: 0, glide: 0 });
+    expect(showcasePhases(1)).toEqual({ slide: 1, rise: 1, glide: 1 });
+    for (let i = 0; i <= 100; i++) {
+      const { slide, rise, glide } = showcasePhases(i / 100);
+      for (const v of [slide, rise, glide]) {
+        expect(v).toBeGreaterThanOrEqual(0);
+        expect(v).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("slides out before it stands up, and keeps moving forward only", () => {
+    // Half way through the slide the bottle is still lying down.
+    const early = showcasePhases(0.15);
+    expect(early.slide).toBeGreaterThan(0.1);
+    expect(early.rise).toBe(0);
+    // Once it has cleared the rack it rises.
+    const later = showcasePhases(0.6);
+    expect(later.slide).toBe(1);
+    expect(later.rise).toBeGreaterThan(0);
+    let previous = showcasePhases(0);
+    for (let i = 1; i <= 100; i++) {
+      const now = showcasePhases(i / 100);
+      expect(now.slide).toBeGreaterThanOrEqual(previous.slide);
+      expect(now.rise).toBeGreaterThanOrEqual(previous.rise);
+      expect(now.glide).toBeGreaterThanOrEqual(previous.glide);
+      previous = now;
+    }
+  });
+
+  it("clears the front of the rack before it turns", () => {
+    expect(SLIDE_OUT).toBeGreaterThan(BOTTLE_LENGTH);
+  });
+
+  it("stands left of the details on a wide screen and above them on a phone", () => {
+    expect(layoutFor(1280)).toBe("side");
+    expect(layoutFor(390)).toBe("top");
+    expect(showcaseSpot("side").x).toBeLessThan(0);
+    expect(showcaseSpot("top").y).toBeGreaterThan(0);
+    for (const l of ["side", "top"] as const) expect(showcaseSpot(l).fill).toBeLessThan(0.8);
+  });
+});
+
+describe("wrapLines", () => {
+  const measure = (s: string) => s.length * 10;
+  it("keeps a short name on one line", () => {
+    expect(wrapLines("Pavillon Rouge", measure, 200, 3)).toEqual(["Pavillon Rouge"]);
+  });
+  it("breaks between words, never inside them", () => {
+    expect(wrapLines("Chablis Premier Cru Montmains", measure, 170, 3)).toEqual([
+      "Chablis Premier",
+      "Cru Montmains",
+    ]);
+  });
+  it("says so when it will not fit, so the caller can use smaller type", () => {
+    expect(wrapLines("Chablis Premier Cru Montmains Vieilles Vignes", measure, 100, 2)).toBeNull();
+    expect(wrapLines("Supercalifragilistic", measure, 100, 3)).toBeNull();
+  });
+  it("copes with nothing", () => {
+    expect(wrapLines("   ", measure, 100, 2)).toEqual([]);
   });
 });
