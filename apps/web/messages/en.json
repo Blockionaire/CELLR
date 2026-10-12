@@ -127,7 +127,9 @@
     "viewRacks": "Racks",
     "view3d": "3D",
     "wishlist": "Wishlist",
-    "history": "History"
+    "history": "History",
+    "related": "More from your cellar",
+    "insights": "Insights"
   },
   "scan": {
     "title": "Scan a label",

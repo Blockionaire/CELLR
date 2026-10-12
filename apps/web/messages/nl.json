@@ -127,7 +127,9 @@
     "viewRacks": "Rekken",
     "view3d": "3D",
     "wishlist": "Wishlist",
-    "history": "Geschiedenis"
+    "history": "Geschiedenis",
+    "related": "Meer uit je kelder",
+    "insights": "Inzichten"
   },
   "scan": {
     "title": "Scan een etiket",

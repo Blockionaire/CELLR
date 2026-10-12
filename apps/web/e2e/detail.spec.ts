@@ -118,7 +118,7 @@ test.describe("a wine's page and opening a bottle", () => {
     await expect(dialog).toBeHidden();
     await expect(page.getByText("Enjoy! 2 bottles left.")).toBeVisible();
     await expect(count(page)).toHaveText("2");
-    await expect(page.getByText("1 bottle opened")).toBeVisible();
+    await expect(page.getByText("1 bottle opened", { exact: true }).first()).toBeVisible();
 
     let rows = await bottlesOf(vintageId);
     const opened = rows.find((r) => r.id === atSlot12);

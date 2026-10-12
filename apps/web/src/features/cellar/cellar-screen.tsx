@@ -101,24 +101,32 @@ export function CellarScreen({
   const activeCount = activeFilterCount(filters) + (sort === "recent" ? 0 : 1);
 
   const addButton = (
-    <div className="flex items-center gap-1">
-      <Link href="/wishlist" className={buttonStyles({ variant: "ghost", size: "md" })}>
-        {t("wishlist")}
-      </Link>
-      <Link href="/cellar/history" className={buttonStyles({ variant: "ghost", size: "md" })}>
-        {t("history")}
-      </Link>
-      <Link href="/cellar/add" className={buttonStyles({ variant: "primary", size: "md" })}>
-        <PlusIcon size={20} />
-        {t("add")}
-      </Link>
-    </div>
+    <Link href="/cellar/add" className={buttonStyles({ variant: "primary", size: "md" })}>
+      <PlusIcon size={20} />
+      {t("add")}
+    </Link>
+  );
+
+  /** The other places that belong to the cellar: kept out of the title row, which would squeeze the title. */
+  const related = (
+    <nav aria-label={t("related")} className="-mt-3 mb-5 flex flex-wrap gap-1">
+      {[
+        { href: "/wishlist", label: t("wishlist") },
+        { href: "/cellar/history", label: t("history") },
+        { href: "/insights", label: t("insights") },
+      ].map((l) => (
+        <Link key={l.href} href={l.href} className={buttonStyles({ variant: "ghost", size: "sm" })}>
+          {l.label}
+        </Link>
+      ))}
+    </nav>
   );
 
   if (data.items.length === 0) {
     return (
       <>
         <PageHeader title={t("title")} />
+        {related}
         <EmptyState
           title={t("emptyTitle")}
           body={t("emptyBody")}
@@ -139,6 +147,7 @@ export function CellarScreen({
         subtitle={t("summary", { bottles: data.bottleCount, wines: data.items.length })}
         actions={addButton}
       />
+      {related}
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <div
