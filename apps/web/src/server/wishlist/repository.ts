@@ -3,6 +3,7 @@ import { DomainError, type WineType } from "@cellr/domain";
 import type { Db } from "@/server/db/clients";
 import type { Database } from "@/server/db/database.types";
 import { isMissingTable, mapDbError } from "@/server/db/errors";
+import { allRows } from "@/server/db/paging";
 import type { WishlistRepository, WishRow } from "./types";
 
 const COLUMNS =
@@ -45,15 +46,18 @@ export const toWish = (r: {
 export function createWishlistRepository(db: Db): WishlistRepository {
   return {
     async list(householdId) {
-      const { data, error } = await db
-        .from("wishlist_items")
-        .select(COLUMNS)
-        .eq("household_id", householdId)
-        .order("created_at", { ascending: false })
-        .limit(1000);
+      const { data, error } = await allRows((from, to) =>
+        db
+          .from("wishlist_items")
+          .select(COLUMNS)
+          .eq("household_id", householdId)
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      );
       if (error && isMissingTable(error)) return null;
       if (error) throw mapDbError(error);
-      return (data ?? []).map(toWish);
+      return data.map(toWish);
     },
 
     async insert(householdId, input) {

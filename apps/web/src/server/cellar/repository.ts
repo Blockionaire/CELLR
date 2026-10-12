@@ -16,6 +16,7 @@ import {
 import type { Db } from "@/server/db/clients";
 import type { Database } from "@/server/db/database.types";
 import { isMissingTable, mapDbError } from "@/server/db/errors";
+import { allRows } from "@/server/db/paging";
 import type {
   ActiveHousehold,
   BottleRow,
@@ -147,15 +148,19 @@ const isUniqueViolation = (error: { code?: string }) => error.code === "23505";
 
 export function createCellarRepository(db: Db): CellarRepository {
   async function usedByLocation(householdId: string): Promise<Map<string, number>> {
-    const { data, error } = await db
-      .from("bottles")
-      .select("location_id")
-      .eq("household_id", householdId)
-      .eq("status", "in_cellar")
-      .not("location_id", "is", null);
+    const { data, error } = await allRows((from, to) =>
+      db
+        .from("bottles")
+        .select("location_id")
+        .eq("household_id", householdId)
+        .eq("status", "in_cellar")
+        .not("location_id", "is", null)
+        .order("id")
+        .range(from, to),
+    );
     if (error) throw mapDbError(error);
     const used = new Map<string, number>();
-    for (const row of data ?? []) {
+    for (const row of data) {
       if (row.location_id) used.set(row.location_id, (used.get(row.location_id) ?? 0) + 1);
     }
     return used;
@@ -230,14 +235,17 @@ export function createCellarRepository(db: Db): CellarRepository {
     },
 
     async listWines(householdId) {
-      const { data, error } = await db
-        .from("wines")
-        .select(WINE_COLUMNS)
-        .or(visibleTo(householdId))
-        .order("created_at", { ascending: false })
-        .limit(1000);
+      const { data, error } = await allRows((from, to) =>
+        db
+          .from("wines")
+          .select(WINE_COLUMNS)
+          .or(visibleTo(householdId))
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      );
       if (error) throw mapDbError(error);
-      return (data ?? []).map(toWine);
+      return data.map(toWine);
     },
 
     async getWine(wineId) {
@@ -478,29 +486,35 @@ export function createCellarRepository(db: Db): CellarRepository {
     },
 
     async listInventory(householdId): Promise<InventoryRow[]> {
-      const { data, error } = await db
-        .from("bottles")
-        .select(
-          "id, created_at, front_image_id, location_id, loc_row, loc_col, purchase_price_cents, currency, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, appellation, country_code, producers!inner(name))), cellar_locations(label)",
-        )
-        .eq("household_id", householdId)
-        .eq("status", "in_cellar")
-        .order("created_at", { ascending: false })
-        .limit(5000);
+      const { data, error } = await allRows((from, to) =>
+        db
+          .from("bottles")
+          .select(
+            "id, created_at, front_image_id, location_id, loc_row, loc_col, purchase_price_cents, currency, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, appellation, country_code, producers!inner(name))), cellar_locations(label)",
+          )
+          .eq("household_id", householdId)
+          .eq("status", "in_cellar")
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      );
       if (error) throw mapDbError(error);
       // Photos are looked up once for the whole list, and only when some bottle has one.
-      const withPhoto = (data ?? []).some((b) => b.front_image_id !== null);
+      const withPhoto = data.some((b) => b.front_image_id !== null);
       const images = new Map<string, ImageRef>();
       if (withPhoto) {
-        const found = await db
-          .from("bottle_images")
-          .select(IMAGE_REF_COLUMNS)
-          .eq("household_id", householdId)
-          .limit(5000);
+        const found = await allRows((from, to) =>
+          db
+            .from("bottle_images")
+            .select(IMAGE_REF_COLUMNS)
+            .eq("household_id", householdId)
+            .order("id")
+            .range(from, to),
+        );
         if (found.error) throw mapDbError(found.error);
-        for (const i of found.data ?? []) images.set(i.id, toImageRef(i));
+        for (const i of found.data) images.set(i.id, toImageRef(i));
       }
-      return (data ?? []).map((b) => ({
+      return data.map((b) => ({
         image: b.front_image_id ? (images.get(b.front_image_id) ?? null) : null,
         bottleId: b.id,
         vintageId: b.wine_vintages.id,
@@ -717,15 +731,18 @@ export function createCellarRepository(db: Db): CellarRepository {
     },
 
     async listScores(householdId) {
-      const { data, error } = await db
-        .from("tastings")
-        .select("vintage_id, score")
-        .eq("household_id", householdId)
-        .not("score", "is", null)
-        .limit(5000);
+      const { data, error } = await allRows((from, to) =>
+        db
+          .from("tastings")
+          .select("vintage_id, score")
+          .eq("household_id", householdId)
+          .not("score", "is", null)
+          .order("id")
+          .range(from, to),
+      );
       if (error && isMissingTable(error)) return [];
       if (error) throw mapDbError(error);
-      return (data ?? []).flatMap((r) =>
+      return data.flatMap((r) =>
         r.score === null ? [] : [{ vintageId: r.vintage_id, score: r.score }],
       );
     },
@@ -823,9 +840,16 @@ export function createCellarRepository(db: Db): CellarRepository {
     },
 
     async listFavoriteWineIds(userId) {
-      const { data, error } = await db.from("favorites").select("wine_id").eq("user_id", userId);
+      const { data, error } = await allRows((from, to) =>
+        db
+          .from("favorites")
+          .select("wine_id")
+          .eq("user_id", userId)
+          .order("wine_id")
+          .range(from, to),
+      );
       if (error) throw mapDbError(error);
-      return (data ?? []).map((r) => r.wine_id);
+      return data.map((r) => r.wine_id);
     },
 
     async addFavorites(userId, wineIds) {

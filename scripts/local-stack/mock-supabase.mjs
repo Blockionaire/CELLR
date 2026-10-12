@@ -177,6 +177,17 @@ export async function startMockSupabase({
       return json(res, 200, sessionFor(rows[0]));
     }
 
+    // Deleting a sign-in is an admin act: only the service key may.
+    const admin = /^\/admin\/users\/([0-9a-f-]{36})$/.exec(path);
+    if (req.method === "DELETE" && admin) {
+      const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? "")?.[1];
+      if (bearer !== serviceKey) return goTrueError(res, 403, "not_admin", "User not allowed");
+      const result = await db.query("delete from auth.users where id = $1", [admin[1]]);
+      return result.rowCount
+        ? json(res, 200, {})
+        : goTrueError(res, 404, "user_not_found", "User not found");
+    }
+
     if (req.method === "POST" && path === "/logout") return json(res, 204);
     if (req.method === "GET" && path === "/user")
       return json(res, 401, {

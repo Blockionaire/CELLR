@@ -84,7 +84,7 @@ async function drawnPixels(page: Page, scene: Locator): Promise<number> {
 
 test.describe("the 3D cellar", () => {
   // The test browser draws WebGL in software; on a phone-sized, high-density screen that is slow.
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
 
   test("a unit with bottles is drawn; pick a bottle from the accessible list; open it", async ({
     page,

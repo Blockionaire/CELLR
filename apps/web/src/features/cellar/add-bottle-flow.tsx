@@ -9,6 +9,7 @@ import { PageHeader } from "@/ui/page-header";
 import { AddedDone } from "./added-done";
 import { BottleDetails } from "./bottle-details";
 import { ChooseWine } from "./choose-wine";
+import { useForgetWish } from "@/features/wishlist/hooks";
 import { useWines } from "./hooks";
 import { NewWineForm } from "./new-wine-form";
 
@@ -22,14 +23,18 @@ export function AddBottleFlow({
   currency,
   initialWine,
   initialYear,
+  wishId,
 }: {
   currency: string;
   /** Jump straight to "how many and where" for this wine (from "Add more"). */
   initialWine?: WineSummary | undefined;
   initialYear?: number | null | undefined;
+  /** The wish this purchase fulfils: it comes off the wishlist once the bottles are in. */
+  wishId?: string | undefined;
 }) {
   const t = useTranslations("addBottle");
   const wines = useWines();
+  const forgetWish = useForgetWish();
   const [step, setStep] = useState<Step>(initialWine ? "details" : "choose");
   const [query, setQuery] = useState("");
   const [wine, setWine] = useState<WineSummary | null>(initialWine ?? null);
@@ -111,6 +116,7 @@ export function AddBottleFlow({
               setResult(r);
               setLastPlace(placeId);
               setStep("done");
+              if (wishId) forgetWish.mutate(wishId);
             }}
           />
         )}

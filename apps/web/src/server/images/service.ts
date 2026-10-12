@@ -89,6 +89,13 @@ export function createImageService(
     /** Like `upload`, and also hands back the cleaned photo (a scan reads it straight away). */
     uploadWithPhoto: store,
 
+    /** Takes every photo of a household out of storage (before the household itself is deleted). Best effort. */
+    async purge(householdId: string): Promise<void> {
+      const paths = await repo.listPaths(householdId);
+      for (let i = 0; i < paths.length; i += 100)
+        await repo.remove(paths.slice(i, i + 100)).catch(() => {});
+    },
+
     /** The bytes of a photo, if it is one of this household's. `thumb` falls back to the photo itself. */
     async file(id: string, variant: "photo" | "thumb"): Promise<Uint8Array> {
       const image = await repo.getImage(id);

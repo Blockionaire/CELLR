@@ -68,6 +68,9 @@ function fakeRepo(options: { failInsert?: boolean } = {}) {
         blurColor: row.blurColor,
       };
     },
+    async listPaths() {
+      return state.rows.flatMap((r) => (r.thumbPath ? [r.photoPath, r.thumbPath] : [r.photoPath]));
+    },
     async getImage(id): Promise<ImageRow | null> {
       const n = Number(id.replace("img", ""));
       const row = state.rows[n - 1];
@@ -178,5 +181,29 @@ describe("keeping a label photo", () => {
     const { id } = await service.upload({ side: "front", photo: photo() });
     state.files.clear(); // the file is gone from storage, or is not ours to read
     await expect(service.file(id, "photo")).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+describe("deleting a household's photos", () => {
+  it("takes every file of the household out of storage", async () => {
+    const { repo, state } = fakeRepo();
+    const service = createImageService(repo, household);
+    await service.upload({ side: "front", photo: photo(), thumb: photo(300, 400) });
+    await service.upload({ side: "back", photo: photo() });
+    expect(state.files.size).toBe(3);
+    await service.purge("11111111-1111-4111-8111-111111111111");
+    expect(state.files.size).toBe(0);
+  });
+
+  it("goes on even if storage refuses some of it (a leftover file is harmless, a stuck delete is not)", async () => {
+    const { repo } = fakeRepo();
+    const failing: ImageRepository = {
+      ...repo,
+      remove: async () => {
+        throw new Error("storage down");
+      },
+      listPaths: async () => ["a/b.jpg"],
+    };
+    await expect(createImageService(failing, household).purge("h")).resolves.toBeUndefined();
   });
 });

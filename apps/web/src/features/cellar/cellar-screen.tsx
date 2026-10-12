@@ -101,10 +101,15 @@ export function CellarScreen({
   const activeCount = activeFilterCount(filters) + (sort === "recent" ? 0 : 1);
 
   const addButton = (
-    <Link href="/cellar/add" className={buttonStyles({ variant: "primary", size: "md" })}>
-      <PlusIcon size={20} />
-      {t("add")}
-    </Link>
+    <div className="flex items-center gap-1">
+      <Link href="/wishlist" className={buttonStyles({ variant: "ghost", size: "md" })}>
+        {t("wishlist")}
+      </Link>
+      <Link href="/cellar/add" className={buttonStyles({ variant: "primary", size: "md" })}>
+        <PlusIcon size={20} />
+        {t("add")}
+      </Link>
+    </div>
   );
 
   if (data.items.length === 0) {

@@ -123,6 +123,11 @@ export function createHouseholdService(repo: HouseholdRepository, deps: Househol
       return mine(id);
     },
 
+    /** Throws unless the caller owns this household (anything else is "not found"). */
+    async assertOwner(id: string): Promise<void> {
+      await owned(id);
+    },
+
     async deleteHousehold(id: string): Promise<void> {
       await owned(id);
       if (!(await repo.deleteHousehold(id))) throw new DomainError("NOT_FOUND");

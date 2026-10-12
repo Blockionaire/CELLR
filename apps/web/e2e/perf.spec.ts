@@ -74,6 +74,20 @@ for (const { bottles, importBudget, readBudget } of [
     );
     expect(imported.result.body.written.bottles).toBe(bottles);
 
+    // Every bottle is there: the data API cuts any answer at 1000 rows, so a long list has to be read in pages.
+    const whole = async <T>(path: string) =>
+      (await (await api(request, token, "get", path)).json()) as T;
+    expect((await whole<{ bottleCount: number }>("/cellar")).bottleCount, "cellar").toBe(bottles);
+    expect((await whole<{ bottleCount: number }>("/home")).bottleCount, "home").toBe(bottles);
+    const racks = await whole<{ units: Array<{ used: number }>; unplaced: unknown[] }>("/racks");
+    expect(racks.units.reduce((sum, u) => sum + u.used, 0) + racks.unplaced.length, "racks").toBe(
+      bottles,
+    );
+
+    // …and so is the file you can take with you.
+    const exported = await whole<{ bottles: unknown[] }>("/export");
+    expect(exported.bottles, "export").toHaveLength(bottles);
+
     const reads: Record<string, number> = {};
     for (const [name, path] of [
       ["cellar", "/cellar"],

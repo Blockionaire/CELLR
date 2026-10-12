@@ -15,6 +15,8 @@ export const LIMITS = {
   uploads: { bucket: "uploads", limit: 60, windowSeconds: 3600 },
   /** A conversation costs money too: a long evening of questions is fine, a script is not. */
   chat: { bucket: "chat", limit: 60, windowSeconds: 3600 },
+  /** A full copy of the household's data is a big read: plenty for a person, not for a loop. */
+  export: { bucket: "export", limit: 10, windowSeconds: 3600 },
   /** Every label read costs money: a person scanning a whole case is fine, a script is not. */
   scans: { bucket: "scans", limit: 40, windowSeconds: 3600 },
   /** Bringing a whole cellar in is heavy and rarely needed more than once. */

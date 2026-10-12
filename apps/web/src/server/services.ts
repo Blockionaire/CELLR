@@ -2,6 +2,8 @@ import "server-only";
 import { getLlmProvider } from "@/server/ai";
 import { createAnalyticsRepository } from "@/server/analytics/repository";
 import { createAnalyticsService } from "@/server/analytics/service";
+import { createAccountService } from "@/server/account/service";
+import { canDeleteAccounts, deleteAuthUser } from "@/server/privileged/account";
 import { createAuthGateway } from "@/server/auth/gateway";
 import { createAuthService } from "@/server/auth/service";
 import { DomainError } from "@cellr/domain";
@@ -12,6 +14,8 @@ import { createHouseholdRepository } from "@/server/households/repository";
 import { recordAiUsage } from "@/server/privileged/ai-usage";
 import { createImageRepository } from "@/server/images/repository";
 import { createImageService } from "@/server/images/service";
+import { createExportRepository } from "@/server/export/repository";
+import { createExportService } from "@/server/export/service";
 import { createHouseholdService } from "@/server/households/service";
 import { createRateLimitRepository } from "@/server/ratelimit/repository";
 import { createRateLimiter, LIMITS } from "@/server/ratelimit/service";
@@ -34,11 +38,23 @@ export function servicesFor(ctx: RequestContext) {
   };
   const images = createImageService(createImageRepository(ctx.db), household);
   const cellar = createCellarService(cellars, { userId: ctx.userId });
+  const households = createHouseholdService(createHouseholdRepository(ctx.db), {
+    userId: ctx.userId,
+    email: ctx.email,
+  });
+  const wishlist = createWishlistService({
+    repo: createWishlistRepository(ctx.db),
+    household,
+    wineExists: async (wineId) => (await cellars.getWine(wineId)) !== null,
+    bottlesByWine: async (householdId) => {
+      const counts = new Map<string, number>();
+      for (const row of await cellars.listInventory(householdId))
+        counts.set(row.wineId, (counts.get(row.wineId) ?? 0) + 1);
+      return counts;
+    },
+  });
   return {
-    households: createHouseholdService(createHouseholdRepository(ctx.db), {
-      userId: ctx.userId,
-      email: ctx.email,
-    }),
+    households,
     cellar,
     images,
     scans: createScanService({
@@ -50,16 +66,31 @@ export function servicesFor(ctx: RequestContext) {
       recordUsage: ({ householdId, task, status, usage }) =>
         recordAiUsage({ userId: ctx.userId, householdId, task, status, ...usage }),
     }),
-    wishlist: createWishlistService({
-      repo: createWishlistRepository(ctx.db),
+    account: createAccountService({
+      userId: ctx.userId,
+      email: ctx.email,
+      me: () => households.me(),
+      household: (id) => households.getHousehold(id),
+      purgePhotos: (id) => images.purge(id),
+      deleteHousehold: (id) => households.deleteHousehold(id),
+      leaveHousehold: (id) => households.removeMember(id, ctx.userId),
+      canDelete: canDeleteAccounts,
+      deleteUser: deleteAuthUser,
+    }),
+    wishlist,
+    export: createExportService({
+      repo: createExportRepository(ctx.db),
       household,
-      wineExists: async (wineId) => (await cellars.getWine(wineId)) !== null,
-      bottlesByWine: async (householdId) => {
-        const counts = new Map<string, number>();
-        for (const row of await cellars.listInventory(householdId))
-          counts.set(row.wineId, (counts.get(row.wineId) ?? 0) + 1);
-        return counts;
+      householdName: async (id) =>
+        (await households.me()).households.find((h) => h.id === id)?.name ?? "",
+      places: (householdId) => cellars.listStorage(householdId),
+      favorites: async (householdId) => {
+        const starred = new Set(await cellars.listFavoriteWineIds(ctx.userId));
+        return (await cellars.listWines(householdId))
+          .filter((w) => starred.has(w.id))
+          .map((w) => ({ producer: w.producer, wine: w.name }));
       },
+      wishlist: () => wishlist.list(),
     }),
     sommelier: createSommelierService({
       cellar: () => cellar.inventory(),

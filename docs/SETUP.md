@@ -43,7 +43,8 @@ _Supabase → SQL Editor → New query._ Run these files **in this order**, one 
 6. `…0006_platform.sql`
 7. `…0007_signup_allowlist.sql`
 8. `…0008_tastings.sql` (ratings: "how was it?" — added after the first version; see "Updating the database")
-9. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
+9. `…0009_wishlist.sql` (the wishlist — also added later; see "Updating the database")
+10. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
 
 If a file fails, stop: the files are not safe to re-run. Note which file and the error text.
 
@@ -66,6 +67,7 @@ missing step and simply leaves that feature switched off.
 | File                          | What it switches on                                                      |
 | ----------------------------- | ------------------------------------------------------------------------ |
 | `20261012000008_tastings.sql` | Ratings: stars, words and a note after you open a bottle ("How was it?") |
+| `20261012000009_wishlist.sql` | The wishlist: wines you would like to buy, shared with your household    |
 
 ### Check it worked
 

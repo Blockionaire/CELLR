@@ -21,6 +21,7 @@ import { UnreadablePhotoError } from "@/lib/photo";
 import { Button } from "@/ui/button";
 import { FileButton } from "@/ui/file-button";
 import { PageHeader } from "@/ui/page-header";
+import { useAddWish } from "@/features/wishlist/hooks";
 import { useScan } from "./hooks";
 
 type Stage =
@@ -38,9 +39,11 @@ type Stage =
 export function ScanScreen({ currency }: { currency: string }) {
   const t = useTranslations("scan");
   const tAdd = useTranslations("addBottle");
+  const tWish = useTranslations("wishlist");
   const te = useTranslations();
   const scan = useScan();
   const wines = useWines();
+  const addWish = useAddWish();
   const [stage, setStage] = useState<Stage>({ name: "capture", error: null, retry: null });
   // In a "found" review, "not this one" turns the screen into the new-wine form.
   const [rejectedFound, setRejectedFound] = useState(false);
@@ -127,6 +130,32 @@ export function ScanScreen({ currency }: { currency: string }) {
               stage.result.facts?.nonVintage ? null : (stage.result.facts?.year ?? undefined)
             }
             imageId={stage.result.image.id}
+            footer={
+              <Button
+                type="button"
+                variant="ghost"
+                size="lg"
+                block
+                loading={addWish.isPending}
+                onClick={async () => {
+                  try {
+                    await addWish.mutateAsync({
+                      wineId: stage.wine.id,
+                      year: stage.result.facts?.nonVintage
+                        ? null
+                        : (stage.result.facts?.year ?? null),
+                      note: null,
+                      maxPriceCents: null,
+                    });
+                    restart();
+                  } catch {
+                    // The hook has said what went wrong (for instance, that it is on the list already).
+                  }
+                }}
+              >
+                {tWish("saveFromScan")}
+              </Button>
+            }
             onChangeWine={() => setStage({ name: "review", result: stage.result })}
             onDone={(result) => setStage({ name: "done", result })}
           />

@@ -2,6 +2,7 @@ import "server-only";
 import { DomainError, type ImageSide } from "@cellr/domain";
 import type { Db } from "@/server/db/clients";
 import { mapDbError } from "@/server/db/errors";
+import { allRows } from "@/server/db/paging";
 import type { ImageRepository, ImageRow } from "./types";
 
 export const BUCKET = "bottle-images";
@@ -77,6 +78,19 @@ export function createImageRepository(db: Db): ImageRepository {
         .single();
       if (error) throw mapDbError(error);
       return toImage(data);
+    },
+
+    async listPaths(householdId) {
+      const { data, error } = await allRows((from, to) =>
+        db
+          .from("bottle_images")
+          .select("original_path, web_path")
+          .eq("household_id", householdId)
+          .order("id")
+          .range(from, to),
+      );
+      if (error) throw mapDbError(error);
+      return data.flatMap((r) => (r.web_path ? [r.original_path, r.web_path] : [r.original_path]));
     },
 
     async getImage(id) {

@@ -18,12 +18,15 @@ import { useToast } from "@/ui/toast";
 import { ConfirmSheet } from "./confirm-sheet";
 import {
   useCreateInvite,
+  useExportData,
   useHousehold,
   useMe,
   useRemoveMember,
   useSignOut,
   useUpdateProfile,
 } from "./hooks";
+import { DeleteAccountSheet } from "./delete-account-sheet";
+import { HouseholdSettings } from "./household-settings";
 import { InviteSheet } from "./invite-sheet";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -56,10 +59,12 @@ export function ProfileView({
   const removeMember = useRemoveMember();
   const invite = useCreateInvite();
   const signOut = useSignOut();
+  const exportData = useExportData();
 
   const [name, setName] = useState(me.displayName ?? "");
   const [nameError, setNameError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [confirm, setConfirm] = useState<
     { kind: "leave" } | { kind: "remove"; member: HouseholdMemberView } | null
   >(null);
@@ -181,11 +186,34 @@ export function ProfileView({
         </Section>
       )}
 
+      {active && isOwner && (
+        <Section title={t("householdSettings")}>
+          {/* Remounted when the household changes, so the fields start from what is saved. */}
+          <HouseholdSettings
+            key={`${active.id}:${active.name}:${active.currency}`}
+            household={active}
+          />
+        </Section>
+      )}
+
       <Section title={t("dataSection")}>
         <p className="mb-4 text-body text-ink-2">{t("importBody")}</p>
         <Link href="/profile/import" className={buttonStyles({ variant: "secondary", size: "md" })}>
           {t("importLink")}
         </Link>
+        <p className="mb-4 mt-6 text-body text-ink-2">{t("exportBody")}</p>
+        <Button
+          variant="secondary"
+          size="md"
+          loading={exportData.isPending}
+          onClick={() =>
+            exportData.mutate(undefined, {
+              onError: (e) => toast.show(message(e), { tone: "error" }),
+            })
+          }
+        >
+          {exportData.isPending ? t("exporting") : t("exportLink")}
+        </Button>
       </Section>
 
       <Section title={t("appearanceSection")}>
@@ -203,6 +231,18 @@ export function ProfileView({
       <Button variant="ghost" size="lg" block onClick={handleSignOut} loading={signOut.isPending}>
         {t("signOut")}
       </Button>
+      {me.email && (
+        <>
+          <Button variant="danger" size="sm" onClick={() => setDeletingAccount(true)}>
+            {t("deleteAccount")}
+          </Button>
+          <DeleteAccountSheet
+            open={deletingAccount}
+            onClose={() => setDeletingAccount(false)}
+            email={me.email}
+          />
+        </>
+      )}
 
       {active && (
         <InviteSheet

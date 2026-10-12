@@ -26,4 +26,6 @@ export interface ImageRepository {
   remove(paths: string[]): Promise<void>;
   insertImage(row: NewImage): Promise<ImageRow>;
   getImage(id: string): Promise<ImageRow | null>;
+  /** Where every file of this household lives in storage (for taking them away with the household). */
+  listPaths(householdId: string): Promise<string[]>;
 }

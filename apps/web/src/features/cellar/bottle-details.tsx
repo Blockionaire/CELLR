@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import {
   AddBottlesSchema,
   ERROR_MESSAGES,
@@ -31,6 +31,8 @@ interface BottleDetailsProps {
   initialYear?: number | null | undefined;
   /** A label photo already kept (from a scan): the new bottles are given it. */
   imageId?: string | undefined;
+  /** Something to offer under the "Add" button (a scan offers "save to wishlist instead"). */
+  footer?: ReactNode;
   onChangeWine: () => void;
   onDone: (result: AddBottlesResult, placeId: string | null) => void;
 }
@@ -54,6 +56,7 @@ export function BottleDetails({
   preferredPlaceId,
   initialYear,
   imageId,
+  footer,
   onChangeWine,
   onDone,
 }: BottleDetailsProps) {
@@ -271,6 +274,7 @@ export function BottleDetails({
         <Button type="submit" size="lg" block loading={add.isPending}>
           {t("submit", { count: quantity })}
         </Button>
+        {footer}
       </form>
 
       {/* Outside the <form>: forms cannot be nested, and the sheet has its own. */}

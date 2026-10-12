@@ -7,10 +7,12 @@ import type {
   HouseholdSummary,
   InviteView,
   Me,
+  UpdateHousehold,
   UpdateProfile,
 } from "@cellr/domain";
 import { track } from "@/lib/analytics";
-import { api } from "@/lib/api";
+import type { ErrorCode } from "@cellr/domain";
+import { api, ApiError } from "@/lib/api";
 
 export const meKey = ["me"] as const;
 export const householdKey = (id: string) => ["household", id] as const;
@@ -78,3 +80,68 @@ export const useRemoveMember = () =>
     api.delete(`/households/${input.householdId}/members/${input.userId}`),
   );
 export const useSignOut = () => useMutation({ mutationFn: () => api.post("/auth/sign-out") });
+
+export const useUpdateHousehold = () =>
+  useAccountMutation((input: { id: string; patch: UpdateHousehold }) =>
+    api.patch<HouseholdSummary>(`/households/${input.id}`, input.patch),
+  );
+export const useDeleteHousehold = () =>
+  useAccountMutation((id: string) => api.delete(`/households/${id}`));
+
+/**
+ * Downloads everything the household keeps as one file. It is fetched, not linked to, so a failure can say so
+ * instead of showing the browser an error page.
+ */
+export function useExportData() {
+  return useMutation({
+    mutationFn: async () => {
+      let response: Response;
+      try {
+        response = await fetch("/api/v1/export", { credentials: "same-origin" });
+      } catch {
+        throw new ApiError("NETWORK", "", true);
+      }
+      if (!response.ok) {
+        const json = (await response.json().catch(() => null)) as {
+          error?: { code?: ErrorCode; message?: string; retryable?: boolean };
+        } | null;
+        throw new ApiError(json?.error?.code ?? "INTERNAL", json?.error?.message ?? "", false);
+      }
+      const name =
+        /filename="([^"]+)"/.exec(response.headers.get("content-disposition") ?? "")?.[1] ??
+        "cellr.json";
+      const url = URL.createObjectURL(await response.blob());
+      try {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = name;
+        document.body.append(link);
+        link.click();
+        link.remove();
+      } finally {
+        // The browser has what it needs once the click has been handled.
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      }
+      return name;
+    },
+  });
+}
+
+/** Deletes the signed-in person's account (they type their email to confirm). */
+export const useDeleteAccount = () =>
+  useMutation({
+    mutationFn: (email: string) =>
+      // `api.delete` sends no body; this one needs the email.
+      fetch("/api/v1/me", {
+        method: "DELETE",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      }).then(async (response) => {
+        if (response.ok) return;
+        const json = (await response.json().catch(() => null)) as {
+          error?: { code?: ErrorCode; message?: string };
+        } | null;
+        throw new ApiError(json?.error?.code ?? "INTERNAL", json?.error?.message ?? "", false);
+      }),
+  });
