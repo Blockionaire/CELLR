@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   CreateHouseholdSchema,
@@ -25,6 +25,7 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
   const t = useTranslations("onboarding");
   const te = useTranslations();
   const router = useRouter();
+  const locale = useLocale();
   const { data: me = initialMe } = useMe(initialMe);
   const step = nextOnboardingStep(me);
 
@@ -67,7 +68,7 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
   async function submitName(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    const parsed = UpdateProfileSchema.safeParse({ displayName: name });
+    const parsed = UpdateProfileSchema.safeParse({ displayName: name, locale });
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
     try {
       await updateProfile.mutateAsync(parsed.data);
