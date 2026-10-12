@@ -14,6 +14,7 @@ import {
   parseMoneyToCents,
   summarizePlaces,
   UpdatePurchaseSchema,
+  UpdateStorageSchema,
   UpdateWineSchema,
 } from "./cellar";
 import { describeSlot, nextFreeSlots } from "./placement";
@@ -295,5 +296,15 @@ describe("history", () => {
       openedAt: null,
     }));
     expect(historyEvents(many, 5)).toHaveLength(5);
+  });
+});
+
+describe("changing a place", () => {
+  it("rename, re-kind or resize: any one of them, but something", () => {
+    expect(UpdateStorageSchema.parse({ label: " Cellar rack " })).toEqual({ label: "Cellar rack" });
+    expect(UpdateStorageSchema.parse({ rows: 6, cols: 8 })).toEqual({ rows: 6, cols: 8 });
+    expect(UpdateStorageSchema.safeParse({}).success).toBe(false);
+    expect(UpdateStorageSchema.safeParse({ rows: 0 }).success).toBe(false);
+    expect(UpdateStorageSchema.safeParse({ kind: "wardrobe" }).success).toBe(false);
   });
 });

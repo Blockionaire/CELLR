@@ -2,14 +2,12 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { ERROR_MESSAGES, formatVintage, type BottleView, type VintageDetail } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { formatVintage, type BottleView, type VintageDetail } from "@cellr/domain";
 import { Button } from "@/ui/button";
 import { cn } from "@/ui/cn";
 import { Sheet } from "@/ui/sheet";
-import { useToast } from "@/ui/toast";
 import { BottleSpot, useMoney } from "./bottle-bits";
-import { useBottleAction } from "./hooks";
+import { useBottleActions } from "./use-bottle-actions";
 
 interface OpenBottleSheetProps {
   open: boolean;
@@ -23,9 +21,7 @@ interface OpenBottleSheetProps {
  */
 export function OpenBottleSheet({ open, onClose, detail }: OpenBottleSheetProps) {
   const t = useTranslations("openBottle");
-  const te = useTranslations();
-  const toast = useToast();
-  const action = useBottleAction();
+  const actions = useBottleActions();
   const money = useMoney(detail.currency);
   const [chosen, setChosen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,37 +30,16 @@ export function OpenBottleSheet({ open, onClose, detail }: OpenBottleSheetProps)
   const selected = bottles.find((b) => b.id === chosen) ?? bottles[0];
   const title = `${detail.wine.name} ${formatVintage(detail.year)}`;
 
-  function undo(
-    bottleId: string,
-    previous: { locationId: string | null; row: number | null; col: number | null },
-  ) {
-    action
-      .mutateAsync({ bottleId, action: { action: "restore", to: previous } })
-      .then(() => toast.show(t("restored")))
-      .catch((e) =>
-        toast.show(
-          errorMessage(e, (k) => te(k), ERROR_MESSAGES),
-          { tone: "error" },
-        ),
-      );
-  }
-
   async function run(kind: "open" | "remove") {
     if (!selected) return;
     setError(null);
-    try {
-      const { previous } = await action.mutateAsync({
-        bottleId: selected.id,
-        action: { action: kind },
-      });
-      setChosen(null);
-      onClose();
-      toast.show(kind === "open" ? t("done", { count: bottles.length - 1 }) : t("removed"), {
-        action: { label: t("undo"), onClick: () => undo(selected.id, previous) },
-      });
-    } catch (e) {
-      setError(errorMessage(e, (k) => te(k), ERROR_MESSAGES));
-    }
+    const failure =
+      kind === "open"
+        ? await actions.open(selected.id, bottles.length - 1)
+        : await actions.remove(selected.id);
+    if (failure) return setError(failure);
+    setChosen(null);
+    onClose();
   }
 
   return (
@@ -99,14 +74,14 @@ export function OpenBottleSheet({ open, onClose, detail }: OpenBottleSheetProps)
             {error}
           </p>
         )}
-        <Button size="lg" block loading={action.isPending} onClick={() => run("open")}>
+        <Button size="lg" block loading={actions.pending} onClick={() => run("open")}>
           {t("submit")}
         </Button>
         <div className="text-center">
           <button
             type="button"
             onClick={() => run("remove")}
-            disabled={action.isPending}
+            disabled={actions.pending}
             className="min-h-11 px-3 text-small font-medium text-danger disabled:opacity-45"
           >
             {t("remove")}

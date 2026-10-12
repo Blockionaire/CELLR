@@ -61,6 +61,12 @@ function fakeRepo(
       state.occupiedCalls += 1;
       return options.occupied ?? [];
     },
+    async updateStorage() {
+      return null;
+    },
+    async deleteStorage() {
+      return false;
+    },
     async createStorage(_h, input: CreateStorage) {
       return {
         id: "u9",

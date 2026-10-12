@@ -179,6 +179,18 @@ export const CreateStorageSchema = z.object({
 });
 export type CreateStorage = z.infer<typeof CreateStorageSchema>;
 
+/** Rename, re-kind or resize a place. A place cannot shrink past bottles still standing in it. */
+export const UpdateStorageSchema = z
+  .object({
+    label: z.string().trim().min(1, "Give it a name.").max(40),
+    kind: z.enum(STORAGE_KINDS),
+    rows: z.number().int().min(1).max(30),
+    cols: z.number().int().min(1).max(30),
+  })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, "Nothing to update.");
+export type UpdateStorage = z.infer<typeof UpdateStorageSchema>;
+
 // ---- Read models (what /api/v1 returns) ------------------------------------------------------------
 
 export interface WineSummary {

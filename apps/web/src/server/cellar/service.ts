@@ -17,6 +17,7 @@ import {
   type RackView,
   type StorageUnitView,
   type UpdatePurchase,
+  type UpdateStorage,
   type UpdateWine,
   type VintageDetail,
   type WineSummary,
@@ -154,6 +155,25 @@ export function createCellarService(repo: CellarRepository, { userId }: { userId
     },
 
     /** For the racks view and the 3D cellar: where every bottle sits. */
+    /** Renames, re-kinds or resizes a place; the database refuses to shrink it past bottles still in it. */
+    async updateStorage(id: string, patch: UpdateStorage): Promise<StorageUnitView> {
+      const { id: householdId } = await household();
+      const updated = await repo.updateStorage(householdId, id, patch);
+      if (!updated) throw new DomainError("NOT_FOUND", "We couldn't find that place.");
+      return toStorageView(updated);
+    },
+
+    /** Deletes an empty place. Only the household's owner may; a place with bottles in it stays. */
+    async deleteStorage(id: string): Promise<void> {
+      const { id: householdId } = await household();
+      const unit = await repo.getStorage(householdId, id);
+      if (!unit) throw new DomainError("NOT_FOUND", "We couldn't find that place.");
+      if (unit.used > 0)
+        throw new DomainError("CONFLICT", "There are still bottles in it. Move them out first.");
+      if (!(await repo.deleteStorage(householdId, id)))
+        throw new DomainError("FORBIDDEN", "Only the household's owner can delete a place.");
+    },
+
     async racks(): Promise<RackView> {
       const { id } = await household();
       const [units, rows] = await Promise.all([repo.listStorage(id), repo.listInventory(id)]);

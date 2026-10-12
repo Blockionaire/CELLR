@@ -46,7 +46,11 @@ const bottle = (over: Partial<BottleView> & { id: string }): BottleRow => ({
 /** A repository that mimics the database rules these actions rely on (status guard, slot uniqueness, location cleared on open). */
 function fake(
   bottles: BottleRow[],
-  options: { wineUpdatable?: boolean; wineExists?: boolean } = {},
+  options: {
+    wineUpdatable?: boolean;
+    wineExists?: boolean;
+    overrides?: Partial<CellarRepository>;
+  } = {},
 ) {
   const state = {
     bottles: [...bottles],
@@ -83,6 +87,12 @@ function fake(
     },
     async createStorage() {
       return FRIDGE;
+    },
+    async updateStorage() {
+      return null;
+    },
+    async deleteStorage() {
+      return false;
     },
     async insertBottles() {
       return [];
@@ -141,7 +151,10 @@ function fake(
       return options.wineUpdatable === false ? null : { ...WINE, name: "Renamed" };
     },
   };
-  return { service: createCellarService(repo, { userId: "me" }), state };
+  return {
+    service: createCellarService({ ...repo, ...options.overrides }, { userId: "me" }),
+    state,
+  };
 }
 
 const place = (row: number, col: number) => ({ locationId: "u1", row, col });
@@ -391,5 +404,52 @@ describe("the racks view", () => {
     expect(racks.units[0]!.bottles).toHaveLength(0);
     expect(racks.unplaced.map((b) => b.bottleId)).toEqual(["x"]);
     expect(racks.unplaced[0]).toMatchObject({ row: null, col: null });
+  });
+});
+
+describe("managing places", () => {
+  it("renames a place, and says when it does not exist", async () => {
+    const ok = fake([], {
+      overrides: { updateStorage: async () => ({ ...FRIDGE, label: "Cellar rack" }) },
+    });
+    expect(await ok.service.updateStorage("u1", { label: "Cellar rack" })).toMatchObject({
+      label: "Cellar rack",
+      capacity: 6,
+    });
+    await expect(fake([]).service.updateStorage("nope", { label: "x" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("deletes an empty place", async () => {
+    let deleted = false;
+    const { service } = fake([], {
+      overrides: { deleteStorage: async () => (deleted = true) },
+    });
+    await service.deleteStorage("u1");
+    expect(deleted).toBe(true);
+  });
+
+  it("will not delete a place that still holds bottles, and never asks the database to", async () => {
+    let asked = false;
+    const { service } = fake([], {
+      overrides: {
+        getStorage: async () => ({ ...FRIDGE, used: 2 }),
+        deleteStorage: async () => (asked = true),
+      },
+    });
+    await expect(service.deleteStorage("u1")).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "There are still bottles in it. Move them out first.",
+    });
+    expect(asked).toBe(false);
+  });
+
+  it("explains that only the owner may delete, and that an unknown place is not found", async () => {
+    const notOwner = fake([], { overrides: { deleteStorage: async () => false } });
+    await expect(notOwner.service.deleteStorage("u1")).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(fake([]).service.deleteStorage("gone")).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
   });
 });

@@ -90,7 +90,8 @@
     "clearSearch": "Clear search",
     "bottlesLabel": "{count, plural, one {# bottle} other {# bottles}}",
     "noPlace": "No place yet",
-    "notPlaced": "{count} not placed"
+    "notPlaced": "{count} not placed",
+    "viewRacks": "Racks"
   },
   "scan": {
     "title": "Scan a bottle",
@@ -308,5 +309,29 @@
     "cellEmpty": "Shelf {row}, position {col}, empty",
     "cellBottle": "{wine}, shelf {row}, position {col}",
     "free": "{count, plural, one {# free} other {# free}}"
+  },
+  "racks": {
+    "emptyTitle": "Where do your bottles live?",
+    "emptyBody": "Add your wine fridge, rack or cabinet, and see every bottle in its place.",
+    "newPlace": "New place",
+    "unplacedTitle": "Not placed yet",
+    "unplacedHint": "Tap a bottle, then tap a free spot.",
+    "moving": "Moving {wine}. Tap a free spot.",
+    "cancel": "Cancel",
+    "unitMeta": "{used} of {capacity} · {free} free",
+    "manage": "Manage",
+    "peekDetails": "Details",
+    "peekMove": "Move",
+    "peekOpen": "Open",
+    "placeTitle": "Place a bottle here",
+    "placeBody": "Which bottle goes in {spot}?",
+    "placeNone": "Every bottle already has a place.",
+    "addBottle": "Add a bottle",
+    "manageTitle": "Manage place",
+    "save": "Save changes",
+    "saved": "Saved.",
+    "delete": "Delete this place",
+    "deleteConfirm": "Tap again to delete it",
+    "deleted": "Place deleted."
   }
 }

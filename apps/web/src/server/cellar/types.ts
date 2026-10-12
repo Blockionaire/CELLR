@@ -6,6 +6,7 @@ import type {
   CreateWine,
   Slot,
   StorageKind,
+  UpdateStorage,
   UpdateWine,
   WineDetail,
   WineSummary,
@@ -111,6 +112,10 @@ export interface CellarRepository {
   getStorage(householdId: string, id: string): Promise<StorageRow | null>;
   occupiedSlots(locationId: string): Promise<Slot[]>;
   createStorage(householdId: string, input: CreateStorage): Promise<StorageRow>;
+  /** Null = no such place in this household. */
+  updateStorage(householdId: string, id: string, patch: UpdateStorage): Promise<StorageRow | null>;
+  /** False = nothing was deleted (not the owner, or already gone). */
+  deleteStorage(householdId: string, id: string): Promise<boolean>;
 
   insertBottles(householdId: string, rows: NewBottle[]): Promise<string[]>;
   listInventory(householdId: string): Promise<InventoryRow[]>;

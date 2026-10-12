@@ -2,15 +2,14 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { ERROR_MESSAGES, type BottleView, type RackView, type VintageDetail } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { type BottleView, type RackView, type VintageDetail } from "@cellr/domain";
 import { Button } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { Sheet } from "@/ui/sheet";
 import { Skeleton } from "@/ui/skeleton";
-import { useToast } from "@/ui/toast";
 import { BottleSpot } from "./bottle-bits";
-import { useBottleAction, useRacks } from "./hooks";
+import { useRacks } from "./hooks";
+import { useBottleActions } from "./use-bottle-actions";
 import { RackGrid } from "./rack-grid";
 
 interface MoveBottleSheetProps {
@@ -41,11 +40,8 @@ function MoveBody({
 }) {
   const t = useTranslations("moveBottle");
   const tv = useTranslations("vintage");
-  const tOpen = useTranslations("openBottle");
-  const te = useTranslations();
-  const toast = useToast();
   const racks = useRacks();
-  const action = useBottleAction();
+  const actions = useBottleActions();
   const [bottleId, setBottleId] = useState<string | null>(null);
   const [unitId, setUnitId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,29 +58,9 @@ function MoveBody({
   ) {
     if (!bottle) return;
     setError(null);
-    try {
-      const { previous } = await action.mutateAsync({
-        bottleId: bottle.id,
-        action: { action: "move", to },
-      });
-      onClose();
-      toast.show(to.locationId ? t("moved", { where }) : t("movedOut"), {
-        action: {
-          label: tOpen("undo"),
-          onClick: () =>
-            void action
-              .mutateAsync({ bottleId: bottle.id, action: { action: "move", to: previous } })
-              .catch((e) =>
-                toast.show(
-                  errorMessage(e, (k) => te(k), ERROR_MESSAGES),
-                  { tone: "error" },
-                ),
-              ),
-        },
-      });
-    } catch (e) {
-      setError(errorMessage(e, (k) => te(k), ERROR_MESSAGES));
-    }
+    const failure = await actions.move(bottle.id, to, where);
+    if (failure) return setError(failure);
+    onClose();
   }
 
   if (!bottle) return null;
@@ -155,7 +131,7 @@ function MoveBody({
       {bottle.locationId !== null && (
         <Button
           variant="ghost"
-          loading={action.isPending}
+          loading={actions.pending}
           onClick={() => move({ locationId: null, row: null, col: null }, "")}
         >
           {t("takeOut")}

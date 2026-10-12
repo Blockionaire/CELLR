@@ -8,10 +8,12 @@ import { buttonStyles } from "@/ui/button";
 import { EmptyState } from "@/ui/empty-state";
 import { Field } from "@/ui/field";
 import { PlusIcon, SearchIcon } from "@/ui/icons";
+import { cn } from "@/ui/cn";
 import { PageHeader } from "@/ui/page-header";
 import { Segmented } from "@/ui/segmented";
 import { useCellar } from "./hooks";
 import { CELLAR_VIEW_COOKIE, type CellarViewMode } from "./view-mode";
+import { RacksView } from "./racks-view";
 import { WineCard, WineRow } from "./wine-card";
 import { countryName } from "./wine-visuals";
 
@@ -87,7 +89,7 @@ export function CellarScreen({
       />
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
+        <div className={cn("relative flex-1", view === "racks" && "hidden sm:block sm:invisible")}>
           <SearchIcon
             size={20}
             className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-3"
@@ -114,12 +116,15 @@ export function CellarScreen({
           options={[
             { value: "grid", label: t("viewGrid") },
             { value: "list", label: t("viewList") },
+            { value: "racks", label: t("viewRacks") },
           ]}
           className="self-end sm:self-auto"
         />
       </div>
 
-      {items.length === 0 ? (
+      {view === "racks" ? (
+        <RacksView />
+      ) : items.length === 0 ? (
         <EmptyState
           illustration={false}
           title={t("noMatchTitle")}

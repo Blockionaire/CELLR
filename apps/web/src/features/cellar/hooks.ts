@@ -12,6 +12,7 @@ import type {
   RackView,
   StorageUnitView,
   UpdatePurchase,
+  UpdateStorage,
   UpdateWine,
   VintageDetail,
   WineSummary,
@@ -138,5 +139,23 @@ export function useUpdatePurchase() {
     mutationFn: (input: { vintageId: string; patch: UpdatePurchase }) =>
       api.patch<{ updated: number }>(`/cellar/${input.vintageId}/purchase`, input.patch),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vintage"] }),
+  });
+}
+
+/** Renaming or resizing a place changes what cards and racks show, so everything is refreshed. */
+export function useUpdateStorage() {
+  const refresh = useRefreshCellar();
+  return useMutation({
+    mutationFn: (input: { id: string; patch: UpdateStorage }) =>
+      api.patch<StorageUnitView>(`/storage/${input.id}`, input.patch),
+    onSuccess: () => refresh(),
+  });
+}
+
+export function useDeleteStorage() {
+  const refresh = useRefreshCellar();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/storage/${id}`),
+    onSuccess: () => refresh(),
   });
 }

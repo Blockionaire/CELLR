@@ -7,6 +7,7 @@ import {
   type CreateWine,
   type Slot,
   type StorageKind,
+  type UpdateStorage,
   type UpdateWine,
   type WineSummary,
   type WineType,
@@ -349,6 +350,40 @@ export function createCellarRepository(db: Db): CellarRepository {
         throw mapDbError(error);
       }
       return toStorage(data, 0);
+    },
+
+    async updateStorage(householdId, id, patch: UpdateStorage) {
+      const update: Tables["cellar_locations"]["Update"] = {};
+      if (patch.label !== undefined) update.label = patch.label;
+      if (patch.kind !== undefined) update.kind = patch.kind;
+      if (patch.rows !== undefined) update.grid_rows = patch.rows;
+      if (patch.cols !== undefined) update.grid_cols = patch.cols;
+      const { data, error } = await db
+        .from("cellar_locations")
+        .update(update)
+        .eq("household_id", householdId)
+        .eq("id", id)
+        .select(STORAGE_COLUMNS)
+        .maybeSingle();
+      if (error) {
+        if (isUniqueViolation(error))
+          throw new DomainError("CONFLICT", "You already have a place with that name.");
+        throw mapDbError(error);
+      }
+      if (!data) return null;
+      const used = await usedByLocation(householdId);
+      return toStorage(data, used.get(id) ?? 0);
+    },
+
+    async deleteStorage(householdId, id) {
+      const { data, error } = await db
+        .from("cellar_locations")
+        .delete()
+        .eq("household_id", householdId)
+        .eq("id", id)
+        .select("id");
+      if (error) throw mapDbError(error);
+      return (data?.length ?? 0) > 0;
     },
 
     async insertBottles(householdId, rows: NewBottle[]) {

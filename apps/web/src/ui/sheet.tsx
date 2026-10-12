@@ -16,7 +16,7 @@ interface SheetProps {
   open: boolean;
   onClose: () => void;
   title: string;
-  description?: string;
+  description?: string | undefined;
   children: ReactNode;
   closeLabel?: string;
 }
