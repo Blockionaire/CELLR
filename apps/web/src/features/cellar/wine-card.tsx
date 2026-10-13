@@ -1,17 +1,42 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { formatVintage, type CellarItem } from "@cellr/domain";
-import { BottleGlyph } from "@/ui/bottle-glyph";
+import { BottleGlyph, type WineTint } from "@/ui/bottle-glyph";
 import { cn } from "@/ui/cn";
 import { FavoriteButton } from "./favorite-button";
-import { LabelImage } from "./label-image";
-import { DrinkLabel } from "./drink-bits";
+import { imageUrl, LabelImage } from "./label-image";
+import { DrinkLabel, DrinkWindowMini } from "./drink-bits";
 import { RatingBadge } from "./tasting-bits";
-import { placeLine, shapeFor } from "./wine-visuals";
+import { labelMark, placeLine, shapeFor } from "./wine-visuals";
 
 interface ItemProps {
   item: CellarItem;
   locale: string;
+}
+
+/** The stage behind a bottle: a pastel field on paper, a soft glow on noir. */
+export const STAGE: Record<WineTint, string> = {
+  red: "bg-stage-red",
+  white: "bg-stage-white",
+  rose: "bg-stage-rose",
+  sparkling: "bg-stage-sparkling",
+  orange: "bg-stage-orange",
+  dessert: "bg-stage-dessert",
+  fortified: "bg-stage-fortified",
+};
+
+/** The wine's bottle: its own straightened label when there is one, otherwise typeset from the producer. */
+export function ItemBottle({ item, className }: { item: CellarItem; className?: string }) {
+  return (
+    <BottleGlyph
+      shape={shapeFor(item.type)}
+      tint={item.type}
+      mark={labelMark(item.producer, item.wineName)}
+      year={formatVintage(item.year)}
+      labelUrl={item.image?.texture ? imageUrl(item.image.id, "texture") : undefined}
+      {...(className ? { className } : {})}
+    />
+  );
 }
 
 /** "Wine fridge", "Wine fridge +1", or "No place yet" — one short line, never a data table. */
@@ -26,38 +51,43 @@ function usePlaces(item: CellarItem) {
 function CountBadge({ count }: { count: number }) {
   const t = useTranslations("cellar");
   return (
-    <span className="rounded-full bg-accent px-2.5 py-1 text-caption font-medium text-accent-ink tnum">
+    <span className="rounded-full bg-surface px-2.5 py-1 text-caption font-semibold text-ink shadow-raised tnum">
       <span aria-hidden="true">×{count}</span>
       <span className="sr-only">{t("bottlesLabel", { count })}</span>
     </span>
   );
 }
 
-/** Grid card: the bottle is the hero, text stays small and calm. */
+/** Grid tile: the bottle on its stage is the hero, text stays small and calm. */
 export function WineCard({ item, locale }: ItemProps) {
   const places = usePlaces(item);
   const where = placeLine(item.region, item.countryCode, locale);
   return (
-    <article className="relative flex h-full flex-col rounded-card border border-hairline bg-surface p-3 shadow-raised transition-transform duration-150 ease-cellr active:scale-[0.985]">
-      <div className="relative grid h-36 place-items-center overflow-hidden rounded-control bg-raised">
-        {item.image ? (
-          <LabelImage image={item.image} size="thumb" className="absolute inset-0 size-full" />
-        ) : (
-          <BottleGlyph shape={shapeFor(item.type)} tint={item.type} className="w-9" />
+    <article className="relative flex h-full flex-col rounded-card bg-surface p-2 shadow-raised ring-1 ring-hairline transition-transform duration-150 ease-cellr active:scale-[0.985]">
+      <div
+        className={cn(
+          "relative flex h-44 items-end justify-center overflow-hidden rounded-[16px]",
+          STAGE[item.type],
         )}
-        <span className="absolute right-2 top-2">
+      >
+        <span
+          aria-hidden="true"
+          className="absolute -bottom-10 left-1/2 size-36 -translate-x-1/2 rounded-full bg-surface/45"
+        />
+        <ItemBottle item={item} className="relative mb-1 w-[3.1rem]" />
+        <span className="absolute left-2 top-2">
           <CountBadge count={item.count} />
         </span>
         <FavoriteButton
           wineId={item.wineId}
           wine={`${item.producer} ${item.wineName}`}
           favorite={item.favorite}
-          className={cn("absolute -left-0.5 -top-0.5", item.image && "m-1 size-9 bg-surface/85")}
+          className="absolute right-0 top-0 m-1 size-9 bg-surface/85"
         />
         {item.rating && <RatingBadge rating={item.rating} className="absolute bottom-2 left-2" />}
       </div>
-      <div className="mt-3 flex-1">
-        <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
+      <div className="mt-3 flex-1 px-1.5">
+        <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-bronze">
           {item.producer}
         </p>
         <h3 className="mt-0.5 line-clamp-2 font-display text-title text-ink">
@@ -73,10 +103,13 @@ export function WineCard({ item, locale }: ItemProps) {
           {where && <span> · {where}</span>}
         </p>
       </div>
-      <p className="mt-3 flex items-center justify-between gap-2 text-caption text-ink-3">
-        <span className="truncate">{places}</span>
-        <DrinkLabel drink={item.drink} />
-      </p>
+      <div className="mt-3 px-1.5 pb-1">
+        <DrinkWindowMini drink={item.drink} />
+        <p className="mt-2 flex items-center justify-between gap-2 text-caption text-ink-3">
+          <span className="truncate">{places}</span>
+          <DrinkLabel drink={item.drink} />
+        </p>
+      </div>
     </article>
   );
 }
@@ -90,10 +123,10 @@ export function WineRow({ item, locale }: ItemProps) {
       {item.image ? (
         <LabelImage image={item.image} size="thumb" className="size-12 shrink-0 rounded-control" />
       ) : (
-        <BottleGlyph shape={shapeFor(item.type)} tint={item.type} className="w-5 shrink-0" />
+        <ItemBottle item={item} className="w-6 shrink-0" />
       )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
+        <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-bronze">
           {item.producer}
         </p>
         <h3 className="truncate font-display text-title text-ink">

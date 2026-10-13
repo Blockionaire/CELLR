@@ -32,3 +32,12 @@ export const STORAGE_KIND_ORDER: readonly StorageKind[] = [
   "wall",
   "other",
 ];
+
+const HOUSE_PREFIX =
+  /^(ch[âa]teau|domaine|dom\.?|maison|bodegas?|weingut|tenuta|cantina|castello|clos|quinta|herdade|cave|the)\s+/i;
+
+/** The short producer mark typeset on a bottle without a label photo: "Château Léoville-Barton" → "LÉOVILLE". */
+export function labelMark(producer: string, wine: string): string {
+  const base = (producer || wine).trim().replace(HOUSE_PREFIX, "");
+  return (base.split(/[\s,–-]+/)[0] ?? "").toUpperCase().slice(0, 12);
+}

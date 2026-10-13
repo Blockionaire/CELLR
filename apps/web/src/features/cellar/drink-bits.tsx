@@ -7,12 +7,12 @@ import { cn } from "@/ui/cn";
 
 /** Decorative only: the words always say the same thing, in text. */
 export const PHASE_COLOUR: Record<DrinkPhase, string> = {
-  young: "#4b8fd6",
-  developing: "#54a86b",
-  peak: "#c9a227",
-  ready: "#d97b2b",
-  past: "#a04747",
-  unknown: "#8a8377",
+  young: "var(--young)",
+  developing: "var(--ready)",
+  peak: "var(--peak)",
+  ready: "var(--fading)",
+  past: "var(--danger)",
+  unknown: "var(--ink-3)",
 };
 
 /** "● At its best": where a wine stands in its window, in a few words. Nothing for a wine with no window. */
@@ -68,6 +68,32 @@ export function DrinkWindowBar({ drink }: { drink: DrinkSummary }) {
         <span className="text-caption">{t("today")}</span>
         <span>{drink.until}</span>
       </div>
+    </div>
+  );
+}
+
+/** A slim bar for tiles: the window on one shared timeline (4 years back … 20 ahead), a tick for today. */
+export function DrinkWindowMini({ drink, className }: { drink: DrinkSummary; className?: string }) {
+  if (drink.from === null || drink.until === null) return null;
+  const start = new Date().getFullYear() - 4;
+  const span = 24;
+  const clamp = (n: number) => Math.min(1, Math.max(0, n));
+  const left = clamp((drink.from - start) / span);
+  const right = clamp((drink.until + 1 - start) / span);
+  return (
+    <div className={cn("relative h-1 rounded-full bg-ink/10", className)} aria-hidden="true">
+      <span
+        className="absolute inset-y-0 rounded-full"
+        style={{
+          left: `${left * 100}%`,
+          width: `${Math.max(right - left, 0.04) * 100}%`,
+          background: PHASE_COLOUR[drink.phase],
+        }}
+      />
+      <span
+        className="absolute -top-[3px] h-2.5 w-0.5 rounded-full bg-ink"
+        style={{ left: `${(4 / span) * 100}%` }}
+      />
     </div>
   );
 }

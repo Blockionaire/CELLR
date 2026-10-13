@@ -23,8 +23,14 @@ const SWATCHES = [
   ["ink", "Text", "bg-ink"],
   ["ink-2", "Secondary text", "bg-ink-2"],
   ["ink-3", "Tertiary text", "bg-ink-3"],
-  ["accent", "Burgundy fill", "bg-accent"],
-  ["accent-fg", "Burgundy on dark (lines)", "bg-accent-fg"],
+  ["accent", "Action fill (burgundy / brass)", "bg-accent"],
+  ["accent-fg", "Action as line or link", "bg-accent-fg"],
+  ["peak", "Maturity: at its best", "bg-peak"],
+  ["ready", "Maturity: drink now", "bg-ready"],
+  ["young", "Maturity: still young", "bg-young"],
+  ["fading", "Maturity: fading", "bg-fading"],
+  ["stage-red", "Stage behind a red bottle", "bg-stage-red"],
+  ["stage-white", "Stage behind a white bottle", "bg-stage-white"],
   ["bronze", "Bronze (rare)", "bg-bronze"],
   ["danger", "Error text", "bg-danger"],
 ] as const;
@@ -65,12 +71,12 @@ export function Gallery({ initialTheme }: { initialTheme: ThemePreference }) {
       </div>
       <h1 className="mt-10 font-display text-display">Design system</h1>
       <p className="mt-3 max-w-prose text-body text-ink-2">
-        Calm, tactile, editorial. Few colours; the label and the bottle do the visual work.
+        Warm, tactile, editorial. The bottle is the hero; colour, glow and numbers support it.
       </p>
 
       <Block
         title="Colour"
-        note="Dark is the primary identity; ivory is the same tokens under light-dark()."
+        note="Two skins of one system under light-dark(): Maison (paper, burgundy) and Noir (near-black, brass)."
       >
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {SWATCHES.map(([name, role, cls]) => (
@@ -102,7 +108,7 @@ export function Gallery({ initialTheme }: { initialTheme: ThemePreference }) {
 
       <Block
         title="Buttons"
-        note="48px tall (one-hand), 8px radius, press feedback. Primary is the one action per screen."
+        note="48px tall (one-hand), pill shaped, press feedback. Primary is the one action per screen."
       >
         <div className="flex flex-wrap items-center gap-3">
           <Button>Open bottle</Button>
@@ -204,12 +210,12 @@ export function Gallery({ initialTheme }: { initialTheme: ThemePreference }) {
 
       <Block
         title="Bottles"
-        note="Reusable silhouettes: the placeholder wherever there is no photo, and the 3D view's fallback."
+        note="The CELLR bottle: glass, capsule and a paper label typeset from the producer, or the real label cut-out."
       >
         <div className="flex flex-wrap items-end gap-6">
           {SHAPES.map((s) => (
             <figure key={s} className="flex w-16 flex-col items-center gap-2">
-              <BottleGlyph shape={s} tint="red" />
+              <BottleGlyph shape={s} tint="red" mark="LÉOVILLE" year="2016" />
               <figcaption className="text-caption text-ink-3">{s}</figcaption>
             </figure>
           ))}
@@ -217,7 +223,7 @@ export function Gallery({ initialTheme }: { initialTheme: ThemePreference }) {
         <div className="mt-6 flex flex-wrap items-end gap-4">
           {TINTS.map((t) => (
             <figure key={t} className="flex w-10 flex-col items-center gap-2">
-              <BottleGlyph shape="bordeaux" tint={t} />
+              <BottleGlyph shape="bordeaux" tint={t} mark="CELLR" />
               <figcaption className="text-caption text-ink-3">{t}</figcaption>
             </figure>
           ))}

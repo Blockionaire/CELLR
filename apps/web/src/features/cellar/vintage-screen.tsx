@@ -34,7 +34,8 @@ import { NewPlaceSheet } from "./new-place-sheet";
 import { OpenBottleSheet } from "./open-bottle-sheet";
 import { RateSheet } from "./rate-sheet";
 import { TastingItem } from "./tasting-bits";
-import { placeLine, shapeFor } from "./wine-visuals";
+import { placeLine, shapeFor, labelMark } from "./wine-visuals";
+import { STAGE } from "./wine-card";
 
 type SheetName = "open" | "move" | "edit" | "place" | "merge" | null;
 
@@ -109,7 +110,9 @@ export function VintageScreen({
 
       <header className="mt-2 grid gap-6 md:grid-cols-[13rem_1fr] md:items-center">
         <div>
-          <div className="relative grid h-56 place-items-center overflow-hidden rounded-card bg-raised md:h-64">
+          <div
+            className={`relative grid place-items-center overflow-hidden rounded-card ${detail.image ? "h-56 bg-raised md:h-64" : `h-72 md:h-80 ${STAGE[wine.type]}`}`}
+          >
             {detail.image ? (
               <LabelImage
                 image={detail.image}
@@ -121,7 +124,9 @@ export function VintageScreen({
               <BottleGlyph
                 shape={shapeFor(wine.type)}
                 tint={wine.type}
-                className="h-44 w-auto md:h-52"
+                mark={labelMark(wine.producer, wine.name)}
+                year={formatVintage(detail.year)}
+                className="relative h-60 w-auto md:h-72"
                 title={tTypes(wine.type)}
               />
             )}

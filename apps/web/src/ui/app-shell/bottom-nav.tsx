@@ -15,7 +15,7 @@ export function BottomNav({ className }: { className?: string }) {
     <nav
       aria-label={t("label")}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-30 border-t border-hairline bg-canvas pb-safe lg:hidden",
+        "fixed inset-x-0 bottom-0 z-30 border-t border-hairline bg-canvas/90 backdrop-blur-xl pb-safe lg:hidden",
         className,
       )}
     >
@@ -36,7 +36,7 @@ export function BottomNav({ className }: { className?: string }) {
                   // Same footprint as the other icons, so every label shares one baseline;
                   // the button itself is lifted out of the bar.
                   <span className="relative h-6 w-full">
-                    <span className="absolute -top-7 left-1/2 grid size-14 -translate-x-1/2 place-items-center rounded-[18px] bg-accent text-accent-ink shadow-raised transition-transform duration-150 ease-cellr active:scale-95">
+                    <span className="absolute -top-7 left-1/2 grid size-14 -translate-x-1/2 place-items-center rounded-full bg-accent text-accent-ink shadow-raised ring-4 ring-canvas transition-transform duration-150 ease-cellr active:scale-95">
                       <Icon size={26} />
                     </span>
                   </span>

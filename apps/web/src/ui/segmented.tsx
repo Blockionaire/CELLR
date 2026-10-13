@@ -51,7 +51,7 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className={cn("inline-flex rounded-control bg-raised p-1", className)}
+      className={cn("inline-flex rounded-full bg-raised p-1", className)}
     >
       {options.map((option, index) => {
         const selected = option.value === value;
@@ -68,7 +68,7 @@ export function Segmented<T extends string>({
             onClick={() => onChange(option.value)}
             onKeyDown={(e) => onKeyDown(e, index)}
             className={cn(
-              "relative h-9 min-w-16 rounded-[6px] px-4 text-small font-medium transition-colors duration-150",
+              "relative h-9 min-w-16 rounded-full px-4 text-small font-medium transition-colors duration-150",
               selected ? "text-ink" : "text-ink-2 hover:text-ink",
             )}
           >
@@ -76,7 +76,7 @@ export function Segmented<T extends string>({
               <motion.span
                 layoutId={`${group}-pill`}
                 transition={spring.snap}
-                className="absolute inset-0 rounded-[6px] bg-surface shadow-raised"
+                className="absolute inset-0 rounded-full bg-surface shadow-raised"
               />
             )}
             <span className="relative">{option.label}</span>
