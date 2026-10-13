@@ -16,21 +16,21 @@ need 5–10 reference screenshots from you (Oeni and anything else you love) —
 
 Screens captured with a realistic demo cellar (6 wines, a fridge, one opened and rated bottle), phone and desktop.
 
-| Area | Finding |
-|---|---|
-| Overall | Calm cream / burgundy / serif identity, but flat: every card is the same weight, no depth, no hierarchy. |
-| Bottles | Generic flat SVG glyphs everywhere. The label photo the user took is never shown on a bottle outside the 3D view. |
-| Home | Hero card + four text buttons + plain stat tiles. Nothing to look at, nothing that says "your cellar". |
-| Cellar | Header crowded: text links, search, filter and a 4-way segmented control compete. Cards have small, truncated metadata; no drink-window cue. |
-| Wine page | One long stack of equal-weight cards; the important things (stock, drink window, rate/open) are not first. |
-| Add / choose wine | Text-only list. No picture of what you are selecting. |
-| Insights | Correct but basic charts; no consistent chart language, little interaction. |
-| Chrome | Bottom tab bar overlaps content; sheets are plain; no page transitions; few micro-interactions. |
-| Strong already | 3D rack + showcase film with the blurred still rack; label cut-out and straightening; EN/NL parity; a11y tests. |
+| Area              | Finding                                                                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overall           | Calm cream / burgundy / serif identity, but flat: every card is the same weight, no depth, no hierarchy.                                     |
+| Bottles           | Generic flat SVG glyphs everywhere. The label photo the user took is never shown on a bottle outside the 3D view.                            |
+| Home              | Hero card + four text buttons + plain stat tiles. Nothing to look at, nothing that says "your cellar".                                       |
+| Cellar            | Header crowded: text links, search, filter and a 4-way segmented control compete. Cards have small, truncated metadata; no drink-window cue. |
+| Wine page         | One long stack of equal-weight cards; the important things (stock, drink window, rate/open) are not first.                                   |
+| Add / choose wine | Text-only list. No picture of what you are selecting.                                                                                        |
+| Insights          | Correct but basic charts; no consistent chart language, little interaction.                                                                  |
+| Chrome            | Bottom tab bar overlaps content; sheets are plain; no page transitions; few micro-interactions.                                              |
+| Strong already    | 3D rack + showcase film with the blurred still rack; label cut-out and straightening; EN/NL parity; a11y tests.                              |
 
 ## 3. Design principles
 
-1. **The bottle is the hero.** Wherever a wine appears it appears as a *picture of a bottle* in the right shape and
+1. **The bottle is the hero.** Wherever a wine appears it appears as a _picture of a bottle_ in the right shape and
    colour, with the real label when we have it.
 2. **One primary action per screen**, visually unmistakable. Everything else is secondary or lives in a menu.
 3. **Depth with restraint**: a small elevation scale, soft shadows, tinted surfaces per wine type — never decoration.
@@ -44,13 +44,13 @@ Screens captured with a realistic demo cellar (6 wines, a fridge, one opened and
 Oeni-class apps feel rich because every wine has a bottle picture. We can't (and shouldn't) scrape Vivino or others:
 their photos are copyrighted and their terms forbid it. Options:
 
-| | Source | Pros | Cons |
-|---|---|---|---|
-| **A. Bottle sprite (recommended)** | Our own layered SVG/canvas bottle: silhouette by bottle shape (bordeaux, burgundy, flute, …), glass colour and foil by wine type, **the user's straightened label cut-out as the label**, cylinder shading + highlight on top. Without a label photo: a typographic label from producer/name in our style (clearly generated, never a fake of the real label). | No licence, no cost, no migration, instant in lists of 100+ wines, consistent look, uses what we already store (`texture_path`). | Looks as good as the label photo; wines without a scan look "designed", not photographed. |
-| B. Own photo | The user's front photo, cut out. | Real. | Uneven quality/background; not uniform in a grid. |
-| C. Licensed catalogue | A paid image/wine data provider. | Looks like a store. | Cost, licence per use, matching errors. (TinEye WineEngine, [docs](https://help.tineye.com/article/201-what-is-wineengine), is *recognition* against a label set you supply — not a catalogue.) |
-| D. Shared community cut-outs | A label cut-out one household made is reused for the same wine by others. | Gets richer with users. | Privacy/copyright to settle; only after going commercial. |
-| E. AI-generated labels | — | — | **No.** A made-up label for a real wine is misinformation. |
+|                                    | Source                                                                                                                                                                                                                                                                                                                                                         | Pros                                                                                                                             | Cons                                                                                                                                                                                            |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. Bottle sprite (recommended)** | Our own layered SVG/canvas bottle: silhouette by bottle shape (bordeaux, burgundy, flute, …), glass colour and foil by wine type, **the user's straightened label cut-out as the label**, cylinder shading + highlight on top. Without a label photo: a typographic label from producer/name in our style (clearly generated, never a fake of the real label). | No licence, no cost, no migration, instant in lists of 100+ wines, consistent look, uses what we already store (`texture_path`). | Looks as good as the label photo; wines without a scan look "designed", not photographed.                                                                                                       |
+| B. Own photo                       | The user's front photo, cut out.                                                                                                                                                                                                                                                                                                                               | Real.                                                                                                                            | Uneven quality/background; not uniform in a grid.                                                                                                                                               |
+| C. Licensed catalogue              | A paid image/wine data provider.                                                                                                                                                                                                                                                                                                                               | Looks like a store.                                                                                                              | Cost, licence per use, matching errors. (TinEye WineEngine, [docs](https://help.tineye.com/article/201-what-is-wineengine), is _recognition_ against a label set you supply — not a catalogue.) |
+| D. Shared community cut-outs       | A label cut-out one household made is reused for the same wine by others.                                                                                                                                                                                                                                                                                      | Gets richer with users.                                                                                                          | Privacy/copyright to settle; only after going commercial.                                                                                                                                       |
+| E. AI-generated labels             | —                                                                                                                                                                                                                                                                                                                                                              | —                                                                                                                                | **No.** A made-up label for a real wine is misinformation.                                                                                                                                      |
 
 **Plan:** A everywhere now (with B as the "photo" tab on the wine page). C/D are an optional later layer, behind the same
 `<Bottle>` component, so nothing else changes when/if we add them. A later upgrade is a pre-rendered 3D still of the same
@@ -60,7 +60,7 @@ bottle for the hero (needs a small migration; not now).
 
 - Screenshots, phone 390×844 and desktop 1280×800, light and dark, **en and nl**, shown to you at each checkpoint.
 - `tsc`, ESLint (architecture + React-compiler rules), axe a11y in light + dark, i18n parity test.
-- Targeted e2e for what the step touches. Redesign changes markup, so existing specs are updated *with* the step;
+- Targeted e2e for what the step touches. Redesign changes markup, so existing specs are updated _with_ the step;
   accessible names stay stable wherever possible. A full suite run only at the end of D3 and D12 — or when you ask.
 - Perf budget: no new heavy dependency (charts stay hand-built SVG); LCP/INP checked on the cellar and wine pages.
 - No schema changes unless a step says so; if one does, I give you the SQL and the app keeps working until you run it.
@@ -69,7 +69,7 @@ bottle for the hero (needs a small migration; not now).
 
 Each step is one checkpoint (own commit, screenshots, report in the usual 4 parts).
 
-**D0 — Direction & references** *(needs you)*
+**D0 — Direction & references** _(needs you)_
 Reference screenshots; pick a direction from two "style tiles" I build on the real home + cellar screens
 (A: warm cream/burgundy "modern classic", B: dark "cellar noir" default). Output: the decided palette, type pair, radius/shadow feel.
 
@@ -87,9 +87,9 @@ typographic fallback); skeleton; shared across every screen. Visual tests per sh
 Buttons (clear hierarchy, press feedback), cards (tile / row / hero variants), sheets (grab handle, drag to dismiss,
 snap points), segmented/chips/inputs/steppers, toasts, illustrated empty states, swipe actions on rows, collapsing large
 headers, bottom bar that no longer covers content, page / shared-element transitions (View Transitions API where
-available, graceful otherwise). *Full-suite checkpoint.*
+available, graceful otherwise). _Full-suite checkpoint._
 
-**D4 — Cellar** *(the most visible screen)*
+**D4 — Cellar** _(the most visible screen)_
 Grid of bottle tiles by default (2 columns phone, 4–6 desktop), list view, sticky search + filter chips + sort sheet,
 group by type / region / producer / drink window, drink-window ribbon and count badge on tiles, header reduced to one
 primary action + an overflow menu (Wishlist / History / Insights move there or into a nav row). Desktop: master–detail.
@@ -126,7 +126,7 @@ visual pickers, account/household screens.
 
 **D12 — Polish & hardening**
 Micro-interactions, loading/skeleton pass, perf and bundle check, full a11y, nl/en overflow sweep, visual baselines for the
-key screens, final screenshot set. *Full-suite checkpoint.*
+key screens, final screenshot set. _Full-suite checkpoint._
 
 Order of visible payoff: D0–D3 are the base (D2 already makes the cellar look different), D4–D6 are the screens users
 see all day, D7–D9 the flows and "wow" charts, D10–D12 finish.
