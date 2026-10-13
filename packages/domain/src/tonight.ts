@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { CellarItem, WineType } from "./cellar";
+import type { Reservation } from "./insights";
 import { DISH_IDS, dishById, scorePairing, type DishId, type MatchReason } from "./pairing";
 
 /**
@@ -225,6 +226,8 @@ export interface TonightPickView {
   count: number;
   place: { label: string; row: number; col: number } | null;
   drinkPhase: CellarItem["drink"]["phase"];
+  /** Some of these bottles are kept for an occasion (the one to open is never one of them, when there is a choice). */
+  reserved?: Reservation | null;
 }
 
 export interface TonightView {

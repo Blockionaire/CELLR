@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ReservedNote } from "@/features/cellar/reserved-note";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import {
@@ -253,6 +254,8 @@ function PickCard({ pick, dishName }: { pick: TonightPickView; dishName: string 
           </li>
         ))}
       </ul>
+
+      <ReservedNote reserved={pick.reserved} count={pick.count} />
 
       <p className="rounded-control bg-raised px-4 py-3 text-small text-ink">
         {pick.place

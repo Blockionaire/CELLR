@@ -29,6 +29,7 @@ import {
   type PlacedBottle,
   type OpenedEntry,
   type RackView,
+  type Reservation,
   type SaveTasting,
   type StorageUnitView,
   type TastingView,
@@ -321,8 +322,27 @@ export function buildRacks(units: StorageUnitView[], rows: InventoryRow[]): Rack
 
 export function createCellarService(
   repo: CellarRepository,
-  { userId, now = () => new Date() }: { userId: string; now?: () => Date },
+  {
+    userId,
+    now = () => new Date(),
+    reservations,
+  }: {
+    userId: string;
+    now?: () => Date;
+    /** Bottles kept for an occasion, so a suggestion can say so. Missing or failing = nothing is reserved. */
+    reservations?: () => Promise<{
+      vintages: ReadonlyMap<string, Reservation>;
+      bottles: ReadonlySet<string>;
+    }>;
+  },
 ) {
+  const reserved = () =>
+    reservations
+      ? reservations().catch(() => ({
+          vintages: new Map<string, Reservation>(),
+          bottles: new Set<string>(),
+        }))
+      : Promise.resolve({ vintages: new Map<string, Reservation>(), bottles: new Set<string>() });
   async function household(): Promise<ActiveHousehold> {
     const h = await repo.getActiveHousehold(userId);
     if (!h) throw new DomainError("NOT_FOUND", "Create or join a household first.");
@@ -388,7 +408,30 @@ export function createCellarService(
         repo.listFavoriteWineIds(userId),
         repo.listScores(id),
       ]);
-      return buildTonight(rows, new Set(favorites), scores, request, now());
+      const view = buildTonight(rows, new Set(favorites), scores, request, now());
+      const kept = await reserved();
+      return {
+        ...view,
+        picks: view.picks.map((pick) => {
+          const reservation = kept.vintages.get(pick.vintageId) ?? null;
+          if (!reservation || !kept.bottles.has(pick.bottleId))
+            return { ...pick, reserved: reservation };
+          // The easiest bottle is the one being kept: offer another bottle of the same wine, if there is one.
+          const free = rows.find(
+            (r) => r.vintageId === pick.vintageId && !kept.bottles.has(r.bottleId),
+          );
+          if (!free) return { ...pick, reserved: reservation };
+          return {
+            ...pick,
+            bottleId: free.bottleId,
+            place:
+              free.locationLabel && free.row !== null && free.col !== null
+                ? { label: free.locationLabel, row: free.row, col: free.col }
+                : null,
+            reserved: reservation,
+          };
+        }),
+      };
     },
 
     /** Home: the cellar at a glance. */
@@ -475,7 +518,12 @@ export function createCellarService(
         repo.listFavoriteWineIds(userId),
         repo.listScores(id),
       ]);
-      return aggregateInventory(rows, new Set(favorites), scores, now());
+      const view = aggregateInventory(rows, new Set(favorites), scores, now());
+      const kept = await reserved();
+      return {
+        ...view,
+        items: view.items.map((i) => ({ ...i, reserved: kept.vintages.get(i.vintageId) ?? null })),
+      };
     },
 
     /**

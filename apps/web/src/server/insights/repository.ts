@@ -112,6 +112,33 @@ export function createInsightsRepository(db: Db): InsightsRepository {
       });
     },
 
+    async reservedBottles(householdId) {
+      const { data, error } = await allRows((a, b) =>
+        db
+          .from("bottle_extras")
+          .select("bottle_id, occasion_title, occasion_on, bottles!inner(status, vintage_id)")
+          .eq("household_id", householdId)
+          .eq("bottles.status", "in_cellar")
+          .not("occasion_title", "is", null)
+          .order("bottle_id")
+          .range(a, b),
+      );
+      if (error && isMissingTable(error)) return null;
+      if (error) throw mapDbError(error);
+      return data.flatMap((r) =>
+        r.occasion_title
+          ? [
+              {
+                bottleId: r.bottle_id,
+                vintageId: r.bottles.vintage_id,
+                title: r.occasion_title,
+                on: r.occasion_on,
+              },
+            ]
+          : [],
+      );
+    },
+
     async listExtras(bottleIds) {
       if (bottleIds.length === 0) return [];
       const { data, error } = await db

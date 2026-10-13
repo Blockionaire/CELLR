@@ -1058,5 +1058,11 @@
     "permanent": "This can't be undone.",
     "go": "Merge into {target}",
     "done": "{count, plural, one {# bottle moved.} other {# bottles moved.}}"
+  },
+  "reserved": {
+    "all": "Kept for {title}",
+    "allDated": "Kept for {title} · {when}",
+    "some": "{reserved} of {total} kept for {title}",
+    "someDated": "{reserved} of {total} kept for {title} · {when}"
   }
 }

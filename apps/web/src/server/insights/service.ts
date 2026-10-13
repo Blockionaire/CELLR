@@ -7,6 +7,7 @@ import {
   REMINDER_BEHIND_DAYS,
   type BottleExtras,
   type BottleExtrasView,
+  type Reservation,
   type RemindersView,
   type VintageDetail,
   type VintageInsightView,
@@ -164,6 +165,31 @@ export function createInsightsService(deps: InsightsDeps) {
       if (!(await deps.repo.saveExtras(id, bottleId, extras)))
         throw new DomainError("INTERNAL", NOT_READY);
       return { bottleId, ...extras };
+    },
+
+    /**
+     * Which bottles are kept for an occasion that hasn't passed yet, and per wine how many and for what (the soonest).
+     * Never fails the screen that asks: with the database step not taken it is simply empty.
+     */
+    async reservations(): Promise<{
+      vintages: ReadonlyMap<string, Reservation>;
+      bottles: ReadonlySet<string>;
+    }> {
+      const { id } = await deps.household();
+      const rows = (await deps.repo.reservedBottles(id)) ?? [];
+      const now = today();
+      const live = rows.filter((r) => r.on === null || r.on >= now);
+      const vintages = new Map<string, Reservation>();
+      for (const r of live) {
+        const have = vintages.get(r.vintageId);
+        const sooner = !have || (r.on !== null && (have.on === null || r.on < have.on));
+        vintages.set(r.vintageId, {
+          count: (have?.count ?? 0) + 1,
+          title: sooner ? r.title : have.title,
+          on: sooner ? r.on : have.on,
+        });
+      }
+      return { vintages, bottles: new Set(live.map((r) => r.bottleId)) };
     },
 
     /** Bottles being kept for a day that is coming (or just passed). */

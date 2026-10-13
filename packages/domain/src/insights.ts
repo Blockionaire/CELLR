@@ -48,6 +48,19 @@ export const NO_EXTRAS: BottleExtras = {
   occasionOn: null,
 };
 
+/**
+ * Bottles of one wine that are kept for an occasion (and not yet past it): so Tonight and the sommelier can say
+ * "this one is reserved for Christmas dinner" instead of suggesting it blindly.
+ */
+export interface Reservation {
+  /** How many bottles of the wine are reserved. */
+  count: number;
+  /** The soonest occasion. */
+  title: string;
+  /** Its day, or null when no day was given. */
+  on: string | null;
+}
+
 /** A bottle being kept for something: shown on Home when it is near, and on the wine itself. */
 export interface Reminder {
   bottleId: string;

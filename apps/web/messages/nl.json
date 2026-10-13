@@ -1058,5 +1058,11 @@
     "permanent": "Dit kan niet ongedaan worden gemaakt.",
     "go": "Voeg samen in {target}",
     "done": "{count, plural, one {# fles verplaatst.} other {# flessen verplaatst.}}"
+  },
+  "reserved": {
+    "all": "Bewaard voor {title}",
+    "allDated": "Bewaard voor {title} · {when}",
+    "some": "{reserved} van {total} bewaard voor {title}",
+    "someDated": "{reserved} van {total} bewaard voor {title} · {when}"
   }
 }

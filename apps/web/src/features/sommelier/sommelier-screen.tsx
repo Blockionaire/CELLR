@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ReservedNote } from "@/features/cellar/reserved-note";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import {
@@ -239,6 +240,7 @@ function BottleCard({ bottle }: { bottle: SommelierBottle }) {
         <span className="tnum">{formatVintage(bottle.year)}</span>
         {where && <span> · {where}</span>}
       </span>
+      <ReservedNote reserved={bottle.reserved} count={bottle.count} className="mt-1" />
       <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-ink-3">
         <span>{t("bottles", { count: bottle.count })}</span>
         {bottle.places[0] && <span>{bottle.places[0]}</span>}
