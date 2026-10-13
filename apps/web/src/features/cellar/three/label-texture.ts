@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { WineType } from "@cellr/domain";
+import { clampLabelAspect, type WineType } from "@cellr/domain";
 import { wrapLines } from "./layout";
 
 /** What is printed on a bottle's front label. */
@@ -13,6 +13,8 @@ export interface LabelSpec {
   type: WineType;
   /** A photo of the real label: when there is one, the bottle wears that instead of the drawn label. */
   photoUrl?: string | null | undefined;
+  /** The photo is already just the label, straightened: wear all of it, in its own proportions. */
+  textured?: boolean | undefined;
 }
 
 export const LABEL_W = 640;
@@ -209,16 +211,22 @@ export async function makeLabelTexture(spec: LabelSpec, maxAnisotropy = 8): Prom
     spec.photoUrl ? loadPhoto(spec.photoUrl) : null,
     fontsReady(),
   ]);
+  // A straightened label keeps its own shape; anything else is the usual drawn or cropped label.
+  const flat = spec.textured && photo ? clampLabelAspect(photo.width, photo.height) : null;
   const canvas = document.createElement("canvas");
-  canvas.width = LABEL_W;
+  canvas.width = flat ? Math.round(LABEL_H * flat) : LABEL_W;
   canvas.height = LABEL_H;
   const ctx = canvas.getContext("2d");
   if (ctx) {
-    if (photo) drawPhoto(ctx, photo);
+    if (photo && flat) {
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
+    } else if (photo) drawPhoto(ctx, photo);
     else drawLabel(ctx, spec);
   }
   photo?.close();
   const texture = new THREE.CanvasTexture(canvas);
+  texture.userData = { aspect: flat ?? LABEL_ASPECT };
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = maxAnisotropy;
   texture.needsUpdate = true;

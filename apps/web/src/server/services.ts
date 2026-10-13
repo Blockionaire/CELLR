@@ -21,6 +21,9 @@ import { createRateLimitRepository } from "@/server/ratelimit/repository";
 import { createRateLimiter, LIMITS } from "@/server/ratelimit/service";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
+import { createStatsService } from "@/server/stats/service";
+import { createInsightsRepository } from "@/server/insights/repository";
+import { createInsightsService } from "@/server/insights/service";
 import { createWishlistRepository } from "@/server/wishlist/repository";
 import { createWishlistService } from "@/server/wishlist/service";
 
@@ -42,6 +45,7 @@ export function servicesFor(ctx: RequestContext) {
     userId: ctx.userId,
     email: ctx.email,
   });
+  const insightsRepo = createInsightsRepository(ctx.db);
   const wishlist = createWishlistService({
     repo: createWishlistRepository(ctx.db),
     household,
@@ -91,6 +95,23 @@ export function servicesFor(ctx: RequestContext) {
           .map((w) => ({ producer: w.producer, wine: w.name }));
       },
       wishlist: () => wishlist.list(),
+    }),
+    stats: createStatsService({
+      household,
+      rows: (id) => cellars.listInventory(id),
+      opened: (id) => cellars.listRecentlyOpened(id, 1000),
+      scores: (id) => cellars.listScores(id),
+      values: async (id) => (await insightsRepo.listValues(id)) ?? [],
+    }),
+    insights: createInsightsService({
+      repo: insightsRepo,
+      household,
+      vintage: (vintageId) => cellar.vintage(vintageId),
+      locale: async () => (await households.me()).locale,
+      llm: getLlmProvider(),
+      spend: () => limiter.enforce(LIMITS.insights),
+      recordUsage: ({ householdId, task, status, usage }) =>
+        recordAiUsage({ userId: ctx.userId, householdId, task, status, ...usage }),
     }),
     sommelier: createSommelierService({
       cellar: () => cellar.inventory(),

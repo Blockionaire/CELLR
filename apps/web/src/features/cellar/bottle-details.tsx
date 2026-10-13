@@ -4,6 +4,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useState, type FormEvent, type ReactNode } from "react";
 import {
   AddBottlesSchema,
+  BottleExtrasSchema,
   ERROR_MESSAGES,
   MAX_BOTTLES_PER_ADD,
   parseMoneyToCents,
@@ -15,6 +16,14 @@ import { errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { Field } from "@/ui/field";
+import {
+  draftToInput,
+  EMPTY_DRAFT,
+  ExtrasFields,
+  hasDraft,
+  type ExtrasDraft,
+} from "@/features/insights/extras-fields";
+import { api } from "@/lib/api";
 import { PlusIcon } from "@/ui/icons";
 import { Stepper } from "@/ui/stepper";
 import { cn } from "@/ui/cn";
@@ -76,15 +85,19 @@ export function BottleDetails({
   const [chosenPlace, setChosenPlace] = useState<string | null | undefined>(preferredPlaceId);
   const [priceText, setPriceText] = useState("");
   const [date, setDate] = useState("");
+  const [shop, setShop] = useState("");
+  const [extras, setExtras] = useState<ExtrasDraft>(EMPTY_DRAFT);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const units: StorageUnitView[] = storage.data ?? [];
-  const placeId =
-    chosenPlace !== undefined && (chosenPlace === null || units.some((u) => u.id === chosenPlace))
+  /** The place bottles go: the one chosen, else the first with room for all of them, else any with room. */
+  const placeIn = (list: StorageUnitView[]): string | null =>
+    chosenPlace !== undefined && (chosenPlace === null || list.some((u) => u.id === chosenPlace))
       ? chosenPlace
-      : (units.find((u) => u.free >= quantity)?.id ?? units.find((u) => u.free > 0)?.id ?? null);
+      : (list.find((u) => u.free >= quantity)?.id ?? list.find((u) => u.free > 0)?.id ?? null);
+  const placeId = placeIn(units);
   const unit = units.find((u) => u.id === placeId) ?? null;
 
   const thisYear = new Date().getFullYear();
@@ -102,18 +115,30 @@ export function BottleDetails({
     setSubmitted(true);
     setError(null);
     if (year === undefined || priceCents === undefined) return;
+    // Saved before the places had loaded? Wait for them, so the bottles go where the form would have offered.
+    const target = storage.isPending ? placeIn((await storage.refetch()).data ?? []) : placeId;
     const parsed = AddBottlesSchema.safeParse({
       wineId: wine.id,
       year,
       quantity,
-      locationId: placeId,
+      locationId: target,
       priceCents,
       purchasedAt: date || null,
+      purchasedFrom: extras.acquiredHow === "gift" ? null : shop,
       ...(imageId ? { imageId } : {}),
     });
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+    const extrasParsed = BottleExtrasSchema.safeParse(draftToInput(extras));
+    if (!extrasParsed.success) return setError(extrasParsed.error.issues[0]?.message ?? null);
     try {
-      onDone(await add.mutateAsync(parsed.data), placeId);
+      const result = await add.mutateAsync(parsed.data);
+      // What you know about these bottles (a gift? kept for a day?) is saved right after; the bottles are
+      // already in the cellar, so a failure here can't undo them: it can be set again from the wine's page.
+      if (hasDraft(extras))
+        await Promise.allSettled(
+          result.bottleIds.map((id) => api.put(`/bottles/${id}/extras`, extrasParsed.data)),
+        );
+      onDone(result, target);
     } catch (e) {
       setError(errorMessage(e, (k) => te(k), ERROR_MESSAGES));
     }
@@ -254,7 +279,17 @@ export function BottleDetails({
             <summary className="cursor-pointer select-none py-2 text-small font-medium text-ink-2">
               {t("moreDetails")}
             </summary>
-            <div className="pt-3">
+            <div className="flex flex-col gap-5 pt-3">
+              <ExtrasFields value={extras} onChange={setExtras} />
+              {extras.acquiredHow !== "gift" && (
+                <Field
+                  label={t("shopLabel")}
+                  placeholder={t("shopPlaceholder")}
+                  maxLength={120}
+                  value={shop}
+                  onChange={(e) => setShop(e.target.value)}
+                />
+              )}
               <Field
                 label={t("dateLabel")}
                 type="date"

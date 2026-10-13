@@ -8,28 +8,35 @@ import {
   historyEvents,
   summarizePlaces,
   summarizeScores,
+  type BottleExtrasView,
   type BottleView,
   type VintageDetail,
 } from "@cellr/domain";
+import { BulkBar } from "./bulk-bottles";
+import { BottleExtrasSheet } from "@/features/insights/bottle-extras-sheet";
+import { useExtras } from "@/features/insights/hooks";
+import { InsightCard } from "@/features/insights/insight-card";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { Stars } from "@/ui/stars";
 import { Button, buttonStyles } from "@/ui/button";
 import { ChevronRightIcon, PlusIcon } from "@/ui/icons";
 import { BottleSpot, useDay, useMoney } from "./bottle-bits";
-import { DrinkWindowBar, DrinkLabel } from "./drink-bits";
+import { DrinkLabel } from "./drink-bits";
+import { DrinkChart } from "./drink-chart";
 import { EditSheet } from "./edit-sheet";
 import { FavoriteButton } from "./favorite-button";
 import { LabelImage } from "./label-image";
 import { LabelPhotoActions } from "./label-photo-actions";
 import { useVintage } from "./hooks";
 import { MoveBottleSheet } from "./move-bottle-sheet";
+import { MergeWineSheet } from "./merge-wine-sheet";
 import { NewPlaceSheet } from "./new-place-sheet";
 import { OpenBottleSheet } from "./open-bottle-sheet";
 import { RateSheet } from "./rate-sheet";
 import { TastingItem } from "./tasting-bits";
 import { placeLine, shapeFor } from "./wine-visuals";
 
-type SheetName = "open" | "move" | "edit" | "place" | null;
+type SheetName = "open" | "move" | "edit" | "place" | "merge" | null;
 
 /**
  * One vintage of one wine. The wine comes first (name, producer, year, region), then how many you
@@ -57,6 +64,17 @@ export function VintageScreen({
   const [rating, setRating] = useState<BottleView | null>(
     () => initial.opened.find((b) => b.id === initialRate) ?? null,
   );
+  const [extrasFor, setExtrasFor] = useState<BottleView | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<readonly string[]>([]);
+  const tBulk = useTranslations("bulk");
+  const stopSelecting = () => {
+    setSelecting(false);
+    setPicked([]);
+  };
+  const tExtras = useTranslations("bottleExtras");
+  const extras = useExtras(initial.vintageId);
+  const extrasOf = (bottleId: string) => extras.data?.items.find((e) => e.bottleId === bottleId);
   const money = useMoney(detail.currency ?? currency);
   const day = useDay();
 
@@ -108,7 +126,7 @@ export function VintageScreen({
               />
             )}
           </div>
-          <LabelPhotoActions vintageId={detail.vintageId} hasPhoto={detail.image !== null} />
+          <LabelPhotoActions vintageId={detail.vintageId} side="front" image={detail.image} />
         </div>
         <div className="min-w-0">
           <p className="text-caption font-medium uppercase tracking-[0.14em] text-ink-3">
@@ -190,10 +208,51 @@ export function VintageScreen({
                   </span>
                 ))}
               </p>
+              {count > 1 && (
+                <div className="mt-3 flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
+                  >
+                    {selecting ? tBulk("done") : tBulk("select")}
+                  </Button>
+                  {selecting && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        setPicked(picked.length === count ? [] : detail.bottles.map((b) => b.id))
+                      }
+                    >
+                      {picked.length === count ? tBulk("selectNone") : tBulk("selectAll")}
+                    </Button>
+                  )}
+                </div>
+              )}
+              {selecting && <BulkBar detail={detail} selected={picked} onDone={stopSelecting} />}
               <ul className="mt-4 divide-y divide-hairline" aria-label={t("bottlesTitle")}>
                 {detail.bottles.map((b) => (
-                  <li key={b.id} className="flex items-center justify-between gap-3 py-3">
+                  <li
+                    key={b.id}
+                    className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3"
+                  >
                     <span className="flex items-center gap-3 text-body text-ink">
+                      {selecting && (
+                        <input
+                          type="checkbox"
+                          checked={picked.includes(b.id)}
+                          onChange={(e) =>
+                            setPicked((p) =>
+                              e.target.checked ? [...p, b.id] : p.filter((id) => id !== b.id),
+                            )
+                          }
+                          aria-label={tBulk("pick", {
+                            spot: b.locationLabel ?? tExtras("unplaced"),
+                          })}
+                          className="size-5 accent-[var(--accent)]"
+                        />
+                      )}
                       <BottleGlyph
                         shape={shapeFor(wine.type)}
                         tint={wine.type}
@@ -203,9 +262,24 @@ export function VintageScreen({
                         <BottleSpot bottle={b} short={places.length <= 1} />
                       </span>
                     </span>
-                    {b.priceCents !== null && (
-                      <span className="text-small text-ink-2 tnum">{money(b.priceCents)}</span>
-                    )}
+                    <span className="flex items-center gap-3">
+                      {b.priceCents !== null && (
+                        <span className="text-small text-ink-2 tnum">{money(b.priceCents)}</span>
+                      )}
+                      {extras.data?.ready && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={tExtras("editLabel", {
+                            spot: b.locationLabel ?? tExtras("unplaced"),
+                          })}
+                          onClick={() => setExtrasFor(b)}
+                        >
+                          {tExtras("edit")}
+                        </Button>
+                      )}
+                    </span>
+                    <BottleChips extras={extrasOf(b.id)} day={day} />
                   </li>
                 ))}
               </ul>
@@ -228,9 +302,34 @@ export function VintageScreen({
               years: Math.max(1, Math.ceil(detail.drink.yearsUntilOpen ?? 1)),
             })}
           </p>
-          <DrinkWindowBar drink={detail.drink} />
+          <DrinkChart drink={detail.drink} year={detail.year} opened={detail.opened} />
           <p className="mt-4 text-caption text-ink-2">{tDrink("estimate")}</p>
         </Section>
+
+        <Section title={tPhoto("backTitle")}>
+          <div className="flex items-start gap-4">
+            {detail.backImage && (
+              <LabelImage
+                image={detail.backImage}
+                size="thumb"
+                alt={tPhoto("backAlt", { wine: `${wine.producer} ${wine.name}` })}
+                className="h-28 w-auto rounded-control bg-raised"
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-body text-ink-2">
+                {detail.backImage ? tPhoto("backHave") : tPhoto("backBody")}
+              </p>
+              <LabelPhotoActions
+                vintageId={detail.vintageId}
+                side="back"
+                image={detail.backImage}
+              />
+            </div>
+          </div>
+        </Section>
+
+        <InsightCard vintageId={detail.vintageId} currency={detail.currency ?? currency} />
 
         {count > 0 && (
           <Section title={t("purchase")}>
@@ -261,6 +360,14 @@ export function VintageScreen({
                 : []),
             ]}
           />
+          <Button
+            className="mt-4 -ml-3"
+            size="sm"
+            variant="ghost"
+            onClick={() => setSheet("merge")}
+          >
+            {t("merge")}
+          </Button>
         </Section>
 
         {(detail.opened.length > 0 || detail.tastings.length > 0) && (
@@ -341,7 +448,19 @@ export function VintageScreen({
         detail={detail}
         onNewPlace={() => setSheet("place")}
       />
+      {extrasFor && (
+        <BottleExtrasSheet
+          key={extrasFor.id}
+          open
+          onClose={() => setExtrasFor(null)}
+          vintageId={detail.vintageId}
+          bottleId={extrasFor.id}
+          title={`${wine.name} ${formatVintage(detail.year)}`}
+          existing={extrasOf(extrasFor.id)}
+        />
+      )}
       <EditSheet open={sheet === "edit"} onClose={() => setSheet(null)} detail={detail} />
+      <MergeWineSheet open={sheet === "merge"} onClose={() => setSheet(null)} detail={detail} />
       <NewPlaceSheet
         open={sheet === "place"}
         onClose={() => setSheet("move")}
@@ -358,6 +477,38 @@ export function VintageScreen({
         />
       )}
     </div>
+  );
+}
+
+/** "A gift from Oma · Keeping it for Christmas dinner · 25 Dec 2026" under a bottle. */
+function BottleChips({
+  extras,
+  day,
+}: {
+  extras: BottleExtrasView | undefined;
+  day: (iso: string) => string;
+}) {
+  const t = useTranslations("bottleExtras");
+  if (!extras) return null;
+  const chips = [
+    extras.acquiredHow === "gift"
+      ? extras.giftFrom
+        ? t("chipGiftFrom", { name: extras.giftFrom })
+        : t("chipGift")
+      : extras.acquiredHow === "bought"
+        ? t("chipBought")
+        : null,
+    extras.occasionTitle
+      ? extras.occasionOn
+        ? t("chipOccasionOn", { title: extras.occasionTitle, day: day(extras.occasionOn) })
+        : t("chipOccasion", { title: extras.occasionTitle })
+      : null,
+  ].filter((c): c is string => c !== null);
+  if (chips.length === 0) return null;
+  return (
+    <p className="basis-full pl-6 text-small text-ink-2" data-testid="bottle-chips">
+      {chips.join(" · ")}
+    </p>
   );
 }
 

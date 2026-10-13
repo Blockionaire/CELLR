@@ -64,6 +64,15 @@ function fake(
     async getImageRef() {
       return null;
     },
+    async listGone() {
+      return [];
+    },
+    async mergeWines() {
+      return 0;
+    },
+    async latestImageRef() {
+      return null;
+    },
     async latestImageId() {
       return null;
     },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
 import {
@@ -13,6 +13,9 @@ import {
 import { errorMessage } from "@/lib/api";
 import { Button, buttonStyles } from "@/ui/button";
 import { Field } from "@/ui/field";
+import { Segmented } from "@/ui/segmented";
+import { isLocale, type Locale } from "@/i18n/config";
+import { rememberLocale } from "@/i18n/client";
 import { ThemeSelector, type ThemePreference } from "@/ui/theme";
 import { useToast } from "@/ui/toast";
 import { ConfirmSheet } from "./confirm-sheet";
@@ -27,6 +30,7 @@ import {
 } from "./hooks";
 import { DeleteAccountSheet } from "./delete-account-sheet";
 import { HouseholdSettings } from "./household-settings";
+import { HouseholdSwitcher } from "./household-switcher";
 import { InviteSheet } from "./invite-sheet";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -52,6 +56,7 @@ export function ProfileView({
   const te = useTranslations();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const activeLocale = useLocale();
 
   const { data: me = initialMe } = useMe(initialMe);
   const household = useHousehold(me.activeHouseholdId);
@@ -99,6 +104,22 @@ export function ProfileView({
       if (confirm.kind === "leave") window.location.assign("/");
     } catch (e) {
       setConfirm(null);
+      toast.show(message(e), { tone: "error" });
+    }
+  }
+
+  /** The profile keeps the choice (so every device follows); this device switches right away. */
+  async function changeLanguage(locale: Locale) {
+    try {
+      await updateProfile.mutateAsync({ locale });
+      rememberLocale(locale);
+      try {
+        sessionStorage.setItem("cellr-locale-sync", locale);
+      } catch {
+        // fine without it
+      }
+      window.location.reload();
+    } catch (e) {
       toast.show(message(e), { tone: "error" });
     }
   }
@@ -186,6 +207,10 @@ export function ProfileView({
         </Section>
       )}
 
+      <Section title={t("yourHouseholds")}>
+        <HouseholdSwitcher me={me} />
+      </Section>
+
       {active && isOwner && (
         <Section title={t("householdSettings")}>
           {/* Remounted when the household changes, so the fields start from what is saved. */}
@@ -217,6 +242,16 @@ export function ProfileView({
       </Section>
 
       <Section title={t("appearanceSection")}>
+        <Segmented<Locale>
+          label={t("languageLabel")}
+          value={isLocale(activeLocale) ? activeLocale : "en"}
+          onChange={changeLanguage}
+          options={[
+            { value: "en", label: t("languageEnglish") },
+            { value: "nl", label: t("languageDutch") },
+          ]}
+          className="mb-4 self-start"
+        />
         <ThemeSelector
           label={t("themeLabel")}
           initial={initialTheme}

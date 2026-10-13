@@ -79,6 +79,8 @@ export function Showcase({
   const [label, setLabel] = useState<THREE.Texture | null>(null);
 
   const { bottle } = shown;
+  // A straightened photo of the real label has its own proportions; the wrap follows them.
+  const labelAspect = (label?.userData as { aspect?: number } | undefined)?.aspect ?? LABEL_ASPECT;
   const spec = SHAPES[bottle.shape];
 
   // ---- What it is made of ------------------------------------------------------------------------------------
@@ -91,7 +93,7 @@ export function Showcase({
     const to = Math.min(spec.bodyEnd - 0.04, 0.48) * BOTTLE_LENGTH;
     const radius = spec.radius + 0.008;
     // The label wraps just far enough round the glass to keep the picture's proportions.
-    const arc = Math.min(2.6, (LABEL_ASPECT * (to - from)) / radius);
+    const arc = Math.min(2.6, (labelAspect * (to - from)) / radius);
     const wrap = (thetaStart: number, thetaLength: number) => {
       const g = new THREE.CylinderGeometry(
         radius,
@@ -117,7 +119,7 @@ export function Showcase({
     );
     cap.translate(0, capFrom + (BOTTLE_LENGTH - capFrom - 0.012) / 2, 0);
     return { body, front, back, cap };
-  }, [bottle.shape, spec]);
+  }, [bottle.shape, spec, labelAspect]);
 
   const shadowTexture = useMemo(() => makeShadowTexture(), []);
 

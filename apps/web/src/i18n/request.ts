@@ -1,11 +1,11 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getRequestConfig } from "next-intl/server";
-import { DEFAULT_LOCALE, isLocale, LOCALE_COOKIE } from "./config";
+import { isLocale, LOCALE_COOKIE, pickLocale } from "./config";
 
-// No locale in the URL: the person's choice lives in a cookie (synced from their profile), so
-// routes stay identical for web, installed PWA and a future native app. Dutch arrives in Phase 7.
+// No locale in the URL: the person's choice lives in a cookie (synced from their profile), so routes stay
+// identical for web, installed PWA and a future native app. Without a choice yet, the browser's language decides.
 export default getRequestConfig(async () => {
   const stored = (await cookies()).get(LOCALE_COOKIE)?.value;
-  const locale = isLocale(stored) ? stored : DEFAULT_LOCALE;
+  const locale = isLocale(stored) ? stored : pickLocale((await headers()).get("accept-language"));
   return { locale, messages: (await import(`../../messages/${locale}.json`)).default };
 });

@@ -66,7 +66,7 @@ test.describe("when to drink it", () => {
     const section = page.locator("section", {
       has: page.getByRole("heading", { name: "When to drink it" }),
     });
-    await expect(section.getByText("At its best")).toBeVisible();
+    await expect(section.getByText("At its best").first()).toBeVisible();
     await expect(section.getByTestId("drink-explain")).toContainText("the stretch it was made for");
     // The window: 3–10 years after the harvest.
     await expect(section.getByText(String(THIS_YEAR - 3), { exact: true })).toBeVisible();

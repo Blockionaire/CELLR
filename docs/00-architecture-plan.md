@@ -655,6 +655,11 @@ first deploy is the real test. [`SETUP.md`](SETUP.md) is the checklist.
 | Wijnkelder importer, perf harness (500 / 2000 bottles)  | perf test also asserts _completeness_ (see 2 below)                                               |
 | Label photos, AI scan, Sommelier chat, wishlist         | every AI step has a non-AI fallback; the person never loses the photo or the question             |
 | Household settings, export my data, delete my account   | typed-name / typed-email confirmation; photos purged with the household                           |
+| Dutch version, chosen in the profile                    | every message translated; a test keeps both languages in step (keys and placeholders)             |
+| Wine profile by AI, own value, bought/gift, reminders   | an estimate, always labelled; implausible values dropped in code; reminders on Home               |
+| Front and back label, the label cut out for 3D          | AI suggests four corners (checked in code), the person can drag them, the phone straightens them  |
+| Insights and a drinking chart per wine                  | everything worked out from what is already kept; pure, tested builders                            |
+| Select several bottles, history with restore, merge     | one Undo for many; merging wines is a database function with its own tests                        |
 
 Deviations from the plan above, and why:
 
@@ -678,13 +683,22 @@ Deviations from the plan above, and why:
    against the public keys), so the route signs the device out too — found by the e2e test landing on `/onboarding`.
 6. **Features whose migration isn't applied yet degrade instead of breaking** (`isMissingTable`: ratings → 0008,
    wishlist → 0009), so a deploy never has to wait for a person to run SQL.
+7. **The label is cut out on the phone, not on the server.** The server deliberately never decodes a picture
+   (it only checks a JPEG's structure), so the straightening (a perspective correction from four corners) runs in
+   the browser and only the result is sent; the AI's guess at the corners is checked with plain geometry first.
+8. **Merging two wines is a database function.** A tasting can't be moved to another vintage by any client (and
+   nobody can touch someone else's), so `merge_wines` does it in one transaction, with the rules next to the data.
+   It was the one place a "who may do this" mistake would have let someone fold away another household's wine; the
+   tests cover that exact attack and fail when the check is removed.
+9. **New features arrive in their own tables, never as new columns on the busy ones** (`bottle_extras`,
+   `vintage_insights`), so a deploy before the SQL step is run keeps every existing screen working.
 
 **Not exercised against real Supabase:** hosted Storage (tested against a fake that enforces the real storage
 policies), the admin delete-user call, and OpenAI beyond one manual run through the sandbox proxy.
 
 ### Open items carried forward
 
-- **Needs you:** run migrations 0008 and 0009 in the Supabase SQL editor (see [`SETUP.md`](SETUP.md), "Updating the
+- **Needs you:** run migrations 0008–0012 in the Supabase SQL editor (see [`SETUP.md`](SETUP.md), "Updating the
   database"); set `OPENAI_API_KEY` (and optionally `SUPABASE_SERVICE_ROLE_KEY`) in Vercel only; label photos for the
   scan eval set (D9).
 - **Needs a device, not the sandbox:** how it _feels_ on a real iPhone (status-bar style in standalone mode, safe areas,

@@ -81,7 +81,47 @@ export function createImageService(
     }
   }
 
+  /** The folder a photo's files live in. */
+  const folderOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
+
   return {
+    /**
+     * Keeps the straightened picture of just the label (made on the phone from the photo's four corners) next to
+     * the photo. A new one replaces the old; the 3D bottle wears it.
+     */
+    async setTexture(imageId: string, bytes: Uint8Array): Promise<ImageRef & { side: ImageSide }> {
+      const image = await repo.getImage(imageId);
+      if (!image) throw new DomainError("NOT_FOUND");
+      const clean = sanitizeJpeg(bytes, IMAGE_LIMITS.photoBytes);
+      if (!clean.ok) throw refused(clean.reason);
+      const path = `${folderOf(image.photoPath)}/texture-${randomUUID()}.jpg`;
+      await repo.upload(path, clean.bytes);
+      try {
+        if (!(await repo.setTexturePath(imageId, path))) throw new DomainError("NOT_FOUND");
+      } catch (error) {
+        await repo.remove([path]).catch(() => {});
+        throw error;
+      }
+      if (image.texturePath) await repo.remove([image.texturePath]).catch(() => {});
+      return {
+        id: image.id,
+        side: image.side,
+        blurColor: image.blurColor,
+        width: image.width,
+        height: image.height,
+        texture: true,
+      };
+    },
+
+    /** Goes back to wearing the whole photo. */
+    async removeTexture(imageId: string): Promise<void> {
+      const image = await repo.getImage(imageId);
+      if (!image) throw new DomainError("NOT_FOUND");
+      if (!image.texturePath) return;
+      await repo.setTexturePath(imageId, null);
+      await repo.remove([image.texturePath]).catch(() => {});
+    },
+
     async upload(input: UploadInput): Promise<ImageRef & { side: ImageSide }> {
       return (await store(input)).image;
     },
@@ -89,18 +129,27 @@ export function createImageService(
     /** Like `upload`, and also hands back the cleaned photo (a scan reads it straight away). */
     uploadWithPhoto: store,
 
-    /** Takes every photo of a household out of storage (before the household itself is deleted). Best effort. */
+    /**
+     * Takes every photo of a household out of storage (before the household itself is deleted). It throws when
+     * storage refuses: once the household is gone nothing could find its photos again, so the delete is
+     * stopped and can simply be tried again (this is safe to repeat).
+     */
     async purge(householdId: string): Promise<void> {
       const paths = await repo.listPaths(householdId);
-      for (let i = 0; i < paths.length; i += 100)
-        await repo.remove(paths.slice(i, i + 100)).catch(() => {});
+      for (let i = 0; i < paths.length; i += 100) await repo.remove(paths.slice(i, i + 100));
     },
 
     /** The bytes of a photo, if it is one of this household's. `thumb` falls back to the photo itself. */
-    async file(id: string, variant: "photo" | "thumb"): Promise<Uint8Array> {
+    async file(id: string, variant: "photo" | "thumb" | "texture"): Promise<Uint8Array> {
       const image = await repo.getImage(id);
       if (!image) throw new DomainError("NOT_FOUND");
-      const path = variant === "thumb" ? (image.thumbPath ?? image.photoPath) : image.photoPath;
+      const path =
+        variant === "texture"
+          ? image.texturePath
+          : variant === "thumb"
+            ? (image.thumbPath ?? image.photoPath)
+            : image.photoPath;
+      if (!path) throw new DomainError("NOT_FOUND");
       const bytes = await repo.download(path);
       if (!bytes) throw new DomainError("NOT_FOUND");
       return bytes;

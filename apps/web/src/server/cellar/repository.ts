@@ -6,6 +6,7 @@ import {
   type CreateStorage,
   type Descriptor,
   type ImageRef,
+  type ImageSide,
   type Slot,
   type StorageKind,
   type UpdateStorage,
@@ -101,13 +102,20 @@ export const toBottle = (r: {
   openedAt: r.opened_at,
 });
 
-const IMAGE_REF_COLUMNS = "id, blur_color, width, height";
+const IMAGE_REF_COLUMNS = "id, blur_color, width, height, texture_path";
 const toImageRef = (r: {
   id: string;
   blur_color: string | null;
   width: number | null;
   height: number | null;
-}): ImageRef => ({ id: r.id, blurColor: r.blur_color, width: r.width, height: r.height });
+  texture_path: string | null;
+}): ImageRef => ({
+  id: r.id,
+  blurColor: r.blur_color,
+  width: r.width,
+  height: r.height,
+  texture: r.texture_path !== null,
+});
 
 const TASTING_COLUMNS =
   "id, vintage_id, bottle_id, user_id, score, descriptors, note, tasted_at, profiles(display_name)";
@@ -168,23 +176,29 @@ export function createCellarRepository(db: Db): CellarRepository {
 
   /** Every household has one cellar; people only ever see its storage units. */
   /** The newest photo among a vintage's bottles. */
-  async function latestImage(householdId: string, vintageId: string): Promise<ImageRef | null> {
+  async function latestImage(
+    householdId: string,
+    vintageId: string,
+    side: ImageSide = "front",
+  ): Promise<ImageRef | null> {
+    const column = side === "front" ? "front_image_id" : "back_image_id";
     const newest = await db
       .from("bottles")
-      .select("front_image_id")
+      .select(column)
       .eq("household_id", householdId)
       .eq("vintage_id", vintageId)
-      .not("front_image_id", "is", null)
+      .not(column, "is", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (newest.error) throw mapDbError(newest.error);
-    if (!newest.data?.front_image_id) return null;
+    const imageId = (newest.data as Record<string, string | null> | null)?.[column];
+    if (!imageId) return null;
     const image = await db
       .from("bottle_images")
       .select(IMAGE_REF_COLUMNS)
       .eq("household_id", householdId)
-      .eq("id", newest.data.front_image_id)
+      .eq("id", imageId)
       .maybeSingle();
     if (image.error) throw mapDbError(image.error);
     return image.data ? toImageRef(image.data) : null;
@@ -535,6 +549,46 @@ export function createCellarRepository(db: Db): CellarRepository {
         addedAt: b.created_at,
       }));
     },
+    async mergeWines(sourceWineId, targetWineId) {
+      const { data, error } = await db.rpc("merge_wines", {
+        p_source: sourceWineId,
+        p_target: targetWineId,
+      });
+      if (error) {
+        // PGRST202: the function isn't there, because the database step hasn't been taken.
+        if (error.code === "PGRST202" || error.code === "42883")
+          throw new DomainError(
+            "INTERNAL",
+            "Merging wines needs one more database step before it works. Everything else is fine. See docs/SETUP.md, “Updating the database”.",
+          );
+        throw mapDbError(error);
+      }
+      return Number(data ?? 0);
+    },
+
+    async listGone(householdId, limit) {
+      const { data, error } = await db
+        .from("bottles")
+        .select(
+          "id, status, opened_at, updated_at, wine_vintages!inner(id, year, wines!inner(name, wine_type, producers!inner(name)))",
+        )
+        .eq("household_id", householdId)
+        .in("status", ["opened", "gifted", "removed"])
+        .order("updated_at", { ascending: false })
+        .limit(limit);
+      if (error) throw mapDbError(error);
+      return (data ?? []).map((b) => ({
+        bottleId: b.id,
+        vintageId: b.wine_vintages.id,
+        producer: b.wine_vintages.wines.producers.name,
+        wineName: b.wine_vintages.wines.name,
+        type: b.wine_vintages.wines.wine_type as WineType,
+        year: b.wine_vintages.year,
+        status: b.status as "opened" | "gifted" | "removed",
+        openedAt: b.opened_at ?? "",
+        at: b.opened_at ?? b.updated_at,
+      }));
+    },
     async listRecentlyOpened(householdId, limit) {
       const { data, error } = await db
         .from("bottles")
@@ -601,10 +655,14 @@ export function createCellarRepository(db: Db): CellarRepository {
       return (await latestImage(householdId, vintageId))?.id ?? null;
     },
 
-    async attachImage(householdId, vintageId, imageId) {
+    async latestImageRef(householdId, vintageId, side) {
+      return latestImage(householdId, vintageId, side);
+    },
+
+    async attachImage(householdId, vintageId, imageId, side = "front") {
       const { data, error } = await db
         .from("bottles")
-        .update({ front_image_id: imageId })
+        .update(side === "front" ? { front_image_id: imageId } : { back_image_id: imageId })
         .eq("household_id", householdId)
         .eq("vintage_id", vintageId)
         .in("status", ["in_cellar", "opened"])

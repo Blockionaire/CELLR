@@ -79,6 +79,11 @@ export const useRemoveMember = () =>
   useAccountMutation((input: { householdId: string; userId: string }) =>
     api.delete(`/households/${input.householdId}/members/${input.userId}`),
   );
+/** Makes another household the one every screen shows. The caller reloads: nothing cached may outlive the switch. */
+export const useSetActiveHousehold = () =>
+  useMutation({
+    mutationFn: (householdId: string) => api.put<Me>("/households/active", { householdId }),
+  });
 export const useSignOut = () => useMutation({ mutationFn: () => api.post("/auth/sign-out") });
 
 export const useUpdateHousehold = () =>

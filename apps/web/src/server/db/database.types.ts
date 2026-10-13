@@ -92,6 +92,52 @@ export type Database = {
           },
         ];
       };
+      bottle_extras: {
+        Row: {
+          acquired_how: string | null;
+          bottle_id: string;
+          gift_from: string | null;
+          household_id: string;
+          occasion_on: string | null;
+          occasion_title: string | null;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          acquired_how?: string | null;
+          bottle_id: string;
+          gift_from?: string | null;
+          household_id: string;
+          occasion_on?: string | null;
+          occasion_title?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          acquired_how?: string | null;
+          bottle_id?: string;
+          gift_from?: string | null;
+          household_id?: string;
+          occasion_on?: string | null;
+          occasion_title?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "bottle_extras_bottle_id_fkey";
+            columns: ["bottle_id"];
+            isOneToOne: true;
+            referencedRelation: "bottles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bottle_extras_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       bottle_images: {
         Row: {
           blur_color: string | null;
@@ -653,6 +699,58 @@ export type Database = {
           },
         ];
       };
+      vintage_insights: {
+        Row: {
+          created_at: string;
+          generated_at: string | null;
+          household_id: string;
+          id: string;
+          model: string | null;
+          my_value_cents: number | null;
+          output: Json | null;
+          updated_at: string;
+          vintage_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          generated_at?: string | null;
+          household_id: string;
+          id?: string;
+          model?: string | null;
+          my_value_cents?: number | null;
+          output?: Json | null;
+          updated_at?: string;
+          vintage_id: string;
+        };
+        Update: {
+          created_at?: string;
+          generated_at?: string | null;
+          household_id?: string;
+          id?: string;
+          model?: string | null;
+          my_value_cents?: number | null;
+          output?: Json | null;
+          updated_at?: string;
+          vintage_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "vintage_insights_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "vintage_insights_vintage_id_fkey";
+            columns: ["vintage_id"];
+            isOneToOne: false;
+            referencedRelation: "wine_vintages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       wine_aliases: {
         Row: {
           alias: string;
@@ -933,6 +1031,7 @@ export type Database = {
         Returns: string;
       };
       join_household: { Args: { p_code: string }; Returns: string };
+      merge_wines: { Args: { p_source: string; p_target: string }; Returns: number };
     };
     Enums: {
       bottle_status: "in_cellar" | "opened" | "gifted" | "removed";

@@ -1,8 +1,10 @@
 import "server-only";
 import {
   DomainError,
+  isUsableQuad,
   matchLabel,
   normalizeExtraction,
+  quadFromNumbers,
   type ImageSide,
   type ScanResult,
   type WineSummary,
@@ -70,6 +72,7 @@ export function createScanService(deps: ScanDeps) {
         facts: null,
         matches: [],
         reason,
+        labelCorners: null,
       });
 
       if (!deps.llm) return unread("ai-off");
@@ -107,7 +110,13 @@ export function createScanService(deps: ScanDeps) {
       if (!facts) return unread("not-a-label");
 
       const { outcome, matches } = matchLabel(facts, await deps.wines());
-      return { image, outcome, facts, matches, reason: null };
+      // The model's idea of where the label is only counts if it is a believable label in this very photo.
+      const corners = quadFromNumbers(result.value.label_corners);
+      const labelCorners =
+        corners && image.width && image.height && isUsableQuad(corners, image.width, image.height)
+          ? corners
+          : null;
+      return { image, outcome, facts, matches, reason: null, labelCorners };
     },
   };
 }

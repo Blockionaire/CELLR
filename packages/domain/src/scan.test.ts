@@ -24,6 +24,7 @@ const raw = (over: Partial<RawExtraction> = {}): RawExtraction => ({
   abv_percent: 13.5,
   volume_ml: 750,
   text_seen: "CHÂTEAU MARGAUX PAVILLON ROUGE 2015",
+  label_corners: null,
   confidence: { producer: "high", wine_name: "high", vintage: "high" },
   ...over,
 });

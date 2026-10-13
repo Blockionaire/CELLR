@@ -21,7 +21,11 @@ import {
   type DrinkSummary,
   type HomeView,
   type ImportOutcome,
+  type HistoryView,
+  type ImageSide,
   type ImportRequest,
+  type MergeWine,
+  type MergeWineResult,
   type PlacedBottle,
   type OpenedEntry,
   type RackView,
@@ -420,6 +424,50 @@ export function createCellarService(
       );
     },
 
+    /** Folds a duplicate wine into the right one. The duplicate has to be one the household entered itself. */
+    async mergeWine(sourceWineId: string, input: MergeWine): Promise<MergeWineResult> {
+      await household();
+      if (sourceWineId === input.intoWineId)
+        throw new DomainError("VALIDATION", "Pick a different wine to merge with.");
+      const [source, target] = await Promise.all([
+        repo.getWine(sourceWineId),
+        repo.getWine(input.intoWineId),
+      ]);
+      if (!source || !target) throw new DomainError("NOT_FOUND", "We couldn't find that wine.");
+      const moved = await repo.mergeWines(sourceWineId, input.intoWineId);
+      const vintageId = await repo.findOrCreateVintage(input.intoWineId, input.year);
+      return { moved, wineId: input.intoWineId, vintageId };
+    },
+
+    /** Bottles that have left the cellar, with a way back. */
+    async history(): Promise<HistoryView> {
+      const { id } = await household();
+      const gone = await repo.listGone(id, 500);
+      const mine = new Map(
+        (
+          await repo.listMyTastingScores(
+            userId,
+            gone.map((g) => g.bottleId),
+          )
+        ).map((t) => [t.bottleId, t.score]),
+      );
+      return {
+        items: gone
+          .map((g) => ({
+            bottleId: g.bottleId,
+            vintageId: g.vintageId,
+            producer: g.producer,
+            wineName: g.wineName,
+            type: g.type,
+            year: g.year,
+            status: g.status,
+            at: g.at,
+            myScore: mine.get(g.bottleId) ?? null,
+          }))
+          .sort((a, b) => b.at.localeCompare(a.at)),
+      };
+    },
+
     async inventory(): Promise<CellarView> {
       const { id } = await household();
       const [rows, favorites, scores] = await Promise.all([
@@ -481,10 +529,11 @@ export function createCellarService(
     /** One vintage with every bottle: where each is, what they cost, what has been opened. */
     async vintage(vintageId: string): Promise<VintageDetail> {
       const { id: householdId } = await household();
-      const [rows, favorites, tastings] = await Promise.all([
+      const [rows, favorites, tastings, backImage] = await Promise.all([
         repo.getVintage(householdId, vintageId),
         repo.listFavoriteWineIds(userId),
         repo.listTastings(householdId, vintageId),
+        repo.latestImageRef(householdId, vintageId, "back"),
       ]);
       // A vintage you never owned a bottle of is not yours to look at, even if it is in the shared catalogue.
       if (!rows || rows.bottles.length === 0) throw new DomainError("NOT_FOUND");
@@ -515,6 +564,7 @@ export function createCellarService(
         wine: { ...rows.wine, favorite: favorites.includes(rows.wine.id) },
         year: rows.year,
         image: rows.image,
+        backImage,
         bottles: inCellar,
         opened,
         tastings: tastings.map((t) => toTastingView(t, userId)),
@@ -546,7 +596,12 @@ export function createCellarService(
 
         case "remove":
           return result(
-            await repo.updateBottle(householdId, bottleId, { status: "removed" }, ["in_cellar"]),
+            await repo.updateBottle(
+              householdId,
+              bottleId,
+              { status: action.reason === "gifted" ? "gifted" : "removed" },
+              ["in_cellar"],
+            ),
             "That bottle is no longer in the cellar.",
           );
 
@@ -651,19 +706,20 @@ export function createCellarService(
     async attachPhoto(
       vintageId: string,
       imageId: string,
+      side: ImageSide = "front",
     ): Promise<{ vintageId: string; imageId: string }> {
       const { id: householdId } = await household();
       if (!(await repo.getImageRef(householdId, imageId)))
         throw new DomainError("NOT_FOUND", "We couldn't find that photo.");
-      if ((await repo.attachImage(householdId, vintageId, imageId)) === 0)
+      if ((await repo.attachImage(householdId, vintageId, imageId, side)) === 0)
         throw new DomainError("NOT_FOUND");
       return { vintageId, imageId };
     },
 
     /** Takes the label photo off a vintage (the photo itself is kept until its household is deleted). */
-    async removePhoto(vintageId: string): Promise<void> {
+    async removePhoto(vintageId: string, side: ImageSide = "front"): Promise<void> {
       const { id: householdId } = await household();
-      if ((await repo.attachImage(householdId, vintageId, null)) === 0)
+      if ((await repo.attachImage(householdId, vintageId, null, side)) === 0)
         throw new DomainError("NOT_FOUND");
     },
 
@@ -701,6 +757,7 @@ export function createCellarService(
             priceCents: input.priceCents,
             currency: input.priceCents === null ? null : currency,
             purchasedAt: input.purchasedAt,
+            purchasedFrom: input.purchasedFrom ?? null,
             frontImageId,
           };
         });

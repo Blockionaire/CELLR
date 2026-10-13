@@ -34,9 +34,14 @@ export interface ImageRef {
   blurColor: string | null;
   width: number | null;
   height: number | null;
+  /** Whether a straightened picture of just the label exists (what the 3D bottle wears). */
+  texture?: boolean;
 }
 
-export const AttachPhotoSchema = z.object({ imageId: z.uuid() });
+export const AttachPhotoSchema = z.object({
+  imageId: z.uuid(),
+  side: z.enum(IMAGE_SIDES).default("front"),
+});
 export type AttachPhoto = z.infer<typeof AttachPhotoSchema>;
 
 export type CleanJpegResult =

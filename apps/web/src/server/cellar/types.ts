@@ -6,6 +6,7 @@ import type {
   CreateWine,
   Descriptor,
   ImageRef,
+  ImageSide,
   Slot,
   StorageKind,
   UpdateStorage,
@@ -182,6 +183,11 @@ export interface CellarRepository {
 
   insertBottles(householdId: string, rows: NewBottle[]): Promise<string[]>;
   listInventory(householdId: string): Promise<InventoryRow[]>;
+  /** Bottles that have left the cellar (opened, given away, removed), newest first. */
+  listGone(
+    householdId: string,
+    limit: number,
+  ): Promise<Array<OpenedRow & { status: "opened" | "gifted" | "removed"; at: string }>>;
   /** The most recently opened bottles, newest first. */
   listRecentlyOpened(householdId: string, limit: number): Promise<OpenedRow[]>;
 
@@ -201,7 +207,16 @@ export interface CellarRepository {
   /** The newest label photo among the bottles of a vintage, so a new bottle can share it. */
   latestImageId(householdId: string, vintageId: string): Promise<string | null>;
   /** Points every bottle of the vintage (in the cellar or already opened) at the photo. Returns how many. */
-  attachImage(householdId: string, vintageId: string, imageId: string | null): Promise<number>;
+  attachImage(
+    householdId: string,
+    vintageId: string,
+    imageId: string | null,
+    side?: ImageSide,
+  ): Promise<number>;
+  /** The newest label photo of one side among the bottles of a vintage. */
+  latestImageRef(householdId: string, vintageId: string, side: ImageSide): Promise<ImageRef | null>;
+  /** Folds one of the household's own wines into another (see migration 0012). Returns how many bottles moved. */
+  mergeWines(sourceWineId: string, targetWineId: string): Promise<number>;
   /** Removes bottles (undoing a half-finished import). */
   deleteBottles(householdId: string, bottleIds: string[]): Promise<void>;
   /** Marks bottles opened on the given day (an import backdates them). Returns how many changed. */

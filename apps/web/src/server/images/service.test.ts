@@ -43,6 +43,7 @@ function fakeRepo(options: { failInsert?: boolean } = {}) {
     files: new Map<string, Uint8Array>(),
     rows: [] as NewImage[],
     removed: [] as string[],
+    textures: new Map<string, string | null>(),
   };
   const repo: ImageRepository = {
     async upload(path, bytes) {
@@ -63,13 +64,22 @@ function fakeRepo(options: { failInsert?: boolean } = {}) {
         side: row.side,
         photoPath: row.photoPath,
         thumbPath: row.thumbPath,
+        texturePath: null,
         width: row.width,
         height: row.height,
         blurColor: row.blurColor,
       };
     },
+    async setTexturePath(id, path) {
+      if (!state.rows[Number(id.replace("img", "")) - 1]) return false;
+      state.textures.set(id, path);
+      return true;
+    },
     async listPaths() {
-      return state.rows.flatMap((r) => (r.thumbPath ? [r.photoPath, r.thumbPath] : [r.photoPath]));
+      return [
+        ...state.rows.flatMap((r) => (r.thumbPath ? [r.photoPath, r.thumbPath] : [r.photoPath])),
+        ...[...state.textures.values()].flatMap((p) => (p ? [p] : [])),
+      ];
     },
     async getImage(id): Promise<ImageRow | null> {
       const n = Number(id.replace("img", ""));
@@ -80,6 +90,7 @@ function fakeRepo(options: { failInsert?: boolean } = {}) {
             side: row.side,
             photoPath: row.photoPath,
             thumbPath: row.thumbPath,
+            texturePath: state.textures.get(id) ?? null,
             width: row.width,
             height: row.height,
             blurColor: row.blurColor,
@@ -195,7 +206,7 @@ describe("deleting a household's photos", () => {
     expect(state.files.size).toBe(0);
   });
 
-  it("goes on even if storage refuses some of it (a leftover file is harmless, a stuck delete is not)", async () => {
+  it("stops if storage refuses, so the delete can be tried again instead of orphaning the photos", async () => {
     const { repo } = fakeRepo();
     const failing: ImageRepository = {
       ...repo,
@@ -204,6 +215,61 @@ describe("deleting a household's photos", () => {
       },
       listPaths: async () => ["a/b.jpg"],
     };
-    await expect(createImageService(failing, household).purge("h")).resolves.toBeUndefined();
+    await expect(createImageService(failing, household).purge("h")).rejects.toThrow("storage down");
+  });
+});
+
+describe("the straightened label", () => {
+  const uploaded = async () => {
+    const fake = fakeRepo();
+    const service = createImageService(fake.repo, household);
+    const image = await service.upload({ side: "front", photo: photo() });
+    return { ...fake, service, image };
+  };
+
+  it("is kept next to the photo, cleaned, and can be replaced", async () => {
+    const { service, image, state } = await uploaded();
+    const first = await service.setTexture(image.id, photo(300, 400));
+    expect(first).toMatchObject({ id: image.id, texture: true });
+    const path1 = state.textures.get(image.id)!;
+    expect(path1).toMatch(
+      /^11111111-1111-4111-8111-111111111111\/[0-9a-f-]+\/texture-[0-9a-f-]+\.jpg$/,
+    );
+    expect(state.files.has(path1)).toBe(true);
+
+    await service.setTexture(image.id, photo(300, 400));
+    const path2 = state.textures.get(image.id)!;
+    expect(path2).not.toBe(path1);
+    expect(state.files.has(path1)).toBe(false); // the old one is gone
+    expect(state.files.has(path2)).toBe(true);
+  });
+
+  it("is served as the texture, and only when there is one", async () => {
+    const { service, image } = await uploaded();
+    await expect(service.file(image.id, "texture")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await service.setTexture(image.id, photo(300, 400));
+    expect((await service.file(image.id, "texture")).byteLength).toBeGreaterThan(100);
+  });
+
+  it("refuses what isn't a picture and what isn't ours", async () => {
+    const { service, image, state } = await uploaded();
+    await expect(service.setTexture(image.id, new Uint8Array([1, 2, 3]))).rejects.toMatchObject({
+      code: "UPLOAD_REJECTED",
+    });
+    expect(state.textures.size).toBe(0);
+    await expect(service.setTexture("img99", photo())).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("can be taken away again, and goes with the household", async () => {
+    const { service, image, state } = await uploaded();
+    await service.setTexture(image.id, photo(300, 400));
+    const path = state.textures.get(image.id)!;
+    await service.purge("11111111-1111-4111-8111-111111111111");
+    expect(state.removed).toContain(path);
+
+    const again = await uploaded();
+    await again.service.setTexture(again.image.id, photo(300, 400));
+    await again.service.removeTexture(again.image.id);
+    expect(again.state.textures.get(again.image.id)).toBeNull();
   });
 });

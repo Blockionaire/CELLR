@@ -10,6 +10,8 @@ import type {
   CreateStorage,
   CreateWine,
   ImageRef,
+  ImageSide,
+  Quad,
   RackView,
   SaveTasting,
   StorageUnitView,
@@ -25,7 +27,8 @@ import { useTranslations } from "next-intl";
 import { ERROR_MESSAGES } from "@cellr/domain";
 import { track } from "@/lib/analytics";
 import { api, errorMessage } from "@/lib/api";
-import { photoForm, preparePhoto, UnreadablePhotoError } from "@/lib/photo";
+import { flattenLabel } from "@/lib/label-flatten";
+import { photoForm, UnreadablePhotoError, type PreparedPhoto } from "@/lib/photo";
 import { useToast } from "@/ui/toast";
 
 export const cellarKey = ["cellar"] as const;
@@ -197,16 +200,32 @@ export function useDeleteTasting() {
   });
 }
 
-/** Takes a photo of the label (from the camera or the library), keeps it, and gives it to every bottle of the wine. */
-export function useLabelPhoto(vintageId: string) {
+/** Sends the straightened picture of just the label; the 3D bottle wears it. Best effort: the photo is already kept. */
+export async function sendTexture(imageId: string, photo: Blob, quad: Quad): Promise<boolean> {
+  try {
+    const form = new FormData();
+    form.set("texture", await flattenLabel(photo, quad), "texture.jpg");
+    await api.upload(`/images/${imageId}/texture`, form, "PUT");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Keeps a label photo (from the camera or the library) and gives it to every bottle of the wine, as its front
+ * or back. The front can come with the label's four corners, so the bottle in 3D wears just the label.
+ */
+export function useLabelPhoto(vintageId: string, side: ImageSide = "front") {
   const refresh = useRefreshCellar();
   const toast = useToast();
   const t = useTranslations("photo");
   const te = useTranslations();
   return useMutation({
-    mutationFn: async (file: Blob) => {
-      const image = await api.upload<ImageRef>("/images", photoForm(await preparePhoto(file)));
-      await api.put(`/cellar/${vintageId}/photo`, { imageId: image.id });
+    mutationFn: async (input: { prepared: PreparedPhoto; quad?: Quad | null }) => {
+      const image = await api.upload<ImageRef>("/images", photoForm(input.prepared, side));
+      if (input.quad) await sendTexture(image.id, input.prepared.photo, input.quad);
+      await api.put(`/cellar/${vintageId}/photo`, { imageId: image.id, side });
       return image;
     },
     onSuccess: async () => {
@@ -223,13 +242,35 @@ export function useLabelPhoto(vintageId: string) {
   });
 }
 
-export function useRemoveLabelPhoto(vintageId: string) {
+/** Re-frames the label on a photo that is already kept. */
+export function useReframeLabel() {
+  const refresh = useRefreshCellar();
+  const toast = useToast();
+  const t = useTranslations("photo");
+  return useMutation({
+    mutationFn: async (input: { imageId: string; photo: Blob; quad: Quad | null }) => {
+      if (input.quad) {
+        if (!(await sendTexture(input.imageId, input.photo, input.quad)))
+          throw new Error("texture");
+      } else {
+        await api.delete(`/images/${input.imageId}/texture`);
+      }
+    },
+    onSuccess: async () => {
+      toast.show(t("framed"));
+      await refresh();
+    },
+    onError: () => toast.show(t("frameFailed"), { tone: "error" }),
+  });
+}
+
+export function useRemoveLabelPhoto(vintageId: string, side: ImageSide = "front") {
   const refresh = useRefreshCellar();
   const toast = useToast();
   const t = useTranslations("photo");
   const te = useTranslations();
   return useMutation({
-    mutationFn: () => api.delete(`/cellar/${vintageId}/photo`),
+    mutationFn: () => api.delete(`/cellar/${vintageId}/photo?side=${side}`),
     onSuccess: async () => {
       toast.show(t("removed"));
       await refresh();
@@ -246,7 +287,7 @@ export const useRacks = () =>
   useQuery({ queryKey: racksKey, queryFn: () => api.get<RackView>("/racks") });
 
 /** Anything that changes bottles must refresh every place that shows counts, spots or free space. */
-function useRefreshCellar() {
+export function useRefreshCellar() {
   const queryClient = useQueryClient();
   return () =>
     Promise.all([

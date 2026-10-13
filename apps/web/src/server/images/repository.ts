@@ -6,13 +6,14 @@ import { allRows } from "@/server/db/paging";
 import type { ImageRepository, ImageRow } from "./types";
 
 export const BUCKET = "bottle-images";
-const COLUMNS = "id, side, original_path, web_path, width, height, blur_color";
+const COLUMNS = "id, side, original_path, web_path, texture_path, width, height, blur_color";
 
 export const toImage = (r: {
   id: string;
   side: string;
   original_path: string;
   web_path: string | null;
+  texture_path: string | null;
   width: number | null;
   height: number | null;
   blur_color: string | null;
@@ -21,9 +22,11 @@ export const toImage = (r: {
   side: r.side as ImageSide,
   photoPath: r.original_path,
   thumbPath: r.web_path,
+  texturePath: r.texture_path,
   width: r.width,
   height: r.height,
   blurColor: r.blur_color,
+  texture: r.texture_path !== null,
 });
 
 /** Storage speaks HTTP statuses, not Postgres codes. */
@@ -59,7 +62,8 @@ export function createImageRepository(db: Db): ImageRepository {
 
     async remove(paths) {
       if (paths.length === 0) return;
-      await files.remove(paths); // best effort: a stray file is harmless, a failure here must not hide the real error
+      const { error } = await files.remove(paths);
+      if (error) throw new Error(`storage remove failed: ${error.message}`);
     },
 
     async insertImage(row) {
@@ -80,17 +84,29 @@ export function createImageRepository(db: Db): ImageRepository {
       return toImage(data);
     },
 
+    async setTexturePath(id, path) {
+      const { data, error } = await db
+        .from("bottle_images")
+        .update({ texture_path: path })
+        .eq("id", id)
+        .select("id");
+      if (error) throw mapDbError(error);
+      return (data?.length ?? 0) > 0;
+    },
+
     async listPaths(householdId) {
       const { data, error } = await allRows((from, to) =>
         db
           .from("bottle_images")
-          .select("original_path, web_path")
+          .select("original_path, web_path, texture_path")
           .eq("household_id", householdId)
           .order("id")
           .range(from, to),
       );
       if (error) throw mapDbError(error);
-      return data.flatMap((r) => (r.web_path ? [r.original_path, r.web_path] : [r.original_path]));
+      return data.flatMap((r) =>
+        [r.original_path, r.web_path, r.texture_path].filter((p) => p !== null),
+      );
     },
 
     async getImage(id) {

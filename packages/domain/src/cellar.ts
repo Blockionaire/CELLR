@@ -166,6 +166,14 @@ export const AddBottlesSchema = z.object({
   /** Price paid PER BOTTLE, in the household's currency. */
   priceCents: z.number().int().min(0).max(MAX_PRICE_CENTS).nullable().default(null),
   purchasedAt: z.iso.date().nullable().default(null),
+  /** The shop or merchant. */
+  purchasedFrom: z
+    .string()
+    .trim()
+    .max(120)
+    .transform((v) => (v === "" ? null : v))
+    .nullable()
+    .optional(),
   formatMl: z.number().int().min(100).max(30000).default(750),
   /** A label photo already uploaded (from a scan or the camera); bottles of a known vintage share its photo. */
   imageId: z.uuid().optional(),
@@ -280,6 +288,26 @@ export interface OpenedEntry {
   rated: boolean;
 }
 
+/** A bottle that has left the cellar: opened, given away, or removed. */
+export interface HistoryItem {
+  bottleId: string;
+  vintageId: string;
+  producer: string;
+  wineName: string;
+  type: WineType;
+  year: number | null;
+  status: "opened" | "gifted" | "removed";
+  /** When: the day it was opened, else when it left. */
+  at: string;
+  /** The signed-in person's stars for it (1..10), or null. */
+  myScore: number | null;
+}
+
+export interface HistoryView {
+  /** Newest first. */
+  items: HistoryItem[];
+}
+
 /** Everything the Home screen shows, in one go. */
 export interface HomeView {
   /** When this was put together (ISO), so "3 days ago" is measured against the same clock everywhere. */
@@ -348,7 +376,11 @@ const PlacementSchema = z
 
 export const BottleActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("open") }),
-  z.object({ action: z.literal("remove") }),
+  /** Leaves the cellar: for good ("removed": a mistake, a broken bottle) or given away ("gifted"). Either can be undone. */
+  z.object({
+    action: z.literal("remove"),
+    reason: z.enum(["removed", "gifted"]).optional(),
+  }),
   z.object({ action: z.literal("move"), to: PlacementSchema }),
   /** Undo for "open" / "remove": back in the cellar, in `to` if it is still free. */
   z.object({
@@ -390,6 +422,22 @@ export const UpdatePurchaseSchema = z
 export type UpdatePurchase = z.infer<typeof UpdatePurchaseSchema>;
 
 /** Starring a wine is personal: it is yours alone, even in a shared household. */
+/** Fold a duplicate wine into the right one: everything kept about it moves over, and it disappears. */
+export const MergeWineSchema = z.object({
+  intoWineId: z.uuid(),
+  /** The vintage the person is looking at, so the answer can point at where it went. */
+  year: VintageYearSchema.default(null),
+});
+export type MergeWine = z.infer<typeof MergeWineSchema>;
+
+export interface MergeWineResult {
+  /** How many bottles moved. */
+  moved: number;
+  wineId: string;
+  /** Where the vintage the person was looking at is now. */
+  vintageId: string;
+}
+
 export const SetFavoriteSchema = z.object({ favorite: z.boolean() });
 export type SetFavorite = z.infer<typeof SetFavoriteSchema>;
 
@@ -422,6 +470,8 @@ export interface VintageDetail {
   year: number | null;
   /** The label photo, when there is one. */
   image: ImageRef | null;
+  /** The back label's photo, when there is one. */
+  backImage: ImageRef | null;
   /** In the cellar now, in a stable order: placed ones by place, shelf and position, then unplaced. */
   bottles: BottleView[];
   /** The most recently opened ones, newest first. */

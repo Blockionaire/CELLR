@@ -1,6 +1,6 @@
 import "server-only";
 
-export type AiTask = "label_extraction" | "sommelier_chat";
+export type AiTask = "label_extraction" | "sommelier_chat" | "wine_insight";
 
 /** Which of the configured models a task uses: the one that sees pictures, or the one that talks. */
 export type ModelKind = "vision" | "chat";

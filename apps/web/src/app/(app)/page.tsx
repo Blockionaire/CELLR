@@ -13,9 +13,13 @@ export default async function HomePage() {
   const home = await servicesFor(ctx)
     .cellar.home()
     .catch(() => null);
+  const reminders = await servicesFor(ctx)
+    .insights.reminders()
+    .catch(() => ({ ready: false, items: [] }));
   return (
     <HomeScreen
       name={me.displayName}
+      reminders={reminders.items}
       home={
         home ?? {
           generatedAt: new Date(0).toISOString(),
