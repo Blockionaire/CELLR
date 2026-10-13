@@ -15,7 +15,7 @@ import { Chip } from "@/ui/chip";
 import { Field } from "@/ui/field";
 import { Sheet } from "@/ui/sheet";
 import { Stepper } from "@/ui/stepper";
-import { useCreateStorage } from "./hooks";
+import { useCreateStorage, useStorage } from "./hooks";
 
 /** Sensible starting grids, so most people just tap "Create". */
 const DEFAULT_GRID: Record<StorageKind, { rows: number; cols: number }> = {
@@ -26,6 +26,12 @@ const DEFAULT_GRID: Record<StorageKind, { rows: number; cols: number }> = {
   wall: { rows: 6, cols: 6 },
   other: { rows: 4, cols: 6 },
 };
+
+/** "Wine fridge" if free, else "Wine fridge 2", "Wine fridge 3"… */
+function uniqueName(base: string, taken: ReadonlySet<string>): string {
+  if (!taken.has(base.toLowerCase())) return base;
+  for (let n = 2; ; n++) if (!taken.has(`${base} ${n}`.toLowerCase())) return `${base} ${n}`;
+}
 
 interface NewPlaceSheetProps {
   open: boolean;
@@ -39,6 +45,7 @@ export function NewPlaceSheet({ open, onClose, onCreated }: NewPlaceSheetProps) 
   const tKinds = useTranslations("storageKinds");
   const te = useTranslations();
   const create = useCreateStorage();
+  const existing = useStorage().data;
 
   const [kind, setKind] = useState<StorageKind>("fridge");
   const [name, setName] = useState<string | null>(null); // null = still the kind's default name
@@ -46,7 +53,9 @@ export function NewPlaceSheet({ open, onClose, onCreated }: NewPlaceSheetProps) 
   const [cols, setCols] = useState(DEFAULT_GRID.fridge.cols);
   const [error, setError] = useState<string | null>(null);
 
-  const label = name ?? tKinds(kind);
+  // A second fridge is not "Wine fridge" again (names are unique): it becomes "Wine fridge 2", then 3, …
+  const taken = new Set((existing ?? []).map((u) => u.label.trim().toLowerCase()));
+  const label = name ?? uniqueName(tKinds(kind), taken);
 
   function pickKind(next: StorageKind) {
     setKind(next);
@@ -59,6 +68,8 @@ export function NewPlaceSheet({ open, onClose, onCreated }: NewPlaceSheetProps) 
     setError(null);
     const parsed = CreateStorageSchema.safeParse({ label, kind, rows, cols });
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+    if (taken.has(label.trim().toLowerCase()))
+      return setError(t("nameTaken", { name: label.trim() }));
     try {
       const unit = await create.mutateAsync(parsed.data);
       onCreated(unit);

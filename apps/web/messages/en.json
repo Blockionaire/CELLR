@@ -358,7 +358,8 @@
     "shelvesLabel": "Shelves",
     "positionsLabel": "Positions per shelf",
     "capacity": "Room for {count, plural, one {# bottle} other {# bottles}}",
-    "create": "Create place"
+    "create": "Create place",
+    "nameTaken": "You already have a place called “{name}”. Give this one another name."
   },
   "storageKinds": {
     "fridge": "Wine fridge",
@@ -472,7 +473,7 @@
     "deleted": "Place deleted."
   },
   "cellar3d": {
-    "hint": "Drag to turn · pinch to zoom · tap a bottle",
+    "hint": "Drag to turn · pinch to zoom where you point · two fingers to slide · tap a bottle",
     "canvasLabel": "3D view of {unit}",
     "listLabel": "Bottles in {unit}",
     "bottleLabel": "{wine}, shelf {row}, position {col}",

@@ -358,7 +358,8 @@
     "shelvesLabel": "Planken",
     "positionsLabel": "Posities per plank",
     "capacity": "Ruimte voor {count, plural, one {# fles} other {# flessen}}",
-    "create": "Plek aanmaken"
+    "create": "Plek aanmaken",
+    "nameTaken": "Je hebt al een plek die “{name}” heet. Geef deze een andere naam."
   },
   "storageKinds": {
     "fridge": "Wijnkoelkast",
@@ -472,7 +473,7 @@
     "deleted": "Plek verwijderd."
   },
   "cellar3d": {
-    "hint": "Sleep om te draaien · knijp om te zoomen · tik op een fles",
+    "hint": "Sleep om te draaien · knijp om in te zoomen waar je wijst · twee vingers om te schuiven · tik op een fles",
     "canvasLabel": "3D-weergave van {unit}",
     "listLabel": "Flessen in {unit}",
     "bottleLabel": "{wine}, plank {row}, positie {col}",
