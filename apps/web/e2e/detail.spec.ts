@@ -228,6 +228,9 @@ test.describe("moving a bottle", () => {
     await expect
       .poll(() => slotsById(vintageId))
       .toEqual({ [first!.id]: "1:1", [second!.id]: "1:2" });
+    // …and wait until the page itself shows it back, so the next step starts from what the person sees.
+    await expect(page.getByText("Shelf 1 · Position 1").first()).toBeVisible();
+    await expect(page.getByText("Shelf 3 · Position 2")).toHaveCount(0);
 
     // Take the first bottle out of its place.
     await page.getByRole("button", { name: "Move", exact: true }).click();
