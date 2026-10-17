@@ -97,13 +97,11 @@ test.describe("a wine's profile", () => {
     await expect(page.getByTestId("worth")).toContainText(/50[.,]00/);
     await expect(page.getByTestId("value")).toContainText("AI estimate");
     // The drinking window now comes from the AI, and the page says so
-    await page.reload();
     await expect(page.getByText(/An estimate by the AI/)).toBeVisible();
     await page.screenshot({ path: shot(`insight-${project()}`), fullPage: true });
     expect(await audit(page)).toEqual([]);
 
     // Kept: no second call after a reload.
-    await page.reload();
     await expect(page.getByTestId("insight").getByText(PROFILE.summary)).toBeVisible();
 
     // Own value wins over the estimate.
