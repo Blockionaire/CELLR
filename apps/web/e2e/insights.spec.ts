@@ -35,6 +35,9 @@ const PROFILE = {
   value_basis: "Based on what recent vintages of this estate sell for.",
   drink_from_year: 2022,
   drink_until_year: 2040,
+  country_code: "FR",
+  region: "Bordeaux",
+  appellation: "Pauillac",
   confidence: "medium",
 };
 

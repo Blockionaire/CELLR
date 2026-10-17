@@ -23,6 +23,9 @@ const raw = {
   value_basis: "Auctions.",
   drink_from_year: 2020,
   drink_until_year: 2035,
+  country_code: "FR",
+  region: "Bordeaux",
+  appellation: "Pauillac",
   confidence: "medium" as const,
 };
 
@@ -31,6 +34,7 @@ const detail = {
   year: 2015,
   averagePriceCents: 3000,
   wine: {
+    id: "w1",
     producer: "Margaux",
     name: "Pavillon",
     type: "red",
@@ -91,6 +95,27 @@ describe("a wine profile", () => {
     const call = vi.mocked(llm.generateObject).mock.calls[0]![0];
     expect(call.user).toContain("Language: Dutch");
     expect(call.user).toContain("paid about 30 EUR");
+  });
+
+  it("fills in only what the person left empty, and never overwrites", async () => {
+    const fillWine = vi.fn(async () => ({}));
+    const { service } = setup({ fillWine });
+    await service.generate("v1");
+    // region and country were already there; only the appellation was missing
+    expect(fillWine).toHaveBeenCalledWith("w1", { appellation: "Pauillac" });
+
+    const sure = vi.fn(async () => ({}));
+    await setup(
+      { fillWine: sure },
+      { ok: true, value: { ...raw, confidence: "low" }, usage },
+    ).service.generate("v1");
+    expect(sure).not.toHaveBeenCalled();
+
+    // a refusal (shared catalogue wine) does not break the profile
+    const refuse = vi.fn(async () => {
+      throw new DomainError("FORBIDDEN");
+    });
+    await expect(setup({ fillWine: refuse }).service.generate("v1")).resolves.toBeTruthy();
   });
 
   it("is an error, and keeps nothing, when there is no AI, no budget, or no good answer", async () => {

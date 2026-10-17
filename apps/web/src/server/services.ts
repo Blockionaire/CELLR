@@ -55,6 +55,7 @@ export function servicesFor(ctx: RequestContext) {
     repo: insightsRepo,
     household,
     vintage: (vintageId) => cellar.vintage(vintageId),
+    fillWine: (wineId, patch) => cellar.updateWine(wineId, patch),
     locale: async () => (await households.me()).locale,
     llm: getLlmProvider(),
     spend: () => limiter.enforce(LIMITS.insights),

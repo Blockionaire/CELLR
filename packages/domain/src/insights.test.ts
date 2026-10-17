@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BottleExtrasSchema,
   checkInsight,
+  checkOrigin,
   currentValueCents,
   daysUntil,
   reminderWhen,
@@ -24,6 +25,9 @@ const raw: RawInsight = {
   value_basis: "Recent auction prices for the estate.",
   drink_from_year: 2020,
   drink_until_year: 2035,
+  country_code: "FR",
+  region: "Bordeaux",
+  appellation: "Pauillac",
   confidence: "high",
 };
 
@@ -39,6 +43,22 @@ describe("the AI's drinking window", () => {
     ).toBeNull();
     expect(checkInsight(raw, "EUR", 2025)!.drinkWindow).toBeNull();
     expect(checkInsight({ ...raw, drink_until_year: 2200 }, "EUR", 2015)!.drinkWindow).toBeNull();
+  });
+});
+
+describe("where the wine is from, per the AI", () => {
+  it("gives well-formed country, region and appellation", () => {
+    expect(checkOrigin(raw)).toEqual({
+      countryCode: "FR",
+      region: "Bordeaux",
+      appellation: "Pauillac",
+    });
+  });
+  it("gives nothing when the AI is unsure, and drops malformed values", () => {
+    expect(checkOrigin({ ...raw, confidence: "low" })).toEqual({});
+    expect(checkOrigin({ ...raw, country_code: "France", region: " ", appellation: null })).toEqual(
+      {},
+    );
   });
 });
 

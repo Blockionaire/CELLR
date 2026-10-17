@@ -112,6 +112,9 @@ export const RawInsightSchema = z.object({
   abv_percent: z.number().nullable(),
   drink_from_year: z.number().nullable(),
   drink_until_year: z.number().nullable(),
+  country_code: z.string().nullable(),
+  region: z.string().nullable(),
+  appellation: z.string().nullable(),
   pairings: z.array(z.string()),
   aging: z.string(),
   value_low: z.number().nullable(),
@@ -176,6 +179,30 @@ const list = (values: readonly string[], max: number, length: number): string[] 
   }
   return out;
 };
+
+/**
+ * Where the wine is from, as the AI knows it, to fill in what the person left empty. Only an answer the model is
+ * not unsure about is used, and only well-formed values; the caller adds just the fields that are still empty.
+ */
+export function checkOrigin(raw: RawInsight): {
+  countryCode?: string;
+  region?: string;
+  appellation?: string;
+} {
+  if (raw.confidence === "low") return {};
+  const text = (v: string | null, max: number) => {
+    const t = (v ?? "").replace(/\s+/g, " ").trim();
+    return t.length >= 2 && t.length <= max ? t : null;
+  };
+  const country = (raw.country_code ?? "").trim().toUpperCase();
+  const region = text(raw.region, 120);
+  const appellation = text(raw.appellation, 160);
+  return {
+    ...(/^[A-Z]{2}$/.test(country) ? { countryCode: country } : {}),
+    ...(region ? { region } : {}),
+    ...(appellation ? { appellation } : {}),
+  };
+}
 
 /**
  * Plausibility, in code and not in the prompt. A temperature that cannot be right, or a value range that is
