@@ -18,23 +18,23 @@ export function Rail({ className }: { className?: string }) {
     <nav
       aria-label={t("label")}
       className={cn(
-        "fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-hairline px-4 py-8 lg:flex",
+        "fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-hairline bg-canvas/60 px-4 py-8 backdrop-blur-xl lg:flex",
         className,
       )}
     >
-      <Link href="/" className="mb-10 px-3" aria-label="CELLR">
+      <Link href="/" className="mb-8 rounded-full px-3" aria-label="CELLR">
         <Logo className="h-20" />
       </Link>
       {scan && (
         <Link
           href={scan.href}
-          className={cn(buttonStyles({ variant: "primary", size: "md", block: true }), "mb-6")}
+          className={cn(buttonStyles({ variant: "primary", size: "md", block: true }), "mb-7")}
         >
           <scan.Icon size={20} />
           {t("scan")}
         </Link>
       )}
-      <ul className="flex flex-col gap-1">
+      <ul className="flex flex-col gap-1.5">
         {NAV_ITEMS.filter((i) => !i.primary).map(({ key, href, Icon }) => {
           const active = isActive(pathname, href);
           return (
@@ -43,8 +43,10 @@ export function Rail({ className }: { className?: string }) {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex h-11 items-center gap-3 rounded-control px-3 text-body transition-colors duration-150",
-                  active ? "bg-raised text-ink" : "text-ink-2 hover:bg-raised hover:text-ink",
+                  "flex h-11 items-center gap-3 rounded-full px-4 text-body transition-colors duration-150",
+                  active
+                    ? "bg-raised font-medium text-ink"
+                    : "text-ink-2 hover:bg-raised/60 hover:text-ink",
                 )}
               >
                 <Icon size={22} />

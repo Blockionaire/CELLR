@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import {
   activeFilterCount,
   applyFilters,
+  facetsOf,
   formatVintage,
   matchesSearch,
   NO_FILTERS,
@@ -17,7 +18,8 @@ import {
 import { buttonStyles } from "@/ui/button";
 import { EmptyState } from "@/ui/empty-state";
 import { Field } from "@/ui/field";
-import { PlusIcon, SearchIcon } from "@/ui/icons";
+import { Chip } from "@/ui/chip";
+import { HeartIcon, PlusIcon, SearchIcon, type IconProps } from "@/ui/icons";
 import { cn } from "@/ui/cn";
 import { PageHeader } from "@/ui/page-header";
 import { Segmented } from "@/ui/segmented";
@@ -39,6 +41,38 @@ const memory: { query: string; filters: CellarFilters; sort: CellarSort } = {
   sort: "recent",
 };
 
+/** Small outline icons for the related-pages pills (same 24px grid as @/ui/icons). */
+function PillIcon({ size = 16, children, ...rest }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      {...rest}
+    >
+      {children}
+    </svg>
+  );
+}
+const ClockIcon = (p: IconProps) => (
+  <PillIcon {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" />
+  </PillIcon>
+);
+const BarsIcon = (p: IconProps) => (
+  <PillIcon {...p}>
+    <path d="M5 20V12M12 20V5M19 20v-5" />
+  </PillIcon>
+);
+
 const rememberView = (view: CellarViewMode) => {
   document.cookie = `${CELLAR_VIEW_COOKIE}=${view}; path=/; max-age=31536000; samesite=lax`;
 };
@@ -55,6 +89,8 @@ export function CellarScreen({
   initialView: CellarViewMode;
 }) {
   const t = useTranslations("cellar");
+  const tTypes = useTranslations("wineTypes");
+  const tFilters = useTranslations("cellarFilters");
   const locale = useLocale();
   const { data } = useCellar(initial);
   const [view, setView] = useState<CellarViewMode>(initialView);
@@ -99,6 +135,7 @@ export function CellarScreen({
     [data.items, query, filters, sort, locale],
   );
   const activeCount = activeFilterCount(filters) + (sort === "recent" ? 0 : 1);
+  const typeFacets = useMemo(() => facetsOf(data.items).types, [data.items]);
 
   const addButton = (
     <Link href="/cellar/add" className={buttonStyles({ variant: "primary", size: "md" })}>
@@ -109,13 +146,21 @@ export function CellarScreen({
 
   /** The other places that belong to the cellar: kept out of the title row, which would squeeze the title. */
   const related = (
-    <nav aria-label={t("related")} className="-mt-3 mb-5 flex flex-wrap gap-1">
+    <nav
+      aria-label={t("related")}
+      className="-mx-5 mb-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden"
+    >
       {[
-        { href: "/wishlist", label: t("wishlist") },
-        { href: "/cellar/history", label: t("history") },
-        { href: "/insights", label: t("insights") },
+        { href: "/wishlist", label: t("wishlist"), Icon: HeartIcon },
+        { href: "/cellar/history", label: t("history"), Icon: ClockIcon },
+        { href: "/insights", label: t("insights"), Icon: BarsIcon },
       ].map((l) => (
-        <Link key={l.href} href={l.href} className={buttonStyles({ variant: "ghost", size: "sm" })}>
+        <Link
+          key={l.href}
+          href={l.href}
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-hairline bg-surface px-3.5 text-small font-medium text-ink-2 transition-colors duration-150 ease-cellr hover:text-ink active:scale-[0.98]"
+        >
+          <l.Icon size={16} className="text-bronze" />
           {l.label}
         </Link>
       ))}
@@ -149,7 +194,7 @@ export function CellarScreen({
       />
       {related}
 
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      <div className="sticky top-0 z-10 -mx-5 mb-4 flex flex-wrap items-center gap-3 bg-canvas/90 px-5 py-2 backdrop-blur-xl sm:static sm:z-auto sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none md:mb-5">
         <div
           className={cn(
             "flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-0",
@@ -168,7 +213,7 @@ export function CellarScreen({
               enterKeyHint="search"
               autoComplete="off"
               placeholder={t("searchPlaceholder")}
-              inputClassName="pl-11"
+              inputClassName="rounded-full pl-11"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -188,9 +233,48 @@ export function CellarScreen({
             { value: "racks", label: t("viewRacks") },
             { value: "3d", label: t("view3d") },
           ]}
-          className="ml-auto"
+          className="w-full sm:ml-auto sm:w-auto [&>button]:flex-1 sm:[&>button]:flex-none"
         />
       </div>
+      {(view === "grid" || view === "list") && typeFacets.length > 1 && (
+        <ul
+          aria-label={tFilters("type")}
+          className="-mx-5 mb-4 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden"
+        >
+          <li className="shrink-0">
+            <Chip
+              selected={filters.types.length === 0}
+              onClick={() => setFilters({ ...filters, types: [] })}
+            >
+              {t("typeAll")}
+            </Chip>
+          </li>
+          {typeFacets.map((f) => (
+            <li key={f.value} className="shrink-0">
+              <Chip
+                selected={filters.types.includes(f.value)}
+                onClick={() =>
+                  setFilters({
+                    ...filters,
+                    types: filters.types.includes(f.value)
+                      ? filters.types.filter((v) => v !== f.value)
+                      : [...filters.types, f.value],
+                  })
+                }
+                className="inline-flex items-center gap-2"
+              >
+                <span
+                  aria-hidden="true"
+                  className="size-2.5 rounded-full ring-1 ring-ink/15"
+                  style={{ backgroundColor: `var(--wine-${f.value})` }}
+                />
+                {tTypes(f.value)}
+                <span className="tnum opacity-70">{f.count}</span>
+              </Chip>
+            </li>
+          ))}
+        </ul>
+      )}
       {(view === "grid" || view === "list") && (
         <ActiveFilters filters={filters} onChange={setFilters} />
       )}
@@ -231,7 +315,7 @@ export function CellarScreen({
           ))}
         </ul>
       ) : (
-        <ul className="divide-y divide-hairline rounded-card border border-hairline bg-surface px-4">
+        <ul className="divide-y divide-hairline rounded-card bg-surface px-4 ring-1 ring-hairline">
           {items.map((item) => (
             <li key={item.vintageId}>
               <WineRow item={item} locale={locale} />

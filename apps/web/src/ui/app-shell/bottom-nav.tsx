@@ -51,7 +51,7 @@ export function BottomNav({ className }: { className?: string }) {
                     <Icon size={24} />
                   </>
                 )}
-                <span>{t(key)}</span>
+                <span className="max-w-full whitespace-nowrap px-1 leading-none">{t(key)}</span>
               </Link>
             </li>
           );
