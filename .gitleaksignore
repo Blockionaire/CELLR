@@ -1,0 +1,2 @@
+# False positive: a throwaway password for a throwaway user on a local CI stack (replaced by a random one since)
+83721a5a6dc14abe811bd7065bc5ebcbd7622b0f:scripts/real-stack-smoke.mjs:generic-api-key:39

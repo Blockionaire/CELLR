@@ -2,6 +2,7 @@
 // Storage policies through the Storage API, and account deletion through the Auth admin API.
 // Run by CI after `supabase start`; reads the local URL and keys from `supabase status -o env`.
 import { execSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 
 const env = Object.fromEntries(
   execSync("supabase status -o env", { encoding: "utf8" })
@@ -36,7 +37,7 @@ const admin = (path, init = {}) =>
 
 async function newUser(label) {
   const email = `${label}-${Date.now()}@example.test`;
-  const password = "Correct-horse-battery-staple-1";
+  const password = `Pw-${randomUUID()}`; // throwaway user on a throwaway local stack
   const made = await json(
     await admin("/auth/v1/admin/users", {
       method: "POST",
