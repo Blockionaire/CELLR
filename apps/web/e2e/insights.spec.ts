@@ -33,6 +33,11 @@ const PROFILE = {
   value_low: 40,
   value_high: 60,
   value_basis: "Based on what recent vintages of this estate sell for.",
+  drink_from_year: 2022,
+  drink_until_year: 2040,
+  country_code: "FR",
+  region: "Bordeaux",
+  appellation: "Pauillac",
   confidence: "medium",
 };
 
@@ -94,11 +99,12 @@ test.describe("a wine's profile", () => {
     // Half way between 40 and 60
     await expect(page.getByTestId("worth")).toContainText(/50[.,]00/);
     await expect(page.getByTestId("value")).toContainText("AI estimate");
+    // The drinking window now comes from the AI, and the page says so
+    await expect(page.getByText(/An estimate by the AI/)).toBeVisible();
     await page.screenshot({ path: shot(`insight-${project()}`), fullPage: true });
     expect(await audit(page)).toEqual([]);
 
     // Kept: no second call after a reload.
-    await page.reload();
     await expect(page.getByTestId("insight").getByText(PROFILE.summary)).toBeVisible();
 
     // Own value wins over the estimate.

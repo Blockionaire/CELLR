@@ -297,6 +297,11 @@
     "retry": "Try again"
   },
   "addBottle": {
+    "profileTitle": "AI analysis",
+    "profileWindow": "Drink {from}–{until}",
+    "profileValue": "About {value} a bottle",
+    "profileOpen": "See the full profile",
+    "profileMissing": "The analysis did not run by itself.",
     "eyebrow": "Add a bottle",
     "back": "Back",
     "chooseTitle": "Which wine?",
@@ -607,6 +612,7 @@
     "window": "{from}–{until}",
     "today": "Today",
     "estimate": "An estimate from the region, the colour, the label and what it cost. A guess, not a verdict.",
+    "estimateAi": "An estimate by the AI from what it knows about this wine. A guess, not a verdict.",
     "yearsLeft": "{years, plural, one {# year left} other {# years left}}",
     "shortLabel": "{phase}",
     "homeTitle": "Drink soon",

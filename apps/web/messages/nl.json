@@ -297,6 +297,11 @@
     "retry": "Probeer opnieuw"
   },
   "addBottle": {
+    "profileTitle": "AI-analyse",
+    "profileWindow": "Drinken {from}–{until}",
+    "profileValue": "Ca. {value} per fles",
+    "profileOpen": "Bekijk het hele profiel",
+    "profileMissing": "De analyse is niet vanzelf gelopen.",
     "eyebrow": "Fles toevoegen",
     "back": "Terug",
     "chooseTitle": "Welke wijn?",
@@ -607,6 +612,7 @@
     "window": "{from}–{until}",
     "today": "Vandaag",
     "estimate": "Een schatting op basis van de regio, de kleur, het etiket en wat hij kostte. Een gok, geen oordeel.",
+    "estimateAi": "Een schatting van de AI op basis van wat die van deze wijn weet. Een gok, geen oordeel.",
     "yearsLeft": "{years, plural, one {# jaar te gaan} other {# jaar te gaan}}",
     "shortLabel": "{phase}",
     "homeTitle": "Binnenkort drinken",

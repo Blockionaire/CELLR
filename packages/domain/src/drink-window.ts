@@ -407,7 +407,7 @@ export interface DrinkWindow {
   from: number;
   until: number;
   /** Always an estimate here; a window someone typed in themselves will say "own" when that exists. */
-  source: "estimate" | "own";
+  source: "estimate" | "ai" | "own";
 }
 
 export interface DrinkInput extends WineFacts {
@@ -415,6 +415,8 @@ export interface DrinkInput extends WineFacts {
   year: number | null;
   /** What a bottle cost, in cents (when known). */
   pricePerBottleCents?: number | null;
+  /** What the AI said about this very wine and vintage (and was sure enough about); it wins over the table. */
+  aiWindow?: { from: number; until: number } | null;
 }
 
 /**
@@ -424,6 +426,8 @@ export interface DrinkInput extends WineFacts {
  */
 export function estimateDrinkWindow(input: DrinkInput): DrinkWindow | null {
   if (input.year === null) return null;
+  if (input.aiWindow)
+    return { from: input.aiWindow.from, until: input.aiWindow.until, source: "ai" };
   const spans = SPANS[styleOf(input)];
   const [baseFrom, baseUntil] = spans[input.type] ?? FALLBACK[input.type];
   const raw =

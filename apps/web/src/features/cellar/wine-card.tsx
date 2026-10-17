@@ -7,6 +7,7 @@ import { FavoriteButton } from "./favorite-button";
 import { imageUrl, LabelImage } from "./label-image";
 import { DrinkLabel, DrinkWindowMini } from "./drink-bits";
 import { RatingBadge } from "./tasting-bits";
+import { SwipeFavorite } from "./swipe-favorite";
 import { labelMark, placeLine, shapeFor } from "./wine-visuals";
 
 interface ItemProps {
@@ -93,6 +94,7 @@ export function WineCard({ item, locale }: ItemProps) {
         />
         {item.rating && <RatingBadge rating={item.rating} className="absolute bottom-2 left-2" />}
       </div>
+
       <div className="mt-3 flex-1 px-1.5">
         <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-bronze">
           {item.producer}
@@ -126,38 +128,44 @@ export function WineRow({ item, locale }: ItemProps) {
   const places = usePlaces(item);
   const where = placeLine(item.region, item.countryCode, locale);
   return (
-    <article className="relative flex min-h-[4.5rem] items-center gap-4 px-1 py-3 active:bg-raised">
-      {item.image ? (
-        <LabelImage image={item.image} size="thumb" className="size-12 shrink-0 rounded-control" />
-      ) : (
-        <ItemBottle item={item} className="w-6 shrink-0" />
-      )}
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-bronze">
-          {item.producer}
-        </p>
-        <h3 className="truncate font-display text-title text-ink">
-          <Link href={`/cellar/${item.vintageId}`} className="after:absolute after:inset-0">
-            {item.wineName}
-          </Link>
-        </h3>
-        <p className="truncate text-small text-ink-2">
-          <span className="tnum">{formatVintage(item.year)}</span>
-          {where && <span> · {where}</span>}
-          {item.rating && <RatingBadge rating={item.rating} inline />}
-        </p>
-      </div>
-      <FavoriteButton
-        wineId={item.wineId}
-        wine={`${item.producer} ${item.wineName}`}
-        favorite={item.favorite}
-        className="shrink-0"
-      />
-      <div className="flex shrink-0 flex-col items-end gap-1.5">
-        <CountBadge count={item.count} />
-        <p className="max-w-[9rem] truncate text-caption text-ink-3">{places}</p>
-        <DrinkLabel drink={item.drink} />
-      </div>
-    </article>
+    <SwipeFavorite wineId={item.wineId} favorite={item.favorite}>
+      <article className="relative flex min-h-[4.5rem] items-center gap-4 px-1 py-3 active:bg-raised">
+        {item.image ? (
+          <LabelImage
+            image={item.image}
+            size="thumb"
+            className="size-12 shrink-0 rounded-control"
+          />
+        ) : (
+          <ItemBottle item={item} className="w-6 shrink-0" />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-bronze">
+            {item.producer}
+          </p>
+          <h3 className="truncate font-display text-title text-ink">
+            <Link href={`/cellar/${item.vintageId}`} className="after:absolute after:inset-0">
+              {item.wineName}
+            </Link>
+          </h3>
+          <p className="truncate text-small text-ink-2">
+            <span className="tnum">{formatVintage(item.year)}</span>
+            {where && <span> · {where}</span>}
+            {item.rating && <RatingBadge rating={item.rating} inline />}
+          </p>
+        </div>
+        <FavoriteButton
+          wineId={item.wineId}
+          wine={`${item.producer} ${item.wineName}`}
+          favorite={item.favorite}
+          className="shrink-0"
+        />
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <CountBadge count={item.count} />
+          <p className="max-w-[9rem] truncate text-caption text-ink-3">{places}</p>
+          <DrinkLabel drink={item.drink} />
+        </div>
+      </article>
+    </SwipeFavorite>
   );
 }

@@ -217,6 +217,24 @@
   }
 }
 
+/* Page changes: a short, calm cross-fade; the tapped wine's stage morphs into the wine page. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 160ms;
+  animation-timing-function: var(--ease-cellr, ease-out);
+}
+::view-transition-group(*) {
+  animation-duration: 280ms;
+  animation-timing-function: var(--ease-cellr, ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
 /* Reduced motion: cinematic movement is replaced by a plain fade, never merely shortened. */
 @media (prefers-reduced-motion: reduce) {
   *,

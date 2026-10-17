@@ -44,6 +44,7 @@ export function servicesFor(ctx: RequestContext) {
     userId: ctx.userId,
     // `insights` is built further down; it is only asked when a suggestion is made, never here.
     reservations: () => insights.reservations(),
+    drinkWindows: () => insights.windows(),
   });
   const households = createHouseholdService(createHouseholdRepository(ctx.db), {
     userId: ctx.userId,
@@ -54,6 +55,7 @@ export function servicesFor(ctx: RequestContext) {
     repo: insightsRepo,
     household,
     vintage: (vintageId) => cellar.vintage(vintageId),
+    fillWine: (wineId, patch) => cellar.updateWine(wineId, patch),
     locale: async () => (await households.me()).locale,
     llm: getLlmProvider(),
     spend: () => limiter.enforce(LIMITS.insights),
@@ -112,7 +114,13 @@ export function servicesFor(ctx: RequestContext) {
     }),
     stats: createStatsService({
       household,
-      rows: (id) => cellars.listInventory(id),
+      rows: async (id) => {
+        const [rows, known] = await Promise.all([
+          cellars.listInventory(id),
+          insights.windows().catch(() => new Map<string, { from: number; until: number }>()),
+        ]);
+        return rows.map((r) => ({ ...r, aiWindow: known.get(r.vintageId) ?? null }));
+      },
       opened: (id) => cellars.listRecentlyOpened(id, 1000),
       scores: (id) => cellars.listScores(id),
       values: async (id) => (await insightsRepo.listValues(id)) ?? [],

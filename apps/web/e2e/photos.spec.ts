@@ -362,6 +362,7 @@ test.describe("label photos on screen", () => {
 
     // Change it, then remove it: the bottle drawing comes back.
     await page.goto(`/cellar/${vintageId}`);
+    await page.waitForLoadState("networkidle"); // choosing a file before the page has hydrated does nothing
     await page
       .locator('input[type="file"]')
       .first()
@@ -384,6 +385,7 @@ test.describe("label photos on screen", () => {
   }) => {
     const { vintageId } = await furnishPage(page, request, "photonot");
     await page.goto(`/cellar/${vintageId}`);
+    await page.waitForLoadState("networkidle"); // choosing a file before the page has hydrated does nothing
     await page
       .locator('input[type="file"]')
       .first()

@@ -99,7 +99,9 @@ export default function CellarScene({
   const onGone = useCallback(() => {
     setShown(null);
     setFrozen(false);
-    onBackdrop?.(null);
+    // The live rack is drawn in the next frame. The still goes only after that (two frames on), or for one
+    // frame there is no rack at all and the bottle seems to come loose and jump into its place.
+    requestAnimationFrame(() => requestAnimationFrame(() => onBackdrop?.(null)));
   }, [onBackdrop]);
   const onFrozen = useCallback(
     (backdrop: Backdrop) => {

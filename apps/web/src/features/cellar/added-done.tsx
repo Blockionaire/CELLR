@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { formatVintage, type AddBottlesResult } from "@cellr/domain";
 import { Button, buttonStyles } from "@/ui/button";
 import { CheckIcon } from "@/ui/icons";
+import { AddedProfile } from "./added-profile";
 import { WineStage } from "./wine-stage";
 
 /** "Added 3 bottles of … to the Wine fridge": the same last screen after a manual add and after a scan. */
@@ -62,6 +63,7 @@ export function AddedDone({
                 })}
         </p>
       </div>
+      <AddedProfile vintageId={result.vintageId} />
       <div className="flex w-full max-w-sm flex-col gap-3">
         <Button size="lg" block onClick={onAnother}>
           {anotherLabel ?? t("addAnother")}
