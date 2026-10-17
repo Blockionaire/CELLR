@@ -962,7 +962,9 @@
     "myValueLabel": "Wat is één fles nu waard? ({currency})",
     "myValueHint": "Je eigen getal telt zwaarder dan elke schatting. Laat leeg om te wissen.",
     "valueError": "Dat lijkt geen prijs.",
-    "valueSaved": "Waarde opgeslagen."
+    "valueSaved": "Waarde opgeslagen.",
+    "abv": "Alcohol",
+    "abvValue": "{abv}% alcohol"
   },
   "framer": {
     "title": "Wijs aan waar het etiket zit",

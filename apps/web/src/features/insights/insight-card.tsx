@@ -119,6 +119,9 @@ export function InsightCard({ vintageId, currency }: { vintageId: string; curren
                   }
                 />
               )}
+              {out.abvPercent !== null && (
+                <Row label={t("abv")} value={t("abvValue", { abv: out.abvPercent })} />
+              )}
               {out.pairings.length > 0 && (
                 <Row label={t("pairings")} value={out.pairings.join(", ")} />
               )}

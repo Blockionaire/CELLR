@@ -962,7 +962,9 @@
     "myValueLabel": "What is one bottle worth now? ({currency})",
     "myValueHint": "Your own number counts for more than any estimate. Leave empty to clear it.",
     "valueError": "That doesn't look like a price.",
-    "valueSaved": "Value saved."
+    "valueSaved": "Value saved.",
+    "abv": "Alcohol",
+    "abvValue": "{abv}% alcohol"
   },
   "framer": {
     "title": "Show us where the label is",

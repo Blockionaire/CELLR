@@ -337,6 +337,7 @@ export interface HomeView {
 
 export interface AddBottlesResult {
   wine: WineSummary;
+  vintageId: string;
   year: number | null;
   bottleIds: string[];
   placed: number;

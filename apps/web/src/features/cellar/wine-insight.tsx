@@ -114,8 +114,11 @@ function Profile({ out }: { out: InsightOutput }) {
           </Line>
         )}
       </dl>
-      {(out.serving || out.decantMinutes !== null) && (
+      {(out.serving || out.decantMinutes !== null || out.abvPercent !== null) && (
         <dl className="grid grid-cols-2 gap-3">
+          {out.abvPercent !== null && (
+            <Stat label={t("abv")}>{t("abvValue", { abv: out.abvPercent })}</Stat>
+          )}
           {out.serving && (
             <Stat label={t("serving")}>
               {t("servingValue", { min: out.serving.minC, max: out.serving.maxC })}

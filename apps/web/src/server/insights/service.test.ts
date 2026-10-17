@@ -15,6 +15,7 @@ const raw = {
   serving_temp_min_c: 16,
   serving_temp_max_c: 18,
   decant_minutes: 30,
+  abv_percent: 13.5,
   pairings: ["Lamb"],
   aging: "A decade.",
   value_low: 40,

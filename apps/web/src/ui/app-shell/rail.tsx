@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { motion } from "motion/react";
+import { useState } from "react";
 import { buttonStyles } from "../button";
 import { cn } from "../cn";
+import { spring } from "../motion";
 import { Logo } from "../logo";
 import { isActive, NAV_ITEMS } from "./nav-items";
 
@@ -13,6 +16,9 @@ export function Rail({ className }: { className?: string }) {
   const t = useTranslations("nav");
   const pathname = usePathname();
   const scan = NAV_ITEMS.find((i) => i.primary);
+  // the tapped item lights up at once (see BottomNav)
+  const [tapped, setTapped] = useState<{ href: string; from: string } | null>(null);
+  const current = tapped && tapped.from === pathname ? tapped.href : pathname;
 
   return (
     <nav
@@ -36,21 +42,27 @@ export function Rail({ className }: { className?: string }) {
       )}
       <ul className="flex flex-col gap-1.5">
         {NAV_ITEMS.filter((i) => !i.primary).map(({ key, href, Icon }) => {
-          const active = isActive(pathname, href);
+          const active = isActive(current, href);
           return (
             <li key={key}>
               <Link
                 href={href}
+                onClick={() => setTapped({ href, from: pathname })}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex h-11 items-center gap-3 rounded-full px-4 text-body transition-colors duration-150",
-                  active
-                    ? "bg-raised font-medium text-ink"
-                    : "text-ink-2 hover:bg-raised/60 hover:text-ink",
+                  "relative flex h-11 items-center gap-3 rounded-full px-4 text-body transition-colors duration-150",
+                  active ? "font-medium text-ink" : "text-ink-2 hover:bg-raised/60 hover:text-ink",
                 )}
               >
-                <Icon size={22} />
-                {t(key)}
+                {active && (
+                  <motion.span
+                    layoutId="rail-active"
+                    transition={spring.snap}
+                    className="absolute inset-0 rounded-full bg-accent/15"
+                  />
+                )}
+                <Icon size={22} className={cn("relative", active && "text-accent-fg")} />
+                <span className="relative">{t(key)}</span>
               </Link>
             </li>
           );

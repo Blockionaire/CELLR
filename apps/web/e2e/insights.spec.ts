@@ -27,6 +27,7 @@ const PROFILE = {
   serving_temp_min_c: 16,
   serving_temp_max_c: 18,
   decant_minutes: 45,
+  abv_percent: 13.5,
   pairings: ["Roast lamb", "Hard cheese"],
   aging: "Should keep improving for another ten years.",
   value_low: 40,

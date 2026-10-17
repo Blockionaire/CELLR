@@ -813,6 +813,7 @@ export function createCellarService(
           const bottleIds = await repo.insertBottles(householdId, rows);
           return {
             wine,
+            vintageId,
             year: input.year,
             bottleIds,
             placed: slots.length,
