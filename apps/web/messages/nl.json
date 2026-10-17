@@ -297,6 +297,11 @@
     "retry": "Probeer opnieuw"
   },
   "addBottle": {
+    "profileTitle": "AI-analyse",
+    "profileWindow": "Drinken {from}–{until}",
+    "profileValue": "Ca. {value} per fles",
+    "profileOpen": "Bekijk het hele profiel",
+    "profileMissing": "De analyse is niet vanzelf gelopen.",
     "eyebrow": "Fles toevoegen",
     "back": "Terug",
     "chooseTitle": "Welke wijn?",

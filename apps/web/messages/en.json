@@ -297,6 +297,11 @@
     "retry": "Try again"
   },
   "addBottle": {
+    "profileTitle": "AI analysis",
+    "profileWindow": "Drink {from}–{until}",
+    "profileValue": "About {value} a bottle",
+    "profileOpen": "See the full profile",
+    "profileMissing": "The analysis did not run by itself.",
     "eyebrow": "Add a bottle",
     "back": "Back",
     "chooseTitle": "Which wine?",
