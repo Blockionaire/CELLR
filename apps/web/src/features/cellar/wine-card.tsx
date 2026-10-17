@@ -70,11 +70,18 @@ export function WineCard({ item, locale }: ItemProps) {
           STAGE[item.type],
         )}
       >
-        <span
-          aria-hidden="true"
-          className="absolute -bottom-10 left-1/2 size-36 -translate-x-1/2 rounded-full bg-surface/45"
-        />
-        <ItemBottle item={item} className="relative mb-1 w-[3.1rem]" />
+        {item.image ? (
+          // The person's own label photo is the picture; the bottle sprite is for wines without one.
+          <LabelImage image={item.image} size="thumb" className="absolute inset-0 size-full" />
+        ) : (
+          <>
+            <span
+              aria-hidden="true"
+              className="absolute -bottom-10 left-1/2 size-36 -translate-x-1/2 rounded-full bg-surface/45"
+            />
+            <ItemBottle item={item} className="relative mb-1 w-[3.1rem]" />
+          </>
+        )}
         <span className="absolute left-2 top-2">
           <CountBadge count={item.count} />
         </span>

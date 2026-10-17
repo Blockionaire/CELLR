@@ -159,6 +159,13 @@ test.describe("the 3D cellar", () => {
     await addUnit(call, "Empty rack", "rack", 3, 3);
 
     const scene = await open3D(page);
+    // On a phone the picture can be taller than the screen: bring its middle clear of the bars first.
+    await page.evaluate(() => {
+      const c = document.querySelector("canvas")!.getBoundingClientRect();
+      const over = c.top + c.height / 2 - (window.innerHeight - 160);
+      if (over > 0) window.scrollBy(0, over);
+    });
+    await page.waitForTimeout(300);
     const box = (await scene.locator("canvas").boundingBox())!;
     const panel = page.getByRole("dialog", { name: /Pavillon Rouge 2015/ });
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);

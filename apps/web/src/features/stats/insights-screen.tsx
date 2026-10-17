@@ -7,7 +7,8 @@ import {
   type StatsView,
   type WineType,
 } from "@cellr/domain";
-import { PHASE_COLOUR } from "@/features/cellar/drink-bits";
+
+import { PHASE_COLOUR } from "@/features/cellar/phase-colour";
 import { countryName, placeLine } from "@/features/cellar/wine-visuals";
 import { buttonStyles } from "@/ui/button";
 import { ChevronRightIcon } from "@/ui/icons";

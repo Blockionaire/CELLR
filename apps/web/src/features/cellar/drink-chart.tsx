@@ -11,7 +11,8 @@ import {
   type DrinkSummary,
 } from "@cellr/domain";
 import { cn } from "@/ui/cn";
-import { PHASE_COLOUR } from "./drink-bits";
+
+import { PHASE_COLOUR } from "./phase-colour";
 import { useDay } from "./bottle-bits";
 
 /** The drawing is 320 × 100 units, stretched to the card's width; text and dots are HTML so they stay crisp. */

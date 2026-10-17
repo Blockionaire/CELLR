@@ -1,19 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import type { DrinkPhase } from "@cellr/domain";
 import type { DrinkSummary } from "@cellr/domain";
 import { cn } from "@/ui/cn";
+import { PHASE_COLOUR } from "./phase-colour";
 
-/** Decorative only: the words always say the same thing, in text. */
-export const PHASE_COLOUR: Record<DrinkPhase, string> = {
-  young: "var(--young)",
-  developing: "var(--ready)",
-  peak: "var(--peak)",
-  ready: "var(--fading)",
-  past: "var(--danger)",
-  unknown: "var(--ink-3)",
-};
+export { PHASE_COLOUR };
 
 /** "● At its best": where a wine stands in its window, in a few words. Nothing for a wine with no window. */
 export function DrinkLabel({ drink, className }: { drink: DrinkSummary; className?: string }) {

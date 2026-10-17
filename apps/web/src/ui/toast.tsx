@@ -80,7 +80,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         popover="manual"
         role="status"
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-0 top-auto m-0 flex w-full max-w-none flex-col items-center gap-2 overflow-visible border-0 bg-transparent p-4 pb-[calc(var(--nav-height)+env(safe-area-inset-bottom)+12px)] lg:pb-6"
+        className="pointer-events-none fixed inset-x-0 bottom-0 top-auto m-0 flex w-full max-w-none flex-col items-center gap-2 overflow-visible border-0 bg-transparent p-4 pb-[calc(var(--nav-height)+env(safe-area-inset-bottom)+5.5rem)] lg:pb-6"
       >
         <AnimatePresence>
           {items.map((t) => (
