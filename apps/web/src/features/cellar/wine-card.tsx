@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ViewTransition } from "react";
 import { useTranslations } from "next-intl";
 import { formatVintage, type CellarItem } from "@cellr/domain";
 import { BottleGlyph, type WineTint } from "@/ui/bottle-glyph";
@@ -66,38 +65,36 @@ export function WineCard({ item, locale }: ItemProps) {
   const where = placeLine(item.region, item.countryCode, locale);
   return (
     <article className="relative flex h-full flex-col rounded-card bg-surface p-2 shadow-raised ring-1 ring-hairline transition-transform duration-150 ease-cellr active:scale-[0.985]">
-      {/* Named, so opening the wine grows this very stage into the wine page's hero. */}
-      <ViewTransition name={`wine-${item.vintageId}`}>
-        <div
-          className={cn(
-            "relative flex h-44 items-end justify-center overflow-hidden rounded-[16px]",
-            STAGE[item.type],
-          )}
-        >
-          {item.image ? (
-            // The person's own label photo is the picture; the bottle sprite is for wines without one.
-            <LabelImage image={item.image} size="thumb" className="absolute inset-0 size-full" />
-          ) : (
-            <>
-              <span
-                aria-hidden="true"
-                className="absolute -bottom-10 left-1/2 size-36 -translate-x-1/2 rounded-full bg-surface/45"
-              />
-              <ItemBottle item={item} className="relative mb-1 w-[3.1rem]" />
-            </>
-          )}
-          <span className="absolute left-2 top-2">
-            <CountBadge count={item.count} />
-          </span>
-          <FavoriteButton
-            wineId={item.wineId}
-            wine={`${item.producer} ${item.wineName}`}
-            favorite={item.favorite}
-            className="absolute right-0 top-0 m-1 size-9 bg-surface/85"
-          />
-          {item.rating && <RatingBadge rating={item.rating} className="absolute bottom-2 left-2" />}
-        </div>
-      </ViewTransition>
+      <div
+        className={cn(
+          "relative flex h-44 items-end justify-center overflow-hidden rounded-[16px]",
+          STAGE[item.type],
+        )}
+      >
+        {item.image ? (
+          // The person's own label photo is the picture; the bottle sprite is for wines without one.
+          <LabelImage image={item.image} size="thumb" className="absolute inset-0 size-full" />
+        ) : (
+          <>
+            <span
+              aria-hidden="true"
+              className="absolute -bottom-10 left-1/2 size-36 -translate-x-1/2 rounded-full bg-surface/45"
+            />
+            <ItemBottle item={item} className="relative mb-1 w-[3.1rem]" />
+          </>
+        )}
+        <span className="absolute left-2 top-2">
+          <CountBadge count={item.count} />
+        </span>
+        <FavoriteButton
+          wineId={item.wineId}
+          wine={`${item.producer} ${item.wineName}`}
+          favorite={item.favorite}
+          className="absolute right-0 top-0 m-1 size-9 bg-surface/85"
+        />
+        {item.rating && <RatingBadge rating={item.rating} className="absolute bottom-2 left-2" />}
+      </div>
+
       <div className="mt-3 flex-1 px-1.5">
         <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-bronze">
           {item.producer}

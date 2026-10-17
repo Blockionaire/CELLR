@@ -140,11 +140,13 @@ test.describe("favourites", () => {
     await expect(heart).toHaveAttribute("aria-pressed", "false");
 
     const row = page.locator("article", { has: heart });
+    // in the middle of the screen: clear of the tab bar, which a touch near the bottom would hit
+    await row.evaluate((el) => el.scrollIntoView({ block: "center" }));
     const box = (await row.boundingBox())!;
     const y = box.y + box.height / 2;
     // A real finger: touch events through the browser's own protocol.
     const cdp = await page.context().newCDPSession(page);
-    const touch = (type: string, x: number) =>
+    const touch = (type: "touchStart" | "touchMove" | "touchEnd", x: number) =>
       cdp.send("Input.dispatchTouchEvent", {
         type,
         touchPoints: type === "touchEnd" ? [] : [{ x, y }],

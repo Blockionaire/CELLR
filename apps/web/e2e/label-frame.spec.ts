@@ -182,6 +182,7 @@ test.describe("framing the label on the wine's page", () => {
   }) => {
     const { vintageId } = await furnish(page, request, "frame");
     await page.goto(`/cellar/${vintageId}`);
+    await page.waitForLoadState("networkidle"); // choosing a file before the page has hydrated does nothing
     await page
       .locator('input[type="file"]')
       .first()
@@ -228,6 +229,7 @@ test.describe("framing the label on the wine's page", () => {
   test("a frame that isn't a label is explained and nothing is sent", async ({ page, request }) => {
     const { vintageId } = await furnish(page, request, "framebad");
     await page.goto(`/cellar/${vintageId}`);
+    await page.waitForLoadState("networkidle"); // choosing a file before the page has hydrated does nothing
     await page
       .locator('input[type="file"]')
       .first()
@@ -254,6 +256,7 @@ test.describe("framing the label on the wine's page", () => {
   test("the back label has its own place", async ({ page, request }) => {
     const { vintageId } = await furnish(page, request, "back");
     await page.goto(`/cellar/${vintageId}`);
+    await page.waitForLoadState("networkidle"); // choosing a file before the page has hydrated does nothing
     await expect(page.getByText("Back label", { exact: true })).toBeVisible();
     await page
       .locator('input[type="file"]')

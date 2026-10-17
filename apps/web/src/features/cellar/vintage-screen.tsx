@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useState, ViewTransition, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   currentValueCents,
   formatVintage,
@@ -166,72 +166,71 @@ export function VintageScreen({
     <div className="mx-auto w-full max-w-3xl pb-28 pt-4 lg:pb-0 lg:pt-10">
       <header className="grid gap-6 md:grid-cols-[19rem_1fr] md:items-start md:gap-8">
         <div>
-          <ViewTransition name={`wine-${detail.vintageId}`}>
-            <div
-              className={cn(
-                "relative isolate flex h-72 items-end justify-center overflow-hidden rounded-[28px] md:h-80",
-                STAGE[wine.type],
-              )}
-            >
-              {detail.image ? (
-                <LabelImage
-                  image={detail.image}
-                  size="photo"
-                  alt={tPhoto("alt", { wine: `${wine.producer} ${wine.name}` })}
-                  className="absolute inset-0 size-full"
-                />
-              ) : (
-                <>
-                  {/* The year, big and faint behind the bottle. Drawn from an attribute so it is no text to read or to check. */}
-                  <span
-                    aria-hidden="true"
-                    data-year={vintageName}
-                    className="pointer-events-none absolute inset-x-0 top-[8%] select-none text-center font-display text-[9rem] leading-none text-ink/[0.07] before:content-[attr(data-year)]"
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="absolute -bottom-20 left-1/2 size-72 -translate-x-1/2 rounded-full bg-surface/45"
-                  />
-                  <BottleGlyph
-                    shape={shapeFor(wine.type)}
-                    tint={wine.type}
-                    mark={labelMark(wine.producer, wine.name)}
-                    year={vintageName}
-                    className="relative mb-11 h-56 w-auto md:h-64"
-                    title={tTypes(wine.type)}
-                  />
-                </>
-              )}
-
-              <Link
-                href="/cellar"
-                aria-label={t("back")}
-                className="absolute left-3 top-3 z-10 grid size-11 place-items-center rounded-full bg-surface/85 text-ink shadow-raised transition-transform duration-150 ease-cellr active:scale-[0.96]"
-              >
-                <ChevronRightIcon size={20} className="rotate-180" />
-              </Link>
-              <FavoriteButton
-                wineId={wine.id}
-                wine={`${wine.producer} ${wine.name}`}
-                favorite={wine.favorite}
-                className="absolute right-3 top-3 size-11 bg-surface/85"
-                size={22}
+          <div
+            className={cn(
+              "relative isolate flex h-72 items-end justify-center overflow-hidden rounded-[28px] md:h-80",
+              STAGE[wine.type],
+            )}
+          >
+            {detail.image ? (
+              <LabelImage
+                image={detail.image}
+                size="photo"
+                alt={tPhoto("alt", { wine: `${wine.producer} ${wine.name}` })}
+                className="absolute inset-0 size-full"
               />
+            ) : (
+              <>
+                {/* The year, big and faint behind the bottle. Drawn from an attribute so it is no text to read or to check. */}
+                <span
+                  aria-hidden="true"
+                  data-year={vintageName}
+                  className="pointer-events-none absolute inset-x-0 top-[8%] select-none text-center font-display text-[9rem] leading-none text-ink/[0.07] before:content-[attr(data-year)]"
+                />
+                <span
+                  aria-hidden="true"
+                  className="absolute -bottom-20 left-1/2 size-72 -translate-x-1/2 rounded-full bg-surface/45"
+                />
+                <BottleGlyph
+                  shape={shapeFor(wine.type)}
+                  tint={wine.type}
+                  mark={labelMark(wine.producer, wine.name)}
+                  year={vintageName}
+                  className="relative mb-11 h-56 w-auto md:h-64"
+                  title={tTypes(wine.type)}
+                />
+              </>
+            )}
 
-              <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
-                {phase !== "unknown" ? (
-                  <PhasePill phase={phase} className="shadow-raised" />
-                ) : (
-                  <span />
-                )}
-                {count > 0 && (
-                  <span className="rounded-full bg-surface px-3 py-1 text-caption font-semibold text-ink shadow-raised tnum">
-                    {t("heroCount", { count })}
-                  </span>
-                )}
-              </div>
+            <Link
+              href="/cellar"
+              aria-label={t("back")}
+              className="absolute left-3 top-3 z-10 grid size-11 place-items-center rounded-full bg-surface/85 text-ink shadow-raised transition-transform duration-150 ease-cellr active:scale-[0.96]"
+            >
+              <ChevronRightIcon size={20} className="rotate-180" />
+            </Link>
+            <FavoriteButton
+              wineId={wine.id}
+              wine={`${wine.producer} ${wine.name}`}
+              favorite={wine.favorite}
+              className="absolute right-3 top-3 size-11 bg-surface/85"
+              size={22}
+            />
+
+            <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
+              {phase !== "unknown" ? (
+                <PhasePill phase={phase} className="shadow-raised" />
+              ) : (
+                <span />
+              )}
+              {count > 0 && (
+                <span className="rounded-full bg-surface px-3 py-1 text-caption font-semibold text-ink shadow-raised tnum">
+                  {t("heroCount", { count })}
+                </span>
+              )}
             </div>
-          </ViewTransition>
+          </div>
+
           <LabelPhotoActions vintageId={detail.vintageId} side="front" image={detail.image} />
         </div>
 
