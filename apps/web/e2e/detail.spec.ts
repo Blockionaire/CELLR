@@ -478,6 +478,7 @@ test.describe("the wine's page and its sheets are accessible in both themes", ()
           await expect(
             page.getByRole("dialog").getByRole("img", { name: /shelf 1, position 1/i }),
           ).toBeVisible();
+        await page.waitForTimeout(450); // let the sheet finish fading in: contrast is measured on settled colours
         expect(await audit(page), name).toEqual([]);
         await page.screenshot({ path: shot(`${name}-sheet-${scheme}-${project()}`) });
         await page.keyboard.press("Escape");
