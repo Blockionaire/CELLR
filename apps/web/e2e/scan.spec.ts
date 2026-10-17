@@ -97,6 +97,8 @@ test.describe("scanning a label", () => {
     await page.getByRole("button", { name: "Add 2 bottles" }).click();
     await expect(page.getByText(/2 bottles of Château Margaux Pavillon Rouge 2015/)).toBeVisible();
     await expect(page.getByText("In Wine fridge.")).toBeVisible();
+    // The last step is the AI analysis: it ran by itself, so the card is there (written or, as here, offered again).
+    await expect(page.getByTestId("added-profile")).toBeVisible();
 
     // The bottles carry the photo that was taken.
     const rows = await sql<{ n: string; images: string }>(

@@ -13,6 +13,7 @@ const URGENCY: Record<DrinkPhase, number> = {
   unknown: 999,
 };
 const drink = (phase: DrinkPhase): DrinkSummary => ({
+  source: "estimate",
   phase,
   from: 2020,
   until: 2030,

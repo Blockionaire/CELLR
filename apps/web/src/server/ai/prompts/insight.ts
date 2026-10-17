@@ -1,7 +1,7 @@
 import "server-only";
 import { RawInsightSchema, type RawInsight } from "@cellr/domain";
 
-export const INSIGHT_VERSION = "wine_insight@v2";
+export const INSIGHT_VERSION = "wine_insight@v4";
 
 export const INSIGHT_SYSTEM = `You write a short, honest profile of one wine for a private wine-cellar app. The person will read it next to the bottle.
 
@@ -11,6 +11,8 @@ Rules:
 - grapes: the varieties it is most likely made from, most important first; an empty list if you cannot tell.
 - serving_temp_min_c and serving_temp_max_c: a sensible serving range in degrees Celsius, or null. decant_minutes: how long to decant, 0 if not needed, or null if unsure.
 - abv_percent: the alcohol percentage by volume this wine is typically bottled at (for example 13.5), or null if you are not reasonably sure. Never guess a precise number you do not know: a plausible typical value for the style and region is fine.
+- drink_from_year and drink_until_year: the calendar years between which this exact wine and vintage drinks well (not merely survives). Base it on what you know about this producer, this vintage's character in its region (a hot, ripe year opens earlier; a structured, cool year lasts longer), the grapes and the style. If you do not know the producer or vintage, give your best estimate for the appellation and style and set confidence to "low". Whole years. For a non-vintage wine give null for both.
+- country_code, region, appellation: where this wine is from, for filling in what the person left empty: a 2-letter ISO country code (for example "FR"), the wine region (for example "Bordeaux") and the appellation (for example "Pauillac"). Use null for any you are not sure of. Do not repeat the wrong spelling of something already given; correct spelling only.
 - pairings: up to five dishes or foods that suit it.
 - aging: one or two sentences on how it may develop, as an estimate.
 - value_low and value_high: a rough range for what ONE bottle of this vintage might sell for today, as whole numbers in the stated currency, or null when you cannot say. This is an estimate for the person's own interest, not a quote: keep the range honest (the high at most ten times the low). value_basis: one short sentence on what the estimate rests on, or an empty string.
@@ -63,6 +65,11 @@ export const INSIGHT_SCHEMA = {
     "serving_temp_max_c",
     "decant_minutes",
     "abv_percent",
+    "drink_from_year",
+    "drink_until_year",
+    "country_code",
+    "region",
+    "appellation",
     "pairings",
     "aging",
     "value_low",
@@ -79,6 +86,11 @@ export const INSIGHT_SCHEMA = {
     serving_temp_max_c: nullable("number"),
     decant_minutes: nullable("number"),
     abv_percent: nullable("number"),
+    drink_from_year: nullable("number"),
+    drink_until_year: nullable("number"),
+    country_code: nullable("string"),
+    region: nullable("string"),
+    appellation: nullable("string"),
     pairings: { type: "array", items: { type: "string" } },
     aging: { type: "string" },
     value_low: nullable("number"),

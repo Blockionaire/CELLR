@@ -73,20 +73,33 @@ export function useCreateStorage() {
 }
 
 /** Asks for the wine's AI profile once, if it has none yet. Never throws: this is a bonus, not part of adding. */
-async function profileInBackground(queryClient: QueryClient, vintageId: string) {
+async function profileInBackground(
+  queryClient: QueryClient,
+  vintageId: string,
+  onWritten: () => void,
+) {
+  // The wine page reads this to show "writing the profile…" instead of an idle button while it runs.
+  const pending = ["insight-pending", vintageId];
   try {
+    queryClient.setQueryData(pending, true);
     const current = await api.get<VintageInsightView>(`/cellar/${vintageId}/insight`);
     if (!current.ready || current.insight) return;
     const made = await api.post<VintageInsightView>(`/cellar/${vintageId}/insight`);
     queryClient.setQueryData(["insight", vintageId], made);
+    // the profile also sets the drinking window: refresh what shows it (wine page, cellar, home, stats)
+    void queryClient.invalidateQueries({ queryKey: vintageKey(vintageId) });
+    onWritten();
   } catch {
     // switched off, rate-limited or offline: the "Tell me about this wine" button is still there
+  } finally {
+    queryClient.setQueryData(pending, false);
   }
 }
 
 /** Adding bottles refreshes everything that shows counts or free space. */
 export function useAddBottles() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: (input: AddBottles) => api.post<AddBottlesResult>("/bottles", input),
     onSuccess: async (result) => {
@@ -104,7 +117,7 @@ export function useAddBottles() {
       ]);
       // Every wine gets its AI profile (style, grapes, alcohol, value…) the moment it is added, without a tap.
       // Quiet on purpose: if the AI is off or busy, the wine page still offers the button.
-      void profileInBackground(queryClient, result.vintageId);
+      void profileInBackground(queryClient, result.vintageId, () => router.refresh());
     },
   });
 }

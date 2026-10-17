@@ -112,6 +112,27 @@ export function createInsightsRepository(db: Db): InsightsRepository {
       });
     },
 
+    async listWindows(householdId) {
+      const { data, error } = await allRows((a, b) =>
+        db
+          .from("vintage_insights")
+          .select("vintage_id, output")
+          .eq("household_id", householdId)
+          .order("vintage_id")
+          .range(a, b),
+      );
+      if (error && isMissingTable(error)) return null;
+      if (error) throw mapDbError(error);
+      return data.flatMap((r) => {
+        const parsed = InsightOutputSchema.safeParse(r.output);
+        const w = parsed.success ? parsed.data.drinkWindow : null;
+        // A guess the AI itself is unsure about is worse than the style table.
+        return w && parsed.success && parsed.data.confidence !== "low"
+          ? [{ vintageId: r.vintage_id, from: w.from, until: w.until }]
+          : [];
+      });
+    },
+
     async reservedBottles(householdId) {
       const { data, error } = await allRows((a, b) =>
         db

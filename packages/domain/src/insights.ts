@@ -110,6 +110,11 @@ export const RawInsightSchema = z.object({
   serving_temp_max_c: z.number().nullable(),
   decant_minutes: z.number().nullable(),
   abv_percent: z.number().nullable(),
+  drink_from_year: z.number().nullable(),
+  drink_until_year: z.number().nullable(),
+  country_code: z.string().nullable(),
+  region: z.string().nullable(),
+  appellation: z.string().nullable(),
   pairings: z.array(z.string()),
   aging: z.string(),
   value_low: z.number().nullable(),
@@ -129,6 +134,11 @@ export const InsightOutputSchema = z.object({
   decantMinutes: z.number().int().min(0).max(240).nullable(),
   /** Alcohol by volume as typically bottled; profiles saved before this existed have none. */
   abvPercent: z.number().min(0.5).max(25).nullable().default(null),
+  /** The calendar years in which this wine drinks well, as the model knows it; profiles from before have none. */
+  drinkWindow: z
+    .object({ from: z.number().int(), until: z.number().int() })
+    .nullable()
+    .default(null),
   pairings: z.array(z.string().max(80)).max(6),
   aging: z.string().max(400),
   value: z
@@ -171,11 +181,40 @@ const list = (values: readonly string[], max: number, length: number): string[] 
 };
 
 /**
+ * Where the wine is from, as the AI knows it, to fill in what the person left empty. Only an answer the model is
+ * not unsure about is used, and only well-formed values; the caller adds just the fields that are still empty.
+ */
+export function checkOrigin(raw: RawInsight): {
+  countryCode?: string;
+  region?: string;
+  appellation?: string;
+} {
+  if (raw.confidence === "low") return {};
+  const text = (v: string | null, max: number) => {
+    const t = (v ?? "").replace(/\s+/g, " ").trim();
+    return t.length >= 2 && t.length <= max ? t : null;
+  };
+  const country = (raw.country_code ?? "").trim().toUpperCase();
+  const region = text(raw.region, 120);
+  const appellation = text(raw.appellation, 160);
+  return {
+    ...(/^[A-Z]{2}$/.test(country) ? { countryCode: country } : {}),
+    ...(region ? { region } : {}),
+    ...(appellation ? { appellation } : {}),
+  };
+}
+
+/**
  * Plausibility, in code and not in the prompt. A temperature that cannot be right, or a value range that is
  * absurd (reversed, or the high more than ten times the low), is dropped rather than shown; what is left has
  * its confidence lowered when the value had to go. Returns null when there is no profile worth keeping.
  */
-export function checkInsight(raw: RawInsight, currency: string): InsightOutput | null {
+export function checkInsight(
+  raw: RawInsight,
+  currency: string,
+  /** The harvest year, to judge the drinking window against (null = non-vintage: no window is kept). */
+  year: number | null = null,
+): InsightOutput | null {
   const summary = clean(raw.summary, 700);
   if (summary === "") return null;
 
@@ -194,6 +233,19 @@ export function checkInsight(raw: RawInsight, currency: string): InsightOutput |
   const abv =
     raw.abv_percent !== null && raw.abv_percent >= 0.5 && raw.abv_percent <= 25
       ? Math.round(raw.abv_percent * 10) / 10
+      : null;
+
+  // The drinking window: whole years, never before the harvest, never longer than a lifetime, never reversed.
+  const wFrom = raw.drink_from_year !== null ? Math.round(raw.drink_from_year) : null;
+  const wUntil = raw.drink_until_year !== null ? Math.round(raw.drink_until_year) : null;
+  const drinkWindow =
+    year !== null &&
+    wFrom !== null &&
+    wUntil !== null &&
+    wFrom >= year &&
+    wUntil > wFrom &&
+    wUntil - year <= 80
+      ? { from: wFrom, until: wUntil }
       : null;
 
   const low = raw.value_low !== null ? Math.round(raw.value_low * 100) : null;
@@ -215,6 +267,7 @@ export function checkInsight(raw: RawInsight, currency: string): InsightOutput |
     serving,
     decantMinutes: decant,
     abvPercent: abv,
+    drinkWindow,
     pairings: list(raw.pairings, 6, 80),
     aging: clean(raw.aging, 400),
     value: valueOk ? { lowCents: low, highCents: high, currency, basis } : null,

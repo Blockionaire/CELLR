@@ -18,6 +18,8 @@ export interface StatsBottle {
   appellation: string | null;
   countryCode: string | null;
   priceCents: number | null;
+  /** The AI's drinking window for this vintage, when it gave one it was sure about. */
+  aiWindow?: { from: number; until: number } | null;
 }
 
 export interface StatsOpened {
@@ -143,6 +145,7 @@ export function buildStats(input: StatsInput): StatsView {
       countryCode: b.countryCode,
       name: b.wineName,
       pricePerBottleCents: b.priceCents,
+      aiWindow: b.aiWindow ?? null,
     });
     bump(phase, drinkStatus(window, now).phase);
     if (window) {

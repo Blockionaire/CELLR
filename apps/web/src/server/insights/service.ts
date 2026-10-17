@@ -1,6 +1,7 @@
 import "server-only";
 import {
   checkInsight,
+  checkOrigin,
   daysUntil,
   DomainError,
   REMINDER_AHEAD_DAYS,
@@ -39,6 +40,11 @@ export interface InsightsDeps {
     status: "ok" | "error" | "timeout" | "invalid_output" | "rate_limited";
     usage: AiUsage;
   }) => Promise<void>;
+  /** Fills in details of a wine the household added itself; may refuse (shared catalogue wines are read-only). */
+  fillWine?: (
+    wineId: string,
+    patch: { countryCode?: string; region?: string; appellation?: string },
+  ) => Promise<unknown>;
   /** Today as YYYY-MM-DD (injectable so reminders can be tested). */
   today?: () => string;
 }
@@ -133,7 +139,7 @@ export function createInsightsService(deps: InsightsDeps) {
         .catch(() => {});
       if (!result.ok) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
 
-      const output = checkInsight(result.value, currency);
+      const output = checkInsight(result.value, currency, detail.year);
       if (!output) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
       const saved = await deps.repo.saveInsight(id, vintageId, {
         output,
@@ -141,6 +147,19 @@ export function createInsightsService(deps: InsightsDeps) {
         generatedAt: new Date().toISOString(),
       });
       if (!saved) throw new DomainError("INTERNAL", NOT_READY);
+
+      // What the person left empty (region, appellation, country) is filled in from what the AI knows; what they
+      // typed is never overwritten. A wine from the shared catalogue refuses edits, and that is fine.
+      if (deps.fillWine) {
+        const known = checkOrigin(result.value);
+        const w = detail.wine;
+        const patch = {
+          ...(known.countryCode && !w.countryCode ? { countryCode: known.countryCode } : {}),
+          ...(known.region && !w.region ? { region: known.region } : {}),
+          ...(known.appellation && !w.appellation ? { appellation: known.appellation } : {}),
+        };
+        if (Object.keys(patch).length > 0) await deps.fillWine(w.id, patch).catch(() => {});
+      }
       return view(id, currency, vintageId);
     },
 
@@ -190,6 +209,13 @@ export function createInsightsService(deps: InsightsDeps) {
         });
       }
       return { vintages, bottles: new Set(live.map((r) => r.bottleId)) };
+    },
+
+    /** What the AI said about when each vintage drinks well, by vintage id. */
+    async windows(): Promise<ReadonlyMap<string, { from: number; until: number }>> {
+      const { id } = await deps.household();
+      const rows = (await deps.repo.listWindows(id)) ?? [];
+      return new Map(rows.map((r) => [r.vintageId, { from: r.from, until: r.until }]));
     },
 
     /** Bottles being kept for a day that is coming (or just passed). */
