@@ -127,6 +127,40 @@ test.describe("favourites", () => {
     await expect(page.getByText("Removed from your favourites.")).toBeVisible();
   });
 
+  test("in the list, swiping a row to the right stars it, and a plain tap still opens the wine", async ({
+    page,
+    request,
+  }) => {
+    const { email } = await arrive(page, "swipe");
+    const { call } = await apiClient(request, email);
+    await furnish(call);
+    await page.goto("/cellar");
+    await page.getByRole("radio", { name: "List" }).click();
+    const heart = page.getByRole("button", { name: "Favourite: Château Margaux Pavillon Rouge" });
+    await expect(heart).toHaveAttribute("aria-pressed", "false");
+
+    const row = page.locator("article", { has: heart });
+    const box = (await row.boundingBox())!;
+    const y = box.y + box.height / 2;
+    // A real finger: touch events through the browser's own protocol.
+    const cdp = await page.context().newCDPSession(page);
+    const touch = (type: string, x: number) =>
+      cdp.send("Input.dispatchTouchEvent", {
+        type,
+        touchPoints: type === "touchEnd" ? [] : [{ x, y }],
+      });
+    await touch("touchStart", box.x + 40);
+    for (let dx = 10; dx <= 190; dx += 20) await touch("touchMove", box.x + 40 + dx);
+    await touch("touchEnd", 0);
+    await expect(heart).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText("Added to your favourites.")).toBeVisible();
+    // the swipe did not open the wine
+    await expect(page).toHaveURL(/\/cellar$/);
+
+    await page.getByRole("link", { name: "Pavillon Rouge" }).click();
+    await expect(page.getByRole("heading", { name: "Pavillon Rouge", level: 1 })).toBeVisible();
+  });
+
   test("a heart is personal, and you cannot star a wine you cannot see", async ({
     page,
     browser,
