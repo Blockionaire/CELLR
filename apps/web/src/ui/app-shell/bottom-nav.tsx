@@ -33,6 +33,7 @@ export function BottomNav({ className }: { className?: string }) {
             <li key={key} className="relative">
               <Link
                 href={href}
+                prefetch
                 onClick={() => setTapped({ href, from: pathname })}
                 aria-current={active ? "page" : undefined}
                 className={cn(

@@ -15,6 +15,12 @@ const config: NextConfig = {
   poweredByHeader: false,
   // @cellr/domain is shipped as TypeScript source (no build step), so Next must compile it.
   transpilePackages: ["@cellr/domain"],
+  experimental: {
+    // Tabs you have seen (or that were prefetched) come back from the browser's memory at once instead of
+    // asking the server again; the page refreshes itself in the background after this long, and any change
+    // you make clears it (see Providers). This is what makes the tab bar feel instant.
+    staleTimes: { dynamic: 30, static: 300 },
+  },
   turbopack: { root: path.resolve(import.meta.dirname, "../..") },
   async headers() {
     return [
