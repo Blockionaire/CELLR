@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { formatVintage, type PlacedBottle } from "@cellr/domain";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { cn } from "@/ui/cn";
+import { STAGE } from "./wine-card";
 import { shapeFor } from "./wine-visuals";
 
 interface RackGridProps {
@@ -20,7 +21,8 @@ interface RackGridProps {
   className?: string;
 }
 
-const CELL = "h-14 w-11";
+/** 44px round slots: a comfortable thumb target, a bottle standing in each full one. */
+const CELL = "size-11 rounded-full";
 
 /**
  * A storage unit seen from the front: shelves top to bottom, positions left to right, each bottle
@@ -36,13 +38,14 @@ export function RackGrid({
   className,
 }: RackGridProps) {
   const t = useTranslations("rack");
+  const targeting = activeBottleId !== undefined; // a bottle is on its way: free spots are where it can land
   const bySpot = new Map<string, PlacedBottle>();
   for (const b of bottles) if (b.row !== null && b.col !== null) bySpot.set(`${b.row}:${b.col}`, b);
 
   return (
-    <div className={cn("overflow-x-auto pb-2", className)}>
+    <div className={cn("overflow-x-auto px-1 pb-2", className)}>
       <div
-        className="inline-grid gap-x-1.5 gap-y-0 pr-2"
+        className="inline-grid justify-items-center gap-x-1.5 gap-y-0 pr-2"
         style={{ gridTemplateColumns: `1.5rem repeat(${cols}, 2.75rem)` }}
       >
         <span aria-hidden="true" />
@@ -70,13 +73,16 @@ export function RackGrid({
                   <BottleGlyph
                     shape={shapeFor(bottle.type)}
                     tint={bottle.type}
-                    className="h-12 w-auto"
+                    className="relative h-9 w-auto"
                   />
                 );
                 const base = cn(
                   CELL,
-                  "grid place-items-center rounded-control",
-                  active && "bg-raised ring-2 ring-accent-fg",
+                  "relative grid place-items-center overflow-hidden",
+                  STAGE[bottle.type],
+                  active
+                    ? "ring-2 ring-accent-fg ring-offset-2 ring-offset-surface"
+                    : "ring-1 ring-hairline",
                 );
                 return onBottle ? (
                   <button
@@ -88,7 +94,7 @@ export function RackGrid({
                     onClick={() => onBottle(bottle)}
                     className={cn(
                       base,
-                      "transition-transform duration-150 hover:bg-raised active:scale-95",
+                      "transition-transform duration-150 ease-cellr hover:brightness-95 active:scale-95",
                     )}
                   >
                     {glyph}
@@ -108,7 +114,10 @@ export function RackGrid({
                   onClick={() => onEmpty(row, col)}
                   className={cn(
                     CELL,
-                    "rounded-control border border-dashed border-hairline text-ink-3 transition-colors duration-150 hover:bg-raised hover:text-ink active:scale-95 active:bg-raised",
+                    "border border-dashed transition-[transform,background-color,color] duration-150 ease-cellr hover:bg-raised hover:text-ink active:scale-95 active:bg-raised",
+                    targeting
+                      ? "border-accent-fg bg-raised text-accent-fg"
+                      : "border-ink-3/50 text-ink-3",
                   )}
                 >
                   <span aria-hidden="true" className="text-title leading-none">
@@ -120,10 +129,7 @@ export function RackGrid({
                   key={c}
                   role="img"
                   aria-label={label}
-                  className={cn(
-                    CELL,
-                    "rounded-control border border-dashed border-hairline opacity-60",
-                  )}
+                  className={cn(CELL, "block border border-dashed border-ink-3/40 opacity-60")}
                 />
               );
             })}
@@ -144,7 +150,7 @@ function Shelf({ row, cols, children }: { row: number; cols: number; children: R
       {children}
       <span
         aria-hidden="true"
-        className="mb-2 mt-1 h-[3px] rounded-full bg-hairline"
+        className="mb-2 mt-1.5 h-[3px] w-full rounded-full bg-hairline"
         style={{ gridColumn: `2 / span ${cols}` }}
       />
     </>

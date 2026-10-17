@@ -226,7 +226,7 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
           ))}
         </div>
       )}
-      <p className="text-small text-ink-2">
+      <p className="text-small text-ink-2 tnum">
         {unit.label === tKinds(unit.kind) ? "" : `${tKinds(unit.kind)} · `}
         {tr("unitMeta", { used: unit.used, capacity: unit.capacity, free: unit.free })}
       </p>
@@ -239,7 +239,9 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
           aria-label={t("canvasLabel", { unit: unit.label })}
           className={cn(
             "overflow-hidden border-hairline bg-raised",
-            fullscreen ? "fixed inset-0 z-50" : "absolute inset-0 rounded-card border",
+            fullscreen
+              ? "fixed inset-0 z-50"
+              : "absolute inset-0 rounded-card border shadow-raised",
           )}
           style={{
             backgroundImage:
@@ -306,10 +308,12 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
             />
           </div>
           <p
-            className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-caption text-ink-2 transition-opacity duration-500"
+            className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4 transition-opacity duration-500"
             style={{ opacity: touched || open ? 0 : 1 }}
           >
-            {t("hint")}
+            <span className="max-w-full rounded-full bg-surface/70 px-4 py-1.5 text-center text-caption text-ink-2 ring-1 ring-hairline backdrop-blur-md">
+              {t("hint")}
+            </span>
           </p>
 
           {lastBottle && (

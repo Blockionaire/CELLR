@@ -9,7 +9,7 @@ import { EmptyState } from "@/ui/empty-state";
 import { PlusIcon } from "@/ui/icons";
 import { Skeleton } from "@/ui/skeleton";
 import { useRacks } from "./hooks";
-import { NewPlaceSheet } from "./new-place-sheet";
+import { KindGlyph, NewPlaceSheet } from "./new-place-sheet";
 import { RackGrid } from "./rack-grid";
 import { BottlePeekSheet, ManagePlaceSheet, PlaceHereSheet } from "./rack-sheets";
 import { useBottleActions } from "./use-bottle-actions";
@@ -19,6 +19,80 @@ import { useBottleActions } from "./use-bottle-actions";
  * Tap a bottle for its options; choose Move and tap any free spot; or tap a free spot and pick a bottle
  * that has no place yet. Anything done here can be undone from the toast.
  */
+/** Used / capacity as a ring with the count of bottles in the middle. */
+function FillRing({ unit, label }: { unit: RackUnit; label: string }) {
+  const r = 22;
+  const c = 2 * Math.PI * r;
+  const share = unit.capacity > 0 ? Math.min(1, unit.used / unit.capacity) : 0;
+  return (
+    <svg
+      role="img"
+      aria-label={label}
+      viewBox="0 0 56 56"
+      className="size-14 shrink-0 text-accent-fg"
+    >
+      <circle cx="28" cy="28" r={r} fill="none" stroke="var(--hairline)" strokeWidth="5" />
+      <circle
+        cx="28"
+        cy="28"
+        r={r}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="5"
+        strokeLinecap="round"
+        strokeDasharray={`${share * c} ${c}`}
+        transform="rotate(-90 28 28)"
+      />
+      <text
+        x="28"
+        y="28"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="var(--ink)"
+        className="font-display tnum"
+        style={{ fontSize: 20 }}
+      >
+        {unit.used}
+      </text>
+    </svg>
+  );
+}
+
+/** Every slot as a tiny dot: filled ones in their wine's colour, free ones as an outline. */
+function SlotPreview({ unit }: { unit: RackUnit }) {
+  const filled = new Map<string, string>();
+  for (const b of unit.bottles)
+    if (b.row !== null && b.col !== null) filled.set(`${b.row}:${b.col}`, b.type);
+  const step = 9;
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox={`0 0 ${unit.cols * step} ${unit.rows * step}`}
+      style={{ width: Math.min(unit.cols * step, 144) }}
+      className="h-auto max-w-full text-ink-3"
+    >
+      {Array.from({ length: unit.rows * unit.cols }, (_, i) => {
+        const row = Math.floor(i / unit.cols) + 1;
+        const col = (i % unit.cols) + 1;
+        const type = filled.get(`${row}:${col}`);
+        return (
+          <circle
+            key={i}
+            cx={(col - 1) * step + step / 2}
+            cy={(row - 1) * step + step / 2}
+            r={3}
+            fill={type ? `var(--wine-${type})` : "none"}
+            stroke={type ? "none" : "currentColor"}
+            strokeOpacity={0.55}
+            strokeWidth={1}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
 export function RacksView() {
   const t = useTranslations("racks");
   const tv = useTranslations("vintage");
@@ -95,7 +169,7 @@ export function RacksView() {
       {moving && (
         <div
           role="status"
-          className="sticky top-3 z-20 flex items-center justify-between gap-3 rounded-card bg-accent px-4 py-3 text-accent-ink shadow-raised"
+          className="sticky top-3 z-20 flex items-center justify-between gap-3 rounded-[24px] bg-accent py-2 pl-5 pr-3 text-accent-ink glow shadow-raised"
         >
           <span className="text-small font-medium">
             {t("moving", { wine: `${moving.wineName} ${formatVintage(moving.year)}` })}
@@ -106,7 +180,7 @@ export function RacksView() {
               setMoving(null);
               setError(null);
             }}
-            className="-my-2 -mr-2 min-h-11 rounded-control px-3 text-small font-medium underline underline-offset-4"
+            className="min-h-11 shrink-0 rounded-full bg-accent-ink/15 px-4 text-small font-medium transition-transform duration-150 ease-cellr active:scale-[0.97]"
           >
             {t("cancel")}
           </button>
@@ -120,7 +194,7 @@ export function RacksView() {
 
       {data.unplaced.length > 0 && (
         <section
-          className="rounded-card border border-hairline bg-surface p-4"
+          className="rounded-card bg-surface p-4 shadow-raised ring-1 ring-hairline"
           aria-labelledby="unplaced-h"
         >
           <h2 id="unplaced-h" className="font-display text-title">
@@ -145,59 +219,67 @@ export function RacksView() {
         <section
           key={unit.id}
           aria-labelledby={`unit-${unit.id}`}
-          className="rounded-card border border-hairline bg-surface p-4 sm:p-5"
+          className="rounded-card bg-surface p-4 shadow-raised ring-1 ring-hairline sm:p-5"
         >
-          <header className="mb-4 flex items-start justify-between gap-3">
-            <div className="min-w-0">
+          <header className="flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="grid size-11 shrink-0 place-items-center rounded-full bg-raised text-bronze"
+            >
+              <KindGlyph kind={unit.kind} />
+            </span>
+            <div className="min-w-0 flex-1">
               <h2 id={`unit-${unit.id}`} className="truncate font-display text-title">
                 {unit.label}
               </h2>
-              <p className="text-small text-ink-2">
+              <p className="text-small text-ink-2 tnum">
                 {unit.label === tKinds(unit.kind) ? "" : `${tKinds(unit.kind)} · `}
                 {t("unitMeta", { used: unit.used, capacity: unit.capacity, free: unit.free })}
               </p>
-              <div
-                className="mt-2 h-1 w-40 overflow-hidden rounded-full bg-raised"
-                aria-hidden="true"
-              >
-                <div
-                  className="h-full rounded-full bg-accent"
-                  style={{ width: `${Math.min(100, (unit.used / unit.capacity) * 100)}%` }}
-                />
-              </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setManageId(unit.id)}>
+            <FillRing
+              unit={unit}
+              label={t("unitMeta", { used: unit.used, capacity: unit.capacity, free: unit.free })}
+            />
+          </header>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <SlotPreview unit={unit} />
+            <Button variant="secondary" size="sm" onClick={() => setManageId(unit.id)}>
               {t("manage")}
             </Button>
-          </header>
-          <RackGrid
-            rows={unit.rows}
-            cols={unit.cols}
-            bottles={unit.bottles}
-            activeBottleId={moving?.bottleId}
-            onBottle={(b) => {
-              if (moving) {
-                if (b.bottleId === moving.bottleId) setMoving(null);
-                return;
-              }
-              setError(null);
-              setPeek(b);
-            }}
-            onEmpty={(row, col) => {
-              setError(null);
-              if (moving) void moveTo(moving, unit, row, col);
-              else setPlaceAt({ unit, row, col });
-            }}
-          />
+          </div>
+          <div className="mt-4 rounded-[16px] bg-raised/60 p-2">
+            <RackGrid
+              rows={unit.rows}
+              cols={unit.cols}
+              bottles={unit.bottles}
+              activeBottleId={moving?.bottleId}
+              onBottle={(b) => {
+                if (moving) {
+                  if (b.bottleId === moving.bottleId) setMoving(null);
+                  return;
+                }
+                setError(null);
+                setPeek(b);
+              }}
+              onEmpty={(row, col) => {
+                setError(null);
+                if (moving) void moveTo(moving, unit, row, col);
+                else setPlaceAt({ unit, row, col });
+              }}
+            />
+          </div>
         </section>
       ))}
 
-      <div>
-        <Button variant="secondary" onClick={() => setNewPlace(true)}>
-          <PlusIcon size={20} />
-          {t("newPlace")}
-        </Button>
-      </div>
+      <button
+        type="button"
+        onClick={() => setNewPlace(true)}
+        className="flex min-h-16 w-full items-center justify-center gap-2 rounded-card border border-dashed border-ink-3/50 text-body font-medium text-ink-2 transition-[transform,color,background-color] duration-150 ease-cellr hover:bg-surface hover:text-ink active:scale-[0.99]"
+      >
+        <PlusIcon size={20} />
+        {t("newPlace")}
+      </button>
 
       <BottlePeekSheet
         bottle={peek}
