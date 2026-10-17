@@ -11,6 +11,7 @@ import { EmptyState } from "@/ui/empty-state";
 import { PlusIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
 import { EditWishSheet } from "./edit-wish-sheet";
+import { StageThumb } from "./stage-thumb";
 import { useRemoveWish, useWishlist } from "./hooks";
 
 /** Wines you would like to buy: what, which vintage, up to what price, and whether you already have some. */
@@ -91,21 +92,46 @@ function WishCard({
   const where = placeLine(item.region, item.countryCode, locale);
   const buy = `/cellar/add?wine=${item.wineId}${item.year === null ? "" : `&year=${item.year}`}&wish=${item.id}`;
   return (
-    <article className="rounded-card border border-hairline bg-surface p-4">
-      <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
-        {item.producer}
-      </p>
-      <h3 className="font-display text-title text-ink">{item.wineName}</h3>
-      <p className="mt-0.5 text-small text-ink-2">
-        <span className="tnum">
-          {item.year === null ? t("anyVintage") : formatVintage(item.year)}
-        </span>
-        {where && <span> · {where}</span>}
-        {price && <span> · {t("upTo", { price })}</span>}
-      </p>
-      {item.note && <p className="mt-2 whitespace-pre-wrap text-body text-ink">{item.note}</p>}
-      {item.inCellar > 0 && (
-        <p className="mt-2 text-small text-ink-2">{t("inCellar", { count: item.inCellar })}</p>
+    <article className="rounded-card bg-surface p-4 shadow-raised ring-1 ring-hairline">
+      <div className="flex gap-4">
+        <StageThumb
+          type={item.type}
+          producer={item.producer}
+          wineName={item.wineName}
+          className="h-28 w-[4.5rem]"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+            {item.producer}
+          </p>
+          <h3 className="font-display text-title text-ink">{item.wineName}</h3>
+          <p className="mt-1 text-small text-ink-2">
+            <span className="tnum">
+              {item.year === null ? t("anyVintage") : formatVintage(item.year)}
+            </span>
+            {where && <span> · {where}</span>}
+          </p>
+          {(price || item.inCellar > 0) && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {price && (
+                <span className="inline-flex items-center rounded-full bg-raised px-3 py-1 text-caption font-semibold text-ink tnum">
+                  {t("upTo", { price })}
+                </span>
+              )}
+              {item.inCellar > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-ready-bg px-3 py-1 text-caption font-semibold text-ready-ink">
+                  <span className="size-2 rounded-full bg-ready" aria-hidden="true" />
+                  {t("inCellar", { count: item.inCellar })}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      {item.note && (
+        <p className="mt-3 whitespace-pre-wrap rounded-[16px] bg-raised px-4 py-3 text-body text-ink">
+          {item.note}
+        </p>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Link href={buy} className={buttonStyles({ variant: "primary", size: "sm" })}>

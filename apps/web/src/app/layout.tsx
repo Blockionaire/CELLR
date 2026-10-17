@@ -28,8 +28,8 @@ export const viewport: Viewport = {
   viewportFit: "cover", // use the whole screen; the shell pads for the notch and home indicator
   colorScheme: "light dark",
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#141211" },
-    { media: "(prefers-color-scheme: light)", color: "#f6f2ea" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e090b" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f1e9" },
   ],
 };
 

@@ -1,7 +1,7 @@
 import "server-only";
 import { RawInsightSchema, type RawInsight } from "@cellr/domain";
 
-export const INSIGHT_VERSION = "wine_insight@v1";
+export const INSIGHT_VERSION = "wine_insight@v2";
 
 export const INSIGHT_SYSTEM = `You write a short, honest profile of one wine for a private wine-cellar app. The person will read it next to the bottle.
 
@@ -10,6 +10,7 @@ Rules:
 - summary: two or three sentences about the wine and what to expect. style: a few words (for example "Full-bodied, oaky red"). tasting: the likely aromas and structure, in one or two sentences.
 - grapes: the varieties it is most likely made from, most important first; an empty list if you cannot tell.
 - serving_temp_min_c and serving_temp_max_c: a sensible serving range in degrees Celsius, or null. decant_minutes: how long to decant, 0 if not needed, or null if unsure.
+- abv_percent: the alcohol percentage by volume this wine is typically bottled at (for example 13.5), or null if you are not reasonably sure. Never guess a precise number you do not know: a plausible typical value for the style and region is fine.
 - pairings: up to five dishes or foods that suit it.
 - aging: one or two sentences on how it may develop, as an estimate.
 - value_low and value_high: a rough range for what ONE bottle of this vintage might sell for today, as whole numbers in the stated currency, or null when you cannot say. This is an estimate for the person's own interest, not a quote: keep the range honest (the high at most ten times the low). value_basis: one short sentence on what the estimate rests on, or an empty string.
@@ -61,6 +62,7 @@ export const INSIGHT_SCHEMA = {
     "serving_temp_min_c",
     "serving_temp_max_c",
     "decant_minutes",
+    "abv_percent",
     "pairings",
     "aging",
     "value_low",
@@ -76,6 +78,7 @@ export const INSIGHT_SCHEMA = {
     serving_temp_min_c: nullable("number"),
     serving_temp_max_c: nullable("number"),
     decant_minutes: nullable("number"),
+    abv_percent: nullable("number"),
     pairings: { type: "array", items: { type: "string" } },
     aging: { type: "string" },
     value_low: nullable("number"),

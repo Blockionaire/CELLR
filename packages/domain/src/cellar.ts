@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { DrinkPhase } from "./drink-window";
 import type { ImageRef } from "./image";
+import type { Reservation } from "./insights";
 import type { RatingSummary, TastingView } from "./tasting";
 
 // ---- Vocabulary ---------------------------------------------------------------------------------
@@ -265,6 +266,8 @@ export interface CellarItem {
   rating: RatingSummary | null;
   /** When to drink it (an estimate: see drink-window). */
   drink: DrinkSummary;
+  /** Some of these bottles are kept for an occasion. */
+  reserved?: Reservation | null;
 }
 
 export interface CellarView {
@@ -334,6 +337,7 @@ export interface HomeView {
 
 export interface AddBottlesResult {
   wine: WineSummary;
+  vintageId: string;
   year: number | null;
   bottleIds: string[];
   placed: number;

@@ -67,11 +67,13 @@ New features sometimes need one more database step. They arrive as a new numbere
 (SQL Editor → New query → paste → Run → "Success"). Nothing breaks while you wait: the app notices a
 missing step and simply leaves that feature switched off.
 
-| File                                      | What it switches on                                                      |
-| ----------------------------------------- | ------------------------------------------------------------------------ |
-| `20261012000008_tastings.sql`             | Ratings: stars, words and a note after you open a bottle ("How was it?") |
-| `20261012000009_wishlist.sql`             | The wishlist: wines you would like to buy, shared with your household    |
-| `20261013000010_tighten_photo_bucket.sql` | Photo storage accepts only the sanitised JPEGs the app itself makes      |
+| File                                            | What it switches on                                                                     |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `20261012000008_tastings.sql`                   | Ratings: stars, words and a note after you open a bottle ("How was it?")                |
+| `20261012000009_wishlist.sql`                   | The wishlist: wines you would like to buy, shared with your household                   |
+| `20261013000010_tighten_photo_bucket.sql`       | Photo storage accepts only the sanitised JPEGs the app itself makes                     |
+| `20261014000011_bottle_extras_and_insights.sql` | Where a bottle came from (bought / gift), a day to keep it for, and the AI wine profile |
+| `20261015000012_merge_wines.sql`                | Merging a wine that was entered twice                                                   |
 
 ### Check it worked
 

@@ -15,6 +15,14 @@ export default async function InsightsPage() {
   if (!me) redirect("/sign-in");
   const ctx = await getPageContext();
   if (!ctx) return null;
-  const stats = await servicesFor(ctx).stats.overview();
-  return <InsightsScreen stats={stats} />;
+  const services = servicesFor(ctx);
+  // The bottles with their drinking windows only feed the timeline: without them the page is still whole.
+  const [stats, cellar] = await Promise.all([
+    services.stats.overview(),
+    services.cellar.inventory().then(
+      (view) => view.items,
+      () => [],
+    ),
+  ]);
+  return <InsightsScreen stats={stats} cellar={cellar} />;
 }

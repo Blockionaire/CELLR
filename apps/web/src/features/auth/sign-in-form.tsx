@@ -9,7 +9,7 @@ import { api, errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { CodeField, Field } from "@/ui/field";
 import { useToast } from "@/ui/toast";
-import { Logo } from "@/ui/logo";
+import { AuthHeading, AuthShell, PILL_INPUT } from "./auth-shell";
 
 const RESEND_SECONDS = 30;
 
@@ -81,15 +81,10 @@ export function SignInForm({ next }: { next: string }) {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-5 py-12 pt-safe pb-safe">
-      <Logo className="mb-10 h-28" />
-
+    <AuthShell>
       {step === "email" ? (
         <form onSubmit={sendCode} noValidate className="flex flex-col gap-6">
-          <div>
-            <h1 className="font-display text-display text-balance">{t("title")}</h1>
-            <p className="mt-3 text-body text-ink-2">{t("subtitle")}</p>
-          </div>
+          <AuthHeading title={t("title")} subtitle={t("subtitle")} />
           <Field
             label={t("emailLabel")}
             type="email"
@@ -101,6 +96,7 @@ export function SignInForm({ next }: { next: string }) {
             autoFocus
             placeholder={t("emailPlaceholder")}
             hint={t("emailHint")}
+            inputClassName={PILL_INPUT}
             error={error}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -118,14 +114,12 @@ export function SignInForm({ next }: { next: string }) {
           noValidate
           className="flex flex-col gap-6"
         >
-          <div>
-            <h1 className="font-display text-display text-balance">{t("codeTitle")}</h1>
-            <p className="mt-3 text-body text-ink-2">{t("codeSubtitle", { email })}</p>
-          </div>
+          <AuthHeading title={t("codeTitle")} subtitle={t("codeSubtitle", { email })} />
           <CodeField
             label={t("codeLabel")}
             autoFocus
             placeholder="123456"
+            inputClassName={PILL_INPUT}
             error={error}
             value={code}
             onChange={(e) => {
@@ -160,6 +154,6 @@ export function SignInForm({ next }: { next: string }) {
           </div>
         </form>
       )}
-    </div>
+    </AuthShell>
   );
 }

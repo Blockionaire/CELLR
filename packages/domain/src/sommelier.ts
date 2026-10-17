@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { normalizeText, type CellarItem, type WineType } from "./cellar";
 import type { DishId } from "./pairing";
+import type { Reservation } from "./insights";
 import type { Occasion } from "./tonight";
 import type { RatingSummary } from "./tasting";
 
@@ -40,6 +41,8 @@ export interface SommelierBottle {
   places: string[];
   drinkPhase: CellarItem["drink"]["phase"];
   rating: RatingSummary | null;
+  /** Some of these bottles are kept for an occasion. */
+  reserved?: Reservation | null;
 }
 
 export interface SommelierAnswer {
@@ -66,6 +69,7 @@ export const toSommelierBottle = (item: CellarItem): SommelierBottle => ({
   places: item.places,
   drinkPhase: item.drink.phase,
   rating: item.rating,
+  reserved: item.reserved ?? null,
 });
 
 // ---- What the model is shown ---------------------------------------------------------------------------------
@@ -143,7 +147,10 @@ export function cellarDigest(items: readonly CellarItem[], question: string): Ce
         `drink: ${i.drink.phase}`,
       ].join(" | ") +
       stars(i.rating) +
-      (i.favorite ? " · favourite" : "")
+      (i.favorite ? " · favourite" : "") +
+      (i.reserved
+        ? ` · reserved: ${i.reserved.count} of ${i.count} kept for "${i.reserved.title.replace(/["\n]/g, " ")}"${i.reserved.on ? ` on ${i.reserved.on}` : ""}`
+        : "")
     );
   });
   return { text: lines.join("\n"), refs, total: items.length };

@@ -13,3 +13,9 @@ playwright-report
 test-results
 .DS_Store
 .cache
+
+# Scan eval: your own label photos, their expected values and the results never leave your machine
+eval/scan/photos/
+eval/scan/expected.json
+eval/scan/expected.csv
+eval/scan/report.json

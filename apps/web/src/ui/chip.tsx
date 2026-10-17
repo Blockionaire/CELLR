@@ -12,7 +12,7 @@ export function Chip({ selected = false, className, type = "button", ...rest }: 
       type={type}
       aria-pressed={selected}
       className={cn(
-        "h-9 shrink-0 rounded-control border px-3.5 text-small transition-colors duration-150 ease-cellr active:scale-[0.97]",
+        "h-9 shrink-0 rounded-full border px-4 text-small font-medium transition-colors duration-150 ease-cellr active:scale-[0.97]",
         selected
           ? "border-transparent bg-accent text-accent-ink"
           : "border-hairline bg-surface text-ink-2 hover:text-ink",

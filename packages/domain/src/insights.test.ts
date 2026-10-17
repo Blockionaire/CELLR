@@ -16,6 +16,7 @@ const raw: RawInsight = {
   serving_temp_min_c: 16,
   serving_temp_max_c: 18,
   decant_minutes: 60,
+  abv_percent: 13.5,
   pairings: ["Lamb", "Hard cheese"],
   aging: "Another decade.",
   value_low: 40,
@@ -81,6 +82,10 @@ describe("checking an AI profile", () => {
       checkInsight({ ...raw, serving_temp_min_c: 18, serving_temp_max_c: 16 }, "EUR")!.serving,
     ).toBeNull();
     expect(checkInsight({ ...raw, decant_minutes: 9000 }, "EUR")!.decantMinutes).toBeNull();
+    expect(checkInsight(raw, "EUR")!.abvPercent).toBe(13.5);
+    expect(checkInsight({ ...raw, abv_percent: 0 }, "EUR")!.abvPercent).toBeNull();
+    expect(checkInsight({ ...raw, abv_percent: 70 }, "EUR")!.abvPercent).toBeNull();
+    expect(checkInsight({ ...raw, abv_percent: null }, "EUR")!.abvPercent).toBeNull();
   });
   it("throws away an absurd value and is less sure of the rest", () => {
     for (const [low, high] of [

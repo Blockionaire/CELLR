@@ -48,6 +48,19 @@ export const NO_EXTRAS: BottleExtras = {
   occasionOn: null,
 };
 
+/**
+ * Bottles of one wine that are kept for an occasion (and not yet past it): so Tonight and the sommelier can say
+ * "this one is reserved for Christmas dinner" instead of suggesting it blindly.
+ */
+export interface Reservation {
+  /** How many bottles of the wine are reserved. */
+  count: number;
+  /** The soonest occasion. */
+  title: string;
+  /** Its day, or null when no day was given. */
+  on: string | null;
+}
+
 /** A bottle being kept for something: shown on Home when it is near, and on the wine itself. */
 export interface Reminder {
   bottleId: string;
@@ -96,6 +109,7 @@ export const RawInsightSchema = z.object({
   serving_temp_min_c: z.number().nullable(),
   serving_temp_max_c: z.number().nullable(),
   decant_minutes: z.number().nullable(),
+  abv_percent: z.number().nullable(),
   pairings: z.array(z.string()),
   aging: z.string(),
   value_low: z.number().nullable(),
@@ -113,6 +127,8 @@ export const InsightOutputSchema = z.object({
   tasting: z.string().max(500),
   serving: z.object({ minC: z.number(), maxC: z.number() }).nullable(),
   decantMinutes: z.number().int().min(0).max(240).nullable(),
+  /** Alcohol by volume as typically bottled; profiles saved before this existed have none. */
+  abvPercent: z.number().min(0.5).max(25).nullable().default(null),
   pairings: z.array(z.string().max(80)).max(6),
   aging: z.string().max(400),
   value: z
@@ -175,6 +191,11 @@ export function checkInsight(raw: RawInsight, currency: string): InsightOutput |
       ? Math.round(raw.decant_minutes)
       : null;
 
+  const abv =
+    raw.abv_percent !== null && raw.abv_percent >= 0.5 && raw.abv_percent <= 25
+      ? Math.round(raw.abv_percent * 10) / 10
+      : null;
+
   const low = raw.value_low !== null ? Math.round(raw.value_low * 100) : null;
   const high = raw.value_high !== null ? Math.round(raw.value_high * 100) : null;
   const valueOk =
@@ -193,6 +214,7 @@ export function checkInsight(raw: RawInsight, currency: string): InsightOutput |
     tasting: clean(raw.tasting, 500),
     serving,
     decantMinutes: decant,
+    abvPercent: abv,
     pairings: list(raw.pairings, 6, 80),
     aging: clean(raw.aging, 400),
     value: valueOk ? { lowCents: low, highCents: high, currency, basis } : null,

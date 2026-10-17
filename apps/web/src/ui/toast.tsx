@@ -80,7 +80,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         popover="manual"
         role="status"
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-0 top-auto m-0 flex w-full max-w-none flex-col items-center gap-2 overflow-visible border-0 bg-transparent p-4 pb-[calc(var(--nav-height)+env(safe-area-inset-bottom)+12px)] lg:pb-6"
+        className="pointer-events-none fixed inset-x-0 bottom-0 top-auto m-0 flex w-full max-w-none flex-col items-center gap-2 overflow-visible border-0 bg-transparent p-4 pb-[calc(var(--nav-height)+env(safe-area-inset-bottom)+5.5rem)] lg:pb-6"
       >
         <AnimatePresence>
           {items.map((t) => (
@@ -91,7 +91,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               exit={{ opacity: 0 }}
               transition={fade}
               className={cn(
-                "pointer-events-auto flex max-w-sm items-center gap-4 rounded-card bg-raised px-4 py-3 text-small shadow-raised",
+                "pointer-events-auto flex max-w-sm items-center gap-3 rounded-full bg-surface py-2.5 pl-5 pr-5 text-small shadow-raised ring-1 ring-hairline",
+                t.action && "pr-2.5",
                 t.tone === "error" ? "text-danger" : "text-ink",
               )}
             >
@@ -99,7 +100,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               {t.action && (
                 <button
                   type="button"
-                  className="-my-2 -mr-2 shrink-0 rounded-control px-3 py-2 font-medium text-accent-fg active:bg-surface"
+                  className="shrink-0 rounded-full bg-raised px-4 py-2 font-medium text-accent-fg transition-colors duration-150 active:scale-[0.98]"
                   onClick={() => {
                     t.action?.onClick();
                     dismiss(t.id);

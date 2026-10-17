@@ -40,12 +40,26 @@ export function servicesFor(ctx: RequestContext) {
     return found;
   };
   const images = createImageService(createImageRepository(ctx.db), household);
-  const cellar = createCellarService(cellars, { userId: ctx.userId });
+  const cellar = createCellarService(cellars, {
+    userId: ctx.userId,
+    // `insights` is built further down; it is only asked when a suggestion is made, never here.
+    reservations: () => insights.reservations(),
+  });
   const households = createHouseholdService(createHouseholdRepository(ctx.db), {
     userId: ctx.userId,
     email: ctx.email,
   });
   const insightsRepo = createInsightsRepository(ctx.db);
+  const insights = createInsightsService({
+    repo: insightsRepo,
+    household,
+    vintage: (vintageId) => cellar.vintage(vintageId),
+    locale: async () => (await households.me()).locale,
+    llm: getLlmProvider(),
+    spend: () => limiter.enforce(LIMITS.insights),
+    recordUsage: ({ householdId, task, status, usage }) =>
+      recordAiUsage({ userId: ctx.userId, householdId, task, status, ...usage }),
+  });
   const wishlist = createWishlistService({
     repo: createWishlistRepository(ctx.db),
     household,
@@ -103,16 +117,7 @@ export function servicesFor(ctx: RequestContext) {
       scores: (id) => cellars.listScores(id),
       values: async (id) => (await insightsRepo.listValues(id)) ?? [],
     }),
-    insights: createInsightsService({
-      repo: insightsRepo,
-      household,
-      vintage: (vintageId) => cellar.vintage(vintageId),
-      locale: async () => (await households.me()).locale,
-      llm: getLlmProvider(),
-      spend: () => limiter.enforce(LIMITS.insights),
-      recordUsage: ({ householdId, task, status, usage }) =>
-        recordAiUsage({ userId: ctx.userId, householdId, task, status, ...usage }),
-    }),
+    insights,
     sommelier: createSommelierService({
       cellar: () => cellar.inventory(),
       tonight: (request) => cellar.tonight(request),

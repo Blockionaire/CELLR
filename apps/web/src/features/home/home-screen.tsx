@@ -17,6 +17,7 @@ import { ChevronRightIcon, PlusIcon } from "@/ui/icons";
 import { Stars } from "@/ui/stars";
 import { EmptyState } from "@/ui/empty-state";
 import { DrinkLabel } from "@/features/cellar/drink-bits";
+import { ItemBottle, STAGE } from "@/features/cellar/wine-card";
 import { QuickRate } from "./quick-rate";
 
 /** "yesterday", "3 days ago", in the viewer's language. */
@@ -70,25 +71,25 @@ export async function HomeScreen({
 
   return (
     <div className="pt-10 lg:pt-14">
-      <h1 className="font-display text-headline text-ink-2">
+      <h1 className="font-display text-[2.1rem] leading-[2.4rem] text-ink">
         <Greeting name={name} />
       </h1>
 
       {/* The one big question. Everything else on Home is secondary to it. */}
       <Link
         href="/tonight"
-        className="group relative mt-6 block overflow-hidden rounded-card border border-hairline bg-surface p-6 transition-transform duration-200 ease-cellr active:scale-[0.99] md:p-8"
+        className="group relative mt-6 block overflow-hidden rounded-[28px] bg-hero p-6 text-hero-ink shadow-raised transition-transform duration-200 ease-cellr active:scale-[0.99] md:p-8"
       >
-        <p className="text-caption font-medium uppercase tracking-[0.18em] text-bronze">
+        <p className="text-caption font-medium uppercase tracking-[0.18em] text-hero-gold">
           {t("heroEyebrow")}
         </p>
         <h2 className="mt-3 max-w-[14ch] font-display text-display text-balance md:max-w-[18ch]">
           {t("heroTitle")}
         </h2>
-        <p className="mt-3 max-w-[17rem] text-body text-ink-2">
+        <p className="mt-3 max-w-[12.5rem] text-body text-hero-ink/80 md:max-w-[17rem]">
           {empty ? t("heroEmpty") : t("heroFilled")}
         </p>
-        <span className="mt-6 inline-flex items-center gap-1 text-small font-medium text-accent-fg">
+        <span className="mt-6 inline-flex h-11 items-center gap-1 rounded-full bg-hero-gold px-5 text-small font-semibold text-[#3a1119]">
           {t("heroCta")}
           <ChevronRightIcon
             size={18}
@@ -97,10 +98,10 @@ export async function HomeScreen({
         </span>
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-6 right-5 flex items-end gap-2 opacity-70 md:right-10"
+          className="pointer-events-none absolute -bottom-5 right-3 flex items-end gap-1 md:right-10"
         >
-          <BottleGlyph shape="bordeaux" tint="red" className="w-8 -rotate-6 md:w-10" />
-          <BottleGlyph shape="burgundy" tint="white" className="w-9 md:w-11" />
+          <BottleGlyph shape="bordeaux" tint="red" className="w-11 -rotate-6 md:w-14" />
+          <BottleGlyph shape="burgundy" tint="white" className="w-12 md:w-16" />
         </div>
       </Link>
 
@@ -375,14 +376,20 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
 
 function MiniCard({ item }: { item: CellarItem }) {
   return (
-    <article className="relative flex w-36 flex-col rounded-card border border-hairline bg-surface p-3 shadow-raised transition-transform duration-150 ease-cellr active:scale-[0.985]">
-      <div className="grid h-24 place-items-center rounded-control bg-raised">
-        <BottleGlyph shape={shapeFor(item.type)} tint={item.type} className="h-[4.5rem] w-auto" />
+    <article className="relative flex w-36 flex-col rounded-card bg-surface p-2 shadow-raised ring-1 ring-hairline transition-transform duration-150 ease-cellr active:scale-[0.985]">
+      <div
+        className={`relative flex h-32 items-end justify-center overflow-hidden rounded-[16px] ${STAGE[item.type]}`}
+      >
+        <span
+          aria-hidden="true"
+          className="absolute -bottom-8 left-1/2 size-28 -translate-x-1/2 rounded-full bg-surface/45"
+        />
+        <ItemBottle item={item} className="relative mb-1 w-10" />
       </div>
-      <p className="mt-3 truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
+      <p className="mt-3 truncate px-1.5 text-caption font-medium uppercase tracking-[0.12em] text-bronze">
         {item.producer}
       </p>
-      <h3 className="line-clamp-2 min-h-[2.75rem] font-display text-title leading-snug text-ink">
+      <h3 className="line-clamp-2 min-h-[2.75rem] px-1.5 font-display text-title leading-snug text-ink">
         <Link
           href={`/cellar/${item.vintageId}`}
           className="after:absolute after:inset-0 after:rounded-card"
@@ -390,7 +397,7 @@ function MiniCard({ item }: { item: CellarItem }) {
           {item.wineName}
         </Link>
       </h3>
-      <p className="mt-1 text-small text-ink-2 tnum">{formatVintage(item.year)}</p>
+      <p className="mt-1 px-1.5 pb-1 text-small text-ink-2 tnum">{formatVintage(item.year)}</p>
     </article>
   );
 }

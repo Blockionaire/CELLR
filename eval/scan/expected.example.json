@@ -1,0 +1,24 @@
+{
+  "_comment": "Made-up wines, only to show the format. Copy to expected.json and use your own photo file names as keys.",
+  "example-front-1.jpg": {
+    "producer": "Domaine des Exemples",
+    "wine": "Cuvée Imaginaire",
+    "vintage": 2018,
+    "type": "red",
+    "country": "FR",
+    "region": "Bordeaux",
+    "grapes": ["Merlot", "Cabernet Sauvignon"]
+  },
+  "example-front-2.jpg": {
+    "producer": "Tenuta Fittizia",
+    "vintage": 2021,
+    "type": "white",
+    "country": "Italy"
+  },
+  "example-bubbles.jpg": {
+    "producer": "Maison Inventée",
+    "wine": "Brut Réserve",
+    "vintage": null,
+    "type": "sparkling"
+  }
+}

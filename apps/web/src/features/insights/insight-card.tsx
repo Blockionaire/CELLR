@@ -76,14 +76,14 @@ export function InsightCard({ vintageId, currency }: { vintageId: string; curren
   return (
     <>
       <section
-        className="rounded-card border border-hairline bg-surface p-5"
+        className="rounded-card bg-surface shadow-raised ring-1 ring-hairline p-5"
         aria-labelledby="insight-title"
         data-testid="insight"
       >
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2
             id="insight-title"
-            className="text-caption font-medium uppercase tracking-[0.18em] text-ink-3"
+            className="text-caption font-medium uppercase tracking-[0.14em] text-bronze"
           >
             {t("title")}
           </h2>
@@ -119,6 +119,9 @@ export function InsightCard({ vintageId, currency }: { vintageId: string; curren
                   }
                 />
               )}
+              {out.abvPercent !== null && (
+                <Row label={t("abv")} value={t("abvValue", { abv: out.abvPercent })} />
+              )}
               {out.pairings.length > 0 && (
                 <Row label={t("pairings")} value={out.pairings.join(", ")} />
               )}
@@ -146,13 +149,13 @@ export function InsightCard({ vintageId, currency }: { vintageId: string; curren
 
       {view.ready && (
         <section
-          className="rounded-card border border-hairline bg-surface p-5"
+          className="rounded-card bg-surface shadow-raised ring-1 ring-hairline p-5"
           aria-labelledby="value-title"
           data-testid="value"
         >
           <h2
             id="value-title"
-            className="mb-3 text-caption font-medium uppercase tracking-[0.18em] text-ink-3"
+            className="mb-3 text-caption font-medium uppercase tracking-[0.14em] text-bronze"
           >
             {t("valueTitle")}
           </h2>
@@ -182,6 +185,7 @@ export function InsightCard({ vintageId, currency }: { vintageId: string; curren
           {editing ? (
             <form onSubmit={submitValue} noValidate className="mt-4 flex flex-col gap-3">
               <Field
+                inputClassName="rounded-full px-5"
                 label={t("myValueLabel", { currency: view.currency })}
                 hint={t("myValueHint")}
                 inputMode="decimal"

@@ -20,7 +20,7 @@ export function TastingItem({
   const day = useDay();
   const who = tasting.mine ? t("you") : (tasting.userName ?? t("someone"));
   return (
-    <article className="flex flex-col gap-1.5 rounded-control bg-raised px-4 py-3">
+    <article className="flex flex-col gap-1.5 rounded-[16px] bg-raised px-4 py-3">
       <header className="flex items-center justify-between gap-3">
         <p className="flex items-center gap-2 text-small font-medium text-ink">
           {who}

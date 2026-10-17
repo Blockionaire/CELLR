@@ -6,6 +6,7 @@ import {
   AddBottlesSchema,
   BottleExtrasSchema,
   ERROR_MESSAGES,
+  formatVintage,
   MAX_BOTTLES_PER_ADD,
   parseMoneyToCents,
   type AddBottlesResult,
@@ -24,11 +25,12 @@ import {
   type ExtrasDraft,
 } from "@/features/insights/extras-fields";
 import { api } from "@/lib/api";
-import { PlusIcon } from "@/ui/icons";
+import { CheckIcon, PlusIcon } from "@/ui/icons";
 import { Stepper } from "@/ui/stepper";
 import { cn } from "@/ui/cn";
 import { useAddBottles, useStorage } from "./hooks";
 import { NewPlaceSheet } from "./new-place-sheet";
+import { WineStage } from "./wine-stage";
 import { placeLine } from "./wine-visuals";
 
 interface BottleDetailsProps {
@@ -45,6 +47,9 @@ interface BottleDetailsProps {
   onChangeWine: () => void;
   onDone: (result: AddBottlesResult, placeId: string | null) => void;
 }
+
+/** A clean section of the form: one thing to answer, on its own card. */
+const SECTION = "rounded-card bg-surface p-4 shadow-raised ring-1 ring-hairline";
 
 const currencySymbol = (currency: string, locale: string) => {
   try {
@@ -144,29 +149,39 @@ export function BottleDetails({
     }
   }
 
+  const where = placeLine(wine.region, wine.countryCode, locale);
   return (
     <>
-      <form onSubmit={submit} noValidate className="flex flex-col gap-8">
-        <div className="flex items-start justify-between gap-4 rounded-card border border-hairline bg-surface p-4">
-          <div className="min-w-0">
-            <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
+      <form onSubmit={submit} noValidate className="flex flex-col gap-5">
+        <div className="flex items-center gap-4 rounded-card bg-surface p-3 shadow-raised ring-1 ring-hairline">
+          <WineStage
+            type={wine.type}
+            producer={wine.producer}
+            name={wine.name}
+            year={year === undefined ? undefined : formatVintage(year)}
+            size="card"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-caption font-medium uppercase tracking-[0.14em] text-bronze">
               {wine.producer}
             </p>
-            <p className="font-display text-title text-ink">{wine.name}</p>
-            <p className="text-small text-ink-2">
-              {placeLine(wine.region, wine.countryCode, locale) || " "}
+            <p className="mt-0.5 line-clamp-2 font-display text-title text-ink">{wine.name}</p>
+            <p className="mt-1 text-small text-ink-2 tnum">
+              {[year === undefined ? null : formatVintage(year), where]
+                .filter(Boolean)
+                .join(" · ") || " "}
             </p>
           </div>
           <button
             type="button"
             onClick={onChangeWine}
-            className="shrink-0 py-1 text-small font-medium text-accent-fg"
+            className="shrink-0 self-start rounded-full px-3.5 py-2 text-small font-medium text-accent-fg ring-1 ring-hairline transition-colors duration-150 ease-cellr hover:bg-raised"
           >
             {t("change")}
           </button>
         </div>
 
-        <section className="flex flex-col gap-3">
+        <section className={cn(SECTION, "flex flex-col gap-3")}>
           <Field
             label={t("yearLabel")}
             inputMode="numeric"
@@ -179,7 +194,7 @@ export function BottleDetails({
             error={submitted && year === undefined ? t("yearError") : null}
             onChange={(e) => setYearText(e.target.value.replace(/\D/g, ""))}
           />
-          <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 md:mx-0 md:flex-wrap md:px-0">
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-wrap md:px-0">
             <Chip selected={nv} onClick={() => setNv(!nv)}>
               {t("nv")}
             </Chip>
@@ -199,7 +214,12 @@ export function BottleDetails({
           </div>
         </section>
 
-        <section className="flex items-center justify-between gap-4">
+        <section
+          className={cn(
+            SECTION,
+            "flex flex-col items-center gap-3 sm:flex-row sm:justify-between sm:gap-4",
+          )}
+        >
           <p className="text-body text-ink">{t("quantityLabel")}</p>
           <Stepper
             label={t("quantityLabel")}
@@ -207,14 +227,19 @@ export function BottleDetails({
             onChange={setQuantity}
             min={1}
             max={MAX_BOTTLES_PER_ADD}
+            className="gap-3"
           />
         </section>
 
-        <section>
+        <section className={SECTION}>
           <h2 className="mb-3 text-small font-medium text-ink-2" id="where-label">
             {t("whereLabel")}
           </h2>
-          <div role="radiogroup" aria-labelledby="where-label" className="flex flex-col gap-2">
+          <div
+            role="radiogroup"
+            aria-labelledby="where-label"
+            className="grid grid-cols-2 gap-2.5 sm:grid-cols-3"
+          >
             {storage.isPending
               ? null
               : units.map((u) => {
@@ -233,6 +258,7 @@ export function BottleDetails({
                       ]
                         .filter(Boolean)
                         .join(" · ")}
+                      fill={u.capacity > 0 ? Math.min(1, u.used / u.capacity) : undefined}
                       onSelect={() => setChosenPlace(u.id)}
                     />
                   );
@@ -246,15 +272,13 @@ export function BottleDetails({
             <button
               type="button"
               onClick={() => setSheetOpen(true)}
-              className="flex min-h-14 items-center gap-3 rounded-card border border-dashed border-hairline px-4 text-left text-body text-ink transition-colors hover:bg-raised active:bg-raised"
+              className="flex min-h-[4.5rem] flex-col items-start justify-center gap-0.5 rounded-[16px] border border-dashed border-accent-fg/50 p-3 text-left transition-transform duration-150 ease-cellr active:scale-[0.98]"
             >
-              <span className="grid size-8 place-items-center rounded-full bg-raised text-ink">
-                <PlusIcon size={18} />
-              </span>
-              <span>
+              <span className="flex items-center gap-2 text-body font-medium text-ink">
+                <PlusIcon size={18} className="text-accent-fg" />
                 {t("newPlace")}
-                <span className="block text-small text-ink-3">{t("newPlaceHint")}</span>
               </span>
+              <span className="text-small text-ink-2">{t("newPlaceHint")}</span>
             </button>
           </div>
           {unit && unit.free < quantity && (
@@ -264,7 +288,7 @@ export function BottleDetails({
           )}
         </section>
 
-        <section className="flex flex-col gap-4">
+        <section className={cn(SECTION, "flex flex-col gap-4")}>
           <Field
             label={t("priceLabel", { symbol })}
             hint={t("priceHint")}
@@ -322,15 +346,19 @@ export function BottleDetails({
   );
 }
 
+/** A place as a tile: its name, how much room is left, and a thin meter of how full it is. */
 function PlaceOption({
   selected,
   title,
   detail,
+  fill,
   onSelect,
 }: {
   selected: boolean;
   title: string;
   detail: string;
+  /** 0 to 1: how much of the place is taken. Left out for "not placed yet". */
+  fill?: number | undefined;
   onSelect: () => void;
 }) {
   return (
@@ -340,12 +368,27 @@ function PlaceOption({
       aria-checked={selected}
       onClick={onSelect}
       className={cn(
-        "flex min-h-14 flex-col items-start justify-center rounded-card border px-4 py-2 text-left transition-colors active:scale-[0.99]",
-        selected ? "border-accent-fg bg-raised" : "border-hairline bg-surface hover:bg-raised",
+        "flex min-h-[4.5rem] flex-col items-start justify-between gap-2 rounded-[16px] p-3 text-left transition-transform duration-150 ease-cellr active:scale-[0.98]",
+        selected ? "bg-surface ring-2 ring-accent-fg" : "bg-canvas ring-1 ring-hairline",
       )}
     >
-      <span className="text-body text-ink">{title}</span>
-      <span className="text-small text-ink-3">{detail}</span>
+      <span className="flex w-full items-start justify-between gap-2">
+        <span className="text-body font-medium text-ink">{title}</span>
+        {selected && (
+          <span className="grid size-5 shrink-0 place-items-center rounded-full bg-accent text-accent-ink">
+            <CheckIcon size={12} />
+          </span>
+        )}
+      </span>
+      <span className="text-small text-ink-2">{detail}</span>
+      {fill !== undefined && (
+        <span aria-hidden="true" className="h-1.5 w-full overflow-hidden rounded-full bg-raised">
+          <span
+            className="block h-full rounded-full bg-accent"
+            style={{ width: `${Math.round(fill * 100)}%` }}
+          />
+        </span>
+      )}
     </button>
   );
 }

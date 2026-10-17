@@ -6,7 +6,6 @@ import { useState, type FormEvent } from "react";
 import {
   ERROR_MESSAGES,
   formatVintage,
-  STORAGE_KINDS,
   UpdateStorageSchema,
   type PlacedBottle,
   type RackUnit,
@@ -15,12 +14,13 @@ import {
 import { errorMessage } from "@/lib/api";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { Button, buttonStyles } from "@/ui/button";
-import { Chip } from "@/ui/chip";
+import { cn } from "@/ui/cn";
 import { Field } from "@/ui/field";
 import { Sheet } from "@/ui/sheet";
-import { Stepper } from "@/ui/stepper";
 import { useToast } from "@/ui/toast";
 import { useDeleteStorage, useUpdateStorage } from "./hooks";
+import { KindPicker, StepRow } from "./new-place-sheet";
+import { STAGE } from "./wine-card";
 import { shapeFor } from "./wine-visuals";
 
 const wineLine = (b: PlacedBottle) => `${b.producer} · ${b.wineName} ${formatVintage(b.year)}`;
@@ -59,14 +59,25 @@ export function BottlePeekSheet({
     >
       {bottle && (
         <div className="flex flex-col gap-6">
-          <div className="flex items-center gap-4 rounded-card bg-raised px-4 py-3">
-            <BottleGlyph
-              shape={shapeFor(bottle.type)}
-              tint={bottle.type}
-              className="h-16 w-auto shrink-0"
-            />
+          <div className="flex items-center gap-4 rounded-card bg-surface p-2 pr-4 shadow-raised ring-1 ring-hairline">
+            <div
+              className={cn(
+                "relative grid h-24 w-20 shrink-0 place-items-end justify-items-center overflow-hidden rounded-[16px]",
+                STAGE[bottle.type],
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className="absolute -bottom-6 left-1/2 size-20 -translate-x-1/2 rounded-full bg-surface/45"
+              />
+              <BottleGlyph
+                shape={shapeFor(bottle.type)}
+                tint={bottle.type}
+                className="relative mb-1 h-20 w-auto"
+              />
+            </div>
             <div className="min-w-0">
-              <p className="font-display text-title tnum">{formatVintage(bottle.year)}</p>
+              <p className="font-display text-headline tnum">{formatVintage(bottle.year)}</p>
               <p className="text-small text-ink-2">
                 {bottle.row !== null && bottle.col !== null
                   ? `${unitLabel ?? ""} · ${tv("spot", { row: bottle.row, col: bottle.col })}`
@@ -153,10 +164,18 @@ export function PlaceHereSheet({
                     type="button"
                     disabled={busy}
                     onClick={() => onPlace(b)}
-                    className="flex min-h-14 w-full items-center gap-3 rounded-card border border-hairline bg-surface px-4 py-2 text-left transition-colors hover:bg-raised active:scale-[0.99] disabled:opacity-45"
+                    className="flex min-h-16 w-full items-center gap-3 rounded-[20px] bg-surface p-2 pr-4 text-left ring-1 ring-hairline transition-[transform,background-color] duration-150 ease-cellr hover:bg-raised active:scale-[0.98] disabled:opacity-45"
                   >
-                    <BottleGlyph shape={shapeFor(b.type)} tint={b.type} className="w-3 shrink-0" />
-                    <span className="text-body text-ink">{wineLine(b)}</span>
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "grid size-12 shrink-0 place-items-center overflow-hidden rounded-full",
+                        STAGE[b.type],
+                      )}
+                    >
+                      <BottleGlyph shape={shapeFor(b.type)} tint={b.type} className="h-10 w-auto" />
+                    </span>
+                    <span className="min-w-0 text-body text-ink">{wineLine(b)}</span>
                   </button>
                 </li>
               ))}
@@ -199,7 +218,6 @@ export function ManagePlaceSheet({
 function ManageForm({ unit, onClose }: { unit: RackUnit; onClose: () => void }) {
   const t = useTranslations("racks");
   const tn = useTranslations("newPlace");
-  const tKinds = useTranslations("storageKinds");
   const te = useTranslations();
   const toast = useToast();
   const update = useUpdateStorage();
@@ -257,24 +275,9 @@ function ManageForm({ unit, onClose }: { unit: RackUnit; onClose: () => void }) 
         value={label}
         onChange={(e) => setLabel(e.target.value)}
       />
-      <div>
-        <p className="mb-2 text-small font-medium text-ink-2">{tn("kindLabel")}</p>
-        <div className="flex flex-wrap gap-2" role="group" aria-label={tn("kindLabel")}>
-          {STORAGE_KINDS.map((k) => (
-            <Chip key={k} selected={kind === k} onClick={() => setKind(k)}>
-              {tKinds(k)}
-            </Chip>
-          ))}
-        </div>
-      </div>
-      <div className="flex items-center justify-between gap-4">
-        <span className="text-body text-ink">{tn("shelvesLabel")}</span>
-        <Stepper label={tn("shelvesLabel")} value={rows} onChange={setRows} min={1} max={30} />
-      </div>
-      <div className="flex items-center justify-between gap-4">
-        <span className="text-body text-ink">{tn("positionsLabel")}</span>
-        <Stepper label={tn("positionsLabel")} value={cols} onChange={setCols} min={1} max={30} />
-      </div>
+      <KindPicker value={kind} onChange={setKind} label={tn("kindLabel")} />
+      <StepRow label={tn("shelvesLabel")} value={rows} onChange={setRows} />
+      <StepRow label={tn("positionsLabel")} value={cols} onChange={setCols} />
       <p className="text-center text-small text-ink-2">{tn("capacity", { count: rows * cols })}</p>
       {error && (
         <p role="alert" className="text-small text-danger">

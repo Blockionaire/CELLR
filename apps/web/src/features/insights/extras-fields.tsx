@@ -57,6 +57,7 @@ export function ExtrasFields({
       />
       {value.acquiredHow === "gift" && (
         <Field
+          inputClassName="rounded-full px-5"
           label={t("giftFromLabel")}
           placeholder={t("giftFromPlaceholder")}
           maxLength={120}
@@ -65,6 +66,7 @@ export function ExtrasFields({
         />
       )}
       <Field
+        inputClassName="rounded-full px-5"
         label={t("occasionLabel")}
         placeholder={t("occasionPlaceholder")}
         maxLength={120}
@@ -81,6 +83,7 @@ export function ExtrasFields({
       />
       {value.occasionTitle.trim() !== "" && (
         <Field
+          inputClassName="rounded-full px-5"
           label={t("occasionDateLabel")}
           hint={t("occasionHint")}
           type="date"

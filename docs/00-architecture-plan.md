@@ -1,6 +1,6 @@
 # CELLR — architecture & implementation plan
 
-> Status: **Phase 0 and the basic features of Phase 1–2 built** (see [§13](#13-status-and-what-changed-since-this-plan)).
+> Status: **Phase 0 and the basic features of Phase 1–2 built; the design overhaul is landing (see `01-design-overhaul-plan.md`)** (see [§13](#13-status-and-what-changed-since-this-plan)).
 > Originally written before any application code, as requested; §13 records what was built and every place reality
 > changed the plan.
 > Everything marked **✅ verified** was tested in a throwaway Postgres 16 (scripts in
@@ -703,5 +703,5 @@ policies), the admin delete-user call, and OpenAI beyond one manual run through 
   scan eval set (D9).
 - **Needs a device, not the sandbox:** how it _feels_ on a real iPhone (status-bar style in standalone mode, safe areas,
   font rendering, camera capture) — please review the `/design` gallery and the scan flow on your phone.
-- **Later, by choice:** the friends section (find people, become friends, see each other's wine and taste), Dutch
-  translation, switching between several households.
+- **Later, by choice:** the friends section (find people, become friends, see each other's wine and taste).
+  (The Dutch version and switching between several households are built.)

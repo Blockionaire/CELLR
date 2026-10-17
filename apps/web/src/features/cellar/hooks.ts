@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type {
   AddBottles,
   AddBottlesResult,
@@ -18,6 +18,7 @@ import type {
   TastingView,
   UpdatePurchase,
   UpdateStorage,
+  VintageInsightView,
   UpdateWine,
   VintageDetail,
   WineSummary,
@@ -71,6 +72,18 @@ export function useCreateStorage() {
   });
 }
 
+/** Asks for the wine's AI profile once, if it has none yet. Never throws: this is a bonus, not part of adding. */
+async function profileInBackground(queryClient: QueryClient, vintageId: string) {
+  try {
+    const current = await api.get<VintageInsightView>(`/cellar/${vintageId}/insight`);
+    if (!current.ready || current.insight) return;
+    const made = await api.post<VintageInsightView>(`/cellar/${vintageId}/insight`);
+    queryClient.setQueryData(["insight", vintageId], made);
+  } catch {
+    // switched off, rate-limited or offline: the "Tell me about this wine" button is still there
+  }
+}
+
 /** Adding bottles refreshes everything that shows counts or free space. */
 export function useAddBottles() {
   const queryClient = useQueryClient();
@@ -89,6 +102,9 @@ export function useAddBottles() {
         queryClient.invalidateQueries({ queryKey: racksKey }),
         queryClient.invalidateQueries({ queryKey: ["vintage"] }),
       ]);
+      // Every wine gets its AI profile (style, grapes, alcohol, value…) the moment it is added, without a tap.
+      // Quiet on purpose: if the AI is off or busy, the wine page still offers the button.
+      void profileInBackground(queryClient, result.vintageId);
     },
   });
 }

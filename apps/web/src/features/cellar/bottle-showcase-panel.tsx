@@ -14,8 +14,8 @@ import { Button, buttonStyles } from "@/ui/button";
 import { cn } from "@/ui/cn";
 import { CloseIcon } from "@/ui/icons";
 import { Skeleton } from "@/ui/skeleton";
+import { PhasePill } from "@/features/tonight/pick-bits";
 import { useDay, useMoney } from "./bottle-bits";
-import { DrinkLabel } from "./drink-bits";
 import { FavoriteButton } from "./favorite-button";
 import type { ShowcaseLayout } from "./three/layout";
 import { placeLine } from "./wine-visuals";
@@ -90,11 +90,11 @@ export function BottleShowcasePanel({
       data-testid="bottle-showcase"
       data-open={open}
       className={cn(
-        "absolute z-10 flex flex-col overflow-hidden border border-hairline bg-surface/95 shadow-raised outline-none backdrop-blur-md",
+        "absolute z-10 flex flex-col overflow-hidden bg-surface/85 shadow-raised outline-none ring-1 ring-hairline backdrop-blur-xl",
         "transition-[transform,opacity] duration-500 ease-cellr motion-reduce:transition-none",
         layout === "side"
           ? "inset-y-3 right-3 w-[min(26rem,46%)] rounded-card"
-          : "inset-x-0 bottom-0 h-[54%] rounded-t-sheet border-x-0 border-b-0",
+          : "inset-x-0 bottom-0 h-[54%] rounded-t-sheet",
         open
           ? "translate-x-0 translate-y-0 opacity-100 delay-300 motion-reduce:delay-0"
           : layout === "side"
@@ -104,7 +104,7 @@ export function BottleShowcasePanel({
     >
       <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-4 pt-5">
         <div className="flex items-start justify-between gap-3">
-          <p className="pt-1 text-caption font-medium uppercase tracking-[0.14em] text-ink-3">
+          <p className="truncate pt-1 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
             {bottle.producer}
           </p>
           <div className="-mr-2 -mt-1 flex shrink-0 items-center">
@@ -119,29 +119,31 @@ export function BottleShowcasePanel({
               type="button"
               onClick={onClose}
               aria-label={t("putBack")}
-              className="grid size-11 shrink-0 place-items-center rounded-control text-ink-2 transition-colors hover:text-ink"
+              className="grid size-11 shrink-0 place-items-center rounded-full text-ink-2 transition-colors duration-150 hover:bg-raised hover:text-ink"
             >
               <CloseIcon size={22} />
             </button>
           </div>
         </div>
-        <h2 className="-mt-1 font-display text-display text-balance">{bottle.wineName}</h2>
+        <h2 className="-mt-1 font-display text-display text-ink text-balance">{bottle.wineName}</h2>
         <p className="mt-1 text-title text-ink-2">
           <span className="tnum">{formatVintage(bottle.year)}</span>
           {where && <span> · {where}</span>}
         </p>
-        <p className="mt-3 inline-flex items-center gap-2 text-small text-ink-2">
-          <span
-            aria-hidden="true"
-            className="size-2.5 rounded-full"
-            style={{ background: `var(--wine-${bottle.type})` }}
-          />
-          {tTypes(bottle.type)}
-        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {detail && <PhasePill phase={detail.drink.phase} />}
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-raised px-3 py-1 text-caption font-semibold text-ink-2">
+            <span
+              aria-hidden="true"
+              className="size-2 rounded-full"
+              style={{ background: `var(--wine-${bottle.type})` }}
+            />
+            {tTypes(bottle.type)}
+          </span>
+        </div>
 
         <Block title={t("thisBottle")}>
-          <p className="text-body text-ink">{spot}</p>
-          {detail && <DrinkLabel drink={detail.drink} className="mt-1 text-small" />}
+          <p className="text-body font-medium text-ink">{spot}</p>
           {detail && (
             <p className="mt-1 text-small text-ink-2">
               {t("ofThisVintage", { count: detail.bottles.length })}
@@ -216,7 +218,7 @@ export function BottleShowcasePanel({
         )}
       </div>
 
-      <div className="border-t border-hairline bg-surface px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+      <div className="border-t border-hairline bg-surface/60 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
         {error && (
           <p role="alert" className="mb-2 text-small text-danger">
             {error}
@@ -254,7 +256,7 @@ export function BottleShowcasePanel({
 function Block({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mt-5 border-t border-hairline pt-4">
-      <h3 className="mb-2 text-caption font-medium uppercase tracking-[0.18em] text-ink-2">
+      <h3 className="mb-2 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
         {title}
       </h3>
       {children}
@@ -264,11 +266,14 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
 
 function Facts({ rows }: { rows: ReadonlyArray<readonly [string, string]> }) {
   return (
-    <dl className="flex flex-col gap-2">
+    <dl className="flex flex-col divide-y divide-hairline">
       {rows.map(([label, value]) => (
-        <div key={label} className="flex items-baseline justify-between gap-4">
+        <div
+          key={label}
+          className="flex items-baseline justify-between gap-4 py-2 first:pt-0 last:pb-0"
+        >
           <dt className="text-small text-ink-2">{label}</dt>
-          <dd className="text-right text-body text-ink">{value}</dd>
+          <dd className="text-right text-body text-ink tnum">{value}</dd>
         </div>
       ))}
     </dl>

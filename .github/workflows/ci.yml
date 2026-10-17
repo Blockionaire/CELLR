@@ -98,17 +98,18 @@ jobs:
   supabase-stack:
     # The same permission suite against the REAL Supabase stack (GoTrue, Storage, Realtime, …).
     # The suite is verified on plain Postgres; this job checks the parts a shim cannot — Supabase's own
-    # roles, Storage and extensions. It was written without Docker access, so it is advisory until its
-    # first green run: then delete `continue-on-error` and make it required.
-    name: Database · real Supabase stack (advisory)
+    # roles, Storage and extensions. Green on its first run, so it is a normal job now: add it to the
+    # required checks in the branch protection settings.
+    name: Database · real Supabase stack
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with: { version: 2.120.0 }
       - run: supabase start # applies supabase/migrations and supabase/seed
       - run: DB_TEST_MODE=supabase DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres bash scripts/db-test.sh
+      # Storage policies through the Storage API, and account deletion through the Auth admin API.
+      - run: node scripts/real-stack-smoke.mjs
       - if: always()
         run: supabase stop --no-backup

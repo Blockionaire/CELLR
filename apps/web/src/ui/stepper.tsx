@@ -16,7 +16,7 @@ interface StepperProps {
 /** HOW MANY? — big, thumb-sized, one hand. */
 export function Stepper({ value, onChange, min = 1, max = 99, label, className }: StepperProps) {
   const step =
-    "grid size-14 place-items-center rounded-card bg-raised text-ink transition-transform duration-150 active:scale-95 disabled:opacity-35";
+    "grid size-14 place-items-center rounded-full bg-raised text-ink transition-[transform,colors] duration-150 ease-cellr hover:bg-hairline active:scale-95 disabled:opacity-35 focus-visible:rounded-full";
   return (
     <div
       role="group"

@@ -12,12 +12,11 @@ import {
 } from "@cellr/domain";
 import { useRefreshCellar } from "@/features/cellar/hooks";
 import { errorMessage, api } from "@/lib/api";
-import { BottleGlyph } from "@/ui/bottle-glyph";
 import { Button } from "@/ui/button";
 import { EmptyState } from "@/ui/empty-state";
 import { ChevronRightIcon } from "@/ui/icons";
 import { useToast } from "@/ui/toast";
-import { shapeFor } from "@/features/cellar/wine-visuals";
+import { StageThumb } from "@/features/wishlist/stage-thumb";
 
 const historyKey = ["history"] as const;
 
@@ -84,22 +83,26 @@ export function HistoryScreen({ initial }: { initial: HistoryView }) {
         <div className="mt-6 flex flex-col gap-8">
           {[...groups.entries()].map(([label, items]) => (
             <section key={label} aria-label={label}>
-              <h2 className="mb-3 text-caption font-medium uppercase tracking-[0.18em] text-ink-3">
+              <h2 className="mb-3 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
                 {label}
               </h2>
-              <ul className="divide-y divide-hairline rounded-card border border-hairline bg-surface px-4">
+              <ul className="divide-y divide-hairline rounded-card bg-surface px-4 shadow-raised ring-1 ring-hairline">
                 {items.map((item) => (
                   <li
                     key={item.bottleId}
-                    className="flex items-center gap-4 py-3"
+                    className="flex items-center gap-3 py-3"
                     data-testid="history-item"
                   >
-                    <BottleGlyph
-                      shape={shapeFor(item.type)}
-                      tint={item.type}
-                      className="w-4 shrink-0"
+                    <StageThumb
+                      type={item.type}
+                      producer={item.producer}
+                      wineName={item.wineName}
+                      className="h-20 w-14"
                     />
                     <div className="min-w-0 flex-1">
+                      <p className="truncate text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+                        {item.producer}
+                      </p>
                       <p className="truncate font-display text-title text-ink">
                         {item.status === "opened" ? (
                           <Link href={`/cellar/${item.vintageId}`}>{item.wineName}</Link>
@@ -108,13 +111,18 @@ export function HistoryScreen({ initial }: { initial: HistoryView }) {
                         )}
                       </p>
                       <p className="truncate text-small text-ink-2">
-                        {item.producer} · <span className="tnum">{formatVintage(item.year)}</span> ·{" "}
+                        <span className="tnum">{formatVintage(item.year)}</span> ·{" "}
                         {tTypes(item.type)}
                       </p>
-                      <p className="text-small text-ink-2">
-                        {t(`status.${item.status}`, { day: day(item.at) })}
-                        {item.myScore !== null &&
-                          ` · ${t("rated", { stars: formatStars(item.myScore) })}`}
+                      <p className="mt-1.5 flex flex-wrap gap-1.5 text-caption font-semibold">
+                        <span className="inline-flex items-center rounded-full bg-raised px-3 py-1 text-ink-2">
+                          {t(`status.${item.status}`, { day: day(item.at) })}
+                        </span>
+                        {item.myScore !== null && (
+                          <span className="inline-flex items-center rounded-full bg-peak-bg px-3 py-1 text-peak-ink">
+                            {t("rated", { stars: formatStars(item.myScore) })}
+                          </span>
+                        )}
                       </p>
                     </div>
                     <Button

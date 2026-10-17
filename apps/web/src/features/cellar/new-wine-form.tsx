@@ -11,11 +11,15 @@ import {
   type WineType,
 } from "@cellr/domain";
 import { errorMessage } from "@/lib/api";
+import { BottleGlyph } from "@/ui/bottle-glyph";
 import { Button } from "@/ui/button";
-import { Chip } from "@/ui/chip";
+import { cn } from "@/ui/cn";
 import { Field } from "@/ui/field";
+import { CheckIcon } from "@/ui/icons";
 import { useCreateWine } from "./hooks";
-import { countryName } from "./wine-visuals";
+import { STAGE } from "./wine-card";
+import { WineStage } from "./wine-stage";
+import { countryName, placeLine, shapeFor } from "./wine-visuals";
 
 /** What a scan read off the label, to start the form with. A null type means "not clear: choose". */
 export interface NewWineDraft {
@@ -73,6 +77,43 @@ export function NewWineForm({ initialName, draft, producers, onCreated }: NewWin
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-6">
+      {/* A live preview: the bottle on its stage, typeset from what is typed. Decorative, the fields say it all. */}
+      <div
+        aria-hidden="true"
+        className="flex items-center gap-4 rounded-card bg-surface p-3 shadow-raised ring-1 ring-hairline"
+      >
+        <WineStage
+          type={type ?? "red"}
+          muted={type === null}
+          producer={producer}
+          name={name}
+          size="card"
+        />
+        <div className="min-w-0 flex-1">
+          <p
+            className={cn(
+              "truncate text-caption font-medium uppercase tracking-[0.14em]",
+              producer.trim() ? "text-bronze" : "text-ink-3",
+            )}
+          >
+            {producer.trim() || t("producerPlaceholder")}
+          </p>
+          <p
+            className={cn(
+              "mt-0.5 line-clamp-2 font-display text-title",
+              name.trim() ? "text-ink" : "text-ink-3",
+            )}
+          >
+            {name.trim() || t("namePlaceholder")}
+          </p>
+          <p className="mt-1 text-small text-ink-2">
+            {[type ? tTypes(type) : null, placeLine(region.trim() || null, country || null, locale)]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+      </div>
+
       <Field
         label={t("producerLabel")}
         placeholder={t("producerPlaceholder")}
@@ -101,18 +142,26 @@ export function NewWineForm({ initialName, draft, producers, onCreated }: NewWin
       <div>
         <p className="mb-2 text-small font-medium text-ink-2">{t("typeLabel")}</p>
         <div className="flex flex-wrap gap-2" role="group" aria-label={t("typeLabel")}>
-          {WINE_TYPES.map((value) => (
-            <Chip key={value} selected={type === value} onClick={() => setType(value)}>
-              <span className="inline-flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="size-2 rounded-full ring-1 ring-current/40"
-                  style={{ background: `var(--wine-${value})` }}
-                />
+          {WINE_TYPES.map((value) => {
+            const on = type === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setType(value)}
+                className={cn(
+                  "inline-flex h-12 items-center gap-2 rounded-full pl-3.5 pr-4 text-small text-ink transition-transform duration-150 ease-cellr active:scale-[0.97]",
+                  STAGE[value],
+                  on ? "font-semibold ring-2 ring-accent-fg" : "font-medium ring-1 ring-hairline",
+                )}
+              >
+                <BottleGlyph shape={shapeFor(value)} tint={value} className="w-[0.7rem] shrink-0" />
                 {tTypes(value)}
-              </span>
-            </Chip>
-          ))}
+                {on && <CheckIcon size={16} className="-mr-1 text-accent-fg" />}
+              </button>
+            );
+          })}
         </div>
       </div>
 

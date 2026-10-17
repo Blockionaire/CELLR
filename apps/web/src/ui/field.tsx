@@ -43,7 +43,7 @@ export function Field({
         aria-describedby={describedBy}
         className={cn(
           "h-12 w-full rounded-control border bg-surface px-4 text-body text-ink placeholder:text-ink-3",
-          "transition-colors duration-150 ease-cellr focus-visible:border-accent-fg focus-visible:outline-none",
+          "transition-colors duration-150 ease-cellr focus-visible:border-accent-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg/30",
           error ? "border-danger" : "border-hairline",
           inputClassName,
         )}

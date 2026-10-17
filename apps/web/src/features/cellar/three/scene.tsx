@@ -45,6 +45,18 @@ export interface SceneProps {
   onDismiss: () => void;
   reducedMotion: boolean;
   onReady?: () => void;
+  /**
+   * While a bottle is on display the rack is not drawn: a still picture of it (blurred and dimmed by the page) stands
+   * in, so it cannot move however the bottle is turned. Null = the rack is live again.
+   */
+  onBackdrop?: (backdrop: Backdrop | null) => void;
+}
+
+/** A still of the rack, and where on the screen (in percent) the bottle that came out of it was. */
+export interface Backdrop {
+  url: string;
+  originX: number;
+  originY: number;
 }
 
 /** A tiny lift so bottles rest with their necks slightly up, like in a real rack. */
@@ -68,6 +80,7 @@ export default function CellarScene({
   onDismiss,
   reducedMotion,
   onReady,
+  onBackdrop,
 }: SceneProps) {
   // The bottle on display stays here a little after `showcase` is cleared, while it goes back.
   const [shown, setShown] = useState<ShownBottle | null>(showcase);
@@ -81,7 +94,20 @@ export default function CellarScene({
   const onDrag = useCallback((moved: boolean) => {
     dragged.current = moved;
   }, []);
-  const onGone = useCallback(() => setShown(null), []);
+  const [frozen, setFrozen] = useState(false);
+  const showRef = useRef<THREE.Group>(null);
+  const onGone = useCallback(() => {
+    setShown(null);
+    setFrozen(false);
+    onBackdrop?.(null);
+  }, [onBackdrop]);
+  const onFrozen = useCallback(
+    (backdrop: Backdrop) => {
+      setFrozen(true);
+      onBackdrop?.(backdrop);
+    },
+    [onBackdrop],
+  );
   const locked = showcase !== null;
 
   return (
@@ -102,31 +128,46 @@ export default function CellarScene({
     >
       <Lighting />
       <Rig rows={rows} cols={cols} reducedMotion={reducedMotion} locked={locked} />
-      <RackFrame rows={rows} cols={cols} kind={kind} />
-      <Bottles
-        rows={rows}
-        cols={cols}
-        bottles={bottles}
-        hiddenId={shown?.bottle.id ?? null}
-        locked={locked}
-        onPick={onPick}
-        onDismiss={onDismiss}
-      />
-      {shown && (
-        <Showcase
-          key={shown.bottle.id}
-          shown={shown}
-          bottles={bottles}
+      <group visible={!frozen}>
+        <RackFrame rows={rows} cols={cols} kind={kind} />
+        <Bottles
           rows={rows}
           cols={cols}
-          open={showcase !== null}
-          exit={exit}
-          layout={layout}
-          veil={veil}
-          reducedMotion={reducedMotion}
-          onGone={onGone}
-          onDrag={onDrag}
+          bottles={bottles}
+          hiddenId={shown?.bottle.id ?? null}
+          locked={locked}
+          onPick={onPick}
+          onDismiss={onDismiss}
         />
+      </group>
+      {shown && (
+        <>
+          <Freezer
+            target={shown.bottle}
+            rows={rows}
+            cols={cols}
+            frozen={frozen}
+            hideRef={showRef}
+            onFrozen={onFrozen}
+          />
+          <group ref={showRef}>
+            <Showcase
+              key={shown.bottle.id}
+              shown={shown}
+              bottles={bottles}
+              rows={rows}
+              cols={cols}
+              open={showcase !== null}
+              exit={exit}
+              layout={layout}
+              veil={veil}
+              useVeil={!frozen}
+              reducedMotion={reducedMotion}
+              onGone={onGone}
+              onDrag={onDrag}
+            />
+          </group>
+        </>
       )}
     </Canvas>
   );
@@ -162,6 +203,69 @@ function Lighting() {
   );
 }
 
+// ---- A still of the rack -----------------------------------------------------------------------------------------
+
+/**
+ * The moment a bottle is taken out, draws the rack (without that bottle, and without the bottle on display) once
+ * and hands the picture to the page. From then on the rack is not drawn at all: the page shows the picture, blurred
+ * and dimmed, so the background holds perfectly still however the bottle is turned, and costs nothing to render.
+ */
+function Freezer({
+  target,
+  rows,
+  cols,
+  frozen,
+  hideRef,
+  onFrozen,
+}: {
+  target: SceneBottle;
+  rows: number;
+  cols: number;
+  frozen: boolean;
+  hideRef: React.RefObject<THREE.Group | null>;
+  onFrozen: (backdrop: Backdrop) => void;
+}) {
+  const { gl, scene, camera } = useThree();
+  const done = useRef<string | null>(null);
+  useEffect(() => {
+    // One picture per time the rack is lifted out of the picture; a bottle taken while it is frozen reuses it.
+    if (frozen || done.current === target.id) return;
+    done.current = target.id;
+    const group = hideRef.current;
+    try {
+      if (group) group.visible = false;
+      camera.updateMatrixWorld();
+      gl.render(scene, camera);
+      const [x, y, z] = slotPosition(target.row, target.col, rows, cols);
+      const at = new THREE.Vector3(x, y, z).project(camera);
+      const originX = ((at.x + 1) / 2) * 100;
+      const originY = ((1 - at.y) / 2) * 100;
+      gl.domElement.toBlob((blob) => {
+        // Without a picture the rack simply stays live, behind the usual veil.
+        if (!blob || done.current !== target.id) return;
+        onFrozen({ url: URL.createObjectURL(blob), originX, originY });
+      }, "image/png");
+    } catch {
+      // keep the live rack
+    } finally {
+      if (group) group.visible = true;
+    }
+  }, [target, rows, cols, frozen, gl, scene, camera, hideRef, onFrozen]);
+  return null;
+}
+
+/** Keeps the point being looked at on the rack: sliding the view (or zooming towards a corner) never loses it. */
+function keepOnRack(c: OrbitControls, width: number, height: number): void {
+  const t = c.target;
+  const x = Math.min(width / 2, Math.max(-width / 2, t.x));
+  const y = Math.min(height / 2, Math.max(-height / 2, t.y));
+  if (x === t.x && y === t.y) return;
+  c.object.position.x += x - t.x;
+  c.object.position.y += y - t.y;
+  t.x = x;
+  t.y = y;
+}
+
 // ---- Camera and controls ---------------------------------------------------------------------------------
 
 function Rig({
@@ -178,8 +282,10 @@ function Rig({
 }) {
   const { camera, gl, size, invalidate } = useThree();
   const controls = useRef<OrbitControls | null>(null);
+  const lockedNow = useRef(locked);
   const aspect = size.width / Math.max(1, size.height);
   const distance = cameraDistance(rows, cols, aspect);
+  const { width, height } = unitSize(rows, cols);
 
   useLayoutEffect(() => {
     // A little to the side and above, so you read depth straight away.
@@ -196,16 +302,26 @@ function Rig({
     c.target.set(0, 0, 0);
     c.enableDamping = !reducedMotion;
     c.dampingFactor = 0.09;
-    c.enablePan = false;
-    c.minDistance = distance * 0.35;
-    c.maxDistance = distance * 1.8;
+    // Zoom goes towards where you point (so the top and the bottom of a tall rack can both be reached), and
+    // two fingers (or the right mouse button) slide the view; it never leaves the rack, see below.
+    c.zoomToCursor = true;
+    c.enablePan = true;
+    c.screenSpacePanning = true;
     c.minAzimuthAngle = -0.95;
     c.maxAzimuthAngle = 0.95;
     c.minPolarAngle = 0.75;
     c.maxPolarAngle = 1.75;
     c.rotateSpeed = 0.7;
     c.zoomSpeed = 0.8;
-    const onChange = () => invalidate();
+    c.panSpeed = 0.9;
+    // A bottle on display: the rack is not to be moved by turning it.
+    c.enabled = !lockedNow.current;
+    const onChange = () => {
+      // Where the view is looking, readable from outside (the tests use it to check where zoom goes).
+      gl.domElement.dataset.target = `${c.target.x.toFixed(2)},${c.target.y.toFixed(2)}`;
+      gl.domElement.dataset.distance = c.getDistance().toFixed(2);
+      invalidate();
+    };
     c.addEventListener("change", onChange);
     c.update();
     controls.current = c;
@@ -215,15 +331,30 @@ function Rig({
       c.dispose();
       controls.current = null;
     };
-    // The camera is placed once per unit/size; the user's own movements are never overridden afterwards.
+    // The camera is placed once per unit; a resize (the screen filling up when a bottle comes out) must neither
+    // move it nor hand control back, so the size is deliberately not a dependency here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, cols, Math.round(distance * 10), reducedMotion]);
+  }, [rows, cols, reducedMotion]);
 
   useEffect(() => {
+    const c = controls.current;
+    if (!c) return;
+    c.minDistance = distance * 0.3;
+    c.maxDistance = distance * 1.8;
+    invalidate();
+  }, [distance, invalidate]);
+
+  useEffect(() => {
+    lockedNow.current = locked;
     if (controls.current) controls.current.enabled = !locked;
   }, [locked]);
 
-  useFrame(() => controls.current?.update());
+  useFrame(() => {
+    const c = controls.current;
+    if (!c) return;
+    keepOnRack(c, width, height);
+    c.update();
+  });
   return null;
 }
 

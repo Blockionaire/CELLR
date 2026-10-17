@@ -5,8 +5,12 @@ begin
   perform test.mk_users(3);
   perform test.as_user(1); h1 := public.create_household('One'); code := public.create_invite(h1);
   perform test.as_user(2); h2 := public.create_household('Two');
+  -- Real Supabase refuses direct DELETEs on storage tables unless this is set (the Storage API sets it itself);
+  -- the policies below are what we are testing, so let the statements reach them.
+  perform set_config('storage.allow_delete_query', 'true', true);
 
-  -- ---- buckets ------------------------------------------------------------------------------------
+  -- ---- buckets (read as the service role: real Supabase gives signed-in users no view of storage.buckets)
+  perform test.as_service(); ------------------------------------------------------------------------------------
   perform test.rec('all four buckets exist', (select count(*) from storage.buckets where id in ('bottle-images', 'tasting-images', 'user-avatars', 'wine-labels')) = 4);
   perform test.rec('every bucket is private', (select count(*) from storage.buckets where id in ('bottle-images', 'tasting-images', 'user-avatars', 'wine-labels') and public) = 0);
   perform test.rec('every bucket has a size limit and MIME allow-list',

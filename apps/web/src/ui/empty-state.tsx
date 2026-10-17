@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { BottleGlyph, type BottleShape } from "./bottle-glyph";
 import { cn } from "./cn";
+import { STAGE } from "@/features/cellar/wine-card";
 
 interface EmptyStateProps {
   title: string;
@@ -30,13 +31,22 @@ export function EmptyState({
       {illustration && (
         <div className="mb-8 flex items-end gap-3" aria-hidden="true">
           {ROW.map((b, i) => (
-            <BottleGlyph
+            <div
               key={i}
-              shape={b.shape}
-              tint={b.tint}
-              className="w-9 animate-[rise_600ms_var(--ease-out)_both] opacity-90"
-              style={{ animationDelay: `${b.delay}ms` }}
-            />
+              className={cn(
+                "relative grid size-20 place-items-end justify-items-center overflow-hidden rounded-[22px] pb-2",
+                STAGE[b.tint],
+                i === 1 && "mb-3",
+              )}
+            >
+              <span className="absolute -bottom-6 left-1/2 size-16 -translate-x-1/2 rounded-full bg-surface/45" />
+              <BottleGlyph
+                shape={b.shape}
+                tint={b.tint}
+                className="relative w-8 animate-[rise_600ms_var(--ease-out)_both] opacity-90"
+                style={{ animationDelay: `${b.delay}ms` }}
+              />
+            </div>
           ))}
         </div>
       )}

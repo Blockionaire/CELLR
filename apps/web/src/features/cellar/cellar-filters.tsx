@@ -40,7 +40,7 @@ export function FilterButton({
       onClick={onClick}
       aria-label={active > 0 ? t("buttonActive", { count: active }) : t("button")}
       className={cn(
-        "relative inline-flex h-12 shrink-0 items-center gap-2 rounded-control border border-hairline bg-surface px-4 text-body font-medium text-ink transition-colors hover:bg-raised active:scale-[0.98]",
+        "relative inline-flex h-12 shrink-0 items-center gap-2 rounded-full border border-hairline bg-surface px-4 text-body font-medium text-ink transition-colors hover:bg-raised active:scale-[0.98]",
         className,
       )}
     >
@@ -105,14 +105,14 @@ export function ActiveFilters({
   ];
   if (chips.length === 0) return null;
   return (
-    <ul className="-mt-3 mb-5 flex flex-wrap gap-2" aria-label={t("activeLabel")}>
+    <ul className="mb-4 flex flex-wrap gap-2" aria-label={t("activeLabel")}>
       {chips.map((c) => (
         <li key={c.key}>
           <button
             type="button"
             onClick={c.remove}
             aria-label={t("remove", { name: c.name })}
-            className="inline-flex h-9 items-center gap-1.5 rounded-control bg-accent pl-3.5 pr-2.5 text-small text-accent-ink transition-transform active:scale-[0.97]"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-accent pl-3.5 pr-2.5 text-small text-accent-ink transition-transform active:scale-[0.97]"
           >
             {c.name}
             <CloseIcon size={16} />
@@ -171,7 +171,7 @@ export function FilterSheet({
           aria-pressed={filters.favoritesOnly}
           onClick={() => onFilters({ ...filters, favoritesOnly: !filters.favoritesOnly })}
           className={cn(
-            "flex min-h-12 items-center gap-3 rounded-control border px-4 text-left text-body transition-colors active:scale-[0.99]",
+            "flex min-h-12 items-center gap-3 rounded-full border px-5 text-left text-body transition-colors active:scale-[0.99]",
             filters.favoritesOnly
               ? "border-transparent bg-accent text-accent-ink"
               : "border-hairline bg-surface text-ink",

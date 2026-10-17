@@ -11,6 +11,7 @@ import {
   type Me,
 } from "@cellr/domain";
 import { errorMessage } from "@/lib/api";
+import { cn } from "@/ui/cn";
 import { Button, buttonStyles } from "@/ui/button";
 import { Field } from "@/ui/field";
 import { Segmented } from "@/ui/segmented";
@@ -33,14 +34,52 @@ import { HouseholdSettings } from "./household-settings";
 import { HouseholdSwitcher } from "./household-switcher";
 import { InviteSheet } from "./invite-sheet";
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({
+  title,
+  children,
+  tone = "default",
+}: {
+  title: string;
+  children: ReactNode;
+  tone?: "default" | "danger";
+}) {
   return (
-    <section className="rounded-card border border-hairline bg-surface p-5 md:p-6">
-      <h2 className="mb-4 text-caption font-medium uppercase tracking-[0.18em] text-ink-3">
+    <section className="rounded-card bg-surface p-5 shadow-raised ring-1 ring-hairline md:p-6">
+      <h2 className={cn("mb-4 font-display text-title", tone === "danger" && "text-danger")}>
         {title}
       </h2>
       {children}
     </section>
+  );
+}
+
+/** A round monogram, so a person is more than a line of text. */
+function Avatar({ name, size = "lg" }: { name: string; size?: "sm" | "lg" }) {
+  const initial = Array.from(name.trim())[0]?.toUpperCase() ?? "?";
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "grid shrink-0 place-items-center rounded-full bg-accent font-display text-accent-ink",
+        size === "lg" ? "size-14 text-headline" : "size-9 text-title",
+      )}
+    >
+      {initial}
+    </span>
+  );
+}
+
+/** A tiny rendering of a theme: canvas, a card and an action pill, in that theme's own colours. */
+function ThemePreview({ scheme }: { scheme: "light" | "dark" }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{ colorScheme: scheme }}
+      className="flex h-14 flex-1 flex-col justify-center gap-1.5 rounded-[16px] bg-canvas px-3 ring-1 ring-hairline"
+    >
+      <span className="h-3 w-3/4 rounded-full bg-surface ring-1 ring-hairline" />
+      <span className="h-3 w-1/3 rounded-full bg-accent" />
+    </span>
   );
 }
 
@@ -143,6 +182,16 @@ export function ProfileView({
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-4">
       <Section title={t("accountSection")}>
+        <div className="mb-5 flex items-center gap-4">
+          <Avatar name={me.displayName ?? me.email ?? ""} />
+          <div className="min-w-0">
+            <p className="truncate font-display text-headline">{me.displayName ?? t("unnamed")}</p>
+            <p className="truncate text-small text-ink-3">
+              <span className="sr-only">{t("emailLabel")}: </span>
+              {me.email ?? "—"}
+            </p>
+          </div>
+        </div>
         <form onSubmit={saveName} noValidate className="flex flex-col gap-4">
           <Field
             label={t("nameLabel")}
@@ -151,10 +200,6 @@ export function ProfileView({
             error={nameError}
             autoComplete="given-name"
           />
-          <div>
-            <p className="text-small font-medium text-ink-2">{t("emailLabel")}</p>
-            <p className="mt-1 break-all text-body">{me.email ?? "—"}</p>
-          </div>
           {nameChanged && (
             <Button type="submit" loading={updateProfile.isPending} className="self-start">
               {tc("save")}
@@ -166,16 +211,19 @@ export function ProfileView({
       {active && (
         <Section title={t("householdSection")}>
           <div className="flex items-start justify-between gap-3">
-            <h3 className="font-display text-headline">{active.name}</h3>
-            <Button variant="secondary" size="sm" onClick={openInvite}>
+            <h3 className="font-display text-headline text-balance">{active.name}</h3>
+            <Button variant="secondary" size="sm" onClick={openInvite} className="shrink-0">
               {t("invite")}
             </Button>
           </div>
-          <p className="mb-2 mt-5 text-small font-medium text-ink-2">{t("members")}</p>
+          <p className="mb-1 mt-5 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+            {t("members")}
+          </p>
           <ul className="divide-y divide-hairline">
             {(household.data?.members ?? []).map((m) => (
-              <li key={m.userId} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
+              <li key={m.userId} className="flex items-center gap-3 py-3">
+                <Avatar name={m.displayName ?? "?"} size="sm" />
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-body">
                     {m.displayName ?? t("unnamed")}
                     {m.isYou && <span className="ml-2 text-small text-ink-3">({t("you")})</span>}
@@ -242,6 +290,9 @@ export function ProfileView({
       </Section>
 
       <Section title={t("appearanceSection")}>
+        <p className="mb-2 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+          {t("languageLabel")}
+        </p>
         <Segmented<Locale>
           label={t("languageLabel")}
           value={isLocale(activeLocale) ? activeLocale : "en"}
@@ -250,8 +301,15 @@ export function ProfileView({
             { value: "en", label: t("languageEnglish") },
             { value: "nl", label: t("languageDutch") },
           ]}
-          className="mb-4 self-start"
+          className="mb-6 self-start"
         />
+        <p className="mb-2 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+          {t("themeLabel")}
+        </p>
+        <div className="mb-3 flex gap-3">
+          <ThemePreview scheme="light" />
+          <ThemePreview scheme="dark" />
+        </div>
         <ThemeSelector
           label={t("themeLabel")}
           initial={initialTheme}
@@ -263,12 +321,23 @@ export function ProfileView({
         />
       </Section>
 
-      <Button variant="ghost" size="lg" block onClick={handleSignOut} loading={signOut.isPending}>
+      <Button
+        variant="secondary"
+        size="lg"
+        block
+        onClick={handleSignOut}
+        loading={signOut.isPending}
+      >
         {t("signOut")}
       </Button>
       {me.email && (
-        <>
-          <Button variant="danger" size="sm" onClick={() => setDeletingAccount(true)}>
+        <Section title={t("dangerSection")} tone="danger">
+          <Button
+            variant="danger"
+            size="md"
+            className="-ml-4"
+            onClick={() => setDeletingAccount(true)}
+          >
             {t("deleteAccount")}
           </Button>
           <DeleteAccountSheet
@@ -276,7 +345,7 @@ export function ProfileView({
             onClose={() => setDeletingAccount(false)}
             email={me.email}
           />
-        </>
+        </Section>
       )}
 
       {active && (

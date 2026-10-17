@@ -15,6 +15,7 @@ const raw = {
   serving_temp_min_c: 16,
   serving_temp_max_c: 18,
   decant_minutes: 30,
+  abv_percent: 13.5,
   pairings: ["Lamb"],
   aging: "A decade.",
   value_low: 40,
@@ -48,6 +49,7 @@ function setup(
     saveInsight: vi.fn(async (_h, _v, i) => (saved.push(i), true)),
     saveMyValue: vi.fn(async () => true),
     listValues: vi.fn(async () => []),
+    reservedBottles: vi.fn(async () => []),
     listExtras: vi.fn(async () => []),
     saveExtras: vi.fn(async () => true),
     reminders: vi.fn(async () => []),
@@ -144,5 +146,34 @@ describe("what we know about the bottles", () => {
     const { service, repo } = setup();
     await service.listExtras("v1");
     expect(repo.listExtras).toHaveBeenCalledWith(["b1", "b2"]);
+  });
+});
+
+describe("reservations", () => {
+  const row = (bottleId: string, vintageId: string, title: string, on: string | null) => ({
+    bottleId,
+    vintageId,
+    title,
+    on,
+  });
+  it("counts the bottles kept for an occasion that hasn't passed, and names the soonest", async () => {
+    const { service, repo } = setup();
+    vi.mocked(repo.reservedBottles).mockResolvedValue([
+      row("b1", "v1", "New Year", "2027-01-01"),
+      row("b2", "v1", "Christmas", "2026-12-25"),
+      row("b3", "v1", "Someday", null),
+      row("b4", "v2", "Last week", "2026-12-10"), // today is 2026-12-20: passed
+      row("b5", "v3", "No day yet", null),
+    ]);
+    const { vintages, bottles } = await service.reservations();
+    expect(vintages.get("v1")).toEqual({ count: 3, title: "Christmas", on: "2026-12-25" });
+    expect(vintages.has("v2")).toBe(false);
+    expect(vintages.get("v3")).toEqual({ count: 1, title: "No day yet", on: null });
+    expect([...bottles].sort()).toEqual(["b1", "b2", "b3", "b5"]);
+  });
+  it("is simply empty when the database step hasn't been taken", async () => {
+    const { service, repo } = setup();
+    vi.mocked(repo.reservedBottles).mockResolvedValue(null);
+    expect((await service.reservations()).vintages.size).toBe(0);
   });
 });

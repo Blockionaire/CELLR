@@ -47,6 +47,8 @@ interface ShowcaseProps {
   layout: ShowcaseLayout;
   /** CSS colour the rack fades towards while a bottle is on display. */
   veil: string;
+  /** false once a still of the rack stands behind the bottle: no veil is needed then. */
+  useVeil: boolean;
   reducedMotion: boolean;
   onGone: () => void;
   /** Tells the scene whether the last press was a drag (turning the bottle), so it is not read as a tap. */
@@ -67,6 +69,7 @@ export function Showcase({
   exit,
   layout,
   veil,
+  useVeil,
   reducedMotion,
   onGone,
   onDrag,
@@ -289,7 +292,9 @@ export function Showcase({
       veilPlane.position.copy(cam.position).addScaledVector(scratch.forward, q);
       veilPlane.quaternion.copy(cam.quaternion);
       veilPlane.scale.set(veilH * (size.width / Math.max(1, size.height)) * 1.3, veilH * 1.3, 1);
-      (veilPlane.material as THREE.MeshBasicMaterial).opacity = 0.8 * glide * (1 - s.away);
+      (veilPlane.material as THREE.MeshBasicMaterial).opacity = useVeil
+        ? 0.8 * glide * (1 - s.away)
+        : 0;
     }
 
     const settling = leavingForGood ? s.away < 1 : open ? s.p < 1 : s.p > 0;

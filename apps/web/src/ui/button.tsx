@@ -12,15 +12,15 @@ export const buttonStyles = cva(
   {
     variants: {
       variant: {
-        primary: "bg-accent text-accent-ink hover:brightness-110",
+        primary: "bg-accent text-accent-ink glow hover:brightness-110",
         secondary: "bg-raised text-ink hover:brightness-[1.04] dark:hover:brightness-110",
         ghost: "text-ink-2 hover:bg-raised hover:text-ink",
         danger: "text-danger hover:bg-raised",
       },
       size: {
-        sm: "h-9 rounded-control px-3 text-small",
-        md: "h-12 rounded-control px-5 text-body",
-        lg: "h-14 rounded-card px-6 text-body",
+        sm: "h-9 rounded-full px-4 text-small",
+        md: "h-12 rounded-full px-6 text-body",
+        lg: "h-14 rounded-full px-7 text-body",
       },
       block: { true: "w-full", false: "" },
     },

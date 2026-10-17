@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { ImageRef, ImageSide } from "@cellr/domain";
 import { preparePhoto, UnreadablePhotoError, type PreparedPhoto } from "@/lib/photo";
 import { Button } from "@/ui/button";
+import { cn } from "@/ui/cn";
 import { FileButton } from "@/ui/file-button";
 import { useToast } from "@/ui/toast";
 import { useLabelPhoto, useReframeLabel, useRemoveLabelPhoto } from "./hooks";
@@ -18,10 +19,12 @@ export function LabelPhotoActions({
   vintageId,
   side = "front",
   image,
+  className,
 }: {
   vintageId: string;
   side?: ImageSide;
   image: ImageRef | null;
+  className?: string;
 }) {
   const t = useTranslations("photo");
   const toast = useToast();
@@ -59,7 +62,7 @@ export function LabelPhotoActions({
   }
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-2" aria-busy={busy}>
+    <div className={cn("mt-3 flex flex-wrap items-center gap-2", className)} aria-busy={busy}>
       <FileButton size="sm" variant="secondary" disabled={busy} onFile={choose}>
         {upload.isPending
           ? t("saving")

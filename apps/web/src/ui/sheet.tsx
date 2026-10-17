@@ -111,7 +111,7 @@ export function Sheet({
       className={cn(
         "m-0 mt-auto w-full max-w-none overflow-visible border-0 bg-transparent p-0 text-ink",
         "md:m-auto md:max-w-md",
-        "backdrop:bg-black/55",
+        "backdrop:bg-black/45 backdrop:backdrop-blur-[3px]",
       )}
     >
       <div
@@ -120,7 +120,7 @@ export function Sheet({
           transition: dragging ? "none" : undefined,
         }}
         className={cn(
-          "sheet-panel flex max-h-[88dvh] flex-col rounded-t-sheet bg-surface shadow-raised md:rounded-sheet",
+          "sheet-panel flex max-h-[88dvh] flex-col rounded-t-sheet bg-surface shadow-raised ring-1 ring-hairline md:rounded-sheet",
           "pb-[max(1.25rem,env(safe-area-inset-bottom))]",
         )}
       >
@@ -129,15 +129,15 @@ export function Sheet({
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
-          className="flex shrink-0 cursor-grab touch-none flex-col items-center pt-3 md:hidden"
+          className="flex shrink-0 cursor-grab touch-none flex-col items-center pb-1 pt-3 md:hidden"
           aria-hidden="true"
         >
           <span
-            className="h-1 w-10 rounded-full bg-hairline"
-            style={{ backgroundColor: "color-mix(in srgb, var(--ink) 22%, transparent)" }}
+            className="h-1.5 w-11 rounded-full"
+            style={{ backgroundColor: "color-mix(in srgb, var(--ink) 24%, transparent)" }}
           />
         </div>
-        <div className="flex items-start justify-between gap-4 px-5 pb-2 pt-4 md:pt-6">
+        <div className="flex items-start justify-between gap-4 px-5 pb-2 pt-2 md:pt-6">
           <div>
             <h2 id={titleId} className="font-display text-headline">
               {title}
@@ -152,7 +152,7 @@ export function Sheet({
             type="button"
             onClick={requestClose}
             aria-label={closeLabel}
-            className="-mr-2 grid size-10 shrink-0 place-items-center rounded-control text-ink-2 hover:bg-raised hover:text-ink"
+            className="-mr-2 grid size-11 shrink-0 place-items-center rounded-full text-ink-2 transition-colors duration-150 hover:bg-raised hover:text-ink"
           >
             <CloseIcon size={20} />
           </button>

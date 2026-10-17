@@ -7,21 +7,74 @@ import {
   drinkQuality,
   windowStretches,
   yearFraction,
+  type DrinkPhase,
   type DrinkSummary,
 } from "@cellr/domain";
-import { PHASE_COLOUR } from "./drink-bits";
+import { cn } from "@/ui/cn";
+
+import { PHASE_COLOUR } from "./phase-colour";
 import { useDay } from "./bottle-bits";
 
+/** The drawing is 320 × 100 units, stretched to the card's width; text and dots are HTML so they stay crisp. */
 const W = 320;
-const H = 150;
-const PAD = 10;
-const TOP = 16;
-const BOTTOM = 28;
+const H = 100;
+const PAD = 12;
+const TOP = 8;
+const SPAN = 80;
+const BASE = 92;
+/** Closest two year labels may sit, in drawing units, before one has to give way. */
+const LABEL_GAP = 46;
+
+const PILL: Record<DrinkPhase, { pill: string; dot: string }> = {
+  young: { pill: "bg-young-bg text-young-ink", dot: "bg-young" },
+  developing: { pill: "bg-ready-bg text-ready-ink", dot: "bg-ready" },
+  peak: { pill: "bg-peak-bg text-peak-ink", dot: "bg-peak" },
+  ready: { pill: "bg-fading-bg text-fading-ink", dot: "bg-fading" },
+  past: { pill: "bg-fading-bg text-fading-ink", dot: "bg-danger" },
+  unknown: { pill: "bg-raised text-ink-2", dot: "bg-ink-3" },
+};
+
+/** "● At its best": where a wine stands in its life, as a tinted pill. Solid underneath, so it also floats on a photo. */
+export function PhasePill({ phase, className }: { phase: DrinkPhase; className?: string }) {
+  const t = useTranslations("drink");
+  const look = PILL[phase];
+  return (
+    <span className={cn("inline-flex rounded-full bg-surface", className)}>
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-caption font-semibold",
+          look.pill,
+        )}
+      >
+        <span aria-hidden="true" className={cn("size-2 rounded-full", look.dot)} />
+        {t(`phase.${phase}`)}
+      </span>
+    </span>
+  );
+}
+
+/** A smooth cubic path through the points (Catmull-Rom), so the curve has no corners. */
+function smooth(points: ReadonlyArray<readonly [number, number]>): string {
+  const f = (n: number) => n.toFixed(1);
+  const first = points[0]!;
+  let d = `M${f(first[0])},${f(first[1])}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] ?? points[i]!;
+    const p1 = points[i]!;
+    const p2 = points[i + 1]!;
+    const p3 = points[i + 2] ?? p2;
+    d +=
+      ` C${f(p1[0] + (p2[0] - p0[0]) / 6)},${f(p1[1] + (p2[1] - p0[1]) / 6)}` +
+      ` ${f(p2[0] - (p3[0] - p1[0]) / 6)},${f(p2[1] - (p3[1] - p1[1]) / 6)}` +
+      ` ${f(p2[0])},${f(p2[1])}`;
+  }
+  return d;
+}
 
 /**
- * A wine's life as a picture: how good it is over the years (climbing, at its best, easing off), in the colours
- * of its stretches, with today marked and a dot where each bottle of it was opened. The same estimate as the words
- * beside it, drawn: never a promise.
+ * A wine's life as a picture: how good it is over the years (climbing, at its best, easing off), as a soft curve
+ * with its stretches tinted behind it, today marked on it and a dot where each bottle of it was opened. The same
+ * estimate as the words beside it, drawn: never a promise.
  */
 export function DrinkChart({
   drink,
@@ -35,132 +88,191 @@ export function DrinkChart({
 }) {
   const t = useTranslations("drink");
   const day = useDay();
-  const clipId = useId().replace(/:/g, "");
+  const gradientId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   if (drink.from === null || drink.until === null || drink.position === null) return null;
   const { from, until } = drink;
   const today = from + drink.position * Math.max(1, until - from);
   const { start, end } = chartYears(year, from, until);
   const x = (v: number) => PAD + ((v - start) / (end - start)) * (W - 2 * PAD);
-  const y = (q: number) => TOP + (1 - q) * (H - TOP - BOTTOM);
-  const base = H - BOTTOM;
+  const y = (q: number) => TOP + (1 - q) * SPAN;
+  const left = (u: number) => `${((u / W) * 100).toFixed(2)}%`;
+  const top = (u: number) => `${((u / H) * 100).toFixed(2)}%`;
 
-  const samples = Array.from({ length: 61 }, (_, i) => {
-    const v = start + ((end - start) * i) / 60;
-    return { v, q: drinkQuality(v, from, until) };
+  const points = Array.from({ length: 49 }, (_, i): [number, number] => {
+    const v = start + ((end - start) * i) / 48;
+    return [x(v), y(drinkQuality(v, from, until))];
   });
-  const line = samples
-    .map((s, i) => `${i === 0 ? "M" : "L"}${x(s.v).toFixed(1)},${y(s.q).toFixed(1)}`)
-    .join(" ");
-  const area = `${line} L${x(end).toFixed(1)},${base} L${x(start).toFixed(1)},${base} Z`;
+  const line = smooth(points);
+  const area = `${line} L${x(end).toFixed(1)},${BASE} L${x(start).toFixed(1)},${BASE} Z`;
+
   const stretches = windowStretches(from, until);
-  const bands: Array<[number, number, string]> = [
-    [start, from, PHASE_COLOUR.young],
-    [stretches.opening[0], stretches.opening[1], PHASE_COLOUR.developing],
-    [stretches.best[0], stretches.best[1], PHASE_COLOUR.peak],
-    [stretches.ready[0], stretches.ready[1], PHASE_COLOUR.ready],
-    [until, end, PHASE_COLOUR.past],
-  ];
-  const marks = opened.flatMap((o) => (o.openedAt ? [o.openedAt] : []));
   const bestFrom = Math.round(stretches.best[0]);
   const bestUntil = Math.round(stretches.best[1]);
-  const todayX = Math.min(x(end), Math.max(x(start), x(today)));
+  const marks = opened.flatMap((o) => (o.openedAt ? [o.openedAt] : []));
+
+  const todayV = Math.min(end, Math.max(start, today));
+  const todayX = x(todayV);
+  const todayY = y(drinkQuality(todayV, from, until));
+  const clampedLabel = Math.min(0.9, Math.max(0.1, todayX / W));
+
+  /** The tinted stretches behind the curve: opening up, at its best, drink soon. */
+  const bands = [
+    { range: stretches.opening, tint: "bg-ready/10", round: "rounded-l-[10px]" },
+    { range: stretches.best, tint: "bg-peak/15", round: "" },
+    { range: stretches.ready, tint: "bg-fading/10", round: "rounded-r-[10px]" },
+  ];
+
+  /** Where "At its best" is written: the middle of the peak stretch, or beside today's line when it crosses it. */
+  const bandA = x(stretches.best[0]);
+  const bandB = x(stretches.best[1]);
+  const room = 0.19 * W;
+  let labelAt: number | null = null;
+  if (todayX < bandA - 4 || todayX > bandB + 4) {
+    if (bandB - bandA >= room) labelAt = (bandA + bandB) / 2;
+  } else {
+    const [a0, a1, b0, b1] = [bandA, todayX - 8, todayX + 8, bandB];
+    const [from0, to0] = a1 - a0 >= b1 - b0 ? [a0, a1] : [b0, b1];
+    if (to0 - from0 >= room) labelAt = (from0 + to0) / 2;
+  }
+
+  /** Years under the axis: the window's own two ends always, the chart's two ends when there is room. */
+  const labels: Array<{ year: number; at: number }> = [];
+  if (x(until) - x(from) < LABEL_GAP) {
+    labels.push({ year: from, at: (x(from) + x(until)) / 2 });
+  } else {
+    labels.push({ year: from, at: x(from) }, { year: until, at: x(until) });
+  }
+  if (x(from) - x(start) >= LABEL_GAP) labels.unshift({ year: start, at: x(start) });
+  if (x(end) - x(until) >= LABEL_GAP) labels.push({ year: end, at: x(end) });
+  const merged = x(until) - x(from) < LABEL_GAP;
 
   return (
     <figure className="mt-5">
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
+      <div
         role="img"
         aria-label={t("chartLabel", { from, until, bestFrom, bestUntil })}
-        className="w-full"
+        className="relative pt-7"
         data-testid="drink-chart"
       >
-        <defs>
-          <clipPath id={clipId}>
-            <path d={area} />
-          </clipPath>
-        </defs>
-        <g clipPath={`url(#${clipId})`}>
-          {bands.map(([a, b, colour]) => (
-            <rect
-              key={colour}
-              x={x(a)}
-              y={TOP - 4}
-              width={Math.max(0, x(b) - x(a))}
-              height={H - TOP - BOTTOM + 4}
-              fill={colour}
-              opacity={0.55}
-            />
-          ))}
-        </g>
-        <path
-          d={line}
-          fill="none"
-          stroke="currentColor"
-          strokeOpacity={0.55}
-          strokeWidth={1.5}
-          className="text-ink"
-        />
-        <line
-          x1={PAD}
-          x2={W - PAD}
-          y1={base}
-          y2={base}
-          stroke="currentColor"
-          strokeOpacity={0.25}
-          className="text-ink"
-        />
-        <line
-          x1={todayX}
-          x2={todayX}
-          y1={TOP - 6}
-          y2={base}
-          stroke="currentColor"
-          strokeWidth={1.5}
-          strokeDasharray="3 3"
-          className="text-ink"
-        />
-        <text
-          x={todayX}
-          y={TOP - 8}
-          textAnchor="middle"
-          fontSize={10}
-          fill="currentColor"
-          className="text-ink"
+        <span
+          className="absolute top-0 -translate-x-1/2 text-caption font-semibold text-accent-fg"
+          style={{ left: `${(clampedLabel * 100).toFixed(2)}%` }}
         >
           {t("today")}
-        </text>
-        {[from, until].map((v) => (
-          <text
-            key={v}
-            x={x(v)}
-            y={H - 10}
-            textAnchor="middle"
-            fontSize={10}
-            fill="currentColor"
-            className="text-ink-2 tnum"
+        </span>
+
+        <div className="relative h-40">
+          {bands.map(({ range, tint, round }) => (
+            <span
+              key={tint}
+              aria-hidden="true"
+              className={cn("absolute inset-y-0", tint, round)}
+              style={{
+                left: left(x(range[0])),
+                width: left(Math.max(0, x(range[1]) - x(range[0]))),
+              }}
+            />
+          ))}
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
+            focusable="false"
+            className="absolute inset-0 size-full overflow-visible"
           >
-            {v}
-          </text>
-        ))}
-        {marks.map((iso, i) => {
-          const v = Math.min(end, Math.max(start, yearFraction(iso)));
-          return (
-            <g key={`${iso}-${i}`} data-testid="opened-mark">
-              <circle
-                cx={x(v)}
-                cy={y(drinkQuality(v, from, until))}
-                r={5}
-                fill="var(--surface)"
-                stroke="currentColor"
-                strokeWidth={2}
-                className="text-ink"
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" style={{ stopColor: "var(--peak)", stopOpacity: 0.4 }} />
+                <stop offset="1" style={{ stopColor: "var(--peak)", stopOpacity: 0 }} />
+              </linearGradient>
+            </defs>
+            <path d={area} fill={`url(#${gradientId})`} />
+            <path
+              d={line}
+              fill="none"
+              stroke="var(--peak)"
+              strokeWidth={8}
+              strokeOpacity={0.14}
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+            />
+            <path
+              d={line}
+              fill="none"
+              stroke="var(--peak)"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+            />
+            <line
+              x1={PAD}
+              x2={W - PAD}
+              y1={BASE}
+              y2={BASE}
+              stroke="var(--ink-3)"
+              strokeOpacity={0.4}
+              vectorEffect="non-scaling-stroke"
+            />
+            <line
+              x1={todayX}
+              x2={todayX}
+              y1={0}
+              y2={BASE}
+              stroke="var(--accent-fg)"
+              strokeWidth={1.25}
+              strokeDasharray="3 3"
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+
+          {labelAt !== null && (
+            <span
+              className="pointer-events-none absolute top-[27%] -translate-x-1/2 text-center text-caption font-semibold leading-tight text-peak-ink"
+              style={{ left: left(labelAt) }}
+            >
+              {t("phase.peak")}
+              <br />
+              <span className="tnum">
+                {bestFrom}–{bestUntil}
+              </span>
+            </span>
+          )}
+
+          {marks.map((iso, i) => {
+            const v = Math.min(end, Math.max(start, yearFraction(iso)));
+            return (
+              <span
+                key={`${iso}-${i}`}
+                data-testid="opened-mark"
+                title={t("openedMark", { day: day(iso) })}
+                className="absolute size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-ink bg-surface"
+                style={{ left: left(x(v)), top: top(y(drinkQuality(v, from, until))) }}
               />
-              <title>{t("openedMark", { day: day(iso) })}</title>
-            </g>
-          );
-        })}
-      </svg>
-      <figcaption className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-caption text-ink-2">
+            );
+          })}
+
+          <span
+            aria-hidden="true"
+            className="absolute grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-accent-fg/20"
+            style={{ left: left(todayX), top: top(todayY) }}
+          >
+            <span className="size-3.5 rounded-full bg-accent-fg ring-2 ring-surface" />
+          </span>
+        </div>
+
+        <div className="relative mt-2 h-5">
+          {labels.map((l) => (
+            <span
+              key={l.year}
+              className="absolute -translate-x-1/2 text-caption text-ink-2 tnum"
+              style={{ left: left(l.at) }}
+            >
+              {merged && l.year === from ? `${from}–${until}` : l.year}
+            </span>
+          ))}
+        </div>
+      </div>
+      <figcaption className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-caption text-ink-2">
         <Legend
           colour={PHASE_COLOUR.developing}
           label={t("phase.developing")}

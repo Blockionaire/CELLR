@@ -129,7 +129,8 @@
     "wishlist": "Wishlist",
     "history": "Geschiedenis",
     "related": "Meer uit je kelder",
-    "insights": "Inzichten"
+    "insights": "Inzichten",
+    "typeAll": "Alle"
   },
   "scan": {
     "title": "Scan een etiket",
@@ -262,7 +263,8 @@
     "deleteAccountTitle": "Je account verwijderen?",
     "deleteAccountBody": "Dit verwijdert je inlog en alles wat alleen van jou is, zoals je favorieten en beoordelingen. Een huishouden waar alleen jij in zit wordt ook verwijderd, met alle flessen en foto's. Huishoudens die je met anderen deelt blijven bestaan, met hun kelders.",
     "deleteAccountConfirmLabel": "Typ je e-mailadres ter bevestiging",
-    "deleteAccountConfirm": "Mijn account verwijderen"
+    "deleteAccountConfirm": "Mijn account verwijderen",
+    "dangerSection": "Gevarenzone"
   },
   "errors": {
     "network": "We konden CELLR niet bereiken. Controleer je verbinding en probeer opnieuw.",
@@ -347,7 +349,8 @@
     "seeCellar": "Naar mijn kelder",
     "typeRequired": "Wat voor wijn is het? Kies hierboven.",
     "shopLabel": "Gekocht bij",
-    "shopPlaceholder": "Winkel of wijnhandel"
+    "shopPlaceholder": "Winkel of wijnhandel",
+    "inCellar": "In je kelder ×{count}"
   },
   "newPlace": {
     "title": "Een plek voor je flessen",
@@ -358,7 +361,8 @@
     "shelvesLabel": "Planken",
     "positionsLabel": "Posities per plank",
     "capacity": "Ruimte voor {count, plural, one {# fles} other {# flessen}}",
-    "create": "Plek aanmaken"
+    "create": "Plek aanmaken",
+    "nameTaken": "Je hebt al een plek die “{name}” heet. Geef deze een andere naam."
   },
   "storageKinds": {
     "fridge": "Wijnkoelkast",
@@ -402,7 +406,11 @@
     "history": "Geschiedenis",
     "historyAdded": "{count, plural, one {# fles toegevoegd} other {# flessen toegevoegd}}",
     "historyOpened": "{count, plural, one {# fles geopend} other {# flessen geopend}}",
-    "merge": "Deze wijn staat er dubbel in…"
+    "merge": "Deze wijn staat er dubbel in…",
+    "heroCount": "×{count} in je kelder",
+    "factBottles": "{count, plural, one {fles} other {flessen}}",
+    "factAverage": "Gem. per fles",
+    "actions": "Acties"
   },
   "openBottle": {
     "title": "Fles openen",
@@ -472,7 +480,7 @@
     "deleted": "Plek verwijderd."
   },
   "cellar3d": {
-    "hint": "Sleep om te draaien · knijp om te zoomen · tik op een fles",
+    "hint": "Sleep om te draaien · knijp om in te zoomen waar je wijst · twee vingers om te schuiven · tik op een fles",
     "canvasLabel": "3D-weergave van {unit}",
     "listLabel": "Flessen in {unit}",
     "bottleLabel": "{wine}, plank {row}, positie {col}",
@@ -605,7 +613,8 @@
     "homeNone": "Niets is dringend. Alles heeft tijd.",
     "chartLabel": "Grafiek van het leven van deze wijn: opent zich vanaf {from}, op zijn best van {bestFrom} tot {bestUntil}, te drinken tot {until}.",
     "openedMark": "Geopend op {day}",
-    "openedLegend": "{count, plural, one {● 1 fles geopend} other {● # flessen geopend}}"
+    "openedLegend": "{count, plural, one {● 1 fles geopend} other {● # flessen geopend}}",
+    "estimateBadge": "Schatting"
   },
   "tonight": {
     "title": "Wat drinken we vanavond?",
@@ -953,7 +962,9 @@
     "myValueLabel": "Wat is één fles nu waard? ({currency})",
     "myValueHint": "Je eigen getal telt zwaarder dan elke schatting. Laat leeg om te wissen.",
     "valueError": "Dat lijkt geen prijs.",
-    "valueSaved": "Waarde opgeslagen."
+    "valueSaved": "Waarde opgeslagen.",
+    "abv": "Alcohol",
+    "abvValue": "{abv}% alcohol"
   },
   "framer": {
     "title": "Wijs aan waar het etiket zit",
@@ -1006,7 +1017,11 @@
     "topRated": "Hoogst beoordeelde wijnen",
     "starsOf": "{stars} van de 5",
     "ratingByType": "Gemiddelde beoordeling per soort",
-    "toCellar": "Terug naar je kelder"
+    "toCellar": "Terug naar je kelder",
+    "valueTitle": "Waarde",
+    "windowsTitle": "Drinkvensters",
+    "windowsNote": "{count, plural, one {# wijn, meest urgent eerst} other {# wijnen, meest urgent eerst}}",
+    "inWindow": "In hun venster"
   },
   "bulk": {
     "select": "Flessen selecteren",
@@ -1058,5 +1073,11 @@
     "permanent": "Dit kan niet ongedaan worden gemaakt.",
     "go": "Voeg samen in {target}",
     "done": "{count, plural, one {# fles verplaatst.} other {# flessen verplaatst.}}"
+  },
+  "reserved": {
+    "all": "Bewaard voor {title}",
+    "allDated": "Bewaard voor {title} · {when}",
+    "some": "{reserved} van {total} bewaard voor {title}",
+    "someDated": "{reserved} van {total} bewaard voor {title} · {when}"
   }
 }

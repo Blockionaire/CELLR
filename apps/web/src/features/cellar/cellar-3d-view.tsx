@@ -15,6 +15,7 @@ import { useRacks, useVintageDetail } from "./hooks";
 import { MoveBottleSheet } from "./move-bottle-sheet";
 import { NewPlaceSheet } from "./new-place-sheet";
 import { SIDE_BY_SIDE_MIN_WIDTH, type ShowcaseLayout } from "./three/layout";
+import type { Backdrop } from "./three/scene";
 import type { ShownBottle } from "./three/types";
 import { useBottleActions } from "./use-bottle-actions";
 import { placeLine, shapeFor } from "./wine-visuals";
@@ -87,8 +88,20 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [touched, setTouched] = useState(false);
+  // A still of the rack stands behind the bottle on display (see Freezer in the scene).
+  const [backdrop, setBackdrop] = useState<Backdrop | null>(null);
+  useEffect(() => {
+    if (!backdrop) return;
+    return () => URL.revokeObjectURL(backdrop.url);
+  }, [backdrop]);
   // The panel keeps showing the last bottle while it slides out.
   const [lastBottle, setLastBottle] = useState<PlacedBottle | null>(null);
+
+  const backdropRef = useRef<Backdrop | null>(null);
+  const openRef = useRef(false);
+  useEffect(() => {
+    backdropRef.current = backdrop;
+  }, [backdrop]);
 
   const data = racks.data;
   const unit = data?.units.find((u) => u.id === unitId) ?? data?.units[0] ?? null;
@@ -97,6 +110,8 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
   const detail = useVintageDetail(picked?.vintageId ?? lastBottle?.vintageId ?? null).data;
 
   const pick = useCallback((id: string) => {
+    // The bottle that is on its way home is not done yet: wait for the rack to be live again.
+    if (backdropRef.current && !openRef.current) return;
     // Remember where focus was and what colour the card is, then take the bottle out.
     returnFocus.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -152,6 +167,11 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
     [picked, locale],
   );
 
+  const isOpen = showcase !== null;
+  useEffect(() => {
+    openRef.current = isOpen;
+  }, [isOpen]);
+
   if (!webgl)
     return (
       <EmptyState
@@ -197,6 +217,7 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
               onClick={() => {
                 setUnitId(u.id);
                 setPickedId(null);
+                setBackdrop(null);
                 setReady(false);
               }}
             >
@@ -205,7 +226,7 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
           ))}
         </div>
       )}
-      <p className="text-small text-ink-2">
+      <p className="text-small text-ink-2 tnum">
         {unit.label === tKinds(unit.kind) ? "" : `${tKinds(unit.kind)} · `}
         {tr("unitMeta", { used: unit.used, capacity: unit.capacity, free: unit.free })}
       </p>
@@ -218,7 +239,9 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
           aria-label={t("canvasLabel", { unit: unit.label })}
           className={cn(
             "overflow-hidden border-hairline bg-raised",
-            fullscreen ? "fixed inset-0 z-50" : "absolute inset-0 rounded-card border",
+            fullscreen
+              ? "fixed inset-0 z-50"
+              : "absolute inset-0 rounded-card border shadow-raised",
           )}
           style={{
             backgroundImage:
@@ -229,6 +252,27 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
           data-showcase={open ? "open" : "closed"}
           onPointerDown={() => setTouched(true)}
         >
+          {backdrop && (
+            <div
+              aria-hidden="true"
+              data-testid="rack-backdrop"
+              className="pointer-events-none absolute inset-0"
+              style={{
+                backgroundImage: `url(${backdrop.url})`,
+                backgroundSize: "100% 100%",
+                transformOrigin: `${backdrop.originX}% ${backdrop.originY}%`,
+                // Out comes the bottle: the still rack steps back (blurred, dimmed) and leans in a little; going
+                // home reverses it, a touch quicker than the bottle, so the live rack takes over unnoticed.
+                transform: open ? "scale(1.12)" : "scale(1)",
+                filter: open ? "blur(7px) brightness(0.55) saturate(0.45)" : "none",
+                transition: reduced
+                  ? "none"
+                  : open
+                    ? "transform 1.3s cubic-bezier(0.2, 0.7, 0.2, 1), filter 0.9s ease"
+                    : "transform 0.6s ease, filter 0.5s ease",
+              }}
+            />
+          )}
           <div
             className="h-full w-full cursor-grab touch-none transition-opacity duration-500 active:cursor-grabbing"
             style={{ opacity: ready ? 1 : 0 }}
@@ -260,13 +304,16 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
               onDismiss={putBack}
               reducedMotion={reduced}
               onReady={() => setReady(true)}
+              onBackdrop={setBackdrop}
             />
           </div>
           <p
-            className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-caption text-ink-2 transition-opacity duration-500"
+            className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4 transition-opacity duration-500"
             style={{ opacity: touched || open ? 0 : 1 }}
           >
-            {t("hint")}
+            <span className="max-w-full rounded-full bg-surface/70 px-4 py-1.5 text-center text-caption text-ink-2 ring-1 ring-hairline backdrop-blur-md">
+              {t("hint")}
+            </span>
           </p>
 
           {lastBottle && (

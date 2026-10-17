@@ -88,7 +88,9 @@ function MoveBody({
     <div className="flex flex-col gap-6">
       {bottles.length > 1 && (
         <div>
-          <p className="mb-2 text-small font-medium text-ink-2">{t("which")}</p>
+          <p className="mb-2 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+            {t("which")}
+          </p>
           <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
             {bottles.map((b) => (
               <BottleChip
@@ -103,7 +105,9 @@ function MoveBody({
       )}
 
       <div>
-        <p className="mb-2 text-small font-medium text-ink-2">{t("whereTo")}</p>
+        <p className="mb-2 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+          {t("whereTo")}
+        </p>
         {data === undefined ? (
           <Skeleton className="h-40" />
         ) : data.units.length === 0 ? (
@@ -124,19 +128,21 @@ function MoveBody({
             </div>
             {unit && (
               <>
-                <RackGrid
-                  rows={unit.rows}
-                  cols={unit.cols}
-                  bottles={unit.bottles}
-                  activeBottleId={bottle.id}
-                  onEmpty={(row, col) =>
-                    move(
-                      { locationId: unit.id, row, col },
-                      `${unit.label} · ${tv("spot", { row, col })}`,
-                    )
-                  }
-                />
-                <p className="mt-2 text-small text-ink-3">{t("pickSpot")}</p>
+                <div className="rounded-[16px] bg-raised/60 p-2">
+                  <RackGrid
+                    rows={unit.rows}
+                    cols={unit.cols}
+                    bottles={unit.bottles}
+                    activeBottleId={bottle.id}
+                    onEmpty={(row, col) =>
+                      move(
+                        { locationId: unit.id, row, col },
+                        `${unit.label} · ${tv("spot", { row, col })}`,
+                      )
+                    }
+                  />
+                </div>
+                <p className="mt-3 text-center text-small text-ink-2">{t("pickSpot")}</p>
               </>
             )}
           </>
@@ -153,6 +159,7 @@ function MoveBody({
           variant="ghost"
           loading={actions.pending}
           onClick={() => move({ locationId: null, row: null, col: null }, "")}
+          className="self-center"
         >
           {t("takeOut")}
         </Button>

@@ -4,33 +4,56 @@
 @import "@fontsource/instrument-serif/400-italic.css";
 
 /* =====================================================================================
-   CELLR design tokens  (docs/00-architecture-plan.md §7)
-   One source of truth per token via light-dark(): the page follows the system theme by
-   default and <html data-theme="light|dark"> overrides it. Dark is the primary identity.
-   Contrast ratios were computed, not eyeballed:
-     ink 16:1 · ink-2 8.8:1 · ink-3 ≥4.8:1 on every surface · accent-ink on accent 8.5:1
-   Burgundy as a thin line on dark is only 1.9:1, so it is a FILL (accent) with a light label;
-   anything thin (focus ring, marker, link) uses accent-fg.
+   CELLR design tokens  (docs/01-design-overhaul-plan.md)
+   Two skins of one system, chosen by light-dark(): the page follows the system theme by
+   default and <html data-theme="light|dark"> overrides it.
+     light = "Maison": warm paper, white cards, burgundy actions
+     dark  = "Noir":   near-black wine, glass cards, brass actions, soft spotlight glow
+   Contrast ratios were computed, not eyeballed (WCAG AA everywhere, most ≥ 5:1):
+     ink ≥ 14:1 · ink-2 ≥ 6.2:1 · ink-3 ≥ 4.4:1 on every surface · accent-ink on accent ≥ 9.8:1
+     maturity pills ≥ 5.5:1 · accent-fg (thin lines, links, focus) ≥ 8.8:1
    ===================================================================================== */
 :root {
   color-scheme: light dark;
 
-  --canvas: light-dark(#f6f2ea, #141211);
-  --surface: light-dark(#fbf8f2, #1b1816);
-  --raised: light-dark(#efe9de, #242019);
-  --hairline: light-dark(rgb(30 26 23 / 0.1), rgb(243 238 230 / 0.08));
+  --canvas: light-dark(#f6f1e9, #0e090b);
+  --surface: light-dark(#ffffff, #1a1315);
+  --raised: light-dark(#eee5d8, #261d20);
+  --hairline: light-dark(rgb(60 36 20 / 0.11), rgb(255 255 255 / 0.09));
 
-  --ink: light-dark(#1e1a17, #f3eee6);
-  --ink-2: light-dark(#5a524a, #b9b1a5);
-  --ink-3: light-dark(#6c645a, #948c80);
+  --ink: light-dark(#1f1417, #f4ece6);
+  --ink-2: light-dark(#5e4f52, #b5a8a3);
+  --ink-3: light-dark(#6f6064, #8f827e);
 
-  --accent: #7d2234;
-  --accent-ink: light-dark(#f6f2ea, #f3eee6);
-  --accent-fg: light-dark(#7d2234, #d98a9b);
+  /* primary action: burgundy fill on paper, brass fill on noir */
+  --accent: light-dark(#6e1f32, #d9b873);
+  --accent-ink: light-dark(#fbf4ea, #1a1012);
+  --accent-fg: light-dark(#6e1f32, #e6c98e);
   /* the CELLR logo: its own burgundy on light, ivory on dark */
   --logo: light-dark(#6a071c, #f3eee6);
-  --bronze: light-dark(#85652b, #b8975f);
+  --bronze: light-dark(#7f6024, #d9b873);
   --danger: light-dark(#a8362b, #f08c7e);
+  --ok: light-dark(#2f6b3c, #8fd19a);
+
+  /* the "Tonight" hero: the same deep wine in both themes */
+  --hero-from: #46121f;
+  --hero-to: #7a2638;
+  --hero-ink: #f7eedd;
+  --hero-gold: #e3c285;
+
+  /* where is a wine in its life? always paired with a word, never colour alone */
+  --young: light-dark(#3d7a8a, #6aa9bd);
+  --young-bg: light-dark(#dcebef, rgb(106 169 189 / 0.16));
+  --young-ink: light-dark(#1f5565, #8ec4d4);
+  --ready: light-dark(#4a7a4f, #7cc08a);
+  --ready-bg: light-dark(#ddeedc, rgb(124 192 138 / 0.16));
+  --ready-ink: light-dark(#2f5f37, #9ad1a3);
+  --peak: light-dark(#b5832b, #d9b873);
+  --peak-bg: light-dark(#f6e8c8, rgb(217 184 115 / 0.16));
+  --peak-ink: light-dark(#7a5416, #e6c98e);
+  --fading: light-dark(#b4552f, #d9805a);
+  --fading-bg: light-dark(#f5ddd2, rgb(217 128 90 / 0.16));
+  --fading-ink: light-dark(#8a3a1b, #eba88b);
 
   /* wine-type tints: decorative dots and glass only — meaning is always carried by a word too */
   --wine-red: #7d2234;
@@ -41,9 +64,37 @@
   --wine-dessert: #c79a3e;
   --wine-fortified: #7a4a2a;
 
+  /* the stage behind a bottle: a pastel field on paper, a soft glow on noir */
+  --stage-red: light-dark(#f1dcdd, rgb(160 50 75 / 0.42));
+  --stage-white: light-dark(#f4edcb, rgb(217 196 110 / 0.34));
+  --stage-rose: light-dark(#f7dad6, rgb(232 161 158 / 0.34));
+  --stage-sparkling: light-dark(#f3e6c3, rgb(201 162 91 / 0.36));
+  --stage-orange: light-dark(#f3ddc3, rgb(200 134 74 / 0.34));
+  --stage-dessert: light-dark(#f2e2b5, rgb(199 154 62 / 0.34));
+  --stage-fortified: light-dark(#e7d3c3, rgb(150 90 50 / 0.36));
+
+  /* bottle glass and capsule (lighter on noir so a dark bottle never vanishes into the page) */
+  --glass-red: light-dark(#2a1b20, #3a262c);
+  --glass-white: light-dark(#9db07a, #8fa574);
+  --glass-rose: light-dark(#ddb9b0, #d3a79e);
+  --glass-sparkling: light-dark(#2c3a25, #34462b);
+  --glass-orange: light-dark(#c58a4a, #c58a4a);
+  --glass-dessert: light-dark(#b98b35, #b98b35);
+  --glass-fortified: light-dark(#4a2a1c, #5a3524);
+  --foil-red: light-dark(#6e1f32, #8e2a3f);
+  --foil-white: #d9c98c;
+  --foil-rose: #e3a19d;
+  --foil-sparkling: #c9a25b;
+  --foil-orange: #d8a05a;
+  --foil-dessert: #d4a94a;
+  --foil-fortified: #8a5a32;
+
+  /* depth: a soft lift on paper, a hairline plus glow on noir */
   --shadow-raised:
-    0 1px 2px light-dark(rgb(30 26 23 / 0.06), transparent),
-    0 8px 24px light-dark(rgb(30 26 23 / 0.08), transparent);
+    0 1px 0 light-dark(rgb(60 36 20 / 0.08), transparent),
+    0 10px 22px -14px light-dark(rgb(60 30 30 / 0.3), transparent);
+  --glow: light-dark(transparent, rgb(217 184 115 / 0.3));
+  --page-glow: light-dark(transparent, rgb(122 38 56 / 0.42));
 
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --nav-height: 64px;
@@ -69,14 +120,38 @@
   --color-logo: var(--logo);
   --color-bronze: var(--bronze);
   --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --color-hero-ink: var(--hero-ink);
+  --color-hero-gold: var(--hero-gold);
+
+  --color-young: var(--young);
+  --color-young-bg: var(--young-bg);
+  --color-young-ink: var(--young-ink);
+  --color-ready: var(--ready);
+  --color-ready-bg: var(--ready-bg);
+  --color-ready-ink: var(--ready-ink);
+  --color-peak: var(--peak);
+  --color-peak-bg: var(--peak-bg);
+  --color-peak-ink: var(--peak-ink);
+  --color-fading: var(--fading);
+  --color-fading-bg: var(--fading-bg);
+  --color-fading-ink: var(--fading-ink);
+
+  --color-stage-red: var(--stage-red);
+  --color-stage-white: var(--stage-white);
+  --color-stage-rose: var(--stage-rose);
+  --color-stage-sparkling: var(--stage-sparkling);
+  --color-stage-orange: var(--stage-orange);
+  --color-stage-dessert: var(--stage-dessert);
+  --color-stage-fortified: var(--stage-fortified);
 
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: "Instrument Serif", ui-serif, Georgia, "Times New Roman", serif;
 
-  /* 8 inputs & chips · 14 cards · 24 sheets. No bubble UI. */
-  --radius-control: 8px;
-  --radius-card: 14px;
-  --radius-sheet: 24px;
+  /* 12 inputs · 22 cards · 28 sheets · pills for buttons, chips and toggles */
+  --radius-control: 12px;
+  --radius-card: 22px;
+  --radius-sheet: 28px;
 
   --shadow-raised: var(--shadow-raised);
 
@@ -92,6 +167,8 @@
   --text-headline--line-height: 2.125rem;
   --text-display: 2.5rem;
   --text-display--line-height: 2.75rem;
+  --text-hero: 3.25rem;
+  --text-hero--line-height: 3.25rem;
 
   --ease-cellr: var(--ease-out);
 }
@@ -103,7 +180,10 @@
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    background: var(--canvas);
+    /* on noir a faint wine-coloured spotlight falls from the top of every page */
+    background:
+      radial-gradient(120% 520px at 50% 0, var(--page-glow), transparent 100%) no-repeat,
+      var(--canvas);
     color: var(--ink);
     font-family: var(--font-sans);
     font-size: 1rem;
@@ -160,6 +240,14 @@
   &::-webkit-scrollbar {
     display: none;
   }
+}
+/* the deep-wine hero card ("Tonight"): same in both themes */
+@utility bg-hero {
+  background: linear-gradient(135deg, var(--hero-from), var(--hero-to));
+}
+/* primary buttons glow faintly on noir, not at all on paper */
+@utility glow {
+  box-shadow: 0 0 28px var(--glow);
 }
 
 /* ---- Component motion ---------------------------------------------------------------------- */

@@ -73,14 +73,16 @@ export function HouseholdSwitcher({ me }: { me: Me }) {
             return (
               <li key={h.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <p className="truncate text-body">{h.name}</p>
+                  <p className="truncate font-display text-title">{h.name}</p>
                   <p className="text-small text-ink-3">
                     {h.role === "owner" ? t("roleOwner") : t("roleMember")} ·{" "}
                     {t("memberCount", { count: h.memberCount })}
                   </p>
                 </div>
                 {current ? (
-                  <span className="text-small font-medium text-accent-fg">{t("current")}</span>
+                  <span className="rounded-full bg-raised px-3 py-1 text-caption font-semibold text-accent-fg">
+                    {t("current")}
+                  </span>
                 ) : (
                   <Button
                     variant="secondary"
