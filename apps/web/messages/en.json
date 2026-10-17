@@ -262,7 +262,8 @@
     "deleteAccountTitle": "Delete your account?",
     "deleteAccountBody": "This deletes your sign-in and everything that is only yours, such as your favourites and your ratings. A household only you are in is deleted too, with all its bottles and photos. Households you share with others are left, and keep their cellars.",
     "deleteAccountConfirmLabel": "Type your email address to confirm",
-    "deleteAccountConfirm": "Delete my account"
+    "deleteAccountConfirm": "Delete my account",
+    "dangerSection": "Danger zone"
   },
   "errors": {
     "network": "We couldn't reach CELLR. Check your connection and try again.",
@@ -347,7 +348,8 @@
     "seeCellar": "See my cellar",
     "typeRequired": "Which kind of wine is it? Choose one above.",
     "shopLabel": "Bought at",
-    "shopPlaceholder": "Shop or merchant"
+    "shopPlaceholder": "Shop or merchant",
+    "inCellar": "In your cellar ×{count}"
   },
   "newPlace": {
     "title": "A place for your bottles",
@@ -403,7 +405,11 @@
     "history": "History",
     "historyAdded": "{count, plural, one {# bottle added} other {# bottles added}}",
     "historyOpened": "{count, plural, one {# bottle opened} other {# bottles opened}}",
-    "merge": "This wine is in here twice…"
+    "merge": "This wine is in here twice…",
+    "heroCount": "×{count} in your cellar",
+    "factBottles": "{count, plural, one {bottle} other {bottles}}",
+    "factAverage": "Avg. per bottle",
+    "actions": "Actions"
   },
   "openBottle": {
     "title": "Open a bottle",
@@ -606,7 +612,8 @@
     "homeNone": "Nothing is urgent. Everything has time.",
     "chartLabel": "Chart of this wine's life: opens up from {from}, at its best {bestFrom} to {bestUntil}, to be drunk by {until}.",
     "openedMark": "Opened {day}",
-    "openedLegend": "{count, plural, one {● 1 bottle opened} other {● # bottles opened}}"
+    "openedLegend": "{count, plural, one {● 1 bottle opened} other {● # bottles opened}}",
+    "estimateBadge": "Estimate"
   },
   "tonight": {
     "title": "What shall we drink tonight?",
@@ -1007,7 +1014,11 @@
     "topRated": "Highest rated wines",
     "starsOf": "{stars} out of 5",
     "ratingByType": "Average rating by kind",
-    "toCellar": "Back to your cellar"
+    "toCellar": "Back to your cellar",
+    "valueTitle": "Value",
+    "windowsTitle": "Drinking windows",
+    "windowsNote": "{count, plural, one {# wine, most pressing first} other {# wines, most pressing first}}",
+    "inWindow": "In their window"
   },
   "bulk": {
     "select": "Select bottles",
