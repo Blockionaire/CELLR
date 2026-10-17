@@ -1,7 +1,25 @@
 # CELLR — design overhaul plan
 
-> Status: **plan, nothing built yet.** Goal (from the brief): the best-looking, smoothest wine app on the market,
+> Status: **built (D0–D11), D12 polish ongoing.** Direction chosen: **A + B** — one token system with two skins, light
+> "Maison" (paper, burgundy) and dark "Noir" (near-black wine, brass, soft glow), following the system theme. The mockups
+> were reviewed and approved before the build. Goal (from the brief): the best-looking, smoothest wine app on the market,
 > at least as pleasant and usable as Oeni. Phone first, desktop second, light and dark, Dutch and English.
+
+| Step                             | State   | Notes                                                                                                                                                               |
+| -------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D0 Direction and references      | done    | Maison + Noir chosen from three mockups.                                                                                                                            |
+| D1 Tokens                        | done    | `globals.css`: paper/noir surfaces, maturity colours, wine stages, glass colours, glow; contrasts computed (AA). One display font (Instrument Serif) in both skins. |
+| D2 Bottle                        | done    | `BottleGlyph` is the CELLR bottle (glass, capsule, paper label typeset from the producer, or the label cut-out).                                                    |
+| D3 Components                    | done    | Pill buttons/chips/toggles, sheet with grab handle, toast, empty state, nav, page header. No View Transitions yet.                                                  |
+| D4 Cellar                        | done    | Stage tiles, drinking-window bar, quick type filters, sticky search, pill links. Label photos still show on tiles.                                                  |
+| D5 Wine page                     | done    | Hero, key facts, drinking-window curve, grouped sections, sticky action bar.                                                                                        |
+| D6 Home                          | done    | Deep-wine Tonight hero, stage cards.                                                                                                                                |
+| D7 Add and scan                  | done    | Bottle choices on stages, live preview in the new-wine form, viewfinder look.                                                                                       |
+| D8 Tonight and Sommelier         | done    | Hero pick, compact picks, chat bubbles, floating composer.                                                                                                          |
+| D9 Insights                      | done    | Donut, drinking timeline, maturity stages, value card (the stats have totals only, so no value-over-time line).                                                     |
+| D10 Places and 3D                | done    | Place cards with fill rings, round rack slots, showcase panel.                                                                                                      |
+| D11 Profile, sign-in, onboarding | done    | Auth shell, grouped profile cards, wishlist/history thumbnails.                                                                                                     |
+| D12 Polish                       | ongoing | Full suite green; remaining: View Transitions, swipe actions, Dutch overflow sweep on a real phone.                                                                 |
 
 ## 1. What this is based on — and what it is not
 
