@@ -96,6 +96,7 @@ export function AddBottleFlow({
             onQuery={setQuery}
             onPick={pick}
             onNew={() => setStep("new")}
+            selectedId={wine?.id}
           />
         )}
         {step === "new" && (

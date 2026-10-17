@@ -15,11 +15,14 @@ import { BottleDetails } from "@/features/cellar/bottle-details";
 import { useWines } from "@/features/cellar/hooks";
 import { LabelImage } from "@/features/cellar/label-image";
 import { NewWineForm } from "@/features/cellar/new-wine-form";
+import { useOwnedCounts, WineChoice } from "@/features/cellar/wine-stage";
 import { placeLine } from "@/features/cellar/wine-visuals";
 import { ApiError, errorMessage } from "@/lib/api";
 import { UnreadablePhotoError } from "@/lib/photo";
 import { Button } from "@/ui/button";
+import { cn } from "@/ui/cn";
 import { FileButton } from "@/ui/file-button";
+import { CheckIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
 import { useAddWish } from "@/features/wishlist/hooks";
 import { useScan } from "./hooks";
@@ -96,13 +99,23 @@ export function ScanScreen({ currency }: { currency: string }) {
         )}
 
         {stage.name === "reading" && (
-          <div role="status" className="flex flex-col items-center gap-5 py-4 text-center">
-            {/* eslint-disable-next-line @next/next/no-img-element -- a local preview of the photo just taken */}
-            <img
-              src={stage.preview}
-              alt={t("photoAlt")}
-              className="max-h-[50vh] w-auto max-w-full rounded-card border border-hairline object-contain"
-            />
+          <div role="status" className="flex flex-col items-center gap-5 py-2 text-center">
+            <div className="w-full rounded-[28px] bg-hero p-5 shadow-raised">
+              <div className="relative mx-auto w-fit max-w-full">
+                {/* eslint-disable-next-line @next/next/no-img-element -- a local preview of the photo just taken */}
+                <img
+                  src={stage.preview}
+                  alt={t("photoAlt")}
+                  className="max-h-[50vh] w-auto max-w-full rounded-[16px] object-contain"
+                />
+                {/* A calm sheen over the photo while it is read (still when motion is reduced). */}
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-[16px] bg-gradient-to-b from-transparent via-white/25 to-transparent motion-safe:animate-pulse"
+                />
+                <FramingGuide className="-inset-2.5" />
+              </div>
+            </div>
             <div>
               <p className="font-display text-headline motion-safe:animate-pulse">{t("reading")}</p>
               <p className="mt-1 text-body text-ink-2">{t("readingHint")}</p>
@@ -169,6 +182,27 @@ export function ScanScreen({ currency }: { currency: string }) {
   );
 }
 
+/** Four gold corner brackets: the frame a label should fill. Decorative. */
+function FramingGuide({ className }: { className?: string }) {
+  const corner = "absolute size-9 border-hero-gold";
+  return (
+    <span aria-hidden="true" className={cn("pointer-events-none absolute", className)}>
+      <span
+        className={cn(corner, "left-0 top-0 rounded-tl-[28px] border-l-[3px] border-t-[3px]")}
+      />
+      <span
+        className={cn(corner, "right-0 top-0 rounded-tr-[28px] border-r-[3px] border-t-[3px]")}
+      />
+      <span
+        className={cn(corner, "bottom-0 left-0 rounded-bl-[28px] border-b-[3px] border-l-[3px]")}
+      />
+      <span
+        className={cn(corner, "bottom-0 right-0 rounded-br-[28px] border-b-[3px] border-r-[3px]")}
+      />
+    </span>
+  );
+}
+
 function Capture({
   error,
   retry,
@@ -183,7 +217,7 @@ function Capture({
     <div className="flex flex-col gap-5">
       <p className="text-body text-ink-2">{t("intro")}</p>
       {error && (
-        <div role="alert" className="rounded-card border border-hairline bg-raised p-4">
+        <div role="alert" className="rounded-card bg-raised p-4 ring-1 ring-hairline">
           <p className="text-body text-ink">{error}</p>
           {retry && (
             <Button className="mt-3" size="md" onClick={() => onFile(retry)}>
@@ -192,15 +226,40 @@ function Capture({
           )}
         </div>
       )}
-      <div className="flex flex-col gap-3">
-        <FileButton variant="primary" size="lg" block capture="environment" onFile={onFile}>
-          {t("takePhoto")}
-        </FileButton>
-        <FileButton variant="secondary" size="lg" block onFile={onFile}>
-          {t("choosePhoto")}
-        </FileButton>
+      {/* The viewfinder: a dark camera area with a framing guide, the shutter and the library below. */}
+      <div className="overflow-hidden rounded-[28px] bg-hero text-hero-ink shadow-raised">
+        <div className="relative aspect-[5/6] sm:aspect-[4/3]">
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/40"
+          />
+          <FramingGuide className="inset-x-[15%] inset-y-[10%] rounded-[28px] ring-1 ring-white/15" />
+          <p className="absolute inset-x-8 bottom-5 text-center text-small text-hero-ink/85">
+            {t("tips")}
+          </p>
+        </div>
+        <div className="flex flex-col items-center gap-4 px-5 pb-6 pt-2">
+          <span className="grid size-[5.5rem] place-items-center rounded-full ring-[3px] ring-white/80">
+            <FileButton
+              variant="primary"
+              size="lg"
+              capture="environment"
+              onFile={onFile}
+              className="size-[4.5rem] p-0 ring-2 ring-white/30"
+            >
+              <span className="sr-only">{t("takePhoto")}</span>
+            </FileButton>
+          </span>
+          <FileButton
+            variant="secondary"
+            size="md"
+            onFile={onFile}
+            className="bg-white/15 text-hero-ink hover:bg-white/25"
+          >
+            {t("choosePhoto")}
+          </FileButton>
+        </div>
       </div>
-      <p className="text-center text-small text-ink-2">{t("tips")}</p>
       <p className="text-center text-caption text-ink-3">{t("privacy")}</p>
     </div>
   );
@@ -222,6 +281,7 @@ function Review({
   onAgain: () => void;
 }) {
   const t = useTranslations("scan");
+  const owned = useOwnedCounts();
   const [chosenNew, setChosenNew] = useState(false);
   const { outcome, facts, matches } = result;
   const wantsForm =
@@ -233,20 +293,34 @@ function Review({
 
   return (
     <div className="flex flex-col gap-6">
-      <LabelImage
-        image={result.image}
-        size="photo"
-        alt={t("photoAlt")}
-        className="h-48 w-full rounded-card border border-hairline object-contain"
-      />
+      <div className="rounded-[28px] bg-hero p-3 shadow-raised">
+        <LabelImage
+          image={result.image}
+          size="photo"
+          alt={t("photoAlt")}
+          className="h-44 w-full rounded-[16px] object-contain"
+        />
+      </div>
 
       {!wantsForm && outcome === "found" && matches[0] && (
-        <section className="flex flex-col gap-4">
-          <div>
-            <h2 className="font-display text-headline">{t("foundTitle")}</h2>
-            <p className="mt-1 text-body text-ink-2">{t("foundBody")}</p>
+        <section className="flex flex-col gap-4 rounded-card bg-surface p-4 shadow-raised ring-1 ring-hairline">
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden="true"
+              className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-accent text-accent-ink"
+            >
+              <CheckIcon size={16} />
+            </span>
+            <div>
+              <h2 className="font-display text-headline">{t("foundTitle")}</h2>
+              <p className="mt-1 text-body text-ink-2">{t("foundBody")}</p>
+            </div>
           </div>
-          <Candidate wine={matches[0].wine} year={facts?.year ?? null} />
+          <Candidate
+            wine={matches[0].wine}
+            year={facts?.year ?? null}
+            owned={owned.get(matches[0].wine.id)}
+          />
           <Button size="lg" block onClick={() => onWine(matches[0]!.wine)}>
             {t("confirmFound")}
           </Button>
@@ -265,7 +339,12 @@ function Review({
           <ul className="flex flex-col gap-3">
             {matches.map((m) => (
               <li key={m.wine.id}>
-                <Candidate wine={m.wine} year={facts?.year ?? null} onPick={() => onWine(m.wine)} />
+                <Candidate
+                  wine={m.wine}
+                  year={facts?.year ?? null}
+                  owned={owned.get(m.wine.id)}
+                  onPick={() => onWine(m.wine)}
+                />
               </li>
             ))}
           </ul>
@@ -312,39 +391,28 @@ function Review({
 function Candidate({
   wine,
   year,
+  owned,
   onPick,
 }: {
   wine: WineSummary;
   year: number | null;
+  owned?: number | undefined;
   onPick?: () => void;
 }) {
   const locale = useLocale();
-  const body = (
-    <>
-      <span className="block truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
-        {wine.producer}
-      </span>
-      <span className="block font-display text-title text-ink">{wine.name}</span>
-      <span className="block text-small text-ink-2">
-        {[
-          year === null ? null : formatVintage(year),
-          placeLine(wine.region, wine.countryCode, locale),
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-      </span>
-    </>
-  );
-  const frame = "block w-full rounded-card border border-hairline bg-surface p-4 text-left";
-  return onPick ? (
-    <button
-      type="button"
-      onClick={onPick}
-      className={`${frame} transition-colors hover:bg-raised active:scale-[0.99]`}
-    >
-      {body}
-    </button>
-  ) : (
-    <div className={frame}>{body}</div>
+  const detail = [
+    year === null ? null : formatVintage(year),
+    placeLine(wine.region, wine.countryCode, locale),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <WineChoice
+      wine={wine}
+      detail={detail}
+      owned={owned}
+      onPick={onPick}
+      size={onPick ? "thumb" : "card"}
+    />
   );
 }
