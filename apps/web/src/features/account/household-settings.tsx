@@ -72,7 +72,7 @@ export function HouseholdSettings({ household }: { household: HouseholdSummary }
             id="household-currency"
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
-            className="h-12 w-full rounded-control border border-hairline bg-surface px-3 text-body text-ink focus-visible:border-accent-fg focus-visible:outline-none"
+            className="h-12 w-full rounded-full border border-hairline bg-surface px-5 text-body text-ink focus-visible:border-accent-fg focus-visible:outline-none"
           >
             {[...new Set([household.currency, ...CURRENCIES])].map((code) => (
               <option key={code} value={code}>

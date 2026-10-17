@@ -58,7 +58,10 @@ export function InviteSheet({ open, onClose, household, invite }: InviteSheetPro
       closeLabel={tc("close")}
     >
       <div className="flex flex-col gap-5 pb-2 pt-2">
-        <div className="rounded-card bg-raised px-4 py-6 text-center" aria-live="polite">
+        <div
+          className="rounded-[20px] bg-raised px-4 py-7 text-center ring-1 ring-hairline"
+          aria-live="polite"
+        >
           {invite.isError ? (
             <p role="alert" className="text-small text-danger">
               {errorMessage(invite.error, (k) => te(k), ERROR_MESSAGES)}

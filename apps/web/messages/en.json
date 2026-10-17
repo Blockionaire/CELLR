@@ -129,7 +129,8 @@
     "wishlist": "Wishlist",
     "history": "History",
     "related": "More from your cellar",
-    "insights": "Insights"
+    "insights": "Insights",
+    "typeAll": "All"
   },
   "scan": {
     "title": "Scan a label",

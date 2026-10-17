@@ -93,10 +93,18 @@ export function ImportScreen() {
 
       {stage.name === "pick" && (
         <div className="flex flex-col gap-5">
-          <ol className="flex flex-col gap-3 rounded-card border border-hairline bg-surface p-5 text-body text-ink-2">
-            <li>{t("step1")}</li>
-            <li>{t("step2")}</li>
-            <li>{t("step3")}</li>
+          <ol className="flex flex-col gap-4 rounded-card bg-surface p-5 text-body text-ink-2 shadow-raised ring-1 ring-hairline">
+            {(["step1", "step2", "step3"] as const).map((key, i) => (
+              <li key={key} className="flex items-start gap-3">
+                <span
+                  aria-hidden="true"
+                  className="grid size-7 shrink-0 place-items-center rounded-full bg-raised font-display text-title text-accent-fg tnum"
+                >
+                  {i + 1}
+                </span>
+                <span className="pt-0.5">{t(key)}</span>
+              </li>
+            ))}
           </ol>
           <FileButton
             accept=".json,application/json"
@@ -162,11 +170,11 @@ function Review({
     <div className="flex flex-col gap-5">
       <section
         aria-labelledby="import-found"
-        className="rounded-card border border-hairline bg-surface p-5"
+        className="rounded-card bg-surface shadow-raised ring-1 ring-hairline p-5"
       >
         <h2
           id="import-found"
-          className="text-caption font-medium uppercase tracking-[0.18em] text-ink-3"
+          className="text-caption font-medium uppercase tracking-[0.14em] text-bronze"
         >
           {t("found", { file })}
         </h2>
@@ -184,7 +192,7 @@ function Review({
       </section>
 
       {report.scoreScale !== null && counts.tastings > 0 && (
-        <section className="rounded-card border border-hairline bg-surface p-5">
+        <section className="rounded-card bg-surface shadow-raised ring-1 ring-hairline p-5">
           <p className="mb-3 text-body">{t("scaleQuestion")}</p>
           <Segmented
             label={t("scaleLabel")}
@@ -236,7 +244,7 @@ function Done({ outcome }: { outcome: ImportOutcome }) {
   const written = outcome.written;
   return (
     <div role="status" className="flex flex-col gap-5">
-      <section className="rounded-card border border-hairline bg-surface p-6 text-center">
+      <section className="rounded-card bg-surface shadow-raised ring-1 ring-hairline p-6 text-center">
         <h2 className="font-display text-headline">{t("doneTitle")}</h2>
         {written && (
           <p className="mt-2 text-body text-ink-2">
@@ -249,7 +257,7 @@ function Done({ outcome }: { outcome: ImportOutcome }) {
         )}
       </section>
       {written?.tastingsSkipped && (
-        <p className="rounded-card border border-hairline bg-raised p-4 text-small text-ink-2">
+        <p className="rounded-card bg-raised p-4 ring-1 ring-hairline text-small text-ink-2">
           {t("tastingsSkipped")}
         </p>
       )}
@@ -276,8 +284,8 @@ function Count({ label, value }: { label: string; value: number }) {
 
 function Notes({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-card border border-hairline bg-surface p-5">
-      <h2 className="mb-3 text-caption font-medium uppercase tracking-[0.18em] text-ink-3">
+    <section className="rounded-card bg-surface shadow-raised ring-1 ring-hairline p-5">
+      <h2 className="mb-3 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
         {title}
       </h2>
       <ul className="flex list-disc flex-col gap-2 pl-5 text-small text-ink-2">{children}</ul>

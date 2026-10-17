@@ -15,7 +15,7 @@ import { errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { Field } from "@/ui/field";
 import { Segmented } from "@/ui/segmented";
-import { Logo } from "@/ui/logo";
+import { AuthHeading, AuthShell, PILL_INPUT } from "@/features/auth/auth-shell";
 import { useCreateHousehold, useJoinHousehold, useMe, useUpdateProfile } from "./hooks";
 
 type Mode = "create" | "join";
@@ -80,24 +80,21 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
   const current = step === "household" ? 1 : 2;
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-5 py-12 pt-safe pb-safe">
-      <Logo className="mb-10 h-28" />
-      <p className="mb-4 text-caption font-medium uppercase tracking-[0.18em] text-bronze">
+    <AuthShell>
+      <p className="mb-4 text-center text-caption font-medium uppercase tracking-[0.18em] text-bronze">
         {t("stepOf", { current, total: 2 })}
       </p>
 
       {step === "name" ? (
         <form onSubmit={submitName} noValidate className="flex flex-col gap-6">
-          <div>
-            <h1 className="font-display text-display text-balance">{t("nameTitle")}</h1>
-            <p className="mt-3 text-body text-ink-2">{t("nameSubtitle")}</p>
-          </div>
+          <AuthHeading title={t("nameTitle")} subtitle={t("nameSubtitle")} />
           <Field
             label={t("nameLabel")}
             autoFocus
             autoComplete="given-name"
             placeholder={t("namePlaceholder")}
             error={error}
+            inputClassName={PILL_INPUT}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -107,10 +104,7 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
         </form>
       ) : (
         <form onSubmit={submitHousehold} noValidate className="flex flex-col gap-6">
-          <div>
-            <h1 className="font-display text-display text-balance">{t("householdTitle")}</h1>
-            <p className="mt-3 text-body text-ink-2">{t("householdSubtitle")}</p>
-          </div>
+          <AuthHeading title={t("householdTitle")} subtitle={t("householdSubtitle")} />
           <Segmented<Mode>
             label={t("modeLabel")}
             value={mode}
@@ -122,7 +116,7 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
               { value: "create", label: t("modeCreate") },
               { value: "join", label: t("modeJoin") },
             ]}
-            className="self-start"
+            className="self-center"
           />
           {mode === "create" ? (
             <Field
@@ -130,6 +124,7 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
               autoFocus
               placeholder={t("householdNamePlaceholder")}
               error={error}
+              inputClassName={PILL_INPUT}
               value={householdName}
               onChange={(e) => setHouseholdName(e.target.value)}
             />
@@ -143,6 +138,7 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
               placeholder={t("codePlaceholder")}
               hint={t("codeHint")}
               error={error}
+              inputClassName={PILL_INPUT}
               value={code}
               onChange={(e) => setCode(e.target.value)}
             />
@@ -157,6 +153,6 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
           </Button>
         </form>
       )}
-    </div>
+    </AuthShell>
   );
 }
