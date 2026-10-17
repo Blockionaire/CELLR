@@ -11,7 +11,10 @@ and what to drink tonight. A mobile-first PWA now; architected so a native app c
 permission model, email-code sign-in, households and invites, the design system, an installable PWA, and a working
 cellar — add bottles (one per physical bottle), grid / list / racks / **3D** views, instant search, a page per wine
 with its vintages and bottles, open (with Undo), move, edit, and your own fridges, racks and cabinets.
-Next: scan a label, "what shall we drink tonight", the sommelier, importer. →
+Also built: scanning a label (AI reading, matcher, label photos), "what shall we drink tonight" (Tonight), the
+sommelier chat, the Wijnkelder importer, wishlist, stats and insights, drinking windows, a Dutch version and several
+households. The look is being overhauled in two skins, light "Maison" and dark "Noir"
+([`docs/01-design-overhaul-plan.md`](docs/01-design-overhaul-plan.md)). →
 [`docs/00-architecture-plan.md`](docs/00-architecture-plan.md) · [`docs/SETUP.md`](docs/SETUP.md)
 
 ## Layout
