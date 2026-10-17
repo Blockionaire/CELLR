@@ -9,6 +9,8 @@ export default defineConfig({
   testDir: "./e2e",
   outputDir: "./test-results",
   fullyParallel: true,
+  // A shared CI runner now and then stalls a browser; one retry, and a retried pass is still reported as flaky.
+  retries: process.env.CI ? 1 : 0,
   reporter: [["list"]],
   use: {
     baseURL: `http://localhost:${PORT}`,

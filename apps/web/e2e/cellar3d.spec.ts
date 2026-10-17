@@ -116,7 +116,7 @@ test.describe("the 3D cellar", () => {
 
     // The bottle comes out of the rack and its details open: everything there is to know about it.
     const panel = page.getByRole("dialog", { name: /Pavillon Rouge 2015/ });
-    await expect(panel).toHaveAttribute("data-open", "true");
+    await expect(panel).toHaveAttribute("data-open", "true", { timeout: 20_000 }); // software WebGL on a CI runner is slow
     await expect(panel.getByRole("heading", { name: "Pavillon Rouge" })).toBeVisible();
     await expect(panel.getByText("Château Margaux", { exact: true })).toBeVisible();
     await expect(panel.getByText("2015 · Bordeaux, France")).toBeVisible();
