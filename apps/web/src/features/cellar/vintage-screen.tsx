@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import {
+  currentValueCents,
   formatVintage,
   historyEvents,
   summarizePlaces,
@@ -14,15 +15,14 @@ import {
 } from "@cellr/domain";
 import { BulkBar } from "./bulk-bottles";
 import { BottleExtrasSheet } from "@/features/insights/bottle-extras-sheet";
-import { useExtras } from "@/features/insights/hooks";
-import { InsightCard } from "@/features/insights/insight-card";
+import { useExtras, useInsight } from "@/features/insights/hooks";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { Stars } from "@/ui/stars";
 import { Button, buttonStyles } from "@/ui/button";
-import { ChevronRightIcon, PlusIcon } from "@/ui/icons";
+import { cn } from "@/ui/cn";
+import { ChevronRightIcon, PlusIcon, StarIcon } from "@/ui/icons";
 import { BottleSpot, useDay, useMoney } from "./bottle-bits";
-import { DrinkLabel } from "./drink-bits";
-import { DrinkChart } from "./drink-chart";
+import { DrinkChart, PhasePill } from "./drink-chart";
 import { EditSheet } from "./edit-sheet";
 import { FavoriteButton } from "./favorite-button";
 import { LabelImage } from "./label-image";
@@ -34,15 +34,18 @@ import { NewPlaceSheet } from "./new-place-sheet";
 import { OpenBottleSheet } from "./open-bottle-sheet";
 import { RateSheet } from "./rate-sheet";
 import { TastingItem } from "./tasting-bits";
+import { Facts, Section, Tag } from "./vintage-bits";
+import { AboutSection, WorthSection } from "./wine-insight";
 import { placeLine, shapeFor, labelMark } from "./wine-visuals";
 import { STAGE } from "./wine-card";
 
 type SheetName = "open" | "move" | "edit" | "place" | "merge" | null;
 
 /**
- * One vintage of one wine. The wine comes first (name, producer, year, region), then how many you
- * own and where, then what you paid and what is known about it. The three things you do with a
- * bottle — open, move, edit — are right under the title.
+ * One vintage of one wine, as a page with a hero: the bottle on its stage with how ready it is and how many you
+ * own, then the title, a strip of the numbers that matter, when to drink it, what is known about the wine, the
+ * bottles and where they are, what it is worth and cost, its photos, and its history. The things you do with a
+ * bottle (open, move, rate, edit) sit in one bar: pinned above the bottom navigation on a phone.
  */
 export function VintageScreen({
   initial,
@@ -59,6 +62,7 @@ export function VintageScreen({
   const tDrink = useTranslations("drink");
   const tTypes = useTranslations("wineTypes");
   const tPhoto = useTranslations("photo");
+  const tInsights = useTranslations("insights");
   const locale = useLocale();
   const { data: detail } = useVintage(initial.vintageId, initial);
   const [sheet, setSheet] = useState<SheetName>(null);
@@ -76,6 +80,7 @@ export function VintageScreen({
   const tExtras = useTranslations("bottleExtras");
   const extras = useExtras(initial.vintageId);
   const extrasOf = (bottleId: string) => extras.data?.items.find((e) => e.bottleId === bottleId);
+  const insight = useInsight(initial.vintageId);
   const money = useMoney(detail.currency ?? currency);
   const day = useDay();
 
@@ -97,21 +102,75 @@ export function VintageScreen({
   );
   const where = placeLine(wine.region, wine.countryCode, locale);
   const addMoreHref = `/cellar/add?wine=${wine.id}${detail.year === null ? "&nv=1" : `&year=${detail.year}`}`;
+  const phase = detail.drink.phase;
+  const vintageName = formatVintage(detail.year);
+
+  // The bottle to talk about from the bar: the newest opened one nobody (you) has rated yet, else the newest.
+  const rateTarget = detail.opened.find((b) => mine(b.id) === null) ?? detail.opened[0] ?? null;
+
+  // Real numbers only: what the household owns, where, what it paid, and (when known) what it is worth now.
+  const worthCents = insight.data?.ready ? currentValueCents(insight.data) : null;
+  const averageCents = detail.averagePriceCents;
+  const delta =
+    worthCents !== null && averageCents !== null && averageCents > 0
+      ? (worthCents - averageCents) / averageCents
+      : null;
+  const placeValue =
+    places.length === 0
+      ? ""
+      : places.length === 1
+        ? (places[0]!.label ?? t("notPlaced"))
+        : `${places[0]!.label ?? t("notPlaced")} +${places.length - 1}`;
+  const cells: Array<{ key: string; value: ReactNode; label: ReactNode }> = [];
+  if (count > 0) {
+    cells.push(
+      {
+        key: "bottles",
+        value: <span data-testid="bottle-count">{count}</span>,
+        label: t("factBottles", { count }),
+      },
+      { key: "where", value: placeValue, label: t("where") },
+    );
+  }
+  if (averageCents !== null) {
+    cells.push({ key: "average", value: money(averageCents), label: t("factAverage") });
+  }
+  if (worthCents !== null) {
+    cells.push({
+      key: "worth",
+      value: money(worthCents),
+      label: (
+        <>
+          {tInsights("valueTitle")}{" "}
+          {delta !== null && Math.round(delta * 100) !== 0 && (
+            <span className={cn("font-semibold tnum", delta > 0 ? "text-ok" : "text-danger")}>
+              {new Intl.NumberFormat(locale, {
+                style: "percent",
+                signDisplay: "exceptZero",
+                maximumFractionDigits: 0,
+              }).format(delta)}
+            </span>
+          )}
+        </>
+      ),
+    });
+  }
+  const yearsLeft =
+    detail.drink.yearsLeft !== null &&
+    (phase === "developing" || phase === "peak" || phase === "ready") &&
+    Math.round(detail.drink.yearsLeft) >= 1
+      ? Math.round(detail.drink.yearsLeft)
+      : null;
 
   return (
-    <div className="mx-auto w-full max-w-3xl pt-6 lg:pt-10">
-      <Link
-        href="/cellar"
-        className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-control px-2 text-small font-medium text-ink-2 transition-colors hover:text-ink"
-      >
-        <ChevronRightIcon size={18} className="rotate-180" />
-        {t("back")}
-      </Link>
-
-      <header className="mt-2 grid gap-6 md:grid-cols-[13rem_1fr] md:items-center">
+    <div className="mx-auto w-full max-w-3xl pb-28 pt-4 lg:pb-0 lg:pt-10">
+      <header className="grid gap-6 md:grid-cols-[19rem_1fr] md:items-start md:gap-8">
         <div>
           <div
-            className={`relative grid place-items-center overflow-hidden rounded-card ${detail.image ? "h-56 bg-raised md:h-64" : `h-72 md:h-80 ${STAGE[wine.type]}`}`}
+            className={cn(
+              "relative isolate flex h-72 items-end justify-center overflow-hidden rounded-[28px] md:h-80",
+              STAGE[wine.type],
+            )}
           >
             {detail.image ? (
               <LabelImage
@@ -121,103 +180,220 @@ export function VintageScreen({
                 className="absolute inset-0 size-full"
               />
             ) : (
-              <BottleGlyph
-                shape={shapeFor(wine.type)}
-                tint={wine.type}
-                mark={labelMark(wine.producer, wine.name)}
-                year={formatVintage(detail.year)}
-                className="relative h-60 w-auto md:h-72"
-                title={tTypes(wine.type)}
-              />
+              <>
+                {/* The year, big and faint behind the bottle. Drawn from an attribute so it is no text to read or to check. */}
+                <span
+                  aria-hidden="true"
+                  data-year={vintageName}
+                  className="pointer-events-none absolute inset-x-0 top-[8%] select-none text-center font-display text-[9rem] leading-none text-ink/[0.07] before:content-[attr(data-year)]"
+                />
+                <span
+                  aria-hidden="true"
+                  className="absolute -bottom-20 left-1/2 size-72 -translate-x-1/2 rounded-full bg-surface/45"
+                />
+                <BottleGlyph
+                  shape={shapeFor(wine.type)}
+                  tint={wine.type}
+                  mark={labelMark(wine.producer, wine.name)}
+                  year={vintageName}
+                  className="relative mb-11 h-56 w-auto md:h-64"
+                  title={tTypes(wine.type)}
+                />
+              </>
             )}
-          </div>
-          <LabelPhotoActions vintageId={detail.vintageId} side="front" image={detail.image} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-caption font-medium uppercase tracking-[0.14em] text-ink-3">
-            {wine.producer}
-          </p>
-          <div className="mt-1 flex items-start justify-between gap-2">
-            <h1 className="font-display text-display text-balance">{wine.name}</h1>
+
+            <Link
+              href="/cellar"
+              aria-label={t("back")}
+              className="absolute left-3 top-3 z-10 grid size-11 place-items-center rounded-full bg-surface/85 text-ink shadow-raised transition-transform duration-150 ease-cellr active:scale-[0.96]"
+            >
+              <ChevronRightIcon size={20} className="rotate-180" />
+            </Link>
             <FavoriteButton
               wineId={wine.id}
               wine={`${wine.producer} ${wine.name}`}
               favorite={wine.favorite}
-              className="-mr-2 shrink-0"
-              size={26}
+              className="absolute right-3 top-3 size-11 bg-surface/85"
+              size={22}
             />
+
+            <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
+              {phase !== "unknown" ? (
+                <PhasePill phase={phase} className="shadow-raised" />
+              ) : (
+                <span />
+              )}
+              {count > 0 && (
+                <span className="rounded-full bg-surface px-3 py-1 text-caption font-semibold text-ink shadow-raised tnum">
+                  {t("heroCount", { count })}
+                </span>
+              )}
+            </div>
           </div>
+          <LabelPhotoActions vintageId={detail.vintageId} side="front" image={detail.image} />
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+            {wine.producer}
+          </p>
+          <h1 className="mt-1 font-display text-display text-balance text-ink md:text-[3rem] md:leading-[1.05]">
+            {wine.name}
+          </h1>
           <p className="mt-2 text-title text-ink-2">
-            <span className="tnum">{formatVintage(detail.year)}</span>
+            <span className="tnum">{vintageName}</span>
             {where && <span> · {where}</span>}
           </p>
-          <p className="mt-3 inline-flex items-center gap-2 text-small text-ink-2">
-            <span
-              aria-hidden="true"
-              className="size-2.5 rounded-full"
-              style={{ background: `var(--wine-${wine.type})` }}
-            />
-            {tTypes(wine.type)}
+          <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-small text-ink-2">
+            <span className="inline-flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="size-2.5 rounded-full"
+                style={{ background: `var(--wine-${wine.type})` }}
+              />
+              {tTypes(wine.type)}
+            </span>
+            {summary && (
+              <span className="inline-flex items-center gap-1.5 tnum">
+                <StarIcon size={15} fill="currentColor" className="text-accent-fg" />
+                {tTasting("ratingSummary", { average: summary.average, count: summary.count })}
+              </span>
+            )}
           </p>
 
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
-            {count > 0 ? (
-              <Button size="lg" onClick={() => setSheet("open")} className="col-span-2 sm:min-w-48">
-                {t("open")}
-              </Button>
-            ) : (
-              <Link
-                href={addMoreHref}
-                className={buttonStyles({
-                  variant: "primary",
-                  size: "lg",
-                  className: "col-span-2",
-                })}
-              >
-                <PlusIcon size={20} />
-                {t("addMore")}
-              </Link>
-            )}
-            {count > 0 && (
-              <Button variant="secondary" size="lg" onClick={() => setSheet("move")}>
-                {t("move")}
-              </Button>
-            )}
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => setSheet("edit")}
-              className={count === 0 ? "col-span-2 sm:col-span-1" : ""}
-            >
-              {t("edit")}
-            </Button>
+          <div
+            role="group"
+            aria-label={t("actions")}
+            className="fixed inset-x-0 bottom-[calc(var(--nav-height)+env(safe-area-inset-bottom))] z-20 border-t border-hairline bg-canvas/90 backdrop-blur-xl lg:static lg:z-auto lg:mt-6 lg:border-0 lg:bg-transparent lg:backdrop-blur-none"
+          >
+            <div className="mx-auto flex max-w-3xl items-center gap-2.5 px-5 py-3 md:px-8 lg:max-w-none lg:p-0">
+              {count > 0 ? (
+                <Button size="lg" onClick={() => setSheet("open")} className="min-w-0 flex-1">
+                  {t("open")}
+                </Button>
+              ) : (
+                <Link
+                  href={addMoreHref}
+                  className={buttonStyles({
+                    variant: "primary",
+                    size: "lg",
+                    className: "min-w-0 flex-1",
+                  })}
+                >
+                  <PlusIcon size={20} />
+                  {t("addMore")}
+                </Link>
+              )}
+              {count > 0 && (
+                <BarButton label={t("move")} onClick={() => setSheet("move")}>
+                  <BarIcon>
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </BarIcon>
+                </BarButton>
+              )}
+              {rateTarget && (
+                <BarButton label={tTasting("ratingLabel")} onClick={() => setRating(rateTarget)}>
+                  <StarIcon size={22} strokeWidth={1.75} />
+                </BarButton>
+              )}
+              <BarButton label={t("edit")} onClick={() => setSheet("edit")}>
+                <BarIcon>
+                  <path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z" />
+                  <path d="m13.5 6.5 3 3" />
+                </BarIcon>
+              </BarButton>
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="mt-10 flex flex-col gap-4">
-        <Section>
+      {cells.length >= 2 && (
+        <div
+          className={cn(
+            "mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-card bg-hairline shadow-raised ring-1 ring-hairline",
+            cells.length === 3 ? "sm:grid-cols-3" : cells.length === 4 ? "sm:grid-cols-4" : "",
+          )}
+        >
+          {cells.map((cell) => (
+            <div
+              key={cell.key}
+              className="min-w-0 bg-surface p-4 max-sm:[&:last-child:nth-child(odd)]:col-span-2"
+            >
+              <p className="font-display text-headline break-words tnum text-ink">{cell.value}</p>
+              <p className="mt-1 text-caption text-ink-2">{cell.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-10 flex flex-col gap-9">
+        <Section
+          title={tDrink("title")}
+          action={
+            <span className="rounded-full border border-hairline px-2.5 py-0.5 text-caption font-medium text-bronze">
+              {tDrink("estimateBadge")}
+            </span>
+          }
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <PhasePill phase={phase} />
+            {yearsLeft !== null && (
+              <span className="text-small text-ink-2">
+                {tDrink("yearsLeft", { years: yearsLeft })}
+              </span>
+            )}
+          </div>
+          <DrinkChart drink={detail.drink} year={detail.year} opened={detail.opened} />
+          <p
+            className="mt-4 font-display text-title italic text-balance text-ink"
+            data-testid="drink-explain"
+          >
+            {tDrink(`explain.${phase}`, {
+              years: Math.max(1, Math.ceil(detail.drink.yearsUntilOpen ?? 1)),
+            })}
+          </p>
+          <p className="mt-3 text-caption text-ink-2">{tDrink("estimate")}</p>
+        </Section>
+
+        <AboutSection vintageId={detail.vintageId} title={t("about")}>
+          <Facts
+            rows={[
+              [t("style"), tTypes(wine.type)],
+              ...(wine.region ? [[t("region"), wine.region] as [string, string]] : []),
+              ...(wine.appellation
+                ? [[t("appellation"), wine.appellation] as [string, string]]
+                : []),
+              ...(wine.countryCode
+                ? [[t("country"), placeLine(null, wine.countryCode, locale)] as [string, string]]
+                : []),
+            ]}
+          />
+          <Button
+            className="mt-4 -ml-3"
+            size="sm"
+            variant="ghost"
+            onClick={() => setSheet("merge")}
+          >
+            {t("merge")}
+          </Button>
+        </AboutSection>
+
+        <Section title={t("bottlesTitle")}>
           {count > 0 ? (
             <>
-              <p className="flex items-baseline gap-3">
-                <span className="font-display text-display tnum" data-testid="bottle-count">
-                  {count}
-                </span>
-                <span className="text-body text-ink-2">{t("bottlesInCellar", { count })}</span>
-              </p>
-              <p className="mt-3 text-small text-ink-2">
+              <ul className="flex flex-wrap gap-2">
                 {places.map((p, i) => (
-                  <span key={p.label ?? "none"}>
-                    {i > 0 && " · "}
+                  <Tag key={p.label ?? "none"} last={i === places.length - 1}>
                     {p.label ?? t("notPlaced")} <span className="tnum">×{p.count}</span>
-                  </span>
+                  </Tag>
                 ))}
-              </p>
+              </ul>
               {count > 1 && (
                 <div className="mt-3 flex items-center gap-2">
                   <Button
                     size="sm"
                     variant="ghost"
+                    className="-ml-3"
                     onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
                   >
                     {selecting ? tBulk("done") : tBulk("select")}
@@ -236,7 +412,7 @@ export function VintageScreen({
                 </div>
               )}
               {selecting && <BulkBar detail={detail} selected={picked} onDone={stopSelecting} />}
-              <ul className="mt-4 divide-y divide-hairline" aria-label={t("bottlesTitle")}>
+              <ul className="mt-2 divide-y divide-hairline" aria-label={t("bottlesTitle")}>
                 {detail.bottles.map((b) => (
                   <li
                     key={b.id}
@@ -297,44 +473,7 @@ export function VintageScreen({
           )}
         </Section>
 
-        <Section title={tDrink("title")}>
-          <p className="flex items-center gap-2 font-display text-headline">
-            <DrinkLabel drink={detail.drink} className="text-headline text-ink [&>span]:size-3" />
-            {detail.drink.phase === "unknown" && tDrink("phase.unknown")}
-          </p>
-          <p className="mt-2 text-body text-ink-2" data-testid="drink-explain">
-            {tDrink(`explain.${detail.drink.phase}`, {
-              years: Math.max(1, Math.ceil(detail.drink.yearsUntilOpen ?? 1)),
-            })}
-          </p>
-          <DrinkChart drink={detail.drink} year={detail.year} opened={detail.opened} />
-          <p className="mt-4 text-caption text-ink-2">{tDrink("estimate")}</p>
-        </Section>
-
-        <Section title={tPhoto("backTitle")}>
-          <div className="flex items-start gap-4">
-            {detail.backImage && (
-              <LabelImage
-                image={detail.backImage}
-                size="thumb"
-                alt={tPhoto("backAlt", { wine: `${wine.producer} ${wine.name}` })}
-                className="h-28 w-auto rounded-control bg-raised"
-              />
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="text-body text-ink-2">
-                {detail.backImage ? tPhoto("backHave") : tPhoto("backBody")}
-              </p>
-              <LabelPhotoActions
-                vintageId={detail.vintageId}
-                side="back"
-                image={detail.backImage}
-              />
-            </div>
-          </div>
-        </Section>
-
-        <InsightCard vintageId={detail.vintageId} currency={detail.currency ?? currency} />
+        <WorthSection vintageId={detail.vintageId} currency={detail.currency ?? currency} />
 
         {count > 0 && (
           <Section title={t("purchase")}>
@@ -352,27 +491,27 @@ export function VintageScreen({
           </Section>
         )}
 
-        <Section title={t("about")}>
-          <Facts
-            rows={[
-              [t("style"), tTypes(wine.type)],
-              ...(wine.region ? [[t("region"), wine.region] as [string, string]] : []),
-              ...(wine.appellation
-                ? [[t("appellation"), wine.appellation] as [string, string]]
-                : []),
-              ...(wine.countryCode
-                ? [[t("country"), placeLine(null, wine.countryCode, locale)] as [string, string]]
-                : []),
-            ]}
-          />
-          <Button
-            className="mt-4 -ml-3"
-            size="sm"
-            variant="ghost"
-            onClick={() => setSheet("merge")}
-          >
-            {t("merge")}
-          </Button>
+        <Section title={tPhoto("backTitle")}>
+          <div className="flex items-start gap-4">
+            {detail.backImage && (
+              <LabelImage
+                image={detail.backImage}
+                size="thumb"
+                alt={tPhoto("backAlt", { wine: `${wine.producer} ${wine.name}` })}
+                className="h-28 w-auto rounded-[16px] bg-raised"
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-body text-ink-2">
+                {detail.backImage ? tPhoto("backHave") : tPhoto("backBody")}
+              </p>
+              <LabelPhotoActions
+                vintageId={detail.vintageId}
+                side="back"
+                image={detail.backImage}
+              />
+            </div>
+          </div>
         </Section>
 
         {(detail.opened.length > 0 || detail.tastings.length > 0) && (
@@ -427,11 +566,11 @@ export function VintageScreen({
 
         {history.length > 0 && (
           <Section title={t("history")}>
-            <ol className="flex flex-col gap-3">
+            <ol className="flex flex-col divide-y divide-hairline">
               {history.map((e) => (
                 <li
                   key={`${e.kind}-${e.day}`}
-                  className="flex items-baseline justify-between gap-4"
+                  className="flex items-baseline justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
                 >
                   <span className="text-body text-ink">
                     {e.kind === "added"
@@ -460,7 +599,7 @@ export function VintageScreen({
           onClose={() => setExtrasFor(null)}
           vintageId={detail.vintageId}
           bottleId={extrasFor.id}
-          title={`${wine.name} ${formatVintage(detail.year)}`}
+          title={`${wine.name} ${vintageName}`}
           existing={extrasOf(extrasFor.id)}
         />
       )}
@@ -477,11 +616,53 @@ export function VintageScreen({
           open
           onClose={() => setRating(null)}
           bottleId={rating.id}
-          title={`${wine.name} ${formatVintage(detail.year)}`}
+          title={`${wine.name} ${vintageName}`}
           existing={mine(rating.id)}
         />
       )}
     </div>
+  );
+}
+
+/** A round secondary action in the bar: an icon on a phone, icon and word on a wide screen. */
+function BarButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className="inline-flex size-14 shrink-0 select-none items-center justify-center gap-2 rounded-full border border-hairline bg-surface text-ink shadow-raised transition-[transform,background-color] duration-150 ease-cellr hover:bg-raised active:scale-[0.98] lg:w-auto lg:px-5"
+    >
+      {children}
+      <span className="hidden text-small font-medium lg:inline">{label}</span>
+    </button>
+  );
+}
+
+function BarIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      width={22}
+      height={22}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {children}
+    </svg>
   );
 }
 
@@ -514,31 +695,5 @@ function BottleChips({
     <p className="basis-full pl-6 text-small text-ink-2" data-testid="bottle-chips">
       {chips.join(" · ")}
     </p>
-  );
-}
-
-function Section({ title, children }: { title?: string; children: ReactNode }) {
-  return (
-    <section className="rounded-card border border-hairline bg-surface p-5">
-      {title && (
-        <h2 className="mb-3 text-caption font-medium uppercase tracking-[0.18em] text-ink-3">
-          {title}
-        </h2>
-      )}
-      {children}
-    </section>
-  );
-}
-
-function Facts({ rows }: { rows: ReadonlyArray<readonly [string, string]> }) {
-  return (
-    <dl className="flex flex-col gap-3">
-      {rows.map(([label, value]) => (
-        <div key={label} className="flex items-baseline justify-between gap-4">
-          <dt className="text-small text-ink-2">{label}</dt>
-          <dd className="text-right text-body text-ink">{value}</dd>
-        </div>
-      ))}
-    </dl>
   );
 }
