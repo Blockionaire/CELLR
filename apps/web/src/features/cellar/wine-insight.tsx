@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, type FormEvent, type ReactNode } from "react";
 import {
@@ -37,6 +38,15 @@ export function AboutSection({
   const day = useDay();
   const { data } = useInsight(vintageId);
   const generate = useGenerateInsight(vintageId);
+  // true while the profile is being written automatically right after the wine was added
+  const { data: automatic } = useQuery({
+    queryKey: ["insight-pending", vintageId],
+    queryFn: () => false,
+    enabled: false,
+    initialData: false,
+    staleTime: Infinity,
+  });
+  const busy = generate.isPending || automatic === true;
   const [failure, setFailure] = useState<string | null>(null);
 
   const view: VintageInsightView | undefined = data;
@@ -56,7 +66,7 @@ export function AboutSection({
       title={title}
       action={
         out ? (
-          <Button size="sm" variant="ghost" loading={generate.isPending} onClick={ask}>
+          <Button size="sm" variant="ghost" loading={busy} onClick={ask}>
             {t("refresh")}
           </Button>
         ) : undefined
@@ -77,8 +87,8 @@ export function AboutSection({
           ) : (
             <div className="flex flex-col items-start gap-3">
               <p className="text-body text-ink-2">{t("intro")}</p>
-              <Button variant="secondary" loading={generate.isPending} onClick={ask}>
-                {generate.isPending ? t("thinking") : t("ask")}
+              <Button variant="secondary" loading={busy} onClick={ask}>
+                {busy ? t("thinking") : t("ask")}
               </Button>
             </div>
           )}

@@ -74,13 +74,18 @@ export function useCreateStorage() {
 
 /** Asks for the wine's AI profile once, if it has none yet. Never throws: this is a bonus, not part of adding. */
 async function profileInBackground(queryClient: QueryClient, vintageId: string) {
+  // The wine page reads this to show "writing the profile…" instead of an idle button while it runs.
+  const pending = ["insight-pending", vintageId];
   try {
+    queryClient.setQueryData(pending, true);
     const current = await api.get<VintageInsightView>(`/cellar/${vintageId}/insight`);
     if (!current.ready || current.insight) return;
     const made = await api.post<VintageInsightView>(`/cellar/${vintageId}/insight`);
     queryClient.setQueryData(["insight", vintageId], made);
   } catch {
     // switched off, rate-limited or offline: the "Tell me about this wine" button is still there
+  } finally {
+    queryClient.setQueryData(pending, false);
   }
 }
 
