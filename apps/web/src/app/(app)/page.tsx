@@ -10,12 +10,11 @@ export default async function HomePage() {
   const ctx = await getPageContext();
   if (!ctx) return null;
   // A person who has not made or joined a household yet has no cellar to summarise.
-  const home = await servicesFor(ctx)
-    .cellar.home()
-    .catch(() => null);
-  const reminders = await servicesFor(ctx)
-    .insights.reminders()
-    .catch(() => ({ ready: false, items: [] }));
+  const services = servicesFor(ctx);
+  const [home, reminders] = await Promise.all([
+    services.cellar.home().catch(() => null),
+    services.insights.reminders().catch(() => ({ ready: false, items: [] })),
+  ]);
   return (
     <HomeScreen
       name={me.displayName}

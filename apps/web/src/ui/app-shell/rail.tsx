@@ -47,6 +47,7 @@ export function Rail({ className }: { className?: string }) {
             <li key={key}>
               <Link
                 href={href}
+                prefetch
                 onClick={() => setTapped({ href, from: pathname })}
                 aria-current={active ? "page" : undefined}
                 className={cn(

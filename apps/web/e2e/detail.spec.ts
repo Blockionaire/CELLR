@@ -228,6 +228,9 @@ test.describe("moving a bottle", () => {
     await expect
       .poll(() => slotsById(vintageId))
       .toEqual({ [first!.id]: "1:1", [second!.id]: "1:2" });
+    // …and wait until the page itself shows it back, so the next step starts from what the person sees.
+    await expect(page.getByText("Shelf 1 · Position 1").first()).toBeVisible();
+    await expect(page.getByText("Shelf 3 · Position 2")).toHaveCount(0);
 
     // Take the first bottle out of its place.
     await page.getByRole("button", { name: "Move", exact: true }).click();
@@ -237,7 +240,9 @@ test.describe("moving a bottle", () => {
       .click();
     await expect(page.getByText("Taken out of its place.")).toBeVisible();
     await expect(page.getByText("Not placed yet").first()).toBeVisible();
-    expect(await slotsById(vintageId)).toEqual({ [first!.id]: "-", [second!.id]: "1:2" });
+    await expect
+      .poll(() => slotsById(vintageId))
+      .toEqual({ [first!.id]: "-", [second!.id]: "1:2" });
   });
 
   test("two people grabbing the same spot: the second gets a plain message and nothing is overwritten", async ({
