@@ -22,8 +22,25 @@ const raw: RawInsight = {
   value_low: 40,
   value_high: 60,
   value_basis: "Recent auction prices for the estate.",
+  drink_from_year: 2020,
+  drink_until_year: 2035,
   confidence: "high",
 };
+
+describe("the AI's drinking window", () => {
+  it("is kept when it is sane for the vintage", () => {
+    expect(checkInsight(raw, "EUR", 2015)!.drinkWindow).toEqual({ from: 2020, until: 2035 });
+  });
+  it("is dropped without a vintage year, when reversed, before the vintage or absurdly long", () => {
+    expect(checkInsight(raw, "EUR", null)!.drinkWindow).toBeNull();
+    expect(
+      checkInsight({ ...raw, drink_from_year: 2035, drink_until_year: 2020 }, "EUR", 2015)!
+        .drinkWindow,
+    ).toBeNull();
+    expect(checkInsight(raw, "EUR", 2025)!.drinkWindow).toBeNull();
+    expect(checkInsight({ ...raw, drink_until_year: 2200 }, "EUR", 2015)!.drinkWindow).toBeNull();
+  });
+});
 
 describe("bottle extras", () => {
   it("keeps who gave it only for a gift, and an occasion needs a name", () => {

@@ -352,7 +352,9 @@ export function VintageScreen({
               years: Math.max(1, Math.ceil(detail.drink.yearsUntilOpen ?? 1)),
             })}
           </p>
-          <p className="mt-3 text-caption text-ink-2">{tDrink("estimate")}</p>
+          <p className="mt-3 text-caption text-ink-2">
+            {tDrink(detail.drink.source === "ai" ? "estimateAi" : "estimate")}
+          </p>
         </Section>
 
         <AboutSection vintageId={detail.vintageId} title={t("about")}>

@@ -21,6 +21,8 @@ const raw = {
   value_low: 40,
   value_high: 60,
   value_basis: "Auctions.",
+  drink_from_year: 2020,
+  drink_until_year: 2035,
   confidence: "medium" as const,
 };
 
@@ -49,6 +51,7 @@ function setup(
     saveInsight: vi.fn(async (_h, _v, i) => (saved.push(i), true)),
     saveMyValue: vi.fn(async () => true),
     listValues: vi.fn(async () => []),
+    listWindows: vi.fn(async () => []),
     reservedBottles: vi.fn(async () => []),
     listExtras: vi.fn(async () => []),
     saveExtras: vi.fn(async () => true),

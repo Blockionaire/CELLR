@@ -52,6 +52,8 @@ export interface InventoryRow {
   addedAt: string;
   /** The label photo of this bottle, if it has one. */
   image: ImageRef | null;
+  /** The AI's drinking window for this vintage (set by the service when it knows one). */
+  aiWindow?: { from: number; until: number } | null;
 }
 
 /** What a person wrote about a bottle. */

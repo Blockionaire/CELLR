@@ -171,3 +171,15 @@ describe("where a bottle stands today", () => {
     expect(urgency(young)).toBeLessThan(urgency(unknown));
   });
 });
+
+describe("an AI window", () => {
+  it("replaces the style table and says so", () => {
+    const w = estimateDrinkWindow(wine({ aiWindow: { from: 2022, until: 2040 } }));
+    expect(w).toMatchObject({ from: 2022, until: 2040, source: "ai" });
+  });
+  it("is ignored when the wine has no year", () => {
+    expect(
+      estimateDrinkWindow(wine({ year: null, aiWindow: { from: 2022, until: 2040 } })),
+    ).toBeNull();
+  });
+});

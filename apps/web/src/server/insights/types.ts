@@ -21,6 +21,11 @@ export interface InsightsRepository {
   /** What one bottle of each vintage is worth now, where the household or the AI said so (null = not switched on). */
   listValues(householdId: string): Promise<Array<{ vintageId: string; valueCents: number }> | null>;
 
+  /** The AI's drinking window per vintage, where it was confident enough (null = not switched on). */
+  listWindows(
+    householdId: string,
+  ): Promise<Array<{ vintageId: string; from: number; until: number }> | null>;
+
   /** Bottles in the cellar that are kept for an occasion (any day), for "this one is reserved" notes. */
   reservedBottles(householdId: string): Promise<Array<{
     bottleId: string;

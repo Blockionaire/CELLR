@@ -607,6 +607,7 @@
     "window": "{from}–{until}",
     "today": "Today",
     "estimate": "An estimate from the region, the colour, the label and what it cost. A guess, not a verdict.",
+    "estimateAi": "An estimate by the AI from what it knows about this wine. A guess, not a verdict.",
     "yearsLeft": "{years, plural, one {# year left} other {# years left}}",
     "shortLabel": "{phase}",
     "homeTitle": "Drink soon",

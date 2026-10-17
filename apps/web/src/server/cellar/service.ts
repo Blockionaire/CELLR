@@ -86,6 +86,7 @@ export function toDrinkSummary(
     countryCode: string | null;
     name: string;
     pricePerBottleCents: number | null;
+    aiWindow?: { from: number; until: number } | null;
   },
   now: Date,
 ): DrinkSummary {
@@ -98,10 +99,12 @@ export function toDrinkSummary(
       countryCode: wine.countryCode,
       name: wine.name,
       pricePerBottleCents: wine.pricePerBottleCents,
+      aiWindow: wine.aiWindow ?? null,
     },
     now,
   );
   return {
+    source: status.window?.source ?? "estimate",
     phase: status.phase,
     from: status.window?.from ?? null,
     until: status.window?.until ?? null,
@@ -122,7 +125,14 @@ export function aggregateInventory(
   for (const s of scores)
     scoresByVintage.set(s.vintageId, [...(scoresByVintage.get(s.vintageId) ?? []), s.score]);
   const byVintage = new Map<string, Omit<CellarItem, "drink"> & { latest: string }>();
-  const facts = new Map<string, { prices: number[]; appellation: string | null }>();
+  const facts = new Map<
+    string,
+    {
+      prices: number[];
+      appellation: string | null;
+      aiWindow: { from: number; until: number } | null;
+    }
+  >();
   for (const r of rows) {
     let item = byVintage.get(r.vintageId);
     if (!item) {
@@ -144,7 +154,11 @@ export function aggregateInventory(
         latest: r.addedAt,
       };
       byVintage.set(r.vintageId, item);
-      facts.set(r.vintageId, { prices: [], appellation: r.appellation });
+      facts.set(r.vintageId, {
+        prices: [],
+        appellation: r.appellation,
+        aiWindow: r.aiWindow ?? null,
+      });
     }
     if (r.priceCents !== null) facts.get(r.vintageId)?.prices.push(r.priceCents);
     item.count += 1;
@@ -173,6 +187,7 @@ export function aggregateInventory(
             year: item.year,
             region: item.region,
             appellation: known?.appellation ?? null,
+            aiWindow: known?.aiWindow ?? null,
             countryCode: item.countryCode,
             name: item.wineName,
             pricePerBottleCents: prices.length
@@ -326,6 +341,7 @@ export function createCellarService(
     userId,
     now = () => new Date(),
     reservations,
+    drinkWindows,
   }: {
     userId: string;
     now?: () => Date;
@@ -334,8 +350,21 @@ export function createCellarService(
       vintages: ReadonlyMap<string, Reservation>;
       bottles: ReadonlySet<string>;
     }>;
+    /** What the AI said about when each vintage drinks well. Missing or failing = the style table is used. */
+    drinkWindows?: () => Promise<ReadonlyMap<string, { from: number; until: number }>>;
   },
 ) {
+  const windows = () =>
+    drinkWindows
+      ? drinkWindows().catch(() => new Map<string, { from: number; until: number }>())
+      : Promise.resolve(new Map<string, { from: number; until: number }>());
+  /** The household's bottles, each with the AI's drinking window for its vintage when there is one. */
+  const inventoryRows = async (householdId: string): Promise<InventoryRow[]> => {
+    const [rows, known] = await Promise.all([repo.listInventory(householdId), windows()]);
+    return known.size === 0
+      ? rows
+      : rows.map((r) => ({ ...r, aiWindow: known.get(r.vintageId) ?? null }));
+  };
   const reserved = () =>
     reservations
       ? reservations().catch(() => ({
@@ -396,7 +425,7 @@ export function createCellarService(
 
     async racks(): Promise<RackView> {
       const { id } = await household();
-      const [units, rows] = await Promise.all([repo.listStorage(id), repo.listInventory(id)]);
+      const [units, rows] = await Promise.all([repo.listStorage(id), inventoryRows(id)]);
       return buildRacks(units.map(toStorageView), rows);
     },
 
@@ -404,7 +433,7 @@ export function createCellarService(
     async tonight(request: TonightRequest): Promise<TonightView> {
       const { id } = await household();
       const [rows, favorites, scores] = await Promise.all([
-        repo.listInventory(id),
+        inventoryRows(id),
         repo.listFavoriteWineIds(userId),
         repo.listScores(id),
       ]);
@@ -438,7 +467,7 @@ export function createCellarService(
     async home(): Promise<HomeView> {
       const { id } = await household();
       const [rows, units, opened, favorites, scores] = await Promise.all([
-        repo.listInventory(id),
+        inventoryRows(id),
         repo.listStorage(id),
         repo.listRecentlyOpened(id, 5),
         repo.listFavoriteWineIds(userId),
@@ -514,7 +543,7 @@ export function createCellarService(
     async inventory(): Promise<CellarView> {
       const { id } = await household();
       const [rows, favorites, scores] = await Promise.all([
-        repo.listInventory(id),
+        inventoryRows(id),
         repo.listFavoriteWineIds(userId),
         repo.listScores(id),
       ]);
@@ -606,6 +635,7 @@ export function createCellarService(
             pricePerBottleCents: prices.length
               ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length)
               : null,
+            aiWindow: (await windows()).get(rows.vintageId) ?? null,
           },
           now(),
         ),

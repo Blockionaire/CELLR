@@ -24,7 +24,11 @@ export function useGenerateInsight(vintageId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => api.post<VintageInsightView>(`/cellar/${vintageId}/insight`),
-    onSuccess: (view) => queryClient.setQueryData(insightKey(vintageId), view),
+    onSuccess: (view) => {
+      queryClient.setQueryData(insightKey(vintageId), view);
+      // the AI also sets the drinking window, which the wine page keeps in its own copy
+      void queryClient.invalidateQueries({ queryKey: ["vintage", vintageId] });
+    },
   });
 }
 

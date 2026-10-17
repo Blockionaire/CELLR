@@ -133,7 +133,7 @@ export function createInsightsService(deps: InsightsDeps) {
         .catch(() => {});
       if (!result.ok) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
 
-      const output = checkInsight(result.value, currency);
+      const output = checkInsight(result.value, currency, detail.year);
       if (!output) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
       const saved = await deps.repo.saveInsight(id, vintageId, {
         output,
@@ -190,6 +190,13 @@ export function createInsightsService(deps: InsightsDeps) {
         });
       }
       return { vintages, bottles: new Set(live.map((r) => r.bottleId)) };
+    },
+
+    /** What the AI said about when each vintage drinks well, by vintage id. */
+    async windows(): Promise<ReadonlyMap<string, { from: number; until: number }>> {
+      const { id } = await deps.household();
+      const rows = (await deps.repo.listWindows(id)) ?? [];
+      return new Map(rows.map((r) => [r.vintageId, { from: r.from, until: r.until }]));
     },
 
     /** Bottles being kept for a day that is coming (or just passed). */

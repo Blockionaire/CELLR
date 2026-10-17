@@ -240,6 +240,8 @@ export interface DrinkSummary {
   yearsLeft: number | null;
   /** 0 = start of the window, 1 = end (below/above when not yet / past). */
   position: number | null;
+  /** Where the window comes from: the style table, the AI's knowledge of the wine, or the household's own. */
+  source: "estimate" | "ai" | "own";
 }
 
 /** One card in the cellar: one vintage of one wine, however many bottles of it are in the house. */
