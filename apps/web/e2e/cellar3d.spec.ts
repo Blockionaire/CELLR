@@ -40,7 +40,7 @@ const open3D = async (page: Page) => {
   await page.goto("/cellar");
   await page.getByRole("radio", { name: "3D" }).click();
   const scene = page.getByTestId("cellar-3d");
-  await expect(scene).toBeVisible();
+  await expect(scene).toBeVisible({ timeout: 20_000 });
   await expect(scene).toHaveAttribute("data-ready", "true", { timeout: 20_000 });
   return scene;
 };

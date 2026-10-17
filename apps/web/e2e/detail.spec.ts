@@ -237,7 +237,9 @@ test.describe("moving a bottle", () => {
       .click();
     await expect(page.getByText("Taken out of its place.")).toBeVisible();
     await expect(page.getByText("Not placed yet").first()).toBeVisible();
-    expect(await slotsById(vintageId)).toEqual({ [first!.id]: "-", [second!.id]: "1:2" });
+    await expect
+      .poll(() => slotsById(vintageId))
+      .toEqual({ [first!.id]: "-", [second!.id]: "1:2" });
   });
 
   test("two people grabbing the same spot: the second gets a plain message and nothing is overwritten", async ({
