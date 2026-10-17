@@ -10,12 +10,13 @@ import {
   type SommelierAnswer,
   type SommelierBottle,
 } from "@cellr/domain";
-import { PHASE_COLOUR } from "@/features/cellar/drink-bits";
 import { placeLine } from "@/features/cellar/wine-visuals";
+import { PhasePill, WineStage } from "@/features/tonight/pick-bits";
 import { errorMessage } from "@/lib/api";
 import { Button, buttonStyles } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { EmptyState } from "@/ui/empty-state";
+import { ChevronRightIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
 import { useAskSommelier } from "./hooks";
 
@@ -103,7 +104,7 @@ export function SommelierScreen({ hasBottles }: { hasBottles: boolean }) {
     );
 
   return (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className="mx-auto w-full max-w-2xl pb-24 lg:pb-0">
       <PageHeader
         title={t("title")}
         subtitle={t("subtitle")}
@@ -119,7 +120,10 @@ export function SommelierScreen({ hasBottles }: { hasBottles: boolean }) {
       <div className="flex flex-col gap-6">
         {turns.length === 0 && (
           <section aria-labelledby="chips-title">
-            <h2 id="chips-title" className="mb-3 text-small font-medium text-ink-2">
+            <h2
+              id="chips-title"
+              className="mb-3 text-caption font-medium uppercase tracking-[0.14em] text-bronze"
+            >
               {t("tryThese")}
             </h2>
             <div className="flex flex-wrap gap-2">
@@ -140,7 +144,10 @@ export function SommelierScreen({ hasBottles }: { hasBottles: boolean }) {
                 {turn.role === "user" && <UserBubble text={turn.text} />}
                 {turn.role === "sommelier" && <Answer answer={turn.answer} />}
                 {turn.role === "error" && (
-                  <div role="alert" className="rounded-card border border-hairline bg-raised p-4">
+                  <div
+                    role="alert"
+                    className="max-w-[92%] rounded-[22px] rounded-bl-[8px] bg-raised p-4 ring-1 ring-hairline"
+                  >
                     <p className="text-body text-ink">
                       {t("failed")} {turn.message}
                     </p>
@@ -152,35 +159,70 @@ export function SommelierScreen({ hasBottles }: { hasBottles: boolean }) {
               </li>
             ))}
             {ask.isPending && (
-              <li role="status" className="text-body text-ink-2 motion-safe:animate-pulse">
-                {t("thinking")}
+              <li role="status">
+                <span className="inline-flex items-center gap-2.5 rounded-full bg-surface py-2 pl-4 pr-5 text-small text-ink-2 ring-1 ring-hairline">
+                  <span aria-hidden="true" className="flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-accent-fg motion-safe:animate-pulse" />
+                    <span className="size-1.5 rounded-full bg-accent-fg motion-safe:animate-pulse [animation-delay:200ms]" />
+                    <span className="size-1.5 rounded-full bg-accent-fg motion-safe:animate-pulse [animation-delay:400ms]" />
+                  </span>
+                  <span className="motion-safe:animate-pulse">{t("thinking")}</span>
+                </span>
               </li>
             )}
           </ol>
         </div>
-        <div ref={end} />
+        <div ref={end} className="scroll-mb-44" />
 
+        {/* A pill that floats above the bottom bar; on wide screens it simply follows the conversation. */}
         <form
           onSubmit={submit}
-          className="sticky bottom-[calc(var(--nav-height)+env(safe-area-inset-bottom)+12px)] z-10 flex items-end gap-2 rounded-card border border-hairline bg-surface p-2 shadow-raised lg:bottom-4"
+          className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--nav-height)+env(safe-area-inset-bottom))] z-20 bg-linear-to-t from-canvas via-canvas/90 to-transparent px-5 pb-3 pt-8 lg:sticky lg:bottom-4 lg:bg-none lg:p-0"
         >
-          <textarea
-            ref={box}
-            aria-label={t("question")}
-            placeholder={t("placeholder")}
-            rows={1}
-            maxLength={800}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={onKeyDown}
-            className="max-h-32 min-h-12 flex-1 resize-none bg-transparent px-3 py-3 text-body text-ink placeholder:text-ink-3 focus-visible:outline-none"
-          />
-          <Button type="submit" size="md" loading={ask.isPending} disabled={draft.trim() === ""}>
-            {t("send")}
-          </Button>
+          <div className="pointer-events-auto mx-auto flex max-w-2xl items-end gap-2 rounded-[28px] bg-surface p-1.5 pl-5 shadow-raised ring-1 ring-hairline focus-within:ring-accent-fg">
+            <textarea
+              ref={box}
+              aria-label={t("question")}
+              placeholder={t("placeholder")}
+              rows={1}
+              maxLength={800}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={onKeyDown}
+              className="max-h-32 min-h-11 flex-1 resize-none bg-transparent py-2.5 text-body text-ink placeholder:text-ink-3 focus-visible:outline-none"
+            />
+            <Button
+              type="submit"
+              aria-label={t("send")}
+              className="size-11 shrink-0 px-0"
+              loading={ask.isPending}
+              disabled={draft.trim() === ""}
+            >
+              <SendIcon />
+            </Button>
+          </div>
         </form>
       </div>
     </div>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />
+    </svg>
   );
 }
 
@@ -188,7 +230,7 @@ function UserBubble({ text }: { text: string }) {
   const t = useTranslations("sommelier");
   return (
     <div className="flex justify-end">
-      <p className="max-w-[85%] whitespace-pre-wrap rounded-card rounded-br-control bg-accent px-4 py-3 text-body text-accent-ink">
+      <p className="max-w-[85%] whitespace-pre-wrap rounded-[22px] rounded-br-[8px] bg-accent px-4 py-3 text-body text-accent-ink">
         <span className="sr-only">{t("you")}: </span>
         {text}
       </p>
@@ -200,14 +242,20 @@ function Answer({ answer }: { answer: SommelierAnswer }) {
   const t = useTranslations("sommelier");
   return (
     <div className="flex flex-col gap-3">
-      <div className="max-w-[92%] rounded-card rounded-bl-control border border-hairline bg-surface px-4 py-3">
-        <p className="whitespace-pre-wrap text-body text-ink">
+      <div className="max-w-[92%] rounded-[22px] rounded-bl-[8px] bg-surface px-5 py-4 shadow-raised ring-1 ring-hairline">
+        <p
+          aria-hidden="true"
+          className="mb-1.5 text-caption font-medium uppercase tracking-[0.14em] text-bronze"
+        >
+          {t("sommelier")}
+        </p>
+        <p className="whitespace-pre-wrap font-display text-title text-ink">
           <span className="sr-only">{t("sommelier")}: </span>
           {answer.source === "ai" ? answer.text : answer.basic ? t(`basic.${answer.basic}`) : ""}
         </p>
       </div>
       {answer.bottles.length > 0 && (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2.5">
           {answer.bottles.map((b) => (
             <li key={b.vintageId}>
               <BottleCard bottle={b} />
@@ -215,7 +263,7 @@ function Answer({ answer }: { answer: SommelierAnswer }) {
           ))}
         </ul>
       )}
-      <p className="text-caption text-ink-3">
+      <p className="px-1 text-caption text-ink-3">
         {answer.source === "ai" ? t("aiNote") : answer.reason ? t(`reason.${answer.reason}`) : ""}
       </p>
     </div>
@@ -224,37 +272,38 @@ function Answer({ answer }: { answer: SommelierAnswer }) {
 
 function BottleCard({ bottle }: { bottle: SommelierBottle }) {
   const t = useTranslations("sommelier");
-  const tDrink = useTranslations("drink");
   const locale = useLocale();
   const where = placeLine(bottle.region, bottle.countryCode, locale);
   return (
     <Link
       href={`/cellar/${bottle.vintageId}`}
-      className="block rounded-card border border-hairline bg-surface p-4 transition-colors hover:bg-raised active:scale-[0.99]"
+      className="flex items-center gap-3.5 rounded-card bg-surface p-3 shadow-raised ring-1 ring-hairline transition-transform duration-150 ease-cellr active:scale-[0.98]"
     >
-      <span className="block truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
-        {bottle.producer}
+      <WineStage
+        type={bottle.type}
+        producer={bottle.producer}
+        wineName={bottle.wineName}
+        year={bottle.year}
+        className="h-24 w-[4.5rem] shrink-0"
+        bottleClassName="w-7"
+      />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
+          {bottle.producer}
+        </span>
+        <span className="block font-display text-title text-ink">{bottle.wineName}</span>
+        <span className="block text-small text-ink-2">
+          <span className="tnum">{formatVintage(bottle.year)}</span>
+          {where && <span> · {where}</span>}
+        </span>
+        <ReservedNote reserved={bottle.reserved} count={bottle.count} className="mt-1" />
+        <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-caption text-ink-3">
+          <PhasePill phase={bottle.drinkPhase} />
+          <span>{t("bottles", { count: bottle.count })}</span>
+          {bottle.places[0] && <span>{bottle.places[0]}</span>}
+        </span>
       </span>
-      <span className="block font-display text-title text-ink">{bottle.wineName}</span>
-      <span className="mt-0.5 block text-small text-ink-2">
-        <span className="tnum">{formatVintage(bottle.year)}</span>
-        {where && <span> · {where}</span>}
-      </span>
-      <ReservedNote reserved={bottle.reserved} count={bottle.count} className="mt-1" />
-      <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-ink-3">
-        <span>{t("bottles", { count: bottle.count })}</span>
-        {bottle.places[0] && <span>{bottle.places[0]}</span>}
-        {bottle.drinkPhase !== "unknown" && (
-          <span className="inline-flex items-center gap-1.5">
-            <span
-              aria-hidden="true"
-              className="size-2 rounded-full"
-              style={{ background: PHASE_COLOUR[bottle.drinkPhase] }}
-            />
-            {tDrink(`phase.${bottle.drinkPhase}`)}
-          </span>
-        )}
-      </span>
+      <ChevronRightIcon size={18} className="shrink-0 text-ink-3" />
     </Link>
   );
 }
