@@ -110,5 +110,7 @@ jobs:
         with: { version: 2.120.0 }
       - run: supabase start # applies supabase/migrations and supabase/seed
       - run: DB_TEST_MODE=supabase DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres bash scripts/db-test.sh
+      # Storage policies through the Storage API, and account deletion through the Auth admin API.
+      - run: node scripts/real-stack-smoke.mjs
       - if: always()
         run: supabase stop --no-backup
