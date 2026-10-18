@@ -4,6 +4,7 @@ import { createAnalyticsRepository } from "@/server/analytics/repository";
 import { createAnalyticsService } from "@/server/analytics/service";
 import { createAccountService } from "@/server/account/service";
 import { canDeleteAccounts, deleteAuthUser } from "@/server/privileged/account";
+import { pinStatus, removePin, setPin } from "@/server/privileged/pin";
 import { createAuthGateway } from "@/server/auth/gateway";
 import { createAuthService } from "@/server/auth/service";
 import { DomainError } from "@cellr/domain";
@@ -18,6 +19,7 @@ import { createExportRepository } from "@/server/export/repository";
 import { createExportService } from "@/server/export/service";
 import { createFriendsRepository } from "@/server/friends/repository";
 import { createFriendsService } from "@/server/friends/service";
+import { getTranslations } from "next-intl/server";
 import { sendFriendNotice } from "@/server/privileged/friend-notices";
 import { createHouseholdService } from "@/server/households/service";
 import { createRateLimitRepository } from "@/server/ratelimit/repository";
@@ -140,6 +142,25 @@ export function servicesFor(ctx: RequestContext) {
       repo: createFriendsRepository(ctx.db),
       userId: ctx.userId,
       notify: sendFriendNotice,
+      saveToWishlist: async ({ recommendedBy, note, year, ...wine }) => {
+        const t = await getTranslations("friends");
+        const created = await cellar.createWine({
+          producer: wine.producer,
+          name: wine.name,
+          type: wine.type,
+          ...(wine.countryCode ? { countryCode: wine.countryCode } : {}),
+          ...(wine.region ? { region: wine.region } : {}),
+        });
+        await wishlist.add({
+          wineId: created.id,
+          year,
+          note: (note
+            ? t("wishNoteWith", { name: recommendedBy, note })
+            : t("wishNote", { name: recommendedBy })
+          ).slice(0, 500),
+          maxPriceCents: null,
+        });
+      },
     }),
     push: createPushService({
       repo: createPushRepository(ctx.db),
@@ -155,6 +176,17 @@ export function servicesFor(ctx: RequestContext) {
       recordUsage: ({ householdId, task, status, usage }) =>
         recordAiUsage({ userId: ctx.userId, householdId, task, status, ...usage }),
     }),
+    pin: {
+      status: () => pinStatus(ctx.userId),
+      set: async (pin: string) => {
+        await setPin(ctx.userId, pin);
+        return { ready: true, enabled: true };
+      },
+      remove: async () => {
+        await removePin(ctx.userId);
+        return { ready: true, enabled: false };
+      },
+    },
     analytics: createAnalyticsService(createAnalyticsRepository(ctx.db), limiter),
     limiter,
   };

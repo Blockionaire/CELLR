@@ -50,7 +50,8 @@ _Supabase → SQL Editor → New query._ Run these files **in this order**, one 
 13. `…0013_push_reminders.sql` (reminders on your phone when a wine is at its best — also added later)
 14. `…0014_valuations.sql` (what a bottle is worth, with sources and history — also added later)
 15. `…0015_friends.sql` (friends: account names, friend codes, requests and what you share — also added later)
-16. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
+16. `…0016_recommendations_and_pin.sql` (recommending a wine to a friend, and signing in with a PIN — also added later)
+17. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
 
 If a file fails, stop: the files are not safe to re-run. Note which file and the error text.
 
@@ -80,6 +81,7 @@ missing step and simply leaves that feature switched off.
 | `20261018000013_push_reminders.sql`             | Reminders on your phone when a wine is at its best (also needs the keys below)                 |
 | `20261019000014_valuations.sql`                 | What a bottle is worth, looked up on the web with sources, kept as a history (value over time) |
 | `20261020000015_friends.sql`                    | Friends: an account name and friend code, friend requests, and sharing ratings/taste/cellar    |
+| `20261021000016_recommendations_and_pin.sql`    | Recommending a wine to a friend, and signing in with a 6-digit PIN instead of an email code    |
 
 ### Check it worked
 

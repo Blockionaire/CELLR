@@ -34,8 +34,14 @@ export async function createAuthGateway(): Promise<AuthGateway> {
       if (error) throw mapAuthError(error, "send");
     },
     async verifyEmailOtp(email, code) {
-      const { error } = await db.auth.verifyOtp({ email, token: code, type: "email" });
+      const { data, error } = await db.auth.verifyOtp({ email, token: code, type: "email" });
       if (error) throw mapAuthError(error, "verify");
+      if (!data.user) throw new DomainError("OTP_INVALID");
+      return { userId: data.user.id };
+    },
+    async verifyTokenHash(tokenHash) {
+      const { error } = await db.auth.verifyOtp({ token_hash: tokenHash, type: "magiclink" });
+      if (error) throw mapAuthError(error, "send"); // a token we just made should work: if not, it is ours
     },
     async signOut() {
       // Local scope: ends this device's session only.

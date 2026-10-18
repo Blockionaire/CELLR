@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { OtpCodeSchema, OtpRequestSchema, OtpVerifySchema } from "./auth";
+import {
+  isGuessablePin,
+  OtpCodeSchema,
+  OtpRequestSchema,
+  OtpVerifySchema,
+  PinSchema,
+  PinSignInSchema,
+} from "./auth";
 
 describe("email", () => {
   it("is trimmed and lowercased", () => {
@@ -29,5 +36,28 @@ describe("OTP code", () => {
   it("is validated together with the email", () => {
     expect(OtpVerifySchema.safeParse({ email: "a@b.co", code: "000000" }).success).toBe(true);
     expect(OtpVerifySchema.safeParse({ email: "nope", code: "000000" }).success).toBe(false);
+  });
+});
+
+describe("PIN", () => {
+  it.each(["000000", "111111", "123456", "987654", "890123", "121212", "123123"])(
+    "%s is too easy to guess",
+    (pin) => {
+      expect(isGuessablePin(pin)).toBe(true);
+      expect(PinSchema.safeParse(pin).success).toBe(false);
+    },
+  );
+  it.each(["482916", "130597", "271828"])("%s is fine", (pin) => {
+    expect(PinSchema.parse(pin)).toBe(pin);
+  });
+  it("is exactly 6 digits", () => {
+    for (const bad of ["12345", "1234567", "48291a", ""])
+      expect(PinSchema.safeParse(bad).success).toBe(false);
+  });
+  it("signing in does not judge the PIN, only its shape", () => {
+    expect(PinSignInSchema.parse({ email: "A@b.co", pin: "123456" })).toEqual({
+      email: "a@b.co",
+      pin: "123456",
+    });
   });
 });

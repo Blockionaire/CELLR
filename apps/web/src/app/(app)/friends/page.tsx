@@ -13,6 +13,14 @@ export default async function FriendsPage() {
   if (!ctx) return null; // the (app) layout has already redirected signed-out visitors
   const { friends } = servicesFor(ctx);
   const overview = await friends.overview();
-  const sharing = overview.ready ? await friends.sharing().catch(() => null) : null;
-  return <FriendsScreen initial={overview} initialSharing={sharing} />;
+  const [sharing, recommendations] = overview.ready
+    ? await Promise.all([friends.sharing().catch(() => null), friends.recommendations()])
+    : [null, { ready: false, items: [], unseen: 0 }];
+  return (
+    <FriendsScreen
+      initial={overview}
+      initialSharing={sharing}
+      initialRecommendations={recommendations}
+    />
+  );
 }

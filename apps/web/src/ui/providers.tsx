@@ -11,10 +11,16 @@ import { ToastProvider } from "./toast";
 /**
  * `onChanged` runs after ANY successful change (add a bottle, rate, move…): the server-rendered parts of the
  * pages the browser kept in memory are thrown away, so the next visit to a tab is never out of date.
+ * A change marked `meta: { refresh: false }` skips it: signing in, where refreshing the sign-in page would
+ * send the now signed-in person away before the flow is finished.
  */
 function makeQueryClient(onChanged: () => void) {
   return new QueryClient({
-    mutationCache: new MutationCache({ onSuccess: () => onChanged() }),
+    mutationCache: new MutationCache({
+      onSuccess: (_data, _vars, _ctx, mutation) => {
+        if (mutation.meta?.refresh !== false) onChanged();
+      },
+    }),
     defaultOptions: {
       queries: {
         staleTime: 30_000,

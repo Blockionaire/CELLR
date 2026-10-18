@@ -182,3 +182,35 @@ export function tasteHeadline(taste: FriendTaste): {
   }
   return { favouriteType, leanings: [...new Set(leanings)] };
 }
+
+// ---- Recommending a wine to friends ------------------------------------------------------------------
+
+export const RecommendSchema = z.object({
+  vintageId: z.uuid(),
+  friendIds: z.array(z.uuid()).min(1, "Choose a friend.").max(50),
+  note: z.string().trim().max(500).default(""),
+});
+export type Recommend = z.infer<typeof RecommendSchema>;
+
+export interface Recommendation {
+  id: string;
+  from: PersonCard;
+  producer: string;
+  wine: string;
+  year: number | null;
+  type: WineType;
+  region: string | null;
+  countryCode: string | null;
+  note: string | null;
+  createdAt: string;
+  seenAt: string | null;
+  /** When it was put on the wishlist. */
+  savedAt: string | null;
+}
+
+export interface RecommendationsView {
+  /** False until the database step for recommendations has been taken. */
+  ready: boolean;
+  items: Recommendation[];
+  unseen: number;
+}

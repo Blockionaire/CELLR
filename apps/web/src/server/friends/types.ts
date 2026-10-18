@@ -6,6 +6,7 @@ import type {
   FriendRack,
   FriendRating,
   FriendTaste,
+  Recommendation,
   SaveSharing,
   ShareItem,
   SharingView,
@@ -28,4 +29,12 @@ export interface FriendsRepository {
   taste(friendId: string): Promise<FriendTaste | null>;
   cellar(friendId: string): Promise<FriendCellarWine[]>;
   racks(friendId: string): Promise<FriendRack[] | null>;
+  /** The new recommendation's id. */
+  recommend(friendId: string, vintageId: string, note: string): Promise<string>;
+  /** null = the database step for recommendations has not been taken yet. */
+  recommendations(): Promise<Recommendation[] | null>;
+  markSeen(ids: string[]): Promise<void>;
+  markSaved(id: string): Promise<void>;
+  /** false = it was not there (or not mine to remove). */
+  dismiss(id: string): Promise<boolean>;
 }
