@@ -1106,7 +1106,7 @@
     "worth": "Worth now",
     "noPrices": "No prices recorded",
     "pricedNote": "{count, plural, one {from # bottle with a price} other {from # bottles with a price}}",
-    "noValues": "Ask for a wine profile to see values",
+    "noValues": "Look up a value on a wine’s page",
     "valuedNote": "{count, plural, one {# bottle valued} other {# bottles valued}}",
     "gainNote": "{amount} more than paid ({count, plural, one {# bottle} other {# bottles}})",
     "lossNote": "{amount} less than paid ({count, plural, one {# bottle} other {# bottles}})",

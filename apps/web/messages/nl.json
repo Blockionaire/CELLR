@@ -1106,7 +1106,7 @@
     "worth": "Waarde nu",
     "noPrices": "Geen prijzen vastgelegd",
     "pricedNote": "{count, plural, one {van # fles met prijs} other {van # flessen met prijs}}",
-    "noValues": "Vraag een wijnprofiel aan voor waarden",
+    "noValues": "Zoek een waarde op via de pagina van een wijn",
     "valuedNote": "{count, plural, one {# fles gewaardeerd} other {# flessen gewaardeerd}}",
     "gainNote": "{amount} meer dan betaald ({count, plural, one {# fles} other {# flessen}})",
     "lossNote": "{amount} minder dan betaald ({count, plural, one {# fles} other {# flessen}})",
