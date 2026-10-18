@@ -14,14 +14,23 @@ const OFFLINE_URL = "/offline.html"; // fully self-contained: inline CSS and fon
 const SHELL = [OFFLINE_URL, "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll(SHELL))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith("cellr-") && k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) =>
+        Promise.all(
+          keys.filter((k) => k.startsWith("cellr-") && k !== CACHE).map((k) => caches.delete(k)),
+        ),
+      )
       .then(() => self.clients.claim()),
   );
 });
@@ -34,7 +43,9 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/")) return; // private data: straight to the network, never stored
 
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(async () => (await caches.match(OFFLINE_URL)) ?? Response.error()));
+    event.respondWith(
+      fetch(request).catch(async () => (await caches.match(OFFLINE_URL)) ?? Response.error()),
+    );
     return;
   }
 
@@ -53,4 +64,39 @@ self.addEventListener("fetch", (event) => {
       ),
     );
   }
+});
+
+// ---- Reminders: "this wine is at its best now" ----------------------------------------------------------------
+// The server sends { title, body, url, tag }; a tap opens the app on that page (or focuses it when it is open).
+self.addEventListener("push", (event) => {
+  let message = {};
+  try {
+    message = event.data ? event.data.json() : {};
+  } catch {
+    message = { title: event.data ? event.data.text() : "CELLR" };
+  }
+  event.waitUntil(
+    self.registration.showNotification(message.title || "CELLR", {
+      body: message.body || "",
+      tag: message.tag || "cellr",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: {
+        url: typeof message.url === "string" && message.url.startsWith("/") ? message.url : "/",
+      },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || "/", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => w.url.startsWith(self.location.origin));
+      if (open)
+        return open.focus().then((w) => (w && "navigate" in w ? w.navigate(url) : undefined));
+      return self.clients.openWindow(url);
+    }),
+  );
 });

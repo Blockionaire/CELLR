@@ -34,3 +34,25 @@ export function getAiEnv(): AiEnv {
     chatModel: clean(process.env.AI_MODEL_CHAT) ?? "gpt-4.1-mini",
   };
 }
+
+/** The keys that let this app send Web Push messages (VAPID). Null = reminders on the phone are not switched on. */
+export interface PushEnv {
+  publicKey: string;
+  privateKey: string;
+  /** Who sends: "mailto:you@example.com" or the app's https address. */
+  subject: string;
+}
+
+export function getPushEnv(): PushEnv | null {
+  const clean = (v: string | undefined) => v?.trim() || null;
+  const publicKey = clean(process.env.VAPID_PUBLIC_KEY);
+  const privateKey = clean(process.env.VAPID_PRIVATE_KEY);
+  const subject = clean(process.env.VAPID_SUBJECT);
+  if (!publicKey || !privateKey || !subject) return null;
+  return { publicKey, privateKey, subject };
+}
+
+/** What a scheduled job must show to run (Vercel sends it as "Authorization: Bearer …"). Null = no scheduled jobs. */
+export function getCronSecret(): string | null {
+  return process.env.CRON_SECRET?.trim() || null;
+}

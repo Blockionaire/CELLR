@@ -104,7 +104,8 @@
       "tomorrow": "Tomorrow",
       "days": "In {days} days"
     },
-    "shortcutInsights": "Insights"
+    "shortcutInsights": "Insights",
+    "atPeak": "At their best now"
   },
   "cellar": {
     "title": "Cellar",
@@ -288,7 +289,19 @@
     "deleteAccountBody": "This deletes your sign-in and everything that is only yours, such as your favourites and your ratings. A household only you are in is deleted too, with all its bottles and photos. Households you share with others are left, and keep their cellars.",
     "deleteAccountConfirmLabel": "Type your email address to confirm",
     "deleteAccountConfirm": "Delete my account",
-    "dangerSection": "Danger zone"
+    "dangerSection": "Danger zone",
+    "reminders": {
+      "title": "Reminders",
+      "body": "Get a notification on this phone when a wine in your cellar reaches its best years, and when it is time to drink it soon.",
+      "turnOn": "Turn on for this phone",
+      "turnOff": "Turn off",
+      "isOn": "On for this phone.",
+      "switchedOn": "Reminders are on for this phone.",
+      "switchedOff": "Reminders are off for this phone.",
+      "failed": "That didn’t work. Try again in a moment.",
+      "denied": "Notifications are blocked for CELLR. Allow them in your phone’s settings, then come back here.",
+      "unsupported": "This browser can’t show notifications. On an iPhone: add CELLR to your home screen (Share → Add to Home Screen), open it from there and turn this on."
+    }
   },
   "errors": {
     "network": "We couldn't reach CELLR. Check your connection and try again.",
@@ -1109,5 +1122,13 @@
     "allDated": "Kept for {title} · {when}",
     "some": "{reserved} of {total} kept for {title}",
     "someDated": "{reserved} of {total} kept for {title} · {when}"
+  },
+  "pushMessage": {
+    "peakTitle": "{wine} is at its best now",
+    "peakBody": "Its best years have begun: a lovely moment to open it.",
+    "endingTitle": "Drink {wine} soon",
+    "endingBody": "It is in the last stretch of its best years.",
+    "manyTitle": "{count} wines to open",
+    "manyBody": "{wines}"
   }
 }

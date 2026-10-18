@@ -457,7 +457,7 @@ export interface DrinkStatus {
   yearsLeft: number | null;
 }
 
-const fractionalYear = (now: Date) => now.getUTCFullYear() + now.getUTCMonth() / 12;
+export const fractionalYear = (now: Date): number => now.getUTCFullYear() + now.getUTCMonth() / 12;
 
 export function drinkStatus(window: DrinkWindow | null, now: Date): DrinkStatus {
   if (!window)

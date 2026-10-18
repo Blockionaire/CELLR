@@ -32,6 +32,7 @@ export default async function HomePage() {
           unplaced: 0,
           recentlyAdded: [],
           drinkSoon: [],
+          atPeak: [],
           recentlyOpened: [],
         }
       }

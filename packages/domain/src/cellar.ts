@@ -333,6 +333,8 @@ export interface HomeView {
   recentlyAdded: CellarItem[];
   /** The ones to open first: at the end of their window or past it, most pressing first (at most three). */
   drinkSoon: CellarItem[];
+  /** In their best years now, the ones closest to the end of them first (at most three). */
+  atPeak: CellarItem[];
   /** Newest first. */
   recentlyOpened: OpenedEntry[];
 }

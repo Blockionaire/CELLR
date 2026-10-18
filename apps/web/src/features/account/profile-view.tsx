@@ -33,6 +33,7 @@ import { DeleteAccountSheet } from "./delete-account-sheet";
 import { HouseholdSettings } from "./household-settings";
 import { HouseholdSwitcher } from "./household-switcher";
 import { InviteSheet } from "./invite-sheet";
+import { RemindersSection } from "./reminders-section";
 
 function Section({
   title,
@@ -288,6 +289,8 @@ export function ProfileView({
           {exportData.isPending ? t("exporting") : t("exportLink")}
         </Button>
       </Section>
+
+      <RemindersSection />
 
       <Section title={t("appearanceSection")}>
         <p className="mb-2 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
