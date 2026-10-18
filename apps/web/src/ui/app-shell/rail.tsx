@@ -23,6 +23,7 @@ export function Rail({ className }: { className?: string }) {
   return (
     <nav
       aria-label={t("label")}
+      style={{ viewTransitionName: "app-nav" }}
       className={cn(
         "fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-hairline bg-canvas/60 px-4 py-8 backdrop-blur-xl lg:flex",
         className,

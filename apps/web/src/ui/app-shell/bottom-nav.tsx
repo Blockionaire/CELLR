@@ -21,6 +21,8 @@ export function BottomNav({ className }: { className?: string }) {
   return (
     <nav
       aria-label={t("label")}
+      // its own layer in page changes: the bar stays put while the page under it cross-fades (globals.css)
+      style={{ viewTransitionName: "app-nav" }}
       className={cn(
         "fixed inset-x-0 bottom-0 z-30 border-t border-hairline bg-canvas/90 backdrop-blur-xl pb-safe lg:hidden",
         className,

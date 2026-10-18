@@ -223,6 +223,14 @@
   animation-duration: 160ms;
   animation-timing-function: var(--ease-cellr, ease-out);
 }
+/* The tab bar (and the rail on wide screens) never fades: it is its own layer, shown as it is at once. */
+::view-transition-group(app-nav),
+::view-transition-new(app-nav) {
+  animation: none;
+}
+::view-transition-old(app-nav) {
+  display: none;
+}
 ::view-transition-group(*) {
   animation-duration: 280ms;
   animation-timing-function: var(--ease-cellr, ease-out);
