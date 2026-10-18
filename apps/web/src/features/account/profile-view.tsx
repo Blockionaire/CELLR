@@ -34,6 +34,7 @@ import { HouseholdSettings } from "./household-settings";
 import { HouseholdSwitcher } from "./household-switcher";
 import { InviteSheet } from "./invite-sheet";
 import { RemindersSection } from "./reminders-section";
+import { FriendsEntry } from "@/features/friends/entry";
 
 function Section({
   title,
@@ -208,6 +209,8 @@ export function ProfileView({
           )}
         </form>
       </Section>
+
+      <FriendsEntry />
 
       {active && (
         <Section title={t("householdSection")}>

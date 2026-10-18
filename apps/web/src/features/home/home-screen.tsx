@@ -18,6 +18,7 @@ import { Stars } from "@/ui/stars";
 import { EmptyState } from "@/ui/empty-state";
 import { DrinkLabel } from "@/features/cellar/drink-bits";
 import { ItemBottle, STAGE } from "@/features/cellar/wine-card";
+import { FriendRequestsBanner } from "@/features/friends/entry";
 import { QuickRate } from "./quick-rate";
 
 /** "yesterday", "3 days ago", in the viewer's language. */
@@ -125,6 +126,8 @@ export async function HomeScreen({
           </div>
         </section>
       )}
+
+      <FriendRequestsBanner />
 
       <nav aria-label={t("shortcuts")} className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[

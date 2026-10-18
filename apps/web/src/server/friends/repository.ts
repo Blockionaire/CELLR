@@ -126,9 +126,8 @@ export function createFriendsRepository(db: Db): FriendsRepository {
     },
 
     async saveSharing(userId, { modes, picks }) {
-      const saved = await db
-        .from("sharing_settings")
-        .upsert({ user_id: userId, ...modes }, { onConflict: "user_id" });
+      // The row is always mine: user_id comes from the sign-in (its default), never from the request.
+      const saved = await db.from("sharing_settings").upsert(modes, { onConflict: "user_id" });
       if (saved.error) throw mapDbError(saved.error);
       const cleared = await db.from("sharing_picks").delete().eq("owner", userId);
       if (cleared.error) throw mapDbError(cleared.error);
@@ -170,7 +169,11 @@ export function createFriendsRepository(db: Db): FriendsRepository {
     async taste(friendId) {
       const { data, error } = await db.rpc("friend_taste", { p_friend: friendId });
       if (error) throw mapDbError(error);
-      return (data as FriendTaste | null) ?? null;
+      const taste = (data as FriendTaste | null) ?? null;
+      // No profiles behind the wines they liked: no structure, rather than four empty scales.
+      if (taste?.structure && Object.values(taste.structure).every((v) => v === null))
+        return { ...taste, structure: null };
+      return taste;
     },
 
     async cellar(friendId) {
