@@ -1202,6 +1202,11 @@
     "endingTitle": "Drink {wine} soon",
     "endingBody": "It is in the last stretch of its best years.",
     "manyTitle": "{count} wines to open",
-    "manyBody": "{wines}"
+    "manyBody": "{wines}",
+    "someone": "Someone",
+    "friendRequestTitle": "{name} wants to be friends",
+    "friendRequestBody": "Open CELLR to accept and see each other's wines.",
+    "friendAcceptedTitle": "{name} accepted your request",
+    "friendAcceptedBody": "You are friends now: see what they share."
   }
 }

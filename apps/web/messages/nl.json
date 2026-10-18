@@ -1202,6 +1202,11 @@
     "endingTitle": "Drink {wine} binnenkort",
     "endingBody": "Hij zit in het laatste stuk van zijn beste jaren.",
     "manyTitle": "{count} wijnen om te openen",
-    "manyBody": "{wines}"
+    "manyBody": "{wines}",
+    "someone": "Iemand",
+    "friendRequestTitle": "{name} wil vrienden worden",
+    "friendRequestBody": "Open CELLR om te accepteren en elkaars wijnen te zien.",
+    "friendAcceptedTitle": "{name} heeft je verzoek geaccepteerd",
+    "friendAcceptedBody": "Jullie zijn nu vrienden: kijk wat er gedeeld wordt."
   }
 }
