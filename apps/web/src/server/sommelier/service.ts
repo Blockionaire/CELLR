@@ -87,15 +87,23 @@ export function createSommelierService(deps: SommelierDeps) {
     async ask(request: AskSommelier): Promise<SommelierAnswer> {
       const question = request.messages.at(-1)!.text;
       const { items } = await deps.cellar();
-      // Nothing to talk about yet: no point paying for an answer that can only say so.
-      if (items.length === 0)
-        return { source: "basic", text: null, basic: "nothing", bottles: [], reason: null };
+      const tonight = request.mode === "tonight";
+      const nothing: SommelierAnswer = {
+        source: "basic",
+        text: null,
+        basic: "nothing",
+        bottles: [],
+        reason: null,
+      };
+      // Nothing to talk about yet: no point paying for an answer that can only say so. (For tonight there is:
+      // what to buy.)
+      if (items.length === 0 && (!tonight || !deps.llm)) return nothing;
       if (!deps.llm) return plain(items, question, "ai-off");
       try {
         await deps.spend();
       } catch (error) {
         if (error instanceof DomainError && error.code === "RATE_LIMITED")
-          return plain(items, question, "limit");
+          return items.length === 0 ? nothing : plain(items, question, "limit");
         throw error;
       }
 
@@ -105,11 +113,14 @@ export function createSommelierService(deps: SommelierDeps) {
         task: "sommelier_chat",
         model: "chat",
         system: SOMMELIER_SYSTEM,
-        user: sommelierUserMessage(digest.text, shown, digest.total, request.messages),
+        user: sommelierUserMessage(digest.text, shown, digest.total, request.messages, {
+          mode: request.mode ?? "chat",
+          budget: request.budget ?? null,
+        }),
         schemaName: "sommelier_answer",
         jsonSchema: SOMMELIER_SCHEMA,
         parse: parseSommelier,
-        maxOutputTokens: 500,
+        maxOutputTokens: 900,
         timeoutMs: 30_000,
       });
       await deps
@@ -120,15 +131,21 @@ export function createSommelierService(deps: SommelierDeps) {
           usage: result.usage,
         })
         .catch(() => {});
-      if (!result.ok) return plain(items, question, "ai-down");
+      const fallback = () =>
+        items.length === 0
+          ? { ...nothing, reason: "ai-down" as const }
+          : plain(items, question, "ai-down");
+      if (!result.ok) return fallback();
 
       const checked = checkSommelierAnswer(result.value, digest);
-      if (!checked) return plain(items, question, "ai-down");
+      if (!checked) return fallback();
       return {
         source: "ai",
         text: checked.text,
         basic: null,
         bottles: checked.bottles,
+        verdict: checked.verdict,
+        buy: checked.buy,
         reason: null,
       };
     },

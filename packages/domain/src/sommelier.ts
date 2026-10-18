@@ -21,10 +21,27 @@ const ChatMessageSchema = z.object({
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
 /** The recent conversation, oldest first, ending with what the person just asked. Nothing is stored on the server. */
+/** If something has to be bought: how much it may cost, per bottle. */
+export const BUDGETS = ["value", "mid", "premium", "splurge"] as const;
+export type Budget = (typeof BUDGETS)[number];
+/** The budget bands in euros, for the model and the screen (the upper bound of "splurge" is open). */
+export const BUDGET_EUROS: Record<Budget, readonly [number, number | null]> = {
+  value: [0, 15],
+  mid: [15, 30],
+  premium: [30, 60],
+  splurge: [60, null],
+};
+
 export const AskSommelierSchema = z
-  .object({ messages: z.array(ChatMessageSchema).min(1).max(12) })
+  .object({
+    messages: z.array(ChatMessageSchema).min(1).max(12),
+    /** "tonight": pairing a dish or an evening, judged honestly, with what to buy when nothing fits. */
+    mode: z.enum(["chat", "tonight"]).default("chat"),
+    budget: z.enum(BUDGETS).nullable().default(null),
+  })
   .refine((v) => v.messages.at(-1)?.role === "user", "Ask a question.");
-export type AskSommelier = z.infer<typeof AskSommelierSchema>;
+/** What a caller sends; mode and budget may be left out (a plain chat, no budget). */
+export type AskSommelier = z.input<typeof AskSommelierSchema>;
 
 // ---- The answer ----------------------------------------------------------------------------------------------
 
@@ -45,8 +62,24 @@ export interface SommelierBottle {
   reserved?: Reservation | null;
 }
 
+/** A wine worth buying for the moment, when the cellar has nothing (good enough). Never one that is in it. */
+export interface BuySuggestion {
+  /** "Barolo, e.g. G.D. Vajra Albe" */
+  wine: string;
+  why: string;
+  /** A rough price per bottle, as the model words it ("about €20–25"). */
+  price: string;
+}
+
+/** How well the cellar answers the question: a real match, something that will do, or nothing. */
+export type PairingVerdict = "match" | "partial" | "none";
+
 export interface SommelierAnswer {
   source: "ai" | "basic";
+  /** Only for a pairing question answered by the AI. */
+  verdict?: PairingVerdict | null;
+  /** Wines to buy instead (or as well), within the budget. */
+  buy?: BuySuggestion[];
   /** The model's words (source "ai"); null for the plain answer, whose one sentence the screen words itself. */
   text: string | null;
   /** Which sentence the screen shows for a plain answer. */
@@ -161,8 +194,10 @@ export function cellarDigest(items: readonly CellarItem[], question: string): Ce
 export const RawSommelierSchema = z.object({
   answer: z.string(),
   bottle_refs: z.array(z.string()),
+  verdict: z.enum(["match", "partial", "none", "not_pairing"]).default("not_pairing"),
+  buy: z.array(z.object({ wine: z.string(), why: z.string(), price: z.string() })).default([]),
 });
-export type RawSommelier = z.infer<typeof RawSommelierSchema>;
+export type RawSommelier = z.input<typeof RawSommelierSchema>;
 
 const MAX_ANSWER = 900;
 const MAX_BOTTLES = 3;
@@ -174,7 +209,12 @@ const MAX_BOTTLES = 3;
 export function checkSommelierAnswer(
   raw: RawSommelier,
   digest: CellarDigest,
-): { text: string; bottles: SommelierBottle[] } | null {
+): {
+  text: string;
+  bottles: SommelierBottle[];
+  verdict: PairingVerdict | null;
+  buy: BuySuggestion[];
+} | null {
   const text = raw.answer
     // eslint-disable-next-line no-control-regex -- stripping control characters is the point
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]+/g, " ")
@@ -193,8 +233,30 @@ export function checkSommelierAnswer(
     bottles.push(toSommelierBottle(item));
     if (bottles.length === MAX_BOTTLES) break;
   }
-  return { text, bottles };
+  const verdict = !raw.verdict || raw.verdict === "not_pairing" ? null : raw.verdict;
+  const buy = (raw.buy ?? [])
+    .map((b) => ({ wine: tidy(b.wine, 120), why: tidy(b.why, 240), price: tidy(b.price, 40) }))
+    .filter((b) => b.wine !== "")
+    .slice(0, MAX_BUY);
+  // "Nothing fits" with a bottle to open contradicts itself: trust the bottles, call it partial.
+  return {
+    text,
+    bottles,
+    verdict: verdict === "none" && bottles.length > 0 ? "partial" : verdict,
+    buy,
+  };
 }
+
+const MAX_BUY = 3;
+
+const tidy = (value: string, max: number) =>
+  value
+    // eslint-disable-next-line no-control-regex -- stripping control characters is the point
+    .replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max)
+    .trim();
 
 // ---- Understanding a question without AI ---------------------------------------------------------------------
 

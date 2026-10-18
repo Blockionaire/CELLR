@@ -3,10 +3,22 @@
 import Link from "next/link";
 import { ReservedNote } from "@/features/cellar/reserved-note";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
+import {
+  BUDGET_EUROS,
+  BUDGETS,
   ERROR_MESSAGES,
   formatVintage,
+  type Budget,
+  type BuySuggestion,
+  type PairingVerdict,
   type SommelierAnswer,
   type SommelierBottle,
 } from "@cellr/domain";
@@ -16,6 +28,7 @@ import { errorMessage } from "@/lib/api";
 import { Button, buttonStyles } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { EmptyState } from "@/ui/empty-state";
+import { cn } from "@/ui/cn";
 import { ChevronRightIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
 import { useAskSommelier } from "./hooks";
@@ -35,10 +48,78 @@ const spoken = (turn: Turn, basic: (a: SommelierAnswer) => string) =>
       ? { role: "assistant" as const, text: turn.answer.text ?? basic(turn.answer) }
       : null;
 
+/** The general sommelier: anything about the cellar. */
 export function SommelierScreen({ hasBottles }: { hasBottles: boolean }) {
+  const t = useTranslations("sommelier");
+  return (
+    <SommelierChat
+      mode="chat"
+      title={t("title")}
+      subtitle={t("subtitle")}
+      chips={CHIPS.map((id) => t(`chips.${id}`))}
+      hasBottles={hasBottles}
+    />
+  );
+}
+
+const BUDGET_KEY = "cellr.budget";
+
+const budgetListeners = new Set<() => void>();
+const readBudget = (): Budget => {
+  try {
+    const saved = window.localStorage.getItem(BUDGET_KEY);
+    if (saved && (BUDGETS as readonly string[]).includes(saved)) return saved as Budget;
+  } catch {
+    // storage blocked: the default will do
+  }
+  return "mid";
+};
+
+/** The budget for buying, remembered on this phone; "mid" (€15–30) until chosen. */
+function useBudget(): [Budget, (b: Budget) => void] {
+  const budget = useSyncExternalStore(
+    (l) => {
+      budgetListeners.add(l);
+      return () => budgetListeners.delete(l);
+    },
+    readBudget,
+    () => "mid" as Budget,
+  );
+  return [
+    budget,
+    (b) => {
+      try {
+        window.localStorage.setItem(BUDGET_KEY, b);
+      } catch {
+        // only a convenience
+      }
+      for (const l of budgetListeners) l();
+    },
+  ];
+}
+
+/**
+ * A conversation with the sommelier. "tonight" is the same sommelier asked about tonight's dish or evening: it
+ * judges the bottles in the cellar honestly, and suggests wines to buy, within the budget, when none fit.
+ */
+export function SommelierChat({
+  mode,
+  title,
+  subtitle,
+  chips,
+  hasBottles,
+}: {
+  mode: "chat" | "tonight";
+  title: string;
+  subtitle: string;
+  /** Tappable starting questions. */
+  chips: readonly string[];
+  hasBottles: boolean;
+}) {
   const t = useTranslations("sommelier");
   const te = useTranslations();
   const ask = useAskSommelier();
+  const [budget, setBudget] = useBudget();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const end = useRef<HTMLDivElement>(null);
@@ -65,7 +146,11 @@ export function SommelierScreen({ hasBottles }: { hasBottles: boolean }) {
       .filter((m): m is NonNullable<typeof m> => m !== null)
       .slice(-10);
     try {
-      const answer = await ask.mutateAsync({ messages });
+      const answer = await ask.mutateAsync({
+        messages,
+        mode,
+        budget: mode === "tonight" ? budget : null,
+      });
       setTurns((current) => [...current, { role: "sommelier", answer }]);
     } catch (e) {
       setTurns((current) => [
@@ -87,7 +172,8 @@ export function SommelierScreen({ hasBottles }: { hasBottles: boolean }) {
     }
   }
 
-  if (!hasBottles)
+  // An empty cellar can still be told what to buy tonight; a general chat about it has nothing to say.
+  if (!hasBottles && mode === "chat")
     return (
       <>
         <PageHeader title={t("title")} />
@@ -105,19 +191,14 @@ export function SommelierScreen({ hasBottles }: { hasBottles: boolean }) {
 
   return (
     <div className="mx-auto w-full max-w-2xl pb-24 lg:pb-0">
-      <PageHeader
-        title={t("title")}
-        subtitle={t("subtitle")}
-        actions={
-          turns.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setTurns([])}>
-              {t("newChat")}
-            </Button>
-          )
-        }
-      />
+      <PageHeader title={title} subtitle={subtitle} />
 
       <div className="flex flex-col gap-6">
+        {turns.length > 0 && (
+          <Button variant="ghost" size="sm" className="-mt-3 self-end" onClick={() => setTurns([])}>
+            {t("newChat")}
+          </Button>
+        )}
         {turns.length === 0 && (
           <section aria-labelledby="chips-title">
             <h2
@@ -127,9 +208,35 @@ export function SommelierScreen({ hasBottles }: { hasBottles: boolean }) {
               {t("tryThese")}
             </h2>
             <div className="flex flex-wrap gap-2">
-              {CHIPS.map((id) => (
-                <Chip key={id} onClick={() => void send(t(`chips.${id}`))}>
-                  {t(`chips.${id}`)}
+              {chips.map((label) => (
+                <Chip key={label} onClick={() => void send(label)}>
+                  {label}
+                </Chip>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {mode === "tonight" && (
+          <section aria-labelledby="budget-title" data-testid="budget">
+            <h2
+              id="budget-title"
+              className="mb-1 text-caption font-medium uppercase tracking-[0.14em] text-bronze"
+            >
+              {t("budgetTitle")}
+            </h2>
+            <p className="mb-3 text-small text-ink-3">{t("budgetHint")}</p>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="budget-title">
+              {BUDGETS.map((b) => (
+                <Chip
+                  key={b}
+                  role="radio"
+                  aria-pressed={undefined}
+                  aria-checked={budget === b}
+                  selected={budget === b}
+                  onClick={() => setBudget(b)}
+                >
+                  {budgetLabel(b)}
                 </Chip>
               ))}
             </div>
@@ -183,7 +290,7 @@ export function SommelierScreen({ hasBottles }: { hasBottles: boolean }) {
             <textarea
               ref={box}
               aria-label={t("question")}
-              placeholder={t("placeholder")}
+              placeholder={mode === "tonight" ? t("placeholderTonight") : t("placeholder")}
               rows={1}
               maxLength={800}
               value={draft}
@@ -206,6 +313,11 @@ export function SommelierScreen({ hasBottles }: { hasBottles: boolean }) {
     </div>
   );
 }
+
+const budgetLabel = (b: Budget) => {
+  const [low, high] = BUDGET_EUROS[b];
+  return high === null ? `€${low}+` : low === 0 ? `< €${high}` : `€${low}–${high}`;
+};
 
 function SendIcon() {
   return (
@@ -249,6 +361,7 @@ function Answer({ answer }: { answer: SommelierAnswer }) {
         >
           {t("sommelier")}
         </p>
+        {answer.verdict && <VerdictBadge verdict={answer.verdict} />}
         <p className="whitespace-pre-wrap font-display text-title text-ink">
           <span className="sr-only">{t("sommelier")}: </span>
           {answer.source === "ai" ? answer.text : answer.basic ? t(`basic.${answer.basic}`) : ""}
@@ -263,6 +376,7 @@ function Answer({ answer }: { answer: SommelierAnswer }) {
           ))}
         </ul>
       )}
+      {answer.buy && answer.buy.length > 0 && <BuyList items={answer.buy} />}
       <p className="px-1 text-caption text-ink-3">
         {answer.source === "ai" ? t("aiNote") : answer.reason ? t(`reason.${answer.reason}`) : ""}
       </p>
@@ -305,5 +419,68 @@ function BottleCard({ bottle }: { bottle: SommelierBottle }) {
       </span>
       <ChevronRightIcon size={18} className="shrink-0 text-ink-3" />
     </Link>
+  );
+}
+
+const VERDICT_TONE: Record<PairingVerdict, string> = {
+  match: "bg-ready-bg text-ready-ink",
+  partial: "bg-peak-bg text-peak-ink",
+  none: "bg-raised text-ink-2 ring-1 ring-hairline",
+};
+const VERDICT_DOT: Record<PairingVerdict, string> = {
+  match: "bg-ready",
+  partial: "bg-peak",
+  none: "bg-ink-3",
+};
+
+/** How well the cellar answers it, in one honest word or three. */
+function VerdictBadge({ verdict }: { verdict: PairingVerdict }) {
+  const t = useTranslations("sommelier");
+  return (
+    <p
+      data-testid="verdict"
+      className={cn(
+        "mb-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-caption font-semibold",
+        VERDICT_TONE[verdict],
+      )}
+    >
+      <span aria-hidden="true" className={cn("size-2 rounded-full", VERDICT_DOT[verdict])} />
+      {t(`verdict.${verdict}`)}
+    </p>
+  );
+}
+
+/** Wines worth buying for it: clearly not from the cellar. */
+function BuyList({ items }: { items: readonly BuySuggestion[] }) {
+  const t = useTranslations("sommelier");
+  return (
+    <section
+      aria-label={t("buyTitle")}
+      data-testid="buy"
+      className="rounded-card border border-dashed border-hairline bg-canvas p-4"
+    >
+      <h3 className="text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+        {t("buyTitle")}
+      </h3>
+      <p className="mt-1 text-small text-ink-3">{t("buyHint")}</p>
+      <ul className="mt-3 flex flex-col divide-y divide-hairline">
+        {items.map((b) => (
+          <li
+            key={b.wine}
+            className="flex items-start justify-between gap-3 py-3 first:pt-1 last:pb-0"
+          >
+            <span className="min-w-0">
+              <span className="block font-display text-title text-ink">{b.wine}</span>
+              <span className="mt-0.5 block text-small text-ink-2">{b.why}</span>
+            </span>
+            {b.price && (
+              <span className="shrink-0 rounded-full bg-raised px-3 py-1 text-caption font-semibold text-ink tnum">
+                {b.price}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

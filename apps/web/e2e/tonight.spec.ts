@@ -1,5 +1,5 @@
-import { expect, test, type BrowserContextOptions } from "@playwright/test";
-import { api, apiClient, arrive, audit, sessionToken, sql } from "./helpers";
+import { expect, test, type BrowserContextOptions, type Page } from "@playwright/test";
+import { api, apiClient, arrive, audit, sessionToken, STACK } from "./helpers";
 
 const shot = (name: string) => `test-results/shots/${name}.png`;
 const project = () => test.info().project.name;
@@ -73,91 +73,163 @@ async function furnish(call: Call) {
   }
 }
 
-test.describe("what shall we drink tonight", () => {
-  test("an empty cellar invites you to add a bottle first", async ({ page }) => {
-    await arrive(page, "tonightempty");
-    await page.goto("/tonight");
-    await expect(page.getByRole("heading", { name: "Add a few bottles first" })).toBeVisible();
-    await page.getByRole("link", { name: "Add a bottle" }).click();
-    await expect(page).toHaveURL(/\/cellar\/add/);
-  });
+/** What the model is shown calls a wine by the first characters of its id. */
+const refOf = (vintageId: string) => vintageId.replace(/-/g, "").slice(0, 6);
 
-  test("Home leads here; choose a dish and an occasion, get three bottles with reasons, open one", async ({
+/** Words only this test's question contains: that is how the fake model knows which answer to give. */
+const marker = () =>
+  `[${test.info().parallelIndex}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}]`;
+
+async function program(match: string, plan: { content?: unknown; status?: number }) {
+  const res = await fetch(`${STACK}/__test/openai`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ match, ...plan }),
+  });
+  expect(res.ok).toBe(true);
+}
+const modelCalls = async (match: string) =>
+  (
+    (await (
+      await fetch(`${STACK}/__test/openai/calls?match=${encodeURIComponent(match)}`)
+    ).json()) as { calls: Array<{ user: string; system: string }> }
+  ).calls;
+
+async function vintages(call: Call) {
+  const cellar = (
+    await call<{ items: Array<{ vintageId: string; wineName: string }> }>(
+      "get",
+      "/cellar",
+      undefined,
+      200,
+    )
+  ).body;
+  return Object.fromEntries(cellar.items.map((i) => [i.wineName, i.vintageId])) as Record<
+    string,
+    string
+  >;
+}
+
+const say = async (page: Page, text: string) => {
+  await page.getByLabel("Your question").fill(text);
+  await page.getByRole("button", { name: "Send" }).click();
+};
+
+test.describe("what shall we drink tonight", () => {
+  test("Home leads here; a tapped dish gets an honest pairing from the cellar", async ({
     page,
     request,
   }) => {
-    const { email, householdId } = await arrive(page, "tonight");
+    const { email } = await arrive(page, "tonight");
     const { call } = await apiClient(request, email);
     await furnish(call);
+    const ids = await vintages(call);
+    // The fake model answers whatever question contains these words.
+    await program("Steak tonight", {
+      content: {
+        answer: "The Barolo: firm tannins and enough fruit for a steak. It is at its best now.",
+        bottle_refs: [refOf(ids["Barolo"]!)],
+        verdict: "match",
+        buy: [],
+      },
+    });
 
     await page.goto("/");
     await page.getByRole("link", { name: /What should we drink tonight/ }).click();
-    await expect(page).toHaveURL(/\/tonight/);
+    await expect(page).toHaveURL(/\/tonight$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "What shall we drink tonight?",
+    );
+    await page.screenshot({ path: shot(`tonight-start-${project()}`), fullPage: true });
+    await page.getByRole("button", { name: "Steak tonight" }).click();
 
-    // Nothing can be asked until something has been answered.
-    const find = page.getByRole("button", { name: "Find my wine" });
-    await expect(find).toBeDisabled();
-    await page.getByRole("searchbox", { name: "Find a dish" }).fill("shell");
-    await expect(page.getByRole("button", { name: "Steak" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Shellfish and oysters" }).click();
-    await expect(page.getByTestId("dish-tip")).toContainText("Oysters and Muscadet");
-    await page.getByRole("button", { name: "A celebration" }).click();
-    await expect(page.getByText("Bubbles and the bottles you waited for.")).toBeVisible();
-    await page.screenshot({ path: shot(`tonight-form-${project()}`), fullPage: true });
-    await expect(find).toBeEnabled();
-    await find.click();
-
-    // Picks, each with where it is and why. Shellfish makes the red wines poor contenders, so two are honest.
-    const picks = page.getByTestId("tonight-picks");
-    await expect(picks.getByRole("article").first()).toBeVisible();
-    expect(await picks.getByRole("article").count()).toBeGreaterThanOrEqual(2);
-    await expect(picks.getByRole("article").first()).toContainText("Best match");
-    // Shellfish and a celebration: white or bubbles, not the Barolo.
-    const best = picks.getByRole("article").first();
-    await expect(best.getByRole("heading")).toHaveText(/Chablis|Brut/);
-    await expect(best).toContainText("Wine fridge · Shelf");
-    await expect(best).toContainText("2 bottles in the cellar");
-    await expect(best.getByRole("listitem").first()).toBeVisible();
-    await expect(page.getByText("Chose from 4 wines.")).toBeVisible();
-    await page.screenshot({ path: shot(`tonight-picks-${project()}`), fullPage: true });
-
-    // Open the best one: the cellar changes, and it asks how it was.
-    const name = (await best.getByRole("heading").textContent())!;
-    await best.getByRole("button", { name: "Open this bottle" }).click();
-    await expect(best.getByRole("status")).toContainText(`Enjoy the ${name}!`);
-    await expect
-      .poll(
-        async () =>
-          (
-            await sql<{ n: string }>(
-              "select count(*)::text as n from public.bottles where household_id = $1 and status = 'opened'",
-              [householdId],
-            )
-          )[0]?.n,
-      )
-      .toBe("1");
-    await best.getByRole("link", { name: "How was it?" }).click();
-    await expect(page.getByRole("dialog", { name: "How was it?" })).toBeVisible();
+    const log = page.getByRole("log", { name: "Conversation" });
+    await expect(log.getByTestId("verdict")).toHaveText("A good match from your cellar");
+    await expect(log.getByText(/The Barolo: firm tannins/)).toBeVisible();
+    await expect(log.getByRole("link", { name: /Barolo/ })).toBeVisible();
+    await expect(log.getByTestId("buy")).toHaveCount(0);
+    const [asked] = await modelCalls("Steak tonight");
+    expect(asked!.user).toContain("This is about tonight");
+    expect(asked!.user).toContain("Budget for buying, per bottle: €15–30.");
+    expect(asked!.system).toContain("judge honestly");
+    await page.screenshot({ path: shot(`tonight-match-${project()}`), fullPage: true });
   });
 
-  test("'nothing in particular' works too, and the answers can be changed", async ({
+  test("nothing fits: it says so, and suggests wines to buy within the chosen budget", async ({
     page,
     request,
   }) => {
-    const { email } = await arrive(page, "tonightany");
+    const { email } = await arrive(page, "tonightnone");
     const { call } = await apiClient(request, email);
     await furnish(call);
+    const m = marker();
+    await program(m, {
+      content: {
+        answer:
+          "Honestly, nothing in your cellar suits sushi: the reds are too firm, the Chablis too young and oaky.",
+        bottle_refs: [],
+        verdict: "none",
+        buy: [
+          {
+            wine: "Muscadet Sèvre et Maine, e.g. Domaine de la Pépière",
+            why: "Saline and light.",
+            price: "about €14",
+          },
+          { wine: "Grüner Veltliner, e.g. Hirsch", why: "Peppery and fresh.", price: "about €20" },
+        ],
+      },
+    });
     await page.goto("/tonight");
-    await page.getByRole("button", { name: "Nothing in particular" }).click();
-    await page.getByRole("button", { name: "A weeknight" }).click();
-    await page.getByRole("button", { name: "Find my wine" }).click();
-    await expect(page.getByTestId("tonight-picks").getByRole("article").first()).toBeVisible();
-    // A weeknight: not the €90 Barolo first.
-    await expect(page.getByTestId("tonight-picks").getByRole("article").first()).not.toContainText(
-      "Barolo",
+    const budget = page.getByTestId("budget");
+    await expect(budget.getByRole("radio", { name: "€15–30" })).toHaveAttribute(
+      "aria-checked",
+      "true",
     );
-    await page.getByRole("button", { name: "Change my answers" }).click();
-    await expect(page.getByRole("button", { name: "Find my wine" })).toBeEnabled();
+    await budget.getByRole("radio", { name: "€30–60" }).click();
+    await say(page, `Sushi ${m}`);
+
+    const log = page.getByRole("log", { name: "Conversation" });
+    await expect(log.getByTestId("verdict")).toHaveText("Nothing in your cellar really fits");
+    await expect(log.getByRole("link")).toHaveCount(0); // no bottle forced on it
+    const buy = log.getByTestId("buy");
+    await expect(buy.getByRole("heading", { name: "Worth buying" })).toBeVisible();
+    await expect(buy).toContainText("Muscadet Sèvre et Maine, e.g. Domaine de la Pépière");
+    await expect(buy).toContainText("about €20");
+    const [asked] = await modelCalls(m);
+    expect(asked!.user).toContain("Budget for buying, per bottle: €30–60.");
+    await page.screenshot({ path: shot(`tonight-none-${project()}`), fullPage: true });
+
+    // The budget is remembered on this phone.
+    await page.reload();
+    await expect(page.getByTestId("budget").getByRole("radio", { name: "€30–60" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  });
+
+  test("an empty cellar can still ask what to buy for tonight", async ({ page }) => {
+    await arrive(page, "tonightempty");
+    const m = marker();
+    await program(m, {
+      content: {
+        answer: "Your cellar is empty, so buy a bottle for the pizza.",
+        bottle_refs: [],
+        verdict: "none",
+        buy: [
+          {
+            wine: "Barbera d'Asti, e.g. Braida",
+            why: "Juicy, made for tomato.",
+            price: "about €15",
+          },
+        ],
+      },
+    });
+    await page.goto("/tonight");
+    await expect(page.getByText(/Your cellar is still empty/)).toBeVisible();
+    await say(page, `Pizza ${m}`);
+    await expect(page.getByTestId("buy")).toContainText("Barbera d'Asti");
+    const [asked] = await modelCalls(m);
+    expect(asked!.user).toContain("Cellar: empty");
   });
 
   test("the API: valid requests, refused ones, and nobody else's cellar", async ({
@@ -205,18 +277,26 @@ test.describe("what shall we drink tonight", () => {
     await context.close();
   });
 
-  test("the form and the results are accessible in both themes", async ({ page, request }) => {
+  test("the chat is accessible in both themes", async ({ page, request }) => {
     const { email } = await arrive(page, "tonighta11y");
     const { call } = await apiClient(request, email);
     await furnish(call);
+    const m = marker();
+    await program(m, {
+      content: {
+        answer: "The Claret will do, though a lighter red would be better.",
+        bottle_refs: [],
+        verdict: "partial",
+        buy: [{ wine: "Beaujolais, e.g. Morgon", why: "Lighter.", price: "about €18" }],
+      },
+    });
     await page.goto("/tonight");
     for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
       await expect.poll(() => audit(page)).toEqual([]);
     }
-    await page.getByRole("button", { name: "Steak" }).click();
-    await page.getByRole("button", { name: "Find my wine" }).click();
-    await expect(page.getByTestId("tonight-picks")).toBeVisible();
+    await say(page, `Roast chicken ${m}`);
+    await expect(page.getByTestId("verdict")).toHaveText("Will do, but not ideal");
     for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
       await expect.poll(() => audit(page)).toEqual([]);

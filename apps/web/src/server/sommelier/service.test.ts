@@ -233,6 +233,43 @@ describe("asking the sommelier", () => {
     expect(state.spent).toBe(0);
   });
 
+  it("tonight: says it is about tonight, passes the budget, and keeps an honest verdict and wines to buy", async () => {
+    const { service, state } = setup({
+      answer: {
+        answer: "Nothing here suits sushi, honestly.",
+        bottle_refs: [],
+        verdict: "none",
+        buy: [
+          { wine: "Chablis, e.g. William Fèvre", why: "Crisp and saline.", price: "about €22" },
+        ],
+      },
+    });
+    const answer = await service.ask({ ...ask("Sushi tonight"), mode: "tonight", budget: "mid" });
+    expect(state.requests[0]!.user).toContain("This is about tonight");
+    expect(state.requests[0]!.user).toContain("Budget for buying, per bottle: €15–30.");
+    expect(answer).toMatchObject({
+      source: "ai",
+      verdict: "none",
+      bottles: [],
+      buy: [{ wine: "Chablis, e.g. William Fèvre", why: "Crisp and saline.", price: "about €22" }],
+    });
+  });
+
+  it("tonight with an empty cellar still asks, so there is something to buy", async () => {
+    const { service, state } = setup({
+      items: [],
+      answer: { answer: "Buy a Barbera.", bottle_refs: [], verdict: "none", buy: [] },
+    });
+    expect(await service.ask({ ...ask("Pizza"), mode: "tonight", budget: null })).toMatchObject({
+      source: "ai",
+      text: "Buy a Barbera.",
+    });
+    expect(state.requests[0]!.user).toContain("Cellar: empty");
+    // Without AI there is nothing to say but that.
+    const { service: off } = setup({ items: [], noAi: true });
+    expect(await off.ask({ ...ask("Pizza"), mode: "tonight" })).toMatchObject({ basic: "nothing" });
+  });
+
   it("an answer that is empty once cleaned is not shown", async () => {
     const { service } = setup({ answer: { answer: " \u0000 ", bottle_refs: [] } });
     expect(await service.ask(ask("Hm?"))).toMatchObject({ source: "basic", reason: "ai-down" });

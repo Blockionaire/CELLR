@@ -1,8 +1,18 @@
 import { expect, test } from "@playwright/test";
-import { apiClient, arrive, sql, STACK } from "./helpers";
+import { apiClient, arrive, STACK } from "./helpers";
 
 const marker = () =>
   `[${test.info().parallelIndex}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}]`;
+
+/** The fake model fails for questions with this marker, so the answer comes from the cellar itself. */
+const failModel = async (match: string) => {
+  const res = await fetch(`${STACK}/__test/openai`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ match, status: 500 }),
+  });
+  expect(res.ok).toBe(true);
+};
 
 const soon = () => new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
 
@@ -40,24 +50,20 @@ async function furnish(
 }
 
 test.describe("bottles kept for an occasion", () => {
-  test("Tonight says so, and offers a bottle that is free", async ({ page, request }) => {
+  test("Tonight says so, also when the answer comes straight from the cellar", async ({
+    page,
+    request,
+  }) => {
     const { email } = await arrive(page, "resvtonight");
-    const { bottles } = await furnish(request, email, "Cuvée Gardée");
+    await furnish(request, email, "Cuvée Gardée");
+    const m = marker();
+    await failModel(m);
     await page.goto("/tonight");
-    await page.getByRole("button", { name: "Nothing in particular" }).click();
-    await page.getByRole("button", { name: "Find my wine" }).click();
+    await page.getByLabel("Your question").fill(`Anything for tonight ${m}`);
+    await page.getByRole("button", { name: "Send" }).click();
     await expect(page.getByTestId("reserved-note").first()).toContainText(
       "1 of 2 kept for Christmas dinner",
     );
-    await page.getByRole("button", { name: "Open this bottle" }).first().click();
-    await expect(page.getByText(/Enjoy the/)).toBeVisible();
-    // The bottle that was opened is the free one: the reserved one is still in the cellar.
-    const status = await sql<{ id: string; status: string }>(
-      "select id, status from public.bottles where id = any($1)",
-      [bottles],
-    );
-    expect(status.find((b) => b.id === bottles[0])!.status).toBe("in_cellar");
-    expect(status.find((b) => b.id === bottles[1])!.status).toBe("opened");
   });
 
   test("a wine whose only bottle is kept is still suggested, with the note", async ({
@@ -66,9 +72,11 @@ test.describe("bottles kept for an occasion", () => {
   }) => {
     const { email } = await arrive(page, "resvall");
     await furnish(request, email, "Cuvée Unique", 1);
+    const m = marker();
+    await failModel(m);
     await page.goto("/tonight");
-    await page.getByRole("button", { name: "Nothing in particular" }).click();
-    await page.getByRole("button", { name: "Find my wine" }).click();
+    await page.getByLabel("Your question").fill(`Anything for tonight ${m}`);
+    await page.getByRole("button", { name: "Send" }).click();
     await expect(page.getByTestId("reserved-note").first()).toContainText(
       "Kept for Christmas dinner",
     );
