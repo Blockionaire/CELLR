@@ -163,7 +163,31 @@
       "limit": "Je hebt veel gescand in korte tijd. Je foto is bewaard: vul de wijn hieronder in.",
       "not-a-label": "Dit lijkt geen wijnetiket. Probeer een andere foto, of vul de wijn hieronder in."
     },
-    "unreadTitle": "Vul het zelf in"
+    "unreadTitle": "Vul het zelf in",
+    "series": {
+      "mode": "Hoeveel flessen",
+      "one": "Eén fles",
+      "many": "Meerdere na elkaar",
+      "intro": "Maak de ene foto na de andere: wij lezen ze op de achtergrond. Tik daarna op een fles om hem toe te voegen.",
+      "choosePhotos": "Kies foto’s",
+      "title": "Jouw reeks",
+      "count": "{done} van {total} klaar",
+      "waiting": "Even wachten…",
+      "reading": "Etiket wordt gelezen…",
+      "readingHint": "Dit duurt een paar seconden",
+      "failed": "Deze foto lukte niet",
+      "unread": "Etiket niet gelezen",
+      "found": "Staat al in je kelder",
+      "choose": "Kies welke",
+      "new": "Nieuwe wijn",
+      "fillIn": "Zelf invullen",
+      "open": "Toevoegen",
+      "retry": "Opnieuw",
+      "remove": "Uit de reeks halen",
+      "done": "Klaar",
+      "added": "{count, plural, one {# fles} other {# flessen}} {wine} toegevoegd",
+      "wished": "{wine} staat op je verlanglijst"
+    }
   },
   "sommelier": {
     "title": "Sommelier",

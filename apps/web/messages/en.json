@@ -163,7 +163,31 @@
       "limit": "You have scanned a lot in a short while. Your photo is saved: fill the wine in below.",
       "not-a-label": "That doesn’t look like a wine label. Try another photo, or fill the wine in below."
     },
-    "unreadTitle": "Fill it in yourself"
+    "unreadTitle": "Fill it in yourself",
+    "series": {
+      "mode": "How many bottles",
+      "one": "One bottle",
+      "many": "Several in a row",
+      "intro": "Take one photo after another: we read them in the background. Then tap a bottle to add it.",
+      "choosePhotos": "Choose photos",
+      "title": "Your series",
+      "count": "{done} of {total} done",
+      "waiting": "Waiting its turn…",
+      "reading": "Reading the label…",
+      "readingHint": "This takes a few seconds",
+      "failed": "Couldn’t read this photo",
+      "unread": "Label not read",
+      "found": "Already in your cellar",
+      "choose": "Pick which one",
+      "new": "New wine",
+      "fillIn": "Fill it in yourself",
+      "open": "Add",
+      "retry": "Try again",
+      "remove": "Remove from the series",
+      "done": "Done",
+      "added": "Added {count, plural, one {# bottle} other {# bottles}} of {wine}",
+      "wished": "{wine} is on your wish list"
+    }
   },
   "sommelier": {
     "title": "Sommelier",
