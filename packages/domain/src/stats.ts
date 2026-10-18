@@ -89,6 +89,88 @@ export interface StatsView {
     ratings: number;
   }>;
   ratingByType: Array<{ type: WineType; stars: number; ratings: number }>;
+  /** What the cellar was worth at the end of each month, oldest first (empty until values are known). */
+  valueByMonth: ValueMonth[];
+}
+
+/** A bottle's stay in the cellar: from when it came in until it was opened, given away or removed. */
+export interface BottleSpan {
+  vintageId: string;
+  from: string;
+  until: string | null;
+}
+
+export interface ValueMonth {
+  /** "2026-10" */
+  month: string;
+  cents: number;
+  /** Bottles in the cellar then, and how many of them had a value. */
+  bottles: number;
+  valued: number;
+}
+
+/**
+ * The cellar's value at the end of each month (the last `months` months, and never before the first bottle):
+ * the bottles that were in it then, each at the value known then — your own value if you set one, else the
+ * latest looked-up value at that moment, else the first one ever looked up (prices before the first lookup
+ * are not known, so the first one stands in), else today's value.
+ */
+export function valueOverTime(input: {
+  spans: readonly BottleSpan[];
+  /** Looked-up values, any order. */
+  points: ReadonlyArray<{ vintageId: string; cents: number; valuedAt: string }>;
+  own: ReadonlyMap<string, number>;
+  /** What each vintage is worth today, for those with no looked-up history (older estimates). */
+  today: ReadonlyMap<string, number>;
+  now: Date;
+  months?: number;
+}): ValueMonth[] {
+  const { spans, now } = input;
+  if (spans.length === 0) return [];
+  const history = new Map<string, Array<{ cents: number; at: number }>>();
+  for (const p of input.points)
+    history.set(p.vintageId, [
+      ...(history.get(p.vintageId) ?? []),
+      { cents: p.cents, at: Date.parse(p.valuedAt) },
+    ]);
+  for (const list of history.values()) list.sort((a, b) => a.at - b.at);
+
+  const valueAt = (vintageId: string, at: number): number | null => {
+    const own = input.own.get(vintageId);
+    if (own !== undefined) return own;
+    const list = history.get(vintageId);
+    if (list && list.length > 0) {
+      let found = list[0]!.cents;
+      for (const p of list) if (p.at <= at) found = p.cents;
+      return found;
+    }
+    return input.today.get(vintageId) ?? null;
+  };
+
+  const first = Math.min(...spans.map((s) => Date.parse(s.from)));
+  const months = input.months ?? 24;
+  const out: ValueMonth[] = [];
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  for (let i = months - 1; i >= 0; i--) {
+    const start = Date.UTC(y, m - i, 1);
+    const end = Math.min(Date.UTC(y, m - i + 1, 1) - 1, now.getTime());
+    if (end < first) continue;
+    let cents = 0;
+    let bottles = 0;
+    let valued = 0;
+    for (const s of spans) {
+      if (Date.parse(s.from) > end || (s.until !== null && Date.parse(s.until) <= end)) continue;
+      bottles += 1;
+      const v = valueAt(s.vintageId, end);
+      if (v !== null) {
+        cents += v;
+        valued += 1;
+      }
+    }
+    out.push({ month: new Date(start).toISOString().slice(0, 7), cents, bottles, valued });
+  }
+  return out.some((m) => m.valued > 0) ? out : [];
 }
 
 const sortedCounts = <K extends string>(map: Map<K, number>, limit = Infinity): Count<K>[] =>
@@ -265,6 +347,7 @@ export function buildStats(input: StatsInput): StatsView {
     openedByMonth: months,
     topRated,
     ratingByType,
+    valueByMonth: [],
   };
 }
 

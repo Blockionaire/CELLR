@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   BottleExtrasSchema,
   checkInsight,
+  checkValuation,
+  InsightOutputSchema,
+  mergeInsight,
+  nextValuationAt,
+  PROFILE_VERSION,
   checkOrigin,
   currentValueCents,
   daysUntil,
@@ -20,9 +25,16 @@ const raw: RawInsight = {
   abv_percent: 13.5,
   pairings: ["Lamb", "Hard cheese"],
   aging: "Another decade.",
-  value_low: 40,
-  value_high: 60,
-  value_basis: "Recent auction prices for the estate.",
+  body: 4,
+  tannin: 4.4,
+  sweetness: 1,
+  acidity: 9,
+  flavors: [
+    { group: "black_fruit", notes: ["Blackcurrant", "plum", ""] },
+    { group: "black_fruit", notes: ["Cherry"] },
+    { group: "oak", notes: ["Cedar"] },
+  ],
+  pairing_kinds: ["lamb", "beef", "lamb"],
   drink_from_year: 2020,
   drink_until_year: 2035,
   country_code: "FR",
@@ -33,16 +45,15 @@ const raw: RawInsight = {
 
 describe("the AI's drinking window", () => {
   it("is kept when it is sane for the vintage", () => {
-    expect(checkInsight(raw, "EUR", 2015)!.drinkWindow).toEqual({ from: 2020, until: 2035 });
+    expect(checkInsight(raw, 2015)!.drinkWindow).toEqual({ from: 2020, until: 2035 });
   });
   it("is dropped without a vintage year, when reversed, before the vintage or absurdly long", () => {
-    expect(checkInsight(raw, "EUR", null)!.drinkWindow).toBeNull();
+    expect(checkInsight(raw, null)!.drinkWindow).toBeNull();
     expect(
-      checkInsight({ ...raw, drink_from_year: 2035, drink_until_year: 2020 }, "EUR", 2015)!
-        .drinkWindow,
+      checkInsight({ ...raw, drink_from_year: 2035, drink_until_year: 2020 }, 2015)!.drinkWindow,
     ).toBeNull();
-    expect(checkInsight(raw, "EUR", 2025)!.drinkWindow).toBeNull();
-    expect(checkInsight({ ...raw, drink_until_year: 2200 }, "EUR", 2015)!.drinkWindow).toBeNull();
+    expect(checkInsight(raw, 2025)!.drinkWindow).toBeNull();
+    expect(checkInsight({ ...raw, drink_until_year: 2200 }, 2015)!.drinkWindow).toBeNull();
   });
 });
 
@@ -100,54 +111,138 @@ describe("reminders", () => {
 });
 
 describe("checking an AI profile", () => {
-  it("tidies the text and turns the value into cents", () => {
-    const out = checkInsight(raw, "EUR")!;
+  it("tidies the text, the scales, the aromas and the dishes", () => {
+    const out = checkInsight(raw)!;
     expect(out.summary).toBe("A ripe Bordeaux.");
     expect(out.grapes).toEqual(["Merlot", "Cabernet Franc"]);
-    expect(out.value).toEqual({
-      lowCents: 4000,
-      highCents: 6000,
-      currency: "EUR",
-      basis: "Recent auction prices for the estate.",
-    });
     expect(out.serving).toEqual({ minC: 16, maxC: 18 });
+    expect(out.structure).toEqual({ body: 4, tannin: 4, sweetness: 1, acidity: null });
+    expect(out.flavors).toEqual([
+      { group: "black_fruit", notes: ["Blackcurrant", "plum"] },
+      { group: "oak", notes: ["Cedar"] },
+    ]);
+    expect(out.pairingKinds).toEqual(["lamb", "beef"]);
+    expect(out.version).toBe(PROFILE_VERSION);
+    expect(out.value).toBeNull();
     expect(out.confidence).toBe("high");
   });
   it("drops what cannot be true", () => {
-    expect(checkInsight({ ...raw, serving_temp_min_c: 40 }, "EUR")!.serving).toBeNull();
+    expect(checkInsight({ ...raw, serving_temp_min_c: 40 })!.serving).toBeNull();
     expect(
-      checkInsight({ ...raw, serving_temp_min_c: 18, serving_temp_max_c: 16 }, "EUR")!.serving,
+      checkInsight({ ...raw, serving_temp_min_c: 18, serving_temp_max_c: 16 })!.serving,
     ).toBeNull();
-    expect(checkInsight({ ...raw, decant_minutes: 9000 }, "EUR")!.decantMinutes).toBeNull();
-    expect(checkInsight(raw, "EUR")!.abvPercent).toBe(13.5);
-    expect(checkInsight({ ...raw, abv_percent: 0 }, "EUR")!.abvPercent).toBeNull();
-    expect(checkInsight({ ...raw, abv_percent: 70 }, "EUR")!.abvPercent).toBeNull();
-    expect(checkInsight({ ...raw, abv_percent: null }, "EUR")!.abvPercent).toBeNull();
+    expect(checkInsight({ ...raw, decant_minutes: 9000 })!.decantMinutes).toBeNull();
+    expect(checkInsight(raw)!.abvPercent).toBe(13.5);
+    expect(checkInsight({ ...raw, abv_percent: 0 })!.abvPercent).toBeNull();
+    expect(checkInsight({ ...raw, abv_percent: 70 })!.abvPercent).toBeNull();
+    expect(checkInsight({ ...raw, abv_percent: null })!.abvPercent).toBeNull();
+    expect(
+      checkInsight({ ...raw, body: null, tannin: 0, sweetness: null, acidity: null })!.structure,
+    ).toBeNull();
   });
-  it("throws away an absurd value and is less sure of the rest", () => {
+  it("has nothing to keep without a summary", () => {
+    expect(checkInsight({ ...raw, summary: "  \n " })).toBeNull();
+  });
+});
+
+describe("a profile stays as it was written", () => {
+  const stored = InsightOutputSchema.parse({
+    summary: "The first words.",
+    style: "Full",
+    grapes: ["Merlot"],
+    tasting: "Plum.",
+    serving: null,
+    decantMinutes: 30,
+    pairings: ["Lamb"],
+    aging: "A decade.",
+    value: { lowCents: 4000, highCents: 6000, currency: "EUR", basis: "x" },
+    confidence: "medium",
+  });
+  it("an older profile reads with the new parts empty", () => {
+    expect(stored).toMatchObject({ version: 1, structure: null, flavors: [], pairingKinds: [] });
+  });
+  it("a new run only fills in what was missing, and never rewrites what was there", () => {
+    const fresh = checkInsight({ ...raw, summary: "Different words.", decant_minutes: 90 }, 2015)!;
+    const merged = mergeInsight(stored, fresh);
+    expect(merged.summary).toBe("The first words.");
+    expect(merged.grapes).toEqual(["Merlot"]);
+    expect(merged.decantMinutes).toBe(30);
+    expect(merged.value).toEqual(stored.value);
+    expect(merged.structure).toEqual(fresh.structure);
+    expect(merged.flavors).toEqual(fresh.flavors);
+    expect(merged.drinkWindow).toEqual({ from: 2020, until: 2035 });
+    expect(merged.version).toBe(PROFILE_VERSION);
+  });
+});
+
+describe("what a bottle is worth, with sources", () => {
+  const consulted = [
+    "https://www.shop.example/p/margaux-2015?utm_source=openai",
+    "https://auction.example/lot/1",
+  ];
+  const found = {
+    low: 169,
+    high: 269,
+    basis: "  Shops \n in France. ",
+    sources: [
+      { name: "Shop", url: "https://shop.example/p/margaux-2015?utm_source=openai#x" },
+      { name: "Made up", url: "https://elsewhere.example/p" },
+      { name: "Plain http", url: "http://auction.example/lot/1" },
+    ],
+  };
+  it("keeps a sane range in cents, and only pages the search really visited", () => {
+    expect(checkValuation(found, "EUR", consulted)).toEqual({
+      lowCents: 16900,
+      highCents: 26900,
+      currency: "EUR",
+      basis: "Shops in France.",
+      sources: [{ name: "Shop", url: "https://shop.example/p/margaux-2015" }],
+    });
+  });
+  it("no real source, no value; nor an absurd range", () => {
+    expect(checkValuation({ ...found, sources: [found.sources[1]!] }, "EUR", consulted)).toBeNull();
+    expect(checkValuation(found, "EUR", [])).toBeNull();
     for (const [low, high] of [
       [60, 40],
       [1, 500],
       [0, 10],
-      [-5, 5],
-      [10, 1e9],
-    ] as const) {
-      const out = checkInsight({ ...raw, value_low: low, value_high: high }, "EUR")!;
-      expect(out.value).toBeNull();
-      expect(out.confidence).toBe("medium");
-    }
-    expect(checkInsight({ ...raw, value_low: null, value_high: null }, "EUR")!.value).toBeNull();
+      [null, 10],
+    ] as const)
+      expect(checkValuation({ ...found, low, high }, "EUR", consulted)).toBeNull();
   });
-  it("has nothing to keep without a summary", () => {
-    expect(checkInsight({ ...raw, summary: "  \n " }, "EUR")).toBeNull();
+  it("can be looked up again a month after the last time", () => {
+    const now = new Date("2026-10-18T12:00:00Z");
+    expect(nextValuationAt(null, now)).toBeNull();
+    expect(nextValuationAt("2026-10-01T12:00:00Z", now)).toBe("2026-10-31T12:00:00.000Z");
+    expect(nextValuationAt("2026-09-01T12:00:00Z", now)).toBeNull();
   });
 });
 
 describe("current value", () => {
-  const insight = checkInsight(raw, "EUR")!;
-  const view = { insight: { output: insight, model: "m", generatedAt: "x" } };
-  it("prefers your own number, else the middle of the estimate, else nothing", () => {
-    expect(currentValueCents({ ...view, myValueCents: 7000 })).toBe(7000);
+  const legacy = InsightOutputSchema.parse({
+    summary: "x",
+    style: "",
+    grapes: [],
+    tasting: "",
+    serving: null,
+    decantMinutes: null,
+    pairings: [],
+    aging: "",
+    value: { lowCents: 4000, highCents: 6000, currency: "EUR", basis: "" },
+    confidence: "low",
+  });
+  const view = { insight: { output: legacy, model: "m", generatedAt: "x" } };
+  const valuation = {
+    lowCents: 8000,
+    highCents: 10000,
+    currency: "EUR",
+    basis: "",
+    sources: [],
+    valuedAt: "2026-10-01",
+  };
+  it("prefers your own number, else the latest sourced value, else an old estimate, else nothing", () => {
+    expect(currentValueCents({ ...view, myValueCents: 7000, valuation })).toBe(7000);
+    expect(currentValueCents({ ...view, myValueCents: null, valuation })).toBe(9000);
     expect(currentValueCents({ ...view, myValueCents: null })).toBe(5000);
     expect(currentValueCents({ insight: null, myValueCents: null })).toBeNull();
     expect(currentValueCents({ insight: null, myValueCents: 0 })).toBe(0);

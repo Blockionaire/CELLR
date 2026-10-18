@@ -589,6 +589,23 @@ export function createCellarRepository(db: Db): CellarRepository {
         at: b.opened_at ?? b.updated_at,
       }));
     },
+    async listBottleSpans(householdId) {
+      const { data, error } = await allRows((from, to) =>
+        db
+          .from("bottles")
+          .select("id, vintage_id, status, created_at, opened_at, updated_at")
+          .eq("household_id", householdId)
+          .order("id")
+          .range(from, to),
+      );
+      if (error) throw mapDbError(error);
+      return data.map((b) => ({
+        vintageId: b.vintage_id,
+        from: b.created_at,
+        until: b.status === "in_cellar" ? null : (b.opened_at ?? b.updated_at),
+      }));
+    },
+
     async listRecentlyOpened(householdId, limit) {
       const { data, error } = await db
         .from("bottles")

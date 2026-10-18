@@ -151,3 +151,63 @@ describe("asking the model", () => {
     expect(JSON.stringify(result)).not.toContain("Incorrect");
   });
 });
+
+describe("asking with a web search first", () => {
+  const responses = (output: unknown[]) =>
+    new Response(JSON.stringify({ output, usage: { input_tokens: 8000, output_tokens: 90 } }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+
+  it("uses the Responses API with the search tool, and returns the pages it opened", async () => {
+    const { fetcher, calls } = fakeFetch(
+      responses([
+        {
+          type: "web_search_call",
+          action: { sources: [{ type: "url", url: "https://shop.example/a" }, { type: "url" }] },
+        },
+        {
+          type: "message",
+          content: [{ type: "output_text", text: JSON.stringify({ producer: "Margaux" }) }],
+        },
+      ]),
+    );
+    const result = await createOpenAiProvider(env, fetcher).generateObject(
+      request({ model: "chat", images: [], webSearch: true, temperature: 0 }),
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      value: { producer: "Margaux" },
+      consulted: ["https://shop.example/a"],
+      usage: { model: "chat-model", tokensIn: 8000, tokensOut: 90 },
+    });
+    expect(calls[0]!.url).toBe("https://ai.example/v1/responses");
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({
+      tools: [{ type: "web_search" }],
+      include: ["web_search_call.action.sources"],
+      temperature: 0,
+      text: { format: { type: "json_schema", strict: true, name: "answer" } },
+    });
+  });
+
+  it("says no plainly on a refusal, an unusable answer or an error, without a second paid search", async () => {
+    const refusal = fakeFetch(
+      responses([{ type: "message", content: [{ type: "refusal", refusal: "no" }] }]),
+    );
+    expect(
+      await createOpenAiProvider(env, refusal.fetcher).generateObject(request({ webSearch: true })),
+    ).toMatchObject({ ok: false, kind: "refused" });
+    const junk = fakeFetch(
+      responses([{ type: "message", content: [{ type: "output_text", text: "{nope" }] }]),
+    );
+    expect(
+      await createOpenAiProvider(env, junk.fetcher).generateObject(request({ webSearch: true })),
+    ).toMatchObject({ ok: false, kind: "invalid" });
+    expect(junk.calls).toHaveLength(1);
+    const limited = fakeFetch(new Response("{}", { status: 429 }));
+    expect(
+      await createOpenAiProvider(env, limited.fetcher).generateObject(request({ webSearch: true })),
+    ).toMatchObject({ ok: false, kind: "rate_limited" });
+  });
+});

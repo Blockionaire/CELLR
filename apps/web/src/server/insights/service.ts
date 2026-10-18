@@ -2,6 +2,10 @@ import "server-only";
 import {
   checkInsight,
   checkOrigin,
+  checkValuation,
+  mergeInsight,
+  nextValuationAt,
+  PROFILE_VERSION,
   daysUntil,
   DomainError,
   REMINDER_AHEAD_DAYS,
@@ -20,6 +24,12 @@ import {
   insightUserMessage,
   parseInsight,
 } from "@/server/ai/prompts/insight";
+import {
+  parseValuation,
+  VALUATION_SCHEMA,
+  VALUATION_SYSTEM,
+  valuationUserMessage,
+} from "@/server/ai/prompts/valuation";
 import type { ActiveHousehold } from "@/server/cellar/types";
 import type { InsightsRepository } from "./types";
 
@@ -34,6 +44,9 @@ export interface InsightsDeps {
   llm: LlmProvider | null;
   /** Spends from the insights budget; throws RATE_LIMITED when it is gone. */
   spend: () => Promise<void>;
+  /** Spends from the (smaller) budget for looking up prices on the web. */
+  spendValuation?: () => Promise<void>;
+  now?: () => Date;
   recordUsage: (entry: {
     householdId: string | null;
     task: string;
@@ -63,14 +76,30 @@ const NOT_READY =
 export function createInsightsService(deps: InsightsDeps) {
   const today = deps.today ?? (() => new Date().toISOString().slice(0, 10));
 
+  const now = deps.now ?? (() => new Date());
+
   async function view(householdId: string, currency: string, vintageId: string) {
-    const found = await deps.repo.getInsight(householdId, vintageId);
+    const [found, valuations] = await Promise.all([
+      deps.repo.getInsight(householdId, vintageId),
+      deps.repo.listValuations(householdId, vintageId),
+    ]);
+    const latest = valuations?.at(-1) ?? null;
+    const history = {
+      valuationsReady: valuations !== null,
+      valuation: latest,
+      valueHistory: (valuations ?? []).map((v) => ({
+        cents: Math.round((v.lowCents + v.highCents) / 2),
+        valuedAt: v.valuedAt,
+      })),
+      nextValuationAt: nextValuationAt(latest?.valuedAt ?? null, now()),
+    };
     if (found === null)
       return {
         ready: false,
         insight: null,
         myValueCents: null,
         currency,
+        ...history,
       } satisfies VintageInsightView;
     const row = found.row;
     return {
@@ -81,6 +110,7 @@ export function createInsightsService(deps: InsightsDeps) {
           : null,
       myValueCents: row?.myValueCents ?? null,
       currency,
+      ...history,
     } satisfies VintageInsightView;
   }
 
@@ -100,6 +130,10 @@ export function createInsightsService(deps: InsightsDeps) {
     async generate(vintageId: string): Promise<VintageInsightView> {
       const { id, currency } = await deps.household();
       const detail = await deps.vintage(vintageId);
+      // A profile is written once. Asking again only fills in what an older kind of profile lacked; a profile
+      // that is complete is simply given back, without asking the AI anything.
+      const stored = (await deps.repo.getInsight(id, vintageId))?.row?.output ?? null;
+      if (stored && stored.version >= PROFILE_VERSION) return view(id, currency, vintageId);
       if (!deps.llm)
         throw new DomainError("AI_UNAVAILABLE", "Wine profiles aren't switched on yet.", {
           retryable: false,
@@ -126,8 +160,9 @@ export function createInsightsService(deps: InsightsDeps) {
         schemaName: "wine_insight",
         jsonSchema: INSIGHT_SCHEMA,
         parse: parseInsight,
-        maxOutputTokens: 900,
+        maxOutputTokens: 1200,
         timeoutMs: 40_000,
+        temperature: 0.2,
       });
       await deps
         .recordUsage({
@@ -139,8 +174,9 @@ export function createInsightsService(deps: InsightsDeps) {
         .catch(() => {});
       if (!result.ok) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
 
-      const output = checkInsight(result.value, currency, detail.year);
-      if (!output) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
+      const fresh = checkInsight(result.value, detail.year);
+      if (!fresh) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
+      const output = stored ? mergeInsight(stored, fresh) : fresh;
       const saved = await deps.repo.saveInsight(id, vintageId, {
         output,
         model: result.usage.model,
@@ -160,6 +196,61 @@ export function createInsightsService(deps: InsightsDeps) {
         };
         if (Object.keys(patch).length > 0) await deps.fillWine(w.id, patch).catch(() => {});
       }
+      return view(id, currency, vintageId);
+    },
+
+    /**
+     * Looks up what one bottle sells for today, on the web, and keeps it with its sources. At most once a month
+     * per vintage: prices move slowly, and every lookup costs money. Without a real source nothing is kept.
+     */
+    async valuate(vintageId: string): Promise<VintageInsightView> {
+      const { id, currency } = await deps.household();
+      const detail = await deps.vintage(vintageId);
+      if (!deps.llm)
+        throw new DomainError("AI_UNAVAILABLE", "Looking up prices isn't switched on yet.", {
+          retryable: false,
+        });
+      const history = await deps.repo.listValuations(id, vintageId);
+      if (history === null) throw new DomainError("INTERNAL", NOT_READY);
+      const next = nextValuationAt(history.at(-1)?.valuedAt ?? null, now());
+      if (next) throw new DomainError("CONFLICT", `A new value can be looked up from ${next}.`);
+      await (deps.spendValuation ?? deps.spend)();
+
+      const locale = await deps.locale();
+      const result = await deps.llm.generateObject({
+        task: "wine_valuation",
+        model: "chat",
+        system: VALUATION_SYSTEM,
+        user: valuationUserMessage({
+          producer: detail.wine.producer,
+          wine: detail.wine.name,
+          year: detail.year,
+          region: detail.wine.region,
+          country: detail.wine.countryCode,
+          currency,
+          language: locale === "nl" ? "Dutch" : "English",
+        }),
+        schemaName: "wine_valuation",
+        jsonSchema: VALUATION_SCHEMA,
+        parse: parseValuation,
+        maxOutputTokens: 700,
+        timeoutMs: 60_000,
+        temperature: 0,
+        webSearch: true,
+      });
+      await deps
+        .recordUsage({
+          householdId: id,
+          task: "wine_valuation",
+          status: result.ok ? "ok" : STATUS[result.kind],
+          usage: result.usage,
+        })
+        .catch(() => {});
+      if (!result.ok) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
+      const valuation = checkValuation(result.value, currency, result.consulted ?? []);
+      if (!valuation)
+        throw new DomainError("NOT_FOUND", "No price with a trustworthy source was found.");
+      await deps.repo.addValuation(id, vintageId, valuation, result.usage.model);
       return view(id, currency, vintageId);
     },
 

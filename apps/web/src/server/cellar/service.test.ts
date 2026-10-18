@@ -61,6 +61,9 @@ function fakeRepo(
   const household =
     options.household === undefined ? { id: "h1", currency: "EUR" } : options.household;
   const repo: CellarRepository = {
+    async listBottleSpans() {
+      return [];
+    },
     async getActiveHousehold() {
       return household;
     },

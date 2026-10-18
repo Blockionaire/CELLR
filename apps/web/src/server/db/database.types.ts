@@ -809,6 +809,61 @@ export type Database = {
           },
         ];
       };
+      vintage_valuations: {
+        Row: {
+          basis: string;
+          currency: string;
+          high_cents: number;
+          household_id: string;
+          id: string;
+          low_cents: number;
+          model: string | null;
+          sources: NonNullable<Json>;
+          valued_at: string;
+          vintage_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          basis?: string;
+          currency: string;
+          high_cents: number;
+          household_id: string;
+          id?: string;
+          low_cents: number;
+          model?: string | null;
+          sources?: NonNullable<Json>;
+          valued_at?: string;
+          vintage_id: string;
+        };
+        Update: {
+          basis?: string;
+          currency?: string;
+          high_cents?: number;
+          household_id?: string;
+          id?: string;
+          low_cents?: number;
+          model?: string | null;
+          sources?: NonNullable<Json>;
+          valued_at?: string;
+          vintage_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "vintage_valuations_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "vintage_valuations_vintage_id_fkey";
+            columns: ["vintage_id"];
+            isOneToOne: false;
+            referencedRelation: "wine_vintages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       wine_aliases: {
         Row: {
           alias: string;

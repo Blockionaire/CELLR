@@ -62,6 +62,7 @@ export function servicesFor(ctx: RequestContext) {
     locale: async () => (await households.me()).locale,
     llm: getLlmProvider(),
     spend: () => limiter.enforce(LIMITS.insights),
+    spendValuation: () => limiter.enforce(LIMITS.valuations),
     recordUsage: ({ householdId, task, status, usage }) =>
       recordAiUsage({ userId: ctx.userId, householdId, task, status, ...usage }),
   });
@@ -127,6 +128,9 @@ export function servicesFor(ctx: RequestContext) {
       opened: (id) => cellars.listRecentlyOpened(id, 1000),
       scores: (id) => cellars.listScores(id),
       values: async (id) => (await insightsRepo.listValues(id)) ?? [],
+      spans: (id) => cellars.listBottleSpans(id),
+      valuations: async (id) => (await insightsRepo.allValuations(id)) ?? [],
+      ownValues: async (id) => (await insightsRepo.listOwnValues(id)) ?? new Map(),
     }),
     insights,
     push: createPushService({
