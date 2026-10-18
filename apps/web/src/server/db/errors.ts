@@ -8,7 +8,7 @@ interface DbError {
 
 /**
  * Translates Postgres / PostgREST errors into domain errors (and therefore human copy).
- * Codes we raise ourselves: 54000 rate_limited · P0001 last_owner · 23514 slot_out_of_bounds / location_in_use.
+ * Codes we raise ourselves: 54000 rate_limited · P0001 last_owner, not_found · 23514 slot_out_of_bounds / location_in_use.
  */
 export function mapDbError(error: DbError): DomainError {
   const code = error.code ?? "";
@@ -23,6 +23,7 @@ export function mapDbError(error: DbError): DomainError {
       "You're the last owner. Delete the household instead, or hand it over first.",
     );
   }
+  if (message === "not_found") return new DomainError("NOT_FOUND");
   if (message === "slot_out_of_bounds")
     return new DomainError("VALIDATION", "That spot doesn't exist in this rack.");
   if (message === "location_in_use") {

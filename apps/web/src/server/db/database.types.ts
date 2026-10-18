@@ -445,6 +445,49 @@ export type Database = {
           },
         ];
       };
+      friendships: {
+        Row: {
+          accepted_at: string | null;
+          addressee: string;
+          created_at: string;
+          id: string;
+          requester: string;
+          status: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          accepted_at?: string | null;
+          addressee: string;
+          created_at?: string;
+          id?: string;
+          requester: string;
+          status?: string;
+        };
+        Update: {
+          accepted_at?: string | null;
+          addressee?: string;
+          created_at?: string;
+          id?: string;
+          requester?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "friendships_addressee_fkey";
+            columns: ["addressee"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "friendships_requester_fkey";
+            columns: ["requester"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       grapes: {
         Row: {
           aliases: string[];
@@ -624,6 +667,8 @@ export type Database = {
           avatar_path: string | null;
           created_at: string;
           display_name: string | null;
+          friend_code: string;
+          handle: string | null;
           id: string;
           locale: string;
           updated_at: string;
@@ -634,6 +679,8 @@ export type Database = {
           avatar_path?: string | null;
           created_at?: string;
           display_name?: string | null;
+          friend_code?: string;
+          handle?: string | null;
           id: string;
           locale?: string;
           updated_at?: string;
@@ -643,6 +690,8 @@ export type Database = {
           avatar_path?: string | null;
           created_at?: string;
           display_name?: string | null;
+          friend_code?: string;
+          handle?: string | null;
           id?: string;
           locale?: string;
           updated_at?: string;
@@ -684,6 +733,73 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
+      };
+      sharing_picks: {
+        Row: {
+          friend: string;
+          item: string;
+          owner: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          friend: string;
+          item: string;
+          owner?: string;
+        };
+        Update: {
+          friend?: string;
+          item?: string;
+          owner?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sharing_picks_friend_fkey";
+            columns: ["friend"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sharing_picks_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      sharing_settings: {
+        Row: {
+          cellar: string;
+          ratings: string;
+          taste: string;
+          updated_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          cellar?: string;
+          ratings?: string;
+          taste?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          cellar?: string;
+          ratings?: string;
+          taste?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sharing_settings_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       tastings: {
         Row: {
@@ -1143,8 +1259,73 @@ export type Database = {
         Args: { p_household: string; p_max_uses?: number; p_ttl_hours?: number };
         Returns: string;
       };
+      find_person: {
+        Args: { p_query: string };
+        Returns: {
+          display_name: string;
+          friend_code: string;
+          handle: string;
+          id: string;
+          relation: string;
+        }[];
+      };
+      friend_access: {
+        Args: { p_friend: string };
+        Returns: {
+          cellar: boolean;
+          ratings: boolean;
+          taste: boolean;
+        }[];
+      };
+      friend_cellar: {
+        Args: { p_friend: string };
+        Returns: {
+          bottles: number;
+          country_code: string;
+          places: string[];
+          producer: string;
+          region: string;
+          wine: string;
+          wine_type: string;
+          year: number;
+        }[];
+      };
+      friend_racks: { Args: { p_friend: string }; Returns: Json };
+      friend_ratings: {
+        Args: { p_friend: string };
+        Returns: {
+          country_code: string;
+          descriptors: string[];
+          note: string;
+          producer: string;
+          region: string;
+          score: number;
+          tasted_at: string;
+          tasting_id: string;
+          wine: string;
+          wine_type: string;
+          year: number;
+        }[];
+      };
+      friend_taste: { Args: { p_friend: string }; Returns: Json };
       join_household: { Args: { p_code: string }; Returns: string };
       merge_wines: { Args: { p_source: string; p_target: string }; Returns: number };
+      my_friends: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          direction: string;
+          display_name: string;
+          friend_code: string;
+          friendship_id: string;
+          handle: string;
+          since: string;
+          status: string;
+          user_id: string;
+        }[];
+      };
+      remove_friend: { Args: { p_user: string }; Returns: boolean };
+      respond_friend_request: { Args: { p_accept: boolean; p_id: string }; Returns: boolean };
+      send_friend_request: { Args: { p_user: string }; Returns: string };
     };
     Enums: {
       bottle_status: "in_cellar" | "opened" | "gifted" | "removed";

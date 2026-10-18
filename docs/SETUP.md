@@ -49,7 +49,8 @@ _Supabase → SQL Editor → New query._ Run these files **in this order**, one 
 12. `…0012_merge_wines.sql` (merge a wine that was entered twice — also added later)
 13. `…0013_push_reminders.sql` (reminders on your phone when a wine is at its best — also added later)
 14. `…0014_valuations.sql` (what a bottle is worth, with sources and history — also added later)
-15. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
+15. `…0015_friends.sql` (friends: account names, friend codes, requests and what you share — also added later)
+16. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
 
 If a file fails, stop: the files are not safe to re-run. Note which file and the error text.
 
@@ -78,6 +79,7 @@ missing step and simply leaves that feature switched off.
 | `20261015000012_merge_wines.sql`                | Merging a wine that was entered twice                                                          |
 | `20261018000013_push_reminders.sql`             | Reminders on your phone when a wine is at its best (also needs the keys below)                 |
 | `20261019000014_valuations.sql`                 | What a bottle is worth, looked up on the web with sources, kept as a history (value over time) |
+| `20261020000015_friends.sql`                    | Friends: an account name and friend code, friend requests, and sharing ratings/taste/cellar    |
 
 ### Check it worked
 

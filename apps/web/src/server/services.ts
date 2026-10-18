@@ -16,6 +16,9 @@ import { createImageRepository } from "@/server/images/repository";
 import { createImageService } from "@/server/images/service";
 import { createExportRepository } from "@/server/export/repository";
 import { createExportService } from "@/server/export/service";
+import { createFriendsRepository } from "@/server/friends/repository";
+import { createFriendsService } from "@/server/friends/service";
+import { sendFriendNotice } from "@/server/privileged/friend-notices";
 import { createHouseholdService } from "@/server/households/service";
 import { createRateLimitRepository } from "@/server/ratelimit/repository";
 import { createRateLimiter, LIMITS } from "@/server/ratelimit/service";
@@ -133,6 +136,11 @@ export function servicesFor(ctx: RequestContext) {
       ownValues: async (id) => (await insightsRepo.listOwnValues(id)) ?? new Map(),
     }),
     insights,
+    friends: createFriendsService({
+      repo: createFriendsRepository(ctx.db),
+      userId: ctx.userId,
+      notify: sendFriendNotice,
+    }),
     push: createPushService({
       repo: createPushRepository(ctx.db),
       env: getPushEnv(),
