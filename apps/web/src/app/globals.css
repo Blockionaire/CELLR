@@ -228,6 +228,10 @@
 ::view-transition-new(app-nav) {
   animation: none;
 }
+/* ...and is drawn above the page while it changes (the page's own layers would otherwise cover it) */
+::view-transition-group(app-nav) {
+  z-index: 100;
+}
 ::view-transition-old(app-nav) {
   display: none;
 }
