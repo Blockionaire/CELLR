@@ -104,7 +104,8 @@
       "tomorrow": "Morgen",
       "days": "Over {days} dagen"
     },
-    "shortcutInsights": "Inzichten"
+    "shortcutInsights": "Inzichten",
+    "atPeak": "Nu op hun best"
   },
   "cellar": {
     "title": "Kelder",
@@ -163,7 +164,31 @@
       "limit": "Je hebt veel gescand in korte tijd. Je foto is bewaard: vul de wijn hieronder in.",
       "not-a-label": "Dit lijkt geen wijnetiket. Probeer een andere foto, of vul de wijn hieronder in."
     },
-    "unreadTitle": "Vul het zelf in"
+    "unreadTitle": "Vul het zelf in",
+    "series": {
+      "mode": "Hoeveel flessen",
+      "one": "Eén fles",
+      "many": "Meerdere na elkaar",
+      "intro": "Maak de ene foto na de andere: wij lezen ze op de achtergrond. Tik daarna op een fles om hem toe te voegen.",
+      "choosePhotos": "Kies foto’s",
+      "title": "Jouw reeks",
+      "count": "{done} van {total} klaar",
+      "waiting": "Even wachten…",
+      "reading": "Etiket wordt gelezen…",
+      "readingHint": "Dit duurt een paar seconden",
+      "failed": "Deze foto lukte niet",
+      "unread": "Etiket niet gelezen",
+      "found": "Staat al in je kelder",
+      "choose": "Kies welke",
+      "new": "Nieuwe wijn",
+      "fillIn": "Zelf invullen",
+      "open": "Toevoegen",
+      "retry": "Opnieuw",
+      "remove": "Uit de reeks halen",
+      "done": "Klaar",
+      "added": "{count, plural, one {# fles} other {# flessen}} {wine} toegevoegd",
+      "wished": "{wine} staat op je verlanglijst"
+    }
   },
   "sommelier": {
     "title": "Sommelier",
@@ -264,7 +289,19 @@
     "deleteAccountBody": "Dit verwijdert je inlog en alles wat alleen van jou is, zoals je favorieten en beoordelingen. Een huishouden waar alleen jij in zit wordt ook verwijderd, met alle flessen en foto's. Huishoudens die je met anderen deelt blijven bestaan, met hun kelders.",
     "deleteAccountConfirmLabel": "Typ je e-mailadres ter bevestiging",
     "deleteAccountConfirm": "Mijn account verwijderen",
-    "dangerSection": "Gevarenzone"
+    "dangerSection": "Gevarenzone",
+    "reminders": {
+      "title": "Herinneringen",
+      "body": "Krijg een melding op deze telefoon als een wijn uit je kelder op zijn best is, en als het tijd wordt om hem binnenkort te drinken.",
+      "turnOn": "Aanzetten op deze telefoon",
+      "turnOff": "Uitzetten",
+      "isOn": "Aan op deze telefoon.",
+      "switchedOn": "Herinneringen staan aan op deze telefoon.",
+      "switchedOff": "Herinneringen staan uit op deze telefoon.",
+      "failed": "Dat lukte niet. Probeer het zo nog eens.",
+      "denied": "Meldingen zijn geblokkeerd voor CELLR. Sta ze toe in de instellingen van je telefoon en kom dan hier terug.",
+      "unsupported": "Deze browser kan geen meldingen tonen. Op een iPhone: zet CELLR op je beginscherm (Deel → Zet op beginscherm), open de app daar en zet dit aan."
+    }
   },
   "errors": {
     "network": "We konden CELLR niet bereiken. Controleer je verbinding en probeer opnieuw.",
@@ -1085,5 +1122,13 @@
     "allDated": "Bewaard voor {title} · {when}",
     "some": "{reserved} van {total} bewaard voor {title}",
     "someDated": "{reserved} van {total} bewaard voor {title} · {when}"
+  },
+  "pushMessage": {
+    "peakTitle": "{wine} is nu op zijn best",
+    "peakBody": "De beste jaren zijn begonnen: een mooi moment om hem te openen.",
+    "endingTitle": "Drink {wine} binnenkort",
+    "endingBody": "Hij zit in het laatste stuk van zijn beste jaren.",
+    "manyTitle": "{count} wijnen om te openen",
+    "manyBody": "{wines}"
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ERROR_MESSAGES,
   formatVintage,
@@ -24,14 +24,18 @@ import { cn } from "@/ui/cn";
 import { FileButton } from "@/ui/file-button";
 import { CheckIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
+import { Segmented } from "@/ui/segmented";
+import { useToast } from "@/ui/toast";
 import { useAddWish } from "@/features/wishlist/hooks";
 import { useScan } from "./hooks";
+import { SeriesTray, useScanSeries, type SeriesItem } from "./series";
 
 type Stage =
   | { name: "capture"; error: string | null; retry: File | null }
   | { name: "reading"; preview: string }
-  | { name: "review"; result: ScanResult }
-  | { name: "details"; result: ScanResult; wine: WineSummary }
+  // `itemId`: the photo came from a series (several bottles in a row), see series.tsx
+  | { name: "review"; result: ScanResult; itemId?: string | undefined }
+  | { name: "details"; result: ScanResult; wine: WineSummary; itemId?: string | undefined }
   | { name: "done"; result: AddBottlesResult };
 
 /**
@@ -47,6 +51,10 @@ export function ScanScreen({ currency }: { currency: string }) {
   const scan = useScan();
   const wines = useWines();
   const addWish = useAddWish();
+  const toast = useToast();
+  const [mode, setMode] = useState<"one" | "many">("one");
+  // In a series the place chosen for one bottle is offered for the next.
+  const [lastPlace, setLastPlace] = useState<string | null | undefined>(undefined);
   const [stage, setStage] = useState<Stage>({ name: "capture", error: null, retry: null });
   // In a "found" review, "not this one" turns the screen into the new-wine form.
   const [rejectedFound, setRejectedFound] = useState(false);
@@ -59,20 +67,39 @@ export function ScanScreen({ currency }: { currency: string }) {
   const preview = stage.name === "reading" ? stage.preview : null;
   useEffect(() => () => (preview ? URL.revokeObjectURL(preview) : undefined), [preview]);
 
+  const describe = useCallback(
+    (e: unknown) =>
+      e instanceof UnreadablePhotoError
+        ? te("photo.unreadable")
+        : e instanceof ApiError && e.code === "NETWORK"
+          ? t("noConnection")
+          : errorMessage(e, (k) => te(k), ERROR_MESSAGES),
+    [t, te],
+  );
+  const { mutateAsync: readLabel } = scan;
+  const series = useScanSeries(readLabel, describe);
+
   async function read(file: File) {
     setRejectedFound(false);
     setStage({ name: "reading", preview: URL.createObjectURL(file) });
     try {
-      setStage({ name: "review", result: await scan.mutateAsync(file) });
+      setStage({ name: "review", result: await readLabel(file) });
     } catch (e) {
-      const message =
-        e instanceof UnreadablePhotoError
-          ? te("photo.unreadable")
-          : e instanceof ApiError && e.code === "NETWORK"
-            ? t("noConnection")
-            : errorMessage(e, (k) => te(k), ERROR_MESSAGES);
-      setStage({ name: "capture", error: message, retry: file });
+      setStage({ name: "capture", error: describe(e), retry: file });
     }
+  }
+
+  /** One photo of a series is handled: say so, then straight on to the next one that is ready (if any). */
+  function handled(itemId: string, outcome: string, others: SeriesItem[]) {
+    series.finish(itemId, outcome);
+    toast.show(outcome);
+    setRejectedFound(false);
+    const next = others.find((i) => i.id !== itemId && i.status === "ready");
+    setStage(
+      next?.result
+        ? { name: "review", result: next.result, itemId: next.id }
+        : { name: "capture", error: null, retry: null },
+    );
   }
 
   const restart = () => {
@@ -95,7 +122,25 @@ export function ScanScreen({ currency }: { currency: string }) {
       </div>
       <div className="mx-auto w-full max-w-xl">
         {stage.name === "capture" && (
-          <Capture error={stage.error} retry={stage.retry} onFile={read} />
+          <div className="flex flex-col gap-6">
+            <Capture
+              error={stage.error}
+              retry={stage.retry}
+              compact={series.items.length > 0}
+              mode={mode}
+              onMode={setMode}
+              onFile={mode === "many" ? series.add : read}
+            />
+            <SeriesTray
+              items={series.items}
+              onOpen={(item) => {
+                setRejectedFound(false);
+                if (item.result) setStage({ name: "review", result: item.result, itemId: item.id });
+              }}
+              onRetry={series.retry}
+              onRemove={series.remove}
+            />
+          </div>
         )}
 
         {stage.name === "reading" && (
@@ -129,7 +174,9 @@ export function ScanScreen({ currency }: { currency: string }) {
             rejectedFound={rejectedFound}
             producers={[...new Set((wines.data ?? []).map((w) => w.producer))]}
             onReject={() => setRejectedFound(true)}
-            onWine={(wine) => setStage({ name: "details", result: stage.result, wine })}
+            onWine={(wine) =>
+              setStage({ name: "details", result: stage.result, wine, itemId: stage.itemId })
+            }
             onAgain={restart}
           />
         )}
@@ -138,7 +185,7 @@ export function ScanScreen({ currency }: { currency: string }) {
           <BottleDetails
             wine={stage.wine}
             currency={currency}
-            preferredPlaceId={undefined}
+            preferredPlaceId={stage.itemId ? lastPlace : undefined}
             initialYear={
               stage.result.facts?.nonVintage ? null : (stage.result.facts?.year ?? undefined)
             }
@@ -160,7 +207,13 @@ export function ScanScreen({ currency }: { currency: string }) {
                       note: null,
                       maxPriceCents: null,
                     });
-                    restart();
+                    if (stage.itemId)
+                      handled(
+                        stage.itemId,
+                        t("series.wished", { wine: `${stage.wine.producer} ${stage.wine.name}` }),
+                        series.items,
+                      );
+                    else restart();
                   } catch {
                     // The hook has said what went wrong (for instance, that it is on the list already).
                   }
@@ -169,8 +222,21 @@ export function ScanScreen({ currency }: { currency: string }) {
                 {tWish("saveFromScan")}
               </Button>
             }
-            onChangeWine={() => setStage({ name: "review", result: stage.result })}
-            onDone={(result) => setStage({ name: "done", result })}
+            onChangeWine={() =>
+              setStage({ name: "review", result: stage.result, itemId: stage.itemId })
+            }
+            onDone={(result, placeId) => {
+              if (!stage.itemId) return setStage({ name: "done", result });
+              setLastPlace(placeId);
+              handled(
+                stage.itemId,
+                t("series.added", {
+                  count: result.bottleIds.length,
+                  wine: `${result.wine.producer} ${result.wine.name} ${formatVintage(result.year)}`,
+                }),
+                series.items,
+              );
+            }}
           />
         )}
 
@@ -206,16 +272,32 @@ function FramingGuide({ className }: { className?: string }) {
 function Capture({
   error,
   retry,
+  compact,
+  mode,
+  onMode,
   onFile,
 }: {
   error: string | null;
   retry: File | null;
+  /** A series is under way: a smaller viewfinder, so the photos taken so far stay in sight below it. */
+  compact: boolean;
+  mode: "one" | "many";
+  onMode: (mode: "one" | "many") => void;
   onFile: (file: File) => void;
 }) {
   const t = useTranslations("scan");
   return (
     <div className="flex flex-col gap-5">
-      <p className="text-body text-ink-2">{t("intro")}</p>
+      <Segmented
+        label={t("series.mode")}
+        value={mode}
+        onChange={onMode}
+        options={[
+          { value: "one", label: t("series.one") },
+          { value: "many", label: t("series.many") },
+        ]}
+      />
+      <p className="text-body text-ink-2">{mode === "many" ? t("series.intro") : t("intro")}</p>
       {error && (
         <div role="alert" className="rounded-card bg-raised p-4 ring-1 ring-hairline">
           <p className="text-body text-ink">{error}</p>
@@ -228,15 +310,17 @@ function Capture({
       )}
       {/* The viewfinder: a dark camera area with a framing guide, the shutter and the library below. */}
       <div className="overflow-hidden rounded-[28px] bg-hero text-hero-ink shadow-raised">
-        <div className="relative aspect-[5/6] sm:aspect-[4/3]">
+        <div className={cn("relative", compact ? "aspect-[2/1]" : "aspect-[5/6] sm:aspect-[4/3]")}>
           <span
             aria-hidden="true"
             className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/40"
           />
           <FramingGuide className="inset-x-[15%] inset-y-[10%] rounded-[28px] ring-1 ring-white/15" />
-          <p className="absolute inset-x-8 bottom-5 text-center text-small text-hero-ink/85">
-            {t("tips")}
-          </p>
+          {!compact && (
+            <p className="absolute inset-x-8 bottom-5 text-center text-small text-hero-ink/85">
+              {t("tips")}
+            </p>
+          )}
         </div>
         <div className="flex flex-col items-center gap-4 px-5 pb-6 pt-2">
           <span className="grid size-[5.5rem] place-items-center rounded-full ring-[3px] ring-white/80">
@@ -253,10 +337,11 @@ function Capture({
           <FileButton
             variant="secondary"
             size="md"
+            multiple={mode === "many"}
             onFile={onFile}
             className="bg-white/15 text-hero-ink hover:bg-white/25"
           >
-            {t("choosePhoto")}
+            {mode === "many" ? t("series.choosePhotos") : t("choosePhoto")}
           </FileButton>
         </div>
       </div>

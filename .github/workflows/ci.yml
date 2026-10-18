@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "17 3 * * *" # nightly: the long end-to-end run
+  workflow_dispatch: # or by hand, from the Actions tab
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -32,6 +35,10 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      # Next also type-checks the e2e files; this is what the e2e job used to catch on every pull request.
+      - run: pnpm build
+      - name: No server secrets in the browser bundle
+        run: bash scripts/check-bundle-secrets.sh
       - name: Generated files are up to date
         run: |
           pnpm db:types:check
@@ -48,6 +55,8 @@ jobs:
 
   e2e:
     name: End to end · whole app against the local stack
+    # The long one: not on every pull request, but on main, nightly and on demand.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:

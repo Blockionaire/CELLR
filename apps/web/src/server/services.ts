@@ -24,6 +24,9 @@ import { createSommelierService } from "@/server/sommelier/service";
 import { createStatsService } from "@/server/stats/service";
 import { createInsightsRepository } from "@/server/insights/repository";
 import { createInsightsService } from "@/server/insights/service";
+import { getPushEnv } from "@/server/env";
+import { createPushRepository } from "@/server/push/repository";
+import { createPushService } from "@/server/push/service";
 import { createWishlistRepository } from "@/server/wishlist/repository";
 import { createWishlistService } from "@/server/wishlist/service";
 
@@ -126,6 +129,11 @@ export function servicesFor(ctx: RequestContext) {
       values: async (id) => (await insightsRepo.listValues(id)) ?? [],
     }),
     insights,
+    push: createPushService({
+      repo: createPushRepository(ctx.db),
+      env: getPushEnv(),
+      wines: () => cellar.noticeWines(),
+    }),
     sommelier: createSommelierService({
       cellar: () => cellar.inventory(),
       tonight: (request) => cellar.tonight(request),

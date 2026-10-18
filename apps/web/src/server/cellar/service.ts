@@ -10,6 +10,7 @@ import {
   planWijnkelderImport,
   rankForTonight,
   summarizeScores,
+  formatVintage,
   type AddBottles,
   type AddBottlesResult,
   type BottleAction,
@@ -19,6 +20,7 @@ import {
   type CreateStorage,
   type CreateWine,
   type DrinkSummary,
+  type NoticeWine,
   type HomeView,
   type ImportOutcome,
   type HistoryView,
@@ -299,8 +301,46 @@ export function buildHome(
       .filter((i) => i.drink.phase === "ready" || i.drink.phase === "past")
       .sort((a, b) => a.drink.urgency - b.drink.urgency)
       .slice(0, 3),
+    atPeak: cellar.items
+      .filter((i) => i.drink.phase === "peak")
+      .sort((a, b) => (b.drink.position ?? 0) - (a.drink.position ?? 0))
+      .slice(0, 3),
     recentlyOpened: opened.map((o) => ({ ...o })),
   };
+}
+
+/** Each vintage in the cellar with its drinking window and when its first bottle that is still here came in. */
+export function toNoticeWines(rows: InventoryRow[], now: Date): NoticeWine[] {
+  const byVintage = new Map<string, InventoryRow[]>();
+  for (const r of rows) byVintage.set(r.vintageId, [...(byVintage.get(r.vintageId) ?? []), r]);
+  return [...byVintage.values()].map((group) => {
+    const r = group[0]!;
+    const prices = group.flatMap((g) => (g.priceCents === null ? [] : [g.priceCents]));
+    const drink = toDrinkSummary(
+      {
+        type: r.type,
+        year: r.year,
+        region: r.region,
+        appellation: r.appellation,
+        countryCode: r.countryCode,
+        name: r.wineName,
+        pricePerBottleCents: prices.length
+          ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length)
+          : null,
+        aiWindow: r.aiWindow ?? null,
+      },
+      now,
+    );
+    return {
+      vintageId: r.vintageId,
+      title: `${r.producer} ${r.wineName} ${formatVintage(r.year)}`,
+      window:
+        drink.from !== null && drink.until !== null
+          ? { from: drink.from, until: drink.until }
+          : null,
+      firstAddedAt: group.map((g) => g.addedAt).sort()[0]!,
+    };
+  });
 }
 
 /** Every storage unit with what sits in each spot, plus the bottles that have no place yet. */
@@ -421,6 +461,12 @@ export function createCellarService(
         throw new DomainError("CONFLICT", "There are still bottles in it. Move them out first.");
       if (!(await repo.deleteStorage(householdId, id)))
         throw new DomainError("FORBIDDEN", "Only the household's owner can delete a place.");
+    },
+
+    /** The wines in the cellar as the drinking reminders see them. */
+    async noticeWines(): Promise<NoticeWine[]> {
+      const { id } = await household();
+      return toNoticeWines(await inventoryRows(id), now());
     },
 
     async racks(): Promise<RackView> {

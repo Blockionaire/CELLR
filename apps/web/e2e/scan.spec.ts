@@ -363,3 +363,61 @@ test.describe("scanning a label", () => {
     }
   });
 });
+
+test.describe("several bottles in a row", () => {
+  test("photos are read in the background while you go on; each is added in turn, and the next one opens by itself", async ({
+    page,
+    request,
+  }) => {
+    const { householdId, call } = await furnish(page, request, "series");
+    await call(
+      "post",
+      "/wines",
+      {
+        producer: "Château Margaux",
+        name: "Pavillon Rouge",
+        type: "red",
+        countryCode: "FR",
+        region: "Bordeaux",
+      },
+      201,
+    );
+    const first = uniqueSize();
+    const second = uniqueSize();
+    await program(first, { content: label() });
+    await program(second, { content: label({ vintage: 2016 }) });
+
+    await page.goto("/scan");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("radio", { name: "Several in a row" }).click();
+    // Two photos picked from the library at once.
+    await page.locator('input[type="file"]:not([capture])').setInputFiles([
+      { name: "a.jpg", mimeType: "image/jpeg", buffer: await makeJpeg(page, first) },
+      { name: "b.jpg", mimeType: "image/jpeg", buffer: await makeJpeg(page, second) },
+    ]);
+    const tray = page.getByTestId("series");
+    await expect(tray.locator('li[data-status="ready"]')).toHaveCount(2, { timeout: 15_000 });
+    await expect(page.getByText("0 of 2 done")).toBeVisible();
+    await page.screenshot({ path: shot(`series-tray-${project()}`), fullPage: true });
+
+    await tray.getByRole("button", { name: "Add" }).first().click();
+    await page.getByRole("button", { name: "Yes, add bottles" }).click();
+    await page.getByRole("button", { name: /^Add 1 bottle/ }).click();
+    await expect(
+      page.getByText(/Added 1 bottle of Château Margaux Pavillon Rouge/).first(),
+    ).toBeVisible();
+
+    // Straight on to the next photo, without going back first.
+    await page.getByRole("button", { name: "Yes, add bottles" }).click();
+    await page.getByRole("button", { name: /^Add 1 bottle/ }).click();
+    await expect(page.getByText("2 of 2 done")).toBeVisible();
+
+    const rows = await sql<{ year: number }>(
+      `select v.year from public.bottles b join public.wine_vintages v on v.id = b.vintage_id
+        where b.household_id = $1 order by v.year`,
+      [householdId],
+    );
+    expect(rows.map((r) => r.year)).toEqual([2015, 2016]);
+    expect(await audit(page)).toEqual([]);
+  });
+});

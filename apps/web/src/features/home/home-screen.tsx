@@ -212,36 +212,17 @@ export async function HomeScreen({
             </section>
           )}
 
+          {home.atPeak.length > 0 && (
+            <section className="mt-10" aria-labelledby="peak">
+              <SectionHeader id="peak" title={t("atPeak")} />
+              <WineLines items={home.atPeak} />
+            </section>
+          )}
+
           {home.drinkSoon.length > 0 && (
             <section className="mt-10" aria-labelledby="soon">
               <SectionHeader id="soon" title={t("drinkSoon")} />
-              <ul className="divide-y divide-hairline rounded-card border border-hairline bg-surface px-4">
-                {home.drinkSoon.map((item) => (
-                  <li key={item.vintageId}>
-                    <article className="relative flex min-h-16 items-center gap-4 py-3">
-                      <BottleGlyph
-                        shape={shapeFor(item.type)}
-                        tint={item.type}
-                        className="w-4 shrink-0"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <h3 className="truncate font-display text-title text-ink">
-                          <Link
-                            href={`/cellar/${item.vintageId}`}
-                            className="after:absolute after:inset-0"
-                          >
-                            {item.wineName}
-                          </Link>
-                        </h3>
-                        <p className="truncate text-small text-ink-2">
-                          {item.producer} · <span className="tnum">{formatVintage(item.year)}</span>
-                        </p>
-                      </div>
-                      <DrinkLabel drink={item.drink} className="text-small" />
-                    </article>
-                  </li>
-                ))}
-              </ul>
+              <WineLines items={home.drinkSoon} />
             </section>
           )}
 
@@ -440,5 +421,31 @@ function OpenedRow({
         ) : null}
       </div>
     </article>
+  );
+}
+
+/** A short list of wines with how ready each is: tap one to open its page. */
+function WineLines({ items }: { items: CellarItem[] }) {
+  return (
+    <ul className="divide-y divide-hairline rounded-card border border-hairline bg-surface px-4">
+      {items.map((item) => (
+        <li key={item.vintageId}>
+          <article className="relative flex min-h-16 items-center gap-4 py-3">
+            <BottleGlyph shape={shapeFor(item.type)} tint={item.type} className="w-4 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate font-display text-title text-ink">
+                <Link href={`/cellar/${item.vintageId}`} className="after:absolute after:inset-0">
+                  {item.wineName}
+                </Link>
+              </h3>
+              <p className="truncate text-small text-ink-2">
+                {item.producer} · <span className="tnum">{formatVintage(item.year)}</span>
+              </p>
+            </div>
+            <DrinkLabel drink={item.drink} className="text-small" />
+          </article>
+        </li>
+      ))}
+    </ul>
   );
 }

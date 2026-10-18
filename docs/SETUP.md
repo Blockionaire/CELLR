@@ -47,7 +47,8 @@ _Supabase → SQL Editor → New query._ Run these files **in this order**, one 
 10. `…0010_tighten_photo_bucket.sql` (photo bucket: JPEG only, 4 MB — also added later)
 11. `…0011_bottle_extras_and_insights.sql` (gift/bought, kept-for-an-occasion reminders, AI wine profiles — also added later)
 12. `…0012_merge_wines.sql` (merge a wine that was entered twice — also added later)
-13. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
+13. `…0013_push_reminders.sql` (reminders on your phone when a wine is at its best — also added later)
+14. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
 
 If a file fails, stop: the files are not safe to re-run. Note which file and the error text.
 
@@ -74,6 +75,7 @@ missing step and simply leaves that feature switched off.
 | `20261013000010_tighten_photo_bucket.sql`       | Photo storage accepts only the sanitised JPEGs the app itself makes                     |
 | `20261014000011_bottle_extras_and_insights.sql` | Where a bottle came from (bought / gift), a day to keep it for, and the AI wine profile |
 | `20261015000012_merge_wines.sql`                | Merging a wine that was entered twice                                                   |
+| `20261018000013_push_reminders.sql`             | Reminders on your phone when a wine is at its best (also needs the keys below)          |
 
 ### Check it worked
 
@@ -222,6 +224,32 @@ What is sent: only the label photo, to OpenAI, to be read; the scan screen says 
 40 labels per hour (the budget protects the bill); beyond that the photo is still kept and the form is shown.
 Photos live in the private `bottle-images` bucket under your household's own folder; the database step that
 creates it is migration 0005, which you have already run.
+
+### Turning on reminders on your phone (optional)
+
+Once a day the app checks every cellar and sends a notification when a wine has reached its best years, or the
+last stretch of them ("drink it soon"). Each wine is told once. It needs the database step
+`20261018000013_push_reminders.sql`, `SUPABASE_SERVICE_ROLE_KEY` (already set above) and four settings in Vercel
+(_Settings → Environment Variables_, Production, then redeploy). **Put them in Vercel only; never in a chat or a
+file in the repository.**
+
+1. Make a key pair on your own computer, in the project folder: `pnpm --filter @cellr/web exec web-push generate-vapid-keys`.
+   It prints a _Public Key_ and a _Private Key_.
+2. Add them to Vercel:
+
+   | Variable            | Value                                                                          |
+   | ------------------- | ------------------------------------------------------------------------------ |
+   | `VAPID_PUBLIC_KEY`  | the Public Key                                                                 |
+   | `VAPID_PRIVATE_KEY` | the Private Key (**mark as Sensitive**)                                        |
+   | `VAPID_SUBJECT`     | `mailto:` + your own email address, e.g. `mailto:you@example.com`              |
+   | `CRON_SECRET`       | any long random text (**mark as Sensitive**); Vercel sends it to the daily job |
+
+3. Redeploy. The daily job is in `apps/web/vercel.json` (`/api/cron/drink-reminders`, 08:00 UTC); you can see it
+   under _Settings → Cron Jobs_ in Vercel.
+4. On your phone: Profile → Reminders → _Turn on for this phone_. On an iPhone this only works when CELLR is on
+   the home screen (Share → Add to Home Screen) and opened from there. Each phone is switched on by itself.
+
+Without these settings the Reminders card simply does not appear; Home still shows which wines are at their best.
 
 ### Bringing your old Wijnkelder cellar over
 

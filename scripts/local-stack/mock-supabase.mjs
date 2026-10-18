@@ -7,6 +7,7 @@
 //
 //   FAKE      An OpenAI-compatible chat endpoint (/openai/v1): tests program what it answers for a picture of a
 //             given size via /__test/openai, and read back what it was asked via /__test/openai/calls
+//   FAKE      Web Push (push-receiver.mjs, https): read back what was pushed via /__test/push/calls
 //   FAKE      Storage: the real `storage.objects` policies from our migrations decide who may read, write
 //             and delete (each call runs in a transaction AS the caller), the bytes live in memory
 // It is a test fixture, not a security boundary: it binds to localhost and exposes /__test/* helpers.
@@ -53,6 +54,7 @@ export function createSigningKeys() {
 
 export async function startMockSupabase({
   port,
+  push,
   pgUrl,
   postgrestUrl,
   publishableKey,
@@ -522,6 +524,13 @@ export async function startMockSupabase({
         const { sql, params } = await readJson(req);
         const result = await db.query(sql, params ?? []);
         return json(res, 200, { rows: result.rows });
+      }
+      // The fake push service (push-receiver.mjs): what reached a phone, and making a phone "gone".
+      if (url.pathname === "/__test/push/calls" && push)
+        return json(res, 200, { calls: push.calls(url.searchParams.get("id") ?? "") });
+      if (url.pathname === "/__test/push/gone" && req.method === "POST" && push) {
+        push.markGone((await readJson(req)).id);
+        return json(res, 200, {});
       }
       if (url.pathname.startsWith("/auth/v1")) return await handleAuth(req, res, url);
       if (url.pathname.startsWith("/rest/v1")) return await handleRest(req, res, url);

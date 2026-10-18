@@ -1,9 +1,30 @@
+import fs from "node:fs";
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
+import webpush from "web-push";
+import {
+  ensureCertificate,
+  PUSH_CERT,
+  PUSH_DIR,
+} from "../../scripts/local-stack/push-receiver.mjs";
 
 const PORT = 3100;
 const STACK_URL = "http://localhost:54321";
 // The sandbox ships Chromium at a fixed path; CI lets Playwright find its own browser.
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined;
+
+// Reminders: the test server sends Web Push to the local stack's fake push service (https, self-signed, trusted
+// only by the test server), signed with keys made once for this machine. The config is read by every worker,
+// so the keys live in a file instead of being made anew each time.
+ensureCertificate();
+const vapidFile = path.join(PUSH_DIR, "vapid.json");
+if (!fs.existsSync(vapidFile))
+  fs.writeFileSync(vapidFile, JSON.stringify(webpush.generateVAPIDKeys()));
+const vapid = JSON.parse(fs.readFileSync(vapidFile, "utf8")) as {
+  publicKey: string;
+  privateKey: string;
+};
+const CRON_SECRET = "local-stack-cron"; // e2e/reminders.spec.ts knows it too
 
 export default defineConfig({
   testDir: "./e2e",
@@ -51,6 +72,11 @@ export default defineConfig({
         // An OpenAI-compatible endpoint inside the local stack: tests program what it answers.
         OPENAI_API_KEY: "sk-local-stack-0000000000",
         AI_BASE_URL: STACK_URL + "/openai/v1",
+        VAPID_PUBLIC_KEY: vapid.publicKey,
+        VAPID_PRIVATE_KEY: vapid.privateKey,
+        VAPID_SUBJECT: "mailto:tests@cellr.invalid",
+        CRON_SECRET,
+        NODE_EXTRA_CA_CERTS: PUSH_CERT,
       },
     },
   ],

@@ -388,6 +388,36 @@ export type Database = {
           },
         ];
       };
+      drink_notices: {
+        Row: {
+          kind: string;
+          sent_at: string;
+          user_id: string;
+          vintage_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          kind: string;
+          sent_at?: string;
+          user_id?: string;
+          vintage_id: string;
+        };
+        Update: {
+          kind?: string;
+          sent_at?: string;
+          user_id?: string;
+          vintage_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "drink_notices_vintage_id_fkey";
+            columns: ["vintage_id"];
+            isOneToOne: false;
+            referencedRelation: "wine_vintages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       favorites: {
         Row: {
           created_at: string;
@@ -626,6 +656,34 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      push_subscriptions: {
+        Row: {
+          auth: string;
+          created_at: string;
+          endpoint: string;
+          id: string;
+          p256dh: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          auth: string;
+          created_at?: string;
+          endpoint: string;
+          id?: string;
+          p256dh: string;
+          user_id?: string;
+        };
+        Update: {
+          auth?: string;
+          created_at?: string;
+          endpoint?: string;
+          id?: string;
+          p256dh?: string;
+          user_id?: string;
+        };
+        Relationships: [];
       };
       tastings: {
         Row: {

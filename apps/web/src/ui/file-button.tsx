@@ -7,6 +7,8 @@ import { cn } from "./cn";
 interface FileButtonProps {
   children: ReactNode;
   onFile: (file: File) => void;
+  /** Lets several files be picked at once (from the library); each one goes to `onFile`, in order. */
+  multiple?: boolean;
   /** "image/*" lets people pick from the library or the camera; add `capture` to go straight to the camera. */
   accept?: string;
   capture?: "environment" | "user";
@@ -24,6 +26,7 @@ interface FileButtonProps {
 export function FileButton({
   children,
   onFile,
+  multiple,
   accept = "image/*",
   capture,
   disabled,
@@ -34,9 +37,9 @@ export function FileButton({
 }: FileButtonProps) {
   const id = useId();
   const choose = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const files = [...(event.target.files ?? [])];
     event.target.value = ""; // choosing the same file again must work
-    if (file) onFile(file);
+    for (const file of multiple ? files : files.slice(0, 1)) onFile(file);
   };
   return (
     <>
@@ -45,6 +48,7 @@ export function FileButton({
         type="file"
         accept={accept}
         capture={capture}
+        multiple={multiple}
         onChange={choose}
         disabled={disabled}
         className="peer sr-only"

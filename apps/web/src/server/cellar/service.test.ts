@@ -589,6 +589,7 @@ describe("the home view", () => {
     expect(buildHome([], [], [], new Set(), new Date("2026-10-12T10:00:00Z"))).toEqual({
       generatedAt: "2026-10-12T10:00:00.000Z",
       drinkSoon: [],
+      atPeak: [],
       bottleCount: 0,
       wineCount: 0,
       valueCents: null,

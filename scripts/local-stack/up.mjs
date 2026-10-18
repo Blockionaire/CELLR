@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createSigningKeys, startMockSupabase } from "./mock-supabase.mjs";
+import { startPushReceiver } from "./push-receiver.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const env = process.env;
@@ -53,8 +54,10 @@ for (let i = 0; i < 60; i++) {
   await new Promise((r) => setTimeout(r, 250));
 }
 
+const push = await startPushReceiver(Number(env.PUSH_PORT ?? port + 10));
 const mock = await startMockSupabase({
   port,
+  push,
   pgUrl: env.PGURL,
   postgrestUrl: `http://127.0.0.1:${restPort}`,
   publishableKey,
@@ -67,6 +70,7 @@ const stop = async () => {
   postgrest.removeAllListeners("exit");
   postgrest.kill("SIGTERM");
   await mock.close().catch(() => {});
+  await push.close().catch(() => {});
   fs.rmSync(workDir, { recursive: true, force: true });
   process.exit(0);
 };
