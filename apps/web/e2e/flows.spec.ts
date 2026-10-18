@@ -123,6 +123,7 @@ test.describe("first run", () => {
     );
     await page.getByLabel("6-digit code").fill("");
     await page.getByLabel("6-digit code").fill(await (await import("./helpers")).codeFor(email));
+    await page.getByTestId("pin-offer").getByRole("button", { name: "Not now" }).click();
     await page.waitForURL(/\/onboarding$/);
   });
 });

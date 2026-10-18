@@ -15,6 +15,7 @@ import {
 } from "@cellr/domain";
 import { BulkBar } from "./bulk-bottles";
 import { BottleExtrasSheet } from "@/features/insights/bottle-extras-sheet";
+import { RecommendButton } from "@/features/friends/recommend-sheet";
 import { useExtras, useInsight } from "@/features/insights/hooks";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { Stars } from "@/ui/stars";
@@ -215,6 +216,11 @@ export function VintageScreen({
               favorite={wine.favorite}
               className="absolute right-3 top-3 size-11 bg-surface/85"
               size={22}
+            />
+            <RecommendButton
+              vintageId={detail.vintageId}
+              wine={`${wine.producer} ${wine.name} ${vintageName}`}
+              className="absolute right-3 top-16 size-11 bg-surface/85"
             />
 
             <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">

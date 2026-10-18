@@ -11,11 +11,9 @@ import {
   type SharingView,
 } from "@cellr/domain";
 import { Button } from "@/ui/button";
-import { cn } from "@/ui/cn";
-import { CheckIcon } from "@/ui/icons";
 import { Segmented } from "@/ui/segmented";
 import { useSaveSharing, useSharing } from "./hooks";
-import { Card, personName, PersonAvatar } from "./person";
+import { Card, FriendCheck } from "./person";
 
 const EMPTY: SharingView = {
   modes: DEFAULT_SHARING,
@@ -93,34 +91,11 @@ export function SharingCard({
                     const on = view.picks[item].includes(f.userId);
                     return (
                       <li key={f.userId}>
-                        <label
-                          className={cn(
-                            "flex cursor-pointer items-center gap-3 rounded-[16px] px-2 py-2 transition-colors hover:bg-raised",
-                            on && "bg-raised",
-                          )}
-                        >
-                          <input
-                            type="checkbox"
-                            className="peer sr-only"
-                            checked={on}
-                            onChange={() => toggle(item, f.userId)}
-                          />
-                          <PersonAvatar person={f} />
-                          <span className="min-w-0 flex-1 truncate text-body text-ink">
-                            {personName(f)}
-                          </span>
-                          <span
-                            aria-hidden="true"
-                            className={cn(
-                              "grid size-6 place-items-center rounded-full border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-accent-fg/40",
-                              on
-                                ? "border-transparent bg-accent text-accent-ink"
-                                : "border-ink-3/60",
-                            )}
-                          >
-                            {on && <CheckIcon size={14} />}
-                          </span>
-                        </label>
+                        <FriendCheck
+                          friend={f}
+                          checked={on}
+                          onChange={() => toggle(item, f.userId)}
+                        />
                       </li>
                     );
                   })}

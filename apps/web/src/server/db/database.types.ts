@@ -5,6 +5,28 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      account_pins: {
+        Row: {
+          failed: number;
+          pin_hash: string;
+          updated_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          failed?: number;
+          pin_hash: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          failed?: number;
+          pin_hash?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       ai_usage: {
         Row: {
           at: string;
@@ -1047,6 +1069,55 @@ export type Database = {
           },
         ];
       };
+      wine_recommendations: {
+        Row: {
+          country_code: string | null;
+          created_at: string;
+          id: string;
+          note: string | null;
+          producer: string;
+          recipient: string;
+          region: string | null;
+          saved_at: string | null;
+          seen_at: string | null;
+          sender: string;
+          wine: string;
+          wine_type: Database["public"]["Enums"]["wine_type"];
+          year: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          country_code?: string | null;
+          created_at?: string;
+          id?: string;
+          note?: string | null;
+          producer: string;
+          recipient: string;
+          region?: string | null;
+          saved_at?: string | null;
+          seen_at?: string | null;
+          sender: string;
+          wine: string;
+          wine_type: Database["public"]["Enums"]["wine_type"];
+          year?: number | null;
+        };
+        Update: {
+          country_code?: string | null;
+          created_at?: string;
+          id?: string;
+          note?: string | null;
+          producer?: string;
+          recipient?: string;
+          region?: string | null;
+          saved_at?: string | null;
+          seen_at?: string | null;
+          sender?: string;
+          wine?: string;
+          wine_type?: Database["public"]["Enums"]["wine_type"];
+          year?: number | null;
+        };
+        Relationships: [];
+      };
       wine_sources: {
         Row: {
           id: string;
@@ -1322,6 +1393,39 @@ export type Database = {
           status: string;
           user_id: string;
         }[];
+      };
+      my_recommendations: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          country_code: string;
+          created_at: string;
+          display_name: string;
+          friend_code: string;
+          handle: string;
+          id: string;
+          note: string;
+          producer: string;
+          region: string;
+          saved_at: string;
+          seen_at: string;
+          sender: string;
+          wine: string;
+          wine_type: string;
+          year: number;
+        }[];
+      };
+      pin_failed: { Args: { p_user: string }; Returns: number };
+      pin_for_email: {
+        Args: { p_email: string };
+        Returns: {
+          email: string;
+          pin_hash: string;
+          user_id: string;
+        }[];
+      };
+      recommend_wine: {
+        Args: { p_friend: string; p_note?: string; p_vintage: string };
+        Returns: string;
       };
       remove_friend: { Args: { p_user: string }; Returns: boolean };
       respond_friend_request: { Args: { p_accept: boolean; p_id: string }; Returns: boolean };

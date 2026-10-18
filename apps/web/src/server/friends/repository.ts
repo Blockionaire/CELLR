@@ -5,6 +5,7 @@ import {
   type FriendEntry,
   type FriendRack,
   type FriendTaste,
+  type Recommendation,
   type ShareMode,
   type SharingView,
   type WineType,
@@ -195,6 +196,70 @@ export function createFriendsRepository(db: Db): FriendsRepository {
       const { data, error } = await db.rpc("friend_racks", { p_friend: friendId });
       if (error) throw mapDbError(error);
       return (data as FriendRack[] | null) ?? null;
+    },
+
+    async recommend(friendId, vintageId, note) {
+      const { data, error } = await db.rpc("recommend_wine", {
+        p_friend: friendId,
+        p_vintage: vintageId,
+        p_note: note,
+      });
+      if (error) throw mapDbError(error);
+      return data;
+    },
+
+    async recommendations() {
+      const { data, error } = await db.rpc("my_recommendations");
+      if (error && notReady(error)) return null;
+      if (error) throw mapDbError(error);
+      return data.map((r): Recommendation => ({
+        id: r.id,
+        from: {
+          userId: r.sender,
+          handle: r.handle,
+          displayName: r.display_name,
+          friendCode: r.friend_code,
+        },
+        producer: r.producer,
+        wine: r.wine,
+        year: r.year,
+        type: r.wine_type as WineType,
+        region: r.region,
+        countryCode: r.country_code,
+        note: r.note,
+        createdAt: r.created_at,
+        seenAt: r.seen_at,
+        savedAt: r.saved_at,
+      }));
+    },
+
+    async markSeen(ids) {
+      if (ids.length === 0) return;
+      const { error } = await db
+        .from("wine_recommendations")
+        .update({ seen_at: new Date().toISOString() })
+        .in("id", ids)
+        .is("seen_at", null);
+      if (error) throw mapDbError(error);
+    },
+
+    async markSaved(id) {
+      const now = new Date().toISOString();
+      const { error } = await db
+        .from("wine_recommendations")
+        .update({ saved_at: now, seen_at: now })
+        .eq("id", id);
+      if (error) throw mapDbError(error);
+    },
+
+    async dismiss(id) {
+      const { data, error } = await db
+        .from("wine_recommendations")
+        .delete()
+        .eq("id", id)
+        .select("id");
+      if (error) throw mapDbError(error);
+      return data.length > 0;
     },
   };
 }

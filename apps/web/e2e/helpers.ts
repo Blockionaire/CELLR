@@ -41,6 +41,14 @@ export async function signIn(page: Page, email: string) {
   await page.getByRole("button", { name: "Send me a code" }).click();
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
   await page.getByLabel("6-digit code").fill(await codeFor(email));
+  // Without a PIN the app offers one first: not now.
+  await page.waitForFunction(
+    () =>
+      !location.pathname.startsWith("/sign-in") ||
+      document.querySelector('[data-testid="pin-offer"]') !== null,
+  );
+  if (new URL(page.url()).pathname.startsWith("/sign-in"))
+    await page.getByTestId("pin-offer").getByRole("button", { name: "Not now" }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/sign-in"));
 }
 

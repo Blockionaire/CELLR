@@ -9,6 +9,7 @@ import {
   type FoundPerson,
   type FriendEntry,
   type FriendsView,
+  type RecommendationsView,
   type SharingView,
 } from "@cellr/domain";
 import { ConfirmSheet } from "@/features/account/confirm-sheet";
@@ -27,6 +28,7 @@ import {
   useSetHandle,
 } from "./hooks";
 import { Card, personName, PersonRow } from "./person";
+import { RecommendationsCard } from "./recommendations-card";
 import { SharingCard } from "./sharing-card";
 
 /** "ABCD2345" → "ABCD 2345": easier to read out loud. */
@@ -36,9 +38,11 @@ export const spacedCode = (code: string) => `${code.slice(0, 4)} ${code.slice(4)
 export function FriendsScreen({
   initial,
   initialSharing,
+  initialRecommendations,
 }: {
   initial: FriendsView;
   initialSharing: SharingView | null;
+  initialRecommendations: RecommendationsView;
 }) {
   const t = useTranslations("friends");
   const data = useFriends(initial).data ?? initial;
@@ -56,6 +60,7 @@ export function FriendsScreen({
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
       <div className="mx-auto flex max-w-xl flex-col gap-4">
         <MeCard handle={data.me.handle} code={data.me.friendCode ?? ""} />
+        <RecommendationsCard initial={initialRecommendations} />
         <FindCard />
         {data.incoming.length > 0 && <IncomingCard requests={data.incoming} />}
         <FriendsCard friends={data.friends} />

@@ -49,6 +49,21 @@ describe("the request", () => {
     ).toBe(true);
     expect(AskSommelierSchema.safeParse({ messages: [] }).success).toBe(false);
     expect(
+      AskSommelierSchema.parse({
+        messages: [{ role: "user", text: "Steak" }],
+        mode: "tonight",
+        budget: "mid",
+      }),
+    ).toMatchObject({ mode: "tonight", budget: "mid" });
+    expect(AskSommelierSchema.parse({ messages: [{ role: "user", text: "Hi" }] })).toMatchObject({
+      mode: "chat",
+      budget: null,
+    });
+    expect(
+      AskSommelierSchema.safeParse({ messages: [{ role: "user", text: "Hi" }], budget: "free" })
+        .success,
+    ).toBe(false);
+    expect(
       AskSommelierSchema.safeParse({ messages: [{ role: "assistant", text: "Hello" }] }).success,
     ).toBe(false);
     expect(
@@ -155,6 +170,43 @@ describe("what the model says is checked", () => {
     )!;
     expect([...result.text].some((c) => c.charCodeAt(0) < 9)).toBe(false);
     expect(result.text.length).toBeLessThanOrEqual(900);
+  });
+
+  it("keeps an honest verdict and at most three wines to buy, tidied", () => {
+    const result = checkSommelierAnswer(
+      {
+        answer: "Nothing here really suits sushi.",
+        bottle_refs: [],
+        verdict: "none",
+        buy: [
+          { wine: " Chablis,\n e.g. William Fèvre ", why: "Crisp and saline.", price: "about €20" },
+          { wine: "Grüner Veltliner", why: "Fresh.", price: "€12–15" },
+          { wine: "", why: "nothing", price: "" },
+          { wine: "Albariño", why: "Bright.", price: "€15" },
+          { wine: "Muscadet", why: "Cheap and right.", price: "€10" },
+        ],
+      },
+      digest,
+    )!;
+    expect(result.verdict).toBe("none");
+    expect(result.buy).toHaveLength(3);
+    expect(result.buy[0]).toEqual({
+      wine: "Chablis, e.g. William Fèvre",
+      why: "Crisp and saline.",
+      price: "about €20",
+    });
+  });
+
+  it("a question that is not about pairing has no verdict; 'nothing fits' with a bottle is 'partial'", () => {
+    expect(
+      checkSommelierAnswer({ answer: "You have 4 wines.", bottle_refs: [] }, digest)!.verdict,
+    ).toBeNull();
+    expect(
+      checkSommelierAnswer(
+        { answer: "Not ideal, but this one.", bottle_refs: [refOf(0)], verdict: "none", buy: [] },
+        digest,
+      )!.verdict,
+    ).toBe("partial");
   });
 
   it("says nothing rather than something empty", () => {

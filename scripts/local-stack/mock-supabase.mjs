@@ -65,6 +65,7 @@ export async function startMockSupabase({
   const db = new pg.Pool({ connectionString: pgUrl, max: 4 });
   const codes = new Map(); // email → { code, expires }
   const refresh = new Map(); // refresh token → user id
+  const links = new Map(); // hashed token (from an admin-made sign-in link) → email
   const b64 = (v) =>
     Buffer.from(typeof v === "string" ? v : JSON.stringify(v)).toString("base64url");
 
@@ -158,6 +159,14 @@ export async function startMockSupabase({
 
     if (req.method === "POST" && path === "/verify") {
       const body = await readJson(req);
+      // A one-time token from an admin-made sign-in link (what the server does after a right PIN).
+      if (body.token_hash) {
+        const email = links.get(String(body.token_hash));
+        if (!email || !["magiclink", "email"].includes(body.type))
+          return goTrueError(res, 403, "otp_expired", "Email link is invalid or has expired");
+        links.delete(String(body.token_hash)); // single use
+        return json(res, 200, sessionFor(await findUser(email)));
+      }
       const email = String(body.email ?? "")
         .trim()
         .toLowerCase();
@@ -177,6 +186,26 @@ export async function startMockSupabase({
       refresh.delete(body.refresh_token);
       const { rows } = await db.query("select id, email from auth.users where id = $1", [userId]);
       return json(res, 200, sessionFor(rows[0]));
+    }
+
+    // Making a sign-in link without sending it: an admin act, like GoTrue's /admin/generate_link.
+    if (req.method === "POST" && path === "/admin/generate_link") {
+      const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? "")?.[1];
+      if (bearer !== serviceKey) return goTrueError(res, 403, "not_admin", "User not allowed");
+      const body = await readJson(req);
+      const user = await findUser(String(body.email ?? ""));
+      if (!user || body.type !== "magiclink")
+        return goTrueError(res, 404, "user_not_found", "User not found");
+      const hashed = crypto.randomBytes(28).toString("hex");
+      links.set(hashed, user.email);
+      return json(res, 200, {
+        ...sessionFor(user).user,
+        action_link: `${base}/auth/v1/verify?token=${hashed}&type=magiclink`,
+        email_otp: String(crypto.randomInt(0, 1_000_000)).padStart(6, "0"),
+        hashed_token: hashed,
+        verification_type: "magiclink",
+        redirect_to: base,
+      });
     }
 
     // Deleting a sign-in is an admin act: only the service key may.

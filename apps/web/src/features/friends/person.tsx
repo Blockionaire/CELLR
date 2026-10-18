@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { PersonCard } from "@cellr/domain";
 import { cn } from "@/ui/cn";
+import { CheckIcon } from "@/ui/icons";
 
 /** What to call someone: the name they gave, else their account name, else their friend code. */
 export const personName = (p: Pick<PersonCard, "displayName" | "handle" | "friendCode">) =>
@@ -85,5 +86,38 @@ export function Card({
       </div>
       {children}
     </section>
+  );
+}
+
+/** A friend to tick: avatar, name, and a round check on the right. A real checkbox underneath. */
+export function FriendCheck({
+  friend,
+  checked,
+  onChange,
+}: {
+  friend: PersonCard;
+  checked: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <label
+      className={cn(
+        "flex cursor-pointer items-center gap-3 rounded-[16px] px-2 py-2 transition-colors hover:bg-raised",
+        checked && "bg-raised",
+      )}
+    >
+      <input type="checkbox" className="peer sr-only" checked={checked} onChange={onChange} />
+      <PersonAvatar person={friend} />
+      <span className="min-w-0 flex-1 truncate text-body text-ink">{personName(friend)}</span>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "grid size-6 place-items-center rounded-full border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-accent-fg/40",
+          checked ? "border-transparent bg-accent text-accent-ink" : "border-ink-3/60",
+        )}
+      >
+        {checked && <CheckIcon size={14} />}
+      </span>
+    </label>
   );
 }

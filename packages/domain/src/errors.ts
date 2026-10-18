@@ -13,6 +13,7 @@ export const ERROR_CODES = [
   "UPLOAD_REJECTED",
   "INVITE_INVALID",
   "OTP_INVALID",
+  "PIN_INVALID",
   "SIGNUP_CLOSED",
   "INTERNAL",
 ] as const;
@@ -31,6 +32,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   UPLOAD_REJECTED: 422,
   INVITE_INVALID: 422,
   OTP_INVALID: 422,
+  PIN_INVALID: 422,
   SIGNUP_CLOSED: 403,
   INTERNAL: 500,
 };
@@ -50,6 +52,8 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   UPLOAD_REJECTED: "We couldn't use that photo. Try another one.",
   INVITE_INVALID: "That invite code didn't work. Check it, or ask for a new one.",
   OTP_INVALID: "That code didn't work. Check it, or ask for a new one.",
+  PIN_INVALID:
+    "That PIN didn't work. After five wrong tries the PIN switches off and you sign in with an email code.",
   SIGNUP_CLOSED: "CELLR is invite-only for now, and this email isn't on the list yet.",
   INTERNAL: "Something went wrong on our side. Please try again.",
 };
