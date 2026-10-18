@@ -970,7 +970,7 @@
   },
   "insights": {
     "title": "About this wine",
-    "intro": "Ask an AI what it knows about this wine: its style, grapes, what to eat with it, how it may age and roughly what it is worth.",
+    "intro": "Ask an AI what it knows about this wine: how it tastes, what to eat with it, how it may age. It is written once and stays as it is.",
     "ask": "Tell me about this wine",
     "thinking": "Reading up on it…",
     "refresh": "Refresh",
@@ -996,7 +996,7 @@
     "perBottle": "per bottle",
     "valueMine": "Your own value.",
     "valueRange": "AI estimate: between {low} and {high}.",
-    "valueNone": "No value yet. Ask the AI above for an estimate, or enter your own.",
+    "valueNone": "No value yet. Look it up, or enter your own.",
     "valueSet": "Enter my own value",
     "valueChange": "Change my value",
     "valueSave": "Save",
@@ -1007,7 +1007,78 @@
     "valueError": "That doesn't look like a price.",
     "valueSaved": "Value saved.",
     "abv": "Alcohol",
-    "abvValue": "{abv}% alcohol"
+    "abvValue": "{abv}% alcohol",
+    "complete": "Fill in what is missing",
+    "completeHint": "This profile is from an older version: newer parts (taste, aromas, dishes) can be filled in. What is there stays.",
+    "tasteTitle": "Taste",
+    "tasteNote": "How it feels, as an estimate. 1 to 5 on each scale.",
+    "scales": {
+      "body": {
+        "name": "Body",
+        "low": "Light",
+        "high": "Full"
+      },
+      "tannin": {
+        "name": "Tannin",
+        "low": "Soft",
+        "high": "Firm"
+      },
+      "sweetness": {
+        "name": "Sweetness",
+        "low": "Dry",
+        "high": "Sweet"
+      },
+      "acidity": {
+        "name": "Acidity",
+        "low": "Gentle",
+        "high": "Fresh"
+      }
+    },
+    "scaleValue": "{name}: {value} out of 5",
+    "aromasTitle": "Aromas",
+    "flavor": {
+      "red_fruit": "Red fruit",
+      "black_fruit": "Dark fruit",
+      "citrus": "Citrus",
+      "tree_fruit": "Orchard fruit",
+      "tropical": "Tropical fruit",
+      "dried_fruit": "Dried fruit",
+      "floral": "Floral",
+      "herbal": "Herbs",
+      "spice": "Spice",
+      "oak": "Oak",
+      "earth": "Earth",
+      "mineral": "Mineral",
+      "nutty": "Nuts",
+      "sweet": "Honey & sweet"
+    },
+    "pairsTitle": "Goes with",
+    "pairKind": {
+      "beef": "Beef",
+      "lamb": "Lamb",
+      "pork": "Pork",
+      "poultry": "Poultry",
+      "game": "Game",
+      "fish": "Fish",
+      "shellfish": "Shellfish",
+      "cheese": "Cheese",
+      "pasta": "Pasta",
+      "vegetarian": "Vegetarian",
+      "spicy": "Spicy food",
+      "dessert": "Dessert",
+      "aperitif": "Aperitif"
+    },
+    "details": "Details",
+    "valueSources": "Sources",
+    "valueAsOf": "Looked up {day}",
+    "valueLookup": "Look up the value",
+    "valueLooking": "Looking up prices…",
+    "valueAgain": "Look up again",
+    "valueAgainFrom": "Can be looked up again from {day}",
+    "valueNotFound": "No price with a trustworthy source was found. Try again later, or enter your own value.",
+    "valueHistory": "Over time",
+    "valueNoSources": "Estimated without sources (older value).",
+    "valueRangeSourced": "Between {low} and {high} in shops and auctions."
   },
   "framer": {
     "title": "Show us where the label is",
@@ -1035,7 +1106,7 @@
     "worth": "Worth now",
     "noPrices": "No prices recorded",
     "pricedNote": "{count, plural, one {from # bottle with a price} other {from # bottles with a price}}",
-    "noValues": "Ask for a wine profile to see values",
+    "noValues": "Look up a value on a wine’s page",
     "valuedNote": "{count, plural, one {# bottle valued} other {# bottles valued}}",
     "gainNote": "{amount} more than paid ({count, plural, one {# bottle} other {# bottles}})",
     "lossNote": "{amount} less than paid ({count, plural, one {# bottle} other {# bottles}})",
@@ -1064,7 +1135,9 @@
     "valueTitle": "Value",
     "windowsTitle": "Drinking windows",
     "windowsNote": "{count, plural, one {# wine, most pressing first} other {# wines, most pressing first}}",
-    "inWindow": "In their window"
+    "inWindow": "In their window",
+    "valueOverTime": "Over time",
+    "valueOverTimeNote": "Each month: the bottles you had then, at the value known then (looked up at most once a month, with sources). Before the first lookup the first one stands in."
   },
   "bulk": {
     "select": "Select bottles",

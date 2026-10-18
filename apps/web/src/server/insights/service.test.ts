@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { DomainError, type VintageDetail } from "@cellr/domain";
+import {
+  DomainError,
+  InsightOutputSchema,
+  PROFILE_VERSION,
+  type Valuation,
+  type VintageDetail,
+} from "@cellr/domain";
 import type { AiResult, LlmProvider } from "@/server/ai";
 import { createInsightsService, type InsightsDeps } from "./service";
 import type { InsightsRepository } from "./types";
@@ -18,9 +24,12 @@ const raw = {
   abv_percent: 13.5,
   pairings: ["Lamb"],
   aging: "A decade.",
-  value_low: 40,
-  value_high: 60,
-  value_basis: "Auctions.",
+  body: 4,
+  tannin: 4,
+  sweetness: 1,
+  acidity: 3,
+  flavors: [{ group: "black_fruit" as const, notes: ["Plum"] }],
+  pairing_kinds: ["lamb" as const],
   drink_from_year: 2020,
   drink_until_year: 2035,
   country_code: "FR",
@@ -60,6 +69,10 @@ function setup(
     listExtras: vi.fn(async () => []),
     saveExtras: vi.fn(async () => true),
     reminders: vi.fn(async () => []),
+    listValuations: vi.fn(async () => [] as Valuation[] | null),
+    addValuation: vi.fn(async () => true),
+    allValuations: vi.fn(async () => []),
+    listOwnValues: vi.fn(async () => new Map<string, number>()),
   };
   const llm: LlmProvider = {
     generateObject: vi.fn(async (req) =>
@@ -74,12 +87,125 @@ function setup(
     locale: async () => "nl",
     llm,
     spend: async () => {},
+    now: () => new Date("2026-12-20T12:00:00Z"),
     recordUsage: async (e) => void recorded.push(e.status),
     today: () => "2026-12-20",
     ...over,
   });
   return { service, repo, llm, saved, recorded };
 }
+
+const storedProfile = (version: number) =>
+  InsightOutputSchema.parse({
+    summary: "The words the person read first.",
+    style: "Full",
+    grapes: ["Merlot"],
+    tasting: "Plum.",
+    serving: null,
+    decantMinutes: 30,
+    pairings: ["Lamb"],
+    aging: "A decade.",
+    confidence: "medium",
+    version,
+  });
+
+describe("a profile stays as it was written", () => {
+  it("a complete profile is given back as it is, without asking the AI", async () => {
+    const base = setup();
+    const getInsight = vi.fn(async () => ({
+      row: {
+        output: storedProfile(PROFILE_VERSION),
+        model: "m",
+        generatedAt: "2026-01-01",
+        myValueCents: null,
+      },
+    }));
+    const s = setup({ repo: { ...base.repo, getInsight } });
+    const view = await s.service.generate("v1");
+    expect(view.insight?.output.summary).toBe("The words the person read first.");
+    expect(s.llm.generateObject).not.toHaveBeenCalled();
+    expect(base.saved).toHaveLength(0);
+  });
+
+  it("an older profile is only filled in: its words stay", async () => {
+    const base = setup();
+    const getInsight = vi.fn(async () => ({
+      row: { output: storedProfile(1), model: "m", generatedAt: "2026-01-01", myValueCents: null },
+    }));
+    const s = setup({ repo: { ...base.repo, getInsight, saveInsight: base.repo.saveInsight } });
+    await s.service.generate("v1");
+    expect(base.saved).toHaveLength(1);
+    expect(base.saved[0]).toMatchObject({
+      output: {
+        summary: "The words the person read first.",
+        decantMinutes: 30,
+        structure: { body: 4 },
+        version: PROFILE_VERSION,
+      },
+    });
+  });
+});
+
+describe("what a bottle is worth", () => {
+  const found = {
+    low: 40,
+    high: 60,
+    basis: "Two shops.",
+    sources: [{ name: "Shop", url: "https://shop.example/w" }],
+  };
+  const answer = (consulted: string[]) =>
+    ({ ok: true, value: found, usage, consulted }) as AiResult<unknown>;
+
+  it("is looked up on the web, kept with its real sources, and accounted for", async () => {
+    const s = setup({}, answer(["https://shop.example/w?utm_source=openai"]));
+    await s.service.valuate("v1");
+    expect(s.repo.addValuation).toHaveBeenCalledWith(
+      "h1",
+      "v1",
+      {
+        lowCents: 4000,
+        highCents: 6000,
+        currency: "EUR",
+        basis: "Two shops.",
+        sources: [{ name: "Shop", url: "https://shop.example/w" }],
+      },
+      "test-model",
+    );
+    const call = vi.mocked(s.llm.generateObject).mock.calls[0]![0];
+    expect(call).toMatchObject({ task: "wine_valuation", webSearch: true });
+    expect(s.recorded).toEqual(["ok"]);
+  });
+
+  it("without a page the search really opened, nothing is kept", async () => {
+    const s = setup({}, answer(["https://elsewhere.example/"]));
+    await expect(s.service.valuate("v1")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(s.repo.addValuation).not.toHaveBeenCalled();
+  });
+
+  it("at most once a month", async () => {
+    const base = setup({}, answer(["https://shop.example/w"]));
+    const recent: Valuation = {
+      lowCents: 1,
+      highCents: 2,
+      currency: "EUR",
+      basis: "",
+      sources: [],
+      valuedAt: "2026-12-01T00:00:00Z",
+    };
+    const s = setup(
+      { repo: { ...base.repo, listValuations: vi.fn(async () => [recent]) } },
+      answer(["https://shop.example/w"]),
+    );
+    await expect(s.service.valuate("v1")).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(s.llm.generateObject).not.toHaveBeenCalled();
+  });
+
+  it("needs the database step first", async () => {
+    const base = setup();
+    const s = setup({ repo: { ...base.repo, listValuations: vi.fn(async () => null) } });
+    await expect(s.service.valuate("v1")).rejects.toMatchObject({ code: "INTERNAL" });
+  });
+});
 
 describe("a wine profile", () => {
   it("is asked for in the person's language, checked, kept, and accounted for", async () => {
@@ -89,7 +215,12 @@ describe("a wine profile", () => {
     expect(saved).toHaveLength(1);
     expect(saved[0]).toMatchObject({
       model: "test-model",
-      output: { value: { lowCents: 4000, highCents: 6000, currency: "EUR" } },
+      output: {
+        version: PROFILE_VERSION,
+        structure: { body: 4, tannin: 4, sweetness: 1, acidity: 3 },
+        pairingKinds: ["lamb"],
+        value: null,
+      },
     });
     expect(recorded).toEqual(["ok"]);
     const call = vi.mocked(llm.generateObject).mock.calls[0]![0];

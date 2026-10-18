@@ -32,6 +32,15 @@ export function useGenerateInsight(vintageId: string) {
   });
 }
 
+/** Looks up what a bottle sells for today, on the web, with sources (the server allows it once a month). */
+export function useValuate(vintageId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<VintageInsightView>(`/cellar/${vintageId}/value`),
+    onSuccess: (view) => queryClient.setQueryData(insightKey(vintageId), view),
+  });
+}
+
 export function useSaveMyValue(vintageId: string) {
   const queryClient = useQueryClient();
   return useMutation({

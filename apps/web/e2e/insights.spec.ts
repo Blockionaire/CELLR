@@ -9,7 +9,7 @@ const marker = () =>
 
 async function program(
   match: string,
-  plan: { content?: unknown; sequence?: unknown[]; status?: number },
+  plan: { content?: unknown; sequence?: unknown[]; status?: number; consulted?: string[] },
 ) {
   const res = await fetch(`${STACK}/__test/openai`, {
     method: "POST",
@@ -18,6 +18,18 @@ async function program(
   });
   expect(res.ok).toBe(true);
 }
+
+/** What a price lookup on the web answers, and the pages the "search" opened. */
+const VALUE = {
+  low: 40,
+  high: 60,
+  basis: "Two Dutch shops, October 2026.",
+  sources: [
+    { name: "Wijnhandel Test", url: "https://wijnhandel.example/margaux-2015" },
+    { name: "Made up", url: "https://not-visited.example/x" },
+  ],
+};
+const CONSULTED = ["https://wijnhandel.example/margaux-2015?utm_source=openai"];
 
 const PROFILE = {
   summary: "A ripe, structured Bordeaux with plenty of life ahead.",
@@ -30,9 +42,15 @@ const PROFILE = {
   abv_percent: 13.5,
   pairings: ["Roast lamb", "Hard cheese"],
   aging: "Should keep improving for another ten years.",
-  value_low: 40,
-  value_high: 60,
-  value_basis: "Based on what recent vintages of this estate sell for.",
+  body: 4,
+  tannin: 4,
+  sweetness: 1,
+  acidity: 3,
+  flavors: [
+    { group: "black_fruit", notes: ["Plum", "Blackcurrant"] },
+    { group: "oak", notes: ["Cedar"] },
+  ],
+  pairing_kinds: ["lamb", "cheese"],
   drink_from_year: 2022,
   drink_until_year: 2040,
   country_code: "FR",
@@ -85,7 +103,8 @@ test.describe("a wine's profile", () => {
     const { email } = await arrive(page, "insight");
     const m = marker();
     const { vintageId } = await furnish(request, email, m);
-    await program(m, { content: PROFILE });
+    // the profile first, then the price lookup (same wine name, so one plan answers both in turn)
+    await program(m, { sequence: [PROFILE, VALUE], consulted: CONSULTED });
 
     await page.goto(`/cellar/${vintageId}`);
     await expect(page.getByTestId("worth")).toHaveCount(0);
@@ -96,9 +115,24 @@ test.describe("a wine's profile", () => {
     await expect(card.getByText("Merlot, Cabernet Franc")).toBeVisible();
     await expect(card.getByText("16–18 °C")).toBeVisible();
     await expect(card.getByText(/an estimate, not a fact/)).toBeVisible();
+    // The taste, the aromas and the dishes, the way wine apps show them.
+    const taste = page.getByTestId("taste");
+    await expect(taste.getByRole("meter", { name: "Body" })).toHaveAttribute("aria-valuenow", "4");
+    await expect(taste.getByText("Dark fruit")).toBeVisible();
+    await expect(taste.getByText("Plum, Blackcurrant")).toBeVisible();
+    await expect(page.getByTestId("pairs").getByText("Lamb", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("pairs").getByText("Cheese", { exact: true })).toBeVisible();
+
+    // The value is looked up on the web, with the page it came from (the made-up one is dropped).
+    await page.getByRole("button", { name: "Look up the value" }).click();
     // Half way between 40 and 60
     await expect(page.getByTestId("worth")).toContainText(/50[.,]00/);
-    await expect(page.getByTestId("value")).toContainText("AI estimate");
+    await expect(page.getByTestId("value")).toContainText("in shops and auctions");
+    const sources = page.getByTestId("value-sources").getByRole("link");
+    await expect(sources).toHaveCount(1);
+    await expect(sources).toHaveAttribute("href", "https://wijnhandel.example/margaux-2015");
+    // ...and only once a month
+    await expect(page.getByText(/Can be looked up again from/)).toBeVisible();
     // The drinking window now comes from the AI, and the page says so
     await expect(page.getByText(/An estimate by the AI/)).toBeVisible();
     await page.screenshot({ path: shot(`insight-${project()}`), fullPage: true });
@@ -120,7 +154,26 @@ test.describe("a wine's profile", () => {
     const calls = await (
       await fetch(`${STACK}/__test/openai/calls?match=${encodeURIComponent(m)}`)
     ).json();
-    expect((calls as { calls: unknown[] }).calls).toHaveLength(1);
+    expect((calls as { calls: unknown[] }).calls).toHaveLength(2);
+
+    // Asking again for the profile changes nothing: it is written once.
+    const again = await api(
+      request,
+      await sessionToken(email),
+      "post",
+      `/cellar/${vintageId}/insight`,
+    );
+    expect(again.status()).toBe(200);
+    const after = await (
+      await fetch(`${STACK}/__test/openai/calls?match=${encodeURIComponent(m)}`)
+    ).json();
+    expect((after as { calls: unknown[] }).calls).toHaveLength(2);
+    // ...and the value cannot be looked up again this month.
+    expect(
+      (
+        await api(request, await sessionToken(email), "post", `/cellar/${vintageId}/value`)
+      ).status(),
+    ).toBe(409);
   });
 
   test("when the AI can't, nothing is stored and the person is told kindly", async ({
@@ -141,20 +194,26 @@ test.describe("a wine's profile", () => {
     ).toHaveLength(0);
   });
 
-  test("an implausible value from the AI is thrown away, the rest is kept", async ({
-    page,
-    request,
-  }) => {
+  test("a price without a page the search really opened is not kept", async ({ page, request }) => {
     const { email } = await arrive(page, "insightabsurd");
     const m = marker();
     const { vintageId } = await furnish(request, email, m);
-    await program(m, { content: { ...PROFILE, value_low: 5, value_high: 5000 } });
+    await program(m, {
+      sequence: [PROFILE, { ...VALUE, sources: [VALUE.sources[1]] }],
+      consulted: CONSULTED,
+    });
 
     await page.goto(`/cellar/${vintageId}`);
     await page.getByRole("button", { name: "Tell me about this wine" }).click();
     await expect(page.getByTestId("insight").getByText(PROFILE.summary)).toBeVisible();
+    await page.getByRole("button", { name: "Look up the value" }).click();
+    await expect(page.getByTestId("value").getByRole("alert")).toContainText(
+      "No price with a trustworthy source",
+    );
     await expect(page.getByTestId("worth")).toHaveCount(0);
-    await expect(page.getByTestId("value")).toContainText("No value yet");
+    expect(
+      await sql("select 1 from public.vintage_valuations where vintage_id = $1", [vintageId]),
+    ).toHaveLength(0);
   });
 });
 

@@ -1,5 +1,11 @@
 import "server-only";
-import type { BottleExtras, BottleExtrasView, InsightOutput, Reminder } from "@cellr/domain";
+import type {
+  BottleExtras,
+  BottleExtrasView,
+  InsightOutput,
+  Reminder,
+  Valuation,
+} from "@cellr/domain";
 
 export interface InsightRow {
   output: InsightOutput | null;
@@ -17,6 +23,22 @@ export interface InsightsRepository {
     insight: { output: InsightOutput; model: string; generatedAt: string },
   ): Promise<boolean>;
   saveMyValue(householdId: string, vintageId: string, cents: number | null): Promise<boolean>;
+
+  /** Every value looked up for a vintage, oldest first (null = not switched on). */
+  listValuations(householdId: string, vintageId: string): Promise<Valuation[] | null>;
+  addValuation(
+    householdId: string,
+    vintageId: string,
+    valuation: Omit<Valuation, "valuedAt">,
+    model: string,
+  ): Promise<boolean>;
+  /** Every value looked up in the household, for the value of the cellar over time (null = not switched on). */
+  allValuations(
+    householdId: string,
+  ): Promise<Array<{ vintageId: string; cents: number; valuedAt: string }> | null>;
+
+  /** The household's own values per vintage (null = not switched on). */
+  listOwnValues(householdId: string): Promise<Map<string, number> | null>;
 
   /** What one bottle of each vintage is worth now, where the household or the AI said so (null = not switched on). */
   listValues(householdId: string): Promise<Array<{ vintageId: string; valueCents: number }> | null>;

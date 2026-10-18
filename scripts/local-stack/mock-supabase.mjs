@@ -422,6 +422,7 @@ export async function startMockSupabase({
         sequence,
         delayMs = 0,
         times = 1000,
+        consulted = [],
       } = await readJson(req);
       programmed.set(match ? `text:${match}` : `${width}x${height}`, {
         status,
@@ -429,6 +430,7 @@ export async function startMockSupabase({
         sequence,
         delayMs,
         times,
+        consulted,
       });
       return json(res, 200, {});
     }
@@ -504,6 +506,64 @@ export async function startMockSupabase({
           },
         ],
         usage: { prompt_tokens: 1500, completion_tokens: 120, total_tokens: 1620 },
+      });
+    }
+    // The Responses API with web search (price lookups): told apart by words in the question, like chat; the
+    // test also says which pages the "search" opened.
+    if (req.method === "POST" && url.pathname === "/openai/v1/responses") {
+      if (!/^Bearer sk-/.test(req.headers.authorization ?? ""))
+        return json(res, 401, { error: { message: "Incorrect API key provided" } });
+      const body = await readJson(req);
+      const userText = (body.input ?? [])
+        .filter((m) => m.role === "user")
+        .map((m) => (typeof m.content === "string" ? m.content : ""))
+        .join("\n");
+      const key =
+        [...programmed.keys()].find(
+          (k) => k.startsWith("text:") && userText.includes(k.slice(5)),
+        ) ?? "none";
+      aiCalls.push({
+        size: key,
+        model: body.model,
+        strict: body.text?.format?.strict === true,
+        system: body.input?.[0]?.content ?? "",
+        user: userText,
+        images: 0,
+        webSearch: (body.tools ?? []).some((t) => t.type === "web_search"),
+      });
+      const plan = programmed.get(key);
+      if (!plan || plan.times <= 0)
+        return json(res, 500, { error: { message: "no answer programmed" } });
+      plan.times -= 1;
+      if (plan.status !== 200)
+        return json(res, plan.status, { error: { message: "programmed failure" } });
+      const answer = plan.sequence ? plan.sequence.shift() : plan.content;
+      return json(res, 200, {
+        id: "resp-local",
+        object: "response",
+        model: body.model,
+        output: [
+          {
+            type: "web_search_call",
+            status: "completed",
+            action: {
+              type: "search",
+              sources: (plan.consulted ?? []).map((u) => ({ type: "url", url: u })),
+            },
+          },
+          {
+            type: "message",
+            role: "assistant",
+            content: [
+              {
+                type: "output_text",
+                text: typeof answer === "string" ? answer : JSON.stringify(answer),
+                annotations: [],
+              },
+            ],
+          },
+        ],
+        usage: { input_tokens: 8000, output_tokens: 90, total_tokens: 8090 },
       });
     }
     return json(res, 404, { error: { message: "not found" } });

@@ -100,6 +100,49 @@ export function reminderWhen(days: number): "overdue" | "today" | "tomorrow" | "
 
 export const INSIGHT_CONFIDENCE = ["low", "medium", "high"] as const;
 
+/** Families of aromas, as wine apps group them; each has a colour and an icon on screen. */
+export const FLAVOR_GROUPS = [
+  "red_fruit",
+  "black_fruit",
+  "citrus",
+  "tree_fruit",
+  "tropical",
+  "dried_fruit",
+  "floral",
+  "herbal",
+  "spice",
+  "oak",
+  "earth",
+  "mineral",
+  "nutty",
+  "sweet",
+] as const;
+export type FlavorGroup = (typeof FLAVOR_GROUPS)[number];
+
+/** Kinds of food, each with an icon on screen. */
+export const PAIRING_KINDS = [
+  "beef",
+  "lamb",
+  "pork",
+  "poultry",
+  "game",
+  "fish",
+  "shellfish",
+  "cheese",
+  "pasta",
+  "vegetarian",
+  "spicy",
+  "dessert",
+  "aperitif",
+] as const;
+export type PairingKind = (typeof PAIRING_KINDS)[number];
+
+/**
+ * Which version of the profile a stored one is. A profile is written once and then stays as it is; a newer
+ * version only fills in what an older one did not have yet (see `mergeInsight`).
+ */
+export const PROFILE_VERSION = 5;
+
 /** What the model says. Everything is checked afterwards; nothing here is trusted as it comes. */
 export const RawInsightSchema = z.object({
   summary: z.string(),
@@ -117,9 +160,13 @@ export const RawInsightSchema = z.object({
   appellation: z.string().nullable(),
   pairings: z.array(z.string()),
   aging: z.string(),
-  value_low: z.number().nullable(),
-  value_high: z.number().nullable(),
-  value_basis: z.string(),
+  // 1 (light, soft, dry, gentle) … 5 (full, firm, sweet, sharp); null when unsure or not applicable
+  body: z.number().nullable(),
+  tannin: z.number().nullable(),
+  sweetness: z.number().nullable(),
+  acidity: z.number().nullable(),
+  flavors: z.array(z.object({ group: z.enum(FLAVOR_GROUPS), notes: z.array(z.string()) })),
+  pairing_kinds: z.array(z.enum(PAIRING_KINDS)),
   confidence: z.enum(INSIGHT_CONFIDENCE),
 });
 export type RawInsight = z.infer<typeof RawInsightSchema>;
@@ -141,6 +188,25 @@ export const InsightOutputSchema = z.object({
     .default(null),
   pairings: z.array(z.string().max(80)).max(6),
   aging: z.string().max(400),
+  /** How it feels, 1–5 on each scale (as wine apps show it); null for a scale the model was unsure of. */
+  structure: z
+    .object({
+      body: z.number().int().min(1).max(5).nullable(),
+      tannin: z.number().int().min(1).max(5).nullable(),
+      sweetness: z.number().int().min(1).max(5).nullable(),
+      acidity: z.number().int().min(1).max(5).nullable(),
+    })
+    .nullable()
+    .default(null),
+  /** The aromas, grouped by family, strongest family first. */
+  flavors: z
+    .array(z.object({ group: z.enum(FLAVOR_GROUPS), notes: z.array(z.string().max(40)).max(6) }))
+    .max(5)
+    .default([]),
+  pairingKinds: z.array(z.enum(PAIRING_KINDS)).max(6).default([]),
+  /** Profiles from before versions were kept count as version 1. */
+  version: z.number().int().min(1).default(1),
+  /** Only in profiles from before values had their own history (see valuations). */
   value: z
     .object({
       lowCents: z.number().int().min(1),
@@ -148,7 +214,8 @@ export const InsightOutputSchema = z.object({
       currency: z.string().regex(/^[A-Z]{3}$/),
       basis: z.string().max(240),
     })
-    .nullable(),
+    .nullable()
+    .default(null),
   confidence: z.enum(INSIGHT_CONFIDENCE),
 });
 export type InsightOutput = z.infer<typeof InsightOutputSchema>;
@@ -211,7 +278,6 @@ export function checkOrigin(raw: RawInsight): {
  */
 export function checkInsight(
   raw: RawInsight,
-  currency: string,
   /** The harvest year, to judge the drinking window against (null = non-vintage: no window is kept). */
   year: number | null = null,
 ): InsightOutput | null {
@@ -248,16 +314,19 @@ export function checkInsight(
       ? { from: wFrom, until: wUntil }
       : null;
 
-  const low = raw.value_low !== null ? Math.round(raw.value_low * 100) : null;
-  const high = raw.value_high !== null ? Math.round(raw.value_high * 100) : null;
-  const valueOk =
-    low !== null &&
-    high !== null &&
-    low >= 1 &&
-    low <= high &&
-    high <= MAX_PRICE_CENTS &&
-    high <= low * 10;
-  const basis = clean(raw.value_basis, 240);
+  const scale = (v: number | null) => (v !== null && v >= 1 && v <= 5 ? Math.round(v) : null);
+  const structure = {
+    body: scale(raw.body),
+    tannin: scale(raw.tannin),
+    sweetness: scale(raw.sweetness),
+    acidity: scale(raw.acidity),
+  };
+  const seenGroups = new Set<string>();
+  const flavors = raw.flavors
+    .filter((f) => !seenGroups.has(f.group) && seenGroups.add(f.group))
+    .map((f) => ({ group: f.group, notes: list(f.notes, 6, 40) }))
+    .filter((f) => f.notes.length > 0)
+    .slice(0, 5);
 
   return {
     summary,
@@ -270,12 +339,126 @@ export function checkInsight(
     drinkWindow,
     pairings: list(raw.pairings, 6, 80),
     aging: clean(raw.aging, 400),
-    value: valueOk ? { lowCents: low, highCents: high, currency, basis } : null,
-    // an answer whose value had to be thrown away is not one to be confident about
-    confidence:
-      raw.value_low !== null && !valueOk && raw.confidence === "high" ? "medium" : raw.confidence,
+    structure: Object.values(structure).some((v) => v !== null) ? structure : null,
+    flavors,
+    pairingKinds: [...new Set(raw.pairing_kinds)].slice(0, 6),
+    version: PROFILE_VERSION,
+    value: null,
+    confidence: raw.confidence,
   };
 }
+
+/**
+ * A profile is written once and then stays: the person reads the same description, tastes and aromas every time.
+ * A newer kind of profile only fills in what the stored one lacks (an empty list, a missing number), never more.
+ */
+export function mergeInsight(stored: InsightOutput, fresh: InsightOutput): InsightOutput {
+  const text = (a: string, b: string) => (a.trim() !== "" ? a : b);
+  const items = <T>(a: T[], b: T[]) => (a.length > 0 ? a : b);
+  return {
+    ...stored,
+    summary: text(stored.summary, fresh.summary),
+    style: text(stored.style, fresh.style),
+    tasting: text(stored.tasting, fresh.tasting),
+    aging: text(stored.aging, fresh.aging),
+    grapes: items(stored.grapes, fresh.grapes),
+    pairings: items(stored.pairings, fresh.pairings),
+    serving: stored.serving ?? fresh.serving,
+    decantMinutes: stored.decantMinutes ?? fresh.decantMinutes,
+    abvPercent: stored.abvPercent ?? fresh.abvPercent,
+    drinkWindow: stored.drinkWindow ?? fresh.drinkWindow,
+    structure: stored.structure ?? fresh.structure,
+    flavors: items(stored.flavors, fresh.flavors),
+    pairingKinds: items(stored.pairingKinds, fresh.pairingKinds),
+    version: Math.max(stored.version, fresh.version),
+  };
+}
+
+// ---- Per vintage: what a bottle is worth, with sources ---------------------------------------------------
+
+/** A new value may be looked up at most this often per vintage: prices move slowly, and a lookup costs money. */
+export const VALUATION_INTERVAL_DAYS = 30;
+
+export const RawValuationSchema = z.object({
+  low: z.number().nullable(),
+  high: z.number().nullable(),
+  basis: z.string(),
+  sources: z.array(z.object({ name: z.string(), url: z.string() })),
+});
+export type RawValuation = z.infer<typeof RawValuationSchema>;
+
+export interface ValuationSource {
+  name: string;
+  url: string;
+}
+
+export interface Valuation {
+  lowCents: number;
+  highCents: number;
+  currency: string;
+  basis: string;
+  /** The web pages the prices were read from; empty for values from before sources were kept. */
+  sources: ValuationSource[];
+  valuedAt: string;
+}
+
+/** A page address without tracking bits, or null when it is not a plain https page. */
+function cleanUrl(value: string): URL | null {
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "https:") return null;
+    for (const key of [...url.searchParams.keys()])
+      if (key.startsWith("utm_")) url.searchParams.delete(key);
+    url.hash = "";
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What the AI found a bottle sells for, checked in code: a sane range, in the household's currency, and only
+ * sources it really looked at (a page on a site the web search visited). No real source, no value.
+ */
+export function checkValuation(
+  raw: RawValuation,
+  currency: string,
+  /** The pages the web search actually opened. */
+  consulted: readonly string[],
+): Omit<Valuation, "valuedAt"> | null {
+  const low = raw.low !== null ? Math.round(raw.low * 100) : null;
+  const high = raw.high !== null ? Math.round(raw.high * 100) : null;
+  if (low === null || high === null || low < 1 || low > high) return null;
+  if (high > MAX_PRICE_CENTS || high > low * 10) return null;
+  const hosts = new Set(
+    consulted.flatMap((u) => {
+      const url = cleanUrl(u);
+      return url ? [url.hostname.replace(/^www\./, "")] : [];
+    }),
+  );
+  const seen = new Set<string>();
+  const sources: ValuationSource[] = [];
+  for (const s of raw.sources) {
+    const url = cleanUrl(s.url);
+    if (!url || !hosts.has(url.hostname.replace(/^www\./, ""))) continue;
+    if (seen.has(url.href)) continue;
+    seen.add(url.href);
+    sources.push({ name: clean(s.name, 80) || url.hostname, url: url.href.slice(0, 500) });
+    if (sources.length === 5) break;
+  }
+  if (sources.length === 0) return null;
+  return { lowCents: low, highCents: high, currency, basis: clean(raw.basis, 300), sources };
+}
+
+/** When a new value may be looked up again (ISO), or null when that may happen now. */
+export function nextValuationAt(lastValuedAt: string | null, now: Date): string | null {
+  if (lastValuedAt === null) return null;
+  const next = Date.parse(lastValuedAt) + VALUATION_INTERVAL_DAYS * 86_400_000;
+  return next > now.getTime() ? new Date(next).toISOString() : null;
+}
+
+export const midCents = (v: Pick<Valuation, "lowCents" | "highCents">) =>
+  Math.round((v.lowCents + v.highCents) / 2);
 
 export interface VintageInsightView {
   /** False until the database step for this has been taken. */
@@ -284,6 +467,14 @@ export interface VintageInsightView {
   /** The household's own value per bottle, which counts for more than any estimate. */
   myValueCents: number | null;
   currency: string;
+  /** False until the database step for value history has been taken. */
+  valuationsReady: boolean;
+  /** The latest value with its sources, if one was ever looked up. */
+  valuation: Valuation | null;
+  /** Every value looked up so far, oldest first (the middle of each range). */
+  valueHistory: Array<{ cents: number; valuedAt: string }>;
+  /** When a new value may be looked up (ISO); null when that may happen now. */
+  nextValuationAt: string | null;
 }
 
 export const SaveMyValueSchema = z.object({
@@ -293,9 +484,12 @@ export type SaveMyValue = z.infer<typeof SaveMyValueSchema>;
 
 /** The value to show and count: your own if you gave one, else the middle of the AI's range. */
 export function currentValueCents(
-  view: Pick<VintageInsightView, "insight" | "myValueCents">,
+  view: Pick<VintageInsightView, "insight" | "myValueCents"> & {
+    valuation?: Valuation | null | undefined;
+  },
 ): number | null {
   if (view.myValueCents !== null) return view.myValueCents;
+  if (view.valuation) return midCents(view.valuation);
   const v = view.insight?.output.value;
-  return v ? Math.round((v.lowCents + v.highCents) / 2) : null;
+  return v ? midCents(v) : null;
 }

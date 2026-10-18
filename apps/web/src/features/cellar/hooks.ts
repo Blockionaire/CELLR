@@ -72,7 +72,7 @@ export function useCreateStorage() {
   });
 }
 
-/** Asks for the wine's AI profile once, if it has none yet. Never throws: this is a bonus, not part of adding. */
+/** Asks for the wine's AI profile and value once, if it has none yet. Never throws: a bonus, not part of adding. */
 async function profileInBackground(
   queryClient: QueryClient,
   vintageId: string,
@@ -82,13 +82,25 @@ async function profileInBackground(
   const pending = ["insight-pending", vintageId];
   try {
     queryClient.setQueryData(pending, true);
-    const current = await api.get<VintageInsightView>(`/cellar/${vintageId}/insight`);
-    if (!current.ready || current.insight) return;
-    const made = await api.post<VintageInsightView>(`/cellar/${vintageId}/insight`);
-    queryClient.setQueryData(["insight", vintageId], made);
-    // the profile also sets the drinking window: refresh what shows it (wine page, cellar, home, stats)
-    void queryClient.invalidateQueries({ queryKey: vintageKey(vintageId) });
-    onWritten();
+    let view = await api.get<VintageInsightView>(`/cellar/${vintageId}/insight`);
+    if (!view.ready) return;
+    if (!view.insight) {
+      view = await api.post<VintageInsightView>(`/cellar/${vintageId}/insight`);
+      queryClient.setQueryData(["insight", vintageId], view);
+      // the profile also sets the drinking window: refresh what shows it (wine page, cellar, home, stats)
+      void queryClient.invalidateQueries({ queryKey: vintageKey(vintageId) });
+      onWritten();
+    }
+    // Then what a bottle is worth, looked up on the web with sources (once; after that at most monthly).
+    if (view.valuationsReady && !view.valuation && view.nextValuationAt === null) {
+      const valued = await api
+        .post<VintageInsightView>(`/cellar/${vintageId}/value`)
+        .catch(() => null);
+      if (valued) {
+        queryClient.setQueryData(["insight", vintageId], valued);
+        onWritten();
+      }
+    }
   } catch {
     // switched off, rate-limited or offline: the "Tell me about this wine" button is still there
   } finally {

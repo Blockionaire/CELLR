@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   cellarDigest,
+  checkInsight,
   checkSommelierAnswer,
+  checkValuation,
   normalizeExtraction,
   type CellarItem,
 } from "@cellr/domain";
@@ -13,6 +15,18 @@ import {
   LABEL_EXTRACTION_USER,
   parseLabelExtraction,
 } from "./prompts/label-extraction";
+import {
+  INSIGHT_SCHEMA,
+  INSIGHT_SYSTEM,
+  insightUserMessage,
+  parseInsight,
+} from "./prompts/insight";
+import {
+  parseValuation,
+  VALUATION_SCHEMA,
+  VALUATION_SYSTEM,
+  valuationUserMessage,
+} from "./prompts/valuation";
 import {
   parseSommelier,
   SOMMELIER_SCHEMA,
@@ -204,3 +218,85 @@ describe.skipIf(!live)("the sommelier with the real model", () => {
     expect(answer.text).not.toMatch(/1945/);
   });
 });
+
+describe.skipIf(process.env.LIVE_AI !== "1")(
+  "a wine's profile and value with the real model",
+  () => {
+    const provider = createOpenAiProvider({
+      apiKey: process.env.OPENAI_API_KEY ?? "injected-by-the-environment",
+      baseUrl: process.env.AI_BASE_URL ?? "https://api.openai.com/v1",
+      visionModel: "unused",
+      chatModel: process.env.AI_MODEL_CHAT ?? "gpt-4.1-mini",
+    });
+
+    it(
+      "writes a profile with the taste scales, aroma families and kinds of food",
+      { timeout: 90_000 },
+      async () => {
+        const result = await provider.generateObject({
+          task: "wine_insight",
+          model: "chat",
+          system: INSIGHT_SYSTEM,
+          user: insightUserMessage({
+            producer: "Château Margaux",
+            wine: "Pavillon Rouge",
+            year: 2015,
+            type: "red",
+            region: "Bordeaux",
+            country: "FR",
+            appellation: "Margaux",
+            currency: "EUR",
+            paidCents: null,
+            language: "Dutch",
+          }),
+          schemaName: "wine_insight",
+          jsonSchema: INSIGHT_SCHEMA,
+          parse: parseInsight,
+          maxOutputTokens: 1200,
+          timeoutMs: 60_000,
+          temperature: 0.2,
+        });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const out = checkInsight(result.value, 2015)!;
+        console.log(JSON.stringify(out, null, 1));
+        expect(out.structure?.body).toBeGreaterThanOrEqual(3);
+        expect(out.flavors.length).toBeGreaterThan(0);
+        expect(out.pairingKinds.length).toBeGreaterThan(0);
+      },
+    );
+
+    it(
+      "finds what a bottle sells for, with pages it really opened",
+      { timeout: 120_000 },
+      async () => {
+        const result = await provider.generateObject({
+          task: "wine_valuation",
+          model: "chat",
+          system: VALUATION_SYSTEM,
+          user: valuationUserMessage({
+            producer: "Château Margaux",
+            wine: "Pavillon Rouge",
+            year: 2015,
+            region: "Bordeaux",
+            country: "FR",
+            currency: "EUR",
+            language: "Dutch",
+          }),
+          schemaName: "wine_valuation",
+          jsonSchema: VALUATION_SCHEMA,
+          parse: parseValuation,
+          maxOutputTokens: 700,
+          timeoutMs: 90_000,
+          temperature: 0,
+          webSearch: true,
+        });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const v = checkValuation(result.value, "EUR", result.consulted ?? []);
+        console.log(JSON.stringify({ v, consulted: result.consulted }, null, 1));
+        expect(v?.sources.length).toBeGreaterThan(0);
+      },
+    );
+  },
+);

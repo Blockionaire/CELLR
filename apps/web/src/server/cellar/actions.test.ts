@@ -60,6 +60,9 @@ function fake(
     tastings: [] as TastingRow[],
   };
   const repo: CellarRepository = {
+    async listBottleSpans() {
+      return [];
+    },
     async deleteBottles() {},
     async getImageRef() {
       return null;

@@ -192,6 +192,10 @@ export interface CellarRepository {
   ): Promise<Array<OpenedRow & { status: "opened" | "gifted" | "removed"; at: string }>>;
   /** The most recently opened bottles, newest first. */
   listRecentlyOpened(householdId: string, limit: number): Promise<OpenedRow[]>;
+  /** Every bottle the household ever had: when it came in, and when it left (opened, given, removed). */
+  listBottleSpans(
+    householdId: string,
+  ): Promise<Array<{ vintageId: string; from: string; until: string | null }>>;
 
   getVintage(householdId: string, vintageId: string): Promise<VintageRows | null>;
   getBottle(householdId: string, bottleId: string): Promise<BottleRow | null>;

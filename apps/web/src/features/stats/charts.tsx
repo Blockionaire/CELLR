@@ -353,3 +353,85 @@ export function WindowTimeline({
     </div>
   );
 }
+
+/**
+ * A value over time, as a calm area under a line (accent colour), with the first and last month and the lowest and
+ * highest amount written out. The numbers are in a list for screen readers; the drawing is decoration.
+ */
+export function ValueLine({
+  label,
+  points,
+  format,
+  monthLabel,
+}: {
+  label: string;
+  points: ReadonlyArray<{ month: string; cents: number }>;
+  format: (cents: number) => string;
+  monthLabel: (month: string) => string;
+}) {
+  const W = 320;
+  const H = 120;
+  const pad = 6;
+  const values = points.map((p) => p.cents);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  // a flat line sits in the middle rather than at the floor
+  const span = max - min || Math.max(1, max * 0.2);
+  const lo = max === min ? min - span / 2 : min;
+  const x = (i: number) =>
+    points.length === 1 ? W / 2 : pad + (i / (points.length - 1)) * (W - 2 * pad);
+  const y = (v: number) => H - pad - ((v - lo) / span) * (H - 2 * pad);
+  const line = points
+    .map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p.cents).toFixed(1)}`)
+    .join(" ");
+  const area = `${line} L${x(points.length - 1).toFixed(1)},${H} L${x(0).toFixed(1)},${H} Z`;
+  const last = points.at(-1)!;
+  return (
+    <figure className="flex flex-col gap-2">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        aria-hidden="true"
+        className="h-36 w-full overflow-visible"
+      >
+        <defs>
+          <linearGradient id="value-area" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={area} fill="url(#value-area)" />
+        <path
+          d={line}
+          fill="none"
+          stroke="var(--accent-fg)"
+          strokeWidth="2.25"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+        <circle
+          cx={x(points.length - 1)}
+          cy={y(last.cents)}
+          r="3.5"
+          fill="var(--accent-fg)"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+      <div aria-hidden="true" className="flex justify-between text-caption text-ink-3 tnum">
+        <span>{monthLabel(points[0]!.month)}</span>
+        <span>
+          {format(min)} – {format(max)}
+        </span>
+        <span>{monthLabel(last.month)}</span>
+      </div>
+      <ol aria-label={label} className="sr-only">
+        {points.map((p) => (
+          <li key={p.month}>
+            {monthLabel(p.month)}: {format(p.cents)}
+          </li>
+        ))}
+      </ol>
+    </figure>
+  );
+}

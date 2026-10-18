@@ -1,6 +1,6 @@
 import "server-only";
 
-export type AiTask = "label_extraction" | "sommelier_chat" | "wine_insight";
+export type AiTask = "label_extraction" | "sommelier_chat" | "wine_insight" | "wine_valuation";
 
 /** Which of the configured models a task uses: the one that sees pictures, or the one that talks. */
 export type ModelKind = "vision" | "chat";
@@ -25,6 +25,10 @@ export interface GenerateObjectRequest<T> {
   parse: (value: unknown) => T;
   maxOutputTokens: number;
   timeoutMs: number;
+  /** Lower = the same question gets the same answer more often. Left to the model when absent. */
+  temperature?: number;
+  /** Let the model search the web first (for facts that change, like prices); the pages it opened come back. */
+  webSearch?: boolean;
 }
 
 export interface AiUsage {
@@ -43,7 +47,14 @@ export type AiErrorKind =
   | "invalid"; // the answer did not fit the shape, even after one repair
 
 export type AiResult<T> =
-  { ok: true; value: T; usage: AiUsage } | { ok: false; kind: AiErrorKind; usage: AiUsage };
+  | {
+      ok: true;
+      value: T;
+      usage: AiUsage;
+      /** With `webSearch`: the addresses of the pages the search actually opened. */
+      consulted?: string[];
+    }
+  | { ok: false; kind: AiErrorKind; usage: AiUsage };
 
 export interface LlmProvider {
   generateObject<T>(request: GenerateObjectRequest<T>): Promise<AiResult<T>>;

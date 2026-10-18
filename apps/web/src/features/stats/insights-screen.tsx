@@ -15,7 +15,15 @@ import { ChevronRightIcon } from "@/ui/icons";
 import { EmptyState } from "@/ui/empty-state";
 import { PageHeader } from "@/ui/page-header";
 import { Stars } from "@/ui/stars";
-import { BarList, Columns, Donut, WindowTimeline, wineFill, type TimelineRow } from "./charts";
+import {
+  BarList,
+  Columns,
+  Donut,
+  ValueLine,
+  WindowTimeline,
+  wineFill,
+  type TimelineRow,
+} from "./charts";
 
 /** How many wines the "when to drink" timeline shows: the ones that need you first. */
 const TIMELINE_ROWS = 6;
@@ -104,7 +112,7 @@ export async function InsightsScreen({
     .map((r) => `${r.label} ${r.count}`)
     .join(", ")}`;
 
-  // Value: only totals are known (no history of values), so the chart compares the two totals, and only when
+  // Spent against worth: the bars compare the two totals, and only when
   // they cover the very same bottles; otherwise the figures and their notes stand alone.
   const comparable =
     m.spentCents !== null &&
@@ -302,6 +310,24 @@ export async function InsightsScreen({
             <p className={`mt-2 text-small ${m.gainCents === null ? "text-ink-2" : gainTone}`}>
               {gainNote}
             </p>
+            {stats.valueByMonth.length > 1 && (
+              <div className="mt-5">
+                <SubTitle>{t("valueOverTime")}</SubTitle>
+                <ValueLine
+                  label={t("valueOverTime")}
+                  points={stats.valueByMonth}
+                  format={money}
+                  monthLabel={(month) =>
+                    new Intl.DateTimeFormat(locale, {
+                      month: "short",
+                      year: "2-digit",
+                      timeZone: "UTC",
+                    }).format(new Date(`${month}-01T00:00:00Z`))
+                  }
+                />
+                <p className="mt-2 text-caption text-ink-2">{t("valueOverTimeNote")}</p>
+              </div>
+            )}
             {comparable && m.spentCents !== null && (
               <div className="mt-5">
                 <BarList

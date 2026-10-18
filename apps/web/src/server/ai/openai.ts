@@ -5,6 +5,15 @@ import type { AiErrorKind, AiResult, AiUsage, GenerateObjectRequest, LlmProvider
 
 type Message = { role: "system" | "user" | "assistant"; content: unknown };
 
+interface ResponsesResponse {
+  output?: Array<{
+    type?: string;
+    action?: { sources?: Array<{ url?: string }> };
+    content?: Array<{ type?: string; text?: string; refusal?: string }>;
+  }>;
+  usage?: { input_tokens?: number; output_tokens?: number };
+}
+
 interface ChatResponse {
   choices?: Array<{ message?: { content?: string | null; refusal?: string | null } }>;
   usage?: { prompt_tokens?: number; completion_tokens?: number };
@@ -31,6 +40,71 @@ export function createOpenAiProvider(
         return result;
       };
       const fail = (kind: AiErrorKind): AiResult<T> => done({ ok: false, kind, usage });
+
+      // A question that needs today's facts goes through the Responses API with web search: one attempt (a
+      // repair would search again and cost as much), the answer held to the same strict schema.
+      if (request.webSearch) {
+        let response: Response;
+        try {
+          response = await fetcher(`${env.baseUrl}/responses`, {
+            method: "POST",
+            headers: { authorization: `Bearer ${env.apiKey}`, "content-type": "application/json" },
+            body: JSON.stringify({
+              model,
+              input: [
+                { role: "system", content: request.system },
+                { role: "user", content: request.user },
+              ],
+              tools: [{ type: "web_search" }],
+              include: ["web_search_call.action.sources"],
+              max_output_tokens: request.maxOutputTokens,
+              ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
+              text: {
+                format: {
+                  type: "json_schema",
+                  name: request.schemaName,
+                  strict: true,
+                  schema: request.jsonSchema,
+                },
+              },
+            }),
+            signal: AbortSignal.timeout(request.timeoutMs),
+          });
+        } catch (error) {
+          const timedOut =
+            error instanceof Error &&
+            (error.name === "TimeoutError" || error.name === "AbortError");
+          if (!timedOut) logError("ai_request_failed", error);
+          return fail(timedOut ? "timeout" : "unavailable");
+        }
+        if (!response.ok) {
+          logWarn("ai_http_error", { status: response.status, task: request.task, model });
+          return fail(response.status === 429 ? "rate_limited" : "unavailable");
+        }
+        let body: ResponsesResponse;
+        try {
+          body = (await response.json()) as ResponsesResponse;
+        } catch {
+          return fail("unavailable");
+        }
+        usage.tokensIn += body.usage?.input_tokens ?? 0;
+        usage.tokensOut += body.usage?.output_tokens ?? 0;
+        const items = body.output ?? [];
+        const consulted = items.flatMap((o) =>
+          o.type === "web_search_call"
+            ? (o.action?.sources ?? []).flatMap((s) => (s.url ? [s.url] : []))
+            : [],
+        );
+        const parts = items.flatMap((o) => (o.type === "message" ? (o.content ?? []) : []));
+        if (parts.some((p) => p.type === "refusal")) return fail("refused");
+        const text = parts.find((p) => p.type === "output_text")?.text ?? "";
+        try {
+          return done({ ok: true, value: request.parse(JSON.parse(text)), usage, consulted });
+        } catch {
+          logWarn("ai_invalid_output", { task: request.task, model });
+          return fail("invalid");
+        }
+      }
 
       const messages: Message[] = [
         { role: "system", content: request.system },
@@ -59,6 +133,7 @@ export function createOpenAiProvider(
               model,
               messages,
               max_completion_tokens: request.maxOutputTokens,
+              ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
               response_format: {
                 type: "json_schema",
                 json_schema: { name: request.schemaName, strict: true, schema: request.jsonSchema },

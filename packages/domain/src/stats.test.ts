@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildStats, decadeOf, type StatsBottle, type StatsInput } from "./stats";
+import { buildStats, decadeOf, valueOverTime, type StatsBottle, type StatsInput } from "./stats";
 
 const now = new Date("2026-10-12T12:00:00Z");
 const bottle = (over: Partial<StatsBottle> = {}): StatsBottle => ({
@@ -237,5 +237,54 @@ describe("decades", () => {
       "older",
       "nv",
     ]);
+  });
+});
+
+describe("what the cellar was worth over time", () => {
+  const now = new Date("2026-10-18T12:00:00Z");
+  const spans = [
+    { vintageId: "a", from: "2026-07-10T00:00:00Z", until: null },
+    { vintageId: "a", from: "2026-07-10T00:00:00Z", until: "2026-09-05T00:00:00Z" }, // opened in September
+    { vintageId: "b", from: "2026-09-01T00:00:00Z", until: null },
+  ];
+  const points = [
+    { vintageId: "a", cents: 5000, valuedAt: "2026-08-15T00:00:00Z" },
+    { vintageId: "a", cents: 6000, valuedAt: "2026-10-01T00:00:00Z" },
+  ];
+
+  it("counts the bottles that were there each month at the value known then", () => {
+    const months = valueOverTime({
+      spans,
+      points,
+      own: new Map(),
+      today: new Map(),
+      now,
+      months: 6,
+    });
+    expect(months).toEqual([
+      // before the first lookup the first one stands in
+      { month: "2026-07", cents: 10000, bottles: 2, valued: 2 },
+      { month: "2026-08", cents: 10000, bottles: 2, valued: 2 },
+      // one bottle of a opened; b has no value at all
+      { month: "2026-09", cents: 5000, bottles: 2, valued: 1 },
+      { month: "2026-10", cents: 6000, bottles: 2, valued: 1 },
+    ]);
+  });
+
+  it("your own value counts over any lookup, and today's value stands in where nothing was looked up", () => {
+    const months = valueOverTime({
+      spans,
+      points,
+      own: new Map([["a", 9000]]),
+      today: new Map([["b", 2000]]),
+      now,
+      months: 1,
+    });
+    expect(months).toEqual([{ month: "2026-10", cents: 11000, bottles: 2, valued: 2 }]);
+  });
+
+  it("is empty without bottles or without any value", () => {
+    expect(valueOverTime({ spans: [], points, own: new Map(), today: new Map(), now })).toEqual([]);
+    expect(valueOverTime({ spans, points: [], own: new Map(), today: new Map(), now })).toEqual([]);
   });
 });
