@@ -35,7 +35,7 @@ import { OpenBottleSheet } from "./open-bottle-sheet";
 import { RateSheet } from "./rate-sheet";
 import { TastingItem } from "./tasting-bits";
 import { Facts, Section, Tag } from "./vintage-bits";
-import { AboutSection, WorthSection } from "./wine-insight";
+import { AboutSection, PairsSection, TasteSection, WorthSection } from "./wine-insight";
 import { placeLine, shapeFor, labelMark } from "./wine-visuals";
 import { STAGE } from "./wine-card";
 
@@ -328,6 +328,9 @@ export function VintageScreen({
       )}
 
       <div className="mt-10 flex flex-col gap-9">
+        <TasteSection vintageId={detail.vintageId} />
+        <PairsSection vintageId={detail.vintageId} />
+
         <Section
           title={tDrink("title")}
           action={
@@ -380,6 +383,8 @@ export function VintageScreen({
             {t("merge")}
           </Button>
         </AboutSection>
+
+        <WorthSection vintageId={detail.vintageId} currency={detail.currency ?? currency} />
 
         <Section title={t("bottlesTitle")}>
           {count > 0 ? (
@@ -475,8 +480,6 @@ export function VintageScreen({
             </>
           )}
         </Section>
-
-        <WorthSection vintageId={detail.vintageId} currency={detail.currency ?? currency} />
 
         {count > 0 && (
           <Section title={t("purchase")}>

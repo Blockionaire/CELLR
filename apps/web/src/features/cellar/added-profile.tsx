@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
+import { currentValueCents } from "@cellr/domain";
 import { Button } from "@/ui/button";
 import { useGenerateInsight, useInsight } from "@/features/insights/hooks";
 import { useMoney } from "./bottle-bits";
@@ -27,6 +28,7 @@ export function AddedProfile({ vintageId }: { vintageId: string }) {
   const money = useMoney(data?.currency ?? "EUR");
   const busy = generate.isPending || automatic === true;
   const out = data?.insight?.output ?? null;
+  const worth = data ? currentValueCents(data) : null;
 
   // The AI is switched off (database step not taken yet): say nothing rather than offer what cannot work.
   if (data && !data.ready) return null;
@@ -50,12 +52,13 @@ export function AddedProfile({ vintageId }: { vintageId: string }) {
                 {t("profileWindow", { from: out.drinkWindow.from, until: out.drinkWindow.until })}
               </li>
             )}
-            {out.value && (
-              <li>
-                {t("profileValue", {
-                  value: money(Math.round((out.value.lowCents + out.value.highCents) / 2)),
-                })}
-              </li>
+            {worth !== null ? (
+              <li>{t("profileValue", { value: money(worth) })}</li>
+            ) : (
+              busy &&
+              data?.valuationsReady && (
+                <li className="motion-safe:animate-pulse">{ti("valueLooking")}</li>
+              )
             )}
           </ul>
           <p className="text-caption text-ink-2">

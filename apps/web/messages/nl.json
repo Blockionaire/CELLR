@@ -970,7 +970,7 @@
   },
   "insights": {
     "title": "Over deze wijn",
-    "intro": "Vraag een AI wat die van deze wijn weet: de stijl, druiven, wat je erbij eet, hoe hij kan rijpen en ongeveer wat hij waard is.",
+    "intro": "Vraag een AI wat die van deze wijn weet: hoe hij smaakt, wat je erbij eet, hoe hij kan rijpen. Het wordt één keer geschreven en blijft zo staan.",
     "ask": "Vertel me over deze wijn",
     "thinking": "Even opzoeken…",
     "refresh": "Vernieuw",
@@ -996,7 +996,7 @@
     "perBottle": "per fles",
     "valueMine": "Je eigen waarde.",
     "valueRange": "AI-schatting: tussen {low} en {high}.",
-    "valueNone": "Nog geen waarde. Vraag hierboven de AI om een schatting, of vul je eigen waarde in.",
+    "valueNone": "Nog geen waarde. Zoek hem op, of vul je eigen waarde in.",
     "valueSet": "Mijn eigen waarde invullen",
     "valueChange": "Mijn waarde wijzigen",
     "valueSave": "Opslaan",
@@ -1007,7 +1007,78 @@
     "valueError": "Dat lijkt geen prijs.",
     "valueSaved": "Waarde opgeslagen.",
     "abv": "Alcohol",
-    "abvValue": "{abv}% alcohol"
+    "abvValue": "{abv}% alcohol",
+    "complete": "Vul aan wat ontbreekt",
+    "completeHint": "Dit profiel komt uit een oudere versie: nieuwe onderdelen (smaak, aroma's, gerechten) kunnen worden aangevuld. Wat er staat, blijft.",
+    "tasteTitle": "Smaakprofiel",
+    "tasteNote": "Hoe hij aanvoelt, als schatting. Op elke schaal 1 tot 5.",
+    "scales": {
+      "body": {
+        "name": "Body",
+        "low": "Licht",
+        "high": "Vol"
+      },
+      "tannin": {
+        "name": "Tannine",
+        "low": "Zacht",
+        "high": "Stevig"
+      },
+      "sweetness": {
+        "name": "Zoetheid",
+        "low": "Droog",
+        "high": "Zoet"
+      },
+      "acidity": {
+        "name": "Zuurgraad",
+        "low": "Zacht",
+        "high": "Fris"
+      }
+    },
+    "scaleValue": "{name}: {value} van 5",
+    "aromasTitle": "Aroma's",
+    "flavor": {
+      "red_fruit": "Rood fruit",
+      "black_fruit": "Donker fruit",
+      "citrus": "Citrus",
+      "tree_fruit": "Boomgaardfruit",
+      "tropical": "Tropisch fruit",
+      "dried_fruit": "Gedroogd fruit",
+      "floral": "Bloemen",
+      "herbal": "Kruiden",
+      "spice": "Specerijen",
+      "oak": "Eikenhout",
+      "earth": "Aards",
+      "mineral": "Mineraal",
+      "nutty": "Noten",
+      "sweet": "Honing & zoet"
+    },
+    "pairsTitle": "Past bij",
+    "pairKind": {
+      "beef": "Rundvlees",
+      "lamb": "Lam",
+      "pork": "Varkensvlees",
+      "poultry": "Gevogelte",
+      "game": "Wild",
+      "fish": "Vis",
+      "shellfish": "Schaal- en schelpdieren",
+      "cheese": "Kaas",
+      "pasta": "Pasta",
+      "vegetarian": "Vegetarisch",
+      "spicy": "Pittig eten",
+      "dessert": "Dessert",
+      "aperitif": "Aperitief"
+    },
+    "details": "Details",
+    "valueSources": "Bronnen",
+    "valueAsOf": "Opgezocht op {day}",
+    "valueLookup": "Zoek de waarde op",
+    "valueLooking": "Prijzen opzoeken…",
+    "valueAgain": "Opnieuw opzoeken",
+    "valueAgainFrom": "Opnieuw opzoeken kan vanaf {day}",
+    "valueNotFound": "Geen prijs met een betrouwbare bron gevonden. Probeer het later nog eens, of vul je eigen waarde in.",
+    "valueHistory": "Verloop",
+    "valueNoSources": "Geschat zonder bronnen (oudere waarde).",
+    "valueRangeSourced": "Tussen {low} en {high} bij winkels en veilingen."
   },
   "framer": {
     "title": "Wijs aan waar het etiket zit",
@@ -1064,7 +1135,9 @@
     "valueTitle": "Waarde",
     "windowsTitle": "Drinkvensters",
     "windowsNote": "{count, plural, one {# wijn, meest urgent eerst} other {# wijnen, meest urgent eerst}}",
-    "inWindow": "In hun venster"
+    "inWindow": "In hun venster",
+    "valueOverTime": "In de tijd",
+    "valueOverTimeNote": "Per maand: de flessen die je toen had, tegen de waarde die toen bekend was (hooguit 1× per maand opgezocht, met bronnen). Vóór de eerste schatting telt de eerste."
   },
   "bulk": {
     "select": "Flessen selecteren",

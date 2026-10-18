@@ -48,7 +48,8 @@ _Supabase → SQL Editor → New query._ Run these files **in this order**, one 
 11. `…0011_bottle_extras_and_insights.sql` (gift/bought, kept-for-an-occasion reminders, AI wine profiles — also added later)
 12. `…0012_merge_wines.sql` (merge a wine that was entered twice — also added later)
 13. `…0013_push_reminders.sql` (reminders on your phone when a wine is at its best — also added later)
-14. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
+14. `…0014_valuations.sql` (what a bottle is worth, with sources and history — also added later)
+15. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
 
 If a file fails, stop: the files are not safe to re-run. Note which file and the error text.
 
@@ -68,14 +69,15 @@ New features sometimes need one more database step. They arrive as a new numbere
 (SQL Editor → New query → paste → Run → "Success"). Nothing breaks while you wait: the app notices a
 missing step and simply leaves that feature switched off.
 
-| File                                            | What it switches on                                                                     |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `20261012000008_tastings.sql`                   | Ratings: stars, words and a note after you open a bottle ("How was it?")                |
-| `20261012000009_wishlist.sql`                   | The wishlist: wines you would like to buy, shared with your household                   |
-| `20261013000010_tighten_photo_bucket.sql`       | Photo storage accepts only the sanitised JPEGs the app itself makes                     |
-| `20261014000011_bottle_extras_and_insights.sql` | Where a bottle came from (bought / gift), a day to keep it for, and the AI wine profile |
-| `20261015000012_merge_wines.sql`                | Merging a wine that was entered twice                                                   |
-| `20261018000013_push_reminders.sql`             | Reminders on your phone when a wine is at its best (also needs the keys below)          |
+| File                                            | What it switches on                                                                            |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `20261012000008_tastings.sql`                   | Ratings: stars, words and a note after you open a bottle ("How was it?")                       |
+| `20261012000009_wishlist.sql`                   | The wishlist: wines you would like to buy, shared with your household                          |
+| `20261013000010_tighten_photo_bucket.sql`       | Photo storage accepts only the sanitised JPEGs the app itself makes                            |
+| `20261014000011_bottle_extras_and_insights.sql` | Where a bottle came from (bought / gift), a day to keep it for, and the AI wine profile        |
+| `20261015000012_merge_wines.sql`                | Merging a wine that was entered twice                                                          |
+| `20261018000013_push_reminders.sql`             | Reminders on your phone when a wine is at its best (also needs the keys below)                 |
+| `20261019000014_valuations.sql`                 | What a bottle is worth, looked up on the web with sources, kept as a history (value over time) |
 
 ### Check it worked
 
@@ -224,6 +226,18 @@ What is sent: only the label photo, to OpenAI, to be read; the scan screen says 
 40 labels per hour (the budget protects the bill); beyond that the photo is still kept and the form is shown.
 Photos live in the private `bottle-images` bucket under your household's own folder; the database step that
 creates it is migration 0005, which you have already run.
+
+### What a bottle is worth (value with sources)
+
+With `OPENAI_API_KEY` set and the database step `20261019000014_valuations.sql` run, the app looks up what one
+bottle sells for today: the AI searches the web (shops, merchants, auctions) and only pages it really opened count
+as sources; without a real source nothing is kept. Each lookup is kept, so the cellar's value can be shown over
+time. A new lookup is possible at most once a month per wine (and about 30 per hour per person); one lookup costs
+roughly 3 cents. The first lookup happens by itself after a wine is added; the wine page has a button for the
+next one. Values from older wine profiles become the first entry of each history when the step is run.
+
+The wine profile itself (description, taste, aromas, dishes) is written once and then stays as it is; asking again
+only fills in parts an older profile did not have yet.
 
 ### Turning on reminders on your phone (optional)
 
