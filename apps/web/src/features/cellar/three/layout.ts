@@ -293,12 +293,18 @@ export function unitSize(rows: number, cols: number): { width: number; height: n
   return { width: cols * SLOT + 2 * FRAME, height: rows * SLOT + 2 * FRAME };
 }
 
+/** The camera starts this far (radians) round to the side, and a little above, so depth reads at once. */
+export const CAMERA_AZIMUTH = 0.22;
+export const CAMERA_ELEVATION = 0.11;
+
 /** How far back the camera sits so the whole front is in view, for a given screen aspect ratio. */
 export function cameraDistance(rows: number, cols: number, aspect: number): number {
   const { width, height } = unitSize(rows, cols);
   const tan = Math.tan((FOV * Math.PI) / 360);
   const fitHeight = height / 2 / tan;
-  const fitWidth = width / 2 / (tan * Math.max(0.2, aspect));
+  // Seen a little from the side, the unit's depth shows next to its front and takes up width too.
+  const seenWidth = width * Math.cos(CAMERA_AZIMUTH) + RACK_DEPTH * Math.sin(CAMERA_AZIMUTH);
+  const fitWidth = seenWidth / 2 / (tan * Math.max(0.2, aspect));
   return Math.max(fitHeight, fitWidth) * 1.07 + RACK_DEPTH / 2;
 }
 

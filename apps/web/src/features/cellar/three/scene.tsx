@@ -12,6 +12,8 @@ import {
   BOTTLE_LENGTH,
   FOIL,
   FOV,
+  CAMERA_AZIMUTH,
+  CAMERA_ELEVATION,
   FRAME,
   GLASS,
   RACK_DEPTH,
@@ -129,6 +131,14 @@ export default function CellarScene({
     [onBackdrop],
   );
   const locked = showcase !== null;
+  // Leaving (another unit, another page) three.js gives its context back on purpose; that is not a loss to report.
+  const leaving = useRef(false);
+  useEffect(() => {
+    leaving.current = false;
+    return () => {
+      leaving.current = true;
+    };
+  }, []);
 
   return (
     <Canvas
@@ -143,6 +153,7 @@ export default function CellarScene({
         gl.toneMappingExposure = 1.0;
         gl.domElement.addEventListener("webglcontextlost", (e) => {
           // Ours to handle: the page offers to draw it again instead of leaving a blank box.
+          if (leaving.current) return;
           e.preventDefault();
           onLost?.();
         });
@@ -327,8 +338,8 @@ function Rig({
 
   useLayoutEffect(() => {
     // A little to the side and above, so you read depth straight away.
-    const azimuth = 0.22;
-    const elevation = 0.11;
+    const azimuth = CAMERA_AZIMUTH;
+    const elevation = CAMERA_ELEVATION;
     camera.position.set(
       distance * Math.sin(azimuth) * Math.cos(elevation),
       distance * Math.sin(elevation),

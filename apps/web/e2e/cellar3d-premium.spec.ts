@@ -131,7 +131,7 @@ test.describe("staying up", () => {
     await takeOut(page);
   });
 
-  test("tapping the unit already shown keeps the view (it used to go blank)", async ({
+  test("tapping the unit already shown keeps the view; going to another one is not a loss", async ({
     page,
     request,
   }) => {
@@ -143,5 +143,10 @@ test.describe("staying up", () => {
     await page.getByRole("button", { name: "Walnut rack", exact: true }).click();
     await page.waitForTimeout(500);
     await expect(scene).toHaveAttribute("data-ready", "true");
+    // Going to another unit lets the old picture go on purpose: no "paused" message for that.
+    await page.getByRole("button", { name: "Wine fridge", exact: true }).click();
+    await expect(scene).toHaveAttribute("data-ready", "true", { timeout: 20_000 });
+    await page.waitForTimeout(1500);
+    await expect(page.getByTestId("cellar-3d-lost")).toHaveCount(0);
   });
 });
