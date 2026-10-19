@@ -638,12 +638,15 @@ describe("when to drink it, on the cards and on Home", () => {
   it("every card says where its wine stands in its window", () => {
     expect(
       phases([
-        row({ vintageId: "old", year: 2008 }), // Bordeaux red, window 2011–2019
+        // Bordeaux red, rough window 2011–2019: too uncertain to call it past its best.
+        row({ vintageId: "old", year: 2008 }),
+        // The same wine with an AI window for this vintage may say so.
+        row({ vintageId: "oldai", year: 2008, aiWindow: { from: 2012, until: 2020 } }),
         row({ vintageId: "mid", year: 2019 }), // 2022–2030
         row({ vintageId: "new", year: 2025 }), // opens 2028
         row({ vintageId: "nv", year: null }),
       ]),
-    ).toEqual({ old: "past", mid: "peak", new: "young", nv: "unknown" });
+    ).toEqual({ old: "unknown", oldai: "past", mid: "peak", new: "young", nv: "unknown" });
   });
 
   it("uses the average of the prices paid: the dearer bottle waits longer", () => {
@@ -672,21 +675,32 @@ describe("when to drink it, on the cards and on Home", () => {
   });
 
   it("Home lists what to open first: past its best, then the end of the window, at most three", () => {
+    const ai = (from: number, until: number) => ({ aiWindow: { from, until } });
     const rows = [
-      row({ vintageId: "past", wineId: "w1", year: 2005, wineName: "Past" }),
+      row({ vintageId: "past", wineId: "w1", year: 2005, wineName: "Past", ...ai(2008, 2016) }),
       row({
         vintageId: "ready",
         wineId: "w2",
         year: 2015,
         region: "Beaujolais",
         wineName: "Ready",
+        ...ai(2016, 2027),
       }),
-      row({ vintageId: "peak", wineId: "w3", year: 2019, wineName: "Peak" }),
-      row({ vintageId: "old2", wineId: "w4", year: 2009, wineName: "Old two" }),
-      row({ vintageId: "old3", wineId: "w5", year: 2010, wineName: "Old three" }),
+      row({ vintageId: "peak", wineId: "w3", year: 2019, wineName: "Peak", ...ai(2022, 2034) }),
+      row({ vintageId: "old2", wineId: "w4", year: 2009, wineName: "Old two", ...ai(2012, 2020) }),
+      row({
+        vintageId: "old3",
+        wineId: "w5",
+        year: 2010,
+        wineName: "Old three",
+        ...ai(2013, 2021),
+      }),
+      // Only a rough estimate says this one is past: never on Home.
+      row({ vintageId: "rough", wineId: "w6", year: 2004, wineName: "Rough" }),
     ];
     const home = buildHome(rows, [], [], new Set(), NOW);
-    expect(home.drinkSoon.length).toBeLessThanOrEqual(3);
+    expect(home.drinkSoon).toHaveLength(3);
+    expect(home.drinkSoon.some((i) => i.wineName === "Rough")).toBe(false);
     expect(home.drinkSoon.every((i) => ["ready", "past"].includes(i.drink.phase))).toBe(true);
     expect(home.drinkSoon.map((i) => i.drink.urgency)).toEqual(
       [...home.drinkSoon.map((i) => i.drink.urgency)].sort((a, b) => a - b),

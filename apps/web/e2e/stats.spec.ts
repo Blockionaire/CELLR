@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContextOptions } from "@playwright/test";
-import { api, apiClient, arrive, audit, sessionToken, sql } from "./helpers";
+import { aiWindow, api, apiClient, arrive, audit, sessionToken, sql } from "./helpers";
 
 const shot = (name: string) => `test-results/shots/${name}.png`;
 const project = () => test.info().project.name;
@@ -214,14 +214,21 @@ test.describe("a wine's life as a chart", () => {
     page,
     request,
   }) => {
-    const { email } = await arrive(page, "chart");
+    const { email, householdId } = await arrive(page, "chart");
     const { call } = await apiClient(request, email);
     const ids = await furnish(call);
     const wine = ids["Pavillon Rouge"]!;
     await call("patch", `/bottles/${wine.bottles[0]}`, { action: "open" }, 200);
     await call("patch", `/bottles/${wine.bottles[1]}`, { action: "open" }, 200);
 
+    // Only a rough estimate, and an old one: too unsure to draw.
     await page.goto(`/cellar/${wine.vintage}`);
+    await expect(page.getByTestId("drink-uncertain")).toBeVisible();
+    await expect(page.getByTestId("drink-chart")).toHaveCount(0);
+
+    // With the AI's window for this wine, the chart is drawn.
+    await aiWindow(householdId, "Pavillon Rouge", 2018, 2034);
+    await page.reload();
     const chart = page.getByTestId("drink-chart");
     await expect(chart).toBeVisible();
     await expect(chart).toHaveAttribute(

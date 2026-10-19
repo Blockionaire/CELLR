@@ -188,6 +188,14 @@
       "done": "Klaar",
       "added": "{count, plural, one {# fles} other {# flessen}} {wine} toegevoegd",
       "wished": "{wine} staat op je verlanglijst"
+    },
+    "camera": {
+      "starting": "Camera starten…",
+      "denied": "CELLR mag de camera niet gebruiken. Sta het toe in je instellingen, of maak de foto met de knop hieronder.",
+      "unavailable": "Geen live camera hier. De knop hieronder opent de camera van je telefoon.",
+      "error": "De camera is gestopt. Probeer het opnieuw, of maak de foto met de knop hieronder.",
+      "retry": "Camera opnieuw proberen",
+      "preview": "Camerabeeld"
     }
   },
   "sommelier": {
@@ -668,7 +676,13 @@
     "chartLabel": "Grafiek van het leven van deze wijn: opent zich vanaf {from}, op zijn best van {bestFrom} tot {bestUntil}, te drinken tot {until}.",
     "openedMark": "Geopend op {day}",
     "openedLegend": "{count, plural, one {● 1 fles geopend} other {● # flessen geopend}}",
-    "estimateBadge": "Schatting"
+    "uncertain": "Onvoldoende informatie",
+    "explainUncertain": "Onvoldoende informatie om te zeggen of hij nog op zijn best is. Onze grove vuistregel plaatst hem laat in zijn venster, maar voor deze wijn is dat te onzeker. Vraag hieronder de AI naar deze wijn voor een venster dat bij hem past.",
+    "basis": {
+      "estimate": "Grove schatting",
+      "ai": "AI-schatting",
+      "own": "Eigen venster"
+    }
   },
   "tonight": {
     "title": "Wat drinken we vanavond?",

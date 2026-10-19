@@ -2,6 +2,7 @@ import "server-only";
 import {
   averagePrice,
   DomainError,
+  assessDrink,
   drinkStatusOf,
   drinkUrgency,
   isDomainError,
@@ -92,21 +93,25 @@ export function toDrinkSummary(
   },
   now: Date,
 ): DrinkSummary {
-  const status = drinkStatusOf(
-    {
-      type: wine.type,
-      year: wine.year,
-      region: wine.region,
-      appellation: wine.appellation,
-      countryCode: wine.countryCode,
-      name: wine.name,
-      pricePerBottleCents: wine.pricePerBottleCents,
-      aiWindow: wine.aiWindow ?? null,
-    },
-    now,
+  const status = assessDrink(
+    drinkStatusOf(
+      {
+        type: wine.type,
+        year: wine.year,
+        region: wine.region,
+        appellation: wine.appellation,
+        countryCode: wine.countryCode,
+        name: wine.name,
+        pricePerBottleCents: wine.pricePerBottleCents,
+        aiWindow: wine.aiWindow ?? null,
+      },
+      now,
+    ),
   );
   return {
     source: status.window?.source ?? "estimate",
+    reliable: status.reliable,
+    uncertain: status.uncertain,
     phase: status.phase,
     from: status.window?.from ?? null,
     until: status.window?.until ?? null,
@@ -297,12 +302,13 @@ export function buildHome(
     used: units.reduce((sum, u) => sum + u.used, 0),
     unplaced: rows.filter((r) => r.locationId === null).length,
     recentlyAdded: cellar.items.slice(0, 8),
+    // Only advice about this very wine (its AI profile, or the household's own window) may say "drink soon".
     drinkSoon: cellar.items
-      .filter((i) => i.drink.phase === "ready" || i.drink.phase === "past")
+      .filter((i) => i.drink.reliable && (i.drink.phase === "ready" || i.drink.phase === "past"))
       .sort((a, b) => a.drink.urgency - b.drink.urgency)
       .slice(0, 3),
     atPeak: cellar.items
-      .filter((i) => i.drink.phase === "peak")
+      .filter((i) => i.drink.reliable && i.drink.phase === "peak")
       .sort((a, b) => (b.drink.position ?? 0) - (a.drink.position ?? 0))
       .slice(0, 3),
     recentlyOpened: opened.map((o) => ({ ...o })),
@@ -334,8 +340,9 @@ export function toNoticeWines(rows: InventoryRow[], now: Date): NoticeWine[] {
     return {
       vintageId: r.vintageId,
       title: `${r.producer} ${r.wineName} ${formatVintage(r.year)}`,
+      // A reminder tells someone to act: only for a window about this very wine, never the rough table.
       window:
-        drink.from !== null && drink.until !== null
+        drink.reliable && drink.from !== null && drink.until !== null
           ? { from: drink.from, until: drink.until }
           : null,
       firstAddedAt: group.map((g) => g.addedAt).sort()[0]!,

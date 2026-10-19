@@ -188,6 +188,14 @@
       "done": "Done",
       "added": "Added {count, plural, one {# bottle} other {# bottles}} of {wine}",
       "wished": "{wine} is on your wish list"
+    },
+    "camera": {
+      "starting": "Starting the camera…",
+      "denied": "CELLR may not use the camera. Allow it in your settings, or take the photo with the button below.",
+      "unavailable": "No live camera here. The button below opens your phone’s camera.",
+      "error": "The camera stopped. Try again, or take the photo with the button below.",
+      "retry": "Try the camera again",
+      "preview": "Camera view"
     }
   },
   "sommelier": {
@@ -668,7 +676,13 @@
     "chartLabel": "Chart of this wine's life: opens up from {from}, at its best {bestFrom} to {bestUntil}, to be drunk by {until}.",
     "openedMark": "Opened {day}",
     "openedLegend": "{count, plural, one {● 1 bottle opened} other {● # bottles opened}}",
-    "estimateBadge": "Estimate"
+    "uncertain": "Not enough information",
+    "explainUncertain": "Not enough information to say whether it is still at its best. Our rough rule of thumb puts it late in its window, but for this wine that is too uncertain to go by. Ask the AI about this wine below for a window that fits it.",
+    "basis": {
+      "estimate": "Rough estimate",
+      "ai": "AI estimate",
+      "own": "Your own"
+    }
   },
   "tonight": {
     "title": "What shall we drink tonight?",

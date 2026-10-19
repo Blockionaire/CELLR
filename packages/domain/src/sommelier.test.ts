@@ -29,6 +29,8 @@ const item = (over: Partial<CellarItem> = {}): CellarItem => {
     rating: null,
     drink: {
       source: "estimate",
+      reliable: false,
+      uncertain: false,
       phase: "peak",
       from: 2014,
       until: 2030,
@@ -241,6 +243,8 @@ describe("what is worth opening when nothing is asked", () => {
     const urgent = item({
       drink: {
         source: "estimate",
+        reliable: false,
+        uncertain: false,
         phase: "past",
         from: 2010,
         until: 2020,
@@ -253,6 +257,8 @@ describe("what is worth opening when nothing is asked", () => {
     const ready = item({
       drink: {
         source: "estimate",
+        reliable: false,
+        uncertain: false,
         phase: "ready",
         from: 2020,
         until: 2030,
@@ -265,6 +271,8 @@ describe("what is worth opening when nothing is asked", () => {
     const later = item({
       drink: {
         source: "estimate",
+        reliable: false,
+        uncertain: false,
         phase: "young",
         from: 2035,
         until: 2050,
@@ -283,6 +291,8 @@ describe("what is worth opening when nothing is asked", () => {
       item({
         drink: {
           source: "estimate",
+          reliable: false,
+          uncertain: false,
           phase: "peak",
           from: 2020,
           until: 2040,

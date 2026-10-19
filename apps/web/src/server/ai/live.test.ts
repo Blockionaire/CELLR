@@ -113,7 +113,9 @@ describe.skipIf(!live)("the sommelier with the real model", () => {
     chatModel: process.env.AI_MODEL_CHAT ?? "gpt-4.1-mini",
   });
   const drink = (phase: CellarItem["drink"]["phase"], urgency: number): CellarItem["drink"] => ({
-    source: "estimate",
+    source: "ai",
+    reliable: true,
+    uncertain: false,
     phase,
     from: 2015,
     until: 2030,

@@ -340,27 +340,44 @@ export function VintageScreen({
         <Section
           title={tDrink("title")}
           action={
-            <span className="rounded-full border border-hairline px-2.5 py-0.5 text-caption font-medium text-bronze">
-              {tDrink("estimateBadge")}
+            <span
+              data-testid="drink-basis"
+              className="rounded-full border border-hairline px-2.5 py-0.5 text-caption font-medium text-bronze"
+            >
+              {tDrink(`basis.${detail.drink.source}`)}
             </span>
           }
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <PhasePill phase={phase} />
+            {detail.drink.uncertain ? (
+              <span
+                data-testid="drink-uncertain"
+                className="inline-flex items-center gap-1.5 rounded-full bg-raised px-3 py-1 text-caption font-semibold text-ink-2"
+              >
+                <span aria-hidden="true" className="size-2 rounded-full bg-ink-3" />
+                {tDrink("uncertain")}
+              </span>
+            ) : (
+              <PhasePill phase={phase} />
+            )}
             {yearsLeft !== null && (
               <span className="text-small text-ink-2">
                 {tDrink("yearsLeft", { years: yearsLeft })}
               </span>
             )}
           </div>
-          <DrinkChart drink={detail.drink} year={detail.year} opened={detail.opened} />
+          {!detail.drink.uncertain && (
+            <DrinkChart drink={detail.drink} year={detail.year} opened={detail.opened} />
+          )}
           <p
             className="mt-4 font-display text-title italic text-balance text-ink"
             data-testid="drink-explain"
           >
-            {tDrink(`explain.${phase}`, {
-              years: Math.max(1, Math.ceil(detail.drink.yearsUntilOpen ?? 1)),
-            })}
+            {detail.drink.uncertain
+              ? tDrink("explainUncertain")
+              : tDrink(`explain.${phase}`, {
+                  years: Math.max(1, Math.ceil(detail.drink.yearsUntilOpen ?? 1)),
+                })}
           </p>
           <p className="mt-3 text-caption text-ink-2">
             {tDrink(detail.drink.source === "ai" ? "estimateAi" : "estimate")}

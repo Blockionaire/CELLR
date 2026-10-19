@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
   ERROR_MESSAGES,
   formatVintage,
@@ -21,12 +21,12 @@ import { ApiError, errorMessage } from "@/lib/api";
 import { UnreadablePhotoError } from "@/lib/photo";
 import { Button } from "@/ui/button";
 import { cn } from "@/ui/cn";
-import { FileButton } from "@/ui/file-button";
 import { CheckIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
 import { Segmented } from "@/ui/segmented";
 import { useToast } from "@/ui/toast";
 import { useAddWish } from "@/features/wishlist/hooks";
+import { useCamera } from "./camera";
 import { useScan } from "./hooks";
 import { SeriesTray, useScanSeries, type SeriesItem } from "./series";
 
@@ -109,16 +109,22 @@ export function ScanScreen({ currency }: { currency: string }) {
 
   return (
     <>
-      <div ref={heading} tabIndex={-1} className="outline-none">
-        <PageHeader
-          title={
-            stage.name === "details"
-              ? tAdd("detailsTitle")
-              : stage.name === "done"
-                ? tAdd("savedTitle")
-                : t("title")
-          }
-        />
+      <div
+        ref={heading}
+        tabIndex={-1}
+        className={cn("outline-none", stage.name === "capture" && "pt-4 lg:pt-10")}
+      >
+        {stage.name !== "capture" && (
+          <PageHeader
+            title={
+              stage.name === "details"
+                ? tAdd("detailsTitle")
+                : stage.name === "done"
+                  ? tAdd("savedTitle")
+                  : t("title")
+            }
+          />
+        )}
       </div>
       <div className="mx-auto w-full max-w-xl">
         {stage.name === "capture" && (
@@ -126,10 +132,13 @@ export function ScanScreen({ currency }: { currency: string }) {
             <Capture
               error={stage.error}
               retry={stage.retry}
-              compact={series.items.length > 0}
               mode={mode}
               onMode={setMode}
               onFile={mode === "many" ? series.add : read}
+              series={{
+                total: series.items.length,
+                done: series.items.filter((i) => i.status === "done").length,
+              }}
             />
             <SeriesTray
               items={series.items}
@@ -272,81 +281,208 @@ function FramingGuide({ className }: { className?: string }) {
 function Capture({
   error,
   retry,
-  compact,
   mode,
   onMode,
   onFile,
+  series,
 }: {
   error: string | null;
   retry: File | null;
-  /** A series is under way: a smaller viewfinder, so the photos taken so far stay in sight below it. */
-  compact: boolean;
   mode: "one" | "many";
   onMode: (mode: "one" | "many") => void;
   onFile: (file: File) => void;
+  /** Photos of a series so far: how many, and how many are done. */
+  series: { total: number; done: number };
 }) {
   const t = useTranslations("scan");
+  const { video, state: cameraState, capture, retry: retryCamera } = useCamera(true);
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const libraryInput = useRef<HTMLInputElement>(null);
+  const [flash, setFlash] = useState(0);
+  const live = cameraState === "live";
+
+  const pick = (multiple: boolean) => (event: ChangeEvent<HTMLInputElement>) => {
+    const files = [...(event.target.files ?? [])];
+    event.target.value = ""; // choosing the same file again must work
+    for (const file of multiple ? files : files.slice(0, 1)) onFile(file);
+  };
+
+  async function shoot() {
+    if (!live) return cameraInput.current?.click(); // the phone's own camera
+    const file = await capture();
+    if (!file) return cameraInput.current?.click();
+    navigator.vibrate?.(12);
+    setFlash((n) => n + 1);
+    onFile(file);
+  }
+
+  const status =
+    cameraState === "starting"
+      ? t("camera.starting")
+      : cameraState === "denied"
+        ? t("camera.denied")
+        : cameraState === "unavailable"
+          ? t("camera.unavailable")
+          : cameraState === "error"
+            ? t("camera.error")
+            : null;
+
   return (
-    <div className="flex flex-col gap-5">
-      <Segmented
-        label={t("series.mode")}
-        value={mode}
-        onChange={onMode}
-        options={[
-          { value: "one", label: t("series.one") },
-          { value: "many", label: t("series.many") },
-        ]}
+    // One screen tall, whatever the phone: the shutter always sits in the thumb zone, above the tab bar.
+    <div
+      data-testid="capture"
+      className="flex h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-var(--nav-height)-3rem)] min-h-[25rem] flex-col gap-3 lg:h-[min(80dvh,52rem)]"
+    >
+      {/* The phone's own camera and the photo library, opened by the buttons below. */}
+      <input
+        ref={cameraInput}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={pick(false)}
+        tabIndex={-1}
+        aria-hidden="true"
+        className="sr-only"
       />
-      <p className="text-body text-ink-2">{mode === "many" ? t("series.intro") : t("intro")}</p>
+      <input
+        ref={libraryInput}
+        type="file"
+        accept="image/*"
+        multiple={mode === "many"}
+        onChange={pick(mode === "many")}
+        tabIndex={-1}
+        aria-hidden="true"
+        className="sr-only"
+      />
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <h1 className="font-display text-[2rem] leading-none">{t("title")}</h1>
+        <Segmented
+          label={t("series.mode")}
+          value={mode}
+          onChange={onMode}
+          options={[
+            { value: "one", label: t("series.one") },
+            { value: "many", label: t("series.many") },
+          ]}
+        />
+      </div>
       {error && (
-        <div role="alert" className="rounded-card bg-raised p-4 ring-1 ring-hairline">
-          <p className="text-body text-ink">{error}</p>
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-card bg-raised p-3 ring-1 ring-hairline"
+        >
+          <p className="text-small text-ink">{error}</p>
           {retry && (
-            <Button className="mt-3" size="md" onClick={() => onFile(retry)}>
+            <Button size="sm" onClick={() => onFile(retry)}>
               {t("tryAgain")}
             </Button>
           )}
         </div>
       )}
-      {/* The viewfinder: a dark camera area with a framing guide, the shutter and the library below. */}
-      <div className="overflow-hidden rounded-[28px] bg-hero text-hero-ink shadow-raised">
-        <div className={cn("relative", compact ? "aspect-[2/1]" : "aspect-[5/6] sm:aspect-[4/3]")}>
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/40"
-          />
-          <FramingGuide className="inset-x-[15%] inset-y-[10%] rounded-[28px] ring-1 ring-white/15" />
-          {!compact && (
-            <p className="absolute inset-x-8 bottom-5 text-center text-small text-hero-ink/85">
-              {t("tips")}
-            </p>
+
+      {/* The viewfinder fills what is left; the controls float in its lower edge. */}
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-[28px] bg-hero text-hero-ink shadow-raised">
+        <video
+          ref={video}
+          playsInline
+          muted
+          autoPlay
+          aria-label={t("camera.preview")}
+          data-state={cameraState}
+          className={cn(
+            "absolute inset-0 size-full object-cover transition-opacity duration-300",
+            live ? "opacity-100" : "opacity-0",
           )}
-        </div>
-        <div className="flex flex-col items-center gap-4 px-5 pb-6 pt-2">
-          <span className="grid size-[5.5rem] place-items-center rounded-full ring-[3px] ring-white/80">
-            <FileButton
-              variant="primary"
-              size="lg"
-              capture="environment"
-              onFile={onFile}
-              className="size-[4.5rem] p-0 ring-2 ring-white/30"
-            >
-              <span className="sr-only">{t("takePhoto")}</span>
-            </FileButton>
-          </span>
-          <FileButton
-            variant="secondary"
-            size="md"
-            multiple={mode === "many"}
-            onFile={onFile}
-            className="bg-white/15 text-hero-ink hover:bg-white/25"
+        />
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/55"
+        />
+        <FramingGuide className="inset-x-[14%] bottom-[28%] top-[20%] rounded-[28px] ring-1 ring-white/15" />
+        <p className="absolute inset-x-6 top-4 text-center text-small text-hero-ink/90">
+          {mode === "many" ? t("series.intro") : t("tips")}
+        </p>
+        {status && (
+          <div
+            role="status"
+            className="absolute inset-x-8 top-1/2 flex -translate-y-1/2 flex-col items-center gap-3 text-center"
           >
-            {mode === "many" ? t("series.choosePhotos") : t("choosePhoto")}
-          </FileButton>
+            <p className="text-body text-hero-ink">{status}</p>
+            {(cameraState === "denied" || cameraState === "error") && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={retryCamera}
+                className="bg-white/15 text-hero-ink hover:bg-white/25"
+              >
+                {t("camera.retry")}
+              </Button>
+            )}
+          </div>
+        )}
+        {flash > 0 && (
+          <span
+            key={flash}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-white opacity-0 motion-safe:animate-[shutter_220ms_ease-out]"
+          />
+        )}
+
+        <div className="absolute inset-x-0 bottom-0 grid grid-cols-3 items-center px-5 pb-5 pt-3">
+          <button
+            type="button"
+            onClick={() => libraryInput.current?.click()}
+            className="grid size-12 place-items-center justify-self-start rounded-full bg-white/15 text-hero-ink backdrop-blur-md transition-transform duration-150 ease-cellr active:scale-95"
+          >
+            <PhotosIcon />
+            <span className="sr-only">
+              {mode === "many" ? t("series.choosePhotos") : t("choosePhoto")}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void shoot()}
+            aria-label={t("takePhoto")}
+            data-testid="shutter"
+            className="grid size-[4.75rem] place-items-center justify-self-center rounded-full ring-[3px] ring-white/85 transition-transform duration-150 ease-cellr active:scale-95"
+          >
+            <span className="block size-[3.9rem] rounded-full bg-hero-ink shadow-raised" />
+          </button>
+          {mode === "many" && series.total > 0 ? (
+            <a
+              href="#series-title"
+              aria-label={t("series.count", { done: series.done, total: series.total })}
+              className="justify-self-end rounded-full bg-white/15 px-3 py-2 text-small font-semibold text-hero-ink backdrop-blur-md tnum"
+            >
+              {series.done}/{series.total}
+            </a>
+          ) : (
+            <span />
+          )}
         </div>
       </div>
       <p className="text-center text-caption text-ink-3">{t("privacy")}</p>
     </div>
+  );
+}
+
+function PhotosIcon() {
+  return (
+    <svg
+      width={22}
+      height={22}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <circle cx="9" cy="10" r="1.75" />
+      <path d="m21 16-5.5-5.5L6 20" />
+    </svg>
   );
 }
 

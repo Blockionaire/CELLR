@@ -291,6 +291,14 @@
     transform: none;
   }
 }
+@keyframes shutter {
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 0;
+  }
+}
 @keyframes shake {
   0%,
   100% {
