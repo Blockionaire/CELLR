@@ -52,11 +52,14 @@ export function VintageScreen({
   initial,
   currency,
   initialRate,
+  initialPick = false,
 }: {
   initial: VintageDetail;
   currency: string;
   /** An opened bottle to talk about straight away (a link from Home: "rate it"). */
   initialRate?: string | undefined;
+  /** Came here to take a bottle out (Tonight's "take this bottle"): the open sheet is up, easiest bottle first. */
+  initialPick?: boolean;
 }) {
   const t = useTranslations("vintage");
   const tTasting = useTranslations("tasting");
@@ -66,7 +69,9 @@ export function VintageScreen({
   const tInsights = useTranslations("insights");
   const locale = useLocale();
   const { data: detail } = useVintage(initial.vintageId, initial);
-  const [sheet, setSheet] = useState<SheetName>(null);
+  const [sheet, setSheet] = useState<SheetName>(() =>
+    initialPick && initial.bottles.length > 0 ? "open" : null,
+  );
   const [rating, setRating] = useState<BottleView | null>(
     () => initial.opened.find((b) => b.id === initialRate) ?? null,
   );
@@ -221,7 +226,10 @@ export function VintageScreen({
               <span />
             )}
             {count > 0 && (
-              <span className="rounded-full bg-surface px-3 py-1 text-caption font-semibold text-ink shadow-raised tnum">
+              <span
+                key={count}
+                className="pop-in rounded-full bg-surface px-3 py-1 text-caption font-semibold text-ink shadow-raised tnum"
+              >
                 {t("heroCount", { count })}
               </span>
             )}
@@ -259,7 +267,11 @@ export function VintageScreen({
           <p className="mt-3 text-small text-ink tnum" data-testid="facts-line">
             {count > 0 && (
               <>
-                <span data-testid="bottle-count" className="font-semibold">
+                <span
+                  key={count}
+                  data-testid="bottle-count"
+                  className="pop-in inline-block font-semibold"
+                >
                   {count}
                 </span>{" "}
                 {t("factBottles", { count })}

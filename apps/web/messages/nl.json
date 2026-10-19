@@ -230,7 +230,9 @@
     },
     "buyTitle": "Het kopen waard",
     "buyHint": "Niet in je kelder: ideeën voor de winkel, prijzen zijn een schatting.",
-    "placeholderTonight": "Wat eet je vanavond?"
+    "placeholderTonight": "Wat eet je vanavond?",
+    "takeThis": "Pak deze fles",
+    "noPlace": "Nog geen plek"
   },
   "profile": {
     "title": "Profiel",
@@ -770,7 +772,9 @@
     "labelsTitle": "Etiketten",
     "frontHave": "Jouw foto van het vooretiket: op de kaart, hier en op de 3D-fles.",
     "frontTitle": "Vooretiket",
-    "frontBody": "Met een foto van het etiket wordt deze wijn echt van jou: op de kaart, hier en op de 3D-fles."
+    "frontBody": "Met een foto van het etiket wordt deze wijn echt van jou: op de kaart, hier en op de 3D-fles.",
+    "offerTitle": "Een foto van het etiket erbij?",
+    "offerBody": "Dan zie je in je kelder precies deze fles. Kan ook later."
   },
   "wishlist": {
     "title": "Wishlist",

@@ -38,6 +38,7 @@ export function useBottleActions() {
       try {
         const { previous } = await action.mutateAsync({ bottleId, action: { action: "open" } });
         toast.show(tOpen("done", { count: remaining }), {
+          flourish: "uncork",
           action: undoer(
             () => action.mutateAsync({ bottleId, action: { action: "restore", to: previous } }),
             tOpen("restored"),

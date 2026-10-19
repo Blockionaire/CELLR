@@ -230,7 +230,9 @@
     },
     "buyTitle": "Worth buying",
     "buyHint": "Not in your cellar: ideas for the shop, prices are rough.",
-    "placeholderTonight": "What are you eating tonight?"
+    "placeholderTonight": "What are you eating tonight?",
+    "takeThis": "Take this bottle",
+    "noPlace": "No place yet"
   },
   "profile": {
     "title": "Profile",
@@ -770,7 +772,9 @@
     "labelsTitle": "Labels",
     "frontHave": "Your photo of the front label: on its card, here and on the 3D bottle.",
     "frontTitle": "Front label",
-    "frontBody": "A photo of the label makes this wine yours: it shows on its card, here and on the 3D bottle."
+    "frontBody": "A photo of the label makes this wine yours: it shows on its card, here and on the 3D bottle.",
+    "offerTitle": "Add a photo of the label?",
+    "offerBody": "Then the card in your cellar shows this very bottle. You can always do it later."
   },
   "wishlist": {
     "title": "Wishlist",

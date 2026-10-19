@@ -42,6 +42,7 @@ export function WineStage({
   size = "thumb",
   muted = false,
   className,
+  bottleClassName,
 }: {
   type: WineType;
   producer: string;
@@ -51,6 +52,7 @@ export function WineStage({
   /** The kind of wine is not known yet: a neutral stage and a paler bottle. */
   muted?: boolean;
   className?: string;
+  bottleClassName?: string;
 }) {
   const s = SIZES[size];
   return (
@@ -71,7 +73,7 @@ export function WineStage({
         tint={type}
         mark={labelMark(producer, name)}
         year={year}
-        className={cn("relative", s.bottle, muted && "opacity-60")}
+        className={cn("relative", s.bottle, muted && "opacity-60", bottleClassName)}
       />
     </span>
   );

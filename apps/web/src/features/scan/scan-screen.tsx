@@ -250,7 +250,12 @@ export function ScanScreen({ currency }: { currency: string }) {
         )}
 
         {stage.name === "done" && (
-          <AddedDone result={stage.result} onAnother={restart} anotherLabel={t("another")} />
+          <AddedDone
+            result={stage.result}
+            onAnother={restart}
+            anotherLabel={t("another")}
+            hasPhoto
+          />
         )}
       </div>
     </>

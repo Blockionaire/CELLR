@@ -440,3 +440,46 @@ dialog[open]::backdrop {
     animation-range: 0 120px;
   }
 }
+
+/* Something new on screen that matters (a count that changed, the check after adding): a small spring. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+.pop-in {
+  animation: pop-in 520ms var(--ease-spring) both;
+  animation-delay: var(--pop-delay, 0ms);
+}
+/* A bottle that has just gone into the cellar comes down onto its stage and settles. */
+@keyframes settle-in {
+  from {
+    opacity: 0;
+    transform: translateY(-28px) rotate(-4deg);
+  }
+  60% {
+    opacity: 1;
+  }
+}
+.settle-in {
+  animation: settle-in 760ms var(--ease-spring) both;
+  transform-origin: 50% 100%;
+}
+/* Opening a bottle: the cork lifts, tilts and is gone. Once. */
+@keyframes uncork {
+  0%,
+  25% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    transform: translate(3px, -12px) rotate(24deg);
+    opacity: 0;
+  }
+}
+.uncork {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: uncork 700ms var(--ease-out) 200ms both;
+}

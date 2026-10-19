@@ -194,6 +194,7 @@ test("photograph the main screens", async ({ page, request, browser }) => {
     ["wine-photo", `/cellar/${musar}`],
     ["wine-plain", `/cellar/${plain}`],
     ["tonight", "/tonight"],
+    ["tonight-answer", `/tonight?ask=${encodeURIComponent("Biefstuk vanavond")}`],
     ["sommelier", "/sommelier"],
     ["history", "/cellar/history"],
     ["wishlist", "/wishlist"],
@@ -218,7 +219,9 @@ test("photograph the main screens", async ({ page, request, browser }) => {
       for (const [name, url] of screens.filter(([n]) => !pickScreens || pickScreens.includes(n))) {
         await p.goto(url);
         await p.waitForLoadState("networkidle");
-        await p.waitForTimeout(400);
+        if (name === "tonight-answer")
+          await p.locator('[role="log"] article').first().waitFor({ timeout: 20_000 });
+        await p.waitForTimeout(900);
         const file = path.join(OUT, `${name}-${size.name}-${scheme}`);
         await p.screenshot({ path: `${file}.png` });
         if (size.name === "iphone") await p.screenshot({ path: `${file}-full.png`, fullPage: true });

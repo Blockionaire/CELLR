@@ -9,7 +9,7 @@ import { servicesFor } from "@/server/services";
 
 type Props = {
   params: Promise<{ vintageId: string }>;
-  searchParams: Promise<{ rate?: string }>;
+  searchParams: Promise<{ rate?: string; pick?: string }>;
 };
 
 async function load(vintageId: string) {
@@ -31,9 +31,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function VintagePage({ params, searchParams }: Props) {
   const { vintageId } = await params;
-  const { rate } = await searchParams;
+  const { rate, pick } = await searchParams;
   const [detail, me] = await Promise.all([load(vintageId), getPageMe()]);
   if (!detail) return null;
   const currency = me?.households.find((h) => h.id === me.activeHouseholdId)?.currency ?? "EUR";
-  return <VintageScreen initial={detail} currency={currency} initialRate={rate} />;
+  return (
+    <VintageScreen
+      initial={detail}
+      currency={currency}
+      initialRate={rate}
+      initialPick={pick === "1"}
+    />
+  );
 }
