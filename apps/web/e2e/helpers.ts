@@ -186,3 +186,31 @@ export async function makeJpeg(
   ]);
   return Buffer.concat([jpeg.subarray(0, 2), segment, jpeg.subarray(2)]);
 }
+
+/** The AI's profile of a wine (as the app saves it), with a window the AI was fairly sure of. */
+export async function aiWindow(householdId: string, wineName: string, from: number, until: number) {
+  const [v] = await sql<{ id: string }>(
+    `select v.id from public.wine_vintages v join public.wines w on w.id = v.wine_id
+      where w.name = $1 and w.owner_household_id = $2`,
+    [wineName, householdId],
+  );
+  const output = {
+    summary: "A test wine.",
+    style: "",
+    grapes: [],
+    tasting: "",
+    serving: null,
+    decantMinutes: null,
+    abvPercent: null,
+    drinkWindow: { from, until },
+    pairings: [],
+    aging: "",
+    value: null,
+    confidence: "medium",
+  };
+  await sql(
+    `insert into public.vintage_insights (household_id, vintage_id, output, model, generated_at)
+     values ($1, $2, $3::jsonb, 'test', now())`,
+    [householdId, v!.id, JSON.stringify(output)],
+  );
+}

@@ -46,6 +46,7 @@ export const WINE_STYLES = [
   "australia",
   "new-zealand",
   "south-africa",
+  "lebanon",
   "standard",
 ] as const;
 export type WineStyle = (typeof WINE_STYLES)[number];
@@ -92,6 +93,8 @@ const SPANS: Record<WineStyle, Partial<Record<WineType, Span>>> = {
   australia: { red: [2, 11], white: [2, 8], sparkling: [1, 5], dessert: [3, 14], rose: [0, 2] },
   "new-zealand": { white: [1, 5], red: [2, 7], sparkling: [1, 4], rose: [0, 2] },
   "south-africa": { red: [2, 9], white: [1, 7], sparkling: [1, 5], rose: [0, 2] },
+  // Bekaa reds (Musar and its neighbours) are made to age for decades, whites too.
+  lebanon: { red: [6, 25], white: [4, 18], rose: [0, 2] },
   standard: {
     red: [2, 8],
     white: [1, 4],
@@ -337,6 +340,7 @@ const COUNTRY_STYLE: Record<string, WineStyle> = {
   AU: "australia",
   NZ: "new-zealand",
   ZA: "south-africa",
+  LB: "lebanon",
 };
 
 export interface WineFacts {
@@ -493,6 +497,28 @@ export function drinkStatus(window: DrinkWindow | null, now: Date): DrinkStatus 
 /** The same thing straight from a wine's facts. */
 export const drinkStatusOf = (input: DrinkInput, now: Date): DrinkStatus =>
   drinkStatus(estimateDrinkWindow(input), now);
+
+/**
+ * How far a status may be trusted, and what may be said with it.
+ *  - `reliable`: the window is about this very wine (the AI's profile of it, or the household's own), not the
+ *    rough table of styles. Only a reliable window may raise "drink soon" or "past its best" — on Home, in
+ *    reminders, anywhere that tells someone to act.
+ *  - `uncertain`: the table puts the wine late in, or past, a window it only guessed. That is the claim most
+ *    likely to be wrong (a Château Musar ages for decades; the table cannot know) and the most costly when it
+ *    is, so it is not made: the phase becomes "unknown" ("not enough information") and the window is kept only
+ *    as a rough sketch.
+ */
+export interface DrinkAssessment extends DrinkStatus {
+  reliable: boolean;
+  uncertain: boolean;
+}
+
+export function assessDrink(status: DrinkStatus): DrinkAssessment {
+  const reliable = status.window !== null && status.window.source !== "estimate";
+  const late = status.phase === "ready" || status.phase === "past";
+  if (!reliable && late) return { ...status, phase: "unknown", reliable, uncertain: true };
+  return { ...status, reliable, uncertain: false };
+}
 
 /** What should be opened first: lower = more pressing. Unknown goes last. */
 export function drinkUrgency(status: DrinkStatus): number {

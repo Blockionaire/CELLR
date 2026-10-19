@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assessDrink,
   drinkStatus,
   drinkStatusOf,
   drinkUrgency,
@@ -181,5 +182,231 @@ describe("an AI window", () => {
     expect(
       estimateDrinkWindow(wine({ year: null, aiWindow: { from: 2022, until: 2040 } })),
     ).toBeNull();
+  });
+});
+
+/**
+ * Regression: the audit of 18 Oct 2026 found Château Musar 2016 on Home as "past its best". A wine people keep
+ * for decades must never be told to be past it on the strength of a rough table.
+ */
+describe("trustworthy drinking advice", () => {
+  const OCT_2026 = new Date("2026-10-18T12:00:00Z");
+  const assess = (input: DrinkInput, now = OCT_2026) => assessDrink(drinkStatusOf(input, now));
+
+  // Wines known to age far beyond the table's usual span (vintage, what one paid).
+  const LONG_AGERS: Array<[string, DrinkInput]> = [
+    [
+      "Château Musar 2016",
+      {
+        type: "red",
+        countryCode: "LB",
+        region: "Bekaa",
+        name: "Château Musar",
+        year: 2016,
+        pricePerBottleCents: 4800,
+      },
+    ],
+    [
+      "Barolo 2016",
+      {
+        type: "red",
+        countryCode: "IT",
+        region: "Piemonte",
+        name: "Barolo",
+        year: 2016,
+        pricePerBottleCents: 4500,
+      },
+    ],
+    [
+      "Vintage Port 2011",
+      {
+        type: "fortified",
+        countryCode: "PT",
+        region: "Douro",
+        name: "Vintage Port",
+        year: 2011,
+        pricePerBottleCents: 6500,
+      },
+    ],
+    [
+      "Sauternes 2009",
+      {
+        type: "dessert",
+        countryCode: "FR",
+        region: "Sauternes",
+        name: "Château Suduiraut",
+        year: 2009,
+        pricePerBottleCents: 5500,
+      },
+    ],
+    [
+      "Rioja Gran Reserva 2010",
+      {
+        type: "red",
+        countryCode: "ES",
+        region: "Rioja",
+        name: "Gran Reserva",
+        year: 2010,
+        pricePerBottleCents: 3500,
+      },
+    ],
+    [
+      "Hermitage 2010",
+      {
+        type: "red",
+        countryCode: "FR",
+        region: "Hermitage",
+        name: "Hermitage",
+        year: 2010,
+        pricePerBottleCents: 9000,
+      },
+    ],
+    [
+      "Mosel Riesling Spätlese 2012",
+      {
+        type: "white",
+        countryCode: "DE",
+        region: "Mosel",
+        name: "Riesling Spätlese",
+        year: 2012,
+        pricePerBottleCents: 2500,
+      },
+    ],
+    [
+      "Bordeaux Grand Cru Classé 2005",
+      {
+        type: "red",
+        countryCode: "FR",
+        region: "Pauillac",
+        name: "Grand Cru Classé",
+        year: 2005,
+        pricePerBottleCents: 15000,
+      },
+    ],
+  ];
+
+  it.each(LONG_AGERS)(
+    "%s is never called past it, or drink-soon, by the rough table",
+    (_, input) => {
+      const a = assess(input);
+      expect(a.phase).not.toBe("past");
+      expect(a.phase).not.toBe("ready");
+      expect(a.reliable).toBe(false);
+    },
+  );
+
+  it("Château Musar 2016 has a long window of its own region style", () => {
+    const w = estimateDrinkWindow({
+      type: "red",
+      countryCode: "LB",
+      region: "Bekaa",
+      year: 2016,
+      pricePerBottleCents: 4800,
+    })!;
+    expect(w.until).toBeGreaterThanOrEqual(2040);
+    expect(
+      assess({
+        type: "red",
+        countryCode: "LB",
+        region: "Bekaa",
+        year: 2016,
+        pricePerBottleCents: 4800,
+      }).phase,
+    ).not.toBe("unknown");
+  });
+
+  // Everyday wines the table handles well: young or at their best is said plainly, the late claim is not.
+  const EVERYDAY: Array<[string, DrinkInput, string]> = [
+    [
+      "NZ Sauvignon Blanc 2025",
+      {
+        type: "white",
+        countryCode: "NZ",
+        region: "Marlborough",
+        year: 2025,
+        pricePerBottleCents: 1400,
+      },
+      "developing|peak",
+    ],
+    [
+      "Provence rosé 2026",
+      {
+        type: "rose",
+        countryCode: "FR",
+        region: "Provence",
+        year: 2026,
+        pricePerBottleCents: 1200,
+      },
+      "young|developing|peak",
+    ],
+    [
+      "Beaujolais 2025",
+      {
+        type: "red",
+        countryCode: "FR",
+        region: "Beaujolais",
+        year: 2025,
+        pricePerBottleCents: 1100,
+      },
+      "developing|peak|young",
+    ],
+    [
+      "Rioja Crianza 2022",
+      {
+        type: "red",
+        countryCode: "ES",
+        region: "Rioja",
+        name: "Crianza",
+        year: 2022,
+        pricePerBottleCents: 1300,
+      },
+      "developing|peak",
+    ],
+  ];
+  it.each(EVERYDAY)("%s gets a plain phase", (_, input, phases) => {
+    expect(assess(input).phase).toMatch(new RegExp(`^(${phases})$`));
+  });
+
+  it("an old cheap rosé is 'not enough information', not 'past its best', without wine-specific evidence", () => {
+    const a = assess({
+      type: "rose",
+      countryCode: "FR",
+      region: "Provence",
+      year: 2019,
+      pricePerBottleCents: 900,
+    });
+    expect(a).toMatchObject({ phase: "unknown", uncertain: true, reliable: false });
+    // the rough window is kept (as a sketch), but nothing urgent is said
+    expect(a.window).not.toBeNull();
+    expect(drinkUrgency(a)).toBe(999);
+  });
+
+  it("a window about this very wine may say it is past its best, or to drink it soon", () => {
+    const past = assess({
+      type: "red",
+      countryCode: "LB",
+      region: "Bekaa",
+      year: 2016,
+      aiWindow: { from: 2018, until: 2024 },
+    });
+    expect(past).toMatchObject({ phase: "past", reliable: true, uncertain: false });
+    const soon = assess({
+      type: "red",
+      countryCode: "FR",
+      region: "Bordeaux",
+      year: 2015,
+      aiWindow: { from: 2020, until: 2027 },
+    });
+    expect(soon).toMatchObject({ phase: "ready", reliable: true });
+  });
+
+  it("a wine without a year has no window and no claims", () => {
+    expect(
+      assess({ type: "sparkling", countryCode: "FR", region: "Champagne", year: null }),
+    ).toMatchObject({
+      phase: "unknown",
+      reliable: false,
+      uncertain: false,
+    });
   });
 });

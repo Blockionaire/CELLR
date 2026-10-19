@@ -32,6 +32,8 @@ export function DrinkLabel({ drink, className }: { drink: DrinkSummary; classNam
 export function DrinkWindowBar({ drink }: { drink: DrinkSummary }) {
   const t = useTranslations("drink");
   if (drink.from === null || drink.until === null || drink.position === null) return null;
+  // Too unsure to place "today" on it (see assessDrink): no bar rather than a misleading one.
+  if (drink.uncertain) return null;
   const position = Math.min(1, Math.max(0, drink.position));
   return (
     <div className="mt-5">

@@ -22,6 +22,20 @@ interface ChatResponse {
 const toBase64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
 
 /**
+ * The provider's short reason for an error ("insufficient_quota", "rate_limit_exceeded", …), for our log: an
+ * account without credit and a busy minute both answer 429, and only this tells them apart. Never its text.
+ */
+async function providerCode(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.json()) as { error?: { code?: unknown; type?: unknown } };
+    const code = body.error?.code ?? body.error?.type;
+    return typeof code === "string" && /^[a-z0-9_.-]{1,64}$/i.test(code) ? code : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * An OpenAI-compatible chat endpoint (the base address is configurable, so another host that speaks the same
  * protocol works too). The answer is held to a strict JSON schema, checked again by our own code, and given
  * one chance to repair itself; after that the caller gets a plain "no" and uses its fallback.
@@ -78,7 +92,12 @@ export function createOpenAiProvider(
           return fail(timedOut ? "timeout" : "unavailable");
         }
         if (!response.ok) {
-          logWarn("ai_http_error", { status: response.status, task: request.task, model });
+          logWarn("ai_http_error", {
+            status: response.status,
+            code: await providerCode(response),
+            task: request.task,
+            model,
+          });
           return fail(response.status === 429 ? "rate_limited" : "unavailable");
         }
         let body: ResponsesResponse;
@@ -150,8 +169,13 @@ export function createOpenAiProvider(
         }
 
         if (!response.ok) {
-          // The provider's own words stay in our log, without the key; the person gets a plain fallback.
-          logWarn("ai_http_error", { status: response.status, task: request.task, model });
+          // Only the provider's short code goes in our log, never its text; the person gets a plain fallback.
+          logWarn("ai_http_error", {
+            status: response.status,
+            code: await providerCode(response),
+            task: request.task,
+            model,
+          });
           return fail(response.status === 429 ? "rate_limited" : "unavailable");
         }
 

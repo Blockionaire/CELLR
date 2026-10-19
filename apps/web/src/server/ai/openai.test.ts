@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createOpenAiProvider } from "./openai";
 import type { GenerateObjectRequest } from "./types";
@@ -149,6 +149,29 @@ describe("asking the model", () => {
     const result = await createOpenAiProvider(env, fetcher).generateObject(request());
     expect(JSON.stringify(result)).not.toContain("sk-test-secret");
     expect(JSON.stringify(result)).not.toContain("Incorrect");
+  });
+
+  it("logs why the provider said no — no credit left is not a busy minute — but never its text", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const noCredit = new Response(
+      JSON.stringify({
+        error: {
+          message: "You have no credits remaining. Key sk-test-secret.",
+          type: "insufficient_quota",
+          code: "credit_balance_exhausted",
+        },
+      }),
+      { status: 429 },
+    );
+    const { fetcher } = fakeFetch(noCredit, new Response("slow down", { status: 429 }));
+    const provider = createOpenAiProvider(env, fetcher);
+    expect(await provider.generateObject(request())).toMatchObject({ kind: "rate_limited" });
+    expect(await provider.generateObject(request())).toMatchObject({ kind: "rate_limited" });
+    const logged = warn.mock.calls.map(([line]) => JSON.parse(String(line)));
+    warn.mockRestore();
+    expect(logged.map((l) => l.code)).toEqual(["credit_balance_exhausted", null]);
+    expect(JSON.stringify(logged)).not.toContain("sk-test-secret");
+    expect(JSON.stringify(logged)).not.toContain("no credits");
   });
 });
 

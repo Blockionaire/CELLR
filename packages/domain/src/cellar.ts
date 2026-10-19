@@ -242,6 +242,10 @@ export interface DrinkSummary {
   position: number | null;
   /** Where the window comes from: the style table, the AI's knowledge of the wine, or the household's own. */
   source: "estimate" | "ai" | "own";
+  /** The window is about this very wine (AI or own), so it may say "drink soon" (see `assessDrink`). */
+  reliable: boolean;
+  /** Only the rough table had a window, and it put the wine late: "not enough information" (see `assessDrink`). */
+  uncertain: boolean;
 }
 
 /** One card in the cellar: one vintage of one wine, however many bottles of it are in the house. */

@@ -148,9 +148,10 @@ export async function InsightsScreen({
     nowYear +
     (Date.UTC(nowYear, generated.getUTCMonth(), generated.getUTCDate()) - Date.UTC(nowYear, 0, 1)) /
       (365 * 86_400_000);
+  // A rough window the table is unsure about is not drawn: a bar ending before "today" would say "past it".
   const windows: TimelineRow[] = cellar
     .flatMap((i) =>
-      i.drink.from !== null && i.drink.until !== null
+      i.drink.from !== null && i.drink.until !== null && !i.drink.uncertain
         ? [{ item: i, from: i.drink.from, until: i.drink.until }]
         : [],
     )

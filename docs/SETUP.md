@@ -246,7 +246,8 @@ only fills in parts an older profile did not have yet.
 ### Turning on reminders on your phone (optional)
 
 Once a day the app checks every cellar and sends a notification when a wine has reached its best years, or the
-last stretch of them ("drink it soon"). Each wine is told once. It needs the database step
+last stretch of them ("drink it soon"). Each wine is told once, and only wines with a window of their own (from
+the wine's AI profile, or set by you) are told about: a rough estimate never sends a reminder. It needs the database step
 `20261018000013_push_reminders.sql`, `SUPABASE_SERVICE_ROLE_KEY` (already set above) and four settings in Vercel
 (_Settings → Environment Variables_, Production, then redeploy). **Put them in Vercel only; never in a chat or a
 file in the repository.**

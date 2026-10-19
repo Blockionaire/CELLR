@@ -23,6 +23,8 @@ const item = (over: Partial<CellarItem> = {}): CellarItem => {
     rating: null,
     drink: {
       source: "estimate",
+      reliable: false,
+      uncertain: false,
       phase: "peak",
       from: 2014,
       until: 2030,
@@ -200,7 +202,9 @@ describe("asking the sommelier", () => {
     const urgent = item({
       producer: "Old Friend",
       drink: {
-        source: "estimate",
+        source: "ai",
+        reliable: true,
+        uncertain: false,
         phase: "past",
         from: 2000,
         until: 2012,
