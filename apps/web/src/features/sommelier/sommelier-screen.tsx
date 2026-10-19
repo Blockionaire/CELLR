@@ -108,6 +108,7 @@ export function SommelierChat({
   subtitle,
   chips,
   hasBottles,
+  initialQuestion,
 }: {
   mode: "chat" | "tonight";
   title: string;
@@ -115,12 +116,16 @@ export function SommelierChat({
   /** Tappable starting questions. */
   chips: readonly string[];
   hasBottles: boolean;
+  /** A question asked from elsewhere (Home's "steak tonight"): asked at once, as if typed here. */
+  initialQuestion?: string | undefined;
 }) {
   const t = useTranslations("sommelier");
   const te = useTranslations();
   const ask = useAskSommelier();
   const [budget, setBudget] = useBudget();
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const [turns, setTurns] = useState<Turn[]>(() =>
+    initialQuestion ? [{ role: "user", text: initialQuestion }] : [],
+  );
   const [draft, setDraft] = useState("");
   const end = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
@@ -141,6 +146,11 @@ export function SommelierChat({
     ];
     setTurns([...turns, { role: "user", text: question }]);
     setDraft("");
+    await answer(history, question);
+  }
+
+  /** Asks about the conversation so far (ending in the person's question) and adds the answer. */
+  async function answer(history: Turn[], question: string) {
     const messages = history
       .map((x) => spoken(x, basicSentence))
       .filter((m): m is NonNullable<typeof m> => m !== null)
@@ -159,6 +169,17 @@ export function SommelierChat({
       ]);
     }
   }
+
+  // Asked from Home: the question is already on screen (see the initial state); fetch its answer once, and
+  // take it out of the address so a reload does not ask again.
+  const askedFirst = useRef(false);
+  useEffect(() => {
+    if (!initialQuestion || askedFirst.current) return;
+    askedFirst.current = true;
+    window.history.replaceState(null, "", window.location.pathname);
+    void answer([{ role: "user", text: initialQuestion }], initialQuestion);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, []);
 
   function submit(event: FormEvent) {
     event.preventDefault();
