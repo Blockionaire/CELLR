@@ -543,7 +543,10 @@
     "showRacks": "Show racks",
     "emptyTitle": "Build your cellar first",
     "emptyBody": "Add a fridge, rack or cabinet and put some bottles in it, then come back to walk around it.",
-    "loading": "Opening your cellar…"
+    "loading": "Opening your cellar…",
+    "lostTitle": "The 3D view has paused",
+    "lostBody": "Your phone needed the graphics memory for something else. Your bottles are all where they were.",
+    "lostRetry": "Show 3D again"
   },
   "showcase": {
     "label": "{wine} {year}",
@@ -555,7 +558,9 @@
     "details": "Full page",
     "loading": "Loading the details…",
     "thisBottle": "This bottle",
-    "spin": "Drag to turn the bottle"
+    "spin": "Drag to turn the bottle",
+    "pricePerBottle": "{price} a bottle",
+    "boughtOn": "bought {day}"
   },
   "favorite": {
     "label": "Favourite: {wine}",

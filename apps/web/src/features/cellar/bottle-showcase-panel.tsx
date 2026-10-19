@@ -94,7 +94,7 @@ export function BottleShowcasePanel({
         "transition-[transform,opacity] duration-500 ease-cellr motion-reduce:transition-none",
         layout === "side"
           ? "inset-y-3 right-3 w-[min(26rem,46%)] rounded-card"
-          : "inset-x-0 bottom-0 h-[54%] rounded-t-sheet",
+          : "inset-x-0 bottom-0 max-h-[52%] rounded-t-sheet",
         open
           ? "translate-x-0 translate-y-0 opacity-100 delay-300 motion-reduce:delay-0"
           : layout === "side"
@@ -102,7 +102,7 @@ export function BottleShowcasePanel({
             : "translate-y-12 opacity-0",
       )}
     >
-      <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-4 pt-5">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 pt-5">
         <div className="flex items-start justify-between gap-3">
           <p className="truncate pt-1 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
             {bottle.producer}
@@ -170,31 +170,18 @@ export function BottleShowcasePanel({
           </div>
         ) : (
           <>
-            <Block title={tv("purchase")}>
-              <Facts
-                rows={[
-                  [
-                    tv("averagePrice"),
-                    detail.averagePriceCents === null
-                      ? tv("notRecorded")
-                      : money(detail.averagePriceCents),
-                  ],
-                  [tv("latestPurchase"), latestPurchase ? day(latestPurchase) : tv("notRecorded")],
-                ]}
-              />
-            </Block>
-            <Block title={tv("about")}>
-              <Facts
-                rows={[
-                  [tv("style"), tTypes(detail.wine.type)],
-                  ...(wine?.region ? [[tv("region"), wine.region] as const] : []),
-                  ...(wine?.appellation ? [[tv("appellation"), wine.appellation] as const] : []),
-                  ...(wine?.countryCode
-                    ? [[tv("country"), placeLine(null, wine.countryCode, locale)] as const]
-                    : []),
-                ]}
-              />
-            </Block>
+            {/* What there is to know at a glance; the full page has the rest. */}
+            <p className="mt-4 text-small text-ink-2" data-testid="showcase-facts">
+              {[
+                wine?.appellation,
+                detail.averagePriceCents === null
+                  ? null
+                  : t("pricePerBottle", { price: money(detail.averagePriceCents) }),
+                latestPurchase ? t("boughtOn", { day: day(latestPurchase) }) : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
             {history.length > 0 && (
               <Block title={tv("history")}>
                 <ol className="flex flex-col gap-2">
@@ -224,29 +211,21 @@ export function BottleShowcasePanel({
             {error}
           </p>
         )}
-        <div
-          className={cn(
-            "grid gap-3",
-            layout === "side" ? "grid-cols-2" : "grid-cols-[1.7fr_1fr_1.1fr]",
-          )}
-        >
-          <Button
-            size="lg"
-            className={layout === "side" ? "col-span-2" : ""}
-            loading={busy}
-            onClick={onOpen}
-          >
+        <div className="flex flex-col gap-2.5">
+          <Button size="lg" block loading={busy} onClick={onOpen}>
             {t("open")}
           </Button>
-          <Button size="lg" variant="secondary" onClick={onMove} disabled={detail === undefined}>
-            {t("move")}
-          </Button>
-          <Link
-            href={`/cellar/${bottle.vintageId}`}
-            className={buttonStyles({ variant: "secondary", size: "lg" })}
-          >
-            {t("details")}
-          </Link>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Button size="md" variant="secondary" onClick={onMove} disabled={detail === undefined}>
+              {t("move")}
+            </Button>
+            <Link
+              href={`/cellar/${bottle.vintageId}`}
+              className={buttonStyles({ variant: "secondary", size: "md" })}
+            >
+              {t("details")}
+            </Link>
+          </div>
         </div>
       </div>
     </aside>
@@ -261,21 +240,5 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
       </h3>
       {children}
     </section>
-  );
-}
-
-function Facts({ rows }: { rows: ReadonlyArray<readonly [string, string]> }) {
-  return (
-    <dl className="flex flex-col divide-y divide-hairline">
-      {rows.map(([label, value]) => (
-        <div
-          key={label}
-          className="flex items-baseline justify-between gap-4 py-2 first:pt-0 last:pb-0"
-        >
-          <dt className="text-small text-ink-2">{label}</dt>
-          <dd className="text-right text-body text-ink tnum">{value}</dd>
-        </div>
-      ))}
-    </dl>
   );
 }

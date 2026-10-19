@@ -122,7 +122,9 @@ test.describe("the 3D cellar", () => {
     await expect(panel.getByText("2015 · Bordeaux, France")).toBeVisible();
     await expect(panel.getByText("Wine fridge · Shelf 1 · Position 4")).toBeVisible();
     await expect(panel.getByText("2 bottles of this vintage in your cellar")).toBeVisible();
-    await expect(panel.getByText("Average price per bottle")).toBeVisible();
+    // The facts in one line, then what happened to it (the full page has the rest).
+    await expect(panel.getByTestId("showcase-facts")).toBeAttached();
+    await expect(panel.getByText("2 bottles added")).toBeVisible();
     await expect(panel.getByRole("button", { name: "Move", exact: true })).toBeEnabled();
     await expect(panel.getByRole("link", { name: "Full page" })).toHaveAttribute(
       "href",
