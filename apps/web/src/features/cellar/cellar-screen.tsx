@@ -145,7 +145,7 @@ export function CellarScreen({
     memory.query = next;
     setQueryState(next);
   };
-  // Filters, sort and views change inside a transition: the cards that stay glide to their new places.
+  // Filters and sort change inside a transition: the cards that stay glide to their new places.
   const setFilters = (next: CellarFilters) => {
     memory.filters = next;
     startTransition(() => setFiltersState(next));
@@ -345,7 +345,8 @@ export function CellarScreen({
           label={t("viewLabel")}
           value={view}
           onChange={(next) => {
-            startTransition(() => setView(next));
+            // at once: a whole new layout gains nothing from a morph, and must not wait on one
+            setView(next);
             rememberView(next);
           }}
           options={[

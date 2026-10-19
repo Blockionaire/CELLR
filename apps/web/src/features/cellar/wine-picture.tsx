@@ -85,7 +85,14 @@ export function WinePicture({
     </div>
   );
   return shared ? (
-    <ViewTransition name={pictureTransition(wine.vintageId)} share="wine-morph">
+    // Only the move between pages animates; a refresh of the same page must not (it would cover the buttons).
+    <ViewTransition
+      name={pictureTransition(wine.vintageId)}
+      share="wine-morph"
+      update="none"
+      enter="none"
+      exit="none"
+    >
       {picture}
     </ViewTransition>
   ) : (

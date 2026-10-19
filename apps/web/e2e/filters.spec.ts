@@ -240,9 +240,9 @@ test.describe("filter and sort", () => {
     await expect(page.getByRole("button", { name: "Filter and sort, 2 active" })).toBeVisible();
 
     await chips.getByRole("button", { name: "Remove filter: Red" }).click();
-    expect((await cardTitles(page)).sort()).toEqual(
-      ["Chablis Premier Cru", "Pavillon Rouge", "Special Cuvée"].sort(),
-    );
+    await expect
+      .poll(async () => (await cardTitles(page)).sort())
+      .toEqual(["Chablis Premier Cru", "Pavillon Rouge", "Special Cuvée"].sort());
 
     // Within one group any choice matches: white or sparkling, in France.
     const again = await openFilters(page);
@@ -263,30 +263,24 @@ test.describe("filter and sort", () => {
     const sheet = await openFilters(page);
     await sheet.getByRole("button", { name: "Wine name" }).click();
     await sheet.getByRole("button", { name: /^Show 5 wines/ }).click();
-    expect(await cardTitles(page)).toEqual([
-      "Chablis Premier Cru",
-      "Pavillon Rouge",
-      "Reserva",
-      "Special Cuvée",
-      "Tignanello",
-    ]);
+    await expect
+      .poll(() => cardTitles(page))
+      .toEqual(["Chablis Premier Cru", "Pavillon Rouge", "Reserva", "Special Cuvée", "Tignanello"]);
 
     const second = await openFilters(page);
     await second.getByRole("button", { name: "Vintage, newest" }).click();
     await second.getByRole("button", { name: /^Show 5 wines/ }).click();
     // Newest first, non-vintage last.
-    expect(await cardTitles(page)).toEqual([
-      "Chablis Premier Cru",
-      "Tignanello",
-      "Pavillon Rouge",
-      "Reserva",
-      "Special Cuvée",
-    ]);
+    await expect
+      .poll(() => cardTitles(page))
+      .toEqual(["Chablis Premier Cru", "Tignanello", "Pavillon Rouge", "Reserva", "Special Cuvée"]);
 
     const third = await openFilters(page);
     await third.getByRole("button", { name: "Cellar rack 2", exact: true }).click();
     await third.getByRole("button", { name: /^Show 2 wines/ }).click();
-    expect((await cardTitles(page)).sort()).toEqual(["Reserva", "Tignanello"]);
+    await expect
+      .poll(async () => (await cardTitles(page)).sort())
+      .toEqual(["Reserva", "Tignanello"]);
   });
 
   test("nothing matches: say so, and one tap clears it", async ({ page, request }) => {

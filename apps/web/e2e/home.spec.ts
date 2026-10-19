@@ -62,7 +62,9 @@ test.describe("home", () => {
     await furnish(call);
     await page.goto("/");
     const hero = page.getByTestId("tonight-hero");
-    await expect(hero.getByRole("heading", { name: "What should we drink tonight?" })).toBeVisible();
+    await expect(
+      hero.getByRole("heading", { name: "What should we drink tonight?" }),
+    ).toBeVisible();
     await hero
       .getByRole("navigation", { name: "Ask straight away" })
       .getByRole("link", { name: "Steak tonight" })
@@ -70,7 +72,8 @@ test.describe("home", () => {
     await expect(page).toHaveURL(/\/tonight$/); // the question is not kept in the address
     const log = page.getByRole("log");
     await expect(log.getByText("Steak tonight")).toBeVisible();
-    await expect(log.getByRole("article").first()).toBeVisible();
+    // An answer comes (which one depends on the model; here, other tests may have taught it about steak).
+    await expect(log.getByText(/^Sommelier:/).first()).toBeVisible();
     // Asked once: one question from the person on screen.
     await expect(log.getByText("Steak tonight")).toHaveCount(1);
   });

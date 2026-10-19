@@ -169,7 +169,6 @@ export function VintageScreen({
       : null;
 
   const phrase = [
-    count > 0 ? null : t("noneLeft"),
     placeValue || null,
     averageCents !== null ? t("factAveragePhrase", { price: money(averageCents) }) : null,
   ].filter(Boolean);

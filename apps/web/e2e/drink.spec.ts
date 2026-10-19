@@ -127,29 +127,30 @@ test.describe("when to drink it", () => {
     const sheet = page.getByRole("dialog", { name: "Filter and sort" });
     await sheet.getByRole("button", { name: "Ready now" }).click();
     await sheet.getByRole("button", { name: /^Show 1 wine/ }).click();
-    expect(await titles()).toEqual(["Prime Claret"]);
+    await expect.poll(titles).toEqual(["Prime Claret"]);
 
     const again = page.getByRole("dialog", { name: "Filter and sort" });
     await page.getByRole("button", { name: /^Filter/ }).click();
     await again.getByRole("button", { name: "Ready now" }).click(); // off
     await again.getByRole("button", { name: "Drink soon" }).click();
     await again.getByRole("button", { name: /^Show 1 wine/ }).click();
-    expect(await titles()).toEqual(["Old Claret"]);
+    await expect.poll(titles).toEqual(["Old Claret"]);
 
     await page.getByRole("button", { name: /^Filter/ }).click();
     await again.getByRole("button", { name: "Drink soon" }).click(); // off
     await again.getByRole("button", { name: "Still waiting" }).click();
     await again.getByRole("button", { name: /^Show 1 wine/ }).click();
-    expect(await titles()).toEqual(["Young Claret"]);
+    await expect.poll(titles).toEqual(["Young Claret"]);
 
     await page.getByRole("button", { name: /^Filter/ }).click();
     await again.getByRole("button", { name: "Still waiting" }).click(); // off
     await again.getByRole("button", { name: "Drink first" }).click();
     await again.getByRole("button", { name: /^Show 5 wines/ }).click();
     // Past its best first, then in its window, then not yet, and the wines nothing can be said about last.
-    const order = await titles();
-    expect(order.slice(0, 3)).toEqual(["Old Claret", "Prime Claret", "Young Claret"]);
-    expect(order.slice(3).sort()).toEqual(["Plain Blend", "Rough Old"]);
+    await expect
+      .poll(async () => (await titles()).slice(0, 3))
+      .toEqual(["Old Claret", "Prime Claret", "Young Claret"]);
+    expect((await titles()).slice(3).sort()).toEqual(["Plain Blend", "Rough Old"]);
   });
 
   test("Home puts what should be opened soon on top of the list", async ({ page, request }) => {

@@ -28,7 +28,7 @@ test.describe("language", () => {
 
     await page.goto("/");
     await expect(page.getByText("Wat drinken we vanavond?")).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Snelkoppelingen" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Help me kiezen" })).toBeVisible();
     await page.screenshot({ path: shot(`home-nl-${project()}`), fullPage: true });
     expect(await audit(page)).toEqual([]);
 

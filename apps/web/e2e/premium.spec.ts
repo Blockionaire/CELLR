@@ -109,7 +109,9 @@ test.describe("from Tonight to the glass", () => {
     const { email, householdId } = await arrive(page, "takeit");
     const { call } = await apiClient(request, email);
     const [vintage] = await stock(call, 1);
-    await page.goto(`/tonight?ask=${encodeURIComponent("Steak tonight")}`);
+    // A question nobody taught the test model: the answer comes from the cellar itself (steak → this red).
+    const question = `Steak with friends ${Date.now().toString(36)}`;
+    await page.goto(`/tonight?ask=${encodeURIComponent(question)}`);
     const take = page.getByRole("link", { name: "Take this bottle" }).first();
     await expect(take).toBeVisible();
     await take.click();
