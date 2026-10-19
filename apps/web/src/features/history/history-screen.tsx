@@ -86,54 +86,54 @@ export function HistoryScreen({ initial }: { initial: HistoryView }) {
               <h2 className="mb-3 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
                 {label}
               </h2>
-              <ul className="divide-y divide-hairline rounded-card bg-surface px-4 shadow-raised ring-1 ring-hairline">
+              <ul className="flex flex-col divide-y divide-hairline">
                 {items.map((item) => (
                   <li
                     key={item.bottleId}
-                    className="flex items-center gap-3 py-3"
+                    className="grid grid-cols-[3.5rem_1fr] gap-x-4 py-4 first:pt-1"
                     data-testid="history-item"
                   >
                     <StageThumb
                       type={item.type}
                       producer={item.producer}
                       wineName={item.wineName}
-                      className="h-20 w-14"
+                      className="row-span-2 h-20 w-14"
                     />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+                    <div className="min-w-0">
+                      <p className="line-clamp-2 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
                         {item.producer}
                       </p>
-                      <p className="truncate font-display text-title text-ink">
+                      <p className="font-display text-title leading-snug text-ink">
                         {item.status === "opened" ? (
                           <Link href={`/cellar/${item.vintageId}`}>{item.wineName}</Link>
                         ) : (
                           item.wineName
                         )}
                       </p>
-                      <p className="truncate text-small text-ink-2">
+                      <p className="text-small text-ink-2">
                         <span className="tnum">{formatVintage(item.year)}</span> ·{" "}
-                        {tTypes(item.type)}
-                      </p>
-                      <p className="mt-1.5 flex flex-wrap gap-1.5 text-caption font-semibold">
-                        <span className="inline-flex items-center rounded-full bg-raised px-3 py-1 text-ink-2">
-                          {t(`status.${item.status}`, { day: day(item.at) })}
-                        </span>
-                        {item.myScore !== null && (
-                          <span className="inline-flex items-center rounded-full bg-peak-bg px-3 py-1 text-peak-ink">
-                            {t("rated", { stars: formatStars(item.myScore) })}
-                          </span>
-                        )}
+                        {tTypes(item.type)} · {t(`status.${item.status}`, { day: day(item.at) })}
                       </p>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      loading={putBack.isPending && putBack.variables === item.bottleId}
-                      aria-label={t("putBackLabel", { wine: item.wineName })}
-                      onClick={() => putBack.mutate(item.bottleId)}
-                    >
-                      {t("putBack")}
-                    </Button>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      {item.myScore !== null ? (
+                        <span className="inline-flex items-center rounded-full bg-peak-bg px-3 py-1 text-caption font-semibold text-peak-ink">
+                          {t("rated", { stars: formatStars(item.myScore) })}
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="-mr-3"
+                        loading={putBack.isPending && putBack.variables === item.bottleId}
+                        aria-label={t("putBackLabel", { wine: item.wineName })}
+                        onClick={() => putBack.mutate(item.bottleId)}
+                      >
+                        {t("putBack")}
+                      </Button>
+                    </div>
                   </li>
                 ))}
               </ul>

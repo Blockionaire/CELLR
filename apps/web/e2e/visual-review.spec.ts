@@ -154,7 +154,13 @@ async function seed(page: Page, request: Parameters<typeof apiClient>[0]) {
     );
     ids[w.name] = { vintage: v!.vintage_id, bottles: added.bottleIds };
     if (w.label) {
-      const photo = await labelPhoto(page, w.label[0], w.label[1], w.label[2], String(w.year ?? "NV"));
+      const photo = await labelPhoto(
+        page,
+        w.label[0],
+        w.label[1],
+        w.label[2],
+        String(w.year ?? "NV"),
+      );
       const res = await request.post("/api/v1/images", {
         headers: bearer(token),
         multipart: {
@@ -224,7 +230,8 @@ test("photograph the main screens", async ({ page, request, browser }) => {
         await p.waitForTimeout(900);
         const file = path.join(OUT, `${name}-${size.name}-${scheme}`);
         await p.screenshot({ path: `${file}.png` });
-        if (size.name === "iphone") await p.screenshot({ path: `${file}-full.png`, fullPage: true });
+        if (size.name === "iphone")
+          await p.screenshot({ path: `${file}-full.png`, fullPage: true });
       }
       await context.close();
     }

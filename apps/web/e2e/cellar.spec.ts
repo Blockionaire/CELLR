@@ -136,7 +136,7 @@ test.describe("the cellar loop", () => {
     const search = page.getByLabel("Search your cellar");
     await search.fill("chablis");
     await expect(page.getByRole("article")).toHaveCount(1);
-    await expect(page.getByRole("article")).toContainText("No place yet");
+    await expect(page.getByRole("article")).toContainText("Chablis Premier Cru");
     await search.fill("chateau 2015");
     await expect(page.getByRole("article")).toHaveCount(1);
     await expect(page.getByRole("article")).toContainText("Château Margaux");

@@ -157,12 +157,12 @@ test.describe("when to drink it", () => {
     const { call } = await apiClient(request, email);
     await furnish(call, householdId);
     await page.goto("/");
-    const soon = page.getByRole("region", { name: "Drink soon" });
+    const soon = page.getByRole("region", { name: "At their best now" });
     await expect(soon.getByRole("link", { name: "Old Claret" })).toBeVisible();
     await expect(soon.getByText("Past its best")).toBeVisible();
     // The rough rule alone never puts a wine here, however old (the Musar case).
     await expect(soon.getByRole("link", { name: "Rough Old" })).toHaveCount(0);
-    // A wine in the middle of its window is not urgent.
+    // A wine in the middle of its window (by the rough rule only) is not put forward either.
     await expect(soon.getByRole("link", { name: "Prime Claret" })).toHaveCount(0);
   });
 

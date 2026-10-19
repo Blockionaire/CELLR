@@ -33,6 +33,18 @@ describe("translations", () => {
     for (const [key, args] of english) expect({ key, args: dutch.get(key) }).toEqual({ key, args });
   });
 
+  it("Dutch says it in Dutch: no English words that slipped through", () => {
+    const values = (v: unknown): string[] =>
+      typeof v === "string"
+        ? [v]
+        : v && typeof v === "object"
+          ? Object.values(v).flatMap(values)
+          : [];
+    const text = values(nl).join("\n");
+    for (const word of ["Wishlist", "wishlist", "Cellar", "Bottles", "Rating", "Tasting"])
+      expect(text, word).not.toMatch(new RegExp(`\\b${word}\\b`));
+  });
+
   it("nothing is left empty", () => {
     for (const [key] of dutch) expect(key).toBeTruthy();
     expect(JSON.stringify(nl)).not.toContain('""');
