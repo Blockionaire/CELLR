@@ -8,6 +8,8 @@ import { spring } from "./motion";
 export interface SegmentedOption<T extends string> {
   value: T;
   label: string;
+  /** Shown instead of the word (which stays the accessible name). */
+  icon?: React.ReactNode;
 }
 
 interface SegmentedProps<T extends string> {
@@ -64,11 +66,13 @@ export function Segmented<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
+            title={option.icon ? option.label : undefined}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             onKeyDown={(e) => onKeyDown(e, index)}
             className={cn(
-              "relative h-9 min-w-16 rounded-full px-4 text-small font-medium transition-colors duration-150",
+              "relative h-9 rounded-full text-small font-medium transition-colors duration-150",
+              option.icon ? "grid w-9 place-items-center" : "min-w-16 px-4",
               selected ? "text-ink" : "text-ink-2 hover:text-ink",
             )}
           >
@@ -79,7 +83,16 @@ export function Segmented<T extends string>({
                 className="absolute inset-0 rounded-full bg-surface shadow-raised"
               />
             )}
-            <span className="relative">{option.label}</span>
+            {option.icon ? (
+              <>
+                <span aria-hidden="true" className="relative">
+                  {option.icon}
+                </span>
+                <span className="sr-only">{option.label}</span>
+              </>
+            ) : (
+              <span className="relative">{option.label}</span>
+            )}
           </button>
         );
       })}

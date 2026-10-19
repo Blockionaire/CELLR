@@ -28,10 +28,13 @@ export function FilterButton({
   active,
   onClick,
   className,
+  compact = false,
 }: {
   active: number;
   onClick: () => void;
   className?: string;
+  /** Only the icon (and the count), e.g. inside the search field. */
+  compact?: boolean;
 }) {
   const t = useTranslations("cellarFilters");
   return (
@@ -45,7 +48,7 @@ export function FilterButton({
       )}
     >
       <SlidersIcon size={20} />
-      <span className="hidden sm:inline">{t("button")}</span>
+      {!compact && <span className="hidden sm:inline">{t("button")}</span>}
       {active > 0 && (
         <span
           aria-hidden="true"

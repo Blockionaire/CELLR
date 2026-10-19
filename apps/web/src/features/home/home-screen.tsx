@@ -10,15 +10,14 @@ import {
   reminderWhen,
 } from "@cellr/domain";
 import { Greeting } from "@/features/account/greeting";
-import { shapeFor } from "@/features/cellar/wine-visuals";
-import { BottleGlyph } from "@/ui/bottle-glyph";
-import { buttonStyles } from "@/ui/button";
-import { ChevronRightIcon, PlusIcon } from "@/ui/icons";
-import { Stars } from "@/ui/stars";
-import { EmptyState } from "@/ui/empty-state";
 import { DrinkLabel } from "@/features/cellar/drink-bits";
-import { ItemBottle, STAGE } from "@/features/cellar/wine-card";
+import { WinePicture } from "@/features/cellar/wine-picture";
 import { FriendRequestsBanner } from "@/features/friends/entry";
+import { buttonStyles } from "@/ui/button";
+import { cn } from "@/ui/cn";
+import { EmptyState } from "@/ui/empty-state";
+import { ChevronRightIcon } from "@/ui/icons";
+import { Stars } from "@/ui/stars";
 import { QuickRate } from "./quick-rate";
 
 /** "yesterday", "3 days ago", in the viewer's language. */
@@ -34,9 +33,13 @@ function whenOpened(iso: string, locale: string, now: number): string {
   return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-days, "day");
 }
 
+/** Three of tonight's questions, one tap from Home: each opens Tonight already asking it. */
+const QUICK = ["steak", "pasta", "celebrate"] as const;
+
 /**
- * Home: a greeting, the one big question ("what shall we drink tonight?"), then your cellar at a glance —
- * how much there is, what arrived, what was opened, how much room is left.
+ * Home, in four parts: tonight (the reason to open the app), the bottles at their best, what just arrived, and
+ * one personal note (what was opened lately). Anything that needs an answer now (rate last night's bottle, a
+ * friend request, a bottle kept for a day that is coming) appears above, and only then.
  */
 export async function HomeScreen({
   home,
@@ -49,73 +52,78 @@ export async function HomeScreen({
   reminders?: readonly Reminder[];
 }) {
   const t = await getTranslations("home");
+  const tTonight = await getTranslations("tonight");
   const locale = await getLocale();
   const empty = home.bottleCount === 0;
   const now = Date.parse(home.generatedAt);
 
-  const money = (cents: number) => {
-    try {
-      return new Intl.NumberFormat(locale, {
-        style: "currency",
-        currency: home.currency ?? "EUR",
-        maximumFractionDigits: 0,
-      }).format(cents / 100);
-    } catch {
-      return String(Math.round(cents / 100));
-    }
-  };
-  const free = home.capacity - home.used;
   // A bottle opened in the last three days that you have not said anything about: ask while it is fresh.
   const toRate = home.recentlyOpened.find(
     (o) => !o.rated && now - Date.parse(o.openedAt) < 3 * 86_400_000,
   );
+  // What to open: the urgent ones first (their own window says so), then those at their best.
+  const best = [
+    ...home.drinkSoon,
+    ...home.atPeak.filter((p) => !home.drinkSoon.some((s) => s.vintageId === p.vintageId)),
+  ].slice(0, 8);
+  // The hero shows a few of the person's own bottles: their photos first, the likely candidates first.
+  const heroWines = [...best, ...home.recentlyAdded]
+    .filter((w, i, all) => all.findIndex((x) => x.vintageId === w.vintageId) === i)
+    .sort((a, b) => Number(Boolean(b.image)) - Number(Boolean(a.image)))
+    .slice(0, 3);
+  const money =
+    home.valueCents === null
+      ? null
+      : (() => {
+          try {
+            return new Intl.NumberFormat(locale, {
+              style: "currency",
+              currency: home.currency ?? "EUR",
+              maximumFractionDigits: 0,
+            }).format(home.valueCents / 100);
+          } catch {
+            return null;
+          }
+        })();
 
   return (
-    <div className="pt-10 lg:pt-14">
-      <h1 className="font-display text-[2.1rem] leading-[2.4rem] text-ink">
-        <Greeting name={name} />
-      </h1>
+    <div className="pt-8 lg:pt-14">
+      <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+        <h1 className="font-display text-[2.1rem] leading-[2.4rem] text-ink">
+          <Greeting name={name} />
+        </h1>
+        {!empty && (
+          <Link
+            href="/insights"
+            data-testid="home-summary"
+            className="text-small text-ink-2 transition-colors duration-150 hover:text-ink tnum"
+          >
+            {t("summary", { bottles: home.bottleCount, wines: home.wineCount })}
+            {money && <span> · {money}</span>}
+          </Link>
+        )}
+      </header>
 
-      {/* The one big question. Everything else on Home is secondary to it. */}
-      <Link
-        href="/tonight"
-        className="group relative mt-6 block overflow-hidden rounded-[28px] bg-hero p-6 text-hero-ink shadow-raised transition-transform duration-200 ease-cellr active:scale-[0.99] md:p-8"
-      >
-        <p className="text-caption font-medium uppercase tracking-[0.18em] text-hero-gold">
-          {t("heroEyebrow")}
-        </p>
-        <h2 className="mt-3 max-w-[14ch] font-display text-display text-balance md:max-w-[18ch]">
-          {t("heroTitle")}
-        </h2>
-        <p className="mt-3 max-w-[12.5rem] text-body text-hero-ink/80 md:max-w-[17rem]">
-          {empty ? t("heroEmpty") : t("heroFilled")}
-        </p>
-        <span className="mt-6 inline-flex h-11 items-center gap-1 rounded-full bg-hero-gold px-5 text-small font-semibold text-[#3a1119]">
-          {t("heroCta")}
-          <ChevronRightIcon
-            size={18}
-            className="transition-transform duration-200 group-hover:translate-x-0.5"
-          />
-        </span>
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-5 right-3 flex items-end gap-1 md:right-10"
-        >
-          <BottleGlyph shape="bordeaux" tint="red" className="w-11 -rotate-6 md:w-14" />
-          <BottleGlyph shape="burgundy" tint="white" className="w-12 md:w-16" />
-        </div>
-      </Link>
+      <TonightHero
+        eyebrow={t("heroEyebrow")}
+        title={t("heroTitle")}
+        body={empty ? t("heroEmpty") : t("heroFilled")}
+        cta={t("heroCta")}
+        quick={empty ? [] : QUICK.map((q) => tTonight(`chatChips.${q}`))}
+        wines={heroWines}
+        quickLabel={t("quickAsk")}
+      />
 
       {toRate && (
         <section
-          className="mt-6 rounded-card border border-hairline bg-surface p-5"
+          className="reveal mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card bg-surface px-5 py-4 ring-1 ring-hairline"
           aria-labelledby="rate-nudge"
           data-testid="rate-nudge"
         >
-          <h2 id="rate-nudge" className="font-display text-title">
+          <h2 id="rate-nudge" className="font-display text-title text-ink">
             {t("nudge", { wine: toRate.wineName })}
           </h2>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-4">
             <QuickRate bottleId={toRate.bottleId} />
             <Link
               href={`/cellar/${toRate.vintageId}?rate=${toRate.bottleId}`}
@@ -129,108 +137,77 @@ export async function HomeScreen({
 
       <FriendRequestsBanner />
 
-      <nav aria-label={t("shortcuts")} className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { href: "/scan", label: t("shortcutScan") },
-          { href: "/sommelier", label: t("shortcutSommelier") },
-          { href: "/wishlist", label: t("shortcutWishlist") },
-          { href: "/insights", label: t("shortcutInsights") },
-        ].map((s) => (
-          <Link
-            key={s.href}
-            href={s.href}
-            className="flex min-h-14 items-center justify-center rounded-card border border-hairline bg-surface px-2 py-3 text-center text-small font-medium text-ink transition-transform duration-150 ease-cellr active:scale-[0.98]"
-          >
-            {s.label}
-          </Link>
-        ))}
-      </nav>
+      {reminders.length > 0 && (
+        <section className="mt-10" aria-labelledby="coming-up">
+          <SectionHeader id="coming-up" title={t("comingUp")} />
+          <ul className="flex flex-col gap-1" data-testid="reminders">
+            {reminders.map((r) => {
+              const when = reminderWhen(r.daysUntil);
+              return (
+                <li key={r.bottleId}>
+                  <article className="relative flex min-h-14 items-center gap-4 rounded-[16px] px-1 py-2 transition-colors duration-150 hover:bg-raised/60">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-display text-title text-ink">
+                        <Link
+                          href={`/cellar/${r.vintageId}`}
+                          className="after:absolute after:inset-0"
+                        >
+                          {r.title}
+                        </Link>
+                      </h3>
+                      <p className="text-small text-ink-2">
+                        {r.wineName} · <span className="tnum">{formatVintage(r.year)}</span>
+                      </p>
+                    </div>
+                    <p
+                      className={cn(
+                        "shrink-0 text-small font-medium",
+                        when === "overdue" ? "text-danger" : "text-accent-fg",
+                      )}
+                    >
+                      {t(`reminder.${when}`, { days: Math.abs(r.daysUntil) })}
+                    </p>
+                  </article>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {empty ? (
         <EmptyState
-          className="mt-6"
+          className="mt-8"
           title={t("emptyTitle")}
           body={t("emptyBody")}
           action={
-            <Link href="/cellar/add" className={buttonStyles({ variant: "primary", size: "lg" })}>
-              {t("addBottle")}
-            </Link>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link href="/scan" className={buttonStyles({ variant: "primary", size: "lg" })}>
+                {t("emptyAction")}
+              </Link>
+              <Link
+                href="/cellar/add"
+                className={buttonStyles({ variant: "secondary", size: "lg" })}
+              >
+                {t("addBottle")}
+              </Link>
+            </div>
           }
         />
       ) : (
         <>
-          <dl className="mt-6 grid grid-cols-3 gap-3" data-testid="home-stats">
-            <Stat label={t("statBottles")} value={String(home.bottleCount)} />
-            <Stat label={t("statWines")} value={String(home.wineCount)} />
-            {home.valueCents !== null ? (
-              <Stat
-                label={t("statValue")}
-                value={money(home.valueCents)}
-                note={t("statValueNote", { count: home.pricedCount })}
-              />
-            ) : (
-              <Stat label={t("statFree")} value={home.capacity > 0 ? String(free) : "–"} />
-            )}
-          </dl>
-
-          {reminders.length > 0 && (
-            <section className="mt-10" aria-labelledby="coming-up">
-              <SectionHeader id="coming-up" title={t("comingUp")} />
-              <ul
-                className="divide-y divide-hairline rounded-card border border-hairline bg-surface px-4"
-                data-testid="reminders"
-              >
-                {reminders.map((r) => {
-                  const when = reminderWhen(r.daysUntil);
-                  return (
-                    <li key={r.bottleId}>
-                      <article className="relative flex min-h-16 items-center gap-4 py-3">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="truncate font-display text-title text-ink">
-                            <Link
-                              href={`/cellar/${r.vintageId}`}
-                              className="after:absolute after:inset-0"
-                            >
-                              {r.title}
-                            </Link>
-                          </h3>
-                          <p className="truncate text-small text-ink-2">
-                            {r.wineName} · <span className="tnum">{formatVintage(r.year)}</span>
-                          </p>
-                        </div>
-                        <p
-                          className={
-                            when === "overdue"
-                              ? "text-small font-medium text-danger"
-                              : "text-small font-medium text-accent-fg"
-                          }
-                        >
-                          {t(`reminder.${when}`, { days: Math.abs(r.daysUntil) })}
-                        </p>
-                      </article>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
+          {best.length > 0 && (
+            <Shelf id="best" title={t("atPeak")}>
+              {best.map((item, i) => (
+                <ShelfCard key={item.vintageId} item={item} index={i} status />
+              ))}
+            </Shelf>
           )}
 
-          {home.atPeak.length > 0 && (
-            <section className="mt-10" aria-labelledby="peak">
-              <SectionHeader id="peak" title={t("atPeak")} />
-              <WineLines items={home.atPeak} />
-            </section>
-          )}
-
-          {home.drinkSoon.length > 0 && (
-            <section className="mt-10" aria-labelledby="soon">
-              <SectionHeader id="soon" title={t("drinkSoon")} />
-              <WineLines items={home.drinkSoon} />
-            </section>
-          )}
-
-          <section className="mt-10" aria-labelledby="added">
-            <SectionHeader id="added" title={t("recentlyAdded")}>
+          <Shelf
+            id="added"
+            title={t("recentlyAdded")}
+            more={
               <Link
                 href="/cellar"
                 className="inline-flex min-h-11 items-center gap-1 text-small font-medium text-accent-fg"
@@ -238,21 +215,24 @@ export async function HomeScreen({
                 {t("seeAll")}
                 <ChevronRightIcon size={16} />
               </Link>
-            </SectionHeader>
-            <ul className="-mx-5 flex snap-x gap-3 overflow-x-auto px-5 pb-2 md:mx-0 md:px-0">
-              {home.recentlyAdded.map((item) => (
-                <li key={item.vintageId} className="snap-start">
-                  <MiniCard item={item} />
-                </li>
-              ))}
-            </ul>
-          </section>
+            }
+          >
+            {home.recentlyAdded.map((item, i) => (
+              <ShelfCard
+                key={item.vintageId}
+                item={item}
+                index={i}
+                // one picture per wine carries the morph into its page
+                shared={!best.some((b) => b.vintageId === item.vintageId)}
+              />
+            ))}
+          </Shelf>
 
           {home.recentlyOpened.length > 0 && (
             <section className="mt-10" aria-labelledby="opened">
               <SectionHeader id="opened" title={t("openedLately")} />
-              <ul className="divide-y divide-hairline rounded-card border border-hairline bg-surface px-4">
-                {home.recentlyOpened.map((o) => (
+              <ul className="flex flex-col gap-1">
+                {home.recentlyOpened.slice(0, 3).map((o) => (
                   <li key={o.bottleId}>
                     <OpenedRow
                       entry={o}
@@ -267,60 +247,126 @@ export async function HomeScreen({
               </ul>
             </section>
           )}
-
-          <section className="mt-10" aria-labelledby="space">
-            <SectionHeader id="space" title={t("space")} />
-            <div className="rounded-card border border-hairline bg-surface p-5">
-              {home.capacity > 0 ? (
-                <>
-                  <p className="text-body text-ink">
-                    {t("spaceUsed", { used: home.used, capacity: home.capacity })}
-                  </p>
-                  <div
-                    role="meter"
-                    aria-label={t("space")}
-                    aria-valuemin={0}
-                    aria-valuemax={home.capacity}
-                    aria-valuenow={home.used}
-                    className="mt-3 h-2 overflow-hidden rounded-full bg-raised"
-                  >
-                    <div
-                      className="h-full rounded-full bg-accent"
-                      style={{ width: `${Math.min(100, (home.used / home.capacity) * 100)}%` }}
-                    />
-                  </div>
-                </>
-              ) : (
-                <p className="text-body text-ink-2">{t("spaceNone")}</p>
-              )}
-              {home.unplaced > 0 && (
-                <p className="mt-3 text-small text-ink-2">
-                  {t("unplaced", { count: home.unplaced })}
-                </p>
-              )}
-            </div>
-          </section>
-
-          <div className="mt-10 grid grid-cols-2 gap-3 sm:flex">
-            <Link
-              href="/cellar/add"
-              className={buttonStyles({ variant: "primary", size: "lg", className: "sm:min-w-52" })}
-            >
-              <PlusIcon size={20} />
-              {t("addBottle")}
-            </Link>
-            <Link
-              href="/cellar"
-              className={buttonStyles({
-                variant: "secondary",
-                size: "lg",
-                className: "sm:min-w-52",
-              })}
-            >
-              {t("openCellar")}
-            </Link>
-          </div>
         </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The one big question, in the deep wine colour of both themes: the person's own bottles fanned out beside it,
+ * three questions to start with, and the way in.
+ */
+function TonightHero({
+  eyebrow,
+  title,
+  body,
+  cta,
+  quick,
+  quickLabel,
+  wines,
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  cta: string;
+  quick: string[];
+  quickLabel: string;
+  wines: CellarItem[];
+}) {
+  return (
+    <section
+      aria-labelledby="tonight-title"
+      data-testid="tonight-hero"
+      className="group/hero relative mt-6 overflow-hidden rounded-[28px] bg-hero text-hero-ink shadow-raised"
+    >
+      {/* candlelight: a warm glow in the corner where the bottles stand */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-16 -top-20 size-72 rounded-full bg-[radial-gradient(closest-side,rgb(227_194_133/0.32),transparent)]"
+      />
+      <Link href="/tonight" className="relative block p-6 pb-5 md:p-8 md:pb-6">
+        <p className="text-caption font-medium uppercase tracking-[0.18em] text-hero-gold">
+          {eyebrow}
+        </p>
+        <h2
+          id="tonight-title"
+          className="mt-3 max-w-[10ch] font-display text-[2.25rem] leading-[2.4rem] text-balance md:max-w-[16ch] md:text-[3rem] md:leading-[1.02]"
+        >
+          {title}
+        </h2>
+        <p className="mt-3 max-w-[12.5rem] text-small text-hero-ink/80 md:max-w-xs md:text-body">
+          {body}
+        </p>
+        <span className="mt-5 inline-flex h-11 items-center gap-1 rounded-full bg-hero-gold px-5 text-small font-semibold text-[#3a1119] transition-transform duration-200 ease-spring group-active/hero:scale-[0.97]">
+          {cta}
+          <ChevronRightIcon
+            size={18}
+            className="transition-transform duration-200 ease-spring group-hover/hero:translate-x-0.5"
+          />
+        </span>
+        <HeroFan wines={wines} />
+      </Link>
+      {quick.length > 0 && (
+        <nav
+          aria-label={quickLabel}
+          className="relative -mt-1 flex gap-2 overflow-x-auto px-6 pb-6 scrollbar-none md:px-8 md:pb-8"
+        >
+          {quick.map((q) => (
+            <Link
+              key={q}
+              href={`/tonight?ask=${encodeURIComponent(q)}`}
+              className="inline-flex h-9 shrink-0 items-center rounded-full bg-white/10 px-4 text-small text-hero-ink ring-1 ring-white/15 backdrop-blur-sm transition-[transform,background-color] duration-200 ease-spring hover:bg-white/15 active:scale-[0.96]"
+            >
+              {q}
+            </Link>
+          ))}
+        </nav>
+      )}
+    </section>
+  );
+}
+
+/** Up to three of the person's own bottles, fanned like cards in a hand; they open a little on hover. */
+function HeroFan({ wines }: { wines: CellarItem[] }) {
+  const placed =
+    wines.length === 0
+      ? []
+      : wines.length === 1
+        ? [{ w: wines[0]!, rot: 0, x: 0 }]
+        : wines.length === 2
+          ? [
+              { w: wines[1]!, rot: -8, x: -16 },
+              { w: wines[0]!, rot: 5, x: 6 },
+            ]
+          : [
+              { w: wines[2]!, rot: -12, x: -26 },
+              { w: wines[1]!, rot: 10, x: 16 },
+              { w: wines[0]!, rot: -1, x: -4 },
+            ];
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute -right-3 top-9 h-[7.5rem] w-[5.5rem] min-[420px]:right-4 min-[420px]:h-32 min-[420px]:w-24 md:right-14 md:top-10 md:h-52 md:w-36"
+    >
+      {placed.length === 0 ? (
+        <span className="absolute inset-0 rounded-[18px] bg-white/5 ring-1 ring-white/10" />
+      ) : (
+        placed.map(({ w, rot, x }, i) => (
+          <span
+            key={w.vintageId}
+            style={
+              {
+                "--rot": `${rot}deg`,
+                "--x": `${x}px`,
+                "--i": i,
+              } as React.CSSProperties
+            }
+            className="fan-card absolute inset-0 overflow-hidden rounded-[16px] shadow-[0_18px_30px_-12px_rgb(0_0_0/0.55)] ring-1 ring-white/15"
+          >
+            <WinePicture wine={w} className="size-full" />
+          </span>
+        ))
       )}
     </div>
   );
@@ -336,8 +382,8 @@ function SectionHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 id={id} className="text-caption font-medium uppercase tracking-[0.18em] text-ink-2">
+    <div className="mb-3 flex min-h-11 items-center justify-between gap-3">
+      <h2 id={id} className="font-display text-headline text-ink">
         {title}
       </h2>
       {children}
@@ -345,44 +391,72 @@ function SectionHeader({
   );
 }
 
-function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
-  // Reads "Bottles, 4" for a screen reader; shows the number first, big, with the label under it.
+/** A row of wines that scrolls sideways on a phone and wraps into a grid on a wide screen. */
+function Shelf({
+  id,
+  title,
+  more,
+  children,
+}: {
+  id: string;
+  title: string;
+  more?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col-reverse justify-end rounded-card border border-hairline bg-surface p-4">
-      <dt className="mt-2 text-small text-ink-2">
-        {label}
-        {note && <span className="mt-0.5 block text-caption">{note}</span>}
-      </dt>
-      <dd className="font-display text-display leading-none tnum">{value}</dd>
-    </div>
+    <section className="mt-10" aria-labelledby={id}>
+      <SectionHeader id={id} title={title}>
+        {more}
+      </SectionHeader>
+      <ul className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-3.5 overflow-x-auto px-5 pb-2 scrollbar-none md:mx-0 md:grid md:snap-none md:grid-cols-4 md:gap-5 md:overflow-visible md:px-0 lg:grid-cols-5">
+        {children}
+      </ul>
+    </section>
   );
 }
 
-function MiniCard({ item }: { item: CellarItem }) {
+/** A wine on a shelf: its picture is the card; the words sit quietly underneath. */
+function ShelfCard({
+  item,
+  index,
+  status = false,
+  shared = false,
+}: {
+  item: CellarItem;
+  index: number;
+  /** Say how ready it is (only on the shelf about exactly that). */
+  status?: boolean;
+  shared?: boolean;
+}) {
   return (
-    <article className="relative flex w-36 flex-col rounded-card bg-surface p-2 shadow-raised ring-1 ring-hairline transition-transform duration-150 ease-cellr active:scale-[0.985]">
-      <div
-        className={`relative flex h-32 items-end justify-center overflow-hidden rounded-[16px] ${STAGE[item.type]}`}
-      >
-        <span
-          aria-hidden="true"
-          className="absolute -bottom-8 left-1/2 size-28 -translate-x-1/2 rounded-full bg-surface/45"
+    <li
+      className="reveal w-[8.75rem] shrink-0 snap-start md:w-auto"
+      style={{ "--i": Math.min(index, 6) } as React.CSSProperties}
+    >
+      <article className="group/card relative">
+        <WinePicture
+          wine={item}
+          shared={shared}
+          className="aspect-[3/4] w-full rounded-[18px] shadow-raised ring-1 ring-hairline transition-transform duration-300 ease-spring group-hover/card:-translate-y-0.5 group-active/card:scale-[0.97]"
+          bottleClassName="h-[80%]"
         />
-        <ItemBottle item={item} className="relative mb-1 w-10" />
-      </div>
-      <p className="mt-3 truncate px-1.5 text-caption font-medium uppercase tracking-[0.12em] text-bronze">
-        {item.producer}
-      </p>
-      <h3 className="line-clamp-2 min-h-[2.75rem] px-1.5 font-display text-title leading-snug text-ink">
-        <Link
-          href={`/cellar/${item.vintageId}`}
-          className="after:absolute after:inset-0 after:rounded-card"
-        >
-          {item.wineName}
-        </Link>
-      </h3>
-      <p className="mt-1 px-1.5 pb-1 text-small text-ink-2 tnum">{formatVintage(item.year)}</p>
-    </article>
+        <p className="mt-2.5 truncate text-caption font-medium uppercase tracking-[0.12em] text-bronze">
+          {item.producer}
+        </p>
+        <h3 className="mt-0.5 line-clamp-2 font-display text-title leading-snug text-ink">
+          <Link
+            href={`/cellar/${item.vintageId}`}
+            className="after:absolute after:inset-0 after:rounded-[18px]"
+          >
+            {item.wineName}
+          </Link>
+        </h3>
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-small text-ink-2">
+          <span className="tnum">{formatVintage(item.year)}</span>
+          {status && <DrinkLabel drink={item.drink} className="text-caption" />}
+        </p>
+      </article>
+    </li>
   );
 }
 
@@ -398,15 +472,19 @@ function OpenedRow({
   starsLabel: string;
 }) {
   return (
-    <article className="relative flex min-h-16 items-center gap-4 py-3">
-      <BottleGlyph shape={shapeFor(entry.type)} tint={entry.type} className="w-4 shrink-0" />
+    <article className="relative flex min-h-16 items-center gap-4 rounded-[16px] px-1 py-2 transition-colors duration-150 hover:bg-raised/60">
+      <WinePicture
+        wine={{ ...entry, image: null }}
+        className="h-14 w-11 shrink-0 rounded-[10px]"
+        bottleClassName="h-[84%]"
+      />
       <div className="min-w-0 flex-1">
-        <h3 className="truncate font-display text-title text-ink">
+        <h3 className="font-display text-title leading-snug text-ink">
           <Link href={`/cellar/${entry.vintageId}`} className="after:absolute after:inset-0">
             {entry.wineName}
           </Link>
         </h3>
-        <p className="truncate text-small text-ink-2">
+        <p className="text-small text-ink-2">
           {entry.producer} · <span className="tnum">{formatVintage(entry.year)}</span>
         </p>
       </div>
@@ -424,31 +502,5 @@ function OpenedRow({
         ) : null}
       </div>
     </article>
-  );
-}
-
-/** A short list of wines with how ready each is: tap one to open its page. */
-function WineLines({ items }: { items: CellarItem[] }) {
-  return (
-    <ul className="divide-y divide-hairline rounded-card border border-hairline bg-surface px-4">
-      {items.map((item) => (
-        <li key={item.vintageId}>
-          <article className="relative flex min-h-16 items-center gap-4 py-3">
-            <BottleGlyph shape={shapeFor(item.type)} tint={item.type} className="w-4 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <h3 className="truncate font-display text-title text-ink">
-                <Link href={`/cellar/${item.vintageId}`} className="after:absolute after:inset-0">
-                  {item.wineName}
-                </Link>
-              </h3>
-              <p className="truncate text-small text-ink-2">
-                {item.producer} · <span className="tnum">{formatVintage(item.year)}</span>
-              </p>
-            </div>
-            <DrinkLabel drink={item.drink} className="text-small" />
-          </article>
-        </li>
-      ))}
-    </ul>
   );
 }

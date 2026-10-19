@@ -127,29 +127,30 @@ test.describe("when to drink it", () => {
     const sheet = page.getByRole("dialog", { name: "Filter and sort" });
     await sheet.getByRole("button", { name: "Ready now" }).click();
     await sheet.getByRole("button", { name: /^Show 1 wine/ }).click();
-    expect(await titles()).toEqual(["Prime Claret"]);
+    await expect.poll(titles).toEqual(["Prime Claret"]);
 
     const again = page.getByRole("dialog", { name: "Filter and sort" });
     await page.getByRole("button", { name: /^Filter/ }).click();
     await again.getByRole("button", { name: "Ready now" }).click(); // off
     await again.getByRole("button", { name: "Drink soon" }).click();
     await again.getByRole("button", { name: /^Show 1 wine/ }).click();
-    expect(await titles()).toEqual(["Old Claret"]);
+    await expect.poll(titles).toEqual(["Old Claret"]);
 
     await page.getByRole("button", { name: /^Filter/ }).click();
     await again.getByRole("button", { name: "Drink soon" }).click(); // off
     await again.getByRole("button", { name: "Still waiting" }).click();
     await again.getByRole("button", { name: /^Show 1 wine/ }).click();
-    expect(await titles()).toEqual(["Young Claret"]);
+    await expect.poll(titles).toEqual(["Young Claret"]);
 
     await page.getByRole("button", { name: /^Filter/ }).click();
     await again.getByRole("button", { name: "Still waiting" }).click(); // off
     await again.getByRole("button", { name: "Drink first" }).click();
     await again.getByRole("button", { name: /^Show 5 wines/ }).click();
     // Past its best first, then in its window, then not yet, and the wines nothing can be said about last.
-    const order = await titles();
-    expect(order.slice(0, 3)).toEqual(["Old Claret", "Prime Claret", "Young Claret"]);
-    expect(order.slice(3).sort()).toEqual(["Plain Blend", "Rough Old"]);
+    await expect
+      .poll(async () => (await titles()).slice(0, 3))
+      .toEqual(["Old Claret", "Prime Claret", "Young Claret"]);
+    expect((await titles()).slice(3).sort()).toEqual(["Plain Blend", "Rough Old"]);
   });
 
   test("Home puts what should be opened soon on top of the list", async ({ page, request }) => {
@@ -157,12 +158,12 @@ test.describe("when to drink it", () => {
     const { call } = await apiClient(request, email);
     await furnish(call, householdId);
     await page.goto("/");
-    const soon = page.getByRole("region", { name: "Drink soon" });
+    const soon = page.getByRole("region", { name: "At their best now" });
     await expect(soon.getByRole("link", { name: "Old Claret" })).toBeVisible();
     await expect(soon.getByText("Past its best")).toBeVisible();
     // The rough rule alone never puts a wine here, however old (the Musar case).
     await expect(soon.getByRole("link", { name: "Rough Old" })).toHaveCount(0);
-    // A wine in the middle of its window is not urgent.
+    // A wine in the middle of its window (by the rough rule only) is not put forward either.
     await expect(soon.getByRole("link", { name: "Prime Claret" })).toHaveCount(0);
   });
 

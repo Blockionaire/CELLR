@@ -48,27 +48,37 @@ test.describe("home", () => {
     await page.goto("/");
     await expect(page.getByText("What should we drink tonight?")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Your cellar starts here." })).toBeVisible();
-    await expect(page.getByTestId("home-stats")).toHaveCount(0);
+    await expect(page.getByTestId("home-summary")).toHaveCount(0);
     await page.getByRole("link", { name: "Add a bottle" }).click();
     await expect(page).toHaveURL(/\/cellar\/add/);
   });
 
-  test("shortcuts lead to scanning, the sommelier and the wishlist", async ({ page }) => {
-    await arrive(page, "homecuts");
+  test("Tonight is the way in: one tap on a question asks it straight away", async ({
+    page,
+    request,
+  }) => {
+    const { email } = await arrive(page, "hometonight");
+    const { call } = await apiClient(request, email);
+    await furnish(call);
     await page.goto("/");
-    const cuts = page.getByRole("navigation", { name: "Shortcuts" });
-    for (const [name, url] of [
-      ["Ask the sommelier", /\/sommelier/],
-      ["Wishlist", /\/wishlist/],
-      ["Scan a label", /\/scan/],
-    ] as const) {
-      await cuts.getByRole("link", { name }).click();
-      await expect(page).toHaveURL(url);
-      await page.goto("/");
-    }
+    const hero = page.getByTestId("tonight-hero");
+    await expect(
+      hero.getByRole("heading", { name: "What should we drink tonight?" }),
+    ).toBeVisible();
+    await hero
+      .getByRole("navigation", { name: "Ask straight away" })
+      .getByRole("link", { name: "Steak tonight" })
+      .click();
+    await expect(page).toHaveURL(/\/tonight$/); // the question is not kept in the address
+    const log = page.getByRole("log");
+    await expect(log.getByText("Steak tonight")).toBeVisible();
+    // An answer comes (which one depends on the model; here, other tests may have taught it about steak).
+    await expect(log.getByText(/^Sommelier:/).first()).toBeVisible();
+    // Asked once: one question from the person on screen.
+    await expect(log.getByText("Steak tonight")).toHaveCount(1);
   });
 
-  test("a cellar at a glance: totals, value, what arrived, what was opened, space", async ({
+  test("a cellar at a glance: the totals, what arrived and what was opened", async ({
     page,
     request,
   }) => {
@@ -79,14 +89,8 @@ test.describe("home", () => {
     await call("patch", `/bottles/${added.bottleIds[0]}`, { action: "open" }, 200);
 
     await page.goto("/");
-    const stats = page.getByTestId("home-stats");
-    // 3 Chablis + 1 Pavillon Rouge left = 4 bottles, 2 wines.
-    await expect(stats.getByText("Bottles", { exact: true })).toBeVisible();
-    await expect(stats.locator("dd").nth(0)).toHaveText("4");
-    await expect(stats.locator("dd").nth(1)).toHaveText("2");
-    // Value counts the bottles still in the cellar that have a price: 3 × 24.50 + 1 × 90.00 = €163,50 → €164.
-    await expect(stats.locator("dd").nth(2)).toContainText("164");
-    await expect(stats.getByText("from 4 bottles with a price")).toBeVisible();
+    // 3 Chablis + 1 Pavillon Rouge left = 4 bottles, 2 wines; worth 3 × 24.50 + 1 × 90.00 = €163,50 → €164.
+    await expect(page.getByTestId("home-summary")).toHaveText(/^4 bottles · 2 wines · €164$/);
 
     const added1 = page.getByRole("region", { name: "Recently added" });
     await expect(added1.getByRole("link", { name: "Pavillon Rouge" })).toBeVisible();
@@ -95,14 +99,9 @@ test.describe("home", () => {
     const opened = page.getByRole("region", { name: "Opened lately" });
     await expect(opened.getByRole("link", { name: "Pavillon Rouge" })).toBeVisible();
     await expect(opened.getByText("today")).toBeVisible();
-
-    const space = page.getByRole("region", { name: "Space" });
-    await expect(space.getByText("3 of 20 spots in use")).toBeVisible();
-    await expect(space.getByRole("meter")).toHaveAttribute("aria-valuenow", "3");
-    await expect(space.getByText("1 bottle has no place yet")).toBeVisible();
     await page.screenshot({ path: shot(`home-${project()}`), fullPage: true });
 
-    // A card leads to the wine.
+    // The totals lead to the numbers; a card leads to the wine.
     await added1.getByRole("link", { name: "Chablis Premier Cru" }).click();
     await expect(
       page.getByRole("heading", { name: "Chablis Premier Cru", level: 1 }),

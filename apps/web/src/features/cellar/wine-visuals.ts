@@ -1,5 +1,5 @@
 import type { StorageKind, WineType } from "@cellr/domain";
-import type { BottleShape } from "@/ui/bottle-glyph";
+import type { BottleShape, WineTint } from "@/ui/bottle-glyph";
 
 /** Which silhouette suits which wine. Real label photos replace these later. */
 export const shapeFor = (type: WineType): BottleShape =>
@@ -41,3 +41,14 @@ export function labelMark(producer: string, wine: string): string {
   const base = (producer || wine).trim().replace(HOUSE_PREFIX, "");
   return (base.split(/[\s,–-]+/)[0] ?? "").toUpperCase().slice(0, 12);
 }
+
+/** The stage behind a bottle: a pastel field on paper, a soft glow on noir. */
+export const STAGE: Record<WineTint, string> = {
+  red: "bg-stage-red",
+  white: "bg-stage-white",
+  rose: "bg-stage-rose",
+  sparkling: "bg-stage-sparkling",
+  orange: "bg-stage-orange",
+  dessert: "bg-stage-dessert",
+  fortified: "bg-stage-fortified",
+};

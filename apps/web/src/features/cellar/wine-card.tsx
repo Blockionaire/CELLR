@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { formatVintage, type CellarItem } from "@cellr/domain";
-import { BottleGlyph, type WineTint } from "@/ui/bottle-glyph";
-import { cn } from "@/ui/cn";
+import { BottleGlyph } from "@/ui/bottle-glyph";
 import { FavoriteButton } from "./favorite-button";
-import { imageUrl, LabelImage } from "./label-image";
-import { DrinkLabel, DrinkWindowMini } from "./drink-bits";
+import { imageUrl } from "./label-image";
+import { DrinkLabel } from "./drink-bits";
+import { WinePicture } from "./wine-picture";
 import { RatingBadge } from "./tasting-bits";
 import { SwipeFavorite } from "./swipe-favorite";
 import { labelMark, placeLine, shapeFor } from "./wine-visuals";
@@ -15,16 +15,7 @@ interface ItemProps {
   locale: string;
 }
 
-/** The stage behind a bottle: a pastel field on paper, a soft glow on noir. */
-export const STAGE: Record<WineTint, string> = {
-  red: "bg-stage-red",
-  white: "bg-stage-white",
-  rose: "bg-stage-rose",
-  sparkling: "bg-stage-sparkling",
-  orange: "bg-stage-orange",
-  dessert: "bg-stage-dessert",
-  fortified: "bg-stage-fortified",
-};
+export { STAGE } from "./wine-visuals";
 
 /** The wine's bottle: its own straightened label when there is one, otherwise typeset from the producer. */
 export function ItemBottle({ item, className }: { item: CellarItem; className?: string }) {
@@ -59,50 +50,41 @@ function CountBadge({ count }: { count: number }) {
   );
 }
 
-/** Grid tile: the bottle on its stage is the hero, text stays small and calm. */
-export function WineCard({ item, locale }: ItemProps) {
-  const places = usePlaces(item);
-  const where = placeLine(item.region, item.countryCode, locale);
+/**
+ * Grid tile: the wine's picture is the card (its own label photo whenever there is one); beneath it, quietly,
+ * who made it, its name in full, the year and where it is from, and how ready it is.
+ */
+export function WineCard({ item, locale, shared = false }: ItemProps & { shared?: boolean }) {
+  const where = item.region ?? placeLine(null, item.countryCode, locale);
   return (
-    <article className="relative flex h-full flex-col rounded-card bg-surface p-2 shadow-raised ring-1 ring-hairline transition-transform duration-150 ease-cellr active:scale-[0.985]">
-      <div
-        className={cn(
-          "relative flex h-44 items-end justify-center overflow-hidden rounded-[16px]",
-          STAGE[item.type],
-        )}
-      >
-        {item.image ? (
-          // The person's own label photo is the picture; the bottle sprite is for wines without one.
-          <LabelImage image={item.image} size="thumb" className="absolute inset-0 size-full" />
-        ) : (
-          <>
-            <span
-              aria-hidden="true"
-              className="absolute -bottom-10 left-1/2 size-36 -translate-x-1/2 rounded-full bg-surface/45"
-            />
-            <ItemBottle item={item} className="relative mb-1 w-[3.1rem]" />
-          </>
-        )}
-        <span className="absolute left-2 top-2">
+    <article className="group/card relative flex h-full flex-col">
+      <div className="relative">
+        <WinePicture
+          wine={item}
+          shared={shared}
+          className="aspect-[4/5] w-full rounded-[20px] shadow-raised ring-1 ring-hairline transition-transform duration-300 ease-spring group-hover/card:-translate-y-0.5 group-active/card:scale-[0.97]"
+          bottleClassName="h-[80%]"
+        />
+        <span className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5">
           <CountBadge count={item.count} />
+          {item.rating && <RatingBadge rating={item.rating} />}
         </span>
         <FavoriteButton
           wineId={item.wineId}
           wine={`${item.producer} ${item.wineName}`}
           favorite={item.favorite}
-          className="absolute right-0 top-0 m-1 size-9 bg-surface/85"
+          className="absolute right-1 top-1 z-10 size-10 bg-surface/80 backdrop-blur-sm"
         />
-        {item.rating && <RatingBadge rating={item.rating} className="absolute bottom-2 left-2" />}
       </div>
 
-      <div className="mt-3 flex-1 px-1.5">
-        <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-bronze">
+      <div className="mt-3 flex flex-1 flex-col px-0.5">
+        <p className="line-clamp-2 text-caption font-medium uppercase tracking-[0.12em] text-bronze">
           {item.producer}
         </p>
-        <h3 className="mt-0.5 line-clamp-2 font-display text-title text-ink">
+        <h3 className="mt-0.5 line-clamp-3 font-display text-title leading-snug text-ink">
           <Link
             href={`/cellar/${item.vintageId}`}
-            className="after:absolute after:inset-0 after:rounded-card"
+            className="after:absolute after:inset-0 after:rounded-[20px]"
           >
             {item.wineName}
           </Link>
@@ -111,59 +93,51 @@ export function WineCard({ item, locale }: ItemProps) {
           <span className="tnum">{formatVintage(item.year)}</span>
           {where && <span> · {where}</span>}
         </p>
-      </div>
-      <div className="mt-3 px-1.5 pb-1">
-        <DrinkWindowMini drink={item.drink} />
-        <p className="mt-2 flex items-center justify-between gap-2 text-caption text-ink-3">
-          <span className="truncate">{places}</span>
-          <DrinkLabel drink={item.drink} />
-        </p>
+        <DrinkLabel drink={item.drink} className="mt-1.5" />
       </div>
     </article>
   );
 }
 
 /** Compact row for people who like to see more at once. */
-export function WineRow({ item, locale }: ItemProps) {
+export function WineRow({ item, locale, shared = false }: ItemProps & { shared?: boolean }) {
   const places = usePlaces(item);
   const where = placeLine(item.region, item.countryCode, locale);
   return (
     <SwipeFavorite wineId={item.wineId} favorite={item.favorite}>
-      <article className="relative flex min-h-[4.5rem] items-center gap-4 px-1 py-3 active:bg-raised">
-        {item.image ? (
-          <LabelImage
-            image={item.image}
-            size="thumb"
-            className="size-12 shrink-0 rounded-control"
-          />
-        ) : (
-          <ItemBottle item={item} className="w-6 shrink-0" />
-        )}
+      <article className="relative flex min-h-[5.5rem] items-center gap-4 py-3 transition-colors duration-150 active:bg-raised">
+        <WinePicture
+          wine={item}
+          shared={shared}
+          className="h-[4.5rem] w-14 shrink-0 rounded-[12px] ring-1 ring-hairline"
+          bottleClassName="h-[84%]"
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-bronze">
             {item.producer}
           </p>
-          <h3 className="truncate font-display text-title text-ink">
+          <h3 className="line-clamp-2 font-display text-title leading-snug text-ink">
             <Link href={`/cellar/${item.vintageId}`} className="after:absolute after:inset-0">
               {item.wineName}
             </Link>
           </h3>
-          <p className="truncate text-small text-ink-2">
+          <p className="text-small text-ink-2">
             <span className="tnum">{formatVintage(item.year)}</span>
             {where && <span> · {where}</span>}
             {item.rating && <RatingBadge rating={item.rating} inline />}
           </p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-caption text-ink-3">
+            <span>{places}</span>
+            <DrinkLabel drink={item.drink} />
+          </p>
         </div>
-        <FavoriteButton
-          wineId={item.wineId}
-          wine={`${item.producer} ${item.wineName}`}
-          favorite={item.favorite}
-          className="shrink-0"
-        />
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
+        <div className="relative z-10 flex shrink-0 flex-col items-end gap-1.5">
+          <FavoriteButton
+            wineId={item.wineId}
+            wine={`${item.producer} ${item.wineName}`}
+            favorite={item.favorite}
+          />
           <CountBadge count={item.count} />
-          <p className="max-w-[9rem] truncate text-caption text-ink-3">{places}</p>
-          <DrinkLabel drink={item.drink} />
         </div>
       </article>
     </SwipeFavorite>

@@ -1,3 +1,4 @@
+import type { ImageRef } from "./image";
 import { z } from "zod";
 import { normalizeText, type CellarItem, type WineType } from "./cellar";
 import type { DishId } from "./pairing";
@@ -60,6 +61,8 @@ export interface SommelierBottle {
   rating: RatingSummary | null;
   /** Some of these bottles are kept for an occasion. */
   reserved?: Reservation | null;
+  /** The household's own label photo of the wine, to show it as itself. */
+  image?: ImageRef | null;
 }
 
 /** A wine worth buying for the moment, when the cellar has nothing (good enough). Never one that is in it. */
@@ -103,6 +106,7 @@ export const toSommelierBottle = (item: CellarItem): SommelierBottle => ({
   drinkPhase: item.drink.phase,
   rating: item.rating,
   reserved: item.reserved ?? null,
+  image: item.image,
 });
 
 // ---- What the model is shown ---------------------------------------------------------------------------------

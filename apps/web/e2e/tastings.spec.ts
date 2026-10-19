@@ -195,11 +195,9 @@ test.describe("open it, then say how it was", () => {
     const filter = page.getByRole("dialog", { name: "Filter and sort" });
     await filter.getByRole("button", { name: "Highest rated" }).click();
     await filter.getByRole("button", { name: /^Show/ }).click();
-    expect(await page.locator("article h3").allTextContents()).toEqual([
-      "Bravo",
-      "Alpha",
-      "Charlie",
-    ]);
+    await expect
+      .poll(() => page.locator("article h3").allTextContents())
+      .toEqual(["Bravo", "Alpha", "Charlie"]);
   });
 });
 

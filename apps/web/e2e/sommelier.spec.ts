@@ -126,7 +126,8 @@ test.describe("the sommelier", () => {
     // Cards for the two bottles that exist; nothing for the one the model made up.
     await expect(log.getByRole("link", { name: /Pavillon Rouge/ })).toBeVisible();
     await expect(log.getByRole("link", { name: /Tignanello/ })).toBeVisible();
-    await expect(log.getByRole("link")).toHaveCount(2);
+    await expect(log.getByRole("article")).toHaveCount(2);
+    await expect(log.getByRole("link", { name: "Take this bottle" })).toHaveCount(2);
     await expect(
       page.getByText(
         "Advice from an AI that has read your cellar list. Drink windows are estimates.",

@@ -23,7 +23,8 @@ import {
   type SommelierBottle,
 } from "@cellr/domain";
 import { placeLine } from "@/features/cellar/wine-visuals";
-import { PhasePill, WineStage } from "@/features/tonight/pick-bits";
+import { PhasePill } from "@/features/tonight/pick-bits";
+import { WinePicture } from "@/features/cellar/wine-picture";
 import { errorMessage } from "@/lib/api";
 import { Button, buttonStyles } from "@/ui/button";
 import { Chip } from "@/ui/chip";
@@ -108,6 +109,7 @@ export function SommelierChat({
   subtitle,
   chips,
   hasBottles,
+  initialQuestion,
 }: {
   mode: "chat" | "tonight";
   title: string;
@@ -115,12 +117,16 @@ export function SommelierChat({
   /** Tappable starting questions. */
   chips: readonly string[];
   hasBottles: boolean;
+  /** A question asked from elsewhere (Home's "steak tonight"): asked at once, as if typed here. */
+  initialQuestion?: string | undefined;
 }) {
   const t = useTranslations("sommelier");
   const te = useTranslations();
   const ask = useAskSommelier();
   const [budget, setBudget] = useBudget();
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const [turns, setTurns] = useState<Turn[]>(() =>
+    initialQuestion ? [{ role: "user", text: initialQuestion }] : [],
+  );
   const [draft, setDraft] = useState("");
   const end = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
@@ -141,6 +147,11 @@ export function SommelierChat({
     ];
     setTurns([...turns, { role: "user", text: question }]);
     setDraft("");
+    await answer(history, question);
+  }
+
+  /** Asks about the conversation so far (ending in the person's question) and adds the answer. */
+  async function answer(history: Turn[], question: string) {
     const messages = history
       .map((x) => spoken(x, basicSentence))
       .filter((m): m is NonNullable<typeof m> => m !== null)
@@ -159,6 +170,17 @@ export function SommelierChat({
       ]);
     }
   }
+
+  // Asked from Home: the question is already on screen (see the initial state); fetch its answer once, and
+  // take it out of the address so a reload does not ask again.
+  const askedFirst = useRef(false);
+  useEffect(() => {
+    if (!initialQuestion || askedFirst.current) return;
+    askedFirst.current = true;
+    window.history.replaceState(null, "", window.location.pathname);
+    void answer([{ role: "user", text: initialQuestion }], initialQuestion);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, []);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -350,11 +372,19 @@ function UserBubble({ text }: { text: string }) {
   );
 }
 
+/**
+ * An answer arrives in its parts, one after the other: the sommelier's words, then the bottles it points at,
+ * then what to buy. Each part is shown as soon as it is there (nothing is held back to look like typing).
+ */
 function Answer({ answer }: { answer: SommelierAnswer }) {
   const t = useTranslations("sommelier");
+  let i = 0;
   return (
     <div className="flex flex-col gap-3">
-      <div className="max-w-[92%] rounded-[22px] rounded-bl-[8px] bg-surface px-5 py-4 shadow-raised ring-1 ring-hairline">
+      <div
+        className="reveal max-w-[92%] rounded-[22px] rounded-bl-[8px] bg-surface px-5 py-4 shadow-raised ring-1 ring-hairline"
+        style={{ "--i": i++ } as React.CSSProperties}
+      >
         <p
           aria-hidden="true"
           className="mb-1.5 text-caption font-medium uppercase tracking-[0.14em] text-bronze"
@@ -369,14 +399,22 @@ function Answer({ answer }: { answer: SommelierAnswer }) {
       </div>
       {answer.bottles.length > 0 && (
         <ul className="flex flex-col gap-2.5">
-          {answer.bottles.map((b) => (
-            <li key={b.vintageId}>
-              <BottleCard bottle={b} />
+          {answer.bottles.map((b, n) => (
+            <li
+              key={b.vintageId}
+              className="reveal"
+              style={{ "--i": i++ + 1 } as React.CSSProperties}
+            >
+              <BottleCard bottle={b} first={n === 0} />
             </li>
           ))}
         </ul>
       )}
-      {answer.buy && answer.buy.length > 0 && <BuyList items={answer.buy} />}
+      {answer.buy && answer.buy.length > 0 && (
+        <div className="reveal" style={{ "--i": i++ + 2 } as React.CSSProperties}>
+          <BuyList items={answer.buy} />
+        </div>
+      )}
       <p className="px-1 text-caption text-ink-3">
         {answer.source === "ai" ? t("aiNote") : answer.reason ? t(`reason.${answer.reason}`) : ""}
       </p>
@@ -384,41 +422,77 @@ function Answer({ answer }: { answer: SommelierAnswer }) {
   );
 }
 
-function BottleCard({ bottle }: { bottle: SommelierBottle }) {
+/**
+ * A bottle from the cellar the sommelier points at: the wine as itself (its label photo when there is one),
+ * where it is, and the way from the advice to the glass — "take this bottle" opens it on its own page.
+ */
+function BottleCard({ bottle, first }: { bottle: SommelierBottle; first: boolean }) {
   const t = useTranslations("sommelier");
   const locale = useLocale();
   const where = placeLine(bottle.region, bottle.countryCode, locale);
   return (
-    <Link
-      href={`/cellar/${bottle.vintageId}`}
-      className="flex items-center gap-3.5 rounded-card bg-surface p-3 shadow-raised ring-1 ring-hairline transition-transform duration-150 ease-cellr active:scale-[0.98]"
-    >
-      <WineStage
-        type={bottle.type}
-        producer={bottle.producer}
-        wineName={bottle.wineName}
-        year={bottle.year}
-        className="h-24 w-[4.5rem] shrink-0"
-        bottleClassName="w-7"
+    <article className="relative flex gap-4 rounded-card bg-surface p-3 pr-4 shadow-raised ring-1 ring-hairline">
+      <WinePicture
+        wine={{ ...bottle, image: bottle.image ?? null }}
+        className="h-28 w-[4.75rem] shrink-0 rounded-[14px]"
+        bottleClassName="h-[84%]"
       />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-bronze">
           {bottle.producer}
-        </span>
-        <span className="block font-display text-title text-ink">{bottle.wineName}</span>
-        <span className="block text-small text-ink-2">
+        </p>
+        <h3 className="font-display text-title leading-snug text-ink">
+          <Link href={`/cellar/${bottle.vintageId}`} className="after:absolute after:inset-0">
+            {bottle.wineName}
+          </Link>
+        </h3>
+        <p className="text-small text-ink-2">
           <span className="tnum">{formatVintage(bottle.year)}</span>
           {where && <span> · {where}</span>}
-        </span>
+        </p>
         <ReservedNote reserved={bottle.reserved} count={bottle.count} className="mt-1" />
-        <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-caption text-ink-3">
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-caption text-ink-2">
           <PhasePill phase={bottle.drinkPhase} />
+          <span className="inline-flex items-center gap-1">
+            <PinIcon />
+            {bottle.places[0] ?? t("noPlace")}
+          </span>
           <span>{t("bottles", { count: bottle.count })}</span>
-          {bottle.places[0] && <span>{bottle.places[0]}</span>}
-        </span>
-      </span>
-      <ChevronRightIcon size={18} className="shrink-0 text-ink-3" />
-    </Link>
+        </p>
+        <Link
+          href={`/cellar/${bottle.vintageId}?pick=1`}
+          className={buttonStyles({
+            variant: first ? "primary" : "secondary",
+            size: "sm",
+            className: "relative z-10 mt-3 self-start",
+          })}
+        >
+          {t("takeThis")}
+          <ChevronRightIcon size={16} />
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      className="text-bronze"
+    >
+      <path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11Z" />
+      <circle cx="12" cy="10" r="2.3" />
+    </svg>
   );
 }
 

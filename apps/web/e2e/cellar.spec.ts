@@ -105,9 +105,9 @@ test.describe("the cellar loop", () => {
     await expect(card).toHaveCount(1);
     await expect(card).toContainText("Château Margaux");
     await expect(card).toContainText("Pavillon Rouge");
-    await expect(card).toContainText("2015 · Bordeaux, France");
+    await expect(card).toContainText("2015 · Bordeaux");
     await expect(card).toContainText("×3");
-    await expect(card).toContainText("Wine fridge");
+    // (where the bottles are is in the list and on the wine's page; the grid card stays quiet)
     await expect(page.getByText("3 bottles · 1 wine")).toBeVisible();
     await page.screenshot({ path: shot(`cellar-grid-1-${project()}`), fullPage: true });
 
@@ -136,7 +136,7 @@ test.describe("the cellar loop", () => {
     const search = page.getByLabel("Search your cellar");
     await search.fill("chablis");
     await expect(page.getByRole("article")).toHaveCount(1);
-    await expect(page.getByRole("article")).toContainText("No place yet");
+    await expect(page.getByRole("article")).toContainText("Chablis Premier Cru");
     await search.fill("chateau 2015");
     await expect(page.getByRole("article")).toHaveCount(1);
     await expect(page.getByRole("article")).toContainText("Château Margaux");

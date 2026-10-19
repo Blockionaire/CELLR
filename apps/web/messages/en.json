@@ -65,10 +65,6 @@
     "greetingMorningAnon": "Good morning",
     "greetingAfternoonAnon": "Good afternoon",
     "greetingEveningAnon": "Good evening",
-    "shortcuts": "Shortcuts",
-    "shortcutScan": "Scan a label",
-    "shortcutSommelier": "Ask the sommelier",
-    "shortcutWishlist": "Wishlist",
     "heroEyebrow": "Tonight",
     "heroTitle": "What should we drink tonight?",
     "heroEmpty": "Add a few bottles and I'll help you decide what to open.",
@@ -77,26 +73,14 @@
     "emptyAction": "Scan your first bottle",
     "heroCta": "Help me choose",
     "heroFilled": "Tell me what you're eating and I'll choose from your own cellar.",
-    "statBottles": "Bottles",
-    "statWines": "Wines",
-    "statValue": "Cellar value",
-    "statValueNote": "{count, plural, one {from # bottle with a price} other {from # bottles with a price}}",
-    "statFree": "Free spots",
     "recentlyAdded": "Recently added",
     "seeAll": "See all",
     "openedLately": "Opened lately",
-    "space": "Space",
-    "spaceUsed": "{used} of {capacity} spots in use",
-    "spaceNone": "No places yet. Add a fridge or a rack to give your bottles a home.",
-    "unplaced": "{count, plural, one {# bottle has} other {# bottles have}} no place yet",
     "addBottle": "Add a bottle",
-    "openCellar": "Open your cellar",
-    "bottlesLabel": "{count, plural, one {# bottle} other {# bottles}}",
     "ratedStars": "Rated {stars} out of 5",
     "nudge": "How was the {wine}?",
     "nudgeNote": "Add a note",
     "rateIt": "Rate it",
-    "drinkSoon": "Drink soon",
     "comingUp": "Coming up",
     "reminder": {
       "overdue": "{days, plural, one {# day ago} other {# days ago}}",
@@ -104,8 +88,9 @@
       "tomorrow": "Tomorrow",
       "days": "In {days} days"
     },
-    "shortcutInsights": "Insights",
-    "atPeak": "At their best now"
+    "atPeak": "At their best now",
+    "summary": "{bottles, plural, one {# bottle} other {# bottles}} · {wines, plural, one {# wine} other {# wines}}",
+    "quickAsk": "Ask straight away"
   },
   "cellar": {
     "title": "Cellar",
@@ -115,7 +100,7 @@
     "emptyBody": "Every bottle you add will live here, with where it is and when to open it.",
     "emptyAction": "Add your first bottle",
     "searchLabel": "Search your cellar",
-    "searchPlaceholder": "Search wine, producer, year or region",
+    "searchPlaceholder": "Search your cellar",
     "viewLabel": "Cellar view",
     "viewGrid": "Grid",
     "viewList": "List",
@@ -245,7 +230,9 @@
     },
     "buyTitle": "Worth buying",
     "buyHint": "Not in your cellar: ideas for the shop, prices are rough.",
-    "placeholderTonight": "What are you eating tonight?"
+    "placeholderTonight": "What are you eating tonight?",
+    "takeThis": "Take this bottle",
+    "noPlace": "No place yet"
   },
   "profile": {
     "title": "Profile",
@@ -471,7 +458,13 @@
     "heroCount": "×{count} in your cellar",
     "factBottles": "{count, plural, one {bottle} other {bottles}}",
     "factAverage": "Avg. per bottle",
-    "actions": "Actions"
+    "actions": "Actions",
+    "factAveragePhrase": "{price} a bottle",
+    "factWorthPhrase": "worth {price} now",
+    "completeTitle": "Complete this wine",
+    "completeHint": "Labels, its value, a duplicate: whenever you feel like it.",
+    "mergeTitle": "In your cellar twice?",
+    "mergeBody": "Merge it with the other one; every bottle stays."
   },
   "openBottle": {
     "title": "Open a bottle",
@@ -775,7 +768,13 @@
     "backTitle": "Back label",
     "backBody": "A photo of the back label keeps the grapes, the importer and the small print with the bottle.",
     "backHave": "The back label is kept with the wine.",
-    "backAlt": "Back label of {wine}"
+    "backAlt": "Back label of {wine}",
+    "labelsTitle": "Labels",
+    "frontHave": "Your photo of the front label: on its card, here and on the 3D bottle.",
+    "frontTitle": "Front label",
+    "frontBody": "A photo of the label makes this wine yours: it shows on its card, here and on the 3D bottle.",
+    "offerTitle": "Add a photo of the label?",
+    "offerBody": "Then the card in your cellar shows this very bottle. You can always do it later."
   },
   "wishlist": {
     "title": "Wishlist",
