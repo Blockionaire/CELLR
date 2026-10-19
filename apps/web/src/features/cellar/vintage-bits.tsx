@@ -6,12 +6,17 @@ import { cn } from "@/ui/cn";
 /** The card every block on the wine's page sits on. */
 export const CARD = "rounded-card bg-surface p-4 shadow-raised ring-1 ring-hairline";
 
-/** A calm block of the wine's page: a serif title (with an optional small action beside it) over one card. */
+/**
+ * A block of the wine's page: a serif title (with an optional small action beside it) over its content, set
+ * straight on the page with a hairline between blocks — no card around it. `inline` drops the rule and the
+ * spacing, for a block that sits inside another one.
+ */
 export function Section({
   title,
   action,
   testId,
   className,
+  inline = false,
   children,
 }: {
   title?: string;
@@ -19,6 +24,7 @@ export function Section({
   action?: ReactNode;
   testId?: string;
   className?: string;
+  inline?: boolean;
   children: ReactNode;
 }) {
   const headingId = useId();
@@ -26,17 +32,28 @@ export function Section({
     <section
       aria-labelledby={title ? headingId : undefined}
       data-testid={testId}
-      className={className}
+      className={cn(
+        !inline && "border-t border-hairline py-8 first:border-t-0 first:pt-2",
+        className,
+      )}
     >
       {title && (
-        <div className="mb-3 flex min-h-9 items-center justify-between gap-3 px-1">
-          <h2 id={headingId} className="font-display text-headline text-ink">
+        <div
+          className={cn(
+            "flex min-h-9 items-center justify-between gap-3",
+            inline ? "mb-1" : "mb-4",
+          )}
+        >
+          <h2
+            id={headingId}
+            className={inline ? "text-body text-ink" : "font-display text-headline text-ink"}
+          >
             {title}
           </h2>
           {action}
         </div>
       )}
-      <div className={CARD}>{children}</div>
+      {children}
     </section>
   );
 }

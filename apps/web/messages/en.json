@@ -456,7 +456,13 @@
     "heroCount": "×{count} in your cellar",
     "factBottles": "{count, plural, one {bottle} other {bottles}}",
     "factAverage": "Avg. per bottle",
-    "actions": "Actions"
+    "actions": "Actions",
+    "factAveragePhrase": "{price} a bottle",
+    "factWorthPhrase": "worth {price} now",
+    "completeTitle": "Complete this wine",
+    "completeHint": "Labels, its value, a duplicate: whenever you feel like it.",
+    "mergeTitle": "In your cellar twice?",
+    "mergeBody": "Merge it with the other one; every bottle stays."
   },
   "openBottle": {
     "title": "Open a bottle",
@@ -760,7 +766,11 @@
     "backTitle": "Back label",
     "backBody": "A photo of the back label keeps the grapes, the importer and the small print with the bottle.",
     "backHave": "The back label is kept with the wine.",
-    "backAlt": "Back label of {wine}"
+    "backAlt": "Back label of {wine}",
+    "labelsTitle": "Labels",
+    "frontHave": "Your photo of the front label: on its card, here and on the 3D bottle.",
+    "frontTitle": "Front label",
+    "frontBody": "A photo of the label makes this wine yours: it shows on its card, here and on the 3D bottle."
   },
   "wishlist": {
     "title": "Wishlist",

@@ -456,7 +456,13 @@
     "heroCount": "×{count} in je kelder",
     "factBottles": "{count, plural, one {fles} other {flessen}}",
     "factAverage": "Gem. per fles",
-    "actions": "Acties"
+    "actions": "Acties",
+    "factAveragePhrase": "{price} per fles",
+    "factWorthPhrase": "nu {price} waard",
+    "completeTitle": "Maak deze wijn compleet",
+    "completeHint": "Etiketten, de waarde, een dubbele: wanneer jij wilt.",
+    "mergeTitle": "Staat deze wijn er dubbel in?",
+    "mergeBody": "Voeg hem samen met de andere; alle flessen blijven."
   },
   "openBottle": {
     "title": "Fles openen",
@@ -760,7 +766,11 @@
     "backTitle": "Achteretiket",
     "backBody": "Een foto van het achteretiket bewaart de druiven, de importeur en de kleine lettertjes bij de fles.",
     "backHave": "Het achteretiket wordt bij de wijn bewaard.",
-    "backAlt": "Achteretiket van {wine}"
+    "backAlt": "Achteretiket van {wine}",
+    "labelsTitle": "Etiketten",
+    "frontHave": "Jouw foto van het vooretiket: op de kaart, hier en op de 3D-fles.",
+    "frontTitle": "Vooretiket",
+    "frontBody": "Met een foto van het etiket wordt deze wijn echt van jou: op de kaart, hier en op de 3D-fles."
   },
   "wishlist": {
     "title": "Wishlist",

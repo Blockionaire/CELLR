@@ -28,6 +28,7 @@ export function WinePicture({
   size = "thumb",
   shared = false,
   year = false,
+  alt,
   className,
   bottleClassName,
 }: {
@@ -36,13 +37,15 @@ export function WinePicture({
   shared?: boolean;
   /** Show the vintage, big and faint, behind a drawn bottle. */
   year?: boolean;
+  /** When the photo is the content (the wine's own page): what it shows. Otherwise it is decoration. */
+  alt?: string;
   className?: string;
   bottleClassName?: string;
 }) {
   const vintage = formatVintage(wine.year);
   const picture = (
     <div
-      aria-hidden="true"
+      aria-hidden={alt && wine.image ? undefined : true}
       data-photo={wine.image ? "true" : undefined}
       className={cn(
         "relative isolate flex items-end justify-center overflow-hidden",
@@ -52,7 +55,12 @@ export function WinePicture({
     >
       {wine.image ? (
         <>
-          <LabelImage image={wine.image} size={size} className="absolute inset-0 size-full" />
+          <LabelImage
+            image={wine.image}
+            size={size}
+            alt={alt ?? ""}
+            className="absolute inset-0 size-full"
+          />
           {/* a breath of shade at the foot, so pills and counts on top stay legible on a bright label */}
           <span className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-black/25 to-transparent" />
         </>

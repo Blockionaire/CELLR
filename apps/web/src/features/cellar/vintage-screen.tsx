@@ -37,8 +37,8 @@ import { RateSheet } from "./rate-sheet";
 import { TastingItem } from "./tasting-bits";
 import { Facts, Section, Tag } from "./vintage-bits";
 import { AboutSection, PairsSection, TasteSection, WorthSection } from "./wine-insight";
-import { placeLine, shapeFor, labelMark } from "./wine-visuals";
-import { STAGE } from "./wine-card";
+import { placeLine, shapeFor } from "./wine-visuals";
+import { WinePicture } from "./wine-picture";
 
 type SheetName = "open" | "move" | "edit" | "place" | "merge" | null;
 
@@ -163,81 +163,69 @@ export function VintageScreen({
       ? Math.round(detail.drink.yearsLeft)
       : null;
 
+  const phrase = [
+    count > 0 ? null : t("noneLeft"),
+    placeValue || null,
+    averageCents !== null ? t("factAveragePhrase", { price: money(averageCents) }) : null,
+  ].filter(Boolean);
+
+  // Everything that would complete the page but is not there yet, gathered in one quiet place.
+  const missingFront = !detail.image;
+  const missingBack = !detail.backImage;
+  const missingWorth = insight.data?.ready === true && worthCents === null;
+
   return (
-    <div className="mx-auto w-full max-w-3xl pb-28 pt-4 lg:pb-0 lg:pt-10">
-      <header className="grid gap-6 md:grid-cols-[19rem_1fr] md:items-start md:gap-8">
-        <div>
-          <div
-            className={cn(
-              "relative isolate flex h-72 items-end justify-center overflow-hidden rounded-[28px] md:h-80",
-              STAGE[wine.type],
-            )}
+    <div className="mx-auto w-full max-w-3xl pb-28 pt-3 lg:pb-0 lg:pt-10">
+      <header className="grid gap-5 md:grid-cols-[20rem_1fr] md:items-end md:gap-9">
+        <div className="relative">
+          <WinePicture
+            wine={{
+              vintageId: detail.vintageId,
+              type: wine.type,
+              producer: wine.producer,
+              wineName: wine.name,
+              year: detail.year,
+              image: detail.image,
+            }}
+            size="photo"
+            shared
+            year
+            alt={tPhoto("alt", { wine: `${wine.producer} ${wine.name}` })}
+            className="h-[22rem] rounded-[28px] shadow-raised ring-1 ring-hairline [--year-size:9rem] md:h-[26rem]"
+            bottleClassName="h-[76%]"
+          />
+
+          <Link
+            href="/cellar"
+            aria-label={t("back")}
+            className="absolute left-3 top-3 z-10 grid size-11 place-items-center rounded-full bg-surface/85 text-ink shadow-raised backdrop-blur-sm transition-transform duration-200 ease-spring active:scale-[0.92]"
           >
-            {detail.image ? (
-              <LabelImage
-                image={detail.image}
-                size="photo"
-                alt={tPhoto("alt", { wine: `${wine.producer} ${wine.name}` })}
-                className="absolute inset-0 size-full"
-              />
+            <ChevronRightIcon size={20} className="rotate-180" />
+          </Link>
+          <FavoriteButton
+            wineId={wine.id}
+            wine={`${wine.producer} ${wine.name}`}
+            favorite={wine.favorite}
+            className="absolute right-3 top-3 z-10 size-11 bg-surface/85 backdrop-blur-sm"
+            size={22}
+          />
+          <RecommendButton
+            vintageId={detail.vintageId}
+            wine={`${wine.producer} ${wine.name} ${vintageName}`}
+            className="absolute right-3 top-16 z-10 size-11 bg-surface/85 backdrop-blur-sm"
+          />
+          <div className="pointer-events-none absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
+            {phase !== "unknown" && !detail.drink.uncertain ? (
+              <PhasePill phase={phase} className="shadow-raised" />
             ) : (
-              <>
-                {/* The year, big and faint behind the bottle. Drawn from an attribute so it is no text to read or to check. */}
-                <span
-                  aria-hidden="true"
-                  data-year={vintageName}
-                  className="pointer-events-none absolute inset-x-0 top-[8%] select-none text-center font-display text-[9rem] leading-none text-ink/[0.07] before:content-[attr(data-year)]"
-                />
-                <span
-                  aria-hidden="true"
-                  className="absolute -bottom-20 left-1/2 size-72 -translate-x-1/2 rounded-full bg-surface/45"
-                />
-                <BottleGlyph
-                  shape={shapeFor(wine.type)}
-                  tint={wine.type}
-                  mark={labelMark(wine.producer, wine.name)}
-                  year={vintageName}
-                  className="relative mb-11 h-56 w-auto md:h-64"
-                  title={tTypes(wine.type)}
-                />
-              </>
+              <span />
             )}
-
-            <Link
-              href="/cellar"
-              aria-label={t("back")}
-              className="absolute left-3 top-3 z-10 grid size-11 place-items-center rounded-full bg-surface/85 text-ink shadow-raised transition-transform duration-150 ease-cellr active:scale-[0.96]"
-            >
-              <ChevronRightIcon size={20} className="rotate-180" />
-            </Link>
-            <FavoriteButton
-              wineId={wine.id}
-              wine={`${wine.producer} ${wine.name}`}
-              favorite={wine.favorite}
-              className="absolute right-3 top-3 size-11 bg-surface/85"
-              size={22}
-            />
-            <RecommendButton
-              vintageId={detail.vintageId}
-              wine={`${wine.producer} ${wine.name} ${vintageName}`}
-              className="absolute right-3 top-16 size-11 bg-surface/85"
-            />
-
-            <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
-              {phase !== "unknown" ? (
-                <PhasePill phase={phase} className="shadow-raised" />
-              ) : (
-                <span />
-              )}
-              {count > 0 && (
-                <span className="rounded-full bg-surface px-3 py-1 text-caption font-semibold text-ink shadow-raised tnum">
-                  {t("heroCount", { count })}
-                </span>
-              )}
-            </div>
+            {count > 0 && (
+              <span className="rounded-full bg-surface px-3 py-1 text-caption font-semibold text-ink shadow-raised tnum">
+                {t("heroCount", { count })}
+              </span>
+            )}
           </div>
-
-          <LabelPhotoActions vintageId={detail.vintageId} side="front" image={detail.image} />
         </div>
 
         <div className="min-w-0">
@@ -267,13 +255,45 @@ export function VintageScreen({
               </span>
             )}
           </p>
+          {/* The numbers that matter, as one line: how many, where, what they cost, what they are worth. */}
+          <p className="mt-3 text-small text-ink tnum" data-testid="facts-line">
+            {count > 0 && (
+              <>
+                <span data-testid="bottle-count" className="font-semibold">
+                  {count}
+                </span>{" "}
+                {t("factBottles", { count })}
+              </>
+            )}
+            {phrase.map((part, i) => (
+              <span key={i}>
+                {(count > 0 || i > 0) && <span className="text-ink-3"> · </span>}
+                {part}
+              </span>
+            ))}
+            {worthCents !== null && (
+              <span>
+                <span className="text-ink-3"> · </span>
+                {t("factWorthPhrase", { price: money(worthCents) })}
+                {delta !== null && Math.round(delta * 100) !== 0 && (
+                  <span className={cn("ml-1 font-semibold", delta > 0 ? "text-ok" : "text-danger")}>
+                    {new Intl.NumberFormat(locale, {
+                      style: "percent",
+                      signDisplay: "exceptZero",
+                      maximumFractionDigits: 0,
+                    }).format(delta)}
+                  </span>
+                )}
+              </span>
+            )}
+          </p>
 
           <div
             role="group"
             aria-label={t("actions")}
             className="fixed inset-x-0 bottom-[calc(var(--nav-height)+env(safe-area-inset-bottom))] z-20 border-t border-hairline bg-canvas/90 backdrop-blur-xl lg:static lg:z-auto lg:mt-6 lg:border-0 lg:bg-transparent lg:backdrop-blur-none"
           >
-            <div className="mx-auto flex max-w-3xl items-center gap-2.5 px-5 py-3 md:px-8 lg:max-w-none lg:p-0">
+            <div className="mx-auto flex max-w-3xl items-center gap-2 px-5 py-3 md:px-8 lg:max-w-none lg:p-0">
               {count > 0 ? (
                 <Button size="lg" onClick={() => setSheet("open")} className="min-w-0 flex-1">
                   {t("open")}
@@ -300,7 +320,7 @@ export function VintageScreen({
               )}
               {rateTarget && (
                 <BarButton label={tTasting("ratingLabel")} onClick={() => setRating(rateTarget)}>
-                  <StarIcon size={22} strokeWidth={1.75} />
+                  <StarIcon size={20} strokeWidth={1.75} />
                 </BarButton>
               )}
               <BarButton label={t("edit")} onClick={() => setSheet("edit")}>
@@ -314,29 +334,7 @@ export function VintageScreen({
         </div>
       </header>
 
-      {cells.length >= 2 && (
-        <div
-          className={cn(
-            "mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-card bg-hairline shadow-raised ring-1 ring-hairline",
-            cells.length === 3 ? "sm:grid-cols-3" : cells.length === 4 ? "sm:grid-cols-4" : "",
-          )}
-        >
-          {cells.map((cell) => (
-            <div
-              key={cell.key}
-              className="min-w-0 bg-surface p-4 max-sm:[&:last-child:nth-child(odd)]:col-span-2"
-            >
-              <p className="font-display text-headline break-words tnum text-ink">{cell.value}</p>
-              <p className="mt-1 text-caption text-ink-2">{cell.label}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-10 flex flex-col gap-9">
-        <TasteSection vintageId={detail.vintageId} />
-        <PairsSection vintageId={detail.vintageId} />
-
+      <div className="mt-8 flex flex-col">
         <Section
           title={tDrink("title")}
           action={
@@ -397,17 +395,9 @@ export function VintageScreen({
                 : []),
             ]}
           />
-          <Button
-            className="mt-4 -ml-3"
-            size="sm"
-            variant="ghost"
-            onClick={() => setSheet("merge")}
-          >
-            {t("merge")}
-          </Button>
         </AboutSection>
-
-        <WorthSection vintageId={detail.vintageId} currency={detail.currency ?? currency} />
+        <TasteSection vintageId={detail.vintageId} />
+        <PairsSection vintageId={detail.vintageId} />
 
         <Section title={t("bottlesTitle")}>
           {count > 0 ? (
@@ -495,6 +485,20 @@ export function VintageScreen({
                   </li>
                 ))}
               </ul>
+              <div className="mt-4 border-t border-hairline pt-4">
+                <h3 className="sr-only">{t("purchase")}</h3>
+                <Facts
+                  rows={[
+                    [
+                      t("averagePrice"),
+                      detail.averagePriceCents === null
+                        ? t("notRecorded")
+                        : money(detail.averagePriceCents),
+                    ],
+                    [t("latestPurchase"), latestPurchase ? day(latestPurchase) : t("notRecorded")],
+                  ]}
+                />
+              </div>
             </>
           ) : (
             <>
@@ -504,44 +508,9 @@ export function VintageScreen({
           )}
         </Section>
 
-        {count > 0 && (
-          <Section title={t("purchase")}>
-            <Facts
-              rows={[
-                [
-                  t("averagePrice"),
-                  detail.averagePriceCents === null
-                    ? t("notRecorded")
-                    : money(detail.averagePriceCents),
-                ],
-                [t("latestPurchase"), latestPurchase ? day(latestPurchase) : t("notRecorded")],
-              ]}
-            />
-          </Section>
+        {!missingWorth && (
+          <WorthSection vintageId={detail.vintageId} currency={detail.currency ?? currency} />
         )}
-
-        <Section title={tPhoto("backTitle")}>
-          <div className="flex items-start gap-4">
-            {detail.backImage && (
-              <LabelImage
-                image={detail.backImage}
-                size="thumb"
-                alt={tPhoto("backAlt", { wine: `${wine.producer} ${wine.name}` })}
-                className="h-28 w-auto rounded-[16px] bg-raised"
-              />
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="text-body text-ink-2">
-                {detail.backImage ? tPhoto("backHave") : tPhoto("backBody")}
-              </p>
-              <LabelPhotoActions
-                vintageId={detail.vintageId}
-                side="back"
-                image={detail.backImage}
-              />
-            </div>
-          </div>
-        </Section>
 
         {(detail.opened.length > 0 || detail.tastings.length > 0) && (
           <Section title={tTasting("sectionTitle")}>
@@ -593,13 +562,48 @@ export function VintageScreen({
           </Section>
         )}
 
+        {!missingFront || !missingBack ? (
+          <Section title={tPhoto("labelsTitle")}>
+            <div className="flex flex-col gap-5">
+              {!missingFront && (
+                <div>
+                  <p className="text-small text-ink-2">{tPhoto("frontHave")}</p>
+                  <LabelPhotoActions
+                    vintageId={detail.vintageId}
+                    side="front"
+                    image={detail.image}
+                  />
+                </div>
+              )}
+              {!missingBack && (
+                <div className="flex items-start gap-4">
+                  <LabelImage
+                    image={detail.backImage!}
+                    size="thumb"
+                    alt={tPhoto("backAlt", { wine: `${wine.producer} ${wine.name}` })}
+                    className="h-28 w-auto rounded-[16px] bg-raised"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-body text-ink-2">{tPhoto("backHave")}</p>
+                    <LabelPhotoActions
+                      vintageId={detail.vintageId}
+                      side="back"
+                      image={detail.backImage}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </Section>
+        ) : null}
+
         {history.length > 0 && (
           <Section title={t("history")}>
             <ol className="flex flex-col divide-y divide-hairline">
               {history.map((e) => (
                 <li
                   key={`${e.kind}-${e.day}`}
-                  className="flex items-baseline justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
+                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-2.5 first:pt-0 last:pb-0"
                 >
                   <span className="text-body text-ink">
                     {e.kind === "added"
@@ -612,6 +616,61 @@ export function VintageScreen({
             </ol>
           </Section>
         )}
+
+        {/* Completing the page: everything that could still be added, folded away so it never interrupts. */}
+        <details
+          className="group/more mt-2 border-t border-hairline py-5"
+          data-testid="complete-wine"
+          open={missingFront || undefined}
+        >
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+            <span>
+              <span className="block font-display text-headline text-ink">
+                {t("completeTitle")}
+              </span>
+              <span className="block text-small text-ink-2">{t("completeHint")}</span>
+            </span>
+            <ChevronRightIcon
+              size={20}
+              className="shrink-0 rotate-90 text-ink-3 transition-transform duration-300 ease-spring group-open/more:-rotate-90"
+            />
+          </summary>
+          <div className="mt-4 flex flex-col gap-6">
+            {missingFront && (
+              <div>
+                <p className="text-body text-ink">{tPhoto("frontTitle")}</p>
+                <p className="text-small text-ink-2">{tPhoto("frontBody")}</p>
+                <LabelPhotoActions vintageId={detail.vintageId} side="front" image={null} />
+              </div>
+            )}
+            {missingBack && (
+              <div>
+                <p className="text-body text-ink">{tPhoto("backTitle")}</p>
+                <p className="text-small text-ink-2">{tPhoto("backBody")}</p>
+                <LabelPhotoActions vintageId={detail.vintageId} side="back" image={null} />
+              </div>
+            )}
+            {missingWorth && (
+              <WorthSection
+                vintageId={detail.vintageId}
+                currency={detail.currency ?? currency}
+                bare
+              />
+            )}
+            <div>
+              <p className="text-body text-ink">{t("mergeTitle")}</p>
+              <p className="text-small text-ink-2">{t("mergeBody")}</p>
+              <Button
+                className="mt-2"
+                size="sm"
+                variant="secondary"
+                onClick={() => setSheet("merge")}
+              >
+                {t("merge")}
+              </Button>
+            </div>
+          </div>
+        </details>
       </div>
 
       <OpenBottleSheet open={sheet === "open"} onClose={() => setSheet(null)} detail={detail} />
@@ -668,7 +727,7 @@ function BarButton({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="inline-flex size-14 shrink-0 select-none items-center justify-center gap-2 rounded-full border border-hairline bg-surface text-ink shadow-raised transition-[transform,background-color] duration-150 ease-cellr hover:bg-raised active:scale-[0.98] lg:w-auto lg:px-5"
+      className="inline-flex size-12 shrink-0 select-none items-center justify-center gap-2 rounded-full bg-raised text-ink-2 transition-[transform,background-color,color] duration-200 ease-spring hover:text-ink active:scale-[0.92] lg:h-14 lg:w-auto lg:px-5"
     >
       {children}
       <span className="hidden text-small font-medium lg:inline">{label}</span>

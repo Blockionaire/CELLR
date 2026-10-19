@@ -301,7 +301,16 @@ export function PairsSection({ vintageId }: { vintageId: string }) {
  * What a bottle is worth now: your own number if you gave one, else the latest value looked up on the web, with
  * the pages it came from, and how it moved. A new lookup at most once a month.
  */
-export function WorthSection({ vintageId, currency }: { vintageId: string; currency: string }) {
+export function WorthSection({
+  vintageId,
+  currency,
+  bare = false,
+}: {
+  vintageId: string;
+  currency: string;
+  /** Inside "complete this wine": no rule, a plain title. */
+  bare?: boolean;
+}) {
   const t = useTranslations("insights");
   const te = useTranslations();
   const toast = useToast();
@@ -365,7 +374,7 @@ export function WorthSection({ vintageId, currency }: { vintageId: string; curre
     );
 
   return (
-    <Section title={t("valueTitle")} testId="value">
+    <Section title={t("valueTitle")} testId="value" inline={bare}>
       {worth !== null ? (
         <>
           <p className="flex flex-wrap items-baseline gap-x-2">
