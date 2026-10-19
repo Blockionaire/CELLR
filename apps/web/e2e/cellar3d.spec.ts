@@ -180,13 +180,15 @@ test.describe("the 3D cellar", () => {
     await expect(panel).toHaveAttribute("data-open", "false");
     await expect(scene).toHaveAttribute("data-showcase", "closed");
 
-    await page.waitForTimeout(1500); // it slides home first
+    // It slides home first: the rack is live again once its still picture is gone.
+    const home = page.getByTestId("rack-backdrop");
+    await expect(home).toHaveCount(0, { timeout: 10_000 });
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await expect(panel).toHaveAttribute("data-open", "true");
     await page.keyboard.press("Escape");
     await expect(panel).toHaveAttribute("data-open", "false");
 
-    await page.waitForTimeout(1500);
+    await expect(home).toHaveCount(0, { timeout: 10_000 });
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await expect(panel).toHaveAttribute("data-open", "true");
     await page.waitForTimeout(2500); // it has settled on display
@@ -196,7 +198,7 @@ test.describe("the 3D cellar", () => {
     await expect(panel).toHaveAttribute("data-open", "false");
 
     // A tap on empty background with nothing on display does nothing.
-    await page.waitForTimeout(1500);
+    await expect(home).toHaveCount(0, { timeout: 10_000 });
     await page.mouse.click(box.x + 6, box.y + 6);
     await expect(panel).toHaveAttribute("data-open", "false");
 
