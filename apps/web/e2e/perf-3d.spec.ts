@@ -97,7 +97,9 @@ test("time taking a bottle out", async ({ page, request }) => {
         worstFrameMs: worst,
       };
     });
-    const programsAfter = Number(await scene.locator("canvas[data-engine]").getAttribute("data-programs"));
+    const programsAfter = Number(
+      await scene.locator("canvas[data-engine]").getAttribute("data-programs"),
+    );
     results.push({ selection: i + 1, ...r, programsBefore, programsAfter });
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("rack-backdrop")).toHaveCount(0, { timeout: 15_000 });

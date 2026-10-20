@@ -87,9 +87,9 @@ async function attach(
 
 /** How many pixels of the 3D view are clearly blue (the front photo) and clearly magenta (the back photo). */
 async function labelPixels(page: Page) {
-  const png = (await page.getByTestId("cellar-3d").locator("canvas[data-engine]").screenshot()).toString(
-    "base64",
-  );
+  const png = (
+    await page.getByTestId("cellar-3d").locator("canvas[data-engine]").screenshot()
+  ).toString("base64");
   return page.evaluate(async (data) => {
     const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
     const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
@@ -223,7 +223,9 @@ test.describe("staying up", () => {
     await takeOut(page);
 
     await page.evaluate(() => {
-      const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="cellar-3d"] canvas[data-engine]')!;
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        '[data-testid="cellar-3d"] canvas[data-engine]',
+      )!;
       const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
       gl!.getExtension("WEBGL_lose_context")!.loseContext();
     });
