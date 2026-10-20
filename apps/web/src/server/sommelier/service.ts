@@ -96,6 +96,11 @@ export function createSommelierService(deps: SommelierDeps) {
 
   /** The plain answer to a question about the cellar: the counts, and the wines it named (when few). */
   function plainFacts(facts: CellarFacts, reason: SommelierAnswer["reason"]): SommelierAnswer {
+    const { kind, matches } = facts;
+    const name = (m: CellarFacts["matches"][number]) =>
+      `${m.item.producer} ${m.item.wineName}${m.item.year === null ? "" : ` ${m.item.year}`}`;
+    // Cards: the wines a "which" question asks for (a few more of them), else the few that fit.
+    const cards = matches.length <= (kind === "selection" ? 6 : 3) ? matches : [];
     return {
       source: "basic",
       text: null,
@@ -104,11 +109,15 @@ export function createSommelierService(deps: SommelierDeps) {
         bottles: facts.bottles,
         wines: facts.wines,
         free: facts.free,
-        matches: facts.asked ? facts.matches.length : null,
-        // The exact spots, already counted: a few named wines are answered with where they are.
+        matches: facts.asked ? matches.length : null,
+        kind,
+        // "How many": every matching vintage counts, so an unspecific name is summed, never one picked.
+        matchedBottles: matches.reduce((s, m) => s + m.item.count, 0),
+        names: kind === "selection" ? matches.slice(0, 12).map(name) : [],
+        // "Where": the exact spots, but only for one wine; several make the answer ask which one is meant.
         located:
-          facts.matches.length > 0 && facts.matches.length <= 3
-            ? facts.matches.map((m) => ({
+          kind === "location" && matches.length === 1
+            ? matches.map((m) => ({
                 vintageId: m.item.vintageId,
                 wine: `${m.item.producer} ${m.item.wineName}`,
                 year: m.item.year,
@@ -118,7 +127,7 @@ export function createSommelierService(deps: SommelierDeps) {
               }))
             : [],
       },
-      bottles: facts.matches.length <= 3 ? facts.matches.map((m) => toSommelierBottle(m.item)) : [],
+      bottles: cards.map((m) => toSommelierBottle(m.item)),
       reason,
     };
   }

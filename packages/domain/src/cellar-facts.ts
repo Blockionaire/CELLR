@@ -40,6 +40,23 @@ export function isCellarQuestion(question: string): boolean {
   return ASKS_ABOUT_CELLAR.test(question);
 }
 
+/**
+ * What a question about the cellar wants to know, so a plain answer answers that and nothing more:
+ * where bottles are ("Waar ligt…", "Where is…"), how many there are ("Hoeveel…", "How many…"), or which wines
+ * there are ("Welke…", "Heb ik nog een…", "Do I have…").
+ */
+export type CellarQuestionKind = "location" | "quantity" | "selection";
+
+const ASKS_WHERE =
+  /\b(waar|where|plek|plekken|plaats|plank|positie|spot|spots|shelf|position|located|location)\b/i;
+const ASKS_HOW_MANY = /\b(hoeveel|aantal|how many|how much|number of)\b/i;
+
+export function cellarQuestionKind(question: string): CellarQuestionKind {
+  if (ASKS_WHERE.test(question)) return "location";
+  if (ASKS_HOW_MANY.test(question)) return "quantity";
+  return "selection";
+}
+
 const TYPE_WORDS: Array<[RegExp, WineType]> = [
   [/\b(wit|witte|white|whites)\b/i, "white"],
   [/\b(rood|rode|red|reds)\b/i, "red"],
@@ -94,6 +111,8 @@ export interface CellarFacts {
   asked: { words: string[]; unknown: string[]; year: number | null; type: WineType | null } | null;
   /** The wines that fit what was named, all of them (so an ambiguous question is answered with the choice). */
   matches: CellarMatch[];
+  /** What the question wants to know about them. */
+  kind: CellarQuestionKind;
 }
 
 /**
@@ -192,6 +211,7 @@ export function cellarFacts(
     })),
     free: storage.reduce((s, u) => s + u.free, 0),
     asked,
+    kind: cellarQuestionKind(question),
     matches: matches.map((item) => ({
       item,
       spots: (spotsOf.get(item.vintageId) ?? []).sort(

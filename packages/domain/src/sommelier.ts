@@ -93,7 +93,13 @@ export interface SommelierAnswer {
     wines: number;
     free: number;
     matches: number | null;
-    /** For one to three matching wines: where each bottle is (place, shelf, position) and how many have none. */
+    /** What the question wants to know (see cellarQuestionKind); the plain answer says only that. */
+    kind?: "location" | "quantity" | "selection";
+    /** Bottles of the matching wines, summed over all of them (every vintage). */
+    matchedBottles?: number;
+    /** For a "which wines" question: the matching wines' names (the first twelve). */
+    names?: string[];
+    /** For a "where" question naming one wine: where each bottle is (place, shelf, position) and how many have none. */
     located?: Array<{
       vintageId: string;
       wine: string;

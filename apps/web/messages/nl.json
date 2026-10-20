@@ -221,7 +221,9 @@
       "factsMatches": "{matches, plural, =0 {Die wijn ligt niet in je kelder.} one {Dit is de wijn die past; tik erop voor de plekken.} other {# wijnen passen daarbij: welke bedoel je?}}",
       "factsWhere": "{wine} ({count, plural, one {# fles} other {# flessen}}): {spots}.",
       "factsSpot": "{place}, plank {row}, positie {col}",
-      "factsNoPlace": "{count, plural, one {# fles} other {# flessen}} nog zonder plek"
+      "factsNoPlace": "{count, plural, one {# fles} other {# flessen}} nog zonder plek",
+      "factsCount": "Je hebt daarvan {bottles, plural, one {# fles} other {# flessen}}{vintages, plural, =1 {} other {, verdeeld over # jaargangen}}.",
+      "factsList": "{matches, plural, one {Deze wijn past} other {Deze # wijnen passen}}: {names}{more, plural, =0 {} other {, en nog #}}."
     },
     "reason": {
       "ai-off": "De AI-sommelier staat nog niet aan, dus dit antwoord komt rechtstreeks uit je kelder.",

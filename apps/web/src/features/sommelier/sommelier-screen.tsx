@@ -29,6 +29,7 @@ import { errorMessage } from "@/lib/api";
 import { Button, buttonStyles } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { EmptyState } from "@/ui/empty-state";
+import { plainSentence } from "./plain-sentence";
 import { cn } from "@/ui/cn";
 import { ChevronRightIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
@@ -44,38 +45,6 @@ type Turn =
   | { role: "error"; message: string; retry: string };
 
 /** The words of a turn as the server wants them: only what was said, never what was shown. */
-/**
- * The sentence for a plain answer. A question about the cellar gets its counted numbers; one naming a few wines
- * gets where each bottle is (place, shelf, position, and how many have no place yet), all from the counted facts.
- */
-function plainSentence(a: SommelierAnswer, t: ReturnType<typeof useTranslations<"sommelier">>) {
-  if (a.basic === "facts" && a.facts) {
-    const located = a.facts.located ?? [];
-    if (located.length > 0)
-      return located
-        .map((w) =>
-          t("basic.factsWhere", {
-            wine: w.year === null ? w.wine : `${w.wine} ${formatVintage(w.year)}`,
-            count: w.count,
-            spots: [
-              ...w.spots.map((s) => t("basic.factsSpot", s)),
-              ...(w.unplaced > 0 ? [t("basic.factsNoPlace", { count: w.unplaced })] : []),
-            ].join("; "),
-          }),
-        )
-        .join("\n");
-    const counts = t("basic.facts", {
-      bottles: a.facts.bottles,
-      wines: a.facts.wines,
-      free: a.facts.free,
-    });
-    return a.facts.matches === null
-      ? counts
-      : `${t("basic.factsMatches", { matches: a.facts.matches })} ${counts}`;
-  }
-  return a.basic && a.basic !== "facts" ? t(`basic.${a.basic}`) : "";
-}
-
 const spoken = (turn: Turn, basic: (a: SommelierAnswer) => string) =>
   turn.role === "user"
     ? { role: "user" as const, text: turn.text }
