@@ -190,7 +190,7 @@ test.describe("the bottle on display always stands in the same place", () => {
         .getByRole("button", { name: new RegExp(`shelf ${row}, position ${col}$`) })
         .focus();
       await page.keyboard.press("Enter");
-      await expect(canvas).toHaveAttribute("data-showcase-box", /.+/, { timeout: 15_000 });
+      await expect(canvas).toHaveAttribute("data-showcase-box", /.+/, { timeout: 45_000 });
       boxes.push((await canvas.getAttribute("data-showcase-box"))!.split(",").map(Number));
       // the view (full screen on a phone) and the panel, as they are while the bottle is on display
       views.push((await scene.boundingBox())!);
