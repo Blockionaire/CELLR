@@ -87,9 +87,9 @@ async function attach(
 
 /** How many pixels of the 3D view are clearly blue (the front photo) and clearly magenta (the back photo). */
 async function labelPixels(page: Page) {
-  const png = (await page.getByTestId("cellar-3d").locator("canvas").screenshot()).toString(
-    "base64",
-  );
+  const png = (
+    await page.getByTestId("cellar-3d").locator("canvas[data-engine]").screenshot()
+  ).toString("base64");
   return page.evaluate(async (data) => {
     const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
     const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
@@ -132,7 +132,7 @@ test.describe("the bottle on display", () => {
     await attach(request, token, call, vintageId, "front", await flat(page, "#1f3fff"));
     await attach(request, token, call, vintageId, "back", await flat(page, "#ff1fb4"));
     const scene = await open3D(page);
-    const canvas = scene.locator("canvas");
+    const canvas = scene.locator("canvas[data-engine]");
 
     await takeOut(page);
     // The photos were fetched, decoded and turned into the textures the bottle wears.
@@ -170,7 +170,7 @@ test.describe("the bottle on display", () => {
     const { call, token } = await apiClient(request, email);
     const vintageId = await stock(call);
     const scene = await open3D(page);
-    const canvas = scene.locator("canvas");
+    const canvas = scene.locator("canvas[data-engine]");
 
     // No back photo: the drawn stand-in (producer and plain lines, never made-up text).
     await takeOut(page);
@@ -223,7 +223,9 @@ test.describe("staying up", () => {
     await takeOut(page);
 
     await page.evaluate(() => {
-      const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="cellar-3d"] canvas')!;
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        '[data-testid="cellar-3d"] canvas[data-engine]',
+      )!;
       const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
       gl!.getExtension("WEBGL_lose_context")!.loseContext();
     });

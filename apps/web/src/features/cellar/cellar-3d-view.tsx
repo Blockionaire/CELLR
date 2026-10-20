@@ -6,6 +6,7 @@ import {
   type CSSProperties,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -67,7 +68,82 @@ const useReducedMotion = () => useMedia("(prefers-reduced-motion: reduce)", fals
 const useShowcaseLayout = (): ShowcaseLayout =>
   useMedia(`(min-width: ${SIDE_BY_SIDE_MIN_WIDTH}px)`, true) ? "side" : "top";
 
+/** The phone's status-bar inset in px (env(safe-area-inset-top)), read off a probe; 0 elsewhere. */
+let safeTopPx: number | undefined;
+function readSafeTop(): number {
+  if (safeTopPx !== undefined) return safeTopPx;
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;height:env(safe-area-inset-top,0px)";
+  document.body.appendChild(probe);
+  safeTopPx = probe.getBoundingClientRect().height;
+  probe.remove();
+  return safeTopPx;
+}
+const useSafeTop = () =>
+  useSyncExternalStore(
+    (notify) => {
+      const changed = () => {
+        safeTopPx = undefined;
+        notify();
+      };
+      window.addEventListener("resize", changed);
+      return () => window.removeEventListener("resize", changed);
+    },
+    readSafeTop,
+    () => 0,
+  );
+
 type SheetName = "move" | "place" | null;
+
+/**
+ * The still of the rack behind the bottle on display. It takes over from the live rack looking exactly like it, then
+ * steps back (blurred, dimmed, leaning in a little); going home it comes forward again, settled before the live rack
+ * takes over (as the bottle lies down, ~0.5 s in).
+ */
+function RackStill({
+  backdrop,
+  open,
+  reduced,
+}: {
+  backdrop: Backdrop;
+  open: boolean;
+  reduced: boolean;
+}) {
+  const holder = useRef<HTMLDivElement>(null);
+  // One frame as the live rack was, then the move back starts (a style set at mount would not animate).
+  const [shown, setShown] = useState(false);
+  // In place before the next paint: the frame the rack stops being drawn already shows its still.
+  useLayoutEffect(() => {
+    const el = holder.current;
+    if (!el) return;
+    el.replaceChildren(backdrop.image);
+    const id = requestAnimationFrame(() => setShown(true));
+    return () => {
+      cancelAnimationFrame(id);
+      el.replaceChildren();
+    };
+  }, [backdrop]);
+  const back = open && shown;
+  return (
+    <div
+      ref={holder}
+      aria-hidden="true"
+      data-testid="rack-backdrop"
+      className="pointer-events-none absolute inset-0"
+      style={{
+        transformOrigin: `${backdrop.originX}% ${backdrop.originY}%`,
+        transform: back ? "scale(1.12)" : "scale(1)",
+        filter: back ? "blur(7px) brightness(0.55) saturate(0.45)" : "none",
+        transition: reduced
+          ? "none"
+          : back
+            ? "transform 1.3s cubic-bezier(0.2, 0.7, 0.2, 1), filter 0.9s ease"
+            : "transform 0.42s ease, filter 0.38s ease",
+      }}
+    />
+  );
+}
 
 /**
  * Your cellar in 3D: one storage unit at a time, bottles lying in their spots. Drag to turn it, pinch to
@@ -86,6 +162,7 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
   const webgl = useWebGL();
   const reduced = useReducedMotion();
   const layout = useShowcaseLayout();
+  const safeTop = useSafeTop();
   const stage = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const [unitId, setUnitId] = useState<string | null>(null);
@@ -101,10 +178,6 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
   const [attempt, setAttempt] = useState(0);
   // A still of the rack stands behind the bottle on display (see Freezer in the scene).
   const [backdrop, setBackdrop] = useState<Backdrop | null>(null);
-  useEffect(() => {
-    if (!backdrop) return;
-    return () => URL.revokeObjectURL(backdrop.url);
-  }, [backdrop]);
   // The panel keeps showing the last bottle while it slides out.
   const [lastBottle, setLastBottle] = useState<PlacedBottle | null>(null);
 
@@ -123,6 +196,8 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
   const pick = useCallback((id: string) => {
     // The bottle that is on its way home is not done yet: wait for the rack to be live again.
     if (backdropRef.current && !openRef.current) return;
+    // Timing marks (cheap, local): how long from the tap to the bottle moving (see the perf e2e).
+    performance.mark("cellr:pick");
     // Remember where focus was and what colour the card is, then take the bottle out.
     returnFocus.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -275,27 +350,7 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
           data-showcase={open ? "open" : "closed"}
           onPointerDown={() => setTouched(true)}
         >
-          {backdrop && (
-            <div
-              aria-hidden="true"
-              data-testid="rack-backdrop"
-              className="pointer-events-none absolute inset-0"
-              style={{
-                backgroundImage: `url(${backdrop.url})`,
-                backgroundSize: "100% 100%",
-                transformOrigin: `${backdrop.originX}% ${backdrop.originY}%`,
-                // Out comes the bottle: the still rack steps back (blurred, dimmed) and leans in a little; going
-                // home reverses it, a touch quicker than the bottle, so the live rack takes over unnoticed.
-                transform: open ? "scale(1.12)" : "scale(1)",
-                filter: open ? "blur(7px) brightness(0.55) saturate(0.45)" : "none",
-                transition: reduced
-                  ? "none"
-                  : open
-                    ? "transform 1.3s cubic-bezier(0.2, 0.7, 0.2, 1), filter 0.9s ease"
-                    : "transform 0.6s ease, filter 0.5s ease",
-              }}
-            />
-          )}
+          {backdrop && <RackStill backdrop={backdrop} open={open} reduced={reduced} />}
           <div
             className="h-full w-full cursor-grab touch-none transition-opacity duration-500 active:cursor-grabbing"
             style={{ opacity: ready ? 1 : 0 }}
@@ -322,6 +377,7 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
               showcase={showcase}
               exit={exit}
               layout={layout}
+              safeTop={safeTop}
               veil={veil}
               onPick={pick}
               onDismiss={putBack}

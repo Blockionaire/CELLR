@@ -35,7 +35,7 @@ const open3D = async (page: Page) => {
 };
 
 const view = async (page: Page) => {
-  const el = page.locator("canvas").first();
+  const el = page.locator("canvas[data-engine]").first();
   const [x, y] = ((await el.getAttribute("data-target")) ?? "0,0").split(",").map(Number);
   return { x: x!, y: y!, distance: Number((await el.getAttribute("data-distance")) ?? 0) };
 };
@@ -111,8 +111,9 @@ test.describe("the rack holds still behind the bottle", () => {
     await page.keyboard.press("Enter");
     await expect(scene).toHaveAttribute("data-showcase", "open");
     const backdrop = page.getByTestId("rack-backdrop");
-    await expect(backdrop).toBeVisible();
-    await expect(backdrop).toHaveCSS("filter", /blur/);
+    // The still takes over once the bottle has slid clear of its slot (slow on a software-rendering CI runner).
+    await expect(backdrop).toBeVisible({ timeout: 20_000 });
+    await expect(backdrop).toHaveCSS("filter", /blur/, { timeout: 10_000 });
     await page.waitForTimeout(2000); // let the bottle come out and the picture settle
 
     // Drag across the picture: the bottle turns; the camera, and with it the rack's picture, stay as they were.

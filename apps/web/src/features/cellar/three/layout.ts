@@ -333,13 +333,61 @@ export function showcasePhases(progress: number): { slide: number; rise: number;
 
 export type ShowcaseLayout = "side" | "top";
 
+/** The details panel, in the numbers its CSS uses: beside the bottle on a wide screen, below it on a phone. */
+export const PANEL = {
+  /** Gap between the panel (and the bottle's space) and the edges of the view, px. */
+  inset: 12,
+  /** Wide screens: the panel is this wide, but at most `sideShare` of the view. */
+  sideMaxPx: 416,
+  sideShare: 0.46,
+  /** Phones: the panel takes this share of the screen's height, from the bottom. */
+  topShare: 0.44,
+} as const;
+
+/** How far in front of the camera the bottle stands on display (scene units). Its size on screen does not depend on it. */
+export const SHOWCASE_DEPTH = 9;
+
+/** The bottle's height to its widest diameter (the widest of the three shapes), to keep a tall bottle in a narrow space. */
+const BOTTLE_SLENDERNESS = (2 * 0.46) / BOTTLE_LENGTH;
+
 /**
- * Where the standing bottle is shown, as fractions of what the camera sees (x: -0.5 left … 0.5 right,
- * y: -0.5 bottom … 0.5 top) and how much of the view's height it fills. On a wide screen it stands on the
- * left and the details take the right; on a phone it stands on top and the details take the bottom.
+ * Where the bottle stands on display, worked out on the screen: in the middle of the space the panel leaves free,
+ * as tall as that space allows with a margin. The same for every rack, shelf and camera angle.
+ * Returns the bottle's centre as fractions of the view (x: -0.5 left … 0.5 right, y: -0.5 bottom … 0.5 top) and
+ * its height as a fraction of the view's height.
+ *
+ * @param safeTop the phone's status-bar inset in px (the view fills the whole screen there)
  */
-export function showcaseSpot(layout: ShowcaseLayout): { x: number; y: number; fill: number } {
-  return layout === "side" ? { x: -0.22, y: 0.01, fill: 0.72 } : { x: 0, y: 0.22, fill: 0.37 };
+export function showcaseFrame(
+  layout: ShowcaseLayout,
+  width: number,
+  height: number,
+  safeTop = 0,
+): { x: number; y: number; fill: number } {
+  const w = Math.max(1, width);
+  const h = Math.max(1, height);
+  const { inset } = PANEL;
+  const left = inset;
+  let right = w - inset;
+  let top = inset;
+  let bottom = h - inset;
+  let share: number;
+  if (layout === "side") {
+    right = w - inset - Math.min(PANEL.sideMaxPx, PANEL.sideShare * w) - inset;
+    share = 0.8;
+  } else {
+    top = safeTop + inset;
+    bottom = h * (1 - PANEL.topShare) - inset;
+    share = 0.9;
+  }
+  const free = Math.max(1, bottom - top);
+  // As tall as the free space allows, unless that would make it wider than the space is.
+  const tall = Math.min(free * share, ((right - left) * 0.8) / BOTTLE_SLENDERNESS);
+  return {
+    x: (left + right) / 2 / w - 0.5,
+    y: 0.5 - (top + bottom) / 2 / h,
+    fill: tall / h,
+  };
 }
 
 /** The panel sits beside the picture on screens at least this wide (px), below it underneath. */

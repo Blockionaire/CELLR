@@ -50,7 +50,7 @@ const open3D = async (page: Page) => {
  * and the two are compared. (Reading a WebGL canvas directly gives a blank buffer outside the frame.)
  */
 async function drawnPixels(page: Page, scene: Locator): Promise<number> {
-  const canvas = scene.locator("canvas");
+  const canvas = scene.locator("canvas[data-engine]");
   const withScene = await scene.screenshot();
   await canvas.evaluate((el) => (el.style.visibility = "hidden"));
   const without = await scene.screenshot();
@@ -99,7 +99,7 @@ test.describe("the 3D cellar", () => {
     await addBottles(call, CUVEE, 2017, 1, fridge);
 
     const scene = await open3D(page);
-    const canvas = scene.locator("canvas");
+    const canvas = scene.locator("canvas[data-engine]");
     await expect(canvas).toBeVisible();
     // Something is actually on screen (not a blank WebGL context).
     await expect.poll(() => drawnPixels(page, scene)).toBeGreaterThan(4000);
@@ -163,12 +163,12 @@ test.describe("the 3D cellar", () => {
     const scene = await open3D(page);
     // On a phone the picture can be taller than the screen: bring its middle clear of the bars first.
     await page.evaluate(() => {
-      const c = document.querySelector("canvas")!.getBoundingClientRect();
+      const c = document.querySelector("canvas[data-engine]")!.getBoundingClientRect();
       const over = c.top + c.height / 2 - (window.innerHeight - 160);
       if (over > 0) window.scrollBy(0, over);
     });
     await page.waitForTimeout(300);
-    const box = (await scene.locator("canvas").boundingBox())!;
+    const box = (await scene.locator("canvas[data-engine]").boundingBox())!;
     const panel = page.getByRole("dialog", { name: /Pavillon Rouge 2015/ });
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await expect(panel).toHaveAttribute("data-open", "true");
@@ -220,7 +220,7 @@ test.describe("the 3D cellar", () => {
     await addBottles(call, RED, 2015, 4, fridge);
 
     const scene = await open3D(page);
-    const canvas = scene.locator("canvas");
+    const canvas = scene.locator("canvas[data-engine]");
     const before = await canvas.screenshot();
     const box = (await canvas.boundingBox())!;
     await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5);

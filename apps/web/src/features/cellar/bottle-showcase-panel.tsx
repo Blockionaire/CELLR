@@ -17,7 +17,7 @@ import { Skeleton } from "@/ui/skeleton";
 import { PhasePill } from "@/features/tonight/pick-bits";
 import { useDay, useMoney } from "./bottle-bits";
 import { FavoriteButton } from "./favorite-button";
-import type { ShowcaseLayout } from "./three/layout";
+import { PANEL, type ShowcaseLayout } from "./three/layout";
 import { placeLine } from "./wine-visuals";
 
 interface PanelProps {
@@ -89,12 +89,14 @@ export function BottleShowcasePanel({
       inert={!open}
       data-testid="bottle-showcase"
       data-open={open}
+      // On a phone the panel has a fixed height (the bottle above it is sized to the space it leaves: showcaseFrame).
+      style={layout === "top" ? { height: `${PANEL.topShare * 100}%` } : undefined}
       className={cn(
         "absolute z-10 flex flex-col overflow-hidden bg-surface/85 shadow-raised outline-none ring-1 ring-hairline backdrop-blur-xl",
         "transition-[transform,opacity] duration-500 ease-cellr motion-reduce:transition-none",
         layout === "side"
           ? "inset-y-3 right-3 w-[min(26rem,46%)] rounded-card"
-          : "inset-x-0 bottom-0 max-h-[52%] rounded-t-sheet",
+          : "inset-x-0 bottom-0 rounded-t-sheet",
         open
           ? "translate-x-0 translate-y-0 opacity-100 delay-300 motion-reduce:delay-0"
           : layout === "side"
