@@ -4,7 +4,7 @@ Living document: kept up to date during the sprint so another session can pick i
 
 - **Branch:** `claude/blissful-mendel-fu02oz` (the session's working branch, restarted from `main` at `73fa8b1`;
   the brief suggested `feature/sprint-d-beta-readiness`, the session may only push to its own branch)
-- **PR:** _opened at the end of the sprint_
+- **PR:** opened against `main` at the end of the sprint (not merged)
 - **Started from:** `main` @ `73fa8b1` (Sprint C.1 merged)
 
 ## 0. Starting baseline
@@ -258,3 +258,56 @@ and GPU synchronisation, not our code. **0.59 s `drawImage`**: the copy of the r
    transitions (2) are the suspect.
 5. Send the screenshots of the timeline, the iPhone model and the iOS version. The fix then targets the measured
    cause.
+
+## 5. D.7 — Beta readiness: test results (this container, 4 CPUs, software WebGL)
+
+| Check                                                               | Result                                                                          |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `pnpm format:check`, `lint`, `typecheck`                            | pass                                                                            |
+| Unit tests (`pnpm test`)                                            | domain 290, web 381 (+12 skipped), scan-eval 26: all pass                       |
+| Database tests (`pnpm db:test`)                                     | 444 passed, 0 failed                                                            |
+| Changed journeys, phone, 2 workers (19 spec files, 241 tests)       | 229 passed, 2 failed, 10 skipped (gated)                                        |
+| The 2 failures, rerun serially (`detail`, `tastings`, `home`)       | 22 / 22 passed: the known load flakiness from §0, not a regression              |
+| **Beta smoke, `pnpm --filter @cellr/web e2e:beta`** (serial, phone) | **231 passed, 0 failed, 10 skipped, 39.1 min**                                  |
+| 3D specs (`cellar3d*`, `three-view`, visual/perf gates)             | not executed as a suite this sprint (no 3D code changed); `perf-3d` run for D.1 |
+| Desktop project                                                     | not executed as a suite; desktop screenshots taken by the journey photographer  |
+
+**Status of each result:**
+
+- Passing: everything in the beta smoke run.
+- Flaky: `detail` "open one of three" and `tastings` "rate … take it back". They fail only with 2 workers on this
+  machine and pass serially, the same as on `main` (§0).
+- Regression: none found.
+- Not executed: the 3D suites, the full desktop project, and the hosted and real-device checks
+  (`docs/BETA-CHECKLIST.md`).
+
+**Smoke strategy (proposal, not wired into CI).**
+
+- `e2e:beta` is reproducible: serial, one project, after `pnpm build`.
+- It does not fit the CI job's 30-minute timeout on a 2-CPU runner, and running it on every pull request would be
+  the expensive setup the brief warns against.
+- Proposal: run it before a beta build is handed out. If it should run in CI, add it to the nightly/dispatch job
+  with its own 60-minute timeout. That is a one-line workflow change the owner can choose.
+
+**Screenshots.**
+
+- `JOURNEY_REVIEW=1` writes before/after shots: first run 01–11 and a filled account 20–26, at 375×667,
+  393×852 and 1280×800, light and dark, plus Dutch on the phone.
+- Kept out of the repository (they are many and large); attached to the PR description where useful.
+- Known limit: a filled account's shots stay English in the Dutch run, because the seeded profile's language is
+  English (the profile language wins over the cookie, as designed).
+
+## 6. Confirmed defects fixed vs. future ideas
+
+- **Fixed (confirmed in code):** items 1, 3–11 above, and "Opened lately" on an empty Home.
+- **Kept as is, after checking:** the PIN offer before onboarding; "Try the camera again" when denied; `next`
+  after onboarding.
+- **Future ideas (not done):**
+  - an ownership hand-over;
+  - marking label-read fields in the form;
+  - Back on the left in the add flow;
+  - unified heading sizes;
+  - offline queuing;
+  - keyboard-aware auth screens;
+  - deep links from Insights;
+  - the 3D candidates in §4, once measured on a device.
