@@ -11,7 +11,9 @@
     "copied": "Gekopieerd",
     "share": "Delen",
     "loading": "Laden",
-    "skipToContent": "Naar de inhoud"
+    "skipToContent": "Naar de inhoud",
+    "oneFewer": "Eén minder",
+    "oneMore": "Eén meer"
   },
   "nav": {
     "label": "Hoofdmenu",
@@ -36,7 +38,8 @@
     "resendIn": "Nieuwe code over {seconds}s",
     "resent": "Er is een nieuwe code onderweg.",
     "changeEmail": "Ander e-mailadres gebruiken",
-    "invalidEmail": "Vul een geldig e-mailadres in."
+    "invalidEmail": "Vul een geldig e-mailadres in.",
+    "pageTitle": "Inloggen"
   },
   "onboarding": {
     "householdTitle": "Wie delen deze kelder?",
@@ -56,7 +59,8 @@
     "nameLabel": "Je naam",
     "namePlaceholder": "Joost",
     "finish": "Aan de slag",
-    "stepOf": "Stap {current} van {total}"
+    "stepOf": "Stap {current} van {total}",
+    "pageTitle": "Welkom"
   },
   "home": {
     "greetingMorning": "Goedemorgen, {name}",
@@ -310,7 +314,9 @@
       "failed": "Dat lukte niet. Probeer het zo nog eens.",
       "denied": "Meldingen zijn geblokkeerd voor CELLR. Sta ze toe in de instellingen van je telefoon en kom dan hier terug.",
       "unsupported": "Deze browser kan geen meldingen tonen. Op een iPhone: zet CELLR op je beginscherm (Deel → Zet op beginscherm), open de app daar en zet dit aan."
-    }
+    },
+    "leaveAlone": "Je bent de enige in dit huishouden, dus je kunt het niet leeg achterlaten. Wil je ermee stoppen, verwijder het dan bij Instellingen huishouden.",
+    "leaveLastOwner": "Je bent de enige eigenaar en anderen delen deze kelder. Om te vertrekken haal je hen eerst weg, of verwijder je het huishouden bij Instellingen huishouden."
   },
   "errors": {
     "network": "We konden CELLR niet bereiken. Controleer je verbinding en probeer opnieuw.",
@@ -379,7 +385,7 @@
       "wineExists": "Je hebt al een wijn met die naam van deze producent.",
       "notFriends": "Jullie zijn geen vrienden (meer).",
       "alreadyRated": "Je hebt deze fles al beoordeeld.",
-      "lastOwner": "Je bent de laatste eigenaar. Verwijder het huishouden, of draag het eerst over.",
+      "lastOwner": "Je bent de laatste eigenaar en er zijn nog anderen. Haal hen eerst weg, of verwijder het huishouden.",
       "noPrice": "Er is geen prijs met een betrouwbare bron gevonden.",
       "importUneven": "De import klopte niet helemaal en is daarom teruggedraaid.",
       "notAllowed": "Dat mag niet.",
@@ -708,7 +714,8 @@
       "tannic": "Tanninerijk",
       "complex": "Complex",
       "elegant": "Elegant"
-    }
+    },
+    "removeConfirm": "Ja, alles verwijderen"
   },
   "drink": {
     "title": "Wanneer drinken",
@@ -1043,7 +1050,7 @@
     "noPrices": "Geen prijzen vastgelegd",
     "pricedNote": "{count, plural, one {van # fles met prijs} other {van # flessen met prijs}}",
     "noValues": "Zoek een waarde op via de pagina van een wijn",
-    "valuedNote": "{count, plural, one {# fles gewaardeerd} other {# flessen gewaardeerd}}",
+    "valuedNote": "{count} van {total, plural, one {# fles} other {# flessen}} gewaardeerd",
     "gainNote": "{amount} meer dan betaald ({count, plural, one {# fles} other {# flessen}})",
     "lossNote": "{amount} minder dan betaald ({count, plural, one {# fles} other {# flessen}})",
     "typesTitle": "Wat je hebt",
@@ -1112,7 +1119,9 @@
     "rated": "{stars} sterren",
     "putBack": "Terugzetten",
     "putBackLabel": "Zet {wine} terug in de kelder",
-    "restored": "Weer terug in je kelder."
+    "restored": "Weer terug in je kelder.",
+    "putBackConfirm": "Ja, terugzetten",
+    "putBackConfirmLabel": "Ja, zet {wine} terug in de kelder"
   },
   "merge": {
     "title": "Samenvoegen met een andere wijn",
@@ -1150,7 +1159,7 @@
     "title": "Vrienden",
     "subtitle": "Bekijk elkaars beoordelingen, smaak en kelder — alleen wat ieder zelf wil delen.",
     "notReadyTitle": "Vrienden komen eraan",
-    "notReadyBody": "Hiervoor is nog één databasestap nodig. Al het andere werkt. In de installatiegids, “Updating the database”, staat wat je moet doen.",
+    "notReadyBody": "Dit deel van CELLR staat nog niet aan. Al het andere werkt gewoon.",
     "meTitle": "Jij",
     "handleLabel": "Accountnaam",
     "handleHint": "3–20 letters, cijfers, punten of underscores. Vrienden vinden je hiermee.",
@@ -1279,7 +1288,9 @@
     "addToWishlist": "Op verlanglijst",
     "dismiss": "Weghalen",
     "savedToWishlist": "Staat nu op je verlanglijst.",
-    "entryRecommendations": "{count, plural, one {# wijn aanbevolen voor jou} other {# wijnen aanbevolen voor jou}}"
+    "entryRecommendations": "{count, plural, one {# wijn aanbevolen voor jou} other {# wijnen aanbevolen voor jou}}",
+    "acceptConsent": "Als je accepteert, ziet die persoon wat je met vrienden deelt, zoals ingesteld bij “Wat je deelt” (in het begin: je beoordelingen met notities en je smaakprofiel, niet je kelder).",
+    "sharingFailed": "We konden niet laden wat je deelt, dus tonen we niets in plaats van een gok."
   },
   "pin": {
     "usePin": "Inloggen met mijn pincode",

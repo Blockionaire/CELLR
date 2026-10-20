@@ -1,4 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
+import { useTranslations } from "next-intl";
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "./cn";
 
@@ -44,6 +45,7 @@ export function Button({
   type = "button",
   ...rest
 }: ButtonProps) {
+  const tc = useTranslations("common");
   return (
     <button
       type={type}
@@ -63,7 +65,7 @@ export function Button({
         <span
           className="absolute inset-0 grid place-items-center"
           role="status"
-          aria-label="Loading"
+          aria-label={tc("loading")}
         >
           <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
         </span>

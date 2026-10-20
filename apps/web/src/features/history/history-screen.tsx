@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
 import {
   ERROR_MESSAGES,
   formatStars,
@@ -49,6 +50,14 @@ export function HistoryScreen({ initial }: { initial: HistoryView }) {
         { tone: "error" },
       ),
   });
+
+  // One stray tap must not move a bottle: the first tap asks, the second (within a few seconds) puts it back.
+  const [asking, setAsking] = useState<string | null>(null);
+  useEffect(() => {
+    if (!asking) return;
+    const timer = window.setTimeout(() => setAsking(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [asking]);
 
   const month = (iso: string) =>
     new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }).format(
@@ -123,16 +132,31 @@ export function HistoryScreen({ initial }: { initial: HistoryView }) {
                       ) : (
                         <span />
                       )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="-mr-3"
-                        loading={putBack.isPending && putBack.variables === item.bottleId}
-                        aria-label={t("putBackLabel", { wine: item.wineName })}
-                        onClick={() => putBack.mutate(item.bottleId)}
-                      >
-                        {t("putBack")}
-                      </Button>
+                      {asking === item.bottleId ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          loading={putBack.isPending && putBack.variables === item.bottleId}
+                          aria-label={t("putBackConfirmLabel", { wine: item.wineName })}
+                          onClick={() => {
+                            setAsking(null);
+                            putBack.mutate(item.bottleId);
+                          }}
+                        >
+                          {t("putBackConfirm")}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="-mr-3"
+                          loading={putBack.isPending && putBack.variables === item.bottleId}
+                          aria-label={t("putBackLabel", { wine: item.wineName })}
+                          onClick={() => setAsking(item.bottleId)}
+                        >
+                          {t("putBack")}
+                        </Button>
+                      )}
                     </div>
                   </li>
                 ))}

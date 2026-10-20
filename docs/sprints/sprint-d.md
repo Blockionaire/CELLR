@@ -172,3 +172,18 @@ Legend:
   its first field (so the phone keyboard comes up there). The purchase date `max` is the local date (new
   `todayLocal()`, also in the edit sheet). While the places load, the place grid shows two placeholders and "Not
   placed" only looks chosen when it was chosen.
+- **Item 7 (done):** "Invite someone" is shown to owners only (the database already refused members). "Leave
+  household" is replaced by a sentence saying what to do instead when leaving would strand the household: as its
+  only member, or as its last owner while others remain (the database still refuses the latter; the e2e test now
+  checks both the screen and the 409). Sheets take their close label from the translations (fixes "Close" in
+  Dutch for the 12 sheets without one). The two typed delete confirmations start empty again after Cancel.
+- **Item 8 (done):** "Put back" in History asks once more inline ("Yes, put it back", gone again after 4 s);
+  removing a tasting asks once more ("Yes, remove it all").
+- **Item 9 (done):** accepting a request says what the new friend will see and where that is changed. When the
+  sharing settings can't be loaded the card says so with "Try again", instead of showing the defaults as if they
+  were saved. The "not ready" copy no longer mentions a database guide. Person rows wrap their buttons under the
+  name on a narrow phone.
+- **Item 10 (done):** no "What you have" ring when every bottle has been opened; "3 of 12 bottles valued".
+- **Item 11 (done):** the button's loading label, the stepper's buttons and the sign-in and onboarding page titles
+  are translated; the offline page (static, no script) carries a Dutch line under the English one; the manifest
+  splash colour is Noir's own `#0e090b`, the same as the app's dark theme-color (it was a third shade).

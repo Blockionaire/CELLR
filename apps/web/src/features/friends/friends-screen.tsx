@@ -306,6 +306,8 @@ function IncomingCard({ requests }: { requests: FriendEntry[] }) {
           </li>
         ))}
       </ul>
+      {/* Accepting is consent: say what a new friend will see, and where that is changed. */}
+      <p className="mt-4 text-small text-ink-3">{t("acceptConsent")}</p>
     </Card>
   );
 }

@@ -11,7 +11,9 @@
     "copied": "Copied",
     "share": "Share",
     "loading": "Loading",
-    "skipToContent": "Skip to content"
+    "skipToContent": "Skip to content",
+    "oneFewer": "One fewer",
+    "oneMore": "One more"
   },
   "nav": {
     "label": "Main",
@@ -36,7 +38,8 @@
     "resendIn": "Send a new code in {seconds}s",
     "resent": "A new code is on its way.",
     "changeEmail": "Use a different email",
-    "invalidEmail": "Enter a valid email address."
+    "invalidEmail": "Enter a valid email address.",
+    "pageTitle": "Sign in"
   },
   "onboarding": {
     "householdTitle": "Who shares this cellar?",
@@ -56,7 +59,8 @@
     "nameLabel": "Your name",
     "namePlaceholder": "Joost",
     "finish": "Let's go",
-    "stepOf": "Step {current} of {total}"
+    "stepOf": "Step {current} of {total}",
+    "pageTitle": "Welcome"
   },
   "home": {
     "greetingMorning": "Good morning, {name}",
@@ -310,7 +314,9 @@
       "failed": "That didn’t work. Try again in a moment.",
       "denied": "Notifications are blocked for CELLR. Allow them in your phone’s settings, then come back here.",
       "unsupported": "This browser can’t show notifications. On an iPhone: add CELLR to your home screen (Share → Add to Home Screen), open it from there and turn this on."
-    }
+    },
+    "leaveAlone": "You're the only one in this household, so it can't be left behind empty. To stop using it, delete it under Household settings.",
+    "leaveLastOwner": "You're the only owner, and others share this cellar. To leave, remove them first, or delete the household under Household settings."
   },
   "errors": {
     "network": "We couldn't reach CELLR. Check your connection and try again.",
@@ -379,7 +385,7 @@
       "wineExists": "You already have a wine with that name from this producer.",
       "notFriends": "You are not friends (any more).",
       "alreadyRated": "You have already rated this bottle.",
-      "lastOwner": "You're the last owner. Delete the household instead, or hand it over first.",
+      "lastOwner": "You're the last owner, and others are still here. Remove them first, or delete the household.",
       "noPrice": "No price with a trustworthy source was found.",
       "importUneven": "The import came out uneven, so it was taken back.",
       "notAllowed": "That isn't allowed.",
@@ -708,7 +714,8 @@
       "tannic": "Tannic",
       "complex": "Complex",
       "elegant": "Elegant"
-    }
+    },
+    "removeConfirm": "Yes, remove it all"
   },
   "drink": {
     "title": "When to drink it",
@@ -1043,7 +1050,7 @@
     "noPrices": "No prices recorded",
     "pricedNote": "{count, plural, one {from # bottle with a price} other {from # bottles with a price}}",
     "noValues": "Look up a value on a wine’s page",
-    "valuedNote": "{count, plural, one {# bottle valued} other {# bottles valued}}",
+    "valuedNote": "{count} of {total, plural, one {# bottle} other {# bottles}} valued",
     "gainNote": "{amount} more than paid ({count, plural, one {# bottle} other {# bottles}})",
     "lossNote": "{amount} less than paid ({count, plural, one {# bottle} other {# bottles}})",
     "typesTitle": "What you have",
@@ -1112,7 +1119,9 @@
     "rated": "{stars} stars",
     "putBack": "Put back",
     "putBackLabel": "Put {wine} back in the cellar",
-    "restored": "Back in your cellar."
+    "restored": "Back in your cellar.",
+    "putBackConfirm": "Yes, put it back",
+    "putBackConfirmLabel": "Yes, put {wine} back in the cellar"
   },
   "merge": {
     "title": "Merge with another wine",
@@ -1150,7 +1159,7 @@
     "title": "Friends",
     "subtitle": "See each other's ratings, taste and cellar — only what each of you chooses to share.",
     "notReadyTitle": "Friends are almost here",
-    "notReadyBody": "It needs one more database step. Everything else works. The setup guide, “Updating the database”, shows what to do.",
+    "notReadyBody": "This part of CELLR isn't switched on yet. Everything else works as usual.",
     "meTitle": "You",
     "handleLabel": "Account name",
     "handleHint": "3–20 letters, digits, dots or underscores. Friends find you by it.",
@@ -1279,7 +1288,9 @@
     "addToWishlist": "Add to wishlist",
     "dismiss": "Dismiss",
     "savedToWishlist": "On your wishlist now.",
-    "entryRecommendations": "{count, plural, one {# wine recommended to you} other {# wines recommended to you}}"
+    "entryRecommendations": "{count, plural, one {# wine recommended to you} other {# wines recommended to you}}",
+    "acceptConsent": "When you accept, they see what you share with friends, as set under “What you share” (at first: your ratings with their notes and your taste profile, not your cellar).",
+    "sharingFailed": "We couldn't load what you share right now, so nothing is shown rather than a guess."
   },
   "pin": {
     "usePin": "Sign in with my PIN",

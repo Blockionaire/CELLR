@@ -42,6 +42,7 @@ export function RateSheet({ open, onClose, bottleId, title, existing }: RateShee
   const [words, setWords] = useState<Descriptor[]>(existing?.descriptors ?? []);
   const [note, setNote] = useState(existing?.note ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [askRemove, setAskRemove] = useState(false);
 
   const hasSomething = score !== null || words.length > 0 || note.trim() !== "";
   const busy = save.isPending || remove.isPending;
@@ -116,20 +117,32 @@ export function RateSheet({ open, onClose, bottleId, title, existing }: RateShee
         </Button>
         {existing && (
           <div className="text-center">
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={busy}
-              loading={remove.isPending}
-              onClick={() =>
-                remove.mutate(bottleId, {
-                  onSuccess: onClose,
-                  onError: fail,
-                })
-              }
-            >
-              {t("remove")}
-            </Button>
+            {/* Stars, words and note go at once and can't be undone: the first tap asks. */}
+            {askRemove ? (
+              <Button
+                type="button"
+                variant="danger"
+                disabled={busy}
+                loading={remove.isPending}
+                onClick={() =>
+                  remove.mutate(bottleId, {
+                    onSuccess: onClose,
+                    onError: fail,
+                  })
+                }
+              >
+                {t("removeConfirm")}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => setAskRemove(true)}
+              >
+                {t("remove")}
+              </Button>
+            )}
           </div>
         )}
       </form>

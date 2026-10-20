@@ -103,7 +103,10 @@ test.describe("several bottles at once", () => {
     await expect(page.getByTestId("history-item")).toContainText("Given away");
     await page.screenshot({ path: shot(`history-${project()}`), fullPage: true });
     expect(await audit(page)).toEqual([]);
+    // One tap asks, the second puts it back.
     await page.getByRole("button", { name: /^Put .* back in the cellar$/ }).click();
+    await expect(page.getByTestId("history-item")).toHaveCount(1);
+    await page.getByRole("button", { name: /^Yes, put .* back in the cellar$/ }).click();
     await expect(page.getByText("Back in your cellar.")).toBeVisible();
     await expect(page.getByTestId("history-item")).toHaveCount(0);
     await expect(

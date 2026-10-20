@@ -9,6 +9,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "./cn";
 import { CloseIcon } from "./icons";
 
@@ -30,14 +31,8 @@ const prefersReducedMotion = () =>
  * the browser, and nothing is injected into <head> (which our strict nonce-based CSP would block).
  * Drag the handle down to dismiss.
  */
-export function Sheet({
-  open,
-  onClose,
-  title,
-  description,
-  children,
-  closeLabel = "Close",
-}: SheetProps) {
+export function Sheet({ open, onClose, title, description, children, closeLabel }: SheetProps) {
+  const tc = useTranslations("common");
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descId = useId();
@@ -151,7 +146,7 @@ export function Sheet({
           <button
             type="button"
             onClick={requestClose}
-            aria-label={closeLabel}
+            aria-label={closeLabel ?? tc("close")}
             className="-mr-2 grid size-11 shrink-0 place-items-center rounded-full text-ink-2 transition-colors duration-150 hover:bg-raised hover:text-ink"
           >
             <CloseIcon size={20} />

@@ -212,13 +212,16 @@ test.describe("households: invite, join, remove", () => {
       expect(joined.status()).toBe(200);
 
       await alice.page.getByRole("link", { name: "Profile" }).first().click();
-      await alice.page.getByRole("button", { name: "Leave household" }).click();
-      await alice.page.getByRole("dialog").getByRole("button", { name: "Leave household" }).click();
-      await expect(
-        alice.page.getByText(
-          "You're the last owner. Delete the household instead, or hand it over first.",
-        ),
-      ).toBeVisible();
+      // The screen doesn't offer what would fail: it says what to do instead.
+      await expect(alice.page.getByText(/You're the only owner, and others share/)).toBeVisible();
+      await expect(alice.page.getByRole("button", { name: "Leave household" })).toHaveCount(0);
+      // And the database still refuses it, in words the person can act on.
+      const left = await alice.page.request.delete(
+        `/api/v1/households/${me.activeHouseholdId}/members/${me.userId}`,
+        { headers: { origin: "http://localhost:3100" } },
+      );
+      expect(left.status()).toBe(409);
+      expect((await left.json()).error.message).toMatch(/last owner/);
     } finally {
       await alice.context.close();
     }

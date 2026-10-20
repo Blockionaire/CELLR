@@ -125,6 +125,11 @@ function DeleteSheet({
   const remove = useDeleteHousehold();
   const [typed, setTyped] = useState("");
   const matches = typed.trim() === household.name;
+  // Cancelled means forgotten: opening it again starts empty.
+  const close = () => {
+    setTyped("");
+    onClose();
+  };
 
   async function confirm() {
     try {
@@ -143,7 +148,7 @@ function DeleteSheet({
   return (
     <Sheet
       open={open}
-      onClose={onClose}
+      onClose={close}
       title={t("deleteHouseholdTitle", { household: household.name })}
       closeLabel={closeLabel}
     >
@@ -159,7 +164,7 @@ function DeleteSheet({
             autoComplete="off"
           />
           <div className="flex flex-col gap-2">
-            <Button variant="secondary" size="lg" block onClick={onClose}>
+            <Button variant="secondary" size="lg" block onClick={close}>
               {tc("cancel")}
             </Button>
             <Button
