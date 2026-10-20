@@ -199,3 +199,62 @@ Legend:
 - **Item 11 (done):** the button's loading label, the stepper's buttons and the sign-in and onboarding page titles
   are translated; the offline page (static, no script) carries a Dutch line under the English one; the manifest
   splash colour is Noir's own `#0e090b`, the same as the app's dark theme-color (it was a third shade).
+- **Home (small, found while testing):** "Opened lately" stays on Home when every bottle has been drunk (it was
+  hidden together with the rest of the empty-cellar page).
+
+## 4. D.1 — 3D smoothness: what was measured (timeboxed)
+
+**How.** `e2e/perf-3d.spec.ts`, test "frame times while a bottle comes out and goes back": three bottles out and
+back on the phone project, frame gaps (rAF), long main-thread tasks and canvas resizes per phase. New knobs this
+sprint: `PERF_DPR=1` (phone layout, fewer pixels) and `PERF_PROFILE=file.cpuprofile` (a CPU profile of the first
+extraction, for Chrome's Performance panel).
+
+```
+PERF_3D=1 PERF_DPR=1 PERF_RATE=1 PERF_PROFILE=out.cpuprofile \
+  pnpm exec playwright test --config=playwright.config.ts --project=phone --workers=1 perf-3d -g "frame times"
+```
+
+**Results in this container (software WebGL, no GPU).**
+
+| Setting              | Frames in 2 s out | Longest gap out | Frames in 1.5 s back | Long tasks back |
+| -------------------- | ----------------- | --------------- | -------------------- | --------------- |
+| phone, DPR 3, CPU ×4 | 2–3               | 17–1300 ms      | 4–6                  | 5–7 (≈1.4 s)    |
+| phone, DPR 3, CPU ×1 | 2–3               | 17–1670 ms      | 6–7                  | 7–8 (≈1.8 s)    |
+| phone, DPR 1, CPU ×1 | 2–4               | 1.1–1.8 s       | 6–9                  | 5–8 (≈1.6 s)    |
+| phone, DPR 1, CPU ×4 | 3–5               | 17–1780 ms      | 6–8                  | 8–10 (≈1.9 s)   |
+
+The CPU profile of one extraction (7.9 s sampled): **7.0 s "(program)"**: native time in the software rasteriser
+and GPU synchronisation, not our code. **0.59 s `drawImage`**: the copy of the rack into the still at the tap
+(it forces the GL work to finish). Everything else, React and three.js included, is under 0.1 s.
+
+**Conclusion.**
+
+- Frame rate does not change with pixel count or CPU speed here: software WebGL sets it. These numbers cannot
+  stand for an iPhone, and **nothing here claims the 3D is smooth on iOS.**
+- The app's own main-thread work on the path is small. The one measurable app cost is the still copy at the tap.
+- No resize happens on the way out (0 of 6). One happens on the way back (the stage leaves full screen). That
+  matches the code: the phone stage is full screen from the moment it opens.
+- **No 3D code was changed.** Without a device measurement, any change would be a guess at the cost of visuals the
+  user approved. All C.1 behaviour is untouched. No shader compilation on selection: `data-programs` is unchanged
+  by these runs, and the C.1 tests still guard it.
+
+**Candidates to confirm on the iPhone, most likely first:**
+
+1. The canvas going back from full screen to the card at the end of the return. That is the one resize: the
+   WebGL drawing buffer (with MSAA) is reallocated at the moment the live rack takes over.
+2. The animated CSS `filter: blur(7px) brightness() saturate()` on the full-screen still (0.9 s out, 0.38 s
+   back). WebKit may re-rasterise a full-screen blur every frame while WebGL also draws.
+3. `backdrop-blur-xl` on the details panel over a canvas that redraws every frame.
+4. The `drawImage` still copy at the tap (measured above; on a GPU it is a pipeline flush, usually a few ms).
+
+**iPhone checklist (Mac + cable, 15 minutes).**
+
+1. iPhone: Settings → Safari → Advanced → Web Inspector on. Mac: Safari → Develop → [iPhone] → the CELLR tab.
+2. Timelines → record (JavaScript & Events, Rendering Frames, Layout & Rendering) → in CELLR: Cellar → 3D → tap
+   a bottle, wait 3 s, put it back. Repeat with three different bottles.
+3. In Rendering Frames, note every frame over 33 ms and what fills it: Paint/Composite (→ 2 or 3), Layout
+   (→ 1), Script (→ 4 or React), and when it happens (at the tap, mid-way, at landing).
+4. Same again with Settings → Accessibility → Motion → Reduce Motion on. If the stutter is gone, the CSS
+   transitions (2) are the suspect.
+5. Send the screenshots of the timeline, the iPhone model and the iOS version. The fix then targets the measured
+   cause.

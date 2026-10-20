@@ -9,6 +9,9 @@ import { apiClient, arrive, wineBody } from "./helpers";
  *   PERF_3D=1 pnpm exec playwright test perf-3d --project=desktop
  */
 test.skip(!process.env.PERF_3D, "only when asked for (PERF_3D=1)");
+// Software WebGL here draws a phone's 3× screen at a few frames a second, which hides everything else: PERF_DPR=1
+// keeps the phone's layout but draws fewer pixels, so the page's own work becomes visible.
+if (process.env.PERF_DPR) test.use({ deviceScaleFactor: Number(process.env.PERF_DPR) });
 
 async function stock(page: Page, request: Parameters<typeof apiClient>[0]) {
   const { email } = await arrive(page, "perf3d");
@@ -183,8 +186,18 @@ test("frame times while a bottle comes out and goes back", async ({ page, reques
       .getByRole("button", { name })
       .focus();
     const out = await page.evaluate(() => performance.now());
+    // PERF_PROFILE=file.cpuprofile: a CPU profile of the first extraction (open it in Chrome's Performance panel).
+    const profile = process.env.PERF_PROFILE && results.length === 0;
+    if (profile) {
+      await cdp.send("Profiler.enable");
+      await cdp.send("Profiler.start");
+    }
     await page.keyboard.press("Enter");
     await page.waitForTimeout(3500);
+    if (profile) {
+      const { profile: data } = await cdp.send("Profiler.stop");
+      fs.writeFileSync(process.env.PERF_PROFILE!, JSON.stringify(data));
+    }
     const back = await page.evaluate(() => performance.now());
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("rack-backdrop")).toHaveCount(0, { timeout: 15_000 });
