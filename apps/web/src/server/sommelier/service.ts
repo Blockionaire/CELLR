@@ -105,6 +105,18 @@ export function createSommelierService(deps: SommelierDeps) {
         wines: facts.wines,
         free: facts.free,
         matches: facts.asked ? facts.matches.length : null,
+        // The exact spots, already counted: a few named wines are answered with where they are.
+        located:
+          facts.matches.length > 0 && facts.matches.length <= 3
+            ? facts.matches.map((m) => ({
+                vintageId: m.item.vintageId,
+                wine: `${m.item.producer} ${m.item.wineName}`,
+                year: m.item.year,
+                count: m.item.count,
+                spots: m.spots,
+                unplaced: m.unplaced,
+              }))
+            : [],
       },
       bottles: facts.matches.length <= 3 ? facts.matches.map((m) => toSommelierBottle(m.item)) : [],
       reason,

@@ -171,6 +171,48 @@ describe("which wines a question names", () => {
   });
 });
 
+describe("unknown names are never dropped (regression)", () => {
+  it("a wine that isn't there, with a year other wines share, matches nothing (not the other 2019s)", () => {
+    const r = matchCellarItems(items, "Heb ik nog een Sassicaia uit 2019?");
+    expect(r.matches).toEqual([]);
+    expect(r.asked).toMatchObject({ words: [], unknown: ["sassicaia"], year: 2019 });
+    const en = matchCellarItems(items, "Do I still have a Sassicaia from 2019?");
+    expect(en.matches).toEqual([]);
+  });
+
+  it("a known word with an unknown one (a typo, another cuvée) is not found, never the known one alone", () => {
+    const r = matchCellarItems(items, "Waar ligt mijn Château Musur 2018?");
+    expect(r.matches).toEqual([]);
+    expect(r.asked).toMatchObject({ words: ["chateau"], unknown: ["musur"] });
+    expect(matchCellarItems(items, "Waar ligt mijn Musar Blanc?").matches).toEqual([]);
+  });
+
+  it("partial words still find the wine; producer, name, region, year and kind all still work", () => {
+    expect(matchCellarItems(items, "Waar ligt mijn Mus 2018?").matches).toEqual([musar18]);
+    expect(matchCellarItems(items, "Waar ligt de Viña Ardanza?").matches).toEqual([rioja]);
+    expect(matchCellarItems(items, "Waar liggen mijn Talbot?").matches).toEqual([rouge]);
+    // Only the 2018 has its region filled in.
+    expect(matchCellarItems(items, "Welke Bekaa Valley wijnen heb ik?").matches).toEqual([musar18]);
+    expect(matchCellarItems(items, "Welke wijnen uit 2016 heb ik?").matches).toEqual([musar16]);
+    expect(matchCellarItems(items, "Which whites do I have?").matches).toEqual([blanc]);
+  });
+
+  it("several vintages of one wine are all returned for the caller to ask which; a year picks one", () => {
+    expect(matchCellarItems(items, "Hoeveel flessen Musar heb ik?").matches).toEqual([
+      musar18,
+      musar16,
+    ]);
+    expect(matchCellarItems(items, "Hoeveel flessen Musar 2016 heb ik?").matches).toEqual([
+      musar16,
+    ]);
+  });
+
+  it("a place's own name is not taken for a wine", () => {
+    const r = matchCellarItems(items, "Hoeveel ruimte heb ik in mijn Eurocave?", ["Eurocave"]);
+    expect(r).toEqual({ asked: null, matches: [] });
+  });
+});
+
 describe("the facts", () => {
   it("counts bottles, different wines and vintages from the items, not from anything said", () => {
     const f = cellarFacts(items, storage, racks, "Hoeveel flessen heb ik?");
@@ -226,6 +268,7 @@ describe("the facts", () => {
     const empty = cellarFacts([], storage, { units: [], unplaced: [] }, "Hoeveel flessen heb ik?");
     expect(empty).toMatchObject({ bottles: 0, wines: 0, vintages: 0, free: 53, matches: [] });
     const none = cellarFacts([], [], { units: [], unplaced: [] }, "Waar ligt mijn Musar?");
-    expect(none).toMatchObject({ bottles: 0, free: 0, asked: null, matches: [] });
+    // Asked about a wine in an empty cellar: honestly not found (the name is kept, not dropped).
+    expect(none).toMatchObject({ bottles: 0, free: 0, asked: { unknown: ["musar"] }, matches: [] });
   });
 });

@@ -88,7 +88,21 @@ export interface SommelierAnswer {
   /** Which sentence the screen shows for a plain answer. */
   basic: "pairing" | "soon" | "favorites" | "nothing" | "facts" | null;
   /** For a plain answer to a question about the cellar ("facts"): the numbers it states, counted, never guessed. */
-  facts?: { bottles: number; wines: number; free: number; matches: number | null } | null;
+  facts?: {
+    bottles: number;
+    wines: number;
+    free: number;
+    matches: number | null;
+    /** For one to three matching wines: where each bottle is (place, shelf, position) and how many have none. */
+    located?: Array<{
+      vintageId: string;
+      wine: string;
+      year: number | null;
+      count: number;
+      spots: Array<{ place: string; row: number; col: number }>;
+      unplaced: number;
+    }>;
+  } | null;
   /** Wines in the cellar the answer is about, best first; only ever real ones. */
   bottles: SommelierBottle[];
   /** Why the plain answer was given instead of an AI one. */

@@ -87,14 +87,19 @@ const ask = async (page: Page, text: string) => {
 };
 
 test.describe("the sommelier", () => {
-  test("an empty cellar invites you to add a bottle first", async ({ page }) => {
+  test("an empty cellar invites you to add a bottle, and can still be asked about itself", async ({
+    page,
+  }) => {
     await arrive(page, "somempty");
     await page.goto("/sommelier");
     await expect(
       page.getByRole("heading", { name: "Your sommelier needs a cellar" }),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "Add your first bottle" })).toBeVisible();
-    await expect(page.getByLabel("Your question")).toHaveCount(0);
+    // The chat stays: questions about the cellar itself have a true answer (counted, no model needed).
+    await page.getByRole("button", { name: "How many bottles do I have?" }).click();
+    await expect(page.getByText(/Your cellar holds 0 bottles of 0 different wines/)).toBeVisible();
+    await expect(page.getByLabel("Your question")).toBeVisible();
   });
 
   test("it answers about your cellar, points at real bottles only, and remembers the conversation", async ({

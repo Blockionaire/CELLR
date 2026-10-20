@@ -218,7 +218,10 @@
       "favorites": "Niets is dringend. Dit zijn je favorieten en best beoordeelde wijnen:",
       "nothing": "Op dit moment valt niets op. Voeg een paar flessen toe en vraag het opnieuw.",
       "facts": "Je kelder telt {bottles, plural, one {# fles} other {# flessen}} van {wines, plural, one {# wijn} other {# verschillende wijnen}}, met {free, plural, =0 {geen vrije plekken} one {# vrije plek} other {# vrije plekken}}.",
-      "factsMatches": "{matches, plural, =0 {Die wijn ligt niet in je kelder.} one {Dit is de wijn die past; tik erop voor de plekken.} other {# wijnen passen daarbij: welke bedoel je?}}"
+      "factsMatches": "{matches, plural, =0 {Die wijn ligt niet in je kelder.} one {Dit is de wijn die past; tik erop voor de plekken.} other {# wijnen passen daarbij: welke bedoel je?}}",
+      "factsWhere": "{wine} ({count, plural, one {# fles} other {# flessen}}): {spots}.",
+      "factsSpot": "{place}, plank {row}, positie {col}",
+      "factsNoPlace": "{count, plural, one {# fles} other {# flessen}} nog zonder plek"
     },
     "reason": {
       "ai-off": "De AI-sommelier staat nog niet aan, dus dit antwoord komt rechtstreeks uit je kelder.",
@@ -229,7 +232,7 @@
     "retry": "Probeer opnieuw",
     "bottles": "{count, plural, one {# fles} other {# flessen}}",
     "emptyTitle": "Je sommelier heeft een kelder nodig",
-    "emptyBody": "Voeg een paar flessen toe en vraag wat je vanavond opent, en waarom.",
+    "emptyBody": "Voeg je eerste fles toe voor advies over wat je opent. Je kunt nu al vragen stellen over je kelder, zoals hoeveel flessen je hebt of hoeveel plek er nog is.",
     "emptyAction": "Voeg je eerste fles toe",
     "budgetTitle": "Als er iets gekocht moet worden",
     "budgetHint": "Per fles. Alleen als er in je kelder niets past.",
@@ -242,7 +245,11 @@
     "buyHint": "Niet in je kelder: ideeën voor de winkel, prijzen zijn een schatting.",
     "placeholderTonight": "Wat eet je vanavond?",
     "takeThis": "Pak deze fles",
-    "noPlace": "Nog geen plek"
+    "noPlace": "Nog geen plek",
+    "emptyChips": {
+      "bottles": "Hoeveel flessen heb ik?",
+      "space": "Hoeveel opslagruimte heb ik nog vrij?"
+    }
   },
   "profile": {
     "title": "Profiel",

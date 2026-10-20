@@ -35,6 +35,8 @@ import { PageHeader } from "@/ui/page-header";
 import { useAskSommelier } from "./hooks";
 
 const CHIPS = ["tonight", "steak", "peak", "guests", "fish", "keep"] as const;
+/** With no bottles yet, the questions that still have an answer: about the cellar itself. */
+const EMPTY_CHIPS = ["bottles", "space"] as const;
 
 type Turn =
   | { role: "user"; text: string }
@@ -42,9 +44,26 @@ type Turn =
   | { role: "error"; message: string; retry: string };
 
 /** The words of a turn as the server wants them: only what was said, never what was shown. */
-/** The sentence for a plain answer; a question about the cellar gets its counted numbers in it. */
+/**
+ * The sentence for a plain answer. A question about the cellar gets its counted numbers; one naming a few wines
+ * gets where each bottle is (place, shelf, position, and how many have no place yet), all from the counted facts.
+ */
 function plainSentence(a: SommelierAnswer, t: ReturnType<typeof useTranslations<"sommelier">>) {
   if (a.basic === "facts" && a.facts) {
+    const located = a.facts.located ?? [];
+    if (located.length > 0)
+      return located
+        .map((w) =>
+          t("basic.factsWhere", {
+            wine: w.year === null ? w.wine : `${w.wine} ${formatVintage(w.year)}`,
+            count: w.count,
+            spots: [
+              ...w.spots.map((s) => t("basic.factsSpot", s)),
+              ...(w.unplaced > 0 ? [t("basic.factsNoPlace", { count: w.unplaced })] : []),
+            ].join("; "),
+          }),
+        )
+        .join("\n");
     const counts = t("basic.facts", {
       bottles: a.facts.bottles,
       wines: a.facts.wines,
@@ -209,22 +228,10 @@ export function SommelierChat({
     }
   }
 
-  // An empty cellar can still be told what to buy tonight; a general chat about it has nothing to say.
-  if (!hasBottles && mode === "chat")
-    return (
-      <>
-        <PageHeader title={t("title")} />
-        <EmptyState
-          title={t("emptyTitle")}
-          body={t("emptyBody")}
-          action={
-            <Link href="/cellar/add" className={buttonStyles({ variant: "primary", size: "lg" })}>
-              {t("emptyAction")}
-            </Link>
-          }
-        />
-      </>
-    );
+  // An empty cellar: no wine advice yet, but questions about the cellar itself (how many bottles, how much room)
+  // still have true answers, so the chat stays, with an invitation to add the first bottle and factual examples.
+  const empty = !hasBottles && mode === "chat";
+  const examples = empty ? EMPTY_CHIPS.map((id) => t(`emptyChips.${id}`)) : chips;
 
   return (
     <div className="mx-auto w-full max-w-2xl pb-24 lg:pb-0">
@@ -236,6 +243,17 @@ export function SommelierChat({
             {t("newChat")}
           </Button>
         )}
+        {empty && turns.length === 0 && (
+          <EmptyState
+            title={t("emptyTitle")}
+            body={t("emptyBody")}
+            action={
+              <Link href="/cellar/add" className={buttonStyles({ variant: "primary", size: "lg" })}>
+                {t("emptyAction")}
+              </Link>
+            }
+          />
+        )}
         {turns.length === 0 && (
           <section aria-labelledby="chips-title">
             <h2
@@ -245,7 +263,7 @@ export function SommelierChat({
               {t("tryThese")}
             </h2>
             <div className="flex flex-wrap gap-2">
-              {chips.map((label) => (
+              {examples.map((label) => (
                 <Chip key={label} onClick={() => void send(label)}>
                   {label}
                 </Chip>

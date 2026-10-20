@@ -218,7 +218,10 @@
       "favorites": "Nothing is urgent. These are your favourites and best rated:",
       "nothing": "Nothing stands out right now. Add a few bottles and ask again.",
       "facts": "Your cellar holds {bottles, plural, one {# bottle} other {# bottles}} of {wines, plural, one {# wine} other {# different wines}}, with {free, plural, =0 {no free spots} one {# free spot} other {# free spots}}.",
-      "factsMatches": "{matches, plural, =0 {That wine isn't in your cellar.} one {This is the wine that fits; tap it for its spots.} other {# wines fit that: which one do you mean?}}"
+      "factsMatches": "{matches, plural, =0 {That wine isn't in your cellar.} one {This is the wine that fits; tap it for its spots.} other {# wines fit that: which one do you mean?}}",
+      "factsWhere": "{wine} ({count, plural, one {# bottle} other {# bottles}}): {spots}.",
+      "factsSpot": "{place}, shelf {row}, position {col}",
+      "factsNoPlace": "{count, plural, one {# bottle} other {# bottles}} without a place yet"
     },
     "reason": {
       "ai-off": "The AI sommelier isn’t switched on yet, so this answer comes straight from your cellar.",
@@ -229,7 +232,7 @@
     "retry": "Try again",
     "bottles": "{count, plural, one {# bottle} other {# bottles}}",
     "emptyTitle": "Your sommelier needs a cellar",
-    "emptyBody": "Add a few bottles, then ask what to open tonight, and why.",
+    "emptyBody": "Add your first bottle to get advice on what to open. You can already ask about your cellar, like how many bottles you have or how much room is left.",
     "emptyAction": "Add your first bottle",
     "budgetTitle": "If something has to be bought",
     "budgetHint": "Per bottle. Only used when nothing in your cellar fits.",
@@ -242,7 +245,11 @@
     "buyHint": "Not in your cellar: ideas for the shop, prices are rough.",
     "placeholderTonight": "What are you eating tonight?",
     "takeThis": "Take this bottle",
-    "noPlace": "No place yet"
+    "noPlace": "No place yet",
+    "emptyChips": {
+      "bottles": "How many bottles do I have?",
+      "space": "How much storage space is available?"
+    }
   },
   "profile": {
     "title": "Profile",

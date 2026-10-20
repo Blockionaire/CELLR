@@ -456,6 +456,63 @@ describe("questions about the cellar itself", () => {
     });
   });
 
+  it("without AI a location question is answered with every bottle's exact spot, from the same reads", async () => {
+    const m18 = musar(2018, 4);
+    const rack: StorageUnitView = { ...fridge, id: "u2", label: "Wine rack", kind: "rack" };
+    for (const reason of ["ai-off", "limit", "ai-down"] as const) {
+      const { service, state } = setup({
+        items: [m18, musar(2016, 1)],
+        storage: [fridge, rack],
+        racks: {
+          units: [
+            { ...fridge, bottles: [spot(m18, 2, 4), spot(m18, 2, 3)] },
+            { ...rack, bottles: [spot(m18, 1, 6)] },
+          ],
+          unplaced: [spot(m18, null, null)],
+        },
+        ...(reason === "ai-off" ? { noAi: true } : {}),
+        ...(reason === "limit"
+          ? { spend: () => Promise.reject(new DomainError("RATE_LIMITED")) }
+          : {}),
+        ...(reason === "ai-down" ? { answer: "unavailable" as const } : {}),
+      });
+      const answer = await service.ask(ask("Waar ligt mijn Château Musar 2018?"));
+      expect(answer).toMatchObject({ source: "basic", basic: "facts", reason });
+      expect(answer.facts!.located).toEqual([
+        {
+          vintageId: m18.vintageId,
+          wine: "Château Musar Rouge",
+          year: 2018,
+          count: 4,
+          spots: [
+            { place: "Wine fridge", row: 2, col: 3 },
+            { place: "Wine fridge", row: 2, col: 4 },
+            { place: "Wine rack", row: 1, col: 6 },
+          ],
+          unplaced: 1,
+        },
+      ]);
+      // No second model call and no extra reads for it.
+      expect(state.requests.length).toBeLessThanOrEqual(1);
+      expect(state.placesRead).toBe(1);
+    }
+  });
+
+  it("without AI, a wine that isn't there is honestly not found, and several are left to choose", async () => {
+    const { service } = setup({
+      items: [musar(2018, 1), musar(2016, 1), musar(2012, 1), musar(2010, 1)],
+      storage: [fridge],
+      noAi: true,
+    });
+    expect((await service.ask(ask("Heb ik nog een Sassicaia uit 2018?"))).facts).toMatchObject({
+      matches: 0,
+      located: [],
+    });
+    const many = await service.ask(ask("Waar ligt mijn Musar?"));
+    expect(many.facts).toMatchObject({ matches: 4, located: [] });
+    expect(many.bottles).toEqual([]);
+  });
+
   it("only this household's places are read: the facts come from the service's own (RLS-scoped) reads", async () => {
     const mine = musar(2018, 1);
     const { service, state } = setup({

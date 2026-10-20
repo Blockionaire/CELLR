@@ -52,12 +52,23 @@ const TYPE_WORDS: Array<[RegExp, WineType]> = [
 /** Words that say what is asked, not which wine: they never pick a wine out. */
 const QUESTION_WORDS = new Set(
   normalizeText(
-    "hoeveel verschillende flessen fles wijnen wijn heb ik nog mijn mijne waar ligt liggen staat staan zit zitten " +
-      "welke plek plekken plaats plaatsen vrij vrije ruimte over in de het een uit van op wat met kast rek " +
-      "wijnklimaatkast koelkast how many much bottles bottle wines wine different do have still my where is are " +
-      "which spot spots place places free empty space room left the a an of from in on what",
+    // Dutch
+    "hoeveel verschillende flessen fles wijnen wijn heb hebben hebt ik jij wij nog mijn mijne onze waar ligt " +
+      "liggen staat staan zit zitten welke welk plek plekken plaats plaatsen vrij vrije ruimte opslagruimte " +
+      "over in de het een uit van voor bij op wat met kast rek kelder wijnkelder wijnklimaatkast klimaatkast " +
+      "koelkast wijnkast jaargang jaar beschikbaar totaal stuks meer minder alle allemaal geen wel ook nog er " +
+      "daar hier zijn is die dat deze dit graag even nou eigenlijk precies " +
+      // English
+      "how many much bottles bottle wines wine different do does have has got still my our where is are " +
+      "which spot spots place places free empty space storage room left available total the a an of from " +
+      "in on at what any some all there here that this these those cellar fridge rack vintage year please " +
+      "exactly kept stored",
   ).split(" "),
 );
+
+/** The kind of wine a word says ("witte" → white), or null. */
+const typeOf = (word: string): WineType | null =>
+  TYPE_WORDS.find(([pattern]) => pattern.test(word))?.[1] ?? null;
 
 export interface CellarMatch {
   item: CellarItem;
@@ -75,39 +86,60 @@ export interface CellarFacts {
   byType: Array<{ type: WineType; bottles: number; wines: number }>;
   places: Array<Pick<StorageUnitView, "label" | "kind" | "capacity" | "used" | "free">>;
   free: number;
-  /** What the question named (words, a year, a kind of wine), or null when it named no wine. */
-  asked: { words: string[]; year: number | null; type: WineType | null } | null;
+  /**
+   * What the question named (words, a year, a kind of wine), or null when it named no wine. `unknown` are the
+   * words that look like a wine's name but fit nothing in this cellar: then nothing matches ("not found"),
+   * rather than the rest of the question picking out other wines.
+   */
+  asked: { words: string[]; unknown: string[]; year: number | null; type: WineType | null } | null;
   /** The wines that fit what was named, all of them (so an ambiguous question is answered with the choice). */
   matches: CellarMatch[];
 }
 
-/** Every wine in the cellar that fits the words, year and kind of wine in the question. */
+/**
+ * Every wine in the cellar that fits the words, year and kind of wine in the question. A word that names a
+ * producer, wine or region in the cellar narrows it down (every such word must fit, so "Château Musar" is not
+ * every château). A word that could be a wine's name but fits nothing (a wine that isn't there, a typo) is never
+ * dropped: then nothing matches, so a question about a missing 2019 wine is not answered with other 2019s.
+ * Words of the question itself, kinds of wine and the names of the household's places are not wine names.
+ */
 export function matchCellarItems(
   items: readonly CellarItem[],
   question: string,
+  placeLabels: readonly string[] = [],
 ): { asked: CellarFacts["asked"]; matches: CellarItem[] } {
   const year = /\b(1[89]\d\d|20\d\d)\b/.exec(question);
   const type = TYPE_WORDS.find(([pattern]) => pattern.test(question))?.[1] ?? null;
   const text = (i: CellarItem) =>
     ` ${normalizeText(`${i.producer} ${i.wineName} ${i.region ?? ""}`)} `;
-  // A word of the question counts only when it names something in this cellar (a producer, a name, a region).
-  const words = [
+  const places = ` ${placeLabels.map((l) => normalizeText(l)).join(" ")} `;
+  const candidates = [
     ...new Set(
       normalizeText(question)
         .split(" ")
-        .filter((w) => w.length >= 3 && !QUESTION_WORDS.has(w) && !/^\d+$/.test(w))
-        .filter((w) => items.some((i) => text(i).includes(` ${w}`))),
+        .filter(
+          (w) =>
+            w.length >= 3 &&
+            !QUESTION_WORDS.has(w) &&
+            !/^\d+$/.test(w) &&
+            typeOf(w) === null &&
+            !places.includes(` ${w} `),
+        ),
     ),
   ];
-  if (words.length === 0 && !year && !type) return { asked: null, matches: [] };
+  const known = (w: string) => items.some((i) => text(i).includes(` ${w}`));
+  const words = candidates.filter(known);
+  const unknown = candidates.filter((w) => !known(w));
+  if (candidates.length === 0 && !year && !type) return { asked: null, matches: [] };
+  const asked = { words, unknown, year: year ? Number(year[1]) : null, type };
+  if (unknown.length > 0) return { asked, matches: [] };
   const matches = items.filter(
     (i) =>
       (!year || i.year === Number(year[1])) &&
       (!type || i.type === type) &&
-      // Every named word must fit: "Château Musar" is not every château.
       words.every((w) => text(i).includes(` ${w}`)),
   );
-  return { asked: { words, year: year ? Number(year[1]) : null, type }, matches };
+  return { asked, matches };
 }
 
 /** The cellar in numbers and places, counted from what the database says now. */
@@ -124,7 +156,11 @@ export function cellarFacts(
     t.wines.add(i.wineId);
     byType.set(i.type, t);
   }
-  const { asked, matches } = matchCellarItems(items, question);
+  const { asked, matches } = matchCellarItems(
+    items,
+    question,
+    storage.map((u) => u.label),
+  );
   const spotsOf = new Map<string, CellarMatch["spots"]>();
   const wanted = new Set(matches.map((m) => m.vintageId));
   for (const unit of racks.units)
@@ -189,6 +225,7 @@ export function cellarFactsText(facts: CellarFacts, refOf: (vintageId: string) =
   if (facts.asked) {
     const named = [
       ...facts.asked.words,
+      ...facts.asked.unknown,
       facts.asked.year ? String(facts.asked.year) : null,
       facts.asked.type,
     ]
