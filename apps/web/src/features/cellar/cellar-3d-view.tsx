@@ -273,7 +273,6 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
           data-testid="cellar-3d"
           data-ready={ready}
           data-showcase={open ? "open" : "closed"}
-          data-back-label={showcase ? (showcase.label.backPhotoUrl ? "photo" : "drawn") : undefined}
           onPointerDown={() => setTouched(true)}
         >
           {backdrop && (

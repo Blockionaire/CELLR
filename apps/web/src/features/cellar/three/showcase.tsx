@@ -180,11 +180,16 @@ export function Showcase({
       if (!alive) return t.dispose();
       made = t;
       setLabel(t);
+      // What the bottle actually wears, readable from outside (the tests check a photo really arrived).
+      gl.domElement.dataset.frontLabel = (t.userData as { photo?: boolean }).photo
+        ? "photo"
+        : "drawn";
       invalidate();
     });
     return () => {
       alive = false;
       made?.dispose();
+      delete gl.domElement.dataset.frontLabel;
     };
   }, [spokenLabel, gl, invalidate]);
   useEffect(() => {
@@ -194,11 +199,16 @@ export function Showcase({
       if (!alive) return t.dispose();
       made = t;
       setBackLabel(t);
+      // What the bottle actually wears, readable from outside (the tests check a photo really arrived).
+      gl.domElement.dataset.backLabel = (t.userData as { photo?: boolean }).photo
+        ? "photo"
+        : "drawn";
       invalidate();
     });
     return () => {
       alive = false;
       made?.dispose();
+      delete gl.domElement.dataset.backLabel;
     };
   }, [spokenLabel, gl, invalidate]);
   useEffect(

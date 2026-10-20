@@ -228,7 +228,7 @@ export async function makeLabelTexture(spec: LabelSpec, maxAnisotropy = 8): Prom
   }
   photo?.close();
   const texture = new THREE.CanvasTexture(canvas);
-  texture.userData = { aspect: flat ?? LABEL_ASPECT };
+  texture.userData = { aspect: flat ?? LABEL_ASPECT, photo: photo !== null };
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = maxAnisotropy;
   texture.needsUpdate = true;
