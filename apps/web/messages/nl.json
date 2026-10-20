@@ -116,7 +116,8 @@
     "history": "Geschiedenis",
     "related": "Meer uit je kelder",
     "insights": "Inzichten",
-    "typeAll": "Alle"
+    "typeAll": "Alle",
+    "emptyScan": "Scan je eerste fles"
   },
   "scan": {
     "title": "Scan een etiket",
@@ -126,7 +127,7 @@
     "choosePhoto": "Kies een foto",
     "privacy": "Om het etiket te lezen sturen we je foto naar onze AI-partner (OpenAI). Er wordt niets anders gedeeld en de foto blijft bewaard in je eigen kelder.",
     "reading": "Etiket lezen…",
-    "readingHint": "Dit duurt een paar seconden. Je foto is al veilig.",
+    "readingHint": "Dit duurt een paar seconden.",
     "photoAlt": "Jouw foto van het etiket",
     "foundTitle": "Gevonden",
     "foundBody": "Dit lijkt een wijn die je al hebt.",
@@ -181,7 +182,10 @@
       "error": "De camera is gestopt. Probeer het opnieuw, of maak de foto met de knop hieronder.",
       "retry": "Camera opnieuw proberen",
       "preview": "Camerabeeld"
-    }
+    },
+    "searchMine": "Al in je kelder? Zoek in je wijnen",
+    "searchTitle": "Welke van je wijnen is het?",
+    "searchBody": "Kies hem uit je eigen wijnen, zodat het één wijn blijft met al zijn flessen."
   },
   "sommelier": {
     "title": "Sommelier",

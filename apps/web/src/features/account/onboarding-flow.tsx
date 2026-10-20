@@ -77,13 +77,17 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
     }
   }
 
-  const current = step === "household" ? 1 : 2;
+  // Count only the steps this person actually has: someone who already has a household only gives a name.
+  const [total] = useState(step === "household" ? 2 : 1);
+  const current = step === "household" ? 1 : total;
 
   return (
     <AuthShell>
-      <p className="mb-4 text-center text-caption font-medium uppercase tracking-[0.18em] text-bronze">
-        {t("stepOf", { current, total: 2 })}
-      </p>
+      {total > 1 ? (
+        <p className="mb-4 text-center text-caption font-medium uppercase tracking-[0.18em] text-bronze">
+          {t("stepOf", { current, total })}
+        </p>
+      ) : null}
 
       {step === "name" ? (
         <form onSubmit={submitName} noValidate className="flex flex-col gap-6">

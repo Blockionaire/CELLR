@@ -116,7 +116,8 @@
     "history": "History",
     "related": "More from your cellar",
     "insights": "Insights",
-    "typeAll": "All"
+    "typeAll": "All",
+    "emptyScan": "Scan your first bottle"
   },
   "scan": {
     "title": "Scan a label",
@@ -126,7 +127,7 @@
     "choosePhoto": "Choose a photo",
     "privacy": "To read the label, your photo is sent to our AI partner (OpenAI). Nothing else is shared, and the photo is kept in your own cellar.",
     "reading": "Reading the label…",
-    "readingHint": "This takes a few seconds. Your photo is already safe.",
+    "readingHint": "This takes a few seconds.",
     "photoAlt": "Your photo of the label",
     "foundTitle": "We found it",
     "foundBody": "This looks like a wine you already have.",
@@ -181,7 +182,10 @@
       "error": "The camera stopped. Try again, or take the photo with the button below.",
       "retry": "Try the camera again",
       "preview": "Camera view"
-    }
+    },
+    "searchMine": "Already in your cellar? Search your wines",
+    "searchTitle": "Which of your wines is it?",
+    "searchBody": "Pick it from your own wines, so it stays one wine with all its bottles."
   },
   "sommelier": {
     "title": "Sommelier",

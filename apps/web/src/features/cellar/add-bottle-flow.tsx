@@ -44,6 +44,10 @@ export function AddBottleFlow({
   // Move focus to the new step's heading so keyboard and screen-reader users land in the right place.
   const heading = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    // A step that puts the cursor in its first field (search, producer) keeps it: that is where the keyboard
+    // belongs on a phone. Otherwise the heading takes focus.
+    const active = document.activeElement;
+    if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
     heading.current?.focus();
   }, [step]);
 

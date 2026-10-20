@@ -37,7 +37,9 @@ Legend:
   - "Give your household a name.";
   - an empty display name shows zod's default text ("Too small: expected string…").
   - Affected: onboarding, new-wine form, bottle details, new-place sheet.
-- **Bug (P2): "Step 1 of 2" is shown when only one step is left** (a returning person without a name or household). A `next` deep link is also lost after onboarding.
+- **Bug (P2): "Step 1 of 2" is shown when only one step is left** (a returning person without a name or household).
+- Checked, not a defect: a `next` link is lost on the way through onboarding, but a person without a household has
+  no page to be sent to yet (there are no invite links; invite codes are typed).
 - **Risk:** on a small phone with the keyboard up, the vertically centred auth screen may push its submit button under the keyboard.
 
 ### 1.2 Home with an empty cellar
@@ -63,7 +65,8 @@ Legend:
 - ✓ Series mode.
 - **Bug (P1): a wrong match can only be corrected by typing a "new" wine.** There is no search among your own wines, so a typo creates a duplicate.
 - **Bug (P1, defensive): dead end.** If "found" arrives with no matches, the review shows only the photo.
-- **Bug (P2):** "Try the camera again" is shown when the permission is *denied*, where it can never work.
+- Checked, kept: "Try the camera again" is shown when the permission is *denied*. The message tells the person to
+  allow the camera in their settings; after that, this button is exactly what they need.
 - **Bug (P2):** "Your photo is already safe" is shown before the upload has finished.
 - **Bug (P2):** saving to the wishlist in a series shows two toasts.
 - **Idea:** mark fields prefilled from the label ("read from the label — check it").
@@ -159,3 +162,13 @@ Legend:
   the 15 places that showed a raw zod message (unknown ones fall back to the translated "doesn't look right", never
   zod's English). A unit test scans `src/server` and `packages/domain` so a new sentence cannot slip in untranslated.
   The empty display name now has its own sentence ("Give yourself a name.").
+- **Item 4 (done):** the empty Cellar offers "Scan your first bottle" (primary) next to "Add your first bottle", like
+  Home. Onboarding counts only the steps this person has, and hides the counter when there is one.
+- **Item 5 (done):** the scan review can always switch to "Already in your cellar? Search your wines" (the add flow's
+  own search, prefilled with the producer that was read) and back to the form. "Found" without a match no longer
+  shows only the photo: it opens the form. "Your photo is already safe" is gone from the reading hint (the upload is
+  still running then). A wish saved from a series says so once, not twice.
+- **Item 6 (done):** the add and scan steps no longer pull focus to the heading when the step has put the cursor in
+  its first field (so the phone keyboard comes up there). The purchase date `max` is the local date (new
+  `todayLocal()`, also in the edit sheet). While the places load, the place grid shows two placeholders and "Not
+  placed" only looks chosen when it was chosen.

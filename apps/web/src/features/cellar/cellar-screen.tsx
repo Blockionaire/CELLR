@@ -241,9 +241,17 @@ export function CellarScreen({
           title={t("emptyTitle")}
           body={t("emptyBody")}
           action={
-            <Link href="/cellar/add" className={buttonStyles({ variant: "primary", size: "lg" })}>
-              {t("emptyAction")}
-            </Link>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link href="/scan" className={buttonStyles({ variant: "primary", size: "lg" })}>
+                {t("emptyScan")}
+              </Link>
+              <Link
+                href="/cellar/add"
+                className={buttonStyles({ variant: "secondary", size: "lg" })}
+              >
+                {t("emptyAction")}
+              </Link>
+            </div>
           }
         />
         {moreSheet}

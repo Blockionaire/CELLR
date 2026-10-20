@@ -13,6 +13,7 @@ import {
   type VintageDetail,
 } from "@cellr/domain";
 import { checkMessage, errorMessage } from "@/lib/api";
+import { todayLocal } from "@/lib/local-date";
 import { Button } from "@/ui/button";
 import { Field } from "@/ui/field";
 import { Sheet } from "@/ui/sheet";
@@ -184,7 +185,7 @@ function EditForm({ detail, onClose }: { detail: VintageDetail; onClose: () => v
           <Field
             label={t("dateLabel")}
             type="date"
-            max={new Date().toISOString().slice(0, 10)}
+            max={todayLocal()}
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
