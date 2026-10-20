@@ -2,6 +2,8 @@
 
 Alles wat lokaal te automatiseren is, draait als test (`apps/web/e2e/acceptance.spec.ts` doet stap 1–13
 hieronder van begin tot eind, `scan-camera.spec.ts` en `scan-live.spec.ts` de scanner op 375×667 en 390×844).
+De vaste bèta-smoke-set (de kritieke reizen, ±20–40 min lokaal) draait met `pnpm --filter @cellr/web e2e:beta`
+na `pnpm build`; zie `docs/sprints/sprint-d.md` voor wat erin zit en waarom.
 Wat overblijft hangt af van de echte Supabase, Vercel, OpenAI en een fysieke iPhone, en staat hier.
 
 **CELLR is pas klaar voor de private beta als A, B en C hieronder op de gehoste omgeving én minstens één
@@ -50,7 +52,7 @@ Gebruik een **nieuw** adres dat op de beta-lijst staat, en een echte fles.
 | 4   | Maak een huishouden, vul je naam in                                        | Je komt op Home met je naam                                                                                |
 | 5   | Scan → sta de camera toe → richt op het etiket → druk op de ontspanner     | Live beeld vult het scherm, ontspanner zichtbaar **zonder scrollen**, boven de tabbalk                     |
 | 6   | Controleer de gelezen wijn en het jaar                                     | Producent, naam, jaar kloppen of zijn makkelijk te verbeteren                                              |
-| 7   | Zet het aantal op 3                                                        | "Voeg 3 flessen toe"                                                                                       |
+| 7   | Zet het aantal op 3                                                        | De knop zegt "3 flessen toevoegen"                                                                         |
 | 8   | "Nieuwe plek" → aanmaken → toevoegen                                       | "In Wijnkoelkast." (of de naam die je koos)                                                                |
 | 9   | Op de wijnpagina: achteretiket toevoegen (foto)                            | Voor- en achteretiket staan allebei op de pagina                                                           |
 | 10  | Kelder → zoek op de naam                                                   | Precies deze wijn, 3 flessen                                                                               |
@@ -75,14 +77,37 @@ Herhaal 5–8 eenmaal met **Meerdere na elkaar** (2–3 flessen achter elkaar fo
    uit als je weg bent, en het beeld komt terug.
 6. **Ingelogd blijven.** App helemaal sluiten (omhoog vegen), na een uur en na een dag opnieuw openen: je bent
    nog ingelogd, of je komt binnen met alleen de pincode.
-7. **Offline.** Vliegtuigmodus aan, app openen: de nette "Je bent offline"-pagina, geen Safari-fout.
+7. **Offline.** Vliegtuigmodus aan, app openen: de nette offline-pagina ("You're offline", met daaronder
+   "Je bent offline"), geen Safari-fout.
 8. **Herinneringen** (als de VAPID-sleutels in Vercel staan): Profiel → Herinneringen → _Aanzetten op deze
    telefoon_ vanuit de beginscherm-app. iOS vraagt toestemming; de kaart zegt daarna dat het aan staat.
 9. **Licht en donker.** Zet iOS op donker: de scanner, de wijnpagina en Home zijn leesbaar.
 10. **Tweede huishouden.** Een tweede tester met een eigen account ziet jouw kelder, foto's en
     beoordelingen **niet**.
 
-## D. Drinkvensters — wat je mag verwachten
+## D. Wat sinds de vorige lijst is bijgekomen (iPhone, 20 minuten)
+
+1. **Eerste keer, zonder hulp.** Een nieuwe tester komt van de mail tot de eerste fles zonder uitleg:
+   inloggen → (pincode of "Niet nu") → huishouden → naam → lege Home → "Scan je eerste fles". Stopwatch:
+   rond de twee minuten is goed; noteer waar iemand twijfelde.
+2. **Verkeerde herkenning.** Scan een fles die je al hebt maar laat CELLR een andere wijn voorstellen ("Niet
+   deze"): met "Al in je kelder? Zoek in je wijnen" kies je de goede, zonder een dubbele wijn te maken.
+3. **Uitnodigen.** Als eigenaar: Profiel → "Iemand uitnodigen" → code naar een tweede tester. Die kiest bij
+   het huishouden "Meedoen met een code". Als lid zie je geen uitnodigknop.
+4. **Vertrekken.** Ben je de enige in een huishouden, dan staat er uitleg in plaats van "Huishouden
+   verlaten". Een lid kan wel vertrekken.
+5. **Vrienden.** Twee testers worden vrienden (zoek op @naam of code). Bij "Accepteren" staat wat de ander
+   te zien krijgt. Zet bij "Wat je deelt" je beoordelingen op "Niemand": de vriend ziet ze daarna niet meer.
+6. **3D-kelder.** Kelder → 3D. Tik een fles: hij schuift uit het rek en staat rechtop met het etiket naar je
+   toe. Terugleggen met de knop, met een tik ernaast en met vegen. Let op haperingen bij uitschuiven en
+   terugleggen en noteer het iPhone-model; een test op de laptop zegt hier niets over.
+7. **Licht/donker en taal.** Profiel → Licht en Donker; taal Nederlands ↔ English. Alles wisselt
+   meteen en blijft na het sluiten van de app zo staan. Geen Engelse foutmelding in het Nederlands (probeer:
+   een huishouden zonder naam, een lege naam).
+8. **Inzichten en geschiedenis.** Inzichten toont waarde alleen als die bekend is ("2 van 6 flessen
+   gewaardeerd"); ontbrekend is niet nul. In Geschiedenis vraagt "Terugzetten" eerst nog een keer.
+
+## E. Drinkvensters — wat je mag verwachten
 
 - Een venster komt van het **AI-profiel van die wijn** ("AI-schatting"), van **jezelf** ("Eigen venster"),
   of van een **grove vuistregel** ("Grove schatting").
