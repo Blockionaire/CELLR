@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InsightsEntry } from "@/features/stats/insights-entry";
 import { getLocale, getTranslations } from "next-intl/server";
 import {
   formatStars,
@@ -92,16 +93,6 @@ export async function HomeScreen({
         <h1 className="font-display text-[2.1rem] leading-[2.4rem] text-ink">
           <Greeting name={name} />
         </h1>
-        {!empty && (
-          <Link
-            href="/insights"
-            data-testid="home-summary"
-            className="text-small text-ink-2 transition-colors duration-150 hover:text-ink tnum"
-          >
-            {t("summary", { bottles: home.bottleCount, wines: home.wineCount })}
-            {money && <span> · {money}</span>}
-          </Link>
-        )}
       </header>
 
       <TonightHero
@@ -113,6 +104,21 @@ export async function HomeScreen({
         wines={heroWines}
         quickLabel={t("quickAsk")}
       />
+
+      {/* The collection in one line, under Tonight: the way into Insights (it used to sit beside the greeting). */}
+      {!empty && (
+        <InsightsEntry
+          subtle
+          className="mt-3"
+          testId="home-summary"
+          summary={
+            <>
+              {t("summary", { bottles: home.bottleCount, wines: home.wineCount })}
+              {money && <span> · {money}</span>}
+            </>
+          }
+        />
+      )}
 
       {toRate && (
         <section

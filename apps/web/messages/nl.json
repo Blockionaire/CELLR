@@ -1321,5 +1321,9 @@
     "sectionOff": "Log in met een pincode van 6 cijfers in plaats van te wachten op een code per e-mail.",
     "change": "Pincode wijzigen",
     "turnOff": "Uitzetten"
+  },
+  "insightsEntry": {
+    "title": "Inzichten",
+    "cta": "Bekijk inzichten"
   }
 }

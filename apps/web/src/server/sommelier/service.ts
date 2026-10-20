@@ -30,6 +30,8 @@ export interface SommelierDeps {
   /** Spends from the chat budget; throws RATE_LIMITED when it is gone. */
   spend: () => Promise<void>;
   householdId: () => Promise<string>;
+  /** The person's chosen app language ("en" | "nl"); the answer is written in it. */
+  locale: () => Promise<string>;
   recordUsage: (entry: {
     householdId: string | null;
     task: string;
@@ -107,6 +109,8 @@ export function createSommelierService(deps: SommelierDeps) {
         throw error;
       }
 
+      // Unknown language (the profile could not be read): English, as the app itself falls back.
+      const locale = await deps.locale().catch(() => "en");
       const digest = cellarDigest(items, question);
       const shown = digest.refs.size;
       const result = await deps.llm.generateObject({
@@ -116,6 +120,7 @@ export function createSommelierService(deps: SommelierDeps) {
         user: sommelierUserMessage(digest.text, shown, digest.total, request.messages, {
           mode: request.mode ?? "chat",
           budget: request.budget ?? null,
+          locale,
         }),
         schemaName: "sommelier_answer",
         jsonSchema: SOMMELIER_SCHEMA,

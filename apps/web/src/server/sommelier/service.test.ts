@@ -51,6 +51,7 @@ function setup(
     spend?: () => Promise<void>;
     usageFails?: boolean;
     tonight?: (item: CellarItem[]) => TonightView["picks"];
+    locale?: string | (() => Promise<string>);
   } = {},
 ) {
   const items = options.items ?? [
@@ -108,6 +109,10 @@ function setup(
         state.spent += 1;
       }),
     householdId: async () => "h1",
+    locale:
+      typeof options.locale === "function"
+        ? options.locale
+        : async () => (options.locale as string | undefined) ?? "en",
     recordUsage: async ({ task, status }) => {
       if (options.usageFails) throw new Error("usage table gone");
       state.usage.push({ task, status });
@@ -115,6 +120,40 @@ function setup(
   };
   return { service: createSommelierService(deps), state, items };
 }
+
+describe("the answer's language", () => {
+  // App language × question language: the app's choice wins, in chat and for tonight alike.
+  for (const [app, question, expected] of [
+    ["nl", "Wat past bij een biefstuk?", "Dutch"],
+    ["nl", "What goes with steak?", "Dutch"],
+    ["en", "Wat past bij een biefstuk?", "English"],
+    ["en", "What goes with steak?", "English"],
+  ] as const) {
+    it(`app ${app}, question "${question}" → ${expected}`, async () => {
+      const { service, state } = setup({ locale: app });
+      await service.ask(ask(question));
+      await service.ask({ ...ask(question), mode: "tonight" });
+      for (const request of state.requests) {
+        expect(request.user.split("\n")[0]).toBe(`Answer in: ${expected}.`);
+        expect(request.system).not.toMatch(/language of the question/);
+      }
+      expect(state.requests).toHaveLength(2);
+    });
+  }
+
+  it("a Dutch app answers in Dutch even after an English chat", async () => {
+    const { service, state } = setup({ locale: "nl" });
+    await service.ask(ask("What should I open?", "The Margaux.", "And with fish?"));
+    expect(state.requests[0]!.user).toMatch(/^Answer in: Dutch\./);
+  });
+
+  it("falls back to English when the profile can't be read, and still answers", async () => {
+    const { service, state } = setup({ locale: () => Promise.reject(new Error("gone")) });
+    const answer = await service.ask(ask("Wat moet ik openen?"));
+    expect(answer.source).toBe("ai");
+    expect(state.requests[0]!.user).toMatch(/^Answer in: English\./);
+  });
+});
 
 describe("asking the sommelier", () => {
   it("shows the model the cellar, and only believes the wines that are in it", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { InsightsEntry } from "@/features/stats/insights-entry";
 import { useLocale, useTranslations } from "next-intl";
 import { startTransition, useMemo, useState, ViewTransition } from "react";
 import {
@@ -269,15 +270,18 @@ export function CellarScreen({
           <h1 className="font-display text-[2.25rem] leading-[2.5rem] tracking-[-0.01em] lg:text-[3rem] lg:leading-[3.25rem]">
             {t("title")}
           </h1>
-          <p className="mt-0.5 text-small text-ink-2 tnum">
-            {t("summary", { bottles: data.bottleCount, wines: data.items.length })}
-          </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {moreButton}
           {addButton}
         </div>
       </header>
+
+      {/* The collection in numbers, and the way into Insights (the counts used to sit under the title). */}
+      <InsightsEntry
+        className="mb-3"
+        summary={t("summary", { bottles: data.bottleCount, wines: data.items.length })}
+      />
 
       <div
         className={cn(
