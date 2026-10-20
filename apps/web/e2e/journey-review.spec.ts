@@ -48,7 +48,7 @@ async function firstRun(page: Page, shot: (n: string) => Promise<void>, nl: bool
   await page.waitForLoadState("networkidle");
   await shot("01-sign-in");
   await page.getByLabel(nl ? "E-mail" : "Email").fill(email);
-  await page.getByRole("button", { name: nl ? /code/i : "Send me a code" }).click();
+  await page.getByRole("button", { name: nl ? "Stuur me een code" : "Send me a code" }).click();
   await page.waitForTimeout(800);
   await shot("02-code");
   await page.getByLabel(/6/).fill(await codeFor(email));
