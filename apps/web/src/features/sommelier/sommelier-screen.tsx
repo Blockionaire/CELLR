@@ -42,6 +42,21 @@ type Turn =
   | { role: "error"; message: string; retry: string };
 
 /** The words of a turn as the server wants them: only what was said, never what was shown. */
+/** The sentence for a plain answer; a question about the cellar gets its counted numbers in it. */
+function plainSentence(a: SommelierAnswer, t: ReturnType<typeof useTranslations<"sommelier">>) {
+  if (a.basic === "facts" && a.facts) {
+    const counts = t("basic.facts", {
+      bottles: a.facts.bottles,
+      wines: a.facts.wines,
+      free: a.facts.free,
+    });
+    return a.facts.matches === null
+      ? counts
+      : `${t("basic.factsMatches", { matches: a.facts.matches })} ${counts}`;
+  }
+  return a.basic && a.basic !== "facts" ? t(`basic.${a.basic}`) : "";
+}
+
 const spoken = (turn: Turn, basic: (a: SommelierAnswer) => string) =>
   turn.role === "user"
     ? { role: "user" as const, text: turn.text }
@@ -136,7 +151,7 @@ export function SommelierChat({
     end.current?.scrollIntoView({ block: "end" });
   }, [turns.length, ask.isPending]);
 
-  const basicSentence = (a: SommelierAnswer) => (a.basic ? t(`basic.${a.basic}`) : "");
+  const basicSentence = (a: SommelierAnswer) => plainSentence(a, t);
 
   async function send(text: string) {
     const question = text.trim();
@@ -394,7 +409,7 @@ function Answer({ answer }: { answer: SommelierAnswer }) {
         {answer.verdict && <VerdictBadge verdict={answer.verdict} />}
         <p className="whitespace-pre-wrap font-display text-title text-ink">
           <span className="sr-only">{t("sommelier")}: </span>
-          {answer.source === "ai" ? answer.text : answer.basic ? t(`basic.${answer.basic}`) : ""}
+          {answer.source === "ai" ? answer.text : plainSentence(answer, t)}
         </p>
       </div>
       {answer.bottles.length > 0 && (

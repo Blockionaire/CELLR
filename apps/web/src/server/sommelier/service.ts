@@ -1,6 +1,12 @@
 import "server-only";
 import {
   cellarDigest,
+  cellarFacts,
+  cellarFactsText,
+  isCellarQuestion,
+  type CellarFacts,
+  type RackView,
+  type StorageUnitView,
   checkSommelierAnswer,
   DomainError,
   detectIntent,
@@ -23,6 +29,9 @@ import {
 
 export interface SommelierDeps {
   cellar: () => Promise<CellarView>;
+  /** Places with their room, and every bottle's spot: read only for a question about the cellar itself. */
+  storage: () => Promise<StorageUnitView[]>;
+  racks: () => Promise<RackView>;
   /** The plain pairing engine, for when there is no AI to ask. */
   tonight: (request: TonightRequest) => Promise<TonightView>;
   /** Null = no AI configured. */
@@ -85,6 +94,23 @@ export function createSommelierService(deps: SommelierDeps) {
     };
   }
 
+  /** The plain answer to a question about the cellar: the counts, and the wines it named (when few). */
+  function plainFacts(facts: CellarFacts, reason: SommelierAnswer["reason"]): SommelierAnswer {
+    return {
+      source: "basic",
+      text: null,
+      basic: "facts",
+      facts: {
+        bottles: facts.bottles,
+        wines: facts.wines,
+        free: facts.free,
+        matches: facts.asked ? facts.matches.length : null,
+      },
+      bottles: facts.matches.length <= 3 ? facts.matches.map((m) => toSommelierBottle(m.item)) : [],
+      reason,
+    };
+  }
+
   return {
     async ask(request: AskSommelier): Promise<SommelierAnswer> {
       const question = request.messages.at(-1)!.text;
@@ -97,21 +123,38 @@ export function createSommelierService(deps: SommelierDeps) {
         bottles: [],
         reason: null,
       };
+      // A question about the cellar itself is answered from counted facts: the places and spots are only read
+      // for such a question, never for wine advice.
+      const facts =
+        !tonight && isCellarQuestion(question)
+          ? cellarFacts(items, ...(await Promise.all([deps.storage(), deps.racks()])), question)
+          : null;
+      // An empty cellar has nothing for the model to word: the counted facts say it all (and cost nothing).
+      if (items.length === 0 && facts) return plainFacts(facts, null);
       // Nothing to talk about yet: no point paying for an answer that can only say so. (For tonight there is:
       // what to buy.)
       if (items.length === 0 && (!tonight || !deps.llm)) return nothing;
-      if (!deps.llm) return plain(items, question, "ai-off");
+      if (!deps.llm) return facts ? plainFacts(facts, "ai-off") : plain(items, question, "ai-off");
       try {
         await deps.spend();
       } catch (error) {
         if (error instanceof DomainError && error.code === "RATE_LIMITED")
-          return items.length === 0 ? nothing : plain(items, question, "limit");
+          return items.length === 0
+            ? nothing
+            : facts
+              ? plainFacts(facts, "limit")
+              : plain(items, question, "limit");
         throw error;
       }
 
       // Unknown language (the profile could not be read): English, as the app itself falls back.
       const locale = await deps.locale().catch(() => "en");
-      const digest = cellarDigest(items, question);
+      const digest = cellarDigest(
+        items,
+        question,
+        facts ? new Set(facts.matches.map((m) => m.item.vintageId)) : undefined,
+      );
+      const refOf = new Map([...digest.refs].map(([ref, item]) => [item.vintageId, ref]));
       const shown = digest.refs.size;
       const result = await deps.llm.generateObject({
         task: "sommelier_chat",
@@ -121,6 +164,7 @@ export function createSommelierService(deps: SommelierDeps) {
           mode: request.mode ?? "chat",
           budget: request.budget ?? null,
           locale,
+          facts: facts ? cellarFactsText(facts, (id) => refOf.get(id) ?? null) : null,
         }),
         schemaName: "sommelier_answer",
         jsonSchema: SOMMELIER_SCHEMA,
@@ -139,18 +183,26 @@ export function createSommelierService(deps: SommelierDeps) {
       const fallback = () =>
         items.length === 0
           ? { ...nothing, reason: "ai-down" as const }
-          : plain(items, question, "ai-down");
+          : facts
+            ? plainFacts(facts, "ai-down")
+            : plain(items, question, "ai-down");
       if (!result.ok) return fallback();
 
       const checked = checkSommelierAnswer(result.value, digest);
       if (!checked) return fallback();
+      // For a question about the cellar the wines it named get their cards (and links) whatever the model pointed
+      // at, as long as there are few enough to be the answer; more means the model asks which one is meant.
+      const named =
+        facts && facts.matches.length > 0 && facts.matches.length <= 3
+          ? facts.matches.map((m) => toSommelierBottle(m.item))
+          : null;
       return {
         source: "ai",
         text: checked.text,
         basic: null,
-        bottles: checked.bottles,
-        verdict: checked.verdict,
-        buy: checked.buy,
+        bottles: checked.bottles.length > 0 ? checked.bottles : (named ?? []),
+        verdict: facts ? null : checked.verdict,
+        buy: facts ? [] : checked.buy,
         reason: null,
       };
     },

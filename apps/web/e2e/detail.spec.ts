@@ -100,7 +100,11 @@ test.describe("a wine's page and opening a bottle", () => {
     await expect(page.getByText("Domaine Test", { exact: true })).toBeVisible();
     await expect(page.getByText("2019 · Burgundy, France")).toBeVisible();
     await expect(count(page)).toHaveText("3");
-    await expect(page.getByText("Wine fridge ×3")).toBeVisible();
+    // The bottles are grouped by place, each with its exact shelf and position.
+    const fridge = page.getByTestId("bottle-places").getByRole("region", { name: "Wine fridge" });
+    await expect(fridge).toContainText("×3");
+    await expect(fridge.getByRole("listitem")).toHaveCount(3);
+    await expect(fridge.getByText(/^Shelf \d+ · Position \d+$/)).toHaveCount(3);
     await expect(page.getByText("€24.50").first()).toBeVisible(); // average price
     await expect(page.getByText("3 bottles added")).toBeVisible();
     await page.screenshot({ path: shot(`detail-${project()}`), fullPage: true });

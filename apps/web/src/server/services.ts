@@ -169,6 +169,9 @@ export function servicesFor(ctx: RequestContext) {
     }),
     sommelier: createSommelierService({
       cellar: () => cellar.inventory(),
+      // Read only: the same household-scoped (RLS) reads the cellar screens use.
+      storage: () => cellar.storage(),
+      racks: () => cellar.racks(),
       tonight: (request) => cellar.tonight(request),
       llm: getLlmProvider(),
       spend: () => limiter.enforce(LIMITS.chat),

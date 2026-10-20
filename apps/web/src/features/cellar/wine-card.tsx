@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { formatVintage, type CellarItem } from "@cellr/domain";
+import { formatVintage, placeSummary, type CellarItem } from "@cellr/domain";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { FavoriteButton } from "./favorite-button";
 import { imageUrl } from "./label-image";
@@ -31,13 +31,19 @@ export function ItemBottle({ item, className }: { item: CellarItem; className?: 
   );
 }
 
-/** "Wine fridge", "Wine fridge +1", or "No place yet" — one short line, never a data table. */
+/**
+ * "Wine fridge", "Wine fridge +1", or "No place yet": one short line, never a data table, and never one spot for
+ * bottles that are spread out. The full list (bottles without a place included) is its title; the wine's page
+ * has every exact spot.
+ */
 function usePlaces(item: CellarItem) {
   const t = useTranslations("cellar");
-  const [first, ...rest] = item.places;
-  if (!first) return t("noPlace");
-  const label = rest.length > 0 ? `${first} +${rest.length}` : first;
-  return item.unplaced > 0 ? `${label} · ${t("notPlaced", { count: item.unplaced })}` : label;
+  const { first, more } = placeSummary(item.places, item.unplaced);
+  const all = [
+    ...item.places,
+    ...(item.unplaced > 0 ? [t("notPlaced", { count: item.unplaced })] : []),
+  ].join(", ");
+  return { text: `${first ?? t("noPlace")}${more > 0 ? ` +${more}` : ""}`, all };
 }
 
 function CountBadge({ count }: { count: number }) {
@@ -55,6 +61,7 @@ function CountBadge({ count }: { count: number }) {
  * who made it, its name in full, the year and where it is from, and how ready it is.
  */
 export function WineCard({ item, locale, shared = false }: ItemProps & { shared?: boolean }) {
+  const places = usePlaces(item);
   const where = item.region ?? placeLine(null, item.countryCode, locale);
   return (
     <article className="group/card relative flex h-full flex-col">
@@ -94,6 +101,13 @@ export function WineCard({ item, locale, shared = false }: ItemProps & { shared?
           {where && <span> · {where}</span>}
         </p>
         <DrinkLabel drink={item.drink} className="mt-1.5" />
+        <p
+          className="mt-1 truncate text-caption text-ink-3"
+          title={places.all}
+          data-testid="wine-places"
+        >
+          {places.text}
+        </p>
       </div>
     </article>
   );
@@ -127,7 +141,9 @@ export function WineRow({ item, locale, shared = false }: ItemProps & { shared?:
             {item.rating && <RatingBadge rating={item.rating} inline />}
           </p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-caption text-ink-3">
-            <span>{places}</span>
+            <span title={places.all} data-testid="wine-places">
+              {places.text}
+            </span>
             <DrinkLabel drink={item.drink} />
           </p>
         </div>

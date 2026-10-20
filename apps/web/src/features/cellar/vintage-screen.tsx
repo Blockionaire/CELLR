@@ -7,6 +7,7 @@ import {
   currentValueCents,
   formatVintage,
   historyEvents,
+  groupBottlesByPlace,
   summarizePlaces,
   summarizeScores,
   type BottleExtrasView,
@@ -35,7 +36,7 @@ import { NewPlaceSheet } from "./new-place-sheet";
 import { OpenBottleSheet } from "./open-bottle-sheet";
 import { RateSheet } from "./rate-sheet";
 import { TastingItem } from "./tasting-bits";
-import { Facts, Section, Tag } from "./vintage-bits";
+import { Facts, Section } from "./vintage-bits";
 import { AboutSection, PairsSection, TasteSection, WorthSection } from "./wine-insight";
 import { placeLine, shapeFor } from "./wine-visuals";
 import { WinePicture } from "./wine-picture";
@@ -413,13 +414,6 @@ export function VintageScreen({
         <Section title={t("bottlesTitle")}>
           {count > 0 ? (
             <>
-              <ul className="flex flex-wrap gap-2">
-                {places.map((p, i) => (
-                  <Tag key={p.label ?? "none"} last={i === places.length - 1}>
-                    {p.label ?? t("notPlaced")} <span className="tnum">×{p.count}</span>
-                  </Tag>
-                ))}
-              </ul>
               {count > 1 && (
                 <div className="mt-3 flex items-center gap-2">
                   <Button
@@ -444,58 +438,71 @@ export function VintageScreen({
                 </div>
               )}
               {selecting && <BulkBar detail={detail} selected={picked} onDone={stopSelecting} />}
-              <ul className="mt-2 divide-y divide-hairline" aria-label={t("bottlesTitle")}>
-                {detail.bottles.map((b) => (
-                  <li
-                    key={b.id}
-                    className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3"
-                  >
-                    <span className="flex items-center gap-3 text-body text-ink">
-                      {selecting && (
-                        <input
-                          type="checkbox"
-                          checked={picked.includes(b.id)}
-                          onChange={(e) =>
-                            setPicked((p) =>
-                              e.target.checked ? [...p, b.id] : p.filter((id) => id !== b.id),
-                            )
-                          }
-                          aria-label={tBulk("pick", {
-                            spot: b.locationLabel ?? tExtras("unplaced"),
-                          })}
-                          className="size-5 accent-[var(--accent)]"
-                        />
-                      )}
-                      <BottleGlyph
-                        shape={shapeFor(wine.type)}
-                        tint={wine.type}
-                        className="w-3 shrink-0"
-                      />
-                      <span>
-                        <BottleSpot bottle={b} short={places.length <= 1} />
-                      </span>
-                    </span>
-                    <span className="flex items-center gap-3">
-                      {b.priceCents !== null && (
-                        <span className="text-small text-ink-2 tnum">{money(b.priceCents)}</span>
-                      )}
-                      {extras.data?.ready && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          aria-label={tExtras("editLabel", {
-                            spot: b.locationLabel ?? tExtras("unplaced"),
-                          })}
-                          onClick={() => setExtrasFor(b)}
+              {/* Every bottle's exact spot, grouped by place; the bottles without a place last, said as such. */}
+              <div className="mt-2 flex flex-col gap-4" data-testid="bottle-places">
+                {groupBottlesByPlace(detail.bottles).map((group) => (
+                  <section key={group.label ?? "none"} aria-label={group.label ?? t("notPlaced")}>
+                    <h3 className="flex items-baseline justify-between gap-3 border-b border-hairline pb-1.5 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+                      <span className="min-w-0 truncate">{group.label ?? t("notPlaced")}</span>
+                      <span className="shrink-0 tnum">×{group.bottles.length}</span>
+                    </h3>
+                    <ul className="divide-y divide-hairline">
+                      {group.bottles.map((b) => (
+                        <li
+                          key={b.id}
+                          className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3"
                         >
-                          {tExtras("edit")}
-                        </Button>
-                      )}
-                    </span>
-                    <BottleChips extras={extrasOf(b.id)} day={day} />
-                  </li>
+                          <span className="flex items-center gap-3 text-body text-ink">
+                            {selecting && (
+                              <input
+                                type="checkbox"
+                                checked={picked.includes(b.id)}
+                                onChange={(e) =>
+                                  setPicked((p) =>
+                                    e.target.checked ? [...p, b.id] : p.filter((id) => id !== b.id),
+                                  )
+                                }
+                                aria-label={tBulk("pick", {
+                                  spot: b.locationLabel ?? tExtras("unplaced"),
+                                })}
+                                className="size-5 accent-[var(--accent)]"
+                              />
+                            )}
+                            <BottleGlyph
+                              shape={shapeFor(wine.type)}
+                              tint={wine.type}
+                              className="w-3 shrink-0"
+                            />
+                            <span>
+                              <BottleSpot bottle={b} short />
+                            </span>
+                          </span>
+                          <span className="flex items-center gap-3">
+                            {b.priceCents !== null && (
+                              <span className="text-small text-ink-2 tnum">
+                                {money(b.priceCents)}
+                              </span>
+                            )}
+                            {extras.data?.ready && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                aria-label={tExtras("editLabel", {
+                                  spot: b.locationLabel ?? tExtras("unplaced"),
+                                })}
+                                onClick={() => setExtrasFor(b)}
+                              >
+                                {tExtras("edit")}
+                              </Button>
+                            )}
+                          </span>
+                          <BottleChips extras={extrasOf(b.id)} day={day} />
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
                 ))}
-              </ul>
+              </div>
               <div className="mt-4 border-t border-hairline pt-4">
                 <h3 className="sr-only">{t("purchase")}</h3>
                 <Facts
