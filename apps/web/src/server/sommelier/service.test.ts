@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { DomainError, type CellarItem, type RawSommelier, type TonightView } from "@cellr/domain";
+import {
+  DomainError,
+  type CellarItem,
+  type RackView,
+  type RawSommelier,
+  type StorageUnitView,
+  type TonightView,
+} from "@cellr/domain";
 import type { GenerateObjectRequest, LlmProvider } from "@/server/ai/types";
 import { createSommelierService, type SommelierDeps } from "./service";
 
@@ -52,6 +59,8 @@ function setup(
     usageFails?: boolean;
     tonight?: (item: CellarItem[]) => TonightView["picks"];
     locale?: string | (() => Promise<string>);
+    storage?: StorageUnitView[];
+    racks?: RackView;
   } = {},
 ) {
   const items = options.items ?? [
@@ -62,6 +71,7 @@ function setup(
     requests: [] as GenerateObjectRequest<unknown>[],
     usage: [] as Array<{ task: string; status: string }>,
     tonightAsked: [] as Array<{ dish: string | null; occasion: string }>,
+    placesRead: 0,
     spent: 0,
   };
   const llm: LlmProvider = {
@@ -80,6 +90,11 @@ function setup(
   };
   const deps: SommelierDeps = {
     cellar: async () => ({ items, bottleCount: items.length, wineCount: items.length }) as never,
+    storage: async () => {
+      state.placesRead += 1;
+      return options.storage ?? [];
+    },
+    racks: async () => options.racks ?? { units: [], unplaced: [] },
     tonight: async (request) => {
       state.tonightAsked.push({ dish: request.dish, occasion: request.occasion });
       const picks =
@@ -337,5 +352,126 @@ describe("asking the sommelier", () => {
   it("not being able to write the usage record never loses the answer", async () => {
     const { service } = setup({ usageFails: true });
     expect((await service.ask(ask("What now?"))).source).toBe("ai");
+  });
+});
+
+describe("questions about the cellar itself", () => {
+  const fridge: StorageUnitView = {
+    id: "u1",
+    label: "Wine fridge",
+    kind: "fridge",
+    rows: 4,
+    cols: 6,
+    capacity: 24,
+    used: 3,
+    free: 21,
+  };
+  const musar = (year: number, count: number) =>
+    item({ producer: "Château Musar", wineName: "Rouge", region: "Bekaa Valley", year, count });
+  const spot = (i: CellarItem, row: number | null, col: number | null) => ({
+    bottleId: `${i.vintageId}${row}${col}`,
+    vintageId: i.vintageId,
+    producer: i.producer,
+    wineName: i.wineName,
+    type: i.type,
+    year: i.year,
+    region: i.region,
+    countryCode: i.countryCode,
+    row,
+    col,
+    image: null,
+  });
+
+  it("counts come from the database in the prompt, and wine advice never reads the places", async () => {
+    const { service, state } = setup({ storage: [fridge] });
+    await service.ask(ask("What should I open tonight?"));
+    await service.ask({ ...ask("Hoeveel flessen heb ik?"), mode: "tonight" });
+    expect(state.placesRead).toBe(0);
+    expect(state.requests.map((r) => r.user).join("\n")).not.toMatch(/Cellar facts/);
+
+    await service.ask(ask("Hoeveel flessen heb ik?"));
+    expect(state.placesRead).toBe(1);
+    const prompt = state.requests.at(-1)!.user;
+    expect(prompt).toContain("In the cellar: 4 bottles of 2 different wines");
+    expect(prompt).toContain('"Wine fridge" (fridge): 24 spots, 3 taken, 21 free');
+    expect(state.requests.at(-1)!.system).toMatch(/never count, add up, estimate or guess/);
+  });
+
+  it("one wine found: its exact spots go to the model, and its card (a link) is shown", async () => {
+    const m18 = musar(2018, 2);
+    const { service, state } = setup({
+      items: [m18, musar(2016, 1)],
+      storage: [fridge],
+      racks: {
+        units: [{ ...fridge, bottles: [spot(m18, 2, 3)] }],
+        unplaced: [spot(m18, null, null)],
+      },
+      answer: {
+        answer: "In de wijnkast, plank 2, plek 3; één fles heeft nog geen plek.",
+        bottle_refs: [],
+      },
+    });
+    const answer = await service.ask(ask("Waar ligt mijn Château Musar 2018?"));
+    expect(state.requests[0]!.user).toMatch(
+      /\| Château Musar — Rouge \| 2018 \| red \| ×2 \| Wine fridge shelf 2 position 3; 1 without a place/,
+    );
+    expect(answer.bottles.map((b) => b.vintageId)).toEqual([m18.vintageId]);
+    expect(answer).toMatchObject({ source: "ai", verdict: null, buy: [] });
+  });
+
+  it("ambiguous: both vintages are listed for the model, and no single one is picked for it", async () => {
+    const wines = [musar(2018, 1), musar(2016, 1), musar(2012, 1), musar(2010, 1)];
+    const { service, state } = setup({
+      items: wines,
+      storage: [fridge],
+      answer: { answer: "Je hebt vier jaargangen Musar: welke bedoel je?", bottle_refs: [] },
+    });
+    const answer = await service.ask(ask("Waar ligt mijn Musar?"));
+    expect(state.requests[0]!.user).toContain('Wines matching "musar": 4 (4 bottles)');
+    expect(state.requests[0]!.system).toMatch(/do not pick one/);
+    expect(answer.bottles).toEqual([]);
+  });
+
+  it("an empty cellar still answers, from the counted facts, without asking the model", async () => {
+    const { service, state } = setup({ items: [], storage: [fridge] });
+    const answer = await service.ask(ask("Hoeveel flessen heb ik?"));
+    expect(answer).toMatchObject({
+      source: "basic",
+      basic: "facts",
+      facts: { bottles: 0, wines: 0, free: 21, matches: null },
+      bottles: [],
+    });
+    expect(state.requests).toHaveLength(0);
+  });
+
+  it("without AI the plain answer is the counted facts, not a wine suggestion", async () => {
+    const m18 = musar(2018, 2);
+    const { service } = setup({ items: [m18, item()], storage: [fridge], noAi: true });
+    expect(await service.ask(ask("Waar ligt mijn Musar 2018?"))).toMatchObject({
+      source: "basic",
+      basic: "facts",
+      reason: "ai-off",
+      facts: { bottles: 4, matches: 1 },
+      bottles: [{ vintageId: m18.vintageId }],
+    });
+  });
+
+  it("only this household's places are read: the facts come from the service's own (RLS-scoped) reads", async () => {
+    const mine = musar(2018, 1);
+    const { service, state } = setup({
+      items: [mine],
+      storage: [fridge],
+      // A bottle of someone else's that somehow reached the racks read is never named: it is not in the items.
+      racks: {
+        units: [
+          { ...fridge, bottles: [spot(mine, 1, 1), { ...spot(mine, 4, 4), vintageId: "other" }] },
+        ],
+        unplaced: [],
+      },
+    });
+    await service.ask(ask("Waar ligt mijn Musar?"));
+    const prompt = state.requests[0]!.user;
+    expect(prompt).toContain("Wine fridge shelf 1 position 1");
+    expect(prompt).not.toContain("shelf 4 position 4");
   });
 });

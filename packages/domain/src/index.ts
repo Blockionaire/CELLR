@@ -13,6 +13,7 @@ export * from "./wijnkelder-import";
 export * from "./image";
 export * from "./scan";
 export * from "./sommelier";
+export * from "./cellar-facts";
 export * from "./wishlist";
 export * from "./insights";
 export * from "./export";

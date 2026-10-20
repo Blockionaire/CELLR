@@ -216,7 +216,9 @@
       "pairing": "Deze flessen uit je kelder passen er het best bij:",
       "soon": "Deze zijn klaar, of raken bijna over tijd:",
       "favorites": "Niets is dringend. Dit zijn je favorieten en best beoordeelde wijnen:",
-      "nothing": "Op dit moment valt niets op. Voeg een paar flessen toe en vraag het opnieuw."
+      "nothing": "Op dit moment valt niets op. Voeg een paar flessen toe en vraag het opnieuw.",
+      "facts": "Je kelder telt {bottles, plural, one {# fles} other {# flessen}} van {wines, plural, one {# wijn} other {# verschillende wijnen}}, met {free, plural, =0 {geen vrije plekken} one {# vrije plek} other {# vrije plekken}}.",
+      "factsMatches": "{matches, plural, =0 {Die wijn ligt niet in je kelder.} one {Dit is de wijn die past; tik erop voor de plekken.} other {# wijnen passen daarbij: welke bedoel je?}}"
     },
     "reason": {
       "ai-off": "De AI-sommelier staat nog niet aan, dus dit antwoord komt rechtstreeks uit je kelder.",

@@ -86,7 +86,9 @@ export interface SommelierAnswer {
   /** The model's words (source "ai"); null for the plain answer, whose one sentence the screen words itself. */
   text: string | null;
   /** Which sentence the screen shows for a plain answer. */
-  basic: "pairing" | "soon" | "favorites" | "nothing" | null;
+  basic: "pairing" | "soon" | "favorites" | "nothing" | "facts" | null;
+  /** For a plain answer to a question about the cellar ("facts"): the numbers it states, counted, never guessed. */
+  facts?: { bottles: number; wines: number; free: number; matches: number | null } | null;
   /** Wines in the cellar the answer is about, best first; only ever real ones. */
   bottles: SommelierBottle[];
   /** Why the plain answer was given instead of an AI one. */
@@ -136,6 +138,8 @@ export function shortlistForQuestion(
   items: readonly CellarItem[],
   question: string,
   max = DIGEST_MAX,
+  /** Wines that must be on the list (the ones a question about the cellar is about). */
+  keep: ReadonlySet<string> = new Set(),
 ): CellarItem[] {
   if (items.length <= max) return [...items];
   const wanted = new Set(words(question));
@@ -143,7 +147,7 @@ export function shortlistForQuestion(
     const text = normalizeText(
       `${i.producer} ${i.wineName} ${i.region ?? ""} ${i.countryCode ?? ""} ${i.type} ${i.year ?? ""}`,
     );
-    let s = 0;
+    let s = keep.has(i.vintageId) ? 1000 : 0;
     for (const w of wanted) if (text.includes(w)) s += 4;
     if (i.favorite) s += 1;
     if (i.drink.phase === "ready" || i.drink.phase === "past") s += 2;
@@ -169,8 +173,12 @@ export interface CellarDigest {
 const stars = (r: RatingSummary | null) =>
   r ? ` · rated ${(r.average / 2).toFixed(1)}★ (${r.count})` : "";
 
-export function cellarDigest(items: readonly CellarItem[], question: string): CellarDigest {
-  const shown = shortlistForQuestion(items, question);
+export function cellarDigest(
+  items: readonly CellarItem[],
+  question: string,
+  keep?: ReadonlySet<string>,
+): CellarDigest {
+  const shown = shortlistForQuestion(items, question, DIGEST_MAX, keep);
   const refs = refsFor(shown);
   const lines = [...refs.entries()].map(([ref, i]) => {
     const where = [i.region, i.countryCode].filter(Boolean).join(", ");

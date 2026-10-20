@@ -325,8 +325,14 @@ test.describe("the sommelier", () => {
       messages: [{ role: "user", text: `What do I have? ${m}` }],
     });
     expect(reply.status()).toBe(200);
-    // They have no bottles at all, so they are told so without any model being asked.
-    expect(await reply.json()).toMatchObject({ source: "basic", basic: "nothing", bottles: [] });
+    // They have no bottles at all, so they are told so (counted from their own cellar: none of the owner's
+    // bottles or places) without any model being asked.
+    expect(await reply.json()).toMatchObject({
+      source: "basic",
+      basic: "facts",
+      facts: { bottles: 0, wines: 0, free: 0 },
+      bottles: [],
+    });
     expect(await modelCalls(m)).toHaveLength(0);
     await context.close();
   });

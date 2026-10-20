@@ -13,6 +13,8 @@ import {
   orderBottles,
   parseMoneyToCents,
   summarizePlaces,
+  groupBottlesByPlace,
+  placeSummary,
   UpdatePurchaseSchema,
   UpdateStorageSchema,
   UpdateWineSchema,
@@ -264,6 +266,37 @@ describe("bottle helpers", () => {
       { label: "Rack", count: 2 },
       { label: null, count: 1 },
     ]);
+  });
+  it("groups bottles by place, each by shelf and position, and the unplaced as their own group", () => {
+    // Château Musar 2018, 3 bottles: two in the fridge (given out of order), one in the rack, one without a place.
+    const groups = groupBottlesByPlace([
+      b("Wine fridge", 2, 4),
+      b("Wine rack", 1, 6),
+      b(null, null, null),
+      b("Wine fridge", 2, 3),
+    ]);
+    expect(groups.map((g) => [g.label, g.bottles.map((x) => [x.row, x.col])])).toEqual([
+      [
+        "Wine fridge",
+        [
+          [2, 3],
+          [2, 4],
+        ],
+      ],
+      ["Wine rack", [[1, 6]]],
+      [null, [[null, null]]],
+    ]);
+    expect(groupBottlesByPlace([])).toEqual([]);
+  });
+  it("sums a wine's places up for a card: the first, and +N for the others (no place counts as one)", () => {
+    expect(placeSummary(["Wine fridge"], 0)).toEqual({ first: "Wine fridge", more: 0 });
+    expect(placeSummary(["Wine fridge", "Wine rack"], 0)).toEqual({
+      first: "Wine fridge",
+      more: 1,
+    });
+    expect(placeSummary(["Wine fridge"], 2)).toEqual({ first: "Wine fridge", more: 1 });
+    expect(placeSummary([], 3)).toEqual({ first: null, more: 0 });
+    expect(placeSummary([], 0)).toEqual({ first: null, more: 0 });
   });
   it("averages the known prices only", () => {
     expect(averagePrice([])).toBeNull();

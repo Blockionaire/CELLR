@@ -531,6 +531,33 @@ export function summarizePlaces(
     );
 }
 
+/**
+ * The bottles in the cellar grouped by place, for the wine's page: each place with its bottles by shelf and
+ * position, then the bottles that have no place yet (label null), so no spot is ever left out or merged.
+ */
+export function groupBottlesByPlace<B extends Pick<BottleView, "locationLabel" | "row" | "col">>(
+  bottles: readonly B[],
+): Array<{ label: string | null; bottles: B[] }> {
+  return summarizePlaces(bottles).map(({ label }) => ({
+    label,
+    bottles: bottles
+      .filter((b) => b.locationLabel === label)
+      .sort((a, b) => (a.row ?? 0) - (b.row ?? 0) || (a.col ?? 0) - (b.col ?? 0)),
+  }));
+}
+
+/**
+ * Where a wine's bottles are, in a word, for a card: the first place and how many other places there are
+ * ("Wine fridge +1"); bottles without a place count as one more place. `first` is null when none has a place.
+ */
+export function placeSummary(
+  places: readonly string[],
+  unplaced: number,
+): { first: string | null; more: number } {
+  const all: Array<string | null> = [...places, ...(unplaced > 0 ? [null] : [])];
+  return { first: all[0] ?? null, more: Math.max(0, all.length - 1) };
+}
+
 /** Mean price of the bottles whose price is known, in whole cents; null if none is. */
 export function averagePrice(bottles: readonly Pick<BottleView, "priceCents">[]): number | null {
   const known = bottles.flatMap((b) => (b.priceCents === null ? [] : [b.priceCents]));
