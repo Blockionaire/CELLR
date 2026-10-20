@@ -134,7 +134,7 @@ export async function InsightsScreen({
     m.worthCents === null
       ? t("noValues")
       : m.gainCents === null
-        ? t("valuedNote", { count: m.valuedCount })
+        ? t("valuedNote", { count: m.valuedCount, total: stats.bottleCount })
         : t(m.gainCents >= 0 ? "gainNote" : "lossNote", {
             amount: money(Math.abs(m.gainCents)),
             count: m.comparedCount,
@@ -285,14 +285,17 @@ export async function InsightsScreen({
           </Card>
         )}
 
-        <Card title={t("typesTitle")}>
-          <Donut
-            label={t("typesTitle")}
-            chartLabel={typeSummary}
-            unit={t("bottles")}
-            rows={typeRows}
-          />
-        </Card>
+        {/* With every bottle opened there is nothing to divide: no empty ring. */}
+        {typeRows.some((r) => r.count > 0) && (
+          <Card title={t("typesTitle")}>
+            <Donut
+              label={t("typesTitle")}
+              chartLabel={typeSummary}
+              unit={t("bottles")}
+              rows={typeRows}
+            />
+          </Card>
+        )}
 
         {m.worthCents !== null && (
           <Card title={t("valueTitle")}>

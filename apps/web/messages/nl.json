@@ -11,7 +11,9 @@
     "copied": "Gekopieerd",
     "share": "Delen",
     "loading": "Laden",
-    "skipToContent": "Naar de inhoud"
+    "skipToContent": "Naar de inhoud",
+    "oneFewer": "Eén minder",
+    "oneMore": "Eén meer"
   },
   "nav": {
     "label": "Hoofdmenu",
@@ -36,7 +38,8 @@
     "resendIn": "Nieuwe code over {seconds}s",
     "resent": "Er is een nieuwe code onderweg.",
     "changeEmail": "Ander e-mailadres gebruiken",
-    "invalidEmail": "Vul een geldig e-mailadres in."
+    "invalidEmail": "Vul een geldig e-mailadres in.",
+    "pageTitle": "Inloggen"
   },
   "onboarding": {
     "householdTitle": "Wie delen deze kelder?",
@@ -56,7 +59,8 @@
     "nameLabel": "Je naam",
     "namePlaceholder": "Joost",
     "finish": "Aan de slag",
-    "stepOf": "Stap {current} van {total}"
+    "stepOf": "Stap {current} van {total}",
+    "pageTitle": "Welkom"
   },
   "home": {
     "greetingMorning": "Goedemorgen, {name}",
@@ -116,7 +120,8 @@
     "history": "Geschiedenis",
     "related": "Meer uit je kelder",
     "insights": "Inzichten",
-    "typeAll": "Alle"
+    "typeAll": "Alle",
+    "emptyScan": "Scan je eerste fles"
   },
   "scan": {
     "title": "Scan een etiket",
@@ -126,7 +131,7 @@
     "choosePhoto": "Kies een foto",
     "privacy": "Om het etiket te lezen sturen we je foto naar onze AI-partner (OpenAI). Er wordt niets anders gedeeld en de foto blijft bewaard in je eigen kelder.",
     "reading": "Etiket lezen…",
-    "readingHint": "Dit duurt een paar seconden. Je foto is al veilig.",
+    "readingHint": "Dit duurt een paar seconden.",
     "photoAlt": "Jouw foto van het etiket",
     "foundTitle": "Gevonden",
     "foundBody": "Dit lijkt een wijn die je al hebt.",
@@ -181,7 +186,10 @@
       "error": "De camera is gestopt. Probeer het opnieuw, of maak de foto met de knop hieronder.",
       "retry": "Camera opnieuw proberen",
       "preview": "Camerabeeld"
-    }
+    },
+    "searchMine": "Al in je kelder? Zoek in je wijnen",
+    "searchTitle": "Welke van je wijnen is het?",
+    "searchBody": "Kies hem uit je eigen wijnen, zodat het één wijn blijft met al zijn flessen."
   },
   "sommelier": {
     "title": "Sommelier",
@@ -306,7 +314,9 @@
       "failed": "Dat lukte niet. Probeer het zo nog eens.",
       "denied": "Meldingen zijn geblokkeerd voor CELLR. Sta ze toe in de instellingen van je telefoon en kom dan hier terug.",
       "unsupported": "Deze browser kan geen meldingen tonen. Op een iPhone: zet CELLR op je beginscherm (Deel → Zet op beginscherm), open de app daar en zet dit aan."
-    }
+    },
+    "leaveAlone": "Je bent de enige in dit huishouden, dus je kunt het niet leeg achterlaten. Wil je ermee stoppen, verwijder het dan bij Instellingen huishouden.",
+    "leaveLastOwner": "Je bent de enige eigenaar en anderen delen deze kelder. Om te vertrekken haal je hen eerst weg, of verwijder je het huishouden bij Instellingen huishouden."
   },
   "errors": {
     "network": "We konden CELLR niet bereiken. Controleer je verbinding en probeer opnieuw.",
@@ -322,7 +332,68 @@
     "OTP_INVALID": "Die code werkte niet. Controleer hem, of vraag een nieuwe.",
     "PIN_INVALID": "Die pincode klopt niet. Na vijf foute pogingen gaat de pincode uit en log je in met een code per e-mail.",
     "SIGNUP_CLOSED": "CELLR is voorlopig alleen op uitnodiging en dit e-mailadres staat nog niet op de lijst.",
-    "INTERNAL": "Er ging iets mis aan onze kant. Probeer opnieuw."
+    "INTERNAL": "Er ging iets mis aan onze kant. Probeer opnieuw.",
+    "known": {
+      "otpCode": "Vul de 6-cijferige code uit je e-mail in.",
+      "sixDigits": "Vul 6 cijfers in.",
+      "weakPin": "Kies een pincode die moeilijker te raden is.",
+      "countryCode": "Gebruik een landcode van 2 letters.",
+      "producer": "Wie maakt hem?",
+      "wineName": "Hoe heet hij?",
+      "giveName": "Geef het een naam.",
+      "displayName": "Geef jezelf een naam.",
+      "shelfAndPosition": "Een plek heeft een plank en een positie nodig.",
+      "nothingToUpdate": "Er is niets om bij te werken.",
+      "doubleDot": "Gebruik geen twee punten achter elkaar.",
+      "chooseFriend": "Kies een vriend.",
+      "currency": "Gebruik een valutacode van 3 letters, zoals EUR.",
+      "householdName": "Geef je huishouden een naam.",
+      "inviteCode": "Uitnodigingscodes hebben 12 letters en cijfers.",
+      "occasion": "Zeg wat de gelegenheid is.",
+      "askQuestion": "Stel een vraag.",
+      "tastingEmpty": "Zeg er iets over: geef sterren, een woord of een notitie.",
+      "chooseOneFriend": "Kies een van je vrienden.",
+      "householdFirst": "Maak eerst een huishouden aan of sluit je aan bij een huishouden.",
+      "ownerDeletePlace": "Alleen de eigenaar van het huishouden kan een plek verwijderen.",
+      "ownerOnly": "Alleen de eigenaar van het huishouden kan dat doen.",
+      "openFirst": "Open de fles eerst en vertel dan hoe hij was.",
+      "mergeSame": "Kies een andere wijn om mee samen te voegen.",
+      "exists": "Dat bestaat al.",
+      "cantPutBack": "Die fles kan niet worden teruggezet.",
+      "alreadyOpened": "Die fles is al geopend.",
+      "notInCellar": "Die fles ligt niet meer in de kelder.",
+      "inUse": "Dat wordt nog gebruikt, dus het kan nog niet weg.",
+      "nameTaken": "Die naam is al bezet. Probeer een andere.",
+      "photoTooLarge": "Die foto is te groot. Probeer een kleinere.",
+      "recommendationGone": "Die aanbeveling is er niet meer.",
+      "requestGone": "Dat verzoek is er niet meer.",
+      "tooLarge": "Dat verzoek is te groot.",
+      "spotMissing": "Die plek bestaat niet op deze plaats.",
+      "spotTaken": "Die plek is net bezet. Kies een andere.",
+      "catalogueWine": "Die wijn komt uit de gedeelde catalogus en kan daarom niet worden aangepast.",
+      "onWishlist": "Die wijn staat al op je verlanglijst.",
+      "stillBottles": "Er liggen nog flessen in. Haal ze er eerst uit.",
+      "stillBottlesPart": "Er liggen nog flessen in het deel dat je weghaalt. Verplaats ze eerst.",
+      "confirmEmail": "Typ je e-mailadres precies over om te bevestigen.",
+      "bottleMissing": "We konden die fles niet vinden.",
+      "photoMissing": "We konden die foto niet vinden.",
+      "placeMissing": "We konden die plek niet vinden.",
+      "wineMissing": "We konden die wijn niet vinden.",
+      "deleteAccountFailed": "We konden je account niet helemaal verwijderen. Probeer het opnieuw.",
+      "saveFailed": "We konden dat niet opslaan.",
+      "placeExists": "Je hebt al een plek met die naam.",
+      "wineExists": "Je hebt al een wijn met die naam van deze producent.",
+      "notFriends": "Jullie zijn geen vrienden (meer).",
+      "alreadyRated": "Je hebt deze fles al beoordeeld.",
+      "lastOwner": "Je bent de laatste eigenaar en er zijn nog anderen. Haal hen eerst weg, of verwijder het huishouden.",
+      "noPrice": "Er is geen prijs met een betrouwbare bron gevonden.",
+      "importUneven": "De import klopte niet helemaal en is daarom teruggedraaid.",
+      "notAllowed": "Dat mag niet.",
+      "notReady": "Dit onderdeel is nog niet helemaal klaar. Probeer het later opnieuw.",
+      "notSwitchedOn": "Dit staat nog niet aan.",
+      "onlyOwnerOf": "Je bent de enige eigenaar van een huishouden waar nog anderen in zitten. Verwijder hen of verwijder eerst het huishouden.",
+      "importTooBig": "Dat is meer dan we in één keer kunnen binnenhalen. Probeer een kleiner bestand."
+    }
   },
   "offline": {
     "title": "Je bent offline",
@@ -643,7 +714,8 @@
       "tannic": "Tanninerijk",
       "complex": "Complex",
       "elegant": "Elegant"
-    }
+    },
+    "removeConfirm": "Ja, alles verwijderen"
   },
   "drink": {
     "title": "Wanneer drinken",
@@ -978,7 +1050,7 @@
     "noPrices": "Geen prijzen vastgelegd",
     "pricedNote": "{count, plural, one {van # fles met prijs} other {van # flessen met prijs}}",
     "noValues": "Zoek een waarde op via de pagina van een wijn",
-    "valuedNote": "{count, plural, one {# fles gewaardeerd} other {# flessen gewaardeerd}}",
+    "valuedNote": "{count} van {total, plural, one {# fles} other {# flessen}} gewaardeerd",
     "gainNote": "{amount} meer dan betaald ({count, plural, one {# fles} other {# flessen}})",
     "lossNote": "{amount} minder dan betaald ({count, plural, one {# fles} other {# flessen}})",
     "typesTitle": "Wat je hebt",
@@ -1047,7 +1119,9 @@
     "rated": "{stars} sterren",
     "putBack": "Terugzetten",
     "putBackLabel": "Zet {wine} terug in de kelder",
-    "restored": "Weer terug in je kelder."
+    "restored": "Weer terug in je kelder.",
+    "putBackConfirm": "Ja, terugzetten",
+    "putBackConfirmLabel": "Ja, zet {wine} terug in de kelder"
   },
   "merge": {
     "title": "Samenvoegen met een andere wijn",
@@ -1085,7 +1159,7 @@
     "title": "Vrienden",
     "subtitle": "Bekijk elkaars beoordelingen, smaak en kelder — alleen wat ieder zelf wil delen.",
     "notReadyTitle": "Vrienden komen eraan",
-    "notReadyBody": "Hiervoor is nog één databasestap nodig. Al het andere werkt. In de installatiegids, “Updating the database”, staat wat je moet doen.",
+    "notReadyBody": "Dit deel van CELLR staat nog niet aan. Al het andere werkt gewoon.",
     "meTitle": "Jij",
     "handleLabel": "Accountnaam",
     "handleHint": "3–20 letters, cijfers, punten of underscores. Vrienden vinden je hiermee.",
@@ -1214,7 +1288,9 @@
     "addToWishlist": "Op verlanglijst",
     "dismiss": "Weghalen",
     "savedToWishlist": "Staat nu op je verlanglijst.",
-    "entryRecommendations": "{count, plural, one {# wijn aanbevolen voor jou} other {# wijnen aanbevolen voor jou}}"
+    "entryRecommendations": "{count, plural, one {# wijn aanbevolen voor jou} other {# wijnen aanbevolen voor jou}}",
+    "acceptConsent": "Als je accepteert, ziet die persoon wat je met vrienden deelt, zoals ingesteld bij “Wat je deelt” (in het begin: je beoordelingen met notities en je smaakprofiel, niet je kelder).",
+    "sharingFailed": "We konden niet laden wat je deelt, dus tonen we niets in plaats van een gok."
   },
   "pin": {
     "usePin": "Inloggen met mijn pincode",

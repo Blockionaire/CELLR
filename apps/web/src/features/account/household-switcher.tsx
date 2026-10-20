@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 import { CreateHouseholdSchema, ERROR_MESSAGES, JoinHouseholdSchema, type Me } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { checkMessage, errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { Field } from "@/ui/field";
 import { Segmented } from "@/ui/segmented";
@@ -51,11 +51,11 @@ export function HouseholdSwitcher({ me }: { me: Me }) {
       let id: string;
       if (mode === "create") {
         const parsed = CreateHouseholdSchema.safeParse({ name });
-        if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+        if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
         id = (await create.mutateAsync(parsed.data)).id;
       } else {
         const parsed = JoinHouseholdSchema.safeParse({ code });
-        if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+        if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
         id = (await join.mutateAsync(parsed.data)).id;
       }
       await switchTo(id);

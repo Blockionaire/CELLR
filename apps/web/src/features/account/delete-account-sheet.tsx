@@ -26,6 +26,12 @@ export function DeleteAccountSheet({
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
   const matches = typed.trim().toLowerCase() === email.toLowerCase();
+  // Cancelled means forgotten: opening it again starts empty.
+  const close = () => {
+    setTyped("");
+    setError(null);
+    onClose();
+  };
 
   async function confirm() {
     setError(null);
@@ -40,7 +46,7 @@ export function DeleteAccountSheet({
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={t("deleteAccountTitle")} closeLabel={tc("close")}>
+    <Sheet open={open} onClose={close} title={t("deleteAccountTitle")} closeLabel={tc("close")}>
       {open && (
         <div className="flex flex-col gap-5">
           <p className="text-body text-ink-2">{t("deleteAccountBody")}</p>
@@ -57,7 +63,7 @@ export function DeleteAccountSheet({
             </p>
           )}
           <div className="flex flex-col gap-2">
-            <Button variant="secondary" size="lg" block onClick={onClose}>
+            <Button variant="secondary" size="lg" block onClick={close}>
               {tc("cancel")}
             </Button>
             <Button

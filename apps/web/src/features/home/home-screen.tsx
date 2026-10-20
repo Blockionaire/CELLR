@@ -227,27 +227,28 @@ export async function HomeScreen({
               />
             ))}
           </Shelf>
-
-          {home.recentlyOpened.length > 0 && (
-            <section className="mt-10" aria-labelledby="opened">
-              <SectionHeader id="opened" title={t("openedLately")} />
-              <ul className="flex flex-col gap-1">
-                {home.recentlyOpened.slice(0, 3).map((o) => (
-                  <li key={o.bottleId}>
-                    <OpenedRow
-                      entry={o}
-                      when={whenOpened(o.openedAt, locale, now)}
-                      rateLabel={t("rateIt")}
-                      starsLabel={
-                        o.myScore === null ? "" : t("ratedStars", { stars: formatStars(o.myScore) })
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
         </>
+      )}
+
+      {/* Also with every bottle drunk: what was opened lately (and still waiting for a word) stays in view. */}
+      {home.recentlyOpened.length > 0 && (
+        <section className="mt-10" aria-labelledby="opened">
+          <SectionHeader id="opened" title={t("openedLately")} />
+          <ul className="flex flex-col gap-1">
+            {home.recentlyOpened.slice(0, 3).map((o) => (
+              <li key={o.bottleId}>
+                <OpenedRow
+                  entry={o}
+                  when={whenOpened(o.openedAt, locale, now)}
+                  rateLabel={t("rateIt")}
+                  starsLabel={
+                    o.myScore === null ? "" : t("ratedStars", { stars: formatStars(o.myScore) })
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

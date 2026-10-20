@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 import { ERROR_MESSAGES, UpdateHouseholdSchema, type HouseholdSummary } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { checkMessage, errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { Field } from "@/ui/field";
 import { Sheet } from "@/ui/sheet";
@@ -46,7 +46,7 @@ export function HouseholdSettings({ household }: { household: HouseholdSummary }
     event.preventDefault();
     setError(null);
     const parsed = UpdateHouseholdSchema.safeParse({ name, currency });
-    if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+    if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
     try {
       await update.mutateAsync({ id: household.id, patch: parsed.data });
       toast.show(t("householdSaved"));
@@ -125,6 +125,11 @@ function DeleteSheet({
   const remove = useDeleteHousehold();
   const [typed, setTyped] = useState("");
   const matches = typed.trim() === household.name;
+  // Cancelled means forgotten: opening it again starts empty.
+  const close = () => {
+    setTyped("");
+    onClose();
+  };
 
   async function confirm() {
     try {
@@ -143,7 +148,7 @@ function DeleteSheet({
   return (
     <Sheet
       open={open}
-      onClose={onClose}
+      onClose={close}
       title={t("deleteHouseholdTitle", { household: household.name })}
       closeLabel={closeLabel}
     >
@@ -159,7 +164,7 @@ function DeleteSheet({
             autoComplete="off"
           />
           <div className="flex flex-col gap-2">
-            <Button variant="secondary" size="lg" block onClick={onClose}>
+            <Button variant="secondary" size="lg" block onClick={close}>
               {tc("cancel")}
             </Button>
             <Button

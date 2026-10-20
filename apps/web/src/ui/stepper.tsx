@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { cn } from "./cn";
 import { MinusIcon, PlusIcon } from "./icons";
 
@@ -15,6 +16,7 @@ interface StepperProps {
 
 /** HOW MANY? — big, thumb-sized, one hand. */
 export function Stepper({ value, onChange, min = 1, max = 99, label, className }: StepperProps) {
+  const tc = useTranslations("common");
   const step =
     "grid size-14 place-items-center rounded-full bg-raised text-ink transition-[transform,colors] duration-150 ease-cellr hover:bg-hairline active:scale-95 disabled:opacity-35 focus-visible:rounded-full";
   return (
@@ -26,7 +28,7 @@ export function Stepper({ value, onChange, min = 1, max = 99, label, className }
       <button
         type="button"
         className={step}
-        aria-label="One fewer"
+        aria-label={tc("oneFewer")}
         disabled={value <= min}
         onClick={() => onChange(Math.max(min, value - 1))}
       >
@@ -38,7 +40,7 @@ export function Stepper({ value, onChange, min = 1, max = 99, label, className }
       <button
         type="button"
         className={step}
-        aria-label="One more"
+        aria-label={tc("oneMore")}
         disabled={value >= max}
         onClick={() => onChange(Math.min(max, value + 1))}
       >

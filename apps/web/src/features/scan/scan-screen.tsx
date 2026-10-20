@@ -12,6 +12,7 @@ import {
 } from "@cellr/domain";
 import { AddedDone } from "@/features/cellar/added-done";
 import { BottleDetails } from "@/features/cellar/bottle-details";
+import { ChooseWine } from "@/features/cellar/choose-wine";
 import { useWines } from "@/features/cellar/hooks";
 import { LabelImage } from "@/features/cellar/label-image";
 import { NewWineForm } from "@/features/cellar/new-wine-form";
@@ -21,7 +22,7 @@ import { ApiError, errorMessage } from "@/lib/api";
 import { UnreadablePhotoError } from "@/lib/photo";
 import { Button } from "@/ui/button";
 import { cn } from "@/ui/cn";
-import { CheckIcon } from "@/ui/icons";
+import { CheckIcon, SearchIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
 import { Segmented } from "@/ui/segmented";
 import { useToast } from "@/ui/toast";
@@ -60,6 +61,10 @@ export function ScanScreen({ currency }: { currency: string }) {
   const [rejectedFound, setRejectedFound] = useState(false);
   const heading = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    // A step that puts the cursor in its first field (search, producer) keeps it: that is where the keyboard
+    // belongs on a phone. Otherwise the heading takes focus.
+    const active = document.activeElement;
+    if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
     heading.current?.focus();
   }, [stage.name]);
 
@@ -89,10 +94,13 @@ export function ScanScreen({ currency }: { currency: string }) {
     }
   }
 
-  /** One photo of a series is handled: say so, then straight on to the next one that is ready (if any). */
-  function handled(itemId: string, outcome: string, others: SeriesItem[]) {
+  /**
+   * One photo of a series is handled: say so (unless something already did), then straight on to the next one
+   * that is ready (if any).
+   */
+  function handled(itemId: string, outcome: string, others: SeriesItem[], said = false) {
     series.finish(itemId, outcome);
-    toast.show(outcome);
+    if (!said) toast.show(outcome);
     setRejectedFound(false);
     const next = others.find((i) => i.id !== itemId && i.status === "ready");
     setStage(
@@ -181,7 +189,7 @@ export function ScanScreen({ currency }: { currency: string }) {
           <Review
             result={stage.result}
             rejectedFound={rejectedFound}
-            producers={[...new Set((wines.data ?? []).map((w) => w.producer))]}
+            wines={wines.data ?? []}
             onReject={() => setRejectedFound(true)}
             onWine={(wine) =>
               setStage({ name: "details", result: stage.result, wine, itemId: stage.itemId })
@@ -221,6 +229,7 @@ export function ScanScreen({ currency }: { currency: string }) {
                         stage.itemId,
                         t("series.wished", { wine: `${stage.wine.producer} ${stage.wine.name}` }),
                         series.items,
+                        true, // the wishlist has said so already
                       );
                     else restart();
                   } catch {
@@ -494,14 +503,14 @@ function PhotosIcon() {
 function Review({
   result,
   rejectedFound,
-  producers,
+  wines,
   onReject,
   onWine,
   onAgain,
 }: {
   result: ScanResult;
   rejectedFound: boolean;
-  producers: string[];
+  wines: WineSummary[];
   onReject: () => void;
   onWine: (wine: WineSummary) => void;
   onAgain: () => void;
@@ -509,12 +518,16 @@ function Review({
   const t = useTranslations("scan");
   const owned = useOwnedCounts();
   const [chosenNew, setChosenNew] = useState(false);
+  // A wrong guess is corrected by finding the right wine among your own, not by typing it in again (a duplicate).
+  const [searching, setSearching] = useState(false);
   const { outcome, facts, matches } = result;
+  const [query, setQuery] = useState(facts?.producer ?? facts?.name ?? "");
   const wantsForm =
     chosenNew ||
     outcome === "new" ||
     outcome === "unread" ||
-    (outcome === "found" && rejectedFound);
+    (outcome === "found" && (rejectedFound || !matches[0]));
+  const producers = [...new Set(wines.map((w) => w.producer))];
   const unsure = facts ? Object.values(facts.confidence).includes("low") : false;
 
   return (
@@ -580,7 +593,23 @@ function Review({
         </section>
       )}
 
-      {wantsForm && (
+      {wantsForm && searching && (
+        <section className="flex flex-col gap-4">
+          <div>
+            <h2 className="font-display text-headline">{t("searchTitle")}</h2>
+            <p className="mt-1 text-body text-ink-2">{t("searchBody")}</p>
+          </div>
+          <ChooseWine
+            wines={wines}
+            query={query}
+            onQuery={setQuery}
+            onPick={onWine}
+            onNew={() => setSearching(false)}
+          />
+        </section>
+      )}
+
+      {wantsForm && !searching && (
         <section className="flex flex-col gap-4">
           {outcome === "unread" ? (
             <div role="status">
@@ -598,6 +627,12 @@ function Review({
                 <p className="mt-2 text-small text-ink">{t("typeUnclear")}</p>
               )}
             </div>
+          )}
+          {wines.length > 0 && (
+            <Button variant="secondary" size="lg" block onClick={() => setSearching(true)}>
+              <SearchIcon size={18} />
+              {t("searchMine")}
+            </Button>
           )}
           <NewWineForm
             initialName=""

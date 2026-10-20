@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ERROR_MESSAGES } from "@cellr/domain";
-import { api, ApiError, errorMessage } from "./api";
+import { api, ApiError, checkMessage, errorMessage } from "./api";
 
 const respond = (status: number, body?: unknown) =>
   vi.stubGlobal(
@@ -54,9 +54,26 @@ describe("errorMessage", () => {
     const e = new ApiError("RATE_LIMITED", ERROR_MESSAGES.RATE_LIMITED, true);
     expect(errorMessage(e, t, ERROR_MESSAGES)).toBe("T(errors.RATE_LIMITED)");
   });
-  it("keeps custom server wording", () => {
+  it("keeps custom server wording it doesn't know", () => {
     const e = new ApiError("CONFLICT", "You're the last owner.", false);
     expect(errorMessage(e, t, ERROR_MESSAGES)).toBe("You're the last owner.");
+  });
+  it("translates a server sentence it knows", () => {
+    const e = new ApiError(
+      "CONFLICT",
+      "You're the last owner. Delete the household instead, or hand it over first.",
+      false,
+    );
+    expect(errorMessage(e, t, ERROR_MESSAGES)).toBe("T(errors.known.lastOwner)");
+  });
+  it("translates a form check, or falls back to the general sentence", () => {
+    expect(checkMessage([{ message: "Give your household a name." }], t)).toBe(
+      "T(errors.known.householdName)",
+    );
+    expect(
+      checkMessage([{ message: "Too small: expected string to have >=1 characters" }], t),
+    ).toBe("T(errors.VALIDATION)");
+    expect(checkMessage([], t)).toBe("T(errors.VALIDATION)");
   });
   it("handles network failures and unknown errors kindly", () => {
     expect(errorMessage(new ApiError("NETWORK", "", true), t, ERROR_MESSAGES)).toBe(

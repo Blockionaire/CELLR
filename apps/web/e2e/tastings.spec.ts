@@ -114,6 +114,7 @@ test.describe("open it, then say how it was", () => {
     // Take it back.
     await section.getByRole("button", { name: "Edit" }).click();
     await sheet(page).getByRole("button", { name: "Remove what I said" }).click();
+    await sheet(page).getByRole("button", { name: "Yes, remove it all" }).click();
     await expect(page.getByText("Removed.")).toBeVisible();
     await expect(section.getByTestId("rating-summary")).toHaveCount(0);
     expect(

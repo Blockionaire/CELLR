@@ -13,7 +13,9 @@ import {
   type StorageUnitView,
   type WineSummary,
 } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { checkMessage, errorMessage } from "@/lib/api";
+import { todayLocal } from "@/lib/local-date";
+import { Skeleton } from "@/ui/skeleton";
 import { Button } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { Field } from "@/ui/field";
@@ -132,9 +134,9 @@ export function BottleDetails({
       purchasedFrom: extras.acquiredHow === "gift" ? null : shop,
       ...(imageId ? { imageId } : {}),
     });
-    if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+    if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
     const extrasParsed = BottleExtrasSchema.safeParse(draftToInput(extras));
-    if (!extrasParsed.success) return setError(extrasParsed.error.issues[0]?.message ?? null);
+    if (!extrasParsed.success) return setError(checkMessage(extrasParsed.error.issues, te));
     try {
       const result = await add.mutateAsync(parsed.data);
       // What you know about these bottles (a gift? kept for a day?) is saved right after; the bottles are
@@ -241,7 +243,8 @@ export function BottleDetails({
             className="grid grid-cols-2 gap-2.5 sm:grid-cols-3"
           >
             {storage.isPending
-              ? null
+              ? // Until the places are known, nothing looks chosen: saving now waits for them (see submit).
+                [0, 1].map((i) => <Skeleton key={i} className="min-h-[4.5rem] rounded-[16px]" />)
               : units.map((u) => {
                   const selected = u.id === placeId;
                   return (
@@ -264,7 +267,7 @@ export function BottleDetails({
                   );
                 })}
             <PlaceOption
-              selected={placeId === null}
+              selected={storage.isPending ? chosenPlace === null : placeId === null}
               title={t("notPlaced")}
               detail={t("notPlacedHint")}
               onSelect={() => setChosenPlace(null)}
@@ -317,7 +320,7 @@ export function BottleDetails({
               <Field
                 label={t("dateLabel")}
                 type="date"
-                max={new Date().toISOString().slice(0, 10)}
+                max={todayLocal()}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
               />

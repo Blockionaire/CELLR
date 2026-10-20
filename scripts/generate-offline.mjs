@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const web = path.join(root, "apps/web");
 const messages = JSON.parse(fs.readFileSync(path.join(web, "messages/en.json"), "utf8")).offline;
+// The page can't know the person's language (no script, no server), so it says it in Dutch too, below.
+const dutch = JSON.parse(fs.readFileSync(path.join(web, "messages/nl.json"), "utf8")).offline;
 const font = (pkg, file) =>
   fs.readFileSync(path.join(web, "node_modules", pkg, "files", file)).toString("base64");
 const serif = font("@fontsource/instrument-serif", "instrument-serif-latin-400-normal.woff2");
@@ -38,7 +40,7 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="robots" content="noindex">
-<title>${esc(messages.title)} · CELLR</title>
+<title>${esc(messages.title)} · ${esc(dutch.title)} · CELLR</title>
 <style>
 @font-face{font-family:"Instrument Serif";src:url(data:font/woff2;base64,${serif}) format("woff2");font-weight:400;font-display:swap}
 @font-face{font-family:"Geist Variable";src:url(data:font/woff2;base64,${sans}) format("woff2");font-weight:100 900;font-display:swap}
@@ -53,6 +55,8 @@ h1{margin:0;font:400 28px/34px "Instrument Serif",ui-serif,Georgia,"Times New Ro
 p{margin:8px 0 0;color:var(--ink-2)}
 a{display:inline-flex;align-items:center;justify-content:center;height:56px;margin-top:32px;padding:0 24px;border-radius:14px;background:var(--accent);color:var(--accent-ink);font-weight:500;text-decoration:none}
 a:active{transform:scale(.98)}
+.nl{margin-top:20px;padding-top:16px;border-top:1px solid var(--glass);font-size:15px}
+.nl strong{display:block;color:var(--ink);font-weight:500}
 a:focus-visible{outline:2px solid light-dark(#7d2234,#d98a9b);outline-offset:2px}
 @media (prefers-reduced-motion:no-preference){main{animation:in .5s cubic-bezier(.2,.8,.2,1) both}@keyframes in{from{opacity:0;transform:translateY(12px)}}}
 </style>
@@ -62,7 +66,8 @@ a:focus-visible{outline:2px solid light-dark(#7d2234,#d98a9b);outline-offset:2px
 <div class="bottles">${bottle("bordeaux", "#7d2234", 0)}${bottle("burgundy", "#c9b87a", 1)}${bottle("bordeaux", "#d98a9b", 2)}</div>
 <h1>${esc(messages.title)}</h1>
 <p>${esc(messages.body)}</p>
-<a href="/">${esc(messages.retry)}</a>
+<p class="nl" lang="nl"><strong>${esc(dutch.title)}</strong>${esc(dutch.body)}</p>
+<a href="/">${esc(messages.retry)} · <span lang="nl">${esc(dutch.retry)}</span></a>
 </main>
 </body>
 </html>

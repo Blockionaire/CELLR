@@ -10,7 +10,7 @@ import {
   type HouseholdMemberView,
   type Me,
 } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { checkMessage, errorMessage } from "@/lib/api";
 import { cn } from "@/ui/cn";
 import { Button, buttonStyles } from "@/ui/button";
 import { Field } from "@/ui/field";
@@ -119,13 +119,23 @@ export function ProfileView({
   const message = (e: unknown) => errorMessage(e, (k) => te(k), ERROR_MESSAGES);
   const active = me.households.find((h) => h.id === me.activeHouseholdId) ?? null;
   const isOwner = active?.role === "owner";
+  // Leaving must not strand a household: not as its only member (nobody could get back in), and not as its last
+  // owner while others remain (the database refuses that too). Until the members are known, nothing is offered.
+  const members = household.data?.members;
+  const leaveBlock: "loading" | "alone" | "lastOwner" | null = !members
+    ? "loading"
+    : members.length <= 1
+      ? "alone"
+      : isOwner && members.filter((m) => m.role === "owner").length <= 1
+        ? "lastOwner"
+        : null;
   const nameChanged = name.trim() !== (me.displayName ?? "");
 
   async function saveName(event: FormEvent) {
     event.preventDefault();
     setNameError(null);
     const parsed = UpdateProfileSchema.safeParse({ displayName: name });
-    if (!parsed.success) return setNameError(parsed.error.issues[0]?.message ?? null);
+    if (!parsed.success) return setNameError(checkMessage(parsed.error.issues, te));
     try {
       await updateProfile.mutateAsync(parsed.data);
       toast.show(tc("saved"));
@@ -217,9 +227,12 @@ export function ProfileView({
         <Section title={t("householdSection")}>
           <div className="flex items-start justify-between gap-3">
             <h3 className="font-display text-headline text-balance">{active.name}</h3>
-            <Button variant="secondary" size="sm" onClick={openInvite} className="shrink-0">
-              {t("invite")}
-            </Button>
+            {/* Only an owner can invite (the server says so too): a member would only meet a refusal. */}
+            {isOwner && (
+              <Button variant="secondary" size="sm" onClick={openInvite} className="shrink-0">
+                {t("invite")}
+              </Button>
+            )}
           </div>
           <p className="mb-1 mt-5 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
             {t("members")}
@@ -249,14 +262,20 @@ export function ProfileView({
               </li>
             ))}
           </ul>
-          <Button
-            variant="danger"
-            size="sm"
-            className="mt-3 -ml-3"
-            onClick={() => setConfirm({ kind: "leave" })}
-          >
-            {t("leave")}
-          </Button>
+          {leaveBlock === "alone" ? (
+            <p className="mt-3 text-small text-ink-3">{t("leaveAlone")}</p>
+          ) : leaveBlock === "lastOwner" ? (
+            <p className="mt-3 text-small text-ink-3">{t("leaveLastOwner")}</p>
+          ) : leaveBlock === null ? (
+            <Button
+              variant="danger"
+              size="sm"
+              className="mt-3 -ml-3"
+              onClick={() => setConfirm({ kind: "leave" })}
+            >
+              {t("leave")}
+            </Button>
+          ) : null}
         </Section>
       )}
 

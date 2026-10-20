@@ -12,7 +12,8 @@ import {
   type UpdateWine,
   type VintageDetail,
 } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { checkMessage, errorMessage } from "@/lib/api";
+import { todayLocal } from "@/lib/local-date";
 import { Button } from "@/ui/button";
 import { Field } from "@/ui/field";
 import { Sheet } from "@/ui/sheet";
@@ -96,11 +97,11 @@ function EditForm({ detail, onClose }: { detail: VintageDetail; onClose: () => v
     const wineParsed =
       Object.keys(winePatch).length > 0 ? UpdateWineSchema.safeParse(winePatch) : null;
     if (wineParsed && !wineParsed.success)
-      return setError(wineParsed.error.issues[0]?.message ?? null);
+      return setError(checkMessage(wineParsed.error.issues, te));
     const purchaseParsed =
       Object.keys(purchasePatch).length > 0 ? UpdatePurchaseSchema.safeParse(purchasePatch) : null;
     if (purchaseParsed && !purchaseParsed.success)
-      return setError(purchaseParsed.error.issues[0]?.message ?? null);
+      return setError(checkMessage(purchaseParsed.error.issues, te));
 
     try {
       if (wineParsed?.success)
@@ -184,7 +185,7 @@ function EditForm({ detail, onClose }: { detail: VintageDetail; onClose: () => v
           <Field
             label={t("dateLabel")}
             type="date"
-            max={new Date().toISOString().slice(0, 10)}
+            max={todayLocal()}
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />

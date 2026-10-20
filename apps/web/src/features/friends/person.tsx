@@ -48,9 +48,10 @@ export function PersonRow({
 }) {
   const name = personName(person);
   return (
-    <div className="flex items-center gap-3">
+    // On a narrow phone the buttons move under the name rather than squeezing it to nothing.
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       <PersonAvatar person={person} />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[9rem] flex-1">
         <p className="truncate text-body font-medium text-ink">{name}</p>
         <p className="truncate text-small text-ink-3">
           {person.handle && name !== `@${person.handle}` ? `@${person.handle}` : null}
@@ -58,7 +59,7 @@ export function PersonRow({
           {detail}
         </p>
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
     </div>
   );
 }

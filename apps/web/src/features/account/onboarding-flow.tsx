@@ -11,7 +11,7 @@ import {
   UpdateProfileSchema,
   type Me,
 } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { checkMessage, errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { Field } from "@/ui/field";
 import { Segmented } from "@/ui/segmented";
@@ -53,11 +53,11 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
     try {
       if (mode === "create") {
         const parsed = CreateHouseholdSchema.safeParse({ name: householdName });
-        if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+        if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
         await createHousehold.mutateAsync(parsed.data);
       } else {
         const parsed = JoinHouseholdSchema.safeParse({ code });
-        if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+        if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
         await joinHousehold.mutateAsync(parsed.data);
       }
     } catch (e) {
@@ -69,7 +69,7 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
     event.preventDefault();
     setError(null);
     const parsed = UpdateProfileSchema.safeParse({ displayName: name, locale });
-    if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+    if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
     try {
       await updateProfile.mutateAsync(parsed.data);
     } catch (e) {
@@ -77,13 +77,17 @@ export function OnboardingFlow({ initialMe }: { initialMe: Me }) {
     }
   }
 
-  const current = step === "household" ? 1 : 2;
+  // Count only the steps this person actually has: someone who already has a household only gives a name.
+  const [total] = useState(step === "household" ? 2 : 1);
+  const current = step === "household" ? 1 : total;
 
   return (
     <AuthShell>
-      <p className="mb-4 text-center text-caption font-medium uppercase tracking-[0.18em] text-bronze">
-        {t("stepOf", { current, total: 2 })}
-      </p>
+      {total > 1 ? (
+        <p className="mb-4 text-center text-caption font-medium uppercase tracking-[0.18em] text-bronze">
+          {t("stepOf", { current, total })}
+        </p>
+      ) : null}
 
       {step === "name" ? (
         <form onSubmit={submitName} noValidate className="flex flex-col gap-6">

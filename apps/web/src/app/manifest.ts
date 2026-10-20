@@ -9,8 +9,10 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#141211",
-    theme_color: "#141211",
+    // One colour for everyone here (the page's own theme-color follows light and dark): Noir's canvas, the same
+    // dark as the app's own dark theme-color, so the splash hands over without a change of shade.
+    background_color: "#0e090b",
+    theme_color: "#0e090b",
     categories: ["food", "lifestyle"],
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
