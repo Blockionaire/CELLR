@@ -209,7 +209,8 @@ test.describe("the bottle on display always stands in the same place", () => {
     const [cx, top, bottom] = boxes[0] as [number, number, number];
     const view = views[0]!;
     const panel = panels[0]!;
-    expect(top).toBeGreaterThan(0);
+    // a clear margin above the capsule (the view's top edge, or the status bar on a phone)
+    expect(top).toBeGreaterThan(8);
     expect(bottom).toBeLessThan(view.height);
     expect(cx).toBeGreaterThan(0);
     if (view.width >= 720) expect(view.x + cx).toBeLessThan(panel.x);

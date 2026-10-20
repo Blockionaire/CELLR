@@ -66,8 +66,6 @@ function measureHandOff(
   }
 }
 
-const UPRIGHT = new THREE.Vector3();
-
 /** A test-only pause on the way home (window.__cellrHoldReturn = progress); 0 in normal use. */
 const heldReturn = () => (globalThis as { __cellrHoldReturn?: number }).__cellrHoldReturn ?? 0;
 
@@ -129,11 +127,9 @@ interface Scratch {
   up: THREE.Vector3;
   forward: THREE.Vector3;
   toCamera: THREE.Vector3;
-  side: THREE.Vector3;
   display: THREE.Vector3;
   out: THREE.Vector3;
   pos: THREE.Vector3;
-  basis: THREE.Matrix4;
   facing: THREE.Quaternion;
   turn: THREE.Quaternion;
   pose: THREE.Quaternion;
@@ -441,11 +437,9 @@ export function Showcase({
       up: new THREE.Vector3(),
       forward: new THREE.Vector3(),
       toCamera: new THREE.Vector3(),
-      side: new THREE.Vector3(),
       display: new THREE.Vector3(),
       out: new THREE.Vector3(),
       pos: new THREE.Vector3(),
-      basis: new THREE.Matrix4(),
       facing: new THREE.Quaternion(),
       turn: new THREE.Quaternion(),
       pose: new THREE.Quaternion(),
@@ -503,15 +497,10 @@ export function Showcase({
       .addScaledVector(scratch.up, frame.y * visibleH);
     const displayScale = (frame.fill * visibleH) / BOTTLE_LENGTH;
 
-    // Upright as the screen sees it, the front label turned straight to the viewer, plus your own turning.
-    scratch.toCamera.copy(cam.position).sub(scratch.display).normalize();
-    scratch.side.crossVectors(scratch.up, scratch.toCamera).normalize();
-    scratch.basis.makeBasis(
-      scratch.side,
-      UPRIGHT.crossVectors(scratch.toCamera, scratch.side),
-      scratch.toCamera,
-    );
-    scratch.facing.setFromRotationMatrix(scratch.basis);
+    // Upright and square to the screen (the camera's own axes), the front label towards the viewer, plus your own
+    // turning. Square, not tilted towards the eye: a tilted bottle above the middle would loom larger at the top.
+    scratch.toCamera.copy(scratch.forward).negate();
+    scratch.facing.copy(cam.quaternion);
     s.yaw += s.spin * delta;
     s.spin *= Math.exp(-3.2 * delta);
     if (Math.abs(s.spin) < 0.01) s.spin = 0;
