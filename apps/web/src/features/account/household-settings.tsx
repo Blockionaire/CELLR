@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 import { ERROR_MESSAGES, UpdateHouseholdSchema, type HouseholdSummary } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { checkMessage, errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { Field } from "@/ui/field";
 import { Sheet } from "@/ui/sheet";
@@ -46,7 +46,7 @@ export function HouseholdSettings({ household }: { household: HouseholdSummary }
     event.preventDefault();
     setError(null);
     const parsed = UpdateHouseholdSchema.safeParse({ name, currency });
-    if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+    if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
     try {
       await update.mutateAsync({ id: household.id, patch: parsed.data });
       toast.show(t("householdSaved"));

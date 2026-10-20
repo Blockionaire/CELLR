@@ -154,7 +154,7 @@ async function seedFilled(page: Page, request: Parameters<typeof apiClient>[0]) 
   await call(
     "put",
     `/bottles/${bottles[0]}/tasting`,
-    { score: 8.5, note: "Flint and lemon, long." },
+    { score: 9, note: "Flint and lemon, long." },
     200,
   );
   await call("patch", `/bottles/${bottles[3]}`, { action: "open" }, 200);

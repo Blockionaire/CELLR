@@ -9,7 +9,7 @@ import {
   type StorageKind,
   type StorageUnitView,
 } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { checkMessage, errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { cn } from "@/ui/cn";
 import { Field } from "@/ui/field";
@@ -188,7 +188,7 @@ export function NewPlaceSheet({ open, onClose, onCreated }: NewPlaceSheetProps) 
     event.preventDefault();
     setError(null);
     const parsed = CreateStorageSchema.safeParse({ label, kind, rows, cols });
-    if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+    if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
     if (taken.has(label.trim().toLowerCase()))
       return setError(t("nameTaken", { name: label.trim() }));
     try {

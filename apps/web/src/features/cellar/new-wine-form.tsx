@@ -10,7 +10,7 @@ import {
   type WineSummary,
   type WineType,
 } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { checkMessage, errorMessage } from "@/lib/api";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { Button } from "@/ui/button";
 import { cn } from "@/ui/cn";
@@ -67,7 +67,7 @@ export function NewWineForm({ initialName, draft, producers, onCreated }: NewWin
       ...(country ? { countryCode: country } : {}),
       region,
     });
-    if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+    if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
     try {
       onCreated(await create.mutateAsync(parsed.data));
     } catch (e) {

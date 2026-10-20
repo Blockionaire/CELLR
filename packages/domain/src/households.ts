@@ -44,7 +44,7 @@ export const SetActiveHouseholdSchema = z.object({ householdId: z.uuid() });
 
 export const UpdateProfileSchema = z
   .object({
-    displayName: z.string().trim().min(1).max(40),
+    displayName: z.string().trim().min(1, "Give yourself a name.").max(40),
     locale: z.string().regex(/^[a-z]{2}(-[A-Z]{2})?$/),
   })
   .partial()

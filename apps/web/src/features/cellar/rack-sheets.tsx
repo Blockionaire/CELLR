@@ -11,7 +11,7 @@ import {
   type RackUnit,
   type StorageKind,
 } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { checkMessage, errorMessage } from "@/lib/api";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { Button, buttonStyles } from "@/ui/button";
 import { cn } from "@/ui/cn";
@@ -241,7 +241,7 @@ function ManageForm({ unit, onClose }: { unit: RackUnit; onClose: () => void }) 
     if (cols !== unit.cols) patch.cols = cols;
     if (Object.keys(patch).length === 0) return onClose();
     const parsed = UpdateStorageSchema.safeParse(patch);
-    if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+    if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
     try {
       await update.mutateAsync({ id: unit.id, patch: parsed.data });
       onClose();

@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 import { BottleExtrasSchema, ERROR_MESSAGES, type BottleExtrasView } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { checkMessage, errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { Sheet } from "@/ui/sheet";
 import { useToast } from "@/ui/toast";
@@ -48,7 +48,7 @@ export function BottleExtrasSheet({
     event.preventDefault();
     setError(null);
     const parsed = BottleExtrasSchema.safeParse(draftToInput(draft));
-    if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+    if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
     try {
       await save.mutateAsync({ bottleId, extras: parsed.data });
       toast.show(tc("saved"));

@@ -18,8 +18,7 @@ export default async function TonightPage({
   const question = typeof ask === "string" ? ask.trim().slice(0, 200) || undefined : undefined;
   const ctx = await getPageContext();
   if (!ctx) return null; // the (app) layout has already redirected signed-out visitors
-  const home = await servicesFor(ctx)
-    .cellar.home()
-    .catch(() => null);
-  return <TonightScreen hasBottles={(home?.bottleCount ?? 0) > 0} ask={question} />;
+  // Not knowing whether there are bottles is an error page with a retry, not "your cellar is empty".
+  const home = await servicesFor(ctx).cellar.home();
+  return <TonightScreen hasBottles={home.bottleCount > 0} ask={question} />;
 }

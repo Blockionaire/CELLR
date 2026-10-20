@@ -13,7 +13,7 @@ import {
   type StorageUnitView,
   type WineSummary,
 } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { checkMessage, errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { Field } from "@/ui/field";
@@ -132,9 +132,9 @@ export function BottleDetails({
       purchasedFrom: extras.acquiredHow === "gift" ? null : shop,
       ...(imageId ? { imageId } : {}),
     });
-    if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? null);
+    if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
     const extrasParsed = BottleExtrasSchema.safeParse(draftToInput(extras));
-    if (!extrasParsed.success) return setError(extrasParsed.error.issues[0]?.message ?? null);
+    if (!extrasParsed.success) return setError(checkMessage(extrasParsed.error.issues, te));
     try {
       const result = await add.mutateAsync(parsed.data);
       // What you know about these bottles (a gift? kept for a day?) is saved right after; the bottles are

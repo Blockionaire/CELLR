@@ -1,4 +1,8 @@
 import type { ErrorCode } from "@cellr/domain";
+import { knownMessage, type KnownKey } from "./known-messages";
+
+/** The error keys a screen's translator must know: one per code, plus the known server sentences. */
+export type ErrorKey = `errors.${ErrorCode | "network"}` | `errors.known.${KnownKey}`;
 
 /** A failed API call, with a code the UI can translate. `NETWORK` means we never reached the server. */
 export class ApiError extends Error {
@@ -59,18 +63,33 @@ export const api = {
 
 /**
  * Picks the wording for an error. Server text that is just the code's stock sentence is replaced by
- * the translated one; custom server text (e.g. "You're the last owner…") is kept.
+ * the translated one, and so is a custom sentence we know (e.g. "You're the last owner…"); any other custom
+ * server text is kept as it is.
  */
 export function errorMessage(
   error: unknown,
-  t: (key: `errors.${ErrorCode | "network"}`) => string,
+  t: (key: ErrorKey) => string,
   stock: Record<ErrorCode, string>,
 ): string {
   if (error instanceof ApiError) {
     if (error.code === "NETWORK") return t("errors.network");
+    const known = knownMessage(error.serverMessage);
+    if (known) return t(`errors.known.${known}`);
     if (error.serverMessage && error.serverMessage !== stock[error.code])
       return error.serverMessage;
     return t(`errors.${error.code}`);
   }
   return t("errors.INTERNAL");
+}
+
+/**
+ * The wording for a form check that failed on this side (a zod issue): the translated sentence when we know it,
+ * else the general "something doesn't look right", never a library's English.
+ */
+export function checkMessage(
+  issues: ReadonlyArray<{ message: string }>,
+  t: (key: ErrorKey) => string,
+): string {
+  const known = knownMessage(issues[0]?.message);
+  return known ? t(`errors.known.${known}`) : t("errors.VALIDATION");
 }

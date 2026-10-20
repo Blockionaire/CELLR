@@ -10,7 +10,7 @@ import {
   type HouseholdMemberView,
   type Me,
 } from "@cellr/domain";
-import { errorMessage } from "@/lib/api";
+import { checkMessage, errorMessage } from "@/lib/api";
 import { cn } from "@/ui/cn";
 import { Button, buttonStyles } from "@/ui/button";
 import { Field } from "@/ui/field";
@@ -125,7 +125,7 @@ export function ProfileView({
     event.preventDefault();
     setNameError(null);
     const parsed = UpdateProfileSchema.safeParse({ displayName: name });
-    if (!parsed.success) return setNameError(parsed.error.issues[0]?.message ?? null);
+    if (!parsed.success) return setNameError(checkMessage(parsed.error.issues, te));
     try {
       await updateProfile.mutateAsync(parsed.data);
       toast.show(tc("saved"));
