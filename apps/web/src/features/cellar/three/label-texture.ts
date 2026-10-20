@@ -15,6 +15,8 @@ export interface LabelSpec {
   photoUrl?: string | null | undefined;
   /** The photo is already just the label, straightened: wear all of it, in its own proportions. */
   textured?: boolean | undefined;
+  /** A photo of the real back label, when there is one. */
+  backPhotoUrl?: string | null | undefined;
 }
 
 export const LABEL_W = 640;
@@ -226,7 +228,7 @@ export async function makeLabelTexture(spec: LabelSpec, maxAnisotropy = 8): Prom
   }
   photo?.close();
   const texture = new THREE.CanvasTexture(canvas);
-  texture.userData = { aspect: flat ?? LABEL_ASPECT };
+  texture.userData = { aspect: flat ?? LABEL_ASPECT, photo: photo !== null };
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = maxAnisotropy;
   texture.needsUpdate = true;
@@ -250,4 +252,72 @@ export function makeShadowTexture(): THREE.Texture {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
+}
+
+/**
+ * The back label: the person's own photo of it, in its own proportions, or else a plainly drawn stand-in (paper,
+ * a fine border, the producer's name and a few grey lines for the small print) that no one could take for the real
+ * thing. The caller owns the texture.
+ */
+export async function makeBackLabelTexture(
+  spec: LabelSpec,
+  maxAnisotropy = 8,
+): Promise<THREE.Texture> {
+  const [photo] = await Promise.all([
+    spec.backPhotoUrl ? loadPhoto(spec.backPhotoUrl) : null,
+    fontsReady(),
+  ]);
+  const aspect = photo ? clampLabelAspect(photo.width, photo.height) : 0.7;
+  const canvas = document.createElement("canvas");
+  canvas.height = LABEL_H;
+  canvas.width = Math.round(LABEL_H * aspect);
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    if (photo) {
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(photo, 0, 0, canvas.width, canvas.height);
+    } else drawBackLabel(ctx, spec, canvas.width, canvas.height);
+  }
+  photo?.close();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.userData = { aspect, photo: photo !== null };
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = maxAnisotropy;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function drawBackLabel(ctx: Ctx, spec: LabelSpec, W: number, H: number): void {
+  const { paper, accent } = PAPER[spec.type];
+  ctx.fillStyle = shade(paper, 0.02);
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = accent;
+  ctx.globalAlpha = 0.55;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(24, 24, W - 48, H - 48);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = INK_SOFT;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `600 22px ${SANS}`;
+  spaced(ctx, 4);
+  const lines = wrapLines(
+    spec.producer.toUpperCase(),
+    (s) => ctx.measureText(s).width,
+    W - 110,
+    2,
+  ) ?? [spec.producer.toUpperCase()];
+  lines.forEach((line, i) => ctx.fillText(line, W / 2, 90 + i * 32));
+  spaced(ctx, 0);
+  // the small print, as grey lines: clearly a drawing, never invented text
+  ctx.fillStyle = "rgba(90,74,62,0.22)";
+  const left = 64;
+  let y = 190;
+  for (let i = 0; i < 14; i++) {
+    const w = (W - 2 * left) * (i % 5 === 4 ? 0.55 : 0.82 + ((i * 37) % 17) / 100);
+    ctx.fillRect(left + (W - 2 * left - w) / 2, y, w, 9);
+    y += i % 5 === 4 ? 40 : 24;
+  }
+  ctx.fillStyle = "rgba(90,74,62,0.35)";
+  ctx.fillRect(W / 2 - 60, H - 120, 120, 54);
 }

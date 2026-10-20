@@ -122,7 +122,9 @@ test.describe("the 3D cellar", () => {
     await expect(panel.getByText("2015 · Bordeaux, France")).toBeVisible();
     await expect(panel.getByText("Wine fridge · Shelf 1 · Position 4")).toBeVisible();
     await expect(panel.getByText("2 bottles of this vintage in your cellar")).toBeVisible();
-    await expect(panel.getByText("Average price per bottle")).toBeVisible();
+    // The facts in one line, then what happened to it (the full page has the rest).
+    await expect(panel.getByTestId("showcase-facts")).toBeAttached();
+    await expect(panel.getByText("2 bottles added")).toBeVisible();
     await expect(panel.getByRole("button", { name: "Move", exact: true })).toBeEnabled();
     await expect(panel.getByRole("link", { name: "Full page" })).toHaveAttribute(
       "href",
@@ -178,13 +180,15 @@ test.describe("the 3D cellar", () => {
     await expect(panel).toHaveAttribute("data-open", "false");
     await expect(scene).toHaveAttribute("data-showcase", "closed");
 
-    await page.waitForTimeout(1500); // it slides home first
+    // It slides home first: the rack is live again once its still picture is gone.
+    const home = page.getByTestId("rack-backdrop");
+    await expect(home).toHaveCount(0, { timeout: 10_000 });
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await expect(panel).toHaveAttribute("data-open", "true");
     await page.keyboard.press("Escape");
     await expect(panel).toHaveAttribute("data-open", "false");
 
-    await page.waitForTimeout(1500);
+    await expect(home).toHaveCount(0, { timeout: 10_000 });
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await expect(panel).toHaveAttribute("data-open", "true");
     await page.waitForTimeout(2500); // it has settled on display
@@ -194,7 +198,7 @@ test.describe("the 3D cellar", () => {
     await expect(panel).toHaveAttribute("data-open", "false");
 
     // A tap on empty background with nothing on display does nothing.
-    await page.waitForTimeout(1500);
+    await expect(home).toHaveCount(0, { timeout: 10_000 });
     await page.mouse.click(box.x + 6, box.y + 6);
     await expect(panel).toHaveAttribute("data-open", "false");
 

@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   BOTTLE_LENGTH,
   cameraDistance,
+  capsulePoints,
+  GLASS,
+  GLASS_CLEAR,
+  GLASS_TINT,
+  liquidPoints,
+  LIQUID,
+  FOIL,
+  radiusAt,
+  STORAGE_LOOK,
   lathePoints,
   layoutFor,
   SHAPES,
@@ -120,5 +129,52 @@ describe("wrapLines", () => {
   });
   it("copes with nothing", () => {
     expect(wrapLines("   ", measure, 100, 2)).toEqual([]);
+  });
+});
+
+describe("what the bottle is made of", () => {
+  for (const shape of Object.keys(SHAPES) as Array<keyof typeof SHAPES>) {
+    it(`${shape}: the capsule sits just outside the glass, from its start to the top`, () => {
+      const cap = capsulePoints(shape);
+      expect(cap[0]![1]).toBeCloseTo(SHAPES[shape].capsuleFrom * BOTTLE_LENGTH, 5);
+      expect(cap.at(-1)).toEqual([0, BOTTLE_LENGTH + 0.004]);
+      for (const [r, y] of cap.slice(0, -1)) expect(r).toBeGreaterThan(radiusAt(shape, y));
+    });
+
+    it(`${shape}: the wine stays inside the glass and stops at its fill line`, () => {
+      const wine = liquidPoints(shape);
+      const top = SHAPES[shape].fill * BOTTLE_LENGTH;
+      expect(wine.at(-1)).toEqual([0, top]);
+      for (const [r, y] of wine) {
+        expect(y).toBeLessThanOrEqual(top + 1e-9);
+        expect(r).toBeLessThan(radiusAt(shape, y));
+      }
+    });
+
+    it(`${shape}: the body is widest at the bottom, the neck narrow`, () => {
+      expect(radiusAt(shape, BOTTLE_LENGTH * 0.3)).toBeCloseTo(SHAPES[shape].radius, 5);
+      expect(radiusAt(shape, BOTTLE_LENGTH * 0.95)).toBeLessThan(SHAPES[shape].radius / 2);
+    });
+  }
+
+  it("every wine type has a glass, a tint, a wine colour and a foil; glass lets through 0–1", () => {
+    for (const type of Object.keys(GLASS) as Array<keyof typeof GLASS>) {
+      for (const table of [GLASS, GLASS_TINT, LIQUID, FOIL])
+        expect(table[type]).toMatch(/^#[0-9a-f]{6}$/);
+      expect(GLASS_CLEAR[type]).toBeGreaterThan(0);
+      expect(GLASS_CLEAR[type]).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("every kind of storage has a look, with sensible board thickness", () => {
+    for (const kind of ["fridge", "rack", "cabinet", "shelving", "wall", "other"] as const) {
+      const look = STORAGE_LOOK[kind];
+      expect(look).toBeDefined();
+      expect(look.board).toBeGreaterThan(0.3);
+      expect(look.board).toBeLessThan(2);
+    }
+    expect(STORAGE_LOOK.rack.dividers).toBe(true);
+    expect(STORAGE_LOOK.fridge.dividers).toBe(false);
+    expect(STORAGE_LOOK.fridge.glow).toBe(true);
   });
 });

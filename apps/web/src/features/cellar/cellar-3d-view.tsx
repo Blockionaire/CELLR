@@ -2,7 +2,15 @@
 
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { formatVintage, type PlacedBottle } from "@cellr/domain";
 import { Button } from "@/ui/button";
 import { Chip } from "@/ui/chip";
@@ -88,6 +96,9 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [touched, setTouched] = useState(false);
+  // iOS takes the graphics memory back from a page now and then; `attempt` draws the scene again from scratch.
+  const [lost, setLost] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   // A still of the rack stands behind the bottle on display (see Freezer in the scene).
   const [backdrop, setBackdrop] = useState<Backdrop | null>(null);
   useEffect(() => {
@@ -161,10 +172,15 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
                 ? imageUrl(picked.image.id, picked.image.texture ? "texture" : "photo")
                 : null,
               textured: picked.image?.texture === true,
+              // The back label comes with the wine's details, a moment after the bottle is picked.
+              backPhotoUrl:
+                detail?.vintageId === picked.vintageId && detail.backImage
+                  ? imageUrl(detail.backImage.id, "photo")
+                  : null,
             },
           }
         : null,
-    [picked, locale],
+    [picked, locale, detail],
   );
 
   const isOpen = showcase !== null;
@@ -215,6 +231,9 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
               key={u.id}
               selected={u.id === unit.id}
               onClick={() => {
+                // The unit already on screen stays as it is (its scene is not drawn anew, so it would not
+                // report ready again and the picture would stay hidden).
+                if (u.id === unit.id) return;
                 setUnitId(u.id);
                 setPickedId(null);
                 setBackdrop(null);
@@ -232,7 +251,11 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
       </p>
 
       {/* The card keeps its place in the page while the phone version fills the screen. */}
-      <div className="relative h-[min(68vh,34rem)] min-h-80">
+      {/* On a phone the card takes the unit's own proportions (a tall fridge, a wide rack), without empty bands. */}
+      <div
+        className="relative h-[clamp(20rem,calc((100vw-2.5rem)*var(--unit-ratio)+3rem),min(68vh,34rem))] sm:h-[min(68vh,34rem)]"
+        style={{ "--unit-ratio": unit.rows / unit.cols } as CSSProperties}
+      >
         <div
           ref={stage}
           role="group"
@@ -279,7 +302,7 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
             aria-hidden="true"
           >
             <Scene
-              key={unit.id}
+              key={`${unit.id}:${attempt}`}
               rows={unit.rows}
               cols={unit.cols}
               kind={unit.kind}
@@ -305,8 +328,37 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
               reducedMotion={reduced}
               onReady={() => setReady(true)}
               onBackdrop={setBackdrop}
+              onLost={() => {
+                setLost(true);
+                setReady(false);
+                setBackdrop(null);
+                setPickedId(null);
+              }}
             />
           </div>
+          {lost && (
+            <div
+              role="alert"
+              data-testid="cellar-3d-lost"
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-raised/95 px-6 text-center"
+            >
+              <p className="font-display text-title text-ink">{t("lostTitle")}</p>
+              <p className="max-w-sm text-small text-ink-2">{t("lostBody")}</p>
+              <div className="mt-1 flex flex-wrap justify-center gap-2">
+                <Button
+                  onClick={() => {
+                    setLost(false);
+                    setAttempt((n) => n + 1);
+                  }}
+                >
+                  {t("lostRetry")}
+                </Button>
+                <Button variant="ghost" onClick={onShowRacks}>
+                  {t("showRacks")}
+                </Button>
+              </div>
+            </div>
+          )}
           <p
             className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4 transition-opacity duration-500"
             style={{ opacity: touched || open ? 0 : 1 }}

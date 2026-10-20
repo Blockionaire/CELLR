@@ -543,7 +543,10 @@
     "showRacks": "Toon rekken",
     "emptyTitle": "Bouw eerst je kelder",
     "emptyBody": "Voeg een koelkast, rek of kast toe en leg er flessen in, en kom dan terug om erdoorheen te lopen.",
-    "loading": "Je kelder openen…"
+    "loading": "Je kelder openen…",
+    "lostTitle": "De 3D-weergave is gepauzeerd",
+    "lostBody": "Je telefoon had het grafische geheugen even nodig. Je flessen staan allemaal waar ze stonden.",
+    "lostRetry": "3D opnieuw tonen"
   },
   "showcase": {
     "label": "{wine} {year}",
@@ -555,7 +558,9 @@
     "details": "Volledige pagina",
     "loading": "Details laden…",
     "thisBottle": "Deze fles",
-    "spin": "Sleep om de fles te draaien"
+    "spin": "Sleep om de fles te draaien",
+    "pricePerBottle": "{price} per fles",
+    "boughtOn": "gekocht {day}"
   },
   "favorite": {
     "label": "Favoriet: {wine}",

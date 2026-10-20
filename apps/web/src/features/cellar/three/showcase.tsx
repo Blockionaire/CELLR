@@ -6,17 +6,26 @@ import * as THREE from "three";
 import {
   BOTTLE_LENGTH,
   FOIL,
-  GLASS,
+  GLASS_CLEAR,
+  GLASS_TINT,
+  LIQUID,
   RACK_DEPTH,
   SHAPES,
   SLIDE_OUT,
+  capsulePoints,
   lathePoints,
+  liquidPoints,
   showcasePhases,
   showcaseSpot,
   slotPosition,
   type ShowcaseLayout,
 } from "./layout";
-import { LABEL_ASPECT, makeLabelTexture, makeShadowTexture } from "./label-texture";
+import {
+  LABEL_ASPECT,
+  makeBackLabelTexture,
+  makeLabelTexture,
+  makeShadowTexture,
+} from "./label-texture";
 import type { SceneBottle, ShownBottle } from "./types";
 
 /** Matches the lying pose of the bottles in the rack (necks a hair up), so the hand-over is seamless. */
@@ -80,49 +89,85 @@ export function Showcase({
   const shadowMesh = useRef<THREE.Mesh>(null);
   const live = useRef({ p: 0, away: 0, yaw: 0, spin: 0, clock: 0, finished: false });
   const [label, setLabel] = useState<THREE.Texture | null>(null);
+  const [backLabel, setBackLabel] = useState<THREE.Texture | null>(null);
+  const keyLight = useRef<THREE.SpotLight>(null);
+  const rimLight = useRef<THREE.PointLight>(null);
 
   const { bottle } = shown;
   // A straightened photo of the real label has its own proportions; the wrap follows them.
   const labelAspect = (label?.userData as { aspect?: number } | undefined)?.aspect ?? LABEL_ASPECT;
+  const backAspect = (backLabel?.userData as { aspect?: number } | undefined)?.aspect ?? 0.7;
   const spec = SHAPES[bottle.shape];
 
   // ---- What it is made of ------------------------------------------------------------------------------------
   const geometry = useMemo(() => {
-    const body = new THREE.LatheGeometry(
-      lathePoints(bottle.shape).map(([r, y]) => new THREE.Vector2(r, y)),
-      72,
-    );
+    const lathe = (points: Array<[number, number]>, segments: number) =>
+      new THREE.LatheGeometry(
+        points.map(([r, y]) => new THREE.Vector2(r, y)),
+        segments,
+      );
+    const body = lathe(lathePoints(bottle.shape), 96);
+    const liquid = lathe(liquidPoints(bottle.shape), 48);
+    const cap = lathe(capsulePoints(bottle.shape), 64);
     const from = 0.16 * BOTTLE_LENGTH;
     const to = Math.min(spec.bodyEnd - 0.04, 0.48) * BOTTLE_LENGTH;
     const radius = spec.radius + 0.008;
-    // The label wraps just far enough round the glass to keep the picture's proportions.
-    const arc = Math.min(2.6, (labelAspect * (to - from)) / radius);
-    const wrap = (thetaStart: number, thetaLength: number) => {
+    const wrap = (thetaStart: number, thetaLength: number, bottom: number, top: number) => {
       const g = new THREE.CylinderGeometry(
         radius,
         radius,
-        to - from,
-        48,
+        top - bottom,
+        64,
         1,
         true,
         thetaStart,
         thetaLength,
       );
-      g.translate(0, (from + to) / 2, 0);
+      g.translate(0, (bottom + top) / 2, 0);
       return g;
     };
-    const front = wrap(-arc / 2, arc);
-    const back = wrap(Math.PI - 0.55, 1.1);
-    const capFrom = 0.865 * BOTTLE_LENGTH;
-    const cap = new THREE.CylinderGeometry(
-      spec.neckRadius * 1.12,
-      spec.neckRadius * 1.12,
-      BOTTLE_LENGTH - capFrom - 0.012,
-      32,
-    );
-    cap.translate(0, capFrom + (BOTTLE_LENGTH - capFrom - 0.012) / 2, 0);
-    return { body, front, back, cap };
-  }, [bottle.shape, spec, labelAspect]);
+    // Each label wraps just far enough round the glass to keep its picture's proportions; the back label is a
+    // little smaller, as it usually is, and sits right opposite the front.
+    const arc = Math.min(2.6, (labelAspect * (to - from)) / radius);
+    const front = wrap(-arc / 2, arc, from, to);
+    const backHeight = (to - from) * 0.84;
+    const backArc = Math.min(2.2, (backAspect * backHeight) / radius);
+    const back = wrap(Math.PI - backArc / 2, backArc, from, from + backHeight);
+    return { body, liquid, cap, front, back };
+  }, [bottle.shape, spec, labelAspect, backAspect]);
+
+  // What the bottle is made of. The glass is tinted and partly see-through, so the wine shows in a clear bottle
+  // and a dark one stays dark, as in life; the labels carry a touch of their own light so they stay readable.
+  const materials = useMemo(() => {
+    const clear = GLASS_CLEAR[bottle.type];
+    return {
+      glass: new THREE.MeshPhysicalMaterial({
+        color: GLASS_TINT[bottle.type],
+        roughness: 0.04,
+        metalness: 0,
+        clearcoat: 1,
+        clearcoatRoughness: 0.02,
+        ior: 1.5,
+        specularIntensity: 1,
+        envMapIntensity: 1.5,
+        transparent: true,
+        opacity: 1 - clear * 0.72,
+        depthWrite: false,
+      }),
+      liquid: new THREE.MeshStandardMaterial({
+        color: LIQUID[bottle.type],
+        roughness: 0.25,
+        envMapIntensity: 0.6,
+      }),
+      foil: new THREE.MeshStandardMaterial({
+        color: FOIL[bottle.type],
+        roughness: 0.28,
+        metalness: 0.78,
+        envMapIntensity: 1.2,
+      }),
+    };
+  }, [bottle.type]);
+  useEffect(() => () => Object.values(materials).forEach((m) => m.dispose()), [materials]);
 
   const shadowTexture = useMemo(() => makeShadowTexture(), []);
 
@@ -135,11 +180,35 @@ export function Showcase({
       if (!alive) return t.dispose();
       made = t;
       setLabel(t);
+      // What the bottle actually wears, readable from outside (the tests check a photo really arrived).
+      gl.domElement.dataset.frontLabel = (t.userData as { photo?: boolean }).photo
+        ? "photo"
+        : "drawn";
       invalidate();
     });
     return () => {
       alive = false;
       made?.dispose();
+      delete gl.domElement.dataset.frontLabel;
+    };
+  }, [spokenLabel, gl, invalidate]);
+  useEffect(() => {
+    let alive = true;
+    let made: THREE.Texture | null = null;
+    makeBackLabelTexture(JSON.parse(spokenLabel), gl.capabilities.getMaxAnisotropy()).then((t) => {
+      if (!alive) return t.dispose();
+      made = t;
+      setBackLabel(t);
+      // What the bottle actually wears, readable from outside (the tests check a photo really arrived).
+      gl.domElement.dataset.backLabel = (t.userData as { photo?: boolean }).photo
+        ? "photo"
+        : "drawn";
+      invalidate();
+    });
+    return () => {
+      alive = false;
+      made?.dispose();
+      delete gl.domElement.dataset.backLabel;
     };
   }, [spokenLabel, gl, invalidate]);
   useEffect(
@@ -181,7 +250,9 @@ export function Showcase({
       lastT = e.timeStamp;
       invalidate();
     };
-    const onUp = () => {
+    const onUp = (e: PointerEvent) => {
+      // Held still before letting go: it stays where it was put, without a last flick.
+      if (down && e.timeStamp - lastT > 90) s.spin = 0;
       down = false;
       invalidate();
     };
@@ -260,7 +331,9 @@ export function Showcase({
     }
 
     // Standing up, with the label turned to the camera, a little give while it waits, and your own turning.
-    const sway = reducedMotion ? 0 : Math.sin(s.clock * 0.9) * 0.09 * rise;
+    // No idle sway: once it has arrived the bottle stands still, like a product on a plinth (and nothing is drawn
+    // until someone turns it, which spares the battery).
+    const sway = 0;
     s.yaw += s.spin * delta;
     s.spin *= Math.exp(-3.2 * delta);
     if (Math.abs(s.spin) < 0.01) s.spin = 0;
@@ -298,8 +371,28 @@ export function Showcase({
     }
 
     const settling = leavingForGood ? s.away < 1 : open ? s.p < 1 : s.p > 0;
-    const idle = open && !reducedMotion && s.p >= 1;
-    if (settling || idle || s.spin !== 0 || (!open && Math.abs(s.yaw) > 0.002)) invalidate();
+    // The studio light comes up on the bottle as it arrives, and goes down as it leaves.
+    const lit = rise * (1 - s.away);
+    if (keyLight.current) {
+      keyLight.current.intensity = 70 * lit;
+      keyLight.current.position.set(
+        scratch.pos.x - 3 * scale,
+        scratch.pos.y + 4 * scale,
+        scratch.pos.z + 5 * scale,
+      );
+      keyLight.current.target.position.copy(scratch.pos);
+      keyLight.current.target.updateMatrixWorld();
+    }
+    if (rimLight.current) {
+      rimLight.current.intensity = 26 * lit * scale;
+      rimLight.current.position.set(
+        scratch.pos.x + 2.4 * scale,
+        scratch.pos.y + 1.2 * scale,
+        scratch.pos.z - 2.6 * scale,
+      );
+    }
+
+    if (settling || s.spin !== 0 || (!open && Math.abs(s.yaw) > 0.002)) invalidate();
 
     if (!open && !s.finished && (leavingForGood ? s.away >= 1 : s.p <= 0)) {
       s.finished = true;
@@ -317,30 +410,43 @@ export function Showcase({
         <circleGeometry args={[1, 40]} />
         <meshBasicMaterial map={shadowTexture} transparent opacity={0} depthWrite={false} />
       </mesh>
+      <spotLight
+        ref={keyLight}
+        intensity={0}
+        angle={0.5}
+        penumbra={0.9}
+        color="#fff2df"
+        distance={60}
+        decay={1.5}
+      />
+      <pointLight ref={rimLight} intensity={0} color="#e6eeff" distance={30} decay={1.8} />
       <group ref={hero} onClick={(e) => e.stopPropagation()}>
         <group position={[0, -BOTTLE_LENGTH / 2, 0]}>
-          <mesh geometry={geometry.body}>
-            <meshPhysicalMaterial
-              color={GLASS[bottle.type]}
-              roughness={0.1}
-              clearcoat={1}
-              clearcoatRoughness={0.05}
-            />
-          </mesh>
-          <mesh geometry={geometry.front}>
+          <mesh geometry={geometry.liquid} material={materials.liquid} renderOrder={1} />
+          <mesh geometry={geometry.front} renderOrder={2}>
             <meshStandardMaterial
               key={label ? "printed" : "plain"}
               map={label}
+              emissiveMap={label}
+              emissive={label ? "#ffffff" : "#000000"}
+              emissiveIntensity={0.16}
               color={label ? "#ffffff" : "#e8dcc2"}
-              roughness={0.8}
+              roughness={0.72}
             />
           </mesh>
-          <mesh geometry={geometry.back}>
-            <meshStandardMaterial color="#e3d6bb" roughness={0.85} />
+          <mesh geometry={geometry.back} renderOrder={2}>
+            <meshStandardMaterial
+              key={backLabel ? "printed" : "plain"}
+              map={backLabel}
+              emissiveMap={backLabel}
+              emissive={backLabel ? "#ffffff" : "#000000"}
+              emissiveIntensity={0.16}
+              color={backLabel ? "#ffffff" : "#e3d6bb"}
+              roughness={0.75}
+            />
           </mesh>
-          <mesh geometry={geometry.cap}>
-            <meshStandardMaterial color={FOIL[bottle.type]} roughness={0.3} metalness={0.6} />
-          </mesh>
+          <mesh geometry={geometry.cap} material={materials.foil} renderOrder={2} />
+          <mesh geometry={geometry.body} material={materials.glass} renderOrder={3} />
         </group>
       </group>
     </>
