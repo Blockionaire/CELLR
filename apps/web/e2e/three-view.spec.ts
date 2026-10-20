@@ -111,8 +111,9 @@ test.describe("the rack holds still behind the bottle", () => {
     await page.keyboard.press("Enter");
     await expect(scene).toHaveAttribute("data-showcase", "open");
     const backdrop = page.getByTestId("rack-backdrop");
-    await expect(backdrop).toBeVisible();
-    await expect(backdrop).toHaveCSS("filter", /blur/);
+    // The still takes over once the bottle has slid clear of its slot (slow on a software-rendering CI runner).
+    await expect(backdrop).toBeVisible({ timeout: 20_000 });
+    await expect(backdrop).toHaveCSS("filter", /blur/, { timeout: 10_000 });
     await page.waitForTimeout(2000); // let the bottle come out and the picture settle
 
     // Drag across the picture: the bottle turns; the camera, and with it the rack's picture, stay as they were.

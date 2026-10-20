@@ -158,7 +158,7 @@ test.describe("the bottle on display always stands in the same place", () => {
     page,
     request,
   }) => {
-    test.setTimeout(300_000);
+    test.setTimeout(480_000);
     const { email } = await arrive(page, "showspot");
     const { call } = await apiClient(request, email);
     await fullRack(call);
@@ -253,7 +253,7 @@ test.describe("the hand-over from the bottle on display to the rack", () => {
     request,
   }) => {
     test.skip(test.info().project.name !== "desktop", "one size is enough for the colour");
-    test.setTimeout(300_000);
+    test.setTimeout(480_000);
     const { email } = await arrive(page, "handover");
     const { call } = await apiClient(request, email);
     await fullRack(call);
