@@ -173,6 +173,7 @@ export function servicesFor(ctx: RequestContext) {
       llm: getLlmProvider(),
       spend: () => limiter.enforce(LIMITS.chat),
       householdId: async () => (await household()).id,
+      locale: async () => (await households.me()).locale,
       recordUsage: ({ householdId, task, status, usage }) =>
         recordAiUsage({ userId: ctx.userId, householdId, task, status, ...usage }),
     }),

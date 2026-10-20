@@ -1321,5 +1321,9 @@
     "sectionOff": "Sign in with a 6-digit PIN instead of waiting for an email code.",
     "change": "Change PIN",
     "turnOff": "Switch off"
+  },
+  "insightsEntry": {
+    "title": "Insights",
+    "cta": "View insights"
   }
 }
