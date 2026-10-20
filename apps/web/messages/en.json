@@ -221,7 +221,9 @@
       "factsMatches": "{matches, plural, =0 {That wine isn't in your cellar.} one {This is the wine that fits; tap it for its spots.} other {# wines fit that: which one do you mean?}}",
       "factsWhere": "{wine} ({count, plural, one {# bottle} other {# bottles}}): {spots}.",
       "factsSpot": "{place}, shelf {row}, position {col}",
-      "factsNoPlace": "{count, plural, one {# bottle} other {# bottles}} without a place yet"
+      "factsNoPlace": "{count, plural, one {# bottle} other {# bottles}} without a place yet",
+      "factsCount": "You have {bottles, plural, one {# bottle} other {# bottles}} of that{vintages, plural, =1 {} other {, across # vintages}}.",
+      "factsList": "{matches, plural, one {This wine fits} other {These # wines fit}}: {names}{more, plural, =0 {} other {, and # more}}."
     },
     "reason": {
       "ai-off": "The AI sommelier isn’t switched on yet, so this answer comes straight from your cellar.",

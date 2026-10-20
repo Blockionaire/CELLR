@@ -498,6 +498,35 @@ describe("questions about the cellar itself", () => {
     }
   });
 
+  it("without AI, 'how many' sums every matching vintage and lists no spots; 'which' names them", async () => {
+    const m18 = musar(2018, 3);
+    const m16 = musar(2016, 2);
+    const { service, state } = setup({
+      items: [m18, m16, item({ producer: "Other", wineName: "Wine", type: "white" })],
+      storage: [fridge],
+      racks: { units: [{ ...fridge, bottles: [spot(m18, 2, 3)] }], unplaced: [] },
+      noAi: true,
+    });
+    const howMany = await service.ask(ask("Hoeveel flessen Musar heb ik?"));
+    expect(howMany.facts).toMatchObject({
+      kind: "quantity",
+      matches: 2,
+      matchedBottles: 5,
+      located: [],
+    });
+    const oneVintage = await service.ask(ask("How many bottles of Musar 2018 do I have?"));
+    expect(oneVintage.facts).toMatchObject({ kind: "quantity", matchedBottles: 3, located: [] });
+    const which = await service.ask(ask("Welke witte wijnen heb ik?"));
+    expect(which.facts).toMatchObject({
+      kind: "selection",
+      matches: 1,
+      names: ["Other Wine 2015"],
+    });
+    expect(which.bottles).toHaveLength(1);
+    expect(state.placesRead).toBe(3);
+    expect(state.requests).toHaveLength(0);
+  });
+
   it("without AI, a wine that isn't there is honestly not found, and several are left to choose", async () => {
     const { service } = setup({
       items: [musar(2018, 1), musar(2016, 1), musar(2012, 1), musar(2010, 1)],
