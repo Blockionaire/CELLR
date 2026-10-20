@@ -28,7 +28,8 @@ import {
   type ShowcaseLayout,
 } from "./layout";
 import { contactShadowTexture, lookMaterials } from "./materials";
-import { Showcase } from "./showcase";
+import { rackMatrix } from "./pose";
+import { Showcase, type Studio } from "./showcase";
 import type { SceneBottle, ShownBottle } from "./types";
 
 export type { SceneBottle, ShownBottle } from "./types";
@@ -43,6 +44,8 @@ export interface SceneProps {
   /** When the displayed bottle leaves: back "home" into its slot, or "gone" (it was opened). */
   exit: "home" | "gone";
   layout: ShowcaseLayout;
+  /** The phone's status-bar inset (px): on a phone the view fills the screen, and the bottle stands below it. */
+  safeTop?: number;
   /** CSS colour the rack fades towards behind the displayed bottle. */
   veil: string;
   onPick: (id: string) => void;
@@ -61,7 +64,8 @@ export interface SceneProps {
 
 /** A still of the rack, and where on the screen (in percent) the bottle that came out of it was. */
 export interface Backdrop {
-  url: string;
+  /** A copy of the drawn rack (a 2D canvas: no image encoding, so taking it costs one copy, not a stall). */
+  image: HTMLCanvasElement;
   originX: number;
   originY: number;
 }
@@ -78,9 +82,6 @@ function maxDpr() {
   return lowPower ? 1.5 : 2;
 }
 
-/** A tiny lift so bottles rest with their necks slightly up, like in a real rack. */
-const TILT = 0.04;
-
 /**
  * One storage unit in 3D: a frame, its bottles lying in their spots with their necks towards you,
  * soft procedural lighting (no downloaded images), and drag / pinch to look around.
@@ -94,6 +95,7 @@ export default function CellarScene({
   showcase,
   exit,
   layout,
+  safeTop = 0,
   veil,
   onPick,
   onDismiss,
@@ -115,21 +117,36 @@ export default function CellarScene({
     dragged.current = moved;
   }, []);
   const [frozen, setFrozen] = useState(false);
+  const stillRef = useRef<Backdrop | null>(null);
   const showRef = useRef<THREE.Group>(null);
+  const keyLight = useRef<THREE.SpotLight>(null);
+  const rimLight = useRef<THREE.PointLight>(null);
+  const studio = useMemo<Studio>(() => ({ keyLightRef: keyLight, rimLightRef: rimLight }), []);
   const onGone = useCallback(() => {
+    stillRef.current = null;
     setShown(null);
     setFrozen(false);
     // The live rack is drawn in the next frame. The still goes only after that (two frames on), or for one
     // frame there is no rack at all and the bottle seems to come loose and jump into its place.
     requestAnimationFrame(() => requestAnimationFrame(() => onBackdrop?.(null)));
   }, [onBackdrop]);
-  const onFrozen = useCallback(
-    (backdrop: Backdrop) => {
-      setFrozen(true);
-      onBackdrop?.(backdrop);
-    },
-    [onBackdrop],
-  );
+  // On its way home the bottle lies down again just in front of its slot: the live rack comes back there (seen from
+  // the same, unmoved camera, so it is the still to the pixel) and the bottle slides into it, behind the rack's own
+  // boards and dividers, so nothing about the rack changes when it hands over.
+  const onLanding = useCallback(() => {
+    setFrozen(false);
+    requestAnimationFrame(() => requestAnimationFrame(() => onBackdrop?.(null)));
+  }, [onBackdrop]);
+  // The still is taken the moment a bottle is picked (while the camera is exactly where it was), but the live rack
+  // is only swapped for it once the bottle has slid clear of its slot: until then the rack's own boards cover it.
+  const onStill = useCallback((backdrop: Backdrop) => {
+    stillRef.current = backdrop;
+  }, []);
+  const onClear = useCallback(() => {
+    if (!stillRef.current) return; // no still could be taken: the rack stays live, behind the veil
+    setFrozen(true);
+    onBackdrop?.(stillRef.current);
+  }, [onBackdrop]);
   const locked = showcase !== null;
   // Leaving (another unit, another page) three.js gives its context back on purpose; that is not a loss to report.
   const leaving = useRef(false);
@@ -164,6 +181,19 @@ export default function CellarScene({
       }}
     >
       <Lighting />
+      {/* The bottle on display's own studio lights: always in the scene (dark when not in use), so taking a bottle
+          out never changes the number of lights, which would send every material to another shader program. */}
+      <spotLight
+        ref={keyLight}
+        intensity={0}
+        angle={0.5}
+        penumbra={0.9}
+        color="#fff2df"
+        distance={60}
+        decay={1.5}
+      />
+      <pointLight ref={rimLight} intensity={0} color="#e6eeff" distance={30} decay={1.8} />
+      <Prewarm />
       <Rig
         rows={rows}
         cols={cols}
@@ -192,7 +222,7 @@ export default function CellarScene({
             cols={cols}
             frozen={frozen}
             hideRef={showRef}
-            onFrozen={onFrozen}
+            onStill={onStill}
           />
           <group ref={showRef}>
             <Showcase
@@ -204,10 +234,15 @@ export default function CellarScene({
               open={showcase !== null}
               exit={exit}
               layout={layout}
+              safeTop={safeTop}
+              board={FRAME * STORAGE_LOOK[kind].board}
               veil={veil}
               useVeil={!frozen}
               reducedMotion={reducedMotion}
               onGone={onGone}
+              onLanding={onLanding}
+              onClear={onClear}
+              studio={studio}
               onDrag={onDrag}
             />
           </group>
@@ -249,6 +284,59 @@ function Lighting() {
   );
 }
 
+// ---- Ready before it is needed -------------------------------------------------------------------------------------
+
+/**
+ * Compiles the shader programs the bottle on display will use (clear-coated see-through glass, printed labels,
+ * shadows) while nothing is happening, in the background where the browser allows it. Otherwise the first frame of
+ * the first bottle taken out stalls while they compile.
+ */
+function Prewarm() {
+  const { gl, scene, camera } = useThree();
+  useEffect(() => {
+    let cancelled = false;
+    const label = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+    label.needsUpdate = true;
+    const materials = [
+      new THREE.MeshPhysicalMaterial({ clearcoat: 1, transparent: true, depthWrite: false }),
+      new THREE.MeshStandardMaterial(),
+      new THREE.MeshStandardMaterial({
+        map: label,
+        emissiveMap: label,
+        transparent: true,
+        depthWrite: false,
+      }),
+      new THREE.MeshBasicMaterial({ map: label, transparent: true, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }),
+    ];
+    const geometry = new THREE.PlaneGeometry(0.001, 0.001);
+    const warm = new THREE.Group();
+    for (const m of materials) warm.add(new THREE.Mesh(geometry, m));
+    const run = () => {
+      if (cancelled) return;
+      performance.mark("cellr:prewarm-start");
+      gl.compileAsync(warm, camera, scene)
+        .catch(() => undefined)
+        .finally(() => {
+          performance.mark("cellr:prewarm-done");
+          markCanvas(gl.domElement, "programs", String(gl.info.programs?.length ?? 0));
+        });
+    };
+    // After the rack has been drawn and the page has settled.
+    const idle =
+      window.requestIdleCallback?.(run, { timeout: 1500 }) ?? window.setTimeout(run, 600);
+    return () => {
+      cancelled = true;
+      if (window.cancelIdleCallback) window.cancelIdleCallback(idle);
+      else window.clearTimeout(idle);
+      materials.forEach((m) => m.dispose());
+      geometry.dispose();
+      label.dispose();
+    };
+  }, [gl, scene, camera]);
+  return null;
+}
+
 // ---- A still of the rack -----------------------------------------------------------------------------------------
 
 /**
@@ -262,14 +350,14 @@ function Freezer({
   cols,
   frozen,
   hideRef,
-  onFrozen,
+  onStill,
 }: {
   target: SceneBottle;
   rows: number;
   cols: number;
   frozen: boolean;
   hideRef: React.RefObject<THREE.Group | null>;
-  onFrozen: (backdrop: Backdrop) => void;
+  onStill: (backdrop: Backdrop) => void;
 }) {
   const { gl, scene, camera } = useThree();
   const done = useRef<string | null>(null);
@@ -280,24 +368,45 @@ function Freezer({
     const group = hideRef.current;
     try {
       if (group) group.visible = false;
+      performance.mark("cellr:still-start");
       camera.updateMatrixWorld();
       gl.render(scene, camera);
       const [x, y, z] = slotPosition(target.row, target.col, rows, cols);
       const at = new THREE.Vector3(x, y, z).project(camera);
       const originX = ((at.x + 1) / 2) * 100;
       const originY = ((1 - at.y) / 2) * 100;
-      gl.domElement.toBlob((blob) => {
-        // Without a picture the rack simply stays live, behind the usual veil.
-        if (!blob || done.current !== target.id) return;
-        onFrozen({ url: URL.createObjectURL(blob), originX, originY });
-      }, "image/png");
+      // How the still was seen, readable from outside: the bottle must land where this view puts its slot.
+      camera.updateMatrixWorld();
+      markCanvas(
+        gl.domElement,
+        "stillView",
+        new THREE.Matrix4()
+          .multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+          .elements.join(","),
+      );
+      // Copied straight away, while the drawing is still there (one GPU copy; no PNG to encode).
+      const image = document.createElement("canvas");
+      image.style.cssText = "display:block;width:100%;height:100%";
+      image.width = gl.domElement.width;
+      image.height = gl.domElement.height;
+      const ctx = image.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(gl.domElement, 0, 0);
+        onStill({ image, originX, originY });
+      }
+      performance.mark("cellr:still-ready");
     } catch {
       // keep the live rack
     } finally {
       if (group) group.visible = true;
     }
-  }, [target, rows, cols, frozen, gl, scene, camera, hideRef, onFrozen]);
+  }, [target, rows, cols, frozen, gl, scene, camera, hideRef, onStill]);
   return null;
+}
+
+/** Writes a measurement onto the canvas element, for tests to read. */
+function markCanvas(canvas: HTMLCanvasElement, key: string, value: string) {
+  canvas.dataset[key] = value;
 }
 
 /** Keeps the point being looked at on the rack: sliding the view (or zooming towards a corner) never loses it. */
@@ -400,6 +509,8 @@ function Rig({
   const heldNow = useRef(held);
   useEffect(() => {
     heldNow.current = held;
+    // Taken out mid-turn: the turn stops here, in the same moment the still of the rack is taken (see Freezer).
+    if (held && controls.current) halt(controls.current);
     invalidate();
   }, [held, invalidate]);
 
@@ -425,10 +536,29 @@ function Rig({
     }
     const c = controls.current;
     if (!c) return;
+    // While a bottle is out the camera does not move at all: the still of the rack and the slot the bottle goes
+    // home to must be seen from exactly the same place.
+    if (heldNow.current) return;
     keepOnRack(c, width, height);
     c.update();
   });
   return null;
+}
+
+/**
+ * Stops whatever the view was still doing (a turn or slide coasting on after the finger let go). OrbitControls
+ * keeps that momentum in private fields with no public way to clear it; without this the camera drifts on after
+ * the still of the rack is taken, and the bottle lands beside its slot in the picture.
+ */
+function halt(c: OrbitControls) {
+  const inner = c as unknown as {
+    _sphericalDelta?: THREE.Spherical;
+    _panOffset?: THREE.Vector3;
+    _scale?: number;
+  };
+  inner._sphericalDelta?.set(0, 0, 0);
+  inner._panOffset?.set(0, 0, 0);
+  if (inner._scale !== undefined) inner._scale = 1;
 }
 
 // ---- The rack ------------------------------------------------------------------------------------------------
@@ -597,6 +727,9 @@ function Bottles({
   );
 }
 
+/** How far (px) a finger may move and still be a tap, not the start of a turn. */
+const TAP_SLOP = 8;
+
 const WHITE = new THREE.Color("#ffffff");
 const LABEL = new THREE.Color("#e8dcc2");
 
@@ -691,18 +824,10 @@ function ShapeGroup({
     [geometries, materials],
   );
 
-  // One object reused to build each bottle's matrix: slot → position, lying down with the neck towards you.
+  // Each bottle's matrix: lying in its slot, neck towards you (the same matrix the bottle on display goes home to).
   const place = useMemo(() => {
-    const dummy = new THREE.Object3D();
-    const local = new THREE.Matrix4().makeTranslation(0, -BOTTLE_LENGTH / 2, 0);
     const out = new THREE.Matrix4();
-    return (item: SceneBottle): THREE.Matrix4 => {
-      const [x, y, z] = slotPosition(item.row, item.col, rows, cols);
-      dummy.position.set(x, y, z);
-      dummy.rotation.set(Math.PI / 2 - TILT, 0, 0);
-      dummy.updateMatrix();
-      return out.copy(dummy.matrix).multiply(local);
-    };
+    return (item: SceneBottle): THREE.Matrix4 => rackMatrix(item.row, item.col, rows, cols, out);
   }, [rows, cols]);
 
   const colour = useMemo(() => new THREE.Color(), []);
@@ -742,11 +867,11 @@ function ShapeGroup({
         frustumCulled={false}
         onClick={(e) => {
           e.stopPropagation();
-          // While a bottle is on display, a tap on the rack just puts it back (not the end of turning the bottle).
-          if (locked) {
-            if (e.delta <= 6) onDismiss();
-            return;
-          }
+          // Only a tap counts: a turn or slide of the rack that ends over a bottle is not a pick (R3F reports the
+          // pointer-up over the same mesh as a click however far it moved).
+          if (e.delta > TAP_SLOP) return;
+          // While a bottle is on display, a tap on the rack just puts it back.
+          if (locked) return onDismiss();
           const item = e.instanceId === undefined ? undefined : items[e.instanceId];
           if (item) onPick(item.id);
         }}

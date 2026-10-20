@@ -277,7 +277,7 @@ test("photograph the 3D cellar", async ({ page, request, browser }) => {
       });
       await p.waitForTimeout(3500);
       await p.screenshot({ path: file("showcase") });
-      const box = (await scene.locator("canvas").boundingBox())!;
+      const box = (await scene.locator("canvas[data-engine]").boundingBox())!;
       const y = box.y + box.height * (size.name === "desktop" ? 0.5 : 0.25);
       const x = box.x + box.width * (size.name === "desktop" ? 0.27 : 0.5);
       await p.mouse.move(x, y);

@@ -35,7 +35,7 @@ const open3D = async (page: Page) => {
 };
 
 const view = async (page: Page) => {
-  const el = page.locator("canvas").first();
+  const el = page.locator("canvas[data-engine]").first();
   const [x, y] = ((await el.getAttribute("data-target")) ?? "0,0").split(",").map(Number);
   return { x: x!, y: y!, distance: Number((await el.getAttribute("data-distance")) ?? 0) };
 };

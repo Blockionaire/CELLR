@@ -15,7 +15,8 @@ import {
   layoutFor,
   SHAPES,
   showcasePhases,
-  showcaseSpot,
+  PANEL,
+  showcaseFrame,
   SLIDE_OUT,
   slotPosition,
   unitSize,
@@ -103,12 +104,39 @@ describe("the showcase movement", () => {
     expect(SLIDE_OUT).toBeGreaterThan(BOTTLE_LENGTH);
   });
 
-  it("stands left of the details on a wide screen and above them on a phone", () => {
+  it("the bottle on display has a fixed place on the screen, clear of the panel and the status bar", () => {
     expect(layoutFor(1280)).toBe("side");
     expect(layoutFor(390)).toBe("top");
-    expect(showcaseSpot("side").x).toBeLessThan(0);
-    expect(showcaseSpot("top").y).toBeGreaterThan(0);
-    for (const l of ["side", "top"] as const) expect(showcaseSpot(l).fill).toBeLessThan(0.8);
+    // In px on the screen: the bottle's centre, top and bottom, and its widest width.
+    const onScreen = (l: "side" | "top", w: number, h: number, safeTop = 0) => {
+      const f = showcaseFrame(l, w, h, safeTop);
+      const cx = (f.x + 0.5) * w;
+      const cy = (0.5 - f.y) * h;
+      const tall = f.fill * h;
+      return { cx, top: cy - tall / 2, bottom: cy + tall / 2, wide: (tall * 0.92) / BOTTLE_LENGTH };
+    };
+    // Wide screen: left of the panel, which is min(416px, 46%) wide with 12px gaps.
+    const desk = onScreen("side", 1136, 544);
+    const panelLeft = 1136 - PANEL.inset - Math.min(PANEL.sideMaxPx, PANEL.sideShare * 1136);
+    expect(desk.cx + desk.wide / 2).toBeLessThan(panelLeft - PANEL.inset);
+    expect(desk.top).toBeGreaterThanOrEqual(PANEL.inset);
+    expect(desk.bottom).toBeLessThanOrEqual(544 - PANEL.inset);
+    // Phones, big and small, with their status bars: above the panel, below the bar, and bigger than before
+    // (it used to fill 37% of the screen's height).
+    for (const [w, h, safe] of [
+      [393, 852, 59],
+      [375, 667, 20],
+      [430, 932, 59],
+    ] as const) {
+      const phone = onScreen("top", w, h, safe);
+      expect(phone.top).toBeGreaterThanOrEqual(safe + PANEL.inset);
+      expect(phone.bottom).toBeLessThanOrEqual(h * (1 - PANEL.topShare) - PANEL.inset + 1e-9);
+      expect(Math.abs(phone.cx - w / 2)).toBeLessThan(0.5);
+      expect(phone.wide).toBeLessThan(w);
+    }
+    expect(showcaseFrame("top", 393, 852, 0).fill).toBeGreaterThan(0.45);
+    // Nothing about the rack goes in: the same screen gives the same place, for every bottle and angle.
+    expect(showcaseFrame("top", 393, 852, 59)).toEqual(showcaseFrame("top", 393, 852, 59));
   });
 });
 
