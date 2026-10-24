@@ -32,10 +32,26 @@ export interface GenerateObjectRequest<T> {
 }
 
 export interface AiUsage {
+  /** The model asked for (the configured id). */
   model: string;
+  /** The model the provider says answered (often a dated snapshot), when it said so. */
+  servedModel?: string;
   tokensIn: number;
+  /** Of tokensIn, how many were served from the provider's prompt cache (billed cheaper). */
+  tokensCachedIn?: number;
   tokensOut: number;
+  /** Web searches the provider ran for this call. */
+  webSearchCalls?: number;
   latencyMs: number;
+  /**
+   * True only when every request that was sent came back with the provider's usage numbers. A timeout, a
+   * dropped connection or an error answer leaves it false: the cost is then unknown, not zero.
+   */
+  reported?: boolean;
+  /** No request was made at all (the platform budget said no): a confirmed cost of 0. */
+  notSent?: boolean;
+  /** The platform budget's hold for this call, released when the usage is recorded. */
+  budgetHold?: { id: string; estimateUsdMicro: number };
 }
 
 /** Why there is no answer. The caller picks the plain fallback; the person never sees a model's own words. */
@@ -44,7 +60,8 @@ export type AiErrorKind =
   | "timeout"
   | "rate_limited" // the provider's limit, not ours
   | "refused" // the model declined to answer
-  | "invalid"; // the answer did not fit the shape, even after one repair
+  | "invalid" // the answer did not fit the shape, even after one repair
+  | "budget"; // the platform-wide AI budget is used up (no request was made)
 
 export type AiResult<T> =
   | {

@@ -13,6 +13,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { formatVintage, type PlacedBottle } from "@cellr/domain";
+import { track } from "@/lib/analytics";
 import { Button } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { cn } from "@/ui/cn";
@@ -175,6 +176,8 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
   const [touched, setTouched] = useState(false);
   // iOS takes the graphics memory back from a page now and then; `attempt` draws the scene again from scratch.
   const [lost, setLost] = useState(false);
+  // Counted once each time the 3D cellar is opened (this view mounting), never per frame or per bottle.
+  useEffect(() => track("3d_cellar_opened"), []);
   const [attempt, setAttempt] = useState(0);
   // A still of the rack stands behind the bottle on display (see Freezer in the scene).
   const [backdrop, setBackdrop] = useState<Backdrop | null>(null);

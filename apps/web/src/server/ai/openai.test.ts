@@ -234,3 +234,74 @@ describe("asking with a web search first", () => {
     ).toMatchObject({ ok: false, kind: "rate_limited" });
   });
 });
+
+describe("usage for cost accounting", () => {
+  it("records the model that answered, cached tokens, and that usage was reported", async () => {
+    const { fetcher } = fakeFetch(
+      reply(
+        { producer: "X" },
+        {
+          model: "vision-model-2025-04-14",
+          usage: {
+            prompt_tokens: 900,
+            completion_tokens: 60,
+            prompt_tokens_details: { cached_tokens: 300 },
+          },
+        },
+      ),
+    );
+    const result = await createOpenAiProvider(env, fetcher).generateObject(request());
+    expect(result.usage).toMatchObject({
+      model: "vision-model",
+      servedModel: "vision-model-2025-04-14",
+      tokensIn: 900,
+      tokensCachedIn: 300,
+      tokensOut: 60,
+      reported: true,
+    });
+  });
+
+  it("a repair counts both attempts, once each", async () => {
+    const { fetcher } = fakeFetch(reply("not json"), reply({ producer: "X" }));
+    const result = await createOpenAiProvider(env, fetcher).generateObject(request());
+    expect(result.usage).toMatchObject({ tokensIn: 1800, tokensOut: 120, reported: true });
+  });
+
+  it("a timeout, an error answer, or an answer without usage leaves the cost unknown", async () => {
+    for (const response of [
+      Object.assign(new Error("timed out"), { name: "TimeoutError" }),
+      new Response("oops", { status: 503 }),
+      new Response(JSON.stringify({ choices: [{ message: { content: '{"producer":"X"}' } }] }), {
+        status: 200,
+      }),
+    ]) {
+      const { fetcher } = fakeFetch(response);
+      const result = await createOpenAiProvider(env, fetcher).generateObject(request());
+      expect(result.usage.reported).toBe(false);
+    }
+  });
+
+  it("counts the web searches the provider ran", async () => {
+    const { fetcher } = fakeFetch(
+      new Response(
+        JSON.stringify({
+          output: [
+            { type: "web_search_call" },
+            { type: "web_search_call" },
+            { type: "message", content: [{ type: "output_text", text: '{"producer":"X"}' }] },
+          ],
+          usage: {
+            input_tokens: 9000,
+            output_tokens: 80,
+            input_tokens_details: { cached_tokens: 0 },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    const result = await createOpenAiProvider(env, fetcher).generateObject(
+      request({ model: "chat", images: [], webSearch: true }),
+    );
+    expect(result.usage).toMatchObject({ webSearchCalls: 2, tokensIn: 9000, reported: true });
+  });
+});

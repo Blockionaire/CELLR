@@ -27,46 +27,83 @@ export type Database = {
         };
         Relationships: [];
       };
-      ai_usage: {
+      ai_budget_holds: {
         Row: {
           at: string;
-          cost_micro: number;
-          household_id: string | null;
-          id: number;
-          latency_ms: number | null;
-          model: string;
-          status: string;
+          estimate_usd_micro: number;
+          id: string;
           task: string;
-          tokens_in: number;
-          tokens_out: number;
-          user_id: string;
         };
         ComputedFields: never;
         Insert: {
           at?: string;
+          estimate_usd_micro: number;
+          id?: string;
+          task: string;
+        };
+        Update: {
+          at?: string;
+          estimate_usd_micro?: number;
+          id?: string;
+          task?: string;
+        };
+        Relationships: [];
+      };
+      ai_usage: {
+        Row: {
+          at: string;
+          cost_hold_usd_micro: number | null;
+          cost_micro: number;
+          cost_usd_micro: number | null;
+          household_id: string | null;
+          id: number;
+          latency_ms: number | null;
+          model: string;
+          pricing_version: string | null;
+          status: string;
+          task: string;
+          tokens_cached_in: number;
+          tokens_in: number;
+          tokens_out: number;
+          user_id: string;
+          web_search_calls: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          at?: string;
+          cost_hold_usd_micro?: number | null;
           cost_micro?: number;
+          cost_usd_micro?: number | null;
           household_id?: string | null;
           id?: never;
           latency_ms?: number | null;
           model: string;
+          pricing_version?: string | null;
           status: string;
           task: string;
+          tokens_cached_in?: number;
           tokens_in?: number;
           tokens_out?: number;
           user_id: string;
+          web_search_calls?: number;
         };
         Update: {
           at?: string;
+          cost_hold_usd_micro?: number | null;
           cost_micro?: number;
+          cost_usd_micro?: number | null;
           household_id?: string | null;
           id?: never;
           latency_ms?: number | null;
           model?: string;
+          pricing_version?: string | null;
           status?: string;
           task?: string;
+          tokens_cached_in?: number;
           tokens_in?: number;
           tokens_out?: number;
           user_id?: string;
+          web_search_calls?: number;
         };
         Relationships: [
           {
@@ -1320,6 +1357,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      ai_budget_hold: {
+        Args: { p_daily: number; p_estimate: number; p_monthly: number; p_task: string };
+        Returns: string;
+      };
       check_signup_allowed: { Args: { p_email: string }; Returns: boolean };
       consume_rate_limit: {
         Args: { p_bucket: string; p_limit: number; p_window_seconds: number };
@@ -1423,6 +1464,7 @@ export type Database = {
           user_id: string;
         }[];
       };
+      platform_metrics: { Args: { p_now?: string }; Returns: Json };
       recommend_wine: {
         Args: { p_friend: string; p_note?: string; p_vintage: string };
         Returns: string;

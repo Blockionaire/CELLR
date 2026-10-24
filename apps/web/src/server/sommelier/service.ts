@@ -44,17 +44,21 @@ export interface SommelierDeps {
   recordUsage: (entry: {
     householdId: string | null;
     task: string;
-    status: "ok" | "error" | "timeout" | "invalid_output" | "rate_limited";
+    status: "ok" | "error" | "timeout" | "invalid_output" | "rate_limited" | "budget_exhausted";
     usage: AiUsage;
   }) => Promise<void>;
 }
 
-const STATUS: Record<AiErrorKind, "error" | "timeout" | "invalid_output" | "rate_limited"> = {
+const STATUS: Record<
+  AiErrorKind,
+  "error" | "timeout" | "invalid_output" | "rate_limited" | "budget_exhausted"
+> = {
   unavailable: "error",
   refused: "error",
   timeout: "timeout",
   invalid: "invalid_output",
   rate_limited: "rate_limited",
+  budget: "budget_exhausted",
 };
 
 /**
@@ -201,12 +205,15 @@ export function createSommelierService(deps: SommelierDeps) {
           usage: result.usage,
         })
         .catch(() => {});
+      // The platform budget being used up reads to the person like any other limit.
+      const why =
+        !result.ok && result.kind === "budget" ? ("limit" as const) : ("ai-down" as const);
       const fallback = () =>
         items.length === 0
-          ? { ...nothing, reason: "ai-down" as const }
+          ? { ...nothing, reason: why }
           : facts
-            ? plainFacts(facts, "ai-down")
-            : plain(items, question, "ai-down");
+            ? plainFacts(facts, why)
+            : plain(items, question, why);
       if (!result.ok) return fallback();
 
       const checked = checkSommelierAnswer(result.value, digest);

@@ -9,6 +9,11 @@ import { api } from "@/lib/api";
 export function useAskSommelier() {
   return useMutation({
     mutationFn: (input: AskSommelier) => api.post<SommelierAnswer>("/sommelier", input),
-    onSuccess: (answer) => track("sommelier_question_asked", { source: answer.source }),
+    // One event per answer: Tonight's pairing questions are their own event, so the two are never counted twice.
+    onSuccess: (answer, input) =>
+      track(
+        input.mode === "tonight" ? "tonight_recommendation_generated" : "sommelier_question_asked",
+        { source: answer.source },
+      ),
   });
 }

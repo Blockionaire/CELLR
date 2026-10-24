@@ -50,7 +50,7 @@ export interface InsightsDeps {
   recordUsage: (entry: {
     householdId: string | null;
     task: string;
-    status: "ok" | "error" | "timeout" | "invalid_output" | "rate_limited";
+    status: "ok" | "error" | "timeout" | "invalid_output" | "rate_limited" | "budget_exhausted";
     usage: AiUsage;
   }) => Promise<void>;
   /** Fills in details of a wine the household added itself; may refuse (shared catalogue wines are read-only). */
@@ -62,12 +62,16 @@ export interface InsightsDeps {
   today?: () => string;
 }
 
-const STATUS: Record<AiErrorKind, "error" | "timeout" | "invalid_output" | "rate_limited"> = {
+const STATUS: Record<
+  AiErrorKind,
+  "error" | "timeout" | "invalid_output" | "rate_limited" | "budget_exhausted"
+> = {
   unavailable: "error",
   refused: "error",
   timeout: "timeout",
   invalid: "invalid_output",
   rate_limited: "rate_limited",
+  budget: "budget_exhausted",
 };
 
 const NOT_READY =

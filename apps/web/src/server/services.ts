@@ -69,7 +69,7 @@ export function servicesFor(ctx: RequestContext) {
     spend: () => limiter.enforce(LIMITS.insights),
     spendValuation: () => limiter.enforce(LIMITS.valuations),
     recordUsage: ({ householdId, task, status, usage }) =>
-      recordAiUsage({ userId: ctx.userId, householdId, task, status, ...usage }),
+      recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
   });
   const wishlist = createWishlistService({
     repo: createWishlistRepository(ctx.db),
@@ -93,7 +93,7 @@ export function servicesFor(ctx: RequestContext) {
       llm: getLlmProvider(),
       spendScan: () => limiter.enforce(LIMITS.scans),
       recordUsage: ({ householdId, task, status, usage }) =>
-        recordAiUsage({ userId: ctx.userId, householdId, task, status, ...usage }),
+        recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
     }),
     account: createAccountService({
       userId: ctx.userId,
@@ -178,7 +178,7 @@ export function servicesFor(ctx: RequestContext) {
       householdId: async () => (await household()).id,
       locale: async () => (await households.me()).locale,
       recordUsage: ({ householdId, task, status, usage }) =>
-        recordAiUsage({ userId: ctx.userId, householdId, task, status, ...usage }),
+        recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
     }),
     pin: {
       status: () => pinStatus(ctx.userId),

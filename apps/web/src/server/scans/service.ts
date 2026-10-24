@@ -30,18 +30,22 @@ export interface ScanDeps {
   recordUsage: (entry: {
     householdId: string | null;
     task: string;
-    status: "ok" | "error" | "timeout" | "invalid_output" | "rate_limited";
+    status: "ok" | "error" | "timeout" | "invalid_output" | "rate_limited" | "budget_exhausted";
     usage: AiUsage;
   }) => Promise<void>;
   now?: () => Date;
 }
 
-const STATUS: Record<AiErrorKind, "error" | "timeout" | "invalid_output" | "rate_limited"> = {
+const STATUS: Record<
+  AiErrorKind,
+  "error" | "timeout" | "invalid_output" | "rate_limited" | "budget_exhausted"
+> = {
   unavailable: "error",
   refused: "error",
   timeout: "timeout",
   invalid: "invalid_output",
   rate_limited: "rate_limited",
+  budget: "budget_exhausted",
 };
 
 /**

@@ -35,6 +35,27 @@ export function getAiEnv(): AiEnv {
   };
 }
 
+/**
+ * The platform-wide AI budget, in micro-USD (from AI_BUDGET_DAILY_USD / AI_BUDGET_MONTHLY_USD, plain dollar
+ * amounts like "5" or "2.50"). Unset, empty or nonsense = no limit of that kind, never a lockout. Server only.
+ */
+export interface AiBudgetEnv {
+  dailyUsdMicro: number | null;
+  monthlyUsdMicro: number | null;
+}
+
+export function getAiBudgetEnv(): AiBudgetEnv {
+  const usd = (v: string | undefined) => {
+    if (!v || v.trim() === "") return null;
+    const n = Number(v.trim());
+    return Number.isFinite(n) && n > 0 ? Math.round(n * 1_000_000) : null;
+  };
+  return {
+    dailyUsdMicro: usd(process.env.AI_BUDGET_DAILY_USD),
+    monthlyUsdMicro: usd(process.env.AI_BUDGET_MONTHLY_USD),
+  };
+}
+
 /** The keys that let this app send Web Push messages (VAPID). Null = reminders on the phone are not switched on. */
 export interface PushEnv {
   publicKey: string;
