@@ -1,6 +1,7 @@
 import "server-only";
 import { logError, logWarn } from "@/server/log";
 import type { AiEnv } from "@/server/env";
+import { planCall } from "./models";
 import type { AiErrorKind, AiResult, AiUsage, GenerateObjectRequest, LlmProvider } from "./types";
 
 type Message = { role: "system" | "user" | "assistant"; content: unknown };
@@ -56,7 +57,7 @@ export function createOpenAiProvider(
 ): LlmProvider {
   return {
     async generateObject<T>(request: GenerateObjectRequest<T>): Promise<AiResult<T>> {
-      const model = request.model === "vision" ? env.visionModel : env.chatModel;
+      const { model, reasoningEffort, maxOutputTokens, temperature } = planCall(env, request);
       const started = Date.now();
       // `reported` turns false as soon as a sent request does not come back with its usage numbers.
       const usage: AiUsage = {
@@ -124,8 +125,9 @@ export function createOpenAiProvider(
               ],
               tools: [{ type: "web_search" }],
               include: ["web_search_call.action.sources"],
-              max_output_tokens: request.maxOutputTokens,
-              ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
+              max_output_tokens: maxOutputTokens,
+              ...(temperature !== undefined ? { temperature } : {}),
+              ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
               text: {
                 format: {
                   type: "json_schema",
@@ -213,8 +215,9 @@ export function createOpenAiProvider(
             body: JSON.stringify({
               model,
               messages,
-              max_completion_tokens: request.maxOutputTokens,
-              ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
+              max_completion_tokens: maxOutputTokens,
+              ...(temperature !== undefined ? { temperature } : {}),
+              ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
               response_format: {
                 type: "json_schema",
                 json_schema: { name: request.schemaName, strict: true, schema: request.jsonSchema },

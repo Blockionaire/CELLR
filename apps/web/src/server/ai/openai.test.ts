@@ -8,6 +8,8 @@ const env = {
   baseUrl: "https://ai.example/v1",
   visionModel: "vision-model",
   chatModel: "chat-model",
+  adviceModel: "chat-model",
+  reasoningEffort: "none" as const,
 };
 const Answer = z.object({ producer: z.string() });
 const request = (
@@ -232,6 +234,67 @@ describe("asking with a web search first", () => {
     expect(
       await createOpenAiProvider(env, limited.fetcher).generateObject(request({ webSearch: true })),
     ).toMatchObject({ ok: false, kind: "rate_limited" });
+  });
+});
+
+describe("gpt-6-luna for advice", () => {
+  const luna = { ...env, adviceModel: "gpt-6-luna" };
+  const advice = request({ task: "sommelier_chat", model: "chat", images: [], temperature: 0.3 });
+
+  it("effort none: same Chat Completions request plus reasoning_effort, temperature kept", async () => {
+    const { fetcher, calls } = fakeFetch(
+      reply({ producer: "X" }, { model: "gpt-6-luna-2026-09-22" }),
+    );
+    const result = await createOpenAiProvider(luna, fetcher).generateObject(advice);
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({
+      model: "gpt-6-luna",
+      reasoning_effort: "none",
+      temperature: 0.3,
+      max_completion_tokens: 500,
+      response_format: { type: "json_schema" },
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      usage: { model: "gpt-6-luna", servedModel: "gpt-6-luna-2026-09-22", reported: true },
+    });
+  });
+
+  it("effort low: no temperature, room for reasoning; reasoning tokens arrive inside completion_tokens", async () => {
+    const { fetcher, calls } = fakeFetch(
+      reply(
+        { producer: "X" },
+        {
+          usage: {
+            prompt_tokens: 900,
+            completion_tokens: 700,
+            completion_tokens_details: { reasoning_tokens: 640 },
+          },
+        },
+      ),
+    );
+    const result = await createOpenAiProvider(
+      { ...luna, reasoningEffort: "low" },
+      fetcher,
+    ).generateObject(advice);
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body.reasoning_effort).toBe("low");
+    expect(body).not.toHaveProperty("temperature");
+    expect(body.max_completion_tokens).toBe(2500);
+    expect(result.usage).toMatchObject({ tokensIn: 900, tokensOut: 700, reported: true });
+  });
+
+  it("an answer outside the schema is repaired once, then a plain failure for the fallback", async () => {
+    const { fetcher, calls } = fakeFetch(reply({ nope: 1 }), reply("not json"));
+    const result = await createOpenAiProvider(luna, fetcher).generateObject(advice);
+    expect(result).toMatchObject({ ok: false, kind: "invalid" });
+    expect(calls).toHaveLength(2);
+  });
+
+  it("GPT-4.x requests are unchanged: no reasoning parameter", async () => {
+    const { fetcher, calls } = fakeFetch(reply({ producer: "X" }));
+    await createOpenAiProvider(env, fetcher).generateObject(advice);
+    expect(JSON.parse(String(calls[0]!.init.body))).not.toHaveProperty("reasoning_effort");
   });
 });
 

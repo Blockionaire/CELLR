@@ -2,6 +2,7 @@ import "server-only";
 import { getAiEnv } from "@/server/env";
 import { holdAiBudget } from "@/server/privileged/ai-budget";
 import { withBudget } from "./budget";
+import { planCall } from "./models";
 import { createOpenAiProvider } from "./openai";
 import type { LlmProvider } from "./types";
 
@@ -14,7 +15,7 @@ export function getLlmProvider(): LlmProvider | null {
   if (!env.apiKey) return null;
   return withBudget(
     createOpenAiProvider({ ...env, apiKey: env.apiKey }),
-    (request) => (request.model === "vision" ? env.visionModel : env.chatModel),
+    (request) => planCall(env, request),
     holdAiBudget,
   );
 }

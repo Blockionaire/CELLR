@@ -19,17 +19,17 @@ export type BudgetHolder = (task: string, estimateUsdMicro: number) => Promise<s
  */
 export function withBudget(
   provider: LlmProvider,
-  modelOf: (request: GenerateObjectRequest<unknown>) => string,
+  planOf: (request: GenerateObjectRequest<unknown>) => { model: string; maxOutputTokens: number },
   hold: BudgetHolder,
 ): LlmProvider {
   return {
     async generateObject<T>(request: GenerateObjectRequest<T>): Promise<AiResult<T>> {
-      const model = modelOf(request as GenerateObjectRequest<unknown>);
+      const { model, maxOutputTokens } = planOf(request as GenerateObjectRequest<unknown>);
       const estimate = estimateCost({
         model,
         promptChars: request.system.length + request.user.length,
         images: request.images?.length ?? 0,
-        maxOutputTokens: request.maxOutputTokens,
+        maxOutputTokens,
         webSearch: request.webSearch === true,
       });
       let holdId: string | null | undefined;
