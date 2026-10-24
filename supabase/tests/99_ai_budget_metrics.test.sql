@@ -53,10 +53,23 @@ begin
   delete from public.ai_budget_holds;
   perform test.rec('no limits: no limit', public.ai_budget_hold('x', 999999999, null, null) is not null);
   delete from public.ai_budget_holds;
-  insert into public.ai_budget_holds (task, estimate_usd_micro, at) values ('x', 1000000, now() - interval '20 minutes');
-  hold := public.ai_budget_hold('x', 1000, 50000, null);
-  perform test.rec('a hold never released stops counting after 15 minutes (and is cleared)', hold is not null
-    and (select count(*) from public.ai_budget_holds where estimate_usd_micro = 1000000) = 0);
+  -- A hold that was never released (crash, or recording failed) keeps counting: 40 560 + 9 000 + 1 000 > 50 000.
+  insert into public.ai_budget_holds (task, estimate_usd_micro) values ('x', 9000);
+  perform test.rec('an unreleased hold keeps counting: spending that was never recorded is not forgotten',
+    public.ai_budget_hold('x', 1000, 50000, null) is null);
+  -- Moved to yesterday it no longer counts for today, but still for its month (unless today is the 1st, when
+  -- yesterday was last month); holds from an earlier month are cleared.
+  update public.ai_budget_holds set at = date_trunc('day', now(), 'UTC') - interval '1 minute';
+  insert into public.ai_budget_holds (task, estimate_usd_micro, at)
+    values ('x', 777, date_trunc('month', now(), 'UTC') - interval '1 minute');
+  perform test.rec('a hold from an earlier day no longer counts for today',
+    public.ai_budget_hold('x', 1000, 50000, null) is not null);
+  perform test.rec('...but does for its month (40 560 + 9 000 + 1 000 + 1 000 > 50 000)',
+    (public.ai_budget_hold('x', 1000, null, 50000) is null)
+      = (date_trunc('day', now(), 'UTC') > date_trunc('month', now(), 'UTC')));
+  perform test.rec('holds from an earlier month are cleared',
+    (select count(*) from public.ai_budget_holds where estimate_usd_micro = 777) = 0);
+  delete from public.ai_budget_holds;
   perform test.rec('nonsense estimates and limits are rejected',
     test.denied($q$select public.ai_budget_hold('x', 0, null, null)$q$) and test.denied($q$select public.ai_budget_hold('x', 1, 0, null)$q$)
     and test.denied($q$select public.ai_budget_hold('Bad Task', 1, null, null)$q$));
@@ -93,8 +106,9 @@ begin
     (m->>'onboarded')::int = 1 and (m->>'activated')::int = 1);
   perform test.rec('seven-day retention: cohort signed up 7–14 days ago, retained if active in days 7–14',
     (m->'retention_7d'->>'cohort')::int = 2 and (m->'retention_7d'->>'retained')::int = 1);
-  perform test.rec('scan success counts provider outcomes, not blocked calls',
-    (m->'scans_30d'->>'ok')::int = 1 and (m->'scans_30d'->>'failed')::int = 1);
+  perform test.rec('AI extraction success counts provider outcomes (not recognition), not blocked calls',
+    (m->'ai_extraction_30d'->>'ok')::int = 1 and (m->'ai_extraction_30d'->>'failed')::int = 1
+    and not (m ? 'scans_30d'));
   perform test.rec('adoption counts distinct people per feature',
     (m->'adoption_30d'->>'scan')::int = 1 and (m->'adoption_30d'->>'bottle_added')::int = 1
     and (m->'adoption_30d'->>'3d_cellar')::int = 1 and (m->'adoption_30d' ? 'sommelier') = false);

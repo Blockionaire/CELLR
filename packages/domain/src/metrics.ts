@@ -18,7 +18,7 @@ export const RawPlatformMetricsSchema = z.object({
     cohort: z.number().int().nonnegative(),
     retained: z.number().int().nonnegative(),
   }),
-  scans_30d: z.object({
+  ai_extraction_30d: z.object({
     ok: z.number().int().nonnegative(),
     failed: z.number().int().nonnegative(),
   }),
@@ -37,7 +37,7 @@ export interface PlatformMetrics {
   /** Of the people who signed up 7–14 days ago, the share active again 7–14 days after signing up. */
   retention7d: { cohort: number; retained: number; rate: number | null };
   /** AI label reads in the last 30 days that came back usable ÷ all that reached the provider. */
-  scanSuccess: { ok: number; failed: number; rate: number | null };
+  aiExtraction: { ok: number; failed: number; rate: number | null };
   /** Distinct people per feature in the last 30 days, and as a share of monthly active people. */
   adoption30d: Array<{ feature: string; people: number; ofMau: number | null }>;
 }
@@ -45,7 +45,7 @@ export interface PlatformMetrics {
 const rate = (part: number, whole: number) => (whole > 0 ? part / whole : null);
 
 export function derivePlatformMetrics(raw: RawPlatformMetrics): PlatformMetrics {
-  const { ok, failed } = raw.scans_30d;
+  const { ok, failed } = raw.ai_extraction_30d;
   return {
     at: raw.at,
     users: { registered: raw.registered, new7d: raw.new_7d, new30d: raw.new_30d },
@@ -57,7 +57,7 @@ export function derivePlatformMetrics(raw: RawPlatformMetrics): PlatformMetrics 
       ...raw.retention_7d,
       rate: rate(raw.retention_7d.retained, raw.retention_7d.cohort),
     },
-    scanSuccess: { ok, failed, rate: rate(ok, ok + failed) },
+    aiExtraction: { ok, failed, rate: rate(ok, ok + failed) },
     adoption30d: Object.entries(raw.adoption_30d)
       .map(([feature, people]) => ({ feature, people, ofMau: rate(people, raw.mau) }))
       .sort((a, b) => b.people - a.people || a.feature.localeCompare(b.feature)),

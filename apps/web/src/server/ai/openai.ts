@@ -68,7 +68,11 @@ export function createOpenAiProvider(
         latencyMs: 0,
         reported: true,
       };
-      /** Adds one answer's usage; a missing usage block makes the whole call's cost unknown. */
+      /**
+       * Adds one answer's usage. A missing usage block, or one without its input or output token count, makes
+       * the whole call's cost unknown: incomplete billing numbers are never read as a confirmed 0. A missing
+       * cached count only means none are priced as cached (the estimate errs high, never low).
+       */
       const count = (
         served: string | undefined,
         tokens: {
@@ -78,13 +82,20 @@ export function createOpenAiProvider(
         } | null,
       ) => {
         if (served) usage.servedModel = served;
-        if (!tokens) {
+        const known = (n: number | undefined): n is number =>
+          typeof n === "number" && Number.isFinite(n) && n >= 0;
+        if (!tokens || !known(tokens.in) || !known(tokens.out)) {
           usage.reported = false;
+          if (tokens) {
+            usage.tokensIn += known(tokens.in) ? tokens.in : 0;
+            usage.tokensOut += known(tokens.out) ? tokens.out : 0;
+          }
           return;
         }
-        usage.tokensIn += tokens.in ?? 0;
-        usage.tokensCachedIn = (usage.tokensCachedIn ?? 0) + (tokens.cached ?? 0);
-        usage.tokensOut += tokens.out ?? 0;
+        usage.tokensIn += tokens.in;
+        usage.tokensCachedIn =
+          (usage.tokensCachedIn ?? 0) + (known(tokens.cached) ? tokens.cached : 0);
+        usage.tokensOut += tokens.out;
       };
       const done = <R extends AiResult<T>>(result: R): R => {
         usage.latencyMs = Date.now() - started;

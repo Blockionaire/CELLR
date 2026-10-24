@@ -281,6 +281,25 @@ describe("usage for cost accounting", () => {
     }
   });
 
+  it("a usage block missing its input or output count is unknown, never a confirmed 0", async () => {
+    for (const usage of [
+      { prompt_tokens: 900 },
+      { completion_tokens: 60 },
+      {},
+      { prompt_tokens: null, completion_tokens: 60 },
+    ]) {
+      const { fetcher } = fakeFetch(reply({ producer: "X" }, { usage }));
+      const result = await createOpenAiProvider(env, fetcher).generateObject(request());
+      expect(result.usage.reported).toBe(false);
+    }
+    // Only the cached count missing: still known, simply none priced as cached.
+    const { fetcher } = fakeFetch(
+      reply({ producer: "X" }, { usage: { prompt_tokens: 900, completion_tokens: 60 } }),
+    );
+    const result = await createOpenAiProvider(env, fetcher).generateObject(request());
+    expect(result.usage).toMatchObject({ reported: true, tokensIn: 900, tokensCachedIn: 0 });
+  });
+
   it("counts the web searches the provider ran", async () => {
     const { fetcher } = fakeFetch(
       new Response(

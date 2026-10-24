@@ -21,13 +21,18 @@ export interface AiUsageEntry {
  * ended, and what it cost (an estimate in micro-USD from the versioned price list; NULL when unknown, never a
  * made-up 0). One row per call, all its attempts included, so nothing is counted twice. Written with the service
  * role because people cannot write their own usage; if the key is missing or the write fails, the call it
- * describes has already happened and must not fail because of it. The call's budget hold is released here.
+ * describes has already happened and must not fail because of it.
+ *
+ * The call's budget hold is released only once its row is durably written. If the write fails (or there is no
+ * database), the hold stays and keeps counting as spent for its day and month: spending that was not accounted
+ * for is never forgotten, at worst the budget is a little too careful.
  */
 export async function recordAiUsage(entry: AiUsageEntry): Promise<void> {
   const { usage } = entry;
   const cost = costOf(usage);
   const db = createServiceClient();
-  if (db) {
+  if (!db) return;
+  {
     const row = {
       user_id: entry.userId,
       household_id: entry.householdId,
@@ -51,7 +56,10 @@ export async function recordAiUsage(entry: AiUsageEntry): Promise<void> {
     // Before the cost migration has run (PGRST204: unknown column), the plain row is still worth keeping.
     if (error?.code === "PGRST204" || error?.code === "42703")
       ({ error } = await db.from("ai_usage").insert(row));
-    if (error) logError("ai_usage_not_recorded", error);
+    if (error) {
+      logError("ai_usage_not_recorded", error);
+      return;
+    }
   }
   if (usage.budgetHold) await releaseAiBudget(usage.budgetHold.id);
 }

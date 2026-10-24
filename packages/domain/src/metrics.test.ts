@@ -13,7 +13,7 @@ const raw = (over = {}) =>
     onboarded: 7,
     activated: 4,
     retention_7d: { cohort: 4, retained: 1 },
-    scans_30d: { ok: 9, failed: 1 },
+    ai_extraction_30d: { ok: 9, failed: 1 },
     adoption_30d: { scan: 4, sommelier: 6, "3d_cellar": 2 },
     ...over,
   });
@@ -23,7 +23,7 @@ describe("platform metrics", () => {
     const m = derivePlatformMetrics(raw());
     expect(m.activationRate).toBe(0.4);
     expect(m.retention7d).toEqual({ cohort: 4, retained: 1, rate: 0.25 });
-    expect(m.scanSuccess.rate).toBe(0.9);
+    expect(m.aiExtraction.rate).toBe(0.9);
     expect(m.adoption30d.map((a) => [a.feature, a.people, a.ofMau])).toEqual([
       ["sommelier", 6, 0.75],
       ["scan", 4, 0.5],
@@ -38,13 +38,13 @@ describe("platform metrics", () => {
         activated: 0,
         mau: 0,
         retention_7d: { cohort: 0, retained: 0 },
-        scans_30d: { ok: 0, failed: 0 },
+        ai_extraction_30d: { ok: 0, failed: 0 },
       }),
     );
     expect([
       m.activationRate,
       m.retention7d.rate,
-      m.scanSuccess.rate,
+      m.aiExtraction.rate,
       m.adoption30d[0]!.ofMau,
     ]).toEqual([null, null, null, null]);
   });

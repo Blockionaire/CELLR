@@ -29,8 +29,9 @@ create index ai_usage_household_idx on public.ai_usage (household_id, at desc) w
 create index ai_usage_task_idx      on public.ai_usage (task, at desc);
 
 -- ---- 2. Platform-wide AI budget ----------------------------------------------------------------------------
--- A call in flight holds its estimated cost until its usage is recorded (then the hold is removed). Holds that
--- were never released (a crash) stop counting after 15 minutes.
+-- A call in flight holds its estimated cost until its usage is durably recorded (only then is the hold removed).
+-- A hold that is never released (the process died, or recording the usage failed) keeps counting as spent on
+-- its day and in its month: unaccounted spending is never forgotten. Holds from before this month are cleared.
 create table public.ai_budget_holds (
   id                 uuid primary key default gen_random_uuid(),
   task               text not null check (task ~ '^[a-z0-9_]{1,40}$'),
@@ -44,7 +45,8 @@ revoke all on public.ai_budget_holds from public, anon, authenticated;
 
 -- Reserve room for one AI call, or refuse it (NULL). Concurrent callers are serialised by an advisory lock, so
 -- two calls cannot both take the last room. Spent = recorded costs (or, when unknown, their hold) since the
--- start of the UTC day / month, plus every live hold. A NULL limit is no limit. Service role only.
+-- start of the UTC day / month, plus every unreleased hold taken in that day / month. A NULL limit is no limit.
+-- Service role only.
 create function public.ai_budget_hold(p_task text, p_estimate bigint, p_daily bigint, p_monthly bigint)
   returns uuid language plpgsql security definer set search_path = '' as $$
 declare
@@ -52,7 +54,8 @@ declare
   month_start timestamptz := date_trunc('month', now(), 'UTC');
   spent_day   bigint;
   spent_month bigint;
-  held        bigint;
+  held_day    bigint;
+  held_month  bigint;
   hold_id     uuid;
 begin
   if p_estimate is null or p_estimate <= 0 or p_task !~ '^[a-z0-9_]{1,40}$'
@@ -60,15 +63,19 @@ begin
     raise exception 'invalid_arguments' using errcode = '22023';
   end if;
   perform pg_advisory_xact_lock(hashtext('cellr.ai_budget'));
-  delete from public.ai_budget_holds where at < now() - interval '15 minutes';
+  delete from public.ai_budget_holds where at < month_start;
   select coalesce(sum(coalesce(u.cost_usd_micro, u.cost_hold_usd_micro, 0)) filter (where u.at >= day_start), 0),
          coalesce(sum(coalesce(u.cost_usd_micro, u.cost_hold_usd_micro, 0)), 0)
     into spent_day, spent_month
     from public.ai_usage u
    where u.at >= least(day_start, month_start);
-  select coalesce(sum(h.estimate_usd_micro), 0) into held from public.ai_budget_holds h;
-  if (p_daily is not null and spent_day + held + p_estimate > p_daily)
-     or (p_monthly is not null and spent_month + held + p_estimate > p_monthly) then
+  select coalesce(sum(h.estimate_usd_micro) filter (where h.at >= day_start), 0),
+         coalesce(sum(h.estimate_usd_micro), 0)
+    into held_day, held_month
+    from public.ai_budget_holds h
+   where h.at >= month_start;
+  if (p_daily is not null and spent_day + held_day + p_estimate > p_daily)
+     or (p_monthly is not null and spent_month + held_month + p_estimate > p_monthly) then
     return null;
   end if;
   insert into public.ai_budget_holds (task, estimate_usd_micro) values (p_task, p_estimate)
@@ -107,7 +114,10 @@ create function public.platform_metrics(p_now timestamptz default now())
     select u.user_id, u.created_at from users u
      where u.created_at >= p_now - interval '14 days' and u.created_at < p_now - interval '7 days'
   ),
-  scans as (
+  -- AI label extraction: did the provider call return structured output that passed its schema? This is NOT
+  -- whether a wine was recognised (a valid answer can still be "not a label"); that outcome is not stored on the
+  -- server. See docs/METRICS.md.
+  extractions as (
     select count(*) filter (where status = 'ok') as ok,
            count(*) filter (where status in ('error', 'timeout', 'invalid_output')) as failed
       from public.ai_usage
@@ -151,7 +161,7 @@ create function public.platform_metrics(p_now timestamptz default now())
                                      and a.at >= c.created_at + interval '7 days'
                                      and a.at <  c.created_at + interval '14 days'
                                      and a.at <= p_now))),
-    'scans_30d', (select jsonb_build_object('ok', ok, 'failed', failed) from scans),
+    'ai_extraction_30d', (select jsonb_build_object('ok', ok, 'failed', failed) from extractions),
     'adoption_30d', coalesce((select jsonb_object_agg(feature, n)
                                 from (select feature, count(distinct user_id) as n from adoption group by feature) f),
                              '{}'::jsonb)
