@@ -22,3 +22,4 @@ export * from "./stats";
 export * from "./drink-curve";
 export * from "./drink-notices";
 export * from "./friends";
+export * from "./metrics";

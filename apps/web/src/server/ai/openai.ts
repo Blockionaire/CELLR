@@ -11,12 +11,22 @@ interface ResponsesResponse {
     action?: { sources?: Array<{ url?: string }> };
     content?: Array<{ type?: string; text?: string; refusal?: string }>;
   }>;
-  usage?: { input_tokens?: number; output_tokens?: number };
+  model?: string;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    input_tokens_details?: { cached_tokens?: number };
+  };
 }
 
 interface ChatResponse {
   choices?: Array<{ message?: { content?: string | null; refusal?: string | null } }>;
-  usage?: { prompt_tokens?: number; completion_tokens?: number };
+  model?: string;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    prompt_tokens_details?: { cached_tokens?: number };
+  };
 }
 
 const toBase64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
@@ -48,12 +58,55 @@ export function createOpenAiProvider(
     async generateObject<T>(request: GenerateObjectRequest<T>): Promise<AiResult<T>> {
       const model = request.model === "vision" ? env.visionModel : env.chatModel;
       const started = Date.now();
-      const usage: AiUsage = { model, tokensIn: 0, tokensOut: 0, latencyMs: 0 };
+      // `reported` turns false as soon as a sent request does not come back with its usage numbers.
+      const usage: AiUsage = {
+        model,
+        tokensIn: 0,
+        tokensCachedIn: 0,
+        tokensOut: 0,
+        webSearchCalls: 0,
+        latencyMs: 0,
+        reported: true,
+      };
+      /**
+       * Adds one answer's usage. A missing usage block, or one without its input or output token count, makes
+       * the whole call's cost unknown: incomplete billing numbers are never read as a confirmed 0. A missing
+       * cached count only means none are priced as cached (the estimate errs high, never low).
+       */
+      const count = (
+        served: string | undefined,
+        tokens: {
+          in: number | undefined;
+          cached: number | undefined;
+          out: number | undefined;
+        } | null,
+      ) => {
+        if (served) usage.servedModel = served;
+        const known = (n: number | undefined): n is number =>
+          typeof n === "number" && Number.isFinite(n) && n >= 0;
+        if (!tokens || !known(tokens.in) || !known(tokens.out)) {
+          usage.reported = false;
+          if (tokens) {
+            usage.tokensIn += known(tokens.in) ? tokens.in : 0;
+            usage.tokensOut += known(tokens.out) ? tokens.out : 0;
+          }
+          return;
+        }
+        usage.tokensIn += tokens.in;
+        usage.tokensCachedIn =
+          (usage.tokensCachedIn ?? 0) + (known(tokens.cached) ? tokens.cached : 0);
+        usage.tokensOut += tokens.out;
+      };
       const done = <R extends AiResult<T>>(result: R): R => {
         usage.latencyMs = Date.now() - started;
         return result;
       };
       const fail = (kind: AiErrorKind): AiResult<T> => done({ ok: false, kind, usage });
+      /** A request went out but no usable answer came back: whatever it cost is unknown. */
+      const lost = (kind: AiErrorKind): AiResult<T> => {
+        usage.reported = false;
+        return fail(kind);
+      };
 
       // A question that needs today's facts goes through the Responses API with web search: one attempt (a
       // repair would search again and cost as much), the answer held to the same strict schema.
@@ -89,7 +142,7 @@ export function createOpenAiProvider(
             error instanceof Error &&
             (error.name === "TimeoutError" || error.name === "AbortError");
           if (!timedOut) logError("ai_request_failed", error);
-          return fail(timedOut ? "timeout" : "unavailable");
+          return lost(timedOut ? "timeout" : "unavailable");
         }
         if (!response.ok) {
           logWarn("ai_http_error", {
@@ -98,17 +151,26 @@ export function createOpenAiProvider(
             task: request.task,
             model,
           });
-          return fail(response.status === 429 ? "rate_limited" : "unavailable");
+          return lost(response.status === 429 ? "rate_limited" : "unavailable");
         }
         let body: ResponsesResponse;
         try {
           body = (await response.json()) as ResponsesResponse;
         } catch {
-          return fail("unavailable");
+          return lost("unavailable");
         }
-        usage.tokensIn += body.usage?.input_tokens ?? 0;
-        usage.tokensOut += body.usage?.output_tokens ?? 0;
+        count(
+          body.model,
+          body.usage
+            ? {
+                in: body.usage.input_tokens,
+                cached: body.usage.input_tokens_details?.cached_tokens,
+                out: body.usage.output_tokens,
+              }
+            : null,
+        );
         const items = body.output ?? [];
+        usage.webSearchCalls = items.filter((o) => o.type === "web_search_call").length;
         const consulted = items.flatMap((o) =>
           o.type === "web_search_call"
             ? (o.action?.sources ?? []).flatMap((s) => (s.url ? [s.url] : []))
@@ -165,7 +227,7 @@ export function createOpenAiProvider(
             error instanceof Error &&
             (error.name === "TimeoutError" || error.name === "AbortError");
           if (!timedOut) logError("ai_request_failed", error);
-          return fail(timedOut ? "timeout" : "unavailable");
+          return lost(timedOut ? "timeout" : "unavailable");
         }
 
         if (!response.ok) {
@@ -176,17 +238,25 @@ export function createOpenAiProvider(
             task: request.task,
             model,
           });
-          return fail(response.status === 429 ? "rate_limited" : "unavailable");
+          return lost(response.status === 429 ? "rate_limited" : "unavailable");
         }
 
         let body: ChatResponse;
         try {
           body = (await response.json()) as ChatResponse;
         } catch {
-          return fail("unavailable");
+          return lost("unavailable");
         }
-        usage.tokensIn += body.usage?.prompt_tokens ?? 0;
-        usage.tokensOut += body.usage?.completion_tokens ?? 0;
+        count(
+          body.model,
+          body.usage
+            ? {
+                in: body.usage.prompt_tokens,
+                cached: body.usage.prompt_tokens_details?.cached_tokens,
+                out: body.usage.completion_tokens,
+              }
+            : null,
+        );
         const message = body.choices?.[0]?.message;
         if (message?.refusal) return fail("refused");
         const content = message?.content ?? "";

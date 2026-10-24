@@ -22,7 +22,8 @@
     "icons": "node scripts/generate-icons.mjs",
     "offline-page": "node scripts/generate-offline.mjs",
     "e2e": "pnpm --filter @cellr/web e2e",
-    "scan:eval": "pnpm --filter @cellr/scan-eval start"
+    "scan:eval": "pnpm --filter @cellr/scan-eval start",
+    "db:test:budget": "bash scripts/db-budget-concurrency.sh"
   },
   "devDependencies": {
     "pg": "8.23.1",

@@ -13,7 +13,8 @@ create schema auth;
 create table auth.users (
   id                uuid primary key,
   email             text,
-  raw_user_meta_data jsonb not null default '{}'::jsonb
+  raw_user_meta_data jsonb not null default '{}'::jsonb,
+  last_sign_in_at   timestamptz
 );
 -- Same lookup order as GoTrue's auth.uid(): modern JSON claims first, legacy single claim as fallback.
 create function auth.uid() returns uuid language sql stable as $$
