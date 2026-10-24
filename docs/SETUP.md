@@ -217,13 +217,15 @@ Scanning reads the front label of a bottle with an AI model and fills in the win
 Vercel (_Settings → Environment Variables_, then redeploy): `OPENAI_API_KEY`. **Put the key in Vercel only; never
 paste it into a chat or a file in the repository.**
 
-| Variable                | What it does                                                                                                             | Default                     |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------- |
-| `OPENAI_API_KEY`        | Switches reading labels on. Without it, a scan still keeps the photo and you fill the wine in by hand.                   | _(off)_                     |
-| `AI_MODEL_VISION`       | The model that reads pictures.                                                                                           | `gpt-4.1`                   |
-| `AI_BUDGET_DAILY_USD`   | Optional. Platform-wide AI budget per UTC day, in US dollars (an estimate; see docs/METRICS.md). Unset = no daily limit. | `5`                         |
-| `AI_BUDGET_MONTHLY_USD` | Optional. Platform-wide AI budget per UTC month, in US dollars. Unset = no monthly limit.                                | `50`                        |
-| `AI_BASE_URL`           | Any OpenAI-compatible endpoint.                                                                                          | `https://api.openai.com/v1` |
+| Variable                | What it does                                                                                                                     | Default                     |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `OPENAI_API_KEY`        | Switches reading labels on. Without it, a scan still keeps the photo and you fill the wine in by hand.                           | _(off)_                     |
+| `AI_MODEL_VISION`       | The model that reads pictures.                                                                                                   | `gpt-4.1`                   |
+| `AI_MODEL_ADVICE`       | Optional. Model for the Sommelier and wine profiles only (scans and valuations keep theirs). Unset = `AI_MODEL_CHAT` (rollback). | `gpt-6-luna`                |
+| `AI_REASONING_EFFORT`   | Optional, only used for reasoning models (GPT-5 and later): `none` (default), `low` or `medium`. Higher costs more.              | `none`                      |
+| `AI_BUDGET_DAILY_USD`   | Optional. Platform-wide AI budget per UTC day, in US dollars (an estimate; see docs/METRICS.md). Unset = no daily limit.         | `5`                         |
+| `AI_BUDGET_MONTHLY_USD` | Optional. Platform-wide AI budget per UTC month, in US dollars. Unset = no monthly limit.                                        | `50`                        |
+| `AI_BASE_URL`           | Any OpenAI-compatible endpoint.                                                                                                  | `https://api.openai.com/v1` |
 
 To record what every AI call costs (tokens, time, outcome) the server also needs `SUPABASE_SERVICE_ROLE_KEY`;
 without it scanning works and nothing is recorded.
@@ -325,3 +327,19 @@ The sign-in code in local mode is not emailed: `curl "http://localhost:54321/__t
 - CI scans every build for server secrets in the browser bundle and every commit for leaked keys.
 - Each person's data is isolated by the database itself (row-level security), proven by an automated suite
   that attacks it the way an outsider would.
+
+### Rolling out gpt-6-luna for the Sommelier and wine profiles
+
+1. Preview first: in Vercel, set `AI_MODEL_ADVICE=gpt-6-luna` for the **Preview** environment only (leave
+   `AI_REASONING_EFFORT` unset = `none`) and redeploy the preview.
+2. Smoke test there (a few cents at most):
+   - Sommelier: ask "Wat past bij biefstuk vanavond?" and a cellar question ("Hoeveel flessen heb ik?"). Both
+     answer in your language; bottles named exist in your cellar.
+   - Tonight: pick a dish; recommendations come from your own bottles.
+   - Wine profile: open a wine without a profile and generate it; the profile shows structure, aromas and
+     pairings.
+   - Scan a label: still works as before (it stays on `AI_MODEL_VISION`).
+   - In Supabase, `select model, status, cost_usd_micro from ai_usage order by at desc limit 5;` shows
+     `gpt-6-luna…` rows with status `ok` and a cost filled in.
+3. Production: set the same variable for **Production** and redeploy.
+4. Rollback: remove `AI_MODEL_ADVICE` (or set it to `gpt-4.1-mini`) and redeploy. Nothing else changes.

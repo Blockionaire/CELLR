@@ -27,7 +27,7 @@ const provider = (): LlmProvider & { calls: number } => {
   };
   return p;
 };
-const model = () => "gpt-4.1-mini";
+const model = () => ({ model: "gpt-4.1-mini", maxOutputTokens: 900 });
 
 describe("the platform AI budget", () => {
   it("a call that fits gets its hold, which rides on the usage to be released when recorded", async () => {
@@ -70,5 +70,18 @@ describe("the platform AI budget", () => {
     const results = await Promise.all([1, 2, 3, 4].map(() => guarded.generateObject(request)));
     expect(results.filter((r) => r.ok)).toHaveLength(2);
     expect(results.filter((r) => !r.ok && r.kind === "budget")).toHaveLength(2);
+  });
+
+  it("estimates the call that is made: a reasoning model's extra output room is held too", async () => {
+    const held: number[] = [];
+    const hold = async (_task: string, estimate: number) => (held.push(estimate), "h");
+    await withBudget(provider(), model, hold).generateObject(request);
+    await withBudget(
+      provider(),
+      () => ({ model: "gpt-6-luna", maxOutputTokens: 2900 }),
+      hold,
+    ).generateObject(request);
+    expect(held[1]).toBeGreaterThan(0);
+    expect(held[1]).toBeGreaterThanOrEqual(Math.ceil(2900 * 0.5));
   });
 });

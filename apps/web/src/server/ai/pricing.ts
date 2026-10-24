@@ -16,8 +16,13 @@ import type { AiUsage } from "./types";
  *   billed at the model's input rate; for gpt-4.1-mini (and gpt-4o-mini) the content is billed as a fixed
  *   8 000 input tokens per call. Whether the provider's reported input_tokens already include that block is
  *   not documented, so it is added on top: the estimate errs high, never low.
+ * - gpt-6-luna (developers.openai.com/api/docs/models/gpt-6-luna, checked 2026-10-24): input 0.10, cached
+ *   input 0.01, cache writes 0.125 (1.25x input), output 0.50. Usage does not say which uncached input tokens
+ *   were cache writes, so all uncached input is priced at the cache-write rate (errs high). Reasoning tokens
+ *   are part of the reported output tokens and billed as output. Prompts above 272K input tokens cost 2x input
+ *   and 1.5x output for the whole request (`longPrompt`).
  */
-export const PRICING_VERSION = "openai-2026-10-24";
+export const PRICING_VERSION = "openai-2026-10-24b";
 
 interface ModelPrice {
   /** USD per 1M tokens, which is micro-USD per token. */
@@ -26,11 +31,19 @@ interface ModelPrice {
   output: number;
   /** Search content billed as this many input tokens per web search call (mini models). */
   searchContentTokens?: number;
+  /** Above this many input tokens, the whole request is billed at higher rates. */
+  longPrompt?: { aboveTokensIn: number; input: number; output: number };
 }
 
 const MODELS: Record<string, ModelPrice> = {
   "gpt-4.1": { input: 2.0, cachedInput: 0.5, output: 8.0 },
   "gpt-4.1-mini": { input: 0.4, cachedInput: 0.1, output: 1.6, searchContentTokens: 8000 },
+  "gpt-6-luna": {
+    input: 0.125,
+    cachedInput: 0.01,
+    output: 0.5,
+    longPrompt: { aboveTokensIn: 272_000, input: 2, output: 1.5 },
+  },
 };
 
 /** USD per web search call (USD 10 / 1 000), in micro-USD. */
@@ -58,10 +71,11 @@ export function costOf(usage: AiUsage): CostEstimate {
   if (!usage.reported || !price) return { usdMicro: null, pricingVersion: null };
   const cached = Math.min(usage.tokensCachedIn ?? 0, usage.tokensIn);
   const searches = usage.webSearchCalls ?? 0;
+  const long =
+    price.longPrompt && usage.tokensIn > price.longPrompt.aboveTokensIn ? price.longPrompt : null;
   const micro =
-    (usage.tokensIn - cached) * price.input +
-    cached * price.cachedInput +
-    usage.tokensOut * price.output +
+    ((usage.tokensIn - cached) * price.input + cached * price.cachedInput) * (long?.input ?? 1) +
+    usage.tokensOut * price.output * (long?.output ?? 1) +
     searches * (WEB_SEARCH_CALL_MICRO + (price.searchContentTokens ?? 0) * price.input);
   return { usdMicro: Math.ceil(micro), pricingVersion: PRICING_VERSION };
 }
