@@ -1,3 +1,4 @@
+import "server-only";
 import { estimateCost } from "./pricing";
 import type { AiResult, GenerateObjectRequest, LlmProvider } from "./types";
 
