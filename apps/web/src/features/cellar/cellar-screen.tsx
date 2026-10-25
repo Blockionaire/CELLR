@@ -20,7 +20,7 @@ import { buttonStyles } from "@/ui/button";
 import { EmptyState } from "@/ui/empty-state";
 import { Field } from "@/ui/field";
 import { Chip } from "@/ui/chip";
-import { HeartIcon, PlusIcon, SearchIcon, type IconProps } from "@/ui/icons";
+import { HeartIcon, PlusIcon, SearchIcon, StarIcon, type IconProps } from "@/ui/icons";
 import { Sheet } from "@/ui/sheet";
 import { cn } from "@/ui/cn";
 import { PageHeader } from "@/ui/page-header";
@@ -198,6 +198,7 @@ export function CellarScreen({
   /** The other places that belong to the cellar: one quiet button, a short list behind it. */
   const related = [
     { href: "/wishlist", label: t("wishlist"), Icon: HeartIcon },
+    { href: "/ratings", label: t("ratings"), Icon: StarIcon },
     { href: "/cellar/history", label: t("history"), Icon: ClockIcon },
     { href: "/insights", label: t("insights"), Icon: BarsIcon },
   ];

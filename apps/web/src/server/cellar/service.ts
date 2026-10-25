@@ -1,6 +1,9 @@
 import "server-only";
 import {
   averagePrice,
+  JOURNAL_LIMIT,
+  summarizeJournal,
+  type JournalView,
   DomainError,
   assessDrink,
   drinkStatusOf,
@@ -609,6 +612,26 @@ export function createCellarService(
     },
 
     /**
+     * My tasting journal: the signed-in person's own tastings in the active household, newest first (at most
+     * JOURNAL_LIMIT), and a summary over all of them. Never another member's, never another household's.
+     */
+    async journal(): Promise<JournalView> {
+      const { id: householdId } = await household();
+      const [rows, scores] = await Promise.all([
+        repo.listMyJournal(householdId, userId, JOURNAL_LIMIT),
+        repo.listMyJournalScores(householdId, userId),
+      ]);
+      if (rows === null)
+        return { ready: false, entries: [], truncated: false, summary: summarizeJournal([]) };
+      return {
+        ready: true,
+        entries: rows.slice(0, JOURNAL_LIMIT),
+        truncated: rows.length > JOURNAL_LIMIT,
+        summary: summarizeJournal(scores),
+      };
+    },
+
+    /**
      * "How was it?": the signed-in person's stars, words and note for a bottle that has been opened.
      * Saving again replaces what they said before.
      */
@@ -656,8 +679,15 @@ export function createCellarService(
       return { wineId, favorite };
     },
 
-    /** One vintage with every bottle: where each is, what they cost, what has been opened. */
-    async vintage(vintageId: string): Promise<VintageDetail> {
+    /**
+     * One vintage with every bottle: where each is, what they cost, what has been opened (the latest 12). `rate`
+     * names an opened bottle to talk about (a link from the journal): it is included even when it is older than
+     * those 12, with the person's own tasting of it, so the rating sheet edits it rather than adding another.
+     */
+    async vintage(
+      vintageId: string,
+      options: { rate?: string | undefined } = {},
+    ): Promise<VintageDetail> {
       const { id: householdId } = await household();
       const [rows, favorites, tastings, backImage] = await Promise.all([
         repo.getVintage(householdId, vintageId),
@@ -672,6 +702,14 @@ export function createCellarService(
         .filter((b) => b.status === "opened")
         .sort((a, b) => (b.openedAt ?? "").localeCompare(a.openedAt ?? ""))
         .slice(0, 12);
+      const asked = options.rate
+        ? rows.bottles.find((b) => b.id === options.rate && b.status === "opened")
+        : undefined;
+      if (asked && !opened.some((b) => b.id === asked.id)) opened.push(asked);
+      if (asked && !tastings.some((t) => t.bottleId === asked.id && t.userId === userId)) {
+        const own = await repo.getMyTasting(userId, asked.id);
+        if (own && own.vintageId === rows.vintageId) tastings.push(own);
+      }
       const prices = [...inCellar, ...rows.bottles.filter((b) => b.status === "opened")].flatMap(
         (b) => (b.priceCents === null ? [] : [b.priceCents]),
       );

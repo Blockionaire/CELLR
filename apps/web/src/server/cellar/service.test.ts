@@ -168,6 +168,12 @@ function fakeRepo(
     async deleteMyTasting() {
       return false;
     },
+    async listMyJournal() {
+      return [];
+    },
+    async listMyJournalScores() {
+      return [];
+    },
     async listMyTastingScores() {
       return [];
     },

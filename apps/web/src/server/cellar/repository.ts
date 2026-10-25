@@ -822,6 +822,87 @@ export function createCellarRepository(db: Db): CellarRepository {
       );
     },
 
+    async listMyJournal(householdId, userId, limit) {
+      // Only the person's own tastings in this household (RLS lets members read the household's; this narrows
+      // it to the author). Uses tastings_user_idx (user_id, tasted_at desc).
+      const { data, error } = await db
+        .from("tastings")
+        .select(
+          "id, vintage_id, bottle_id, score, descriptors, note, tasted_at, bottles(front_image_id, status), wine_vintages!inner(id, year, wines!inner(id, name, wine_type, producers!inner(name)))",
+        )
+        .eq("household_id", householdId)
+        .eq("user_id", userId)
+        .order("tasted_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limit + 1);
+      if (error && isMissingTable(error)) return null;
+      if (error) throw mapDbError(error);
+      const imageIds = [
+        ...new Set(
+          data.flatMap((r) => (r.bottles?.front_image_id ? [r.bottles.front_image_id] : [])),
+        ),
+      ];
+      const images = new Map<string, ImageRef>();
+      if (imageIds.length > 0) {
+        const found = await db
+          .from("bottle_images")
+          .select(IMAGE_REF_COLUMNS)
+          .eq("household_id", householdId)
+          .in("id", imageIds);
+        if (found.error) throw mapDbError(found.error);
+        for (const i of found.data) images.set(i.id, toImageRef(i));
+      }
+      // A tasting whose bottle is still opened can be edited, and its wine's page opens. For the others (bottle
+      // deleted, or no longer opened) ask once, for just those vintages, whether the household still has the wine
+      // in the cellar or opened: only then does its page open.
+      const opened = (r: (typeof data)[number]) =>
+        r.bottle_id !== null && r.bottles?.status === "opened";
+      const unsure = [...new Set(data.filter((r) => !opened(r)).map((r) => r.vintage_id))];
+      const available = new Set<string>();
+      for (let i = 0; i < unsure.length; i += 100) {
+        const found = await db
+          .from("bottles")
+          .select("vintage_id")
+          .eq("household_id", householdId)
+          .in("vintage_id", unsure.slice(i, i + 100))
+          .in("status", ["in_cellar", "opened"]);
+        if (found.error) throw mapDbError(found.error);
+        for (const b of found.data) available.add(b.vintage_id);
+      }
+      return data.map((r) => ({
+        tastingId: r.id,
+        vintageId: r.vintage_id,
+        wineId: r.wine_vintages.wines.id,
+        bottleId: r.bottle_id,
+        editable: opened(r),
+        wineAvailable: opened(r) || available.has(r.vintage_id),
+        producer: r.wine_vintages.wines.producers.name,
+        wineName: r.wine_vintages.wines.name,
+        year: r.wine_vintages.year,
+        type: r.wine_vintages.wines.wine_type as WineType,
+        image: r.bottles?.front_image_id ? (images.get(r.bottles.front_image_id) ?? null) : null,
+        score: r.score,
+        descriptors: r.descriptors as Descriptor[],
+        note: r.note,
+        tastedAt: r.tasted_at,
+      }));
+    },
+
+    async listMyJournalScores(householdId, userId) {
+      const { data, error } = await allRows((from, to) =>
+        db
+          .from("tastings")
+          .select("id, score, wine_vintages!inner(wine_id)")
+          .eq("household_id", householdId)
+          .eq("user_id", userId)
+          .order("id")
+          .range(from, to),
+      );
+      if (error && isMissingTable(error)) return [];
+      if (error) throw mapDbError(error);
+      return data.map((r) => ({ wineId: r.wine_vintages.wine_id, score: r.score }));
+    },
+
     async getMyTasting(userId, bottleId) {
       const { data, error } = await db
         .from("tastings")

@@ -208,6 +208,7 @@ function useRefreshTastings() {
     return Promise.all([
       queryClient.invalidateQueries({ queryKey: cellarKey }),
       queryClient.invalidateQueries({ queryKey: ["vintage"] }),
+      queryClient.invalidateQueries({ queryKey: ["journal"] }),
     ]);
   };
 }

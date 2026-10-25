@@ -36,6 +36,7 @@ import { InviteSheet } from "./invite-sheet";
 import { PinSection } from "./pin-section";
 import { RemindersSection } from "./reminders-section";
 import { FriendsEntry } from "@/features/friends/entry";
+import { RatingsEntry } from "@/features/ratings/entry";
 
 function Section({
   title,
@@ -222,6 +223,7 @@ export function ProfileView({
       </Section>
 
       <FriendsEntry />
+      <RatingsEntry />
 
       {active && (
         <Section title={t("householdSection")}>
