@@ -298,6 +298,123 @@ describe("gpt-6-luna for advice", () => {
   });
 });
 
+describe("gpt-6-luna for scans and valuations", () => {
+  const luna = {
+    ...env,
+    visionModel: "gpt-6-luna",
+    chatModel: "gpt-6-luna",
+    adviceModel: "gpt-6-luna",
+  };
+
+  it("a label scan: high-detail image, strict schema, effort none, nothing else added", async () => {
+    const { fetcher, calls } = fakeFetch(reply({ producer: "Château Margaux" }));
+    const result = await createOpenAiProvider(luna, fetcher).generateObject(request());
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({
+      model: "gpt-6-luna",
+      reasoning_effort: "none",
+      max_completion_tokens: 500,
+      response_format: { type: "json_schema", json_schema: { strict: true } },
+    });
+    expect(body.messages[1].content[1]).toMatchObject({
+      type: "image_url",
+      image_url: { detail: "high" },
+    });
+    expect(result).toMatchObject({ ok: true, value: { producer: "Château Margaux" } });
+  });
+
+  const valuation = request({
+    task: "wine_valuation",
+    model: "chat",
+    images: [],
+    webSearch: true,
+    maxOutputTokens: 700,
+    temperature: 0,
+  });
+  const searched = (output: unknown[]) =>
+    new Response(
+      JSON.stringify({
+        model: "gpt-6-luna-2026-09-22",
+        output,
+        usage: {
+          input_tokens: 12000,
+          output_tokens: 1500,
+          input_tokens_details: { cached_tokens: 0 },
+        },
+      }),
+      { status: 200 },
+    );
+
+  it("a valuation: Responses API with web search, reasoning low, room for it, no temperature", async () => {
+    const { fetcher, calls } = fakeFetch(
+      searched([
+        { type: "reasoning" },
+        { type: "web_search_call", action: { sources: [{ url: "https://shop.example/margaux" }] } },
+        { type: "message", content: [{ type: "output_text", text: '{"producer":"X"}' }] },
+      ]),
+    );
+    const result = await createOpenAiProvider(luna, fetcher).generateObject(valuation);
+    expect(calls[0]!.url).toBe("https://ai.example/v1/responses");
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({
+      model: "gpt-6-luna",
+      tools: [{ type: "web_search" }],
+      include: ["web_search_call.action.sources"],
+      reasoning: { effort: "low" },
+      max_output_tokens: 2700,
+      text: { format: { type: "json_schema", strict: true } },
+    });
+    expect(body).not.toHaveProperty("temperature");
+    expect(body).not.toHaveProperty("reasoning_effort");
+    expect(result).toMatchObject({
+      ok: true,
+      consulted: ["https://shop.example/margaux"],
+      usage: {
+        servedModel: "gpt-6-luna-2026-09-22",
+        webSearchCalls: 1,
+        tokensIn: 12000,
+        tokensOut: 1500,
+        reported: true,
+      },
+    });
+  });
+
+  it("an extra message item does not hide the answer; nothing that fails the schema is accepted", async () => {
+    const extra = { type: "message", content: [{ type: "output_text", text: "Searching…" }] };
+    const answer = {
+      type: "message",
+      content: [{ type: "output_text", text: '{"producer":"X"}' }],
+    };
+    const one = fakeFetch(searched([extra, answer]));
+    expect(await createOpenAiProvider(luna, one.fetcher).generateObject(valuation)).toMatchObject({
+      ok: true,
+      value: { producer: "X" },
+    });
+    const none = fakeFetch(
+      searched([
+        extra,
+        { type: "message", content: [{ type: "output_text", text: '{"price":1}' }] },
+      ]),
+    );
+    expect(await createOpenAiProvider(luna, none.fetcher).generateObject(valuation)).toMatchObject({
+      ok: false,
+      kind: "invalid",
+    });
+  });
+
+  it("GPT-4.1-mini valuations are sent exactly as before", async () => {
+    const { fetcher, calls } = fakeFetch(
+      searched([{ type: "message", content: [{ type: "output_text", text: '{"producer":"X"}' }] }]),
+    );
+    await createOpenAiProvider({ ...env, chatModel: "gpt-4.1-mini" }, fetcher).generateObject(
+      valuation,
+    );
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({ model: "gpt-4.1-mini", max_output_tokens: 700, temperature: 0 });
+    expect(body).not.toHaveProperty("reasoning");
+  });
+});
+
 describe("usage for cost accounting", () => {
   it("records the model that answered, cached tokens, and that usage was reported", async () => {
     const { fetcher } = fakeFetch(

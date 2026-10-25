@@ -180,13 +180,23 @@ export function createOpenAiProvider(
         );
         const parts = items.flatMap((o) => (o.type === "message" ? (o.content ?? []) : []));
         if (parts.some((p) => p.type === "refusal")) return fail("refused");
-        const text = parts.find((p) => p.type === "output_text")?.text ?? "";
-        try {
-          return done({ ok: true, value: request.parse(JSON.parse(text)), usage, consulted });
-        } catch {
-          logWarn("ai_invalid_output", { task: request.task, model });
-          return fail("invalid");
+        // Some models can return more than one message item; the answer is the one that fits the schema (each is
+        // still fully checked, nothing is merged or loosened).
+        for (const part of parts) {
+          if (part.type !== "output_text") continue;
+          try {
+            return done({
+              ok: true,
+              value: request.parse(JSON.parse(part.text ?? "")),
+              usage,
+              consulted,
+            });
+          } catch {
+            // try the next one
+          }
         }
+        logWarn("ai_invalid_output", { task: request.task, model });
+        return fail("invalid");
       }
 
       const messages: Message[] = [

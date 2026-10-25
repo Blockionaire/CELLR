@@ -217,15 +217,19 @@ Scanning reads the front label of a bottle with an AI model and fills in the win
 Vercel (_Settings → Environment Variables_, then redeploy): `OPENAI_API_KEY`. **Put the key in Vercel only; never
 paste it into a chat or a file in the repository.**
 
-| Variable                | What it does                                                                                                                     | Default                     |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `OPENAI_API_KEY`        | Switches reading labels on. Without it, a scan still keeps the photo and you fill the wine in by hand.                           | _(off)_                     |
-| `AI_MODEL_VISION`       | The model that reads pictures.                                                                                                   | `gpt-4.1`                   |
-| `AI_MODEL_ADVICE`       | Optional. Model for the Sommelier and wine profiles only (scans and valuations keep theirs). Unset = `AI_MODEL_CHAT` (rollback). | `gpt-6-luna`                |
-| `AI_REASONING_EFFORT`   | Optional, only used for reasoning models (GPT-5 and later): `none` (default), `low` or `medium`. Higher costs more.              | `none`                      |
-| `AI_BUDGET_DAILY_USD`   | Optional. Platform-wide AI budget per UTC day, in US dollars (an estimate; see docs/METRICS.md). Unset = no daily limit.         | `5`                         |
-| `AI_BUDGET_MONTHLY_USD` | Optional. Platform-wide AI budget per UTC month, in US dollars. Unset = no monthly limit.                                        | `50`                        |
-| `AI_BASE_URL`           | Any OpenAI-compatible endpoint.                                                                                                  | `https://api.openai.com/v1` |
+"Code default" is what the app uses when the variable is not set at all. "Suggested" is only an example
+value; nothing is set for you.
+
+| Variable                | What it does                                                                                                                                         | Code default (unset)         | Suggested |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | --------- |
+| `OPENAI_API_KEY`        | Switches AI on. Without it, a scan still keeps the photo and you fill the wine in by hand.                                                           | _(off)_                      |           |
+| `AI_MODEL_VISION`       | Label scanning.                                                                                                                                      | `gpt-6-luna`                 |           |
+| `AI_MODEL_CHAT`         | Wine valuations with web search, and the fallback for `AI_MODEL_ADVICE`.                                                                             | `gpt-6-luna`                 |           |
+| `AI_MODEL_ADVICE`       | Sommelier, Tonight and wine profiles.                                                                                                                | the value of `AI_MODEL_CHAT` |           |
+| `AI_REASONING_EFFORT`   | Only sent to models with a documented effort (today: `gpt-6-luna`): `none`, `low` or `medium`. Valuations with web search always use at least `low`. | `none`                       |           |
+| `AI_BUDGET_DAILY_USD`   | Platform-wide AI budget per UTC day, in US dollars (an estimate; see docs/METRICS.md).                                                               | no limit                     | `5`       |
+| `AI_BUDGET_MONTHLY_USD` | Platform-wide AI budget per UTC month, in US dollars.                                                                                                | no limit                     | `50`      |
+| `AI_BASE_URL`           | Any OpenAI-compatible endpoint.                                                                                                                      | `https://api.openai.com/v1`  |           |
 
 To record what every AI call costs (tokens, time, outcome) the server also needs `SUPABASE_SERVICE_ROLE_KEY`;
 without it scanning works and nothing is recorded.
@@ -328,18 +332,34 @@ The sign-in code in local mode is not emailed: `curl "http://localhost:54321/__t
 - Each person's data is isolated by the database itself (row-level security), proven by an automated suite
   that attacks it the way an outsider would.
 
-### Rolling out gpt-6-luna for the Sommelier and wine profiles
+### gpt-6-luna for every AI feature
 
-1. Preview first: in Vercel, set `AI_MODEL_ADVICE=gpt-6-luna` for the **Preview** environment only (leave
-   `AI_REASONING_EFFORT` unset = `none`) and redeploy the preview.
-2. Smoke test there (a few cents at most):
-   - Sommelier: ask "Wat past bij biefstuk vanavond?" and a cellar question ("Hoeveel flessen heb ik?"). Both
-     answer in your language; bottles named exist in your cellar.
-   - Tonight: pick a dish; recommendations come from your own bottles.
-   - Wine profile: open a wine without a profile and generate it; the profile shows structure, aromas and
-     pairings.
-   - Scan a label: still works as before (it stays on `AI_MODEL_VISION`).
-   - In Supabase, `select model, status, cost_usd_micro from ai_usage order by at desc limit 5;` shows
-     `gpt-6-luna…` rows with status `ok` and a cost filled in.
-3. Production: set the same variable for **Production** and redeploy.
-4. Rollback: remove `AI_MODEL_ADVICE` (or set it to `gpt-4.1-mini`) and redeploy. Nothing else changes.
+From this release the code defaults are `gpt-6-luna` for everything. **A variable that is already set in Vercel
+still wins**: if `AI_MODEL_VISION=gpt-4.1` or `AI_MODEL_CHAT=gpt-4.1-mini` is set there, those features keep
+the old model until you change it.
+
+| Feature                          | Variable that decides it                 | Luna                                         | Roll back to                   |
+| -------------------------------- | ---------------------------------------- | -------------------------------------------- | ------------------------------ |
+| Label scanning                   | `AI_MODEL_VISION`                        | remove it, or set `gpt-6-luna`               | `AI_MODEL_VISION=gpt-4.1`      |
+| Valuations (web search)          | `AI_MODEL_CHAT`                          | remove it, or set `gpt-6-luna`               | `AI_MODEL_CHAT=gpt-4.1-mini`   |
+| Sommelier, Tonight, wine profile | `AI_MODEL_ADVICE` (else `AI_MODEL_CHAT`) | remove both, or `AI_MODEL_ADVICE=gpt-6-luna` | `AI_MODEL_ADVICE=gpt-4.1-mini` |
+
+Every change needs a redeploy. Rolling one feature back leaves the others on Luna.
+
+**Preview first.** In Vercel, check _Settings → Environment Variables_ for the three model variables. For the
+**Preview** environment only, remove them (or set them to `gpt-6-luna`), leave `AI_REASONING_EFFORT` unset, and
+redeploy the preview. Then check, on the preview:
+
+1. **Labels:** scan 2–3 different bottles (a classic French label, a New World label, one with a hard-to-read
+   vintage). Producer, wine, vintage and region are filled in; a non-label photo still falls back to typing.
+2. **Sommelier:** ask "Hoeveel flessen heb ik?" and get the counted answer.
+3. **Tonight:** pick a dish; the suggestions are your own bottles.
+4. **Wine profile:** generate one for a wine without a profile; structure, aromas and pairings show.
+5. **Valuation:** look up a value; it shows a price with source links. Open the links: they are real shop or
+   auction pages for this wine (or there is honestly no price).
+6. **Costs:** in Supabase, `select task, model, status, tokens_in, tokens_out, web_search_calls, cost_usd_micro
+from ai_usage order by at desc limit 10;` shows `gpt-6-luna…` rows, status `ok`, a cost filled in, and
+   `web_search_calls` ≥ 1 on the valuation.
+
+All good: make the same change for **Production** and redeploy. Anything wrong: roll back that one feature with
+the table above.

@@ -109,4 +109,12 @@ describe("AI cost estimates (micro-USD)", () => {
       costOf(usage({ model: "gpt-6-luna", tokensIn: 1000, tokensOut: 2900 })).usdMicro!,
     );
   });
+
+  it("gpt-6-luna web search: the call fee and a search-content block on top of the reported tokens", () => {
+    // 12 000 × 0.125 + 1 500 × 0.5 + 1 × (10 000 + 8 000 × 0.125) = 1 500 + 750 + 11 000
+    const u = usage({ model: "gpt-6-luna", tokensIn: 12000, tokensOut: 1500, webSearchCalls: 1 });
+    expect(costOf(u).usdMicro).toBe(13250);
+    // Unknown usage stays unknown for Luna too.
+    expect(costOf({ ...u, reported: false }).usdMicro).toBeNull();
+  });
 });

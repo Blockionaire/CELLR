@@ -142,7 +142,7 @@ test.describe("the sommelier", () => {
 
     // What the model was given: the cellar list, our rules, and the question as data.
     const [first] = await modelCalls(m);
-    expect(first).toMatchObject({ model: "gpt-4.1-mini", strict: true });
+    expect(first).toMatchObject({ model: "gpt-6-luna", strict: true });
     expect(first!.user).toContain("Cellar (3 wines):");
     expect(first!.user).toContain("Château Margaux — Pavillon Rouge");
     expect(first!.system).toContain("Only recommend wines from that list");

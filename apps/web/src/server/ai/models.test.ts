@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { isReasoningModel, planCall } from "./models";
+import { describe, expect, it, vi } from "vitest";
+import { getAiEnv } from "@/server/env";
+import { planCall, reasoningEfforts } from "./models";
 
 const env = {
   visionModel: "gpt-4.1",
@@ -53,8 +54,62 @@ describe("which model answers", () => {
     });
   });
 
-  it("knows reasoning models from GPT-4.x", () => {
-    expect(["gpt-6-luna", "gpt-5.6-luna", "o4-mini"].every(isReasoningModel)).toBe(true);
-    expect(["gpt-4.1", "gpt-4.1-mini", "gpt-4o"].some(isReasoningModel)).toBe(false);
+  it("reasoning parameters only for models with documented efforts; GPT-4.x and unknown models get none", () => {
+    expect(reasoningEfforts("gpt-6-luna")).toEqual(["none", "low", "medium"]);
+    expect(reasoningEfforts("gpt-6-luna-2026-09-22")).toEqual(["none", "low", "medium"]);
+    for (const m of ["gpt-4.1", "gpt-4.1-mini", "gpt-6-astra", "gpt-5.6-luna", "o4-mini"])
+      expect(reasoningEfforts(m)).toBeNull();
+    const astra = { ...env, adviceModel: "gpt-6-astra", reasoningEffort: "low" as const };
+    expect(planCall(astra, req())).toMatchObject({ reasoningEffort: null, temperature: 0.4 });
+  });
+
+  it("a web search thinks at least low, with room for it; scans stay at the configured effort", () => {
+    const luna = {
+      ...env,
+      visionModel: "gpt-6-luna",
+      chatModel: "gpt-6-luna",
+      adviceModel: "gpt-6-luna",
+    };
+    const valuation = req({ task: "wine_valuation", webSearch: true, maxOutputTokens: 700 });
+    expect(planCall(luna, valuation)).toEqual({
+      model: "gpt-6-luna",
+      reasoningEffort: "low",
+      maxOutputTokens: 2700,
+      temperature: undefined,
+    });
+    expect(planCall({ ...luna, reasoningEffort: "medium" }, valuation).reasoningEffort).toBe(
+      "medium",
+    );
+    expect(
+      planCall(luna, req({ task: "label_extraction", model: "vision", maxOutputTokens: 800 })),
+    ).toMatchObject({ model: "gpt-6-luna", reasoningEffort: "none", maxOutputTokens: 800 });
+  });
+});
+
+describe("defaults and overrides", () => {
+  it("every task defaults to gpt-6-luna; each variable overrides its own tasks", () => {
+    vi.stubEnv("AI_MODEL_VISION", "");
+    vi.stubEnv("AI_MODEL_CHAT", "");
+    vi.stubEnv("AI_MODEL_ADVICE", "");
+    vi.stubEnv("AI_REASONING_EFFORT", "");
+    expect(getAiEnv()).toMatchObject({
+      visionModel: "gpt-6-luna",
+      chatModel: "gpt-6-luna",
+      adviceModel: "gpt-6-luna",
+      reasoningEffort: "none",
+    });
+    vi.stubEnv("AI_MODEL_VISION", "gpt-4.1");
+    vi.stubEnv("AI_MODEL_CHAT", "gpt-4.1-mini");
+    vi.stubEnv("AI_REASONING_EFFORT", "max"); // not one we allow: falls back to none
+    const e = getAiEnv();
+    expect(e).toMatchObject({
+      visionModel: "gpt-4.1",
+      chatModel: "gpt-4.1-mini",
+      adviceModel: "gpt-4.1-mini",
+      reasoningEffort: "none",
+    });
+    vi.stubEnv("AI_MODEL_ADVICE", "gpt-6-luna");
+    expect(getAiEnv().adviceModel).toBe("gpt-6-luna");
+    vi.unstubAllEnvs();
   });
 });
