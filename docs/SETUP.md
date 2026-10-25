@@ -385,3 +385,11 @@ Read-only overview of users, product analytics and AI costs. To open it:
 
 Anyone else (signed out, signed in without being listed, or with a malformed list) gets the normal sign-in or
 "not found" page. The dashboard is not linked from the app and is marked `noindex`, `no-store`.
+
+**Beta feedback inbox (`/admin/feedback`).** Run `supabase/migrations/20261028000020_beta_feedback.sql` in the
+SQL editor (one table and one read-only, service-role-only function; nothing changes for existing data). Until
+then sending from the in-app "Share feedback" form fails with a plain error (the text stays in the form) and the
+inbox page says the step is missing.
+The inbox shows what testers sent from Profile → Share feedback: date, category, their text and the optional
+place and device line they chose to include, newest first, filterable by category. It shows no names or ids.
+Why this is kept apart from product analytics, and how it is protected: `docs/BETA-OPERATIONS.md` §6.

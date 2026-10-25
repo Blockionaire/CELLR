@@ -1568,5 +1568,46 @@
         }
       }
     }
+  },
+  "feedback": {
+    "entryTitle": "Feedback geven",
+    "entryBody": "Ging er iets mis, was iets onduidelijk of kan het beter? Laat het weten.",
+    "title": "Feedback geven",
+    "intro": "Wat gebeurde er, wat verwachtte je, en wat was je aan het doen? Hoe concreter, hoe beter we het kunnen oplossen.",
+    "categoryLabel": "Waar gaat het over?",
+    "category": {
+      "bug": "Fout",
+      "confusing": "Onduidelijk",
+      "idea": "Idee",
+      "other": "Anders"
+    },
+    "categoryError": "Kies waar het over gaat.",
+    "messageLabel": "Je feedback",
+    "messagePlaceholder": "Bijvoorbeeld: ik scande een fles, tikte op Toevoegen en er gebeurde niets. Ik verwachtte hem in mijn kelder.",
+    "messageError": "Schrijf minstens {min} tekens.",
+    "sensitive": "Zet hier nooit wachtwoorden, inlogcodes, betaalgegevens of andere privégegevens in.",
+    "placeLabel": "Waar gebeurde het? (optioneel)",
+    "placeNone": "Weet ik niet, of nergens in het bijzonder",
+    "place": {
+      "home": "Home",
+      "cellar": "Kelder",
+      "scan": "Scannen",
+      "wine": "Pagina van een wijn",
+      "sommelier": "Sommelier",
+      "tonight": "Vanavond",
+      "ratings": "Mijn beoordelingen",
+      "taste": "Mijn smaakprofiel",
+      "profile": "Profiel",
+      "other": "Ergens anders"
+    },
+    "deviceLabel": "Mijn soort apparaat meesturen (helpt bij fouten). Alleen deze regel gaat mee:",
+    "submit": "Feedback versturen",
+    "retry": "Opnieuw proberen",
+    "failed": "Versturen is niet gelukt.",
+    "failedKept": "Je tekst staat er nog: probeer het zo nog eens.",
+    "thanksTitle": "Dank je wel!",
+    "thanksBody": "We lezen elk bericht. Het wordt privé bewaard en alleen het CELLR-team kan het zien.",
+    "done": "Klaar",
+    "another": "Nog iets melden"
   }
 }

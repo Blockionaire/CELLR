@@ -11,7 +11,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "e2e": "playwright test",
-    "e2e:beta": "playwright test --project=phone --workers=1 acceptance smoke flows cellar.spec detail scan.spec tastings account households friends stats language cleanup home"
+    "e2e:beta": "playwright test --project=phone --workers=1 acceptance smoke flows cellar.spec detail scan.spec tastings account households friends stats language cleanup home ratings taste sommelier scan-camera feedback"
   },
   "dependencies": {
     "@cellr/domain": "workspace:*",

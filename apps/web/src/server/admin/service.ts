@@ -2,11 +2,13 @@ import "server-only";
 import { cache } from "react";
 import {
   ADMIN_PAGE_SIZE,
+  FEEDBACK_PAGE_SIZE,
   budgetUse,
   isUserId,
   summarizeAiCosts,
   sumActivity,
   type AdminRange,
+  type FeedbackCategory,
 } from "@cellr/domain";
 import { getPageContext } from "@/server/context";
 import { getAdminAllowlist, getAiBudgetEnv } from "@/server/env";
@@ -14,6 +16,7 @@ import {
   readActivity,
   readAiCosts,
   readBudgetStatus,
+  readFeedback,
   readUserDirectory,
   readUserSummary,
 } from "@/server/privileged/admin";
@@ -107,4 +110,15 @@ export async function adminAi(session: AdminSession, days: AdminRange, now = new
         : budget,
     ready: range !== "missing",
   };
+}
+
+export async function adminFeedback(
+  session: AdminSession,
+  category: FeedbackCategory | null,
+  page: number,
+) {
+  assertAdmin(session);
+  const data = await readFeedback(session, category, page, FEEDBACK_PAGE_SIZE);
+  if (typeof data !== "object" || data === null) return data;
+  return { ...data, page, pages: Math.max(1, Math.ceil(data.total / FEEDBACK_PAGE_SIZE)) };
 }

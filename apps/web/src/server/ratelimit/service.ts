@@ -25,6 +25,8 @@ export const LIMITS = {
   valuations: { bucket: "valuations", limit: 30, windowSeconds: 3600 },
   /** Bringing a whole cellar in is heavy and rarely needed more than once. */
   import: { bucket: "import", limit: 6, windowSeconds: 3600 },
+  /** Beta feedback: plenty for a person with a lot to say, not for a script filling the inbox. */
+  feedback: { bucket: "feedback", limit: 10, windowSeconds: 3600 },
 } as const satisfies Record<string, RateLimit>;
 
 export function createRateLimiter(repo: RateLimitRepository) {

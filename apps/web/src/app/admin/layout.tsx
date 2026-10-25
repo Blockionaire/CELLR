@@ -28,6 +28,7 @@ const NAV = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/product", label: "Product analytics" },
   { href: "/admin/ai", label: "AI & costs" },
+  { href: "/admin/feedback", label: "Beta feedback" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -17,6 +17,7 @@ const reads = {
   adminUser: vi.fn(),
   adminProduct: vi.fn(),
   adminAi: vi.fn(),
+  adminFeedback: vi.fn(),
 };
 vi.mock("@/server/admin/service", () => ({ getAdminSession: async () => null, ...reads }));
 
@@ -31,6 +32,7 @@ describe("admin pages without an admin session", () => {
     ["user", () => import("./users/[id]/page"), params],
     ["product", () => import("./product/page"), search],
     ["ai", () => import("./ai/page"), search],
+    ["feedback", () => import("./feedback/page"), search],
   ] as const)("%s: not found, nothing read", async (_name, load, props) => {
     const Page = (await load()).default as (p: unknown) => Promise<unknown>;
     await expect(Page(props)).rejects.toThrow("NEXT_NOT_FOUND");
@@ -48,7 +50,7 @@ const files = (dir: string): string[] =>
 describe("the admin boundary", () => {
   it("every admin page checks the session itself", () => {
     const pages = files(path.join(SRC, "app/admin")).filter((f) => /(page|layout)\.tsx$/.test(f));
-    expect(pages.length).toBe(6);
+    expect(pages.length).toBe(7);
     for (const p of pages)
       expect(readFileSync(p, "utf8")).toMatch(
         /if \(!(session|\(await getAdminSession\(\)\))\) notFound\(\)/,

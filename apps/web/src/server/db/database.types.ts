@@ -151,6 +151,37 @@ export type Database = {
           },
         ];
       };
+      beta_feedback: {
+        Row: {
+          category: string;
+          created_at: string;
+          device: string | null;
+          id: string;
+          location: string | null;
+          message: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          category: string;
+          created_at?: string;
+          device?: string | null;
+          id?: string;
+          location?: string | null;
+          message: string;
+          user_id?: string;
+        };
+        Update: {
+          category?: string;
+          created_at?: string;
+          device?: string | null;
+          id?: string;
+          location?: string | null;
+          message?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       bottle_extras: {
         Row: {
           acquired_how: string | null;
@@ -1393,6 +1424,10 @@ export type Database = {
     Functions: {
       admin_activity_series: { Args: { p_days: number; p_now?: string }; Returns: Json };
       admin_ai_costs: { Args: { p_from: string; p_to: string }; Returns: Json };
+      admin_beta_feedback: {
+        Args: { p_category: string; p_limit: number; p_offset: number };
+        Returns: Json;
+      };
       admin_budget_status: { Args: { p_now?: string }; Returns: Json };
       admin_user_directory: {
         Args: { p_limit: number; p_offset: number };

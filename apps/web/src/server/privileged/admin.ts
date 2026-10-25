@@ -1,6 +1,7 @@
 import "server-only";
 import {
   AdminActivitySchema,
+  AdminFeedbackPageSchema,
   AdminAiCostsSchema,
   AdminBudgetStatusSchema,
   AdminUserRowSchema,
@@ -8,6 +9,8 @@ import {
   type AdminActivityDay,
   type AdminAiCosts,
   type AdminBudgetStatus,
+  type AdminFeedbackPage,
+  type FeedbackCategory,
   type AdminRange,
   type AdminUserRow,
   type AdminUserSummary,
@@ -33,7 +36,8 @@ async function call<T>(
     | "admin_user_summary"
     | "admin_ai_costs"
     | "admin_budget_status"
-    | "admin_activity_series",
+    | "admin_activity_series"
+    | "admin_beta_feedback",
   args: Record<string, unknown>,
   parse: (data: unknown) => T,
 ): Read<T> {
@@ -97,5 +101,20 @@ export function readActivity(
 ): Read<AdminActivityDay[]> {
   return call(session, "admin_activity_series", { p_days: days, p_now: now.toISOString() }, (d) =>
     AdminActivitySchema.parse(d),
+  );
+}
+
+/** Beta feedback, newest first, one page (optionally one category), with the counts per category. */
+export function readFeedback(
+  session: AdminSession,
+  category: FeedbackCategory | null,
+  page: number,
+  size: number,
+): Read<AdminFeedbackPage> {
+  return call(
+    session,
+    "admin_beta_feedback",
+    { p_category: category, p_limit: size, p_offset: (page - 1) * size },
+    (d) => AdminFeedbackPageSchema.parse(d),
   );
 }
