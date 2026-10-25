@@ -927,7 +927,7 @@
     "intro": "Ask an AI what it knows about this wine: how it tastes, what to eat with it, how it may age. It is written once and stays as it is.",
     "ask": "Tell me about this wine",
     "thinking": "Reading up on it…",
-    "refresh": "Refresh",
+    "refresh": "Write it again",
     "notReady": "This needs one more database step before it works. Everything else is fine.",
     "style": "Style",
     "grapes": "Grapes",
@@ -1032,7 +1032,19 @@
     "valueNotFound": "No price with a trustworthy source was found. Try again later, or enter your own value.",
     "valueHistory": "Over time",
     "valueNoSources": "Estimated without sources (older value).",
-    "valueRangeSourced": "Between {low} and {high} in shops and auctions."
+    "valueRangeSourced": "Between {low} and {high} in shops and auctions.",
+    "refreshHint": "This profile is from an older version and was not sure of itself. It can be written again once, now with a short search for this exact wine.",
+    "evidence": {
+      "exact_wine": "Based on pages found about this wine.",
+      "producer": "Based on what is known about the producer.",
+      "appellation_rules": "Based on the appellation's rules.",
+      "style_estimate": "A style estimate for the region and colour."
+    },
+    "valueSingleOffer": "One shop's asking price: {price}.",
+    "valueSingleShop": "One shop's asking prices: {low} to {high}.",
+    "research": "Look it up again",
+    "researchHint": "This profile was written without its web search (the search did not go through). It can try once more.",
+    "valueSourcesNote": "Prices as the AI read them on these pages; check the shop for the details."
   },
   "framer": {
     "title": "Show us where the label is",

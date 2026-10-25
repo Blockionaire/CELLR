@@ -20,16 +20,28 @@ async function program(
 }
 
 /** What a price lookup on the web answers, and the pages the "search" opened. */
+const offer = (name: string, url: string, price: number) => ({
+  name,
+  url,
+  price,
+  vintage: 2015,
+  bottle_ml: 750,
+  same_wine: true,
+});
 const VALUE = {
   low: 40,
   high: 60,
   basis: "Two Dutch shops, October 2026.",
   sources: [
-    { name: "Wijnhandel Test", url: "https://wijnhandel.example/margaux-2015" },
-    { name: "Made up", url: "https://not-visited.example/x" },
+    offer("Wijnhandel Test", "https://wijnhandel.example/margaux-2015", 40),
+    offer("Made up", "https://not-visited.example/x", 10),
+    offer("Slijterij Test", "https://slijterij.example/margaux-2015", 60),
   ],
 };
-const CONSULTED = ["https://wijnhandel.example/margaux-2015?utm_source=openai"];
+const CONSULTED = [
+  "https://wijnhandel.example/margaux-2015?utm_source=openai",
+  "https://slijterij.example/margaux-2015",
+];
 
 const PROFILE = {
   summary: "A ripe, structured Bordeaux with plenty of life ahead.",
@@ -57,6 +69,8 @@ const PROFILE = {
   region: "Bordeaux",
   appellation: "Pauillac",
   confidence: "medium",
+  evidence: "producer",
+  sources: [],
 };
 
 async function furnish(
@@ -129,8 +143,11 @@ test.describe("a wine's profile", () => {
     await expect(page.getByTestId("worth")).toContainText(/50[.,]00/);
     await expect(page.getByTestId("value")).toContainText("in shops and auctions");
     const sources = page.getByTestId("value-sources").getByRole("link");
-    await expect(sources).toHaveCount(1);
-    await expect(sources).toHaveAttribute("href", "https://wijnhandel.example/margaux-2015");
+    await expect(sources).toHaveCount(2);
+    await expect(sources.first()).toHaveAttribute(
+      "href",
+      "https://wijnhandel.example/margaux-2015",
+    );
     // ...and only once a month
     await expect(page.getByText(/Can be looked up again from/)).toBeVisible();
     // The drinking window now comes from the AI, and the page says so

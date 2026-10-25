@@ -31,6 +31,7 @@ export function withBudget(
         images: request.images?.length ?? 0,
         maxOutputTokens,
         webSearch: request.webSearch === true,
+        ...(request.maxSearches !== undefined ? { searches: request.maxSearches } : {}),
       });
       let holdId: string | null | undefined;
       try {

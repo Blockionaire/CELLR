@@ -7,7 +7,8 @@ import type { GenerateObjectRequest } from "./types";
  * budget always estimates the call that is actually made.
  *
  * - Label scanning: the vision model (AI_MODEL_VISION). Web-search valuations: the chat model (AI_MODEL_CHAT).
- * - Sommelier, Tonight and wine profiles: the advice model (AI_MODEL_ADVICE), the chat model when unset.
+ * - Sommelier, Tonight and wine profiles (with or without their web research): the advice model
+ *   (AI_MODEL_ADVICE), the chat model when unset.
  *
  * Reasoning parameters are sent only to models listed in REASONING, with only the efforts their official model
  * page documents. Every other model (GPT-4.1, GPT-4.1-mini, anything not listed) is asked exactly as before: no
@@ -68,7 +69,7 @@ export function planCall(
   const model =
     request.model === "vision"
       ? env.visionModel
-      : ADVICE_TASKS.has(request.task) && !request.webSearch
+      : ADVICE_TASKS.has(request.task)
         ? env.adviceModel
         : env.chatModel;
   const efforts = reasoningEfforts(model);

@@ -7,11 +7,15 @@ import {
   mergeInsight,
   nextValuationAt,
   PROFILE_VERSION,
+  profileUpgrade,
+  samePageKey,
+  valuationKind,
   checkOrigin,
   currentValueCents,
   daysUntil,
   reminderWhen,
   type RawInsight,
+  type RawValuation,
 } from "./insights";
 
 const raw: RawInsight = {
@@ -40,7 +44,9 @@ const raw: RawInsight = {
   country_code: "FR",
   region: "Bordeaux",
   appellation: "Pauillac",
-  confidence: "high",
+  confidence: "medium",
+  evidence: "producer",
+  sources: [],
 };
 
 describe("the AI's drinking window", () => {
@@ -59,17 +65,23 @@ describe("the AI's drinking window", () => {
 
 describe("where the wine is from, per the AI", () => {
   it("gives well-formed country, region and appellation", () => {
-    expect(checkOrigin(raw)).toEqual({
+    expect(checkOrigin(raw, checkInsight(raw)!)).toEqual({
       countryCode: "FR",
       region: "Bordeaux",
       appellation: "Pauillac",
     });
   });
   it("gives nothing when the AI is unsure, and drops malformed values", () => {
-    expect(checkOrigin({ ...raw, confidence: "low" })).toEqual({});
-    expect(checkOrigin({ ...raw, country_code: "France", region: " ", appellation: null })).toEqual(
-      {},
-    );
+    const low = { ...raw, confidence: "low" as const };
+    expect(checkOrigin(low, checkInsight(low)!)).toEqual({});
+    const bad = { ...raw, country_code: "France", region: " ", appellation: null };
+    expect(checkOrigin(bad, checkInsight(bad)!)).toEqual({});
+  });
+  it("judges by the checked profile: a sure-sounding style estimate fills in nothing", () => {
+    const loud = { ...raw, confidence: "high" as const, evidence: "style_estimate" as const };
+    const checked = checkInsight(loud)!;
+    expect(checked.confidence).toBe("low");
+    expect(checkOrigin(loud, checked)).toEqual({});
   });
 });
 
@@ -124,7 +136,7 @@ describe("checking an AI profile", () => {
     expect(out.pairingKinds).toEqual(["lamb", "beef"]);
     expect(out.version).toBe(PROFILE_VERSION);
     expect(out.value).toBeNull();
-    expect(out.confidence).toBe("high");
+    expect(out.confidence).toBe("medium");
   });
   it("drops what cannot be true", () => {
     expect(checkInsight({ ...raw, serving_temp_min_c: 40 })!.serving).toBeNull();
@@ -175,40 +187,160 @@ describe("a profile stays as it was written", () => {
   });
 });
 
+describe("what a profile rests on (no invented facts)", () => {
+  const page = "https://www.producer.example/wines/nemm-rosso?utm_source=openai";
+  const exact: RawInsight = {
+    ...raw,
+    confidence: "high",
+    evidence: "exact_wine",
+    sources: [
+      { name: "Producer", url: "https://producer.example/wines/nemm-rosso/" },
+      { name: "Never opened", url: "https://made-up.example/nemm" },
+    ],
+  };
+  it("exact-wine facts need a page the search really opened; only that page is kept", () => {
+    const out = checkInsight(exact, 2023, [page])!;
+    expect(out).toMatchObject({ evidence: "exact_wine", confidence: "high" });
+    expect(out.sources).toEqual([
+      { name: "Producer", url: "https://producer.example/wines/nemm-rosso/" },
+    ]);
+  });
+  it("without such a page it is producer knowledge at best, never 'high'", () => {
+    expect(checkInsight(exact, 2023, [])).toMatchObject({
+      evidence: "producer",
+      confidence: "medium",
+      sources: [],
+    });
+    // Same site, other page: not the page it claims.
+    expect(checkInsight(exact, 2023, ["https://producer.example/other"])!.evidence).toBe(
+      "producer",
+    );
+  });
+  it("a style estimate names no grapes and no precise alcohol, and stays low", () => {
+    const out = checkInsight({ ...raw, confidence: "high", evidence: "style_estimate" }, 2023)!;
+    expect(out).toMatchObject({ grapes: [], abvPercent: null, confidence: "low" });
+    expect(out.summary).toBe("A ripe Bordeaux.");
+    // An appellation's own rules may name the grapes.
+    expect(checkInsight({ ...raw, evidence: "appellation_rules" })!.grapes).toEqual([
+      "Merlot",
+      "Cabernet Franc",
+    ]);
+  });
+});
+
+describe("asking again for an older profile", () => {
+  const base = {
+    summary: "Veneto red; the exact grapes are unknown.",
+    style: "",
+    grapes: [],
+    tasting: "",
+    serving: null,
+    decantMinutes: null,
+    pairings: [],
+    aging: "",
+  };
+  it("an older profile that was not sure of itself is written again, once", () => {
+    for (const confidence of ["low", "medium"] as const)
+      expect(profileUpgrade(InsightOutputSchema.parse({ ...base, version: 5, confidence }))).toBe(
+        "replace",
+      );
+    // Researched (the search ran), even if it found nothing about this exact wine: final.
+    const rewritten = checkInsight(
+      { ...raw, confidence: "low", evidence: "style_estimate" },
+      2023,
+      ["https://some.example/page"],
+      true,
+    )!;
+    expect(rewritten.researched).toBe(true);
+    expect(profileUpgrade(rewritten, "2026-01-01T00:00:00Z", new Date("2026-06-01"))).toBe("none");
+  });
+  it("written without its search, a profile may try the research again, at most once a day", () => {
+    const unresearched = checkInsight(raw, 2023)!;
+    expect(unresearched.researched).toBe(false);
+    const at = "2026-06-01T00:00:00Z";
+    expect(profileUpgrade(unresearched, at, new Date("2026-06-01T12:00:00Z"))).toBe("none");
+    expect(profileUpgrade(unresearched, at, new Date("2026-06-02T00:00:00Z"))).toBe("research");
+  });
+  it("a sure profile is kept as written; a very old one only gains its missing parts", () => {
+    expect(
+      profileUpgrade(InsightOutputSchema.parse({ ...base, version: 5, confidence: "high" })),
+    ).toBe("none");
+    expect(
+      profileUpgrade(InsightOutputSchema.parse({ ...base, version: 3, confidence: "high" })),
+    ).toBe("fill");
+  });
+});
+
 describe("what a bottle is worth, with sources", () => {
   const consulted = [
     "https://www.shop.example/p/margaux-2015?utm_source=openai",
     "https://auction.example/lot/1",
+    "https://cave.example/margaux-2015",
   ];
-  const found = {
+  const offer = (over: Partial<RawValuation["sources"][number]> = {}) => ({
+    name: "Shop",
+    url: "https://shop.example/p/margaux-2015?utm_source=openai#x",
+    price: 169,
+    vintage: 2015,
+    bottle_ml: 750,
+    same_wine: true,
+    ...over,
+  });
+  const found: RawValuation = {
     low: 169,
     high: 269,
     basis: "  Shops \n in France. ",
     sources: [
-      { name: "Shop", url: "https://shop.example/p/margaux-2015?utm_source=openai#x" },
-      { name: "Made up", url: "https://elsewhere.example/p" },
-      { name: "Plain http", url: "http://auction.example/lot/1" },
+      offer(),
+      offer({ name: "Cave", url: "https://cave.example/margaux-2015/", price: 189 }),
+      offer({ name: "Made up", url: "https://elsewhere.example/p", price: 99 }),
+      offer({ name: "Plain http", url: "http://auction.example/lot/1", price: 50 }),
     ],
   };
-  it("keeps a sane range in cents, and only pages the search really visited", () => {
-    expect(checkValuation(found, "EUR", consulted)).toEqual({
+  it("the range rests only on fitting pages the search really opened, from their own prices", () => {
+    const v = checkValuation(found, "EUR", consulted, 2015)!;
+    expect(v).toEqual({
       lowCents: 16900,
-      highCents: 26900,
+      highCents: 18900,
       currency: "EUR",
       basis: "Shops in France.",
-      sources: [{ name: "Shop", url: "https://shop.example/p/margaux-2015" }],
+      sources: [
+        { name: "Shop", url: "https://shop.example/p/margaux-2015" },
+        { name: "Cave", url: "https://cave.example/margaux-2015/" },
+      ],
     });
+    expect(valuationKind(v)).toBe("market");
   });
-  it("no real source, no value; nor an absurd range", () => {
-    expect(checkValuation({ ...found, sources: [found.sources[1]!] }, "EUR", consulted)).toBeNull();
-    expect(checkValuation(found, "EUR", [])).toBeNull();
-    for (const [low, high] of [
-      [60, 40],
-      [1, 500],
-      [0, 10],
-      [null, 10],
-    ] as const)
-      expect(checkValuation({ ...found, low, high }, "EUR", consulted)).toBeNull();
+  it("same site is not the same page", () => {
+    const other = offer({ url: "https://shop.example/p/margaux-2016" });
+    expect(checkValuation({ ...found, sources: [other] }, "EUR", consulted, 2015)).toBeNull();
+    expect(samePageKey("https://WWW.Shop.example/p/x/?b=2&a=1&gclid=z#top")).toBe(
+      "shop.example/p/x?a=1&b=2",
+    );
+  });
+  it("another vintage, another size, another cuvée or no price does not count", () => {
+    for (const bad of [
+      offer({ vintage: 2016 }),
+      offer({ bottle_ml: 1500 }),
+      offer({ bottle_ml: null }),
+      offer({ same_wine: false }),
+      offer({ price: null }),
+    ])
+      expect(checkValuation({ ...found, sources: [bad] }, "EUR", consulted, 2015)).toBeNull();
+  });
+  it("one shop is kept, honestly as one shop's asking price", () => {
+    const v = checkValuation({ ...found, sources: [offer()] }, "EUR", consulted, 2015)!;
+    expect(v).toMatchObject({ lowCents: 16900, highCents: 16900 });
+    expect(valuationKind(v)).toBe("single_offer");
+  });
+  it("no real source or no price found, no value; nor an absurd spread", () => {
+    expect(checkValuation(found, "EUR", [], 2015)).toBeNull();
+    expect(checkValuation({ ...found, low: null, high: null }, "EUR", consulted, 2015)).toBeNull();
+    const spread = [
+      offer({ price: 10 }),
+      offer({ url: "https://cave.example/margaux-2015", price: 500 }),
+    ];
+    expect(checkValuation({ ...found, sources: spread }, "EUR", consulted, 2015)).toBeNull();
   });
   it("can be looked up again a month after the last time", () => {
     const now = new Date("2026-10-18T12:00:00Z");

@@ -26,6 +26,14 @@ describe("which model answers", () => {
     });
   });
 
+  it("a wine profile with its web research stays on the advice model", () => {
+    const luna = { ...env, adviceModel: "gpt-6-luna" };
+    expect(planCall(luna, req({ task: "wine_insight", webSearch: true }))).toMatchObject({
+      model: "gpt-6-luna",
+      reasoningEffort: "low",
+    });
+  });
+
   it("the advice model serves Sommelier and wine profiles only; scans and valuations keep theirs", () => {
     const luna = { ...env, adviceModel: "gpt-6-luna" };
     expect(planCall(luna, req()).model).toBe("gpt-6-luna");

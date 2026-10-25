@@ -366,6 +366,8 @@ describe("gpt-6-luna for scans and valuations", () => {
     });
     expect(body).not.toHaveProperty("temperature");
     expect(body).not.toHaveProperty("reasoning_effort");
+    expect(body).not.toHaveProperty("max_tool_calls");
+    expect(body).not.toHaveProperty("tool_choice");
     expect(result).toMatchObject({
       ok: true,
       consulted: ["https://shop.example/margaux"],
@@ -377,6 +379,19 @@ describe("gpt-6-luna for scans and valuations", () => {
         reported: true,
       },
     });
+  });
+
+  it("a bounded research call caps the searches it may run", async () => {
+    const { fetcher, calls } = fakeFetch(
+      searched([{ type: "message", content: [{ type: "output_text", text: '{"producer":"X"}' }] }]),
+    );
+    await createOpenAiProvider(luna, fetcher).generateObject({
+      ...valuation,
+      maxSearches: 2,
+      requireSearch: true,
+    });
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({ max_tool_calls: 2, tool_choice: "required" });
   });
 
   it("an extra message item does not hide the answer; nothing that fails the schema is accepted", async () => {
