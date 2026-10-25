@@ -170,6 +170,57 @@ describe("taste in the plain Tonight ranking: only ever a tie-breaker", () => {
     expect(off.personal).toBe(false);
   });
 
+  it("equal totals but a worse pairing (55 + favourite against 59): taste cannot move it ahead", () => {
+    const quiche = { dish: "quiche", occasion: "anything" } as const;
+    const mosel = wine({ wineName: "A Mosel Pinot", region: "Mosel", countryCode: null });
+    const bordeaux = wine({
+      wineName: "B Bordeaux",
+      region: "Bordeaux",
+      countryCode: null,
+      favorite: true,
+    });
+    const dish = dishById("quiche")!;
+    expect(scorePairing(bordeaux, dish).score).toBe(55);
+    expect(scorePairing(mosel, dish).score).toBe(59);
+    // The favourite bonus (+4) makes up the difference: the totals tie.
+    const baseline = rankForTonight([mosel, bordeaux], quiche, NOW);
+    expect(baseline[0]!.total).toBe(baseline[1]!.total);
+    expect(ids(baseline)).toEqual(["A Mosel Pinot", "B Bordeaux"]);
+    const ranked = rankWithTaste([mosel, bordeaux], quiche, NOW, bordeauxLover);
+    expect(ranked.picks).toEqual(baseline);
+    expect(ranked.personal).toBe(false);
+  });
+
+  it("equal totals but different drinking phases: taste never reorders them", () => {
+    const ready = wine({ wineName: "A Ready Bordeaux", region: "Bordeaux", drink: drink("ready") });
+    // Developing (+5) with a high rating (+9) ties a ready wine (+14).
+    const developing = wine({
+      wineName: "B Rioja",
+      region: "Rioja",
+      drink: drink("developing"),
+      rating: { average: 4.8, count: 2 },
+    });
+    const baseline = rankForTonight([ready, developing], anything, NOW);
+    expect(baseline[0]!.total).toBe(baseline[1]!.total);
+    expect(ids(baseline)).toEqual(["A Ready Bordeaux", "B Rioja"]);
+    const ranked = rankWithTaste([ready, developing], anything, NOW, riojaLover);
+    expect(ranked.picks).toEqual(baseline);
+    expect(ranked.personal).toBe(false);
+  });
+
+  it("among several tied wines only the equivalent ones move, each keeping the others' places", () => {
+    // Three reds with equal totals: two at their peak, one "ready" (another phase, so not equivalent).
+    const a = wine({ wineName: "A Claret", region: "Bordeaux" });
+    const b = wine({ wineName: "B Ready", region: "Loire", drink: drink("ready") });
+    const c = wine({ wineName: "C Rioja", region: "Rioja" });
+    const baseline = rankForTonight([a, b, c], anything, NOW);
+    expect(ids(baseline)).toEqual(["A Claret", "B Ready", "C Rioja"]);
+    const ranked = rankWithTaste([a, b, c], anything, NOW, riojaLover);
+    // A and C (same total, no dish, same phase) swap; B (ready, not peak) keeps its place.
+    expect(ids(ranked.picks)).toEqual(["C Rioja", "B Ready", "A Claret"]);
+    expect(ranked.personal).toBe(true);
+  });
+
   it("a nearby better pairing (59 against 55) is never overtaken because of taste", () => {
     const quiche = { dish: "quiche", occasion: "anything" } as const;
     const bordeaux = wine({ wineName: "Bordeaux", region: "Bordeaux", countryCode: null });

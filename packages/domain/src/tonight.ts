@@ -173,6 +173,28 @@ const specialness = (c: TonightCandidate, now: Date): number => {
 };
 
 /**
+ * Wines are equivalent when they have the same total, the same pairing score (when there is a dish) and the
+ * same drinking phase: only then may taste decide between them. Each such group keeps the places it has in the
+ * baseline order and only its own members are reordered (most liked first, baseline order among equals), so
+ * wines that are not equivalent never move relative to each other.
+ */
+function breakTiesByTaste(pool: Scored[]): void {
+  const groups = new Map<string, number[]>();
+  pool.forEach((s, i) => {
+    const key = `${s.total}|${s.pairing ?? "-"}|${s.candidate.drink.phase}`;
+    groups.set(key, [...(groups.get(key) ?? []), i]);
+  });
+  for (const places of groups.values()) {
+    if (places.length < 2) continue;
+    const members = places.map((i) => pool[i]!);
+    if (members.every((m) => m.taste === members[0]!.taste)) continue;
+    // Array.prototype.sort is stable: equal taste keeps the baseline order.
+    const ordered = [...members].sort((a, b) => b.taste - a.taste);
+    places.forEach((place, k) => (pool[place] = ordered[k]!));
+  }
+}
+
+/**
  * Up to three suggestions: the best match; an alternative of another colour (or, failing that, another wine);
  * and a special choice among the strong contenders. Wines that are not ready are left out unless nothing else is.
  */
@@ -189,12 +211,11 @@ export function rankForTonight(
   if (candidates.length === 0) return [];
   const ready = candidates.filter((c) => c.drink.phase !== "young");
   const pool = (ready.length > 0 ? ready : candidates).map((c) => score(c, request, taste));
+  // The baseline order, exactly as without taste; then taste may reorder only genuinely equivalent wines.
   pool.sort(
-    (a, b) =>
-      b.total - a.total ||
-      b.taste - a.taste ||
-      a.candidate.wineName.localeCompare(b.candidate.wineName),
+    (a, b) => b.total - a.total || a.candidate.wineName.localeCompare(b.candidate.wineName),
   );
+  if (taste) breakTiesByTaste(pool);
 
   const picks: Array<Scored & { slot: TonightSlot }> = [];
   const taken = new Set<string>();
