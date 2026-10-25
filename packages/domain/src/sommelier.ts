@@ -39,6 +39,8 @@ export const AskSommelierSchema = z
     /** "tonight": pairing a dish or an evening, judged honestly, with what to buy when nothing fits. */
     mode: z.enum(["chat", "tonight"]).default("chat"),
     budget: z.enum(BUDGETS).nullable().default(null),
+    /** Use the person's own taste profile for this question (on by default; off asks for general advice). */
+    personal: z.boolean().default(true),
   })
   .refine((v) => v.messages.at(-1)?.role === "user", "Ask a question.");
 /** What a caller sends; mode and budget may be left out (a plain chat, no budget). */
@@ -113,6 +115,8 @@ export interface SommelierAnswer {
   bottles: SommelierBottle[];
   /** Why the plain answer was given instead of an AI one. */
   reason: "ai-off" | "ai-down" | "limit" | null;
+  /** The person's own taste really shaped this answer (said so only then; never for a question of fact). */
+  personal?: boolean;
 }
 
 export const toSommelierBottle = (item: CellarItem): SommelierBottle => ({
@@ -228,6 +232,8 @@ export const RawSommelierSchema = z.object({
   bottle_refs: z.array(z.string()),
   verdict: z.enum(["match", "partial", "none", "not_pairing"]).default("not_pairing"),
   buy: z.array(z.object({ wine: z.string(), why: z.string(), price: z.string() })).default([]),
+  /** The model says the person's taste shaped its choice (only believed when a taste was shown to it). */
+  used_taste: z.boolean().default(false),
 });
 export type RawSommelier = z.input<typeof RawSommelierSchema>;
 
@@ -246,6 +252,7 @@ export function checkSommelierAnswer(
   bottles: SommelierBottle[];
   verdict: PairingVerdict | null;
   buy: BuySuggestion[];
+  usedTaste: boolean;
 } | null {
   const text = raw.answer
     // eslint-disable-next-line no-control-regex -- stripping control characters is the point
@@ -276,6 +283,7 @@ export function checkSommelierAnswer(
     bottles,
     verdict: verdict === "none" && bottles.length > 0 ? "partial" : verdict,
     buy,
+    usedTaste: raw.used_taste === true,
   };
 }
 

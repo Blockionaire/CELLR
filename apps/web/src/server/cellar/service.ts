@@ -12,7 +12,7 @@ import {
   nextFreeSlots,
   orderBottles,
   planWijnkelderImport,
-  rankForTonight,
+  rankWithTaste,
   summarizeScores,
   formatVintage,
   type AddBottles,
@@ -42,6 +42,7 @@ import {
   type TonightCandidate,
   type TonightPick,
   type TonightPickView,
+  type TasteContext,
   type TonightRequest,
   type TonightView,
   type UpdatePurchase,
@@ -223,6 +224,7 @@ export function buildTonight(
   scores: ReadonlyArray<{ vintageId: string; score: number }>,
   request: TonightRequest,
   now: Date,
+  taste: TasteContext | null = null,
 ): TonightView {
   const cellar = aggregateInventory(rows, favoriteWineIds, scores, now);
   const prices = new Map<string, number[]>();
@@ -272,11 +274,15 @@ export function buildTonight(
       drinkPhase: c.drink.phase,
     };
   };
+  // Ranked once with the person's taste, and once without it to know whether the taste made a difference.
+  const ranked = rankWithTaste(candidates, request, now, taste);
   return {
     dish: request.dish,
     occasion: request.occasion,
     considered: candidates.length,
-    picks: rankForTonight(candidates, request, now).flatMap((p) => view(p) ?? []),
+    picks: ranked.picks.flatMap((p) => view(p) ?? []),
+    // Only said when it is so: without taste the answer is exactly what it always was.
+    ...(ranked.personal ? { personal: true } : {}),
   };
 }
 
@@ -486,14 +492,17 @@ export function createCellarService(
     },
 
     /** "What shall we drink tonight?": up to three bottles from this cellar, each with why. */
-    async tonight(request: TonightRequest): Promise<TonightView> {
+    async tonight(
+      request: TonightRequest,
+      taste: TasteContext | null = null,
+    ): Promise<TonightView> {
       const { id } = await household();
       const [rows, favorites, scores] = await Promise.all([
         inventoryRows(id),
         repo.listFavoriteWineIds(userId),
         repo.listScores(id),
       ]);
-      const view = buildTonight(rows, new Set(favorites), scores, request, now());
+      const view = buildTonight(rows, new Set(favorites), scores, request, now(), taste);
       const kept = await reserved();
       return {
         ...view,

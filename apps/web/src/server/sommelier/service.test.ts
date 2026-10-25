@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildTasteProfile,
   DomainError,
+  NO_PREFERENCES,
   type CellarItem,
+  type TasteContext,
+  type TasteProfileView,
   type RackView,
   type RawSommelier,
   type StorageUnitView,
@@ -61,6 +65,10 @@ function setup(
     locale?: string | (() => Promise<string>);
     storage?: StorageUnitView[];
     racks?: RackView;
+    /** The asking person's taste profile; "fails" = it cannot be read. Left out: no taste dependency at all. */
+    taste?: TasteProfileView | null | "fails";
+    /** What the plain engine says about its picks: the person's taste changed them. */
+    tonightPersonal?: boolean;
   } = {},
 ) {
   const items = options.items ?? [
@@ -73,6 +81,8 @@ function setup(
     tonightAsked: [] as Array<{ dish: string | null; occasion: string }>,
     placesRead: 0,
     spent: 0,
+    tasteRead: 0,
+    tonightTaste: [] as Array<TasteContext | null>,
   };
   const llm: LlmProvider = {
     async generateObject<T>(request: GenerateObjectRequest<T>) {
@@ -95,8 +105,9 @@ function setup(
       return options.storage ?? [];
     },
     racks: async () => options.racks ?? { units: [], unplaced: [] },
-    tonight: async (request) => {
+    tonight: async (request, taste) => {
       state.tonightAsked.push({ dish: request.dish, occasion: request.occasion });
+      state.tonightTaste.push(taste ?? null);
       const picks =
         options.tonight?.(items) ??
         items.slice(0, 2).map((i, idx) => ({
@@ -115,8 +126,23 @@ function setup(
           place: null,
           drinkPhase: i.drink.phase,
         }));
-      return { dish: request.dish, occasion: request.occasion, picks, considered: items.length };
+      return {
+        dish: request.dish,
+        occasion: request.occasion,
+        picks,
+        considered: items.length,
+        personal: options.tonightPersonal ?? false,
+      };
     },
+    ...(options.taste === undefined
+      ? {}
+      : {
+          taste: async () => {
+            state.tasteRead += 1;
+            if (options.taste === "fails") throw new Error("taste tables missing");
+            return options.taste as TasteProfileView | null;
+          },
+        }),
     llm: options.noAi ? null : llm,
     spend:
       options.spend ??
@@ -559,5 +585,161 @@ describe("questions about the cellar itself", () => {
     const prompt = state.requests[0]!.user;
     expect(prompt).toContain("Wine fridge shelf 1 position 1");
     expect(prompt).not.toContain("shelf 4 position 4");
+  });
+});
+
+describe("the sommelier and your own taste", () => {
+  let t = 0;
+  const tasting = (over: Record<string, unknown> = {}) => ({
+    wineId: `tw${++t}`,
+    vintageId: `tv${t}`,
+    producer: `TP${t}`,
+    wineName: `TW${t}`,
+    year: 2016,
+    type: "red" as const,
+    region: null as string | null,
+    appellation: null,
+    score: null as number | null,
+    grapes: [] as string[],
+    structure: null,
+    ...over,
+  });
+  const said = buildTasteProfile([], { ...NO_PREFERENCES, wineFocus: "red", body: 4 });
+  const riojaLover = buildTasteProfile(
+    [10, 9, 9].map((score) => tasting({ region: "Rioja", score })),
+    NO_PREFERENCES,
+  );
+  const whiteLover = buildTasteProfile(
+    [10, 9, 9].map((score) => tasting({ type: "white", region: "Chablis", score })),
+    NO_PREFERENCES,
+  );
+  const thin = buildTasteProfile(
+    [10, 10].map((score) => tasting({ region: "Barolo", score })),
+    NO_PREFERENCES,
+  );
+  const promptOf = (state: { requests: Array<{ user: string }> }) => state.requests[0]!.user;
+
+  it("explicit preferences go into the advice question, marked as said by the person", async () => {
+    const { service, state } = setup({ taste: said });
+    await service.ask(ask("What should I open tonight?"));
+    expect(promptOf(state)).toContain("Taste of the person asking:");
+    expect(promptOf(state)).toContain("Said themselves: mostly red, body 4/5.");
+    expect(state.requests[0]!.system).toContain("Taste of the person asking");
+    expect(state.tasteRead).toBe(1);
+  });
+
+  it("rating patterns go in with the number of wines behind them; a thin history does not", async () => {
+    const strong = setup({ taste: riojaLover });
+    await strong.service.ask(ask("What should I open?"));
+    expect(promptOf(strong.state)).toContain("regions Rioja (3 wines, 4.7★)");
+    const weak = setup({ taste: thin });
+    await weak.service.ask(ask("What should I open?"));
+    expect(promptOf(weak.state)).not.toContain("Taste of the person asking");
+  });
+
+  it("no taste profile, or one that cannot be read: the general sommelier, unchanged", async () => {
+    for (const taste of [buildTasteProfile([], NO_PREFERENCES), null, "fails"] as const) {
+      const { service, state } = setup({ taste });
+      const answer = await service.ask(ask("What should I open?"));
+      expect(promptOf(state)).not.toContain("Taste of the person asking");
+      expect(answer).toMatchObject({ source: "ai", personal: false });
+    }
+  });
+
+  it("'based on your taste' only when a taste was shown and the model says it shaped the answer", async () => {
+    const used = setup({
+      taste: riojaLover,
+      answer: { answer: "Based on your taste…", bottle_refs: [], used_taste: true },
+    });
+    expect(await used.service.ask(ask("What should I open?"))).toMatchObject({ personal: true });
+    const unused = setup({
+      taste: riojaLover,
+      answer: { answer: "Open the Margaux.", bottle_refs: [], used_taste: false },
+    });
+    expect(await unused.service.ask(ask("What should I open?"))).toMatchObject({
+      personal: false,
+    });
+    // Claimed without any taste to go on: not believed.
+    const claimed = setup({
+      taste: null,
+      answer: { answer: "Based on your taste…", bottle_refs: [], used_taste: true },
+    });
+    expect(await claimed.service.ask(ask("What should I open?"))).toMatchObject({
+      personal: false,
+    });
+  });
+
+  it("questions about the cellar itself never read or use taste", async () => {
+    for (const q of ["How many bottles do I have?", "Where is the Pavillon Rouge?"]) {
+      const { service, state } = setup({ taste: riojaLover });
+      const answer = await service.ask(ask(q));
+      expect(state.tasteRead, q).toBe(0);
+      expect(promptOf(state), q).not.toContain("Taste of the person asking");
+      expect(answer.personal ?? false, q).toBe(false);
+    }
+  });
+
+  it("general advice on request: taste is not read at all", async () => {
+    const { service, state } = setup({ taste: riojaLover });
+    await service.ask({ ...ask("What should I open?"), personal: false });
+    expect(state.tasteRead).toBe(0);
+    expect(promptOf(state)).not.toContain("Taste of the person asking");
+  });
+
+  it("asking for something different says so to the model, and the plain engine does not steer by taste", async () => {
+    const ai = setup({ taste: riojaLover });
+    await ai.service.ask(ask("Surprise me with something different"));
+    expect(promptOf(ai.state)).toContain("they ask for something different from it now");
+    const plain = setup({ taste: riojaLover, noAi: true });
+    await plain.service.ask(ask("Surprise me with something different for the guests"));
+    expect(plain.state.tonightTaste).toEqual([null]);
+  });
+
+  it("without AI, or with the budget spent, the plain engine gets the taste, and says so only when it changed the picks", async () => {
+    for (const variant of [
+      { noAi: true },
+      {
+        spend: async () => {
+          throw new DomainError("RATE_LIMITED");
+        },
+      },
+      { answer: "unavailable" as const },
+    ]) {
+      const { service, state } = setup({ taste: riojaLover, tonightPersonal: true, ...variant });
+      const answer = await service.ask(ask("What goes with steak?"));
+      expect(answer).toMatchObject({ source: "basic", basic: "pairing", personal: true });
+      expect(state.tonightTaste[0]?.rated.regions[0]?.key).toBe("Rioja");
+      // Read once, even when the AI was tried first.
+      expect(state.tasteRead).toBe(1);
+    }
+    // The same picks as without taste: not called personal, whatever the wines are.
+    const unchanged = setup({ taste: riojaLover, noAi: true, tonightPersonal: false });
+    expect(await unchanged.service.ask(ask("What goes with steak?"))).toMatchObject({
+      personal: false,
+    });
+  });
+
+  it("personal advice turned off: the plain engine gets no taste and nothing is called personal", async () => {
+    const { service, state } = setup({ taste: riojaLover, noAi: true, tonightPersonal: true });
+    const answer = await service.ask({ ...ask("What goes with steak?"), personal: false });
+    expect(state.tasteRead).toBe(0);
+    expect(state.tonightTaste).toEqual([null]);
+    // Even if the engine claimed a change, no taste was given, so nothing is personal.
+    expect(answer).toMatchObject({ source: "basic", personal: false });
+  });
+
+  it("two people sharing a cellar each get their own taste, never the other's", async () => {
+    const shared = [
+      item({ producer: "Bodegas", wineName: "Rioja Reserva", region: "Rioja" }),
+      item({ producer: "Domaine", wineName: "Chablis", type: "white", region: "Chablis" }),
+    ];
+    const me = setup({ items: shared, taste: riojaLover });
+    const partner = setup({ items: shared, taste: whiteLover });
+    await me.service.ask(ask("What should I open?"));
+    await partner.service.ask(ask("What should I open?"));
+    expect(promptOf(me.state)).toContain("Rioja (3 wines");
+    expect(promptOf(me.state)).not.toContain("Chablis (3 wines");
+    expect(promptOf(partner.state)).toContain("Chablis (3 wines");
+    expect(promptOf(partner.state)).not.toContain("Rioja (3 wines");
   });
 });

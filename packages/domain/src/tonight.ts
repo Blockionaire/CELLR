@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { CellarItem, WineType } from "./cellar";
 import type { Reservation } from "./insights";
 import { DISH_IDS, dishById, scorePairing, type DishId, type MatchReason } from "./pairing";
+import { tasteBonus, type TasteContext } from "./taste-context";
 
 /**
  * WHAT SHALL WE DRINK TONIGHT? Everything here is arithmetic on your own cellar: how well the wine suits the
@@ -76,6 +77,8 @@ interface Scored {
   total: number;
   pairing: number | null;
   reasons: PickReason[];
+  /** The person's taste for this wine: only ever a tie-breaker between equal totals (see rankForTonight). */
+  taste: number;
 }
 
 function occasionBonus(
@@ -112,11 +115,25 @@ function occasionBonus(
   }
 }
 
-function score(c: TonightCandidate, request: TonightRequest): Scored {
+/** Below this pairing score a wine is not a good match, and no taste may make it look like one. */
+const TASTE_MIN_PAIRING = 55;
+
+function score(
+  c: TonightCandidate,
+  request: TonightRequest,
+  taste: TasteContext | null = null,
+): Scored {
   const d = request.dish === null ? undefined : dishById(request.dish);
   const pairing = d ? scorePairing(c, d) : null;
   let total = pairing?.score ?? 60;
   const reasons: PickReason[] = [...(pairing?.reasons.slice(0, 2) ?? [])];
+
+  // Taste only chooses between suitable wines: never for a poor pairing, never when the point is to use one up.
+  // It is kept apart from the total, so it can never outweigh a better pairing or a readier wine.
+  const personal =
+    request.occasion !== "use-it-up" && (pairing === null || pairing.score >= TASTE_MIN_PAIRING)
+      ? tasteBonus(c, taste)
+      : 0;
 
   total += DRINK_BONUS[c.drink.phase];
   if (c.drink.phase === "peak") reasons.push("at-its-best");
@@ -140,6 +157,7 @@ function score(c: TonightCandidate, request: TonightRequest): Scored {
     total,
     pairing: pairing?.score ?? null,
     reasons: [...new Set(reasons)].slice(0, 3),
+    taste: personal,
   };
 }
 
@@ -155,6 +173,29 @@ const specialness = (c: TonightCandidate, now: Date): number => {
 };
 
 /**
+ * Wines are equivalent when they have the same total, the same pairing score (or both none) and the same drinking
+ * phase: only then may taste decide between them. Taste reorders only a contiguous run of equivalent wines in the
+ * baseline order (most liked first, baseline order among equals), so no wine ever crosses one that is not
+ * equivalent to it.
+ */
+function breakTiesByTaste(pool: Scored[]): void {
+  const same = (a: Scored, b: Scored) =>
+    a.total === b.total &&
+    a.pairing === b.pairing &&
+    a.candidate.drink.phase === b.candidate.drink.phase;
+  for (let start = 0; start < pool.length;) {
+    let end = start + 1;
+    while (end < pool.length && same(pool[start]!, pool[end]!)) end += 1;
+    if (end - start > 1) {
+      // Array.prototype.sort is stable: equal taste keeps the baseline order.
+      const run = pool.slice(start, end).sort((a, b) => b.taste - a.taste);
+      pool.splice(start, run.length, ...run);
+    }
+    start = end;
+  }
+}
+
+/**
  * Up to three suggestions: the best match; an alternative of another colour (or, failing that, another wine);
  * and a special choice among the strong contenders. Wines that are not ready are left out unless nothing else is.
  */
@@ -162,13 +203,20 @@ export function rankForTonight(
   candidates: readonly TonightCandidate[],
   request: TonightRequest,
   now: Date,
+  /**
+   * The person's own taste, when they have one and want it used. It only breaks a tie between wines with the
+   * same total (where the name decides otherwise): it never changes the order of wines that differ at all.
+   */
+  taste: TasteContext | null = null,
 ): TonightPick[] {
   if (candidates.length === 0) return [];
   const ready = candidates.filter((c) => c.drink.phase !== "young");
-  const pool = (ready.length > 0 ? ready : candidates).map((c) => score(c, request));
+  const pool = (ready.length > 0 ? ready : candidates).map((c) => score(c, request, taste));
+  // The baseline order, exactly as without taste; then taste may reorder only genuinely equivalent wines.
   pool.sort(
     (a, b) => b.total - a.total || a.candidate.wineName.localeCompare(b.candidate.wineName),
   );
+  if (taste) breakTiesByTaste(pool);
 
   const picks: Array<Scored & { slot: TonightSlot }> = [];
   const taken = new Set<string>();
@@ -236,4 +284,24 @@ export interface TonightView {
   picks: TonightPickView[];
   /** How many wines in the cellar took part. */
   considered: number;
+  /** The person's taste changed which bottles were picked, or their order (see rankWithTaste). */
+  personal?: boolean;
+}
+
+/**
+ * The ranking with the person's taste, and whether that taste made a difference: the same ranking is done
+ * without it (in memory, on the same candidates) and the picks are compared, bottle by bottle and in order.
+ * Only then may the answer say it was chosen for them.
+ */
+export function rankWithTaste(
+  candidates: readonly TonightCandidate[],
+  request: TonightRequest,
+  now: Date,
+  taste: TasteContext | null,
+): { picks: TonightPick[]; personal: boolean } {
+  const picks = rankForTonight(candidates, request, now, taste);
+  if (!taste) return { picks, personal: false };
+  const general = rankForTonight(candidates, request, now);
+  const order = (list: TonightPick[]) => list.map((p) => p.candidate.vintageId).join(",");
+  return { picks, personal: order(picks) !== order(general) };
 }
