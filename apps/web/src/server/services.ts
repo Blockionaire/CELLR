@@ -32,6 +32,8 @@ import { createInsightsService } from "@/server/insights/service";
 import { getPushEnv } from "@/server/env";
 import { createPushRepository } from "@/server/push/repository";
 import { createPushService } from "@/server/push/service";
+import { createTasteRepository } from "@/server/taste/repository";
+import { createTasteService } from "@/server/taste/service";
 import { createWishlistRepository } from "@/server/wishlist/repository";
 import { createWishlistService } from "@/server/wishlist/service";
 
@@ -107,6 +109,11 @@ export function servicesFor(ctx: RequestContext) {
       deleteUser: deleteAuthUser,
     }),
     wishlist,
+    taste: createTasteService({
+      repo: createTasteRepository(ctx.db),
+      userId: ctx.userId,
+      household,
+    }),
     export: createExportService({
       repo: createExportRepository(ctx.db),
       household,

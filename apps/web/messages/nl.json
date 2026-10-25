@@ -1386,6 +1386,127 @@
     "openWineShort": "Wijn openen",
     "openWine": "{wine} openen",
     "bestRecent": "Hoogst gewaardeerd van je laatste {count}",
-    "archived": "Deze wijn ligt niet meer in je kelder. Je proeverij blijft hier bewaard, maar kan niet meer bewerkt worden."
+    "archived": "Deze wijn ligt niet meer in je kelder. Je proeverij blijft hier bewaard, maar kan niet meer bewerkt worden.",
+    "toTaste": "Mijn smaakprofiel"
+  },
+  "taste": {
+    "title": "Mijn smaakprofiel",
+    "subtitle": "Wat je proefde, wat je hoog waardeert, en hoe je een wijn graag hebt.",
+    "notReady": "Beoordelingen staan nog niet aan: er is nog één databasestap nodig.",
+    "entryBody": "Je voorkeuren, favoriete regio's en druiven",
+    "heroLabel": "Je proeverijen tot nu toe",
+    "winesTasted": "Wijnen geproefd",
+    "winesRated": "Wijnen beoordeeld",
+    "average": "Gemiddeld",
+    "heroEmpty": "Beoordeel de flessen die je opent, dan vult je profiel zich hier.",
+    "heroToGo": "Beoordeel nog {count, plural, one {# wijn} other {# wijnen}} om favorieten te zien.",
+    "heroReady": "Gebaseerd op {count, plural, one {# proeverij} other {# proeverijen}}.",
+    "tabsLabel": "Soorten wijn",
+    "overview": "Overzicht",
+    "typeEmpty": "Je hebt nog geen {type} beoordeeld.",
+    "typeSummary": "{wines, plural, one {# wijn} other {# wijnen}} geproefd, {rated} beoordeeld",
+    "typeAverage": "gemiddeld {stars}★",
+    "preferencesTitle": "Hoe je hem graag hebt",
+    "preferencesNote": "De gevulde boog is wat je CELLR vertelde. De ring is de trend uit wijnen die je 4 sterren of meer gaf, zichtbaar zodra minstens {count} van die wijnen een betrouwbaar profiel hebben.",
+    "distribution": "Wat je geproefd hebt",
+    "distributionNote": "Verschillende wijnen per soort: hoe vaak, niet hoe lekker.",
+    "styles": "Soorten die je hoog waardeert",
+    "regions": "Favoriete regio's",
+    "grapes": "Favoriete druiven",
+    "notEnough": "Nog niet genoeg: een favoriet vraagt minstens {count} verschillende wijnen die je hoog waardeerde.",
+    "grapesUnknown": "Van te weinig van je wijnen zijn de druiven bekend, dus over druiven valt nog niets te zeggen.",
+    "mostTasted": "Meest geproefde regio's",
+    "mostTastedNote": "Hoe vaak je ze proefde, niet hoe je ze beoordeelde.",
+    "wines": "{count, plural, one {# wijn} other {# wijnen}}",
+    "favouriteBasis": "Uit {count} verschillende wijnen die je beoordeelde",
+    "averageSpoken": "gemiddeld {stars} sterren",
+    "method": "Elke wijn telt één keer, hoe vaak je hem ook proefde; zijn sterren zijn het gemiddelde van je beoordelingen. Een favoriet vraagt minstens {count} verschillende wijnen. Niets hiervan is door AI geraden.",
+    "toRatings": "Bekijk al je beoordelingen",
+    "unset": "—",
+    "save": "Opslaan",
+    "edit": {
+      "title": "Je smaak",
+      "action": "Aanpassen"
+    },
+    "onboarding": {
+      "title": "Je smaak in een minuut",
+      "offerTitle": "Vertel CELLR hoe je je wijn graag hebt",
+      "offerBody": "Een paar vragen, allemaal optioneel. Sla over wat je wilt; je kunt je antwoorden later aanpassen.",
+      "start": "Beginnen",
+      "focusQuestion": "Welke wijnen drink je vooral?",
+      "skipQuestion": "Deze vraag overslaan",
+      "skipAll": "Alles overslaan",
+      "skipRest": "De rest overslaan",
+      "scalesIntro": "Laat leeg wat je niet zeker weet."
+    },
+    "focus": {
+      "red": "Vooral rood",
+      "white_rose": "Vooral wit of rosé",
+      "both": "Beide / nog aan het ontdekken"
+    },
+    "gauge": {
+      "mine": "Jij: {word}",
+      "mineUnsetShort": "Niet ingesteld",
+      "mineUnset": "Jouw instelling: niet ingesteld",
+      "mineSpoken": "Jouw instelling: {value} van 5, {word}",
+      "trend": "Uit je beoordelingen: {value} ({count} wijnen)",
+      "trendNoneShort": "Nog te weinig beoordeelde wijnen",
+      "trendSpoken": "Trend uit je beoordelingen: {value} van 5, uit {count} wijnen",
+      "trendNone": "Nog geen trend: te weinig hoog gewaardeerde wijnen met een betrouwbaar profiel"
+    },
+    "scales": {
+      "body": {
+        "name": "Body",
+        "low": "Licht",
+        "high": "Vol",
+        "question": "Hoe vol mag een wijn zijn?",
+        "levels": {
+          "1": "Heel licht",
+          "2": "Licht",
+          "3": "Gemiddeld",
+          "4": "Vol",
+          "5": "Heel vol"
+        }
+      },
+      "tannin": {
+        "name": "Tannines",
+        "low": "Zacht",
+        "high": "Krachtig",
+        "question": "Hoeveel grip (tannine) mag een rode wijn hebben?",
+        "levels": {
+          "1": "Heel zacht",
+          "2": "Zacht",
+          "3": "Gemiddeld",
+          "4": "Stevig",
+          "5": "Krachtig"
+        }
+      },
+      "sweetness": {
+        "name": "Zoetheid",
+        "low": "Droog",
+        "high": "Zoet",
+        "question": "Hoe droog of zoet drink je hem graag?",
+        "levels": {
+          "1": "Kurkdroog",
+          "2": "Droog",
+          "3": "Halfdroog",
+          "4": "Zoet",
+          "5": "Heel zoet"
+        }
+      },
+      "acidity": {
+        "name": "Zuurgraad",
+        "low": "Zacht",
+        "high": "Fris",
+        "question": "Hoe fris (zuur) drink je hem graag?",
+        "levels": {
+          "1": "Heel zacht",
+          "2": "Zacht",
+          "3": "Gemiddeld",
+          "4": "Fris",
+          "5": "Sprankelend fris"
+        }
+      }
+    }
   }
 }

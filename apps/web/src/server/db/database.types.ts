@@ -860,6 +860,40 @@ export type Database = {
           },
         ];
       };
+      taste_preferences: {
+        Row: {
+          acidity: number | null;
+          body: number | null;
+          onboarded_at: string | null;
+          sweetness: number | null;
+          tannin: number | null;
+          updated_at: string;
+          user_id: string;
+          wine_focus: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          acidity?: number | null;
+          body?: number | null;
+          onboarded_at?: string | null;
+          sweetness?: number | null;
+          tannin?: number | null;
+          updated_at?: string;
+          user_id?: string;
+          wine_focus?: string | null;
+        };
+        Update: {
+          acidity?: number | null;
+          body?: number | null;
+          onboarded_at?: string | null;
+          sweetness?: number | null;
+          tannin?: number | null;
+          updated_at?: string;
+          user_id?: string;
+          wine_focus?: string | null;
+        };
+        Relationships: [];
+      };
       tastings: {
         Row: {
           bottle_id: string | null;

@@ -37,6 +37,7 @@ import { PinSection } from "./pin-section";
 import { RemindersSection } from "./reminders-section";
 import { FriendsEntry } from "@/features/friends/entry";
 import { RatingsEntry } from "@/features/ratings/entry";
+import { TasteEntry } from "@/features/taste/entry";
 
 function Section({
   title,
@@ -224,6 +225,7 @@ export function ProfileView({
 
       <FriendsEntry />
       <RatingsEntry />
+      <TasteEntry />
 
       {active && (
         <Section title={t("householdSection")}>

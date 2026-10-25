@@ -1386,6 +1386,127 @@
     "openWineShort": "Open wine",
     "openWine": "Open {wine}",
     "bestRecent": "Highest rated of your latest {count}",
-    "archived": "This wine is no longer in your cellar. Your tasting stays here, but can no longer be edited."
+    "archived": "This wine is no longer in your cellar. Your tasting stays here, but can no longer be edited.",
+    "toTaste": "My taste profile"
+  },
+  "taste": {
+    "title": "My taste profile",
+    "subtitle": "What you have tasted, what you rate highly, and how you like a wine.",
+    "notReady": "Ratings are not switched on yet: one more database step is needed.",
+    "entryBody": "Your preferences, favourite regions and grapes",
+    "heroLabel": "Your tasting so far",
+    "winesTasted": "Wines tasted",
+    "winesRated": "Wines rated",
+    "average": "Average",
+    "heroEmpty": "Rate the bottles you open and your profile fills in here.",
+    "heroToGo": "{count, plural, one {Rate # more wine} other {Rate # more wines}} to start seeing favourites.",
+    "heroReady": "Built from {count, plural, one {# tasting} other {# tastings}}.",
+    "tabsLabel": "Kinds of wine",
+    "overview": "Overview",
+    "typeEmpty": "You have not rated any {type} yet.",
+    "typeSummary": "{wines, plural, one {# wine} other {# wines}} tasted, {rated} rated",
+    "typeAverage": "average {stars}★",
+    "preferencesTitle": "How you like it",
+    "preferencesNote": "The filled arc is what you told CELLR. The ring is the trend from wines you rated 4 stars or more, shown once at least {count} such wines have a reliable profile.",
+    "distribution": "What you have tasted",
+    "distributionNote": "Different wines by kind: how often, not how much you liked them.",
+    "styles": "Kinds you rate highly",
+    "regions": "Favourite regions",
+    "grapes": "Favourite grapes",
+    "notEnough": "Not enough yet: a favourite needs at least {count} different wines you rated highly.",
+    "grapesUnknown": "Grapes are not known for enough of your wines yet, so there is nothing to say about grapes.",
+    "mostTasted": "Most tasted regions",
+    "mostTastedNote": "How often you tasted them, not how you rated them.",
+    "wines": "{count, plural, one {# wine} other {# wines}}",
+    "favouriteBasis": "From {count} different wines you rated",
+    "averageSpoken": "average {stars} stars",
+    "method": "Each wine counts once, however often you tasted it; its stars are the average of your ratings. Favourites need at least {count} different wines. Nothing here is guessed by AI.",
+    "toRatings": "See all your ratings",
+    "unset": "—",
+    "save": "Save",
+    "edit": {
+      "title": "Your taste",
+      "action": "Edit"
+    },
+    "onboarding": {
+      "title": "Your taste in a minute",
+      "offerTitle": "Tell CELLR how you like your wine",
+      "offerBody": "A few optional questions. Skip any of them; you can change your answers later.",
+      "start": "Start",
+      "focusQuestion": "Which wines do you mostly drink?",
+      "skipQuestion": "Skip this question",
+      "skipAll": "Skip all",
+      "skipRest": "Skip the rest",
+      "scalesIntro": "Leave any of these unset if you are not sure."
+    },
+    "focus": {
+      "red": "Mostly red",
+      "white_rose": "Mostly white or rosé",
+      "both": "Both / still exploring"
+    },
+    "gauge": {
+      "mine": "You: {word}",
+      "mineUnsetShort": "Not set",
+      "mineUnset": "Your setting: not set",
+      "mineSpoken": "Your setting: {value} of 5, {word}",
+      "trend": "From your ratings: {value} ({count} wines)",
+      "trendNoneShort": "Not enough rated wines yet",
+      "trendSpoken": "Trend from your ratings: {value} of 5, from {count} wines",
+      "trendNone": "No trend yet: not enough highly rated wines with a reliable profile"
+    },
+    "scales": {
+      "body": {
+        "name": "Body",
+        "low": "Light",
+        "high": "Full",
+        "question": "How full do you like a wine?",
+        "levels": {
+          "1": "Very light",
+          "2": "Light",
+          "3": "Medium",
+          "4": "Full",
+          "5": "Very full"
+        }
+      },
+      "tannin": {
+        "name": "Tannins",
+        "low": "Soft",
+        "high": "Powerful",
+        "question": "How much grip (tannin) do you like in a red?",
+        "levels": {
+          "1": "Very soft",
+          "2": "Soft",
+          "3": "Medium",
+          "4": "Firm",
+          "5": "Powerful"
+        }
+      },
+      "sweetness": {
+        "name": "Sweetness",
+        "low": "Dry",
+        "high": "Sweet",
+        "question": "How dry or sweet do you like it?",
+        "levels": {
+          "1": "Bone dry",
+          "2": "Dry",
+          "3": "Off-dry",
+          "4": "Sweet",
+          "5": "Very sweet"
+        }
+      },
+      "acidity": {
+        "name": "Acidity",
+        "low": "Soft",
+        "high": "Zesty",
+        "question": "How fresh (acidity) do you like it?",
+        "levels": {
+          "1": "Very soft",
+          "2": "Soft",
+          "3": "Medium",
+          "4": "Fresh",
+          "5": "Zesty"
+        }
+      }
+    }
   }
 }

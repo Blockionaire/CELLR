@@ -70,7 +70,19 @@ export function RatingsScreen({ initial }: { initial: JournalView }) {
 
   return (
     <>
-      <PageHeader title={t("title")} subtitle={t("subtitle")} />
+      <PageHeader
+        title={t("title")}
+        subtitle={t("subtitle")}
+        actions={
+          <Link
+            href="/taste-profile"
+            data-testid="to-taste"
+            className={buttonStyles({ variant: "secondary", size: "sm" })}
+          >
+            {t("toTaste")}
+          </Link>
+        }
+      />
       <Summary view={data} />
 
       <div className="sticky-bar sticky top-0 z-10 -mx-5 mt-6 flex flex-col gap-2 px-5 py-2 sm:mx-0 sm:px-0">
