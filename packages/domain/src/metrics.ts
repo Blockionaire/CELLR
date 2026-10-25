@@ -36,7 +36,7 @@ export interface PlatformMetrics {
   activationRate: number | null;
   /** Of the people who signed up 7–14 days ago, the share active again 7–14 days after signing up. */
   retention7d: { cohort: number; retained: number; rate: number | null };
-  /** AI label reads in the last 30 days that came back usable ÷ all that reached the provider. */
+  /** AI label extractions in the last 30 days with valid structured output ÷ all that reached the provider (not recognition accuracy). */
   aiExtraction: { ok: number; failed: number; rate: number | null };
   /** Distinct people per feature in the last 30 days, and as a share of monthly active people. */
   adoption30d: Array<{ feature: string; people: number; ofMau: number | null }>;
