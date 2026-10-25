@@ -242,8 +242,9 @@ creates it is migration 0005, which you have already run.
 ### What a bottle is worth (value with sources)
 
 With `OPENAI_API_KEY` set and the database step `20261019000014_valuations.sql` run, the app looks up what one
-bottle sells for today: the AI searches the web (shops, merchants, auctions) and only pages it really opened count
-as sources; without a real source nothing is kept. Each lookup is kept, so the cellar's value can be shown over
+bottle sells for today: the AI searches the web (shops, merchants, auctions) and only pages the search provider reports
+as consulted count as sources (the exact page, not just the site); the price, vintage and bottle size are what the AI
+read on those pages, not independently checked. Without such a page nothing is kept. Each lookup is kept, so the cellar's value can be shown over
 time. A new lookup is possible at most once a month per wine (and about 30 per hour per person); one lookup costs
 roughly 3 cents. The first lookup happens by itself after a wine is added; the wine page has a button for the
 next one. Values from older wine profiles become the first entry of each history when the step is run.
@@ -356,10 +357,13 @@ redeploy the preview. Then check, on the preview:
 3. **Tonight:** pick a dish; the suggestions are your own bottles.
 4. **Wine profile:** generate one for a wine without a profile (one short web search, at most two searches);
    it names the grapes and how it is made when sources say so, shows the source links and what it rests on
-   ("Based on pages about this wine." or a discreet estimate note), and never opens with "unknown". An older
-   profile that was not sure of itself shows "Write it again": once rewritten it does not offer that again.
-5. **Valuation:** look up a value; it shows a price with source links. Open the links: each is the exact
-   page of this wine, this vintage, 75 cl. One site reads as "One shop's asking price", several as a range
+   ("Based on pages found about this wine." or a discreet estimate note), and never opens with "unknown". An
+   older profile that was not sure of itself shows "Write it again": once rewritten from research it does not
+   offer that again. If the search fails, an existing profile stays as it was; a new one is written without
+   search and may offer "Look it up again" a day later.
+5. **Valuation:** look up a value; it shows a price with source links. Open the links and check by eye that
+   each is this wine, this vintage, 75 cl (the app trusts the provider's list of pages and the AI's reading of
+   them; it does not crawl the pages itself). One site reads as "One shop's asking price", several as a range
    "in shops and auctions" (or there is honestly no price).
 6. **Costs:** in Supabase, `select task, model, status, tokens_in, tokens_out, web_search_calls, cost_usd_micro
 from ai_usage order by at desc limit 10;` shows `gpt-6-luna…` rows, status `ok`, a cost filled in, and

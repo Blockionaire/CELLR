@@ -137,8 +137,9 @@ export function createInsightsService(deps: InsightsDeps) {
       // A profile is written once. Asking again only fills in what an older kind of profile lacked, or, once,
       // rewrites an older profile that was never sure of itself; a current profile is simply given back,
       // without asking the AI anything (no paid call, no search).
-      const stored = (await deps.repo.getInsight(id, vintageId))?.row?.output ?? null;
-      const upgrade = stored ? profileUpgrade(stored) : "replace";
+      const row = (await deps.repo.getInsight(id, vintageId))?.row ?? null;
+      const stored = row?.output ?? null;
+      const upgrade = stored ? profileUpgrade(stored, row!.generatedAt, now()) : "new";
       if (upgrade === "none") return view(id, currency, vintageId);
       if (!deps.llm)
         throw new DomainError("AI_UNAVAILABLE", "Wine profiles aren't switched on yet.", {
@@ -171,8 +172,8 @@ export function createInsightsService(deps: InsightsDeps) {
           maxOutputTokens: 1200,
           timeoutMs: research ? 60_000 : 40_000,
           temperature: 0.2,
-          // One bounded research call per profile: at most two searches, then the profile is kept for good.
-          ...(research ? { webSearch: true, maxSearches: 2 } : {}),
+          // One bounded research call per profile: it must search (at most twice) before it answers.
+          ...(research ? { webSearch: true, maxSearches: 2, requireSearch: true } : {}),
         });
       const record = (r: Awaited<ReturnType<typeof ask>>) =>
         deps
@@ -185,15 +186,26 @@ export function createInsightsService(deps: InsightsDeps) {
           .catch(() => {});
       let result = await ask(true);
       await record(result);
-      // The search itself failing (a timeout, an answer that did not fit) should not cost the person their
-      // profile: ask once more without it. Out of budget or rate-limited means stop, not try again.
-      if (!result.ok && result.kind !== "budget" && result.kind !== "rate_limited") {
-        result = await ask(false);
-        await record(result);
+      // Research counts only when the call came back and a search really ran. Otherwise: an existing profile is
+      // kept as it is (a failed search never replaces it with another generic text; asking again later may
+      // research it). A new profile is written without search instead, once, and marked as not researched so
+      // a later explicit ask can still ground it. Out of budget or rate-limited means stop.
+      const researched = result.ok && (result.usage.webSearchCalls ?? 0) > 0;
+      if (!researched) {
+        if (stored) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
+        if (!result.ok && result.kind !== "budget" && result.kind !== "rate_limited") {
+          result = await ask(false);
+          await record(result);
+        }
       }
       if (!result.ok) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
 
-      const fresh = checkInsight(result.value, detail.year, result.consulted ?? []);
+      const fresh = checkInsight(
+        result.value,
+        detail.year,
+        researched ? (result.consulted ?? []) : [],
+        researched,
+      );
       if (!fresh) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
       // "replace": the new profile stands on its own (an old valuation kept inside it stays).
       const output =
@@ -207,10 +219,11 @@ export function createInsightsService(deps: InsightsDeps) {
       });
       if (!saved) throw new DomainError("INTERNAL", NOT_READY);
 
-      // What the person left empty (region, appellation, country) is filled in from what the AI knows; what they
-      // typed is never overwritten. A wine from the shared catalogue refuses edits, and that is fine.
+      // What the person left empty (region, appellation, country) is filled in from what the AI knows, judged by
+      // the checked profile's confidence and evidence (not the model's own claim); what they typed is never
+      // overwritten. A wine from the shared catalogue refuses edits, and that is fine.
       if (deps.fillWine) {
-        const known = checkOrigin(result.value);
+        const known = checkOrigin(result.value, fresh);
         const w = detail.wine;
         const patch = {
           ...(known.countryCode && !w.countryCode ? { countryCode: known.countryCode } : {}),

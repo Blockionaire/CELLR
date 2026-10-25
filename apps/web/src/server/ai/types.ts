@@ -31,6 +31,8 @@ export interface GenerateObjectRequest<T> {
   webSearch?: boolean;
   /** With `webSearch`: at most this many searches (the budget holds this many; default 3). */
   maxSearches?: number;
+  /** With `webSearch`: the model must search before it answers (it may otherwise answer without). */
+  requireSearch?: boolean;
 }
 
 export interface AiUsage {

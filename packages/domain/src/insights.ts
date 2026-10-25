@@ -234,7 +234,12 @@ export const InsightOutputSchema = z.object({
   confidence: z.enum(INSIGHT_CONFIDENCE),
   /** What the facts rest on; null for profiles from before this was kept. */
   evidence: z.enum(INSIGHT_EVIDENCE).nullable().default(null),
-  /** Pages about this wine that the web search really opened; empty when none (or from before). */
+  /**
+   * Whether the profile came from a web research call that completed with at least one search. False for a
+   * profile written without search (the search failed, was not run, or from before): it may be researched later.
+   */
+  researched: z.boolean().default(false),
+  /** Pages about this wine that the search provider reports it consulted; empty when none (or from before). */
   sources: z
     .array(z.object({ name: z.string().max(80), url: z.string().max(500) }))
     .max(5)
@@ -273,12 +278,16 @@ const list = (values: readonly string[], max: number, length: number): string[] 
  * Where the wine is from, as the AI knows it, to fill in what the person left empty. Only an answer the model is
  * not unsure about is used, and only well-formed values; the caller adds just the fields that are still empty.
  */
-export function checkOrigin(raw: RawInsight): {
+export function checkOrigin(
+  raw: RawInsight,
+  /** The checked profile: its confidence and evidence count, never the model's own claim. */
+  checked: Pick<InsightOutput, "confidence" | "evidence">,
+): {
   countryCode?: string;
   region?: string;
   appellation?: string;
 } {
-  if (raw.confidence === "low") return {};
+  if (checked.confidence === "low" || checked.evidence === "style_estimate") return {};
   const text = (v: string | null, max: number) => {
     const t = (v ?? "").replace(/\s+/g, " ").trim();
     return t.length >= 2 && t.length <= max ? t : null;
@@ -302,8 +311,10 @@ export function checkInsight(
   raw: RawInsight,
   /** The harvest year, to judge the drinking window against (null = non-vintage: no window is kept). */
   year: number | null = null,
-  /** The pages the web search actually opened; only those can be a profile's sources. */
+  /** The pages the search provider reports it consulted; only those can be a profile's sources. */
   consulted: readonly string[] = [],
+  /** Whether a web search really ran for this answer (see `researched`). */
+  researched = false,
 ): InsightOutput | null {
   const summary = clean(raw.summary, 700);
   if (summary === "") return null;
@@ -352,7 +363,7 @@ export function checkInsight(
     .filter((f) => f.notes.length > 0)
     .slice(0, 5);
 
-  // What the facts rest on, in code: "this exact wine" needs a page about it that was really opened; a bare
+  // What the facts rest on, in code: "this exact wine" needs a page about it that the search reports; a bare
   // style estimate names no grapes and no precise alcohol (those would be product facts it does not have), and
   // confidence never claims more than the evidence carries.
   const sources = verifiedSources(raw.sources, consulted);
@@ -387,18 +398,33 @@ export function checkInsight(
     value: null,
     confidence,
     evidence,
+    researched,
     sources,
   };
 }
 
+/** A profile written without its research may try the research again after this long (an explicit ask). */
+export const RESEARCH_RETRY_HOURS = 24;
+
 /**
  * What asking again does for a stored profile. "none": it is current, nothing is asked (no paid call). "fill":
  * an old but sure profile keeps its words and only gains what it lacks. "replace": an older profile that was
- * not sure of itself (often generic regional filler) is written again, once: the new one is current, so it is
- * never rewritten after that.
+ * not sure of itself (often generic regional filler) is written again from research. "research": a current
+ * profile that was written without its research (the search failed or did not run) may try the research once
+ * more, at most once a day. A profile whose research completed is final, whatever it found.
  */
-export function profileUpgrade(stored: InsightOutput): "none" | "fill" | "replace" {
-  if (stored.version >= PROFILE_VERSION) return "none";
+export function profileUpgrade(
+  stored: InsightOutput,
+  generatedAt: string | null = null,
+  now: Date = new Date(),
+): "none" | "fill" | "replace" | "research" {
+  if (stored.version >= PROFILE_VERSION) {
+    if (stored.researched) return "none";
+    const at = generatedAt ? Date.parse(generatedAt) : NaN;
+    return Number.isFinite(at) && now.getTime() - at >= RESEARCH_RETRY_HOURS * 3_600_000
+      ? "research"
+      : "none";
+  }
   if (stored.confidence === "high") return stored.version < 5 ? "fill" : "none";
   return "replace";
 }
@@ -426,6 +452,7 @@ export function mergeInsight(stored: InsightOutput, fresh: InsightOutput): Insig
     flavors: items(stored.flavors, fresh.flavors),
     pairingKinds: items(stored.pairingKinds, fresh.pairingKinds),
     evidence: stored.evidence ?? fresh.evidence,
+    researched: stored.researched || fresh.researched,
     sources: items(stored.sources, fresh.sources),
     version: Math.max(stored.version, fresh.version),
   };
@@ -502,7 +529,10 @@ export function samePageKey(value: string): string | null {
 
 const hostOf = (key: string) => key.slice(0, key.indexOf("/"));
 
-/** The named pages that are among the pages really opened (exactly, not merely on the same site). */
+/**
+ * The named pages that are among the pages the search provider reports it consulted (exactly, not merely on the
+ * same site). This proves the page was in the search, not that every detail read from it is right.
+ */
 function verifiedSources(
   claimed: ReadonlyArray<{ name: string; url: string }>,
   consulted: readonly string[],
@@ -532,15 +562,16 @@ export function valuationKind(v: Pick<Valuation, "sources">): ValuationKind {
 }
 
 /**
- * What the AI found a bottle sells for, checked in code. A page counts only when the search really opened that
- * exact page, it is about this producer's wine, the same vintage, a 750 ml bottle, and it shows a price. The
- * range is then the lowest and highest of those prices (never the model's own numbers), so it rests on what was
- * seen: one page is that shop's asking price, two or more sites a market range. No such page, no value.
+ * What the AI found a bottle sells for, checked in code. A page counts only when the search provider reports
+ * that exact page among the ones it consulted, and the AI read it as this producer's wine, the same vintage, a
+ * 750 ml bottle, with a price. The range is the lowest and highest of those prices (never the model's own
+ * range): one site is that shop's asking price, two or more a market range. The price, vintage and size are
+ * what the AI read from the page, not independently checked. No such page, no value.
  */
 export function checkValuation(
   raw: RawValuation,
   currency: string,
-  /** The pages the web search actually opened. */
+  /** The pages the search provider reports it consulted. */
   consulted: readonly string[],
   /** The vintage asked about (null = non-vintage). */
   year: number | null = null,

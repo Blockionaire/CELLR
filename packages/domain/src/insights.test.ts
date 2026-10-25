@@ -65,17 +65,23 @@ describe("the AI's drinking window", () => {
 
 describe("where the wine is from, per the AI", () => {
   it("gives well-formed country, region and appellation", () => {
-    expect(checkOrigin(raw)).toEqual({
+    expect(checkOrigin(raw, checkInsight(raw)!)).toEqual({
       countryCode: "FR",
       region: "Bordeaux",
       appellation: "Pauillac",
     });
   });
   it("gives nothing when the AI is unsure, and drops malformed values", () => {
-    expect(checkOrigin({ ...raw, confidence: "low" })).toEqual({});
-    expect(checkOrigin({ ...raw, country_code: "France", region: " ", appellation: null })).toEqual(
-      {},
-    );
+    const low = { ...raw, confidence: "low" as const };
+    expect(checkOrigin(low, checkInsight(low)!)).toEqual({});
+    const bad = { ...raw, country_code: "France", region: " ", appellation: null };
+    expect(checkOrigin(bad, checkInsight(bad)!)).toEqual({});
+  });
+  it("judges by the checked profile: a sure-sounding style estimate fills in nothing", () => {
+    const loud = { ...raw, confidence: "high" as const, evidence: "style_estimate" as const };
+    const checked = checkInsight(loud)!;
+    expect(checked.confidence).toBe("low");
+    expect(checkOrigin(loud, checked)).toEqual({});
   });
 });
 
@@ -238,11 +244,22 @@ describe("asking again for an older profile", () => {
       expect(profileUpgrade(InsightOutputSchema.parse({ ...base, version: 5, confidence }))).toBe(
         "replace",
       );
+    // Researched (the search ran), even if it found nothing about this exact wine: final.
     const rewritten = checkInsight(
       { ...raw, confidence: "low", evidence: "style_estimate" },
       2023,
+      ["https://some.example/page"],
+      true,
     )!;
-    expect(profileUpgrade(rewritten)).toBe("none");
+    expect(rewritten.researched).toBe(true);
+    expect(profileUpgrade(rewritten, "2026-01-01T00:00:00Z", new Date("2026-06-01"))).toBe("none");
+  });
+  it("written without its search, a profile may try the research again, at most once a day", () => {
+    const unresearched = checkInsight(raw, 2023)!;
+    expect(unresearched.researched).toBe(false);
+    const at = "2026-06-01T00:00:00Z";
+    expect(profileUpgrade(unresearched, at, new Date("2026-06-01T12:00:00Z"))).toBe("none");
+    expect(profileUpgrade(unresearched, at, new Date("2026-06-02T00:00:00Z"))).toBe("research");
   });
   it("a sure profile is kept as written; a very old one only gains its missing parts", () => {
     expect(

@@ -77,8 +77,15 @@ function setup(
     listOwnValues: vi.fn(async () => new Map<string, number>()),
   };
   const llm: LlmProvider = {
+    // A web-search request that comes back has run a search, unless the answer says otherwise.
     generateObject: vi.fn(async (req) =>
-      answer.ok ? { ...answer, value: req.parse(answer.value) } : answer,
+      answer.ok
+        ? {
+            ...answer,
+            value: req.parse(answer.value),
+            usage: req.webSearch ? { webSearchCalls: 1, ...answer.usage } : answer.usage,
+          }
+        : answer,
     ) as LlmProvider["generateObject"],
   };
   const recorded: string[] = [];
@@ -97,8 +104,13 @@ function setup(
   return { service, repo, llm, saved, recorded };
 }
 
-const storedProfile = (version: number, confidence: "low" | "medium" | "high" = "high") =>
+const storedProfile = (
+  version: number,
+  confidence: "low" | "medium" | "high" = "high",
+  researched = version >= PROFILE_VERSION,
+) =>
   InsightOutputSchema.parse({
+    researched,
     summary: "The words the person read first.",
     style: "Full",
     grapes: ["Merlot"],
@@ -167,6 +179,92 @@ describe("a profile stays as it was written", () => {
         version: PROFILE_VERSION,
       },
     });
+  });
+});
+
+describe("research for a profile", () => {
+  const stored = (output: ReturnType<typeof storedProfile>, generatedAt = "2026-01-01") =>
+    vi.fn(async () => ({ row: { output, model: "m", generatedAt, myValueCents: null } }));
+
+  it("must search; a new profile whose search failed is written without it, marked not researched", async () => {
+    const answers = [
+      { ok: false, kind: "timeout", usage } as const,
+      { ok: true, value: raw, usage } as const,
+    ];
+    const base = setup();
+    const llm: LlmProvider = {
+      generateObject: vi.fn(async (req) => {
+        const a = answers.shift()!;
+        return a.ok ? { ...a, value: req.parse(a.value) } : a;
+      }) as LlmProvider["generateObject"],
+    };
+    const s = setup({ llm, repo: base.repo });
+    await s.service.generate("v1");
+    const calls = vi.mocked(llm.generateObject).mock.calls.map((c) => c[0]);
+    expect(calls[0]).toMatchObject({ webSearch: true, requireSearch: true, maxSearches: 2 });
+    expect(calls[1]!.webSearch).toBeUndefined();
+    expect(base.saved[0]).toMatchObject({ output: { researched: false, sources: [] } });
+    expect(s.recorded).toEqual(["timeout", "ok"]);
+  });
+
+  it("an answer that came back without any search counts as not researched", async () => {
+    const llm: LlmProvider = {
+      generateObject: vi.fn(async (req) => ({
+        ok: true as const,
+        value: req.parse({ ...raw, evidence: "exact_wine", confidence: "high" }),
+        usage: { ...usage, webSearchCalls: 0 },
+        consulted: [],
+      })) as LlmProvider["generateObject"],
+    };
+    const base = setup();
+    await setup({ llm, repo: base.repo }).service.generate("v1");
+    expect(base.saved[0]).toMatchObject({
+      output: { researched: false, evidence: "producer", confidence: "medium" },
+    });
+  });
+
+  it("a search that ran but found nothing exact is final; it is not researched again", async () => {
+    const base = setup();
+    await base.service.generate("v1");
+    expect(base.saved[0]).toMatchObject({ output: { researched: true, evidence: "producer" } });
+    const done = setup({
+      repo: { ...base.repo, getInsight: stored(storedProfile(PROFILE_VERSION, "medium", true)) },
+    });
+    await done.service.generate("v1");
+    expect(done.llm.generateObject).not.toHaveBeenCalled();
+  });
+
+  it("rewriting an existing profile: a failed search keeps the old one as it is", async () => {
+    const base = setup({}, { ok: false, kind: "timeout", usage });
+    const s = setup(
+      { repo: { ...base.repo, getInsight: stored(storedProfile(5, "low")) } },
+      { ok: false, kind: "timeout", usage },
+    );
+    await expect(s.service.generate("v1")).rejects.toMatchObject({ code: "AI_UNAVAILABLE" });
+    expect(s.llm.generateObject).toHaveBeenCalledTimes(1); // no generic fallback
+    expect(base.saved).toHaveLength(0);
+  });
+
+  it("a profile written without its search may research again a day later, explicitly", async () => {
+    const base = setup();
+    const unresearched = storedProfile(PROFILE_VERSION, "medium", false);
+    const soon = setup({
+      repo: { ...base.repo, getInsight: stored(unresearched, "2026-12-20T06:00:00Z") },
+    });
+    await soon.service.generate("v1");
+    expect(soon.llm.generateObject).not.toHaveBeenCalled();
+    const later = setup({ repo: { ...base.repo, getInsight: stored(unresearched, "2026-12-18") } });
+    await later.service.generate("v1");
+    expect(base.saved[0]).toMatchObject({ output: { researched: true, summary: "A ripe red." } });
+  });
+
+  it("origin is filled in only from the checked profile, never a loud style estimate", async () => {
+    const fillWine = vi.fn(async () => ({}));
+    await setup(
+      { fillWine },
+      { ok: true, value: { ...raw, confidence: "high", evidence: "style_estimate" }, usage },
+    ).service.generate("v1");
+    expect(fillWine).not.toHaveBeenCalled();
   });
 });
 

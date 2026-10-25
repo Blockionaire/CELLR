@@ -1035,13 +1035,16 @@
     "valueRangeSourced": "Tussen {low} en {high} bij winkels en veilingen.",
     "refreshHint": "Dit profiel komt uit een oudere versie en was niet zeker van zichzelf. Het kan één keer opnieuw worden geschreven, nu met een korte zoektocht naar precies deze wijn.",
     "evidence": {
-      "exact_wine": "Op basis van pagina's over deze wijn.",
+      "exact_wine": "Op basis van gevonden pagina's over deze wijn.",
       "producer": "Op basis van wat bekend is over de producent.",
       "appellation_rules": "Op basis van de regels van de appellation.",
       "style_estimate": "Een stijlschatting voor de regio en kleur."
     },
     "valueSingleOffer": "Vraagprijs van één winkel: {price}.",
-    "valueSingleShop": "Vraagprijzen van één winkel: {low} tot {high}."
+    "valueSingleShop": "Vraagprijzen van één winkel: {low} tot {high}.",
+    "research": "Opnieuw opzoeken",
+    "researchHint": "Dit profiel is geschreven zonder zoekactie op het web (die lukte niet). Het kan nog een keer proberen.",
+    "valueSourcesNote": "Prijzen zoals de AI ze op deze pagina's las; kijk bij de winkel voor de details."
   },
   "framer": {
     "title": "Wijs aan waar het etiket zit",

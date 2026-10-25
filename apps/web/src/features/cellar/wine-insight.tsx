@@ -66,7 +66,8 @@ export function AboutSection({
 
   const view: VintageInsightView | undefined = data;
   const out = view?.insight?.output ?? null;
-  const upgrade = out !== null ? profileUpgrade(out) : "none";
+  const upgrade = out !== null ? profileUpgrade(out, view?.insight?.generatedAt ?? null) : "none";
+  const action = upgrade === "fill" ? "complete" : upgrade === "replace" ? "refresh" : "research";
 
   async function ask() {
     setFailure(null);
@@ -88,11 +89,9 @@ export function AboutSection({
               <Profile out={out} />
               {upgrade !== "none" && (
                 <div className="flex flex-col items-start gap-2 rounded-[16px] bg-raised p-3">
-                  <p className="text-small text-ink-2">
-                    {t(upgrade === "replace" ? "refreshHint" : "completeHint")}
-                  </p>
+                  <p className="text-small text-ink-2">{t(`${action}Hint`)}</p>
                   <Button size="sm" variant="secondary" loading={busy} onClick={ask}>
-                    {t(upgrade === "replace" ? "refresh" : "complete")}
+                    {t(action)}
                   </Button>
                 </div>
               )}
@@ -423,6 +422,7 @@ export function WorthSection({
               {v.sources.length > 0 ? (
                 <div>
                   <p className={EYEBROW}>{t("valueSources")}</p>
+                  <p className="text-caption text-ink-2">{t("valueSourcesNote")}</p>
                   <ul className="mt-1.5 flex flex-wrap gap-2" data-testid="value-sources">
                     {v.sources.map((s) => (
                       <li key={s.url}>
