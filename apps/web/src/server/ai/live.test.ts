@@ -48,6 +48,8 @@ describe.skipIf(!live)("reading real labels with the real model", () => {
     baseUrl: process.env.AI_BASE_URL ?? "https://api.openai.com/v1",
     visionModel: process.env.AI_MODEL_VISION ?? "gpt-4.1",
     chatModel: "unused",
+    adviceModel: "unused",
+    reasoningEffort: "none",
   });
   const read = async (name: string) => {
     const bytes = new Uint8Array(readFileSync(`${process.env.LIVE_LABEL_DIR}/${name}.jpg`));
@@ -111,6 +113,8 @@ describe.skipIf(!live)("the sommelier with the real model", () => {
     baseUrl: process.env.AI_BASE_URL ?? "https://api.openai.com/v1",
     visionModel: "unused",
     chatModel: process.env.AI_MODEL_CHAT ?? "gpt-4.1-mini",
+    adviceModel: process.env.AI_MODEL_ADVICE ?? process.env.AI_MODEL_CHAT ?? "gpt-4.1-mini",
+    reasoningEffort: "none",
   });
   const drink = (phase: CellarItem["drink"]["phase"], urgency: number): CellarItem["drink"] => ({
     source: "ai",
@@ -257,6 +261,8 @@ describe.skipIf(process.env.LIVE_AI !== "1")(
       baseUrl: process.env.AI_BASE_URL ?? "https://api.openai.com/v1",
       visionModel: "unused",
       chatModel: process.env.AI_MODEL_CHAT ?? "gpt-4.1-mini",
+      adviceModel: process.env.AI_MODEL_ADVICE ?? process.env.AI_MODEL_CHAT ?? "gpt-4.1-mini",
+      reasoningEffort: "none",
     });
 
     it(

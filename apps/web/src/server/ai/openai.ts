@@ -1,6 +1,7 @@
 import "server-only";
 import { logError, logWarn } from "@/server/log";
 import type { AiEnv } from "@/server/env";
+import { planCall } from "./models";
 import type { AiErrorKind, AiResult, AiUsage, GenerateObjectRequest, LlmProvider } from "./types";
 
 type Message = { role: "system" | "user" | "assistant"; content: unknown };
@@ -56,7 +57,7 @@ export function createOpenAiProvider(
 ): LlmProvider {
   return {
     async generateObject<T>(request: GenerateObjectRequest<T>): Promise<AiResult<T>> {
-      const model = request.model === "vision" ? env.visionModel : env.chatModel;
+      const { model, reasoningEffort, maxOutputTokens, temperature } = planCall(env, request);
       const started = Date.now();
       // `reported` turns false as soon as a sent request does not come back with its usage numbers.
       const usage: AiUsage = {
@@ -124,8 +125,9 @@ export function createOpenAiProvider(
               ],
               tools: [{ type: "web_search" }],
               include: ["web_search_call.action.sources"],
-              max_output_tokens: request.maxOutputTokens,
-              ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
+              max_output_tokens: maxOutputTokens,
+              ...(temperature !== undefined ? { temperature } : {}),
+              ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
               text: {
                 format: {
                   type: "json_schema",
@@ -178,13 +180,23 @@ export function createOpenAiProvider(
         );
         const parts = items.flatMap((o) => (o.type === "message" ? (o.content ?? []) : []));
         if (parts.some((p) => p.type === "refusal")) return fail("refused");
-        const text = parts.find((p) => p.type === "output_text")?.text ?? "";
-        try {
-          return done({ ok: true, value: request.parse(JSON.parse(text)), usage, consulted });
-        } catch {
-          logWarn("ai_invalid_output", { task: request.task, model });
-          return fail("invalid");
+        // Some models can return more than one message item; the answer is the one that fits the schema (each is
+        // still fully checked, nothing is merged or loosened).
+        for (const part of parts) {
+          if (part.type !== "output_text") continue;
+          try {
+            return done({
+              ok: true,
+              value: request.parse(JSON.parse(part.text ?? "")),
+              usage,
+              consulted,
+            });
+          } catch {
+            // try the next one
+          }
         }
+        logWarn("ai_invalid_output", { task: request.task, model });
+        return fail("invalid");
       }
 
       const messages: Message[] = [
@@ -213,8 +225,9 @@ export function createOpenAiProvider(
             body: JSON.stringify({
               model,
               messages,
-              max_completion_tokens: request.maxOutputTokens,
-              ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
+              max_completion_tokens: maxOutputTokens,
+              ...(temperature !== undefined ? { temperature } : {}),
+              ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
               response_format: {
                 type: "json_schema",
                 json_schema: { name: request.schemaName, strict: true, schema: request.jsonSchema },

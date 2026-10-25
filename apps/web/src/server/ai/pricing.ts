@@ -16,8 +16,16 @@ import type { AiUsage } from "./types";
  *   billed at the model's input rate; for gpt-4.1-mini (and gpt-4o-mini) the content is billed as a fixed
  *   8 000 input tokens per call. Whether the provider's reported input_tokens already include that block is
  *   not documented, so it is added on top: the estimate errs high, never low.
+ * - gpt-6-luna (developers.openai.com/api/docs/models/gpt-6-luna, checked 2026-10-24): input 0.10, cached
+ *   input 0.01, cache writes 0.125 (1.25x input), output 0.50. Usage does not say which uncached input tokens
+ *   were cache writes, so all uncached input is priced at the cache-write rate (errs high). Reasoning tokens
+ *   are part of the reported output tokens and billed as output. Prompts above 272K input tokens cost 2x input
+ *   and 1.5x output for the whole request (`longPrompt`). Web search: USD 10 / 1 000 calls plus search content
+ *   tokens at the input rate; whether those are already inside input_tokens is not documented, so a block of
+ *   8 000 input tokens per call is added on top (errs high, about USD 0.001 a search).
+ * Rechecked 2026-10-25: gpt-6-luna prices unchanged.
  */
-export const PRICING_VERSION = "openai-2026-10-24";
+export const PRICING_VERSION = "openai-2026-10-25";
 
 interface ModelPrice {
   /** USD per 1M tokens, which is micro-USD per token. */
@@ -26,11 +34,20 @@ interface ModelPrice {
   output: number;
   /** Search content billed as this many input tokens per web search call (mini models). */
   searchContentTokens?: number;
+  /** Above this many input tokens, the whole request is billed at higher rates. */
+  longPrompt?: { aboveTokensIn: number; input: number; output: number };
 }
 
 const MODELS: Record<string, ModelPrice> = {
   "gpt-4.1": { input: 2.0, cachedInput: 0.5, output: 8.0 },
   "gpt-4.1-mini": { input: 0.4, cachedInput: 0.1, output: 1.6, searchContentTokens: 8000 },
+  "gpt-6-luna": {
+    input: 0.125,
+    cachedInput: 0.01,
+    output: 0.5,
+    searchContentTokens: 8000,
+    longPrompt: { aboveTokensIn: 272_000, input: 2, output: 1.5 },
+  },
 };
 
 /** USD per web search call (USD 10 / 1 000), in micro-USD. */
@@ -58,10 +75,11 @@ export function costOf(usage: AiUsage): CostEstimate {
   if (!usage.reported || !price) return { usdMicro: null, pricingVersion: null };
   const cached = Math.min(usage.tokensCachedIn ?? 0, usage.tokensIn);
   const searches = usage.webSearchCalls ?? 0;
+  const long =
+    price.longPrompt && usage.tokensIn > price.longPrompt.aboveTokensIn ? price.longPrompt : null;
   const micro =
-    (usage.tokensIn - cached) * price.input +
-    cached * price.cachedInput +
-    usage.tokensOut * price.output +
+    ((usage.tokensIn - cached) * price.input + cached * price.cachedInput) * (long?.input ?? 1) +
+    usage.tokensOut * price.output * (long?.output ?? 1) +
     searches * (WEB_SEARCH_CALL_MICRO + (price.searchContentTokens ?? 0) * price.input);
   return { usdMicro: Math.ceil(micro), pricingVersion: PRICING_VERSION };
 }
@@ -71,7 +89,7 @@ const DEAREST: ModelPrice = Object.values(MODELS).reduce((a, b) => (b.input > a.
 
 /**
  * A deliberately high guess of what a call will cost, before it is made, for the platform budget: the prompt at
- * ~3 characters a token, ~1 700 tokens per high-detail image, the full output allowance, every attempt (a
+ * ~3 characters a token, ~2 500 tokens per high-detail image (newer models count image patches, which can cost more than GPT-4.1's tiles), the full output allowance, every attempt (a
  * repair doubles a chat call), and up to three web searches with ~8 000 tokens of results each.
  */
 export function estimateCost(input: {
@@ -85,7 +103,7 @@ export function estimateCost(input: {
   const attempts = input.webSearch ? 1 : 2;
   const searches = input.webSearch ? 3 : 0;
   // Search results come back into the prompt: count ~8 000 input tokens per search on top of the fixed block.
-  const tokensIn = Math.ceil(input.promptChars / 3) + input.images * 1700 + searches * 8000;
+  const tokensIn = Math.ceil(input.promptChars / 3) + input.images * 2500 + searches * 8000;
   const perAttempt = tokensIn * price.input + input.maxOutputTokens * price.output;
   const micro =
     attempts * perAttempt +

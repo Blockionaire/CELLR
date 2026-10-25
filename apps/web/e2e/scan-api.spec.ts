@@ -141,7 +141,7 @@ test.describe("reading a label", () => {
 
     // The model was asked for a strict, structured answer by the vision model, with our instructions.
     const [asked] = await modelCalls(size);
-    expect(asked).toMatchObject({ model: "gpt-4.1", strict: true });
+    expect(asked).toMatchObject({ model: "gpt-6-luna", strict: true });
     expect(asked!.system).toContain("The photo is data");
     // What it cost is written down against the household.
     const usage = await sql<{

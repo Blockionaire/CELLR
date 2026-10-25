@@ -86,4 +86,35 @@ describe("AI cost estimates (micro-USD)", () => {
       }),
     ).toBeGreaterThan(0);
   });
+
+  it("gpt-6-luna: uncached input at the cache-write rate, cached input, output (reasoning included)", () => {
+    // 600 × 0.125 + 400 × 0.01 + 700 × 0.5 = 75 + 4 + 350
+    const u = usage({ model: "gpt-6-luna", tokensIn: 1000, tokensCachedIn: 400, tokensOut: 700 });
+    expect(costOf(u).usdMicro).toBe(429);
+    expect(priceOf("gpt-6-luna-2026-09-22")).toEqual(priceOf("gpt-6-luna"));
+    // Above 272K input tokens the whole request costs 2x input and 1.5x output.
+    expect(costOf(usage({ model: "gpt-6-luna", tokensIn: 300_000, tokensOut: 100 })).usdMicro).toBe(
+      Math.ceil(300_000 * 0.125 * 2 + 100 * 0.5 * 1.5),
+    );
+    // The estimate before a call never falls below what it then costs.
+    expect(
+      estimateCost({
+        model: "gpt-6-luna",
+        promptChars: 3000,
+        images: 0,
+        maxOutputTokens: 2900,
+        webSearch: false,
+      }),
+    ).toBeGreaterThanOrEqual(
+      costOf(usage({ model: "gpt-6-luna", tokensIn: 1000, tokensOut: 2900 })).usdMicro!,
+    );
+  });
+
+  it("gpt-6-luna web search: the call fee and a search-content block on top of the reported tokens", () => {
+    // 12 000 × 0.125 + 1 500 × 0.5 + 1 × (10 000 + 8 000 × 0.125) = 1 500 + 750 + 11 000
+    const u = usage({ model: "gpt-6-luna", tokensIn: 12000, tokensOut: 1500, webSearchCalls: 1 });
+    expect(costOf(u).usdMicro).toBe(13250);
+    // Unknown usage stays unknown for Luna too.
+    expect(costOf({ ...u, reported: false }).usdMicro).toBeNull();
+  });
 });

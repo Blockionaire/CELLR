@@ -8,6 +8,8 @@ const env = {
   baseUrl: "https://ai.example/v1",
   visionModel: "vision-model",
   chatModel: "chat-model",
+  adviceModel: "chat-model",
+  reasoningEffort: "none" as const,
 };
 const Answer = z.object({ producer: z.string() });
 const request = (
@@ -232,6 +234,184 @@ describe("asking with a web search first", () => {
     expect(
       await createOpenAiProvider(env, limited.fetcher).generateObject(request({ webSearch: true })),
     ).toMatchObject({ ok: false, kind: "rate_limited" });
+  });
+});
+
+describe("gpt-6-luna for advice", () => {
+  const luna = { ...env, adviceModel: "gpt-6-luna" };
+  const advice = request({ task: "sommelier_chat", model: "chat", images: [], temperature: 0.3 });
+
+  it("effort none: same Chat Completions request plus reasoning_effort, temperature kept", async () => {
+    const { fetcher, calls } = fakeFetch(
+      reply({ producer: "X" }, { model: "gpt-6-luna-2026-09-22" }),
+    );
+    const result = await createOpenAiProvider(luna, fetcher).generateObject(advice);
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({
+      model: "gpt-6-luna",
+      reasoning_effort: "none",
+      temperature: 0.3,
+      max_completion_tokens: 500,
+      response_format: { type: "json_schema" },
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      usage: { model: "gpt-6-luna", servedModel: "gpt-6-luna-2026-09-22", reported: true },
+    });
+  });
+
+  it("effort low: no temperature, room for reasoning; reasoning tokens arrive inside completion_tokens", async () => {
+    const { fetcher, calls } = fakeFetch(
+      reply(
+        { producer: "X" },
+        {
+          usage: {
+            prompt_tokens: 900,
+            completion_tokens: 700,
+            completion_tokens_details: { reasoning_tokens: 640 },
+          },
+        },
+      ),
+    );
+    const result = await createOpenAiProvider(
+      { ...luna, reasoningEffort: "low" },
+      fetcher,
+    ).generateObject(advice);
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body.reasoning_effort).toBe("low");
+    expect(body).not.toHaveProperty("temperature");
+    expect(body.max_completion_tokens).toBe(2500);
+    expect(result.usage).toMatchObject({ tokensIn: 900, tokensOut: 700, reported: true });
+  });
+
+  it("an answer outside the schema is repaired once, then a plain failure for the fallback", async () => {
+    const { fetcher, calls } = fakeFetch(reply({ nope: 1 }), reply("not json"));
+    const result = await createOpenAiProvider(luna, fetcher).generateObject(advice);
+    expect(result).toMatchObject({ ok: false, kind: "invalid" });
+    expect(calls).toHaveLength(2);
+  });
+
+  it("GPT-4.x requests are unchanged: no reasoning parameter", async () => {
+    const { fetcher, calls } = fakeFetch(reply({ producer: "X" }));
+    await createOpenAiProvider(env, fetcher).generateObject(advice);
+    expect(JSON.parse(String(calls[0]!.init.body))).not.toHaveProperty("reasoning_effort");
+  });
+});
+
+describe("gpt-6-luna for scans and valuations", () => {
+  const luna = {
+    ...env,
+    visionModel: "gpt-6-luna",
+    chatModel: "gpt-6-luna",
+    adviceModel: "gpt-6-luna",
+  };
+
+  it("a label scan: high-detail image, strict schema, effort none, nothing else added", async () => {
+    const { fetcher, calls } = fakeFetch(reply({ producer: "Château Margaux" }));
+    const result = await createOpenAiProvider(luna, fetcher).generateObject(request());
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({
+      model: "gpt-6-luna",
+      reasoning_effort: "none",
+      max_completion_tokens: 500,
+      response_format: { type: "json_schema", json_schema: { strict: true } },
+    });
+    expect(body.messages[1].content[1]).toMatchObject({
+      type: "image_url",
+      image_url: { detail: "high" },
+    });
+    expect(result).toMatchObject({ ok: true, value: { producer: "Château Margaux" } });
+  });
+
+  const valuation = request({
+    task: "wine_valuation",
+    model: "chat",
+    images: [],
+    webSearch: true,
+    maxOutputTokens: 700,
+    temperature: 0,
+  });
+  const searched = (output: unknown[]) =>
+    new Response(
+      JSON.stringify({
+        model: "gpt-6-luna-2026-09-22",
+        output,
+        usage: {
+          input_tokens: 12000,
+          output_tokens: 1500,
+          input_tokens_details: { cached_tokens: 0 },
+        },
+      }),
+      { status: 200 },
+    );
+
+  it("a valuation: Responses API with web search, reasoning low, room for it, no temperature", async () => {
+    const { fetcher, calls } = fakeFetch(
+      searched([
+        { type: "reasoning" },
+        { type: "web_search_call", action: { sources: [{ url: "https://shop.example/margaux" }] } },
+        { type: "message", content: [{ type: "output_text", text: '{"producer":"X"}' }] },
+      ]),
+    );
+    const result = await createOpenAiProvider(luna, fetcher).generateObject(valuation);
+    expect(calls[0]!.url).toBe("https://ai.example/v1/responses");
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({
+      model: "gpt-6-luna",
+      tools: [{ type: "web_search" }],
+      include: ["web_search_call.action.sources"],
+      reasoning: { effort: "low" },
+      max_output_tokens: 2700,
+      text: { format: { type: "json_schema", strict: true } },
+    });
+    expect(body).not.toHaveProperty("temperature");
+    expect(body).not.toHaveProperty("reasoning_effort");
+    expect(result).toMatchObject({
+      ok: true,
+      consulted: ["https://shop.example/margaux"],
+      usage: {
+        servedModel: "gpt-6-luna-2026-09-22",
+        webSearchCalls: 1,
+        tokensIn: 12000,
+        tokensOut: 1500,
+        reported: true,
+      },
+    });
+  });
+
+  it("an extra message item does not hide the answer; nothing that fails the schema is accepted", async () => {
+    const extra = { type: "message", content: [{ type: "output_text", text: "Searching…" }] };
+    const answer = {
+      type: "message",
+      content: [{ type: "output_text", text: '{"producer":"X"}' }],
+    };
+    const one = fakeFetch(searched([extra, answer]));
+    expect(await createOpenAiProvider(luna, one.fetcher).generateObject(valuation)).toMatchObject({
+      ok: true,
+      value: { producer: "X" },
+    });
+    const none = fakeFetch(
+      searched([
+        extra,
+        { type: "message", content: [{ type: "output_text", text: '{"price":1}' }] },
+      ]),
+    );
+    expect(await createOpenAiProvider(luna, none.fetcher).generateObject(valuation)).toMatchObject({
+      ok: false,
+      kind: "invalid",
+    });
+  });
+
+  it("GPT-4.1-mini valuations are sent exactly as before", async () => {
+    const { fetcher, calls } = fakeFetch(
+      searched([{ type: "message", content: [{ type: "output_text", text: '{"producer":"X"}' }] }]),
+    );
+    await createOpenAiProvider({ ...env, chatModel: "gpt-4.1-mini" }, fetcher).generateObject(
+      valuation,
+    );
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({ model: "gpt-4.1-mini", max_output_tokens: 700, temperature: 0 });
+    expect(body).not.toHaveProperty("reasoning");
   });
 });
 

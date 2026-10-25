@@ -20,18 +20,28 @@ export interface AiEnv {
   baseUrl: string;
   /** Reads pictures (label scanning). */
   visionModel: string;
-  /** Talks (sommelier, explanations). */
+  /** Talks: web-search valuations, and anything without its own model. */
   chatModel: string;
+  /** Sommelier and wine profiles (AI_MODEL_ADVICE); the chat model when unset. */
+  adviceModel: string;
+  /** For models with a documented reasoning effort only (AI_REASONING_EFFORT): none (default), low or medium. */
+  reasoningEffort: ReasoningEffort;
 }
+
+export type ReasoningEffort = "none" | "low" | "medium";
+const EFFORTS: readonly ReasoningEffort[] = ["none", "low", "medium"];
 
 /** Which AI is configured. Model ids are configuration, so a better one is a settings change, not a release. */
 export function getAiEnv(): AiEnv {
   const clean = (v: string | undefined) => (v && v.trim() !== "" ? v.trim() : null);
+  const chatModel = clean(process.env.AI_MODEL_CHAT) ?? "gpt-6-luna";
   return {
     apiKey: clean(process.env.OPENAI_API_KEY),
     baseUrl: (clean(process.env.AI_BASE_URL) ?? "https://api.openai.com/v1").replace(/\/+$/, ""),
-    visionModel: clean(process.env.AI_MODEL_VISION) ?? "gpt-4.1",
-    chatModel: clean(process.env.AI_MODEL_CHAT) ?? "gpt-4.1-mini",
+    visionModel: clean(process.env.AI_MODEL_VISION) ?? "gpt-6-luna",
+    chatModel,
+    adviceModel: clean(process.env.AI_MODEL_ADVICE) ?? chatModel,
+    reasoningEffort: EFFORTS.find((e) => e === clean(process.env.AI_REASONING_EFFORT)) ?? "none",
   };
 }
 
