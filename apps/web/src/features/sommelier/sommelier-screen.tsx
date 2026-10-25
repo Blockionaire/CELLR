@@ -36,6 +36,8 @@ import { PageHeader } from "@/ui/page-header";
 import { useAskSommelier } from "./hooks";
 
 const CHIPS = ["tonight", "steak", "peak", "guests", "fish", "keep"] as const;
+/** Questions that lean on the person's own taste (shown while it is in use). */
+const PERSONAL_CHIPS = ["love", "new", "match"] as const;
 /** With no bottles yet, the questions that still have an answer: about the cellar itself. */
 const EMPTY_CHIPS = ["bottles", "space"] as const;
 
@@ -131,6 +133,8 @@ export function SommelierChat({
     initialQuestion ? [{ role: "user", text: initialQuestion }] : [],
   );
   const [draft, setDraft] = useState("");
+  // The person's own taste is used unless they ask for general advice (for this conversation only).
+  const [personal, setPersonal] = useState(true);
   const end = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
 
@@ -164,6 +168,7 @@ export function SommelierChat({
         messages,
         mode,
         budget: mode === "tonight" ? budget : null,
+        personal,
       });
       setTurns((current) => [...current, { role: "sommelier", answer }]);
     } catch (e) {
@@ -200,7 +205,14 @@ export function SommelierChat({
   // An empty cellar: no wine advice yet, but questions about the cellar itself (how many bottles, how much room)
   // still have true answers, so the chat stays, with an invitation to add the first bottle and factual examples.
   const empty = !hasBottles && mode === "chat";
-  const examples = empty ? EMPTY_CHIPS.map((id) => t(`emptyChips.${id}`)) : chips;
+  const examples = empty
+    ? EMPTY_CHIPS.map((id) => t(`emptyChips.${id}`))
+    : [
+        ...(mode === "chat" && personal
+          ? PERSONAL_CHIPS.map((id) => t(`personalChips.${id}`))
+          : []),
+        ...chips,
+      ];
 
   return (
     <div className="mx-auto w-full max-w-2xl pb-24 lg:pb-0">
@@ -239,6 +251,24 @@ export function SommelierChat({
               ))}
             </div>
           </section>
+        )}
+
+        {!empty && (
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <Chip
+              selected={personal}
+              onClick={() => setPersonal(!personal)}
+              data-testid="use-taste"
+            >
+              {t("taste.use")}
+            </Chip>
+            <Link
+              href="/taste-profile"
+              className="text-small font-medium text-accent-fg underline-offset-4 hover:underline"
+            >
+              {t("taste.profile")}
+            </Link>
+          </div>
         )}
 
         {mode === "tonight" && (
@@ -393,6 +423,11 @@ function Answer({ answer }: { answer: SommelierAnswer }) {
         >
           {t("sommelier")}
         </p>
+        {answer.personal && (
+          <p className="mb-1.5 text-caption font-medium text-accent-fg" data-testid="personal">
+            {t("taste.used")}
+          </p>
+        )}
         {answer.verdict && <VerdictBadge verdict={answer.verdict} />}
         <p className="whitespace-pre-wrap font-display text-title text-ink">
           <span className="sr-only">{t("sommelier")}: </span>

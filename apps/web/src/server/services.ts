@@ -50,6 +50,12 @@ export function servicesFor(ctx: RequestContext) {
     return found;
   };
   const images = createImageService(createImageRepository(ctx.db), household);
+  // The signed-in person's own taste, in the active household: their answers and their own tastings only.
+  const taste = createTasteService({
+    repo: createTasteRepository(ctx.db),
+    userId: ctx.userId,
+    household,
+  });
   const cellar = createCellarService(cellars, {
     userId: ctx.userId,
     // `insights` is built further down; it is only asked when a suggestion is made, never here.
@@ -109,11 +115,7 @@ export function servicesFor(ctx: RequestContext) {
       deleteUser: deleteAuthUser,
     }),
     wishlist,
-    taste: createTasteService({
-      repo: createTasteRepository(ctx.db),
-      userId: ctx.userId,
-      household,
-    }),
+    taste,
     export: createExportService({
       repo: createExportRepository(ctx.db),
       household,
@@ -179,7 +181,8 @@ export function servicesFor(ctx: RequestContext) {
       // Read only: the same household-scoped (RLS) reads the cellar screens use.
       storage: () => cellar.storage(),
       racks: () => cellar.racks(),
-      tonight: (request) => cellar.tonight(request),
+      tonight: (request, personal) => cellar.tonight(request, personal),
+      taste: () => taste.profile(),
       llm: getLlmProvider(),
       spend: () => limiter.enforce(LIMITS.chat),
       householdId: async () => (await household()).id,

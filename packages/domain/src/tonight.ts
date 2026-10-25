@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { CellarItem, WineType } from "./cellar";
 import type { Reservation } from "./insights";
 import { DISH_IDS, dishById, scorePairing, type DishId, type MatchReason } from "./pairing";
+import { tasteBonus, type TasteContext } from "./taste-context";
 
 /**
  * WHAT SHALL WE DRINK TONIGHT? Everything here is arithmetic on your own cellar: how well the wine suits the
@@ -47,7 +48,9 @@ export type PickReason =
   | "loved"
   | "easy"
   | "impressive"
-  | "bubbles";
+  | "bubbles"
+  /** The person's own taste (their answers and ratings) tipped it among similar wines. */
+  | "your-taste";
 
 export type MatchLevel = "great" | "good" | "worth-a-try";
 
@@ -112,11 +115,28 @@ function occasionBonus(
   }
 }
 
-function score(c: TonightCandidate, request: TonightRequest): Scored {
+/** Below this pairing score a wine is not a good match, and no taste may make it look like one. */
+const TASTE_MIN_PAIRING = 55;
+
+function score(
+  c: TonightCandidate,
+  request: TonightRequest,
+  taste: TasteContext | null = null,
+): Scored {
   const d = request.dish === null ? undefined : dishById(request.dish);
   const pairing = d ? scorePairing(c, d) : null;
   let total = pairing?.score ?? 60;
   const reasons: PickReason[] = [...(pairing?.reasons.slice(0, 2) ?? [])];
+
+  // Taste only chooses between suitable wines: never for a poor pairing, never when the point is to use one up.
+  const personal =
+    request.occasion !== "use-it-up" && (pairing === null || pairing.score >= TASTE_MIN_PAIRING)
+      ? tasteBonus(c, taste)
+      : 0;
+  if (personal > 0) {
+    total += personal;
+    reasons.push("your-taste");
+  }
 
   total += DRINK_BONUS[c.drink.phase];
   if (c.drink.phase === "peak") reasons.push("at-its-best");
@@ -162,10 +182,12 @@ export function rankForTonight(
   candidates: readonly TonightCandidate[],
   request: TonightRequest,
   now: Date,
+  /** The person's own taste, when they have one and want it used; a small nudge only (see tasteBonus). */
+  taste: TasteContext | null = null,
 ): TonightPick[] {
   if (candidates.length === 0) return [];
   const ready = candidates.filter((c) => c.drink.phase !== "young");
-  const pool = (ready.length > 0 ? ready : candidates).map((c) => score(c, request));
+  const pool = (ready.length > 0 ? ready : candidates).map((c) => score(c, request, taste));
   pool.sort(
     (a, b) => b.total - a.total || a.candidate.wineName.localeCompare(b.candidate.wineName),
   );

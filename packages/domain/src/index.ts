@@ -26,3 +26,4 @@ export * from "./metrics";
 export * from "./admin";
 export * from "./journal";
 export * from "./taste";
+export * from "./taste-context";

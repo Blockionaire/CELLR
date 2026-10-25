@@ -10,8 +10,13 @@ import {
   checkSommelierAnswer,
   DomainError,
   detectIntent,
+  tasteContextFrom,
+  tasteContextText,
   toSommelierBottle,
+  wantsSomethingDifferent,
   worthOpening,
+  type TasteContext,
+  type TasteProfileView,
   type AskSommelier,
   type CellarItem,
   type CellarView,
@@ -32,8 +37,13 @@ export interface SommelierDeps {
   /** Places with their room, and every bottle's spot: read only for a question about the cellar itself. */
   storage: () => Promise<StorageUnitView[]>;
   racks: () => Promise<RackView>;
-  /** The plain pairing engine, for when there is no AI to ask. */
-  tonight: (request: TonightRequest) => Promise<TonightView>;
+  /** The plain pairing engine, for when there is no AI to ask (with the person's taste as a small nudge). */
+  tonight: (request: TonightRequest, taste?: TasteContext | null) => Promise<TonightView>;
+  /**
+   * The signed-in person's own taste profile in the active household (their answers and their ratings only).
+   * Read only for advice, never for a question of fact; left out, the sommelier is the general one.
+   */
+  taste?: () => Promise<TasteProfileView | null>;
   /** Null = no AI configured. */
   llm: LlmProvider | null;
   /** Spends from the chat budget; throws RATE_LIMITED when it is gone. */
@@ -71,6 +81,7 @@ export function createSommelierService(deps: SommelierDeps) {
     items: readonly CellarItem[],
     question: string,
     reason: NonNullable<SommelierAnswer["reason"]>,
+    taste: TasteContext | null = null,
   ): Promise<SommelierAnswer> {
     const { dish, occasion } = detectIntent(question);
     const byVintage = new Map(items.map((i) => [i.vintageId, i]));
@@ -80,13 +91,19 @@ export function createSommelierService(deps: SommelierDeps) {
       occasion === "celebration" ||
       occasion === "weeknight"
     ) {
-      const view = await deps.tonight({ dish, occasion });
-      const bottles = view.picks.flatMap((p) => {
-        const item = byVintage.get(p.vintageId);
-        return item ? [toSommelierBottle(item)] : [];
-      });
+      const view = await deps.tonight({ dish, occasion }, taste);
+      const shown = view.picks.filter((p) => byVintage.has(p.vintageId));
+      const bottles = shown.map((p) => toSommelierBottle(byVintage.get(p.vintageId)!));
       if (bottles.length > 0)
-        return { source: "basic", text: null, basic: "pairing", bottles, reason };
+        return {
+          source: "basic",
+          text: null,
+          basic: "pairing",
+          bottles,
+          reason,
+          // Said only when the taste nudge really placed one of the bottles shown.
+          personal: shown.some((p) => p.reasons.includes("your-taste")),
+        };
     }
     const worth = worthOpening(items);
     return {
@@ -154,12 +171,29 @@ export function createSommelierService(deps: SommelierDeps) {
         !tonight && isCellarQuestion(question)
           ? cellarFacts(items, ...(await Promise.all([deps.storage(), deps.racks()])), question)
           : null;
+      // The person's taste: only for advice (never for a question of fact, an empty cellar, or when they asked
+      // for general advice), read at most once per question, and simply left out if it cannot be read.
+      const explore = wantsSomethingDifferent(question);
+      let tasteRead: Promise<TasteContext | null> | null = null;
+      const taste = () =>
+        (tasteRead ??=
+          request.personal !== false && !facts && items.length > 0 && deps.taste
+            ? deps
+                .taste()
+                .then(tasteContextFrom)
+                .catch(() => null)
+            : Promise.resolve(null));
+      /** For the plain engine: asked for something different, the usual taste is not what to steer by. */
+      const plainTaste = async () => (explore ? null : taste());
       // An empty cellar has nothing for the model to word: the counted facts say it all (and cost nothing).
       if (items.length === 0 && facts) return plainFacts(facts, null);
       // Nothing to talk about yet: no point paying for an answer that can only say so. (For tonight there is:
       // what to buy.)
       if (items.length === 0 && (!tonight || !deps.llm)) return nothing;
-      if (!deps.llm) return facts ? plainFacts(facts, "ai-off") : plain(items, question, "ai-off");
+      if (!deps.llm)
+        return facts
+          ? plainFacts(facts, "ai-off")
+          : plain(items, question, "ai-off", await plainTaste());
       try {
         await deps.spend();
       } catch (error) {
@@ -168,12 +202,12 @@ export function createSommelierService(deps: SommelierDeps) {
             ? nothing
             : facts
               ? plainFacts(facts, "limit")
-              : plain(items, question, "limit");
+              : plain(items, question, "limit", await plainTaste());
         throw error;
       }
 
       // Unknown language (the profile could not be read): English, as the app itself falls back.
-      const locale = await deps.locale().catch(() => "en");
+      const [locale, personal] = await Promise.all([deps.locale().catch(() => "en"), taste()]);
       const digest = cellarDigest(
         items,
         question,
@@ -190,6 +224,7 @@ export function createSommelierService(deps: SommelierDeps) {
           budget: request.budget ?? null,
           locale,
           facts: facts ? cellarFactsText(facts, (id) => refOf.get(id) ?? null) : null,
+          taste: personal ? tasteContextText(personal, { explore }) : null,
         }),
         schemaName: "sommelier_answer",
         jsonSchema: SOMMELIER_SCHEMA,
@@ -208,12 +243,12 @@ export function createSommelierService(deps: SommelierDeps) {
       // The platform budget being used up reads to the person like any other limit.
       const why =
         !result.ok && result.kind === "budget" ? ("limit" as const) : ("ai-down" as const);
-      const fallback = () =>
+      const fallback = async () =>
         items.length === 0
           ? { ...nothing, reason: why }
           : facts
             ? plainFacts(facts, why)
-            : plain(items, question, why);
+            : plain(items, question, why, await plainTaste());
       if (!result.ok) return fallback();
 
       const checked = checkSommelierAnswer(result.value, digest);
@@ -232,6 +267,8 @@ export function createSommelierService(deps: SommelierDeps) {
         verdict: facts ? null : checked.verdict,
         buy: facts ? [] : checked.buy,
         reason: null,
+        // Only when a taste was shown and the model says it shaped the answer.
+        personal: personal !== null && checked.usedTaste,
       };
     },
   };

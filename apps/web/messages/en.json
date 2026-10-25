@@ -302,6 +302,16 @@
     "emptyChips": {
       "bottles": "How many bottles do I have?",
       "space": "How much storage space is available?"
+    },
+    "taste": {
+      "use": "Use my taste",
+      "profile": "My taste profile",
+      "used": "Based on your taste profile"
+    },
+    "personalChips": {
+      "love": "What would I love tonight?",
+      "new": "Something new for me to try",
+      "match": "Which of my wines fits my taste best?"
     }
   },
   "profile": {

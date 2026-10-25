@@ -363,3 +363,170 @@ test.describe("the sommelier", () => {
     }
   });
 });
+
+test.describe("the sommelier and your own taste", () => {
+  const prefs = (over: Record<string, unknown>) => ({
+    wineFocus: null,
+    body: null,
+    tannin: null,
+    sweetness: null,
+    acidity: null,
+    onboarded: true,
+    ...over,
+  });
+
+  test("your taste shapes advice, only yours in a shared cellar, never a question of fact, and can be left out", async ({
+    page,
+    browser,
+    request,
+  }) => {
+    const { email, householdId } = await arrive(page, "somtaste");
+    const { call } = await apiClient(request, email);
+    const ids = await furnish(call);
+    await call("put", "/taste-profile/preferences", prefs({ wineFocus: "red", body: 4 }), 200);
+
+    // Someone who shares this cellar, with a taste of their own.
+    const other = await browser.newContext();
+    const { email: partnerEmail } = await arrive(await other.newPage(), "somtastepartner");
+    await other.close();
+    const partner = (await apiClient(request, partnerEmail)).call;
+    const { code } = (
+      await call<{ code: string }>("post", `/households/${householdId}/invites`, {}, 201)
+    ).body;
+    await partner("post", "/households/join", { code }, 200);
+    await partner("put", "/households/active", { householdId }, 200);
+    await partner(
+      "put",
+      "/taste-profile/preferences",
+      prefs({ wineFocus: "white_rose", body: 2 }),
+      200,
+    );
+
+    // Mine: the taste goes along with an advice question, and the answer says it was used.
+    const m = marker();
+    await program(m, {
+      content: {
+        answer: "Based on your taste, open the Tignanello.",
+        bottle_refs: [refOf(ids["Tignanello"]!)],
+        used_taste: true,
+      },
+    });
+    await page.goto("/sommelier");
+    await expect(page.getByRole("button", { name: "Something new for me to try" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "My taste profile" })).toHaveAttribute(
+      "href",
+      "/taste-profile",
+    );
+    await ask(page, `What should I open? ${m}`);
+    const log = page.getByRole("log", { name: "Conversation" });
+    await expect(log.getByTestId("personal")).toHaveText("Based on your taste profile");
+    const [mine] = await modelCalls(m);
+    expect(mine!.user).toContain("Said themselves: mostly red, body 4/5.");
+    expect(mine!.user).not.toContain("mostly white");
+
+    // The partner's question carries the partner's taste, never mine.
+    const p = marker();
+    await program(p, { content: { answer: "Try the Bollinger.", bottle_refs: [] } });
+    await partner(
+      "post",
+      "/sommelier",
+      { messages: [{ role: "user", text: `Tonight? ${p}` }] },
+      200,
+    );
+    const [theirs] = await modelCalls(p);
+    expect(theirs!.user).toContain("Said themselves: mostly white and rosé, body 2/5.");
+    expect(theirs!.user).not.toContain("mostly red");
+
+    // A question of fact: no taste at all.
+    const f = marker();
+    await program(f, { content: { answer: "Six bottles.", bottle_refs: [] } });
+    await ask(page, `How many bottles do I have? ${f}`);
+    await expect(log.getByText("Six bottles.")).toBeVisible();
+    expect((await modelCalls(f))[0]!.user).not.toContain("Taste of the person asking");
+
+    // General advice on request: the taste is left out, and nothing claims otherwise.
+    await page.getByTestId("use-taste").click();
+    await expect(page.getByTestId("use-taste")).toHaveAttribute("aria-pressed", "false");
+    const g = marker();
+    await program(g, {
+      content: { answer: "Open the Margaux.", bottle_refs: [], used_taste: true },
+    });
+    await ask(page, `Anything for tonight? ${g}`);
+    await expect(log.getByText("Open the Margaux.")).toBeVisible();
+    expect((await modelCalls(g))[0]!.user).not.toContain("Taste of the person asking");
+    await expect(log.getByTestId("personal")).toHaveCount(1);
+    expect(await audit(page)).toEqual([]);
+  });
+
+  test("ratings count only in the household they were made in; without AI the plain answer still works", async ({
+    page,
+    request,
+  }) => {
+    const { email } = await arrive(page, "somtastehh");
+    const { call } = await apiClient(request, email);
+    // Three Rioja wines rated highly here: a pattern for this household.
+    for (const n of [1, 2, 3]) {
+      const w = (
+        await call<{ id: string }>(
+          "post",
+          "/wines",
+          {
+            producer: `Bodega ${n}`,
+            name: "Reserva",
+            type: "red",
+            countryCode: "ES",
+            region: "Rioja",
+          },
+          201,
+        )
+      ).body;
+      const { bottleIds } = (
+        await call<{ bottleIds: string[] }>(
+          "post",
+          "/bottles",
+          { wineId: w.id, year: 2015, quantity: 2, locationId: null },
+          201,
+        )
+      ).body;
+      await call("patch", `/bottles/${bottleIds[0]}`, { action: "open" }, 200);
+      await call("put", `/bottles/${bottleIds[0]}/tasting`, { score: 10 }, 200);
+    }
+    const here = marker();
+    await program(here, { content: { answer: "A Rioja.", bottle_refs: [] } });
+    await call(
+      "post",
+      "/sommelier",
+      { messages: [{ role: "user", text: `Tonight? ${here}` }] },
+      200,
+    );
+    expect((await modelCalls(here))[0]!.user).toContain("regions Rioja (3 wines, 5★)");
+
+    // In another household of mine, those ratings say nothing.
+    const other = (await call<{ id: string }>("post", "/households", { name: "Holiday home" }, 201))
+      .body;
+    await call("put", "/households/active", { householdId: other.id }, 200);
+    await furnish(call);
+    const there = marker();
+    await program(there, { content: { answer: "The Margaux.", bottle_refs: [] } });
+    await call(
+      "post",
+      "/sommelier",
+      { messages: [{ role: "user", text: `Tonight? ${there}` }] },
+      200,
+    );
+    expect((await modelCalls(there))[0]!.user).not.toContain("Rioja (3 wines");
+
+    // The AI down: the plain engine answers, and only claims taste when it decided.
+    const down = marker();
+    await program(down, { status: 500 });
+    const answer = (
+      await call<{ source: string; personal?: boolean }>(
+        "post",
+        "/sommelier",
+        { messages: [{ role: "user", text: `Something for a steak ${down}` }] },
+        200,
+      )
+    ).body;
+    expect(answer).toMatchObject({ source: "basic", personal: false });
+  });
+});

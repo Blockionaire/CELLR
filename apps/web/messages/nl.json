@@ -302,6 +302,16 @@
     "emptyChips": {
       "bottles": "Hoeveel flessen heb ik?",
       "space": "Hoeveel opslagruimte heb ik nog vrij?"
+    },
+    "taste": {
+      "use": "Mijn smaak gebruiken",
+      "profile": "Mijn smaakprofiel",
+      "used": "Op basis van je smaakprofiel"
+    },
+    "personalChips": {
+      "love": "Waar zou ik vanavond van genieten?",
+      "new": "Iets nieuws om te proberen",
+      "match": "Welke van mijn wijnen past het best bij mijn smaak?"
     }
   },
   "profile": {
