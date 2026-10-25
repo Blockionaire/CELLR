@@ -208,16 +208,45 @@ describe("taste in the plain Tonight ranking: only ever a tie-breaker", () => {
     expect(ranked.personal).toBe(false);
   });
 
-  it("among several tied wines only the equivalent ones move, each keeping the others' places", () => {
-    // Three reds with equal totals: two at their peak, one "ready" (another phase, so not equivalent).
+  it("equivalent wines never cross a wine in another drinking phase, even when all totals tie", () => {
+    // A and C are equivalent (peak), B is "ready" between them; all three totals are the same.
     const a = wine({ wineName: "A Claret", region: "Bordeaux" });
     const b = wine({ wineName: "B Ready", region: "Loire", drink: drink("ready") });
     const c = wine({ wineName: "C Rioja", region: "Rioja" });
     const baseline = rankForTonight([a, b, c], anything, NOW);
     expect(ids(baseline)).toEqual(["A Claret", "B Ready", "C Rioja"]);
     const ranked = rankWithTaste([a, b, c], anything, NOW, riojaLover);
-    // A and C (same total, no dish, same phase) swap; B (ready, not peak) keeps its place.
-    expect(ids(ranked.picks)).toEqual(["C Rioja", "B Ready", "A Claret"]);
+    expect(ranked.picks).toEqual(baseline);
+    expect(ranked.personal).toBe(false);
+  });
+
+  it("equivalent wines never cross a wine with another pairing score, even when all totals tie", () => {
+    const quiche = { dish: "quiche", occasion: "anything" } as const;
+    const dish = dishById("quiche")!;
+    // 56 + favourite (+4) ties 60: the totals of all three are equal.
+    const a = wine({ wineName: "A Barolo", region: "Barolo", countryCode: null, favorite: true });
+    const b = wine({ wineName: "B Tuscan", region: "Tuscany", countryCode: null });
+    const c = wine({ wineName: "C Rioja", region: "Rioja", countryCode: null, favorite: true });
+    expect([a, b, c].map((w) => scorePairing(w, dish).score)).toEqual([56, 60, 56]);
+    const baseline = rankForTonight([a, b, c], quiche, NOW);
+    expect(new Set(baseline.map((p) => p.total)).size).toBe(1);
+    expect(ids(baseline)).toEqual(["A Barolo", "B Tuscan", "C Rioja"]);
+    const ranked = rankWithTaste([a, b, c], quiche, NOW, riojaLover);
+    expect(ranked.picks).toEqual(baseline);
+    expect(ranked.personal).toBe(false);
+  });
+
+  it("adjacent equivalent wines can swap through taste; the wine after them keeps its place", () => {
+    const a = wine({ wineName: "A Claret", region: "Bordeaux" });
+    const b = wine({ wineName: "B Rioja", region: "Rioja" });
+    const c = wine({ wineName: "C Ready", region: "Loire", drink: drink("ready") });
+    expect(ids(rankForTonight([a, b, c], anything, NOW))).toEqual([
+      "A Claret",
+      "B Rioja",
+      "C Ready",
+    ]);
+    const ranked = rankWithTaste([a, b, c], anything, NOW, riojaLover);
+    expect(ids(ranked.picks)).toEqual(["B Rioja", "A Claret", "C Ready"]);
     expect(ranked.personal).toBe(true);
   });
 

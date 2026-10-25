@@ -173,24 +173,25 @@ const specialness = (c: TonightCandidate, now: Date): number => {
 };
 
 /**
- * Wines are equivalent when they have the same total, the same pairing score (when there is a dish) and the
- * same drinking phase: only then may taste decide between them. Each such group keeps the places it has in the
- * baseline order and only its own members are reordered (most liked first, baseline order among equals), so
- * wines that are not equivalent never move relative to each other.
+ * Wines are equivalent when they have the same total, the same pairing score (or both none) and the same drinking
+ * phase: only then may taste decide between them. Taste reorders only a contiguous run of equivalent wines in the
+ * baseline order (most liked first, baseline order among equals), so no wine ever crosses one that is not
+ * equivalent to it.
  */
 function breakTiesByTaste(pool: Scored[]): void {
-  const groups = new Map<string, number[]>();
-  pool.forEach((s, i) => {
-    const key = `${s.total}|${s.pairing ?? "-"}|${s.candidate.drink.phase}`;
-    groups.set(key, [...(groups.get(key) ?? []), i]);
-  });
-  for (const places of groups.values()) {
-    if (places.length < 2) continue;
-    const members = places.map((i) => pool[i]!);
-    if (members.every((m) => m.taste === members[0]!.taste)) continue;
-    // Array.prototype.sort is stable: equal taste keeps the baseline order.
-    const ordered = [...members].sort((a, b) => b.taste - a.taste);
-    places.forEach((place, k) => (pool[place] = ordered[k]!));
+  const same = (a: Scored, b: Scored) =>
+    a.total === b.total &&
+    a.pairing === b.pairing &&
+    a.candidate.drink.phase === b.candidate.drink.phase;
+  for (let start = 0; start < pool.length;) {
+    let end = start + 1;
+    while (end < pool.length && same(pool[start]!, pool[end]!)) end += 1;
+    if (end - start > 1) {
+      // Array.prototype.sort is stable: equal taste keeps the baseline order.
+      const run = pool.slice(start, end).sort((a, b) => b.taste - a.taste);
+      pool.splice(start, run.length, ...run);
+    }
+    start = end;
   }
 }
 
