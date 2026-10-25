@@ -73,11 +73,16 @@ export function useCreateStorage() {
 }
 
 /** Asks for the wine's AI profile and value once, if it has none yet. Never throws: a bonus, not part of adding. */
+/** Vintages whose profile is being written right now: a batch adding the same wine twice asks only once. */
+const profiling = new Set<string>();
+
 async function profileInBackground(
   queryClient: QueryClient,
   vintageId: string,
   onWritten: () => void,
 ) {
+  if (profiling.has(vintageId)) return;
+  profiling.add(vintageId);
   // The wine page reads this to show "writing the profile…" instead of an idle button while it runs.
   const pending = ["insight-pending", vintageId];
   try {
@@ -104,6 +109,7 @@ async function profileInBackground(
   } catch {
     // switched off, rate-limited or offline: the "Tell me about this wine" button is still there
   } finally {
+    profiling.delete(vintageId);
     queryClient.setQueryData(pending, false);
   }
 }

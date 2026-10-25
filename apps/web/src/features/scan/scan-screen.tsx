@@ -1,10 +1,12 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
   ERROR_MESSAGES,
   formatVintage,
+  matchLabel,
   suggestWine,
   type AddBottlesResult,
   type ScanResult,
@@ -13,7 +15,7 @@ import {
 import { AddedDone } from "@/features/cellar/added-done";
 import { BottleDetails } from "@/features/cellar/bottle-details";
 import { ChooseWine } from "@/features/cellar/choose-wine";
-import { useWines } from "@/features/cellar/hooks";
+import { useWines, winesKey } from "@/features/cellar/hooks";
 import { LabelImage } from "@/features/cellar/label-image";
 import { NewWineForm } from "@/features/cellar/new-wine-form";
 import { useOwnedCounts, WineChoice } from "@/features/cellar/wine-stage";
@@ -24,11 +26,11 @@ import { Button } from "@/ui/button";
 import { cn } from "@/ui/cn";
 import { CheckIcon, SearchIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
-import { Segmented } from "@/ui/segmented";
 import { useToast } from "@/ui/toast";
 import { useAddWish } from "@/features/wishlist/hooks";
-import { useCamera } from "./camera";
+import { useCamera, type Camera } from "./camera";
 import { useScan } from "./hooks";
+import { ModeBar, type ScanMode } from "./modes";
 import { SeriesTray, useScanSeries, type SeriesItem } from "./series";
 
 type Stage =
@@ -51,9 +53,10 @@ export function ScanScreen({ currency }: { currency: string }) {
   const te = useTranslations();
   const scan = useScan();
   const wines = useWines();
+  const queryClient = useQueryClient();
   const addWish = useAddWish();
   const toast = useToast();
-  const [mode, setMode] = useState<"one" | "many">("one");
+  const [mode, setMode] = useState<ScanMode>("single");
   // In a series the place chosen for one bottle is offered for the next.
   const [lastPlace, setLastPlace] = useState<string | null | undefined>(undefined);
   const [stage, setStage] = useState<Stage>({ name: "capture", error: null, retry: null });
@@ -83,6 +86,42 @@ export function ScanScreen({ currency }: { currency: string }) {
   );
   const { mutateAsync: readLabel } = scan;
   const series = useScanSeries(readLabel, describe);
+  // The camera belongs to the screen, not the viewfinder: going from a photo to its review and back does not
+  // ask for the camera again (see camera.ts).
+  const camera = useCamera(stage.name === "capture");
+
+  /**
+   * A photo read a while ago is matched again against the wines as they are now: a wine added from an earlier
+   * photo of this batch is then found, instead of being offered as a new wine a second time.
+   */
+  const current = (result: ScanResult): ScanResult => {
+    // Read from the cache, not this render: right after a wine is added, the list is fresher there.
+    const list = queryClient.getQueryData<WineSummary[]>(winesKey) ?? wines.data;
+    if (!result.facts || result.outcome === "unread" || !list) return result;
+    return { ...result, ...matchLabel(result.facts, list) };
+  };
+
+  /** A batch photo to look at: one we are sure of goes straight to its bottles (the row was the check). */
+  function open(item: SeriesItem) {
+    if (!item.result) return;
+    setRejectedFound(false);
+    const result = current(item.result);
+    const sure =
+      result.outcome === "found" &&
+      result.matches[0] &&
+      result.facts &&
+      !Object.values(result.facts.confidence).includes("low");
+    setStage(
+      sure
+        ? { name: "details", result, wine: result.matches[0]!.wine, itemId: item.id }
+        : { name: "review", result, itemId: item.id },
+    );
+  }
+
+  async function addToBatch(files: File[]) {
+    const { refused } = await series.queue.add(files);
+    if (refused > 0) toast.show(t("series.full", { count: refused }));
+  }
 
   async function read(file: File) {
     setRejectedFound(false);
@@ -98,16 +137,25 @@ export function ScanScreen({ currency }: { currency: string }) {
    * One photo of a series is handled: say so (unless something already did), then straight on to the next one
    * that is ready (if any).
    */
-  function handled(itemId: string, outcome: string, others: SeriesItem[], said = false) {
-    series.finish(itemId, outcome);
+  function handled(itemId: string, outcome: string, said = false) {
+    // Once only: a second save of the same photo (a double tap) changes nothing.
+    if (!series.queue.finish(itemId, outcome)) return;
     if (!said) toast.show(outcome);
+    next(itemId);
+  }
+
+  /** On to the next photo that is ready, or back to the batch. */
+  function next(afterId: string) {
     setRejectedFound(false);
-    const next = others.find((i) => i.id !== itemId && i.status === "ready");
-    setStage(
-      next?.result
-        ? { name: "review", result: next.result, itemId: next.id }
-        : { name: "capture", error: null, retry: null },
-    );
+    const item = series.queue.nextReady(afterId);
+    if (item) open(item);
+    else setStage({ name: "capture", error: null, retry: null });
+  }
+
+  function skip(itemId: string) {
+    series.queue.skip(itemId);
+    toast.show(t("series.skipped"));
+    next(itemId);
   }
 
   const restart = () => {
@@ -138,24 +186,26 @@ export function ScanScreen({ currency }: { currency: string }) {
         {stage.name === "capture" && (
           <div className="flex flex-col gap-6">
             <Capture
+              camera={camera}
               error={stage.error}
               retry={stage.retry}
               mode={mode}
               onMode={setMode}
-              onFile={mode === "many" ? series.add : read}
-              series={{
-                total: series.items.length,
-                done: series.items.filter((i) => i.status === "done").length,
-              }}
+              onFiles={(files) =>
+                mode === "batch" ? void addToBatch(files) : files[0] && void read(files[0])
+              }
+              series={{ total: series.summary.total, done: series.summary.added }}
             />
             <SeriesTray
               items={series.items}
-              onOpen={(item) => {
-                setRejectedFound(false);
-                if (item.result) setStage({ name: "review", result: item.result, itemId: item.id });
-              }}
-              onRetry={series.retry}
-              onRemove={series.remove}
+              paused={series.paused}
+              onOpen={open}
+              onRetry={(item) => series.queue.retry(item.id)}
+              onRemove={(item) => series.queue.remove(item.id)}
+              onSkip={(item) => series.queue.skip(item.id)}
+              onReadAnyway={(item) => series.queue.readAnyway(item.id)}
+              onResume={() => series.queue.resume()}
+              onNewBatch={() => series.queue.clear()}
             />
           </div>
         )}
@@ -195,14 +245,26 @@ export function ScanScreen({ currency }: { currency: string }) {
               setStage({ name: "details", result: stage.result, wine, itemId: stage.itemId })
             }
             onAgain={restart}
+            batch={
+              stage.itemId
+                ? {
+                    onBack: () => setStage({ name: "capture", error: null, retry: null }),
+                    onSkip: () => skip(stage.itemId!),
+                  }
+                : undefined
+            }
           />
         )}
 
         {stage.name === "details" && (
           <BottleDetails
+            // A fresh form per photo: going straight on to the next one never carries its vintage over.
+            key={`${stage.result.image.id}:${stage.wine.id}`}
             wine={stage.wine}
             currency={currency}
             preferredPlaceId={stage.itemId ? lastPlace : undefined}
+            initialQuantity={mode === "same" && !stage.itemId ? 2 : 1}
+            quantityHint={mode === "same" && !stage.itemId ? t("modes.sameQuantity") : undefined}
             initialYear={
               stage.result.facts?.nonVintage ? null : (stage.result.facts?.year ?? undefined)
             }
@@ -215,6 +277,7 @@ export function ScanScreen({ currency }: { currency: string }) {
                 block
                 loading={addWish.isPending}
                 onClick={async () => {
+                  if (addWish.isPending) return;
                   try {
                     await addWish.mutateAsync({
                       wineId: stage.wine.id,
@@ -228,7 +291,6 @@ export function ScanScreen({ currency }: { currency: string }) {
                       handled(
                         stage.itemId,
                         t("series.wished", { wine: `${stage.wine.producer} ${stage.wine.name}` }),
-                        series.items,
                         true, // the wishlist has said so already
                       );
                     else restart();
@@ -252,7 +314,6 @@ export function ScanScreen({ currency }: { currency: string }) {
                   count: result.bottleIds.length,
                   wine: `${result.wine.producer} ${result.wine.name} ${formatVintage(result.year)}`,
                 }),
-                series.items,
               );
             }}
           />
@@ -293,59 +354,65 @@ function FramingGuide({ className }: { className?: string }) {
 }
 
 function Capture({
+  camera,
   error,
   retry,
   mode,
   onMode,
-  onFile,
+  onFiles,
   series,
 }: {
+  camera: Camera;
   error: string | null;
   retry: File | null;
-  mode: "one" | "many";
-  onMode: (mode: "one" | "many") => void;
-  onFile: (file: File) => void;
-  /** Photos of a series so far: how many, and how many are done. */
+  mode: ScanMode;
+  onMode: (mode: ScanMode) => void;
+  onFiles: (files: File[]) => void;
+  /** Photos of a batch so far: how many, and how many are added. */
   series: { total: number; done: number };
 }) {
   const t = useTranslations("scan");
-  const { video, state: cameraState, capture, retry: retryCamera } = useCamera(true);
+  const { attach, state: cameraState, capture, start, retry: retryCamera } = camera;
   const cameraInput = useRef<HTMLInputElement>(null);
   const libraryInput = useRef<HTMLInputElement>(null);
   const [flash, setFlash] = useState(0);
   const live = cameraState === "live";
+  const batch = mode === "batch";
 
   const pick = (multiple: boolean) => (event: ChangeEvent<HTMLInputElement>) => {
     const files = [...(event.target.files ?? [])];
     event.target.value = ""; // choosing the same file again must work
-    for (const file of multiple ? files : files.slice(0, 1)) onFile(file);
+    if (files.length > 0) onFiles(multiple ? files : files.slice(0, 1));
   };
 
   async function shoot() {
-    if (!live) return cameraInput.current?.click(); // the phone's own camera
+    // Without the live picture (not asked for, refused, none) the phone's own camera takes the photo.
+    if (!live) return cameraInput.current?.click();
     const file = await capture();
     if (!file) return cameraInput.current?.click();
     navigator.vibrate?.(12);
     setFlash((n) => n + 1);
-    onFile(file);
+    onFiles([file]);
   }
 
   const status =
-    cameraState === "starting"
-      ? t("camera.starting")
-      : cameraState === "denied"
-        ? t("camera.denied")
-        : cameraState === "unavailable"
-          ? t("camera.unavailable")
-          : cameraState === "error"
-            ? t("camera.error")
-            : null;
+    cameraState === "idle"
+      ? t("camera.idle")
+      : cameraState === "starting"
+        ? t("camera.starting")
+        : cameraState === "denied"
+          ? t("camera.denied")
+          : cameraState === "unavailable"
+            ? t("camera.unavailable")
+            : cameraState === "error"
+              ? t("camera.error")
+              : null;
 
   return (
     // One screen tall, whatever the phone: the shutter always sits in the thumb zone, above the tab bar.
     <div
       data-testid="capture"
-      className="flex h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-var(--nav-height)-3rem)] min-h-[25rem] flex-col gap-3 lg:h-[min(80dvh,52rem)]"
+      className="flex h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-var(--nav-height)-3rem)] min-h-[27rem] flex-col gap-3 lg:h-[min(80dvh,52rem)]"
     >
       {/* The phone's own camera and the photo library, opened by the buttons below. */}
       <input
@@ -362,24 +429,14 @@ function Capture({
         ref={libraryInput}
         type="file"
         accept="image/*"
-        multiple={mode === "many"}
-        onChange={pick(mode === "many")}
+        multiple={batch}
+        onChange={pick(batch)}
         tabIndex={-1}
         aria-hidden="true"
         className="sr-only"
       />
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <h1 className="font-display text-[2rem] leading-none">{t("title")}</h1>
-        <Segmented
-          label={t("series.mode")}
-          value={mode}
-          onChange={onMode}
-          options={[
-            { value: "one", label: t("series.one") },
-            { value: "many", label: t("series.many") },
-          ]}
-        />
-      </div>
+      <h1 className="font-display text-[2rem] leading-none">{t("title")}</h1>
+      <ModeBar value={mode} onChange={onMode} />
       {error && (
         <div
           role="alert"
@@ -387,7 +444,7 @@ function Capture({
         >
           <p className="text-small text-ink">{error}</p>
           {retry && (
-            <Button size="sm" onClick={() => onFile(retry)}>
+            <Button size="sm" onClick={() => onFiles([retry])}>
               {t("tryAgain")}
             </Button>
           )}
@@ -397,7 +454,7 @@ function Capture({
       {/* The viewfinder fills what is left; the controls float in its lower edge. */}
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-[28px] bg-hero text-hero-ink shadow-raised">
         <video
-          ref={video}
+          ref={attach}
           playsInline
           muted
           autoPlay
@@ -412,9 +469,9 @@ function Capture({
           aria-hidden="true"
           className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/55"
         />
-        <FramingGuide className="inset-x-[14%] bottom-[28%] top-[20%] rounded-[28px] ring-1 ring-white/15" />
-        <p className="absolute inset-x-6 top-4 text-center text-small text-hero-ink/90">
-          {mode === "many" ? t("series.intro") : t("tips")}
+        <FramingGuide className="inset-x-[14%] bottom-[28%] top-[16%] rounded-[28px] ring-1 ring-white/15" />
+        <p className="absolute inset-x-6 top-3 text-center text-small text-hero-ink/90">
+          {batch ? t("series.intro") : t("tips")}
         </p>
         {status && (
           <div
@@ -422,6 +479,16 @@ function Capture({
             className="absolute inset-x-8 top-1/2 flex -translate-y-1/2 flex-col items-center gap-3 text-center"
           >
             <p className="text-body text-hero-ink">{status}</p>
+            {cameraState === "idle" && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={start}
+                className="bg-white/15 text-hero-ink hover:bg-white/25"
+              >
+                {t("camera.start")}
+              </Button>
+            )}
             {(cameraState === "denied" || cameraState === "error") && (
               <Button
                 size="sm"
@@ -449,9 +516,7 @@ function Capture({
             className="grid size-12 place-items-center justify-self-start rounded-full bg-white/15 text-hero-ink backdrop-blur-md transition-transform duration-150 ease-cellr active:scale-95"
           >
             <PhotosIcon />
-            <span className="sr-only">
-              {mode === "many" ? t("series.choosePhotos") : t("choosePhoto")}
-            </span>
+            <span className="sr-only">{batch ? t("series.choosePhotos") : t("choosePhoto")}</span>
           </button>
           <button
             type="button"
@@ -462,7 +527,7 @@ function Capture({
           >
             <span className="block size-[3.9rem] rounded-full bg-hero-ink shadow-raised" />
           </button>
-          {mode === "many" && series.total > 0 ? (
+          {series.total > 0 ? (
             <a
               href="#series-title"
               aria-label={t("series.count", { done: series.done, total: series.total })}
@@ -507,6 +572,7 @@ function Review({
   onReject,
   onWine,
   onAgain,
+  batch,
 }: {
   result: ScanResult;
   rejectedFound: boolean;
@@ -514,6 +580,8 @@ function Review({
   onReject: () => void;
   onWine: (wine: WineSummary) => void;
   onAgain: () => void;
+  /** A photo of a batch: back to the batch, or leave this photo out (nothing is added). */
+  batch?: { onBack: () => void; onSkip: () => void } | undefined;
 }) {
   const t = useTranslations("scan");
   const owned = useOwnedCounts();
@@ -640,10 +708,23 @@ function Review({
             producers={producers}
             onCreated={onWine}
           />
-          <Button variant="ghost" size="lg" block onClick={onAgain}>
-            {t("tryAnother")}
-          </Button>
+          {!batch && (
+            <Button variant="ghost" size="lg" block onClick={onAgain}>
+              {t("tryAnother")}
+            </Button>
+          )}
         </section>
+      )}
+
+      {batch && (
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="ghost" size="lg" block onClick={batch.onBack}>
+            {t("series.back")}
+          </Button>
+          <Button variant="ghost" size="lg" block onClick={batch.onSkip}>
+            {t("series.skipPhoto")}
+          </Button>
+        </div>
       )}
     </div>
   );

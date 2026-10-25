@@ -40,3 +40,61 @@ test.describe("with a live camera", () => {
     expect(tracks).toBe(0);
   });
 });
+
+test.describe("one camera for the whole visit", () => {
+  test("repeated scans and mode changes do not ask for the camera again; the background and leaving release it", async ({
+    page,
+  }) => {
+    test.skip(test.info().project.name !== "phone", "one device is enough for the camera itself");
+    await page.addInitScript(() => {
+      const w = window as unknown as { cameraCalls: number };
+      w.cameraCalls = 0;
+      const ask = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getUserMedia = (c) => {
+        w.cameraCalls += 1;
+        return ask(c);
+      };
+    });
+    await arrive(page, "scancam");
+    const calls = () =>
+      page.evaluate(() => (window as unknown as { cameraCalls: number }).cameraCalls);
+    const view = page.getByLabel("Camera view");
+    const picture = () =>
+      page.evaluate(() => {
+        const v = document.querySelector("video");
+        const s = v?.srcObject as MediaStream | null | undefined;
+        return s ? s.getVideoTracks().map((t) => t.readyState === "live" && t.enabled) : [];
+      });
+
+    await page.goto("/scan");
+    await expect(view).toHaveAttribute("data-state", "live", { timeout: 10_000 });
+    expect(await calls()).toBe(1);
+
+    // Two scans in a row: photo, its review, back to the viewfinder. The camera is never asked for again.
+    for (let i = 0; i < 2; i += 1) {
+      await page.getByTestId("shutter").click();
+      await expect(page.getByTestId("capture")).toHaveCount(0);
+      await page.getByRole("button", { name: "Try another photo" }).click();
+      await expect(view).toHaveAttribute("data-state", "live");
+      await expect.poll(picture).toEqual([true]);
+    }
+    for (const mode of ["Same wine", "Batch", "Single bottle"]) {
+      await page.getByRole("radio", { name: mode }).click();
+      await expect.poll(picture).toEqual([true]);
+    }
+    expect(await calls()).toBe(1);
+
+    // The app goes to the background: the camera is let go at once, and asked for again on return.
+    const visibility = (state: "hidden" | "visible") =>
+      page.evaluate((s) => {
+        Object.defineProperty(document, "visibilityState", { value: s, configurable: true });
+        document.dispatchEvent(new Event("visibilitychange"));
+      }, state);
+    await visibility("hidden");
+    await expect.poll(picture).toEqual([]);
+    await visibility("visible");
+    await expect(view).toHaveAttribute("data-state", "live");
+    await expect.poll(picture).toEqual([true]);
+    expect(await calls()).toBe(2);
+  });
+});

@@ -389,7 +389,7 @@ test.describe("several bottles in a row", () => {
 
     await page.goto("/scan");
     await page.waitForLoadState("networkidle");
-    await page.getByRole("radio", { name: "Several in a row" }).click();
+    await page.getByRole("radio", { name: "Batch" }).click();
     // Two photos picked from the library at once.
     await page.locator('input[type="file"]:not([capture])').setInputFiles([
       { name: "a.jpg", mimeType: "image/jpeg", buffer: await makeJpeg(page, first) },
@@ -397,20 +397,20 @@ test.describe("several bottles in a row", () => {
     ]);
     const tray = page.getByTestId("series");
     await expect(tray.locator('li[data-status="ready"]')).toHaveCount(2, { timeout: 15_000 });
-    await expect(page.getByText("0 of 2 done")).toBeVisible();
+    await expect(page.getByTestId("series-counts")).toHaveText(/2 ready/);
     await page.screenshot({ path: shot(`series-tray-${project()}`), fullPage: true });
 
-    await tray.getByRole("button", { name: "Add" }).first().click();
-    await page.getByRole("button", { name: "Yes, add bottles" }).click();
+    // A sure match: the row was the check, so it opens straight on its bottles (with "Change" there).
+    await tray.getByRole("button", { name: "Add", exact: true }).first().click();
     await page.getByRole("button", { name: /^Add 1 bottle/ }).click();
     await expect(
       page.getByText(/Added 1 bottle of Château Margaux Pavillon Rouge/).first(),
     ).toBeVisible();
 
     // Straight on to the next photo, without going back first.
-    await page.getByRole("button", { name: "Yes, add bottles" }).click();
     await page.getByRole("button", { name: /^Add 1 bottle/ }).click();
-    await expect(page.getByText("2 of 2 done")).toBeVisible();
+    await expect(page.getByTestId("series-counts")).toHaveText(/2 added/);
+    await expect(page.getByTestId("series-summary")).toContainText("2 photos added");
 
     const rows = await sql<{ year: number }>(
       `select v.year from public.bottles b join public.wine_vintages v on v.id = b.vintage_id
@@ -419,5 +419,210 @@ test.describe("several bottles in a row", () => {
     );
     expect(rows.map((r) => r.year)).toEqual([2015, 2016]);
     expect(await audit(page)).toEqual([]);
+  });
+});
+
+test.describe("the same wine, several bottles", () => {
+  test("one label is read once; the quantity covers every bottle, each with the photo", async ({
+    page,
+    request,
+  }) => {
+    const { householdId, call } = await furnish(page, request, "scansame");
+    await call(
+      "post",
+      "/wines",
+      {
+        producer: "Château Margaux",
+        name: "Pavillon Rouge",
+        type: "red",
+        countryCode: "FR",
+        region: "Bordeaux",
+      },
+      201,
+    );
+    const size = uniqueSize();
+    await program(size, { content: label() });
+    let sent = 0;
+    await page.route("**/api/v1/scans", (route) => {
+      sent += 1;
+      return route.continue();
+    });
+    await page.goto("/scan");
+    await page.getByRole("radio", { name: "Same wine" }).click();
+    await takePhoto(page, await makeJpeg(page, size));
+    await page.getByRole("button", { name: "Yes, add bottles" }).click();
+    await expect(page.getByText(/One scan covers them all/)).toBeVisible();
+    await page.getByRole("button", { name: "Add 2 bottles" }).click();
+    await expect(page.getByText(/2 bottles of Château Margaux Pavillon Rouge/)).toBeVisible();
+
+    expect(sent).toBe(1);
+    const rows = await sql<{ bottles: number; vintages: number; photos: number }>(
+      `select count(*)::int as bottles, count(distinct vintage_id)::int as vintages,
+              count(distinct front_image_id)::int as photos
+         from public.bottles where household_id = $1`,
+      [householdId],
+    );
+    expect(rows[0]).toEqual({ bottles: 2, vintages: 1, photos: 1 });
+  });
+});
+
+test.describe("a batch of different wines", () => {
+  test("each photo is read once and checked; a wine added from one photo is found for the next; copies and failures are left to the person", async ({
+    page,
+    request,
+  }) => {
+    const { householdId, call } = await furnish(page, request, "batch");
+    await call(
+      "post",
+      "/wines",
+      {
+        producer: "Château Margaux",
+        name: "Pavillon Rouge",
+        type: "red",
+        countryCode: "FR",
+        region: "Bordeaux",
+      },
+      201,
+    );
+    const tempier = label({
+      producer: "Domaine Tempier",
+      wine_name: "Bandol",
+      vintage: 2019,
+      region: "Provence",
+      appellation: "Bandol",
+      text_seen: "DOMAINE TEMPIER BANDOL 2019",
+    });
+    const sizes = [uniqueSize(), uniqueSize(), uniqueSize(), uniqueSize()];
+    await program(sizes[0]!, { content: label() });
+    await program(sizes[1]!, { content: tempier });
+    await program(sizes[2]!, { content: tempier });
+    await program(sizes[3]!, { status: 500 });
+    let sent = 0;
+    await page.route("**/api/v1/scans", (route) => {
+      sent += 1;
+      return route.continue();
+    });
+
+    await page.goto("/scan");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("radio", { name: "Batch" }).click();
+    const margaux = await makeJpeg(page, sizes[0]!);
+    await page.locator('input[type="file"]:not([capture])').setInputFiles([
+      { name: "a.jpg", mimeType: "image/jpeg", buffer: margaux },
+      { name: "b.jpg", mimeType: "image/jpeg", buffer: await makeJpeg(page, sizes[1]!) },
+      { name: "c.jpg", mimeType: "image/jpeg", buffer: await makeJpeg(page, sizes[2]!) },
+      // The first photo again, by mistake.
+      { name: "a-again.jpg", mimeType: "image/jpeg", buffer: margaux },
+      { name: "e.jpg", mimeType: "image/jpeg", buffer: await makeJpeg(page, sizes[3]!) },
+    ]);
+    const tray = page.getByTestId("series");
+    const row = (n: number) => tray.locator(":scope > li").nth(n - 1);
+    await expect(tray.locator('li[data-status="ready"]')).toHaveCount(4, { timeout: 20_000 });
+    await expect(row(4)).toHaveAttribute("data-status", "held");
+    await expect(row(4)).toContainText("This is the same photo as photo 1");
+    await expect(row(3)).toContainText("Same wine as photo 2");
+    await expect(row(5).getByTestId("state")).toHaveText("Check this");
+    await expect(row(5).getByRole("button", { name: "Read again (1 scan)" })).toBeVisible();
+    // The copy was not sent: four photos, four readings.
+    expect(sent).toBe(4);
+    await page.screenshot({ path: shot(`batch-${project()}`), fullPage: true });
+
+    // A wine you have: straight to its bottles. A double tap still adds one bottle.
+    await row(1).getByRole("button", { name: "Add", exact: true }).click();
+    await page.getByRole("button", { name: "Add 1 bottle" }).dblclick();
+    await expect(
+      page.getByText(/Added 1 bottle of Château Margaux Pavillon Rouge/).first(),
+    ).toBeVisible();
+
+    // On by itself to the next one: a new wine, checked and created once.
+    await expect(page.getByRole("heading", { name: "A new wine" })).toBeVisible();
+    await expect(page.getByLabel("Producer")).toHaveValue("Domaine Tempier");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Add 1 bottle" }).click();
+    await expect(page.getByText(/Added 1 bottle of Domaine Tempier Bandol/).first()).toBeVisible();
+
+    // The second photo of it now finds that wine instead of offering it as new a second time.
+    await expect(
+      page.getByRole("heading", { level: 1, name: "How many, and where?" }),
+    ).toBeVisible();
+    await expect(page.getByText("Bandol").first()).toBeVisible();
+    await page.getByRole("button", { name: "Add 1 bottle" }).click();
+
+    // The unread one is left to the person: skipped, nothing added.
+    await expect(page.getByRole("heading", { name: "Fill it in yourself" })).toBeVisible();
+    await page.getByRole("button", { name: "Skip this photo" }).click();
+    await row(4).getByRole("button", { name: "Skip" }).click();
+    await expect(page.getByTestId("series-summary")).toContainText(
+      "3 photos added · 2 skipped · 0 not read",
+    );
+
+    const wines = await sql<{ producer: string; bottles: number }>(
+      `select p.name as producer, count(b.id)::int as bottles
+         from public.bottles b join public.wine_vintages v on v.id = b.vintage_id
+         join public.wines w on w.id = v.wine_id join public.producers p on p.id = w.producer_id
+        where b.household_id = $1 group by p.name order by p.name`,
+      [householdId],
+    );
+    expect(wines).toEqual([
+      { producer: "Château Margaux", bottles: 1 },
+      { producer: "Domaine Tempier", bottles: 2 },
+    ]);
+    const [tempiers] = await sql<{ n: number }>(
+      `select count(*)::int as n from public.wines w join public.producers p on p.id = w.producer_id
+        where w.owner_household_id = $1 and p.name = 'Domaine Tempier'`,
+      [householdId],
+    );
+    expect(tempiers!.n).toBe(1);
+    expect(sent).toBe(4);
+    expect(await audit(page)).toEqual([]);
+  });
+
+  test("a failed photo is tried again only when asked, and alone; a photo removed while it is read never comes back", async ({
+    page,
+    request,
+  }) => {
+    await furnish(page, request, "batchsafe");
+    const [first, second] = [uniqueSize(), uniqueSize()];
+    await program(first, { content: label() });
+    await program(second, { content: label({ vintage: 2016 }) });
+    let calls = 0;
+    await page.route("**/api/v1/scans", async (route) => {
+      calls += 1;
+      if (calls === 1) return route.abort("connectionreset");
+      if (calls === 2) await new Promise((r) => setTimeout(r, 2500));
+      return route.continue();
+    });
+    await page.goto("/scan");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("radio", { name: "Batch" }).click();
+    const library = page.locator('input[type="file"]:not([capture])');
+    const tray = page.getByTestId("series");
+
+    await library.setInputFiles({
+      name: "a.jpg",
+      mimeType: "image/jpeg",
+      buffer: await makeJpeg(page, first),
+    });
+    await expect(tray.locator('li[data-status="failed"]')).toHaveCount(1);
+    await expect(tray).toContainText(/No connection/);
+
+    await library.setInputFiles({
+      name: "b.jpg",
+      mimeType: "image/jpeg",
+      buffer: await makeJpeg(page, second),
+    });
+    await expect(tray.locator('li[data-status="reading"]')).toHaveCount(1);
+    await page.getByRole("button", { name: "Remove photo 2" }).click();
+    await expect(tray.locator(":scope > li")).toHaveCount(1);
+    // Its answer arrives after all: ignored.
+    await page.waitForTimeout(3000);
+    await expect(tray.locator(":scope > li")).toHaveCount(1);
+    expect(calls).toBe(2);
+
+    await tray.getByRole("button", { name: "Try again" }).click();
+    await expect(tray.locator('li[data-status="ready"]')).toHaveCount(1);
+    expect(calls).toBe(3);
+    await page.waitForTimeout(500);
+    expect(calls).toBe(3);
   });
 });
