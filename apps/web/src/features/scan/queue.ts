@@ -102,7 +102,14 @@ export function summarize(items: readonly QueueItem[]) {
     skipped: 0,
   };
   for (const i of items) count[bucketOf(i)] += 1;
-  const read = items.filter((i) => i.status !== "waiting" && i.status !== "reading").length;
+  // Progress counts photos that have an answer (or were left out): not ones still waiting, paused or held.
+  const read = items.filter(
+    (i) =>
+      i.status !== "waiting" &&
+      i.status !== "reading" &&
+      i.status !== "paused" &&
+      i.status !== "held",
+  ).length;
   return {
     total: items.length,
     ...count,

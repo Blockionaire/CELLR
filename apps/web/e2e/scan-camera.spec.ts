@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { arrive } from "./helpers";
+import { arrive, makeJpeg } from "./helpers";
 import { expectReachable } from "./scan-helpers";
 
 /**
@@ -77,6 +77,48 @@ test.describe("without a live camera, the phone's own camera takes over", () => 
     await page.getByTestId("shutter").click();
     const picked = await chooser;
     expect(await picked.element().getAttribute("capture")).toBe("environment");
+  });
+
+  test("refused once, never asked again by itself: not on returning to the viewfinder, nor from the background", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { cameraCalls: number };
+      w.cameraCalls = 0;
+      navigator.mediaDevices.getUserMedia = () => {
+        w.cameraCalls += 1;
+        return Promise.reject(new DOMException("no", "NotAllowedError"));
+      };
+    });
+    await arrive(page, "scandenyback");
+    await page.goto("/scan");
+    const calls = () =>
+      page.evaluate(() => (window as unknown as { cameraCalls: number }).cameraCalls);
+    await page.getByRole("button", { name: "Use the camera" }).first().click();
+    await expect(page.getByText(/CELLR may not use the camera/)).toBeVisible();
+    expect(await calls()).toBe(1);
+
+    // A photo with the phone's own camera: off to its review, then back to the viewfinder.
+    await page
+      .locator('input[type="file"]')
+      .first()
+      .setInputFiles({ name: "a.jpg", mimeType: "image/jpeg", buffer: await makeJpeg(page) });
+    await expect(page.getByTestId("capture")).toHaveCount(0);
+    await page.getByRole("button", { name: "Try another photo" }).click();
+    await expect(page.getByTestId("capture")).toBeVisible();
+
+    // The app goes to the background and comes back.
+    for (const s of ["hidden", "visible"] as const)
+      await page.evaluate((state) => {
+        Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
+        document.dispatchEvent(new Event("visibilitychange"));
+      }, s);
+    await page.waitForTimeout(500);
+    expect(await calls()).toBe(1);
+
+    // Only a new tap asks again.
+    await page.getByRole("button", { name: "Try the camera again" }).click();
+    await expect.poll(calls).toBe(2);
   });
 
   test("no camera at all: it says so, and both buttons still work", async ({ page }) => {

@@ -257,6 +257,30 @@ describe("the batch queue", () => {
     expect(c!.status).toBe("failed");
   });
 
+  it("progress counts only photos with an answer: budget-paused photos are not progress", async () => {
+    const { q, pending } = queue();
+    await q.add([photo(), photo(), photo(), photo()]);
+    pending[0]!.resolve(unread("budget"));
+    pending[1]!.resolve(result());
+    await flush();
+    expect(q.items.map((i) => i.status)).toEqual(["ready", "ready", "paused", "paused"]);
+    expect(summarize(q.items)).toMatchObject({ total: 4, progress: 0.5, finished: false });
+    // Skipped still counts as handled, as before.
+    q.skip(q.items[2]!.id);
+    expect(summarize(q.items).progress).toBe(0.75);
+  });
+
+  it("a duplicate photo held aside is not progress until it is read or left out", async () => {
+    const { q, pending } = queue();
+    await q.add([photo("same"), new File(["same"], "copy.jpg")]);
+    pending[0]!.resolve(result());
+    await flush();
+    expect(q.items[1]!.status).toBe("held");
+    expect(summarize(q.items).progress).toBe(0.5);
+    q.skip(q.items[1]!.id);
+    expect(summarize(q.items).progress).toBe(1);
+  });
+
   it("different photos of the same wine are noticed, never merged: the person decides", async () => {
     const { q, pending } = queue();
     await q.add([photo(), photo(), photo()]);

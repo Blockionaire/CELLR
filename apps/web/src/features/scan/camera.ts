@@ -65,6 +65,13 @@ const readWanted = () => {
     return false;
   }
 };
+const forgetWanted = () => {
+  try {
+    sessionStorage.removeItem(WANTED_KEY);
+  } catch {
+    // nothing remembered
+  }
+};
 const writeWanted = () => {
   try {
     sessionStorage.setItem(WANTED_KEY, "1");
@@ -144,7 +151,13 @@ export function useCamera(active: boolean) {
       attach(video.current);
       setState("live");
     } catch (e) {
-      if (alive.current) setState(cameraStateFor(e));
+      // Refused (or failed): never asked again by itself, on return to the viewfinder, from the background or on
+      // a later visit. Only a new tap ("Try the camera again") asks again.
+      forgetWanted();
+      if (alive.current) {
+        setWanted(false);
+        setState(cameraStateFor(e));
+      }
     } finally {
       requesting.current = false;
     }
