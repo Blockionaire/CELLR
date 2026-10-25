@@ -14,7 +14,8 @@ import {
   tasteContextText,
   wantsSomethingDifferent,
 } from "./taste-context";
-import { rankForTonight, type TonightCandidate } from "./tonight";
+import { dishById, scorePairing } from "./pairing";
+import { rankForTonight, rankWithTaste, type TonightCandidate } from "./tonight";
 
 let n = 0;
 const tasted = (over: Partial<TasteTasting> = {}): TasteTasting => {
@@ -121,51 +122,87 @@ const riojaLover = tasteContextFrom(
   profile([10, 9, 9].map((score) => tasted({ region: "Rioja", score }))),
 )!;
 
-describe("a small taste nudge in the plain Tonight ranking", () => {
-  it("is capped and needs evidence", () => {
+const lover = (region: string) =>
+  tasteContextFrom(profile([10, 9, 9].map((score) => tasted({ region, score }))))!;
+const bordeauxLover = lover("Bordeaux");
+const anything = { dish: null, occasion: "anything" } as const;
+const ids = (picks: ReturnType<typeof rankForTonight>) => picks.map((p) => p.candidate.wineName);
+
+describe("taste in the plain Tonight ranking: only ever a tie-breaker", () => {
+  it("the bonus is capped and needs evidence", () => {
     expect(tasteBonus({ type: "red", region: "Rioja" }, riojaLover)).toBe(MAX_TASTE_BONUS);
     expect(tasteBonus({ type: "white", region: "Mosel" }, riojaLover)).toBe(0);
     expect(tasteBonus({ type: "red", region: "Rioja" }, null)).toBe(0);
   });
 
-  it("decides between two otherwise equal wines, and says so", () => {
+  it("two equally suitable wines: taste decides their order, and that is called personal", () => {
     const a = wine({ wineName: "Bordeaux red", region: "Bordeaux" });
     const b = wine({ wineName: "Rioja red", region: "Rioja" });
-    const general = rankForTonight([a, b], { dish: null, occasion: "anything" }, NOW);
-    expect(general[0]!.candidate.wineName).toBe("Bordeaux red"); // alphabetical, without taste
-    const mine = rankForTonight([a, b], { dish: null, occasion: "anything" }, NOW, riojaLover);
-    expect(mine[0]!.candidate.wineName).toBe("Rioja red");
-    expect(mine[0]!.reasons).toContain("your-taste");
+    expect(ids(rankForTonight([a, b], anything, NOW))).toEqual(["Bordeaux red", "Rioja red"]);
+    const mine = rankWithTaste([a, b], anything, NOW, riojaLover);
+    expect(ids(mine.picks)).toEqual(["Rioja red", "Bordeaux red"]);
+    expect(mine.personal).toBe(true);
   });
 
-  it("never lifts a poor pairing over a good one", () => {
-    const sauvignon = wine({ wineName: "Sancerre", type: "white", region: "Loire" });
-    const rioja = wine({ wineName: "Rioja", type: "red", region: "Rioja" });
-    const picks = rankForTonight(
-      [sauvignon, rioja],
-      { dish: "shellfish", occasion: "anything" },
-      NOW,
-      riojaLover,
-    );
-    expect(picks[0]!.candidate.wineName).toBe("Sancerre");
-    expect(picks.find((p) => p.candidate.wineName === "Rioja")!.reasons).not.toContain(
-      "your-taste",
-    );
+  it("a single wine matching the taste is still the only choice: not called personal", () => {
+    const only = rankWithTaste([wine({ region: "Rioja" })], anything, NOW, riojaLover);
+    expect(only.picks).toHaveLength(1);
+    expect(only.personal).toBe(false);
   });
 
-  it("never outweighs a wine that is clearly readier, nor 'use it up'", () => {
+  it("taste agreeing with the general order changes nothing: not called personal", () => {
+    const a = wine({ wineName: "A Rioja", region: "Rioja" });
+    const b = wine({ wineName: "B Bordeaux", region: "Bordeaux" });
+    const ranked = rankWithTaste([a, b], anything, NOW, riojaLover);
+    expect(ids(ranked.picks)).toEqual(["A Rioja", "B Bordeaux"]);
+    expect(ranked.personal).toBe(false);
+  });
+
+  it("no taste (or personal advice off): exactly the baseline ranking, never personal", () => {
+    const cellar = [
+      wine({ wineName: "Rioja", region: "Rioja" }),
+      wine({ wineName: "Chablis", type: "white", region: "Chablis" }),
+      wine({ wineName: "Brut", type: "sparkling", region: "Champagne" }),
+    ];
+    const baseline = rankForTonight(cellar, anything, NOW);
+    const off = rankWithTaste(cellar, anything, NOW, null);
+    expect(off.picks).toEqual(baseline);
+    expect(off.personal).toBe(false);
+  });
+
+  it("a nearby better pairing (59 against 55) is never overtaken because of taste", () => {
+    const quiche = { dish: "quiche", occasion: "anything" } as const;
+    const bordeaux = wine({ wineName: "Bordeaux", region: "Bordeaux", countryCode: null });
+    const mosel = wine({ wineName: "Mosel Pinot", region: "Mosel", countryCode: null });
+    const dish = dishById("quiche")!;
+    expect(scorePairing(bordeaux, dish).score).toBe(55);
+    expect(scorePairing(mosel, dish).score).toBe(59);
+    const ranked = rankWithTaste([bordeaux, mosel], quiche, NOW, bordeauxLover);
+    expect(ids(ranked.picks)[0]).toBe("Mosel Pinot");
+    expect(ranked.personal).toBe(false);
+  });
+
+  it("a poor pairing gets no taste boost, even when it would only break a tie", () => {
+    const shellfish = { dish: "shellfish", occasion: "anything" } as const;
+    const a = wine({ wineName: "A Claret", region: "Bordeaux" });
+    const b = wine({ wineName: "B Rioja", region: "Rioja" });
+    expect(scorePairing(b, dishById("shellfish")!).score).toBeLessThan(55);
+    const ranked = rankWithTaste([a, b], shellfish, NOW, riojaLover);
+    expect(ranked.picks).toEqual(rankForTonight([a, b], shellfish, NOW));
+    expect(ranked.personal).toBe(false);
+  });
+
+  it("never outweighs a clearly readier wine, and 'use it up' stays unpersonalised", () => {
     const ready = wine({ wineName: "Ready Bordeaux", region: "Bordeaux", drink: drink("ready") });
     const developing = wine({ wineName: "Rioja", region: "Rioja", drink: drink("developing") });
-    expect(
-      rankForTonight([ready, developing], { dish: null, occasion: "anything" }, NOW, riojaLover)[0]!
-        .candidate.wineName,
-    ).toBe("Ready Bordeaux");
-    const useUp = rankForTonight(
-      [wine({ region: "Rioja" })],
-      { dish: null, occasion: "use-it-up" },
-      NOW,
-      riojaLover,
+    expect(ids(rankForTonight([ready, developing], anything, NOW, riojaLover))[0]).toBe(
+      "Ready Bordeaux",
     );
-    expect(useUp[0]!.reasons).not.toContain("your-taste");
+    const useUp = { dish: null, occasion: "use-it-up" } as const;
+    const a = wine({ wineName: "A Bordeaux", region: "Bordeaux" });
+    const b = wine({ wineName: "B Rioja", region: "Rioja" });
+    const ranked = rankWithTaste([a, b], useUp, NOW, riojaLover);
+    expect(ranked.picks).toEqual(rankForTonight([a, b], useUp, NOW));
+    expect(ranked.personal).toBe(false);
   });
 });

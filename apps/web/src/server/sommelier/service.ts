@@ -101,8 +101,8 @@ export function createSommelierService(deps: SommelierDeps) {
           basic: "pairing",
           bottles,
           reason,
-          // Said only when the taste nudge really placed one of the bottles shown.
-          personal: shown.some((p) => p.reasons.includes("your-taste")),
+          // Said only when the taste changed which bottles were picked, or their order.
+          personal: taste !== null && view.personal === true,
         };
     }
     const worth = worthOpening(items);

@@ -48,9 +48,7 @@ export type PickReason =
   | "loved"
   | "easy"
   | "impressive"
-  | "bubbles"
-  /** The person's own taste (their answers and ratings) tipped it among similar wines. */
-  | "your-taste";
+  | "bubbles";
 
 export type MatchLevel = "great" | "good" | "worth-a-try";
 
@@ -79,6 +77,8 @@ interface Scored {
   total: number;
   pairing: number | null;
   reasons: PickReason[];
+  /** The person's taste for this wine: only ever a tie-breaker between equal totals (see rankForTonight). */
+  taste: number;
 }
 
 function occasionBonus(
@@ -129,14 +129,11 @@ function score(
   const reasons: PickReason[] = [...(pairing?.reasons.slice(0, 2) ?? [])];
 
   // Taste only chooses between suitable wines: never for a poor pairing, never when the point is to use one up.
+  // It is kept apart from the total, so it can never outweigh a better pairing or a readier wine.
   const personal =
     request.occasion !== "use-it-up" && (pairing === null || pairing.score >= TASTE_MIN_PAIRING)
       ? tasteBonus(c, taste)
       : 0;
-  if (personal > 0) {
-    total += personal;
-    reasons.push("your-taste");
-  }
 
   total += DRINK_BONUS[c.drink.phase];
   if (c.drink.phase === "peak") reasons.push("at-its-best");
@@ -160,6 +157,7 @@ function score(
     total,
     pairing: pairing?.score ?? null,
     reasons: [...new Set(reasons)].slice(0, 3),
+    taste: personal,
   };
 }
 
@@ -182,14 +180,20 @@ export function rankForTonight(
   candidates: readonly TonightCandidate[],
   request: TonightRequest,
   now: Date,
-  /** The person's own taste, when they have one and want it used; a small nudge only (see tasteBonus). */
+  /**
+   * The person's own taste, when they have one and want it used. It only breaks a tie between wines with the
+   * same total (where the name decides otherwise): it never changes the order of wines that differ at all.
+   */
   taste: TasteContext | null = null,
 ): TonightPick[] {
   if (candidates.length === 0) return [];
   const ready = candidates.filter((c) => c.drink.phase !== "young");
   const pool = (ready.length > 0 ? ready : candidates).map((c) => score(c, request, taste));
   pool.sort(
-    (a, b) => b.total - a.total || a.candidate.wineName.localeCompare(b.candidate.wineName),
+    (a, b) =>
+      b.total - a.total ||
+      b.taste - a.taste ||
+      a.candidate.wineName.localeCompare(b.candidate.wineName),
   );
 
   const picks: Array<Scored & { slot: TonightSlot }> = [];
@@ -258,4 +262,24 @@ export interface TonightView {
   picks: TonightPickView[];
   /** How many wines in the cellar took part. */
   considered: number;
+  /** The person's taste changed which bottles were picked, or their order (see rankWithTaste). */
+  personal?: boolean;
+}
+
+/**
+ * The ranking with the person's taste, and whether that taste made a difference: the same ranking is done
+ * without it (in memory, on the same candidates) and the picks are compared, bottle by bottle and in order.
+ * Only then may the answer say it was chosen for them.
+ */
+export function rankWithTaste(
+  candidates: readonly TonightCandidate[],
+  request: TonightRequest,
+  now: Date,
+  taste: TasteContext | null,
+): { picks: TonightPick[]; personal: boolean } {
+  const picks = rankForTonight(candidates, request, now, taste);
+  if (!taste) return { picks, personal: false };
+  const general = rankForTonight(candidates, request, now);
+  const order = (list: TonightPick[]) => list.map((p) => p.candidate.vintageId).join(",");
+  return { picks, personal: order(picks) !== order(general) };
 }
