@@ -12,12 +12,15 @@ type Props = {
   searchParams: Promise<{ rate?: string; pick?: string }>;
 };
 
-async function load(vintageId: string) {
+async function load(vintageId: string, rate?: string) {
   if (!z.uuid().safeParse(vintageId).success) notFound();
   const ctx = await getPageContext();
   if (!ctx) return null; // the (app) layout has already redirected signed-out visitors
   try {
-    return await servicesFor(ctx).cellar.vintage(vintageId);
+    // A bottle to rate (from Home or the journal) is looked up on its own, even when it is older than the
+    // opened bottles the page lists; anything but a bottle id is ignored.
+    const asked = rate && z.uuid().safeParse(rate).success ? rate : undefined;
+    return await servicesFor(ctx).cellar.vintage(vintageId, { rate: asked });
   } catch (error) {
     if (isDomainError(error) && error.code === "NOT_FOUND") notFound();
     throw error;
@@ -32,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function VintagePage({ params, searchParams }: Props) {
   const { vintageId } = await params;
   const { rate, pick } = await searchParams;
-  const [detail, me] = await Promise.all([load(vintageId), getPageMe()]);
+  const [detail, me] = await Promise.all([load(vintageId, rate), getPageMe()]);
   if (!detail) return null;
   const currency = me?.households.find((h) => h.id === me.activeHouseholdId)?.currency ?? "EUR";
   return (

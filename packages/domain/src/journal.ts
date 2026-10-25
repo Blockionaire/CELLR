@@ -13,6 +13,10 @@ export interface JournalEntry {
   wineId: string;
   /** The bottle it was written about; null for an old tasting whose bottle was deleted. */
   bottleId: string | null;
+  /** The bottle is still opened in this household, so the existing rating sheet can change this tasting. */
+  editable: boolean;
+  /** The household still has this wine and vintage (in the cellar or opened), so its page opens. */
+  wineAvailable: boolean;
   producer: string;
   wineName: string;
   year: number | null;
@@ -125,10 +129,18 @@ export const journalTypes = (entries: readonly JournalEntry[]): WineType[] => [
 ];
 
 /**
- * Where to change an entry: the wine's page, with the rating sheet open for that bottle (the existing editor).
- * An entry whose bottle no longer exists opens the wine's page only.
+ * Where an entry leads. Editable: the wine's page with the existing rating sheet open for that bottle. Otherwise,
+ * while the wine's page still opens: that page (nothing to edit there). Otherwise nowhere: the tasting is kept in
+ * the journal as an archived memory, never a link to a page that cannot open.
  */
-export const journalEditHref = (e: Pick<JournalEntry, "vintageId" | "bottleId">): string =>
-  e.bottleId
-    ? `/cellar/${e.vintageId}?rate=${encodeURIComponent(e.bottleId)}`
-    : `/cellar/${e.vintageId}`;
+export function journalEditHref(
+  e: Pick<JournalEntry, "vintageId" | "bottleId" | "editable" | "wineAvailable">,
+): string | null {
+  if (e.editable && e.bottleId)
+    return `/cellar/${e.vintageId}?rate=${encodeURIComponent(e.bottleId)}`;
+  return e.wineAvailable ? `/cellar/${e.vintageId}` : null;
+}
+
+/** The wine's own page, when it still opens. */
+export const journalWineHref = (e: Pick<JournalEntry, "vintageId" | "wineAvailable">) =>
+  e.wineAvailable ? `/cellar/${e.vintageId}` : null;

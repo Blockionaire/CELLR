@@ -8,6 +8,7 @@ import {
   formatStars,
   formatVintage,
   journalEditHref,
+  journalWineHref,
   journalTypes,
   topRated,
   type JournalEntry,
@@ -207,12 +208,14 @@ function Summary({ view }: { view: JournalView }) {
         <div className="grid gap-4 sm:grid-cols-2">
           {best.length > 0 && (
             <div className="rounded-[22px] bg-surface p-4 shadow-raised">
-              <h3 className="text-small font-semibold text-ink">{t("best")}</h3>
+              <h3 className="text-small font-semibold text-ink">
+                {view.truncated ? t("bestRecent", { count: view.entries.length }) : t("best")}
+              </h3>
               <ol className="mt-3 flex flex-col gap-2">
                 {best.map((e) => (
                   <li key={e.tastingId}>
-                    <Link
-                      href={`/cellar/${e.vintageId}`}
+                    <MaybeLink
+                      href={journalWineHref(e)}
                       className="flex min-h-11 items-center gap-3 rounded-[14px] px-1 transition-colors duration-150 hover:bg-raised motion-reduce:transition-none"
                     >
                       <WinePicture wine={e} className="h-12 w-9 shrink-0 rounded-[8px]" />
@@ -228,7 +231,7 @@ function Summary({ view }: { view: JournalView }) {
                         <StarIcon size={14} fill="currentColor" className="text-accent-fg" />
                         {formatStars(e.score!)}
                       </span>
-                    </Link>
+                    </MaybeLink>
                   </li>
                 ))}
               </ol>
@@ -281,21 +284,23 @@ function JournalCard({ entry: e }: { entry: JournalEntry }) {
   const tTasting = useTranslations("tasting");
   const day = useDay();
   const title = `${e.producer} ${e.wineName} ${formatVintage(e.year)}`.trim();
+  const wineHref = journalWineHref(e);
+  const action = journalEditHref(e);
   return (
     <article className="flex gap-4 rounded-[22px] bg-surface p-4 shadow-raised">
-      <Link
-        href={`/cellar/${e.vintageId}`}
-        aria-label={t("openWine", { wine: title })}
+      <MaybeLink
+        href={wineHref}
+        aria-label={wineHref ? t("openWine", { wine: title }) : undefined}
         className="shrink-0"
       >
         <WinePicture wine={e} className="h-24 w-16 rounded-[12px]" />
-      </Link>
+      </MaybeLink>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <header>
           <h3 className="truncate text-body font-semibold text-ink">
-            <Link href={`/cellar/${e.vintageId}`} className="hover:underline underline-offset-2">
+            <MaybeLink href={wineHref} className="hover:underline underline-offset-2">
               {e.producer}
-            </Link>
+            </MaybeLink>
           </h3>
           <p className="truncate text-small text-ink-2">
             {e.wineName} {formatVintage(e.year)}
@@ -330,19 +335,45 @@ function JournalCard({ entry: e }: { entry: JournalEntry }) {
           </ul>
         )}
         {e.note && <p className="line-clamp-4 whitespace-pre-line text-small text-ink">{e.note}</p>}
-        <div className="mt-1 flex gap-3">
-          <Link
-            href={journalEditHref(e)}
-            className={cn(
-              "inline-flex min-h-11 items-center text-small font-medium text-accent-fg",
-              "underline-offset-2 hover:underline",
-            )}
-            data-testid="journal-edit"
-          >
-            {e.bottleId ? t("edit") : t("openWineShort")}
-          </Link>
-        </div>
+        {action ? (
+          <div className="mt-1 flex gap-3">
+            <Link
+              href={action}
+              className={cn(
+                "inline-flex min-h-11 items-center text-small font-medium text-accent-fg",
+                "underline-offset-2 hover:underline",
+              )}
+              data-testid="journal-edit"
+            >
+              {e.editable ? t("edit") : t("openWineShort")}
+            </Link>
+          </div>
+        ) : (
+          <p className="mt-1 text-caption text-ink-3" data-testid="journal-archived">
+            {t("archived")}
+          </p>
+        )}
       </div>
     </article>
+  );
+}
+
+/** A link when there is somewhere to go; otherwise the same content, plainly (never a link to a dead page). */
+function MaybeLink({
+  href,
+  className,
+  children,
+  ...rest
+}: {
+  href: string | null;
+  className?: string;
+  children: React.ReactNode;
+  "aria-label"?: string | undefined;
+}) {
+  if (!href) return <span className={className}>{children}</span>;
+  return (
+    <Link href={href} className={className} aria-label={rest["aria-label"]}>
+      {children}
+    </Link>
   );
 }

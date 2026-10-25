@@ -828,7 +828,7 @@ export function createCellarRepository(db: Db): CellarRepository {
       const { data, error } = await db
         .from("tastings")
         .select(
-          "id, vintage_id, bottle_id, score, descriptors, note, tasted_at, bottles(front_image_id), wine_vintages!inner(id, year, wines!inner(id, name, wine_type, producers!inner(name)))",
+          "id, vintage_id, bottle_id, score, descriptors, note, tasted_at, bottles(front_image_id, status), wine_vintages!inner(id, year, wines!inner(id, name, wine_type, producers!inner(name)))",
         )
         .eq("household_id", householdId)
         .eq("user_id", userId)
@@ -852,11 +852,30 @@ export function createCellarRepository(db: Db): CellarRepository {
         if (found.error) throw mapDbError(found.error);
         for (const i of found.data) images.set(i.id, toImageRef(i));
       }
+      // A tasting whose bottle is still opened can be edited, and its wine's page opens. For the others (bottle
+      // deleted, or no longer opened) ask once, for just those vintages, whether the household still has the wine
+      // in the cellar or opened: only then does its page open.
+      const opened = (r: (typeof data)[number]) =>
+        r.bottle_id !== null && r.bottles?.status === "opened";
+      const unsure = [...new Set(data.filter((r) => !opened(r)).map((r) => r.vintage_id))];
+      const available = new Set<string>();
+      for (let i = 0; i < unsure.length; i += 100) {
+        const found = await db
+          .from("bottles")
+          .select("vintage_id")
+          .eq("household_id", householdId)
+          .in("vintage_id", unsure.slice(i, i + 100))
+          .in("status", ["in_cellar", "opened"]);
+        if (found.error) throw mapDbError(found.error);
+        for (const b of found.data) available.add(b.vintage_id);
+      }
       return data.map((r) => ({
         tastingId: r.id,
         vintageId: r.vintage_id,
         wineId: r.wine_vintages.wines.id,
         bottleId: r.bottle_id,
+        editable: opened(r),
+        wineAvailable: opened(r) || available.has(r.vintage_id),
         producer: r.wine_vintages.wines.producers.name,
         wineName: r.wine_vintages.wines.name,
         year: r.wine_vintages.year,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   filterJournal,
   journalEditHref,
+  journalWineHref,
   journalTypes,
   summarizeJournal,
   topRated,
@@ -16,6 +17,8 @@ const entry = (over: Partial<JournalEntry> = {}): JournalEntry => {
     vintageId: `v${n}`,
     wineId: `w${n}`,
     bottleId: `b${n}`,
+    editable: true,
+    wineAvailable: true,
     producer: `Producer ${n}`,
     wineName: `Wine ${n}`,
     year: 2015,
@@ -106,10 +109,25 @@ describe("search, filter and order", () => {
 });
 
 describe("editing an entry", () => {
-  it("opens the existing rating sheet for that wine and bottle", () => {
-    expect(journalEditHref({ vintageId: "v1", bottleId: "b1" })).toBe("/cellar/v1?rate=b1");
+  const link = (over: Partial<JournalEntry>) =>
+    journalEditHref({
+      vintageId: "v1",
+      bottleId: "b1",
+      editable: true,
+      wineAvailable: true,
+      ...over,
+    });
+  it("an editable entry opens the existing rating sheet for that wine and bottle", () => {
+    expect(link({})).toBe("/cellar/v1?rate=b1");
   });
-  it("an entry whose bottle is gone opens the wine's page", () => {
-    expect(journalEditHref({ vintageId: "v1", bottleId: null })).toBe("/cellar/v1");
+  it("a bottle no longer opened: the wine's page, never an edit link", () => {
+    expect(link({ editable: false })).toBe("/cellar/v1");
+  });
+  it("an archived tasting with no bottle of the wine left: no link at all", () => {
+    expect(link({ bottleId: null, editable: false, wineAvailable: false })).toBeNull();
+    expect(journalWineHref({ vintageId: "v1", wineAvailable: false })).toBeNull();
+  });
+  it("a deleted bottle whose wine is still in the cellar: the wine's page", () => {
+    expect(link({ bottleId: null, editable: false })).toBe("/cellar/v1");
   });
 });

@@ -1384,6 +1384,8 @@
     "unrated": "No stars",
     "edit": "Edit rating",
     "openWineShort": "Open wine",
-    "openWine": "Open {wine}"
+    "openWine": "Open {wine}",
+    "bestRecent": "Highest rated of your latest {count}",
+    "archived": "This wine is no longer in your cellar. Your tasting stays here, but can no longer be edited."
   }
 }

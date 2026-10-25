@@ -125,3 +125,59 @@ test("an empty journal invites the first tasting, and Profile leads here", async
   await expect(page.getByRole("heading", { name: "Your journal is still empty" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Go to your cellar" })).toBeVisible();
 });
+
+test("an older bottle's tasting is edited in place; an archived one stays readable without a dead link", async ({
+  page,
+  request,
+}) => {
+  const { email } = await arrive(page, "journal-old");
+  const call = await client(request, email);
+  const wine = (
+    await call<{ id: string }>(
+      "post",
+      "/wines",
+      { producer: "Lopez de Heredia", name: "Tondonia", type: "red", countryCode: "ES" },
+      201,
+    )
+  ).body;
+  const { bottleIds } = (
+    await call<{ bottleIds: string[] }>(
+      "post",
+      "/bottles",
+      { wineId: wine.id, year: 2010, quantity: 14, locationId: null },
+      201,
+    )
+  ).body;
+  for (const id of bottleIds) await call("patch", `/bottles/${id}`, { action: "open" }, 200);
+  // The first one opened longest ago: outside the 12 the wine's page lists.
+  const oldest = bottleIds[0]!;
+  await sql("update public.bottles set opened_at = now() - interval '1 year' where id = $1", [
+    oldest,
+  ]);
+  await call("put", `/bottles/${oldest}/tasting`, { score: 8, note: "From the old days." }, 200);
+
+  await page.goto("/ratings");
+  const card = page.getByRole("list", { name: "Your tastings" }).locator(":scope > li").first();
+  await card.getByTestId("journal-edit").click();
+  const sheet = page.getByRole("dialog", { name: "How was it?" });
+  await expect(sheet).toBeVisible();
+  // The existing tasting is loaded: this edits it, it does not start a second one.
+  await expect(sheet.getByLabel("Your note")).toHaveValue("From the old days.");
+  await sheet.getByLabel("Your note").fill("Still lovely.");
+  await sheet.getByRole("button", { name: "Save" }).click();
+  await expect(sheet).toBeHidden();
+  const rows = await sql<{ n: string }>(
+    "select count(*)::text as n from public.tastings where bottle_id = $1",
+    [oldest],
+  );
+  expect(rows[0]!.n).toBe("1");
+
+  // Every bottle of the wine is gone (hard-deleted): the tasting stays, archived, with nowhere broken to go.
+  await sql("delete from public.bottles where id = any($1::uuid[])", [bottleIds]);
+  await page.goto("/ratings");
+  const archived = page.getByRole("list", { name: "Your tastings" }).locator(":scope > li").first();
+  await expect(archived.getByText("Still lovely.")).toBeVisible();
+  await expect(archived.getByTestId("journal-archived")).toBeVisible();
+  await expect(archived.getByTestId("journal-edit")).toHaveCount(0);
+  await expect(archived.getByRole("link")).toHaveCount(0);
+});

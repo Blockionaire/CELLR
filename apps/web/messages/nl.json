@@ -1384,6 +1384,8 @@
     "unrated": "Geen sterren",
     "edit": "Beoordeling bewerken",
     "openWineShort": "Wijn openen",
-    "openWine": "{wine} openen"
+    "openWine": "{wine} openen",
+    "bestRecent": "Hoogst gewaardeerd van je laatste {count}",
+    "archived": "Deze wijn ligt niet meer in je kelder. Je proeverij blijft hier bewaard, maar kan niet meer bewerkt worden."
   }
 }
