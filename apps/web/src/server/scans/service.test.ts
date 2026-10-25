@@ -38,7 +38,8 @@ const wine = (
 
 function setup(
   options: {
-    answer?: RawExtraction | "invalid" | "unavailable" | "timeout" | "rate_limited" | "refused";
+    answer?:
+      RawExtraction | "invalid" | "unavailable" | "timeout" | "rate_limited" | "refused" | "budget";
     wines?: WineSummary[];
     noAi?: boolean;
     spend?: () => Promise<void>;
@@ -202,6 +203,13 @@ describe("scanning a label", () => {
       });
       expect(state.usage[0]!.status, kind).toBe(status);
     }
+  });
+
+  it("the platform's AI budget spent: its own reason, so a batch stops sending photos", async () => {
+    const { service, state } = setup({ answer: "budget" });
+    const result = await service.scan({ photo });
+    expect(result).toMatchObject({ outcome: "unread", reason: "budget", image: { id: "img1" } });
+    expect(state.usage[0]!.status).toBe("budget_exhausted");
   });
 
   it("without an AI key it still keeps the photo, and does not pretend", async () => {

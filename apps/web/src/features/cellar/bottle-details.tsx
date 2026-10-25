@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   AddBottlesSchema,
   BottleExtrasSchema,
@@ -44,6 +44,10 @@ interface BottleDetailsProps {
   initialYear?: number | null | undefined;
   /** A label photo already kept (from a scan): the new bottles are given it. */
   imageId?: string | undefined;
+  /** How many to start with (a scan of "the same wine, several bottles" starts at 2). */
+  initialQuantity?: number | undefined;
+  /** A line beside the quantity, saying what it means here. */
+  quantityHint?: string | undefined;
   /** Something to offer under the "Add" button (a scan offers "save to wishlist instead"). */
   footer?: ReactNode;
   onChangeWine: () => void;
@@ -72,6 +76,8 @@ export function BottleDetails({
   preferredPlaceId,
   initialYear,
   imageId,
+  initialQuantity = 1,
+  quantityHint,
   footer,
   onChangeWine,
   onDone,
@@ -87,7 +93,9 @@ export function BottleDetails({
     typeof initialYear === "number" ? String(initialYear) : "",
   );
   const [nv, setNv] = useState(initialYear === null);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(initialQuantity);
+  // One save at a time: a double tap (or Enter twice) never adds the bottles twice.
+  const saving = useRef(false);
   /** undefined = "not chosen yet": the first place with room is preselected. */
   const [chosenPlace, setChosenPlace] = useState<string | null | undefined>(preferredPlaceId);
   const [priceText, setPriceText] = useState("");
@@ -119,9 +127,19 @@ export function BottleDetails({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (saving.current) return;
     setSubmitted(true);
     setError(null);
     if (year === undefined || priceCents === undefined) return;
+    saving.current = true;
+    try {
+      await save();
+    } finally {
+      saving.current = false;
+    }
+  }
+
+  async function save() {
     // Saved before the places had loaded? Wait for them, so the bottles go where the form would have offered.
     const target = storage.isPending ? placeIn((await storage.refetch()).data ?? []) : placeId;
     const parsed = AddBottlesSchema.safeParse({
@@ -222,7 +240,10 @@ export function BottleDetails({
             "flex flex-col items-center gap-3 sm:flex-row sm:justify-between sm:gap-4",
           )}
         >
-          <p className="text-body text-ink">{t("quantityLabel")}</p>
+          <div className="text-center sm:text-left">
+            <p className="text-body text-ink">{t("quantityLabel")}</p>
+            {quantityHint && <p className="text-small text-ink-2">{quantityHint}</p>}
+          </div>
           <Stepper
             label={t("quantityLabel")}
             value={quantity}

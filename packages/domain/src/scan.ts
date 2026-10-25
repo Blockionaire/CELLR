@@ -321,8 +321,11 @@ export interface ScanResult {
   facts: LabelFacts | null;
   /** Wines you already have that this may be, best first (empty unless `found` or `choose`). */
   matches: LabelMatch[];
-  /** Why there is no reading, when `outcome` is `unread`. */
-  reason: "ai-off" | "ai-down" | "limit" | "not-a-label" | null;
+  /**
+   * Why there is no reading, when `outcome` is `unread`. "limit": this household's scan limit; "budget": the
+   * platform's AI budget is spent. Both mean: send no more photos for now (the photo itself is kept).
+   */
+  reason: "ai-off" | "ai-down" | "limit" | "budget" | "not-a-label" | null;
   /** Where the model found the label in the photo, if it is believable: the start of the person's own framing. */
   labelCorners: Quad | null;
 }

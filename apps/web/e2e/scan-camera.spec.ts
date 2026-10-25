@@ -14,7 +14,7 @@ const PHONES = [
 
 test.describe("the scanner fits the phone", () => {
   for (const phone of PHONES) {
-    test(`${phone.name}: shutter and library are on screen, for one bottle and for several`, async ({
+    test(`${phone.name}: the three modes are clear, and shutter and library stay on screen in each`, async ({
       browser,
     }) => {
       const context = await browser.newContext({
@@ -27,9 +27,21 @@ test.describe("the scanner fits the phone", () => {
       await arrive(page, "scanfit");
       await page.goto("/scan");
       await expect(page.getByRole("heading", { level: 1, name: "Scan a label" })).toBeVisible();
+      const modes = page.getByRole("radiogroup", { name: "How are you scanning?" });
+      await expect(modes.getByRole("radio", { name: "Single bottle" })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+      await expect(page.getByText("One label, one bottle. Check it and add it.")).toBeVisible();
       await expectReachable(page);
-      await page.getByRole("radio", { name: "Several in a row" }).click();
-      await expectReachable(page);
+      for (const [mode, hint] of [
+        ["Same wine", /scan one label, then say how many/],
+        ["Batch", /a photo per label, one after another/],
+      ] as const) {
+        await modes.getByRole("radio", { name: mode }).click();
+        await expect(page.getByText(hint)).toBeVisible();
+        await expectReachable(page);
+      }
       await page.screenshot({
         path: `test-results/shots/scan-fit-${phone.width}x${phone.height}.png`,
       });
@@ -39,16 +51,28 @@ test.describe("the scanner fits the phone", () => {
 });
 
 test.describe("without a live camera, the phone's own camera takes over", () => {
-  test("permission refused: it says so, and the shutter opens the phone's camera", async ({
+  test("the camera is only asked for when wanted; refused, it says so and the shutter opens the phone's camera", async ({
     page,
   }) => {
     await page.addInitScript(() => {
-      navigator.mediaDevices.getUserMedia = () =>
-        Promise.reject(new DOMException("no", "NotAllowedError"));
+      const w = window as unknown as { cameraCalls: number };
+      w.cameraCalls = 0;
+      navigator.mediaDevices.getUserMedia = () => {
+        w.cameraCalls += 1;
+        return Promise.reject(new DOMException("no", "NotAllowedError"));
+      };
     });
     await arrive(page, "scandeny");
     await page.goto("/scan");
+    const calls = () =>
+      page.evaluate(() => (window as unknown as { cameraCalls: number }).cameraCalls);
+    // Not allowed before: nothing is asked until the person wants the live camera.
+    await expect(page.getByText("The live camera is off.")).toBeVisible();
+    await page.getByRole("radio", { name: "Batch" }).click();
+    expect(await calls()).toBe(0);
+    await page.getByRole("button", { name: "Use the camera" }).first().click();
     await expect(page.getByText(/CELLR may not use the camera/)).toBeVisible();
+    expect(await calls()).toBe(1);
     const chooser = page.waitForEvent("filechooser");
     await page.getByTestId("shutter").click();
     const picked = await chooser;
@@ -78,6 +102,7 @@ test.describe("without a live camera, the phone's own camera takes over", () => 
     });
     await arrive(page, "scanbusy");
     await page.goto("/scan");
+    await page.getByRole("button", { name: "Use the camera" }).click();
     await expect(page.getByText(/The camera stopped/)).toBeVisible();
     await page.getByRole("button", { name: "Try the camera again" }).click();
     await expect

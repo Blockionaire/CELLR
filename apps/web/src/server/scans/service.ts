@@ -109,7 +109,7 @@ export function createScanService(deps: ScanDeps) {
         })
         .catch(() => {});
 
-      if (!result.ok) return unread("ai-down");
+      if (!result.ok) return unread(result.kind === "budget" ? "budget" : "ai-down");
       const facts = normalizeExtraction(result.value, now());
       if (!facts) return unread("not-a-label");
 

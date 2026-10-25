@@ -153,16 +153,14 @@
       "ai-off": "Etiketten lezen staat nog niet aan. Je foto is bewaard: vul de wijn hieronder in.",
       "ai-down": "We konden dit etiket nu niet lezen. Je foto is bewaard: vul de wijn hieronder in, of probeer een andere foto.",
       "limit": "Je hebt veel gescand in korte tijd. Je foto is bewaard: vul de wijn hieronder in.",
-      "not-a-label": "Dit lijkt geen wijnetiket. Probeer een andere foto, of vul de wijn hieronder in."
+      "not-a-label": "Dit lijkt geen wijnetiket. Probeer een andere foto, of vul de wijn hieronder in.",
+      "budget": "Etiketten lezen is even gepauzeerd. Je foto is bewaard: vul de wijn hieronder in."
     },
     "unreadTitle": "Vul het zelf in",
     "series": {
-      "mode": "Hoeveel flessen",
-      "one": "Eén fles",
-      "many": "Meerdere na elkaar",
-      "intro": "Maak de ene foto na de andere: wij lezen ze op de achtergrond. Tik daarna op een fles om hem toe te voegen.",
+      "intro": "Een foto per wijn, na elkaar: wij lezen ze terwijl jij doorgaat. Controleer en voeg ze daarna toe.",
       "choosePhotos": "Kies foto’s",
-      "title": "Jouw reeks",
+      "title": "Jouw batch",
       "count": "{done} van {total} klaar",
       "waiting": "Even wachten…",
       "reading": "Etiket wordt gelezen…",
@@ -175,10 +173,50 @@
       "fillIn": "Zelf invullen",
       "open": "Toevoegen",
       "retry": "Opnieuw",
-      "remove": "Uit de reeks halen",
-      "done": "Klaar",
+      "remove": "Foto {n} verwijderen",
       "added": "{count, plural, one {# fles} other {# flessen}} {wine} toegevoegd",
-      "wished": "{wine} staat op je verlanglijst"
+      "wished": "{wine} staat op je verlanglijst",
+      "photos": "{count, plural, one {# foto} other {# foto’s}}",
+      "progress": "Foto’s gelezen",
+      "bucket": {
+        "processing": "{count} bezig",
+        "ready": "{count} klaar",
+        "attention": "{count} nakijken",
+        "added": "{count} toegevoegd",
+        "skipped": "{count} overgeslagen of niet gelezen"
+      },
+      "state": {
+        "waiting": "Wacht",
+        "reading": "Bezig",
+        "ready": "Klaar",
+        "attention": "Nakijken",
+        "failed": "Niet gelezen",
+        "paused": "Niet verstuurd",
+        "held": "Zelfde foto",
+        "done": "Toegevoegd",
+        "skipped": "Overgeslagen"
+      },
+      "photoN": "Foto {n}",
+      "paused": "Lezen gestopt: de scanlimiet of het budget is bereikt. {count, plural, one {# foto is} other {# foto’s zijn}} niet verstuurd, en daarvoor is niets gerekend.",
+      "resume": "{count, plural, one {Nu lezen} other {Alle # nu lezen}}",
+      "pausedHint": "Wacht tot je verdergaat",
+      "notSent": "Nog niet gelezen",
+      "notRead": "Niet opnieuw gelezen",
+      "heldHint": "Apart gezet: dit lijkt een foto die je al hebt toegevoegd",
+      "duplicatePhoto": "Dit is dezelfde foto als foto {n}. Hij wordt niet opnieuw gelezen, tenzij jij dat wilt.",
+      "sameWine": "Zelfde wijn als foto {n}. Toevoegen voegt extra flessen toe; sla hem over als het dezelfde fles is.",
+      "review": "Nakijken",
+      "readAgain": "Opnieuw lezen (1 scan)",
+      "readAnyway": "Toch lezen",
+      "skip": "Overslaan",
+      "skippedHint": "Weggelaten: geen flessen toegevoegd",
+      "skipped": "Foto overgeslagen: niets toegevoegd",
+      "full": "Een batch heeft maximaal 20 foto’s. {count, plural, one {# foto is} other {# foto’s zijn}} niet toegevoegd.",
+      "summaryTitle": "Batch klaar",
+      "summary": "{added, plural, one {# foto} other {# foto’s}} toegevoegd · {skipped} overgeslagen · {failed} niet gelezen",
+      "newBatch": "Nieuwe batch beginnen",
+      "back": "Terug naar de batch",
+      "skipPhoto": "Deze foto overslaan"
     },
     "camera": {
       "starting": "Camera starten…",
@@ -186,11 +224,23 @@
       "unavailable": "Geen live camera hier. De knop hieronder opent de camera van je telefoon.",
       "error": "De camera is gestopt. Probeer het opnieuw, of maak de foto met de knop hieronder.",
       "retry": "Camera opnieuw proberen",
-      "preview": "Camerabeeld"
+      "preview": "Camerabeeld",
+      "idle": "De live camera staat uit.",
+      "start": "Camera gebruiken"
     },
     "searchMine": "Al in je kelder? Zoek in je wijnen",
     "searchTitle": "Welke van je wijnen is het?",
-    "searchBody": "Kies hem uit je eigen wijnen, zodat het één wijn blijft met al zijn flessen."
+    "searchBody": "Kies hem uit je eigen wijnen, zodat het één wijn blijft met al zijn flessen.",
+    "modes": {
+      "label": "Hoe scan je?",
+      "single": "Eén fles",
+      "same": "Zelfde wijn",
+      "batch": "Batch",
+      "singleHint": "Eén etiket, één fles. Controleer en voeg toe.",
+      "sameHint": "Meerdere flessen van één wijn: scan één etiket en kies hoeveel. Eén keer gelezen.",
+      "batchHint": "Verschillende wijnen: een foto per etiket, na elkaar. Elke foto wordt apart gelezen en gecontroleerd.",
+      "sameQuantity": "Eén scan voor allemaal: de foto en gegevens gaan op elke fles."
+    }
   },
   "sommelier": {
     "title": "Sommelier",

@@ -153,16 +153,14 @@
       "ai-off": "Reading labels isn’t switched on yet. Your photo is saved: fill the wine in below.",
       "ai-down": "We couldn’t read this label just now. Your photo is saved: fill the wine in below, or try another photo.",
       "limit": "You have scanned a lot in a short while. Your photo is saved: fill the wine in below.",
-      "not-a-label": "That doesn’t look like a wine label. Try another photo, or fill the wine in below."
+      "not-a-label": "That doesn’t look like a wine label. Try another photo, or fill the wine in below.",
+      "budget": "Reading labels is paused for now. Your photo is saved: fill the wine in below."
     },
     "unreadTitle": "Fill it in yourself",
     "series": {
-      "mode": "How many bottles",
-      "one": "One bottle",
-      "many": "Several in a row",
-      "intro": "Take one photo after another: we read them in the background. Then tap a bottle to add it.",
+      "intro": "A photo per wine, one after another: we read them while you go on. Then check and add each.",
       "choosePhotos": "Choose photos",
-      "title": "Your series",
+      "title": "Your batch",
       "count": "{done} of {total} done",
       "waiting": "Waiting its turn…",
       "reading": "Reading the label…",
@@ -175,10 +173,50 @@
       "fillIn": "Fill it in yourself",
       "open": "Add",
       "retry": "Try again",
-      "remove": "Remove from the series",
-      "done": "Done",
+      "remove": "Remove photo {n}",
       "added": "Added {count, plural, one {# bottle} other {# bottles}} of {wine}",
-      "wished": "{wine} is on your wish list"
+      "wished": "{wine} is on your wish list",
+      "photos": "{count, plural, one {# photo} other {# photos}}",
+      "progress": "Photos read",
+      "bucket": {
+        "processing": "{count} reading",
+        "ready": "{count} ready",
+        "attention": "{count} to check",
+        "added": "{count} added",
+        "skipped": "{count} skipped or not read"
+      },
+      "state": {
+        "waiting": "Waiting",
+        "reading": "Reading",
+        "ready": "Ready",
+        "attention": "Check this",
+        "failed": "Not read",
+        "paused": "Not sent",
+        "held": "Same photo",
+        "done": "Added",
+        "skipped": "Skipped"
+      },
+      "photoN": "Photo {n}",
+      "paused": "Reading stopped: the scan limit or budget is reached. {count, plural, one {# photo was} other {# photos were}} not sent, and nothing was charged for {count, plural, one {it} other {them}}.",
+      "resume": "Read {count, plural, one {it} other {them}} now",
+      "pausedHint": "Waiting until you resume",
+      "notSent": "Not read yet",
+      "notRead": "Not read again",
+      "heldHint": "Kept aside: this looks like a photo you already added",
+      "duplicatePhoto": "This is the same photo as photo {n}. It is not read again unless you say so.",
+      "sameWine": "Same wine as photo {n}. Adding it adds more bottles of it; skip it if it is the same bottle.",
+      "review": "Check",
+      "readAgain": "Read again (1 scan)",
+      "readAnyway": "Read it anyway",
+      "skip": "Skip",
+      "skippedHint": "Left out: no bottles added",
+      "skipped": "Photo skipped: nothing added",
+      "full": "A batch holds up to 20 photos. {count, plural, one {# photo was} other {# photos were}} not added.",
+      "summaryTitle": "Batch finished",
+      "summary": "{added, plural, one {# photo} other {# photos}} added · {skipped} skipped · {failed} not read",
+      "newBatch": "Start a new batch",
+      "back": "Back to the batch",
+      "skipPhoto": "Skip this photo"
     },
     "camera": {
       "starting": "Starting the camera…",
@@ -186,11 +224,23 @@
       "unavailable": "No live camera here. The button below opens your phone’s camera.",
       "error": "The camera stopped. Try again, or take the photo with the button below.",
       "retry": "Try the camera again",
-      "preview": "Camera view"
+      "preview": "Camera view",
+      "idle": "The live camera is off.",
+      "start": "Use the camera"
     },
     "searchMine": "Already in your cellar? Search your wines",
     "searchTitle": "Which of your wines is it?",
-    "searchBody": "Pick it from your own wines, so it stays one wine with all its bottles."
+    "searchBody": "Pick it from your own wines, so it stays one wine with all its bottles.",
+    "modes": {
+      "label": "How are you scanning?",
+      "single": "Single bottle",
+      "same": "Same wine",
+      "batch": "Batch",
+      "singleHint": "One label, one bottle. Check it and add it.",
+      "sameHint": "Several bottles of one wine: scan one label, then say how many. Read once.",
+      "batchHint": "Different wines: a photo per label, one after another. Each is read and checked on its own.",
+      "sameQuantity": "One scan covers them all: the photo and details go on every bottle."
+    }
   },
   "sommelier": {
     "title": "Sommelier",
