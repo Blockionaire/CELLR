@@ -23,3 +23,4 @@ export * from "./drink-curve";
 export * from "./drink-notices";
 export * from "./friends";
 export * from "./metrics";
+export * from "./admin";

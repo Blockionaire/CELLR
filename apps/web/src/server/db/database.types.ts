@@ -1357,6 +1357,24 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      admin_activity_series: { Args: { p_days: number; p_now?: string }; Returns: Json };
+      admin_ai_costs: { Args: { p_from: string; p_to: string }; Returns: Json };
+      admin_budget_status: { Args: { p_now?: string }; Returns: Json };
+      admin_user_directory: {
+        Args: { p_limit: number; p_offset: number };
+        Returns: {
+          activated: boolean;
+          bottles_added: number;
+          created_at: string;
+          display_name: string;
+          households: number;
+          last_active_at: string;
+          onboarded: boolean;
+          total: number;
+          user_id: string;
+        }[];
+      };
+      admin_user_summary: { Args: { p_now?: string; p_user: string }; Returns: Json };
       ai_budget_hold: {
         Args: { p_daily: number; p_estimate: number; p_monthly: number; p_task: string };
         Returns: string;

@@ -1,4 +1,5 @@
 import "server-only";
+import { parseAdminAllowlist } from "@cellr/domain";
 import { getPublicEnv, isDevelopment, type PublicEnv } from "@/lib/public-env";
 
 /** Server-side view of the environment. Validated lazily, so `next build` works without secrets. */
@@ -86,4 +87,12 @@ export function getPushEnv(): PushEnv | null {
 /** What a scheduled job must show to run (Vercel sends it as "Authorization: Bearer …"). Null = no scheduled jobs. */
 export function getCronSecret(): string | null {
   return process.env.CRON_SECRET?.trim() || null;
+}
+
+/**
+ * Who may open the internal admin dashboard: Supabase Auth user ids from CELLR_ADMIN_USER_IDS (server only, never
+ * sent to the browser). Unset, empty or malformed admits nobody.
+ */
+export function getAdminAllowlist(): ReadonlySet<string> {
+  return parseAdminAllowlist(process.env.CELLR_ADMIN_USER_IDS);
 }

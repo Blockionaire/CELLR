@@ -80,3 +80,24 @@ Unset, empty or invalid means no limit of that kind. Calendar day and month are 
 - A usage report missing its input or output token count is treated as unknown (NULL cost, counted with its
   hold), never as zero. A missing cached-token count only means nothing is priced as cached (errs high).
 - Per-user rate limits are unchanged and still apply first.
+
+## Admin dashboard (`/admin`)
+
+Read-only, for allowlisted admins (`CELLR_ADMIN_USER_IDS`). It shows the figures above from
+`platform_metrics()`, plus `admin_*` functions (20261026000018_admin_dashboard.sql, service role only):
+
+- **Users**: a paginated directory (25 per page, newest first) with signup date, last known activity (latest
+  database action, first-party event or sign-in), onboarding/activation, households and bottles added. A user page
+  shows counts only: no notes, messages, AI conversations, emails or tokens.
+- **Product analytics**: per UTC day for 7, 30 or 90 days: sign-ups, active people (same activity as DAU), scans
+  and AI extraction outcomes, Sommelier, wine profiles, valuations (all from `ai_usage`, calls blocked by the
+  budget excluded), Tonight and 3D cellar (first-party events: a lower bound under Do Not Track / GPC), and
+  bottles added. Engagement figures count uses, not people; adoption counts people.
+- **AI & costs**: estimated spend (sum of `cost_usd_micro`) today, last 7 days, this month and per day; calls
+  with unknown cost (`cost_usd_micro` NULL) shown apart with the amount the budget held for them; outcomes (rates
+  over calls that reached the provider), tokens, web searches and their per-call fees ($10 / 1 000; search
+  content tokens are inside input tokens and cannot be separated), average latency of successful calls; by task
+  and by model. The legacy `cost_micro` is never read.
+- **Platform budget**: recorded usage (cost, or hold when unknown) plus outstanding holds, against
+  `AI_BUDGET_DAILY_USD` / `AI_BUDGET_MONTHLY_USD`. A hold is deleted when its usage is recorded, so nothing is
+  counted twice (apart from the instant between the two writes). It is an application guard, not a provider cap.

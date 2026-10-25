@@ -25,6 +25,14 @@ const config: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // The internal admin dashboard: never stored by a shared cache or a browser, never indexed.
+      ...["/admin", "/admin/:path*"].map((source) => ({
+        source,
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+        ],
+      })),
       // The static offline page has no scripts and loads nothing: lock it down completely.
       {
         source: "/offline.html",

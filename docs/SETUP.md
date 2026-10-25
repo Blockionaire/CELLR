@@ -220,16 +220,17 @@ paste it into a chat or a file in the repository.**
 "Code default" is what the app uses when the variable is not set at all. "Suggested" is only an example
 value; nothing is set for you.
 
-| Variable                | What it does                                                                                                                                         | Code default (unset)         | Suggested |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | --------- |
-| `OPENAI_API_KEY`        | Switches AI on. Without it, a scan still keeps the photo and you fill the wine in by hand.                                                           | _(off)_                      |           |
-| `AI_MODEL_VISION`       | Label scanning.                                                                                                                                      | `gpt-6-luna`                 |           |
-| `AI_MODEL_CHAT`         | Wine valuations with web search, and the fallback for `AI_MODEL_ADVICE`.                                                                             | `gpt-6-luna`                 |           |
-| `AI_MODEL_ADVICE`       | Sommelier, Tonight and wine profiles.                                                                                                                | the value of `AI_MODEL_CHAT` |           |
-| `AI_REASONING_EFFORT`   | Only sent to models with a documented effort (today: `gpt-6-luna`): `none`, `low` or `medium`. Valuations with web search always use at least `low`. | `none`                       |           |
-| `AI_BUDGET_DAILY_USD`   | Platform-wide AI budget per UTC day, in US dollars (an estimate; see docs/METRICS.md).                                                               | no limit                     | `5`       |
-| `AI_BUDGET_MONTHLY_USD` | Platform-wide AI budget per UTC month, in US dollars.                                                                                                | no limit                     | `50`      |
-| `AI_BASE_URL`           | Any OpenAI-compatible endpoint.                                                                                                                      | `https://api.openai.com/v1`  |           |
+| Variable                | What it does                                                                                                                                         | Code default (unset)         | Suggested        |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------- |
+| `OPENAI_API_KEY`        | Switches AI on. Without it, a scan still keeps the photo and you fill the wine in by hand.                                                           | _(off)_                      |                  |
+| `AI_MODEL_VISION`       | Label scanning.                                                                                                                                      | `gpt-6-luna`                 |                  |
+| `AI_MODEL_CHAT`         | Wine valuations with web search, and the fallback for `AI_MODEL_ADVICE`.                                                                             | `gpt-6-luna`                 |                  |
+| `AI_MODEL_ADVICE`       | Sommelier, Tonight and wine profiles.                                                                                                                | the value of `AI_MODEL_CHAT` |                  |
+| `AI_REASONING_EFFORT`   | Only sent to models with a documented effort (today: `gpt-6-luna`): `none`, `low` or `medium`. Valuations with web search always use at least `low`. | `none`                       |                  |
+| `AI_BUDGET_DAILY_USD`   | Platform-wide AI budget per UTC day, in US dollars (an estimate; see docs/METRICS.md).                                                               | no limit                     | `5`              |
+| `AI_BUDGET_MONTHLY_USD` | Platform-wide AI budget per UTC month, in US dollars.                                                                                                | no limit                     | `50`             |
+| `CELLR_ADMIN_USER_IDS`  | Who may open the internal `/admin` dashboard: Supabase Auth user ids (UUIDs), comma-separated. Server only.                                          | nobody (fails closed)        | your own user id |
+| `AI_BASE_URL`           | Any OpenAI-compatible endpoint.                                                                                                                      | `https://api.openai.com/v1`  |                  |
 
 To record what every AI call costs (tokens, time, outcome) the server also needs `SUPABASE_SERVICE_ROLE_KEY`;
 without it scanning works and nothing is recorded.
@@ -371,3 +372,16 @@ from ai_usage order by at desc limit 10;` shows `gpt-6-luna…` rows, status `ok
 
 All good: make the same change for **Production** and redeploy. Anything wrong: roll back that one feature with
 the table above.
+
+### Internal admin dashboard (`/admin`)
+
+Read-only overview of users, product analytics and AI costs. To open it:
+
+1. Run `supabase/migrations/20261026000018_admin_dashboard.sql` in the Supabase SQL editor (read-only functions,
+   service role only; nothing changes for app users). Until then the pages say the database step is missing.
+2. Find your user id in Supabase → _Authentication → Users_ (the UUID, not your email).
+3. In Vercel set `CELLR_ADMIN_USER_IDS` to that id (several: comma-separated, no spaces needed) and redeploy.
+   `SUPABASE_SERVICE_ROLE_KEY` must be set too.
+
+Anyone else (signed out, signed in without being listed, or with a malformed list) gets the normal sign-in or
+"not found" page. The dashboard is not linked from the app and is marked `noindex`, `no-store`.
