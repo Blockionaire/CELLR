@@ -7,6 +7,8 @@ import {
   type SaveTastePreferences,
   type TasteProfileView,
   type TasteTasting,
+  tasteExampleVintageIds,
+  withExampleAvailability,
 } from "@cellr/domain";
 import type { ActiveHousehold } from "@/server/cellar/types";
 import type { TasteRepository, TasteRow } from "./types";
@@ -65,13 +67,20 @@ export function createTasteService({
               rows.map((r) => r.vintageId),
             )
           : new Map();
-      return buildTasteProfile(
+      const view = buildTasteProfile(
         toTasteTastings(rows ?? [], insights),
         preferences ?? NO_PREFERENCES,
         {
           tastings: rows !== null,
           preferences: preferences !== null,
         },
+      );
+      // Archived wines still count above; only the few example wines are checked, in one bounded lookup, so
+      // none of them links to a page that no longer opens.
+      const examples = tasteExampleVintageIds(view);
+      return withExampleAvailability(
+        view,
+        examples.length > 0 ? await repo.listAvailableVintages(id, examples) : new Set(),
       );
     },
 

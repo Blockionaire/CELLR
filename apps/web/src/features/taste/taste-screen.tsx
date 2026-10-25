@@ -15,6 +15,7 @@ import {
   type TasteProfileView,
   type TasteScale,
   type TasteSection,
+  type WineRef,
   type WineType,
 } from "@cellr/domain";
 import { wineFill } from "@/features/stats/charts";
@@ -291,6 +292,17 @@ function Distribution({ view }: { view: TasteProfileView }) {
   );
 }
 
+function ExampleText({ e }: { e: WineRef }) {
+  return (
+    <>
+      <span className="min-w-0 truncate">
+        {e.producer} {e.wineName} {formatVintage(e.year)}
+      </span>
+      <span className="shrink-0 text-ink-2 tnum">{formatStars(e.score)}★</span>
+    </>
+  );
+}
+
 function Favourites({
   title,
   items,
@@ -329,15 +341,21 @@ function Favourites({
               <ul className="mt-2 flex flex-col">
                 {f.examples.map((e) => (
                   <li key={e.vintageId}>
-                    <Link
-                      href={`/cellar/${e.vintageId}`}
-                      className="flex min-h-11 items-center justify-between gap-3 rounded-[12px] px-1 text-small text-ink hover:bg-raised"
-                    >
-                      <span className="min-w-0 truncate">
-                        {e.producer} {e.wineName} {formatVintage(e.year)}
-                      </span>
-                      <span className="shrink-0 text-ink-2 tnum">{formatStars(e.score)}★</span>
-                    </Link>
+                    {e.available ? (
+                      <Link
+                        href={`/cellar/${e.vintageId}`}
+                        className="flex min-h-11 items-center justify-between gap-3 rounded-[12px] px-1 text-small text-ink hover:bg-raised"
+                      >
+                        <ExampleText e={e} />
+                      </Link>
+                    ) : (
+                      <p
+                        className="flex min-h-11 items-center justify-between gap-3 px-1 text-small text-ink"
+                        data-testid="example-archived"
+                      >
+                        <ExampleText e={e} />
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>

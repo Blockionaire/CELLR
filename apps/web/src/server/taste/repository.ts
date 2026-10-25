@@ -51,6 +51,23 @@ export function createTasteRepository(db: Db): TasteRepository {
       });
     },
 
+    async listAvailableVintages(householdId, vintageIds) {
+      // Same rule as the tasting journal: a wine's page opens while a bottle of it is in the cellar or opened.
+      const available = new Set<string>();
+      const ids = [...new Set(vintageIds)];
+      for (let i = 0; i < ids.length; i += 100) {
+        const { data, error } = await db
+          .from("bottles")
+          .select("vintage_id")
+          .eq("household_id", householdId)
+          .in("vintage_id", ids.slice(i, i + 100))
+          .in("status", ["in_cellar", "opened"]);
+        if (error) throw mapDbError(error);
+        for (const b of data) available.add(b.vintage_id);
+      }
+      return available;
+    },
+
     async listInsights(householdId, vintageIds) {
       const out = new Map<string, InsightOutput>();
       const ids = [...new Set(vintageIds)];

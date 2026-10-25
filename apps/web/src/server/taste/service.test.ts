@@ -59,6 +59,7 @@ describe("the taste profile service", () => {
   const repo = (over: Partial<TasteRepository> = {}): TasteRepository => ({
     listMyTastings: vi.fn(async () => [row(), row({ wineId: "w2", vintageId: "v2" })]),
     listInsights: vi.fn(async () => new Map()),
+    listAvailableVintages: vi.fn(async (_h: string, ids: string[]) => new Set(ids)),
     getPreferences: vi.fn(async () => ({ ...NO_PREFERENCES, body: 4 })),
     savePreferences: vi.fn(async () => true),
     ...over,
@@ -81,6 +82,33 @@ describe("the taste profile service", () => {
       preferences: { body: 4 },
     });
     expect(view.overview).toMatchObject({ winesTasted: 2, winesRated: 2 });
+  });
+
+  it("an archived wine still counts, but its example is not linkable; available ones are", async () => {
+    const rows = [10, 9, 8].map((score, i) =>
+      row({ wineId: `w${i}`, vintageId: `v${i}`, region: "Rioja", score }),
+    );
+    const listAvailableVintages = vi.fn(async () => new Set(["v1", "v2"]));
+    const view = await service(
+      repo({ listMyTastings: vi.fn(async () => rows), listAvailableVintages }),
+    ).profile();
+    // One bounded lookup, in my household, for just the example wines.
+    expect(listAvailableVintages).toHaveBeenCalledTimes(1);
+    expect(listAvailableVintages).toHaveBeenCalledWith("h-active", ["v0", "v1", "v2"]);
+    expect(view.overview).toMatchObject({ winesRated: 3, average: 4.5 });
+    const [rioja] = view.overview.favouriteRegions;
+    expect(rioja).toMatchObject({ key: "Rioja", wines: 3 });
+    expect(rioja!.examples.map((e) => [e.vintageId, e.available])).toEqual([
+      ["v0", false],
+      ["v1", true],
+      ["v2", true],
+    ]);
+  });
+
+  it("no example wines: no availability lookup", async () => {
+    const r = repo();
+    await service(r).profile();
+    expect(r.listAvailableVintages).not.toHaveBeenCalled();
   });
 
   it("no tastings: no insights asked, an empty profile", async () => {
@@ -183,6 +211,17 @@ describe("the taste queries", () => {
       ["eq", "household_id", "h1"],
       ["in", "vintage_id", ["v1"]],
     ]);
+  });
+
+  it("availability: the household's bottles of just these vintages, in the cellar or opened", async () => {
+    const { db, calls } = recordingDb({ bottles: [{ vintage_id: "v2" }, { vintage_id: "v2" }] });
+    const found = await createTasteRepository(db).listAvailableVintages("h1", ["v1", "v2", "v1"]);
+    expect(calls[0]!.filters).toEqual([
+      ["eq", "household_id", "h1"],
+      ["in", "vintage_id", ["v1", "v2"]],
+      ["in", "status", ["in_cellar", "opened"]],
+    ]);
+    expect([...found]).toEqual(["v2"]);
   });
 
   it("preferences: keyed by my own id; unset stays unset", async () => {

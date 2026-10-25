@@ -6,8 +6,10 @@ import {
   SaveTastePreferencesSchema,
   scalesFor,
   tasteSection,
+  tasteExampleVintageIds,
   tasteTabs,
   winePoints,
+  withExampleAvailability,
   type TasteTasting,
 } from "./taste";
 
@@ -176,5 +178,34 @@ describe("my own answers", () => {
   it("tannin is not asked of someone who mostly drinks white or rosé", () => {
     expect(scalesFor("white_rose")).toEqual(["body", "sweetness", "acidity"]);
     expect(scalesFor("red")).toEqual(["body", "tannin", "sweetness", "acidity"]);
+  });
+  it("a kind's average needs two rated wines; the overall average does not", () => {
+    const one = buildTasteProfile([t({ type: "white", score: 8 })], NO_PREFERENCES);
+    expect(one.byType.white).toMatchObject({ winesRated: 1, average: null });
+    expect(one.distribution[0]!.average).toBeNull();
+    expect(one.overview.average).toBe(4);
+    const two = buildTasteProfile(
+      [t({ type: "white", score: 8 }), t({ type: "white", score: 6 })],
+      NO_PREFERENCES,
+    );
+    expect(two.byType.white).toMatchObject({ winesRated: 2, average: 3.5 });
+    expect(two.distribution[0]!.average).toBe(3.5);
+  });
+});
+
+describe("example wines and whether their pages open", () => {
+  it("not linkable until known; then only the household's available vintages", () => {
+    const rioja = [10, 9, 8].map((score) => t({ region: "Rioja", score }));
+    const v = buildTasteProfile(rioja, NO_PREFERENCES);
+    const ids = tasteExampleVintageIds(v);
+    expect(ids.sort()).toEqual(rioja.map((r) => r.vintageId).sort());
+    expect(v.overview.favouriteRegions[0]!.examples.every((e) => !e.available)).toBe(true);
+    withExampleAvailability(v, new Set([rioja[1]!.vintageId, rioja[2]!.vintageId]));
+    for (const section of [v.overview, v.byType.red!])
+      expect(section.favouriteRegions[0]!.examples.map((e) => [e.vintageId, e.available])).toEqual([
+        [rioja[0]!.vintageId, false],
+        [rioja[1]!.vintageId, true],
+        [rioja[2]!.vintageId, true],
+      ]);
   });
 });

@@ -88,6 +88,11 @@ export interface WineRef {
   year: number | null;
   /** Mean of my scores for this wine, 1..10. */
   score: number;
+  /**
+   * The household still has this vintage (in the cellar or opened), so its page opens. Set by the server; false
+   * until known, so an archived wine is never a link to a page that cannot open.
+   */
+  available: boolean;
 }
 
 export interface Favourite {
@@ -165,7 +170,7 @@ interface WinePoint {
   tastings: number;
   score: number | null;
   /** The vintage shown when this wine is an example (the best-scored, then the latest). */
-  ref: Omit<WineRef, "score">;
+  ref: Omit<WineRef, "score" | "available">;
   structure: Partial<Record<TasteScale, number[]>>;
 }
 
@@ -224,7 +229,7 @@ function favourites(points: readonly WinePoint[], keysOf: (p: WinePoint) => stri
       examples: [...g.ps]
         .sort((a, b) => b.score! - a.score!)
         .slice(0, 3)
-        .map((p) => ({ ...p.ref, score: Math.round(p.score!) })),
+        .map((p) => ({ ...p.ref, score: Math.round(p.score!), available: false })),
     }));
 }
 
@@ -282,13 +287,15 @@ export function buildTasteProfile(
     const section = tasteSection(of);
     // Tannin says little about white, rosé or sparkling wine.
     if (type !== "red" && type !== "orange") section.trends.tannin = null;
+    // One rated wine is too few for a kind's average (the overall average has no such minimum).
+    if (section.winesRated < MIN_TYPE_RATED) section.average = null;
     byType[type] = section;
     distribution.push({
       type,
       wines: section.winesTasted,
       tastings: section.tastings,
       rated: section.winesRated,
-      average: section.winesRated >= MIN_TYPE_RATED ? section.average : null,
+      average: section.average,
     });
   }
   distribution.sort((a, b) => b.wines - a.wines);
@@ -308,3 +315,27 @@ export const scalesFor = (focus: WineFocus | null): TasteScale[] =>
 /** The short onboarding is offered while the person has said nothing yet and has tasted little. */
 export const offerTasteOnboarding = (view: Pick<TasteProfileView, "preferences" | "overview">) =>
   !view.preferences.onboarded && view.overview.winesRated < MIN_FAVOURITE_WINES;
+
+const allSections = (view: Pick<TasteProfileView, "overview" | "byType">) => [
+  view.overview,
+  ...Object.values(view.byType),
+];
+const allExamples = (section: TasteSection) =>
+  [...section.favouriteRegions, ...section.favouriteGrapes, ...section.favouriteStyles].flatMap(
+    (f) => f.examples,
+  );
+
+/** The vintages shown as example wines (at most a few per favourite): the ones whose availability to ask. */
+export const tasteExampleVintageIds = (view: Pick<TasteProfileView, "overview" | "byType">) => [
+  ...new Set(allSections(view).flatMap((s) => allExamples(s).map((e) => e.vintageId))),
+];
+
+/** Marks each example wine available when the household still has its vintage. */
+export function withExampleAvailability<V extends Pick<TasteProfileView, "overview" | "byType">>(
+  view: V,
+  available: ReadonlySet<string>,
+): V {
+  for (const s of allSections(view))
+    for (const e of allExamples(s)) e.available = available.has(e.vintageId);
+  return view;
+}

@@ -26,6 +26,8 @@ export interface TasteRepository {
   listMyTastings(householdId: string, userId: string): Promise<TasteRow[] | null>;
   /** The household's AI profiles of these vintages. */
   listInsights(householdId: string, vintageIds: string[]): Promise<Map<string, InsightOutput>>;
+  /** Of these vintages, the ones the household still has in the cellar or opened (their pages open). */
+  listAvailableVintages(householdId: string, vintageIds: string[]): Promise<Set<string>>;
   /** Null before the taste-preferences step. */
   getPreferences(userId: string): Promise<TastePreferences | null>;
   /** False before the taste-preferences step. */
