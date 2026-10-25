@@ -121,7 +121,8 @@
     "related": "Meer uit je kelder",
     "insights": "Inzichten",
     "typeAll": "Alle",
-    "emptyScan": "Scan je eerste fles"
+    "emptyScan": "Scan je eerste fles",
+    "ratings": "Mijn beoordelingen"
   },
   "scan": {
     "title": "Scan een etiket",
@@ -1348,5 +1349,41 @@
   "insightsEntry": {
     "title": "Inzichten",
     "cta": "Bekijk inzichten"
+  },
+  "ratings": {
+    "title": "Mijn beoordelingen",
+    "subtitle": "Je proefdagboek: elke fles die je opende en wat je ervan vond.",
+    "entryBody": "Je proefdagboek: sterren, woorden en notities",
+    "emptyTitle": "Je dagboek is nog leeg",
+    "emptyBody": "Open een fles en vertel CELLR hoe hij was: sterren, een paar woorden of een notitie. Dan verschijnt hij hier.",
+    "emptyAction": "Naar je kelder",
+    "notReady": "Beoordelingen staan nog niet aan: er is nog één databasestap nodig.",
+    "summaryTitle": "Samenvatting",
+    "entries": "Proeverijen",
+    "winesTasted": "Wijnen",
+    "averageOf": "Gemiddelde van {count, plural, one {# beoordeling} other {# beoordelingen}}",
+    "noStarsYet": "Nog geen sterren",
+    "best": "Je hoogst gewaardeerd",
+    "distribution": "Je sterren",
+    "distributionRow": "{stars} sterren: {count}",
+    "searchLabel": "Zoek in je beoordelingen",
+    "searchPlaceholder": "Producent of wijn",
+    "sortLabel": "Volgorde",
+    "sort": {
+      "recent": "Nieuwste",
+      "best": "Hoogste",
+      "worst": "Laagste"
+    },
+    "typeLabel": "Soort wijn",
+    "allTypes": "Alle",
+    "showing": "{count, plural, one {# proeverij} other {# proeverijen}}",
+    "noMatch": "Geen proeverijen gevonden.",
+    "listLabel": "Je proeverijen",
+    "more": "Toon er nog {count}",
+    "truncated": "Alleen je 500 meest recente proeverijen staan in de lijst; de samenvatting telt ze allemaal.",
+    "unrated": "Geen sterren",
+    "edit": "Beoordeling bewerken",
+    "openWineShort": "Wijn openen",
+    "openWine": "{wine} openen"
   }
 }

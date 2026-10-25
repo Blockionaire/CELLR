@@ -1,6 +1,9 @@
 import "server-only";
 import {
   averagePrice,
+  JOURNAL_LIMIT,
+  summarizeJournal,
+  type JournalView,
   DomainError,
   assessDrink,
   drinkStatusOf,
@@ -612,6 +615,26 @@ export function createCellarService(
      * "How was it?": the signed-in person's stars, words and note for a bottle that has been opened.
      * Saving again replaces what they said before.
      */
+    /**
+     * My tasting journal: the signed-in person's own tastings in the active household, newest first (at most
+     * JOURNAL_LIMIT), and a summary over all of them. Never another member's, never another household's.
+     */
+    async journal(): Promise<JournalView> {
+      const { id: householdId } = await household();
+      const [rows, scores] = await Promise.all([
+        repo.listMyJournal(householdId, userId, JOURNAL_LIMIT),
+        repo.listMyJournalScores(householdId, userId),
+      ]);
+      if (rows === null)
+        return { ready: false, entries: [], truncated: false, summary: summarizeJournal([]) };
+      return {
+        ready: true,
+        entries: rows.slice(0, JOURNAL_LIMIT),
+        truncated: rows.length > JOURNAL_LIMIT,
+        summary: summarizeJournal(scores),
+      };
+    },
+
     async saveTasting(bottleId: string, input: SaveTasting): Promise<TastingView> {
       const { id: householdId } = await household();
       const bottle = await repo.getBottle(householdId, bottleId);

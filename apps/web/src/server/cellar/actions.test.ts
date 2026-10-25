@@ -232,6 +232,12 @@ function fake(
       );
       return state.tastings.length < before;
     },
+    async listMyJournal() {
+      return [];
+    },
+    async listMyJournalScores() {
+      return [];
+    },
     async listMyTastingScores(userId, bottleIds) {
       return state.tastings
         .filter((t) => t.userId === userId && t.bottleId !== null && bottleIds.includes(t.bottleId))

@@ -7,6 +7,7 @@ import type {
   Descriptor,
   ImageRef,
   ImageSide,
+  JournalEntry,
   Slot,
   StorageKind,
   UpdateStorage,
@@ -236,6 +237,16 @@ export interface CellarRepository {
   listTastings(householdId: string, vintageId: string): Promise<TastingRow[]>;
   /** Every rating (not words or notes alone) in this household, to work out averages. */
   listScores(householdId: string): Promise<Array<{ vintageId: string; score: number }>>;
+  /**
+   * The person's own tastings in this household, newest first (at most `limit` + 1, so the caller can tell
+   * whether there are more), with the wine and the bottle's label photo. Null before the tastings step.
+   */
+  listMyJournal(householdId: string, userId: string, limit: number): Promise<JournalEntry[] | null>;
+  /** Every one of the person's tastings in this household: wine and score only, for the journal's summary. */
+  listMyJournalScores(
+    householdId: string,
+    userId: string,
+  ): Promise<Array<{ wineId: string; score: number | null }>>;
   getMyTasting(userId: string, bottleId: string): Promise<TastingRow | null>;
   /** CONFLICT when this person already has a tasting for the bottle. */
   insertTasting(input: NewTasting): Promise<TastingRow>;

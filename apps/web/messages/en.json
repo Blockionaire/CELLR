@@ -121,7 +121,8 @@
     "related": "More from your cellar",
     "insights": "Insights",
     "typeAll": "All",
-    "emptyScan": "Scan your first bottle"
+    "emptyScan": "Scan your first bottle",
+    "ratings": "My ratings"
   },
   "scan": {
     "title": "Scan a label",
@@ -1348,5 +1349,41 @@
   "insightsEntry": {
     "title": "Insights",
     "cta": "View insights"
+  },
+  "ratings": {
+    "title": "My ratings",
+    "subtitle": "Your tasting journal: every bottle you opened and what you thought of it.",
+    "entryBody": "Your tasting journal: stars, words and notes",
+    "emptyTitle": "Your journal is still empty",
+    "emptyBody": "Open a bottle and tell CELLR how it was: stars, a few words or a note. It will appear here.",
+    "emptyAction": "Go to your cellar",
+    "notReady": "Ratings are not switched on yet: one more database step is needed.",
+    "summaryTitle": "Summary",
+    "entries": "Tastings",
+    "winesTasted": "Wines",
+    "averageOf": "Average of {count, plural, one {# rating} other {# ratings}}",
+    "noStarsYet": "No stars yet",
+    "best": "Your highest rated",
+    "distribution": "Your stars",
+    "distributionRow": "{stars} stars: {count}",
+    "searchLabel": "Search your ratings",
+    "searchPlaceholder": "Producer or wine",
+    "sortLabel": "Order",
+    "sort": {
+      "recent": "Newest",
+      "best": "Highest",
+      "worst": "Lowest"
+    },
+    "typeLabel": "Kind of wine",
+    "allTypes": "All",
+    "showing": "{count, plural, one {# tasting} other {# tastings}}",
+    "noMatch": "No tastings match.",
+    "listLabel": "Your tastings",
+    "more": "Show {count} more",
+    "truncated": "Only your 500 most recent tastings are listed; the summary counts all of them.",
+    "unrated": "No stars",
+    "edit": "Edit rating",
+    "openWineShort": "Open wine",
+    "openWine": "Open {wine}"
   }
 }
