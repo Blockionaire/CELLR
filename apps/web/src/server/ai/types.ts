@@ -29,6 +29,8 @@ export interface GenerateObjectRequest<T> {
   temperature?: number;
   /** Let the model search the web first (for facts that change, like prices); the pages it opened come back. */
   webSearch?: boolean;
+  /** With `webSearch`: at most this many searches (the budget holds this many; default 3). */
+  maxSearches?: number;
 }
 
 export interface AiUsage {

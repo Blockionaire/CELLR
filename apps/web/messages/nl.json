@@ -927,7 +927,7 @@
     "intro": "Vraag een AI wat die van deze wijn weet: hoe hij smaakt, wat je erbij eet, hoe hij kan rijpen. Het wordt één keer geschreven en blijft zo staan.",
     "ask": "Vertel me over deze wijn",
     "thinking": "Even opzoeken…",
-    "refresh": "Vernieuw",
+    "refresh": "Opnieuw schrijven",
     "notReady": "Hiervoor is nog één databasestap nodig. Al het andere werkt.",
     "style": "Stijl",
     "grapes": "Druiven",
@@ -1032,7 +1032,16 @@
     "valueNotFound": "Geen prijs met een betrouwbare bron gevonden. Probeer het later nog eens, of vul je eigen waarde in.",
     "valueHistory": "Verloop",
     "valueNoSources": "Geschat zonder bronnen (oudere waarde).",
-    "valueRangeSourced": "Tussen {low} en {high} bij winkels en veilingen."
+    "valueRangeSourced": "Tussen {low} en {high} bij winkels en veilingen.",
+    "refreshHint": "Dit profiel komt uit een oudere versie en was niet zeker van zichzelf. Het kan één keer opnieuw worden geschreven, nu met een korte zoektocht naar precies deze wijn.",
+    "evidence": {
+      "exact_wine": "Op basis van pagina's over deze wijn.",
+      "producer": "Op basis van wat bekend is over de producent.",
+      "appellation_rules": "Op basis van de regels van de appellation.",
+      "style_estimate": "Een stijlschatting voor de regio en kleur."
+    },
+    "valueSingleOffer": "Vraagprijs van één winkel: {price}.",
+    "valueSingleShop": "Vraagprijzen van één winkel: {low} tot {high}."
   },
   "framer": {
     "title": "Wijs aan waar het etiket zit",

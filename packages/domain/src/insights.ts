@@ -139,9 +139,22 @@ export type PairingKind = (typeof PAIRING_KINDS)[number];
 
 /**
  * Which version of the profile a stored one is. A profile is written once and then stays as it is; a newer
- * version only fills in what an older one did not have yet (see `mergeInsight`).
+ * version only fills in what an older one did not have yet (see `mergeInsight`), except that an older profile
+ * that was never sure of itself is written again once (see `profileUpgrade`).
  */
-export const PROFILE_VERSION = 5;
+export const PROFILE_VERSION = 6;
+
+/**
+ * What a profile's facts rest on, strongest first: pages about this exact wine; what is known about the producer;
+ * what the appellation's own rules fix (Barolo is Nebbiolo); or only a style estimate for the region and colour.
+ */
+export const INSIGHT_EVIDENCE = [
+  "exact_wine",
+  "producer",
+  "appellation_rules",
+  "style_estimate",
+] as const;
+export type InsightEvidence = (typeof INSIGHT_EVIDENCE)[number];
 
 /** What the model says. Everything is checked afterwards; nothing here is trusted as it comes. */
 export const RawInsightSchema = z.object({
@@ -168,6 +181,8 @@ export const RawInsightSchema = z.object({
   flavors: z.array(z.object({ group: z.enum(FLAVOR_GROUPS), notes: z.array(z.string()) })),
   pairing_kinds: z.array(z.enum(PAIRING_KINDS)),
   confidence: z.enum(INSIGHT_CONFIDENCE),
+  evidence: z.enum(INSIGHT_EVIDENCE),
+  sources: z.array(z.object({ name: z.string(), url: z.string() })),
 });
 export type RawInsight = z.infer<typeof RawInsightSchema>;
 
@@ -217,6 +232,13 @@ export const InsightOutputSchema = z.object({
     .nullable()
     .default(null),
   confidence: z.enum(INSIGHT_CONFIDENCE),
+  /** What the facts rest on; null for profiles from before this was kept. */
+  evidence: z.enum(INSIGHT_EVIDENCE).nullable().default(null),
+  /** Pages about this wine that the web search really opened; empty when none (or from before). */
+  sources: z
+    .array(z.object({ name: z.string().max(80), url: z.string().max(500) }))
+    .max(5)
+    .default([]),
 });
 export type InsightOutput = z.infer<typeof InsightOutputSchema>;
 
@@ -280,6 +302,8 @@ export function checkInsight(
   raw: RawInsight,
   /** The harvest year, to judge the drinking window against (null = non-vintage: no window is kept). */
   year: number | null = null,
+  /** The pages the web search actually opened; only those can be a profile's sources. */
+  consulted: readonly string[] = [],
 ): InsightOutput | null {
   const summary = clean(raw.summary, 700);
   if (summary === "") return null;
@@ -328,14 +352,31 @@ export function checkInsight(
     .filter((f) => f.notes.length > 0)
     .slice(0, 5);
 
+  // What the facts rest on, in code: "this exact wine" needs a page about it that was really opened; a bare
+  // style estimate names no grapes and no precise alcohol (those would be product facts it does not have), and
+  // confidence never claims more than the evidence carries.
+  const sources = verifiedSources(raw.sources, consulted);
+  const evidence: InsightEvidence =
+    raw.evidence === "exact_wine" && sources.length === 0 ? "producer" : raw.evidence;
+  const ceiling: Record<InsightEvidence, (typeof INSIGHT_CONFIDENCE)[number]> = {
+    exact_wine: "high",
+    producer: "medium",
+    appellation_rules: "medium",
+    style_estimate: "low",
+  };
+  const rank = (c: (typeof INSIGHT_CONFIDENCE)[number]) => INSIGHT_CONFIDENCE.indexOf(c);
+  const confidence =
+    rank(raw.confidence) <= rank(ceiling[evidence]) ? raw.confidence : ceiling[evidence];
+  const estimateOnly = evidence === "style_estimate";
+
   return {
     summary,
     style: clean(raw.style, 200),
-    grapes: list(raw.grapes, 8, 60),
+    grapes: estimateOnly ? [] : list(raw.grapes, 8, 60),
     tasting: clean(raw.tasting, 500),
     serving,
     decantMinutes: decant,
-    abvPercent: abv,
+    abvPercent: estimateOnly ? null : abv,
     drinkWindow,
     pairings: list(raw.pairings, 6, 80),
     aging: clean(raw.aging, 400),
@@ -344,8 +385,22 @@ export function checkInsight(
     pairingKinds: [...new Set(raw.pairing_kinds)].slice(0, 6),
     version: PROFILE_VERSION,
     value: null,
-    confidence: raw.confidence,
+    confidence,
+    evidence,
+    sources,
   };
+}
+
+/**
+ * What asking again does for a stored profile. "none": it is current, nothing is asked (no paid call). "fill":
+ * an old but sure profile keeps its words and only gains what it lacks. "replace": an older profile that was
+ * not sure of itself (often generic regional filler) is written again, once: the new one is current, so it is
+ * never rewritten after that.
+ */
+export function profileUpgrade(stored: InsightOutput): "none" | "fill" | "replace" {
+  if (stored.version >= PROFILE_VERSION) return "none";
+  if (stored.confidence === "high") return stored.version < 5 ? "fill" : "none";
+  return "replace";
 }
 
 /**
@@ -370,6 +425,8 @@ export function mergeInsight(stored: InsightOutput, fresh: InsightOutput): Insig
     structure: stored.structure ?? fresh.structure,
     flavors: items(stored.flavors, fresh.flavors),
     pairingKinds: items(stored.pairingKinds, fresh.pairingKinds),
+    evidence: stored.evidence ?? fresh.evidence,
+    sources: items(stored.sources, fresh.sources),
     version: Math.max(stored.version, fresh.version),
   };
 }
@@ -383,7 +440,20 @@ export const RawValuationSchema = z.object({
   low: z.number().nullable(),
   high: z.number().nullable(),
   basis: z.string(),
-  sources: z.array(z.object({ name: z.string(), url: z.string() })),
+  sources: z.array(
+    z.object({
+      name: z.string(),
+      url: z.string(),
+      /** The price on that page for one bottle, in the stated currency; null when the page shows none. */
+      price: z.number().nullable(),
+      /** The vintage the page offers; null for a non-vintage wine or when the page does not say. */
+      vintage: z.number().nullable(),
+      /** The bottle size on that page, in millilitres; null when the page does not say. */
+      bottle_ml: z.number().nullable(),
+      /** The page is about this producer's wine of this name (not another cuvée or a second wine). */
+      same_wine: z.boolean(),
+    }),
+  ),
 });
 export type RawValuation = z.infer<typeof RawValuationSchema>;
 
@@ -408,7 +478,8 @@ function cleanUrl(value: string): URL | null {
     const url = new URL(value.trim());
     if (url.protocol !== "https:") return null;
     for (const key of [...url.searchParams.keys()])
-      if (key.startsWith("utm_")) url.searchParams.delete(key);
+      if (key.startsWith("utm_") || key === "srsltid" || key === "gclid" || key === "fbclid")
+        url.searchParams.delete(key);
     url.hash = "";
     return url;
   } catch {
@@ -417,36 +488,81 @@ function cleanUrl(value: string): URL | null {
 }
 
 /**
- * What the AI found a bottle sells for, checked in code: a sane range, in the household's currency, and only
- * sources it really looked at (a page on a site the web search visited). No real source, no value.
+ * The same page, however it was written: lower-case host without "www.", no tracking bits, no fragment, no
+ * trailing slash, sorted query. Two addresses are the same page only when these match: same site is not enough.
+ */
+export function samePageKey(value: string): string | null {
+  const url = cleanUrl(value);
+  if (!url) return null;
+  url.searchParams.sort();
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+  return `${host}${path}${url.search}`;
+}
+
+const hostOf = (key: string) => key.slice(0, key.indexOf("/"));
+
+/** The named pages that are among the pages really opened (exactly, not merely on the same site). */
+function verifiedSources(
+  claimed: ReadonlyArray<{ name: string; url: string }>,
+  consulted: readonly string[],
+): ValuationSource[] {
+  const opened = new Set(consulted.flatMap((u) => samePageKey(u) ?? []));
+  const seen = new Set<string>();
+  const out: ValuationSource[] = [];
+  for (const s of claimed) {
+    const key = samePageKey(s.url);
+    const url = cleanUrl(s.url);
+    if (!key || !url || !opened.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    out.push({ name: clean(s.name, 80) || url.hostname, url: url.href.slice(0, 500) });
+    if (out.length === 5) break;
+  }
+  return out;
+}
+
+/** A value from one shop's asking price, or a market range seen at several independent sites. */
+export type ValuationKind = "single_offer" | "market";
+
+export function valuationKind(v: Pick<Valuation, "sources">): ValuationKind {
+  const hosts = new Set(
+    v.sources.flatMap((s) => (samePageKey(s.url) ? [hostOf(samePageKey(s.url)!)] : [])),
+  );
+  return hosts.size >= 2 ? "market" : "single_offer";
+}
+
+/**
+ * What the AI found a bottle sells for, checked in code. A page counts only when the search really opened that
+ * exact page, it is about this producer's wine, the same vintage, a 750 ml bottle, and it shows a price. The
+ * range is then the lowest and highest of those prices (never the model's own numbers), so it rests on what was
+ * seen: one page is that shop's asking price, two or more sites a market range. No such page, no value.
  */
 export function checkValuation(
   raw: RawValuation,
   currency: string,
   /** The pages the web search actually opened. */
   consulted: readonly string[],
+  /** The vintage asked about (null = non-vintage). */
+  year: number | null = null,
 ): Omit<Valuation, "valuedAt"> | null {
-  const low = raw.low !== null ? Math.round(raw.low * 100) : null;
-  const high = raw.high !== null ? Math.round(raw.high * 100) : null;
-  if (low === null || high === null || low < 1 || low > high) return null;
-  if (high > MAX_PRICE_CENTS || high > low * 10) return null;
-  const hosts = new Set(
-    consulted.flatMap((u) => {
-      const url = cleanUrl(u);
-      return url ? [url.hostname.replace(/^www\./, "")] : [];
-    }),
+  if (raw.low === null || raw.high === null) return null;
+  const fitting = raw.sources.filter(
+    (s) =>
+      s.same_wine &&
+      s.price !== null &&
+      s.price > 0 &&
+      s.bottle_ml === 750 &&
+      (year === null ? s.vintage === null : s.vintage === year),
   );
-  const seen = new Set<string>();
-  const sources: ValuationSource[] = [];
-  for (const s of raw.sources) {
-    const url = cleanUrl(s.url);
-    if (!url || !hosts.has(url.hostname.replace(/^www\./, ""))) continue;
-    if (seen.has(url.href)) continue;
-    seen.add(url.href);
-    sources.push({ name: clean(s.name, 80) || url.hostname, url: url.href.slice(0, 500) });
-    if (sources.length === 5) break;
-  }
+  const sources = verifiedSources(fitting, consulted);
   if (sources.length === 0) return null;
+  const keys = new Set(sources.map((s) => samePageKey(s.url)));
+  const prices = fitting
+    .filter((s) => keys.has(samePageKey(s.url)))
+    .map((s) => Math.round(s.price! * 100));
+  const low = Math.min(...prices);
+  const high = Math.max(...prices);
+  if (low < 1 || high > MAX_PRICE_CENTS || high > low * 10) return null;
   return { lowCents: low, highCents: high, currency, basis: clean(raw.basis, 300), sources };
 }
 

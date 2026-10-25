@@ -124,6 +124,7 @@ export function createOpenAiProvider(
                 { role: "user", content: request.user },
               ],
               tools: [{ type: "web_search" }],
+              ...(request.maxSearches !== undefined ? { max_tool_calls: request.maxSearches } : {}),
               include: ["web_search_call.action.sources"],
               max_output_tokens: maxOutputTokens,
               ...(temperature !== undefined ? { temperature } : {}),

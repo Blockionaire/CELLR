@@ -7,7 +7,8 @@ import {
   currentValueCents,
   ERROR_MESSAGES,
   parseMoneyToCents,
-  PROFILE_VERSION,
+  profileUpgrade,
+  valuationKind,
   type InsightOutput,
   type VintageInsightView,
 } from "@cellr/domain";
@@ -65,7 +66,7 @@ export function AboutSection({
 
   const view: VintageInsightView | undefined = data;
   const out = view?.insight?.output ?? null;
-  const older = out !== null && out.version < PROFILE_VERSION;
+  const upgrade = out !== null ? profileUpgrade(out) : "none";
 
   async function ask() {
     setFailure(null);
@@ -85,15 +86,35 @@ export function AboutSection({
           ) : out ? (
             <>
               <Profile out={out} />
-              {older && (
+              {upgrade !== "none" && (
                 <div className="flex flex-col items-start gap-2 rounded-[16px] bg-raised p-3">
-                  <p className="text-small text-ink-2">{t("completeHint")}</p>
+                  <p className="text-small text-ink-2">
+                    {t(upgrade === "replace" ? "refreshHint" : "completeHint")}
+                  </p>
                   <Button size="sm" variant="secondary" loading={busy} onClick={ask}>
-                    {t("complete")}
+                    {t(upgrade === "replace" ? "refresh" : "complete")}
                   </Button>
                 </div>
               )}
+              {out.sources.length > 0 && (
+                <ul className="flex flex-wrap gap-2" data-testid="insight-sources">
+                  {out.sources.map((s) => (
+                    <li key={s.url}>
+                      <a
+                        href={s.url}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        className="inline-flex min-h-9 items-center gap-1 rounded-full bg-raised px-3 text-small text-ink underline-offset-2 hover:underline"
+                      >
+                        {s.name}
+                        <span aria-hidden="true">↗</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <p className="text-caption text-ink-2">
+                {out.evidence ? `${t(`evidence.${out.evidence}`)} ` : ""}
                 {t("estimateNote", { level: t(`confidence.${out.confidence}`) })} ·{" "}
                 {t("writtenOn", { day: day(view.insight!.generatedAt) })}
               </p>
@@ -387,7 +408,11 @@ export function WorthSection({
             {view.myValueCents !== null
               ? t("valueMine")
               : v
-                ? t("valueRangeSourced", { low: money(v.lowCents), high: money(v.highCents) })
+                ? valuationKind(v) === "market"
+                  ? t("valueRangeSourced", { low: money(v.lowCents), high: money(v.highCents) })
+                  : v.lowCents === v.highCents
+                    ? t("valueSingleOffer", { price: money(v.lowCents) })
+                    : t("valueSingleShop", { low: money(v.lowCents), high: money(v.highCents) })
                 : legacy
                   ? t("valueRange", { low: money(legacy.lowCents), high: money(legacy.highCents) })
                   : ""}

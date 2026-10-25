@@ -36,6 +36,8 @@ const raw = {
   region: "Bordeaux",
   appellation: "Pauillac",
   confidence: "medium" as const,
+  evidence: "producer" as const,
+  sources: [] as Array<{ name: string; url: string }>,
 };
 
 const detail = {
@@ -95,7 +97,7 @@ function setup(
   return { service, repo, llm, saved, recorded };
 }
 
-const storedProfile = (version: number) =>
+const storedProfile = (version: number, confidence: "low" | "medium" | "high" = "high") =>
   InsightOutputSchema.parse({
     summary: "The words the person read first.",
     style: "Full",
@@ -105,7 +107,7 @@ const storedProfile = (version: number) =>
     decantMinutes: 30,
     pairings: ["Lamb"],
     aging: "A decade.",
-    confidence: "medium",
+    confidence,
     version,
   });
 
@@ -125,6 +127,28 @@ describe("a profile stays as it was written", () => {
     expect(view.insight?.output.summary).toBe("The words the person read first.");
     expect(s.llm.generateObject).not.toHaveBeenCalled();
     expect(base.saved).toHaveLength(0);
+  });
+
+  it("an older generic profile that was not sure of itself is written again, once, from research", async () => {
+    const base = setup();
+    const getInsight = vi.fn(async () => ({
+      row: {
+        output: storedProfile(5, "low"),
+        model: "m",
+        generatedAt: "2026-01-01",
+        myValueCents: null,
+      },
+    }));
+    const s = setup({ repo: { ...base.repo, getInsight, saveInsight: base.repo.saveInsight } });
+    await s.service.generate("v1");
+    expect(base.saved[0]).toMatchObject({
+      output: { summary: "A ripe red.", version: PROFILE_VERSION, evidence: "producer" },
+    });
+    expect(vi.mocked(s.llm.generateObject).mock.calls[0]![0]).toMatchObject({
+      task: "wine_insight",
+      webSearch: true,
+      maxSearches: 2,
+    });
   });
 
   it("an older profile is only filled in: its words stay", async () => {
@@ -147,17 +171,28 @@ describe("a profile stays as it was written", () => {
 });
 
 describe("what a bottle is worth", () => {
+  const offer = (url: string, price: number) => ({
+    name: "Shop",
+    url,
+    price,
+    vintage: 2015,
+    bottle_ml: 750,
+    same_wine: true,
+  });
   const found = {
     low: 40,
     high: 60,
     basis: "Two shops.",
-    sources: [{ name: "Shop", url: "https://shop.example/w" }],
+    sources: [offer("https://shop.example/w", 40), offer("https://cave.example/w", 60)],
   };
   const answer = (consulted: string[]) =>
     ({ ok: true, value: found, usage, consulted }) as AiResult<unknown>;
 
   it("is looked up on the web, kept with its real sources, and accounted for", async () => {
-    const s = setup({}, answer(["https://shop.example/w?utm_source=openai"]));
+    const s = setup(
+      {},
+      answer(["https://shop.example/w?utm_source=openai", "https://www.cave.example/w"]),
+    );
     await s.service.valuate("v1");
     expect(s.repo.addValuation).toHaveBeenCalledWith(
       "h1",
@@ -167,17 +202,21 @@ describe("what a bottle is worth", () => {
         highCents: 6000,
         currency: "EUR",
         basis: "Two shops.",
-        sources: [{ name: "Shop", url: "https://shop.example/w" }],
+        sources: [
+          { name: "Shop", url: "https://shop.example/w" },
+          { name: "Shop", url: "https://cave.example/w" },
+        ],
       },
       "test-model",
     );
     const call = vi.mocked(s.llm.generateObject).mock.calls[0]![0];
-    expect(call).toMatchObject({ task: "wine_valuation", webSearch: true });
+    expect(call).toMatchObject({ task: "wine_valuation", webSearch: true, maxSearches: 4 });
     expect(s.recorded).toEqual(["ok"]);
   });
 
   it("without a page the search really opened, nothing is kept", async () => {
-    const s = setup({}, answer(["https://elsewhere.example/"]));
+    // Same site, another page: not enough.
+    const s = setup({}, answer(["https://elsewhere.example/", "https://shop.example/other"]));
     await expect(s.service.valuate("v1")).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(s.repo.addValuation).not.toHaveBeenCalled();
   });
@@ -261,10 +300,18 @@ describe("a wine profile", () => {
     await expect(spent.service.generate("v1")).rejects.toMatchObject({ code: "RATE_LIMITED" });
     expect(spent.llm.generateObject).not.toHaveBeenCalled();
 
+    // The research call failing is retried once without search; both are accounted for.
     const down = setup({}, { ok: false, kind: "timeout", usage });
     await expect(down.service.generate("v1")).rejects.toMatchObject({ code: "AI_UNAVAILABLE" });
     expect(down.saved).toHaveLength(0);
-    expect(down.recorded).toEqual(["timeout"]);
+    expect(down.recorded).toEqual(["timeout", "timeout"]);
+    const calls = vi.mocked(down.llm.generateObject).mock.calls.map((c) => c[0].webSearch);
+    expect(calls).toEqual([true, undefined]);
+
+    // Out of budget: no second try.
+    const broke = setup({}, { ok: false, kind: "budget", usage });
+    await expect(broke.service.generate("v1")).rejects.toMatchObject({ code: "AI_UNAVAILABLE" });
+    expect(broke.recorded).toEqual(["budget_exhausted"]);
 
     const empty = setup({}, { ok: true, value: { ...raw, summary: " " }, usage });
     await expect(empty.service.generate("v1")).rejects.toMatchObject({ code: "AI_UNAVAILABLE" });

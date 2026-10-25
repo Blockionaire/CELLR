@@ -354,9 +354,13 @@ redeploy the preview. Then check, on the preview:
    vintage). Producer, wine, vintage and region are filled in; a non-label photo still falls back to typing.
 2. **Sommelier:** ask "Hoeveel flessen heb ik?" and get the counted answer.
 3. **Tonight:** pick a dish; the suggestions are your own bottles.
-4. **Wine profile:** generate one for a wine without a profile; structure, aromas and pairings show.
-5. **Valuation:** look up a value; it shows a price with source links. Open the links: they are real shop or
-   auction pages for this wine (or there is honestly no price).
+4. **Wine profile:** generate one for a wine without a profile (one short web search, at most two searches);
+   it names the grapes and how it is made when sources say so, shows the source links and what it rests on
+   ("Based on pages about this wine." or a discreet estimate note), and never opens with "unknown". An older
+   profile that was not sure of itself shows "Write it again": once rewritten it does not offer that again.
+5. **Valuation:** look up a value; it shows a price with source links. Open the links: each is the exact
+   page of this wine, this vintage, 75 cl. One site reads as "One shop's asking price", several as a range
+   "in shops and auctions" (or there is honestly no price).
 6. **Costs:** in Supabase, `select task, model, status, tokens_in, tokens_out, web_search_calls, cost_usd_micro
 from ai_usage order by at desc limit 10;` shows `gpt-6-luna…` rows, status `ok`, a cost filled in, and
    `web_search_calls` ≥ 1 on the valuation.

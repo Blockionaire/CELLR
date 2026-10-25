@@ -98,10 +98,12 @@ export function estimateCost(input: {
   images: number;
   maxOutputTokens: number;
   webSearch: boolean;
+  /** With webSearch: the most searches the call may run (default 3). */
+  searches?: number;
 }): number {
   const price = priceOf(input.model) ?? DEAREST;
   const attempts = input.webSearch ? 1 : 2;
-  const searches = input.webSearch ? 3 : 0;
+  const searches = input.webSearch ? (input.searches ?? 3) : 0;
   // Search results come back into the prompt: count ~8 000 input tokens per search on top of the fixed block.
   const tokensIn = Math.ceil(input.promptChars / 3) + input.images * 2500 + searches * 8000;
   const perAttempt = tokensIn * price.input + input.maxOutputTokens * price.output;

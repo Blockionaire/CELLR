@@ -84,4 +84,13 @@ describe("the platform AI budget", () => {
     expect(held[1]).toBeGreaterThan(0);
     expect(held[1]).toBeGreaterThanOrEqual(Math.ceil(2900 * 0.5));
   });
+
+  it("a search call is held for the searches it may run", async () => {
+    const held: number[] = [];
+    const hold = async (_task: string, estimate: number) => (held.push(estimate), "h");
+    const search = { ...request, webSearch: true };
+    await withBudget(provider(), model, hold).generateObject({ ...search, maxSearches: 2 });
+    await withBudget(provider(), model, hold).generateObject({ ...search, maxSearches: 4 });
+    expect(held[1]).toBeGreaterThan(held[0]!);
+  });
 });
