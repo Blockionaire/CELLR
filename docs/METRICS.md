@@ -34,6 +34,10 @@ ratings, Sommelier questions, Tonight recommendations (now their own event, neve
 Sommelier question), 3D cellar opened (once per opening) and imports. They add detail; they are never the
 only source for a headline number.
 
+**Beta feedback is not a metric.** What testers send from Profile → Share feedback lives in its own table
+(`beta_feedback`), never in `analytics_events`, and is never counted or joined into these numbers. It is an
+explicit message, readable only in `/admin/feedback` (see `docs/BETA-OPERATIONS.md` §6).
+
 ## AI cost (estimate)
 
 - **Unit:** US dollars, stored as micro-USD (`ai_usage.cost_usd_micro`, 1 USD = 1 000 000).

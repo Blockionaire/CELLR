@@ -1,4 +1,6 @@
 import "server-only";
+import { createFeedbackRepository } from "@/server/feedback/repository";
+import { createFeedbackService } from "@/server/feedback/service";
 import { getLlmProvider } from "@/server/ai";
 import { createAnalyticsRepository } from "@/server/analytics/repository";
 import { createAnalyticsService } from "@/server/analytics/service";
@@ -116,6 +118,10 @@ export function servicesFor(ctx: RequestContext) {
     }),
     wishlist,
     taste,
+    feedback: createFeedbackService({
+      repo: createFeedbackRepository(ctx.db),
+      spend: () => limiter.enforce(LIMITS.feedback),
+    }),
     export: createExportService({
       repo: createExportRepository(ctx.db),
       household,

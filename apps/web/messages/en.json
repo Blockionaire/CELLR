@@ -1568,5 +1568,46 @@
         }
       }
     }
+  },
+  "feedback": {
+    "entryTitle": "Share feedback",
+    "entryBody": "Something broke, confused you, or could be better? Tell us.",
+    "title": "Share feedback",
+    "intro": "What happened, what did you expect, and what were you doing? The more specific, the more it helps.",
+    "categoryLabel": "What is it about?",
+    "category": {
+      "bug": "Bug",
+      "confusing": "Confusing",
+      "idea": "Idea",
+      "other": "Other"
+    },
+    "categoryError": "Choose what it is about.",
+    "messageLabel": "Your feedback",
+    "messagePlaceholder": "For example: I scanned a bottle, tapped Add, and nothing happened. I expected it in my cellar.",
+    "messageError": "Write at least {min} characters.",
+    "sensitive": "Never include passwords, login codes, payment details or other private information.",
+    "placeLabel": "Where did it happen? (optional)",
+    "placeNone": "Not sure, or nowhere in particular",
+    "place": {
+      "home": "Home",
+      "cellar": "Cellar",
+      "scan": "Scanning",
+      "wine": "A wine's page",
+      "sommelier": "Sommelier",
+      "tonight": "Tonight",
+      "ratings": "My ratings",
+      "taste": "My taste profile",
+      "profile": "Profile",
+      "other": "Somewhere else"
+    },
+    "deviceLabel": "Include my device type (helps with bugs). Only this line is sent:",
+    "submit": "Send feedback",
+    "retry": "Try again",
+    "failed": "That didn't send.",
+    "failedKept": "Your text is still here: try again in a moment.",
+    "thanksTitle": "Thank you!",
+    "thanksBody": "We read every message. It is kept privately and only the CELLR team can see it.",
+    "done": "Done",
+    "another": "Send more feedback"
   }
 }

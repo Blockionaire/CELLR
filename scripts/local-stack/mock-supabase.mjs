@@ -220,12 +220,22 @@ export async function startMockSupabase({
     }
 
     if (req.method === "POST" && path === "/logout") return json(res, 204);
-    if (req.method === "GET" && path === "/user")
-      return json(res, 401, {
-        code: 401,
-        error_code: "no_authorization",
-        msg: "Not implemented in the local stack",
-      });
+    if (req.method === "GET" && path === "/user") {
+      // As GoTrue: the user behind a valid session token we signed (still existing), else 401. The admin check
+      // confirms the session this way.
+      const caller = callerOf(req);
+      const sub = caller?.role === "authenticated" ? caller.claims.sub : null;
+      const { rows } = sub
+        ? await db.query("select id, email from auth.users where id = $1", [sub])
+        : { rows: [] };
+      if (!rows[0])
+        return json(res, 401, {
+          code: 401,
+          error_code: "no_authorization",
+          msg: "Invalid or missing session",
+        });
+      return json(res, 200, sessionFor(rows[0]).user);
+    }
     return goTrueError(res, 404, "not_found", `No such endpoint: ${req.method} ${path}`);
   }
 
