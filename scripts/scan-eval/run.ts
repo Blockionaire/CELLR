@@ -123,21 +123,32 @@ async function evaluate(
     const service = createScanService({
       // The real service keeps the photo first; here it is only cleaned the same way and handed back.
       images: {
-        uploadWithPhoto: async (input) => {
+        prepare: (input) => {
           const clean = sanitizeJpeg(input.photo, IMAGE_LIMITS.photoBytes);
           if (!clean.ok) throw new Error(`photo refused: ${clean.reason}`);
           return {
-            image: {
-              id: "eval",
-              side: input.side,
-              blurColor: null,
-              width: clean.width,
-              height: clean.height,
-            },
+            side: input.side,
             photo: clean.bytes,
+            width: clean.width,
+            height: clean.height,
+            thumb: null,
+            blurColor: null,
+            fingerprint: "",
           };
         },
+        save: async (prepared) => ({
+          image: {
+            id: "eval",
+            side: prepared.side,
+            blurColor: null,
+            width: prepared.width,
+            height: prepared.height,
+          },
+          photo: prepared.photo,
+        }),
       },
+      // The evaluation measures the model: the recognition cache is never consulted.
+      recall: async () => null,
       wines: async () => [],
       householdId: async () => "eval",
       llm: provider,

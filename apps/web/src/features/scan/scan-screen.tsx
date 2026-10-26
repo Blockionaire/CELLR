@@ -97,7 +97,8 @@ export function ScanScreen({ currency }: { currency: string }) {
   const current = (result: ScanResult): ScanResult => {
     // Read from the cache, not this render: right after a wine is added, the list is fresher there.
     const list = queryClient.getQueryData<WineSummary[]>(winesKey) ?? wines.data;
-    if (!result.facts || result.outcome === "unread" || !list) return result;
+    // A remembered photo already names the wine this household confirmed for it.
+    if (!result.facts || result.outcome === "unread" || result.remembered || !list) return result;
     return { ...result, ...matchLabel(result.facts, list) };
   };
 
@@ -620,7 +621,9 @@ function Review({
             </span>
             <div>
               <h2 className="font-display text-headline">{t("foundTitle")}</h2>
-              <p className="mt-1 text-body text-ink-2">{t("foundBody")}</p>
+              <p className="mt-1 text-body text-ink-2">
+                {t(result.remembered ? "rememberedBody" : "foundBody")}
+              </p>
             </div>
           </div>
           <Candidate

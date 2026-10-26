@@ -141,6 +141,21 @@ export const AdminBudgetStatusSchema = z.object({
 });
 export type AdminBudgetStatus = z.infer<typeof AdminBudgetStatusSchema>;
 
+/** Scans the recognition cache answered (hit, no vision call) or did not (miss) in a window. */
+export const AdminRecognitionCacheSchema = z.object({ hits: Count, misses: Count });
+export type AdminRecognitionCache = z.infer<typeof AdminRecognitionCacheSchema>;
+
+/**
+ * Hits are vision calls avoided (each hit is a scan that did not ask the model). The hit rate is over scans that
+ * looked in the cache; null with no such scans yet.
+ */
+export const summarizeRecognitionCache = (c: AdminRecognitionCache) => ({
+  hits: c.hits,
+  misses: c.misses,
+  visionCallsAvoided: c.hits,
+  hitRate: shareOf(c.hits, c.hits + c.misses),
+});
+
 /** USD per web search call (10 USD per 1 000), the part of a search's price that can be told apart. */
 export const WEB_SEARCH_FEE_USD_MICRO = 10_000;
 

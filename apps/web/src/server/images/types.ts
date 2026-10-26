@@ -19,7 +19,13 @@ export interface NewImage {
   width: number;
   height: number;
   blurColor: string | null;
+  /** SHA-256 (hex) of the stored photo; kept only where the database has the column (see the repository). */
+  fingerprint?: string | null;
+  cacheResult?: CacheResult | null;
 }
+
+/** For a scan: whether the recognition cache answered (no vision call) or not. */
+export type CacheResult = "hit" | "miss";
 
 export interface ImageRepository {
   upload(path: string, bytes: Uint8Array): Promise<void>;

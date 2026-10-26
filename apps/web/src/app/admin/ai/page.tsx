@@ -109,6 +109,23 @@ export default async function AdminAiPage({
               />
             </Kpis>
           </Section>
+          <Section
+            title={`Recognition cache, ${days} days`}
+            note="An identical photo this household confirmed before is recognised without the vision model. Only the very same processed image matches; other photos of the same bottle do not."
+          >
+            {data.cache ? (
+              <Kpis>
+                <Kpi label="Vision calls avoided" value={num(data.cache.visionCallsAvoided)} />
+                <Kpi label="Cache hits" value={num(data.cache.hits)} />
+                <Kpi label="Cache misses" value={num(data.cache.misses)} hint="Read by the model" />
+                <Kpi label="Hit rate" value={pct(data.cache.hitRate)} hint="Of scans that looked" />
+              </Kpis>
+            ) : (
+              <p className="text-body text-ink-2">
+                Not available yet: run 20261029000021_recognition_cache.sql.
+              </p>
+            )}
+          </Section>
           <Section title="By task">
             <SplitTable rows={range.by_task} />
           </Section>

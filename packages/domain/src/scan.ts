@@ -328,4 +328,45 @@ export interface ScanResult {
   reason: "ai-off" | "ai-down" | "limit" | "budget" | "not-a-label" | null;
   /** Where the model found the label in the photo, if it is believable: the start of the person's own framing. */
   labelCorners: Quad | null;
+  /**
+   * True when this exact photo (byte for byte, after processing) was scanned and confirmed in this household
+   * before, so the answer comes from that confirmation and no model was asked. It is still only a suggestion:
+   * the person confirms it like any other reading.
+   */
+  remembered?: boolean;
+}
+
+/**
+ * What a confirmed scan says about the photo: the wine and year the household chose for it. Printed details the
+ * model would read (grapes, alcohol, appellation) are not repeated; the person can still edit everything.
+ */
+export function confirmedFacts(wine: WineSummary, year: number | null): LabelFacts {
+  return {
+    producer: wine.producer,
+    name: wine.name,
+    year,
+    nonVintage: year === null,
+    type: wine.type,
+    countryCode: wine.countryCode,
+    region: wine.region,
+    appellation: null,
+    grapes: [],
+    abv: null,
+    volumeMl: null,
+    confidence: { producer: "high", name: "high", year: "high" },
+  };
+}
+
+/**
+ * A remembered scan only counts when every confirmation of the photo agrees on one wine and year, and that wine
+ * is still one of the household's. Anything else (none, disagreeing, a wine that is gone) is not trusted.
+ */
+export function recallScan(
+  confirmations: ReadonlyArray<{ wineId: string; year: number | null }>,
+  wines: readonly WineSummary[],
+): { wine: WineSummary; year: number | null } | null {
+  if (confirmations.length !== 1) return null;
+  const [only] = confirmations;
+  const wine = wines.find((w) => w.id === only!.wineId);
+  return wine ? { wine, year: only!.year } : null;
 }

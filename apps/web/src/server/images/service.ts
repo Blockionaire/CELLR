@@ -1,5 +1,5 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   BlurColorSchema,
   DomainError,
@@ -9,7 +9,19 @@ import {
   type ImageSide,
 } from "@cellr/domain";
 import type { ActiveHousehold } from "@/server/cellar/types";
-import type { ImageRepository } from "./types";
+import type { CacheResult, ImageRepository } from "./types";
+
+export interface PreparedPhoto {
+  side: ImageSide;
+  /** The cleaned photo: these exact bytes are stored, read by the model and fingerprinted. */
+  photo: Uint8Array;
+  width: number;
+  height: number;
+  thumb: Uint8Array | null;
+  blurColor: string | null;
+  /** SHA-256 (hex) of `photo`. */
+  fingerprint: string;
+}
 
 export interface UploadInput {
   side: ImageSide;
@@ -31,39 +43,58 @@ export function createImageService(
   household: () => Promise<ActiveHousehold>,
 ) {
   /**
-   * Keeps a label photo for the household: cleaned of metadata, stored under the household's own folder,
-   * recorded so bottles can point at it. Both copies are checked; if recording fails, the files go again.
+   * Checks and cleans a label photo without keeping it yet: metadata removed, both copies validated. The
+   * fingerprint is the SHA-256 of the cleaned photo, so the very same image always gives the same one.
    */
-  async function store(
-    input: UploadInput,
-  ): Promise<{ image: ImageRef & { side: ImageSide }; photo: Uint8Array }> {
-    const { id: householdId } = await household();
+  function prepare(input: UploadInput): PreparedPhoto {
     const photo = sanitizeJpeg(input.photo, IMAGE_LIMITS.photoBytes);
     if (!photo.ok) throw refused(photo.reason);
     const thumb = input.thumb ? sanitizeJpeg(input.thumb, IMAGE_LIMITS.thumbBytes) : null;
     if (thumb && !thumb.ok) throw refused(thumb.reason);
     const blur = BlurColorSchema.safeParse(input.blurColor);
+    return {
+      side: input.side,
+      photo: photo.bytes,
+      width: photo.width,
+      height: photo.height,
+      thumb: thumb?.ok ? thumb.bytes : null,
+      blurColor: blur.success ? blur.data.toLowerCase() : null,
+      fingerprint: createHash("sha256").update(photo.bytes).digest("hex"),
+    };
+  }
 
+  /**
+   * Keeps a prepared photo for the household: stored under the household's own folder, recorded so bottles can
+   * point at it (with its fingerprint, and whether the recognition cache answered for it). If recording fails,
+   * the files go again.
+   */
+  async function save(
+    prepared: PreparedPhoto,
+    cacheResult: CacheResult | null = null,
+  ): Promise<{ image: ImageRef & { side: ImageSide }; photo: Uint8Array }> {
+    const { id: householdId } = await household();
     // A fresh folder per photo: nothing is ever overwritten, and no name comes from the client.
     const folder = `${householdId}/${randomUUID()}`;
     const photoPath = `${folder}/photo.jpg`;
-    const thumbPath = thumb ? `${folder}/thumb.jpg` : null;
+    const thumbPath = prepared.thumb ? `${folder}/thumb.jpg` : null;
     const written: string[] = [];
     try {
-      await repo.upload(photoPath, photo.bytes);
+      await repo.upload(photoPath, prepared.photo);
       written.push(photoPath);
-      if (thumb?.ok && thumbPath) {
-        await repo.upload(thumbPath, thumb.bytes);
+      if (prepared.thumb && thumbPath) {
+        await repo.upload(thumbPath, prepared.thumb);
         written.push(thumbPath);
       }
       const row = await repo.insertImage({
         householdId,
-        side: input.side,
+        side: prepared.side,
         photoPath,
         thumbPath,
-        width: photo.width,
-        height: photo.height,
-        blurColor: blur.success ? blur.data.toLowerCase() : null,
+        width: prepared.width,
+        height: prepared.height,
+        blurColor: prepared.blurColor,
+        fingerprint: prepared.fingerprint,
+        cacheResult,
       });
       return {
         image: {
@@ -73,13 +104,15 @@ export function createImageService(
           width: row.width,
           height: row.height,
         },
-        photo: photo.bytes,
+        photo: prepared.photo,
       };
     } catch (error) {
       await repo.remove(written).catch(() => {});
       throw error;
     }
   }
+
+  const store = (input: UploadInput) => save(prepare(input));
 
   /** The folder a photo's files live in. */
   const folderOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
@@ -126,8 +159,9 @@ export function createImageService(
       return (await store(input)).image;
     },
 
-    /** Like `upload`, and also hands back the cleaned photo (a scan reads it straight away). */
-    uploadWithPhoto: store,
+    /** The two halves of `upload`, for a scan: look the fingerprint up in between. */
+    prepare,
+    save,
 
     /**
      * Takes every photo of a household out of storage (before the household itself is deleted). It throws when

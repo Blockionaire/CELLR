@@ -6,6 +6,7 @@ import {
   budgetUse,
   isUserId,
   summarizeAiCosts,
+  summarizeRecognitionCache,
   sumActivity,
   type AdminRange,
   type FeedbackCategory,
@@ -17,6 +18,7 @@ import {
   readAiCosts,
   readBudgetStatus,
   readFeedback,
+  readRecognitionCache,
   readUserDirectory,
   readUserSummary,
 } from "@/server/privileged/admin";
@@ -89,12 +91,13 @@ export async function adminAi(session: AdminSession, days: AdminRange, now = new
   assertAdmin(session);
   const end = new Date(now.getTime() + 60_000);
   const from = new Date(startOfUtcDay(now).getTime() - (days - 1) * day);
-  const [range, today, week, month, budget] = await Promise.all([
+  const [range, today, week, month, budget, cache] = await Promise.all([
     readAiCosts(session, from, end),
     readAiCosts(session, startOfUtcDay(now), end),
     readAiCosts(session, new Date(startOfUtcDay(now).getTime() - 6 * day), end),
     readAiCosts(session, startOfUtcMonth(now), end),
     readBudgetStatus(session, now),
+    readRecognitionCache(session, from, end),
   ]);
   const sum = (c: typeof range) => (typeof c === "object" && c ? summarizeAiCosts(c) : null);
   const limits = getAiBudgetEnv();
@@ -108,6 +111,8 @@ export async function adminAi(session: AdminSession, days: AdminRange, now = new
       typeof budget === "object" && budget
         ? budgetUse(budget, { daily: limits.dailyUsdMicro, monthly: limits.monthlyUsdMicro })
         : budget,
+    /** Null: not configured, or the cache's database step is not taken yet. */
+    cache: typeof cache === "object" && cache ? summarizeRecognitionCache(cache) : null,
     ready: range !== "missing",
   };
 }

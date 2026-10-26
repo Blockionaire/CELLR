@@ -8,6 +8,7 @@ import {
   summarizeAiCosts,
   sumActivity,
   type AdminAiCosts,
+  summarizeRecognitionCache,
 } from "./admin";
 
 const A = "0b6f2c1e-6a1d-4f7e-9a3b-2c4d5e6f7a8b";
@@ -151,5 +152,17 @@ describe("activity", () => {
     expect(sumActivity([day({ extraction_ok: 3, extraction_failed: 1 })]).extractionSuccess).toBe(
       0.75,
     );
+  });
+});
+
+describe("the recognition cache figures", () => {
+  it("hits are vision calls avoided; the rate is over scans that looked", () => {
+    expect(summarizeRecognitionCache({ hits: 3, misses: 9 })).toEqual({
+      hits: 3,
+      misses: 9,
+      visionCallsAvoided: 3,
+      hitRate: 0.25,
+    });
+    expect(summarizeRecognitionCache({ hits: 0, misses: 0 }).hitRate).toBeNull();
   });
 });

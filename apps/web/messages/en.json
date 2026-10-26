@@ -136,6 +136,7 @@
     "photoAlt": "Your photo of the label",
     "foundTitle": "We found it",
     "foundBody": "This looks like a wine you already have.",
+    "rememberedBody": "You confirmed this exact photo before. Check it and confirm again.",
     "confirmFound": "Yes, add bottles",
     "notThisOne": "Not this one",
     "chooseTitle": "Is it one of these?",

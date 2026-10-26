@@ -45,6 +45,8 @@ begin
     test.denied('select public.admin_beta_feedback(null, 0, 0)')
     and test.denied('select public.admin_beta_feedback(null, 101, 0)')
     and test.denied('select public.admin_beta_feedback(''praise'', 10, 0)'));
+  -- Both rows share now() inside this transaction: make the bug report clearly older.
+  update public.beta_feedback set created_at = now() - interval '1 minute' where category = 'bug';
   s := public.admin_beta_feedback(null, 10, 0);
   perform test.rec('newest first, with the total and counts per category',
     (s->>'total')::int = 2 and (s->'counts'->>'bug')::int = 1 and (s->'counts'->>'idea')::int = 1

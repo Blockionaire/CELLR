@@ -231,9 +231,11 @@ export type Database = {
       bottle_images: {
         Row: {
           blur_color: string | null;
+          cache_result: string | null;
           created_at: string;
           created_by: string | null;
           crop: Json | null;
+          fingerprint: string | null;
           height: number | null;
           household_id: string;
           id: string;
@@ -247,9 +249,11 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           blur_color?: string | null;
+          cache_result?: string | null;
           created_at?: string;
           created_by?: string | null;
           crop?: Json | null;
+          fingerprint?: string | null;
           height?: number | null;
           household_id: string;
           id?: string;
@@ -262,9 +266,11 @@ export type Database = {
         };
         Update: {
           blur_color?: string | null;
+          cache_result?: string | null;
           created_at?: string;
           created_by?: string | null;
           crop?: Json | null;
+          fingerprint?: string | null;
           height?: number | null;
           household_id?: string;
           id?: string;
@@ -1429,6 +1435,7 @@ export type Database = {
         Returns: Json;
       };
       admin_budget_status: { Args: { p_now?: string }; Returns: Json };
+      admin_recognition_cache: { Args: { p_from: string; p_to: string }; Returns: Json };
       admin_user_directory: {
         Args: { p_limit: number; p_offset: number };
         Returns: {
@@ -1552,6 +1559,13 @@ export type Database = {
         }[];
       };
       platform_metrics: { Args: { p_now?: string }; Returns: Json };
+      recall_confirmed_scan: {
+        Args: { p_fingerprint: string; p_household_id: string };
+        Returns: {
+          wine_id: string;
+          year: number;
+        }[];
+      };
       recommend_wine: {
         Args: { p_friend: string; p_note?: string; p_vintage: string };
         Returns: string;

@@ -29,6 +29,10 @@ export const toImage = (r: {
   texture: r.texture_path !== null,
 });
 
+/** PostgREST's "no such column" (its schema cache) or Postgres's own. */
+export const missingColumn = (error: { code?: string }) =>
+  error.code === "PGRST204" || error.code === "42703";
+
 /** Storage speaks HTTP statuses, not Postgres codes. */
 const storageFailure = (error: {
   message: string;
@@ -67,20 +71,26 @@ export function createImageRepository(db: Db): ImageRepository {
     },
 
     async insertImage(row) {
-      const { data, error } = await db
-        .from("bottle_images")
-        .insert({
-          household_id: row.householdId,
-          side: row.side,
-          original_path: row.photoPath,
-          web_path: row.thumbPath,
-          width: row.width,
-          height: row.height,
-          blur_color: row.blurColor,
-        })
-        .select(COLUMNS)
-        .single();
-      if (error) throw mapDbError(error);
+      const base = {
+        household_id: row.householdId,
+        side: row.side,
+        original_path: row.photoPath,
+        web_path: row.thumbPath,
+        width: row.width,
+        height: row.height,
+        blur_color: row.blurColor,
+      };
+      const insert = (values: typeof base & { fingerprint?: string; cache_result?: string }) =>
+        db.from("bottle_images").insert(values).select(COLUMNS).single();
+      const remembered = {
+        ...(row.fingerprint ? { fingerprint: row.fingerprint } : {}),
+        ...(row.cacheResult ? { cache_result: row.cacheResult } : {}),
+      };
+      let { data, error } = await insert({ ...base, ...remembered });
+      // Before the recognition-cache step (20261029000021) the columns do not exist: keep the photo without them.
+      if (error && Object.keys(remembered).length > 0 && missingColumn(error))
+        ({ data, error } = await insert(base));
+      if (error || !data) throw mapDbError(error!);
       return toImage(data);
     },
 
