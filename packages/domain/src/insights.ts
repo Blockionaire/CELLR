@@ -429,6 +429,54 @@ export function profileUpgrade(
   return "replace";
 }
 
+// ---- Shared wine profiles: research a wine once, reuse it in every household --------------------------------
+
+/** The languages profiles are written in; a shared profile is reused only in its own language. */
+export const PROFILE_LANGUAGES = ["en", "nl"] as const;
+export type ProfileLanguage = (typeof PROFILE_LANGUAGES)[number];
+export const profileLanguage = (locale: string): ProfileLanguage => (locale === "nl" ? "nl" : "en");
+
+/**
+ * Whether a checked profile is good enough to be reused by other households for the same wine and vintage. Strict
+ * on purpose (a missed reuse costs one research call; a wrong one shows a stranger the wrong wine):
+ * - the current profile version, from research that really ran, resting on pages about this exact wine (at least
+ *   one verified source), with high confidence (after `checkInsight` capped it by the evidence);
+ * - no value (prices are private to a household and change; valuations are kept apart);
+ * - nothing that contradicts the wine as the catalogue knows it: its country, and a drinking window that starts
+ *   before the harvest (non-vintage keeps no window at all).
+ * The model's own confidence claim alone never qualifies a profile.
+ */
+export function shareableInsight(
+  output: InsightOutput,
+  wine: { year: number | null; countryCode: string | null },
+  /** What the model said about where it is from (the raw answer), when there is one. */
+  claimedCountry: string | null = null,
+): boolean {
+  if (output.version < PROFILE_VERSION) return false;
+  if (!output.researched || output.evidence !== "exact_wine" || output.confidence !== "high")
+    return false;
+  if (output.sources.length === 0 || output.value !== null) return false;
+  if (output.summary.trim() === "") return false;
+  const country = claimedCountry?.trim().toUpperCase() || null;
+  if (country && wine.countryCode && country !== wine.countryCode) return false;
+  if (output.drinkWindow && (wine.year === null || output.drinkWindow.from < wine.year))
+    return false;
+  return true;
+}
+
+/**
+ * A shared profile as it comes back from the database, checked again before any household sees it: it must still
+ * be a valid profile of the current version that meets the same bar. Anything else is not used.
+ */
+export function reusableInsight(
+  stored: unknown,
+  wine: { year: number | null; countryCode: string | null },
+): InsightOutput | null {
+  const parsed = InsightOutputSchema.safeParse(stored);
+  if (!parsed.success) return null;
+  return shareableInsight(parsed.data, wine) ? parsed.data : null;
+}
+
 /**
  * A profile is written once and then stays: the person reads the same description, tastes and aromas every time.
  * A newer kind of profile only fills in what the stored one lacks (an empty list, a missing number), never more.

@@ -6,6 +6,9 @@ import {
   mergeInsight,
   nextValuationAt,
   profileUpgrade,
+  profileLanguage,
+  reusableInsight,
+  shareableInsight,
   daysUntil,
   DomainError,
   REMINDER_AHEAD_DAYS,
@@ -15,6 +18,8 @@ import {
   type Reservation,
   type RemindersView,
   type VintageDetail,
+  type InsightOutput,
+  type ProfileLanguage,
   type VintageInsightView,
 } from "@cellr/domain";
 import type { AiErrorKind, AiUsage, LlmProvider } from "@/server/ai";
@@ -60,6 +65,17 @@ export interface InsightsDeps {
   ) => Promise<unknown>;
   /** Today as YYYY-MM-DD (injectable so reminders can be tested). */
   today?: () => string;
+  /**
+   * Offers a researched profile to every household as the shared one for its vintage and language (server-side,
+   * service role). Without it, profiles are only ever kept privately.
+   */
+  publishShared?: (entry: {
+    vintageId: string;
+    language: ProfileLanguage;
+    output: InsightOutput;
+    model: string;
+    generatedAt: string;
+  }) => Promise<boolean>;
 }
 
 const STATUS: Record<
@@ -141,13 +157,36 @@ export function createInsightsService(deps: InsightsDeps) {
       const stored = row?.output ?? null;
       const upgrade = stored ? profileUpgrade(stored, row!.generatedAt, now()) : "new";
       if (upgrade === "none") return view(id, currency, vintageId);
+
+      // The shared cache, before any budget is spent or model asked: a profile another household already had
+      // researched for this very vintage (a canonical wine, so the identity is the same for everyone), in this
+      // language, that still meets the bar. A failed or missing lookup only means "not shared": research as before.
+      const language = profileLanguage(await deps.locale());
+      const wine = { year: detail.year, countryCode: detail.wine.countryCode };
+      const shared = await deps.repo.getShared(vintageId, language).catch(() => null);
+      const sharedProfile = shared?.profile ? reusableInsight(shared.profile.output, wine) : null;
+      if (shared?.profile && sharedProfile) {
+        const output =
+          stored && upgrade === "fill"
+            ? mergeInsight(stored, sharedProfile)
+            : { ...sharedProfile, value: stored?.value ?? null };
+        const saved = await deps.repo.saveInsight(id, vintageId, {
+          output,
+          model: shared.profile.model,
+          generatedAt: shared.profile.generatedAt,
+          cacheResult: "hit",
+        });
+        if (!saved) throw new DomainError("INTERNAL", NOT_READY);
+        return view(id, currency, vintageId);
+      }
+      const shareable = shared?.eligible === true;
+
       if (!deps.llm)
         throw new DomainError("AI_UNAVAILABLE", "Wine profiles aren't switched on yet.", {
           retryable: false,
         });
       await deps.spend();
 
-      const locale = await deps.locale();
       const ask = (research: boolean) =>
         deps.llm!.generateObject({
           task: "wine_insight",
@@ -162,8 +201,10 @@ export function createInsightsService(deps: InsightsDeps) {
             country: detail.wine.countryCode,
             appellation: detail.wine.appellation,
             currency,
-            paidCents: detail.averagePriceCents,
-            language: locale === "nl" ? "Dutch" : "English",
+            // A wine whose profile may be shared is researched from public facts only: what this household paid
+            // is private and must not shape a text other households will read.
+            paidCents: shareable ? null : detail.averagePriceCents,
+            language: language === "nl" ? "Dutch" : "English",
             research,
           }),
           schemaName: "wine_insight",
@@ -212,12 +253,31 @@ export function createInsightsService(deps: InsightsDeps) {
         stored && upgrade === "fill"
           ? mergeInsight(stored, fresh)
           : { ...fresh, value: stored?.value ?? null };
+      const generatedAt = new Date().toISOString();
       const saved = await deps.repo.saveInsight(id, vintageId, {
         output,
         model: result.usage.model,
-        generatedAt: new Date().toISOString(),
+        generatedAt,
+        ...(shareable ? { cacheResult: "miss" as const } : {}),
       });
       if (!saved) throw new DomainError("INTERNAL", NOT_READY);
+
+      // Offer it to every household when it is this exact wine, researched and sure, and agrees with the wine.
+      // The fresh profile itself is offered (never one merged with this household's older text or value).
+      if (
+        shareable &&
+        deps.publishShared &&
+        shareableInsight(fresh, wine, result.value.country_code)
+      )
+        await deps
+          .publishShared({
+            vintageId,
+            language,
+            output: { ...fresh, value: null },
+            model: result.usage.model,
+            generatedAt,
+          })
+          .catch(() => false);
 
       // What the person left empty (region, appellation, country) is filled in from what the AI knows, judged by
       // the checked profile's confidence and evidence (not the model's own claim); what they typed is never

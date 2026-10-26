@@ -193,6 +193,115 @@ test.describe("a wine's profile", () => {
     ).toBe(409);
   });
 
+  test("a catalogue wine is researched once and reused by another household; another vintage is researched", async ({
+    page,
+    browser,
+    request,
+  }) => {
+    const m = marker();
+    // A wine from the shared catalogue (curated, canonical), with two vintages.
+    const [producer] = await sql<{ id: string }>(
+      "insert into public.producers (name, status, origin, country_code) values ($1, 'canonical', 'verified', 'FR') returning id",
+      [`Shared Estate ${m}`],
+    );
+    const [wine] = await sql<{ id: string }>(
+      "insert into public.wines (producer_id, name, wine_type, country_code, region, status, origin) values ($1, $2, 'red', 'FR', 'Bordeaux', 'canonical', 'verified') returning id",
+      [producer!.id, `Cuvée ${m}`],
+    );
+    const [v2019] = await sql<{ id: string }>(
+      "insert into public.wine_vintages (wine_id, year) values ($1, 2019) returning id",
+      [wine!.id],
+    );
+    const [v2020] = await sql<{ id: string }>(
+      "insert into public.wine_vintages (wine_id, year) values ($1, 2020) returning id",
+      [wine!.id],
+    );
+    const consulted = ["https://shared-estate.example/cuvee-2019"];
+    await program(m, {
+      content: {
+        ...PROFILE,
+        summary: "Shared Estate's cuvée: a classic, structured Bordeaux.",
+        confidence: "high",
+        evidence: "exact_wine",
+        sources: [{ name: "Shared Estate", url: consulted[0] }],
+      },
+      consulted,
+    });
+    const researchCalls = async () =>
+      (
+        (await (
+          await fetch(`${STACK}/__test/openai/calls?match=${encodeURIComponent(m)}`)
+        ).json()) as { calls: unknown[] }
+      ).calls.length;
+
+    const households: Array<{ email: string; householdId: string; close: () => Promise<void> }> =
+      [];
+    for (const label of ["sharedA", "sharedB", "sharedC"]) {
+      const context = await browser.newContext(test.info().project.use as BrowserContextOptions);
+      const who = await arrive(await context.newPage(), label);
+      households.push({ ...who, close: () => context.close() });
+    }
+    const [a, b, c] = households;
+    const add = async (email: string, year: number) => {
+      const { call } = await apiClient(request, email);
+      await call(
+        "post",
+        "/bottles",
+        { wineId: wine!.id, year, quantity: 1, locationId: null, priceCents: 2750 },
+        201,
+      );
+    };
+    const profile = async (email: string, vintageId: string) => {
+      const res = await api(
+        request,
+        await sessionToken(email),
+        "post",
+        `/cellar/${vintageId}/insight`,
+      );
+      expect(res.status()).toBe(200);
+      return (await res.json()) as { insight: { output: { summary: string } } | null };
+    };
+
+    // Household A adds Wine X 2019: one research call, and the profile becomes shared.
+    await add(a!.email, 2019);
+    expect((await profile(a!.email, v2019!.id)).insight?.output.summary).toContain("Shared Estate");
+    expect(await researchCalls()).toBe(1);
+    // Household A adds another bottle: still one.
+    await add(a!.email, 2019);
+    await profile(a!.email, v2019!.id);
+    expect(await researchCalls()).toBe(1);
+    // Household B adds the same wine and vintage: reused, no call, no AI usage, no budget.
+    await add(b!.email, 2019);
+    expect((await profile(b!.email, v2019!.id)).insight?.output.summary).toContain("Shared Estate");
+    expect(await researchCalls()).toBe(1);
+    expect(
+      await sql("select 1 from public.ai_usage where household_id = $1", [b!.householdId]),
+    ).toHaveLength(0);
+    // Household C adds the 2020 vintage: researched, never served the 2019 profile.
+    await add(c!.email, 2020);
+    await profile(c!.email, v2020!.id);
+    expect(await researchCalls()).toBe(2);
+
+    // What is shared is public wine knowledge only: one row per vintage and language, no price, no household.
+    const sharedRows = await sql<{ vintage_id: string; text: string }>(
+      "select vintage_id, output::text as text from public.shared_wine_profiles where vintage_id in ($1, $2) order by vintage_id",
+      [v2019!.id, v2020!.id],
+    );
+    expect(sharedRows).toHaveLength(2);
+    for (const row of sharedRows) {
+      expect(row.text).not.toMatch(/2750|27\.5|paid/);
+      for (const h of households) expect(row.text).not.toContain(h.householdId);
+    }
+    expect(
+      await sql<{ cache_result: string }>(
+        "select cache_result from public.vintage_insights where household_id = $1",
+        [b!.householdId],
+      ),
+    ).toEqual([{ cache_result: "hit" }]);
+    for (const h of households) await h.close();
+    await page.close();
+  });
+
   test("when the AI can't, nothing is stored and the person is told kindly", async ({
     page,
     request,

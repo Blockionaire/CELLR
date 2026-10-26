@@ -830,6 +830,63 @@ export type Database = {
         };
         Relationships: [];
       };
+      shared_wine_profiles: {
+        Row: {
+          confidence: string;
+          created_at: string;
+          evidence: string;
+          generated_at: string;
+          id: string;
+          language: string;
+          model: string;
+          output: NonNullable<Json>;
+          researched: boolean;
+          source_count: number;
+          updated_at: string;
+          version: number;
+          vintage_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          confidence: string;
+          created_at?: string;
+          evidence: string;
+          generated_at: string;
+          id?: string;
+          language: string;
+          model: string;
+          output: NonNullable<Json>;
+          researched: boolean;
+          source_count: number;
+          updated_at?: string;
+          version: number;
+          vintage_id: string;
+        };
+        Update: {
+          confidence?: string;
+          created_at?: string;
+          evidence?: string;
+          generated_at?: string;
+          id?: string;
+          language?: string;
+          model?: string;
+          output?: NonNullable<Json>;
+          researched?: boolean;
+          source_count?: number;
+          updated_at?: string;
+          version?: number;
+          vintage_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shared_wine_profiles_vintage_id_fkey";
+            columns: ["vintage_id"];
+            isOneToOne: false;
+            referencedRelation: "wine_vintages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       sharing_picks: {
         Row: {
           friend: string;
@@ -1005,6 +1062,8 @@ export type Database = {
       };
       vintage_insights: {
         Row: {
+          cache_checked_at: string | null;
+          cache_result: string | null;
           created_at: string;
           generated_at: string | null;
           household_id: string;
@@ -1017,6 +1076,8 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          cache_checked_at?: string | null;
+          cache_result?: string | null;
           created_at?: string;
           generated_at?: string | null;
           household_id: string;
@@ -1028,6 +1089,8 @@ export type Database = {
           vintage_id: string;
         };
         Update: {
+          cache_checked_at?: string | null;
+          cache_result?: string | null;
           created_at?: string;
           generated_at?: string | null;
           household_id?: string;
@@ -1436,6 +1499,10 @@ export type Database = {
       };
       admin_budget_status: { Args: { p_now?: string }; Returns: Json };
       admin_recognition_cache: { Args: { p_from: string; p_to: string }; Returns: Json };
+      admin_shared_profiles: {
+        Args: { p_from: string; p_now?: string; p_to: string };
+        Returns: Json;
+      };
       admin_user_directory: {
         Args: { p_limit: number; p_offset: number };
         Returns: {
@@ -1559,6 +1626,16 @@ export type Database = {
         }[];
       };
       platform_metrics: { Args: { p_now?: string }; Returns: Json };
+      publish_shared_wine_profile: {
+        Args: {
+          p_generated_at: string;
+          p_language: string;
+          p_model: string;
+          p_output: Json;
+          p_vintage_id: string;
+        };
+        Returns: boolean;
+      };
       recall_confirmed_scan: {
         Args: { p_fingerprint: string; p_household_id: string };
         Returns: {
@@ -1573,6 +1650,15 @@ export type Database = {
       remove_friend: { Args: { p_user: string }; Returns: boolean };
       respond_friend_request: { Args: { p_accept: boolean; p_id: string }; Returns: boolean };
       send_friend_request: { Args: { p_user: string }; Returns: string };
+      shared_wine_profile: {
+        Args: { p_language: string; p_vintage_id: string };
+        Returns: {
+          eligible: boolean;
+          generated_at: string;
+          model: string;
+          output: Json;
+        }[];
+      };
     };
     Enums: {
       bottle_status: "in_cellar" | "opened" | "gifted" | "removed";

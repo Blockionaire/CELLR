@@ -26,6 +26,7 @@ import { sendFriendNotice } from "@/server/privileged/friend-notices";
 import { createHouseholdService } from "@/server/households/service";
 import { createRateLimitRepository } from "@/server/ratelimit/repository";
 import { createRateLimiter, LIMITS } from "@/server/ratelimit/service";
+import { publishSharedProfile } from "@/server/privileged/shared-profiles";
 import { createScanRepository } from "@/server/scans/repository";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
@@ -79,6 +80,7 @@ export function servicesFor(ctx: RequestContext) {
     llm: getLlmProvider(),
     spend: () => limiter.enforce(LIMITS.insights),
     spendValuation: () => limiter.enforce(LIMITS.valuations),
+    publishShared: publishSharedProfile,
     recordUsage: ({ householdId, task, status, usage }) =>
       recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
   });

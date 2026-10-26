@@ -1,7 +1,7 @@
 import "server-only";
 import { DomainError, type ImageSide } from "@cellr/domain";
 import type { Db } from "@/server/db/clients";
-import { mapDbError } from "@/server/db/errors";
+import { mapDbError, missingColumn } from "@/server/db/errors";
 import { allRows } from "@/server/db/paging";
 import type { ImageRepository, ImageRow } from "./types";
 
@@ -28,10 +28,6 @@ export const toImage = (r: {
   blurColor: r.blur_color,
   texture: r.texture_path !== null,
 });
-
-/** PostgREST's "no such column" (its schema cache) or Postgres's own. */
-export const missingColumn = (error: { code?: string }) =>
-  error.code === "PGRST204" || error.code === "42703";
 
 /** Storage speaks HTTP statuses, not Postgres codes. */
 const storageFailure = (error: {

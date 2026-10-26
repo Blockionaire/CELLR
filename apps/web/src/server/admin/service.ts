@@ -7,6 +7,7 @@ import {
   isUserId,
   summarizeAiCosts,
   summarizeRecognitionCache,
+  summarizeSharedProfiles,
   sumActivity,
   type AdminRange,
   type FeedbackCategory,
@@ -19,6 +20,7 @@ import {
   readBudgetStatus,
   readFeedback,
   readRecognitionCache,
+  readSharedProfiles,
   readUserDirectory,
   readUserSummary,
 } from "@/server/privileged/admin";
@@ -91,13 +93,14 @@ export async function adminAi(session: AdminSession, days: AdminRange, now = new
   assertAdmin(session);
   const end = new Date(now.getTime() + 60_000);
   const from = new Date(startOfUtcDay(now).getTime() - (days - 1) * day);
-  const [range, today, week, month, budget, cache] = await Promise.all([
+  const [range, today, week, month, budget, cache, shared] = await Promise.all([
     readAiCosts(session, from, end),
     readAiCosts(session, startOfUtcDay(now), end),
     readAiCosts(session, new Date(startOfUtcDay(now).getTime() - 6 * day), end),
     readAiCosts(session, startOfUtcMonth(now), end),
     readBudgetStatus(session, now),
     readRecognitionCache(session, from, end),
+    readSharedProfiles(session, from, end),
   ]);
   const sum = (c: typeof range) => (typeof c === "object" && c ? summarizeAiCosts(c) : null);
   const limits = getAiBudgetEnv();
@@ -113,6 +116,16 @@ export async function adminAi(session: AdminSession, days: AdminRange, now = new
         : budget,
     /** Null: not configured, or the cache's database step is not taken yet. */
     cache: typeof cache === "object" && cache ? summarizeRecognitionCache(cache) : null,
+    /** Null: not configured, or the shared-profile step is not taken yet. */
+    shared:
+      typeof shared === "object" && shared
+        ? summarizeSharedProfiles(
+            shared,
+            typeof range === "object" && range
+              ? (range.by_task.find((t) => t.key === "wine_insight")?.calls ?? 0)
+              : null,
+          )
+        : null,
     ready: range !== "missing",
   };
 }

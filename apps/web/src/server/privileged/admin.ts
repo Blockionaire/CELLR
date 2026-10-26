@@ -5,12 +5,14 @@ import {
   AdminAiCostsSchema,
   AdminBudgetStatusSchema,
   AdminRecognitionCacheSchema,
+  AdminSharedProfilesSchema,
   AdminUserRowSchema,
   AdminUserSummarySchema,
   type AdminActivityDay,
   type AdminAiCosts,
   type AdminBudgetStatus,
   type AdminRecognitionCache,
+  type AdminSharedProfiles,
   type AdminFeedbackPage,
   type FeedbackCategory,
   type AdminRange,
@@ -40,7 +42,8 @@ async function call<T>(
     | "admin_budget_status"
     | "admin_activity_series"
     | "admin_beta_feedback"
-    | "admin_recognition_cache",
+    | "admin_recognition_cache"
+    | "admin_shared_profiles",
   args: Record<string, unknown>,
   parse: (data: unknown) => T,
 ): Read<T> {
@@ -133,5 +136,19 @@ export function readRecognitionCache(
     "admin_recognition_cache",
     { p_from: from.toISOString(), p_to: to.toISOString() },
     (d) => AdminRecognitionCacheSchema.parse(d),
+  );
+}
+
+/** "missing" here also means only the shared-profile step (20261030000022) is still to be taken. */
+export function readSharedProfiles(
+  session: AdminSession,
+  from: Date,
+  to: Date,
+): Read<AdminSharedProfiles> {
+  return call(
+    session,
+    "admin_shared_profiles",
+    { p_from: from.toISOString(), p_to: to.toISOString() },
+    (d) => AdminSharedProfilesSchema.parse(d),
   );
 }

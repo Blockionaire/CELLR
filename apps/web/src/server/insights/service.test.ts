@@ -75,6 +75,7 @@ function setup(
     addValuation: vi.fn(async () => true),
     allValuations: vi.fn(async () => []),
     listOwnValues: vi.fn(async () => new Map<string, number>()),
+    getShared: vi.fn(async () => ({ eligible: false, profile: null })),
   };
   const llm: LlmProvider = {
     // A web-search request that comes back has run a search, unless the answer says otherwise.

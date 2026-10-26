@@ -8,7 +8,7 @@ import {
   type BottleExtrasView,
 } from "@cellr/domain";
 import type { Db } from "@/server/db/clients";
-import { isMissingTable, mapDbError } from "@/server/db/errors";
+import { isMissingTable, mapDbError, missingColumn } from "@/server/db/errors";
 import { allRows } from "@/server/db/paging";
 import type { InsightRow, InsightsRepository } from "./types";
 
@@ -42,9 +42,11 @@ export function createInsightsRepository(db: Db): InsightsRepository {
       model?: string;
       generated_at?: string;
       my_value_cents?: number | null;
+      cache_result?: "hit" | "miss";
+      cache_checked_at?: string;
     },
   ): Promise<boolean> {
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       const updated = await db
         .from("vintage_insights")
         .update(values)
@@ -52,6 +54,13 @@ export function createInsightsRepository(db: Db): InsightsRepository {
         .eq("vintage_id", vintageId)
         .select("id");
       if (updated.error && isMissingTable(updated.error)) return false;
+      // Before the shared-profile step (20261030000022) the cache columns do not exist: save without them.
+      if (updated.error && missingColumn(updated.error) && "cache_result" in values) {
+        values = { ...values };
+        delete values.cache_result;
+        delete values.cache_checked_at;
+        continue;
+      }
       if (updated.error) throw mapDbError(updated.error);
       if (updated.data.length > 0) return true;
       const inserted = await db
@@ -112,7 +121,29 @@ export function createInsightsRepository(db: Db): InsightsRepository {
         output: insight.output,
         model: insight.model,
         generated_at: insight.generatedAt,
+        ...(insight.cacheResult
+          ? { cache_result: insight.cacheResult, cache_checked_at: new Date().toISOString() }
+          : {}),
       }),
+
+    async getShared(vintageId, language) {
+      const { data, error } = await db.rpc("shared_wine_profile", {
+        p_vintage_id: vintageId,
+        p_language: language,
+      });
+      // Before 20261030000022 the function does not exist: the shared cache is simply not there.
+      if (error && (error.code === "PGRST202" || error.code === "42883")) return null;
+      if (error) throw mapDbError(error);
+      const [row] = data ?? [];
+      if (!row) return { eligible: false, profile: null };
+      return {
+        eligible: row.eligible === true,
+        profile:
+          row.output && row.model && row.generated_at
+            ? { output: row.output, model: row.model, generatedAt: row.generated_at }
+            : null,
+      };
+    },
 
     saveMyValue: (householdId, vintageId, cents) =>
       saveInsightRow(householdId, vintageId, { my_value_cents: cents }),

@@ -20,8 +20,26 @@ export interface InsightsRepository {
   saveInsight(
     householdId: string,
     vintageId: string,
-    insight: { output: InsightOutput; model: string; generatedAt: string },
+    insight: {
+      output: InsightOutput;
+      model: string;
+      generatedAt: string;
+      /** For measuring the shared cache: reused from it (hit) or researched after looking (miss). */
+      cacheResult?: "hit" | "miss";
+    },
   ): Promise<boolean>;
+  /**
+   * The shared profile of a vintage in a language. `eligible`: the vintage has a shared identity (a canonical
+   * wine of a canonical producer). `profile` is as stored, still to be checked. Null = the shared cache is not
+   * set up yet.
+   */
+  getShared(
+    vintageId: string,
+    language: string,
+  ): Promise<{
+    eligible: boolean;
+    profile: { output: unknown; model: string; generatedAt: string } | null;
+  } | null>;
   saveMyValue(householdId: string, vintageId: string, cents: number | null): Promise<boolean>;
 
   /** Every value looked up for a vintage, oldest first (null = not switched on). */
