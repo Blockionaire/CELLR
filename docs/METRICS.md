@@ -102,6 +102,10 @@ Read-only, for allowlisted admins (`CELLR_ADMIN_USER_IDS`). It shows the figures
   over calls that reached the provider), tokens, web searches and their per-call fees ($10 / 1 000; search
   content tokens are inside input tokens and cannot be separated), average latency of successful calls; by task
   and by model. The legacy `cost_micro` is never read.
+- **Recognition cache** (on the AI & costs page, 20261029000021_recognition_cache.sql): scans answered from an
+  earlier confirmed identical photo (hits = vision calls avoided), scans that were not (misses), and the hit rate
+  over scans that looked. Counted per scan photo in `bottle_images.cache_result`, never in `ai_usage` (a hit is
+  not an AI call), and with no fingerprint, photo or person in the figures.
 - **Platform budget**: recorded usage (cost, or hold when unknown) plus outstanding holds, against
   `AI_BUDGET_DAILY_USD` / `AI_BUDGET_MONTHLY_USD`. A hold is deleted when its usage is recorded, so nothing is
   counted twice (apart from the instant between the two writes). It is an application guard, not a provider cap.

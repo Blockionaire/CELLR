@@ -10,6 +10,18 @@
 
 Switching mode never discards a batch: its photos stay in the tray, and no photo is sent by switching.
 
+## Recognition cache (identical photos)
+
+In every mode, a photo that is byte-for-byte identical (after processing) to one this household already
+**confirmed** is answered from that confirmation without a vision call. It does not spend the scan budget or add
+an `ai_usage` row. The answer is still a suggestion in the usual review ("You confirmed this exact photo
+before"), so the person confirms it as always.
+
+Readings nobody confirmed are never remembered. Corrections and removals change the answer at once. Other
+households never benefit. Another photo of the same bottle is not recognised this way.
+
+Details and the plans for different-photo recognition: `docs/RECOGNITION-ROADMAP.md`.
+
 ## Batch queue (`apps/web/src/features/scan/queue.ts`)
 
 - At most two readings at once; at most 20 photos per batch (well inside the 40/hour scan limit).

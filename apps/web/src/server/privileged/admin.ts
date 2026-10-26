@@ -4,11 +4,13 @@ import {
   AdminFeedbackPageSchema,
   AdminAiCostsSchema,
   AdminBudgetStatusSchema,
+  AdminRecognitionCacheSchema,
   AdminUserRowSchema,
   AdminUserSummarySchema,
   type AdminActivityDay,
   type AdminAiCosts,
   type AdminBudgetStatus,
+  type AdminRecognitionCache,
   type AdminFeedbackPage,
   type FeedbackCategory,
   type AdminRange,
@@ -37,7 +39,8 @@ async function call<T>(
     | "admin_ai_costs"
     | "admin_budget_status"
     | "admin_activity_series"
-    | "admin_beta_feedback",
+    | "admin_beta_feedback"
+    | "admin_recognition_cache",
   args: Record<string, unknown>,
   parse: (data: unknown) => T,
 ): Read<T> {
@@ -116,5 +119,19 @@ export function readFeedback(
     "admin_beta_feedback",
     { p_category: category, p_limit: size, p_offset: (page - 1) * size },
     (d) => AdminFeedbackPageSchema.parse(d),
+  );
+}
+
+/** "missing" here also means only the recognition-cache step (20261029000021) is still to be taken. */
+export function readRecognitionCache(
+  session: AdminSession,
+  from: Date,
+  to: Date,
+): Read<AdminRecognitionCache> {
+  return call(
+    session,
+    "admin_recognition_cache",
+    { p_from: from.toISOString(), p_to: to.toISOString() },
+    (d) => AdminRecognitionCacheSchema.parse(d),
   );
 }

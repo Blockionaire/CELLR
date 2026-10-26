@@ -84,6 +84,8 @@ async function scan(
 
 interface ScanBody {
   outcome: "found" | "choose" | "new" | "unread";
+  remembered?: boolean;
+  labelCorners?: unknown;
   reason: string | null;
   image: { id: string; blurColor: string | null; width: number };
   facts: Record<string, unknown> | null;
@@ -367,6 +369,98 @@ test.describe("reading a label", () => {
     ).json()) as ScanBody;
     expect(body).toMatchObject({ outcome: "new", matches: [] }); // the other household's wine is not theirs to be offered
     await context.close();
+  });
+
+  test("a photo this household confirmed is recognised again without a second vision call, and only then", async ({
+    page,
+    browser,
+    request,
+  }) => {
+    const { email, householdId } = await arrive(page, "scancache");
+    const { call, token } = await apiClient(request, email);
+    const wine = (
+      await call<{ id: string }>(
+        "post",
+        "/wines",
+        { producer: "Château Margaux", name: "Pavillon Rouge", type: "red", countryCode: "FR" },
+        201,
+      )
+    ).body;
+    const size = uniqueSize();
+    await program(size, { content: label() });
+    const photo = await makeJpeg(page, { ...size, words: "Margaux" });
+    const read = async (as = token) => (await (await scan(request, as, photo)).json()) as ScanBody;
+    const bottles = async () =>
+      (
+        await sql<{ n: string }>(
+          "select count(*) as n from public.bottles where household_id = $1",
+          [householdId],
+        )
+      )[0]!.n;
+
+    // 1. The first scan is read by the model.
+    const first = await read();
+    expect(first).toMatchObject({ outcome: "found", reason: null });
+    expect(first).not.toHaveProperty("remembered");
+    expect(await modelCalls(size)).toHaveLength(1);
+
+    // 2. A reading nobody confirmed is not remembered: the same photo again asks the model again.
+    expect(await read()).not.toHaveProperty("remembered");
+    expect(await modelCalls(size)).toHaveLength(2);
+
+    // 3. The person confirms the wine and year with this photo.
+    await call(
+      "post",
+      "/bottles",
+      { wineId: wine.id, year: 2015, quantity: 1, imageId: first.image.id },
+      201,
+    );
+    expect(await bottles()).toBe("1");
+
+    // 4. The identical photo again: recognised from that confirmation, the model is NOT asked.
+    const again = await read();
+    expect(again).toMatchObject({
+      outcome: "found",
+      reason: null,
+      remembered: true,
+      facts: { producer: "Château Margaux", name: "Pavillon Rouge", year: 2015 },
+      labelCorners: null,
+    });
+    expect(again.matches).toEqual([
+      expect.objectContaining({ wine: expect.objectContaining({ id: wine.id }), score: 1 }),
+    ]);
+    expect(again.image.id).not.toBe(first.image.id); // its own, newly kept photo
+    expect(await modelCalls(size)).toHaveLength(2);
+    // Nothing was spent or recorded for it, and nothing was added: the person still confirms.
+    expect(
+      await sql("select 1 from public.ai_usage where household_id = $1", [householdId]),
+    ).toHaveLength(2);
+    expect(await bottles()).toBe("1");
+    expect(
+      await sql<{ cache_result: string; n: string }>(
+        "select cache_result, count(*) as n from public.bottle_images where household_id = $1 group by 1 order by 1",
+        [householdId],
+      ),
+    ).toEqual([
+      { cache_result: "hit", n: "1" },
+      { cache_result: "miss", n: "2" },
+    ]);
+
+    // 5. Another household scanning the very same photo gets nothing from this one: the model is asked.
+    const context = await browser.newContext(test.info().project.use as BrowserContextOptions);
+    const other = await arrive(await context.newPage(), "scancach2");
+    expect(await read(await sessionToken(other.email))).not.toHaveProperty("remembered");
+    expect(await modelCalls(size)).toHaveLength(3);
+    await context.close();
+
+    // 6. Once the bottle is removed as a mistake, the photo is no longer remembered.
+    const [bottle] = await sql<{ id: string }>(
+      "select id from public.bottles where household_id = $1",
+      [householdId],
+    );
+    await call("patch", `/bottles/${bottle!.id}`, { action: "remove", reason: "removed" }, 200);
+    expect(await read()).not.toHaveProperty("remembered");
+    expect(await modelCalls(size)).toHaveLength(4);
   });
 
   test("things that are not photos never reach the model", async ({ page, request }) => {

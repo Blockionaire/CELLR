@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { DomainError } from "@cellr/domain";
 import { createImageService } from "./service";
@@ -130,6 +131,25 @@ describe("keeping a label photo", () => {
       expect(text).not.toContain("GPS");
       expect(text).not.toContain("Exif");
     }
+  });
+
+  it("fingerprints the cleaned photo it stores: the same picture always gives the same one", async () => {
+    const { repo, state } = fakeRepo();
+    const images = createImageService(repo, household);
+    const prepared = images.prepare({ side: "front", photo: photo() });
+    expect(prepared.fingerprint).toBe(createHash("sha256").update(prepared.photo).digest("hex"));
+    await images.save(prepared, "hit");
+    // The same picture with different hidden metadata is the same cleaned photo, so the same fingerprint.
+    await images.upload({
+      side: "front",
+      photo: photo(640, 480, [segment(0xe1, "Exif\0\0other")]),
+    });
+    await images.upload({ side: "front", photo: photo(641, 480) });
+    const [first, again, other] = state.rows;
+    expect(first).toMatchObject({ fingerprint: prepared.fingerprint, cacheResult: "hit" });
+    expect(again).toMatchObject({ fingerprint: prepared.fingerprint, cacheResult: null });
+    expect(other!.fingerprint).not.toBe(prepared.fingerprint);
+    expect(state.files.get(first!.photoPath)).toEqual(prepared.photo);
   });
 
   it("works without a small copy (the photo is then used for both)", async () => {

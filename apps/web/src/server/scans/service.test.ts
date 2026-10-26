@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DomainError, type RawExtraction, type WineSummary } from "@cellr/domain";
 import type { GenerateObjectRequest, LlmProvider } from "@/server/ai/types";
+import type { Confirmation } from "./repository";
 import { createScanService, type ScanDeps } from "./service";
 
 const raw = (over: Partial<RawExtraction> = {}): RawExtraction => ({
@@ -45,10 +46,13 @@ function setup(
     spend?: () => Promise<void>;
     uploadFails?: boolean;
     usageFails?: boolean;
+    /** Confirmations per fingerprint (the cache), or how the cache fails. */
+    recall?: Record<string, Confirmation[]> | "unavailable" | "throws";
   } = {},
 ) {
   const state = {
-    uploads: [] as Array<{ photo: Uint8Array; side: string }>,
+    uploads: [] as Array<{ photo: Uint8Array; side: string; cacheResult: string | null }>,
+    recalls: [] as Array<{ householdId: string; fingerprint: string }>,
     requests: [] as GenerateObjectRequest<unknown>[],
     usage: [] as Array<{ task: string; status: string; model: string; householdId: string | null }>,
   };
@@ -69,14 +73,35 @@ function setup(
   };
   const deps: ScanDeps = {
     images: {
-      async uploadWithPhoto(input) {
+      prepare(input) {
         if (options.uploadFails) throw new DomainError("UPLOAD_REJECTED");
-        state.uploads.push({ photo: input.photo, side: input.side });
+        // The fake fingerprint is the photo itself, so the same bytes give the same one.
+        const fingerprint = Array.from(input.photo, (b) => b.toString(16).padStart(2, "0")).join(
+          "",
+        );
         return {
-          image: { id: "img1", side: input.side, blurColor: "#aabbcc", width: 600, height: 800 },
+          ...input,
+          photo: cleanPhoto,
+          width: 600,
+          height: 800,
+          thumb: null,
+          blurColor: null,
+          fingerprint,
+        };
+      },
+      async save(prepared, cacheResult = null) {
+        state.uploads.push({ photo: prepared.photo, side: prepared.side, cacheResult });
+        return {
+          image: { id: "img1", side: prepared.side, blurColor: "#aabbcc", width: 600, height: 800 },
           photo: cleanPhoto,
         };
       },
+    },
+    recall: async (householdId, fingerprint) => {
+      state.recalls.push({ householdId, fingerprint });
+      if (options.recall === "throws") throw new Error("database unavailable");
+      if (options.recall === "unavailable") return null;
+      return options.recall?.[fingerprint] ?? [];
     },
     wines: async () => options.wines ?? [],
     householdId: async () => "h1",
@@ -261,5 +286,101 @@ describe("scanning a label", () => {
     const { service, state } = setup();
     await service.scan({ photo, side: "back" });
     expect(state.uploads[0]!.side).toBe("back");
+  });
+
+  describe("the recognition cache", () => {
+    const margaux = wine("w1", "Château Margaux", "Pavillon Rouge");
+    const confirmed = { "010203": [{ wineId: "w1", year: 2015 }] };
+
+    it("the first scan of a photo nobody confirmed is read by the model, and counted as a miss", async () => {
+      const { service, state } = setup({ wines: [margaux] });
+      const result = await service.scan({ photo });
+      expect(state.recalls).toEqual([{ householdId: "h1", fingerprint: "010203" }]);
+      expect(state.requests).toHaveLength(1);
+      expect(state.uploads[0]!.cacheResult).toBe("miss");
+      expect(result.remembered).toBeUndefined();
+    });
+
+    it("a photo confirmed before is answered without the model, the budget or a usage record", async () => {
+      let spent = 0;
+      const { service, state } = setup({
+        wines: [margaux, wine("w2", "Château Latour", "Les Forts")],
+        recall: confirmed,
+        spend: async () => {
+          spent += 1;
+        },
+      });
+      const result = await service.scan({ photo });
+      expect(state.requests).toHaveLength(0);
+      expect(spent).toBe(0);
+      expect(state.usage).toHaveLength(0);
+      expect(state.uploads[0]!.cacheResult).toBe("hit");
+      // The same contract as a reading: a suggestion of the confirmed wine and year, for the person to confirm.
+      expect(result).toMatchObject({
+        outcome: "found",
+        reason: null,
+        image: { id: "img1" },
+        facts: {
+          producer: "Château Margaux",
+          name: "Pavillon Rouge",
+          year: 2015,
+          nonVintage: false,
+        },
+        remembered: true,
+        labelCorners: null,
+      });
+      expect(result.matches).toEqual([{ wine: margaux, score: 1 }]);
+    });
+
+    it("a remembered photo works without AI configured, and even when the scan limit is spent", async () => {
+      const off = setup({ noAi: true, wines: [margaux], recall: confirmed });
+      expect((await off.service.scan({ photo })).remembered).toBe(true);
+      const spentOut = setup({
+        wines: [margaux],
+        recall: confirmed,
+        spend: async () => {
+          throw new DomainError("RATE_LIMITED");
+        },
+      });
+      expect(await spentOut.service.scan({ photo })).toMatchObject({
+        outcome: "found",
+        remembered: true,
+      });
+    });
+
+    it("disagreeing confirmations, or a wine that is no longer there, go to the model as before", async () => {
+      const disagree = setup({
+        wines: [margaux],
+        recall: {
+          "010203": [
+            { wineId: "w1", year: 2015 },
+            { wineId: "w1", year: 2016 },
+          ],
+        },
+      });
+      expect((await disagree.service.scan({ photo })).remembered).toBeUndefined();
+      expect(disagree.state.requests).toHaveLength(1);
+      expect(disagree.state.uploads[0]!.cacheResult).toBe("miss");
+
+      const gone = setup({ wines: [], recall: confirmed });
+      await gone.service.scan({ photo });
+      expect(gone.state.requests).toHaveLength(1);
+    });
+
+    it("another photo is never answered from this one's confirmation", async () => {
+      const { service, state } = setup({ wines: [margaux], recall: confirmed });
+      await service.scan({ photo: new Uint8Array([1, 2, 4]) });
+      expect(state.requests).toHaveLength(1);
+    });
+
+    it("when the cache is not set up or fails, scanning carries on exactly as before", async () => {
+      for (const recall of ["unavailable", "throws"] as const) {
+        const { service, state } = setup({ wines: [margaux], recall });
+        const result = await service.scan({ photo });
+        expect(result.outcome).toBe("found");
+        expect(state.requests).toHaveLength(1);
+        expect(state.uploads[0]!.cacheResult).toBeNull();
+      }
+    });
   });
 });

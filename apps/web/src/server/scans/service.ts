@@ -5,6 +5,8 @@ import {
   matchLabel,
   normalizeExtraction,
   quadFromNumbers,
+  confirmedFacts,
+  recallScan,
   type ImageSide,
   type ScanResult,
   type WineSummary,
@@ -17,9 +19,13 @@ import {
   parseLabelExtraction,
 } from "@/server/ai/prompts/label-extraction";
 import type { ImageService, UploadInput } from "@/server/images/service";
+import type { CacheResult } from "@/server/images/types";
+import type { ScanRepository } from "./repository";
 
 export interface ScanDeps {
-  images: Pick<ImageService, "uploadWithPhoto">;
+  images: Pick<ImageService, "prepare" | "save">;
+  /** What this household confirmed an identical photo to be (the recognition cache). */
+  recall: ScanRepository["recall"];
   /** The wines this household can choose from. */
   wines: () => Promise<WineSummary[]>;
   householdId: () => Promise<string>;
@@ -50,7 +56,8 @@ const STATUS: Record<
 
 /**
  * Point the phone at a label: the photo is kept first (so nothing the person did is ever lost), then read by
- * a vision model, then checked and matched against the wines already in the household by plain code. Every
+ * a vision model, then checked and matched against the wines already in the household by plain code. An
+ * identical photo this household already confirmed is answered from that confirmation, without the model. Every
  * way it can go wrong ends in the same place: the photo is kept and the person fills the wine in by hand.
  */
 export function createScanService(deps: ScanDeps) {
@@ -69,7 +76,38 @@ export function createScanService(deps: ScanDeps) {
         thumb: input.thumb,
         blurColor: input.blurColor,
       };
-      const { image, photo } = await deps.images.uploadWithPhoto(upload);
+      const prepared = deps.images.prepare(upload);
+      const householdId = await deps.householdId();
+
+      // The recognition cache, before any budget is spent or model asked: this exact photo, confirmed before in
+      // this household. Whatever goes wrong here (not set up yet, the database, disagreeing confirmations) only
+      // means "not remembered", and the photo is read as before.
+      let remembered: ReturnType<typeof recallScan> = null;
+      let cacheResult: CacheResult | null = null;
+      try {
+        const confirmations = await deps.recall(householdId, prepared.fingerprint);
+        if (confirmations) {
+          remembered =
+            confirmations.length > 0 ? recallScan(confirmations, await deps.wines()) : null;
+          cacheResult = remembered ? "hit" : "miss";
+        }
+      } catch {
+        remembered = null;
+        cacheResult = null;
+      }
+
+      const { image, photo } = await deps.images.save(prepared, cacheResult);
+      if (remembered)
+        return {
+          image,
+          outcome: "found",
+          facts: confirmedFacts(remembered.wine, remembered.year),
+          matches: [{ wine: remembered.wine, score: 1 }],
+          reason: null,
+          // Corners belong to one photo; this is a new upload, so none are carried over.
+          labelCorners: null,
+          remembered: true,
+        };
       const unread = (reason: NonNullable<ScanResult["reason"]>): ScanResult => ({
         image,
         outcome: "unread",
@@ -87,7 +125,6 @@ export function createScanService(deps: ScanDeps) {
         throw error;
       }
 
-      const householdId = await deps.householdId();
       const result = await deps.llm.generateObject({
         task: "label_extraction",
         model: "vision",

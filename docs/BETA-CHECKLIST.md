@@ -41,11 +41,12 @@ Alle AI is in de tests nep (een lokaal OpenAI-compatibel endpoint): er wordt noo
      (select count(*) from pg_tables where schemaname = 'public'
         and tablename in ('taste_preferences', 'beta_feedback'))                     as nieuwste_tabellen,   -- 2
      (select count(*) from pg_proc where proname = 'admin_beta_feedback')            as feedback_inbox,      -- 1
+     (select count(*) from pg_proc where proname = 'recall_confirmed_scan')          as scan_cache,          -- 1
      (select count(*) from private.allowed_signups)                                  as beta_lijst;          -- ≥ 1
    ```
 
    Ontbreekt iets: draai de ontbrekende migraties uit `supabase/migrations/` in volgorde (de nieuwste is
-   `20261028000020_beta_feedback.sql`).
+   `20261029000021_recognition_cache.sql`).
 
 2. **Beta-lijst.** `select entry from private.allowed_signups;` bevat jouw adres en dat van iedere tester
    (kleine letters). Een lege lijst betekent: iedereen mag een account maken. Dat is níet wat je wilt.
@@ -116,6 +117,10 @@ Gebruik een **nieuw** adres dat op de beta-lijst staat en twee of drie echte fle
 3. In een batch twee foto's van dezelfde nieuwe wijn: na het aanmaken bij de eerste foto vindt de tweede
    die wijn (geen dubbele). Dezelfde foto twee keer: apart gezet met een waarschuwing, niet opnieuw gelezen.
 4. Een onleesbaar etiket: het formulier om zelf in te vullen staat klaar, de foto is bewaard.
+5. **Herkenningscache.** Voeg een fles toe met een foto uit je bibliotheek. Scan daarna **dezelfde foto** nog
+   eens: _"Deze foto heb je eerder bevestigd"_ verschijnt vrijwel meteen, en je moet nog steeds zelf
+   bevestigen. `/admin/ai` → Recognition cache telt één hit. Een **nieuwe** foto van dezelfde fles gaat
+   gewoon naar de AI; dat is verwacht.
 
 ## E. Huishoudens en privacy (twee testers)
 
