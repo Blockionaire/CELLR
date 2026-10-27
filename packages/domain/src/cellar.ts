@@ -214,6 +214,10 @@ export interface WineSummary {
   type: WineType;
   countryCode: string | null;
   region: string | null;
+  /** A wine of the shared, curated catalogue (canonical): the same identity in every household. */
+  catalog?: boolean;
+  /** Other verified names of this wine (catalogue wines only). */
+  aliases?: string[];
 }
 
 export interface StorageUnitView {

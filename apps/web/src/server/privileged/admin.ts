@@ -6,6 +6,7 @@ import {
   AdminBudgetStatusSchema,
   AdminRecognitionCacheSchema,
   AdminSharedProfilesSchema,
+  AdminCatalogSchema,
   AdminUserRowSchema,
   AdminUserSummarySchema,
   type AdminActivityDay,
@@ -13,6 +14,7 @@ import {
   type AdminBudgetStatus,
   type AdminRecognitionCache,
   type AdminSharedProfiles,
+  type AdminCatalog,
   type AdminFeedbackPage,
   type FeedbackCategory,
   type AdminRange,
@@ -43,7 +45,8 @@ async function call<T>(
     | "admin_activity_series"
     | "admin_beta_feedback"
     | "admin_recognition_cache"
-    | "admin_shared_profiles",
+    | "admin_shared_profiles"
+    | "admin_catalog",
   args: Record<string, unknown>,
   parse: (data: unknown) => T,
 ): Read<T> {
@@ -150,5 +153,15 @@ export function readSharedProfiles(
     "admin_shared_profiles",
     { p_from: from.toISOString(), p_to: to.toISOString() },
     (d) => AdminSharedProfilesSchema.parse(d),
+  );
+}
+
+/** "missing" here also means only the catalogue step (20261031000023) is still to be taken. */
+export function readCatalog(session: AdminSession, from: Date, to: Date): Read<AdminCatalog> {
+  return call(
+    session,
+    "admin_catalog",
+    { p_from: from.toISOString(), p_to: to.toISOString() },
+    (d) => AdminCatalogSchema.parse(d),
   );
 }

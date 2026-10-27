@@ -174,6 +174,21 @@ export interface CellarRepository {
   findOrCreateWine(householdId: string, producerId: string, input: NewWine): Promise<WineSummary>;
   /** `year` null = non-vintage. Returns the vintage id. */
   findOrCreateVintage(wineId: string, year: number | null): Promise<string>;
+  /**
+   * The vintage of a catalogue (canonical) wine, added when the catalogue does not list that year yet (people
+   * cannot write the catalogue; a narrow database function does just this). Null = that step is not set up yet.
+   */
+  catalogVintage(wineId: string, year: number | null): Promise<string | null>;
+  /**
+   * Wines with exactly this identity that the household can see: the producer's and the wine's name after
+   * normalising (or one of a catalogue wine's verified aliases), and the colour. Its own and the catalogue's.
+   */
+  findWinesByIdentity(
+    householdId: string,
+    producer: string,
+    name: string,
+    type: WineType,
+  ): Promise<WineSummary[]>;
 
   listStorage(householdId: string): Promise<StorageRow[]>;
   getStorage(householdId: string, id: string): Promise<StorageRow | null>;

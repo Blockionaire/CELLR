@@ -8,6 +8,7 @@ import {
   summarizeAiCosts,
   summarizeRecognitionCache,
   summarizeSharedProfiles,
+  catalogShare,
   sumActivity,
   type AdminRange,
   type FeedbackCategory,
@@ -21,6 +22,7 @@ import {
   readFeedback,
   readRecognitionCache,
   readSharedProfiles,
+  readCatalog,
   readUserDirectory,
   readUserSummary,
 } from "@/server/privileged/admin";
@@ -93,7 +95,7 @@ export async function adminAi(session: AdminSession, days: AdminRange, now = new
   assertAdmin(session);
   const end = new Date(now.getTime() + 60_000);
   const from = new Date(startOfUtcDay(now).getTime() - (days - 1) * day);
-  const [range, today, week, month, budget, cache, shared] = await Promise.all([
+  const [range, today, week, month, budget, cache, shared, catalog] = await Promise.all([
     readAiCosts(session, from, end),
     readAiCosts(session, startOfUtcDay(now), end),
     readAiCosts(session, new Date(startOfUtcDay(now).getTime() - 6 * day), end),
@@ -101,6 +103,7 @@ export async function adminAi(session: AdminSession, days: AdminRange, now = new
     readBudgetStatus(session, now),
     readRecognitionCache(session, from, end),
     readSharedProfiles(session, from, end),
+    readCatalog(session, from, end),
   ]);
   const sum = (c: typeof range) => (typeof c === "object" && c ? summarizeAiCosts(c) : null);
   const limits = getAiBudgetEnv();
@@ -126,6 +129,9 @@ export async function adminAi(session: AdminSession, days: AdminRange, now = new
               : null,
           )
         : null,
+    /** Null: not configured, or the catalogue step is not taken yet. */
+    catalog:
+      typeof catalog === "object" && catalog ? { ...catalog, share: catalogShare(catalog) } : null,
     ready: range !== "missing",
   };
 }

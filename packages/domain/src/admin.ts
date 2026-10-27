@@ -179,6 +179,22 @@ export const summarizeSharedProfiles = (s: AdminSharedProfiles, researchCalls: n
   researchCalls,
 });
 
+/** The shared catalogue: its size, and bottles added on catalogue wines vs the households' own wines. */
+export const AdminCatalogSchema = z.object({
+  producers: Count,
+  wines: Count,
+  vintages: Count,
+  aliases: Count,
+  bottles_catalog: Count,
+  bottles_private: Count,
+  private_wines_created: Count,
+});
+export type AdminCatalog = z.infer<typeof AdminCatalogSchema>;
+
+/** The share of bottles added in the window that point at a catalogue wine (null with none added). */
+export const catalogShare = (c: AdminCatalog) =>
+  shareOf(c.bottles_catalog, c.bottles_catalog + c.bottles_private);
+
 /** USD per web search call (10 USD per 1 000), the part of a search's price that can be told apart. */
 export const WEB_SEARCH_FEE_USD_MICRO = 10_000;
 

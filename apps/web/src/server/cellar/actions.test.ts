@@ -107,6 +107,12 @@ function fake(
     async findOrCreateVintage() {
       return "v1";
     },
+    async catalogVintage() {
+      return null;
+    },
+    async findWinesByIdentity() {
+      return [];
+    },
     async listStorage() {
       return [FRIDGE];
     },

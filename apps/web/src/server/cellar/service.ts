@@ -10,6 +10,7 @@ import {
   drinkUrgency,
   isDomainError,
   nextFreeSlots,
+  pickExistingWine,
   orderBottles,
   planWijnkelderImport,
   rankWithTaste,
@@ -414,6 +415,14 @@ export function createCellarService(
     drinkWindows
       ? drinkWindows().catch(() => new Map<string, { from: number; until: number }>())
       : Promise.resolve(new Map<string, { from: number; until: number }>());
+  /**
+   * The vintage of a wine the person chose. A catalogue wine's year is added through the narrow catalogue step
+   * when the catalogue does not list it yet (people cannot write the catalogue otherwise); before that step exists,
+   * an already listed year still works as before.
+   */
+  const vintageOf = async (wine: WineSummary, year: number | null): Promise<string> =>
+    (wine.catalog ? await repo.catalogVintage(wine.id, year) : null) ??
+    (await repo.findOrCreateVintage(wine.id, year));
   /** The household's bottles, each with the AI's drinking window for its vintage when there is one. */
   const inventoryRows = async (householdId: string): Promise<InventoryRow[]> => {
     const [rows, known] = await Promise.all([repo.listInventory(householdId), windows()]);
@@ -441,8 +450,20 @@ export function createCellarService(
     },
 
     /** Adds a wine, or returns the one that is already there under the same (accent-insensitive) name. */
+    /**
+     * A wine typed by hand. An existing wine with exactly this identity is used rather than a duplicate: the
+     * household's own first (never silently swapped for another), else the one catalogue wine it names. Anything
+     * less certain (a similar name, two candidates, a different colour or country) makes a private wine as before.
+     */
     async createWine(input: CreateWine): Promise<WineSummary> {
       const { id } = await household();
+      const same = await repo.findWinesByIdentity(id, input.producer, input.name, input.type);
+      const existing = pickExistingWine(
+        input,
+        same.filter((w) => !w.catalog),
+        same.filter((w) => w.catalog),
+      );
+      if (existing) return existing;
       const producerId = await repo.findOrCreateProducer(
         id,
         input.producer,
@@ -572,7 +593,7 @@ export function createCellarService(
       ]);
       if (!source || !target) throw new DomainError("NOT_FOUND", "We couldn't find that wine.");
       const moved = await repo.mergeWines(sourceWineId, input.intoWineId);
-      const vintageId = await repo.findOrCreateVintage(input.intoWineId, input.year);
+      const vintageId = await vintageOf(target, input.year);
       return { moved, wineId: input.intoWineId, vintageId };
     },
 
@@ -910,7 +931,7 @@ export function createCellarService(
       if (input.locationId && !unit)
         throw new DomainError("NOT_FOUND", "We couldn't find that place.");
 
-      const vintageId = await repo.findOrCreateVintage(wine.id, input.year);
+      const vintageId = await vintageOf(wine, input.year);
       // A photo given now is used; otherwise a new bottle shares the photo of its siblings.
       if (input.imageId && !(await repo.getImageRef(householdId, input.imageId)))
         throw new DomainError("NOT_FOUND", "We couldn't find that photo.");
