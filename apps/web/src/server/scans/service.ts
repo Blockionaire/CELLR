@@ -26,6 +26,14 @@ export interface ScanDeps {
   images: Pick<ImageService, "prepare" | "save">;
   /** What this household confirmed an identical photo to be (the recognition cache). */
   recall: ScanRepository["recall"];
+  /** Notes what the model read on this photo, for catalogue learning (never fails the scan). */
+  noteRead?: (read: {
+    imageId: string;
+    householdId: string;
+    producer: string;
+    name: string;
+    type: string | null;
+  }) => Promise<void>;
   /** The wines this household can choose from. */
   wines: () => Promise<WineSummary[]>;
   householdId: () => Promise<string>;
@@ -149,6 +157,16 @@ export function createScanService(deps: ScanDeps) {
       if (!result.ok) return unread(result.kind === "budget" ? "budget" : "ai-down");
       const facts = normalizeExtraction(result.value, now());
       if (!facts) return unread("not-a-label");
+      if (deps.noteRead && facts.producer && facts.name)
+        await deps
+          .noteRead({
+            imageId: image.id,
+            householdId,
+            producer: facts.producer,
+            name: facts.name,
+            type: facts.type,
+          })
+          .catch(() => {});
 
       const { outcome, matches } = matchLabel(facts, await deps.wines());
       // The model's idea of where the label is only counts if it is a believable label in this very photo.

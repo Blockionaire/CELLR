@@ -211,8 +211,11 @@ Nothing is recorded:
 
 **Two strengths:**
 
-- **Label (scan):** the bottles were added with a photo this household scanned. This is the only kind that
-  counts towards review.
+- **Label (scan):** the vision model read **this** photo as this producer and cuvée (and colour), the photo is
+  on the bottles of that year, and that reading was not used before. The server notes each reading
+  (`catalog_note_scan_read`, service role, only while learning is on, kept one day). An old or unrelated photo, a
+  photo read as another wine, or a replayed call is only **typed**. This is the only kind that counts towards
+  review.
 - **Typed (manual):** shown apart. It never counts as an independent label confirmation.
 
 **What a confirmation proves:** the household says "this bottle is this producer, this cuvée, this colour, this
@@ -221,18 +224,21 @@ independent proof either. That is why **a verified public source is always requi
 
 ### How households are counted
 
-| Situation                                                | Counted as                                                   |
-| -------------------------------------------------------- | ------------------------------------------------------------ |
-| Many bottles, scans, retries or members of one household | **one** confirmation (`unique (candidate, household, year)`) |
-| Another vintage                                          | the same candidate, its own year row                         |
-| A person in two households                               | each household counts once                                   |
+| Situation                                                | Counted as                                             |
+| -------------------------------------------------------- | ------------------------------------------------------ |
+| Many bottles, scans, retries or members of one household | **one** household (counted per household, not per row) |
+| Another vintage                                          | the same candidate, its own year row                   |
+| A person in two households                               | each household counts once                             |
+
+Evidence is kept **per person** (`unique (candidate, household, year, person)`), so each person's choice holds:
+if one member says no, only their rows go, and the household still counts through a member who still helps.
 
 A confirmation **stops counting** when:
 
 - the household removes the bottles as a mistake;
 - the household renames or recolours its wine, or changes its producer;
-- the person says no;
-- the household or the account is deleted (the rows are deleted).
+- the person says no (only that person's rows);
+- the household or the account is deleted (that household's, or that person's, rows are deleted).
 
 ### Grouping
 
@@ -291,7 +297,7 @@ would have been right. Enabling it is a later, separate decision; there is no ti
 3. **Approve and publish**, choosing which confirmed vintages to publish.
 4. **Reject** it, with an optional note, or **reopen** it later.
 5. **Merge** it into another open candidate of the producer that is truly the same wine. Its name becomes an alias
-   suggestion.
+   suggestion. Where both hold a row for the same person, household and year, the stronger one (label) is kept.
 
 Every action is in the audit, with the admin and the time, never households.
 
@@ -312,6 +318,7 @@ matching, and Sprint H's shared profiles then apply.
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
 | `catalog_candidates`        | producer, name, colour, country, region, appellation, classification, aliases, state, review note                        | service role only                            |
 | `catalog_evidence`          | candidate, household, person, the household's wine, year, scan or typed, how they wrote the name, region and appellation | service role only; never shown per household |
+| `catalog_scan_reads`        | for one day, while learning is on: the photo id, household, and the producer, name and colour the model read             | service role only                            |
 | `catalog_candidate_sources` | public source pages you added                                                                                            | service role only                            |
 | `catalog_audit`             | the action, its details (no households), the admin, the time                                                             | service role only                            |
 

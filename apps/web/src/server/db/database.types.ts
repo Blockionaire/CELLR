@@ -653,6 +653,52 @@ export type Database = {
         };
         Relationships: [];
       };
+      catalog_scan_reads: {
+        Row: {
+          household_id: string;
+          image_id: string;
+          name_norm: string;
+          producer_norm: string;
+          read_at: string;
+          used_at: string | null;
+          wine_type: Database["public"]["Enums"]["wine_type"] | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          household_id: string;
+          image_id: string;
+          name_norm: string;
+          producer_norm: string;
+          read_at?: string;
+          used_at?: string | null;
+          wine_type?: Database["public"]["Enums"]["wine_type"] | null;
+        };
+        Update: {
+          household_id?: string;
+          image_id?: string;
+          name_norm?: string;
+          producer_norm?: string;
+          read_at?: string;
+          used_at?: string | null;
+          wine_type?: Database["public"]["Enums"]["wine_type"] | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_scan_reads_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catalog_scan_reads_image_id_fkey";
+            columns: ["image_id"];
+            isOneToOne: true;
+            referencedRelation: "bottle_images";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       cellar_locations: {
         Row: {
           cellar_id: string;
@@ -1810,6 +1856,16 @@ export type Database = {
         Returns: string;
       };
       catalog_import: { Args: { p_apply?: boolean; p_entries: Json }; Returns: Json };
+      catalog_note_scan_read: {
+        Args: {
+          p_household_id: string;
+          p_image_id: string;
+          p_name: string;
+          p_producer: string;
+          p_type: string;
+        };
+        Returns: boolean;
+      };
       catalog_record_confirmation: {
         Args: { p_image_id?: string; p_wine_id: string; p_year: number };
         Returns: string;

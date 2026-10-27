@@ -26,6 +26,7 @@ import { sendFriendNotice } from "@/server/privileged/friend-notices";
 import { createHouseholdService } from "@/server/households/service";
 import { createRateLimitRepository } from "@/server/ratelimit/repository";
 import { createRateLimiter, LIMITS } from "@/server/ratelimit/service";
+import { noteScanRead } from "@/server/privileged/catalog-reads";
 import { publishSharedProfile } from "@/server/privileged/shared-profiles";
 import { createContributionService } from "@/server/catalog/contribution";
 import { createScanRepository } from "@/server/scans/repository";
@@ -105,6 +106,7 @@ export function servicesFor(ctx: RequestContext) {
     scans: createScanService({
       images,
       recall: scanRepo.recall,
+      noteRead: noteScanRead,
       wines: async () => cellars.listWines((await household()).id),
       householdId: async () => (await household()).id,
       llm: getLlmProvider(),

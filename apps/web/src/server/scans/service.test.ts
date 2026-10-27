@@ -53,6 +53,7 @@ function setup(
   const state = {
     uploads: [] as Array<{ photo: Uint8Array; side: string; cacheResult: string | null }>,
     recalls: [] as Array<{ householdId: string; fingerprint: string }>,
+    reads: [] as Array<{ imageId: string; householdId: string; producer: string; name: string }>,
     requests: [] as GenerateObjectRequest<unknown>[],
     usage: [] as Array<{ task: string; status: string; model: string; householdId: string | null }>,
   };
@@ -96,6 +97,9 @@ function setup(
           photo: cleanPhoto,
         };
       },
+    },
+    noteRead: async (read) => {
+      state.reads.push(read);
     },
     recall: async (householdId, fingerprint) => {
       state.recalls.push({ householdId, fingerprint });
@@ -381,6 +385,35 @@ describe("scanning a label", () => {
         expect(state.requests).toHaveLength(1);
         expect(state.uploads[0]!.cacheResult).toBeNull();
       }
+    });
+  });
+
+  describe("catalogue learning", () => {
+    it("what the model read on the photo is noted for the household, once per reading", async () => {
+      const { service, state } = setup({ wines: [] });
+      await service.scan({ photo });
+      expect(state.reads).toEqual([
+        {
+          imageId: "img1",
+          householdId: "h1",
+          producer: "Château Margaux",
+          name: "Pavillon Rouge",
+          type: "red",
+        },
+      ]);
+    });
+
+    it("nothing is noted without a real reading (remembered, not a label, AI down)", async () => {
+      const remembered = setup({
+        wines: [wine("w1", "Château Margaux", "Pavillon Rouge")],
+        recall: { "010203": [{ wineId: "w1", year: 2015 }] },
+      });
+      await remembered.service.scan({ photo });
+      const notLabel = setup({ answer: raw({ is_wine_label: false }) });
+      await notLabel.service.scan({ photo });
+      const down = setup({ answer: "unavailable" });
+      await down.service.scan({ photo });
+      expect([...remembered.state.reads, ...notLabel.state.reads, ...down.state.reads]).toEqual([]);
     });
   });
 });

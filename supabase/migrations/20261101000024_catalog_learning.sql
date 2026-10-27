@@ -7,12 +7,13 @@
 --   said yes). Each person's choice is profiles.catalog_contribute (null = no choice made).
 -- * A signal is recorded only when a person ADDS BOTTLES of a household's own wine, after the scan/confirm or manual
 --   flow, by catalog_record_confirmation(): it checks the caller belongs to the wine's household and that the bottles
---   are really there. A scan photo makes it a "scan" signal, otherwise "manual" (weaker, never counted as an
---   independent label confirmation).
+--   are really there. It is a "scan" (label) signal only when the server noted a vision reading of that very photo
+--   naming this wine, and the photo is on those bottles (catalog_scan_reads, used once); otherwise "manual" (weaker,
+--   never counted as an independent label confirmation).
 -- * Shared candidate rows hold only public wine identity (names, colour, origin). The restricted evidence rows say
---   which household (and which person, so a "no" or a deleted account removes their signals) confirmed which
---   candidate and year: one row per candidate, household and year, however many bottles or scans. Nobody but the
---   service role can read either; the admin sees counts, never households.
+--   which household and which person confirmed which candidate and year: one row per candidate, household, year and
+--   person (so one person's "no" or deleted account removes only their own rows), counted as ONE per household
+--   however many members, bottles or scans. Nobody but the service role can read them; the admin sees counts.
 -- * Evidence counts only while the household still has a bottle of that wine and year that was not removed as a
 --   mistake; renaming or recolouring the household's wine drops its evidence; deleting the household or the account
 --   deletes it.
@@ -82,8 +83,9 @@ create table public.catalog_evidence (
   appellation   text check (char_length(appellation) <= 160),
   created_at   timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
-  -- one confirmation per candidate, household and year, however many bottles, scans or retries
-  constraint catalog_evidence_once unique nulls not distinct (candidate_id, household_id, year)
+  -- one row per candidate, household, year AND person (each person's own choice can be honoured), however many
+  -- bottles, scans or retries; the admin counts distinct households, so a household is still counted once
+  constraint catalog_evidence_once unique nulls not distinct (candidate_id, household_id, year, user_id)
 );
 create index catalog_evidence_wine_idx on public.catalog_evidence (wine_id);
 create index catalog_evidence_user_idx on public.catalog_evidence (user_id);
@@ -100,6 +102,20 @@ create table public.catalog_candidate_sources (
   unique (candidate_id, url)
 );
 
+-- What a label photo was READ as by the vision model, written by the server right after a scan (service role only).
+-- Short-lived (a day) and used once: it is what makes a later confirmation a "label" confirmation, and only for the
+-- wine it actually names and the bottles it is attached to. Without it, a confirmation is a weak "typed" one.
+create table public.catalog_scan_reads (
+  image_id      uuid primary key references public.bottle_images on delete cascade,
+  household_id  uuid not null references public.households on delete cascade,
+  producer_norm text not null check (char_length(producer_norm) <= 120),
+  name_norm     text not null check (char_length(name_norm) <= 160),
+  wine_type     public.wine_type,
+  read_at       timestamptz not null default now(),
+  used_at       timestamptz
+);
+create index catalog_scan_reads_at_idx on public.catalog_scan_reads (read_at);
+
 -- What the owner did, without households: who (the admin), what, when.
 create table public.catalog_audit (
   id           bigint generated always as identity primary key,
@@ -110,14 +126,15 @@ create table public.catalog_audit (
   at           timestamptz not null default now()
 );
 
+alter table public.catalog_scan_reads        enable row level security;
 alter table public.catalog_candidates        enable row level security;
 alter table public.catalog_evidence          enable row level security;
 alter table public.catalog_candidate_sources enable row level security;
 alter table public.catalog_audit             enable row level security;
 revoke all on public.catalog_candidates, public.catalog_evidence, public.catalog_candidate_sources,
-              public.catalog_audit from public, anon, authenticated;
+              public.catalog_audit, public.catalog_scan_reads from public, anon, authenticated;
 grant all on public.catalog_candidates, public.catalog_evidence, public.catalog_candidate_sources,
-             public.catalog_audit to service_role;
+             public.catalog_audit, public.catalog_scan_reads to service_role;
 
 -- A household's wine whose identity changes (renamed, recoloured, another country or producer) no longer supports
 -- what it supported: its evidence goes, and is recorded again on the next confirmation.
@@ -156,7 +173,28 @@ end $$;
 create trigger profiles_catalog_forget after update of catalog_contribute on public.profiles
   for each row execute function private.catalog_forget_declined();
 
--- ---- 3. Recording a confirmation ------------------------------------------------------------------------------
+-- ---- 3. Noting a scan, then recording a confirmation ----------------------------------------------------------
+-- Called by the server (service role) after the vision model read a label photo of this household. Nothing is kept
+-- while learning is off; reads older than a day are dropped as new ones come in.
+create function public.catalog_note_scan_read(p_image_id uuid, p_household_id uuid, p_producer text, p_name text, p_type text)
+  returns boolean language plpgsql volatile security definer set search_path = '' as $$
+begin
+  if coalesce((select mode from public.catalog_learning where id), 'off') = 'off' then return false; end if;
+  if coalesce(btrim(p_producer), '') = '' or coalesce(btrim(p_name), '') = '' then return false; end if;
+  if not exists (select 1 from public.bottle_images i where i.id = p_image_id and i.household_id = p_household_id) then
+    return false;
+  end if;
+  delete from public.catalog_scan_reads where read_at < now() - interval '1 day';
+  insert into public.catalog_scan_reads (image_id, household_id, producer_norm, name_norm, wine_type)
+  values (p_image_id, p_household_id, left(private.normalize_text(p_producer), 120), left(private.normalize_text(p_name), 160),
+          case when p_type in ('red', 'white', 'rose', 'sparkling', 'orange', 'dessert', 'fortified')
+               then p_type::public.wine_type end)
+  on conflict (image_id) do nothing;
+  return true;
+end $$;
+revoke all on function public.catalog_note_scan_read(uuid, uuid, text, text, text) from public, anon, authenticated;
+grant execute on function public.catalog_note_scan_read(uuid, uuid, text, text, text) to service_role;
+
 -- Called by the server right after a person added bottles of a household wine. Returns what happened:
 -- off | declined | catalog (already a catalogue wine) | not_eligible | recorded.
 create function public.catalog_record_confirmation(p_wine_id uuid, p_year int, p_image_id uuid default null)
@@ -197,11 +235,22 @@ begin
                     and b.household_id = v_wine.owner_household_id and b.status <> 'removed') then
     return 'not_eligible';
   end if;
-  -- a photo this household scanned (the scan step marks it) makes it a label confirmation
-  if p_image_id is not null and exists (
-       select 1 from public.bottle_images i
-        where i.id = p_image_id and i.household_id = v_wine.owner_household_id and i.cache_result is not null) then
-    v_source := 'scan';
+  -- A LABEL confirmation needs all of: the vision model read this photo for this household (within a day, not used
+  -- before), it read exactly this producer and name (and no other colour), and the photo is on the bottles of this
+  -- wine and year that were just added. The read is then used up. Anything less (an old or unrelated photo, a
+  -- replayed call, a wine named differently from what was read) is a weak typed confirmation.
+  if p_image_id is not null then
+    update public.catalog_scan_reads r set used_at = now()
+     where r.image_id = p_image_id and r.household_id = v_wine.owner_household_id
+       and r.used_at is null and r.read_at > now() - interval '1 day'
+       and r.producer_norm = private.normalize_text(v_wine.producer)
+       and r.name_norm = private.normalize_text(v_wine.name)
+       and (r.wine_type is null or r.wine_type = v_wine.wine_type)
+       and exists (select 1 from public.bottles b join public.wine_vintages v on v.id = b.vintage_id
+                    where v.wine_id = v_wine.id and v.year is not distinct from p_year::smallint
+                      and b.household_id = v_wine.owner_household_id and b.status <> 'removed'
+                      and (b.front_image_id = p_image_id or b.back_image_id = p_image_id));
+    if found then v_source := 'scan'; end if;
   end if;
 
   v_country := coalesce(v_wine.country_code, v_wine.producer_country);
@@ -422,11 +471,16 @@ begin
   if f.id is null or not exists (select 1 from public.catalog_candidates where id = p_into and status = 'open') then
     return false;
   end if;
-  -- a household that confirmed both keeps one confirmation per year
+  -- The same person, household and year on both: keep one row, with the strongest evidence (a label confirmation
+  -- is never lost to a typed one). Everything else moves as it is; households are still counted once.
+  update public.catalog_evidence o set source = 'scan', wine_id = e.wine_id, last_seen_at = greatest(o.last_seen_at, e.last_seen_at)
+    from public.catalog_evidence e
+   where e.candidate_id = p_from and o.candidate_id = p_into and e.source = 'scan' and o.source = 'manual'
+     and o.household_id = e.household_id and o.user_id = e.user_id and o.year is not distinct from e.year;
   delete from public.catalog_evidence e
    where e.candidate_id = p_from
-     and exists (select 1 from public.catalog_evidence o where o.candidate_id = p_into
-                  and o.household_id = e.household_id and o.year is not distinct from e.year);
+     and exists (select 1 from public.catalog_evidence o where o.candidate_id = p_into and o.household_id = e.household_id
+                  and o.user_id = e.user_id and o.year is not distinct from e.year);
   update public.catalog_evidence set candidate_id = p_into where candidate_id = p_from;
   update public.catalog_candidate_sources s set candidate_id = p_into
    where s.candidate_id = p_from
