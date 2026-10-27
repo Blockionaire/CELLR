@@ -39,7 +39,10 @@ export interface JournalSummary {
   wines: number;
   /** Mean in stars, one decimal; null without any stars. */
   average: number | null;
-  /** How many tastings at each score 1..10 (index 0 = half a star … 9 = five stars). */
+  /**
+   * How many tastings in each half-star band, lowest first: index i holds scores from (i + 1) / 2 stars up to (but
+   * not including) the next band, so 4.0–4.4 stars is one band and 4.5–4.9 the next; index 9 is exactly five.
+   */
   distribution: number[];
 }
 
@@ -64,7 +67,8 @@ export function summarizeJournal(
   let scored = 0;
   for (const r of rows) {
     if (r.score === null || r.score < 1 || r.score > 10) continue;
-    distribution[Math.min(9, Math.max(0, Math.round(r.score) - 1))]! += 1; // nearest half star
+    // Tenths of a star fall in their band (4.4 stars is 4.0–4.4, never rounded up to 4.5).
+    distribution[Math.min(9, Math.max(0, Math.floor(r.score + 1e-9) - 1))]! += 1;
     sum += r.score;
     scored += 1;
   }
@@ -74,6 +78,26 @@ export function summarizeJournal(
     wines: new Set(rows.map((r) => r.wineId)).size,
     average: scored > 0 ? Math.round((sum / scored) * 5) / 10 : null,
     distribution,
+  };
+}
+
+/**
+ * What the Home card says about my ratings: how many different wines I rated and the mean over them (one point
+ * per wine, like the taste profile), in stars.
+ */
+export function myRatingSummary(rows: ReadonlyArray<{ wineId: string; score: number | null }>): {
+  wines: number;
+  average: number | null;
+} {
+  const per = new Map<string, number[]>();
+  for (const r of rows)
+    if (r.score !== null) per.set(r.wineId, [...(per.get(r.wineId) ?? []), r.score]);
+  const means = [...per.values()].map((s) => s.reduce((a, b) => a + b, 0) / s.length);
+  return {
+    wines: means.length,
+    average: means.length
+      ? Math.round((means.reduce((a, b) => a + b, 0) / means.length) * 5) / 10
+      : null,
   };
 }
 

@@ -27,6 +27,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ERROR_MESSAGES } from "@cellr/domain";
 import { track } from "@/lib/analytics";
+import { tasteKey } from "@/features/taste/hooks";
 import { api, errorMessage } from "@/lib/api";
 import { flattenLabel } from "@/lib/label-flatten";
 import { photoForm, UnreadablePhotoError, type PreparedPhoto } from "@/lib/photo";
@@ -215,6 +216,8 @@ function useRefreshTastings() {
       queryClient.invalidateQueries({ queryKey: cellarKey }),
       queryClient.invalidateQueries({ queryKey: ["vintage"] }),
       queryClient.invalidateQueries({ queryKey: ["journal"] }),
+      // The taste profile is worked out from these ratings (no AI): the next look at it is fresh.
+      queryClient.invalidateQueries({ queryKey: tasteKey }),
     ]);
   };
 }

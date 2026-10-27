@@ -2,6 +2,7 @@ import "server-only";
 import {
   averagePrice,
   JOURNAL_LIMIT,
+  myRatingSummary,
   summarizeJournal,
   type JournalView,
   DomainError,
@@ -559,12 +560,13 @@ export function createCellarService(
     /** Home: the cellar at a glance. */
     async home(): Promise<HomeView> {
       const { id } = await household();
-      const [rows, units, opened, favorites, scores] = await Promise.all([
+      const [rows, units, opened, favorites, scores, myScores] = await Promise.all([
         inventoryRows(id),
         repo.listStorage(id),
         repo.listRecentlyOpened(id, 5),
         repo.listFavoriteWineIds(userId),
         repo.listScores(id),
+        repo.listMyJournalScores(id, userId),
       ]);
       const mine = new Map(
         (
@@ -579,14 +581,17 @@ export function createCellarService(
         myScore: mine.get(o.bottleId) ?? null,
         rated: mine.has(o.bottleId),
       }));
-      return buildHome(
-        rows,
-        units.map(toStorageView),
-        entries,
-        new Set(favorites),
-        new Date(),
-        scores,
-      );
+      return {
+        ...buildHome(
+          rows,
+          units.map(toStorageView),
+          entries,
+          new Set(favorites),
+          new Date(),
+          scores,
+        ),
+        myRatings: myRatingSummary(myScores),
+      };
     },
 
     /** Folds a duplicate wine into the right one. The duplicate has to be one the household entered itself. */
