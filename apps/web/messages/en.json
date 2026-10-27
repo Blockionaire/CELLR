@@ -949,7 +949,22 @@
     "frontTitle": "Front label",
     "frontBody": "A photo of the label makes this wine yours: it shows on its card, here and on the 3D bottle.",
     "offerTitle": "Add a photo of the label?",
-    "offerBody": "Then the card in your cellar shows this very bottle. You can always do it later."
+    "offerBody": "Then the card in your cellar shows this very bottle. You can always do it later.",
+    "backOptional": "Optional: add the back label too, with the grapes and the small print.",
+    "backReady": "The back label goes on with the bottles.",
+    "retakeBack": "Retake back label",
+    "backSaving": "Saving the back label…",
+    "backSaved": "Back label saved.",
+    "backKept": "Kept the back label it already had.",
+    "backExists": "This wine already has a back label. Replace it with this one?",
+    "backReplace": "Replace it",
+    "backKeep": "Keep the old one",
+    "backFailed": "The bottles are in, but the back label wasn't saved.",
+    "backRetry": "Try again",
+    "backKeptFor": "{wine} already had a back label: kept it.",
+    "backFailedFor": "The back label of {wine} wasn't saved. Add it from the wine's page.",
+    "backNotSavedFor": "The back label of {wine} wasn't saved.",
+    "backDismiss": "Leave it"
   },
   "wishlist": {
     "title": "Wishlist",
@@ -1145,7 +1160,12 @@
     },
     "unusable": "That frame doesn't look like a label yet. Move the corners to the label's corners, in the right order.",
     "use": "Use this frame",
-    "skip": "Use the whole photo"
+    "skip": "Use the whole photo",
+    "zoomLabel": "Zoom",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomReset": "Show all",
+    "zoomHint": "Pinch to zoom in for precise corners."
   },
   "insightsPage": {
     "title": "Insights",
@@ -1400,7 +1420,12 @@
     "savedToWishlist": "On your wishlist now.",
     "entryRecommendations": "{count, plural, one {# wine recommended to you} other {# wines recommended to you}}",
     "acceptConsent": "When you accept, they see what you share with friends, as set under “What you share” (at first: your ratings with their notes and your taste profile, not your cellar).",
-    "sharingFailed": "We couldn't load what you share right now, so nothing is shown rather than a guess."
+    "sharingFailed": "We couldn't load what you share right now, so nothing is shown rather than a guess.",
+    "activityTitle": "From your friends",
+    "activityCount": "{count, plural, one {# thing waiting} other {# things waiting}}",
+    "activityInvite": "{name} wants to be friends",
+    "activityRecommendation": "{name} recommends {wine}",
+    "someone": "Someone"
   },
   "pin": {
     "usePin": "Sign in with my PIN",

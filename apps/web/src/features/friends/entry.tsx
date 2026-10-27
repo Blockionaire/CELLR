@@ -2,53 +2,120 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { Button } from "@/ui/button";
 import { ChevronRightIcon } from "@/ui/icons";
-import { useFriends, useRecommendations } from "./hooks";
+import { buildFriendActivity, personName, type FriendActivityItem } from "./activity";
+import { useFriends, useRecommendations, useRespond } from "./hooks";
 
-/** On Home, only when someone is waiting for an answer, or recommended a wine I have not seen yet. */
+/** How many of each kind Home lists before "see all" (the friends page has the rest). */
+const SHOWN = 3;
+
+/**
+ * On Home, near the top, whenever friends are waiting on me or sent me something: friend requests to answer
+ * right here (accept or decline), and wines recommended that I have not seen yet, each with who sent it. Both
+ * show together; nothing hides the other. Answering or seeing an item takes it away (the lists refresh). With
+ * nothing waiting, nothing is shown.
+ */
 export function FriendRequestsBanner() {
   const t = useTranslations("friends");
-  const incoming = useFriends().data?.incoming.length ?? 0;
-  const unseen = useRecommendations().data?.unseen ?? 0;
-  if (incoming === 0 && unseen === 0) return null;
-  if (incoming === 0)
-    return (
-      <Link
-        href="/friends#recommendations"
-        data-testid="new-recommendations"
-        className="mt-6 flex items-center justify-between gap-3 rounded-card border border-hairline bg-surface p-5 transition-transform duration-150 ease-cellr active:scale-[0.99]"
-      >
-        <span className="flex items-center gap-3">
-          <span
-            aria-hidden="true"
-            className="grid size-8 place-items-center rounded-full bg-accent text-small font-semibold text-accent-ink tnum"
-          >
-            {unseen}
-          </span>
-          <span className="font-display text-title">
-            {t("entryRecommendations", { count: unseen })}
-          </span>
-        </span>
-        <ChevronRightIcon size={20} className="shrink-0 text-ink-3" />
-      </Link>
-    );
+  const friends = useFriends().data;
+  const recommendations = useRecommendations().data;
+  const respond = useRespond();
+  const activity = buildFriendActivity(friends, recommendations);
+  if (activity.items.length === 0) return null;
+  const invites = activity.items.filter((i) => i.kind === "invite");
+  const recs = activity.items.filter((i) => i.kind === "recommendation");
+  const name = (item: FriendActivityItem) => personName(item.from) ?? t("someone");
+  const total = activity.requests + activity.recommendations;
+
   return (
-    <Link
-      href="/friends"
-      data-testid="friend-requests"
-      className="mt-6 flex items-center justify-between gap-3 rounded-card border border-hairline bg-surface p-5 transition-transform duration-150 ease-cellr active:scale-[0.99]"
+    <section
+      aria-labelledby="friend-activity-h"
+      data-testid="friend-activity"
+      className="mt-6 overflow-hidden rounded-card bg-surface shadow-raised ring-1 ring-accent-fg/30"
     >
-      <span className="flex items-center gap-3">
-        <span
-          aria-hidden="true"
-          className="grid size-8 place-items-center rounded-full bg-accent text-small font-semibold text-accent-ink tnum"
-        >
-          {incoming}
+      <h2
+        id="friend-activity-h"
+        className="flex items-center gap-2.5 px-5 pt-4 font-display text-title text-ink"
+      >
+        {t("activityTitle")}
+        <span className="grid min-w-7 place-items-center rounded-full bg-accent px-2 py-0.5 text-caption font-semibold text-accent-ink tnum">
+          <span className="sr-only">{t("activityCount", { count: total })}</span>
+          <span aria-hidden="true">{total}</span>
         </span>
-        <span className="font-display text-title">{t("entryRequests", { count: incoming })}</span>
-      </span>
-      <ChevronRightIcon size={20} className="shrink-0 text-ink-3" />
-    </Link>
+      </h2>
+
+      {invites.length > 0 && (
+        <div className="mt-2">
+          <Link
+            href="/friends"
+            data-testid="friend-requests"
+            className="flex items-center justify-between gap-3 px-5 py-2 text-small font-medium text-accent-fg"
+          >
+            {t("entryRequests", { count: activity.requests })}
+            <ChevronRightIcon size={18} className="shrink-0" />
+          </Link>
+          <ul className="divide-y divide-hairline">
+            {invites.slice(0, SHOWN).map((item) =>
+              item.kind !== "invite" ? null : (
+                <li
+                  key={item.key}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3"
+                >
+                  <span className="min-w-0 flex-1 text-body text-ink">
+                    {t("activityInvite", { name: name(item) })}
+                  </span>
+                  <span className="flex shrink-0 gap-2">
+                    <Button
+                      size="sm"
+                      disabled={respond.isPending}
+                      onClick={() =>
+                        respond.mutate({ friendshipId: item.friendshipId, accept: true })
+                      }
+                    >
+                      {t("accept")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={respond.isPending}
+                      onClick={() =>
+                        respond.mutate({ friendshipId: item.friendshipId, accept: false })
+                      }
+                    >
+                      {t("decline")}
+                    </Button>
+                  </span>
+                </li>
+              ),
+            )}
+          </ul>
+        </div>
+      )}
+
+      {recs.length > 0 && (
+        <Link
+          href="/friends#recommendations"
+          data-testid="new-recommendations"
+          className="mt-1 block border-t border-hairline px-5 py-3 transition-colors duration-150 ease-cellr hover:bg-raised"
+        >
+          <span className="flex items-center justify-between gap-3 text-small font-medium text-accent-fg">
+            {t("entryRecommendations", { count: activity.recommendations })}
+            <ChevronRightIcon size={18} className="shrink-0" />
+          </span>
+          <ul className="mt-1.5 flex flex-col gap-1">
+            {recs.slice(0, SHOWN).map((item) =>
+              item.kind !== "recommendation" ? null : (
+                <li key={item.key} className="truncate text-body text-ink">
+                  {t("activityRecommendation", { name: name(item), wine: item.wine })}
+                </li>
+              ),
+            )}
+          </ul>
+        </Link>
+      )}
+      <div className="h-2" />
+    </section>
   );
 }
 

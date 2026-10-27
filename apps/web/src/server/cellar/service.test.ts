@@ -66,6 +66,8 @@ function fakeRepo(
     latestImage: null as string | null,
     attached: [] as Array<string | null>,
     attachable: 1,
+    /** The back label the (fake) database already holds for v1, if any. */
+    back: null as string | null,
     failInsertAt: null as number | null,
     wines: [] as Array<{
       producerId: string;
@@ -236,9 +238,16 @@ function fakeRepo(
     async latestImageId() {
       return state.latestImage;
     },
-    async attachImage(_h, _v, imageId) {
+    async attachImage(_h, _v, imageId, side) {
       state.attached.push(imageId);
+      if (side === "back" && state.attachable > 0) state.back = imageId;
       return state.attachable;
+    },
+    async attachBackIfEmpty(_h, _v, imageId) {
+      if (state.attachable === 0) return "not_found";
+      if (state.back) return "exists";
+      state.back = imageId;
+      return "attached";
     },
     async deleteBottles(_h, ids) {
       state.deletedBottles.push(...ids);
@@ -1017,10 +1026,34 @@ describe("label photos on bottles", () => {
     const service = createCellarService(repo, { userId: "me" });
     await expect(service.attachPhoto("v1", "nope")).rejects.toMatchObject({ code: "NOT_FOUND" });
     state.images.add("p1");
-    expect(await service.attachPhoto("v1", "p1")).toEqual({ vintageId: "v1", imageId: "p1" });
+    expect(await service.attachPhoto("v1", "p1")).toEqual({
+      vintageId: "v1",
+      imageId: "p1",
+      attached: true,
+    });
     expect(state.attached).toEqual(["p1"]);
     state.attachable = 0; // no bottle of that wine in this household
     await expect(service.attachPhoto("v1", "p1")).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("a back label from a scan goes on only if there is none; replacing stays possible on purpose", async () => {
+    const { repo, state } = fakeRepo();
+    const service = createCellarService(repo, { userId: "me" });
+    state.images.add("b1");
+    state.images.add("b2");
+    expect(await service.attachPhoto("v1", "b1", "back", { onlyIfEmpty: true })).toMatchObject({
+      attached: true,
+    });
+    // a second one (another member, at the same moment) is told there is one and changes nothing
+    expect(await service.attachPhoto("v1", "b2", "back", { onlyIfEmpty: true })).toMatchObject({
+      attached: false,
+    });
+    expect(state.back).toBe("b1");
+    // after the person said "replace it": the plain path
+    expect(await service.attachPhoto("v1", "b2", "back")).toMatchObject({ attached: true });
+    expect(state.back).toBe("b2");
+    // the front label is never touched by any of this
+    expect(state.attached.filter((id) => id !== "b2")).toEqual([]);
   });
 
   it("removing a photo clears it on the wine's bottles", async () => {

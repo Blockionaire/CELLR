@@ -41,6 +41,8 @@ export interface ImageRef {
 export const AttachPhotoSchema = z.object({
   imageId: z.uuid(),
   side: z.enum(IMAGE_SIDES).default("front"),
+  /** Back label only: put it on only when the wine has none yet (atomic on the server); otherwise "exists". */
+  onlyIfEmpty: z.boolean().optional(),
 });
 export type AttachPhoto = z.infer<typeof AttachPhotoSchema>;
 

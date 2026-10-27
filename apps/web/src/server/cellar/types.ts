@@ -233,6 +233,14 @@ export interface CellarRepository {
   getBottle(householdId: string, bottleId: string): Promise<BottleRow | null>;
   /** Which vintage a bottle is of. */
   getBottleVintage(householdId: string, bottleId: string): Promise<string | null>;
+  /**
+   * The back label, only if the vintage has none (atomically, in the caller's household): "exists" when it has one.
+   */
+  attachBackIfEmpty(
+    householdId: string,
+    vintageId: string,
+    imageId: string,
+  ): Promise<"attached" | "exists" | "not_found">;
   /** Updates one bottle, only if it is currently in one of `fromStatuses`. Null = no such bottle in that state. */
   updateBottle(
     householdId: string,

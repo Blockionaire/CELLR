@@ -767,6 +767,17 @@ export function createCellarRepository(db: Db): CellarRepository {
       return data?.length ?? 0;
     },
 
+    async attachBackIfEmpty(_householdId, vintageId, imageId) {
+      const { data, error } = await db.rpc("attach_back_label_if_empty", {
+        p_vintage_id: vintageId,
+        p_image_id: imageId,
+      });
+      // No fallback: until migration 20261103000026 has run, nothing is attached (a check-then-write here would
+      // bring back the very race the function closes). The caller says it failed and offers to try again.
+      if (error) throw mapDbError(error);
+      return data === "attached" || data === "exists" ? data : "not_found";
+    },
+
     async getBottle(householdId, bottleId) {
       const { data, error } = await db
         .from("bottles")

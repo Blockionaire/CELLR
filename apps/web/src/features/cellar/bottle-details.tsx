@@ -50,6 +50,8 @@ interface BottleDetailsProps {
   quantityHint?: string | undefined;
   /** Something to offer under the "Add" button (a scan offers "save to wishlist instead"). */
   footer?: ReactNode;
+  /** Shown under the wine (a scan shows its front label and offers the back). */
+  labels?: ReactNode;
   onChangeWine: () => void;
   onDone: (result: AddBottlesResult, placeId: string | null) => void;
 }
@@ -79,6 +81,7 @@ export function BottleDetails({
   initialQuantity = 1,
   quantityHint,
   footer,
+  labels,
   onChangeWine,
   onDone,
 }: BottleDetailsProps) {
@@ -200,6 +203,8 @@ export function BottleDetails({
             {t("change")}
           </button>
         </div>
+
+        {labels}
 
         <section className={cn(SECTION, "flex flex-col gap-3")}>
           <Field

@@ -937,13 +937,21 @@ export function createCellarService(
       vintageId: string,
       imageId: string,
       side: ImageSide = "front",
-    ): Promise<{ vintageId: string; imageId: string }> {
+      { onlyIfEmpty = false }: { onlyIfEmpty?: boolean } = {},
+    ): Promise<{ vintageId: string; imageId: string; attached: boolean }> {
       const { id: householdId } = await household();
       if (!(await repo.getImageRef(householdId, imageId)))
         throw new DomainError("NOT_FOUND", "We couldn't find that photo.");
+      // A back label taken while scanning never replaces one that is there: decided in one transaction, so two
+      // members saving at once cannot both "find it empty". Replacing on purpose is the plain path below.
+      if (side === "back" && onlyIfEmpty) {
+        const outcome = await repo.attachBackIfEmpty(householdId, vintageId, imageId);
+        if (outcome === "not_found") throw new DomainError("NOT_FOUND");
+        return { vintageId, imageId, attached: outcome === "attached" };
+      }
       if ((await repo.attachImage(householdId, vintageId, imageId, side)) === 0)
         throw new DomainError("NOT_FOUND");
-      return { vintageId, imageId };
+      return { vintageId, imageId, attached: true };
     },
 
     /** Takes the label photo off a vintage (the photo itself is kept until its household is deleted). */
