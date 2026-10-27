@@ -94,7 +94,10 @@
     },
     "atPeak": "At their best now",
     "summary": "{bottles, plural, one {# bottle} other {# bottles}} · {wines, plural, one {# wine} other {# wines}}",
-    "quickAsk": "Ask straight away"
+    "quickAsk": "Ask straight away",
+    "ratingsTitle": "Your ratings",
+    "ratingsSummary": "{count, plural, one {# wine rated} other {# wines rated}} · average {average} ★",
+    "ratingsStart": "Your tasting journal: rate what you open"
   },
   "cellar": {
     "title": "Cellar",
@@ -1470,7 +1473,19 @@
     "openWine": "Open {wine}",
     "bestRecent": "Highest rated of your latest {count}",
     "archived": "This wine is no longer in your cellar. Your tasting stays here, but can no longer be edited.",
-    "toTaste": "My taste profile"
+    "toTaste": "My taste profile",
+    "insights": {
+      "title": "What your ratings say",
+      "wines": "{count, plural, one {# wine} other {# wines}}",
+      "thin": "{count, plural, =0 {Rate a few different wines and patterns appear here.} one {One wine rated so far. Patterns appear once there are at least three different wines of a kind, region or grape.} other {# wines rated so far. Patterns appear once there are at least three different wines of a kind, region or grape.}}",
+      "byType": "By kind of wine",
+      "regions": "Regions you rate highest",
+      "grapes": "Grapes you rate highest",
+      "contrast": "You drink most from {often} ({oftenWines} wines), but rate {best} highest: {average} ★ over {bestWines} wines.",
+      "discovery": "A discovery: you rate {name} {average} ★ over {wines} wines, yet it is only {share}% of what you taste.",
+      "overTime": "Year by year",
+      "method": "One point per wine (the same wine tasted again counts once), and only with at least three different wines behind it. Worked out from your own ratings; nothing is guessed."
+    }
   },
   "taste": {
     "title": "My taste profile",

@@ -94,7 +94,10 @@
     },
     "atPeak": "Nu op hun best",
     "summary": "{bottles, plural, one {# fles} other {# flessen}} · {wines, plural, one {# wijn} other {# wijnen}}",
-    "quickAsk": "Meteen vragen"
+    "quickAsk": "Meteen vragen",
+    "ratingsTitle": "Je beoordelingen",
+    "ratingsSummary": "{count, plural, one {# wijn beoordeeld} other {# wijnen beoordeeld}} · gemiddeld {average} ★",
+    "ratingsStart": "Je proefdagboek: beoordeel wat je opent"
   },
   "cellar": {
     "title": "Kelder",
@@ -1470,7 +1473,19 @@
     "openWine": "{wine} openen",
     "bestRecent": "Hoogst gewaardeerd van je laatste {count}",
     "archived": "Deze wijn ligt niet meer in je kelder. Je proeverij blijft hier bewaard, maar kan niet meer bewerkt worden.",
-    "toTaste": "Mijn smaakprofiel"
+    "toTaste": "Mijn smaakprofiel",
+    "insights": {
+      "title": "Wat je beoordelingen zeggen",
+      "wines": "{count, plural, one {# wijn} other {# wijnen}}",
+      "thin": "{count, plural, =0 {Beoordeel een paar verschillende wijnen en hier verschijnen patronen.} one {Eén wijn beoordeeld. Patronen verschijnen vanaf drie verschillende wijnen van een soort, streek of druif.} other {# wijnen beoordeeld. Patronen verschijnen vanaf drie verschillende wijnen van een soort, streek of druif.}}",
+      "byType": "Per soort wijn",
+      "regions": "Streken die je het hoogst waardeert",
+      "grapes": "Druiven die je het hoogst waardeert",
+      "contrast": "Je drinkt het meest uit {often} ({oftenWines} wijnen), maar waardeert {best} het hoogst: {average} ★ over {bestWines} wijnen.",
+      "discovery": "Een ontdekking: je geeft {name} {average} ★ over {wines} wijnen, maar het is maar {share}% van wat je proeft.",
+      "overTime": "Per jaar",
+      "method": "Eén punt per wijn (dezelfde wijn opnieuw telt één keer), en alleen met minstens drie verschillende wijnen erachter. Berekend uit je eigen beoordelingen; er wordt niets gegokt."
+    }
   },
   "taste": {
     "title": "Mijn smaakprofiel",

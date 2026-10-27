@@ -10,10 +10,12 @@ import {
   journalEditHref,
   journalWineHref,
   journalTypes,
+  ratingInsights,
   topRated,
   type JournalEntry,
   type JournalSort,
   type JournalView,
+  type TasteProfileView,
   type WineType,
 } from "@cellr/domain";
 import { buttonStyles } from "@/ui/button";
@@ -27,15 +29,26 @@ import { Segmented } from "@/ui/segmented";
 import { Stars } from "@/ui/stars";
 import { useDay } from "@/features/cellar/bottle-bits";
 import { WinePicture } from "@/features/cellar/wine-picture";
+import { useTasteProfile } from "@/features/taste/hooks";
 import { useJournal } from "./hooks";
+import { RatingInsightsCard } from "./insights";
 
 /** How many entries are drawn at first; more on request (the journal itself is already bounded). */
 const PAGE = 30;
 
 /** My tasting journal: what I wrote about the wines I opened, newest first, with a quiet summary on top. */
-export function RatingsScreen({ initial }: { initial: JournalView }) {
+export function RatingsScreen({
+  initial,
+  taste,
+}: {
+  initial: JournalView;
+  taste: TasteProfileView;
+}) {
   const t = useTranslations("ratings");
   const { data } = useJournal(initial);
+  // The taste profile is the one source for per-wine means and favourites, so Ratings and Taste never disagree.
+  const profile = useTasteProfile(taste).data;
+  const insights = useMemo(() => ratingInsights(profile, data.entries), [profile, data.entries]);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<JournalSort>("recent");
   const [type, setType] = useState<WineType | null>(null);
@@ -84,6 +97,11 @@ export function RatingsScreen({ initial }: { initial: JournalView }) {
         }
       />
       <Summary view={data} />
+      {data.summary.scored > 0 && (
+        <div className="mt-4">
+          <RatingInsightsCard insights={insights} />
+        </div>
+      )}
 
       <div className="sticky-bar sticky top-0 z-10 -mx-5 mt-6 flex flex-col gap-2 px-5 py-2 sm:mx-0 sm:px-0">
         <div className="relative">
@@ -256,7 +274,7 @@ function Summary({ view }: { view: JournalView }) {
                 const n = s.distribution[i]!;
                 return (
                   <li key={i} className="flex items-center gap-2 text-caption text-ink-2 tnum">
-                    <span className="w-8 text-right">{formatStars(i + 1)}</span>
+                    <span className="w-14 text-right">{band(i)}</span>
                     <span
                       className="h-2 flex-1 overflow-hidden rounded-full bg-raised"
                       aria-hidden="true"
@@ -268,7 +286,7 @@ function Summary({ view }: { view: JournalView }) {
                     </span>
                     <span className="w-6">{n}</span>
                     <span className="sr-only">
-                      {t("distributionRow", { stars: formatStars(i + 1), count: n })}
+                      {t("distributionRow", { stars: band(i), count: n })}
                     </span>
                   </li>
                 );
@@ -280,6 +298,12 @@ function Summary({ view }: { view: JournalView }) {
     </section>
   );
 }
+
+/** A half-star band of the distribution: "4–4.4", "4.5–4.9", and "5" on its own. */
+const band = (i: number) => {
+  const from = (i + 1) / 2;
+  return i === 9 ? "5" : `${from}–${(from + 0.4).toFixed(1)}`;
+};
 
 function Figure({ label, value }: { label: string; value: string }) {
   return (

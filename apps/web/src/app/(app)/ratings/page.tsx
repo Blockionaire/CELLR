@@ -13,6 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RatingsPage() {
   const ctx = await getPageContext();
   if (!ctx) redirect("/sign-in");
-  const journal = await servicesFor(ctx).cellar.journal();
-  return <RatingsScreen initial={journal} />;
+  const services = servicesFor(ctx);
+  const [journal, taste] = await Promise.all([services.cellar.journal(), services.taste.profile()]);
+  return <RatingsScreen initial={journal} taste={taste} />;
 }

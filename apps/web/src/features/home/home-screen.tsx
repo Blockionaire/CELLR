@@ -17,7 +17,7 @@ import { FriendRequestsBanner } from "@/features/friends/entry";
 import { buttonStyles } from "@/ui/button";
 import { cn } from "@/ui/cn";
 import { EmptyState } from "@/ui/empty-state";
-import { ChevronRightIcon } from "@/ui/icons";
+import { ChevronRightIcon, StarIcon } from "@/ui/icons";
 import { Stars } from "@/ui/stars";
 import { QuickRate } from "./quick-rate";
 
@@ -142,6 +142,40 @@ export async function HomeScreen({
       )}
 
       <FriendRequestsBanner />
+
+      {/* The way to Ratings: what I have rated so far, one tap from Home (once there is something to rate). */}
+      {(home.myRatings?.wines ?? 0) > 0 ? (
+        <Link
+          href="/ratings"
+          data-testid="home-ratings"
+          className="mt-6 flex items-center gap-4 rounded-card bg-surface p-5 shadow-raised ring-1 ring-hairline transition-transform duration-150 ease-cellr active:scale-[0.99]"
+        >
+          <span className="grid size-12 shrink-0 place-items-center rounded-full bg-raised text-accent-fg">
+            <StarIcon size={22} fill="currentColor" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-title text-ink">{t("ratingsTitle")}</span>
+            <span className="mt-0.5 block text-small text-ink-2 tnum">
+              {t("ratingsSummary", {
+                count: home.myRatings!.wines,
+                average: home.myRatings!.average?.toFixed(1) ?? "—",
+              })}
+            </span>
+          </span>
+          <ChevronRightIcon size={20} className="shrink-0 text-ink-3" />
+        </Link>
+      ) : (
+        home.recentlyOpened.length > 0 && (
+          <Link
+            href="/ratings"
+            data-testid="home-ratings"
+            className="mt-6 flex items-center justify-between gap-3 rounded-card bg-surface px-5 py-4 ring-1 ring-hairline"
+          >
+            <span className="text-body text-ink">{t("ratingsStart")}</span>
+            <ChevronRightIcon size={20} className="shrink-0 text-ink-3" />
+          </Link>
+        )
+      )}
 
       {reminders.length > 0 && (
         <section className="mt-10" aria-labelledby="coming-up">
