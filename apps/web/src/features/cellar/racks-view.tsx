@@ -1,12 +1,12 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatVintage, type PlacedBottle, type RackUnit } from "@cellr/domain";
 import { Button } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { EmptyState } from "@/ui/empty-state";
-import { PlusIcon } from "@/ui/icons";
+import { ChevronRightIcon, PlusIcon } from "@/ui/icons";
 import { Skeleton } from "@/ui/skeleton";
 import { useRacks } from "./hooks";
 import { KindGlyph, NewPlaceSheet } from "./new-place-sheet";
@@ -93,6 +93,13 @@ function SlotPreview({ unit }: { unit: RackUnit }) {
   );
 }
 
+/**
+ * Which places are open, kept for the life of this browser tab (like the cellar's search and view), so coming
+ * back from a bottle finds them as you left them. Null until the person opens or closes one: then the default
+ * applies (one place: open; several: all closed, a compact overview).
+ */
+const places: { open: Set<string> | null } = { open: null };
+
 export function RacksView() {
   const t = useTranslations("racks");
   const tv = useTranslations("vintage");
@@ -106,6 +113,16 @@ export function RacksView() {
   const [manageId, setManageId] = useState<string | null>(null);
   const [newPlace, setNewPlace] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState<Set<string> | null>(() => places.open);
+  useEffect(() => {
+    places.open = open;
+  }, [open]);
+  const toggle = (id: string, all: readonly string[]) => {
+    const next = new Set(open ?? (all.length === 1 ? all : []));
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setOpen(next);
+  };
 
   const data = racks.data;
   if (data === undefined)
@@ -215,62 +232,84 @@ export function RacksView() {
         </section>
       )}
 
-      {data.units.map((unit) => (
-        <section
-          key={unit.id}
-          aria-labelledby={`unit-${unit.id}`}
-          className="rounded-card bg-surface p-4 shadow-raised ring-1 ring-hairline sm:p-5"
-        >
-          <header className="flex items-center gap-3">
-            <span
-              aria-hidden="true"
-              className="grid size-11 shrink-0 place-items-center rounded-full bg-raised text-bronze"
-            >
-              <KindGlyph kind={unit.kind} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <h2 id={`unit-${unit.id}`} className="truncate font-display text-title">
-                {unit.label}
-              </h2>
-              <p className="text-small text-ink-2 tnum">
-                {unit.label === tKinds(unit.kind) ? "" : `${tKinds(unit.kind)} · `}
-                {t("unitMeta", { used: unit.used, capacity: unit.capacity, free: unit.free })}
-              </p>
+      {data.units.map((unit) => {
+        const all = data.units.map((u) => u.id);
+        const expanded = (open ?? new Set(all.length === 1 ? all : [])).has(unit.id);
+        return (
+          <section
+            key={unit.id}
+            aria-labelledby={`unit-${unit.id}`}
+            data-testid="place"
+            className="rounded-card bg-surface p-4 shadow-raised ring-1 ring-hairline sm:p-5"
+          >
+            <header className="relative flex items-center gap-3">
+              <span
+                aria-hidden="true"
+                className="grid size-11 shrink-0 place-items-center rounded-full bg-raised text-bronze"
+              >
+                <KindGlyph kind={unit.kind} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate font-display text-title">
+                  {/* The whole header is the button (the ::after covers it): a big, easy target. */}
+                  <button
+                    type="button"
+                    id={`unit-${unit.id}`}
+                    aria-expanded={expanded}
+                    aria-controls={`unit-body-${unit.id}`}
+                    onClick={() => toggle(unit.id, all)}
+                    className="max-w-full truncate text-left after:absolute after:inset-0 after:rounded-[16px] after:content-[''] focus-visible:outline-none focus-visible:after:outline focus-visible:after:outline-2 focus-visible:after:outline-accent-fg"
+                  >
+                    {unit.label}
+                  </button>
+                </h2>
+                <p className="text-small text-ink-2 tnum">
+                  {unit.label === tKinds(unit.kind) ? "" : `${tKinds(unit.kind)} · `}
+                  {t("unitMeta", { used: unit.used, capacity: unit.capacity, free: unit.free })}
+                </p>
+              </div>
+              <FillRing
+                unit={unit}
+                label={t("unitMeta", { used: unit.used, capacity: unit.capacity, free: unit.free })}
+              />
+              <ChevronRightIcon
+                size={20}
+                aria-hidden="true"
+                className={`shrink-0 text-ink-2 transition-transform duration-200 ease-cellr ${expanded ? "rotate-90" : ""}`}
+              />
+            </header>
+            <div id={`unit-body-${unit.id}`} hidden={!expanded}>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <SlotPreview unit={unit} />
+                <Button variant="secondary" size="sm" onClick={() => setManageId(unit.id)}>
+                  {t("manage")}
+                </Button>
+              </div>
+              <div className="mt-4 rounded-[16px] bg-raised/60 p-2">
+                <RackGrid
+                  rows={unit.rows}
+                  cols={unit.cols}
+                  bottles={unit.bottles}
+                  activeBottleId={moving?.bottleId}
+                  onBottle={(b) => {
+                    if (moving) {
+                      if (b.bottleId === moving.bottleId) setMoving(null);
+                      return;
+                    }
+                    setError(null);
+                    setPeek(b);
+                  }}
+                  onEmpty={(row, col) => {
+                    setError(null);
+                    if (moving) void moveTo(moving, unit, row, col);
+                    else setPlaceAt({ unit, row, col });
+                  }}
+                />
+              </div>
             </div>
-            <FillRing
-              unit={unit}
-              label={t("unitMeta", { used: unit.used, capacity: unit.capacity, free: unit.free })}
-            />
-          </header>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <SlotPreview unit={unit} />
-            <Button variant="secondary" size="sm" onClick={() => setManageId(unit.id)}>
-              {t("manage")}
-            </Button>
-          </div>
-          <div className="mt-4 rounded-[16px] bg-raised/60 p-2">
-            <RackGrid
-              rows={unit.rows}
-              cols={unit.cols}
-              bottles={unit.bottles}
-              activeBottleId={moving?.bottleId}
-              onBottle={(b) => {
-                if (moving) {
-                  if (b.bottleId === moving.bottleId) setMoving(null);
-                  return;
-                }
-                setError(null);
-                setPeek(b);
-              }}
-              onEmpty={(row, col) => {
-                setError(null);
-                if (moving) void moveTo(moving, unit, row, col);
-                else setPlaceAt({ unit, row, col });
-              }}
-            />
-          </div>
-        </section>
-      ))}
+          </section>
+        );
+      })}
 
       <button
         type="button"

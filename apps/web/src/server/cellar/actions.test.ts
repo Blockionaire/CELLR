@@ -666,3 +666,68 @@ describe("how was it? (tastings)", () => {
     ]);
   });
 });
+
+describe("correcting one bottle's year", () => {
+  it("moves only that bottle to that year of the same wine", async () => {
+    const asked: Array<[string, number | null]> = [];
+    const { service, state } = fake([bottle({ id: "a" }), bottle({ id: "b", row: 1, col: 2 })], {
+      overrides: {
+        async findOrCreateVintage(wineId, year) {
+          asked.push([wineId, year]);
+          return "v2020";
+        },
+      },
+    });
+    const done = await service.bottleAction("a", { action: "setYear", year: 2020 });
+    expect(done.vintageId).toBe("v2020");
+    expect(asked).toEqual([["w1", 2020]]);
+    expect(state.updates).toEqual([{ vintageId: "v2020" }]); // one bottle, nothing else about it
+  });
+
+  it("the same year changes nothing; non-vintage is a year too", async () => {
+    const asked: Array<number | null> = [];
+    const { service, state } = fake([bottle({ id: "a" })], {
+      overrides: {
+        async findOrCreateVintage(_w, year) {
+          asked.push(year);
+          return "vNV";
+        },
+      },
+    });
+    expect((await service.bottleAction("a", { action: "setYear", year: 2019 })).vintageId).toBe(
+      "v1",
+    );
+    expect(state.updates).toEqual([]);
+    await service.bottleAction("a", { action: "setYear", year: null });
+    expect(asked).toEqual([null]);
+  });
+
+  it("a catalogue wine's year goes through the safe catalogue step, never a direct insert", async () => {
+    let direct = 0;
+    const { service } = fake([bottle({ id: "a" })], {
+      overrides: {
+        async getWine() {
+          return { ...WINE, catalog: true };
+        },
+        async catalogVintage(_w, year) {
+          return year === 2021 ? "vCat" : null;
+        },
+        async findOrCreateVintage() {
+          direct += 1;
+          return "vX";
+        },
+      },
+    });
+    expect((await service.bottleAction("a", { action: "setYear", year: 2021 })).vintageId).toBe(
+      "vCat",
+    );
+    expect(direct).toBe(0);
+  });
+
+  it("an opened bottle keeps its year (its tasting belongs to it)", async () => {
+    const { service } = fake([bottle({ id: "a", status: "opened" })]);
+    await expect(
+      service.bottleAction("a", { action: "setYear", year: 2020 }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+});

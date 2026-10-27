@@ -862,6 +862,25 @@ export function createCellarService(
           }
           return result(restored, "That bottle can't be put back.");
         }
+
+        case "setYear": {
+          // Only this bottle moves, to that year of the same wine (found, or added the same safe way as when
+          // adding bottles). Its siblings, tastings and the old vintage's profile stay where they are.
+          if (before.status !== "in_cellar")
+            throw new DomainError("CONFLICT", "That bottle is no longer in the cellar.");
+          const fromVintage = await repo.getBottleVintage(householdId, bottleId);
+          const current = fromVintage ? await repo.getVintage(householdId, fromVintage) : null;
+          const wine = current ? await repo.getWine(current.wine.id) : null;
+          if (!current || !wine)
+            throw new DomainError("NOT_FOUND", "We couldn't find that bottle.");
+          if (current.year === action.year)
+            return { bottle: before, previous, vintageId: current.vintageId };
+          const vintageId = await vintageOf(wine, action.year);
+          const moved = await repo.updateBottle(householdId, bottleId, { vintageId }, [
+            "in_cellar",
+          ]);
+          return { ...result(moved, "That bottle is no longer in the cellar."), vintageId };
+        }
       }
     },
 

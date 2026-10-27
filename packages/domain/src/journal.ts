@@ -64,7 +64,7 @@ export function summarizeJournal(
   let scored = 0;
   for (const r of rows) {
     if (r.score === null || r.score < 1 || r.score > 10) continue;
-    distribution[r.score - 1]! += 1;
+    distribution[Math.min(9, Math.max(0, Math.round(r.score) - 1))]! += 1; // nearest half star
     sum += r.score;
     scored += 1;
   }

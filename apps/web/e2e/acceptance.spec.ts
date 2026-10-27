@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContextOptions, type Page } from "@playwright/test";
-import { codeFor, makeJpeg, onboardCreate, sql, STACK, uniqueEmail } from "./helpers";
+import { codeFor, makeJpeg, onboardCreate, rateStars, sql, STACK, uniqueEmail } from "./helpers";
 
 /**
  * The private-beta acceptance flow, start to finish, the way a new person goes through it on a phone:
@@ -171,7 +171,7 @@ test("a new person, from the first code to signing back in, loses nothing", asyn
   // 12. Rate it, and see it in the history.
   await page.getByRole("button", { name: "How was it?" }).click();
   const sheet = page.getByRole("dialog", { name: "How was it?" });
-  await page.locator("label", { hasText: /^4\.5 stars$/ }).click();
+  await rateStars(page, 4.5);
   await sheet.getByLabel("Your note").fill("Still young, lovely.");
   await sheet.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Thanks, saved.")).toBeVisible();

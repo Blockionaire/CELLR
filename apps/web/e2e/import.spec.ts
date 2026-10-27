@@ -171,7 +171,7 @@ test.describe("bringing a cellar over from Wijnkelder", () => {
       tasted: string;
       bottle: boolean;
     }>(
-      `select score, note, tasted_at::date::text as tasted, bottle_id is not null as bottle
+      `select score::float8 as score, note, tasted_at::date::text as tasted, bottle_id is not null as bottle
          from public.tastings where household_id = $1 order by tasted_at`,
       [householdId],
     );

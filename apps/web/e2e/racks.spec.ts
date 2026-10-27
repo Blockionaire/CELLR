@@ -46,10 +46,19 @@ async function furnish(call: Call) {
   return { fridgeId: fridge.id, rackId: rack.id, chablis };
 }
 
+/** With several places they start folded: open the one asked for (or all). */
+const unfold = async (page: Page, name?: string) => {
+  const folded = page
+    .getByTestId("place")
+    .getByRole("button", { expanded: false, ...(name ? { name, exact: true } : {}) });
+  while ((await folded.count()) > 0) await folded.first().click();
+};
+
 const open = async (page: Page) => {
   await page.goto("/cellar");
   await page.getByRole("radio", { name: "Racks" }).click();
   await expect(page.getByRole("heading", { name: "Wine fridge" })).toBeVisible();
+  await unfold(page);
 };
 
 const slotOf = async (householdId: string, wineName: string, year: number) =>
@@ -171,8 +180,11 @@ test.describe("managing places", () => {
     void chablis;
     await open(page);
 
-    const manage = (name: string) =>
-      page.getByRole("region", { name }).getByRole("button", { name: "Manage" }).click();
+    const manage = async (name: string) => {
+      await expect(page.getByRole("heading", { name })).toBeVisible();
+      await unfold(page, name);
+      await page.getByRole("region", { name }).getByRole("button", { name: "Manage" }).click();
+    };
     const dialog = page.getByRole("dialog");
 
     // Rename and make it bigger.

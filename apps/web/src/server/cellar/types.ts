@@ -145,6 +145,8 @@ export interface BottlePatch {
   col?: number | null;
   /** Set to null when a bottle comes back into the cellar. */
   openedAt?: null;
+  /** Another vintage of the same wine (a corrected year). */
+  vintageId?: string;
 }
 
 export interface PurchasePatch {

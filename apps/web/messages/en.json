@@ -479,7 +479,8 @@
       "notSwitchedOn": "This isn't switched on yet.",
       "onlyOwnerOf": "You are the only owner of a household that still has other people in it. Remove them or delete the household first.",
       "importTooBig": "That is more than we can bring in at once. Try a smaller file.",
-      "settingNotYet": "This setting is not available yet."
+      "settingNotYet": "This setting is not available yet.",
+      "ratingTenths": "Ratings go in tenths of a star."
     }
   },
   "offline": {
@@ -658,7 +659,13 @@
     "shopLabel": "Bought at",
     "shopPlaceholder": "Shop or merchant",
     "save": "Save changes",
-    "saved": "Saved."
+    "saved": "Saved.",
+    "yearSection": "Vintage",
+    "yearOne": "Corrects the year of one bottle; the others keep theirs.",
+    "whichBottle": "Which bottle",
+    "yearLabel": "Year",
+    "nonVintage": "Non-vintage",
+    "yearError": "Enter a year like 2019, or choose non-vintage."
   },
   "rack": {
     "shelf": "Shelf",
@@ -802,7 +809,8 @@
       "complex": "Complex",
       "elegant": "Elegant"
     },
-    "removeConfirm": "Yes, remove it all"
+    "removeConfirm": "Yes, remove it all",
+    "notRated": "Not rated"
   },
   "drink": {
     "title": "When to drink it",

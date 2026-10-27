@@ -33,6 +33,13 @@ begin
   perform test.rec('a tasting must say something', test.denied(format('insert into public.tastings (household_id, vintage_id) values (%L, %L)', h1, v)));
   perform test.rec('score 0 is rejected',  test.denied(format('insert into public.tastings (household_id, vintage_id, score) values (%L, %L, 0)', h1, v)));
   perform test.rec('score 11 is rejected', test.denied(format('insert into public.tastings (household_id, vintage_id, score) values (%L, %L, 11)', h1, v)));
+  perform test.rec('tenths of a star can be stored (4.2 stars = 8.4)',
+    test.affected(format('insert into public.tastings (household_id, vintage_id, score) values (%L, %L, 8.4)', h1, v)) = 1);
+  perform test.rec('...and come back exactly', (select score::text from public.tastings where household_id = h1 and score = 8.4) = '8.4');
+  delete from public.tastings where household_id = h1 and score = 8.4;
+  perform test.rec('anything finer than a tenth of a star is rejected (8.5 = 4.25 stars)',
+    test.denied(format('insert into public.tastings (household_id, vintage_id, score) values (%L, %L, 8.5)', h1, v)));
+  perform test.rec('a whole-number score keeps its meaning (9 is still 4½ stars)', (select score from public.tastings where id = t1) = 9.0);
   perform test.rec('a note is bounded', test.denied(format('insert into public.tastings (household_id, vintage_id, note) values (%L, %L, %L)', h1, v, repeat('x', 2001))));
   perform test.rec('descriptors are bounded', test.denied(format('insert into public.tastings (household_id, vintage_id, descriptors) values (%L, %L, %L)', h1, v, (select array_agg('d' || i) from generate_series(1, 13) i))));
   perform test.rec('one tasting per person per bottle', test.denied(format('insert into public.tastings (household_id, vintage_id, bottle_id, score) values (%L, %L, %L, 5)', h1, v, b1)));
