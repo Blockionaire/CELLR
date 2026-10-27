@@ -343,10 +343,15 @@ export function isCatalogIdentity(
 
 /**
  * Typing a wine by hand: which existing wine is meant, if any, before a new private one is made. The household's
- * own wine of that name always wins (it is never silently swapped for another); otherwise exactly one catalogue
+ * own wine of that name wins unless its known country differs from the one given (it is never silently swapped
+ * for another); otherwise exactly one catalogue
  * wine with that identity is used, so no private duplicate is made; anything else (none, or more than one) is not
  * guessed: the household gets its own wine as before.
  */
+/** Two known countries that differ. An unknown country (on either side) contradicts nothing. */
+export const countryConflict = (a: string | null | undefined, b: string | null | undefined) =>
+  Boolean(a && b && a !== b);
+
 export function pickExistingWine(
   typed: {
     producer: string;
@@ -368,7 +373,8 @@ export function pickExistingWine(
       !w.catalog &&
       normalizeText(w.producer) === normalizeText(typed.producer) &&
       normalizeText(w.name) === normalizeText(typed.name) &&
-      w.type === typed.type,
+      w.type === typed.type &&
+      !countryConflict(typed.countryCode, w.countryCode),
   );
   if (mine) return mine;
   const exact = catalog.filter((w) => w.catalog && isCatalogIdentity(facts, w));

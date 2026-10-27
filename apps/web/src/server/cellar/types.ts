@@ -165,11 +165,16 @@ export interface CellarRepository {
   /** Wines the household can pick from: its own plus the shared catalogue. Newest first. */
   listWines(householdId: string): Promise<WineSummary[]>;
   getWine(wineId: string): Promise<WineSummary | null>;
-  /** Finds the producer by (accent-insensitive) name or creates a private one. Returns its id. */
+  /**
+   * Finds the producer by (accent-insensitive) name or creates a private one. Returns its id. `exactCountry`: a
+   * household producer without a country is not reused for a given country (a same-named wine there is from
+   * elsewhere).
+   */
   findOrCreateProducer(
     householdId: string,
     name: string,
     countryCode: string | null,
+    exactCountry?: boolean,
   ): Promise<string>;
   findOrCreateWine(householdId: string, producerId: string, input: NewWine): Promise<WineSummary>;
   /** `year` null = non-vintage. Returns the vintage id. */

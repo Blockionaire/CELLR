@@ -11,6 +11,7 @@ import {
   isDomainError,
   nextFreeSlots,
   pickExistingWine,
+  countryConflict,
   orderBottles,
   planWijnkelderImport,
   rankWithTaste,
@@ -464,10 +465,16 @@ export function createCellarService(
         same.filter((w) => w.catalog),
       );
       if (existing) return existing;
+      // The household already has this name from another country: the new wine must not land under that wine's
+      // producer (it would be found again), so only a producer of the given country is reused, else a new one.
+      const elsewhere = same.some(
+        (w) => !w.catalog && countryConflict(input.countryCode, w.countryCode),
+      );
       const producerId = await repo.findOrCreateProducer(
         id,
         input.producer,
         input.countryCode ?? null,
+        elsewhere,
       );
       return repo.findOrCreateWine(id, producerId, input);
     },

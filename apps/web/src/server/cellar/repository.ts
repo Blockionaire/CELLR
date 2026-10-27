@@ -279,7 +279,7 @@ export function createCellarRepository(db: Db): CellarRepository {
       return data ? toWine(data) : null;
     },
 
-    async findOrCreateProducer(householdId, name, countryCode) {
+    async findOrCreateProducer(householdId, name, countryCode, exactCountry = false) {
       const normalized = normalizeText(name);
       // Which producer of this name, explicitly (not whatever the database returns first): the household's own,
       // in the same country first; then the catalogue's, in the same country (or the only one, when no country
@@ -298,7 +298,7 @@ export function createCellarRepository(db: Db): CellarRepository {
         const catalog = rows.filter((r) => r.owner_household_id === null);
         const ownPick = countryCode
           ? (own.find((r) => r.country_code === countryCode) ??
-            own.find((r) => r.country_code === null))
+            (exactCountry ? undefined : own.find((r) => r.country_code === null)))
           : own[0];
         if (ownPick) return ownPick.id;
         const catalogPick = countryCode

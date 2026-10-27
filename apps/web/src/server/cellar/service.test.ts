@@ -49,6 +49,7 @@ function fakeRepo(
     inserts: [] as NewBottle[][],
     vintages: new Map<string, string>(),
     catalogVintages: [] as string[],
+    producers: [] as Array<{ name: string; countryCode: string | null; exactCountry: boolean }>,
     occupiedCalls: 0,
     conflictsLeft: options.conflictsBeforeSuccess ?? 0,
     favorites: new Set<string>(),
@@ -100,7 +101,8 @@ function fakeRepo(
           [w.name, ...(w.aliases ?? [])].some((x) => n(x) === n(name)),
       );
     },
-    async findOrCreateProducer(_h, name) {
+    async findOrCreateProducer(_h, name, countryCode, exactCountry) {
+      state.producers.push({ name, countryCode, exactCountry: exactCountry ?? false });
       return `p:${name}`;
     },
     async findOrCreateWine(_h, producerId, input) {
@@ -1059,6 +1061,35 @@ describe("the shared catalogue", () => {
     const service = createCellarService(repo, { userId: "me" });
     expect((await service.createWine(typed)).id).toBe("own");
     expect(state.wines).toHaveLength(0);
+  });
+
+  it("the same producer, name and colour from another country is a new private wine under that country's producer", async () => {
+    const ownFr: WineSummary = {
+      id: "own-fr",
+      producer: "Domaine Test",
+      name: "Cuvée Alpha",
+      type: "red",
+      countryCode: "FR",
+      region: null,
+    };
+    const { repo, state } = fakeRepo({ known: [ownFr] });
+    const service = createCellarService(repo, { userId: "me" });
+    const made = await service.createWine({ ...typed, countryCode: "IT" });
+    expect(made.id).not.toBe("own-fr");
+    expect(state.wines.map((w) => w.name)).toEqual(["cuvee alpha"]);
+    // The producer of the French wine (possibly one without a country) is not reused for the Italian one.
+    expect(state.producers).toEqual([
+      { name: "DOMAINE TEST", countryCode: "IT", exactCountry: true },
+    ]);
+  });
+
+  it("without a contradiction the producer lookup is unchanged", async () => {
+    const { repo, state } = fakeRepo();
+    const service = createCellarService(repo, { userId: "me" });
+    await service.createWine({ ...typed, name: "Something New" });
+    expect(state.producers).toEqual([
+      { name: "DOMAINE TEST", countryCode: "FR", exactCountry: false },
+    ]);
   });
 
   it("an unknown or only similar wine is made privately, as before", async () => {

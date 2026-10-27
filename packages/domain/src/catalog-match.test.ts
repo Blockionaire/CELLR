@@ -99,6 +99,19 @@ describe("typing a wine by hand", () => {
     expect(pickExistingWine(typed, [own], [alpha])?.id).toBe("own");
   });
 
+  it("the household's own wine is not reused when a given country contradicts its known country", () => {
+    const ownFr = wine("own-fr");
+    expect(pickExistingWine({ ...typed, countryCode: "IT" }, [ownFr], [])).toBeNull();
+    // ...nor does the catalogue step in for it when its country contradicts too.
+    expect(pickExistingWine({ ...typed, countryCode: "IT" }, [ownFr], [alpha])).toBeNull();
+    // An unknown country on either side contradicts nothing.
+    expect(pickExistingWine({ ...typed, countryCode: null }, [ownFr], [])?.id).toBe("own-fr");
+    const ownUnknown = wine("own-unknown", { countryCode: null });
+    expect(pickExistingWine({ ...typed, countryCode: "IT" }, [ownUnknown], [])?.id).toBe(
+      "own-unknown",
+    );
+  });
+
   it("otherwise exactly one catalogue wine is used instead of making a private duplicate", () => {
     expect(pickExistingWine(typed, [], [alpha, reserve])?.id).toBe("alpha");
     expect(pickExistingWine({ ...typed, name: "Alpha" }, [], [alpha])?.id).toBe("alpha");

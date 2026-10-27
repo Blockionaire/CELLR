@@ -271,6 +271,37 @@ test.describe("the shared catalogue", () => {
     );
     expect(row).toEqual({ status: "provisional", owner_household_id: householdId });
     await call("post", "/bottles", { wineId: own.id, year: 2020, quantity: 1 }, 201);
+    // The same producer, name and colour typed for another country is another wine, even when the first one's
+    // producer has no country (its wine got one later): never the French wine again.
+    const noCountry = (
+      await call<{ id: string }>(
+        "post",
+        "/wines",
+        { producer: `Twin Estate ${m}`, name: "Blanc", type: "white" },
+        201,
+      )
+    ).body;
+    await sql("update public.wines set country_code = 'FR' where id = $1", [noCountry.id]);
+    const italian = (
+      await call<{ id: string; countryCode: string | null }>(
+        "post",
+        "/wines",
+        { producer: `Twin Estate ${m}`, name: "Blanc", type: "white", countryCode: "IT" },
+        201,
+      )
+    ).body;
+    expect(italian.id).not.toBe(noCountry.id);
+    expect(italian.countryCode).toBe("IT");
+    // ...and typing it again finds the Italian one, not a third.
+    const again = (
+      await call<{ id: string }>(
+        "post",
+        "/wines",
+        { producer: `Twin Estate ${m}`, name: "Blanc", type: "white", countryCode: "IT" },
+        201,
+      )
+    ).body;
+    expect(again.id).toBe(italian.id);
     // People still cannot write the catalogue.
     const token = await sessionToken(email);
     const direct = await fetch(`${STACK}/rest/v1/rpc/catalog_import`, {
