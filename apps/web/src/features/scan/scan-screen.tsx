@@ -20,7 +20,7 @@ import {
   attachBackLabel,
   useWines,
   winesKey,
-  type BackLabelOutcome,
+  type BackLabelAttempt,
 } from "@/features/cellar/hooks";
 import { LabelImage } from "@/features/cellar/label-image";
 import { NewWineForm } from "@/features/cellar/new-wine-form";
@@ -35,7 +35,7 @@ import { PageHeader } from "@/ui/page-header";
 import { useToast } from "@/ui/toast";
 import { useAddWish } from "@/features/wishlist/hooks";
 import { useCamera, type Camera } from "./camera";
-import { BackLabelPicker, BackLabelResult } from "./back-label";
+import { BackLabelPicker, BackLabelResult, BackLabelRetries, type BackRetry } from "./back-label";
 import { useScan } from "./hooks";
 import { ModeBar, type ScanMode } from "./modes";
 import { SeriesTray, useScanSeries, type SeriesItem } from "./series";
@@ -50,7 +50,7 @@ type Stage =
       name: "done";
       result: AddBottlesResult;
       /** A back label taken with this scan, and what became of it. */
-      back?: { photo: PreparedPhoto; outcome: BackLabelOutcome | "saving" } | undefined;
+      back?: { photo: PreparedPhoto; outcome: BackLabelAttempt | "saving" } | undefined;
     };
 
 /**
@@ -77,6 +77,8 @@ export function ScanScreen({ currency }: { currency: string }) {
   // An optional back label, tied to the front photo it was taken with: it can never go on to another wine.
   const [back, setBack] = useState<{ imageId: string; photo: PreparedPhoto } | null>(null);
   const backFor = (imageId: string) => (back?.imageId === imageId ? back.photo : null);
+  // Back labels of a series that could not be saved, each tied to its own wine, until retried or dismissed.
+  const [backRetries, setBackRetries] = useState<BackRetry[]>([]);
   const heading = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // A step that puts the cursor in its first field (search, producer) keeps it: that is where the keyboard
@@ -252,6 +254,8 @@ export function ScanScreen({ currency }: { currency: string }) {
           </div>
         )}
 
+        <BackLabelRetries items={backRetries} onChange={setBackRetries} />
+
         {stage.name === "review" && (
           <Review
             result={stage.result}
@@ -352,12 +356,22 @@ export function ScanScreen({ currency }: { currency: string }) {
                 );
                 return;
               }
-              // In a series nothing waits: an existing back label is kept, a failure is said.
-              void sent?.then((outcome) => {
-                const wine = `${result.wine.producer} ${result.wine.name}`;
+              // In a series nothing waits: an existing back label is kept; a failure stays listed with its
+              // wine and "Try again" until it is saved or dismissed.
+              void sent?.then(({ outcome, imageId }) => {
+                const wine = `${result.wine.producer} ${result.wine.name} ${formatVintage(result.year)}`;
                 if (outcome === "exists") toast.show(te("photo.backKeptFor", { wine }));
-                if (outcome === "failed")
-                  toast.show(te("photo.backFailedFor", { wine }), { tone: "error" });
+                if (outcome === "failed" && photo)
+                  setBackRetries((list) => [
+                    ...list,
+                    {
+                      key: `${result.vintageId}:${Date.now()}`,
+                      vintageId: result.vintageId,
+                      wine,
+                      photo,
+                      imageId,
+                    },
+                  ]);
               });
               setLastPlace(placeId);
               handled(

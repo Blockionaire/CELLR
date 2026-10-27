@@ -1855,6 +1855,10 @@ export type Database = {
         Args: { p_daily: number; p_estimate: number; p_monthly: number; p_task: string };
         Returns: string;
       };
+      attach_back_label_if_empty: {
+        Args: { p_image_id: string; p_vintage_id: string };
+        Returns: string;
+      };
       catalog_import: { Args: { p_apply?: boolean; p_entries: Json }; Returns: Json };
       catalog_note_scan_read: {
         Args: {

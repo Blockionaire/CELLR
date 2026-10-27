@@ -962,7 +962,9 @@
     "backFailed": "De flessen staan erin, maar het achteretiket is niet opgeslagen.",
     "backRetry": "Opnieuw proberen",
     "backKeptFor": "{wine} had al een achteretiket: dat is gehouden.",
-    "backFailedFor": "Het achteretiket van {wine} is niet opgeslagen. Voeg het toe op de pagina van de wijn."
+    "backFailedFor": "Het achteretiket van {wine} is niet opgeslagen. Voeg het toe op de pagina van de wijn.",
+    "backNotSavedFor": "Het achteretiket van {wine} is niet opgeslagen.",
+    "backDismiss": "Laat maar"
   },
   "wishlist": {
     "title": "Verlanglijst",

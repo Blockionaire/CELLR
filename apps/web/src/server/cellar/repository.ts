@@ -767,6 +767,30 @@ export function createCellarRepository(db: Db): CellarRepository {
       return data?.length ?? 0;
     },
 
+    async attachBackIfEmpty(householdId, vintageId, imageId) {
+      const { data, error } = await db.rpc("attach_back_label_if_empty", {
+        p_vintage_id: vintageId,
+        p_image_id: imageId,
+      });
+      if (error && (error.code === "PGRST202" || error.code === "42883")) {
+        // Before 20261103000026: the same rule, checked then written (not atomic, as it was).
+        const { data: had, error: e } = await db
+          .from("bottles")
+          .select("id")
+          .eq("household_id", householdId)
+          .eq("vintage_id", vintageId)
+          .not("back_image_id", "is", null)
+          .limit(1);
+        if (e) throw mapDbError(e);
+        if (had.length > 0) return "exists";
+        return (await this.attachImage(householdId, vintageId, imageId, "back")) > 0
+          ? "attached"
+          : "not_found";
+      }
+      if (error) throw mapDbError(error);
+      return data === "attached" || data === "exists" ? data : "not_found";
+    },
+
     async getBottle(householdId, bottleId) {
       const { data, error } = await db
         .from("bottles")

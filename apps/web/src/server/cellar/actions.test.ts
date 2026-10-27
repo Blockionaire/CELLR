@@ -79,6 +79,9 @@ function fake(
     async latestImageId() {
       return null;
     },
+    async attachBackIfEmpty() {
+      return "attached" as const;
+    },
     async attachImage() {
       return 0;
     },

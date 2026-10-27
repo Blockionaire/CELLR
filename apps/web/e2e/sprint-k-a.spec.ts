@@ -5,7 +5,17 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
-import { apiClient, arrive, makeJpeg, sql, STACK, wineBody } from "./helpers";
+import {
+  api,
+  apiClient,
+  arrive,
+  bearer,
+  makeJpeg,
+  sessionToken,
+  sql,
+  STACK,
+  wineBody,
+} from "./helpers";
 
 /**
  * Sprint K, part A, on a phone: zooming the label frame, a back label photographed during the scan, and friend
@@ -211,6 +221,12 @@ test.describe("a back label while scanning", () => {
     expect(await images(householdId)).toHaveLength(1);
     await result.getByRole("button", { name: "Try again" }).click();
     await expect(result).toHaveAttribute("data-state", "saved");
+    // The retry reused the photo already uploaded: one back photo kept, not two.
+    expect(
+      await sql("select 1 from public.bottle_images where household_id = $1 and side = 'back'", [
+        householdId,
+      ]),
+    ).toHaveLength(1);
     const [row] = await images(householdId);
     expect(row!.front).toBeTruthy();
     expect(row!.back).toBeTruthy();
@@ -294,5 +310,153 @@ test.describe("friend activity on Home", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByTestId("friend-activity")).toHaveCount(0);
     for (const o of others) await o.close();
+  });
+});
+
+test.describe("a back label is never silently replaced", () => {
+  test("two members saving one at the same moment: exactly one goes on, the other is told there is one", async ({
+    page,
+    browser,
+    request,
+  }) => {
+    const anna = await arrive(page, "kbackrace");
+    const annaToken = await sessionToken(anna.email);
+    const { call } = await apiClient(request, anna.email);
+    const wine = (await call<{ id: string }>("post", "/wines", wineBody, 201)).body;
+    const { vintageId } = (
+      await call<{ vintageId: string }>(
+        "post",
+        "/bottles",
+        { wineId: wine.id, year: 2019, quantity: 2 },
+        201,
+      )
+    ).body;
+    const invite = (await (
+      await api(request, annaToken, "post", `/households/${anna.householdId}/invites`, {})
+    ).json()) as { code: string };
+    const context = await browser.newContext(test.info().project.use as BrowserContextOptions);
+    const bram = await arrive(await context.newPage(), "kbackrace2");
+    const bramToken = await sessionToken(bram.email);
+    expect(
+      (await api(request, bramToken, "post", "/households/join", { code: invite.code })).ok(),
+    ).toBe(true);
+    await api(request, bramToken, "put", "/households/active", { householdId: anna.householdId });
+
+    const upload = async (token: string, words: string) => {
+      const photo = await makeJpeg(page, { width: 500, height: 700, words });
+      const res = await request.post("/api/v1/images", {
+        headers: bearer(token),
+        multipart: {
+          photo: { name: "b.jpg", mimeType: "image/jpeg", buffer: photo },
+          thumb: { name: "t.jpg", mimeType: "image/jpeg", buffer: photo },
+          side: "back",
+        },
+      });
+      expect(res.ok()).toBe(true);
+      return ((await res.json()) as { id: string }).id;
+    };
+    const [a, b] = [await upload(annaToken, "Anna"), await upload(bramToken, "Bram")];
+    const put = (token: string, imageId: string) =>
+      api(request, token, "put", `/cellar/${vintageId}/photo`, {
+        imageId,
+        side: "back",
+        onlyIfEmpty: true,
+      }).then(async (r) => ((await r.json()) as { attached: boolean }).attached);
+    const results = await Promise.all([put(annaToken, a), put(bramToken, b)]);
+    expect(results.filter(Boolean)).toHaveLength(1);
+    const backs = await sql<{ back: string }>(
+      "select distinct back_image_id as back from public.bottles where vintage_id = $1",
+      [vintageId],
+    );
+    expect(backs).toEqual([{ back: results[0] ? a : b }]);
+
+    // Replacing it on purpose (after "Replace it") still works.
+    const replaced = await api(request, bramToken, "put", `/cellar/${vintageId}/photo`, {
+      imageId: results[0] ? b : a,
+      side: "back",
+    });
+    expect(((await replaced.json()) as { attached: boolean }).attached).toBe(true);
+    await context.close();
+  });
+});
+
+test.describe("a back label in a series", () => {
+  test("a failed save stays listed with its own wine and can be retried after the next bottle", async ({
+    page,
+    request,
+  }) => {
+    const { email, householdId } = await arrive(page, "kbackseries");
+    const { call } = await apiClient(request, email);
+    await call("post", "/storage", { label: "Fridge", kind: "fridge", rows: 3, cols: 4 }, 201);
+    await call(
+      "post",
+      "/wines",
+      {
+        producer: "Domaine Kappa",
+        name: "Les Deux Faces",
+        type: "red",
+        countryCode: "FR",
+        region: "Bourgogne",
+      },
+      201,
+    );
+    const sizes = [sizeFor(7), sizeFor(8)];
+    for (const [i, size] of sizes.entries())
+      await fetch(`${STACK}/__test/openai`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...size, content: { ...label, vintage: i === 0 ? 2018 : 2019 } }),
+      });
+
+    await page.goto("/scan");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("radio", { name: "Batch" }).click();
+    await page.locator('input[type="file"]:not([capture])').setInputFiles([
+      {
+        name: "a.jpg",
+        mimeType: "image/jpeg",
+        buffer: await makeJpeg(page, { ...sizes[0]!, words: "A" }),
+      },
+      {
+        name: "b.jpg",
+        mimeType: "image/jpeg",
+        buffer: await makeJpeg(page, { ...sizes[1]!, words: "B" }),
+      },
+    ]);
+    const tray = page.getByTestId("series");
+    await expect(tray.locator('li[data-status="ready"]')).toHaveCount(2, { timeout: 15_000 });
+
+    // First bottle (2018) with a back label whose save fails once.
+    let failed = false;
+    await page.route("**/api/v1/cellar/*/photo", async (route) => {
+      if (!failed) {
+        failed = true;
+        return route.fulfill({ status: 503, body: "{}" });
+      }
+      return route.continue();
+    });
+    await tray.getByRole("button", { name: "Add", exact: true }).first().click();
+    await backPhoto(page);
+    await page.getByRole("button", { name: /^Add 1 bottle/ }).click();
+    const retries = page.getByTestId("back-retries");
+    await expect(retries.getByTestId("back-retry")).toHaveCount(1);
+    await expect(retries).toContainText("Les Deux Faces 2018");
+
+    // The series goes on: the next bottle (2019) is added without a back label.
+    await page.getByRole("button", { name: /^Add 1 bottle/ }).click();
+    await expect(page.getByTestId("series-counts")).toHaveText(/2 added/);
+
+    // Retried now, it goes on the 2018 bottles, never the 2019 ones.
+    await retries.getByRole("button", { name: "Try again" }).click();
+    await expect(page.getByTestId("back-retries")).toHaveCount(0);
+    const rows = await sql<{ year: number; back: boolean }>(
+      `select v.year, b.back_image_id is not null as back from public.bottles b
+        join public.wine_vintages v on v.id = b.vintage_id where b.household_id = $1 order by v.year`,
+      [householdId],
+    );
+    expect(rows).toEqual([
+      { year: 2018, back: true },
+      { year: 2019, back: false },
+    ]);
   });
 });

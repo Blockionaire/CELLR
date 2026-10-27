@@ -962,7 +962,9 @@
     "backFailed": "The bottles are in, but the back label wasn't saved.",
     "backRetry": "Try again",
     "backKeptFor": "{wine} already had a back label: kept it.",
-    "backFailedFor": "The back label of {wine} wasn't saved. Add it from the wine's page."
+    "backFailedFor": "The back label of {wine} wasn't saved. Add it from the wine's page.",
+    "backNotSavedFor": "The back label of {wine} wasn't saved.",
+    "backDismiss": "Leave it"
   },
   "wishlist": {
     "title": "Wishlist",
