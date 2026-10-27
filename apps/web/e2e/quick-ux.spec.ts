@@ -146,3 +146,82 @@ test.describe("quick UX fixes", () => {
     await expect(header(1)).toHaveAttribute("aria-expanded", "false");
   });
 });
+
+test.describe("quick rating on Home is never lost", () => {
+  async function openedBottle(call: Call) {
+    const rack = await place(call, "Rack");
+    const added = await wine(call, 2019, 1, rack.id);
+    await call("patch", `/bottles/${added.bottleIds[0]}`, { action: "open" }, 200);
+  }
+  const scores = (householdId: string) =>
+    sql<{ score: string }>("select score::text from public.tastings where household_id = $1", [
+      householdId,
+    ]).then((rows) => rows.map((r) => r.score));
+
+  test("rate with the keys and leave at once: the rating is saved, once", async ({
+    page,
+    request,
+  }) => {
+    const { email, householdId } = await arrive(page, "uxleave");
+    const { call } = await apiClient(request, email);
+    await openedBottle(call);
+    await page.goto("/");
+    const stars = page.getByTestId("rate-nudge").getByTestId("stars-input");
+    await stars.focus();
+    await stars.press("Home");
+    for (let i = 0; i < 32; i++) await stars.press("ArrowRight"); // 4.2
+    // Straight away, before the key burst has settled: off to the cellar.
+    await page.getByRole("link", { name: "Cellar" }).last().click();
+    await expect(page).toHaveURL(/\/cellar$/);
+    await expect.poll(() => scores(householdId)).toEqual(["8.4"]);
+  });
+
+  test("tapping the same value again clears it, on screen and on the server", async ({
+    page,
+    request,
+  }) => {
+    const { email, householdId } = await arrive(page, "uxclear");
+    const { call } = await apiClient(request, email);
+    await openedBottle(call);
+    await page.goto("/");
+    const nudge = page.getByTestId("rate-nudge");
+    await expect(nudge.getByTestId("stars-input")).toBeVisible();
+    const box = (await nudge.getByTestId("stars-input").boundingBox())!;
+    const at = { x: box.x + 3 * 44 + 20, y: box.y + box.height / 2 }; // 3.5 stars
+    const writes: string[] = [];
+    page.on("request", (r) => r.url().includes("/tasting") && writes.push(r.method()));
+    const removed = page.waitForResponse(
+      (r) => r.url().includes("/tasting") && r.request().method() === "DELETE",
+    );
+    await page.mouse.click(at.x, at.y);
+    await page.mouse.click(at.x, at.y); // the same value again: cleared
+    await expect(nudge.getByText("– / 5")).toBeVisible();
+    // Both writes go out in order, the second only after the first: saved, then removed; nothing is left behind.
+    expect((await removed).status()).toBe(200);
+    expect(writes).toEqual(["PUT", "DELETE"]);
+    expect(await scores(householdId)).toEqual([]);
+  });
+});
+
+test("back from a bottle opened in the 3D cellar returns to 3D", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  const { email } = await arrive(page, "ux3d");
+  const { call } = await apiClient(request, email);
+  const rack = await place(call, "Rack");
+  await wine(call, 2019, 1, rack.id);
+  await page.goto("/cellar");
+  await view(page, "3D").click();
+  const scene = page.getByTestId("cellar-3d");
+  await expect(scene).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
+  await page
+    .getByRole("list", { name: /Bottles in Rack/i })
+    .getByRole("button")
+    .first()
+    .focus();
+  await page.keyboard.press("Enter");
+  await expect(scene).toHaveAttribute("data-showcase", "open");
+  await page.getByRole("link", { name: "Full page" }).click();
+  await expect(page).toHaveURL(/\/cellar\/[0-9a-f-]{36}/);
+  await page.goBack();
+  await expect(view(page, "3D")).toHaveAttribute("aria-checked", "true");
+});

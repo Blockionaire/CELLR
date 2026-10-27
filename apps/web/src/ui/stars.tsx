@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { scoreOfStars, starsOf } from "@cellr/domain";
 import { cn } from "./cn";
 import { StarIcon } from "./icons";
@@ -48,8 +48,8 @@ interface StarsInputProps {
   value: number | null;
   /** Every change, also while dragging (so the stars and number follow the finger). */
   onChange: (next: number | null) => void;
-  /** The final value, once: on release, a tap or a key. Save here, not in onChange. */
-  onCommit?: (next: number | null) => void;
+  /** The final value: once per release or tap ("pointer"), or on every key press ("key"). Save here, not in onChange. */
+  onCommit?: (next: number | null, via: "pointer" | "key") => void;
   /** The control's name: "Your rating". */
   label: string;
   /** Spoken value: (score) → "4.2 stars". */
@@ -79,6 +79,16 @@ export function StarsInput({
 }: StarsInputProps) {
   const row = useRef<HTMLDivElement>(null);
   const drag = useRef<{ id: number; x: number; moved: boolean; from: number | null } | null>(null);
+  // The value as last sent out, not as last rendered: a second tap that lands before React re-renders must still
+  // see the first one (that is how "tap the same value again to clear" works on a quick double tap).
+  const last = useRef(value);
+  useEffect(() => {
+    last.current = value;
+  }, [value]);
+  const emit = (next: number | null) => {
+    last.current = next;
+    onChange(next);
+  };
 
   /** The score under a point: across the stars, gaps included, snapped to a tenth of a star, at least 1.0. */
   const scoreAt = (clientX: number): number => {
@@ -89,14 +99,16 @@ export function StarsInput({
     const stars = Math.min(5, i + Math.min(1, Math.max(0, (x - i * unit) / size)));
     return scoreOfStars(Math.max(1, Math.round(stars * 10) / 10));
   };
-  const set = (next: number | null, commit: boolean) => {
-    onChange(next);
-    if (commit) onCommit?.(next);
+  const set = (next: number | null, via: "pointer" | "key") => {
+    emit(next);
+    onCommit?.(next, via);
   };
 
   const stars = value === null ? null : starsOf(value);
-  const step = (by: number) =>
-    set(scoreOfStars(Math.min(5, Math.max(1, Math.round(((stars ?? 0) + by) * 10) / 10))), true);
+  const step = (by: number) => {
+    const from = last.current === null ? 0 : starsOf(last.current);
+    set(scoreOfStars(Math.min(5, Math.max(1, Math.round((from + by) * 10) / 10))), "key");
+  };
 
   return (
     <div className="inline-flex items-center gap-3">
@@ -115,25 +127,25 @@ export function StarsInput({
         onPointerDown={(e) => {
           if (e.button !== 0) return;
           e.currentTarget.setPointerCapture(e.pointerId);
-          drag.current = { id: e.pointerId, x: e.clientX, moved: false, from: value };
-          onChange(scoreAt(e.clientX));
+          drag.current = { id: e.pointerId, x: e.clientX, moved: false, from: last.current };
+          emit(scoreAt(e.clientX));
         }}
         onPointerMove={(e) => {
           const d = drag.current;
           if (!d || d.id !== e.pointerId) return;
           if (Math.abs(e.clientX - d.x) > 4) d.moved = true;
-          onChange(scoreAt(e.clientX));
+          emit(scoreAt(e.clientX));
         }}
         onPointerUp={(e) => {
           const d = drag.current;
           if (!d || d.id !== e.pointerId) return;
           drag.current = null;
           const final = scoreAt(e.clientX);
-          set(!d.moved && d.from === final ? null : final, true);
+          set(!d.moved && d.from === final ? null : final, "pointer");
         }}
         onPointerCancel={() => {
           // The browser took the gesture (a vertical scroll): back to what it was, nothing saved.
-          if (drag.current) onChange(drag.current.from);
+          if (drag.current) emit(drag.current.from);
           drag.current = null;
         }}
         onKeyDown={(e) => {
@@ -146,9 +158,9 @@ export function StarsInput({
             PageDown: -0.5,
           };
           if (e.key in moves) step(moves[e.key]!);
-          else if (e.key === "Home") set(scoreOfStars(1), true);
-          else if (e.key === "End") set(scoreOfStars(5), true);
-          else if (e.key === "Delete" || e.key === "Backspace") set(null, true);
+          else if (e.key === "Home") set(scoreOfStars(1), "key");
+          else if (e.key === "End") set(scoreOfStars(5), "key");
+          else if (e.key === "Delete" || e.key === "Backspace") set(null, "key");
           else return;
           e.preventDefault();
         }}
