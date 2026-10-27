@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { apiClient, arrive, audit, sql } from "./helpers";
+import { apiClient, arrive, audit, rateStars, sql } from "./helpers";
 
 type Call = Awaited<ReturnType<typeof apiClient>>["call"];
 
@@ -104,7 +104,7 @@ test("my ratings: my own tastings in my household, summarised, searchable, and e
   await edit.click();
   const sheet = page.getByRole("dialog", { name: "How was it?" });
   await expect(sheet).toBeVisible();
-  await page.locator("label", { hasText: /^3 stars$/ }).click();
+  await rateStars(page, 3);
   await sheet.getByRole("button", { name: "Save" }).click();
   await expect(sheet).toBeHidden();
   await page.goto("/ratings");

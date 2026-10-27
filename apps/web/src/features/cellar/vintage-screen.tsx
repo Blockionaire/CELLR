@@ -535,7 +535,7 @@ export function VintageScreen({
             {summary && (
               <p className="mb-4 flex items-center gap-2 text-body text-ink">
                 <Stars
-                  score={Math.round(summary.average * 2)}
+                  score={summary.average * 2}
                   label={tTasting("rated", { stars: summary.average })}
                 />
                 <span data-testid="rating-summary">

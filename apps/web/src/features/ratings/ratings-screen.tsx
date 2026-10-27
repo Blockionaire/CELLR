@@ -205,7 +205,7 @@ function Summary({ view }: { view: JournalView }) {
           </span>
           {s.average !== null && (
             <Stars
-              score={Math.round(s.average * 2)}
+              score={s.average * 2}
               label={tTasting("rated", { stars: s.average })}
               size={13}
             />

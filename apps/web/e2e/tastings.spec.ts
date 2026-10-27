@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContextOptions, type Page } from "@playwright/test";
-import { api, apiClient, arrive, audit, sql, wineBody } from "./helpers";
+import { api, apiClient, arrive, audit, rateStars, sql, wineBody } from "./helpers";
 
 const shot = (name: string) => `test-results/shots/${name}.png`;
 const project = () => test.info().project.name;
@@ -35,8 +35,7 @@ async function stock(call: Call, wine: object = wineBody, year = 2019, quantity 
 }
 
 /** Click a star (or its left half): the labels lie over each half star, so this is what a finger does. */
-const tapStars = (page: Page, text: string) =>
-  page.locator("label", { hasText: new RegExp(`^${text}$`) }).click();
+const tapStars = (page: Page, text: string) => rateStars(page, parseFloat(text));
 
 const sheet = (page: Page) => page.getByRole("dialog", { name: "How was it?" });
 
@@ -90,7 +89,7 @@ test.describe("open it, then say how it was", () => {
     await expect(section.getByTestId("rating-summary")).toHaveText("4.5 · 1 rating");
     await page.screenshot({ path: shot(`tasting-${project()}`), fullPage: true });
     const rows = await sql<{ score: number; descriptors: string[]; note: string }>(
-      "select score, descriptors, note from public.tastings where household_id = $1",
+      "select score::float8 as score, descriptors, note from public.tastings where household_id = $1",
       [householdId],
     );
     expect(rows).toEqual([
@@ -105,9 +104,10 @@ test.describe("open it, then say how it was", () => {
     await expect(section.getByTestId("rating-summary")).toHaveText("3 · 1 rating");
     expect(
       (
-        await sql<{ score: number }>("select score from public.tastings where household_id = $1", [
-          householdId,
-        ])
+        await sql<{ score: number }>(
+          "select score::float8 as score from public.tastings where household_id = $1",
+          [householdId],
+        )
       ).map((r) => r.score),
     ).toEqual([6]);
 

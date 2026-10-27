@@ -403,6 +403,8 @@ export const BottleActionSchema = z.discriminatedUnion("action", [
     action: z.literal("restore"),
     to: PlacementSchema.default({ locationId: null, row: null, col: null }),
   }),
+  /** Corrects this one bottle's year (null = non-vintage): it moves to that vintage of the same wine. */
+  z.object({ action: z.literal("setYear"), year: VintageYearSchema }),
 ]);
 export type BottleAction = z.infer<typeof BottleActionSchema>;
 
@@ -503,6 +505,8 @@ export interface BottleActionResult {
   bottle: BottleView;
   /** Where it was before the action, so the caller can offer Undo. */
   previous: { locationId: string | null; row: number | null; col: number | null };
+  /** After "setYear": the vintage the bottle now belongs to (its page). */
+  vintageId?: string;
 }
 
 /** Placed bottles by place, shelf and position; bottles without a place last. Never mutates its input. */

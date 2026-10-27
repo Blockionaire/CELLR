@@ -45,11 +45,13 @@ Alle AI is in de tests nep (een lokaal OpenAI-compatibel endpoint): er wordt noo
      (select count(*) from pg_proc where proname = 'shared_wine_profile')            as shared_profiles,     -- 1
      (select count(*) from pg_proc where proname = 'catalog_import')                 as catalog_import,      -- 1
      (select mode from public.catalog_learning)                                     as catalogus_leren,     -- off
+     (select numeric_scale from information_schema.columns
+       where table_name = 'tastings' and column_name = 'score')                     as score_decimalen,     -- 1
      (select count(*) from private.allowed_signups)                                  as beta_lijst;          -- ≥ 1
    ```
 
    Ontbreekt iets: draai de ontbrekende migraties uit `supabase/migrations/` in volgorde (de nieuwste is
-   `20261101000024_catalog_learning.sql`).
+   `20261102000025_decimal_ratings.sql`: beoordelingen in tienden van een ster; bestaande cijfers blijven gelijk).
 
 2. **Beta-lijst.** `select entry from private.allowed_signups;` bevat jouw adres en dat van iedere tester
    (kleine letters). Een lege lijst betekent: iedereen mag een account maken. Dat is níet wat je wilt.

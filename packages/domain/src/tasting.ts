@@ -26,10 +26,25 @@ export type Descriptor = (typeof DESCRIPTORS)[number];
 
 export const MAX_NOTE_LENGTH = 2000;
 
-/** What a person says about a bottle they opened: stars (in halves, stored 1..10), words, a note. */
+/**
+ * A score is in half stars (stars = score / 2, so 9 = 4.5 stars), to one tenth of a STAR: 4.2 stars = 8.4. Any
+ * multiple of 0.2 from 1 to 10 is valid (whole numbers, the older half-star ratings, still are). Normalised so
+ * floating-point noise from the input (8.400000001) never reaches the database.
+ */
+export const ScoreSchema = z
+  .number()
+  .min(1)
+  .max(10)
+  .refine((v) => Math.abs(v * 5 - Math.round(v * 5)) < 1e-6, "Ratings go in tenths of a star.")
+  .transform((v) => Math.round(v * 5) / 5);
+
+/** Stars (1.0..5.0, tenths) → score; the inverse of starsOf. */
+export const scoreOfStars = (stars: number): number => Math.round(stars * 10) / 5;
+
+/** What a person says about a bottle they opened: stars (to a tenth, stored as half-star score), words, a note. */
 export const SaveTastingSchema = z
   .object({
-    score: z.number().int().min(1).max(10).nullable().default(null),
+    score: ScoreSchema.nullable().default(null),
     descriptors: z
       .array(z.enum(DESCRIPTORS))
       .max(12)
@@ -71,10 +86,10 @@ export interface RatingSummary {
   count: number;
 }
 
-/** 9 → 4.5 stars. */
-export const starsOf = (score: number): number => score / 2;
+/** 9 → 4.5 stars; 8.4 → 4.2 (rounded to a tenth, so no floating-point tails). */
+export const starsOf = (score: number): number => Math.round(score * 5) / 10;
 
-/** "4.5", "4": no trailing zero. */
+/** "4.5", "4.2", "4": no trailing zero. */
 export const formatStars = (score: number): string => String(starsOf(score));
 
 /** Mean of 1..10 scores in stars, one decimal; null when there is nothing to average. */

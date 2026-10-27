@@ -443,11 +443,7 @@ export async function InsightsScreen({
                       {r.producer} · <span className="tnum">{formatVintage(r.year)}</span>
                     </p>
                   </div>
-                  <Stars
-                    score={Math.round(r.stars * 2)}
-                    label={t("starsOf", { stars: r.stars })}
-                    size={14}
-                  />
+                  <Stars score={r.stars * 2} label={t("starsOf", { stars: r.stars })} size={14} />
                 </li>
               ))}
             </ol>

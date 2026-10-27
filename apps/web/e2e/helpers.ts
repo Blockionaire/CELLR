@@ -214,3 +214,11 @@ export async function aiWindow(householdId: string, wineName: string, from: numb
     [householdId, v!.id, JSON.stringify(output)],
   );
 }
+
+/** Sets the star slider (tenths of a star) with the keyboard: Home is 1.0, each → adds a tenth. */
+export async function rateStars(page: Page, stars: number) {
+  const slider = page.getByTestId("stars-input").first();
+  await slider.focus();
+  await slider.press("Home");
+  for (let i = 0; i < Math.round((stars - 1) * 10); i++) await slider.press("ArrowRight");
+}

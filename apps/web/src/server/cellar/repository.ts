@@ -785,6 +785,7 @@ export function createCellarRepository(db: Db): CellarRepository {
       if (patch.row !== undefined) update.loc_row = patch.row;
       if (patch.col !== undefined) update.loc_col = patch.col;
       if (patch.openedAt !== undefined) update.opened_at = patch.openedAt;
+      if (patch.vintageId !== undefined) update.vintage_id = patch.vintageId;
       const { data, error } = await db
         .from("bottles")
         .update(update)

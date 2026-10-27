@@ -479,7 +479,8 @@
       "notSwitchedOn": "Dit staat nog niet aan.",
       "onlyOwnerOf": "Je bent de enige eigenaar van een huishouden waar nog anderen in zitten. Verwijder hen of verwijder eerst het huishouden.",
       "importTooBig": "Dat is meer dan we in één keer kunnen binnenhalen. Probeer een kleiner bestand.",
-      "settingNotYet": "Deze instelling is nog niet beschikbaar."
+      "settingNotYet": "Deze instelling is nog niet beschikbaar.",
+      "ratingTenths": "Een beoordeling gaat in tienden van een ster."
     }
   },
   "offline": {
@@ -658,7 +659,13 @@
     "shopLabel": "Gekocht bij",
     "shopPlaceholder": "Winkel of wijnhandel",
     "save": "Wijzigingen opslaan",
-    "saved": "Opgeslagen."
+    "saved": "Opgeslagen.",
+    "yearSection": "Jaartal",
+    "yearOne": "Verbetert het jaar van één fles; de andere houden het hunne.",
+    "whichBottle": "Welke fles",
+    "yearLabel": "Jaar",
+    "nonVintage": "Zonder jaartal",
+    "yearError": "Vul een jaar in zoals 2019, of kies zonder jaartal."
   },
   "rack": {
     "shelf": "Plank",
@@ -802,7 +809,8 @@
       "complex": "Complex",
       "elegant": "Elegant"
     },
-    "removeConfirm": "Ja, alles verwijderen"
+    "removeConfirm": "Ja, alles verwijderen",
+    "notRated": "Geen beoordeling"
   },
   "drink": {
     "title": "Wanneer drinken",

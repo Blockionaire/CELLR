@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { InsightsEntry } from "@/features/stats/insights-entry";
 import { useLocale, useTranslations } from "next-intl";
-import { startTransition, useMemo, useState, ViewTransition } from "react";
+import { startTransition, useEffect, useMemo, useState, ViewTransition } from "react";
 import {
   activeFilterCount,
   applyFilters,
@@ -34,13 +34,23 @@ import { WineCard, WineRow } from "./wine-card";
 import { countryName } from "./wine-visuals";
 
 /**
- * What the person last searched, filtered and sorted by, kept for the life of this browser tab so that
- * going into a wine and coming back finds the list as it was. (Browser only: the server never sets it.)
+ * What the person last searched, filtered and sorted by, which view they were in and how far they had scrolled,
+ * kept for the life of this browser tab so that going into a wine and coming back finds the cellar as it was.
+ * (Browser only: the server never sets it.) The view must come from here, not only from the server's cookie:
+ * on Back the router reuses the page as it was first rendered, with the view the cookie held THEN.
  */
-const memory: { query: string; filters: CellarFilters; sort: CellarSort } = {
+const memory: {
+  query: string;
+  filters: CellarFilters;
+  sort: CellarSort;
+  view: CellarViewMode | null;
+  scrollY: number;
+} = {
   query: "",
   filters: NO_FILTERS,
   sort: "recent",
+  view: null,
+  scrollY: 0,
 };
 
 /** Small outline icons for the related-pages pills (same 24px grid as @/ui/icons). */
@@ -137,7 +147,24 @@ export function CellarScreen({
   const tFilters = useTranslations("cellarFilters");
   const locale = useLocale();
   const { data } = useCellar(initial);
-  const [view, setView] = useState<CellarViewMode>(initialView);
+  const [view, setViewState] = useState<CellarViewMode>(() => memory.view ?? initialView);
+  const setView = (next: CellarViewMode) => {
+    memory.view = next;
+    memory.scrollY = 0;
+    setViewState(next);
+  };
+  // Back to where you were: remember the scroll as you go, put it back when the cellar returns. Content is there
+  // on the first frame (cached data), and a page too short to reach it simply stops at its end.
+  useEffect(() => {
+    const y = memory.scrollY;
+    if (y > 0) requestAnimationFrame(() => window.scrollTo({ top: y }));
+    const keep = () => {
+      // Once the URL has moved on (a wine was opened), the next page's jump to the top is not ours to keep.
+      if (window.location.pathname === "/cellar") memory.scrollY = window.scrollY;
+    };
+    window.addEventListener("scroll", keep, { passive: true });
+    return () => window.removeEventListener("scroll", keep);
+  }, []);
   const [query, setQueryState] = useState(() => memory.query);
   const [filters, setFiltersState] = useState(() => memory.filters);
   const [sort, setSortState] = useState(() => memory.sort);

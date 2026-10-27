@@ -359,6 +359,24 @@ export function useBottleAction() {
   });
 }
 
+/**
+ * Correct one bottle's year. Resolves as soon as the server has moved it (with its new vintage), so the screen
+ * can go straight to that vintage's page; the rest of the cellar refreshes in the background.
+ */
+export function useSetBottleYear() {
+  const refresh = useRefreshCellar();
+  return useMutation({
+    mutationFn: (input: { bottleId: string; year: number | null }) =>
+      api.patch<BottleActionResult>(`/bottles/${input.bottleId}`, {
+        action: "setYear",
+        year: input.year,
+      }),
+    onSuccess: () => {
+      void refresh();
+    },
+  });
+}
+
 export function useUpdateWine() {
   const queryClient = useQueryClient();
   return useMutation({

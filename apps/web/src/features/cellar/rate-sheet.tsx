@@ -73,9 +73,10 @@ export function RateSheet({ open, onClose, bottleId, title, existing }: RateShee
             value={score}
             onChange={setScore}
             label={t("ratingLabel")}
+            emptyLabel={t("notRated")}
             optionLabel={(s) => t("star", { stars: Number(formatStars(s)) })}
           />
-          <p className="h-5 text-small text-ink-2" aria-live="polite">
+          <p className="sr-only" aria-live="polite">
             {score === null ? "" : t("rated", { stars: formatStars(score) })}
           </p>
         </div>
