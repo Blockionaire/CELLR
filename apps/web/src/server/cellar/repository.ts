@@ -383,6 +383,18 @@ export function createCellarRepository(db: Db): CellarRepository {
       return data;
     },
 
+    async recordCatalogConfirmation(wineId, year, imageId) {
+      const { data, error } = await db.rpc("catalog_record_confirmation", {
+        p_wine_id: wineId,
+        p_year: year as number,
+        p_image_id: imageId as string,
+      });
+      // Before 20261101000024 the function does not exist.
+      if (error && (error.code === "PGRST202" || error.code === "42883")) return null;
+      if (error) throw mapDbError(error);
+      return data;
+    },
+
     async findWinesByIdentity(householdId, producer, name, type) {
       const producerName = normalizeText(producer);
       const wineName = normalizeText(name);

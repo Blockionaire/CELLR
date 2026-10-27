@@ -8,6 +8,13 @@ import {
   summarizeAiCosts,
   summarizeRecognitionCache,
   summarizeSharedProfiles,
+  automationVerdict,
+  candidateCounts,
+  candidatePriority,
+  candidateState,
+  listCandidates,
+  type CandidateSort,
+  type CandidateState,
   catalogShare,
   sumActivity,
   type AdminRange,
@@ -26,6 +33,17 @@ import {
   readUserDirectory,
   readUserSummary,
 } from "@/server/privileged/admin";
+import {
+  addCandidateSource,
+  approveCandidate,
+  mergeCandidate,
+  readCandidate,
+  readCandidates,
+  readLearningMode,
+  setCandidateStatus,
+  setLearningMode,
+  updateCandidate,
+} from "@/server/privileged/catalog-admin";
 import { getPlatformMetrics } from "@/server/privileged/metrics";
 import { assertAdmin, verifyAdmin, type AdminSession } from "./access";
 
@@ -146,3 +164,63 @@ export async function adminFeedback(
   if (typeof data !== "object" || data === null) return data;
   return { ...data, page, pages: Math.max(1, Math.ceil(data.total / FEEDBACK_PAGE_SIZE)) };
 }
+
+/** The catalogue review list: candidates (counts only), the learning switch, and the catalogue's size. */
+export async function adminCatalog(
+  session: AdminSession,
+  state: CandidateState | "open" | "all",
+  sort: CandidateSort,
+  now = new Date(),
+) {
+  assertAdmin(session);
+  const end = new Date(now.getTime() + 60_000);
+  const from = new Date(end.getTime() - 30 * day);
+  const [rows, mode, catalog, shared] = await Promise.all([
+    readCandidates(session),
+    readLearningMode(session),
+    readCatalog(session, from, end),
+    readSharedProfiles(session, from, end),
+  ]);
+  if (!Array.isArray(rows)) return { ready: false as const, reason: rows };
+  return {
+    ready: true as const,
+    mode: typeof mode === "string" && mode !== "missing" ? mode : "off",
+    counts: candidateCounts(rows),
+    rows: listCandidates(rows, state, sort).map((r) => ({
+      ...r,
+      state: candidateState(r),
+      priority: candidatePriority(r),
+    })),
+    catalog: typeof catalog === "object" && catalog ? catalog : null,
+    sharedProfiles: typeof shared === "object" && shared ? shared.profiles : null,
+  };
+}
+
+/** One candidate: its evidence (counts only), state and the (advisory) automation verdict. */
+export async function adminCandidate(session: AdminSession, id: string) {
+  assertAdmin(session);
+  const [detail, rows] = await Promise.all([readCandidate(session, id), readCandidates(session)]);
+  if (typeof detail !== "object" || detail === null) return detail;
+  const row = Array.isArray(rows) ? rows.find((r) => r.id === id) : undefined;
+  if (!row) return "none" as const;
+  return {
+    detail,
+    row,
+    state: candidateState(row),
+    priority: candidatePriority(row),
+    verdict: automationVerdict(row, detail.siblings),
+  };
+}
+
+/**
+ * The catalogue review's writes, for its Server Actions only. Each privileged call checks the admin session again;
+ * every value has been validated by the action before it gets here.
+ */
+export const catalogReview = {
+  setMode: setLearningMode,
+  update: updateCandidate,
+  setStatus: setCandidateStatus,
+  merge: mergeCandidate,
+  addSource: addCandidateSource,
+  approve: approveCandidate,
+};

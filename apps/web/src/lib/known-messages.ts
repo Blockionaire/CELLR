@@ -24,6 +24,7 @@ export const KNOWN_MESSAGES = {
   "Ask a question.": "askQuestion",
   "Say something about it: give it stars, a word or a note.": "tastingEmpty",
   // Answers from the server.
+  "This setting is not available yet.": "settingNotYet",
   "Choose one of your friends.": "chooseOneFriend",
   "Create or join a household first.": "householdFirst",
   "Only the household's owner can delete a place.": "ownerDeletePlace",

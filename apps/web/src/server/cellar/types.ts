@@ -185,6 +185,15 @@ export interface CellarRepository {
    */
   catalogVintage(wineId: string, year: number | null): Promise<string | null>;
   /**
+   * After a person added bottles of a household wine: offers the confirmation to catalogue learning (which decides,
+   * in the database, whether it may count). Returns what happened, or null when that step is not set up.
+   */
+  recordCatalogConfirmation(
+    wineId: string,
+    year: number | null,
+    imageId: string | null,
+  ): Promise<string | null>;
+  /**
    * Wines with exactly this identity that the household can see: the producer's and the wine's name after
    * normalising (or one of a catalogue wine's verified aliases), and the colour. Its own and the catalogue's.
    */
