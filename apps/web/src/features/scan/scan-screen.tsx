@@ -16,13 +16,18 @@ import { CatalogScanNote } from "@/features/account/catalog-section";
 import { AddedDone } from "@/features/cellar/added-done";
 import { BottleDetails } from "@/features/cellar/bottle-details";
 import { ChooseWine } from "@/features/cellar/choose-wine";
-import { useWines, winesKey } from "@/features/cellar/hooks";
+import {
+  attachBackLabel,
+  useWines,
+  winesKey,
+  type BackLabelOutcome,
+} from "@/features/cellar/hooks";
 import { LabelImage } from "@/features/cellar/label-image";
 import { NewWineForm } from "@/features/cellar/new-wine-form";
 import { useOwnedCounts, WineChoice } from "@/features/cellar/wine-stage";
 import { placeLine } from "@/features/cellar/wine-visuals";
 import { ApiError, errorMessage } from "@/lib/api";
-import { UnreadablePhotoError } from "@/lib/photo";
+import { UnreadablePhotoError, type PreparedPhoto } from "@/lib/photo";
 import { Button } from "@/ui/button";
 import { cn } from "@/ui/cn";
 import { CheckIcon, SearchIcon } from "@/ui/icons";
@@ -30,6 +35,7 @@ import { PageHeader } from "@/ui/page-header";
 import { useToast } from "@/ui/toast";
 import { useAddWish } from "@/features/wishlist/hooks";
 import { useCamera, type Camera } from "./camera";
+import { BackLabelPicker, BackLabelResult } from "./back-label";
 import { useScan } from "./hooks";
 import { ModeBar, type ScanMode } from "./modes";
 import { SeriesTray, useScanSeries, type SeriesItem } from "./series";
@@ -40,7 +46,12 @@ type Stage =
   // `itemId`: the photo came from a series (several bottles in a row), see series.tsx
   | { name: "review"; result: ScanResult; itemId?: string | undefined }
   | { name: "details"; result: ScanResult; wine: WineSummary; itemId?: string | undefined }
-  | { name: "done"; result: AddBottlesResult };
+  | {
+      name: "done";
+      result: AddBottlesResult;
+      /** A back label taken with this scan, and what became of it. */
+      back?: { photo: PreparedPhoto; outcome: BackLabelOutcome | "saving" } | undefined;
+    };
 
 /**
  * Scan a label: take a photo, we read it, you check it, the bottles are added with the photo on them. The
@@ -63,6 +74,9 @@ export function ScanScreen({ currency }: { currency: string }) {
   const [stage, setStage] = useState<Stage>({ name: "capture", error: null, retry: null });
   // In a "found" review, "not this one" turns the screen into the new-wine form.
   const [rejectedFound, setRejectedFound] = useState(false);
+  // An optional back label, tied to the front photo it was taken with: it can never go on to another wine.
+  const [back, setBack] = useState<{ imageId: string; photo: PreparedPhoto } | null>(null);
+  const backFor = (imageId: string) => (back?.imageId === imageId ? back.photo : null);
   const heading = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // A step that puts the cursor in its first field (search, producer) keeps it: that is where the keyboard
@@ -162,6 +176,7 @@ export function ScanScreen({ currency }: { currency: string }) {
 
   const restart = () => {
     setRejectedFound(false);
+    setBack(null);
     setStage({ name: "capture", error: null, retry: null });
   };
 
@@ -271,6 +286,15 @@ export function ScanScreen({ currency }: { currency: string }) {
               stage.result.facts?.nonVintage ? null : (stage.result.facts?.year ?? undefined)
             }
             imageId={stage.result.image.id}
+            labels={
+              <BackLabelPicker
+                frontImageId={stage.result.image.id}
+                value={backFor(stage.result.image.id)}
+                onChange={(photo) =>
+                  setBack(photo ? { imageId: stage.result.image.id, photo } : null)
+                }
+              />
+            }
             footer={
               <Button
                 type="button"
@@ -308,7 +332,33 @@ export function ScanScreen({ currency }: { currency: string }) {
               setStage({ name: "review", result: stage.result, itemId: stage.itemId })
             }
             onDone={(result, placeId) => {
-              if (!stage.itemId) return setStage({ name: "done", result });
+              // The bottles are in. The back label (if any) follows on its own: whatever happens to it, the
+              // bottles stay added, and the photo is only uploaded now, so leaving earlier left nothing behind.
+              const photo = backFor(stage.result.image.id);
+              setBack(null);
+              const sent = photo ? attachBackLabel(result.vintageId, photo) : null;
+              if (!stage.itemId) {
+                setStage({
+                  name: "done",
+                  result,
+                  back: photo ? { photo, outcome: "saving" } : undefined,
+                });
+                void sent?.then((outcome) =>
+                  setStage((s) =>
+                    s.name === "done" && s.result === result && s.back
+                      ? { ...s, back: { ...s.back, outcome } }
+                      : s,
+                  ),
+                );
+                return;
+              }
+              // In a series nothing waits: an existing back label is kept, a failure is said.
+              void sent?.then((outcome) => {
+                const wine = `${result.wine.producer} ${result.wine.name}`;
+                if (outcome === "exists") toast.show(te("photo.backKeptFor", { wine }));
+                if (outcome === "failed")
+                  toast.show(te("photo.backFailedFor", { wine }), { tone: "error" });
+              });
               setLastPlace(placeId);
               handled(
                 stage.itemId,
@@ -321,6 +371,13 @@ export function ScanScreen({ currency }: { currency: string }) {
           />
         )}
 
+        {stage.name === "done" && stage.back && (
+          <BackLabelResult
+            vintageId={stage.result.vintageId}
+            photo={stage.back.photo}
+            initial={stage.back.outcome}
+          />
+        )}
         {stage.name === "done" && (
           <AddedDone
             result={stage.result}

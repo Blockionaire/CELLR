@@ -290,6 +290,30 @@ export function useLabelPhoto(vintageId: string, side: ImageSide = "front") {
   });
 }
 
+/** What became of a back-label photo taken during a scan. */
+export type BackLabelOutcome = "saved" | "exists" | "failed";
+
+/**
+ * Puts a back-label photo on a vintage, the same way the wine's page does (upload, then point the vintage's bottles
+ * at it). Never silently replaces one that is already there: unless `replace`, an existing back label is reported
+ * as "exists" and nothing is uploaded. Nothing is uploaded before this is called, so a cancelled scan leaves nothing.
+ */
+export async function attachBackLabel(
+  vintageId: string,
+  prepared: PreparedPhoto,
+  replace = false,
+): Promise<BackLabelOutcome> {
+  try {
+    if (!replace && (await api.get<VintageDetail>(`/cellar/${vintageId}`)).backImage)
+      return "exists";
+    const image = await api.upload<ImageRef>("/images", photoForm(prepared, "back"));
+    await api.put(`/cellar/${vintageId}/photo`, { imageId: image.id, side: "back" });
+    return "saved";
+  } catch {
+    return "failed";
+  }
+}
+
 /** Re-frames the label on a photo that is already kept. */
 export function useReframeLabel() {
   const refresh = useRefreshCellar();

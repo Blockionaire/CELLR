@@ -946,7 +946,20 @@
     "frontTitle": "Vooretiket",
     "frontBody": "Met een foto van het etiket wordt deze wijn echt van jou: op de kaart, hier en op de 3D-fles.",
     "offerTitle": "Een foto van het etiket erbij?",
-    "offerBody": "Dan zie je in je kelder precies deze fles. Kan ook later."
+    "offerBody": "Dan zie je in je kelder precies deze fles. Kan ook later.",
+    "backOptional": "Optioneel: voeg ook het achteretiket toe, met de druiven en de kleine lettertjes.",
+    "backReady": "Het achteretiket gaat mee met de flessen.",
+    "retakeBack": "Achteretiket opnieuw",
+    "backSaving": "Achteretiket opslaan…",
+    "backSaved": "Achteretiket opgeslagen.",
+    "backKept": "Het bestaande achteretiket is gehouden.",
+    "backExists": "Deze wijn heeft al een achteretiket. Vervangen door deze?",
+    "backReplace": "Vervangen",
+    "backKeep": "Oude houden",
+    "backFailed": "De flessen staan erin, maar het achteretiket is niet opgeslagen.",
+    "backRetry": "Opnieuw proberen",
+    "backKeptFor": "{wine} had al een achteretiket: dat is gehouden.",
+    "backFailedFor": "Het achteretiket van {wine} is niet opgeslagen. Voeg het toe op de pagina van de wijn."
   },
   "wishlist": {
     "title": "Verlanglijst",
@@ -1142,7 +1155,12 @@
     },
     "unusable": "Dit kader lijkt nog niet op een etiket. Zet de hoeken op de hoeken van het etiket, in de goede volgorde.",
     "use": "Gebruik dit kader",
-    "skip": "Gebruik de hele foto"
+    "skip": "Gebruik de hele foto",
+    "zoomLabel": "Zoomen",
+    "zoomIn": "Inzoomen",
+    "zoomOut": "Uitzoomen",
+    "zoomReset": "Alles tonen",
+    "zoomHint": "Knijp om in te zoomen voor precieze hoeken."
   },
   "insightsPage": {
     "title": "Inzichten",
@@ -1397,7 +1415,12 @@
     "savedToWishlist": "Staat nu op je verlanglijst.",
     "entryRecommendations": "{count, plural, one {# wijn aanbevolen voor jou} other {# wijnen aanbevolen voor jou}}",
     "acceptConsent": "Als je accepteert, ziet die persoon wat je met vrienden deelt, zoals ingesteld bij “Wat je deelt” (in het begin: je beoordelingen met notities en je smaakprofiel, niet je kelder).",
-    "sharingFailed": "We konden niet laden wat je deelt, dus tonen we niets in plaats van een gok."
+    "sharingFailed": "We konden niet laden wat je deelt, dus tonen we niets in plaats van een gok.",
+    "activityTitle": "Van je vrienden",
+    "activityCount": "{count, plural, one {# ding wacht} other {# dingen wachten}}",
+    "activityInvite": "{name} wil vrienden worden",
+    "activityRecommendation": "{name} raadt {wine} aan",
+    "someone": "Iemand"
   },
   "pin": {
     "usePin": "Inloggen met mijn pincode",
