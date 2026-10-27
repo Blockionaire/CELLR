@@ -626,7 +626,9 @@
     "completeTitle": "Maak deze wijn compleet",
     "completeHint": "Etiketten, de waarde, een dubbele: wanneer jij wilt.",
     "mergeTitle": "Staat deze wijn er dubbel in?",
-    "mergeBody": "Voeg hem samen met de andere; alle flessen blijven."
+    "mergeBody": "Voeg hem samen met de andere; alle flessen blijven.",
+    "glance": "In één oogopslag",
+    "glanceDrink": "Drinkvenster"
   },
   "openBottle": {
     "title": "Fles openen",
@@ -728,7 +730,8 @@
     "thisBottle": "Deze fles",
     "spin": "Sleep om de fles te draaien",
     "pricePerBottle": "{price} per fles",
-    "boughtOn": "gekocht {day}"
+    "boughtOn": "gekocht {day}",
+    "more": "Over deze fles"
   },
   "favorite": {
     "label": "Favoriet: {wine}",

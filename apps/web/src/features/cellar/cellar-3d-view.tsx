@@ -431,6 +431,7 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
             <BottleShowcasePanel
               bottle={picked ?? lastBottle}
               unitLabel={unit.label}
+              grid={unit}
               detail={detail}
               open={open}
               layout={layout}

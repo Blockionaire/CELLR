@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 import {
   ERROR_MESSAGES,
@@ -19,9 +19,10 @@ import { Field } from "@/ui/field";
 import { Sheet } from "@/ui/sheet";
 import { useToast } from "@/ui/toast";
 import { useDeleteStorage, useUpdateStorage } from "./hooks";
+import { BottlePortrait, nameSize, SlotMap } from "./bottle-portrait";
 import { KindPicker, StepRow } from "./new-place-sheet";
 import { STAGE } from "./wine-card";
-import { shapeFor } from "./wine-visuals";
+import { placeLine, shapeFor } from "./wine-visuals";
 
 const wineLine = (b: PlacedBottle) => `${b.producer} · ${b.wineName} ${formatVintage(b.year)}`;
 
@@ -30,6 +31,8 @@ const wineLine = (b: PlacedBottle) => `${b.producer} · ${b.wineName} ${formatVi
 interface PeekProps {
   bottle: PlacedBottle | null;
   unitLabel: string | null;
+  /** The place's size, to draw where in it the bottle lies. */
+  grid?: { rows: number; cols: number } | null | undefined;
   busy: boolean;
   error: string | null;
   onClose: () => void;
@@ -38,10 +41,14 @@ interface PeekProps {
   onOpen: () => void;
 }
 
-/** A bottle in a rack: what it is, where it is, and the three things you may want to do. */
+/**
+ * A bottle in a rack, at a glance: the bottle itself standing tall beside its name, its vintage and exactly where it
+ * lies; then the three things you may want to do, opening it first.
+ */
 export function BottlePeekSheet({
   bottle,
   unitLabel,
+  grid,
   busy,
   error,
   onClose,
@@ -50,62 +57,95 @@ export function BottlePeekSheet({
 }: PeekProps) {
   const t = useTranslations("racks");
   const tv = useTranslations("vintage");
+  const tTypes = useTranslations("wineTypes");
+  const locale = useLocale();
+  const placed = bottle !== null && bottle.row !== null && bottle.col !== null;
+  const where = bottle ? placeLine(bottle.region, bottle.countryCode, locale) : null;
   return (
     <Sheet
       open={bottle !== null}
       onClose={onClose}
       title={bottle?.wineName ?? ""}
       description={bottle?.producer}
+      bare
     >
       {bottle && (
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center gap-4 rounded-card bg-surface p-2 pr-4 shadow-raised ring-1 ring-hairline">
-            <div
-              className={cn(
-                "relative grid h-24 w-20 shrink-0 place-items-end justify-items-center overflow-hidden rounded-[16px]",
-                STAGE[bottle.type],
-              )}
-            >
-              <span
-                aria-hidden="true"
-                className="absolute -bottom-6 left-1/2 size-20 -translate-x-1/2 rounded-full bg-surface/45"
-              />
-              <BottleGlyph
-                shape={shapeFor(bottle.type)}
-                tint={bottle.type}
-                className="relative mb-1 h-20 w-auto"
-              />
-            </div>
-            <div className="min-w-0">
-              <p className="font-display text-headline tnum">{formatVintage(bottle.year)}</p>
-              <p className="text-small text-ink-2">
-                {bottle.row !== null && bottle.col !== null
-                  ? `${unitLabel ?? ""} · ${tv("spot", { row: bottle.row, col: bottle.col })}`
-                  : tv("notPlaced")}
+        <div className="flex flex-col" data-testid="bottle-peek">
+          <div className="flex items-stretch gap-4">
+            <BottlePortrait
+              wine={bottle}
+              className="h-[13.5rem] w-[7.25rem] shrink-0 sm:h-60 sm:w-32"
+            />
+            <div className="flex min-w-0 flex-1 flex-col justify-center pb-1">
+              <p className="pr-9 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+                {bottle.producer}
               </p>
+              <p
+                className={cn(
+                  "mt-1.5 break-words font-display text-ink text-balance",
+                  nameSize(bottle.wineName),
+                )}
+              >
+                {bottle.wineName}
+              </p>
+              {where && <p className="mt-1.5 text-small text-ink-2 text-pretty">{where}</p>}
+              <p className="mt-3 flex items-baseline gap-2.5">
+                <span className="font-display text-[1.75rem] leading-none text-accent-fg tnum">
+                  {formatVintage(bottle.year)}
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-small text-ink-2">
+                  <span
+                    aria-hidden="true"
+                    className="size-2 rounded-full"
+                    style={{ background: `var(--wine-${bottle.type})` }}
+                  />
+                  {tTypes(bottle.type)}
+                </span>
+              </p>
+              <div className="mt-5 flex items-center gap-3" data-testid="peek-place">
+                {placed && grid && (
+                  <SlotMap rows={grid.rows} cols={grid.cols} row={bottle.row!} col={bottle.col!} />
+                )}
+                <p className="min-w-0">
+                  {placed ? (
+                    <>
+                      <span className="block truncate text-caption font-medium uppercase tracking-[0.14em] text-ink-3">
+                        {unitLabel}
+                      </span>
+                      <span className="sr-only"> · </span>
+                      <span className="block text-small font-medium text-ink">
+                        {tv("spot", { row: bottle.row!, col: bottle.col! })}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="block text-small text-ink-2">{tv("notPlaced")}</span>
+                  )}
+                </p>
+              </div>
             </div>
           </div>
           {error && (
-            <p role="alert" className="text-small text-danger">
+            <p role="alert" className="mt-4 text-small text-danger">
               {error}
             </p>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <Button size="lg" className="col-span-2" loading={busy} onClick={onOpen}>
+          <div
+            className={cn(
+              "mt-6 grid gap-2",
+              onMove ? "grid-cols-[1.3fr_1fr_1fr]" : "grid-cols-[1.3fr_1fr]",
+            )}
+          >
+            <Button loading={busy} onClick={onOpen} className="px-3">
               {t("peekOpen")}
             </Button>
             {onMove && (
-              <Button size="lg" variant="secondary" onClick={onMove}>
+              <Button variant="secondary" onClick={onMove} className="px-3">
                 {t("peekMove")}
               </Button>
             )}
             <Link
               href={`/cellar/${bottle.vintageId}`}
-              className={buttonStyles({
-                variant: "secondary",
-                size: "lg",
-                className: onMove ? "" : "col-span-2",
-              })}
+              className={buttonStyles({ variant: "secondary", className: "px-3" })}
             >
               {t("peekDetails")}
             </Link>

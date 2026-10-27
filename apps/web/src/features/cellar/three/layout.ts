@@ -164,7 +164,7 @@ export const GLASS: Record<WineType, string> = {
 /** The glass itself for the bottle on display, where light passes through it to the wine. */
 export const GLASS_TINT: Record<WineType, string> = {
   red: "#26321c",
-  white: "#b7bd7c",
+  white: "#98a062",
   rose: "#f3efe6",
   sparkling: "#2a3a22",
   orange: "#f3efe6",
@@ -174,7 +174,7 @@ export const GLASS_TINT: Record<WineType, string> = {
 /** How much light gets through that glass (0 = none, 1 = clear). */
 export const GLASS_CLEAR: Record<WineType, number> = {
   red: 0.32,
-  white: 0.82,
+  white: 0.74,
   rose: 0.96,
   sparkling: 0.4,
   orange: 0.96,
@@ -184,7 +184,7 @@ export const GLASS_CLEAR: Record<WineType, number> = {
 /** The wine's own colour, seen through clear glass. */
 export const LIQUID: Record<WineType, string> = {
   red: "#22060c",
-  white: "#d8c067",
+  white: "#b89c4a",
   rose: "#e79c8f",
   sparkling: "#e4cf86",
   orange: "#cf7d32",
@@ -341,7 +341,7 @@ export const PANEL = {
   sideMaxPx: 416,
   sideShare: 0.46,
   /** Phones: the panel takes this share of the screen's height, from the bottom. */
-  topShare: 0.44,
+  topShare: 0.46,
 } as const;
 
 /** How far in front of the camera the bottle stands on display (scene units). Its size on screen does not depend on it. */

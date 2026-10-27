@@ -323,6 +323,7 @@ export function RacksView() {
       <BottlePeekSheet
         bottle={peek}
         unitLabel={peek ? (unitOf(peek)?.label ?? null) : null}
+        grid={peek ? (unitOf(peek) ?? null) : null}
         busy={actions.pending}
         error={error}
         onClose={() => {

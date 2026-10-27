@@ -305,8 +305,8 @@ export function Showcase({
       }),
       liquid: new THREE.MeshStandardMaterial({
         color: LIQUID[bottle.type],
-        roughness: 0.25,
-        envMapIntensity: 0.6,
+        roughness: 0.32,
+        envMapIntensity: 0.45,
       }),
       paper: new THREE.MeshStandardMaterial({
         color: RACK_LOOK.label,
@@ -531,7 +531,7 @@ export function Showcase({
       glass.opacity = 1 - GLASS_CLEAR[bottle.type] * 0.72 * rise;
       glass.roughness = THREE.MathUtils.lerp(RACK_LOOK.glassRoughness, 0.04, rise);
       glass.clearcoatRoughness = THREE.MathUtils.lerp(RACK_LOOK.glassCoatRoughness, 0.02, rise);
-      glass.envMapIntensity = THREE.MathUtils.lerp(RACK_LOOK.glassEnv, 1.5, rise);
+      glass.envMapIntensity = THREE.MathUtils.lerp(RACK_LOOK.glassEnv, 1.3, rise);
     }
     for (const print of [frontPrint.current, backPrint.current]) {
       if (!print) continue;
@@ -578,7 +578,7 @@ export function Showcase({
     // viewer's side (above left, in front), so the bottle is lit the same way from every rack angle.
     const lit = rise * (1 - s.away);
     if (keyLightRef.current) {
-      keyLightRef.current.intensity = 70 * lit;
+      keyLightRef.current.intensity = 32 * lit;
       keyLightRef.current.position
         .copy(scratch.pos)
         .addScaledVector(scratch.right, -3 * scale)
