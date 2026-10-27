@@ -345,6 +345,8 @@ export interface HomeView {
   atPeak: CellarItem[];
   /** Newest first. */
   recentlyOpened: OpenedEntry[];
+  /** My own ratings in this household, for the way to Ratings: different wines rated and their mean (stars). */
+  myRatings?: { wines: number; average: number | null };
 }
 
 export interface AddBottlesResult {
