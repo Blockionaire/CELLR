@@ -126,6 +126,33 @@ export default async function AdminAiPage({
               </p>
             )}
           </Section>
+          <Section
+            title={`Shared wine profiles, ${days} days`}
+            note="A wine profile researched once for a catalogue wine is reused by other households for the same vintage and language. A household's own wines always keep a private profile and are not counted here."
+          >
+            {data.shared ? (
+              <Kpis>
+                <Kpi label="Research calls avoided" value={num(data.shared.researchCallsAvoided)} />
+                <Kpi
+                  label="Research calls made"
+                  value={data.shared.researchCalls === null ? "—" : num(data.shared.researchCalls)}
+                  hint="wine_insight, all wines"
+                />
+                <Kpi label="Cache hits" value={num(data.shared.hits)} />
+                <Kpi label="Cache misses" value={num(data.shared.misses)} hint="Researched" />
+                <Kpi label="Hit rate" value={pct(data.shared.hitRate)} hint="Of catalogue wines" />
+                <Kpi
+                  label="Shared profiles"
+                  value={num(data.shared.sharedProfiles)}
+                  hint={`${num(data.shared.reviewDue)} older than 12 months (review; never refreshed by themselves)`}
+                />
+              </Kpis>
+            ) : (
+              <p className="text-body text-ink-2">
+                Not available yet: run 20261030000022_shared_wine_profiles.sql.
+              </p>
+            )}
+          </Section>
           <Section title="By task">
             <SplitTable rows={range.by_task} />
           </Section>

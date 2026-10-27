@@ -1,7 +1,8 @@
 # CELLR recognition: what exists, and what is planned
 
 This document is the permanent record of CELLR's wine-recognition strategy. It separates what is **implemented**
-(Sprint G) from what is **planned** for a later sprint. Nothing under "Future Sprint" exists yet.
+(Sprint G: identical-photo recognition; Sprint H: shared wine profiles) from what is **planned** for a later
+sprint. Nothing under "Future Sprint" exists yet. Backlog: GitHub issue #32.
 
 ---
 
@@ -50,6 +51,87 @@ wine and year through the normal scan review, and the person confirms it as usua
   `/admin/ai` during the beta before drawing conclusions.
 - **Only wine and year are recalled.** Grapes, alcohol and appellation (which the model would read) are not
   repeated, and the label corners are never reused.
+
+---
+
+## Implemented — Sprint H: shared wine profile cache (research once, reuse)
+
+**Label recognition and profile research are different steps.**
+
+- **Recognition (Sprint G)** answers _which wine is in this photo?_ It caches only identical photos, privately per
+  household.
+- **Profile research (Sprint H)** answers _what is this wine like?_ (style, grapes, tasting, drinking window, food).
+  It happens after the wine is known, in the paid `wine_insight` research call.
+
+Sprint H reuses researched profiles across households. It does not recognise anything new.
+
+**What it does.** Before CELLR pays for a wine profile, it looks for a shared profile of the same vintage in the
+same language. If a good one exists, the household gets it immediately:
+
+- no `wine_insight` call;
+- no budget spent;
+- no `ai_usage` row.
+
+Otherwise CELLR researches as before, saves the household's own profile, and offers it as the shared profile when
+it qualifies.
+
+**When a shared profile is reused (all must hold)**
+
+- **Identity.** The wine is a **canonical** wine of a **canonical** producer: curated with the service role and
+  read-only for people. Its vintage row (`wine_id`, `year`) is the same for every household. A household's own
+  provisional wine never shares, even with an identical name. There is no fuzzy matching, so similar names,
+  another cuvée or a reserve bottling never match.
+- **Same vintage, same language.** Non-vintage is its own row. A drinking window is never reused for another year.
+- **Quality, checked in code when publishing and again when reading.**
+  - the current profile version, from research that really ran (`researched`);
+  - evidence `exact_wine` with at least one source the search really consulted;
+  - confidence `high` (after `checkInsight` caps it by the evidence);
+  - no value;
+  - nothing that contradicts the catalogue (country, or a window starting before the harvest).
+- **The database checks it a third time.** Its constraints refuse anything weaker.
+
+**Still researched with AI**
+
+- a household's own wines (always private, as before);
+- a shareable wine without a shared profile in that language;
+- a shared profile of an older version, or one that no longer passes the checks;
+- whenever the shared cache is unavailable (migration not run, database error).
+
+A profile that does not qualify stays private, and the next household researches again.
+
+**Privacy**
+
+- **Public facts only.** A shareable wine is researched from public facts: what the household paid is no longer
+  in that prompt.
+- **Nothing household-specific is stored.** The shared row has no household, person, price, photo, fingerprint,
+  note, rating or valuation.
+- **Who can write.** Only the server (service role) writes, through `publish_shared_wine_profile`. People can
+  read shared profiles, never write them.
+- **Private profiles stay private.** `vintage_insights` is unchanged in that respect.
+- **Deleting a household** removes its private profile, not the shared knowledge.
+
+**Freshness**
+
+- A trusted, complete, researched profile stays reusable; it is never regenerated because it is old.
+- It is replaced only by a validated profile of a newer version. The database never lets an older or equal
+  version replace it, and two households publishing at once leave one row.
+- Profiles older than 12 months are counted for review on `/admin/ai`; nothing spends credits to refresh them.
+- Market values stay separate (valuations, at most once a month per household) and are never shared.
+
+**Limits**
+
+- **Hits only happen for catalogue wines.** Today the canonical catalogue is curated by hand, and most wines
+  people add are their own provisional wines, so the hit rate starts near zero. It grows only as the canonical
+  catalogue grows (see B below).
+- **Two simultaneous first requests** for the same uncached wine may both pay for research (seconds apart). Only
+  one result is shared.
+
+**Monitoring.** `/admin/ai` → Shared wine profiles shows:
+
+- research calls avoided (hits) and made;
+- hits and misses;
+- the hit rate over catalogue wines;
+- the number of shared profiles and how many are due for review.
 
 ---
 

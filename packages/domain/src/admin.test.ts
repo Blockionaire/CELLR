@@ -9,6 +9,7 @@ import {
   sumActivity,
   type AdminAiCosts,
   summarizeRecognitionCache,
+  summarizeSharedProfiles,
 } from "./admin";
 
 const A = "0b6f2c1e-6a1d-4f7e-9a3b-2c4d5e6f7a8b";
@@ -164,5 +165,22 @@ describe("the recognition cache figures", () => {
       hitRate: 0.25,
     });
     expect(summarizeRecognitionCache({ hits: 0, misses: 0 }).hitRate).toBeNull();
+  });
+});
+
+describe("the shared wine profile figures", () => {
+  it("hits are research calls avoided; the rate is over shareable wines that looked", () => {
+    expect(summarizeSharedProfiles({ hits: 3, misses: 1, profiles: 4, review_due: 0 }, 5)).toEqual({
+      hits: 3,
+      misses: 1,
+      researchCallsAvoided: 3,
+      hitRate: 0.75,
+      sharedProfiles: 4,
+      reviewDue: 0,
+      researchCalls: 5,
+    });
+    expect(
+      summarizeSharedProfiles({ hits: 0, misses: 0, profiles: 0, review_due: 0 }, null).hitRate,
+    ).toBeNull();
   });
 });

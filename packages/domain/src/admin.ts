@@ -156,6 +156,29 @@ export const summarizeRecognitionCache = (c: AdminRecognitionCache) => ({
   hitRate: shareOf(c.hits, c.hits + c.misses),
 });
 
+/** Wine profiles reused from the shared cache (hit) or researched after looking (miss), plus the shared store. */
+export const AdminSharedProfilesSchema = z.object({
+  hits: Count,
+  misses: Count,
+  profiles: Count,
+  review_due: Count,
+});
+export type AdminSharedProfiles = z.infer<typeof AdminSharedProfilesSchema>;
+
+/**
+ * Hits are paid research calls avoided. The hit rate is over shareable wines that looked (a household's own
+ * provisional wines never look, so they are in neither figure). `researchCalls`: wine_insight calls actually made.
+ */
+export const summarizeSharedProfiles = (s: AdminSharedProfiles, researchCalls: number | null) => ({
+  hits: s.hits,
+  misses: s.misses,
+  researchCallsAvoided: s.hits,
+  hitRate: shareOf(s.hits, s.hits + s.misses),
+  sharedProfiles: s.profiles,
+  reviewDue: s.review_due,
+  researchCalls,
+});
+
 /** USD per web search call (10 USD per 1 000), the part of a search's price that can be told apart. */
 export const WEB_SEARCH_FEE_USD_MICRO = 10_000;
 

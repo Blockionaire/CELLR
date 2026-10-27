@@ -106,6 +106,11 @@ Read-only, for allowlisted admins (`CELLR_ADMIN_USER_IDS`). It shows the figures
   earlier confirmed identical photo (hits = vision calls avoided), scans that were not (misses), and the hit rate
   over scans that looked. Counted per scan photo in `bottle_images.cache_result`, never in `ai_usage` (a hit is
   not an AI call), and with no fingerprint, photo or person in the figures.
+- **Shared wine profiles** (AI & costs page, 20261030000022_shared_wine_profiles.sql): profiles reused from the
+  shared cache (hits = paid `wine_insight` research calls avoided), catalogue wines researched after looking
+  (misses), the hit rate over those, the actual `wine_insight` calls, the number of shared profiles and those older
+  than 12 months (for review only). Counted per household profile in `vintage_insights.cache_result`, never in
+  `ai_usage`; the figures name no household.
 - **Platform budget**: recorded usage (cost, or hold when unknown) plus outstanding holds, against
   `AI_BUDGET_DAILY_USD` / `AI_BUDGET_MONTHLY_USD`. A hold is deleted when its usage is recorded, so nothing is
   counted twice (apart from the instant between the two writes). It is an application guard, not a provider cap.
