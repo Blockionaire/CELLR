@@ -212,10 +212,9 @@ Nothing is recorded:
 **Two strengths:**
 
 - **Label (scan):** the vision model read **this** photo as this producer and cuvée (and colour), the photo is
-  on the bottles of that year, and that reading was not used before. The server notes each reading
-  (`catalog_note_scan_read`, service role, only while learning is on, kept one day). An old or unrelated photo, a
-  photo read as another wine, or a replayed call is only **typed**. This is the only kind that counts towards
-  review.
+  on the bottles of that year, and that reading was noted for the same person and not used before. An old or
+  unrelated photo, a photo read as another wine, an expired reading or a replayed call is only **typed**. This is
+  the only kind that counts towards review.
 - **Typed (manual):** shown apart. It never counts as an independent label confirmation.
 
 **What a confirmation proves:** the household says "this bottle is this producer, this cuvée, this colour, this
@@ -318,7 +317,7 @@ matching, and Sprint H's shared profiles then apply.
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
 | `catalog_candidates`        | producer, name, colour, country, region, appellation, classification, aliases, state, review note                        | service role only                            |
 | `catalog_evidence`          | candidate, household, person, the household's wine, year, scan or typed, how they wrote the name, region and appellation | service role only; never shown per household |
-| `catalog_scan_reads`        | for one day, while learning is on: the photo id, household, and the producer, name and colour the model read             | service role only                            |
+| `catalog_scan_reads`        | at most 24 hours, only for people who may count: photo id, household, person, and the producer, name and colour read     | service role only                            |
 | `catalog_candidate_sources` | public source pages you added                                                                                            | service role only                            |
 | `catalog_audit`             | the action, its details (no households), the admin, the time                                                             | service role only                            |
 
@@ -330,6 +329,50 @@ Never stored for learning:
 
 **Retention:** evidence lives as long as the household, the person and the household's wine do (deletion
 cascades). Candidates hold no personal data and stay as review history.
+
+### Scan readings (`catalog_scan_reads`)
+
+After a scan, the server notes what the vision model read off that photo (`catalog_note_scan_read`, service role
+only), so the person's next confirmation can count as a label confirmation. No extra AI call: it is the scan's own
+reading.
+
+**Only for a person who may count at that moment.** The server passes the signed-in user from its verified session
+(people cannot call the function, so no client can name someone else). The database then checks, before storing
+anything, that this person:
+
+- is a member of the photo's household;
+- may count under the current mode: nothing while learning is **off**; under **opt-out** everyone except who said
+  no; under **opt-in** only who said yes.
+
+**Deleted:**
+
+- the moment it is used for a confirmation (only that person can use it);
+- at once when that person says no, or withdraws a yes;
+- at once for everybody who no longer counts when you change the mode (all of them when you switch learning off);
+- when the photo, the household or the account is deleted;
+- after **23 hours**, by a purge that runs on every scan and confirmation **and every 15 minutes on a schedule**,
+  so a reading is never kept longer than 24 hours, even when nobody scans.
+
+**The schedule is a `pg_cron` job** (`catalog-scan-reads-purge`, every 15 minutes, calling
+`public.catalog_purge_scan_reads()`). The migration creates the extension and the job on Supabase, where `pg_cron`
+is available; it needs no other configuration. Check it once after running the migration:
+
+```sql
+select jobname, schedule, active from cron.job where jobname = 'catalog-scan-reads-purge';
+-- one row: catalog-scan-reads-purge | */15 * * * * | true
+select status, start_time from cron.job_run_details
+ where jobid = (select jobid from cron.job where jobname = 'catalog-scan-reads-purge')
+ order by start_time desc limit 3;   -- after 15 minutes: "succeeded"
+```
+
+If the migration printed the warning _"pg_cron is not available"_ (or _"could not schedule"_), the 24-hour limit is
+**not** guaranteed: enable `pg_cron` (Supabase → Database → Extensions) and run
+
+```sql
+select cron.schedule('catalog-scan-reads-purge', '*/15 * * * *', 'select public.catalog_purge_scan_reads()');
+```
+
+Keep learning **off** until the job exists.
 
 ## Privacy
 

@@ -91,7 +91,8 @@ affected because it is never sent in the background.
 ## 7. Catalogue learning
 
 Off by default. Switch it on only after the privacy text testers receive mentions it, and after deciding opt-out
-or opt-in (docs/CATALOG.md). During the beta, review `/admin/catalog` weekly:
+or opt-in (docs/CATALOG.md), and after checking that the `catalog-scan-reads-purge` pg_cron job exists (the query
+is in docs/CATALOG.md, "Scan readings"). During the beta, review `/admin/catalog` weekly:
 
 - **ready-for-review candidates:** check a public source and approve;
 - **conflicts:** correct, merge or reject.

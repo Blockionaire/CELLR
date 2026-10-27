@@ -12,13 +12,17 @@ begin
   values (p, wname, wtype::public.wine_type, country, h) returning id into w;
   return w;
 end $$;
--- What the server notes after the vision model read a photo (service role in the app; definer here).
-create function test.j_read(img uuid, h uuid, producer text, wname text, wtype text) returns void
+-- What the server does after the vision model read a photo for the signed-in person: the real function, with the
+-- caller's own id (the app calls it with the service role and the session's user; definer here).
+create function test.j_read(img uuid, h uuid, producer text, wname text, wtype text) returns boolean
   language plpgsql security definer as $$
 begin
-  insert into public.catalog_scan_reads (image_id, household_id, producer_norm, name_norm, wine_type)
-  values (img, h, private.normalize_text(producer), private.normalize_text(wname), wtype::public.wine_type);
+  return public.catalog_note_scan_read(img, h, auth.uid(), producer, wname, wtype);
 end $$;
+-- Service-role view of the readings (people cannot read them)
+create function test.j_reads(u uuid) returns int language sql security definer as $$
+  select count(*)::int from public.catalog_scan_reads where user_id = u
+$$;
 -- A photo of this household (as the caller), optionally read by the model as producer/name.
 create function test.j_photo(h uuid, read_producer text default null, read_name text default null, read_type text default 'red')
   returns uuid language plpgsql as $$
@@ -47,7 +51,7 @@ begin
   perform test.j_bottles(h, w, y, n, img);
   return public.catalog_record_confirmation(w, y, img);
 end $$;
-grant execute on all functions in schema test to authenticated;
+grant execute on all functions in schema test to authenticated, service_role;
 
 do $$
 declare h uuid[] := '{}'; w uuid[] := '{}'; i int; r text; c uuid; c2 uuid; s jsonb; d jsonb; img uuid; img2 uuid; code text;
@@ -71,11 +75,13 @@ begin
   perform test.rec('people can read only the mode', test.count_of('select mode from public.catalog_learning') = 1
     and test.denied('select updated_by from public.catalog_learning'));
   perform test.rec('people cannot note scan reads or read them',
-    test.denied(format('select public.catalog_note_scan_read(%L, %L, ''x'', ''y'', ''red'')', gen_random_uuid(), h[1]))
-    and test.denied('select 1 from public.catalog_scan_reads'));
+    test.denied(format('select public.catalog_note_scan_read(%L, %L, %L, ''x'', ''y'', ''red'')', gen_random_uuid(), h[1], test.uid(1)))
+    and test.denied('select 1 from public.catalog_scan_reads')
+    and test.denied('select public.catalog_purge_scan_reads()'));
   perform test.as_service();
-  perform test.rec('while off, the server keeps no scan reads either',
-    not public.catalog_note_scan_read(gen_random_uuid(), h[1], 'x', 'y', 'red'));
+  perform test.rec('while off, no scan reading is kept for anyone',
+    not public.catalog_note_scan_read((select id from public.bottle_images where household_id = h[1] limit 1), h[1], test.uid(1), 'x', 'y', 'red')
+    and (select count(*) from public.catalog_scan_reads) = 0);
   perform public.admin_catalog_set_mode('opt_out', null);
   perform test.su();
 
@@ -125,7 +131,7 @@ begin
   r := public.catalog_record_confirmation(w_z, 2019, img);
   perform test.as_service();
   perform test.rec('a photo read as another wine does not make a label confirmation (and its reading stays unused)',
-    r = 'recorded' and exists (select 1 from public.catalog_scan_reads where image_id = img and used_at is null));
+    r = 'recorded' and exists (select 1 from public.catalog_scan_reads where image_id = img));
   perform test.su();
   perform test.as_user(11);
   -- a photo never read by the model
@@ -150,12 +156,100 @@ begin
   perform test.j_bottles(h[11], w_z, 2016, 1, img);
   perform public.catalog_record_confirmation(w_z, 2016, img);
   perform test.as_service();
+  perform test.rec('a used reading is deleted at once', not exists (select 1 from public.catalog_scan_reads where image_id = img));
   perform test.rec('a genuine reading on those bottles is a label confirmation, used once (a replay for 2016 is typed)',
     (select source from public.catalog_evidence e join public.catalog_candidates k on k.id = e.candidate_id
       where k.name_norm = 'cuvee zeta' and e.year = 2017) = 'scan'
     and (select source from public.catalog_evidence e join public.catalog_candidates k on k.id = e.candidate_id
           where k.name_norm = 'cuvee zeta' and e.year = 2016) = 'manual');
   perform test.su();
+
+  -- ---- scan readings follow each person's choice ---------------------------------------------------------------
+  -- opt_out, user 11 made no choice: kept; a user who is not a member of the photo's household: never
+  perform test.as_user(11);
+  img := test.j_photo(h[11]);
+  perform test.as_service();
+  perform test.rec('a reading is kept only for a member of the photo''s household',
+    not public.catalog_note_scan_read(img, h[11], test.uid(2), fp, fa, 'red')
+    and not public.catalog_note_scan_read(img, h[11], null, fp, fa, 'red')
+    and public.catalog_note_scan_read(img, h[11], test.uid(11), fp, fa, 'red'));
+  perform test.rec('...and it is attributed to that person', (select user_id from public.catalog_scan_reads where image_id = img) = test.uid(11));
+  -- opt_out after a refusal
+  perform test.su();
+  perform test.as_user(8);
+  update public.profiles set catalog_contribute = false where id = test.uid(8);
+  perform test.rec('opt-out: nothing is kept for a person who said no', not test.j_read(test.j_photo(h[8]), h[8], fp, fa, 'red'));
+  perform test.rec('...not even briefly', test.j_reads(test.uid(8)) = 0);
+  update public.profiles set catalog_contribute = null where id = test.uid(8);
+  perform test.j_scan_add(h[8], w[8], 2019, 1, fp, fa);   -- household 8 helps again (its "no" removed its evidence)
+  perform test.su();
+  -- withdrawal removes that person's unused readings, not another member's
+  perform test.as_user(1);
+  update public.profiles set catalog_contribute = true where id = test.uid(1);
+  perform test.j_photo(h[1], fp, fa);
+  perform test.as_user(12);
+  perform test.j_photo(h[1], fp, fa);
+  perform test.rec('both members of household 1 have an unused reading', test.j_reads(test.uid(1)) = 1 and test.j_reads(test.uid(12)) = 1);
+  perform test.as_user(1);
+  update public.profiles set catalog_contribute = false where id = test.uid(1);
+  perform test.rec('saying no deletes that person''s unused readings at once, and only theirs',
+    test.j_reads(test.uid(1)) = 0 and test.j_reads(test.uid(12)) = 1);
+  update public.profiles set catalog_contribute = null where id = test.uid(1);
+  perform test.j_scan_add(h[1], w[1], 2019, 1, fp, fa);   -- user 1 helps again (their "no" removed their evidence)
+  perform test.su();
+  -- opt_in: no consent → nothing kept (and switching to opt_in drops readings of people without a yes); consent → kept
+  perform test.as_service();
+  perform public.admin_catalog_set_mode('opt_in', null);
+  perform test.rec('switching to opt-in drops the readings of people who did not say yes', test.j_reads(test.uid(12)) = 0
+    and test.j_reads(test.uid(11)) = 0);
+  perform test.su();
+  perform test.as_user(9);
+  perform test.rec('opt-in without consent: nothing is kept', not test.j_read(test.j_photo(h[9]), h[9], fp, fa, 'red'));
+  perform test.rec('...not even briefly (opt-in)', test.j_reads(test.uid(9)) = 0);
+  update public.profiles set catalog_contribute = true where id = test.uid(9);
+  perform test.rec('opt-in with consent: the reading is kept for that person', test.j_read(test.j_photo(h[9]), h[9], fp, fa, 'red'));
+  perform test.rec('...attributed to them', test.j_reads(test.uid(9)) = 1);
+  update public.profiles set catalog_contribute = null where id = test.uid(9);
+  perform test.rec('withdrawing a yes (back to no choice) drops the unused reading too', test.j_reads(test.uid(9)) = 0);
+  update public.profiles set catalog_contribute = true where id = test.uid(9);
+  perform test.j_photo(h[9], fp, fa);
+  perform test.su();
+  perform test.as_service();
+  perform public.admin_catalog_set_mode('off', null);
+  perform test.rec('switching learning off deletes every reading', (select count(*) from public.catalog_scan_reads) = 0);
+  perform public.admin_catalog_set_mode('opt_out', null);
+  perform test.su();
+  perform test.as_user(9);
+  update public.profiles set catalog_contribute = null where id = test.uid(9);
+  perform test.su();
+
+  -- ---- readings never outlive their time, even when nobody scans ------------------------------------------------
+  perform test.as_user(11);
+  img := test.j_photo(h[11], fp, 'Cuvée Eta');
+  img2 := test.j_photo(h[11], fp, 'Cuvée Eta');
+  w_y := test.j_wine(h[11], fp, 'Cuvée Eta', 'red', 'FR');
+  perform test.j_bottles(h[11], w_y, 2019, 1, img);
+  perform test.su();
+  update public.catalog_scan_reads set read_at = now() - interval '23 hours 1 minute' where image_id = img;
+  update public.catalog_scan_reads set read_at = now() - interval '22 hours' where image_id = img2;
+  perform test.as_user(11);
+  r := public.catalog_record_confirmation(w_y, 2019, img);
+  perform test.as_service();
+  perform test.rec('an expired reading gives no label confirmation (typed only), and is purged on the way',
+    r = 'recorded' and (select source from public.catalog_evidence e join public.catalog_candidates k on k.id = e.candidate_id
+                         where k.name_norm = 'cuvee eta') = 'manual'
+    and not exists (select 1 from public.catalog_scan_reads where image_id = img));
+  perform test.su();
+  update public.catalog_scan_reads set read_at = now() - interval '23 hours 1 minute' where image_id = img2;
+  perform test.as_service();
+  i := public.catalog_purge_scan_reads();
+  perform test.rec('the scheduled purge deletes expired readings without any new scan',
+    i = 1 and not exists (select 1 from public.catalog_scan_reads where image_id = img2));
+  perform test.su();
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    execute 'select count(*) from cron.job where jobname = ''catalog-scan-reads-purge'' and schedule = ''*/15 * * * *''' into i;
+    perform test.rec('the purge runs every 15 minutes (pg_cron)', i = 1);
+  end if;
 
   -- ---- what is never merged ---------------------------------------------------------------------------------------
   perform test.as_user(11);

@@ -7,9 +7,12 @@
 --   said yes). Each person's choice is profiles.catalog_contribute (null = no choice made).
 -- * A signal is recorded only when a person ADDS BOTTLES of a household's own wine, after the scan/confirm or manual
 --   flow, by catalog_record_confirmation(): it checks the caller belongs to the wine's household and that the bottles
---   are really there. It is a "scan" (label) signal only when the server noted a vision reading of that very photo
---   naming this wine, and the photo is on those bottles (catalog_scan_reads, used once); otherwise "manual" (weaker,
---   never counted as an independent label confirmation).
+--   are really there. It is a "scan" (label) signal only when the server noted, for this person, a vision reading of
+--   that very photo naming this wine, and the photo is on those bottles (catalog_scan_reads); otherwise "manual"
+--   (weaker, never counted as an independent label confirmation).
+-- * A reading is noted only for a person who may count at that moment (same rule as a confirmation), is deleted the
+--   moment it is used, when that person says no, or when learning is switched off, and never lives longer than
+--   23 hours plus the 15-minute purge interval (pg_cron job "catalog-scan-reads-purge", section 6).
 -- * Shared candidate rows hold only public wine identity (names, colour, origin). The restricted evidence rows say
 --   which household and which person confirmed which candidate and year: one row per candidate, household, year and
 --   person (so one person's "no" or deleted account removes only their own rows), counted as ONE per household
@@ -102,19 +105,21 @@ create table public.catalog_candidate_sources (
   unique (candidate_id, url)
 );
 
--- What a label photo was READ as by the vision model, written by the server right after a scan (service role only).
--- Short-lived (a day) and used once: it is what makes a later confirmation a "label" confirmation, and only for the
--- wine it actually names and the bottles it is attached to. Without it, a confirmation is a weak "typed" one.
+-- What a label photo was READ as by the vision model, written by the server right after a person's scan (service role
+-- only), and only when that person may count. Short-lived and used once (the row is deleted when used): it is what
+-- makes that person's later confirmation a "label" confirmation, and only for the wine it actually names and the
+-- bottles it is attached to. Without it, a confirmation is a weak "typed" one.
 create table public.catalog_scan_reads (
   image_id      uuid primary key references public.bottle_images on delete cascade,
   household_id  uuid not null references public.households on delete cascade,
+  user_id       uuid not null references auth.users on delete cascade,
   producer_norm text not null check (char_length(producer_norm) <= 120),
   name_norm     text not null check (char_length(name_norm) <= 160),
   wine_type     public.wine_type,
-  read_at       timestamptz not null default now(),
-  used_at       timestamptz
+  read_at       timestamptz not null default now()
 );
 create index catalog_scan_reads_at_idx on public.catalog_scan_reads (read_at);
+create index catalog_scan_reads_user_idx on public.catalog_scan_reads (user_id);
 
 -- What the owner did, without households: who (the admin), what, when.
 create table public.catalog_audit (
@@ -161,12 +166,16 @@ end $$;
 create trigger producers_catalog_forget after update on public.producers
   for each row execute function private.catalog_forget_changed_producer();
 
--- A person who says "no" takes their signals back.
+-- A person who says "no" takes their signals back, and any reading of their scans not used yet. Withdrawing a "yes"
+-- (back to no choice) also drops their unused readings: under opt_in they would no longer count.
 create function private.catalog_forget_declined() returns trigger
   language plpgsql security definer set search_path = '' as $$
 begin
   if new.catalog_contribute is false and old.catalog_contribute is distinct from false then
     delete from public.catalog_evidence where user_id = new.id;
+  end if;
+  if new.catalog_contribute is not true then
+    delete from public.catalog_scan_reads where user_id = new.id;
   end if;
   return new;
 end $$;
@@ -174,26 +183,57 @@ create trigger profiles_catalog_forget after update of catalog_contribute on pub
   for each row execute function private.catalog_forget_declined();
 
 -- ---- 3. Noting a scan, then recording a confirmation ----------------------------------------------------------
--- Called by the server (service role) after the vision model read a label photo of this household. Nothing is kept
--- while learning is off; reads older than a day are dropped as new ones come in.
-create function public.catalog_note_scan_read(p_image_id uuid, p_household_id uuid, p_producer text, p_name text, p_type text)
+-- Whether this person's confirmations may count right now (the one rule for readings and for evidence).
+create function private.catalog_may_count(p_user uuid) returns boolean
+  language sql stable security definer set search_path = '' as $$
+  select case coalesce((select mode from public.catalog_learning where id), 'off')
+           when 'opt_out' then coalesce((select catalog_contribute from public.profiles where id = p_user), true)
+           when 'opt_in'  then coalesce((select catalog_contribute from public.profiles where id = p_user), false)
+           else false end
+$$;
+revoke all on function private.catalog_may_count(uuid) from public, anon, authenticated;
+
+-- How long an unused reading may live. The purge (section 6) runs every 15 minutes, so no reading is ever kept
+-- longer than 23 h 15 min, well inside the documented "at most 24 hours".
+create function private.catalog_scan_read_ttl() returns interval language sql immutable as $$ select interval '23 hours' $$;
+
+-- Deletes readings past their time. Called on every note and confirmation, and by the scheduled job.
+create function public.catalog_purge_scan_reads() returns int
+  language plpgsql volatile security definer set search_path = '' as $$
+declare n int;
+begin
+  delete from public.catalog_scan_reads where read_at < now() - private.catalog_scan_read_ttl();
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.catalog_purge_scan_reads() from public, anon, authenticated;
+grant execute on function public.catalog_purge_scan_reads() to service_role;
+
+-- Called by the server (service role) after the vision model read a label photo, for the signed-in person who
+-- scanned it. p_user_id comes from the server's verified session, never from the client (people cannot call this);
+-- it must still be a member of the photo's household. Nothing is kept unless that person may count right now.
+create function public.catalog_note_scan_read(p_image_id uuid, p_household_id uuid, p_user_id uuid,
+                                              p_producer text, p_name text, p_type text)
   returns boolean language plpgsql volatile security definer set search_path = '' as $$
 begin
-  if coalesce((select mode from public.catalog_learning where id), 'off') = 'off' then return false; end if;
+  perform public.catalog_purge_scan_reads();
+  if p_user_id is null or not private.catalog_may_count(p_user_id) then return false; end if;
   if coalesce(btrim(p_producer), '') = '' or coalesce(btrim(p_name), '') = '' then return false; end if;
-  if not exists (select 1 from public.bottle_images i where i.id = p_image_id and i.household_id = p_household_id) then
+  if not exists (select 1 from public.bottle_images i
+                   join public.household_members m on m.household_id = i.household_id and m.user_id = p_user_id
+                  where i.id = p_image_id and i.household_id = p_household_id) then
     return false;
   end if;
-  delete from public.catalog_scan_reads where read_at < now() - interval '1 day';
-  insert into public.catalog_scan_reads (image_id, household_id, producer_norm, name_norm, wine_type)
-  values (p_image_id, p_household_id, left(private.normalize_text(p_producer), 120), left(private.normalize_text(p_name), 160),
+  insert into public.catalog_scan_reads (image_id, household_id, user_id, producer_norm, name_norm, wine_type)
+  values (p_image_id, p_household_id, p_user_id, left(private.normalize_text(p_producer), 120),
+          left(private.normalize_text(p_name), 160),
           case when p_type in ('red', 'white', 'rose', 'sparkling', 'orange', 'dessert', 'fortified')
                then p_type::public.wine_type end)
   on conflict (image_id) do nothing;
   return true;
 end $$;
-revoke all on function public.catalog_note_scan_read(uuid, uuid, text, text, text) from public, anon, authenticated;
-grant execute on function public.catalog_note_scan_read(uuid, uuid, text, text, text) to service_role;
+revoke all on function public.catalog_note_scan_read(uuid, uuid, uuid, text, text, text) from public, anon, authenticated;
+grant execute on function public.catalog_note_scan_read(uuid, uuid, uuid, text, text, text) to service_role;
 
 -- Called by the server right after a person added bottles of a household wine. Returns what happened:
 -- off | declined | catalog (already a catalogue wine) | not_eligible | recorded.
@@ -210,6 +250,7 @@ declare
   v_cand    uuid;
 begin
   if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
+  perform public.catalog_purge_scan_reads();
   select mode into v_mode from public.catalog_learning where id;
   if coalesce(v_mode, 'off') = 'off' then return 'off'; end if;
   select catalog_contribute into v_choice from public.profiles where id = v_uid;
@@ -235,14 +276,14 @@ begin
                     and b.household_id = v_wine.owner_household_id and b.status <> 'removed') then
     return 'not_eligible';
   end if;
-  -- A LABEL confirmation needs all of: the vision model read this photo for this household (within a day, not used
-  -- before), it read exactly this producer and name (and no other colour), and the photo is on the bottles of this
-  -- wine and year that were just added. The read is then used up. Anything less (an old or unrelated photo, a
-  -- replayed call, a wine named differently from what was read) is a weak typed confirmation.
+  -- A LABEL confirmation needs all of: the vision model read this photo for this person and household (not expired,
+  -- not used before), it read exactly this producer and name (and no other colour), and the photo is on the bottles
+  -- of this wine and year that were just added. The reading is then deleted. Anything less (an old or unrelated
+  -- photo, a replayed call, a wine named differently from what was read) is a weak typed confirmation.
   if p_image_id is not null then
-    update public.catalog_scan_reads r set used_at = now()
-     where r.image_id = p_image_id and r.household_id = v_wine.owner_household_id
-       and r.used_at is null and r.read_at > now() - interval '1 day'
+    delete from public.catalog_scan_reads r
+     where r.image_id = p_image_id and r.household_id = v_wine.owner_household_id and r.user_id = v_uid
+       and r.read_at >= now() - private.catalog_scan_read_ttl()
        and r.producer_norm = private.normalize_text(v_wine.producer)
        and r.name_norm = private.normalize_text(v_wine.name)
        and (r.wine_type is null or r.wine_type = v_wine.wine_type)
@@ -413,6 +454,8 @@ create function public.admin_catalog_set_mode(p_mode text, p_actor uuid)
 begin
   if p_mode not in ('off', 'opt_out', 'opt_in') then raise exception 'invalid mode' using errcode = '22023'; end if;
   update public.catalog_learning set mode = p_mode, updated_at = now(), updated_by = p_actor where id;
+  -- readings of people who no longer count go at once (all of them when learning is switched off)
+  delete from public.catalog_scan_reads r where not private.catalog_may_count(r.user_id);
   insert into public.catalog_audit (action, detail, actor) values ('set_mode', jsonb_build_object('mode', p_mode), p_actor);
   return p_mode;
 end $$;
@@ -576,3 +619,19 @@ grant execute on function public.admin_catalog_set_mode(text, uuid), public.admi
                           public.admin_catalog_source(uuid, text, text, text, boolean, uuid),
                           public.admin_catalog_approve(uuid, jsonb, uuid)
   to service_role;
+
+-- ---- 6. Retention of scan readings, also when nobody scans ----------------------------------------------------
+-- Every 15 minutes, pg_cron deletes readings older than 23 hours, so none outlives 24 hours even if scanning stops.
+-- On Supabase pg_cron is available and this creates it; elsewhere (plain Postgres in tests and CI) it is skipped with
+-- a warning. Verify after running: select jobname, schedule, active from cron.job where jobname = 'catalog-scan-reads-purge';
+do $$
+begin
+  if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
+    create extension if not exists pg_cron;
+    perform cron.schedule('catalog-scan-reads-purge', '*/15 * * * *', 'select public.catalog_purge_scan_reads()');
+  else
+    raise warning 'pg_cron is not available: scan readings are purged only on scans and confirmations. Enable pg_cron and schedule public.catalog_purge_scan_reads() every 15 minutes (docs/CATALOG.md).';
+  end if;
+exception when others then
+  raise warning 'could not schedule the scan-reading purge (%): enable pg_cron and schedule it by hand (docs/CATALOG.md).', sqlerrm;
+end $$;

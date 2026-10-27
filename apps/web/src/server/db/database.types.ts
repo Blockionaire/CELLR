@@ -660,7 +660,7 @@ export type Database = {
           name_norm: string;
           producer_norm: string;
           read_at: string;
-          used_at: string | null;
+          user_id: string;
           wine_type: Database["public"]["Enums"]["wine_type"] | null;
         };
         ComputedFields: never;
@@ -670,7 +670,7 @@ export type Database = {
           name_norm: string;
           producer_norm: string;
           read_at?: string;
-          used_at?: string | null;
+          user_id: string;
           wine_type?: Database["public"]["Enums"]["wine_type"] | null;
         };
         Update: {
@@ -679,7 +679,7 @@ export type Database = {
           name_norm?: string;
           producer_norm?: string;
           read_at?: string;
-          used_at?: string | null;
+          user_id?: string;
           wine_type?: Database["public"]["Enums"]["wine_type"] | null;
         };
         Relationships: [
@@ -1863,9 +1863,11 @@ export type Database = {
           p_name: string;
           p_producer: string;
           p_type: string;
+          p_user_id: string;
         };
         Returns: boolean;
       };
+      catalog_purge_scan_reads: { Args: Record<PropertyKey, never>; Returns: number };
       catalog_record_confirmation: {
         Args: { p_image_id?: string; p_wine_id: string; p_year: number };
         Returns: string;
