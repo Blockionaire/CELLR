@@ -87,3 +87,13 @@ analytics (`beta_feedback`, not `analytics_events`):
 
 Do Not Track and Global Privacy Control are respected by the first-party events as before; feedback is not
 affected because it is never sent in the background.
+
+## 7. Catalogue learning
+
+Off by default. Switch it on only after the privacy text testers receive mentions it, and after deciding opt-out
+or opt-in (docs/CATALOG.md). During the beta, review `/admin/catalog` weekly:
+
+- **ready-for-review candidates:** check a public source and approve;
+- **conflicts:** correct, merge or reject.
+
+The admin never sees which household confirmed what. Nothing is published without your approval.

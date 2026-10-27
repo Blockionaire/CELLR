@@ -27,6 +27,7 @@ import { createHouseholdService } from "@/server/households/service";
 import { createRateLimitRepository } from "@/server/ratelimit/repository";
 import { createRateLimiter, LIMITS } from "@/server/ratelimit/service";
 import { publishSharedProfile } from "@/server/privileged/shared-profiles";
+import { createContributionService } from "@/server/catalog/contribution";
 import { createScanRepository } from "@/server/scans/repository";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
@@ -97,6 +98,7 @@ export function servicesFor(ctx: RequestContext) {
   });
   const scanRepo = createScanRepository(ctx.db);
   return {
+    contribution: createContributionService(ctx.db, ctx.userId),
     households,
     cellar,
     images,

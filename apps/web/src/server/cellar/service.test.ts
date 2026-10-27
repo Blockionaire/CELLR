@@ -43,12 +43,15 @@ function fakeRepo(
     known?: WineSummary[];
     /** The catalogue vintage step is not set up yet. */
     noCatalogStep?: boolean;
+    /** Catalogue learning fails (database down). */
+    learningFails?: boolean;
   } = {},
 ) {
   const state = {
     inserts: [] as NewBottle[][],
     vintages: new Map<string, string>(),
     catalogVintages: [] as string[],
+    confirmations: [] as Array<{ wineId: string; year: number | null; imageId: string | null }>,
     producers: [] as Array<{ name: string; countryCode: string | null; exactCountry: boolean }>,
     occupiedCalls: 0,
     conflictsLeft: options.conflictsBeforeSuccess ?? 0,
@@ -91,6 +94,11 @@ function fakeRepo(
       const key = `${wineId}:${year}`;
       if (!state.vintages.has(key)) state.vintages.set(key, `cv${state.vintages.size + 1}`);
       return state.vintages.get(key)!;
+    },
+    async recordCatalogConfirmation(wineId, year, imageId) {
+      if (options.learningFails) throw new Error("catalogue learning is down");
+      state.confirmations.push({ wineId, year, imageId });
+      return "recorded";
     },
     async findWinesByIdentity(_h, producer, name, type) {
       const n = (t: string) => normalizeText(t);
@@ -1149,5 +1157,50 @@ describe("the shared catalogue", () => {
       formatMl: 750,
     });
     expect(state.catalogVintages).toHaveLength(0);
+  });
+});
+
+describe("catalogue learning", () => {
+  const add = (wine: string, imageId?: string) => ({
+    wineId: wine,
+    year: 2019,
+    quantity: 5,
+    locationId: null,
+    priceCents: 2500,
+    purchasedAt: null,
+    formatMl: 750,
+    ...(imageId ? { imageId } : {}),
+  });
+
+  it("adding bottles of a household wine offers one confirmation, with the scan photo, and nothing private", async () => {
+    const { repo, state } = fakeRepo();
+    state.images.add("00000000-0000-4000-8000-0000000000aa");
+    const service = createCellarService(repo, { userId: "me" });
+    await service.addBottles(add(wineId, "00000000-0000-4000-8000-0000000000aa"));
+    expect(state.confirmations).toEqual([
+      { wineId, year: 2019, imageId: "00000000-0000-4000-8000-0000000000aa" },
+    ]);
+  });
+
+  it("a catalogue wine is not proposed again", async () => {
+    const cw: WineSummary = {
+      id: "cw",
+      producer: "P",
+      name: "N",
+      type: "red",
+      countryCode: "FR",
+      region: null,
+      catalog: true,
+    };
+    const { repo, state } = fakeRepo({ known: [cw] });
+    await createCellarService(repo, { userId: "me" }).addBottles(add("cw"));
+    expect(state.confirmations).toHaveLength(0);
+  });
+
+  it("when catalogue learning fails, the bottles are still added", async () => {
+    const { repo, state } = fakeRepo({ learningFails: true });
+    const result = await createCellarService(repo, { userId: "me" }).addBottles(add(wineId));
+    expect(result.bottleIds).toHaveLength(5);
+    expect(state.inserts).toHaveLength(1);
   });
 });

@@ -44,11 +44,12 @@ Alle AI is in de tests nep (een lokaal OpenAI-compatibel endpoint): er wordt noo
      (select count(*) from pg_proc where proname = 'recall_confirmed_scan')          as scan_cache,          -- 1
      (select count(*) from pg_proc where proname = 'shared_wine_profile')            as shared_profiles,     -- 1
      (select count(*) from pg_proc where proname = 'catalog_import')                 as catalog_import,      -- 1
+     (select mode from public.catalog_learning)                                     as catalogus_leren,     -- off
      (select count(*) from private.allowed_signups)                                  as beta_lijst;          -- ≥ 1
    ```
 
    Ontbreekt iets: draai de ontbrekende migraties uit `supabase/migrations/` in volgorde (de nieuwste is
-   `20261031000023_catalog_activation.sql`).
+   `20261101000024_catalog_learning.sql`).
 
 2. **Beta-lijst.** `select entry from private.allowed_signups;` bevat jouw adres en dat van iedere tester
    (kleine letters). Een lege lijst betekent: iedereen mag een account maken. Dat is níet wat je wilt.
@@ -64,7 +65,10 @@ Alle AI is in de tests nep (een lokaal OpenAI-compatibel endpoint): er wordt noo
      offline-pagina; `/api/v1/me` geeft `401`.
 7. **Iemand die niet op de lijst staat:** na "Stuur me een code" verschijnt _"CELLR is voorlopig alleen op
    uitnodiging…"_ en er komt **geen** mail.
-8. **Admin:** `/admin` opent voor jou (jouw user-id staat in `CELLR_ADMIN_USER_IDS`); `/admin/feedback`
+8. **Catalogus leren** staat op `off` totdat jij de privacytekst hebt bijgewerkt en in `/admin/catalog` voor
+   opt-out of opt-in kiest (zie `docs/CATALOG.md`). Daarna: een tester voegt een gescande fles toe; in
+   `/admin/catalog` verschijnt één kandidaat met "1 label", zonder te zien wie.
+9. **Admin:** `/admin` opent voor jou (jouw user-id staat in `CELLR_ADMIN_USER_IDS`); `/admin/feedback`
    toont "Beta feedback" (of zegt dat de migratie nog ontbreekt). Een tester-account krijgt "niet gevonden".
 
 ## B. De kernreis op een echte iPhone (Safari, daarna vanaf het beginscherm, 30 minuten)

@@ -389,7 +389,20 @@
       "unsupported": "This browser can’t show notifications. On an iPhone: add CELLR to your home screen (Share → Add to Home Screen), open it from there and turn this on."
     },
     "leaveAlone": "You're the only one in this household, so it can't be left behind empty. To stop using it, delete it under Household settings.",
-    "leaveLastOwner": "You're the only owner, and others share this cellar. To leave, remove them first, or delete the household under Household settings."
+    "leaveLastOwner": "You're the only owner, and others share this cellar. To leave, remove them first, or delete the household under Household settings.",
+    "catalog": {
+      "title": "Help improve the shared wine list",
+      "body": "When you add a bottle you confirmed, its name, colour and origin may count towards CELLR's shared list of wines, so others recognise it faster. Only counts are kept: nobody can see that it was you.",
+      "never": "Never shared: your photos, bottles, prices, notes, ratings or anything else in your cellar.",
+      "isOn": "You are helping.",
+      "isOff": "You are not helping (your earlier contributions were removed).",
+      "turnOn": "Help",
+      "turnOff": "Stop helping",
+      "switchedOn": "Thank you: your confirmed wines now help.",
+      "switchedOff": "Stopped. What you contributed was removed.",
+      "failed": "That didn't work. Try again.",
+      "scanNote": "When you add the wine, its name, colour and origin may help CELLR's shared wine list (never the photo or your cellar). You can turn this off in Profile."
+    }
   },
   "errors": {
     "network": "We couldn't reach CELLR. Check your connection and try again.",
@@ -465,7 +478,8 @@
       "notReady": "This part isn't quite ready yet. Please try again later.",
       "notSwitchedOn": "This isn't switched on yet.",
       "onlyOwnerOf": "You are the only owner of a household that still has other people in it. Remove them or delete the household first.",
-      "importTooBig": "That is more than we can bring in at once. Try a smaller file."
+      "importTooBig": "That is more than we can bring in at once. Try a smaller file.",
+      "settingNotYet": "This setting is not available yet."
     }
   },
   "offline": {

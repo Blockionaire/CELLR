@@ -389,7 +389,20 @@
       "unsupported": "Deze browser kan geen meldingen tonen. Op een iPhone: zet CELLR op je beginscherm (Deel → Zet op beginscherm), open de app daar en zet dit aan."
     },
     "leaveAlone": "Je bent de enige in dit huishouden, dus je kunt het niet leeg achterlaten. Wil je ermee stoppen, verwijder het dan bij Instellingen huishouden.",
-    "leaveLastOwner": "Je bent de enige eigenaar en anderen delen deze kelder. Om te vertrekken haal je hen eerst weg, of verwijder je het huishouden bij Instellingen huishouden."
+    "leaveLastOwner": "Je bent de enige eigenaar en anderen delen deze kelder. Om te vertrekken haal je hen eerst weg, of verwijder je het huishouden bij Instellingen huishouden.",
+    "catalog": {
+      "title": "Help de gedeelde wijnlijst verbeteren",
+      "body": "Als je een fles toevoegt die je hebt bevestigd, kunnen de naam, kleur en herkomst meetellen voor de gedeelde wijnlijst van CELLR, zodat anderen hem sneller herkennen. Alleen aantallen worden bewaard: niemand kan zien dat jij het was.",
+      "never": "Nooit gedeeld: je foto's, flessen, prijzen, notities, beoordelingen of iets anders uit je kelder.",
+      "isOn": "Je helpt mee.",
+      "isOff": "Je helpt niet mee (eerdere bijdragen zijn verwijderd).",
+      "turnOn": "Meehelpen",
+      "turnOff": "Stoppen met meehelpen",
+      "switchedOn": "Dank je wel: je bevestigde wijnen helpen nu mee.",
+      "switchedOff": "Gestopt. Wat je bijdroeg is verwijderd.",
+      "failed": "Dat lukte niet. Probeer het opnieuw.",
+      "scanNote": "Als je de wijn toevoegt, kunnen naam, kleur en herkomst de gedeelde wijnlijst van CELLR helpen (nooit de foto of je kelder). Uitzetten kan in Profiel."
+    }
   },
   "errors": {
     "network": "We konden CELLR niet bereiken. Controleer je verbinding en probeer opnieuw.",
@@ -465,7 +478,8 @@
       "notReady": "Dit onderdeel is nog niet helemaal klaar. Probeer het later opnieuw.",
       "notSwitchedOn": "Dit staat nog niet aan.",
       "onlyOwnerOf": "Je bent de enige eigenaar van een huishouden waar nog anderen in zitten. Verwijder hen of verwijder eerst het huishouden.",
-      "importTooBig": "Dat is meer dan we in één keer kunnen binnenhalen. Probeer een kleiner bestand."
+      "importTooBig": "Dat is meer dan we in één keer kunnen binnenhalen. Probeer een kleiner bestand.",
+      "settingNotYet": "Deze instelling is nog niet beschikbaar."
     }
   },
   "offline": {

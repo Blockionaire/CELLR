@@ -18,6 +18,8 @@ const reads = {
   adminProduct: vi.fn(),
   adminAi: vi.fn(),
   adminFeedback: vi.fn(),
+  adminCatalog: vi.fn(),
+  adminCandidate: vi.fn(),
 };
 vi.mock("@/server/admin/service", () => ({ getAdminSession: async () => null, ...reads }));
 
@@ -33,6 +35,8 @@ describe("admin pages without an admin session", () => {
     ["product", () => import("./product/page"), search],
     ["ai", () => import("./ai/page"), search],
     ["feedback", () => import("./feedback/page"), search],
+    ["catalog", () => import("./catalog/page"), search],
+    ["candidate", () => import("./catalog/[id]/page"), { ...params, ...search }],
   ] as const)("%s: not found, nothing read", async (_name, load, props) => {
     const Page = (await load()).default as (p: unknown) => Promise<unknown>;
     await expect(Page(props)).rejects.toThrow("NEXT_NOT_FOUND");
@@ -50,7 +54,7 @@ const files = (dir: string): string[] =>
 describe("the admin boundary", () => {
   it("every admin page checks the session itself", () => {
     const pages = files(path.join(SRC, "app/admin")).filter((f) => /(page|layout)\.tsx$/.test(f));
-    expect(pages.length).toBe(7);
+    expect(pages.length).toBe(9);
     for (const p of pages)
       expect(readFileSync(p, "utf8")).toMatch(
         /if \(!(session|\(await getAdminSession\(\)\))\) notFound\(\)/,
@@ -64,9 +68,26 @@ describe("the admin boundary", () => {
       )
         continue;
       const text = readFileSync(f, "utf8");
-      expect(text, f).not.toMatch(/@\/server\/admin|privileged\/admin/);
+      expect(text, f).not.toMatch(/@\/server\/admin|privileged\/(admin|catalog-admin)/);
     }
+    // The admin pages are server-rendered only. The one exception is the catalogue review's Server Actions (they
+    // are reachable over HTTP, so each checks the admin session again before doing anything; see below).
+    const ACTIONS = path.join(SRC, "app/admin/catalog/actions.ts");
     for (const f of files(path.join(SRC, "app/admin")))
-      expect(readFileSync(f, "utf8"), f).not.toMatch(/["']use (server|client)["']/);
+      if (f !== ACTIONS && !f.endsWith(".test.ts"))
+        expect(readFileSync(f, "utf8"), f).not.toMatch(/["']use (server|client)["']/);
+  });
+
+  it("every catalogue review action checks the admin session again before anything else", () => {
+    const text = readFileSync(path.join(SRC, "app/admin/catalog/actions.ts"), "utf8");
+    expect(text).toMatch(/^"use server";/);
+    // admin(): the verified admin session, or "not found"
+    expect(text).toMatch(
+      /async function admin\(\) \{\s+const session = await getAdminSession\(\);\s+if \(!session\) notFound\(\);/,
+    );
+    const actions = [...text.matchAll(/export async function (\w+)\([^)]*\) \{\n(.*)\n/g)];
+    expect(actions.length).toBe(6);
+    for (const [, name, first] of actions)
+      expect(first!.trim(), name).toBe("const session = await admin();");
   });
 });

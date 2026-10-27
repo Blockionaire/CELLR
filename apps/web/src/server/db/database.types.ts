@@ -400,6 +400,259 @@ export type Database = {
           },
         ];
       };
+      catalog_audit: {
+        Row: {
+          action: string;
+          actor: string | null;
+          at: string;
+          candidate_id: string | null;
+          detail: Json | null;
+          id: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          action: string;
+          actor?: string | null;
+          at?: string;
+          candidate_id?: string | null;
+          detail?: Json | null;
+          id?: never;
+        };
+        Update: {
+          action?: string;
+          actor?: string | null;
+          at?: string;
+          candidate_id?: string | null;
+          detail?: Json | null;
+          id?: never;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_audit_candidate_id_fkey";
+            columns: ["candidate_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_candidates";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      catalog_candidate_sources: {
+        Row: {
+          added_at: string;
+          candidate_id: string;
+          id: string;
+          license: string | null;
+          name: string;
+          url: string;
+          verified: boolean;
+        };
+        ComputedFields: never;
+        Insert: {
+          added_at?: string;
+          candidate_id: string;
+          id?: string;
+          license?: string | null;
+          name: string;
+          url: string;
+          verified?: boolean;
+        };
+        Update: {
+          added_at?: string;
+          candidate_id?: string;
+          id?: string;
+          license?: string | null;
+          name?: string;
+          url?: string;
+          verified?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_candidate_sources_candidate_id_fkey";
+            columns: ["candidate_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_candidates";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      catalog_candidates: {
+        Row: {
+          aliases: string[];
+          appellation: string | null;
+          canonical_wine_id: string | null;
+          classification: string | null;
+          country_code: string | null;
+          created_at: string;
+          id: string;
+          identity_key: string;
+          last_confirmed_at: string | null;
+          merged_into: string | null;
+          name: string;
+          name_norm: string;
+          producer: string;
+          producer_norm: string;
+          region: string | null;
+          review_note: string | null;
+          reviewed_at: string | null;
+          status: string;
+          updated_at: string;
+          wine_type: Database["public"]["Enums"]["wine_type"];
+        };
+        ComputedFields: never;
+        Insert: {
+          aliases?: string[];
+          appellation?: string | null;
+          canonical_wine_id?: string | null;
+          classification?: string | null;
+          country_code?: string | null;
+          created_at?: string;
+          id?: string;
+          identity_key: string;
+          last_confirmed_at?: string | null;
+          merged_into?: string | null;
+          name: string;
+          name_norm: string;
+          producer: string;
+          producer_norm: string;
+          region?: string | null;
+          review_note?: string | null;
+          reviewed_at?: string | null;
+          status?: string;
+          updated_at?: string;
+          wine_type: Database["public"]["Enums"]["wine_type"];
+        };
+        Update: {
+          aliases?: string[];
+          appellation?: string | null;
+          canonical_wine_id?: string | null;
+          classification?: string | null;
+          country_code?: string | null;
+          created_at?: string;
+          id?: string;
+          identity_key?: string;
+          last_confirmed_at?: string | null;
+          merged_into?: string | null;
+          name?: string;
+          name_norm?: string;
+          producer?: string;
+          producer_norm?: string;
+          region?: string | null;
+          review_note?: string | null;
+          reviewed_at?: string | null;
+          status?: string;
+          updated_at?: string;
+          wine_type?: Database["public"]["Enums"]["wine_type"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_candidates_canonical_wine_id_fkey";
+            columns: ["canonical_wine_id"];
+            isOneToOne: false;
+            referencedRelation: "wines";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catalog_candidates_merged_into_fkey";
+            columns: ["merged_into"];
+            isOneToOne: false;
+            referencedRelation: "catalog_candidates";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      catalog_evidence: {
+        Row: {
+          appellation: string | null;
+          candidate_id: string;
+          created_at: string;
+          household_id: string;
+          id: string;
+          last_seen_at: string;
+          name_text: string;
+          producer_text: string;
+          region: string | null;
+          source: string;
+          user_id: string;
+          wine_id: string;
+          year: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          appellation?: string | null;
+          candidate_id: string;
+          created_at?: string;
+          household_id: string;
+          id?: string;
+          last_seen_at?: string;
+          name_text: string;
+          producer_text: string;
+          region?: string | null;
+          source: string;
+          user_id: string;
+          wine_id: string;
+          year?: number | null;
+        };
+        Update: {
+          appellation?: string | null;
+          candidate_id?: string;
+          created_at?: string;
+          household_id?: string;
+          id?: string;
+          last_seen_at?: string;
+          name_text?: string;
+          producer_text?: string;
+          region?: string | null;
+          source?: string;
+          user_id?: string;
+          wine_id?: string;
+          year?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_evidence_candidate_id_fkey";
+            columns: ["candidate_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_candidates";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catalog_evidence_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catalog_evidence_wine_id_fkey";
+            columns: ["wine_id"];
+            isOneToOne: false;
+            referencedRelation: "wines";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      catalog_learning: {
+        Row: {
+          id: boolean;
+          mode: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          id?: boolean;
+          mode?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: boolean;
+          mode?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       cellar_locations: {
         Row: {
           cellar_id: string;
@@ -761,6 +1014,7 @@ export type Database = {
         Row: {
           active_household_id: string | null;
           avatar_path: string | null;
+          catalog_contribute: boolean | null;
           created_at: string;
           display_name: string | null;
           friend_code: string;
@@ -773,6 +1027,7 @@ export type Database = {
         Insert: {
           active_household_id?: string | null;
           avatar_path?: string | null;
+          catalog_contribute?: boolean | null;
           created_at?: string;
           display_name?: string | null;
           friend_code?: string;
@@ -784,6 +1039,7 @@ export type Database = {
         Update: {
           active_household_id?: string | null;
           avatar_path?: string | null;
+          catalog_contribute?: boolean | null;
           created_at?: string;
           display_name?: string | null;
           friend_code?: string;
@@ -1499,6 +1755,36 @@ export type Database = {
       };
       admin_budget_status: { Args: { p_now?: string }; Returns: Json };
       admin_catalog: { Args: { p_from: string; p_to: string }; Returns: Json };
+      admin_catalog_approve: {
+        Args: { p_actor: string; p_id: string; p_vintages: Json };
+        Returns: Json;
+      };
+      admin_catalog_candidate: { Args: { p_id: string }; Returns: Json };
+      admin_catalog_candidates: { Args: Record<PropertyKey, never>; Returns: Json };
+      admin_catalog_merge: {
+        Args: { p_actor: string; p_from: string; p_into: string };
+        Returns: boolean;
+      };
+      admin_catalog_set_mode: { Args: { p_actor: string; p_mode: string }; Returns: string };
+      admin_catalog_set_status: {
+        Args: { p_actor: string; p_id: string; p_note: string; p_status: string };
+        Returns: boolean;
+      };
+      admin_catalog_source: {
+        Args: {
+          p_actor: string;
+          p_id: string;
+          p_license: string;
+          p_name: string;
+          p_url: string;
+          p_verified: boolean;
+        };
+        Returns: boolean;
+      };
+      admin_catalog_update: {
+        Args: { p_actor: string; p_fields: Json; p_id: string };
+        Returns: boolean;
+      };
       admin_recognition_cache: { Args: { p_from: string; p_to: string }; Returns: Json };
       admin_shared_profiles: {
         Args: { p_from: string; p_now?: string; p_to: string };
@@ -1524,6 +1810,10 @@ export type Database = {
         Returns: string;
       };
       catalog_import: { Args: { p_apply?: boolean; p_entries: Json }; Returns: Json };
+      catalog_record_confirmation: {
+        Args: { p_image_id?: string; p_wine_id: string; p_year: number };
+        Returns: string;
+      };
       catalog_vintage: { Args: { p_wine_id: string; p_year: number }; Returns: string };
       check_signup_allowed: { Args: { p_email: string }; Returns: boolean };
       consume_rate_limit: {

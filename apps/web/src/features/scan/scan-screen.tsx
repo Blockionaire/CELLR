@@ -12,6 +12,7 @@ import {
   type ScanResult,
   type WineSummary,
 } from "@cellr/domain";
+import { CatalogScanNote } from "@/features/account/catalog-section";
 import { AddedDone } from "@/features/cellar/added-done";
 import { BottleDetails } from "@/features/cellar/bottle-details";
 import { ChooseWine } from "@/features/cellar/choose-wine";
@@ -542,6 +543,7 @@ function Capture({
         </div>
       </div>
       <p className="text-center text-caption text-ink-3">{t("privacy")}</p>
+      <CatalogScanNote />
     </div>
   );
 }

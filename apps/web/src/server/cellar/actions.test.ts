@@ -110,6 +110,9 @@ function fake(
     async catalogVintage() {
       return null;
     },
+    async recordCatalogConfirmation() {
+      return null;
+    },
     async findWinesByIdentity() {
       return [];
     },

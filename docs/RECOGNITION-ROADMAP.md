@@ -163,6 +163,29 @@ Still **not** done:
 - third-party catalogue imports;
 - any learning from scans.
 
+## Implemented — Sprint J: catalogue learning with owner approval
+
+Confirmed household wines become **candidates** for the canonical catalogue; the owner reviews and publishes them
+at `/admin/catalog` (details: `docs/CATALOG.md`, "Catalogue learning").
+
+- **Collection:** off by default; opt-out or opt-in is the owner's switch. It is recorded only when bottles are
+  added, by the household that owns the wine.
+- **Counting:** per independent household, so bottles, scans and members never inflate it. Label confirmations
+  and typed wines are kept apart. Removed, renamed or declined evidence stops counting, and deletion cascades.
+- **Grouping:** strict (producer, name, colour, country). Rival colours or countries and disagreeing appellations
+  are conflicts.
+- **States:** collecting, review_ready (5), conflict, approved, rejected, merged.
+- **Automation:** an advisory verdict only. **Automatic publication is off.**
+- **Publishing:** through `catalog_import`. It needs a verified public source, never relinks household wines,
+  and lets Sprint H's shared profiles apply.
+- **Cost:** no AI calls. Everything is deterministic database and domain work.
+
+Still not done:
+
+- automatic publication;
+- learning from different photos;
+- independent external verification beyond the owner's sources.
+
 ## Next focused sprint — reuse stable wine facts across vintages
 
 A shared profile is per vintage, so the 2020 vintage of a catalogue wine is still researched in full even when the

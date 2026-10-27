@@ -34,6 +34,7 @@ import { HouseholdSettings } from "./household-settings";
 import { HouseholdSwitcher } from "./household-switcher";
 import { InviteSheet } from "./invite-sheet";
 import { PinSection } from "./pin-section";
+import { CatalogSection } from "./catalog-section";
 import { RemindersSection } from "./reminders-section";
 import { FriendsEntry } from "@/features/friends/entry";
 import { RatingsEntry } from "@/features/ratings/entry";
@@ -322,6 +323,8 @@ export function ProfileView({
       <PinSection email={me.email} />
 
       <RemindersSection />
+
+      <CatalogSection />
 
       <Section title={t("appearanceSection")}>
         <p className="mb-2 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
