@@ -165,15 +165,35 @@ export interface CellarRepository {
   /** Wines the household can pick from: its own plus the shared catalogue. Newest first. */
   listWines(householdId: string): Promise<WineSummary[]>;
   getWine(wineId: string): Promise<WineSummary | null>;
-  /** Finds the producer by (accent-insensitive) name or creates a private one. Returns its id. */
+  /**
+   * Finds the producer by (accent-insensitive) name or creates a private one. Returns its id. `exactCountry`: a
+   * household producer without a country is not reused for a given country (a same-named wine there is from
+   * elsewhere).
+   */
   findOrCreateProducer(
     householdId: string,
     name: string,
     countryCode: string | null,
+    exactCountry?: boolean,
   ): Promise<string>;
   findOrCreateWine(householdId: string, producerId: string, input: NewWine): Promise<WineSummary>;
   /** `year` null = non-vintage. Returns the vintage id. */
   findOrCreateVintage(wineId: string, year: number | null): Promise<string>;
+  /**
+   * The vintage of a catalogue (canonical) wine, added when the catalogue does not list that year yet (people
+   * cannot write the catalogue; a narrow database function does just this). Null = that step is not set up yet.
+   */
+  catalogVintage(wineId: string, year: number | null): Promise<string | null>;
+  /**
+   * Wines with exactly this identity that the household can see: the producer's and the wine's name after
+   * normalising (or one of a catalogue wine's verified aliases), and the colour. Its own and the catalogue's.
+   */
+  findWinesByIdentity(
+    householdId: string,
+    producer: string,
+    name: string,
+    type: WineType,
+  ): Promise<WineSummary[]>;
 
   listStorage(householdId: string): Promise<StorageRow[]>;
   getStorage(householdId: string, id: string): Promise<StorageRow | null>;

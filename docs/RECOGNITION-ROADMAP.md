@@ -135,6 +135,64 @@ A profile that does not qualify stays private, and the next household researches
 
 ---
 
+## Implemented — Sprint I: catalogue activation (curated identities that people can find)
+
+Sprint H could only help catalogue wines, and the catalogue was empty. Sprint I makes the existing canonical
+catalogue usable. Details and the operator guide are in `docs/CATALOG.md`.
+
+- **Filling it.** The owner fills it with `catalog_import`: a reviewed JSON list run in the SQL editor.
+  - dry run first;
+  - idempotent;
+  - an https source is required for each wine;
+  - conflicts and ambiguity are reported and never overwritten;
+  - only the service role can run it.
+- **Scanning finds it deterministically** (no AI call). Only an exact identity is "found": producer plus name or
+  verified alias, with no contradiction in colour or country. Similar names become a choice. The person always
+  confirms.
+- **Typing a wine** uses the one exact catalogue wine instead of making a private duplicate. The household's own
+  same-named wine always wins.
+- **Missing years.** A year the catalogue does not list yet is added safely (`catalog_vintage`) when someone adds a
+  bottle. People keep no other write access to the catalogue.
+- **Shared profiles.** Once households pick catalogue wines, Sprint H's shared profiles apply, unchanged (same
+  quality bar, same vintage, same language).
+
+Still **not** done:
+
+- promotion of household wines;
+- relinking existing bottles;
+- third-party catalogue imports;
+- any learning from scans.
+
+## Next focused sprint — reuse stable wine facts across vintages
+
+A shared profile is per vintage, so the 2020 vintage of a catalogue wine is still researched in full even when the
+2019 profile exists. Much of a profile does not change between vintages:
+
+- the producer's background;
+- winemaking and élevage;
+- the usual grapes;
+- the style;
+- typical pairings.
+
+Other parts are vintage-specific and must never be carried over:
+
+- the drinking window;
+- the vintage's character and weather;
+- alcohol;
+- scores;
+- prices.
+
+The next sprint should:
+
+- split a profile into stable wine-level facts and vintage-specific claims;
+- reuse only the stable part for another vintage of the same catalogue wine;
+- research just the vintage-specific part, more cheaply;
+- keep Sprint H's quality bar for both parts.
+
+Not started.
+
+---
+
 ## Future Sprint — Shared Wine Intelligence & Advanced Recognition (Post-Beta)
 
 > **Status: planned, not started.** None of the capabilities below is implemented. Do not start this sprint

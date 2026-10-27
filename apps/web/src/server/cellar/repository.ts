@@ -31,7 +31,8 @@ import type {
 
 type Tables = Database["public"]["Tables"];
 
-const WINE_COLUMNS = "id, name, wine_type, country_code, region, producers!inner(name)";
+const WINE_COLUMNS =
+  "id, name, wine_type, country_code, region, status, producers!inner(name), wine_aliases(alias)";
 const BOTTLE_COLUMNS =
   "id, status, location_id, loc_row, loc_col, purchase_price_cents, currency, purchased_at, created_at, opened_at, cellar_locations(label)";
 const STORAGE_COLUMNS = "id, label, kind, grid_rows, grid_cols";
@@ -46,7 +47,9 @@ export const toWine = (r: {
   wine_type: string;
   country_code: string | null;
   region: string | null;
+  status?: string;
   producers: { name: string };
+  wine_aliases?: Array<{ alias: string }> | null;
 }): WineSummary => ({
   id: r.id,
   producer: r.producers.name,
@@ -54,6 +57,10 @@ export const toWine = (r: {
   type: r.wine_type as WineType,
   countryCode: r.country_code,
   region: r.region,
+  // Only catalogue wines are marked, and only they carry (verified) aliases.
+  ...(r.status === "canonical"
+    ? { catalog: true, aliases: (r.wine_aliases ?? []).map((a) => a.alias) }
+    : {}),
 });
 
 export const toStorage = (
@@ -272,19 +279,34 @@ export function createCellarRepository(db: Db): CellarRepository {
       return data ? toWine(data) : null;
     },
 
-    async findOrCreateProducer(householdId, name, countryCode) {
+    async findOrCreateProducer(householdId, name, countryCode, exactCountry = false) {
       const normalized = normalizeText(name);
+      // Which producer of this name, explicitly (not whatever the database returns first): the household's own,
+      // in the same country first; then the catalogue's, in the same country (or the only one, when no country
+      // is given). A catalogue producer in another country is another producer: a private one is made.
       const find = async (): Promise<string | null> => {
         const { data, error } = await db
           .from("producers")
-          .select("id, country_code")
+          .select("id, country_code, owner_household_id")
           .eq("normalized_name", normalized)
           .or(visibleTo(householdId))
-          .limit(5);
+          .order("id")
+          .limit(20);
         if (error) throw mapDbError(error);
         const rows = data ?? [];
-        const sameCountry = countryCode ? rows.find((r) => r.country_code === countryCode) : null;
-        return (sameCountry ?? rows[0])?.id ?? null;
+        const own = rows.filter((r) => r.owner_household_id === householdId);
+        const catalog = rows.filter((r) => r.owner_household_id === null);
+        const ownPick = countryCode
+          ? (own.find((r) => r.country_code === countryCode) ??
+            (exactCountry ? undefined : own.find((r) => r.country_code === null)))
+          : own[0];
+        if (ownPick) return ownPick.id;
+        const catalogPick = countryCode
+          ? catalog.find((r) => r.country_code === countryCode)
+          : catalog.length === 1
+            ? catalog[0]
+            : undefined;
+        return catalogPick?.id ?? null;
       };
       const existing = await find();
       if (existing) return existing;
@@ -348,6 +370,51 @@ export function createCellarRepository(db: Db): CellarRepository {
         throw mapDbError(error);
       }
       return toWine(data);
+    },
+
+    async catalogVintage(wineId, year) {
+      const { data, error } = await db.rpc("catalog_vintage", {
+        p_wine_id: wineId,
+        p_year: year as number,
+      });
+      // Before 20261031000023 the function does not exist.
+      if (error && (error.code === "PGRST202" || error.code === "42883")) return null;
+      if (error) throw mapDbError(error);
+      return data;
+    },
+
+    async findWinesByIdentity(householdId, producer, name, type) {
+      const producerName = normalizeText(producer);
+      const wineName = normalizeText(name);
+      const [byName, byAlias] = await Promise.all([
+        db
+          .from("wines")
+          .select(`${WINE_COLUMNS}, producers_n:producers!inner(normalized_name)`)
+          .eq("normalized_name", wineName)
+          .eq("wine_type", type)
+          .eq("producers_n.normalized_name", producerName)
+          .or(visibleTo(householdId))
+          .limit(10),
+        db.from("wine_aliases").select("wine_id").eq("normalized_alias", wineName).limit(10),
+      ]);
+      if (byName.error) throw mapDbError(byName.error);
+      if (byAlias.error) throw mapDbError(byAlias.error);
+      const found = byName.data.map(toWine);
+      const aliased = (byAlias.data ?? [])
+        .map((a) => a.wine_id)
+        .filter((id) => !found.some((w) => w.id === id));
+      if (aliased.length > 0) {
+        const { data, error } = await db
+          .from("wines")
+          .select(`${WINE_COLUMNS}, producers_n:producers!inner(normalized_name)`)
+          .in("id", aliased)
+          .eq("wine_type", type)
+          .eq("status", "canonical")
+          .eq("producers_n.normalized_name", producerName);
+        if (error) throw mapDbError(error);
+        found.push(...data.map(toWine));
+      }
+      return found;
     },
 
     async findOrCreateVintage(wineId, year) {

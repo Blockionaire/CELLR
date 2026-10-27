@@ -1,0 +1,22 @@
+[
+  {
+    "producer": "TODO: the producer's name as on its own website",
+    "producer_country": "TODO: 2-letter country code, e.g. FR",
+    "name": "TODO: the exact cuvée name (a reserve or second wine is a separate entry)",
+    "type": "TODO: red | white | rose | sparkling | orange | dessert | fortified",
+    "country": "TODO: 2-letter country code of the wine (usually the producer's)",
+    "region": "TODO: region, or remove this line",
+    "appellation": "TODO: appellation as on the label, or remove this line",
+    "classification": null,
+    "vintages": ["TODO: years you have verified, e.g. 2018, 2019; null for the non-vintage"],
+    "aliases": ["TODO: other names of THIS wine only, or an empty list"],
+    "sources": [
+      {
+        "name": "TODO: e.g. Producer website",
+        "url": "TODO: https:// page that names this exact wine",
+        "license": "facts",
+        "ref": null
+      }
+    ]
+  }
+]

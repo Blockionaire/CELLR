@@ -153,6 +153,36 @@ export default async function AdminAiPage({
               </p>
             )}
           </Section>
+          <Section
+            title="Wine catalogue"
+            note="The shared, curated catalogue (canonical wines). Only its wines can reuse shared profiles. Filled with catalog_import (docs/CATALOG.md); never from household data."
+          >
+            {data.catalog ? (
+              <Kpis>
+                <Kpi label="Producers" value={num(data.catalog.producers)} />
+                <Kpi
+                  label="Wines"
+                  value={num(data.catalog.wines)}
+                  hint={`${num(data.catalog.aliases)} aliases`}
+                />
+                <Kpi label="Vintages" value={num(data.catalog.vintages)} />
+                <Kpi
+                  label={`New bottles on catalogue wines, ${days} days`}
+                  value={pct(data.catalog.share)}
+                  hint={`${num(data.catalog.bottles_catalog)} catalogue · ${num(data.catalog.bottles_private)} own wines`}
+                />
+                <Kpi
+                  label={`Own wines created, ${days} days`}
+                  value={num(data.catalog.private_wines_created)}
+                  hint="Wines not (yet) in the catalogue"
+                />
+              </Kpis>
+            ) : (
+              <p className="text-body text-ink-2">
+                Not available yet: run 20261031000023_catalog_activation.sql.
+              </p>
+            )}
+          </Section>
           <Section title="By task">
             <SplitTable rows={range.by_task} />
           </Section>

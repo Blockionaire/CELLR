@@ -10,6 +10,7 @@ import {
   type AdminAiCosts,
   summarizeRecognitionCache,
   summarizeSharedProfiles,
+  catalogShare,
 } from "./admin";
 
 const A = "0b6f2c1e-6a1d-4f7e-9a3b-2c4d5e6f7a8b";
@@ -182,5 +183,13 @@ describe("the shared wine profile figures", () => {
     expect(
       summarizeSharedProfiles({ hits: 0, misses: 0, profiles: 0, review_due: 0 }, null).hitRate,
     ).toBeNull();
+  });
+});
+
+describe("the catalogue figures", () => {
+  it("the share of new bottles that are catalogue wines", () => {
+    const base = { producers: 1, wines: 2, vintages: 3, aliases: 0, private_wines_created: 0 };
+    expect(catalogShare({ ...base, bottles_catalog: 1, bottles_private: 3 })).toBe(0.25);
+    expect(catalogShare({ ...base, bottles_catalog: 0, bottles_private: 0 })).toBeNull();
   });
 });

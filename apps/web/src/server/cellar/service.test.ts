@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { DomainError, type CreateStorage, type Slot } from "@cellr/domain";
+import {
+  DomainError,
+  normalizeText,
+  type CreateStorage,
+  type Slot,
+  type WineSummary,
+} from "@cellr/domain";
 import {
   aggregateInventory,
   buildHome,
@@ -33,11 +39,17 @@ function fakeRepo(
     occupied?: Slot[];
     /** Make the first N inserts fail as if another person had just taken the same spot. */
     conflictsBeforeSuccess?: number;
+    /** Extra wines the household can see (its own or the catalogue's), found by identity. */
+    known?: WineSummary[];
+    /** The catalogue vintage step is not set up yet. */
+    noCatalogStep?: boolean;
   } = {},
 ) {
   const state = {
     inserts: [] as NewBottle[][],
     vintages: new Map<string, string>(),
+    catalogVintages: [] as string[],
+    producers: [] as Array<{ name: string; countryCode: string | null; exactCountry: boolean }>,
     occupiedCalls: 0,
     conflictsLeft: options.conflictsBeforeSuccess ?? 0,
     favorites: new Set<string>(),
@@ -71,9 +83,26 @@ function fakeRepo(
       return [WINE];
     },
     async getWine(id) {
-      return id === WINE.id ? WINE : null;
+      return id === WINE.id ? WINE : (options.known?.find((w) => w.id === id) ?? null);
     },
-    async findOrCreateProducer(_h, name) {
+    async catalogVintage(wineId, year) {
+      if (options.noCatalogStep) return null;
+      state.catalogVintages.push(`${wineId}:${year}`);
+      const key = `${wineId}:${year}`;
+      if (!state.vintages.has(key)) state.vintages.set(key, `cv${state.vintages.size + 1}`);
+      return state.vintages.get(key)!;
+    },
+    async findWinesByIdentity(_h, producer, name, type) {
+      const n = (t: string) => normalizeText(t);
+      return (options.known ?? []).filter(
+        (w) =>
+          n(w.producer) === n(producer) &&
+          w.type === type &&
+          [w.name, ...(w.aliases ?? [])].some((x) => n(x) === n(name)),
+      );
+    },
+    async findOrCreateProducer(_h, name, countryCode, exactCountry) {
+      state.producers.push({ name, countryCode, exactCountry: exactCountry ?? false });
       return `p:${name}`;
     },
     async findOrCreateWine(_h, producerId, input) {
@@ -990,5 +1019,135 @@ describe("label photos on bottles", () => {
     const { repo, state } = fakeRepo();
     await createCellarService(repo, { userId: "me" }).removePhoto("v1");
     expect(state.attached).toEqual([null]);
+  });
+});
+
+describe("the shared catalogue", () => {
+  const catalogWine: WineSummary = {
+    id: "cw",
+    producer: "Domaine Test",
+    name: "Cuvée Alpha",
+    type: "red",
+    countryCode: "FR",
+    region: "Bourgogne",
+    catalog: true,
+    aliases: ["Alpha"],
+  };
+  const typed = {
+    producer: "DOMAINE TEST",
+    name: "cuvee alpha",
+    type: "red" as const,
+    countryCode: "FR",
+  };
+
+  it("typing a catalogue wine's exact identity uses it: no private duplicate is made", async () => {
+    const { repo, state } = fakeRepo({ known: [catalogWine] });
+    const service = createCellarService(repo, { userId: "me" });
+    expect((await service.createWine(typed)).id).toBe("cw");
+    expect((await service.createWine({ ...typed, name: "Alpha" })).id).toBe("cw");
+    expect(state.wines).toHaveLength(0);
+  });
+
+  it("the household's own wine of that name is kept, never swapped for the catalogue's", async () => {
+    const own: WineSummary = {
+      id: "own",
+      producer: catalogWine.producer,
+      name: catalogWine.name,
+      type: "red",
+      countryCode: "FR",
+      region: "Bourgogne",
+    };
+    const { repo, state } = fakeRepo({ known: [own, catalogWine] });
+    const service = createCellarService(repo, { userId: "me" });
+    expect((await service.createWine(typed)).id).toBe("own");
+    expect(state.wines).toHaveLength(0);
+  });
+
+  it("the same producer, name and colour from another country is a new private wine under that country's producer", async () => {
+    const ownFr: WineSummary = {
+      id: "own-fr",
+      producer: "Domaine Test",
+      name: "Cuvée Alpha",
+      type: "red",
+      countryCode: "FR",
+      region: null,
+    };
+    const { repo, state } = fakeRepo({ known: [ownFr] });
+    const service = createCellarService(repo, { userId: "me" });
+    const made = await service.createWine({ ...typed, countryCode: "IT" });
+    expect(made.id).not.toBe("own-fr");
+    expect(state.wines.map((w) => w.name)).toEqual(["cuvee alpha"]);
+    // The producer of the French wine (possibly one without a country) is not reused for the Italian one.
+    expect(state.producers).toEqual([
+      { name: "DOMAINE TEST", countryCode: "IT", exactCountry: true },
+    ]);
+  });
+
+  it("without a contradiction the producer lookup is unchanged", async () => {
+    const { repo, state } = fakeRepo();
+    const service = createCellarService(repo, { userId: "me" });
+    await service.createWine({ ...typed, name: "Something New" });
+    expect(state.producers).toEqual([
+      { name: "DOMAINE TEST", countryCode: "FR", exactCountry: false },
+    ]);
+  });
+
+  it("an unknown or only similar wine is made privately, as before", async () => {
+    const { repo, state } = fakeRepo({ known: [catalogWine] });
+    const service = createCellarService(repo, { userId: "me" });
+    await service.createWine({ ...typed, name: "Cuvée Alfa" });
+    await service.createWine({ ...typed, type: "white" });
+    expect(state.wines.map((w) => w.name)).toEqual(["Cuvée Alfa", "cuvee alpha"]);
+  });
+
+  it("a bottle of a catalogue wine in a year the catalogue does not list yet gets that year safely", async () => {
+    const { repo, state } = fakeRepo({ known: [catalogWine] });
+    const service = createCellarService(repo, { userId: "me" });
+    const add = (year: number | null) =>
+      service.addBottles({
+        wineId: "cw",
+        year,
+        quantity: 1,
+        locationId: null,
+        priceCents: null,
+        purchasedAt: null,
+        formatMl: 750,
+      });
+    const first = await add(2015);
+    const again = await add(2015);
+    await add(null);
+    expect(first.vintageId).toBe(again.vintageId);
+    expect(state.catalogVintages).toEqual(["cw:2015", "cw:2015", "cw:null"]);
+  });
+
+  it("before the catalogue step exists, a catalogue wine's listed year still works as before", async () => {
+    const { repo } = fakeRepo({ known: [catalogWine], noCatalogStep: true });
+    const service = createCellarService(repo, { userId: "me" });
+    await expect(
+      service.addBottles({
+        wineId: "cw",
+        year: 2019,
+        quantity: 1,
+        locationId: null,
+        priceCents: null,
+        purchasedAt: null,
+        formatMl: 750,
+      }),
+    ).resolves.toMatchObject({ year: 2019 });
+  });
+
+  it("the household's own wines never go through the catalogue step", async () => {
+    const { repo, state } = fakeRepo();
+    const service = createCellarService(repo, { userId: "me" });
+    await service.addBottles({
+      wineId,
+      year: 2019,
+      quantity: 1,
+      locationId: null,
+      priceCents: null,
+      purchasedAt: null,
+      formatMl: 750,
+    });
+    expect(state.catalogVintages).toHaveLength(0);
   });
 });

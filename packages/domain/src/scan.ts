@@ -272,6 +272,7 @@ export function scoreWine(facts: LabelFacts, wine: WineSummary): number {
   const name = nameText
     ? Math.max(
         nameSimilarity(nameText, wine.name),
+        ...(wine.aliases ?? []).map((alias) => nameSimilarity(nameText, alias)),
         facts.producer ? nameSimilarity(facts.producer, wine.name) * 0.6 : 0,
       )
     : 0;
@@ -307,9 +308,77 @@ export function matchLabel(
     .slice(0, MATCH.most);
   const [first, second] = ranked;
   if (!first) return { outcome: "new", matches: [] };
-  if (first.score >= MATCH.strong && (!second || first.score - second.score >= MATCH.lead))
+  // A catalogue wine is the same wine for everyone, so it is only ever "the one" on an exact identity, and then it
+  // is, even next to a close sibling ("Cuvée Alpha" next to "Cuvée Alpha Réserve"). A close score alone is offered
+  // as a choice instead (similar cuvées, a reserve, a spelling variant).
+  // When the household has its own wine that fits as well, the person chooses: their own wine is never silently
+  // passed over for the catalogue's.
+  const exact = ranked.filter((m) => m.wine.catalog && isCatalogIdentity(facts, m.wine));
+  const ownFits = ranked.some((m) => !m.wine.catalog && m.score >= MATCH.strong);
+  if (exact.length === 1 && !ownFits) return { outcome: "found", matches: [exact[0]!] };
+  const sure = !first.wine.catalog || isCatalogIdentity(facts, first.wine);
+  if (sure && first.score >= MATCH.strong && (!second || first.score - second.score >= MATCH.lead))
     return { outcome: "found", matches: [first] };
   return { outcome: "choose", matches: ranked };
+}
+
+/**
+ * Whether what was read is exactly this catalogue wine: the producer as the catalogue names it, the wine's own
+ * name or one of its verified aliases (after normalising case, accents and punctuation), and nothing that
+ * contradicts it (the colour, the country). Similar names are never enough.
+ */
+export function isCatalogIdentity(
+  facts: Pick<LabelFacts, "producer" | "name" | "type" | "countryCode">,
+  wine: WineSummary,
+): boolean {
+  if (!facts.producer || !facts.name) return false;
+  if (normalizeText(facts.producer) !== normalizeText(wine.producer)) return false;
+  const name = normalizeText(facts.name);
+  const names = [wine.name, ...(wine.aliases ?? [])].map(normalizeText);
+  if (!names.includes(name)) return false;
+  if (facts.type && facts.type !== wine.type) return false;
+  if (facts.countryCode && wine.countryCode && facts.countryCode !== wine.countryCode) return false;
+  return true;
+}
+
+/**
+ * Typing a wine by hand: which existing wine is meant, if any, before a new private one is made. The household's
+ * own wine of that name wins unless its known country differs from the one given (it is never silently swapped
+ * for another); otherwise exactly one catalogue
+ * wine with that identity is used, so no private duplicate is made; anything else (none, or more than one) is not
+ * guessed: the household gets its own wine as before.
+ */
+/** Two known countries that differ. An unknown country (on either side) contradicts nothing. */
+export const countryConflict = (a: string | null | undefined, b: string | null | undefined) =>
+  Boolean(a && b && a !== b);
+
+export function pickExistingWine(
+  typed: {
+    producer: string;
+    name: string;
+    type: WineType;
+    countryCode?: string | null | undefined;
+  },
+  own: readonly WineSummary[],
+  catalog: readonly WineSummary[],
+): WineSummary | null {
+  const facts = {
+    producer: typed.producer,
+    name: typed.name,
+    type: typed.type,
+    countryCode: typed.countryCode ?? null,
+  };
+  const mine = own.find(
+    (w) =>
+      !w.catalog &&
+      normalizeText(w.producer) === normalizeText(typed.producer) &&
+      normalizeText(w.name) === normalizeText(typed.name) &&
+      w.type === typed.type &&
+      !countryConflict(typed.countryCode, w.countryCode),
+  );
+  if (mine) return mine;
+  const exact = catalog.filter((w) => w.catalog && isCatalogIdentity(facts, w));
+  return exact.length === 1 ? exact[0]! : null;
 }
 
 // ---- What the scan endpoint answers --------------------------------------------------------------------------

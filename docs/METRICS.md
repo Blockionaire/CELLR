@@ -111,6 +111,10 @@ Read-only, for allowlisted admins (`CELLR_ADMIN_USER_IDS`). It shows the figures
   (misses), the hit rate over those, the actual `wine_insight` calls, the number of shared profiles and those older
   than 12 months (for review only). Counted per household profile in `vintage_insights.cache_result`, never in
   `ai_usage`; the figures name no household.
+- **Wine catalogue** (AI & costs page, 20261031000023_catalog_activation.sql): canonical producers, wines,
+  aliases and vintages; bottles added in the window on catalogue wines vs the households' own wines (the share is
+  the practical "found in the catalogue" rate: scans and typed wines both end in a bottle); own wines created.
+  Counts only, nothing per person.
 - **Platform budget**: recorded usage (cost, or hold when unknown) plus outstanding holds, against
   `AI_BUDGET_DAILY_USD` / `AI_BUDGET_MONTHLY_USD`. A hold is deleted when its usage is recorded, so nothing is
   counted twice (apart from the instant between the two writes). It is an application guard, not a provider cap.

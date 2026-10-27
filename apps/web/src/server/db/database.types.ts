@@ -1498,6 +1498,7 @@ export type Database = {
         Returns: Json;
       };
       admin_budget_status: { Args: { p_now?: string }; Returns: Json };
+      admin_catalog: { Args: { p_from: string; p_to: string }; Returns: Json };
       admin_recognition_cache: { Args: { p_from: string; p_to: string }; Returns: Json };
       admin_shared_profiles: {
         Args: { p_from: string; p_now?: string; p_to: string };
@@ -1522,6 +1523,8 @@ export type Database = {
         Args: { p_daily: number; p_estimate: number; p_monthly: number; p_task: string };
         Returns: string;
       };
+      catalog_import: { Args: { p_apply?: boolean; p_entries: Json }; Returns: Json };
+      catalog_vintage: { Args: { p_wine_id: string; p_year: number }; Returns: string };
       check_signup_allowed: { Args: { p_email: string }; Returns: boolean };
       consume_rate_limit: {
         Args: { p_bucket: string; p_limit: number; p_window_seconds: number };
