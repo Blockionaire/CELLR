@@ -483,3 +483,98 @@ dialog[open]::backdrop {
   transform-origin: 50% 100%;
   animation: uncork 700ms var(--ease-out) 200ms both;
 }
+
+/* ---- Launch screen (ui/boot-splash.tsx) ------------------------------------------------------------------------
+   The same picture as the iPhone launch images (public/splash): keep the colours and the glow in step with
+   scripts/generate-splash.mjs. Fixed dark in both themes. */
+.boot-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden;
+  background: radial-gradient(70% 45% at 50% 46%, #3a0f1a 0%, #1a0b10 55%, #0e090b 100%) #0e090b;
+  color: var(--hero-ink);
+}
+/* the glow breathes, very slowly */
+.boot-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(38% 24% at 50% 46%, rgb(122 38 56 / 0.4), transparent 100%);
+  opacity: 0.5;
+  animation: boot-breathe 3.2s ease-in-out infinite alternate;
+}
+/* a hairline with light passing along it: something is happening, nothing more is claimed */
+.boot-line {
+  position: relative;
+  width: 4rem;
+  height: 1px;
+  overflow: hidden;
+  background: rgb(227 194 133 / 0.18);
+  opacity: 0;
+  animation: boot-fade 500ms ease-out 450ms forwards;
+}
+.boot-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, var(--hero-gold), transparent);
+  transform: translateX(-100%);
+  animation: boot-sweep 1.8s cubic-bezier(0.45, 0, 0.25, 1) 450ms infinite;
+}
+/* the words only for a wait that is long enough to need them */
+.boot-text {
+  color: rgb(227 194 133 / 0.62);
+  opacity: 0;
+  animation: boot-fade 600ms ease-out 1.2s forwards;
+}
+/* In a browser tab it waits a moment before it shows, so a quick load never flashes it. The home-screen app shows
+   it at once: it continues the launch image. */
+@media not all and (display-mode: standalone) {
+  .boot-splash:not(.boot-handoff) {
+    opacity: 0;
+    animation: boot-fade 280ms ease-out 200ms forwards;
+  }
+}
+/* Handing over to the app: only in the home-screen app; it holds a beat, dissolves, and is gone. Never takes a tap. */
+.boot-handoff {
+  display: none;
+  pointer-events: none;
+}
+@media (display-mode: standalone) {
+  .boot-handoff {
+    display: block;
+    animation: boot-dissolve 420ms ease-out 120ms forwards;
+  }
+}
+@keyframes boot-fade {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes boot-breathe {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes boot-sweep {
+  to {
+    transform: translateX(240%);
+  }
+}
+@keyframes boot-dissolve {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+/* Reduced motion: no breathing and no passing light; the line and the words simply appear (see the rule above). */
+@media (prefers-reduced-motion: reduce) {
+  .boot-glow,
+  .boot-line::after {
+    animation: none;
+  }
+  .boot-line::after {
+    display: none;
+  }
+}

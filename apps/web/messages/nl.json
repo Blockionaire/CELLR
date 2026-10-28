@@ -1675,5 +1675,9 @@
     "thanksBody": "We lezen elk bericht. Het wordt privé bewaard en alleen het CELLR-team kan het zien.",
     "done": "Klaar",
     "another": "Nog iets melden"
+  },
+  "boot": {
+    "label": "CELLR wordt geladen",
+    "preparing": "Je kelder wordt klaargezet"
   }
 }
