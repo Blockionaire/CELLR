@@ -20,6 +20,11 @@ interface SheetProps {
   description?: string | undefined;
   children: ReactNode;
   closeLabel?: string;
+  /**
+   * The content brings its own heading (a bottle's preview): the title is kept for screen readers only and the
+   * close button floats in the corner, so the content can start right under the handle.
+   */
+  bare?: boolean;
 }
 
 const prefersReducedMotion = () =>
@@ -31,7 +36,15 @@ const prefersReducedMotion = () =>
  * the browser, and nothing is injected into <head> (which our strict nonce-based CSP would block).
  * Drag the handle down to dismiss.
  */
-export function Sheet({ open, onClose, title, description, children, closeLabel }: SheetProps) {
+export function Sheet({
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  closeLabel,
+  bare = false,
+}: SheetProps) {
   const tc = useTranslations("common");
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -115,7 +128,7 @@ export function Sheet({ open, onClose, title, description, children, closeLabel 
           transition: dragging ? "none" : undefined,
         }}
         className={cn(
-          "sheet-panel flex max-h-[88dvh] flex-col rounded-t-sheet bg-surface shadow-raised ring-1 ring-hairline md:rounded-sheet",
+          "sheet-panel relative flex max-h-[88dvh] flex-col rounded-t-sheet bg-surface shadow-raised ring-1 ring-hairline md:rounded-sheet",
           "pb-[max(1.25rem,env(safe-area-inset-bottom))]",
         )}
       >
@@ -132,8 +145,15 @@ export function Sheet({ open, onClose, title, description, children, closeLabel 
             style={{ backgroundColor: "color-mix(in srgb, var(--ink) 24%, transparent)" }}
           />
         </div>
-        <div className="flex items-start justify-between gap-4 px-5 pb-2 pt-2 md:pt-6">
-          <div>
+        <div
+          className={cn(
+            "flex items-start justify-between gap-4 px-5",
+            bare
+              ? "pointer-events-none absolute inset-x-0 top-3 z-10 md:top-4"
+              : "pb-2 pt-2 md:pt-6",
+          )}
+        >
+          <div className={cn(bare && "sr-only")}>
             <h2 id={titleId} className="font-display text-headline">
               {title}
             </h2>
@@ -147,12 +167,15 @@ export function Sheet({ open, onClose, title, description, children, closeLabel 
             type="button"
             onClick={requestClose}
             aria-label={closeLabel ?? tc("close")}
-            className="-mr-2 grid size-11 shrink-0 place-items-center rounded-full text-ink-2 transition-colors duration-150 hover:bg-raised hover:text-ink"
+            className={cn(
+              "-mr-2 grid size-11 shrink-0 place-items-center rounded-full text-ink-2 transition-colors duration-150 hover:bg-raised hover:text-ink",
+              bare && "pointer-events-auto ml-auto",
+            )}
           >
             <CloseIcon size={20} />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 pb-2">{children}</div>
+        <div className={cn("overflow-y-auto px-5 pb-2", bare && "pt-2 md:pt-6")}>{children}</div>
       </div>
     </dialog>
   );

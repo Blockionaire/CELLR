@@ -626,7 +626,9 @@
     "completeTitle": "Complete this wine",
     "completeHint": "Labels, its value, a duplicate: whenever you feel like it.",
     "mergeTitle": "In your cellar twice?",
-    "mergeBody": "Merge it with the other one; every bottle stays."
+    "mergeBody": "Merge it with the other one; every bottle stays.",
+    "glance": "At a glance",
+    "glanceDrink": "Drinking window"
   },
   "openBottle": {
     "title": "Open a bottle",
@@ -728,7 +730,8 @@
     "thisBottle": "This bottle",
     "spin": "Drag to turn the bottle",
     "pricePerBottle": "{price} a bottle",
-    "boughtOn": "bought {day}"
+    "boughtOn": "bought {day}",
+    "more": "About this bottle"
   },
   "favorite": {
     "label": "Favourite: {wine}",

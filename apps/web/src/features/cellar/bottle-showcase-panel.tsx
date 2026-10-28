@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, type ReactNode } from "react";
 import {
@@ -10,12 +9,14 @@ import {
   type PlacedBottle,
   type VintageDetail,
 } from "@cellr/domain";
-import { Button, buttonStyles } from "@/ui/button";
+import { Button } from "@/ui/button";
 import { cn } from "@/ui/cn";
 import { CloseIcon } from "@/ui/icons";
 import { Skeleton } from "@/ui/skeleton";
 import { PhasePill } from "@/features/tonight/pick-bits";
+import { BarButton, MoveIcon, PageIcon } from "./action-bar";
 import { useDay, useMoney } from "./bottle-bits";
+import { nameSize, SlotMap } from "./bottle-portrait";
 import { FavoriteButton } from "./favorite-button";
 import { PANEL, type ShowcaseLayout } from "./three/layout";
 import { placeLine } from "./wine-visuals";
@@ -24,6 +25,8 @@ interface PanelProps {
   /** The bottle on display (kept after it is put back, so the panel can slide out with its content). */
   bottle: PlacedBottle;
   unitLabel: string | null;
+  /** The place's size, to draw where in it the bottle lies. */
+  grid?: { rows: number; cols: number } | undefined;
   detail: VintageDetail | undefined;
   open: boolean;
   layout: ShowcaseLayout;
@@ -38,10 +41,14 @@ interface PanelProps {
  * Everything about the bottle that has been taken out of the rack: which it is, where it sits, what it
  * cost, what is known about the wine and its history, and what to do with it. Beside the picture on a
  * wide screen, under it on a phone.
+ *
+ * Its heading (producer, name, vintage) never scrolls: only what is under it does, and that starts at the top for
+ * every bottle shown, so a name is never half hidden by where the last one was read to.
  */
 export function BottleShowcasePanel({
   bottle,
   unitLabel,
+  grid,
   detail,
   open,
   layout,
@@ -58,11 +65,14 @@ export function BottleShowcasePanel({
   const money = useMoney(detail?.currency ?? "EUR");
   const day = useDay();
   const panel = useRef<HTMLElement>(null);
+  const body = useRef<HTMLDivElement>(null);
 
-  // Keyboard and screen-reader users land in the panel when it opens.
+  // Keyboard and screen-reader users land in the panel when it opens; the details start from the top.
   useEffect(() => {
-    if (open) panel.current?.focus({ preventScroll: true });
-  }, [open]);
+    if (!open) return;
+    if (body.current) body.current.scrollTop = 0;
+    panel.current?.focus({ preventScroll: true });
+  }, [open, bottle.bottleId]);
 
   const wine = detail?.wine;
   const places = detail ? summarizePlaces(detail.bottles) : [];
@@ -72,10 +82,16 @@ export function BottleShowcasePanel({
     .sort()
     .at(-1);
   const where = placeLine(bottle.region, bottle.countryCode, locale);
-  const spot =
-    bottle.row !== null && bottle.col !== null
-      ? `${unitLabel ?? ""} · ${tv("spot", { row: bottle.row, col: bottle.col })}`
-      : tv("notPlaced");
+  const placed = bottle.row !== null && bottle.col !== null;
+  const facts = detail
+    ? [
+        wine?.appellation,
+        detail.averagePriceCents === null
+          ? null
+          : t("pricePerBottle", { price: money(detail.averagePriceCents) }),
+        latestPurchase ? t("boughtOn", { day: day(latestPurchase) }) : null,
+      ].filter(Boolean)
+    : [];
 
   return (
     <aside
@@ -92,11 +108,11 @@ export function BottleShowcasePanel({
       // On a phone the panel has a fixed height (the bottle above it is sized to the space it leaves: showcaseFrame).
       style={layout === "top" ? { height: `${PANEL.topShare * 100}%` } : undefined}
       className={cn(
-        "absolute z-10 flex flex-col overflow-hidden bg-surface/85 shadow-raised outline-none ring-1 ring-hairline backdrop-blur-xl",
+        "absolute z-10 flex flex-col overflow-hidden bg-surface/90 outline-none backdrop-blur-xl",
         "transition-[transform,opacity] duration-500 ease-cellr motion-reduce:transition-none",
         layout === "side"
-          ? "inset-y-3 right-3 w-[min(26rem,46%)] rounded-card"
-          : "inset-x-0 bottom-0 rounded-t-sheet",
+          ? "inset-y-3 right-3 w-[min(26rem,46%)] rounded-card shadow-raised ring-1 ring-hairline"
+          : "inset-x-0 bottom-0 rounded-t-sheet shadow-[0_-1px_0_var(--hairline),0_-24px_48px_-24px_rgb(0_0_0/0.35)]",
         open
           ? "translate-x-0 translate-y-0 opacity-100 delay-300 motion-reduce:delay-0"
           : layout === "side"
@@ -104,12 +120,12 @@ export function BottleShowcasePanel({
             : "translate-y-12 opacity-0",
       )}
     >
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 pt-5">
-        <div className="flex items-start justify-between gap-3">
-          <p className="truncate pt-1 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+      <header className="shrink-0 px-5 pb-3 pt-4" data-testid="showcase-heading">
+        <div className="flex items-center justify-between gap-3">
+          <p className="min-w-0 truncate text-caption font-medium uppercase tracking-[0.14em] text-bronze">
             {bottle.producer}
           </p>
-          <div className="-mr-2 -mt-1 flex shrink-0 items-center">
+          <div className="-my-2 -mr-2 flex shrink-0 items-center">
             {detail && (
               <FavoriteButton
                 wineId={detail.wine.id}
@@ -127,12 +143,36 @@ export function BottleShowcasePanel({
             </button>
           </div>
         </div>
-        <h2 className="-mt-1 font-display text-display text-ink text-balance">{bottle.wineName}</h2>
-        <p className="mt-1 text-title text-ink-2">
-          <span className="tnum">{formatVintage(bottle.year)}</span>
-          {where && <span> · {where}</span>}
+        <h2
+          className={cn(
+            "mt-0.5 break-words font-display text-ink text-balance",
+            nameSize(bottle.wineName),
+          )}
+        >
+          {bottle.wineName}
+        </h2>
+        <p className="mt-1.5 flex min-w-0 items-baseline gap-2 text-small text-ink-2">
+          <span className="shrink-0 font-display text-title leading-none text-accent-fg tnum">
+            {formatVintage(bottle.year)}
+          </span>
+          {where && (
+            <span className="line-clamp-2 min-w-0">
+              <span className="sr-only"> · </span>
+              {where}
+            </span>
+          )}
         </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+      </header>
+
+      <div
+        ref={body}
+        // Scrolls on its own, so it can be reached and scrolled with the keyboard too.
+        tabIndex={0}
+        role="region"
+        aria-label={t("more")}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-hairline px-5 pb-4 pt-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-fg"
+      >
+        <div className="flex flex-wrap items-center gap-2">
           {detail && <PhasePill phase={detail.drink.phase} />}
           <span className="inline-flex items-center gap-1.5 rounded-full bg-raised px-3 py-1 text-caption font-semibold text-ink-2">
             <span
@@ -144,10 +184,19 @@ export function BottleShowcasePanel({
           </span>
         </div>
 
-        <Block title={t("thisBottle")}>
-          <p className="text-body font-medium text-ink">{spot}</p>
+        <Block title={t("thisBottle")} first>
+          <div className="flex items-center gap-3">
+            {placed && grid && (
+              <SlotMap rows={grid.rows} cols={grid.cols} row={bottle.row!} col={bottle.col!} />
+            )}
+            <p className="min-w-0 text-body font-medium text-ink">
+              {placed
+                ? `${unitLabel ?? ""} · ${tv("spot", { row: bottle.row!, col: bottle.col! })}`
+                : tv("notPlaced")}
+            </p>
+          </div>
           {detail && (
-            <p className="mt-1 text-small text-ink-2">
+            <p className="mt-1.5 text-small text-ink-2">
               {t("ofThisVintage", { count: detail.bottles.length })}
               {places.length > 1 && (
                 <>
@@ -168,21 +217,12 @@ export function BottleShowcasePanel({
           <div className="mt-5 flex flex-col gap-3" aria-label={t("loading")}>
             <Skeleton className="h-5 w-2/3" />
             <Skeleton className="h-5 w-1/2" />
-            <Skeleton className="h-24" />
           </div>
         ) : (
           <>
             {/* What there is to know at a glance; the full page has the rest. */}
-            <p className="mt-4 text-small text-ink-2" data-testid="showcase-facts">
-              {[
-                wine?.appellation,
-                detail.averagePriceCents === null
-                  ? null
-                  : t("pricePerBottle", { price: money(detail.averagePriceCents) }),
-                latestPurchase ? t("boughtOn", { day: day(latestPurchase) }) : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
+            <p className="mt-3 text-small text-ink-2" data-testid="showcase-facts">
+              {facts.join(" · ")}
             </p>
             {history.length > 0 && (
               <Block title={tv("history")}>
@@ -207,36 +247,39 @@ export function BottleShowcasePanel({
         )}
       </div>
 
-      <div className="border-t border-hairline bg-surface/60 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+      <div className="shrink-0 border-t border-hairline px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
         {error && (
           <p role="alert" className="mb-2 text-small text-danger">
             {error}
           </p>
         )}
-        <div className="flex flex-col gap-2.5">
-          <Button size="lg" block loading={busy} onClick={onOpen}>
+        <div className="flex items-center gap-2">
+          <Button loading={busy} onClick={onOpen} className="min-w-0 flex-1">
             {t("open")}
           </Button>
-          <div className="grid grid-cols-2 gap-2.5">
-            <Button size="md" variant="secondary" onClick={onMove} disabled={detail === undefined}>
-              {t("move")}
-            </Button>
-            <Link
-              href={`/cellar/${bottle.vintageId}`}
-              className={buttonStyles({ variant: "secondary", size: "md" })}
-            >
-              {t("details")}
-            </Link>
-          </div>
+          <BarButton label={t("move")} onClick={onMove} disabled={detail === undefined}>
+            <MoveIcon />
+          </BarButton>
+          <BarButton label={t("details")} href={`/cellar/${bottle.vintageId}`}>
+            <PageIcon />
+          </BarButton>
         </div>
       </div>
     </aside>
   );
 }
 
-function Block({ title, children }: { title: string; children: ReactNode }) {
+function Block({
+  title,
+  first = false,
+  children,
+}: {
+  title: string;
+  first?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <section className="mt-5 border-t border-hairline pt-4">
+    <section className={cn("mt-4", !first && "border-t border-hairline pt-4")}>
       <h3 className="mb-2 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
         {title}
       </h3>

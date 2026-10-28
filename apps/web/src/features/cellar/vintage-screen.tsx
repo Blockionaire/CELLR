@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useState, type ReactNode } from "react";
+import { useState, ViewTransition, type ReactNode } from "react";
 import {
   currentValueCents,
   formatVintage,
@@ -23,7 +23,9 @@ import { Stars } from "@/ui/stars";
 import { Button, buttonStyles } from "@/ui/button";
 import { cn } from "@/ui/cn";
 import { ChevronRightIcon, PlusIcon, StarIcon } from "@/ui/icons";
+import { BarButton, BarIcon, MoveIcon } from "./action-bar";
 import { BottleSpot, useDay, useMoney } from "./bottle-bits";
+import { BottlePortrait, nameSize } from "./bottle-portrait";
 import { DrinkChart, PhasePill } from "./drink-chart";
 import { EditSheet } from "./edit-sheet";
 import { FavoriteButton } from "./favorite-button";
@@ -39,7 +41,7 @@ import { TastingItem } from "./tasting-bits";
 import { Facts, Section } from "./vintage-bits";
 import { AboutSection, PairsSection, TasteSection, WorthSection } from "./wine-insight";
 import { placeLine, shapeFor } from "./wine-visuals";
-import { WinePicture } from "./wine-picture";
+import { pictureTransition } from "./wine-picture";
 
 type SheetName = "open" | "move" | "edit" | "place" | "merge" | null;
 
@@ -133,11 +135,22 @@ export function VintageScreen({
     cells.push(
       {
         key: "bottles",
-        value: <span data-testid="bottle-count">{count}</span>,
+        value: (
+          <span key={count} data-testid="bottle-count" className="pop-in inline-block">
+            {count}
+          </span>
+        ),
         label: t("factBottles", { count }),
       },
       { key: "where", value: placeValue, label: t("where") },
     );
+  }
+  if (!detail.drink.uncertain && detail.drink.from !== null && detail.drink.until !== null) {
+    cells.push({
+      key: "drink",
+      value: tDrink("window", { from: detail.drink.from, until: detail.drink.until }),
+      label: t("glanceDrink"),
+    });
   }
   if (averageCents !== null) {
     cells.push({ key: "average", value: money(averageCents), label: t("factAverage") });
@@ -169,86 +182,89 @@ export function VintageScreen({
       ? Math.round(detail.drink.yearsLeft)
       : null;
 
-  const phrase = [
-    placeValue || null,
-    averageCents !== null ? t("factAveragePhrase", { price: money(averageCents) }) : null,
-  ].filter(Boolean);
-
   // Everything that would complete the page but is not there yet, gathered in one quiet place.
   const missingFront = !detail.image;
   const missingBack = !detail.backImage;
   const missingWorth = insight.data?.ready === true && worthCents === null;
 
   return (
-    <div className="mx-auto w-full max-w-3xl pb-28 pt-3 lg:pb-0 lg:pt-10">
-      <header className="grid gap-5 md:grid-cols-[20rem_1fr] md:items-end md:gap-9">
-        <div className="relative">
-          <WinePicture
-            wine={{
-              vintageId: detail.vintageId,
-              type: wine.type,
-              producer: wine.producer,
-              wineName: wine.name,
-              year: detail.year,
-              image: detail.image,
-            }}
-            size="photo"
-            shared
-            year
-            alt={tPhoto("alt", { wine: `${wine.producer} ${wine.name}` })}
-            className="h-[22rem] rounded-[28px] shadow-raised ring-1 ring-hairline [--year-size:9rem] md:h-[26rem]"
-            bottleClassName="h-[76%]"
-          />
-
+    <div className="mx-auto w-full max-w-3xl pb-32 pt-3 lg:pb-0 lg:pt-10">
+      <header>
+        <div className="relative -mx-5 md:mx-0">
+          <div className="relative flex h-[21rem] items-end justify-center overflow-hidden pb-1 md:h-[25rem]">
+            <span
+              aria-hidden="true"
+              data-year={vintageName}
+              className="pointer-events-none absolute inset-x-0 top-8 select-none text-center font-display text-[8.5rem] leading-none text-ink/[0.06] before:content-[attr(data-year)] md:text-[11rem]"
+            />
+            <ViewTransition
+              name={pictureTransition(detail.vintageId)}
+              share="wine-morph"
+              update="none"
+              enter="none"
+              exit="none"
+            >
+              <BottlePortrait
+                wine={{
+                  type: wine.type,
+                  producer: wine.producer,
+                  wineName: wine.name,
+                  year: detail.year,
+                  image: detail.image,
+                }}
+                printAlt={tPhoto("alt", { wine: `${wine.producer} ${wine.name}` })}
+                className="h-[17.5rem] w-[12rem] md:h-[21rem] md:w-[14rem]"
+              />
+            </ViewTransition>
+          </div>
           <Link
             href="/cellar"
             aria-label={t("back")}
-            className="absolute left-3 top-3 z-10 grid size-11 place-items-center rounded-full bg-surface/85 text-ink shadow-raised backdrop-blur-sm transition-transform duration-200 ease-spring active:scale-[0.92]"
+            className="absolute left-4 top-0 z-10 grid size-11 place-items-center rounded-full bg-surface/80 text-ink shadow-raised backdrop-blur-sm transition-transform duration-200 ease-spring active:scale-[0.92] md:left-0"
           >
             <ChevronRightIcon size={20} className="rotate-180" />
           </Link>
-          <FavoriteButton
-            wineId={wine.id}
-            wine={`${wine.producer} ${wine.name}`}
-            favorite={wine.favorite}
-            className="absolute right-3 top-3 z-10 size-11 bg-surface/85 backdrop-blur-sm"
-            size={22}
-          />
-          <RecommendButton
-            vintageId={detail.vintageId}
-            wine={`${wine.producer} ${wine.name} ${vintageName}`}
-            className="absolute right-3 top-16 z-10 size-11 bg-surface/85 backdrop-blur-sm"
-          />
-          <div className="pointer-events-none absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
-            {phase !== "unknown" && !detail.drink.uncertain ? (
-              <PhasePill phase={phase} className="shadow-raised" />
-            ) : (
-              <span />
-            )}
-            {count > 0 && (
-              <span
-                key={count}
-                className="pop-in rounded-full bg-surface px-3 py-1 text-caption font-semibold text-ink shadow-raised tnum"
-              >
-                {t("heroCount", { count })}
-              </span>
-            )}
+          <div className="absolute right-4 top-0 z-10 flex gap-2 md:right-0">
+            <RecommendButton
+              vintageId={detail.vintageId}
+              wine={`${wine.producer} ${wine.name} ${vintageName}`}
+              className="size-11 bg-surface/80 backdrop-blur-sm"
+            />
+            <FavoriteButton
+              wineId={wine.id}
+              wine={`${wine.producer} ${wine.name}`}
+              favorite={wine.favorite}
+              className="size-11 bg-surface/80 shadow-raised backdrop-blur-sm"
+              size={22}
+            />
           </div>
         </div>
 
-        <div className="min-w-0">
-          <p className="text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+        <div className="mt-5 text-center">
+          <p className="text-caption font-medium uppercase tracking-[0.16em] text-bronze">
             {wine.producer}
           </p>
-          <h1 className="mt-1 font-display text-display text-balance text-ink md:text-[3rem] md:leading-[1.05]">
+          <h1
+            className={cn(
+              "mx-auto mt-2 max-w-[22ch] break-words font-display text-ink text-balance",
+              nameSize(wine.name, "page"),
+            )}
+          >
             {wine.name}
           </h1>
-          <p className="mt-2 text-title text-ink-2">
-            <span className="tnum">{vintageName}</span>
-            {where && <span> · {where}</span>}
+          <p className="mx-auto mt-3 flex max-w-xl flex-wrap items-baseline justify-center gap-x-2 text-body text-ink-2 text-pretty">
+            <span className="font-display text-headline leading-none text-accent-fg tnum">
+              {vintageName}
+            </span>
+            {where && (
+              <span>
+                <span className="sr-only"> · </span>
+                {where}
+              </span>
+            )}
           </p>
-          <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-small text-ink-2">
-            <span className="inline-flex items-center gap-2">
+          <p className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-small text-ink-2">
+            <span className="inline-flex items-center gap-1.5">
               <span
                 aria-hidden="true"
                 className="size-2.5 rounded-full"
@@ -256,6 +272,7 @@ export function VintageScreen({
               />
               {tTypes(wine.type)}
             </span>
+            {phase !== "unknown" && !detail.drink.uncertain && <PhasePill phase={phase} />}
             {summary && (
               <span className="inline-flex items-center gap-1.5 tnum">
                 <StarIcon size={15} fill="currentColor" className="text-accent-fg" />
@@ -263,85 +280,64 @@ export function VintageScreen({
               </span>
             )}
           </p>
-          {/* The numbers that matter, as one line: how many, where, what they cost, what they are worth. */}
-          <p className="mt-3 text-small text-ink tnum" data-testid="facts-line">
-            {count > 0 && (
-              <>
-                <span
-                  key={count}
-                  data-testid="bottle-count"
-                  className="pop-in inline-block font-semibold"
-                >
-                  {count}
-                </span>{" "}
-                {t("factBottles", { count })}
-              </>
-            )}
-            {phrase.map((part, i) => (
-              <span key={i}>
-                {(count > 0 || i > 0) && <span className="text-ink-3"> · </span>}
-                {part}
-              </span>
-            ))}
-            {worthCents !== null && (
-              <span>
-                <span className="text-ink-3"> · </span>
-                {t("factWorthPhrase", { price: money(worthCents) })}
-                {delta !== null && Math.round(delta * 100) !== 0 && (
-                  <span className={cn("ml-1 font-semibold", delta > 0 ? "text-ok" : "text-danger")}>
-                    {new Intl.NumberFormat(locale, {
-                      style: "percent",
-                      signDisplay: "exceptZero",
-                      maximumFractionDigits: 0,
-                    }).format(delta)}
-                  </span>
-                )}
-              </span>
-            )}
-          </p>
+        </div>
 
-          <div
-            role="group"
-            aria-label={t("actions")}
-            className="fixed inset-x-0 bottom-[calc(var(--nav-height)+env(safe-area-inset-bottom))] z-20 border-t border-hairline bg-canvas/90 backdrop-blur-xl lg:static lg:z-auto lg:mt-6 lg:border-0 lg:bg-transparent lg:backdrop-blur-none"
+        {/* At a glance: how many, where, when to drink, what they cost and are worth. Real numbers only. */}
+        {cells.length > 0 && (
+          <dl
+            aria-label={t("glance")}
+            data-testid="at-a-glance"
+            className={cn(
+              "mt-6 grid gap-x-4 gap-y-4 border-y border-hairline py-4 sm:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]",
+              cells.length === 3 ? "grid-cols-3" : "grid-cols-2",
+            )}
           >
-            <div className="mx-auto flex max-w-3xl items-center gap-2 px-5 py-3 md:px-8 lg:max-w-none lg:p-0">
-              {count > 0 ? (
-                <Button size="lg" onClick={() => setSheet("open")} className="min-w-0 flex-1">
-                  {t("open")}
-                </Button>
-              ) : (
-                <Link
-                  href={addMoreHref}
-                  className={buttonStyles({
-                    variant: "primary",
-                    size: "lg",
-                    className: "min-w-0 flex-1",
-                  })}
-                >
-                  <PlusIcon size={20} />
-                  {t("addMore")}
-                </Link>
-              )}
-              {count > 0 && (
-                <BarButton label={t("move")} onClick={() => setSheet("move")}>
-                  <BarIcon>
-                    <path d="M5 12h14M13 6l6 6-6 6" />
-                  </BarIcon>
-                </BarButton>
-              )}
-              {rateTarget && (
-                <BarButton label={tTasting("ratingLabel")} onClick={() => setRating(rateTarget)}>
-                  <StarIcon size={20} strokeWidth={1.75} />
-                </BarButton>
-              )}
-              <BarButton label={t("edit")} onClick={() => setSheet("edit")}>
-                <BarIcon>
-                  <path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z" />
-                  <path d="m13.5 6.5 3 3" />
-                </BarIcon>
+            {cells.map((c) => (
+              <div key={c.key} className="flex min-w-0 flex-col-reverse gap-1 text-center">
+                <dt className="text-caption font-medium uppercase tracking-[0.12em] text-ink-3">
+                  {c.label}
+                </dt>
+                <dd className="truncate text-title font-medium text-ink tnum">{c.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
+        <div
+          role="group"
+          aria-label={t("actions")}
+          className="fixed inset-x-0 bottom-[calc(var(--nav-height)+env(safe-area-inset-bottom))] z-20 border-t border-hairline bg-canvas/90 backdrop-blur-xl lg:static lg:z-auto lg:mt-6 lg:border-0 lg:bg-transparent lg:backdrop-blur-none"
+        >
+          <div className="mx-auto flex max-w-3xl items-center gap-2 px-5 pb-7 pt-3 md:px-8 lg:max-w-none lg:p-0">
+            {count > 0 ? (
+              <Button onClick={() => setSheet("open")} className="min-w-0 flex-1">
+                {t("open")}
+              </Button>
+            ) : (
+              <Link
+                href={addMoreHref}
+                className={buttonStyles({ variant: "primary", className: "min-w-0 flex-1" })}
+              >
+                <PlusIcon size={20} />
+                {t("addMore")}
+              </Link>
+            )}
+            {count > 0 && (
+              <BarButton label={t("move")} onClick={() => setSheet("move")}>
+                <MoveIcon />
               </BarButton>
-            </div>
+            )}
+            {rateTarget && (
+              <BarButton label={tTasting("ratingLabel")} onClick={() => setRating(rateTarget)}>
+                <StarIcon size={20} strokeWidth={1.75} />
+              </BarButton>
+            )}
+            <BarButton label={t("edit")} onClick={() => setSheet("edit")}>
+              <BarIcon>
+                <path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z" />
+                <path d="m13.5 6.5 3 3" />
+              </BarIcon>
+            </BarButton>
           </div>
         </div>
       </header>
@@ -727,48 +723,6 @@ export function VintageScreen({
         />
       )}
     </div>
-  );
-}
-
-/** A round secondary action in the bar: an icon on a phone, icon and word on a wide screen. */
-function BarButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      className="inline-flex size-12 shrink-0 select-none items-center justify-center gap-2 rounded-full bg-raised text-ink-2 transition-[transform,background-color,color] duration-200 ease-spring hover:text-ink active:scale-[0.92] lg:h-14 lg:w-auto lg:px-5"
-    >
-      {children}
-      <span className="hidden text-small font-medium lg:inline">{label}</span>
-    </button>
-  );
-}
-
-function BarIcon({ children }: { children: ReactNode }) {
-  return (
-    <svg
-      width={22}
-      height={22}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      {children}
-    </svg>
   );
 }
 
