@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale } from "next-intl/server";
 import { Providers } from "@/ui/providers";
 import { readThemeCookie, THEME_COOKIE } from "@/ui/theme-cookie";
+import { SPLASH_SCREENS } from "./splash-screens";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,7 +12,13 @@ export const metadata: Metadata = {
   description: "Your personal intelligent wine cellar.",
   applicationName: "CELLR",
   // iOS home-screen app. 'default' keeps the status bar legible in both themes (verify on a device).
-  appleWebApp: { capable: true, title: "CELLR", statusBarStyle: "default" },
+  // The launch image per iPhone size: the same picture as the page's own launch screen (ui/boot-splash.tsx).
+  appleWebApp: {
+    capable: true,
+    title: "CELLR",
+    statusBarStyle: "default",
+    startupImage: SPLASH_SCREENS,
+  },
   formatDetection: { telephone: false },
   icons: {
     icon: [

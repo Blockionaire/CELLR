@@ -1675,5 +1675,9 @@
     "thanksBody": "We read every message. It is kept privately and only the CELLR team can see it.",
     "done": "Done",
     "another": "Send more feedback"
+  },
+  "boot": {
+    "label": "Loading CELLR",
+    "preparing": "Preparing your cellar"
   }
 }

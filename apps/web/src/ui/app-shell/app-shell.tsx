@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
+import { BootSplash } from "../boot-splash";
 import { BottomNav } from "./bottom-nav";
 import { Rail } from "./rail";
 
@@ -25,6 +26,8 @@ export async function AppShell({ children }: { children: ReactNode }) {
         {children}
       </main>
       <BottomNav />
+      {/* Opening the home-screen app: the launch screen dissolves into this frame instead of cutting to it. */}
+      <BootSplash mode="handoff" />
     </div>
   );
 }
