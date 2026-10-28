@@ -483,7 +483,10 @@
       "onlyOwnerOf": "You are the only owner of a household that still has other people in it. Remove them or delete the household first.",
       "importTooBig": "That is more than we can bring in at once. Try a smaller file.",
       "settingNotYet": "This setting is not available yet.",
-      "ratingTenths": "Ratings go in tenths of a star."
+      "ratingTenths": "Ratings go in tenths of a star.",
+      "swapSelf": "A bottle can't trade places with itself.",
+      "swapGone": "One of these bottles is no longer in the cellar or has no place. Nothing was changed.",
+      "swapStale": "One of these bottles was just moved by someone else. Nothing was changed."
     }
   },
   "offline": {
@@ -651,7 +654,9 @@
     "moved": "Moved to {where}.",
     "movedOut": "Taken out of its place.",
     "noPlaces": "Create a place first, then you can move bottles into it.",
-    "createPlace": "New place"
+    "createPlace": "New place",
+    "swapped": "{a} and {b} swapped places.",
+    "pickSpotOrSwap": "Tap a free spot, or a bottle to swap places with it."
   },
   "editWine": {
     "title": "Edit",
@@ -701,7 +706,14 @@
     "saved": "Saved.",
     "delete": "Delete this place",
     "deleteConfirm": "Tap again to delete it",
-    "deleted": "Place deleted."
+    "deleted": "Place deleted.",
+    "cellSwap": "Swap with {wine}, shelf {row}, position {col}",
+    "dragHint": "Press and hold a bottle to drag it to another spot.",
+    "dropMove": "Move to {spot}",
+    "dropSwap": "Swap with {wine}",
+    "dropCancel": "Let go to put it back",
+    "unplacedNoSwap": "A bottle without a place can only go to a free spot.",
+    "movingSwap": "Or tap a bottle to swap places."
   },
   "cellar3d": {
     "hint": "Drag to turn · pinch to zoom where you point · two fingers to slide · tap a bottle",

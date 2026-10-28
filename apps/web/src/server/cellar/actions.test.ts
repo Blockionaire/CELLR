@@ -58,6 +58,7 @@ function fake(
     updates: [] as BottlePatch[],
     purchase: [] as PurchasePatch[],
     tastings: [] as TastingRow[],
+    swaps: 0,
   };
   const repo: CellarRepository = {
     async listBottleSpans() {
@@ -250,6 +251,26 @@ function fake(
     async listMyJournalScores() {
       return [];
     },
+    // like the database function: both still where the caller saw them, then both at once
+    async swapBottles(_h, a, b) {
+      const x = state.bottles.find((o) => o.id === a.bottleId);
+      const y = state.bottles.find((o) => o.id === b.bottleId);
+      if (!x || !y) return "not_found";
+      if (x.status !== "in_cellar" || y.status !== "in_cellar" || !x.locationId || !y.locationId)
+        return "gone";
+      const at = (o: BottleRow, s: { locationId: string; row: number; col: number }) =>
+        o.locationId === s.locationId && o.row === s.row && o.col === s.col;
+      if (!at(x, a) || !at(y, b)) return "stale";
+      state.swaps += 1;
+      state.bottles = state.bottles.map((o) =>
+        o.id === x.id
+          ? { ...o, locationId: y.locationId, row: y.row, col: y.col }
+          : o.id === y.id
+            ? { ...o, locationId: x.locationId, row: x.row, col: x.col }
+            : o,
+      );
+      return "swapped";
+    },
     async listMyTastingScores(userId, bottleIds) {
       return state.tastings
         .filter((t) => t.userId === userId && t.bottleId !== null && bottleIds.includes(t.bottleId))
@@ -368,6 +389,66 @@ describe("moving a bottle", () => {
     await expect(
       service.bottleAction("a", { action: "move", to: place(1, 2) }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("trades places with a bottle that is in the way, both at once, and back again (Undo)", async () => {
+    const { service, state } = fake([
+      bottle({ id: "a", row: 1, col: 1 }),
+      bottle({ id: "b", row: 2, col: 3 }),
+    ]);
+    const expected = { self: place(1, 1), other: place(2, 3) };
+    const { bottle: moved, previous } = await service.bottleAction("a", {
+      action: "swap",
+      with: "b",
+      expected,
+    });
+    expect(moved).toMatchObject({ row: 2, col: 3 });
+    expect(previous).toEqual(place(1, 1));
+    expect(state.bottles.find((b) => b.id === "b")).toMatchObject({ row: 1, col: 1 });
+    expect(state.updates).toHaveLength(0); // never as separate moves
+    await service.bottleAction("a", {
+      action: "swap",
+      with: "b",
+      expected: { self: place(2, 3), other: place(1, 1) },
+    });
+    expect(state.bottles.map((b) => [b.id, b.row, b.col])).toEqual([
+      ["a", 1, 1],
+      ["b", 2, 3],
+    ]);
+  });
+
+  it("a swap based on an old picture, or with a bottle that left, changes nothing and says so", async () => {
+    const { service, state } = fake([
+      bottle({ id: "a", row: 1, col: 1 }),
+      bottle({ id: "b", row: 2, col: 3 }),
+    ]);
+    await expect(
+      service.bottleAction("a", {
+        action: "swap",
+        with: "b",
+        expected: { self: place(1, 1), other: place(2, 2) },
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "One of these bottles was just moved by someone else. Nothing was changed.",
+    });
+    await service.bottleAction("b", { action: "open" });
+    await expect(
+      service.bottleAction("a", {
+        action: "swap",
+        with: "b",
+        expected: { self: place(1, 1), other: place(2, 3) },
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(
+      service.bottleAction("a", {
+        action: "swap",
+        with: "a",
+        expected: { self: place(1, 1), other: place(1, 1) },
+      }),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
+    expect(state.swaps).toBe(0);
+    expect(state.bottles.find((b) => b.id === "a")).toMatchObject({ row: 1, col: 1 });
   });
 
   it("removing a bottle works once", async () => {

@@ -243,6 +243,9 @@ function fakeRepo(
       if (side === "back" && state.attachable > 0) state.back = imageId;
       return state.attachable;
     },
+    async swapBottles() {
+      return "not_found" as const;
+    },
     async attachBackIfEmpty(_h, _v, imageId) {
       if (state.attachable === 0) return "not_found";
       if (state.back) return "exists";

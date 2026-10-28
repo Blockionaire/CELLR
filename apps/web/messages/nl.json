@@ -483,7 +483,10 @@
       "onlyOwnerOf": "Je bent de enige eigenaar van een huishouden waar nog anderen in zitten. Verwijder hen of verwijder eerst het huishouden.",
       "importTooBig": "Dat is meer dan we in één keer kunnen binnenhalen. Probeer een kleiner bestand.",
       "settingNotYet": "Deze instelling is nog niet beschikbaar.",
-      "ratingTenths": "Een beoordeling gaat in tienden van een ster."
+      "ratingTenths": "Een beoordeling gaat in tienden van een ster.",
+      "swapSelf": "Een fles kan niet met zichzelf van plek wisselen.",
+      "swapGone": "Een van deze flessen is niet meer in de kelder of heeft geen plek. Er is niets veranderd.",
+      "swapStale": "Een van deze flessen is net door iemand anders verplaatst. Er is niets veranderd."
     }
   },
   "offline": {
@@ -651,7 +654,9 @@
     "moved": "Verplaatst naar {where}.",
     "movedOut": "Uit zijn plek gehaald.",
     "noPlaces": "Maak eerst een plek aan, dan kun je flessen erin leggen.",
-    "createPlace": "Nieuwe plek"
+    "createPlace": "Nieuwe plek",
+    "swapped": "{a} en {b} hebben van plek gewisseld.",
+    "pickSpotOrSwap": "Tik op een vrije plek, of op een fles om van plek te wisselen."
   },
   "editWine": {
     "title": "Bewerken",
@@ -701,7 +706,14 @@
     "saved": "Opgeslagen.",
     "delete": "Deze plek verwijderen",
     "deleteConfirm": "Tik nogmaals om te verwijderen",
-    "deleted": "Plek verwijderd."
+    "deleted": "Plek verwijderd.",
+    "cellSwap": "Wissel met {wine}, plank {row}, positie {col}",
+    "dragHint": "Houd een fles ingedrukt om hem naar een andere plek te slepen.",
+    "dropMove": "Naar {spot}",
+    "dropSwap": "Wissel met {wine}",
+    "dropCancel": "Laat los om hem terug te zetten",
+    "unplacedNoSwap": "Een fles zonder plek kan alleen naar een vrije plek.",
+    "movingSwap": "Of tik op een fles om van plek te wisselen."
   },
   "cellar3d": {
     "hint": "Sleep om te draaien · knijp om in te zoomen waar je wijst · twee vingers om te schuiven · tik op een fles",

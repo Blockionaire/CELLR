@@ -392,6 +392,14 @@ const PlacementSchema = z
     "A place needs a shelf and a position.",
   );
 
+/** A spot that is taken: a place, a shelf and a position, all three. */
+const SpotSchema = z.object({
+  locationId: z.uuid(),
+  row: SlotNumberSchema,
+  col: SlotNumberSchema,
+});
+export type Spot = z.infer<typeof SpotSchema>;
+
 export const BottleActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("open") }),
   /** Leaves the cellar: for good ("removed": a mistake, a broken bottle) or given away ("gifted"). Either can be undone. */
@@ -404,6 +412,15 @@ export const BottleActionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("restore"),
     to: PlacementSchema.default({ locationId: null, row: null, col: null }),
+  }),
+  /**
+   * Trades places with another placed bottle, both at once. `expected` is where the two were seen: if either has
+   * moved since (someone else in the household), nothing changes. Undo is the same swap with the new places.
+   */
+  z.object({
+    action: z.literal("swap"),
+    with: z.uuid(),
+    expected: z.object({ self: SpotSchema, other: SpotSchema }),
   }),
   /** Corrects this one bottle's year (null = non-vintage): it moves to that vintage of the same wine. */
   z.object({ action: z.literal("setYear"), year: VintageYearSchema }),

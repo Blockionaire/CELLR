@@ -1,15 +1,17 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { ERROR_MESSAGES } from "@cellr/domain";
+import { ERROR_MESSAGES, type Spot } from "@cellr/domain";
 import { errorMessage } from "@/lib/api";
 import { useToast } from "@/ui/toast";
 import { useBottleAction } from "./hooks";
 
 type Place = { locationId: string | null; row: number | null; col: number | null };
+/** A placed bottle as the swap needs it: which, where it was seen, and its name for the toast. */
+type SwapSide = { bottleId: string; spot: Spot; name: string };
 
 /**
- * The three things you do to a bottle — open it, move it, remove it — each ending the same way: the
+ * The things you do to a bottle — open it, move it, swap it with another, remove it — each ending the same way: the
  * counts change everywhere, and a toast offers Undo. Every function resolves to an error message in
  * words, or null when it worked, so callers decide where to show a failure.
  */
@@ -58,6 +60,32 @@ export function useBottleActions() {
             () => action.mutateAsync({ bottleId, action: { action: "restore", to: previous } }),
             tOpen("restored"),
           ),
+        });
+        return null;
+      } catch (e) {
+        return fail(e);
+      }
+    },
+
+    /**
+     * Two placed bottles trade places, both at once on the server. Undo trades them back, but only while both are
+     * still where this swap put them: if someone has moved one since, Undo says so and leaves their move alone.
+     */
+    async swap(a: SwapSide, b: SwapSide): Promise<string | null> {
+      const trade = (self: SwapSide, other: SwapSide) =>
+        action.mutateAsync({
+          bottleId: a.bottleId,
+          action: {
+            action: "swap",
+            with: b.bottleId,
+            expected: { self: self.spot, other: other.spot },
+          },
+        });
+      try {
+        await trade(a, b);
+        toast.show(tMove("swapped", { a: a.name, b: b.name }), {
+          // after the swap, A is where B was and B where A was
+          action: undoer(() => trade({ ...a, spot: b.spot }, { ...b, spot: a.spot })),
         });
         return null;
       } catch (e) {

@@ -45,6 +45,10 @@ export const KNOWN_MESSAGES = {
   "That spot doesn't exist in this place.": "spotMissing",
   "That spot doesn't exist in this rack.": "spotMissing",
   "That spot was just taken. Pick another.": "spotTaken",
+  "A bottle can't trade places with itself.": "swapSelf",
+  "One of these bottles is no longer in the cellar or has no place. Nothing was changed.":
+    "swapGone",
+  "One of these bottles was just moved by someone else. Nothing was changed.": "swapStale",
   "That wine comes from the shared catalogue, so it can't be edited.": "catalogueWine",
   "That wine is already on your wishlist.": "onWishlist",
   "There are still bottles in it. Move them out first.": "stillBottles",

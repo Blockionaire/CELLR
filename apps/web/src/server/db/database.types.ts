@@ -2014,6 +2014,20 @@ export type Database = {
           output: Json;
         }[];
       };
+      swap_bottles: {
+        Args: {
+          p_a: string;
+          p_a_col: number;
+          p_a_location: string;
+          p_a_row: number;
+          p_b: string;
+          p_b_col: number;
+          p_b_location: string;
+          p_b_row: number;
+          p_household: string;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       bottle_status: "in_cellar" | "opened" | "gifted" | "removed";

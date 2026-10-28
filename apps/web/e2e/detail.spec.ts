@@ -218,7 +218,8 @@ test.describe("moving a bottle", () => {
     await page.goto(`/cellar/${vintageId}`);
     await page.getByRole("button", { name: "Move", exact: true }).click();
     const dialog = page.getByRole("dialog");
-    await expect(dialog.getByRole("img", { name: /shelf 1, position 1/i })).toBeVisible(); // a bottle, drawn in its spot
+    // a bottle, drawn in its spot (a button: another bottle can be tapped to trade places with it)
+    await expect(dialog.getByRole("button", { name: /shelf 1, position 1/i })).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Shelf 3, position 2, empty" })).toBeVisible();
     await page.screenshot({ path: shot(`move-sheet-${project()}`) });
     await dialog.getByRole("button", { name: "Shelf 3, position 2, empty" }).click();
@@ -485,7 +486,7 @@ test.describe("the wine's page and its sheets are accessible in both themes", ()
         await expect(page.getByRole("dialog")).toBeVisible();
         if (name === "move")
           await expect(
-            page.getByRole("dialog").getByRole("img", { name: /shelf 1, position 1/i }),
+            page.getByRole("dialog").getByRole("button", { name: /shelf 1, position 1/i }),
           ).toBeVisible();
         await page.waitForTimeout(450); // let the sheet finish fading in: contrast is measured on settled colours
         expect(await audit(page), name).toEqual([]);
