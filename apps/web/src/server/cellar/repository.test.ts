@@ -33,3 +33,27 @@ describe("a back label before the attach-if-empty step has been run", () => {
     }
   });
 });
+
+describe("a swap before the swap step has been run", () => {
+  it("is never done as two moves: the missing function is an error, and no bottle is written", async () => {
+    const { createCellarRepository } = await import("./repository");
+    const spot = { locationId: "u1", row: 1, col: 1 };
+    for (const code of ["PGRST202", "42883"]) {
+      const writes: string[] = [];
+      const db = {
+        rpc: async () => ({ data: null, error: { code, message: "function not found" } }),
+        from: (table: string) => {
+          writes.push(table);
+          throw new Error(`must not touch ${table}`);
+        },
+      };
+      const repo = createCellarRepository(
+        db as unknown as Parameters<typeof createCellarRepository>[0],
+      );
+      await expect(
+        repo.swapBottles("h1", { bottleId: "a", ...spot }, { bottleId: "b", ...spot, col: 2 }),
+      ).rejects.toBeTruthy();
+      expect(writes).toEqual([]);
+    }
+  });
+});

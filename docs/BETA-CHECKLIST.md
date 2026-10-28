@@ -51,8 +51,14 @@ Alle AI is in de tests nep (een lokaal OpenAI-compatibel endpoint): er wordt noo
    ```
 
    Ontbreekt iets: draai de ontbrekende migraties uit `supabase/migrations/` in volgorde (de nieuwste is
-   `20261103000026_back_label_if_empty.sql`; daarvoor `20261102000025_decimal_ratings.sql`: beoordelingen in
-   tienden van een ster, bestaande cijfers blijven gelijk).
+   `20261104000027_swap_bottles.sql`; daarvoor `20261103000026_back_label_if_empty.sql` en
+   `20261102000025_decimal_ratings.sql`: beoordelingen in tienden van een ster, bestaande cijfers blijven gelijk).
+
+   **Vereist vóór (of tegelijk met) de versie met slepen en wisselen: `20261104000027_swap_bottles.sql`.** Zonder
+   deze migratie mislukt het wisselen van twee flessen met een duidelijke melding en verandert er niets (verplaatsen
+   naar een vrije plek werkt gewoon). Er is bewust geen terugval via twee losse verplaatsingen: die kan een fles
+   zonder plek of twee flessen op één plek opleveren. Controle:
+   `select count(*) from pg_proc where proname = 'swap_bottles';` geeft 1.
 
    **Vereist vóór (of tegelijk met) deze app-versie: `20261103000026_back_label_if_empty.sql`.** Zonder deze
    migratie wordt een achteretiket dat tijdens het scannen is gefotografeerd níet opgeslagen (de flessen wel;

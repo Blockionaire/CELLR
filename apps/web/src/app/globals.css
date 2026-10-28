@@ -578,3 +578,20 @@ dialog[open]::backdrop {
     display: none;
   }
 }
+
+/* ---- Dragging a bottle in the racks (features/cellar/use-rack-drag.ts) ---------------------------------------- */
+html.rack-dragging,
+html.rack-dragging * {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grabbing;
+}
+@keyframes bottle-lift {
+  from {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgb(0 0 0 / 0);
+  }
+}
+.bottle-lift {
+  animation: bottle-lift 160ms var(--ease-cellr) both;
+}

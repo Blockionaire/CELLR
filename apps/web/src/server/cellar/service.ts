@@ -842,6 +842,32 @@ export function createCellarService(
           }
         }
 
+        case "swap": {
+          // Both at once, in the database: see repository.swapBottles. Undo is the same call the other way round.
+          if (action.with === bottleId)
+            throw new DomainError("VALIDATION", "A bottle can't trade places with itself.");
+          const outcome = await repo.swapBottles(
+            householdId,
+            { bottleId, ...action.expected.self },
+            { bottleId: action.with, ...action.expected.other },
+          );
+          if (outcome === "not_found")
+            throw new DomainError("NOT_FOUND", "We couldn't find that bottle.");
+          if (outcome === "gone")
+            throw new DomainError(
+              "CONFLICT",
+              "One of these bottles is no longer in the cellar or has no place. Nothing was changed.",
+            );
+          if (outcome === "stale")
+            throw new DomainError(
+              "CONFLICT",
+              "One of these bottles was just moved by someone else. Nothing was changed.",
+            );
+          const swapped = await repo.getBottle(householdId, bottleId);
+          if (!swapped) throw new DomainError("NOT_FOUND", "We couldn't find that bottle.");
+          return { bottle: swapped, previous };
+        }
+
         case "restore": {
           if (before.status === "in_cellar") return { bottle: before, previous }; // a second Undo is harmless
           const attempt = (to: {

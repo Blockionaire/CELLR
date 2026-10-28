@@ -2,7 +2,13 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { type BottleView, type RackView, type VintageDetail } from "@cellr/domain";
+import {
+  formatVintage,
+  type BottleView,
+  type PlacedBottle,
+  type RackView,
+  type VintageDetail,
+} from "@cellr/domain";
 import { Button } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { Sheet } from "@/ui/sheet";
@@ -72,6 +78,9 @@ function MoveBody({
   const unit =
     data?.units.find((u) => u.id === (unitId ?? bottle?.locationId)) ?? data?.units[0] ?? null;
 
+  // only a bottle with a place can trade it for another bottle's
+  const placed = bottle?.locationId != null;
+
   async function move(
     to: { locationId: string | null; row: number | null; col: number | null },
     where: string,
@@ -79,6 +88,34 @@ function MoveBody({
     if (!bottle) return;
     setError(null);
     const failure = await actions.move(bottle.id, to, where);
+    if (failure) return setError(failure);
+    onClose();
+  }
+
+  /** Onto a taken spot: the two trade places, both at once. Only a bottle that has a place can trade it. */
+  async function swap(other: PlacedBottle) {
+    if (
+      !bottle ||
+      !unit ||
+      bottle.locationId === null ||
+      bottle.row === null ||
+      bottle.col === null
+    )
+      return;
+    if (other.row === null || other.col === null || other.bottleId === bottle.id) return;
+    setError(null);
+    const failure = await actions.swap(
+      {
+        bottleId: bottle.id,
+        spot: { locationId: bottle.locationId, row: bottle.row, col: bottle.col },
+        name: `${detail.wine.name} ${formatVintage(detail.year)}`,
+      },
+      {
+        bottleId: other.bottleId,
+        spot: { locationId: unit.id, row: other.row, col: other.col },
+        name: `${other.wineName} ${formatVintage(other.year)}`,
+      },
+    );
     if (failure) return setError(failure);
     onClose();
   }
@@ -134,6 +171,8 @@ function MoveBody({
                     cols={unit.cols}
                     bottles={unit.bottles}
                     activeBottleId={bottle.id}
+                    swapTargets={placed}
+                    onBottle={placed ? (b) => void swap(b) : undefined}
                     onEmpty={(row, col) =>
                       move(
                         { locationId: unit.id, row, col },
@@ -142,7 +181,9 @@ function MoveBody({
                     }
                   />
                 </div>
-                <p className="mt-3 text-center text-small text-ink-2">{t("pickSpot")}</p>
+                <p className="mt-3 text-center text-small text-ink-2">
+                  {placed ? t("pickSpotOrSwap") : t("pickSpot")}
+                </p>
               </>
             )}
           </>

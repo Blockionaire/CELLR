@@ -1,6 +1,7 @@
 import "server-only";
 import type {
   BottleStatus,
+  Spot,
   BottleView,
   CreateStorage,
   CreateWine,
@@ -241,6 +242,16 @@ export interface CellarRepository {
     vintageId: string,
     imageId: string,
   ): Promise<"attached" | "exists" | "not_found">;
+  /**
+   * Trades the places of two placed bottles in one transaction (database function `swap_bottles`), only if both are
+   * still exactly where `a` and `b` say. "stale": one of them has moved since; "gone": one is no longer in the
+   * cellar or has no place; nothing is changed unless it says "swapped".
+   */
+  swapBottles(
+    householdId: string,
+    a: { bottleId: string } & Spot,
+    b: { bottleId: string } & Spot,
+  ): Promise<"swapped" | "stale" | "gone" | "not_found">;
   /** Updates one bottle, only if it is currently in one of `fromStatuses`. Null = no such bottle in that state. */
   updateBottle(
     householdId: string,

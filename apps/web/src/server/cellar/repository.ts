@@ -778,6 +778,24 @@ export function createCellarRepository(db: Db): CellarRepository {
       return data === "attached" || data === "exists" ? data : "not_found";
     },
 
+    async swapBottles(householdId, a, b) {
+      const { data, error } = await db.rpc("swap_bottles", {
+        p_household: householdId,
+        p_a: a.bottleId,
+        p_a_location: a.locationId,
+        p_a_row: a.row,
+        p_a_col: a.col,
+        p_b: b.bottleId,
+        p_b_location: b.locationId,
+        p_b_row: b.row,
+        p_b_col: b.col,
+      });
+      // No fallback: two separate moves are exactly what the function exists to avoid (one bottle per spot would
+      // refuse the first, or leave a bottle without its place). Until migration 20261104000027 has run, it fails.
+      if (error) throw mapDbError(error);
+      return data === "swapped" || data === "stale" || data === "gone" ? data : "not_found";
+    },
+
     async getBottle(householdId, bottleId) {
       const { data, error } = await db
         .from("bottles")
