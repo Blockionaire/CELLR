@@ -23,6 +23,7 @@ import { createFriendsRepository } from "@/server/friends/repository";
 import { createFriendsService } from "@/server/friends/service";
 import { getTranslations } from "next-intl/server";
 import { sendFriendNotice } from "@/server/privileged/friend-notices";
+import { createAvatarRepository, createAvatarService } from "@/server/households/avatar";
 import { createHouseholdService } from "@/server/households/service";
 import { createRateLimitRepository } from "@/server/ratelimit/repository";
 import { createRateLimiter, LIMITS } from "@/server/ratelimit/service";
@@ -98,7 +99,9 @@ export function servicesFor(ctx: RequestContext) {
     },
   });
   const scanRepo = createScanRepository(ctx.db);
+  const avatars = createAvatarService(createAvatarRepository(ctx.db), ctx.userId);
   return {
+    avatars,
     contribution: createContributionService(ctx.db, ctx.userId),
     households,
     cellar,
@@ -121,6 +124,7 @@ export function servicesFor(ctx: RequestContext) {
       me: () => households.me(),
       household: (id) => households.getHousehold(id),
       purgePhotos: (id) => images.purge(id),
+      purgeAvatar: () => avatars.purge(),
       deleteHousehold: (id) => households.deleteHousehold(id),
       leaveHousehold: (id) => households.removeMember(id, ctx.userId),
       canDelete: canDeleteAccounts,

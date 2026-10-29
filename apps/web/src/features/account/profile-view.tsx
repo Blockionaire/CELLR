@@ -19,6 +19,7 @@ import { isLocale, type Locale } from "@/i18n/config";
 import { rememberLocale } from "@/i18n/client";
 import { ThemeSelector, type ThemePreference } from "@/ui/theme";
 import { useToast } from "@/ui/toast";
+import { AvatarEditor, PersonAvatar } from "./avatar";
 import { ConfirmSheet } from "./confirm-sheet";
 import {
   useCreateInvite,
@@ -57,22 +58,6 @@ function Section({
       </h2>
       {children}
     </section>
-  );
-}
-
-/** A round monogram, so a person is more than a line of text. */
-function Avatar({ name, size = "lg" }: { name: string; size?: "sm" | "lg" }) {
-  const initial = Array.from(name.trim())[0]?.toUpperCase() ?? "?";
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "grid shrink-0 place-items-center rounded-full bg-accent font-display text-accent-ink",
-        size === "lg" ? "size-14 text-headline" : "size-9 text-title",
-      )}
-    >
-      {initial}
-    </span>
   );
 }
 
@@ -200,7 +185,7 @@ export function ProfileView({
     <div className="mx-auto flex max-w-xl flex-col gap-4">
       <Section title={t("accountSection")}>
         <div className="mb-5 flex items-center gap-4">
-          <Avatar name={me.displayName ?? me.email ?? ""} />
+          <AvatarEditor name={me.displayName ?? me.email ?? ""} src={me.avatarUrl} />
           <div className="min-w-0">
             <p className="truncate font-display text-headline">{me.displayName ?? t("unnamed")}</p>
             <p className="truncate text-small text-ink-3">
@@ -247,7 +232,7 @@ export function ProfileView({
           <ul className="divide-y divide-hairline">
             {(household.data?.members ?? []).map((m) => (
               <li key={m.userId} className="flex items-center gap-3 py-3">
-                <Avatar name={m.displayName ?? "?"} size="sm" />
+                <PersonAvatar name={m.displayName ?? "?"} src={m.avatarUrl} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-body">
                     {m.displayName ?? t("unnamed")}

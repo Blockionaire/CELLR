@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  avatarUrl,
   DomainError,
   formatInviteCode,
   type CreateHousehold,
@@ -72,6 +73,7 @@ export function createHouseholdService(repo: HouseholdRepository, deps: Househol
         userId,
         email,
         displayName: profile?.displayName ?? null,
+        avatarUrl: avatarUrl(userId, profile?.avatarPath ?? null),
         locale: profile?.locale ?? "en",
         activeHouseholdId: active && households.some((h) => h.id === active) ? active : null,
         households,
@@ -91,13 +93,18 @@ export function createHouseholdService(repo: HouseholdRepository, deps: Househol
     async getHousehold(id: string): Promise<HouseholdDetail> {
       const summary = await mine(id);
       const members = (await repo.listMembers([id])).filter((m) => m.householdId === id);
-      const names = await repo.getDisplayNames(members.map((m) => m.userId));
+      const ids = members.map((m) => m.userId);
+      const [names, avatars] = await Promise.all([
+        repo.getDisplayNames(ids),
+        repo.getAvatarPaths(ids),
+      ]);
       return {
         ...summary,
         members: members
           .map((m) => ({
             userId: m.userId,
             displayName: names.get(m.userId) ?? null,
+            avatarUrl: avatarUrl(m.userId, avatars.get(m.userId) ?? null),
             role: m.role,
             joinedAt: m.joinedAt,
             isYou: m.userId === userId,

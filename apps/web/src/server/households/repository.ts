@@ -30,15 +30,17 @@ export const toMember = (r: Tables["household_members"]["Row"]): MemberRow => ({
 });
 
 export const toProfile = (
-  r: Pick<Tables["profiles"]["Row"], "id" | "display_name" | "locale" | "active_household_id">,
+  r: Pick<Tables["profiles"]["Row"], "id" | "display_name" | "locale" | "active_household_id"> &
+    Partial<Pick<Tables["profiles"]["Row"], "avatar_path">>,
 ): ProfileRow => ({
   id: r.id,
   displayName: r.display_name,
   locale: r.locale,
   activeHouseholdId: r.active_household_id,
+  avatarPath: r.avatar_path ?? null,
 });
 
-const PROFILE_COLUMNS = "id, display_name, locale, active_household_id";
+const PROFILE_COLUMNS = "id, display_name, locale, active_household_id, avatar_path";
 const HOUSEHOLD_COLUMNS = "id, name, currency";
 
 export function createHouseholdRepository(db: Db): HouseholdRepository {
@@ -99,6 +101,15 @@ export function createHouseholdRepository(db: Db): HouseholdRepository {
       if (error) throw mapDbError(error);
       for (const row of data ?? []) names.set(row.id, row.display_name);
       return names;
+    },
+
+    async getAvatarPaths(userIds) {
+      const paths = new Map<string, string | null>();
+      if (userIds.length === 0) return paths;
+      const { data, error } = await db.from("profiles").select("id, avatar_path").in("id", userIds);
+      if (error) throw mapDbError(error);
+      for (const row of data ?? []) paths.set(row.id, row.avatar_path);
+      return paths;
     },
 
     async createHousehold(name, currency) {

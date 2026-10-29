@@ -83,7 +83,6 @@
     "addBottle": "Fles toevoegen",
     "ratedStars": "Beoordeeld met {stars} van de 5",
     "nudge": "Hoe was de {wine}?",
-    "nudgeNote": "Notitie toevoegen",
     "rateIt": "Beoordeel",
     "comingUp": "Binnenkort",
     "reminder": {
@@ -97,7 +96,9 @@
     "quickAsk": "Meteen vragen",
     "ratingsTitle": "Je beoordelingen",
     "ratingsSummary": "{count, plural, one {# wijn beoordeeld} other {# wijnen beoordeeld}} · gemiddeld {average} ★",
-    "ratingsStart": "Je proefdagboek: beoordeel wat je opent"
+    "ratingsStart": "Je proefdagboek: beoordeel wat je opent",
+    "nudgeWhen": "Geopend {when}",
+    "nudgeReview": "Beoordeel wijn"
   },
   "cellar": {
     "title": "Kelder",
@@ -563,7 +564,10 @@
     "typeRequired": "Wat voor wijn is het? Kies hierboven.",
     "shopLabel": "Gekocht bij",
     "shopPlaceholder": "Winkel of wijnhandel",
-    "inCellar": "In je kelder ×{count}"
+    "inCellar": "In je kelder ×{count}",
+    "scanTitle": "Wijn scannen",
+    "scanBody": "Gebruik de camera of een foto van het etiket.",
+    "newWineHint": "Vul hem zelf in, zonder te scannen."
   },
   "newPlace": {
     "title": "Een plek voor je flessen",
@@ -828,7 +832,8 @@
       "elegant": "Elegant"
     },
     "removeConfirm": "Ja, alles verwijderen",
-    "notRated": "Geen beoordeling"
+    "notRated": "Geen beoordeling",
+    "saveReview": "Beoordeling opslaan"
   },
   "drink": {
     "title": "Wanneer drinken",
@@ -1691,5 +1696,21 @@
   "boot": {
     "label": "CELLR wordt geladen",
     "preparing": "Je kelder wordt klaargezet"
+  },
+  "avatar": {
+    "title": "Profielfoto",
+    "add": "Profielfoto toevoegen",
+    "change": "Profielfoto wijzigen",
+    "body": "Maak een foto of kies er een. Alleen jij en de mensen in je huishoudens zien hem.",
+    "choose": "Foto maken of kiezen",
+    "replace": "Andere foto maken of kiezen",
+    "remove": "Foto verwijderen",
+    "placeHint": "Sleep om hem in de cirkel te plaatsen.",
+    "zoom": "Zoom",
+    "back": "Terug",
+    "use": "Foto gebruiken",
+    "saved": "Profielfoto opgeslagen.",
+    "removed": "Profielfoto verwijderd.",
+    "unreadable": "Die foto kunnen we niet openen. Probeer een andere."
   }
 }

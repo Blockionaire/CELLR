@@ -73,6 +73,8 @@ export interface HouseholdSummary {
 export interface HouseholdMemberView {
   userId: string;
   displayName: string | null;
+  /** Their profile photo (served privately to household members), or null for the initials. */
+  avatarUrl: string | null;
   role: HouseholdRole;
   joinedAt: string;
   isYou: boolean;
@@ -94,6 +96,8 @@ export interface Me {
   userId: string;
   email: string | null;
   displayName: string | null;
+  /** My profile photo, or null for the initials. The address changes with every new photo. */
+  avatarUrl: string | null;
   locale: string;
   activeHouseholdId: string | null;
   households: HouseholdSummary[];
@@ -106,4 +110,14 @@ export function nextOnboardingStep(
   if (me.households.length === 0) return "household";
   if (!me.displayName) return "name";
   return "done";
+}
+
+/**
+ * Where a profile photo is served: only to the person and those who share a household with them (the storage
+ * policies decide). The file name is part of the address, so a new photo is a new address and caches never mix.
+ */
+export function avatarUrl(userId: string, path: string | null): string | null {
+  if (!path) return null;
+  const file = path.slice(path.lastIndexOf("/") + 1).replace(/\.jpg$/, "");
+  return `/api/v1/avatars/${userId}?v=${encodeURIComponent(file)}`;
 }

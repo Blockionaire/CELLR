@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { matchesSearch, type WineSummary } from "@cellr/domain";
 import { Field } from "@/ui/field";
-import { PlusIcon, SearchIcon } from "@/ui/icons";
+import { ChevronRightIcon, PlusIcon, ScanIcon, SearchIcon } from "@/ui/icons";
 import { Skeleton } from "@/ui/skeleton";
 import { useOwnedCounts, WineChoice } from "./wine-stage";
 import { placeLine } from "./wine-visuals";
@@ -18,10 +19,20 @@ interface ChooseWineProps {
   onNew: () => void;
   /** The wine chosen so far (when coming back with "Change"): marked with a ring and a check. */
   selectedId?: string | undefined;
+  /** Adding bottles: scanning the label comes first, as the quickest way (the existing scanner, at this address). */
+  scanHref?: string | undefined;
 }
 
 /** Step 1: find the wine in your own list as you type, or add it. Everything is local, so it's instant. */
-export function ChooseWine({ wines, query, onQuery, onPick, onNew, selectedId }: ChooseWineProps) {
+export function ChooseWine({
+  wines,
+  query,
+  onQuery,
+  onPick,
+  onNew,
+  selectedId,
+  scanHref,
+}: ChooseWineProps) {
   const t = useTranslations("addBottle");
   const tTypes = useTranslations("wineTypes");
   const locale = useLocale();
@@ -35,6 +46,26 @@ export function ChooseWine({ wines, query, onQuery, onPick, onNew, selectedId }:
 
   return (
     <div className="flex flex-col gap-6">
+      {scanHref && (
+        <Link
+          href={scanHref}
+          data-testid="scan-wine"
+          className="group flex items-center gap-4 rounded-card bg-hero p-4 text-hero-ink shadow-raised transition-transform duration-150 ease-cellr active:scale-[0.98]"
+        >
+          <span className="grid size-14 shrink-0 place-items-center rounded-full bg-hero-gold text-[#2a0f16]">
+            <ScanIcon size={26} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-title">{t("scanTitle")}</span>
+            <span className="block text-small text-hero-ink/75">{t("scanBody")}</span>
+          </span>
+          <ChevronRightIcon
+            size={20}
+            aria-hidden="true"
+            className="shrink-0 text-hero-gold transition-transform duration-150 group-hover:translate-x-0.5"
+          />
+        </Link>
+      )}
       <div className="relative">
         <SearchIcon
           size={20}
@@ -94,8 +125,11 @@ export function ChooseWine({ wines, query, onQuery, onPick, onNew, selectedId }:
         <span className="grid h-[4.5rem] w-14 shrink-0 place-items-center rounded-[14px] bg-accent text-accent-ink glow">
           <PlusIcon size={24} />
         </span>
-        <span className="min-w-0 flex-1 font-display text-title text-ink">
-          {q ? t("newWineFromQuery", { name: q }) : t("newWine")}
+        <span className="min-w-0 flex-1">
+          <span className="block font-display text-title text-ink">
+            {q ? t("newWineFromQuery", { name: q }) : t("newWine")}
+          </span>
+          {scanHref && <span className="block text-small text-ink-2">{t("newWineHint")}</span>}
         </span>
       </button>
     </div>

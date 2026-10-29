@@ -51,6 +51,17 @@ function useAccountMutation<TInput, TOutput>(
   });
 }
 
+/** A new profile photo (a small square JPEG made on this device), then who I am now. */
+export const useSetAvatar = () =>
+  useAccountMutation((photo: Blob) => {
+    const form = new FormData();
+    form.set("photo", photo, "avatar.jpg");
+    return api.upload<Me>("/me/avatar", form, "PUT");
+  });
+
+/** Back to the initials. */
+export const useRemoveAvatar = () => useAccountMutation(() => api.delete<Me>("/me/avatar"));
+
 /** Saving a name for the first time is what "creating an account" means to us: the person finished signing up. */
 export const useUpdateProfile = (options: { firstTime?: boolean } = {}) =>
   useAccountMutation(

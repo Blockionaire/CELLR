@@ -95,6 +95,7 @@ export function AddBottleFlow({
       <div className="mx-auto w-full max-w-xl">
         {step === "choose" && (
           <ChooseWine
+            scanHref="/scan"
             wines={wines.data}
             query={query}
             onQuery={setQuery}

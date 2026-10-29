@@ -19,6 +19,8 @@ export interface ProfileRow {
   displayName: string | null;
   locale: string;
   activeHouseholdId: string | null;
+  /** The profile photo in the private `user-avatars` bucket (`{userId}/…`), or null. */
+  avatarPath?: string | null;
 }
 
 export interface ProfilePatch {
@@ -39,6 +41,8 @@ export interface HouseholdRepository {
   /** Members of the given households (RLS: only households the caller belongs to). */
   listMembers(householdIds: string[]): Promise<MemberRow[]>;
   getDisplayNames(userIds: string[]): Promise<Map<string, string | null>>;
+  /** Their profile photos' paths (RLS: yourself and people you share a household with). */
+  getAvatarPaths(userIds: string[]): Promise<Map<string, string | null>>;
   createHousehold(name: string, currency: string): Promise<string>;
   updateHousehold(
     id: string,

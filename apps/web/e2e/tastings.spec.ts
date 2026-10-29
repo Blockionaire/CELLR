@@ -137,7 +137,7 @@ test.describe("open it, then say how it was", () => {
     await expect(sheet(page)).toBeHidden();
   });
 
-  test("Home asks about the bottle you just opened; one tap on a star answers it", async ({
+  test("Home asks about the bottle you just opened; the review is written right there", async ({
     page,
     request,
   }) => {
@@ -150,7 +150,9 @@ test.describe("open it, then say how it was", () => {
     const nudge = page.getByTestId("rate-nudge");
     await expect(nudge.getByRole("heading", { name: "How was the Pavillon Rouge?" })).toBeVisible();
     await page.screenshot({ path: shot(`nudge-${project()}`), fullPage: true });
+    await nudge.getByRole("button", { name: "Review wine" }).click();
     await tapStars(page, "5 stars");
+    await sheet(page).getByRole("button", { name: "Save review" }).click();
     await expect(page.getByText("Thanks, saved.")).toBeVisible();
     // Answered: the question goes away and the opened list shows your stars.
     await expect(page.getByTestId("rate-nudge")).toHaveCount(0);
