@@ -424,6 +424,6 @@ Typing in between never counts, and a photo is answered at most once.
   removes them too.
 
 The admin sees them under **Wine catalogue → Corrections**: per catalogue wine the independent households with open
-corrections (the smaller of distinct households and distinct people), the changed fields, identity mismatches apart from detail corrections, acceptances, and a state
+corrections (independent groups: households linked through a person, however long the chain, count as one), the changed fields, identity mismatches apart from detail corrections, acceptances, and a state
 (collecting, review needed from 2 households, conflict when households disagree on a value, resolved). Each signal
 can be marked reviewed or dismissed with an internal note.

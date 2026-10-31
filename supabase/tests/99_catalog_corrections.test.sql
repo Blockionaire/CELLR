@@ -322,4 +322,52 @@ begin
   perform test.su();
   perform test.rec('a second, independent household makes two', test.q_scan_households(cand) = 2);
 end $$;
+-- ---- correction counts: households linked through people, however long the chain, count as one ----------------
+do $$
+declare cp uuid; cw2 uuid; h1 uuid; h2 uuid; h3 uuid; h4 uuid; code text; ov uuid; j jsonb;
+begin
+  perform test.su();
+  insert into auth.users (id, email) values (test.uid(21), 'a21@example.test'), (test.uid(22), 'b22@example.test'),
+                                            (test.uid(23), 'c23@example.test');
+  select id into cp from public.producers where status = 'canonical' and name = 'Château Témoin';
+  insert into public.wines (producer_id, name, wine_type, country_code, region, status, origin)
+    values (cp, 'Clos Lié', 'red', 'FR', 'Bordeaux', 'canonical', 'verified') returning id into cw2;
+  -- A is in H1 and H2; B is in H2 and H3: H1, H2 and H3 are linked through them. C is alone in H4.
+  perform test.as_user(21); h1 := public.create_household('T1');
+  perform test.as_user(22); h3 := public.create_household('T3');
+  h2 := public.create_household('T2'); code := public.create_invite(h2);
+  perform test.as_user(21); perform public.join_household(code);
+  perform test.as_user(23); h4 := public.create_household('T4');
+
+  -- A corrects the region from H1, B from H3: no household in common between those two signals
+  perform test.as_user(21);
+  ov := test.q_own(h1, 'Clos Lié', 'Graves', 2018);
+  perform test.q_save(h1, 21, cw2, 2018, test.q_wine_of(ov), ov, 2018);
+  perform test.as_user(22);
+  ov := test.q_own(h3, 'Clos Lié', 'Graves', 2018);
+  perform test.q_save(h3, 22, cw2, 2018, test.q_wine_of(ov), ov, 2018);
+  perform test.as_service();
+  select e into j from jsonb_array_elements(public.admin_catalog_corrections()) e where (e->>'wineId')::uuid = cw2;
+  perform test.rec('two people linked through a shared household count as one independent group',
+    (j->>'openHouseholds')::int = 1 and (j->>'corrected')::int = 1 and (j->'fields'->>'region')::int = 1
+    and (j->>'openSignals')::int = 2);
+
+  -- C, unlinked, makes a second independent group
+  perform test.as_user(23);
+  ov := test.q_own(h4, 'Clos Lié', 'Graves', 2018);
+  perform test.q_save(h4, 23, cw2, 2018, test.q_wine_of(ov), ov, 2018);
+  perform test.as_service();
+  select e into j from jsonb_array_elements(public.admin_catalog_corrections()) e where (e->>'wineId')::uuid = cw2;
+  perform test.rec('...an unlinked household makes a second group, for open counts and field counts alike',
+    (j->>'openHouseholds')::int = 2 and (j->'fields'->>'region')::int = 2);
+
+  -- the chain is transitive: A (H1, H2) and B (H2, H3) also tie H1 and H3 when B's own signal comes from H2
+  perform test.as_user(22);
+  ov := test.q_own(h2, 'Clos Lié', 'Pessac-Léognan', 2018);
+  perform test.q_save(h2, 22, cw2, 2018, test.q_wine_of(ov), ov, 2018);
+  perform test.as_service();
+  select e into j from jsonb_array_elements(public.admin_catalog_corrections()) e where (e->>'wineId')::uuid = cw2;
+  perform test.rec('...a further correction from the linked chain still adds no group',
+    (j->>'openHouseholds')::int = 2 and (j->'fields'->>'region')::int = 2 and (j->>'openSignals')::int = 4);
+end $$;
 rollback;

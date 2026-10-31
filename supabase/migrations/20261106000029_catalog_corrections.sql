@@ -20,9 +20,8 @@
 --   no notes, no prices, no places. Only the service role reads it; the admin sees counts and values, never who.
 -- * Nothing here changes a catalogue wine. Saying "no" to catalogue learning removes the person's signals; deleting
 --   the account or the household removes them too.
--- * Independence: correction counts take the smaller of distinct households and distinct people (two people of one
---   household, or one person in two households, count once); for candidates, households linked by a confirming
---   person count as one.
+-- * Independence: for corrections and candidates alike, households linked by a person count as one group, however
+--   long the chain; two people of one household count as one household.
 
 -- ---- 1. Households linked by a person count as one (no inflated "independent households") ----------------------
 -- For each candidate, households that share a confirming person are one group, however long the chain (A and B share
@@ -282,34 +281,62 @@ revoke all on function public.catalog_record_scan_outcome(uuid, int, uuid) from 
 grant execute on function public.catalog_record_scan_outcome(uuid, int, uuid) to authenticated;
 
 -- ---- 5. The admin's view (service role only; counts and values, never who) -------------------------------------
+-- Independent groups of a catalogue wine's signals: households linked by a person count as one group, however long
+-- the chain (A in H1 and H2, B in H2 and H3: one group). The links are where people sent signals from, and every
+-- household they belong to now (a repeated correction keeps only its first household, so membership closes that
+-- gap). Same principle as private.catalog_active_evidence() for candidates. Each signal gets its group's smallest
+-- household id; counting distinct groups counts independent households.
+create function private.catalog_signal_groups()
+  returns table (signal_id uuid, grp uuid)
+  language sql stable security definer set search_path = '' as $$
+  with recursive authors as (
+    select distinct s.wine_id, s.user_id from public.catalog_scan_signals s where s.kind = 'catalog'
+  ),
+  edges as (
+    select distinct s.wine_id, s.user_id, s.household_id from public.catalog_scan_signals s where s.kind = 'catalog'
+    union
+    select a.wine_id, a.user_id, m.household_id
+      from authors a join public.household_members m on m.user_id = a.user_id
+  ),
+  lab (wine_id, household_id, label) as (
+    select distinct e.wine_id, e.household_id, e.household_id::text from edges e
+    union
+    select e2.wine_id, e2.household_id, l.label
+      from lab l
+      join edges e1 on e1.wine_id = l.wine_id and e1.household_id = l.household_id
+      join edges e2 on e2.wine_id = e1.wine_id and e2.user_id = e1.user_id
+  ),
+  g as (select l.wine_id, l.household_id, min(l.label)::uuid as rep from lab l group by 1, 2)
+  select s.id, g.rep
+    from public.catalog_scan_signals s join g on g.wine_id = s.wine_id and g.household_id = s.household_id
+   where s.kind = 'catalog'
+$$;
+revoke all on function private.catalog_signal_groups() from public, anon, authenticated;
+
 -- Catalogue wines with correction signals (wines only ever accepted as they are are not listed). Independent
--- households: the smaller of distinct households and distinct people, so neither two people of one household nor one
--- person in two households (nor one person's repeated scans) count twice. "conflict": open corrections disagree on
--- what a field should be.
+-- households are independent groups (above), so neither two people of one household, nor one person in several
+-- households, nor people linked through shared households, nor one person's repeated scans count twice.
+-- "conflict": open corrections disagree on what a field should be.
 create function public.admin_catalog_corrections()
   returns jsonb language sql stable security definer set search_path = '' as $$
-  with s as (select * from public.catalog_scan_signals where kind = 'catalog'),
+  with s as (
+    select x.*, g.grp from public.catalog_scan_signals x join private.catalog_signal_groups() g on g.signal_id = x.id
+     where x.kind = 'catalog'
+  ),
   corr as (select * from s where s.signal <> 'accepted'),
   per as (
     select c.wine_id,
-           least(count(distinct c.household_id) filter (where c.status = 'open'),
-                 count(distinct c.user_id) filter (where c.status = 'open')) as open_households,
-           least(count(distinct c.household_id) filter (where c.status = 'open' and c.signal = 'corrected'),
-                 count(distinct c.user_id) filter (where c.status = 'open' and c.signal = 'corrected')) as corrected,
-           least(count(distinct c.household_id) filter (where c.status = 'open' and c.signal = 'different_wine'),
-                 count(distinct c.user_id) filter (where c.status = 'open' and c.signal = 'different_wine')) as identity,
+           count(distinct c.grp) filter (where c.status = 'open') as open_households,
+           count(distinct c.grp) filter (where c.status = 'open' and c.signal = 'corrected') as corrected,
+           count(distinct c.grp) filter (where c.status = 'open' and c.signal = 'different_wine') as identity,
            count(*) filter (where c.status = 'open') as open_signals,
            count(*) filter (where c.status in ('reviewed', 'dismissed')) as resolved,
            max(c.last_seen_at) as last_at
       from corr c group by c.wine_id
   ),
-  acc as (
-    select a.wine_id, least(count(distinct a.household_id), count(distinct a.user_id)) as accepted
-      from s a where a.signal = 'accepted' group by a.wine_id
-  ),
+  acc as (select a.wine_id, count(distinct a.grp) as accepted from s a where a.signal = 'accepted' group by a.wine_id),
   fields as (
-    select c.wine_id, f, least(count(distinct c.household_id), count(distinct c.user_id)) as n,
-           count(distinct c.confirmed->>f) as variants
+    select c.wine_id, f, count(distinct c.grp) as n, count(distinct c.confirmed->>f) as variants
       from corr c, unnest(c.changed_fields) f
      where c.status = 'open'
      group by c.wine_id, f
