@@ -489,7 +489,10 @@
       "ratingTenths": "Een beoordeling gaat in tienden van een ster.",
       "swapSelf": "Een fles kan niet met zichzelf van plek wisselen.",
       "swapGone": "Een van deze flessen is niet meer in de kelder of heeft geen plek. Er is niets veranderd.",
-      "swapStale": "Een van deze flessen is net door iemand anders verplaatst. Er is niets veranderd."
+      "swapStale": "Een van deze flessen is net door iemand anders verplaatst. Er is niets veranderd.",
+      "consentRequired": "Vink het vakje aan zodat CELLR je foto mag gebruiken.",
+      "photosUnavailable": "Foto's versturen kan nu even niet.",
+      "bottlePhotoSmall": "Die foto is te klein om mee te werken. Probeer een scherpere van de hele fles."
     }
   },
   "offline": {

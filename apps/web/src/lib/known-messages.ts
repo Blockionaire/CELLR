@@ -68,6 +68,10 @@ export const KNOWN_MESSAGES = {
   "No price with a trustworthy source was found.": "noPrice",
   "The import came out uneven, so it was taken back.": "importUneven",
   "Not allowed.": "notAllowed",
+  "Tick the box to let CELLR use your photo.": "consentRequired",
+  "Sending photos isn't available right now.": "photosUnavailable",
+  "That photo is too small to work from. Try a sharper one of the whole bottle.":
+    "bottlePhotoSmall",
 } as const;
 
 /** Sentences with a part that changes, or a family of sentences that all mean the same to the person. */

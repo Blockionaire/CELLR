@@ -489,7 +489,10 @@
       "ratingTenths": "Ratings go in tenths of a star.",
       "swapSelf": "A bottle can't trade places with itself.",
       "swapGone": "One of these bottles is no longer in the cellar or has no place. Nothing was changed.",
-      "swapStale": "One of these bottles was just moved by someone else. Nothing was changed."
+      "swapStale": "One of these bottles was just moved by someone else. Nothing was changed.",
+      "consentRequired": "Tick the box to let CELLR use your photo.",
+      "photosUnavailable": "Sending photos isn't available right now.",
+      "bottlePhotoSmall": "That photo is too small to work from. Try a sharper one of the whole bottle."
     }
   },
   "offline": {
