@@ -15,29 +15,36 @@
 --   no notes, no prices, no places. Only the service role reads it; the admin sees counts and values, never who.
 -- * Nothing here changes a catalogue wine. Saying "no" to catalogue learning removes the person's signals; deleting
 --   the account or the household removes them too.
--- * Independence: a person counts once per catalogue wine and candidate, whatever number of households they are in;
---   two people of one household count as one household.
+-- * Independence: a person counts once per catalogue wine (one signal row); for candidates, households linked by a
+--   confirming person count as one; two people of one household count as one household.
 
--- ---- 1. One person, one household per candidate (no inflated "independent households") ---------------------------
+-- ---- 1. Households linked by a person count as one (no inflated "independent households") ----------------------
+-- For each candidate, households that share a confirming person are one group, however long the chain (A and B share
+-- a person, B and C share another: one group). Every row is reported under its group's representative household, so
+-- counting distinct households counts independent groups. Deterministic: the representative is the smallest id.
 create or replace function private.catalog_active_evidence()
   returns table (candidate_id uuid, household_id uuid, year smallint, source text,
                  producer_text text, name_text text, region text, appellation text, last_seen_at timestamptz)
   language sql stable security definer set search_path = '' as $$
-  with active as (
+  with recursive active as (
     select e.* from public.catalog_evidence e
      where exists (select 1 from public.bottles b join public.wine_vintages v on v.id = b.vintage_id
                     where v.wine_id = e.wine_id and v.year is not distinct from e.year
                       and b.household_id = e.household_id and b.status <> 'removed')
   ),
-  -- a person in several households counts for the first one they confirmed it in
-  pick as (
-    select distinct on (a.candidate_id, a.user_id) a.candidate_id, a.user_id, a.household_id
-      from active a order by a.candidate_id, a.user_id, a.created_at, a.household_id
-  )
-  select a.candidate_id, a.household_id, a.year, a.source, a.producer_text, a.name_text, a.region, a.appellation,
+  edges as (select distinct a.candidate_id, a.user_id, a.household_id from active a),
+  lab (candidate_id, household_id, label) as (
+    select distinct e.candidate_id, e.household_id, e.household_id::text from edges e
+    union
+    select e2.candidate_id, e2.household_id, l.label
+      from lab l
+      join edges e1 on e1.candidate_id = l.candidate_id and e1.household_id = l.household_id
+      join edges e2 on e2.candidate_id = e1.candidate_id and e2.user_id = e1.user_id
+  ),
+  grp as (select l.candidate_id, l.household_id, min(l.label)::uuid as rep from lab l group by 1, 2)
+  select a.candidate_id, g.rep, a.year, a.source, a.producer_text, a.name_text, a.region, a.appellation,
          a.last_seen_at
-    from active a join pick p
-      on p.candidate_id = a.candidate_id and p.user_id = a.user_id and p.household_id = a.household_id
+    from active a join grp g on g.candidate_id = a.candidate_id and g.household_id = a.household_id
 $$;
 
 -- ---- 2. The proposal, next to the scan reading -------------------------------------------------------------------

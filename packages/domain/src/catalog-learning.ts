@@ -11,8 +11,8 @@ import { nameSimilarity } from "./scan";
 /** Change here, nowhere else. */
 export const CATALOG_REVIEW = {
   /**
-   * Independent households that scanned and confirmed the wine before it asks for review (a person counts once, in
-   * one household, however many households they are in).
+   * Independent households that scanned and confirmed the wine before it asks for review (households linked by a
+   * confirming person count as one, so nobody can make their own confirmations look independent).
    */
   ready: 2,
   /** ...and before it becomes a high priority (and could one day be considered for automation). */

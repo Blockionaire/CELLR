@@ -227,7 +227,7 @@ independent proof either. That is why **a verified public source is always requi
 | -------------------------------------------------------- | ------------------------------------------------------ |
 | Many bottles, scans, retries or members of one household | **one** household (counted per household, not per row) |
 | Another vintage                                          | the same candidate, its own year row                   |
-| A person in two households                               | **one** household (the first they confirmed it in)     |
+| A person in two households                               | **one**: households linked by a person count once      |
 
 Evidence is kept **per person** (`unique (candidate, household, year, person)`), so each person's choice holds:
 if one member says no, only their rows go, and the household still counts through a member who still helps.

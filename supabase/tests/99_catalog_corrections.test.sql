@@ -274,7 +274,7 @@ begin
     test.q_scan_households(cand) = 1);
   perform test.q_evidence(h6, 7, cand);
   perform test.su();
-  perform test.rec('...and a second person of one of those households adds nothing',
+  perform test.rec('...and a second person of one of those linked households adds nothing',
     test.q_scan_households(cand) = 1);
   perform test.q_evidence(h3, 4, cand);
   perform test.su();
