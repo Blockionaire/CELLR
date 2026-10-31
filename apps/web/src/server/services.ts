@@ -24,6 +24,13 @@ import { createFriendsService } from "@/server/friends/service";
 import { getTranslations } from "next-intl/server";
 import { sendFriendNotice } from "@/server/privileged/friend-notices";
 import { createAvatarRepository, createAvatarService } from "@/server/households/avatar";
+import { createBottleLibraryRepository } from "@/server/bottle-library/repository";
+import { createBottleLibraryService } from "@/server/bottle-library/service";
+import {
+  purgeBottlePhotos,
+  removeBottlePhotos,
+  storeBottlePhoto,
+} from "@/server/privileged/bottle-library";
 import { createHouseholdService } from "@/server/households/service";
 import { createRateLimitRepository } from "@/server/ratelimit/repository";
 import { createRateLimiter, LIMITS } from "@/server/ratelimit/service";
@@ -63,8 +70,15 @@ export function servicesFor(ctx: RequestContext) {
     userId: ctx.userId,
     household,
   });
+  const library = createBottleLibraryService({
+    repo: createBottleLibraryRepository(ctx.db),
+    // always under this request's verified user, never a client-supplied id
+    store: (bytes) => storeBottlePhoto(ctx.userId, bytes),
+    remove: (paths) => removeBottlePhotos(ctx.userId, paths),
+  });
   const cellar = createCellarService(cellars, {
     userId: ctx.userId,
+    bottleArt: (wineIds) => library.art(wineIds),
     // `insights` is built further down; it is only asked when a suggestion is made, never here.
     reservations: () => insights.reservations(),
     drinkWindows: () => insights.windows(),
@@ -102,6 +116,7 @@ export function servicesFor(ctx: RequestContext) {
   const avatars = createAvatarService(createAvatarRepository(ctx.db), ctx.userId);
   return {
     avatars,
+    library,
     contribution: createContributionService(ctx.db, ctx.userId),
     households,
     cellar,
@@ -125,6 +140,7 @@ export function servicesFor(ctx: RequestContext) {
       household: (id) => households.getHousehold(id),
       purgePhotos: (id) => images.purge(id),
       purgeAvatar: () => avatars.purge(),
+      purgeBottlePhotos: () => purgeBottlePhotos(ctx.userId),
       deleteHousehold: (id) => households.deleteHousehold(id),
       leaveHousehold: (id) => households.removeMember(id, ctx.userId),
       canDelete: canDeleteAccounts,

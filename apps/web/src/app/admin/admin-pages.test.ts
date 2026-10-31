@@ -20,8 +20,18 @@ const reads = {
   adminFeedback: vi.fn(),
   adminCatalog: vi.fn(),
   adminCandidate: vi.fn(),
+  adminBottlePhotos: vi.fn(),
+  adminBottlePhoto: vi.fn(),
+  adminWineVisuals: vi.fn(),
+  adminWineVisual: vi.fn(),
+  adminUploadBottleArt: vi.fn(),
 };
-vi.mock("@/server/admin/service", () => ({ getAdminSession: async () => null, ...reads }));
+const library = { photoFile: vi.fn(), artFile: vi.fn() };
+vi.mock("@/server/admin/service", () => ({
+  getAdminSession: async () => null,
+  ...reads,
+  bottleLibrary: library,
+}));
 
 const params = { params: Promise.resolve({ id: "0b6f2c1e-6a1d-4f7e-9a3b-2c4d5e6f7a8b" }) };
 const search = { searchParams: Promise.resolve({ page: "2", days: "7" }) };
@@ -37,6 +47,10 @@ describe("admin pages without an admin session", () => {
     ["feedback", () => import("./feedback/page"), search],
     ["catalog", () => import("./catalog/page"), search],
     ["candidate", () => import("./catalog/[id]/page"), { ...params, ...search }],
+    ["bottle photos", () => import("./bottle-photos/page"), search],
+    ["bottle photo", () => import("./bottle-photos/[id]/page"), { ...params, ...search }],
+    ["wine visuals", () => import("./wines/page"), search],
+    ["wine visual", () => import("./wines/[id]/page"), { ...params, ...search }],
   ] as const)("%s: not found, nothing read", async (_name, load, props) => {
     const Page = (await load()).default as (p: unknown) => Promise<unknown>;
     await expect(Page(props)).rejects.toThrow("NEXT_NOT_FOUND");
@@ -54,7 +68,7 @@ const files = (dir: string): string[] =>
 describe("the admin boundary", () => {
   it("every admin page checks the session itself", () => {
     const pages = files(path.join(SRC, "app/admin")).filter((f) => /(page|layout)\.tsx$/.test(f));
-    expect(pages.length).toBe(9);
+    expect(pages.length).toBe(13);
     for (const p of pages)
       expect(readFileSync(p, "utf8")).toMatch(
         /if \(!(session|\(await getAdminSession\(\)\))\) notFound\(\)/,
@@ -72,22 +86,40 @@ describe("the admin boundary", () => {
     }
     // The admin pages are server-rendered only. The one exception is the catalogue review's Server Actions (they
     // are reachable over HTTP, so each checks the admin session again before doing anything; see below).
-    const ACTIONS = path.join(SRC, "app/admin/catalog/actions.ts");
+    const ACTIONS = ["catalog", "bottle-photos", "wines"].map((d) =>
+      path.join(SRC, `app/admin/${d}/actions.ts`),
+    );
     for (const f of files(path.join(SRC, "app/admin")))
-      if (f !== ACTIONS && !f.endsWith(".test.ts"))
+      if (!ACTIONS.includes(f) && !f.endsWith(".test.ts"))
         expect(readFileSync(f, "utf8"), f).not.toMatch(/["']use (server|client)["']/);
   });
 
-  it("every catalogue review action checks the admin session again before anything else", () => {
-    const text = readFileSync(path.join(SRC, "app/admin/catalog/actions.ts"), "utf8");
-    expect(text).toMatch(/^"use server";/);
-    // admin(): the verified admin session, or "not found"
-    expect(text).toMatch(
-      /async function admin\(\) \{\s+const session = await getAdminSession\(\);\s+if \(!session\) notFound\(\);/,
-    );
-    const actions = [...text.matchAll(/export async function (\w+)\([^)]*\) \{\n(.*)\n/g)];
-    expect(actions.length).toBe(6);
-    for (const [, name, first] of actions)
-      expect(first!.trim(), name).toBe("const session = await admin();");
+  it.each([
+    ["catalog", 6],
+    ["bottle-photos", 1],
+    ["wines", 3],
+  ] as const)(
+    "every %s action checks the admin session again before anything else",
+    (dir, count) => {
+      const text = readFileSync(path.join(SRC, `app/admin/${dir}/actions.ts`), "utf8");
+      expect(text).toMatch(/^"use server";/);
+      // admin(): the verified admin session, or "not found"
+      expect(text).toMatch(
+        /async function admin\(\) \{\s+const session = await getAdminSession\(\);\s+if \(!session\) notFound\(\);/,
+      );
+      const actions = [...text.matchAll(/export async function (\w+)\([^)]*\) \{\n(.*)\n/g)];
+      expect(actions.length).toBe(count);
+      for (const [, name, first] of actions)
+        expect(first!.trim(), name).toBe("const session = await admin();");
+    },
+  );
+
+  it("every admin route (photos and pictures) checks the admin session and is not found without it", () => {
+    const routes = files(path.join(SRC, "app/admin")).filter((f) => f.endsWith("route.ts"));
+    expect(routes.length).toBe(3);
+    for (const r of routes)
+      expect(readFileSync(r, "utf8"), r).toMatch(
+        /const session = await getAdminSession\(\);[\s\S]*?if \(!session \|\| [^)]*\) return new Response\(null, \{ status: 404 \}\);/,
+      );
   });
 });

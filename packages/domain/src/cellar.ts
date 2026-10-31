@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { DrinkPhase } from "./drink-window";
 import type { ImageRef } from "./image";
+import type { BottleArtRef } from "./bottle-library";
 import type { Reservation } from "./insights";
 import type { RatingSummary, TastingView } from "./tasting";
 
@@ -270,6 +271,8 @@ export interface CellarItem {
   unplaced: number;
   /** The label photo, when there is one. */
   image: ImageRef | null;
+  /** The wine's published 2D bottle picture (the library's), shown before anything else when there is one. */
+  art?: BottleArtRef | null;
   /** Whether the signed-in person has starred this wine (personal, not shared with the household). */
   favorite: boolean;
   /** What the household thought of it, or null while nobody has rated it. */
@@ -507,6 +510,8 @@ export interface VintageDetail {
   year: number | null;
   /** The label photo, when there is one. */
   image: ImageRef | null;
+  /** The wine's published 2D bottle picture, when there is one. */
+  art?: BottleArtRef | null;
   /** The back label's photo, when there is one. */
   backImage: ImageRef | null;
   /** In the cellar now, in a stable order: placed ones by place, shelf and position, then unplaced. */
@@ -638,6 +643,8 @@ export interface PlacedBottle {
   col: number | null;
   /** The label photo, when there is one. */
   image: ImageRef | null;
+  /** The wine's published 2D bottle picture, when there is one. */
+  art?: BottleArtRef | null;
 }
 
 export interface RackUnit extends StorageUnitView {

@@ -1,4 +1,10 @@
-import { formatVintage, type ImageRef, type WineType } from "@cellr/domain";
+import {
+  bottleArtUrl,
+  formatVintage,
+  type BottleArtRef,
+  type ImageRef,
+  type WineType,
+} from "@cellr/domain";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { cn } from "@/ui/cn";
 import { imageUrl, LabelImage } from "./label-image";
@@ -10,11 +16,14 @@ export interface PortraitWine {
   wineName: string;
   year: number | null;
   image: ImageRef | null;
+  /** The library's published 2D bottle picture of this wine, when there is one: it stands in for the drawn bottle. */
+  art?: BottleArtRef | null | undefined;
 }
 
 /**
- * The bottle as the hero of a screen: standing in a soft pool of its own colour, no box around it. It wears the
- * household's straightened label when there is one; a label photo that was never straightened leans against it as
+ * The bottle as the hero of a screen: standing in a soft pool of its own colour, no box around it. When the library
+ * has a finished 2D picture of the wine, that is the bottle. Otherwise it wears the household's straightened label
+ * when there is one; a label photo that was never straightened leans against it as
  * a print. Without a photo the label is typeset from the producer, never an imitation of a real label.
  * Decorative unless `printAlt` is given (the name is always written beside it).
  */
@@ -28,13 +37,14 @@ export function BottlePortrait({
   className?: string;
   printAlt?: string;
 }) {
-  const textured = wine.image?.texture === true;
-  const print = wine.image && !textured ? wine.image : null;
+  const art = wine.art ?? null;
+  const textured = !art && wine.image?.texture === true;
+  const print = !art && wine.image && !textured ? wine.image : null;
   return (
     <div
-      aria-hidden={print && printAlt ? undefined : true}
+      aria-hidden={(print || art) && printAlt ? undefined : true}
       data-testid="bottle-portrait"
-      data-label={textured ? "photo" : print ? "print" : "typeset"}
+      data-label={art ? "art" : textured ? "photo" : print ? "print" : "typeset"}
       className={cn("relative isolate flex items-end justify-center", className)}
     >
       <span
@@ -44,14 +54,27 @@ export function BottlePortrait({
           background: `radial-gradient(closest-side, var(--stage-${wine.type}), transparent)`,
         }}
       />
-      <BottleGlyph
-        shape={shapeFor(wine.type)}
-        tint={wine.type}
-        mark={labelMark(wine.producer, wine.wineName)}
-        year={formatVintage(wine.year)}
-        labelUrl={textured ? imageUrl(wine.image!.id, "texture") : undefined}
-        className={cn("relative h-full w-auto", print && "-translate-x-[30%]")}
-      />
+      {art ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a private, same-origin picture: the optimiser cannot fetch it
+        <img
+          src={bottleArtUrl(art.id)}
+          alt={printAlt ?? ""}
+          width={art.width}
+          height={art.height}
+          decoding="async"
+          draggable={false}
+          className="relative h-full w-auto max-w-[140%] object-contain drop-shadow-[0_10px_16px_rgb(0_0_0/0.22)]"
+        />
+      ) : (
+        <BottleGlyph
+          shape={shapeFor(wine.type)}
+          tint={wine.type}
+          mark={labelMark(wine.producer, wine.wineName)}
+          year={formatVintage(wine.year)}
+          labelUrl={textured ? imageUrl(wine.image!.id, "texture") : undefined}
+          className={cn("relative h-full w-auto", print && "-translate-x-[30%]")}
+        />
+      )}
       {print && (
         <span className="absolute bottom-[4%] right-[-4%] w-[46%] rotate-[4deg] rounded-[5px] bg-[#f4eee2] p-[3px] shadow-raised ring-1 ring-black/5">
           <LabelImage

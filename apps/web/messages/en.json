@@ -406,7 +406,9 @@
       "switchedOff": "Stopped. What you contributed was removed.",
       "failed": "That didn't work. Try again.",
       "scanNote": "When you add the wine, its name, colour and origin may help CELLR's shared wine list (never the photo or your cellar). You can turn this off in Profile."
-    }
+    },
+    "pointsLabel": "CELLR points",
+    "pointsHint": "Earned by sharing bottle photos of your wines."
   },
   "errors": {
     "network": "We couldn't reach CELLR. Check your connection and try again.",
@@ -1712,5 +1714,27 @@
     "saved": "Profile photo saved.",
     "removed": "Profile photo removed.",
     "unreadable": "That isn't a photo we can open. Try another one."
+  },
+  "bottlePhoto": {
+    "title": "Help CELLR picture this wine",
+    "teaser": "A photo of the whole bottle helps us make a beautiful bottle picture for this wine. It earns you points.",
+    "open": "Share a bottle photo",
+    "sheetTitle": "A photo of the bottle",
+    "body": "Send a photo of the whole bottle of {wine}. CELLR uses it to make a clean 2D bottle picture that everyone with this wine sees instead of the drawn bottle.",
+    "tipWhole": "The whole bottle, upright, front label towards you",
+    "tipLight": "Good light, no flash glare",
+    "tipBackground": "A plain background if you can",
+    "choose": "Take or choose a photo",
+    "another": "Take or choose another",
+    "previewAlt": "Your bottle photo",
+    "consent": "Yes, CELLR may use this photo to make a 2D bottle picture of this wine and show that picture in the app, to everyone who has this wine.",
+    "privacy": "Your photo itself is never shown to anyone in the app: only the CELLR team sees it. It is deleted with your account.",
+    "send": "Send photo",
+    "unreadable": "That isn't a photo we can open. Try another one.",
+    "thanks": "Thank you!",
+    "earned": "You earned {points} points. We'll let your photo help picture this wine.",
+    "alreadyEarned": "Thanks for another photo. You already earned points for this wine, so this one doesn't add more.",
+    "total": "You have {points} points.",
+    "close": "Done"
   }
 }

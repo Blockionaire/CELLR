@@ -42,6 +42,7 @@ function setup(
       } as unknown as HouseholdDetail;
     },
     purgePhotos: async (id) => void log.push(`purge ${id}`),
+    purgeBottlePhotos: async () => void log.push("purge bottle photos"),
     deleteHousehold: async (id) => void log.push(`delete ${id}`),
     leaveHousehold: async (id) => void log.push(`leave ${id}`),
     canDelete: () => options.canDelete ?? true,
@@ -54,7 +55,7 @@ function setup(
 }
 
 describe("deleting your account", () => {
-  it("takes a household only you were in with you, photos first, then leaves the others, then the sign-in", async () => {
+  it("takes a household only you were in with you, photos first, then leaves the others, removes the bottle photos you sent, then the sign-in", async () => {
     const { service, log } = setup([
       { id: "alone", name: "Mine", role: "owner", members: [["owner", "me"]] },
       {
@@ -82,6 +83,7 @@ describe("deleting your account", () => {
       "delete alone",
       "leave shared",
       "leave co-owned",
+      "purge bottle photos",
       "user me",
     ]);
   });

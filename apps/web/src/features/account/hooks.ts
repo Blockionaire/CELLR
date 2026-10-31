@@ -17,6 +17,10 @@ import { api, ApiError } from "@/lib/api";
 export const meKey = ["me"] as const;
 export const householdKey = (id: string) => ["household", id] as const;
 
+/** My CELLR points (earned by sharing bottle photos). */
+export const usePoints = () =>
+  useQuery({ queryKey: ["points"], queryFn: () => api.get<{ total: number }>("/me/points") });
+
 export function useMe(initialData?: Me) {
   return useQuery({
     queryKey: meKey,

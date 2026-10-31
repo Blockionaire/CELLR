@@ -1,5 +1,11 @@
 import { ViewTransition } from "react";
-import { formatVintage, type ImageRef, type WineType } from "@cellr/domain";
+import {
+  bottleArtUrl,
+  formatVintage,
+  type BottleArtRef,
+  type ImageRef,
+  type WineType,
+} from "@cellr/domain";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { cn } from "@/ui/cn";
 import { LabelImage } from "./label-image";
@@ -12,14 +18,17 @@ export interface PictureWine {
   wineName: string;
   year: number | null;
   image: ImageRef | null;
+  /** The library's published 2D bottle picture of this wine, when there is one. */
+  art?: BottleArtRef | null | undefined;
 }
 
 /** The name a wine's picture carries from a card into its page, so the two read as one object moving. */
 export const pictureTransition = (vintageId: string) => `wine-${vintageId}`;
 
 /**
- * The picture of a wine: the person's own label photo whenever there is one, otherwise the drawn bottle on its
- * tinted stage with the year faint behind it. Decorative (the name is always written beside it).
+ * The picture of a wine: the library's finished 2D bottle picture when the wine has one, else the person's own label
+ * photo, otherwise the drawn bottle on its tinted stage with the year faint behind it. Decorative (the name is always
+ * written beside it).
  *
  * `shared` gives it the cross-page name, for the one place on a screen the wine is the way into its page.
  */
@@ -43,17 +52,37 @@ export function WinePicture({
   bottleClassName?: string;
 }) {
   const vintage = formatVintage(wine.year);
+  const art = wine.art ?? null;
   const picture = (
     <div
-      aria-hidden={alt && wine.image ? undefined : true}
-      data-photo={wine.image ? "true" : undefined}
+      aria-hidden={alt && (art || wine.image) ? undefined : true}
+      data-photo={!art && wine.image ? "true" : undefined}
+      data-art={art ? "true" : undefined}
       className={cn(
         "relative isolate flex items-end justify-center overflow-hidden",
         STAGE[wine.type],
         className,
       )}
     >
-      {wine.image ? (
+      {art ? (
+        <>
+          <span className="absolute -bottom-[18%] left-1/2 aspect-square w-[78%] -translate-x-1/2 rounded-full bg-surface/45" />
+          {/* eslint-disable-next-line @next/next/no-img-element -- a private, same-origin picture: the optimiser cannot fetch it */}
+          <img
+            src={bottleArtUrl(art.id)}
+            alt={alt ?? ""}
+            width={art.width}
+            height={art.height}
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            className={cn(
+              "relative mb-[6%] h-[78%] w-auto max-w-[86%] object-contain drop-shadow-[0_6px_10px_rgb(0_0_0/0.18)]",
+              bottleClassName,
+            )}
+          />
+        </>
+      ) : wine.image ? (
         <>
           <LabelImage
             image={wine.image}

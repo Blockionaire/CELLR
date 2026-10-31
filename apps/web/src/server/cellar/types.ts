@@ -1,5 +1,6 @@
 import "server-only";
 import type {
+  BottleArtRef,
   BottleStatus,
   Spot,
   BottleView,
@@ -56,6 +57,8 @@ export interface InventoryRow {
   image: ImageRef | null;
   /** The AI's drinking window for this vintage (set by the service when it knows one). */
   aiWindow?: { from: number; until: number } | null;
+  /** The wine's published 2D bottle picture, when the library has one. */
+  art?: BottleArtRef | null;
 }
 
 /** What a person wrote about a bottle. */

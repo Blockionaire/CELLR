@@ -27,6 +27,34 @@ export type Database = {
         };
         Relationships: [];
       };
+      account_points: {
+        Row: {
+          created_at: string;
+          id: number;
+          points: number;
+          reason: string;
+          ref_id: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          id?: never;
+          points: number;
+          reason: string;
+          ref_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: never;
+          points?: number;
+          reason?: string;
+          ref_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       ai_budget_holds: {
         Row: {
           at: string;
@@ -287,6 +315,118 @@ export type Database = {
             columns: ["household_id"];
             isOneToOne: false;
             referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      bottle_photo_submissions: {
+        Row: {
+          admin_note: string | null;
+          art_id: string | null;
+          canonical_wine_id: string | null;
+          consent_granted_at: string;
+          created_at: string;
+          height: number;
+          household_id: string | null;
+          id: string;
+          photo_path: string;
+          producer_text: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          reward_granted_at: string | null;
+          reward_points: number | null;
+          source_vintage_id: string | null;
+          source_wine_id: string | null;
+          status: string;
+          user_id: string;
+          width: number;
+          wine_text: string;
+          wine_type: Database["public"]["Enums"]["wine_type"];
+          year: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          admin_note?: string | null;
+          art_id?: string | null;
+          canonical_wine_id?: string | null;
+          consent_granted_at: string;
+          created_at?: string;
+          height: number;
+          household_id?: string | null;
+          id?: string;
+          photo_path: string;
+          producer_text: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          reward_granted_at?: string | null;
+          reward_points?: number | null;
+          source_vintage_id?: string | null;
+          source_wine_id?: string | null;
+          status?: string;
+          user_id: string;
+          width: number;
+          wine_text: string;
+          wine_type: Database["public"]["Enums"]["wine_type"];
+          year?: number | null;
+        };
+        Update: {
+          admin_note?: string | null;
+          art_id?: string | null;
+          canonical_wine_id?: string | null;
+          consent_granted_at?: string;
+          created_at?: string;
+          height?: number;
+          household_id?: string | null;
+          id?: string;
+          photo_path?: string;
+          producer_text?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          reward_granted_at?: string | null;
+          reward_points?: number | null;
+          source_vintage_id?: string | null;
+          source_wine_id?: string | null;
+          status?: string;
+          user_id?: string;
+          width?: number;
+          wine_text?: string;
+          wine_type?: Database["public"]["Enums"]["wine_type"];
+          year?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "bottle_photo_submissions_art_id_fkey";
+            columns: ["art_id"];
+            isOneToOne: false;
+            referencedRelation: "wine_bottle_art";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bottle_photo_submissions_canonical_wine_id_fkey";
+            columns: ["canonical_wine_id"];
+            isOneToOne: false;
+            referencedRelation: "wines";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bottle_photo_submissions_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bottle_photo_submissions_source_vintage_id_fkey";
+            columns: ["source_vintage_id"];
+            isOneToOne: false;
+            referencedRelation: "wine_vintages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bottle_photo_submissions_source_wine_id_fkey";
+            columns: ["source_wine_id"];
+            isOneToOne: false;
+            referencedRelation: "wines";
             referencedColumns: ["id"];
           },
         ];
@@ -1508,6 +1648,67 @@ export type Database = {
           },
         ];
       };
+      wine_bottle_art: {
+        Row: {
+          content_type: string;
+          created_at: string;
+          created_by: string | null;
+          height: number;
+          id: string;
+          note: string | null;
+          path: string;
+          published_at: string | null;
+          published_by: string | null;
+          vintage_id: string | null;
+          width: number;
+          wine_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          content_type: string;
+          created_at?: string;
+          created_by?: string | null;
+          height: number;
+          id?: string;
+          note?: string | null;
+          path: string;
+          published_at?: string | null;
+          published_by?: string | null;
+          vintage_id?: string | null;
+          width: number;
+          wine_id: string;
+        };
+        Update: {
+          content_type?: string;
+          created_at?: string;
+          created_by?: string | null;
+          height?: number;
+          id?: string;
+          note?: string | null;
+          path?: string;
+          published_at?: string | null;
+          published_by?: string | null;
+          vintage_id?: string | null;
+          width?: number;
+          wine_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wine_bottle_art_vintage_id_fkey";
+            columns: ["vintage_id"];
+            isOneToOne: false;
+            referencedRelation: "wine_vintages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wine_bottle_art_wine_id_fkey";
+            columns: ["wine_id"];
+            isOneToOne: false;
+            referencedRelation: "wines";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       wine_grapes: {
         Row: {
           grape_id: number;
@@ -1794,9 +1995,26 @@ export type Database = {
     };
     Functions: {
       admin_activity_series: { Args: { p_days: number; p_now?: string }; Returns: Json };
+      admin_add_bottle_art: {
+        Args: {
+          p_actor: string;
+          p_height: number;
+          p_note: string;
+          p_path: string;
+          p_type: string;
+          p_width: number;
+          p_wine: string;
+        };
+        Returns: string;
+      };
       admin_ai_costs: { Args: { p_from: string; p_to: string }; Returns: Json };
       admin_beta_feedback: {
         Args: { p_category: string; p_limit: number; p_offset: number };
+        Returns: Json;
+      };
+      admin_bottle_photo: { Args: { p_id: string }; Returns: Json };
+      admin_bottle_photos: {
+        Args: { p_limit: number; p_offset: number; p_status: string };
         Returns: Json;
       };
       admin_budget_status: { Args: { p_now?: string }; Returns: Json };
@@ -1831,11 +2049,27 @@ export type Database = {
         Args: { p_actor: string; p_fields: Json; p_id: string };
         Returns: boolean;
       };
+      admin_publish_bottle_art: {
+        Args: { p_actor: string; p_art: string; p_sources: string[] };
+        Returns: boolean;
+      };
       admin_recognition_cache: { Args: { p_from: string; p_to: string }; Returns: Json };
+      admin_remove_bottle_art: { Args: { p_art: string }; Returns: string };
+      admin_review_bottle_photo: {
+        Args: {
+          p_actor: string;
+          p_canonical: string;
+          p_id: string;
+          p_note: string;
+          p_status: string;
+        };
+        Returns: boolean;
+      };
       admin_shared_profiles: {
         Args: { p_from: string; p_now?: string; p_to: string };
         Returns: Json;
       };
+      admin_unpublish_bottle_art: { Args: { p_art: string }; Returns: boolean };
       admin_user_directory: {
         Args: { p_limit: number; p_offset: number };
         Returns: {
@@ -1851,6 +2085,11 @@ export type Database = {
         }[];
       };
       admin_user_summary: { Args: { p_now?: string; p_user: string }; Returns: Json };
+      admin_wine_visual: { Args: { p_wine: string }; Returns: Json };
+      admin_wine_visuals: {
+        Args: { p_filter: string; p_limit: number; p_query: string };
+        Returns: Json;
+      };
       ai_budget_hold: {
         Args: { p_daily: number; p_estimate: number; p_monthly: number; p_task: string };
         Returns: string;
@@ -1859,6 +2098,7 @@ export type Database = {
         Args: { p_image_id: string; p_vintage_id: string };
         Returns: string;
       };
+      bottle_photo_paths_of: { Args: { p_user: string }; Returns: string[] };
       catalog_import: { Args: { p_apply?: boolean; p_entries: Json }; Returns: Json };
       catalog_note_scan_read: {
         Args: {
@@ -2014,6 +2254,16 @@ export type Database = {
           output: Json;
         }[];
       };
+      submit_bottle_photo: {
+        Args: {
+          p_consent: boolean;
+          p_height: number;
+          p_photo_path: string;
+          p_vintage_id: string;
+          p_width: number;
+        };
+        Returns: Json;
+      };
       swap_bottles: {
         Args: {
           p_a: string;
@@ -2027,6 +2277,15 @@ export type Database = {
           p_household: string;
         };
         Returns: string;
+      };
+      wine_bottle_art_for: {
+        Args: { p_wine_ids: string[] };
+        Returns: {
+          art_id: string;
+          height: number;
+          width: number;
+          wine_id: string;
+        }[];
       };
     };
     Enums: {

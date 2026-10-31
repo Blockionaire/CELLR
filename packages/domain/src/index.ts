@@ -30,3 +30,4 @@ export * from "./taste";
 export * from "./rating-insights";
 export * from "./taste-context";
 export * from "./feedback";
+export * from "./bottle-library";
