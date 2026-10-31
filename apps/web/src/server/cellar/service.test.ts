@@ -52,6 +52,8 @@ function fakeRepo(
     vintages: new Map<string, string>(),
     catalogVintages: [] as string[],
     confirmations: [] as Array<{ wineId: string; year: number | null; imageId: string | null }>,
+    outcomes: [] as Array<{ wineId: string; year: number | null; imageId: string }>,
+    calls: [] as string[],
     producers: [] as Array<{ name: string; countryCode: string | null; exactCountry: boolean }>,
     occupiedCalls: 0,
     conflictsLeft: options.conflictsBeforeSuccess ?? 0,
@@ -99,8 +101,15 @@ function fakeRepo(
     },
     async recordCatalogConfirmation(wineId, year, imageId) {
       if (options.learningFails) throw new Error("catalogue learning is down");
+      state.calls.push("confirmation");
       state.confirmations.push({ wineId, year, imageId });
       return "recorded";
+    },
+    async recordScanOutcome(wineId, year, imageId) {
+      if (options.learningFails) throw new Error("catalogue learning is down");
+      state.calls.push("outcome");
+      state.outcomes.push({ wineId, year, imageId });
+      return "accepted";
     },
     async findWinesByIdentity(_h, producer, name, type) {
       const n = (t: string) => normalizeText(t);
@@ -1216,6 +1225,43 @@ describe("catalogue learning", () => {
     expect(state.confirmations).toEqual([
       { wineId, year: 2019, imageId: "00000000-0000-4000-8000-0000000000aa" },
     ]);
+  });
+
+  it("saving with a scanned photo tells catalogue learning what was kept, before the confirmation", async () => {
+    const { repo, state } = fakeRepo();
+    state.images.add("00000000-0000-4000-8000-0000000000aa");
+    await createCellarService(repo, { userId: "me" }).addBottles(
+      add(wineId, "00000000-0000-4000-8000-0000000000aa"),
+    );
+    expect(state.outcomes).toEqual([
+      { wineId, year: 2019, imageId: "00000000-0000-4000-8000-0000000000aa" },
+    ]);
+    expect(state.calls).toEqual(["outcome", "confirmation"]);
+  });
+
+  it("a catalogue wine saved from a scan reports its outcome too (but is not proposed again)", async () => {
+    const cw: WineSummary = {
+      id: "cw",
+      producer: "P",
+      name: "N",
+      type: "red",
+      countryCode: "FR",
+      region: null,
+      catalog: true,
+    };
+    const { repo, state } = fakeRepo({ known: [cw] });
+    state.images.add("00000000-0000-4000-8000-0000000000aa");
+    await createCellarService(repo, { userId: "me" }).addBottles(
+      add("cw", "00000000-0000-4000-8000-0000000000aa"),
+    );
+    expect(state.outcomes).toHaveLength(1);
+    expect(state.confirmations).toHaveLength(0);
+  });
+
+  it("without a scanned photo there is no outcome to record (typing never counts)", async () => {
+    const { repo, state } = fakeRepo();
+    await createCellarService(repo, { userId: "me" }).addBottles(add(wineId));
+    expect(state.outcomes).toHaveLength(0);
   });
 
   it("a catalogue wine is not proposed again", async () => {

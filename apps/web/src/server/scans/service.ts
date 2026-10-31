@@ -26,13 +26,18 @@ export interface ScanDeps {
   images: Pick<ImageService, "prepare" | "save">;
   /** What this household confirmed an identical photo to be (the recognition cache). */
   recall: ScanRepository["recall"];
-  /** Notes what the model read on this photo, for catalogue learning (never fails the scan). */
+  /**
+   * Notes what the model read on this photo, and what CELLR proposed from it, for catalogue learning (never fails
+   * the scan). `proposal`: the catalogue wine proposed, or the AI's own reading when nothing matched; null when the
+   * proposal was the household's own wine or several wines (nothing to learn about the catalogue).
+   */
   noteRead?: (read: {
     imageId: string;
     householdId: string;
     producer: string;
     name: string;
     type: string | null;
+    proposal: ScanProposal | null;
   }) => Promise<void>;
   /** The wines this household can choose from. */
   wines: () => Promise<WineSummary[]>;
@@ -157,6 +162,7 @@ export function createScanService(deps: ScanDeps) {
       if (!result.ok) return unread(result.kind === "budget" ? "budget" : "ai-down");
       const facts = normalizeExtraction(result.value, now());
       if (!facts) return unread("not-a-label");
+      const { outcome, matches } = matchLabel(facts, await deps.wines());
       if (deps.noteRead && facts.producer && facts.name)
         await deps
           .noteRead({
@@ -165,10 +171,10 @@ export function createScanService(deps: ScanDeps) {
             producer: facts.producer,
             name: facts.name,
             type: facts.type,
+            proposal: proposalOf(outcome, matches, facts),
           })
           .catch(() => {});
 
-      const { outcome, matches } = matchLabel(facts, await deps.wines());
       // The model's idea of where the label is only counts if it is a believable label in this very photo.
       const corners = quadFromNumbers(result.value.label_corners);
       const labelCorners =
@@ -181,3 +187,45 @@ export function createScanService(deps: ScanDeps) {
 }
 
 export type ScanService = ReturnType<typeof createScanService>;
+
+/** What a scan proposed, for learning whether the catalogue (or the AI's reading) was right. */
+export type ScanProposal =
+  | { kind: "catalog"; wineId: string; year: number | null }
+  | {
+      kind: "ai";
+      year: number | null;
+      ai: {
+        producer: string;
+        name: string;
+        type: string | null;
+        country: string | null;
+        region: string | null;
+      };
+    };
+
+/**
+ * A single catalogue wine found, or the AI's own reading when nothing matched. A household's own wine, or a choice
+ * between several, proposes nothing to learn from.
+ */
+export function proposalOf(
+  outcome: ScanResult["outcome"],
+  matches: ScanResult["matches"],
+  facts: NonNullable<ScanResult["facts"]>,
+): ScanProposal | null {
+  const top = matches[0];
+  if (outcome === "found" && top?.wine.catalog)
+    return { kind: "catalog", wineId: top.wine.id, year: facts.year };
+  if (outcome === "new" && facts.producer && facts.name)
+    return {
+      kind: "ai",
+      year: facts.year,
+      ai: {
+        producer: facts.producer,
+        name: facts.name,
+        type: facts.type,
+        country: facts.countryCode,
+        region: facts.region,
+      },
+    };
+  return null;
+}

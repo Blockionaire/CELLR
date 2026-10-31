@@ -25,6 +25,8 @@ const reads = {
   adminWineVisuals: vi.fn(),
   adminWineVisual: vi.fn(),
   adminUploadBottleArt: vi.fn(),
+  adminCorrections: vi.fn(),
+  adminCorrection: vi.fn(),
 };
 const library = { photoFile: vi.fn(), artFile: vi.fn() };
 vi.mock("@/server/admin/service", () => ({
@@ -51,6 +53,12 @@ describe("admin pages without an admin session", () => {
     ["bottle photo", () => import("./bottle-photos/[id]/page"), { ...params, ...search }],
     ["wine visuals", () => import("./wines/page"), search],
     ["wine visual", () => import("./wines/[id]/page"), { ...params, ...search }],
+    ["corrections", () => import("./catalog/corrections/page"), search],
+    [
+      "correction",
+      () => import("./catalog/corrections/[wineId]/page"),
+      { params: Promise.resolve({ wineId: "0b6f2c1e-6a1d-4f7e-9a3b-2c4d5e6f7a8b" }), ...search },
+    ],
   ] as const)("%s: not found, nothing read", async (_name, load, props) => {
     const Page = (await load()).default as (p: unknown) => Promise<unknown>;
     await expect(Page(props)).rejects.toThrow("NEXT_NOT_FOUND");
@@ -68,7 +76,7 @@ const files = (dir: string): string[] =>
 describe("the admin boundary", () => {
   it("every admin page checks the session itself", () => {
     const pages = files(path.join(SRC, "app/admin")).filter((f) => /(page|layout)\.tsx$/.test(f));
-    expect(pages.length).toBe(13);
+    expect(pages.length).toBe(15);
     for (const p of pages)
       expect(readFileSync(p, "utf8")).toMatch(
         /if \(!(session|\(await getAdminSession\(\)\))\) notFound\(\)/,
@@ -86,7 +94,7 @@ describe("the admin boundary", () => {
     }
     // The admin pages are server-rendered only. The one exception is the catalogue review's Server Actions (they
     // are reachable over HTTP, so each checks the admin session again before doing anything; see below).
-    const ACTIONS = ["catalog", "bottle-photos", "wines"].map((d) =>
+    const ACTIONS = ["catalog", "bottle-photos", "wines", "catalog/corrections"].map((d) =>
       path.join(SRC, `app/admin/${d}/actions.ts`),
     );
     for (const f of files(path.join(SRC, "app/admin")))
@@ -98,6 +106,7 @@ describe("the admin boundary", () => {
     ["catalog", 6],
     ["bottle-photos", 1],
     ["wines", 3],
+    ["catalog/corrections", 1],
   ] as const)(
     "every %s action checks the admin session again before anything else",
     (dir, count) => {

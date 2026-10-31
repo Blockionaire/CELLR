@@ -396,7 +396,7 @@
     "leaveLastOwner": "Je bent de enige eigenaar en anderen delen deze kelder. Om te vertrekken haal je hen eerst weg, of verwijder je het huishouden bij Instellingen huishouden.",
     "catalog": {
       "title": "Help de gedeelde wijnlijst verbeteren",
-      "body": "Als je een fles toevoegt die je hebt bevestigd, kunnen de naam, kleur en herkomst meetellen voor de gedeelde wijnlijst van CELLR, zodat anderen hem sneller herkennen. Alleen aantallen worden bewaard: niemand kan zien dat jij het was.",
+      "body": "Als je een fles toevoegt die je hebt bevestigd, kunnen de naam, kleur en herkomst meetellen voor de gedeelde wijnlijst van CELLR, zodat anderen de wijn sneller herkennen. Stelde een scan een wijn voor, dan telt ook mee of je die hield of verbeterde (bijvoorbeeld een ander jaar of een andere regio), zodat fouten in de gedeelde lijst opvallen. Alleen aantallen en de verbeterde gegevens worden bewaard: niemand kan zien dat jij het was.",
       "never": "Nooit gedeeld: je foto's, flessen, prijzen, notities, beoordelingen of iets anders uit je kelder.",
       "isOn": "Je helpt mee.",
       "isOff": "Je helpt niet mee (eerdere bijdragen zijn verwijderd).",
@@ -405,7 +405,7 @@
       "switchedOn": "Dank je wel: je bevestigde wijnen helpen nu mee.",
       "switchedOff": "Gestopt. Wat je bijdroeg is verwijderd.",
       "failed": "Dat lukte niet. Probeer het opnieuw.",
-      "scanNote": "Als je de wijn toevoegt, kunnen naam, kleur en herkomst de gedeelde wijnlijst van CELLR helpen (nooit de foto of je kelder). Uitzetten kan in Profiel."
+      "scanNote": "Als je de wijn toevoegt, kunnen de naam, kleur en herkomst, en of je het voorstel van de scan hield of verbeterde, helpen bij de gedeelde wijnlijst van CELLR (nooit de foto of je kelder). Je kunt dit uitzetten in Profiel."
     },
     "pointsLabel": "CELLR-punten",
     "pointsHint": "Verdiend met het delen van flesfoto's van je wijnen."

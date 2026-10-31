@@ -396,7 +396,7 @@
     "leaveLastOwner": "You're the only owner, and others share this cellar. To leave, remove them first, or delete the household under Household settings.",
     "catalog": {
       "title": "Help improve the shared wine list",
-      "body": "When you add a bottle you confirmed, its name, colour and origin may count towards CELLR's shared list of wines, so others recognise it faster. Only counts are kept: nobody can see that it was you.",
+      "body": "When you add a bottle you confirmed, its name, colour and origin may count towards CELLR's shared list of wines, so others recognise it faster. When a scan suggested a wine, whether you kept it or corrected it (for example another vintage or region) also counts, so mistakes in the shared list get noticed. Only counts and the corrected details are kept: nobody can see that it was you.",
       "never": "Never shared: your photos, bottles, prices, notes, ratings or anything else in your cellar.",
       "isOn": "You are helping.",
       "isOff": "You are not helping (your earlier contributions were removed).",
@@ -405,7 +405,7 @@
       "switchedOn": "Thank you: your confirmed wines now help.",
       "switchedOff": "Stopped. What you contributed was removed.",
       "failed": "That didn't work. Try again.",
-      "scanNote": "When you add the wine, its name, colour and origin may help CELLR's shared wine list (never the photo or your cellar). You can turn this off in Profile."
+      "scanNote": "When you add the wine, its name, colour and origin, and whether you kept or corrected what the scan suggested, may help CELLR's shared wine list (never the photo or your cellar). You can turn this off in Profile."
     },
     "pointsLabel": "CELLR points",
     "pointsHint": "Earned by sharing bottle photos of your wines."

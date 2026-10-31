@@ -399,6 +399,18 @@ describe("scanning a label", () => {
           producer: "Château Margaux",
           name: "Pavillon Rouge",
           type: "red",
+          // nothing matched: the AI's own reading is what was proposed
+          proposal: {
+            kind: "ai",
+            year: 2015,
+            ai: {
+              producer: "Château Margaux",
+              name: "Pavillon Rouge",
+              type: "red",
+              country: "FR",
+              region: "Bordeaux",
+            },
+          },
         },
       ]);
     });

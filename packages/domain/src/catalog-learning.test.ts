@@ -40,7 +40,7 @@ describe("catalogue candidates", () => {
   });
 
   it("collecting until enough households confirmed it from a label; typed wines never count", () => {
-    expect(candidateState(row({ scanHouseholds: 4, manualHouseholds: 20 }))).toBe("collecting");
+    expect(candidateState(row({ scanHouseholds: 1, manualHouseholds: 20 }))).toBe("collecting");
     expect(candidateState(row({ scanHouseholds: CATALOG_REVIEW.ready }))).toBe("review_ready");
   });
 
@@ -56,9 +56,9 @@ describe("catalogue candidates", () => {
   });
 
   it("priority grows with independent households", () => {
-    expect(candidatePriority(row({ scanHouseholds: 2 }))).toBe("low");
-    expect(candidatePriority(row({ scanHouseholds: 5 }))).toBe("normal");
-    expect(candidatePriority(row({ scanHouseholds: 10 }))).toBe("high");
+    expect(candidatePriority(row({ scanHouseholds: 1 }))).toBe("low");
+    expect(candidatePriority(row({ scanHouseholds: 2 }))).toBe("normal");
+    expect(candidatePriority(row({ scanHouseholds: 5 }))).toBe("high");
   });
 
   it("the automation verdict needs households AND a verified source AND no ambiguity; it is advice only", () => {
@@ -77,7 +77,7 @@ describe("catalogue candidates", () => {
 
   it("the list filters by state and sorts by independent households", () => {
     const rows = [
-      row({ id: "a", scanHouseholds: 2 }),
+      row({ id: "a", scanHouseholds: 1 }),
       row({ id: "b", scanHouseholds: 7 }),
       row({ id: "c", scanHouseholds: 9, rivals: 1 }),
       row({ id: "d", status: "approved" }),

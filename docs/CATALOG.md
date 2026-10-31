@@ -227,7 +227,7 @@ independent proof either. That is why **a verified public source is always requi
 | -------------------------------------------------------- | ------------------------------------------------------ |
 | Many bottles, scans, retries or members of one household | **one** household (counted per household, not per row) |
 | Another vintage                                          | the same candidate, its own year row                   |
-| A person in two households                               | each household counts once                             |
+| A person in two households                               | **one**: households linked by a person count once      |
 
 Evidence is kept **per person** (`unique (candidate, household, year, person)`), so each person's choice holds:
 if one member says no, only their rows go, and the household still counts through a member who still helps.
@@ -256,8 +256,8 @@ disagreeing on the appellation, and a wine the catalogue already has.
 
 | State        | When                                                                                                   |
 | ------------ | ------------------------------------------------------------------------------------------------------ |
-| collecting   | fewer than **5** households confirmed it from a label                                                  |
-| review_ready | **5** or more households confirmed it from a label (high priority from **10**)                         |
+| collecting   | fewer than **2** independent households confirmed it from a label                                      |
+| review_ready | **2** or more independent households confirmed it from a label (high priority from **5**)              |
 | conflict     | a rival colour or country, disagreeing appellations, or already in the catalogue                       |
 | approved     | published by you                                                                                       |
 | rejected     | rejected by you. New evidence for it stays with it, so it does not come back as new; you can reopen it |
@@ -265,7 +265,8 @@ disagreeing on the appellation, and a wine the catalogue already has.
 
 **Automatic publication is OFF** (`AUTO_PUBLISH_ENABLED = false`): approval is always your explicit action.
 
-The detail page shows an advisory **automation verdict**: it would qualify only with at least 5 label households,
+The detail page shows an advisory **automation verdict**: it would qualify only with at least 5 label households (the
+high-priority mark, deliberately stricter than the review threshold),
 no conflict, at least one verified source, and no similarly named sibling. It exists to learn whether automation
 would have been right. Enabling it is a later, separate decision; there is no timer or worker.
 
@@ -393,3 +394,36 @@ no. Publication is your decision, backed by a public source.
 - third-party catalogue imports.
 
 These are tracked in GitHub issue #32.
+
+## Correction signals (Sprint Q)
+
+When a scan **proposes** a wine, CELLR notes that proposal next to the scan reading (same table, same 23-hour
+lifetime, same rule: only for a person who may count under the mode and their own choice). Two kinds:
+
+- **catalogue proposal**: the reading matched an existing catalogue wine;
+- **AI proposal**: nothing matched; the AI's own reading was proposed as a new wine.
+
+A match with the household's own wine, or several possible matches, is not noted.
+
+When the person **saves** (adds bottles with that photo), the database compares the proposal with what they
+confirmed, once (`catalog_record_scan_outcome`): **accepted**, **corrected** (fields changed: producer, name, colour,
+country, region, year) or **different_wine** (another existing wine picked, or both producer and name changed).
+Typing in between never counts, and a photo is answered at most once.
+
+- **Field provenance.** In a catalogue proposal, producer, name, colour, country and region come from the catalogue
+  record; the vintage comes from the scan. Only the catalogue fields are compared as catalogue evidence.
+- A **catalogue** answer is reviewable evidence about that catalogue wine (`catalog_scan_signals`): the proposed
+  identity and the confirmed values of the catalogue fields that changed. No photo, notes, prices or places.
+  History is kept, bounded: one acceptance row per person and wine; one row per distinct correction (a repeat only
+  refreshes `last_seen_at`), at most five per person and wine. A later scan never overwrites an earlier correction,
+  its review status or its note.
+- A **scan** answer is a bare signal (which fields changed), with no values, household or wine: a corrected vintage on
+  a catalogue wine, and a corrected AI reading when nothing matched. A misread is not evidence against the
+  catalogue and never counts towards its corrections.
+- Nothing ever changes a catalogue wine. Saying no removes the person's signals; deleting the account or household
+  removes them too.
+
+The admin sees them under **Wine catalogue → Corrections**: per catalogue wine the independent households with open
+corrections (independent groups: households linked through a person, however long the chain, count as one), the changed fields, identity mismatches apart from detail corrections, acceptances, and a state
+(collecting, review needed from 2 households, conflict when households disagree on a value, resolved). Each signal
+can be marked reviewed or dismissed with an internal note.

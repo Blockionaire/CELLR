@@ -10,10 +10,13 @@ import { nameSimilarity } from "./scan";
 
 /** Change here, nowhere else. */
 export const CATALOG_REVIEW = {
-  /** Independent households that scanned and confirmed the wine before it asks for review. */
-  ready: 5,
+  /**
+   * Independent households that scanned and confirmed the wine before it asks for review (households linked by a
+   * confirming person count as one, so nobody can make their own confirmations look independent).
+   */
+  ready: 2,
   /** ...and before it becomes a high priority (and could one day be considered for automation). */
-  high: 10,
+  high: 5,
 } as const;
 
 /**
@@ -160,8 +163,9 @@ export function automationVerdict(
 ): { eligible: boolean; reasons: string[] } {
   const reasons: string[] = [];
   if (c.status !== "open") reasons.push("not open");
-  if (c.scanHouseholds < CATALOG_REVIEW.ready)
-    reasons.push(`fewer than ${CATALOG_REVIEW.ready} households confirmed it from a label`);
+  // automation would need more than a review does: two households agreeing with one AI reading are not proof
+  if (c.scanHouseholds < CATALOG_REVIEW.high)
+    reasons.push(`fewer than ${CATALOG_REVIEW.high} households confirmed it from a label`);
   if (c.rivals > 0) reasons.push("the same name exists in another colour or country");
   if (c.appellationVariants > 1) reasons.push("households disagree on the appellation");
   if (c.inCatalog) reasons.push("the catalogue already has a wine of this producer and name");
@@ -281,3 +285,105 @@ export const CandidateSourceSchema = z.object({
 export const ApproveVintagesSchema = z
   .array(z.number().int().min(1800).max(2100).nullable())
   .max(80);
+
+// ---- Correction signals (Sprint Q) ----------------------------------------------------------------------------
+
+/** What a person did with a wine a scan proposed, when they saved. */
+export const SCAN_SIGNALS = ["accepted", "corrected", "different_wine"] as const;
+export type ScanSignal = (typeof SCAN_SIGNALS)[number];
+/** Fields a signal can name. In a catalogue proposal all but `year` come from the catalogue; `year` comes from the scan. */
+export const SIGNAL_FIELDS = ["producer", "name", "type", "country", "region", "year"] as const;
+export type SignalField = (typeof SIGNAL_FIELDS)[number];
+export const SIGNAL_REVIEW = ["open", "reviewed", "dismissed"] as const;
+export type SignalReview = (typeof SIGNAL_REVIEW)[number];
+
+const Identity = z
+  .object({
+    producer: z.string(),
+    name: z.string(),
+    type: z.string(),
+    country: z.string(),
+    region: z.string(),
+    year: z.number().int(),
+  })
+  .partial();
+
+/**
+ * One catalogue wine with correction signals, as the admin's overview lists it (counts of households, never which).
+ * Only catalogue fields are corrections here: a misread vintage is a scan signal, counted apart (AiSignalStats).
+ */
+export const CorrectionRowSchema = z.object({
+  wineId: z.uuid(),
+  producer: z.string(),
+  name: z.string(),
+  type: z.string(),
+  country: z.string().nullable(),
+  region: z.string().nullable(),
+  /** Independent households that saved the proposed wine unchanged. */
+  accepted: z.number().int(),
+  /** Independent households with open signals (corrections or identity mismatches). */
+  openHouseholds: z.number().int(),
+  corrected: z.number().int(),
+  identity: z.number().int(),
+  openSignals: z.number().int(),
+  resolved: z.number().int(),
+  /** Changed field → independent households (open signals). */
+  fields: z.record(z.string(), z.number().int()),
+  /** Open corrections disagree on what a field should be. */
+  conflict: z.boolean(),
+  lastAt: z.string().nullable(),
+});
+export type CorrectionRow = z.infer<typeof CorrectionRowSchema>;
+
+export const CorrectionDetailSchema = z.object({
+  wineId: z.uuid(),
+  producer: z.string(),
+  name: z.string(),
+  type: z.string(),
+  country: z.string().nullable(),
+  region: z.string().nullable(),
+  signals: z
+    .object({
+      id: z.uuid(),
+      signal: z.enum(SCAN_SIGNALS),
+      changedFields: z.array(z.enum(SIGNAL_FIELDS)),
+      proposed: Identity,
+      confirmed: Identity.nullable(),
+      status: z.enum(SIGNAL_REVIEW).nullable(),
+      note: z.string().nullable(),
+      reviewedAt: z.string().nullable(),
+      createdAt: z.string(),
+      /** The latest scan that gave this same answer (a repeat refreshes it; it never adds a row). */
+      lastSeenAt: z.string(),
+    })
+    .array(),
+});
+export type CorrectionDetail = z.infer<typeof CorrectionDetailSchema>;
+
+export const AiSignalStatsSchema = z.object({
+  accepted: z.number().int(),
+  corrected: z.number().int(),
+  differentWine: z.number().int(),
+  fields: z.record(z.string(), z.number().int()),
+});
+export type AiSignalStats = z.infer<typeof AiSignalStatsSchema>;
+
+export const CORRECTION_STATES = ["collecting", "review_needed", "conflict", "resolved"] as const;
+export type CorrectionState = (typeof CORRECTION_STATES)[number];
+
+/**
+ * Where a catalogue wine's corrections stand. A wrong record is never fixed by itself: two independent households
+ * asking for the same change only make it worth a look; households disagreeing need a person to decide.
+ */
+export function correctionState(
+  c: Pick<CorrectionRow, "openSignals" | "openHouseholds" | "conflict">,
+): CorrectionState {
+  if (c.openSignals === 0) return "resolved";
+  if (c.conflict) return "conflict";
+  return c.openHouseholds >= CATALOG_REVIEW.ready ? "review_needed" : "collecting";
+}
+
+export const SignalReviewSchema = z.object({
+  status: z.enum(SIGNAL_REVIEW),
+  note: z.string().trim().max(500),
+});

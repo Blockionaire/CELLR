@@ -814,7 +814,11 @@ export type Database = {
           household_id: string;
           image_id: string;
           name_norm: string;
+          outcome_at: string | null;
           producer_norm: string;
+          proposal_kind: string | null;
+          proposed: Json | null;
+          proposed_wine_id: string | null;
           read_at: string;
           user_id: string;
           wine_type: Database["public"]["Enums"]["wine_type"] | null;
@@ -824,7 +828,11 @@ export type Database = {
           household_id: string;
           image_id: string;
           name_norm: string;
+          outcome_at?: string | null;
           producer_norm: string;
+          proposal_kind?: string | null;
+          proposed?: Json | null;
+          proposed_wine_id?: string | null;
           read_at?: string;
           user_id: string;
           wine_type?: Database["public"]["Enums"]["wine_type"] | null;
@@ -833,7 +841,11 @@ export type Database = {
           household_id?: string;
           image_id?: string;
           name_norm?: string;
+          outcome_at?: string | null;
           producer_norm?: string;
+          proposal_kind?: string | null;
+          proposed?: Json | null;
+          proposed_wine_id?: string | null;
           read_at?: string;
           user_id?: string;
           wine_type?: Database["public"]["Enums"]["wine_type"] | null;
@@ -851,6 +863,86 @@ export type Database = {
             columns: ["image_id"];
             isOneToOne: true;
             referencedRelation: "bottle_images";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catalog_scan_reads_proposed_wine_id_fkey";
+            columns: ["proposed_wine_id"];
+            isOneToOne: false;
+            referencedRelation: "wines";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      catalog_scan_signals: {
+        Row: {
+          admin_note: string | null;
+          changed_fields: string[];
+          confirmed: Json | null;
+          created_at: string;
+          fingerprint: string | null;
+          household_id: string | null;
+          id: string;
+          kind: string;
+          last_seen_at: string;
+          proposed: Json | null;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          signal: string;
+          status: string | null;
+          user_id: string;
+          wine_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          admin_note?: string | null;
+          changed_fields?: string[];
+          confirmed?: Json | null;
+          created_at?: string;
+          fingerprint?: string | null;
+          household_id?: string | null;
+          id?: string;
+          kind: string;
+          last_seen_at?: string;
+          proposed?: Json | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          signal: string;
+          status?: string | null;
+          user_id: string;
+          wine_id?: string | null;
+        };
+        Update: {
+          admin_note?: string | null;
+          changed_fields?: string[];
+          confirmed?: Json | null;
+          created_at?: string;
+          fingerprint?: string | null;
+          household_id?: string | null;
+          id?: string;
+          kind?: string;
+          last_seen_at?: string;
+          proposed?: Json | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          signal?: string;
+          status?: string | null;
+          user_id?: string;
+          wine_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_scan_signals_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catalog_scan_signals_wine_id_fkey";
+            columns: ["wine_id"];
+            isOneToOne: false;
+            referencedRelation: "wines";
             referencedColumns: ["id"];
           },
         ];
@@ -2035,14 +2127,21 @@ export type Database = {
       };
       admin_budget_status: { Args: { p_now?: string }; Returns: Json };
       admin_catalog: { Args: { p_from: string; p_to: string }; Returns: Json };
+      admin_catalog_ai_signals: { Args: { p_days: number }; Returns: Json };
       admin_catalog_approve: {
         Args: { p_actor: string; p_id: string; p_vintages: Json };
         Returns: Json;
       };
       admin_catalog_candidate: { Args: { p_id: string }; Returns: Json };
       admin_catalog_candidates: { Args: Record<PropertyKey, never>; Returns: Json };
+      admin_catalog_correction: { Args: { p_wine: string }; Returns: Json };
+      admin_catalog_corrections: { Args: Record<PropertyKey, never>; Returns: Json };
       admin_catalog_merge: {
         Args: { p_actor: string; p_from: string; p_into: string };
+        Returns: boolean;
+      };
+      admin_catalog_review_signal: {
+        Args: { p_actor: string; p_id: string; p_note: string; p_status: string };
         Returns: boolean;
       };
       admin_catalog_set_mode: { Args: { p_actor: string; p_mode: string }; Returns: string };
@@ -2116,6 +2215,16 @@ export type Database = {
       };
       bottle_photo_paths_of: { Args: { p_user: string }; Returns: string[] };
       catalog_import: { Args: { p_apply?: boolean; p_entries: Json }; Returns: Json };
+      catalog_note_scan_proposal: {
+        Args: {
+          p_ai: Json;
+          p_image_id: string;
+          p_user_id: string;
+          p_wine_id: string;
+          p_year: number;
+        };
+        Returns: boolean;
+      };
       catalog_note_scan_read: {
         Args: {
           p_household_id: string;
@@ -2130,6 +2239,10 @@ export type Database = {
       catalog_purge_scan_reads: { Args: Record<PropertyKey, never>; Returns: number };
       catalog_record_confirmation: {
         Args: { p_image_id?: string; p_wine_id: string; p_year: number };
+        Returns: string;
+      };
+      catalog_record_scan_outcome: {
+        Args: { p_image_id: string; p_wine_id: string; p_year: number };
         Returns: string;
       };
       catalog_vintage: { Args: { p_wine_id: string; p_year: number }; Returns: string };
