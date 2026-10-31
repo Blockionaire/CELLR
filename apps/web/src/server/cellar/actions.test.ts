@@ -117,6 +117,9 @@ function fake(
     async recordCatalogConfirmation() {
       return null;
     },
+    async recordScanOutcome() {
+      return null;
+    },
     async findWinesByIdentity() {
       return [];
     },

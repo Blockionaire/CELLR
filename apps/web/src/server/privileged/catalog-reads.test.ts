@@ -44,4 +44,31 @@ describe("noting what a scan read, for catalogue learning", () => {
     await expect(noteScanRead(read)).resolves.toBeUndefined();
     expect(rpc).toHaveBeenCalledTimes(1);
   });
+
+  it("notes what was proposed next to the reading: the catalogue wine, or the AI's own reading", async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
+    await noteScanRead({ ...read, proposal: { kind: "catalog", wineId: "cw-1", year: 2018 } });
+    expect(rpc).toHaveBeenLastCalledWith("catalog_note_scan_proposal", {
+      p_image_id: "img-1",
+      p_user_id: "user-1",
+      p_wine_id: "cw-1",
+      p_ai: null,
+      p_year: 2018,
+    });
+    const ai = { producer: "P", name: "N", type: "red", country: "FR", region: null };
+    await noteScanRead({ ...read, proposal: { kind: "ai", ai, year: null } });
+    expect(rpc).toHaveBeenLastCalledWith("catalog_note_scan_proposal", {
+      p_image_id: "img-1",
+      p_user_id: "user-1",
+      p_wine_id: null,
+      p_ai: ai,
+      p_year: null,
+    });
+  });
+
+  it("no proposal is noted when the reading itself was refused", async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: { code: "42501" } });
+    await noteScanRead({ ...read, proposal: { kind: "catalog", wineId: "cw-1", year: 2018 } });
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
 });

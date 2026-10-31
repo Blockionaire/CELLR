@@ -20,6 +20,7 @@ import {
   type AdminRange,
   type FeedbackCategory,
   cleanBottleArt,
+  correctionState,
   type BottlePhotoStatus,
   type WineVisualFilter,
   type WineVisualScope,
@@ -38,6 +39,10 @@ import {
   readUserSummary,
 } from "@/server/privileged/admin";
 import {
+  readAiSignals,
+  readCorrection,
+  readCorrections,
+  reviewSignal,
   addCandidateSource,
   approveCandidate,
   mergeCandidate,
@@ -234,6 +239,26 @@ export async function adminCandidate(session: AdminSession, id: string) {
  * The catalogue review's writes, for its Server Actions only. Each privileged call checks the admin session again;
  * every value has been validated by the action before it gets here.
  */
+/** Correction signals: what people did with the catalogue wines scans proposed (counts and values, never who). */
+export async function adminCorrections(session: AdminSession) {
+  assertAdmin(session);
+  const [rows, ai] = await Promise.all([readCorrections(session), readAiSignals(session, 30)]);
+  if (rows === null || rows === "missing") return { ready: false as const, reason: rows };
+  const listed = rows.map((r) => ({ ...r, state: correctionState(r) }));
+  const order = { conflict: 0, review_needed: 1, collecting: 2, resolved: 3 } as const;
+  listed.sort((a, b) => order[a.state] - order[b.state] || b.openHouseholds - a.openHouseholds);
+  return {
+    ready: true as const,
+    rows: listed,
+    ai: ai === null || ai === "missing" ? null : ai,
+  };
+}
+
+export async function adminCorrection(session: AdminSession, wineId: string) {
+  assertAdmin(session);
+  return readCorrection(session, wineId);
+}
+
 export const catalogReview = {
   setMode: setLearningMode,
   update: updateCandidate,
@@ -241,6 +266,7 @@ export const catalogReview = {
   merge: mergeCandidate,
   addSource: addCandidateSource,
   approve: approveCandidate,
+  reviewSignal,
 };
 
 /** The bottle library: photos people sent, and each canonical wine's 2D bottle pictures. */

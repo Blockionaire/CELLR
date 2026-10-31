@@ -1,5 +1,12 @@
 import "server-only";
 import {
+  AiSignalStatsSchema,
+  CorrectionDetailSchema,
+  CorrectionRowSchema,
+  type AiSignalStats,
+  type CorrectionDetail,
+  type CorrectionRow,
+  type SignalReview,
   CandidateDetailSchema,
   CandidateRowSchema,
   LEARNING_MODES,
@@ -132,4 +139,37 @@ export const approveCandidate = (
     "admin_catalog_approve",
     { p_id: id, p_vintages: vintages, p_actor: session.userId },
     (d) => d as { status: string; wineId?: string; messages?: string[] },
+  );
+
+// ---- Correction signals (Sprint Q) ----------------------------------------------------------------------------
+
+export function readCorrections(session: AdminSession): Result<CorrectionRow[]> {
+  return rpc(session, "admin_catalog_corrections", {}, (d) => CorrectionRowSchema.array().parse(d));
+}
+
+export function readCorrection(
+  session: AdminSession,
+  wineId: string,
+): Result<CorrectionDetail | "none"> {
+  return rpc(session, "admin_catalog_correction", { p_wine: wineId }, (d) =>
+    d === null ? "none" : CorrectionDetailSchema.parse(d),
+  );
+}
+
+export function readAiSignals(session: AdminSession, days: number): Result<AiSignalStats> {
+  return rpc(session, "admin_catalog_ai_signals", { p_days: days }, (d) =>
+    AiSignalStatsSchema.parse(d),
+  );
+}
+
+export const reviewSignal = (
+  session: AdminSession,
+  id: string,
+  review: { status: SignalReview; note: string },
+) =>
+  rpc(
+    session,
+    "admin_catalog_review_signal",
+    { p_id: id, p_status: review.status, p_note: review.note, p_actor: session.userId },
+    (d) => d === true,
   );

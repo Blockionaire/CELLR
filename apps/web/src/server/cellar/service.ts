@@ -1046,6 +1046,9 @@ export function createCellarService(
           const bottleIds = await repo.insertBottles(householdId, rows);
           // The person confirmed this wine by adding it: catalogue learning may count it (the database decides
           // whether it is switched on and allowed). It never costs an AI call, and never stops the bottles.
+          // First what they did with a scan's proposal (kept, corrected, another wine), then the confirmation itself.
+          if (input.imageId)
+            await repo.recordScanOutcome(wine.id, input.year, input.imageId).catch(() => null);
           if (!wine.catalog)
             await repo
               .recordCatalogConfirmation(wine.id, input.year, input.imageId ?? null)

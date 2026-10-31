@@ -70,9 +70,17 @@ export default async function AdminCatalogPage({
     <>
       <PageTitle
         title="Wine catalogue"
-        note={`Wines households confirmed, grouped as candidates. A candidate asks for review from ${CATALOG_REVIEW.ready} independent households that confirmed it from a label (typed wines are shown apart and never count). Nothing is published without your approval; automatic publication is off.`}
+        note={`Wines households confirmed, grouped as candidates. A candidate asks for review from ${CATALOG_REVIEW.ready} independent households that confirmed it from a label (a person counts once, whatever their households; typed wines are shown apart and never count). Nothing is published without your approval; automatic publication is off.`}
       />
       {message && <Notice>{message}</Notice>}
+      <p className="-mt-3 mb-6 text-small">
+        <Link href="/admin/catalog/corrections" prefetch={false} className="text-accent-ink">
+          Corrections from scans →
+        </Link>{" "}
+        <span className="text-ink-2">
+          what people kept, corrected or replaced when a scan proposed a catalogue wine
+        </span>
+      </p>
 
       <Section
         title="Collection"

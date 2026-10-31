@@ -194,6 +194,12 @@ export interface CellarRepository {
    * After a person added bottles of a household wine: offers the confirmation to catalogue learning (which decides,
    * in the database, whether it may count). Returns what happened, or null when that step is not set up.
    */
+  /**
+   * After bottles were saved with a scanned photo: tells catalogue learning whether the wine the scan proposed was
+   * kept, corrected or replaced (the database compares, once, and only when collection is allowed). Null before the
+   * database step exists.
+   */
+  recordScanOutcome(wineId: string, year: number | null, imageId: string): Promise<string | null>;
   recordCatalogConfirmation(
     wineId: string,
     year: number | null,
