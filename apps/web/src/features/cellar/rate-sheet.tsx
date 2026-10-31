@@ -30,8 +30,9 @@ interface RateSheetProps {
 }
 
 /**
- * "How was it?": stars in halves, a few words, a note. Mounted again (keyed) for each bottle, so what was
- * typed for one never leaks into the next.
+ * "How was it?": stars in tenths (slide across them), a few words, a note; saved only with "Save review". A failed
+ * save keeps everything as it was typed, to try again. Mounted again (keyed) for each bottle, so what was typed for
+ * one never leaks into the next.
  */
 export function RateSheet({ open, onClose, bottleId, title, existing }: RateSheetProps) {
   const t = useTranslations("tasting");
@@ -54,6 +55,7 @@ export function RateSheet({ open, onClose, bottleId, title, existing }: RateShee
         className="flex flex-col gap-6"
         onSubmit={(e) => {
           e.preventDefault();
+          if (busy) return; // one review, however often Enter or the button is pressed
           if (!hasSomething) return setError(t("needSomething"));
           setError(null);
           save.mutate(
@@ -114,7 +116,7 @@ export function RateSheet({ open, onClose, bottleId, title, existing }: RateShee
           </p>
         )}
         <Button type="submit" size="lg" block loading={save.isPending} disabled={busy}>
-          {t("save")}
+          {t("saveReview")}
         </Button>
         {existing && (
           <div className="text-center">

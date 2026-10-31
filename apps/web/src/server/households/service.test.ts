@@ -43,6 +43,11 @@ function fakeRepo(
         ids.map((id) => [id, state.profiles.find((p) => p.id === id)?.displayName ?? null]),
       );
     },
+    async getAvatarPaths(ids) {
+      return new Map(
+        ids.map((id) => [id, state.profiles.find((p) => p.id === id)?.avatarPath ?? null]),
+      );
+    },
     async createHousehold(name, currency) {
       const id = `h${++n}`;
       state.households.push({ id, name, currency });

@@ -19,7 +19,7 @@ import { cn } from "@/ui/cn";
 import { EmptyState } from "@/ui/empty-state";
 import { ChevronRightIcon, StarIcon } from "@/ui/icons";
 import { Stars } from "@/ui/stars";
-import { QuickRate } from "./quick-rate";
+import { ReviewNudge } from "./review-nudge";
 
 /** "yesterday", "3 days ago", in the viewer's language. */
 function whenOpened(iso: string, locale: string, now: number): string {
@@ -120,26 +120,7 @@ export async function HomeScreen({
         />
       )}
 
-      {toRate && (
-        <section
-          className="reveal mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card bg-surface px-5 py-4 ring-1 ring-hairline"
-          aria-labelledby="rate-nudge"
-          data-testid="rate-nudge"
-        >
-          <h2 id="rate-nudge" className="font-display text-title text-ink">
-            {t("nudge", { wine: toRate.wineName })}
-          </h2>
-          <div className="flex items-center gap-4">
-            <QuickRate bottleId={toRate.bottleId} />
-            <Link
-              href={`/cellar/${toRate.vintageId}?rate=${toRate.bottleId}`}
-              className="inline-flex min-h-11 items-center text-small font-medium text-accent-fg"
-            >
-              {t("nudgeNote")}
-            </Link>
-          </div>
-        </section>
-      )}
+      {toRate && <ReviewNudge entry={toRate} when={whenOpened(toRate.openedAt, locale, now)} />}
 
       <FriendRequestsBanner />
 

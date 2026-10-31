@@ -32,6 +32,7 @@ describe("row mappers", () => {
       displayName: null,
       locale: "en",
       activeHouseholdId: null,
+      avatarPath: null,
     });
   });
 });

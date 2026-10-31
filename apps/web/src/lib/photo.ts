@@ -1,4 +1,4 @@
-import { IMAGE_LIMITS } from "@cellr/domain";
+import { AVATAR_EDGE, IMAGE_LIMITS } from "@cellr/domain";
 
 /** A label photo made ready to send: a normal-size copy, a small one, and the colour to hold its place. */
 export interface PreparedPhoto {
@@ -109,4 +109,41 @@ export function photoForm(prepared: PreparedPhoto, side: "front" | "back" = "fro
   form.set("side", side);
   form.set("blurColor", prepared.blurColor);
   return form;
+}
+
+/** The square of a picture to keep as a profile photo, in the picture's own pixels (as it is shown, turned upright). */
+export interface SquareCrop {
+  x: number;
+  y: number;
+  size: number;
+}
+
+/**
+ * A profile photo made ready to send: just the chosen square, at most AVATAR_EDGE px, re-encoded (so nothing of the
+ * camera's original or its location details leaves the phone). Without a crop, the middle square.
+ */
+export async function prepareAvatar(file: Blob, crop?: SquareCrop): Promise<Blob> {
+  const source = await open(file);
+  try {
+    if (source.width < 1 || source.height < 1) throw new UnreadablePhotoError();
+    const side = Math.min(source.width, source.height);
+    const c = crop ?? {
+      x: (source.width - side) / 2,
+      y: (source.height - side) / 2,
+      size: side,
+    };
+    const edge = Math.max(1, Math.min(AVATAR_EDGE, Math.round(c.size)));
+    const canvas = document.createElement("canvas");
+    canvas.width = edge;
+    canvas.height = edge;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new UnreadablePhotoError();
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, edge, edge);
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(source.bitmap, c.x, c.y, c.size, c.size, 0, 0, edge, edge);
+    return await toBlob(canvas, 0.86);
+  } finally {
+    source.close();
+  }
 }

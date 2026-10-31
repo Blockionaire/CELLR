@@ -83,7 +83,6 @@
     "addBottle": "Add a bottle",
     "ratedStars": "Rated {stars} out of 5",
     "nudge": "How was the {wine}?",
-    "nudgeNote": "Add a note",
     "rateIt": "Rate it",
     "comingUp": "Coming up",
     "reminder": {
@@ -97,7 +96,9 @@
     "quickAsk": "Ask straight away",
     "ratingsTitle": "Your ratings",
     "ratingsSummary": "{count, plural, one {# wine rated} other {# wines rated}} · average {average} ★",
-    "ratingsStart": "Your tasting journal: rate what you open"
+    "ratingsStart": "Your tasting journal: rate what you open",
+    "nudgeWhen": "Opened {when}",
+    "nudgeReview": "Review wine"
   },
   "cellar": {
     "title": "Cellar",
@@ -563,7 +564,10 @@
     "typeRequired": "Which kind of wine is it? Choose one above.",
     "shopLabel": "Bought at",
     "shopPlaceholder": "Shop or merchant",
-    "inCellar": "In your cellar ×{count}"
+    "inCellar": "In your cellar ×{count}",
+    "scanTitle": "Scan wine",
+    "scanBody": "Use the camera or a photo of the label.",
+    "newWineHint": "Type it in yourself, without scanning."
   },
   "newPlace": {
     "title": "A place for your bottles",
@@ -828,7 +832,8 @@
       "elegant": "Elegant"
     },
     "removeConfirm": "Yes, remove it all",
-    "notRated": "Not rated"
+    "notRated": "Not rated",
+    "saveReview": "Save review"
   },
   "drink": {
     "title": "When to drink it",
@@ -1691,5 +1696,21 @@
   "boot": {
     "label": "Loading CELLR",
     "preparing": "Preparing your cellar"
+  },
+  "avatar": {
+    "title": "Profile photo",
+    "add": "Add a profile photo",
+    "change": "Change your profile photo",
+    "body": "Take a photo or choose one. Only you and the people in your households see it.",
+    "choose": "Take or choose a photo",
+    "replace": "Take or choose another",
+    "remove": "Remove photo",
+    "placeHint": "Drag to place it in the circle.",
+    "zoom": "Zoom",
+    "back": "Back",
+    "use": "Use photo",
+    "saved": "Profile photo saved.",
+    "removed": "Profile photo removed.",
+    "unreadable": "That isn't a photo we can open. Try another one."
   }
 }

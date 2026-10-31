@@ -147,61 +147,8 @@ test.describe("quick UX fixes", () => {
   });
 });
 
-test.describe("quick rating on Home is never lost", () => {
-  async function openedBottle(call: Call) {
-    const rack = await place(call, "Rack");
-    const added = await wine(call, 2019, 1, rack.id);
-    await call("patch", `/bottles/${added.bottleIds[0]}`, { action: "open" }, 200);
-  }
-  const scores = (householdId: string) =>
-    sql<{ score: string }>("select score::text from public.tastings where household_id = $1", [
-      householdId,
-    ]).then((rows) => rows.map((r) => r.score));
-
-  test("rate with the keys and leave at once: the rating is saved, once", async ({
-    page,
-    request,
-  }) => {
-    const { email, householdId } = await arrive(page, "uxleave");
-    const { call } = await apiClient(request, email);
-    await openedBottle(call);
-    await page.goto("/");
-    const stars = page.getByTestId("rate-nudge").getByTestId("stars-input");
-    await stars.focus();
-    await stars.press("Home");
-    for (let i = 0; i < 32; i++) await stars.press("ArrowRight"); // 4.2
-    // Straight away, before the key burst has settled: off to the cellar.
-    await page.getByRole("link", { name: "Cellar" }).last().click();
-    await expect(page).toHaveURL(/\/cellar$/);
-    await expect.poll(() => scores(householdId)).toEqual(["8.4"]);
-  });
-
-  test("tapping the same value again clears it, on screen and on the server", async ({
-    page,
-    request,
-  }) => {
-    const { email, householdId } = await arrive(page, "uxclear");
-    const { call } = await apiClient(request, email);
-    await openedBottle(call);
-    await page.goto("/");
-    const nudge = page.getByTestId("rate-nudge");
-    await expect(nudge.getByTestId("stars-input")).toBeVisible();
-    const box = (await nudge.getByTestId("stars-input").boundingBox())!;
-    const at = { x: box.x + 3 * 44 + 20, y: box.y + box.height / 2 }; // 3.5 stars
-    const writes: string[] = [];
-    page.on("request", (r) => r.url().includes("/tasting") && writes.push(r.method()));
-    const removed = page.waitForResponse(
-      (r) => r.url().includes("/tasting") && r.request().method() === "DELETE",
-    );
-    await page.mouse.click(at.x, at.y);
-    await page.mouse.click(at.x, at.y); // the same value again: cleared
-    await expect(nudge.getByText("– / 5")).toBeVisible();
-    // Both writes go out in order, the second only after the first: saved, then removed; nothing is left behind.
-    expect((await removed).status()).toBe(200);
-    expect(writes).toEqual(["PUT", "DELETE"]);
-    expect(await scores(householdId)).toEqual([]);
-  });
-});
+// Home's one-tap stars (saved on release) made way for the full review sheet with an explicit Save (Sprint O):
+// see e2e/sprint-o.spec.ts.
 
 test("back from a bottle opened in the 3D cellar returns to 3D", async ({ page, request }) => {
   test.setTimeout(90_000);

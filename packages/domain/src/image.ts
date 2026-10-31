@@ -11,6 +11,17 @@ import { z } from "zod";
 export const IMAGE_SIDES = ["front", "back"] as const;
 export type ImageSide = (typeof IMAGE_SIDES)[number];
 
+/**
+ * A profile photo as it is kept: the browser makes a square of at most AVATAR_EDGE px (a camera original is never
+ * stored), the server refuses anything bigger than this or not a JPEG.
+ */
+export const AVATAR_LIMITS = {
+  bytes: 512 * 1024,
+  maxEdge: 1024,
+  minEdge: 64,
+} as const;
+export const AVATAR_EDGE = 512;
+
 export const IMAGE_LIMITS = {
   /** The label photo as it is kept (the browser shrinks phone photos to ~1600 px before sending). */
   photoBytes: 3 * 1024 * 1024,
