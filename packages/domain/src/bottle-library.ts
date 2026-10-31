@@ -24,9 +24,11 @@ export interface BottleArtRef {
   id: string;
   width: number;
   height: number;
+  /** A catalogue wine's picture (seen by everyone); otherwise one household's private picture. */
+  shared?: boolean;
 }
 
-/** Where the app fetches a published picture (the id is the file's own, so it can be kept for good). */
+/** Where the app fetches a published picture (the server checks, every time, that the viewer may see it). */
 export const bottleArtUrl = (id: string) => `/api/v1/bottle-art/${id}`;
 
 export const BottlePhotoFieldsSchema = z.object({
@@ -35,11 +37,14 @@ export const BottlePhotoFieldsSchema = z.object({
   consent: z.literal("true", { error: "Tick the box to let CELLR use your photo." }),
 });
 
-/** What sending a photo gave back: the points it earned (0 when this wine was already rewarded) and my total. */
+/**
+ * What sending a photo gave back: the points it earned (0 when this wine was already rewarded) and my total, or null
+ * when the total could not be read just now (the photo is sent all the same).
+ */
 export interface BottlePhotoResult {
   id: string;
   points: number;
-  total: number;
+  total: number | null;
 }
 
 // ---- Checking an uploaded picture -------------------------------------------------------------------------------
@@ -133,10 +138,16 @@ export const parseBottlePhotoFilter = (v: unknown): BottlePhotoStatus | "all" =>
     ? (v as BottlePhotoStatus | "all")
     : "pending";
 
-export const WINE_VISUAL_FILTERS = ["wanted", "published", "all"] as const;
+export const WINE_VISUAL_FILTERS = ["all", "wanted", "published"] as const;
 export type WineVisualFilter = (typeof WINE_VISUAL_FILTERS)[number];
 export const parseWineVisualFilter = (v: unknown): WineVisualFilter =>
-  (WINE_VISUAL_FILTERS as readonly unknown[]).includes(v) ? (v as WineVisualFilter) : "wanted";
+  (WINE_VISUAL_FILTERS as readonly unknown[]).includes(v) ? (v as WineVisualFilter) : "all";
+
+/** Which wines the admin's list shows: every wine, the shared catalogue, or households' own. */
+export const WINE_VISUAL_SCOPES = ["all", "catalogue", "household"] as const;
+export type WineVisualScope = (typeof WINE_VISUAL_SCOPES)[number];
+export const parseWineVisualScope = (v: unknown): WineVisualScope =>
+  (WINE_VISUAL_SCOPES as readonly unknown[]).includes(v) ? (v as WineVisualScope) : "all";
 
 const year = z.number().int().nullable();
 export const BottlePhotoRowSchema = z.object({
@@ -145,6 +156,8 @@ export const BottlePhotoRowSchema = z.object({
   createdAt: z.string(),
   userId: z.uuid(),
   submitter: z.string().nullable(),
+  householdId: z.uuid().nullable(),
+  household: z.string().nullable(),
   producer: z.string(),
   wine: z.string(),
   type: z.enum(WINE_TYPES),
@@ -172,7 +185,6 @@ export type BottlePhotoList = z.infer<typeof BottlePhotoListSchema>;
 
 export const BottlePhotoDetailSchema = BottlePhotoRowSchema.extend({
   photoPath: z.string(),
-  suggestedWineId: z.uuid().nullable(),
   related: z
     .object({ id: z.uuid(), status: z.enum(BOTTLE_PHOTO_STATUSES), createdAt: z.string() })
     .array(),
@@ -185,6 +197,9 @@ export const WineVisualRowSchema = z.object({
   name: z.string(),
   type: z.enum(WINE_TYPES),
   country: z.string().nullable(),
+  status: z.enum(["canonical", "provisional"]),
+  householdId: z.uuid().nullable(),
+  household: z.string().nullable(),
   published: z.boolean(),
   drafts: z.number().int(),
   pending: z.number().int(),
@@ -212,6 +227,8 @@ export const WineVisualSchema = z.object({
   country: z.string().nullable(),
   region: z.string().nullable(),
   appellation: z.string().nullable(),
+  householdId: z.uuid().nullable(),
+  household: z.string().nullable(),
   art: BottleArtAdminSchema.array(),
   photos: BottlePhotoRowSchema.array(),
   labelPhotos: z.number().int(),

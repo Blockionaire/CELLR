@@ -210,6 +210,22 @@ export type Database = {
         };
         Relationships: [];
       };
+      bottle_art_orphans: {
+        Row: {
+          path: string;
+          queued_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          path: string;
+          queued_at?: string;
+        };
+        Update: {
+          path?: string;
+          queued_at?: string;
+        };
+        Relationships: [];
+      };
       bottle_extras: {
         Row: {
           acquired_how: string | null;
@@ -2087,7 +2103,7 @@ export type Database = {
       admin_user_summary: { Args: { p_now?: string; p_user: string }; Returns: Json };
       admin_wine_visual: { Args: { p_wine: string }; Returns: Json };
       admin_wine_visuals: {
-        Args: { p_filter: string; p_limit: number; p_query: string };
+        Args: { p_filter: string; p_limit: number; p_query: string; p_scope: string };
         Returns: Json;
       };
       ai_budget_hold: {
@@ -2283,6 +2299,7 @@ export type Database = {
         Returns: {
           art_id: string;
           height: number;
+          shared: boolean;
           width: number;
           wine_id: string;
         }[];

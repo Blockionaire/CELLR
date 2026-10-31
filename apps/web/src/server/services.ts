@@ -27,6 +27,7 @@ import { createAvatarRepository, createAvatarService } from "@/server/households
 import { createBottleLibraryRepository } from "@/server/bottle-library/repository";
 import { createBottleLibraryService } from "@/server/bottle-library/service";
 import {
+  purgeBottleArtFiles,
   purgeBottlePhotos,
   removeBottlePhotos,
   storeBottlePhoto,
@@ -86,6 +87,7 @@ export function servicesFor(ctx: RequestContext) {
   const households = createHouseholdService(createHouseholdRepository(ctx.db), {
     userId: ctx.userId,
     email: ctx.email,
+    afterDelete: purgeBottleArtFiles,
   });
   const insightsRepo = createInsightsRepository(ctx.db);
   const insights = createInsightsService({
@@ -140,7 +142,11 @@ export function servicesFor(ctx: RequestContext) {
       household: (id) => households.getHousehold(id),
       purgePhotos: (id) => images.purge(id),
       purgeAvatar: () => avatars.purge(),
-      purgeBottlePhotos: () => purgeBottlePhotos(ctx.userId),
+      purgeBottlePhotos: async () => {
+        await purgeBottlePhotos(ctx.userId);
+        // the 2D pictures of households that went with the account
+        await purgeBottleArtFiles().catch(() => {});
+      },
       deleteHousehold: (id) => households.deleteHousehold(id),
       leaveHousehold: (id) => households.removeMember(id, ctx.userId),
       canDelete: canDeleteAccounts,

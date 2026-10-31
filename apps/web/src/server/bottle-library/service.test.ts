@@ -28,7 +28,7 @@ function jpeg(w: number, h: number): Uint8Array {
 
 const VINTAGE = "8b1f4c2e-3d5a-4e6f-9a7b-1c2d3e4f5a6b";
 
-function fake(options: { failSubmit?: boolean; stored?: boolean } = {}) {
+function fake(options: { failSubmit?: boolean; stored?: boolean; failPoints?: boolean } = {}) {
   const state = {
     stored: new Map<string, Uint8Array>(),
     removed: [] as string[],
@@ -46,7 +46,10 @@ function fake(options: { failSubmit?: boolean; stored?: boolean } = {}) {
       if (first) state.points += 10;
       return { id: `s${state.submits}`, points: first ? 10 : 0 };
     },
-    points: async () => state.points,
+    points: async () => {
+      if (options.failPoints) throw new Error("points read failed");
+      return state.points;
+    },
     art: async () => new Map(),
     artFile: async () => null,
   };
@@ -106,6 +109,14 @@ describe("sending a bottle photo", () => {
     const { service, state } = fake({ failSubmit: true });
     await expect(service.submit(VINTAGE, true, jpeg(1200, 1600))).rejects.toThrow();
     expect(state.removed).toEqual(["me/0.jpg"]);
+  });
+
+  it("a points total that can't be read never takes away a photo that was recorded", async () => {
+    const { service, state } = fake({ failPoints: true });
+    const sent = await service.submit(VINTAGE, true, jpeg(1200, 1600));
+    expect(sent).toEqual({ id: "s1", points: 10, total: null });
+    expect(state.removed).toEqual([]);
+    expect(state.stored.size).toBe(1);
   });
 
   it("says so kindly when this deployment cannot keep photos", async () => {

@@ -13,8 +13,9 @@ const button = "rounded-full bg-ink px-4 py-2 text-small text-canvas";
 const quiet = "rounded-full px-4 py-2 text-small text-ink ring-1 ring-hairline";
 
 /**
- * One sent bottle photo: the photo (admin only), what it is of, the consent and reward, and the review. A photo of a
- * household's own wine needs the canonical wine it belongs to before a picture made from it can be published.
+ * One sent bottle photo: the photo (admin only), what it is of, the consent and reward, and the review. The natural
+ * next step is the wine's own picture editor, for a catalogue wine and a household's own wine alike; linking a
+ * household's wine to a catalogue wine is optional and always the admin's explicit choice.
  */
 export default async function AdminBottlePhotoPage({
   params,
@@ -39,8 +40,9 @@ export default async function AdminBottlePhotoPage({
     );
   if (data === "none") notFound();
   const { detail: p, candidates } = data;
-  const target = p.canonicalWineId ?? p.suggestedWineId;
   const review = reviewAction.bind(null, p.id);
+  // the wine the picture goes on: the one the photo was sent for (a household's own, or a catalogue wine)
+  const wineId = p.sourceWineId ?? p.canonicalWineId;
 
   return (
     <>
@@ -89,29 +91,49 @@ export default async function AdminBottlePhotoPage({
               <dd>
                 {p.width} × {p.height} px
               </dd>
-              <dt className="text-ink-2">Sent wine</dt>
+              <dt className="text-ink-2">Household</dt>
+              <dd>{p.household ?? (p.householdId ? p.householdId : "—")}</dd>
+              <dt className="text-ink-2">Wine</dt>
               <dd>
                 {p.sourceWineId === null
                   ? "No longer there (the household removed it)"
                   : p.sourceCanonical
-                    ? "A catalogue wine"
-                    : "A household's own wine"}
+                    ? "A catalogue wine: its picture is shared with everyone who has it"
+                    : `A household's own wine: its picture is seen only by ${p.household ?? "that household"}`}
               </dd>
-              <dt className="text-ink-2">Canonical wine</dt>
-              <dd>
-                {p.canonicalWineId ? (
-                  <Link
-                    href={`/admin/wines/${p.canonicalWineId}`}
-                    prefetch={false}
-                    className="text-accent-ink"
-                    data-testid="wine-link"
-                  >
-                    {p.canonicalName ?? p.canonicalWineId} → wine visuals
-                  </Link>
-                ) : (
-                  "Not chosen yet"
-                )}
-              </dd>
+              {wineId && (
+                <>
+                  <dt className="text-ink-2">Picture</dt>
+                  <dd>
+                    <Link
+                      href={`/admin/wines/${wineId}`}
+                      prefetch={false}
+                      className="text-accent-ink"
+                      data-testid="wine-link"
+                    >
+                      Open this wine&apos;s picture editor →
+                    </Link>
+                  </dd>
+                </>
+              )}
+              {p.sourceCanonical === false && (
+                <>
+                  <dt className="text-ink-2">Catalogue link</dt>
+                  <dd>
+                    {p.canonicalWineId ? (
+                      <Link
+                        href={`/admin/wines/${p.canonicalWineId}`}
+                        prefetch={false}
+                        className="text-accent-ink"
+                      >
+                        {p.canonicalName ?? p.canonicalWineId}
+                      </Link>
+                    ) : (
+                      "None (not needed)"
+                    )}
+                  </dd>
+                </>
+              )}
               {p.note && (
                 <>
                   <dt className="text-ink-2">Note</dt>
@@ -123,20 +145,21 @@ export default async function AdminBottlePhotoPage({
 
           <Section
             title="Review"
-            note="Approve a usable photo, reject one that is not, mark it as used once a picture made from it is published (publishing does that for the photos you tick)."
+            note="Approve a usable photo, then make the picture in the wine's picture editor. Reject one that is not usable. Publishing marks the photos you tick as used."
           >
             <form action={review} className="flex flex-col gap-3 text-small">
-              {!p.sourceCanonical && (
-                <label className="flex flex-col gap-1">
-                  <span className="text-ink-2">
-                    Canonical wine (needed before publishing; a household&apos;s own wine maps to
-                    it)
-                  </span>
-                  <select name="canonicalWineId" defaultValue={target ?? ""} className={input}>
-                    <option value="">— keep as it is —</option>
-                    {target && !candidates.some((c) => c.id === target) && (
-                      <option value={target}>{p.canonicalName ?? target}</option>
-                    )}
+              {p.sourceCanonical === false && !p.canonicalWineId && (
+                <details className="rounded-[10px] p-3 ring-1 ring-hairline">
+                  <summary className="cursor-pointer text-ink-2">
+                    Optional: link this household wine to a catalogue wine
+                  </summary>
+                  <p className="mt-2 text-caption text-ink-3">
+                    Only when you have verified it is the same wine. While the household wine has no
+                    picture of its own, it then shows the catalogue wine&apos;s picture. A link is
+                    never made for you and is not replaced later.
+                  </p>
+                  <select name="canonicalWineId" defaultValue="" className={`${input} mt-2 w-full`}>
+                    <option value="">— no link —</option>
                     {candidates.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.producer} — {c.name} ({c.type}
@@ -144,16 +167,12 @@ export default async function AdminBottlePhotoPage({
                       </option>
                     ))}
                   </select>
-                  <span className="text-caption text-ink-3">
-                    Only the same producer&apos;s catalogue wines are listed. Not there? Find it in
-                    Wine visuals and paste its id:
-                  </span>
                   <input
                     name="canonicalWineIdPaste"
-                    placeholder="Canonical wine id (optional)"
-                    className={input}
+                    placeholder="…or paste a catalogue wine id"
+                    className={`${input} mt-2 w-full`}
                   />
-                </label>
+                </details>
               )}
               <label className="flex flex-col gap-1">
                 <span className="text-ink-2">Note (internal)</span>

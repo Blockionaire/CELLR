@@ -16,8 +16,11 @@ export interface BottleLibraryRepository {
   points(): Promise<number>;
   /** The published 2D bottle picture of each of these wines that has one (household wines through their mapping). */
   art(wineIds: string[]): Promise<Map<string, BottleArtRef>>;
-  /** A published picture's file. Null when it is not (or no longer) published. */
-  artFile(artId: string): Promise<{ bytes: Uint8Array; type: string } | null>;
+  /**
+   * A published picture's file, read as the person: the storage policy lets it through only while it is the published
+   * picture of a wine they can see. Null otherwise. `shared` = a catalogue wine's picture.
+   */
+  artFile(artId: string): Promise<{ bytes: Uint8Array; type: string; shared: boolean } | null>;
 }
 
 /** The database step not taken yet: the library is simply empty. */
@@ -58,7 +61,12 @@ export function createBottleLibraryRepository(db: Db): BottleLibraryRepository {
         if (error && notThere(error)) return found;
         if (error) throw mapDbError(error);
         for (const r of data ?? [])
-          found.set(r.wine_id, { id: r.art_id, width: r.width, height: r.height });
+          found.set(r.wine_id, {
+            id: r.art_id,
+            width: r.width,
+            height: r.height,
+            shared: r.shared,
+          });
       }
       return found;
     },
@@ -66,15 +74,22 @@ export function createBottleLibraryRepository(db: Db): BottleLibraryRepository {
     async artFile(artId) {
       const { data: row, error } = await db
         .from("wine_bottle_art")
-        .select("path, content_type")
+        .select("path, content_type, wine_id")
         .eq("id", artId)
         .maybeSingle();
       if (error && notThere(error)) return null;
       if (error) throw mapDbError(error);
       if (!row) return null;
-      const file = await db.storage.from("wine-labels").download(row.path);
-      if (file.error || !file.data) return null;
-      return { bytes: new Uint8Array(await file.data.arrayBuffer()), type: row.content_type };
+      const [file, wine] = await Promise.all([
+        db.storage.from("bottle-art").download(row.path),
+        db.from("wines").select("status").eq("id", row.wine_id).maybeSingle(),
+      ]);
+      if (file.error || !file.data || !wine.data) return null;
+      return {
+        bytes: new Uint8Array(await file.data.arrayBuffer()),
+        type: row.content_type,
+        shared: wine.data.status === "canonical",
+      };
     },
   };
 }

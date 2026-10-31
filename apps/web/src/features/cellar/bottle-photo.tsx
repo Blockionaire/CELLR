@@ -99,9 +99,11 @@ export function BottlePhotoContribution({ vintageId, wine }: { vintageId: string
             <p className="text-body text-ink-2 text-pretty">
               {done.points > 0 ? t("earned", { points: done.points }) : t("alreadyEarned")}
             </p>
-            <p className="text-small text-ink-3" data-testid="points-total">
-              {t("total", { points: done.total })}
-            </p>
+            {done.total !== null && (
+              <p className="text-small text-ink-3" data-testid="points-total">
+                {t("total", { points: done.total })}
+              </p>
+            )}
             <Button block onClick={close}>
               {t("close")}
             </Button>

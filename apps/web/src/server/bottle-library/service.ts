@@ -48,19 +48,23 @@ export function createBottleLibraryService({ repo, store, remove }: BottleLibrar
         throw new DomainError("INTERNAL", "Sending photos isn't available right now.", {
           retryable: true,
         });
+      let sent: { id: string; points: number };
       try {
-        const sent = await repo.submit({
+        sent = await repo.submit({
           vintageId,
           path,
           width: clean.width,
           height: clean.height,
           consent,
         });
-        return { ...sent, total: await repo.points() };
       } catch (error) {
+        // only a photo that was never recorded is taken away again
         await remove([path]).catch(() => {});
         throw error;
       }
+      // The photo is sent and recorded from here on: a total that can't be read just now is simply not shown.
+      const total = await repo.points().catch(() => null);
+      return { ...sent, total };
     },
 
     points: () => repo.points(),

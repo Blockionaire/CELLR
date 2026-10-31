@@ -1,24 +1,29 @@
 -- The demand-driven 2D bottle library (Sprint P): people may send a photo of a whole bottle of a wine they own, with
--- explicit consent; the admin reviews it, makes a finished 2D bottle picture, uploads and publishes it on the
--- CANONICAL wine; from then on that picture is the wine's default visual in the app.
+-- explicit consent; the admin reviews it, makes a finished 2D bottle picture, uploads and publishes it on THAT wine;
+-- from then on that picture is the wine's default visual in the app. Every wine can have one: a catalogue
+-- (canonical) wine's picture is shared like the catalogue itself, a household's own (provisional) wine's picture is
+-- seen only by that household.
 --
 -- * The photo a person sends is raw material, never shown in the app: it lives in its own private bucket
 --   (bottle-submissions) with NO storage policy for signed-in users, so only the service role (the server, after its
 --   own checks, and the admin dashboard) can write or read it. The rows are not readable by anyone but their sender
 --   (a few columns) and the service role.
--- * A photo is accepted only with consent (consent_granted_at is required) and only for a vintage the sender's
---   household holds a bottle of, through submit_bottle_photo() as the sender.
+-- * A photo is accepted only with consent, only for a vintage the sender's household holds a bottle of, and only
+--   when the file is really there (the server stored it), through submit_bottle_photo() as the sender.
 -- * Points: a small ledger (account_points), one row per person, reason and thing. The first photo a person sends
 --   of a wine earns points; more photos of that wine are welcome but earn nothing (a unique key, not a count, so two
 --   sends at once cannot both earn). A later rejection takes nothing back.
--- * The published picture (wine_bottle_art) is a separate asset, made by the admin, kept in the existing
---   wine-labels bucket (readable by signed-in users, written by the service role only) and attached to a canonical
---   wine: one published default per wine. vintage_id is reserved for a later per-vintage override and is not used
---   yet (the app reads only rows without it).
--- * A household's own (provisional) wine shows the picture of the canonical wine it maps to: the target the admin
---   chose when reviewing a photo of it, or the canonical wine its catalogue candidate was approved as.
+-- * The published picture (wine_bottle_art) is a separate asset made by the admin, kept in its own PRIVATE bucket
+--   (bottle-art). A signed-in person can read a file there only while the database says so: it is the published
+--   picture of a wine they can see (a catalogue wine, or one of their own household's wines). Drafts are never
+--   readable; a picture whose wine or household is gone, or whose household the person left, is not readable either.
+--   One published default per wine; vintage_id is reserved for a later per-vintage override (unused now).
+-- * Which picture a wine shows: its own published picture first; else, for a household's own wine, the published
+--   picture of the catalogue wine the admin explicitly linked it to (when reviewing a photo of it) or its approved
+--   catalogue candidate became. Nothing is ever linked by a name or year looking alike.
 -- * Deleting the account deletes the person's submissions and points (cascade); the server removes the photo files
---   first. Deleting a household keeps a member's submissions (they are the person's), without the household link.
+--   first. A removed picture (by the admin, or with its wine or household) leaves its file path in a queue the server
+--   empties; until then the file is unreadable anyway (no picture row says it may be read).
 
 -- ---- 1. Points ------------------------------------------------------------------------------------------------
 create table public.account_points (
@@ -41,10 +46,11 @@ grant all on public.account_points to service_role;
 -- ---- 2. The published 2D bottle pictures ---------------------------------------------------------------------
 create table public.wine_bottle_art (
   id           uuid primary key default gen_random_uuid(),
+  -- any wine: a catalogue one (shared) or a household's own (that household only)
   wine_id      uuid not null references public.wines on delete cascade,
   -- reserved: a later per-vintage override; null = the wine's default (the only kind used now)
   vintage_id   uuid references public.wine_vintages on delete cascade,
-  path         text not null unique check (path like 'bottles/' || wine_id::text || '/%'),
+  path         text not null unique check (path like wine_id::text || '/%'),
   content_type text not null check (content_type in ('image/png', 'image/jpeg')),
   width        int not null check (width between 64 and 4096),
   height       int not null check (height between 64 and 4096),
@@ -59,13 +65,53 @@ create unique index wine_bottle_art_published_once on public.wine_bottle_art
   (wine_id, coalesce(vintage_id, '00000000-0000-0000-0000-000000000000'::uuid)) where published_at is not null;
 
 alter table public.wine_bottle_art enable row level security;
--- signed-in people see published pictures of wines they can see (the canonical catalogue is visible to all)
+-- published pictures of wines the person can see (wines' own policy: the catalogue, and their households' wines)
 create policy wine_bottle_art_published on public.wine_bottle_art for select to authenticated
   using (published_at is not null and exists (select 1 from public.wines w where w.id = wine_id));
 revoke all on public.wine_bottle_art from public, anon, authenticated;
 grant select (id, wine_id, vintage_id, path, content_type, width, height, published_at)
   on public.wine_bottle_art to authenticated;
 grant all on public.wine_bottle_art to service_role;
+
+-- Files of removed pictures, for the server to delete (service role only).
+create table public.bottle_art_orphans (
+  path      text primary key,
+  queued_at timestamptz not null default now()
+);
+alter table public.bottle_art_orphans enable row level security;
+revoke all on public.bottle_art_orphans from public, anon, authenticated;
+grant all on public.bottle_art_orphans to service_role;
+
+create function private.queue_bottle_art_file() returns trigger
+  language plpgsql security definer set search_path = '' as $$
+begin
+  insert into public.bottle_art_orphans (path) values (old.path) on conflict do nothing;
+  return old;
+end $$;
+create trigger wine_bottle_art_file_gone after delete on public.wine_bottle_art
+  for each row execute function private.queue_bottle_art_file();
+
+-- The pictures' own private bucket. A signed-in person reads a file only while it is the published picture of a wine
+-- they can see right now; nobody but the service role writes.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values
+  ('bottle-art', 'bottle-art', false, 5242880, array['image/png', 'image/jpeg'])
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+create function private.may_read_bottle_art(p_path text) returns boolean
+  language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from public.wine_bottle_art a join public.wines w on w.id = a.wine_id
+     where a.path = p_path and a.published_at is not null
+       and (w.status = 'canonical' or w.owner_household_id = any (private.my_household_ids())))
+$$;
+revoke all on function private.may_read_bottle_art(text) from public, anon;
+grant execute on function private.may_read_bottle_art(text) to authenticated;
+
+create policy cellr_bottle_art_select on storage.objects for select to authenticated
+  using (bucket_id = 'bottle-art' and private.may_read_bottle_art(name));
 
 -- ---- 3. The photos people send -------------------------------------------------------------------------------
 create table public.bottle_photo_submissions (
@@ -149,12 +195,17 @@ begin
     from public.wine_vintages wv join public.wines w on w.id = wv.wine_id join public.producers p on p.id = w.producer_id
    where wv.id = p_vintage_id;
   if not found then raise exception 'not_found'; end if;
+  -- the file must really be there: only the server can put one in the private bucket (no invented paths)
+  if not exists (select 1 from storage.objects o where o.bucket_id = 'bottle-submissions' and o.name = p_photo_path) then
+    raise exception 'bad_path' using errcode = '22023';
+  end if;
   -- a simple guard against floods
   if (select count(*) from public.bottle_photo_submissions s
        where s.user_id = me and s.created_at > now() - interval '24 hours') >= 20 then
     raise exception 'rate_limited' using errcode = '54000';
   end if;
-  canon := case when v.status = 'canonical' then v.wine_id else private.bottle_art_mapping(v.wine_id) end;
+  -- a catalogue wine is its own target; a household's own wine has none until the admin links one explicitly
+  canon := case when v.status = 'canonical' then v.wine_id end;
 
   insert into public.bottle_photo_submissions
     (user_id, household_id, source_wine_id, source_vintage_id, canonical_wine_id, producer_text, wine_text, wine_type,
@@ -163,7 +214,7 @@ begin
           p_photo_path, p_width, p_height, now())
   returning id into sid;
 
-  -- once per person and wine (the canonical one when known, so two copies of one wine do not earn twice)
+  -- once per person and wine
   insert into public.account_points (user_id, reason, ref_id, points)
   values (me, 'bottle_photo', coalesce(canon, v.wine_id), reward)
   on conflict on constraint account_points_once do nothing;
@@ -177,14 +228,15 @@ revoke all on function public.submit_bottle_photo(uuid, text, int, int, boolean)
 grant execute on function public.submit_bottle_photo(uuid, text, int, int, boolean) to authenticated;
 
 -- ---- 5. Which picture a wine shows -----------------------------------------------------------------------------
--- The canonical wine a household's own wine maps to: the admin's choice for a photo of it, else its approved
--- catalogue candidate. Null when there is none.
+-- The catalogue wine a household's own wine is EXPLICITLY linked to: the target the admin chose when reviewing a
+-- photo of it, else the catalogue wine its approved catalogue candidate became. Null when there is none.
 create function private.bottle_art_mapping(p_wine uuid) returns uuid
   language sql stable security definer set search_path = '' as $$
   select coalesce(
     (select s.canonical_wine_id from public.bottle_photo_submissions s
       join public.wines c on c.id = s.canonical_wine_id and c.status = 'canonical'
-      where s.source_wine_id = p_wine and s.status in ('approved', 'used')
+      where s.source_wine_id = p_wine and s.canonical_wine_id <> p_wine and s.reviewed_by is not null
+        and s.status in ('approved', 'used')
       order by s.reviewed_at desc nulls last limit 1),
     (select c.canonical_wine_id from public.catalog_evidence e
       join public.catalog_candidates c on c.id = e.candidate_id
@@ -193,22 +245,27 @@ create function private.bottle_art_mapping(p_wine uuid) returns uuid
 $$;
 revoke all on function private.bottle_art_mapping(uuid) from public, anon, authenticated;
 
--- The published default picture of each of these wines that the caller can see (their household's own wines
--- through the mapping above). One row per wine that has one.
+-- The published default picture of each of these wines that the caller can see: the wine's own first, else (for a
+-- household's own wine) the one of the catalogue wine it is explicitly linked to. `shared` = a catalogue wine's
+-- picture (seen by everyone); otherwise it is one household's private picture.
 create function public.wine_bottle_art_for(p_wine_ids uuid[])
-  returns table (wine_id uuid, art_id uuid, width int, height int)
+  returns table (wine_id uuid, art_id uuid, width int, height int, shared boolean)
   language sql stable security definer set search_path = '' as $$
   with mine as (
     select w.id, w.status from public.wines w
      where w.id = any (p_wine_ids[1:500])
        and (w.status = 'canonical' or w.owner_household_id = any (private.my_household_ids()))
-  ), target as (
-    select m.id, case when m.status = 'canonical' then m.id else private.bottle_art_mapping(m.id) end as canon
-      from mine m
   )
-  select t.id, a.id, a.width, a.height
-    from target t join public.wine_bottle_art a
-      on a.wine_id = t.canon and a.vintage_id is null and a.published_at is not null
+  select m.id, a.id, a.width, a.height, a.shared
+    from mine m
+    cross join lateral (
+      select x.id, x.width, x.height, aw.status = 'canonical' as shared
+        from public.wine_bottle_art x join public.wines aw on aw.id = x.wine_id
+       where x.vintage_id is null and x.published_at is not null
+         and (x.wine_id = m.id
+              or (m.status = 'provisional' and x.wine_id = private.bottle_art_mapping(m.id)))
+       order by (x.wine_id = m.id) desc
+       limit 1) a
 $$;
 revoke all on function public.wine_bottle_art_for(uuid[]) from public, anon;
 grant execute on function public.wine_bottle_art_for(uuid[]) to authenticated, service_role;
@@ -220,6 +277,8 @@ create function private.bottle_photo_json(s public.bottle_photo_submissions) ret
     'id', s.id, 'status', s.status, 'createdAt', s.created_at, 'userId', s.user_id,
     'submitter', (select coalesce(p.display_name, p.handle) from public.profiles p where p.id = s.user_id),
     'producer', s.producer_text, 'wine', s.wine_text, 'type', s.wine_type, 'year', s.year,
+    'householdId', s.household_id,
+    'household', (select h.name from public.households h where h.id = s.household_id),
     'sourceWineId', s.source_wine_id,
     'sourceCanonical', (select w.status = 'canonical' from public.wines w where w.id = s.source_wine_id),
     'canonicalWineId', s.canonical_wine_id,
@@ -247,9 +306,6 @@ create function public.admin_bottle_photo(p_id uuid)
   returns jsonb language sql stable security definer set search_path = '' as $$
   select case when s.id is null then null else private.bottle_photo_json(s) || jsonb_build_object(
     'photoPath', s.photo_path,
-    -- the canonical wine this one already maps to (when the sent wine is a household's own)
-    'suggestedWineId', case when s.canonical_wine_id is null and s.source_wine_id is not null
-                            then private.bottle_art_mapping(s.source_wine_id) end,
     -- other photos of the same wine
     'related', coalesce((select jsonb_agg(jsonb_build_object('id', o.id, 'status', o.status, 'createdAt', o.created_at)
                                           order by o.created_at desc)
@@ -260,14 +316,24 @@ create function public.admin_bottle_photo(p_id uuid)
     from (select * from public.bottle_photo_submissions where id = p_id) s
 $$;
 
--- Approve, reject or mark as used; optionally (re)target the canonical wine and leave a note. Returns false when
--- the submission is not there or the target is not a canonical wine.
+-- Approve, reject or mark as used, with a note. Optionally link the photo's household wine EXPLICITLY to a catalogue
+-- wine (its picture is then shown for that household wine while it has none of its own). Returns false when the
+-- submission is not there, the target is not a catalogue wine, the photo is of a catalogue wine already, or it is
+-- linked to another catalogue wine (a link is never silently replaced).
 create function public.admin_review_bottle_photo(p_id uuid, p_status text, p_canonical uuid, p_note text, p_actor uuid)
   returns boolean language plpgsql volatile security definer set search_path = '' as $$
+declare s record;
 begin
   if p_status not in ('pending', 'approved', 'rejected', 'used') then raise exception 'bad_status' using errcode = '22023'; end if;
-  if p_canonical is not null and not exists (select 1 from public.wines w where w.id = p_canonical and w.status = 'canonical') then
-    return false;
+  select x.id, x.canonical_wine_id, w.status as source_status
+    into s from public.bottle_photo_submissions x left join public.wines w on w.id = x.source_wine_id
+   where x.id = p_id for update of x;
+  if not found then return false; end if;
+  if p_canonical is not null and p_canonical is distinct from s.canonical_wine_id then
+    if s.canonical_wine_id is not null or s.source_status is distinct from 'provisional'
+       or not exists (select 1 from public.wines w where w.id = p_canonical and w.status = 'canonical') then
+      return false;
+    end if;
   end if;
   update public.bottle_photo_submissions
      set status = p_status,
@@ -275,34 +341,38 @@ begin
          admin_note = coalesce(nullif(btrim(p_note), ''), admin_note),
          reviewed_at = now(), reviewed_by = p_actor
    where id = p_id;
-  return found;
+  return true;
 end $$;
 
--- Canonical wines with their picture state, for the admin's list. p_filter: wanted (photos sent, nothing published)
--- | published | all. p_query matches producer or wine name.
-create function public.admin_wine_visuals(p_filter text, p_query text, p_limit int)
+-- Every wine with its picture state, for the admin's list. p_scope: all | catalogue | household. p_filter: wanted
+-- (photos sent, nothing published) | published | all. p_query matches producer or wine name.
+create function public.admin_wine_visuals(p_scope text, p_filter text, p_query text, p_limit int)
   returns jsonb language sql stable security definer set search_path = '' as $$
   select coalesce(jsonb_agg(jsonb_build_object(
            'id', x.id, 'producer', x.producer, 'name', x.name, 'type', x.wine_type, 'country', x.country_code,
+           'status', x.status, 'householdId', x.owner_household_id, 'household', x.household,
            'published', x.published, 'drafts', x.drafts, 'pending', x.pending, 'photos', x.photos)
-         order by x.pending desc, x.producer, x.name), '[]'::jsonb)
+         order by x.pending desc, x.photos desc, x.producer, x.name), '[]'::jsonb)
     from (select * from (
-      select w.id, p.name as producer, w.name, w.wine_type, w.country_code,
+      select w.id, p.name as producer, w.name, w.wine_type, w.country_code, w.status, w.owner_household_id,
+             (select h.name from public.households h where h.id = w.owner_household_id) as household,
              exists (select 1 from public.wine_bottle_art a
                       where a.wine_id = w.id and a.vintage_id is null and a.published_at is not null) as published,
              (select count(*) from public.wine_bottle_art a where a.wine_id = w.id and a.published_at is null) as drafts,
              (select count(*) from public.bottle_photo_submissions s
-               where s.canonical_wine_id = w.id and s.status = 'pending') as pending,
-             (select count(*) from public.bottle_photo_submissions s where s.canonical_wine_id = w.id) as photos
+               where (s.source_wine_id = w.id or s.canonical_wine_id = w.id) and s.status = 'pending') as pending,
+             (select count(*) from public.bottle_photo_submissions s
+               where s.source_wine_id = w.id or s.canonical_wine_id = w.id) as photos
         from public.wines w join public.producers p on p.id = w.producer_id
-       where w.status = 'canonical'
+       where (p_scope = 'all' or (p_scope = 'catalogue' and w.status = 'canonical')
+              or (p_scope = 'household' and w.status = 'provisional'))
          and (coalesce(btrim(p_query), '') = ''
               or p.name ilike '%' || btrim(p_query) || '%' or w.name ilike '%' || btrim(p_query) || '%')
     ) y
    where p_filter = 'all'
       or (p_filter = 'published' and y.published)
       or (p_filter = 'wanted' and y.photos > 0 and not y.published)
-   order by y.pending desc, y.producer, y.name
+   order by y.pending desc, y.photos desc, y.producer, y.name
    limit least(greatest(p_limit, 1), 500)) x
 $$;
 
@@ -313,6 +383,8 @@ create function public.admin_wine_visual(p_wine uuid)
   select case when w.id is null then null else jsonb_build_object(
     'id', w.id, 'producer', p.name, 'name', w.name, 'type', w.wine_type, 'status', w.status,
     'country', w.country_code, 'region', w.region, 'appellation', w.appellation,
+    'householdId', w.owner_household_id,
+    'household', (select h.name from public.households h where h.id = w.owner_household_id),
     'art', coalesce((select jsonb_agg(jsonb_build_object('id', a.id, 'width', a.width, 'height', a.height,
                                         'contentType', a.content_type, 'note', a.note, 'publishedAt', a.published_at,
                                         'createdAt', a.created_at) order by a.published_at desc nulls last, a.created_at desc)
@@ -328,32 +400,44 @@ create function public.admin_wine_visual(p_wine uuid)
     left join public.producers p on p.id = w.producer_id
 $$;
 
--- A picture the admin uploaded (the server stored the file). Only on a canonical wine. Returns its id, or null.
+-- A picture the admin uploaded for a wine (the server stored the file). Returns its id, or null when the wine is gone.
 create function public.admin_add_bottle_art(p_wine uuid, p_path text, p_type text, p_width int, p_height int,
                                             p_note text, p_actor uuid)
   returns uuid language plpgsql volatile security definer set search_path = '' as $$
 declare aid uuid;
 begin
-  if not exists (select 1 from public.wines w where w.id = p_wine and w.status = 'canonical') then return null; end if;
+  if not exists (select 1 from public.wines w where w.id = p_wine) then return null; end if;
   insert into public.wine_bottle_art (wine_id, path, content_type, width, height, note, created_by)
   values (p_wine, p_path, p_type, p_width, p_height, nullif(btrim(p_note), ''), p_actor)
   returning id into aid;
   return aid;
 end $$;
 
--- Publish a picture as its wine's default (the one before stops being shown) and mark the photos it was made
--- from as used. Atomic.
+-- Publish a picture as its wine's default (the one before stops being shown) and mark the photos it was made from as
+-- used. Every source photo must be of this wine: sent for it, or (for a catalogue wine) a reviewed photo the admin
+-- explicitly linked to it. Anything else refuses the whole publication ('bad_source'), changing nothing.
 create function public.admin_publish_bottle_art(p_art uuid, p_sources uuid[], p_actor uuid)
   returns boolean language plpgsql volatile security definer set search_path = '' as $$
-declare wid uuid;
+declare wid uuid; wstatus public.catalog_status;
 begin
-  select wine_id into wid from public.wine_bottle_art where id = p_art and vintage_id is null for update;
+  select a.wine_id, w.status into wid, wstatus
+    from public.wine_bottle_art a join public.wines w on w.id = a.wine_id
+   where a.id = p_art and a.vintage_id is null for update of a;
   if wid is null then return false; end if;
+  if exists (
+    select 1 from unnest(coalesce(p_sources, '{}'::uuid[])) as src(id)
+      left join public.bottle_photo_submissions s on s.id = src.id
+     where s.id is null
+        or not (s.source_wine_id = wid
+                or (wstatus = 'canonical' and s.canonical_wine_id = wid and s.reviewed_by is not null
+                    and s.status in ('approved', 'used')))) then
+    raise exception 'bad_source' using errcode = '22023';
+  end if;
   update public.wine_bottle_art set published_at = null, published_by = null
    where wine_id = wid and vintage_id is null and published_at is not null and id <> p_art;
   update public.wine_bottle_art set published_at = now(), published_by = p_actor where id = p_art;
   update public.bottle_photo_submissions
-     set status = 'used', art_id = p_art, canonical_wine_id = wid, reviewed_at = now(), reviewed_by = p_actor
+     set status = 'used', art_id = p_art, reviewed_at = now(), reviewed_by = p_actor
    where id = any (coalesce(p_sources, '{}'));
   return true;
 end $$;
@@ -365,7 +449,7 @@ begin
   return found;
 end $$;
 
--- Remove a picture; returns its file's path so the server can delete the file, or null.
+-- Remove a picture; returns its file's path, or null. (Its file is queued for the server to delete.)
 create function public.admin_remove_bottle_art(p_art uuid)
   returns text language plpgsql volatile security definer set search_path = '' as $$
 declare gone text;
@@ -385,7 +469,7 @@ declare f text;
 begin
   foreach f in array array[
     'public.admin_bottle_photos(text, int, int)', 'public.admin_bottle_photo(uuid)',
-    'public.admin_review_bottle_photo(uuid, text, uuid, text, uuid)', 'public.admin_wine_visuals(text, text, int)',
+    'public.admin_review_bottle_photo(uuid, text, uuid, text, uuid)', 'public.admin_wine_visuals(text, text, text, int)',
     'public.admin_wine_visual(uuid)', 'public.admin_add_bottle_art(uuid, text, text, int, int, text, uuid)',
     'public.admin_publish_bottle_art(uuid, uuid[], uuid)', 'public.admin_unpublish_bottle_art(uuid)',
     'public.admin_remove_bottle_art(uuid)', 'public.bottle_photo_paths_of(uuid)'] loop

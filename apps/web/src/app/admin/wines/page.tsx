@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { WINE_VISUAL_FILTERS, parseWineVisualFilter, type WineVisualFilter } from "@cellr/domain";
+import {
+  WINE_VISUAL_FILTERS,
+  WINE_VISUAL_SCOPES,
+  parseWineVisualFilter,
+  parseWineVisualScope,
+  type WineVisualFilter,
+  type WineVisualScope,
+} from "@cellr/domain";
 import { adminWineVisuals, getAdminSession } from "@/server/admin/service";
 import { cn } from "@/ui/cn";
 import { Notice, PageTitle, Table, num } from "../_ui";
@@ -8,13 +15,21 @@ import { LIBRARY_MISSING } from "../bottle-photos/labels";
 
 export const dynamic = "force-dynamic";
 
+const SCOPE_LABEL: Record<WineVisualScope, string> = {
+  all: "All wines",
+  catalogue: "Catalogue wines",
+  household: "Household wines",
+};
 const FILTER_LABEL: Record<WineVisualFilter, string> = {
+  all: "Any picture state",
   wanted: "Wanted (photos, no picture yet)",
   published: "With a published picture",
-  all: "All catalogue wines",
 };
 
-/** The canonical wines and their 2D bottle pictures: the ones people sent photos of first. */
+/**
+ * Every wine in CELLR and its 2D bottle picture: the catalogue's and every household's own, the ones people sent
+ * photos of first.
+ */
 export default async function AdminWinesPage({
   searchParams,
 }: {
@@ -23,9 +38,12 @@ export default async function AdminWinesPage({
   const session = await getAdminSession();
   if (!session) notFound();
   const params = await searchParams;
+  const scope = parseWineVisualScope(params.scope);
   const filter = parseWineVisualFilter(params.filter);
   const q = typeof params.q === "string" ? params.q.slice(0, 80) : "";
-  const data = await adminWineVisuals(session, filter, q);
+  const data = await adminWineVisuals(session, scope, filter, q);
+  const href = (next: { scope?: string; filter?: string }) =>
+    `/admin/wines?scope=${next.scope ?? scope}&filter=${next.filter ?? filter}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
   if (!data.ready)
     return (
       <>
@@ -41,13 +59,14 @@ export default async function AdminWinesPage({
     <>
       <PageTitle
         title="Wine visuals"
-        note="Each catalogue wine's 2D bottle picture. Once one is published it is the wine's default picture in the app, for everyone who owns it; without one the app keeps the drawn bottle."
+        note="Each wine's 2D bottle picture. Once published it is the wine's default picture in the app: a catalogue wine's for everyone who has it, a household wine's for that household only. Without one the app keeps its own picture."
       >
         <Link href="/admin/bottle-photos" prefetch={false} className="text-small text-accent-ink">
           Bottle photos →
         </Link>
       </PageTitle>
       <form className="mb-3 flex flex-wrap items-end gap-2 text-small" action="/admin/wines">
+        <input type="hidden" name="scope" value={scope} />
         <input type="hidden" name="filter" value={filter} />
         <input
           name="q"
@@ -60,17 +79,30 @@ export default async function AdminWinesPage({
           Search
         </button>
       </form>
-      <nav aria-label="Filter" className="mb-4 flex flex-wrap gap-2 text-small">
+      <nav aria-label="Scope" className="mb-2 flex flex-wrap gap-2 text-small">
+        {WINE_VISUAL_SCOPES.map((v) => (
+          <Link
+            key={v}
+            href={href({ scope: v })}
+            prefetch={false}
+            aria-current={v === scope ? "page" : undefined}
+            className={cn(
+              "rounded-full px-3 py-1.5 ring-1 ring-hairline",
+              v === scope ? "bg-raised text-ink" : "text-ink-2 hover:text-ink",
+            )}
+          >
+            {SCOPE_LABEL[v]}
+          </Link>
+        ))}
+      </nav>
+      <nav aria-label="Picture state" className="mb-4 flex flex-wrap gap-3 text-caption text-ink-2">
         {WINE_VISUAL_FILTERS.map((f) => (
           <Link
             key={f}
-            href={`/admin/wines?filter=${f}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+            href={href({ filter: f })}
             prefetch={false}
-            aria-current={f === filter ? "page" : undefined}
-            className={cn(
-              "rounded-full px-3 py-1.5 ring-1 ring-hairline",
-              f === filter ? "bg-raised text-ink" : "text-ink-2 hover:text-ink",
-            )}
+            aria-current={f === filter ? "true" : undefined}
+            className={f === filter ? "text-ink underline" : "hover:text-ink"}
           >
             {FILTER_LABEL[f]}
           </Link>
@@ -79,7 +111,8 @@ export default async function AdminWinesPage({
       <Table
         head={[
           { label: "Wine" },
-          { label: "Type · country" },
+          { label: "Type" },
+          { label: "Kind" },
           { label: "Picture" },
           { label: "Drafts", numeric: true },
           { label: "Pending photos", numeric: true },
@@ -97,6 +130,9 @@ export default async function AdminWinesPage({
               {r.producer} — {r.name}
             </Link>,
             [r.type, r.country].filter(Boolean).join(" · "),
+            r.status === "canonical"
+              ? "Catalogue"
+              : `Household: ${r.household ?? r.householdId ?? "—"}`,
             r.published ? "Published" : "—",
             num(r.drafts),
             num(r.pending),

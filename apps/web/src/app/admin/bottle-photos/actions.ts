@@ -32,7 +32,7 @@ export async function reviewAction(id: string, form: FormData) {
     ? "Not saved: check the fields."
     : (await bottleLibrary.review(session, photo, parsed.data)) === true
       ? `Marked as ${parsed.data.status}.`
-      : "Not saved: the photo is gone, or the target is not a canonical wine.";
+      : "Not saved: the photo is gone, the target is not a catalogue wine, or the photo is already linked to another one.";
   revalidatePath("/admin/bottle-photos");
   revalidatePath(`/admin/bottle-photos/${photo}`);
   redirect(`/admin/bottle-photos/${photo}?msg=${encodeURIComponent(message)}`);

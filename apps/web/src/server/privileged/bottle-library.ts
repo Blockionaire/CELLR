@@ -12,6 +12,7 @@ import {
   type WineVisual,
   type WineVisualFilter,
   type WineVisualRow,
+  type WineVisualScope,
 } from "@cellr/domain";
 import { assertAdmin, type AdminSession } from "@/server/admin/access";
 import { logError } from "@/server/log";
@@ -21,11 +22,12 @@ import { createServiceClient } from "./client";
  * The bottle library's privileged side. The raw photos people send live in a bucket no signed-in person can touch,
  * so storing, reading and removing them is the service role's job: for the sender (after the server's own checks,
  * always under the sender's own folder) and for the admin (every admin function takes the session only verifyAdmin
- * issues and checks it again). The published pictures go to the wine-labels bucket, written only from here.
+ * issues and checks it again). The pictures go to their own private bucket (bottle-art), written only from here; a
+ * signed-in person can read one there only while the database says it is the published picture of a wine they can see.
  * "missing" = the database step (20261105000028_bottle_library.sql) is not taken yet; null = no service role.
  */
 const PHOTOS = "bottle-submissions";
-const ART = "wine-labels";
+const ART = "bottle-art";
 
 type Result<T> = Promise<T | "missing" | null>;
 
@@ -146,13 +148,16 @@ export async function readBottlePhotoFile(
 
 export function readWineVisuals(
   session: AdminSession,
+  scope: WineVisualScope,
   filter: WineVisualFilter,
   query: string,
   limit = 100,
 ): Result<WineVisualRow[]> {
   assertAdmin(session);
-  return rpc("admin_wine_visuals", { p_filter: filter, p_query: query, p_limit: limit }, (d) =>
-    WineVisualRowSchema.array().parse(d),
+  return rpc(
+    "admin_wine_visuals",
+    { p_scope: scope, p_filter: filter, p_query: query, p_limit: limit },
+    (d) => WineVisualRowSchema.array().parse(d),
   );
 }
 
@@ -164,19 +169,19 @@ export function readWineVisual(session: AdminSession, wineId: string): Result<Wi
 }
 
 /**
- * Stores a checked picture for a canonical wine as a draft. Its id; "not-canonical" when the wine is not one (the
- * file is removed again); null/"missing" as usual.
+ * Stores a checked picture for a wine (a catalogue one or a household's own) as a draft. Its id; "gone" when the wine
+ * is not there (the file is removed again); null/"missing" as usual.
  */
 export async function addBottleArt(
   session: AdminSession,
   wineId: string,
   picture: { bytes: Uint8Array; type: BottleArtType; width: number; height: number },
   note: string,
-): Promise<string | "not-canonical" | "missing" | null> {
+): Promise<string | "gone" | "missing" | null> {
   assertAdmin(session);
   const db = createServiceClient();
   if (!db) return null;
-  const path = `bottles/${wineId}/${randomUUID()}.${picture.type === "image/png" ? "png" : "jpg"}`;
+  const path = `${wineId}/${randomUUID()}.${picture.type === "image/png" ? "png" : "jpg"}`;
   const { error } = await db.storage
     .from(ART)
     .upload(path, picture.bytes, { contentType: picture.type, upsert: false });
@@ -197,7 +202,7 @@ export async function addBottleArt(
     );
     if (typeof id === "string" && id !== "missing") return id;
     await db.storage.from(ART).remove([path]);
-    return id === "missing" ? "missing" : "not-canonical";
+    return id === "missing" ? "missing" : "gone";
   } catch (e) {
     await db.storage
       .from(ART)
@@ -207,17 +212,25 @@ export async function addBottleArt(
   }
 }
 
-export function publishBottleArt(
+/**
+ * Publishes a picture as its wine's default. "bad-source" when a ticked photo is not of this wine (nothing changed).
+ */
+export async function publishBottleArt(
   session: AdminSession,
   artId: string,
   sources: string[],
-): Result<boolean> {
+): Promise<boolean | "bad-source" | "missing" | null> {
   assertAdmin(session);
-  return rpc(
-    "admin_publish_bottle_art",
-    { p_art: artId, p_sources: sources, p_actor: session.userId },
-    (d) => d === true,
-  );
+  try {
+    return await rpc(
+      "admin_publish_bottle_art",
+      { p_art: artId, p_sources: sources, p_actor: session.userId },
+      (d) => d === true,
+    );
+  } catch (e) {
+    if ((e as { message?: string }).message === "bad_source") return "bad-source";
+    throw e;
+  }
 }
 
 export function unpublishBottleArt(session: AdminSession, artId: string): Result<boolean> {
@@ -225,20 +238,34 @@ export function unpublishBottleArt(session: AdminSession, artId: string): Result
   return rpc("admin_unpublish_bottle_art", { p_art: artId }, (d) => d === true);
 }
 
-/** Removes a picture and its file. */
+/** Removes a picture, then its file (queued by the database, so nothing is left behind if this step fails). */
 export async function removeBottleArt(session: AdminSession, artId: string): Result<boolean> {
   assertAdmin(session);
   const path = await rpc("admin_remove_bottle_art", { p_art: artId }, (d) =>
     typeof d === "string" ? d : null,
   );
   if (path === "missing" || path === null) return path === "missing" ? "missing" : false;
-  const db = createServiceClient();
-  if (db)
-    await db.storage
-      .from(ART)
-      .remove([path])
-      .catch(() => {});
+  await purgeBottleArtFiles().catch((e) => logError("bottle_art_purge_failed", e));
   return true;
+}
+
+/**
+ * Deletes the files of pictures that are gone (removed by the admin, or with their wine or household). The database
+ * queues each one; a file is unreadable from the moment its picture is gone, this only frees the storage.
+ */
+export async function purgeBottleArtFiles(): Promise<void> {
+  const db = createServiceClient();
+  if (!db) return;
+  const { data, error } = await db.from("bottle_art_orphans").select("path").limit(200);
+  if (error) {
+    if (missing(error)) return;
+    throw error;
+  }
+  const paths = (data ?? []).map((r) => r.path);
+  if (paths.length === 0) return;
+  const removed = await db.storage.from(ART).remove(paths);
+  if (removed.error) throw new Error(`bottle art remove failed: ${removed.error.message}`);
+  await db.from("bottle_art_orphans").delete().in("path", paths);
 }
 
 /** Any picture of a wine (a draft too), for the admin's preview. */

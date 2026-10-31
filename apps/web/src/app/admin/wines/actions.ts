@@ -34,9 +34,11 @@ export async function publishAction(wineId: string, artId: string, form: FormDat
   const ok = await bottleLibrary.publish(session, Id.parse(artId), sources);
   back(
     wine,
-    ok === true
-      ? `Published: this is now the wine's default picture${sources.length ? `, made from ${sources.length} photo${sources.length === 1 ? "" : "s"}` : ""}.`
-      : "Not published.",
+    ok === "bad-source"
+      ? "Not published: a ticked photo is not of this wine. Nothing changed."
+      : ok === true
+        ? `Published: this is now the wine's default picture${sources.length ? `, made from ${sources.length} photo${sources.length === 1 ? "" : "s"}` : ""}.`
+        : "Not published.",
   );
 }
 

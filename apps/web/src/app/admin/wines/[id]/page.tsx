@@ -15,7 +15,8 @@ const quiet = "rounded-full px-4 py-2 text-small text-ink ring-1 ring-hairline";
 
 /**
  * One wine's visual side: its published 2D bottle picture, drafts, the photos people sent of it, and the upload.
- * Pictures go on canonical wines only (a household's own wine shows the picture of the canonical wine it maps to).
+ * Any wine: a catalogue wine's picture is shared with everyone who has it, a household wine's stays with that
+ * household.
  */
 export default async function AdminWinePage({
   params,
@@ -42,7 +43,12 @@ export default async function AdminWinePage({
   const canonical = w.status === "canonical";
   const published = w.art.find((a) => a.publishedAt !== null) ?? null;
   const drafts = w.art.filter((a) => a.publishedAt === null);
-  const sourceable = w.photos.filter((p) => p.status === "approved" || p.status === "pending");
+  // photos a picture of this wine may be made from: sent for it, or explicitly linked to it after review
+  const sourceable = w.photos.filter(
+    (p) =>
+      (p.sourceWineId === w.id && (p.status === "approved" || p.status === "pending")) ||
+      (p.sourceWineId !== w.id && p.status === "approved" && p.reviewedAt !== null),
+  );
 
   return (
     <>
@@ -53,7 +59,7 @@ export default async function AdminWinePage({
           w.country,
           w.region,
           w.appellation,
-          canonical ? "catalogue wine" : "a household's own wine",
+          canonical ? "catalogue wine" : `household wine of ${w.household ?? w.householdId}`,
         ]
           .filter(Boolean)
           .join(" · ")}
@@ -63,12 +69,11 @@ export default async function AdminWinePage({
         </Link>
       </PageTitle>
       {message && <Notice>{message}</Notice>}
-      {!canonical && (
-        <Notice>
-          This is a household&apos;s own wine, not a catalogue one. Pictures go on catalogue wines
-          only: open a photo of it and choose the catalogue wine it belongs to.
-        </Notice>
-      )}
+      <Notice>
+        {canonical
+          ? "A catalogue wine: its published picture is shown to everyone who has this wine."
+          : `A household's own wine (household: ${w.household ?? "—"} · ${w.householdId}). Its published picture is shown only to that household's members; no other household gets it.`}
+      </Notice>
 
       <Section title="Status">
         <Kpis>
@@ -109,37 +114,35 @@ export default async function AdminWinePage({
         </Section>
       )}
 
-      {canonical && (
-        <Section
-          title={published ? "Replace the picture" : "Upload a 2D bottle picture"}
-          note={`A finished picture of the whole bottle, ideally a PNG with a transparent background, upright, at least ${BOTTLE_ART_LIMITS.minEdge} px wide, at most 4 MB. It is kept as a draft until you publish it.`}
+      <Section
+        title={published ? "Replace the picture" : "Upload a 2D bottle picture"}
+        note={`A finished picture of the whole bottle, ideally a PNG with a transparent background, upright, at least ${BOTTLE_ART_LIMITS.minEdge} px wide, at most 4 MB. It is kept as a draft until you publish it.`}
+      >
+        <form
+          action={`/admin/wines/${w.id}/art`}
+          method="post"
+          encType="multipart/form-data"
+          className="flex flex-wrap items-end gap-3 text-small"
         >
-          <form
-            action={`/admin/wines/${w.id}/art`}
-            method="post"
-            encType="multipart/form-data"
-            className="flex flex-wrap items-end gap-3 text-small"
-          >
-            <label className="flex flex-col gap-1">
-              <span className="text-ink-2">Picture</span>
-              <input
-                type="file"
-                name="picture"
-                accept="image/png,image/jpeg"
-                required
-                className={input}
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-ink-2">Note (internal, optional)</span>
-              <input name="note" maxLength={500} className={input} />
-            </label>
-            <button type="submit" className={button}>
-              Upload
-            </button>
-          </form>
-        </Section>
-      )}
+          <label className="flex flex-col gap-1">
+            <span className="text-ink-2">Picture</span>
+            <input
+              type="file"
+              name="picture"
+              accept="image/png,image/jpeg"
+              required
+              className={input}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-ink-2">Note (internal, optional)</span>
+            <input name="note" maxLength={500} className={input} />
+          </label>
+          <button type="submit" className={button}>
+            Upload
+          </button>
+        </form>
+      </Section>
 
       {drafts.length > 0 && (
         <Section
