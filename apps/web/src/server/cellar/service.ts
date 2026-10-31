@@ -19,6 +19,7 @@ import {
   summarizeScores,
   formatVintage,
   type AddBottles,
+  type BottleArtRef,
   type AddBottlesResult,
   type BottleAction,
   type BottleActionResult,
@@ -163,6 +164,7 @@ export function aggregateInventory(
         places: [],
         unplaced: 0,
         image: r.image,
+        art: r.art ?? null,
         favorite: favoriteWineIds.has(r.wineId),
         rating: summarizeScores(scoresByVintage.get(r.vintageId) ?? []),
         latest: r.addedAt,
@@ -380,6 +382,7 @@ export function buildRacks(units: StorageUnitView[], rows: InventoryRow[]): Rack
       row: r.row,
       col: r.col,
       image: r.image,
+      art: r.art ?? null,
     };
     const unit =
       r.locationId && r.row !== null && r.col !== null ? byId.get(r.locationId) : undefined;
@@ -401,6 +404,7 @@ export function createCellarService(
     now = () => new Date(),
     reservations,
     drinkWindows,
+    bottleArt,
   }: {
     userId: string;
     now?: () => Date;
@@ -411,8 +415,14 @@ export function createCellarService(
     }>;
     /** What the AI said about when each vintage drinks well. Missing or failing = the style table is used. */
     drinkWindows?: () => Promise<ReadonlyMap<string, { from: number; until: number }>>;
+    /** The library's published 2D bottle pictures by wine. Missing or failing = none (the drawn bottle). */
+    bottleArt?: (wineIds: string[]) => Promise<ReadonlyMap<string, BottleArtRef>>;
   },
 ) {
+  const artFor = (wineIds: string[]) =>
+    bottleArt && wineIds.length
+      ? bottleArt(wineIds).catch(() => new Map<string, BottleArtRef>())
+      : Promise.resolve(new Map<string, BottleArtRef>());
   const windows = () =>
     drinkWindows
       ? drinkWindows().catch(() => new Map<string, { from: number; until: number }>())
@@ -428,9 +438,14 @@ export function createCellarService(
   /** The household's bottles, each with the AI's drinking window for its vintage when there is one. */
   const inventoryRows = async (householdId: string): Promise<InventoryRow[]> => {
     const [rows, known] = await Promise.all([repo.listInventory(householdId), windows()]);
-    return known.size === 0
+    const art = await artFor(rows.map((r) => r.wineId));
+    return known.size === 0 && art.size === 0
       ? rows
-      : rows.map((r) => ({ ...r, aiWindow: known.get(r.vintageId) ?? null }));
+      : rows.map((r) => ({
+          ...r,
+          aiWindow: known.get(r.vintageId) ?? null,
+          art: art.get(r.wineId) ?? null,
+        }));
   };
   const reserved = () =>
     reservations
@@ -739,6 +754,7 @@ export function createCellarService(
       ]);
       // A vintage you never owned a bottle of is not yours to look at, even if it is in the shared catalogue.
       if (!rows || rows.bottles.length === 0) throw new DomainError("NOT_FOUND");
+      const art = (await artFor([rows.wine.id])).get(rows.wine.id) ?? null;
       const inCellar = orderBottles(rows.bottles.filter((b) => b.status === "in_cellar"));
       const opened = rows.bottles
         .filter((b) => b.status === "opened")
@@ -775,6 +791,7 @@ export function createCellarService(
         wine: { ...rows.wine, favorite: favorites.includes(rows.wine.id) },
         year: rows.year,
         image: rows.image,
+        art,
         backImage,
         bottles: inCellar,
         opened,

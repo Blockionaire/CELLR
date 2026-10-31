@@ -120,10 +120,10 @@ export async function readForm(request: Request, maxBytes = MAX_UPLOAD_BYTES): P
  */
 export function imageResponse(
   bytes: Uint8Array,
-  options: { changes?: boolean; noStore?: boolean } = {},
+  options: { changes?: boolean; noStore?: boolean; type?: "image/jpeg" | "image/png" } = {},
 ): Response {
   const headers = new Headers({
-    "Content-Type": "image/jpeg",
+    "Content-Type": options.type ?? "image/jpeg",
     // A straightened label can be redone under the same address, so that one is always checked again. A photo whose
     // access can be taken away (a profile photo, once someone leaves the household) is never kept at all: every
     // showing asks the server, so a revoked viewer or the next account on the same browser can't see it from cache.

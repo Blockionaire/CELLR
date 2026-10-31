@@ -19,6 +19,10 @@ import {
   sumActivity,
   type AdminRange,
   type FeedbackCategory,
+  cleanBottleArt,
+  type BottlePhotoStatus,
+  type WineVisualFilter,
+  type WineVisualScope,
 } from "@cellr/domain";
 import { getPageContext } from "@/server/context";
 import { getAdminAllowlist, getAiBudgetEnv } from "@/server/env";
@@ -45,6 +49,20 @@ import {
   updateCandidate,
 } from "@/server/privileged/catalog-admin";
 import { getPlatformMetrics } from "@/server/privileged/metrics";
+import {
+  addBottleArt,
+  publishBottleArt,
+  purgeBottleArtFiles,
+  readBottleArtFile,
+  readBottlePhoto,
+  readBottlePhotoFile,
+  readBottlePhotos,
+  readWineVisual,
+  readWineVisuals,
+  removeBottleArt,
+  reviewBottlePhoto,
+  unpublishBottleArt,
+} from "@/server/privileged/bottle-library";
 import { assertAdmin, verifyAdmin, type AdminSession } from "./access";
 
 /**
@@ -223,4 +241,87 @@ export const catalogReview = {
   merge: mergeCandidate,
   addSource: addCandidateSource,
   approve: approveCandidate,
+};
+
+/** The bottle library: photos people sent, and each canonical wine's 2D bottle pictures. */
+export async function adminBottlePhotos(
+  session: AdminSession,
+  status: BottlePhotoStatus | "all",
+  page: number,
+) {
+  assertAdmin(session);
+  const size = 50;
+  const data = await readBottlePhotos(session, status, size, (Math.max(1, page) - 1) * size);
+  if (data === null || data === "missing") return { ready: false as const, reason: data };
+  return { ready: true as const, ...data, page, size };
+}
+
+export async function adminBottlePhoto(session: AdminSession, id: string) {
+  assertAdmin(session);
+  const detail = await readBottlePhoto(session, id);
+  if (detail === null || detail === "missing" || detail === "none") return detail;
+  // For an optional, explicit link from a household's own wine to a catalogue wine: the same producer's catalogue
+  // wines, to choose from. Never chosen for the admin.
+  const candidates =
+    detail.sourceCanonical === false && !detail.canonicalWineId
+      ? await readWineVisuals(session, "catalogue", "all", detail.producer, 20).then((r) =>
+          Array.isArray(r) ? r : [],
+        )
+      : [];
+  return { detail, candidates };
+}
+
+export async function adminWineVisuals(
+  session: AdminSession,
+  scope: WineVisualScope,
+  filter: WineVisualFilter,
+  query: string,
+) {
+  assertAdmin(session);
+  const rows = await readWineVisuals(session, scope, filter, query.slice(0, 80));
+  if (rows === null || rows === "missing") return { ready: false as const, reason: rows };
+  // files of pictures that went with their wine or household: tidy them up while the admin looks
+  await purgeBottleArtFiles().catch(() => {});
+  return { ready: true as const, rows };
+}
+
+export async function adminWineVisual(session: AdminSession, wineId: string) {
+  assertAdmin(session);
+  return readWineVisual(session, wineId);
+}
+
+/** Checks an uploaded picture (a clean PNG or JPEG within the limits) and keeps it as a draft for the wine. */
+export async function adminUploadBottleArt(
+  session: AdminSession,
+  wineId: string,
+  bytes: Uint8Array,
+  note: string,
+): Promise<{ ok: true; id: string } | { ok: false; message: string }> {
+  assertAdmin(session);
+  const clean = cleanBottleArt(bytes);
+  if (!clean.ok)
+    return {
+      ok: false,
+      message:
+        clean.reason === "too-big"
+          ? "Too large: at most 4 MB and 4096 px."
+          : clean.reason === "unsupported"
+            ? "Too small: at least 200 px on each side."
+            : "Not a usable PNG or JPEG.",
+    };
+  const id = await addBottleArt(session, wineId, clean, note.slice(0, 500));
+  if (id === null) return { ok: false, message: "The service role is not configured." };
+  if (id === "missing")
+    return { ok: false, message: "Run 20261105000028_bottle_library.sql first." };
+  if (id === "gone") return { ok: false, message: "This wine is no longer there." };
+  return { ok: true, id };
+}
+
+export const bottleLibrary = {
+  review: reviewBottlePhoto,
+  publish: publishBottleArt,
+  unpublish: unpublishBottleArt,
+  remove: removeBottleArt,
+  photoFile: readBottlePhotoFile,
+  artFile: readBottleArtFile,
 };

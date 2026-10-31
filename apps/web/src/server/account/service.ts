@@ -10,6 +10,8 @@ export interface AccountDeps {
   purgePhotos: (householdId: string) => Promise<void>;
   /** Takes my profile photo out of storage. */
   purgeAvatar?: () => Promise<void>;
+  /** Takes the bottle photos I sent to the library out of storage (the records go with the account). */
+  purgeBottlePhotos?: () => Promise<void>;
   deleteHousehold: (id: string) => Promise<void>;
   leaveHousehold: (id: string) => Promise<void>;
   /** False when this deployment has no way to delete a sign-in. */
@@ -57,6 +59,7 @@ export function createAccountService(deps: AccountDeps) {
       }
       for (const id of leave) await deps.leaveHousehold(id);
       await deps.purgeAvatar?.();
+      await deps.purgeBottlePhotos?.();
       if (!(await deps.deleteUser(deps.userId)))
         throw new DomainError("INTERNAL", "We couldn't finish deleting your account. Try again.");
     },

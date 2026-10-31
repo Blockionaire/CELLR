@@ -18,6 +18,8 @@ export interface HouseholdServiceDeps {
   userId: string;
   email: string | null;
   now?: () => Date;
+  /** After a household is deleted: clean up files its rows pointed to. */
+  afterDelete?: () => Promise<void>;
 }
 
 /** Joins households with their members into the caller-centric read model. Pure; unit-tested. */
@@ -138,6 +140,8 @@ export function createHouseholdService(repo: HouseholdRepository, deps: Househol
     async deleteHousehold(id: string): Promise<void> {
       await owned(id);
       if (!(await repo.deleteHousehold(id))) throw new DomainError("NOT_FOUND");
+      // files the household's deletion left behind (its wines' 2D pictures); best effort, they are unreadable anyway
+      await deps.afterDelete?.().catch(() => {});
     },
 
     async createInvite(id: string, input: CreateInvite): Promise<InviteView> {

@@ -406,7 +406,9 @@
       "switchedOff": "Gestopt. Wat je bijdroeg is verwijderd.",
       "failed": "Dat lukte niet. Probeer het opnieuw.",
       "scanNote": "Als je de wijn toevoegt, kunnen naam, kleur en herkomst de gedeelde wijnlijst van CELLR helpen (nooit de foto of je kelder). Uitzetten kan in Profiel."
-    }
+    },
+    "pointsLabel": "CELLR-punten",
+    "pointsHint": "Verdiend met het delen van flesfoto's van je wijnen."
   },
   "errors": {
     "network": "We konden CELLR niet bereiken. Controleer je verbinding en probeer opnieuw.",
@@ -487,7 +489,10 @@
       "ratingTenths": "Een beoordeling gaat in tienden van een ster.",
       "swapSelf": "Een fles kan niet met zichzelf van plek wisselen.",
       "swapGone": "Een van deze flessen is niet meer in de kelder of heeft geen plek. Er is niets veranderd.",
-      "swapStale": "Een van deze flessen is net door iemand anders verplaatst. Er is niets veranderd."
+      "swapStale": "Een van deze flessen is net door iemand anders verplaatst. Er is niets veranderd.",
+      "consentRequired": "Vink het vakje aan zodat CELLR je foto mag gebruiken.",
+      "photosUnavailable": "Foto's versturen kan nu even niet.",
+      "bottlePhotoSmall": "Die foto is te klein om mee te werken. Probeer een scherpere van de hele fles."
     }
   },
   "offline": {
@@ -1712,5 +1717,27 @@
     "saved": "Profielfoto opgeslagen.",
     "removed": "Profielfoto verwijderd.",
     "unreadable": "Die foto kunnen we niet openen. Probeer een andere."
+  },
+  "bottlePhoto": {
+    "title": "Help CELLR deze wijn in beeld te brengen",
+    "teaser": "Een foto van de hele fles helpt ons een mooie flesafbeelding voor deze wijn te maken. Je verdient er punten mee.",
+    "open": "Deel een flesfoto",
+    "sheetTitle": "Een foto van de fles",
+    "body": "Stuur een foto van de hele fles {wine}. CELLR maakt er een strakke 2D-flesafbeelding van, die iedereen met deze wijn ziet in plaats van de getekende fles.",
+    "tipWhole": "De hele fles, rechtop, voorkant van het etiket naar je toe",
+    "tipLight": "Goed licht, geen flitsreflectie",
+    "tipBackground": "Een rustige achtergrond als het kan",
+    "choose": "Maak of kies een foto",
+    "another": "Maak of kies een andere",
+    "previewAlt": "Jouw flesfoto",
+    "consent": "Ja, CELLR mag deze foto gebruiken om een 2D-flesafbeelding van deze wijn te maken en die afbeelding in de app te tonen aan iedereen die deze wijn heeft.",
+    "privacy": "Je foto zelf wordt in de app aan niemand getoond: alleen het CELLR-team ziet hem. Hij wordt verwijderd met je account.",
+    "send": "Foto versturen",
+    "unreadable": "Die foto kunnen we niet openen. Probeer een andere.",
+    "thanks": "Dankjewel!",
+    "earned": "Je hebt {points} punten verdiend. Je foto helpt deze wijn in beeld te brengen.",
+    "alreadyEarned": "Bedankt voor nog een foto. Je kreeg al punten voor deze wijn, dus deze levert er geen extra op.",
+    "total": "Je hebt {points} punten.",
+    "close": "Klaar"
   }
 }

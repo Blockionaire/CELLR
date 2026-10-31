@@ -26,6 +26,7 @@ import {
   useExportData,
   useHousehold,
   useMe,
+  usePoints,
   useRemoveMember,
   useSignOut,
   useUpdateProfile,
@@ -194,6 +195,7 @@ export function ProfileView({
             </p>
           </div>
         </div>
+        <PointsLine />
         <form onSubmit={saveName} noValidate className="flex flex-col gap-4">
           <Field
             label={t("nameLabel")}
@@ -394,5 +396,21 @@ export function ProfileView({
         />
       )}
     </div>
+  );
+}
+
+/** My points, quietly under my name: only once there are any. */
+function PointsLine() {
+  const t = useTranslations("profile");
+  const points = usePoints();
+  const total = points.data?.total ?? 0;
+  if (total <= 0) return null;
+  return (
+    <p className="-mt-2 mb-5 flex items-baseline gap-2 text-small text-ink-2" data-testid="points">
+      <span className="font-display text-headline text-accent-fg tnum">{total}</span>
+      <span>
+        {t("pointsLabel")} · {t("pointsHint")}
+      </span>
+    </p>
   );
 }

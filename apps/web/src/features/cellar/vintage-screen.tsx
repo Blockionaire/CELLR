@@ -38,6 +38,7 @@ import { NewPlaceSheet } from "./new-place-sheet";
 import { OpenBottleSheet } from "./open-bottle-sheet";
 import { RateSheet } from "./rate-sheet";
 import { TastingItem } from "./tasting-bits";
+import { BottlePhotoContribution } from "./bottle-photo";
 import { Facts, Section } from "./vintage-bits";
 import { AboutSection, PairsSection, TasteSection, WorthSection } from "./wine-insight";
 import { placeLine, shapeFor } from "./wine-visuals";
@@ -211,6 +212,7 @@ export function VintageScreen({
                   wineName: wine.name,
                   year: detail.year,
                   image: detail.image,
+                  art: detail.art ?? null,
                 }}
                 printAlt={tPhoto("alt", { wine: `${wine.producer} ${wine.name}` })}
                 className="h-[17.5rem] w-[12rem] md:h-[21rem] md:w-[14rem]"
@@ -669,6 +671,12 @@ export function VintageScreen({
                 vintageId={detail.vintageId}
                 currency={detail.currency ?? currency}
                 bare
+              />
+            )}
+            {!detail.art && (
+              <BottlePhotoContribution
+                vintageId={detail.vintageId}
+                wine={`${wine.producer} ${wine.name}`}
               />
             )}
             <div>

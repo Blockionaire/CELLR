@@ -30,6 +30,8 @@ const NAV = [
   { href: "/admin/ai", label: "AI & costs" },
   { href: "/admin/feedback", label: "Beta feedback" },
   { href: "/admin/catalog", label: "Wine catalogue" },
+  { href: "/admin/bottle-photos", label: "Bottle photos" },
+  { href: "/admin/wines", label: "Wine visuals" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -57,7 +59,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           ))}
         </nav>
         <p className="mt-8 hidden text-caption text-ink-3 md:block">
-          Read-only, except catalogue review. Costs are estimates, not invoices.
+          Read-only, except catalogue review and the bottle library. Costs are estimates, not
+          invoices.
         </p>
       </aside>
       <main className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">{children}</main>
