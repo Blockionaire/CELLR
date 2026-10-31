@@ -880,9 +880,11 @@ export type Database = {
           changed_fields: string[];
           confirmed: Json | null;
           created_at: string;
+          fingerprint: string | null;
           household_id: string | null;
           id: string;
           kind: string;
+          last_seen_at: string;
           proposed: Json | null;
           reviewed_at: string | null;
           reviewed_by: string | null;
@@ -897,9 +899,11 @@ export type Database = {
           changed_fields?: string[];
           confirmed?: Json | null;
           created_at?: string;
+          fingerprint?: string | null;
           household_id?: string | null;
           id?: string;
           kind: string;
+          last_seen_at?: string;
           proposed?: Json | null;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
@@ -913,9 +917,11 @@ export type Database = {
           changed_fields?: string[];
           confirmed?: Json | null;
           created_at?: string;
+          fingerprint?: string | null;
           household_id?: string | null;
           id?: string;
           kind?: string;
+          last_seen_at?: string;
           proposed?: Json | null;
           reviewed_at?: string | null;
           reviewed_by?: string | null;

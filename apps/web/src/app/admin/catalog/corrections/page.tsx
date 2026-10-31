@@ -31,7 +31,7 @@ export default async function AdminCorrectionsPage() {
     <>
       <PageTitle
         title="Corrections"
-        note={`What people did with a catalogue wine a scan proposed, when they saved: kept it, corrected details, or chose another wine. ${CATALOG_REVIEW.ready} independent households asking for a change make it "review needed"; households disagreeing is a conflict. Nothing is changed automatically; editing catalogue wines comes later.`}
+        note={`What people did with a catalogue wine a scan proposed, when they saved: corrected one of its catalogue details (producer, name, colour, country, region) or chose another wine. ${CATALOG_REVIEW.ready} independent households asking for a change make it "review needed"; households disagreeing is a conflict. A corrected vintage is a scan misread and is counted below, not here. Nothing is changed automatically; editing catalogue wines comes later.`}
       >
         <Link href="/admin/catalog" prefetch={false} className="text-small text-accent-ink">
           ← Candidates
@@ -98,8 +98,8 @@ export default async function AdminCorrectionsPage() {
 
       {data.ai && (
         <Section
-          title="AI readings (last 30 days)"
-          note="When nothing in the catalogue matched and the AI's own reading was proposed. A corrected AI reading says nothing about the catalogue; counts only, no values are kept."
+          title="Scan readings (last 30 days)"
+          note="How the scan's own reading fared: the vintage it read on a catalogue wine, and the AI's whole reading when nothing in the catalogue matched. A misread is a recognition error, not a catalogue error: it never counts towards the corrections above. Counts only; no values are kept."
         >
           <Kpis>
             <Kpi label="Kept as read" value={num(data.ai.accepted)} />

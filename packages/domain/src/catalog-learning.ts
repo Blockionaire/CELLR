@@ -291,6 +291,7 @@ export const ApproveVintagesSchema = z
 /** What a person did with a wine a scan proposed, when they saved. */
 export const SCAN_SIGNALS = ["accepted", "corrected", "different_wine"] as const;
 export type ScanSignal = (typeof SCAN_SIGNALS)[number];
+/** Fields a signal can name. In a catalogue proposal all but `year` come from the catalogue; `year` comes from the scan. */
 export const SIGNAL_FIELDS = ["producer", "name", "type", "country", "region", "year"] as const;
 export type SignalField = (typeof SIGNAL_FIELDS)[number];
 export const SIGNAL_REVIEW = ["open", "reviewed", "dismissed"] as const;
@@ -307,7 +308,10 @@ const Identity = z
   })
   .partial();
 
-/** One catalogue wine with signals, as the admin's overview lists it (counts of households, never which). */
+/**
+ * One catalogue wine with correction signals, as the admin's overview lists it (counts of households, never which).
+ * Only catalogue fields are corrections here: a misread vintage is a scan signal, counted apart (AiSignalStats).
+ */
 export const CorrectionRowSchema = z.object({
   wineId: z.uuid(),
   producer: z.string(),
@@ -349,6 +353,8 @@ export const CorrectionDetailSchema = z.object({
       note: z.string().nullable(),
       reviewedAt: z.string().nullable(),
       createdAt: z.string(),
+      /** The latest scan that gave this same answer (a repeat refreshes it; it never adds a row). */
+      lastSeenAt: z.string(),
     })
     .array(),
 });

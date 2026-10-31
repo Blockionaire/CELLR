@@ -2,9 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { arrive, makeJpeg, signIn, sql, STACK } from "./helpers";
 
 /**
- * Sprint Q: a scan proposes a catalogue wine, the person corrects it (another vintage) and saves; the admin sees the
- * correction signal, with what was proposed and what was confirmed, and marks it reviewed. Nothing in the catalogue
- * changes.
+ * Sprint Q: a scan proposes a catalogue wine, the person corrects the vintage the scan read and saves. That is a scan
+ * misread, not a fault in the catalogue record: it is captured as a scan signal for recognition quality, while the
+ * catalogue wine itself counts as accepted and never lands in the admin's correction inbox. Nothing changes.
  */
 test.skip(({ isMobile }) => !isMobile, "the phone");
 
@@ -37,7 +37,7 @@ test.afterEach(async () => {
   await sql("update public.catalog_learning set mode = 'off'");
 });
 
-test("correcting a proposed catalogue wine becomes a reviewable admin signal", async ({
+test("a corrected vintage is a scan misread, never evidence that the catalogue wine is wrong", async ({
   browser,
   page,
 }) => {
@@ -59,7 +59,7 @@ test("correcting a proposed catalogue wine becomes a reviewable admin signal", a
   // the owner has switched catalogue learning on (opt-out), as the admin page does
   await sql("update public.catalog_learning set mode = 'opt_out'");
 
-  await arrive(page, "correction");
+  const { email } = await arrive(page, "correction");
   const size = uniqueSize();
   await program(size, {
     is_wine_label: true,
@@ -94,23 +94,29 @@ test("correcting a proposed catalogue wine becomes a reviewable admin signal", a
   await page.getByRole("button", { name: "Add 1 bottle" }).click();
   await expect(page.getByText(new RegExp(`1 bottle of ${producer} ${name} 2018`))).toBeVisible();
 
-  // one signal, a correction of the vintage only, with no photo and no household in it for the admin
+  // the catalogue record is accepted as it is; the misread vintage is kept as a bare scan signal
   await expect
     .poll(async () =>
-      sql<{ signal: string; fields: string[]; proposed: number; confirmed: number }>(
-        `select signal, changed_fields as fields, (proposed->>'year')::int as proposed,
-                (confirmed->>'year')::int as confirmed
-           from public.catalog_scan_signals where wine_id = $1`,
+      sql<{ signal: string; fields: string[] }>(
+        "select signal, changed_fields as fields from public.catalog_scan_signals where wine_id = $1",
         [wineId],
       ),
     )
-    .toEqual([{ signal: "corrected", fields: ["year"], proposed: 2016, confirmed: 2018 }]);
+    .toEqual([{ signal: "accepted", fields: [] }]);
+  expect(
+    await sql<{ signal: string; fields: string[]; wine: string | null; confirmed: unknown }>(
+      `select s.signal, s.changed_fields as fields, s.wine_id as wine, s.confirmed
+         from public.catalog_scan_signals s join auth.users u on u.id = s.user_id
+        where u.email = $1 and s.kind = 'ai'`,
+      [email],
+    ),
+  ).toEqual([{ signal: "corrected", fields: ["year"], wine: null, confirmed: null }]);
   // the catalogue itself is untouched
   expect(await sql("select name, region from public.wines where id = $1", [wineId])).toEqual([
     { name, region: "Bordeaux" },
   ]);
 
-  // ---- the admin sees it, opens it, marks it reviewed ------------------------------------------------------
+  // ---- the admin: no catalogue correction to review; the misread shows under scan readings --------------------
   await sql("insert into auth.users (id, email) values ($1, $2) on conflict do nothing", [
     ADMIN_ID,
     ADMIN_EMAIL,
@@ -120,21 +126,17 @@ test("correcting a proposed catalogue wine becomes a reviewable admin signal", a
   await signIn(admin, ADMIN_EMAIL);
   await admin.goto("/admin/catalog");
   await admin.getByRole("link", { name: "Corrections from scans →" }).click();
-  const row = admin.getByRole("row").filter({ hasText: name });
-  await expect(row).toContainText("Collecting");
-  await expect(row).toContainText("Vintage (1)");
-  await row.getByRole("link", { name: `${producer} — ${name}` }).click();
+  await expect(admin.getByRole("heading", { name: "Catalogue wines" })).toBeVisible();
+  await expect(admin.getByRole("row").filter({ hasText: name })).toHaveCount(0);
+  const scanReadings = admin.locator("section").filter({
+    has: admin.getByRole("heading", { name: "Scan readings (last 30 days)" }),
+  });
+  await expect(scanReadings).toContainText(/Vintage \d+/);
+  await expect(scanReadings).toContainText("never counts towards the corrections above");
+  // the wine's own page lists nothing to review either
+  await admin.goto(`/admin/catalog/corrections/${wineId}`);
   await expect(admin.getByRole("heading", { name: "Detail corrections" })).toBeVisible();
-  const signal = admin.getByRole("row").filter({ hasText: "Vintage: 2016" });
-  await expect(signal).toContainText("Vintage: 2018");
-  await expect(signal).toContainText("Open");
-  await signal.getByLabel("Internal note").fill("Label shows 2018");
-  await signal.getByRole("button", { name: "Reviewed" }).click();
-  await expect(admin.getByText("Marked as reviewed.")).toBeVisible();
-  await expect(admin.getByRole("row").filter({ hasText: "Vintage: 2016" })).toContainText(
-    "Reviewed · Label shows 2018",
-  );
-  await admin.goto("/admin/catalog/corrections");
-  await expect(admin.getByRole("row").filter({ hasText: name })).toContainText("Resolved");
+  await expect(admin.getByText(/accepted as is by 1 person/)).toBeVisible();
+  await expect(admin.getByTestId("signal-review")).toHaveCount(0);
   await context.close();
 });

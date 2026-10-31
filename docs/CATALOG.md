@@ -410,15 +410,20 @@ confirmed, once (`catalog_record_scan_outcome`): **accepted**, **corrected** (fi
 country, region, year) or **different_wine** (another existing wine picked, or both producer and name changed).
 Typing in between never counts, and a photo is answered at most once.
 
-- A **catalogue** answer is reviewable evidence about that catalogue wine (`catalog_scan_signals`, one row per person
-  and wine, the latest replaces the earlier): the proposed identity and the confirmed values of the changed fields.
-  No photo, notes, prices or places.
-- An **AI** answer is a bare signal (which fields changed), with no values and no household: a wrong AI reading is not
-  evidence against the catalogue.
+- **Field provenance.** In a catalogue proposal, producer, name, colour, country and region come from the catalogue
+  record; the vintage comes from the scan. Only the catalogue fields are compared as catalogue evidence.
+- A **catalogue** answer is reviewable evidence about that catalogue wine (`catalog_scan_signals`): the proposed
+  identity and the confirmed values of the catalogue fields that changed. No photo, notes, prices or places.
+  History is kept, bounded: one acceptance row per person and wine; one row per distinct correction (a repeat only
+  refreshes `last_seen_at`), at most five per person and wine. A later scan never overwrites an earlier correction,
+  its review status or its note.
+- A **scan** answer is a bare signal (which fields changed), with no values, household or wine: a corrected vintage on
+  a catalogue wine, and a corrected AI reading when nothing matched. A misread is not evidence against the
+  catalogue and never counts towards its corrections.
 - Nothing ever changes a catalogue wine. Saying no removes the person's signals; deleting the account or household
   removes them too.
 
 The admin sees them under **Wine catalogue → Corrections**: per catalogue wine the independent households with open
-corrections, the changed fields, identity mismatches apart from detail corrections, acceptances, and a state
+corrections (the smaller of distinct households and distinct people), the changed fields, identity mismatches apart from detail corrections, acceptances, and a state
 (collecting, review needed from 2 households, conflict when households disagree on a value, resolved). Each signal
 can be marked reviewed or dismissed with an internal note.

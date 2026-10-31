@@ -8,15 +8,21 @@
 -- * When the person SAVES (adds bottles with that photo), the database compares what was proposed with what they
 --   confirmed, once: accepted, corrected (some fields changed) or different_wine (another wine altogether). Never
 --   from typing in between, never twice for one photo, and only when the bottles with that photo are really there.
--- * Only a catalogue proposal becomes reviewable evidence about a catalogue record (one row per person and catalogue
---   wine, the latest replaces the earlier). An AI proposal that was corrected says something about the AI reading,
---   not about the catalogue: it is kept as a bare signal (which fields changed), without any values.
+-- * Field provenance: in a catalogue proposal, producer, name, colour, country and region come from the catalogue
+--   record; the vintage comes from the scan (a catalogue wine has no single year). Only corrections of catalogue
+--   fields are reviewable evidence about the catalogue record. A corrected vintage, like a corrected AI reading when
+--   nothing matched, says something about the SCAN, not the catalogue: it is kept as a bare scan signal (which
+--   fields changed, kind 'ai'), without values, household or catalogue wine, for recognition-quality analysis only.
+-- * History is kept, bounded: a person's acceptance of a catalogue wine is one row (refreshed on each scan); their
+--   corrections are separate rows, one per distinct correction (a repeat only refreshes last_seen_at), at most five
+--   per person and wine. A later scan never overwrites an earlier correction, its review status or its note.
 -- * Shared evidence holds only the wine identity fields (producer, name, colour, country, region, year): no photo,
 --   no notes, no prices, no places. Only the service role reads it; the admin sees counts and values, never who.
 -- * Nothing here changes a catalogue wine. Saying "no" to catalogue learning removes the person's signals; deleting
 --   the account or the household removes them too.
--- * Independence: a person counts once per catalogue wine (one signal row); for candidates, households linked by a
---   confirming person count as one; two people of one household count as one household.
+-- * Independence: correction counts take the smaller of distinct households and distinct people (two people of one
+--   household, or one person in two households, count once); for candidates, households linked by a confirming
+--   person count as one.
 
 -- ---- 1. Households linked by a person count as one (no inflated "independent households") ----------------------
 -- For each candidate, households that share a confirming person are one group, however long the chain (A and B share
@@ -115,24 +121,35 @@ create table public.catalog_scan_signals (
   signal         text not null check (signal in ('accepted', 'corrected', 'different_wine')),
   changed_fields text[] not null default '{}'
                  check (changed_fields <@ array['producer', 'name', 'type', 'country', 'region', 'year']),
-  -- catalog signals only: the proposed identity, and the confirmed values of the fields that changed
+  -- catalog signals only: the proposed catalogue identity, and the confirmed values of the catalogue fields that changed
   proposed       jsonb check (proposed is null or pg_column_size(proposed) < 2048),
   confirmed      jsonb check (confirmed is null or pg_column_size(confirmed) < 2048),
+  -- catalog corrections only: what makes one correction distinct (signal, fields, confirmed values), to deduplicate
+  fingerprint    text check (char_length(fingerprint) <= 64),
   -- open | reviewed | dismissed; none for an acceptance (nothing to review)
   status         text check (status in ('open', 'reviewed', 'dismissed')),
   admin_note     text check (char_length(admin_note) <= 500),
   reviewed_at    timestamptz,
   reviewed_by    uuid references auth.users on delete set null,
   created_at     timestamptz not null default now(),
+  -- the latest scan that gave this same answer
+  last_seen_at   timestamptz not null default now(),
   constraint catalog_scan_signals_shape check (
     (kind = 'catalog' and wine_id is not null and household_id is not null and proposed is not null)
     or (kind = 'ai' and wine_id is null and household_id is null and proposed is null and confirmed is null)),
+  constraint catalog_scan_signals_fingerprint check (
+    (kind = 'catalog' and signal <> 'accepted') = (fingerprint is not null)),
+  -- the vintage is never a catalogue field
+  constraint catalog_scan_signals_catalog_fields check (kind = 'ai' or not 'year' = any (changed_fields)),
   -- only catalogue corrections are reviewed; acceptances and AI signals have nothing to review
   constraint catalog_scan_signals_status check (
     (kind = 'ai' and status is null) or (kind = 'catalog' and (signal = 'accepted') = (status is null)))
 );
--- one per person and catalogue wine: the latest answer stands
-create unique index catalog_scan_signals_once on public.catalog_scan_signals (wine_id, user_id) where kind = 'catalog';
+-- one acceptance per person and catalogue wine; one row per distinct correction of a person
+create unique index catalog_scan_signals_accepted_once on public.catalog_scan_signals (wine_id, user_id)
+  where kind = 'catalog' and signal = 'accepted';
+create unique index catalog_scan_signals_correction_once on public.catalog_scan_signals (wine_id, user_id, fingerprint)
+  where kind = 'catalog' and signal <> 'accepted';
 create index catalog_scan_signals_wine_idx on public.catalog_scan_signals (wine_id) where kind = 'catalog';
 create index catalog_scan_signals_user_idx on public.catalog_scan_signals (user_id);
 create index catalog_scan_signals_ai_idx on public.catalog_scan_signals (created_at) where kind = 'ai';
@@ -155,7 +172,8 @@ create trigger profiles_catalog_forget_signals after update of catalog_contribut
 
 -- ---- 4. Recording the answer (as the person, when they save) ---------------------------------------------------
 -- Called by the server right after the person added bottles with the scanned photo. Compares the proposal noted for
--- that photo with the wine and year they saved, once. Returns accepted | corrected | different_wine | none | off.
+-- that photo with the wine and year they saved, once. Returns accepted | corrected | different_wine | none | off (for a
+-- catalogue proposal: the verdict on the catalogue fields; a corrected vintage is recorded as a scan signal).
 create function public.catalog_record_scan_outcome(p_wine_id uuid, p_year int, p_image_id uuid)
   returns text language plpgsql volatile security definer set search_path = '' as $$
 declare
@@ -165,6 +183,9 @@ declare
   v_final   jsonb;
   v_changed text[] := '{}';
   v_signal  text;
+  v_scan    text[] := '{}';
+  v_confirmed jsonb;
+  v_fp      text;
   f         text;
   norm_fields constant text[] := array['producer', 'name', 'region'];
 begin
@@ -201,6 +222,12 @@ begin
     end if;
   end loop;
 
+  if r.proposal_kind = 'catalog' then
+    -- the vintage came from the scan, not the catalogue: a corrected vintage is a scan signal, kept apart
+    v_scan := case when 'year' = any (v_changed) then array['year'] else '{}'::text[] end;
+    v_changed := array_remove(v_changed, 'year');
+  end if;
+
   v_signal := case
     when cardinality(v_changed) = 0 and (r.proposal_kind = 'ai' or w.id = r.proposed_wine_id) then 'accepted'
     -- another wine that already existed (picked from the list), or both producer and name are different
@@ -211,20 +238,43 @@ begin
 
   update public.catalog_scan_reads set outcome_at = now() where image_id = r.image_id;
 
-  if r.proposal_kind = 'catalog' then
-    insert into public.catalog_scan_signals as s (kind, wine_id, household_id, user_id, signal, changed_fields,
-                                                  proposed, confirmed, status)
-    values ('catalog', r.proposed_wine_id, r.household_id, v_uid, v_signal, v_changed, r.proposed,
-            case when cardinality(v_changed) = 0 then null
-                 else (select jsonb_object_agg(k, v_final->k) from unnest(v_changed) k where v_final ? k) end,
-            case when v_signal = 'accepted' then null else 'open' end)
-    on conflict (wine_id, user_id) where kind = 'catalog' do update
-       set household_id = excluded.household_id, signal = excluded.signal, changed_fields = excluded.changed_fields,
-           proposed = excluded.proposed, confirmed = excluded.confirmed, status = excluded.status,
-           admin_note = null, reviewed_at = null, reviewed_by = null, created_at = now();
-  else
+  if r.proposal_kind = 'ai' then
     insert into public.catalog_scan_signals (kind, user_id, signal, changed_fields)
     values ('ai', v_uid, v_signal, v_changed);
+    return v_signal;
+  end if;
+
+  -- a misread vintage on the same wine: recognition quality only, never catalogue evidence
+  if cardinality(v_scan) > 0 and v_signal <> 'different_wine' then
+    insert into public.catalog_scan_signals (kind, user_id, signal, changed_fields)
+    values ('ai', v_uid, 'corrected', v_scan);
+  end if;
+
+  if v_signal = 'accepted' then
+    -- one acceptance per person and wine; it never touches their corrections
+    insert into public.catalog_scan_signals (kind, wine_id, household_id, user_id, signal, proposed)
+    values ('catalog', r.proposed_wine_id, r.household_id, v_uid, 'accepted', r.proposed - 'year')
+    on conflict (wine_id, user_id) where kind = 'catalog' and signal = 'accepted' do update
+       set household_id = excluded.household_id, proposed = excluded.proposed, last_seen_at = now();
+  else
+    v_confirmed := (select jsonb_object_agg(k, v_final->k) from unnest(v_changed) k where v_final ? k);
+    v_fp := md5(v_signal || '|' || array_to_string(v_changed, ',') || '|' || coalesce(v_confirmed::text, ''));
+    if exists (select 1 from public.catalog_scan_signals
+                where kind = 'catalog' and signal <> 'accepted' and wine_id = r.proposed_wine_id
+                  and user_id = v_uid and fingerprint = v_fp) then
+      -- the same correction again: one row, its review and note kept
+      update public.catalog_scan_signals set last_seen_at = now()
+       where kind = 'catalog' and signal <> 'accepted' and wine_id = r.proposed_wine_id and user_id = v_uid
+         and fingerprint = v_fp;
+    elsif (select count(*) from public.catalog_scan_signals
+            where kind = 'catalog' and signal <> 'accepted' and wine_id = r.proposed_wine_id
+              and user_id = v_uid) < 5 then
+      insert into public.catalog_scan_signals (kind, wine_id, household_id, user_id, signal, changed_fields,
+                                               proposed, confirmed, fingerprint, status)
+      values ('catalog', r.proposed_wine_id, r.household_id, v_uid, v_signal, v_changed, r.proposed - 'year',
+              v_confirmed, v_fp, 'open');
+    end if;
+    -- (a person's sixth distinct correction of one wine is not kept: their earlier ones stand)
   end if;
   return v_signal;
 end $$;
@@ -232,32 +282,42 @@ revoke all on function public.catalog_record_scan_outcome(uuid, int, uuid) from 
 grant execute on function public.catalog_record_scan_outcome(uuid, int, uuid) to authenticated;
 
 -- ---- 5. The admin's view (service role only; counts and values, never who) -------------------------------------
--- Catalogue wines with signals. Independent households: distinct households among distinct people (one row per
--- person already). "conflict": open corrections disagree on what a field should be.
+-- Catalogue wines with correction signals (wines only ever accepted as they are are not listed). Independent
+-- households: the smaller of distinct households and distinct people, so neither two people of one household nor one
+-- person in two households (nor one person's repeated scans) count twice. "conflict": open corrections disagree on
+-- what a field should be.
 create function public.admin_catalog_corrections()
   returns jsonb language sql stable security definer set search_path = '' as $$
   with s as (select * from public.catalog_scan_signals where kind = 'catalog'),
+  corr as (select * from s where s.signal <> 'accepted'),
   per as (
-    select s.wine_id,
-           count(distinct s.household_id) filter (where s.signal = 'accepted') as accepted,
-           count(distinct s.household_id) filter (where s.status = 'open') as open_households,
-           count(distinct s.household_id) filter (where s.status = 'open' and s.signal = 'corrected') as corrected,
-           count(distinct s.household_id) filter (where s.status = 'open' and s.signal = 'different_wine') as identity,
-           count(*) filter (where s.status = 'open') as open_signals,
-           count(*) filter (where s.status in ('reviewed', 'dismissed')) as resolved,
-           max(s.created_at) as last_at
-      from s group by s.wine_id
+    select c.wine_id,
+           least(count(distinct c.household_id) filter (where c.status = 'open'),
+                 count(distinct c.user_id) filter (where c.status = 'open')) as open_households,
+           least(count(distinct c.household_id) filter (where c.status = 'open' and c.signal = 'corrected'),
+                 count(distinct c.user_id) filter (where c.status = 'open' and c.signal = 'corrected')) as corrected,
+           least(count(distinct c.household_id) filter (where c.status = 'open' and c.signal = 'different_wine'),
+                 count(distinct c.user_id) filter (where c.status = 'open' and c.signal = 'different_wine')) as identity,
+           count(*) filter (where c.status = 'open') as open_signals,
+           count(*) filter (where c.status in ('reviewed', 'dismissed')) as resolved,
+           max(c.last_seen_at) as last_at
+      from corr c group by c.wine_id
+  ),
+  acc as (
+    select a.wine_id, least(count(distinct a.household_id), count(distinct a.user_id)) as accepted
+      from s a where a.signal = 'accepted' group by a.wine_id
   ),
   fields as (
-    select s.wine_id, f, count(distinct s.household_id) as n, count(distinct s.confirmed->>f) as variants
-      from s, unnest(s.changed_fields) f
-     where s.status = 'open'
-     group by s.wine_id, f
+    select c.wine_id, f, least(count(distinct c.household_id), count(distinct c.user_id)) as n,
+           count(distinct c.confirmed->>f) as variants
+      from corr c, unnest(c.changed_fields) f
+     where c.status = 'open'
+     group by c.wine_id, f
   )
   select coalesce(jsonb_agg(jsonb_build_object(
            'wineId', w.id, 'producer', p.name, 'name', w.name, 'type', w.wine_type,
            'country', coalesce(w.country_code, p.country_code), 'region', w.region,
-           'accepted', per.accepted, 'openHouseholds', per.open_households, 'corrected', per.corrected,
+           'accepted', coalesce(acc.accepted, 0), 'openHouseholds', per.open_households, 'corrected', per.corrected,
            'identity', per.identity, 'openSignals', per.open_signals, 'resolved', per.resolved,
            'fields', coalesce((select jsonb_object_agg(fields.f, fields.n) from fields where fields.wine_id = w.id),
                               '{}'::jsonb),
@@ -265,6 +325,7 @@ create function public.admin_catalog_corrections()
            'lastAt', per.last_at)
          order by per.open_households desc, per.last_at desc), '[]'::jsonb)
     from per join public.wines w on w.id = per.wine_id join public.producers p on p.id = w.producer_id
+    left join acc on acc.wine_id = per.wine_id
 $$;
 
 -- One catalogue wine: its record and every signal about it (without households or people).
@@ -276,7 +337,7 @@ create function public.admin_catalog_correction(p_wine uuid)
     'signals', coalesce((select jsonb_agg(jsonb_build_object(
                   'id', s.id, 'signal', s.signal, 'changedFields', to_jsonb(s.changed_fields),
                   'proposed', s.proposed, 'confirmed', s.confirmed, 'status', s.status, 'note', s.admin_note,
-                  'reviewedAt', s.reviewed_at, 'createdAt', s.created_at)
+                  'reviewedAt', s.reviewed_at, 'createdAt', s.created_at, 'lastSeenAt', s.last_seen_at)
                   order by (s.status = 'open') desc nulls last, s.created_at desc)
                from public.catalog_scan_signals s where s.kind = 'catalog' and s.wine_id = w.id), '[]'::jsonb)) end
     from (select 1) one
@@ -299,7 +360,8 @@ begin
   return found;
 end $$;
 
--- How the AI's own readings fared when nothing in the catalogue matched (counts only).
+-- How scan readings fared (counts only): the AI's own reading when nothing in the catalogue matched, and the vintage it
+-- read on a catalogue wine.
 create function public.admin_catalog_ai_signals(p_days int)
   returns jsonb language sql stable security definer set search_path = '' as $$
   with s as (select * from public.catalog_scan_signals

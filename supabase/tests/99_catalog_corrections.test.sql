@@ -33,10 +33,40 @@ create function test.q_signals() returns setof public.catalog_scan_signals langu
 $$;
 grant execute on function test.q_signals() to public;
 
+-- a household's own copy of the catalogue wine, as the signed-in person: its vintage id
+create function test.q_own(h uuid, wname text, region text, yr int) returns uuid language plpgsql as $$
+declare pp uuid; w uuid; v uuid;
+begin
+  insert into public.producers (name, country_code, owner_household_id) values ('Château Témoin', 'FR', h)
+  on conflict do nothing;
+  select id into pp from public.producers where owner_household_id = h and name = 'Château Témoin';
+  insert into public.wines (producer_id, name, wine_type, country_code, region, owner_household_id)
+    values (pp, wname, 'red', 'FR', region, h) returning id into w;
+  insert into public.wine_vintages (wine_id, year) values (w, yr) returning id into v;
+  return v;
+end $$;
+grant execute on function test.q_own(uuid, text, text, int) to public;
+-- one scan of the catalogue wine (proposed with the year read), saved as wine/vintage by the signed-in person
+create function test.q_save(h uuid, u int, cw uuid, read_year int, wine uuid, vintage uuid, yr int) returns text
+  language plpgsql as $$
+declare img uuid;
+begin
+  perform test.as_user(u);
+  img := test.q_photo(h);
+  perform test.su(); perform test.q_scan(img, h, test.uid(u), cw, null, read_year);
+  perform test.as_user(u);
+  perform test.q_bottle(h, vintage, img);
+  return public.catalog_record_scan_outcome(wine, yr, img);
+end $$;
+grant execute on function test.q_save(uuid, int, uuid, int, uuid, uuid, int) to public;
+create function test.q_wine_of(v uuid) returns uuid language sql security definer as $$
+  select wine_id from public.wine_vintages where id = v
+$$;
+grant execute on function test.q_wine_of(uuid) to public;
+
 do $$
 declare h1 uuid; h2 uuid; h3 uuid; h4 uuid; h5 uuid; h6 uuid; code text; cp uuid; cw uuid; v18 uuid; v19 uuid;
-        v20 uuid; pp uuid; own uuid; own18 uuid; pw uuid; pw21 uuid; img uuid; r text; j jsonb; sid uuid;
-        other_img uuid;
+        pp uuid; pw uuid; pw21 uuid; ov uuid; img uuid; r text; j jsonb; sid uuid; other_img uuid; i int;
 begin
   perform test.mk_users(8);
   perform test.as_user(1); h1 := public.create_household('Q1'); code := public.create_invite(h1);
@@ -55,7 +85,6 @@ begin
     values (cp, 'Grand Vin', 'red', 'FR', 'Bordeaux', 'canonical', 'verified') returning id into cw;
   insert into public.wine_vintages (wine_id, year) values (cw, 2018) returning id into v18;
   insert into public.wine_vintages (wine_id, year) values (cw, 2019) returning id into v19;
-  insert into public.wine_vintages (wine_id, year) values (cw, 2020) returning id into v20;
 
   -- ---- off: nothing is collected ----------------------------------------------------------------------------
   perform test.as_user(1);
@@ -82,44 +111,34 @@ begin
   r := public.catalog_record_scan_outcome(cw, 2018, img);
   perform test.rec('saving the proposed wine and year unchanged: accepted', r = 'accepted'
     and exists (select 1 from test.q_signals() where user_id = test.uid(1) and wine_id = cw and signal = 'accepted'
-                  and status is null and changed_fields = '{}'));
+                  and status is null and changed_fields = '{}' and not proposed ? 'year'));
   perform test.rec('...recorded once: a replay changes nothing', public.catalog_record_scan_outcome(cw, 2018, img) = 'none');
 
-  -- ---- a field correction (the year), by the other member of the same household ----------------------------
-  perform test.as_user(2);
-  img := test.q_photo(h1);
-  perform test.su(); perform test.q_scan(img, h1, test.uid(2), cw, null, 2018);
-  perform test.as_user(2);
-  perform test.q_bottle(h1, v19, img);
-  r := public.catalog_record_scan_outcome(cw, 2019, img);
-  perform test.rec('the same wine with another year: a correction of the year', r = 'corrected'
-    and exists (select 1 from test.q_signals() where user_id = test.uid(2) and changed_fields = '{year}'
-                  and (proposed->>'year')::int = 2018 and (confirmed->>'year')::int = 2019 and status = 'open'
-                  and proposed->>'producer' = 'Château Témoin'));
+  -- ---- a misread vintage is a scan signal, not catalogue evidence ---------------------------------------------
+  r := test.q_save(h1, 2, cw, 2018, cw, v19, 2019);
+  perform test.rec('the same catalogue wine with another vintage: the catalogue record is accepted', r = 'accepted'
+    and exists (select 1 from test.q_signals() where kind = 'catalog' and user_id = test.uid(2) and signal = 'accepted')
+    and not exists (select 1 from test.q_signals() where kind = 'catalog' and user_id = test.uid(2) and signal <> 'accepted'));
+  perform test.rec('...and the vintage the scan misread is kept as a bare scan signal',
+    exists (select 1 from test.q_signals() where kind = 'ai' and user_id = test.uid(2) and changed_fields = '{year}'
+              and signal = 'corrected' and wine_id is null and household_id is null and confirmed is null));
   perform test.as_service();
-  j := public.admin_catalog_corrections();
-  perform test.rec('two people of one household count as one household',
-    (j->0->>'openHouseholds')::int = 1 and (j->0->>'accepted')::int = 1);
+  perform test.rec('...so the wine has no catalogue correction to review',
+    jsonb_array_length(public.admin_catalog_corrections()) = 0);
 
-  -- ---- a field correction (the region) in its own wine, by another household ------------------------------
+  -- ---- a genuine catalogue-detail correction (the region), with a misread vintage too ----------------------
   perform test.as_user(3);
-  insert into public.producers (name, country_code, owner_household_id) values ('Château Témoin', 'FR', h2) returning id into pp;
-  img := test.q_photo(h2);
-  perform test.su(); perform test.q_scan(img, h2, test.uid(3), cw, null, 2018);
-  perform test.as_user(3);
-  insert into public.wines (producer_id, name, wine_type, country_code, region, owner_household_id)
-    values (pp, 'Grand Vin', 'red', 'FR', 'Pessac-Léognan', h2) returning id into own;
-  insert into public.wine_vintages (wine_id, year) values (own, 2018) returning id into own18;
-  perform test.q_bottle(h2, own18, img);
-  r := public.catalog_record_scan_outcome(own, 2018, img);
-  perform test.rec('typing the wine anew with another region: a correction of the region', r = 'corrected'
-    and exists (select 1 from test.q_signals() where user_id = test.uid(3) and changed_fields = '{region}'
-                  and confirmed->>'region' = 'Pessac-Léognan'));
+  ov := test.q_own(h2, 'Grand Vin', 'Pessac-Léognan', 2017);
+  r := test.q_save(h2, 3, cw, 2018, test.q_wine_of(ov), ov, 2017);
+  perform test.rec('another region is a catalogue correction; the vintage is not part of it', r = 'corrected'
+    and exists (select 1 from test.q_signals() where kind = 'catalog' and user_id = test.uid(3) and changed_fields = '{region}'
+                  and confirmed->>'region' = 'Pessac-Léognan' and not confirmed ? 'year' and status = 'open')
+    and exists (select 1 from test.q_signals() where kind = 'ai' and user_id = test.uid(3) and changed_fields = '{year}'));
   perform test.as_service();
   j := public.admin_catalog_corrections();
-  perform test.rec('two independent households with open corrections; fields counted; no conflict yet',
-    (j->0->>'openHouseholds')::int = 2 and (j->0->'fields'->>'year')::int = 1 and (j->0->'fields'->>'region')::int = 1
-    and not (j->0->>'conflict')::boolean and (j->0->>'identity')::int = 0);
+  perform test.rec('the inbox shows the region correction only',
+    jsonb_array_length(j) = 1 and (j->0->>'openHouseholds')::int = 1 and (j->0->'fields'->>'region')::int = 1
+    and not (j->0->'fields' ? 'year') and (j->0->>'accepted')::int = 1 and not (j->0->>'conflict')::boolean);
 
   -- ---- a different wine: picked another wine that already existed ---------------------------------------
   perform test.as_user(4);
@@ -128,32 +147,71 @@ begin
     values (pp, 'Cuvée', 'red', 'FR', h3) returning id into pw;
   insert into public.wine_vintages (wine_id, year) values (pw, 2018) returning id into pw21;
   perform pg_sleep(0.01);
-  img := test.q_photo(h3);
-  perform test.su(); perform test.q_scan(img, h3, test.uid(4), cw, null, 2018);
-  perform test.as_user(4);
-  perform test.q_bottle(h3, pw21, img);
-  r := public.catalog_record_scan_outcome(pw, 2018, img);
+  r := test.q_save(h3, 4, cw, 2018, pw, pw21, 2018);
   perform test.rec('choosing another existing wine rejects the proposed identity', r = 'different_wine'
     and exists (select 1 from test.q_signals() where user_id = test.uid(4) and signal = 'different_wine'
                   and 'producer' = any (changed_fields) and 'name' = any (changed_fields)));
   perform test.as_service();
   perform test.rec('identity mismatches are counted apart from detail corrections',
     (public.admin_catalog_corrections()->0->>'identity')::int = 1
-    and (public.admin_catalog_corrections()->0->>'corrected')::int = 2);
+    and (public.admin_catalog_corrections()->0->>'corrected')::int = 1
+    and (public.admin_catalog_corrections()->0->>'openHouseholds')::int = 2);
 
-  -- ---- conflict: another household says another year --------------------------------------------------------
-  perform test.as_user(5);
-  img := test.q_photo(h4);
-  perform test.su(); perform test.q_scan(img, h4, test.uid(5), cw, null, 2018);
-  perform test.as_user(5);
-  perform test.q_bottle(h4, v20, img);
-  perform public.catalog_record_scan_outcome(cw, 2020, img);
+  -- ---- a reviewed correction survives the same person's later scans ------------------------------------
+  select id into sid from public.catalog_scan_signals where user_id = test.uid(4) and kind = 'catalog';
+  perform test.rec('the admin marks the identity mismatch reviewed, with a note',
+    public.admin_catalog_review_signal(sid, 'reviewed', 'a lookalike, not this wine', null));
+  r := test.q_save(h3, 4, cw, 2018, cw, v18, 2018);
+  perform test.rec('the same person later accepts the wine as it is', r = 'accepted');
   perform test.as_service();
-  perform test.rec('households disagreeing on a field is a conflict',
+  perform test.rec('...their reviewed correction, its status and note are all kept',
+    exists (select 1 from public.catalog_scan_signals where id = sid and status = 'reviewed'
+              and admin_note = 'a lookalike, not this wine' and signal = 'different_wine')
+    and (select count(*) from public.catalog_scan_signals where user_id = test.uid(4) and kind = 'catalog') = 2);
+  r := test.q_save(h3, 4, cw, 2018, pw, pw21, 2018);
+  perform test.as_service();
+  perform test.rec('the same mismatch again refreshes the one row, keeping its review',
+    r = 'different_wine'
+    and (select count(*) from public.catalog_scan_signals where user_id = test.uid(4) and signal = 'different_wine') = 1
+    and exists (select 1 from public.catalog_scan_signals where id = sid and status = 'reviewed'
+                  and admin_note = 'a lookalike, not this wine'));
+
+  -- ---- conflict: another household says another region --------------------------------------------------------
+  perform test.as_user(5);
+  ov := test.q_own(h4, 'Grand Vin', 'Graves', 2018);
+  perform test.q_save(h4, 5, cw, 2018, test.q_wine_of(ov), ov, 2018);
+  perform test.as_service();
+  perform test.rec('households disagreeing on a catalogue field is a conflict',
     (public.admin_catalog_corrections()->0->>'conflict')::boolean);
   perform test.rec('...and no catalogue wine was changed by any of it',
     (select region from public.wines where id = cw) = 'Bordeaux'
     and (select name from public.wines where id = cw) = 'Grand Vin');
+
+  -- ---- one person, repeated scans, two households: counted once, kept once -------------------------------
+  perform test.as_user(6);
+  ov := test.q_own(h5, 'Grand Vin', 'Pessac-Léognan', 2018);
+  perform test.q_save(h5, 6, cw, 2018, test.q_wine_of(ov), ov, 2018);
+  perform test.q_save(h5, 6, cw, 2018, test.q_wine_of(ov), ov, 2018);
+  perform test.as_user(6);
+  ov := test.q_own(h6, 'Grand Vin', 'Pessac-Léognan', 2018);
+  perform test.q_save(h6, 6, cw, 2018, test.q_wine_of(ov), ov, 2018);
+  perform test.rec('the same correction from one person, scanned three times in two households, is one row',
+    (select count(*) from test.q_signals() where kind = 'catalog' and user_id = test.uid(6) and signal <> 'accepted') = 1);
+  perform test.as_service();
+  j := public.admin_catalog_corrections();
+  -- open: user 3 (region), user 4 is reviewed, user 5 (region), user 6 (region) → three people, three households
+  perform test.rec('...and counts as one independent household',
+    (j->0->>'openHouseholds')::int = 3 and (j->0->'fields'->>'region')::int = 3);
+
+  -- ---- bounded: at most five distinct corrections per person and wine ------------------------------------------
+  for i in 1..6 loop
+    perform test.as_user(1);
+    ov := test.q_own(h1, 'Grand Vin ' || i, 'Bordeaux', 2018);
+    perform test.q_save(h1, 1, cw, 2018, test.q_wine_of(ov), ov, 2018);
+  end loop;
+  perform test.rec('a person''s distinct corrections of one wine are kept, at most five',
+    (select count(*) from test.q_signals() where kind = 'catalog' and user_id = test.uid(1) and signal <> 'accepted') = 5
+    and (select count(*) from test.q_signals() where kind = 'catalog' and user_id = test.uid(1) and signal = 'accepted') = 1);
 
   -- ---- an AI reading corrected: a bare signal, never catalogue evidence -------------------------------------
   perform test.as_user(1);
@@ -168,26 +226,13 @@ begin
   insert into public.wine_vintages (wine_id, year) values (pw, 2021) returning id into pw21;
   perform test.q_bottle(h1, pw21, img);
   r := public.catalog_record_scan_outcome(pw, 2021, img);
-  perform test.rec('correcting the AI''s reading is an AI signal, without values or household', r = 'corrected'
+  perform test.rec('correcting the AI''s reading is a scan signal, without values or household', r = 'corrected'
     and exists (select 1 from test.q_signals() where kind = 'ai' and user_id = test.uid(1) and changed_fields = '{name}'
-                  and wine_id is null and household_id is null and proposed is null and confirmed is null)
-    and (select count(*) from test.q_signals() where kind = 'catalog' and user_id = test.uid(1)) = 1);
+                  and wine_id is null and household_id is null and proposed is null and confirmed is null));
   perform test.as_service();
   j := public.admin_catalog_ai_signals(30);
-  perform test.rec('the admin sees AI signals as counts only', (j->>'corrected')::int = 1 and (j->'fields'->>'name')::int = 1);
-
-  -- ---- one person, many households: never more than one independent household -----------------------------
-  perform test.as_user(6);
-  img := test.q_photo(h5);
-  perform test.su(); perform test.q_scan(img, h5, test.uid(6), cw, null, 2018);
-  perform test.as_user(6); perform test.q_bottle(h5, v19, img);
-  perform public.catalog_record_scan_outcome(cw, 2019, img);
-  img := test.q_photo(h6);
-  perform test.su(); perform test.q_scan(img, h6, test.uid(6), cw, null, 2018);
-  perform test.as_user(6); perform test.q_bottle(h6, v19, img);
-  perform public.catalog_record_scan_outcome(cw, 2019, img);
-  perform test.rec('a person in two households has one signal per catalogue wine',
-    (select count(*) from test.q_signals() where kind = 'catalog' and user_id = test.uid(6)) = 1);
+  perform test.rec('the admin sees scan signals as counts only: misread vintages and the AI''s own readings',
+    (j->'fields'->>'year')::int = 2 and (j->'fields'->>'name')::int = 1);
 
   -- ---- who can see and do what -------------------------------------------------------------------------------
   perform test.as_user(4);
@@ -209,31 +254,28 @@ begin
   perform test.as_anon();
   perform test.rec('visitors cannot record answers', test.denied(format('select public.catalog_record_scan_outcome(%L, 2018, %L)', cw, img)));
 
-  -- ---- the admin reviews ------------------------------------------------------------------------------------
+  -- ---- the admin's detail view ------------------------------------------------------------------------------
   perform test.as_service();
   j := public.admin_catalog_correction(cw);
-  perform test.rec('the admin opens a wine''s signals, without households or people',
-    jsonb_array_length(j->'signals') >= 5 and not (j->'signals'->0 ? 'householdId') and not (j->'signals'->0 ? 'userId'));
-  select id into sid from public.catalog_scan_signals where user_id = test.uid(2) and kind = 'catalog';
-  perform test.rec('marking a correction reviewed, with a note',
-    public.admin_catalog_review_signal(sid, 'reviewed', 'checked the label', null));
-  perform test.rec('...is kept with its note',
-    exists (select 1 from public.catalog_scan_signals where id = sid and status = 'reviewed' and admin_note = 'checked the label'));
-  select id into sid from public.catalog_scan_signals where user_id = test.uid(1) and kind = 'catalog';
+  perform test.rec('the admin opens a wine''s signals, without households or people, notes kept',
+    jsonb_array_length(j->'signals') >= 8 and not (j->'signals'->0 ? 'householdId') and not (j->'signals'->0 ? 'userId')
+    and exists (select 1 from jsonb_array_elements(j->'signals') e where e->>'note' = 'a lookalike, not this wine'));
+  select id into sid from public.catalog_scan_signals where user_id = test.uid(1) and kind = 'catalog' and signal = 'accepted';
   perform test.rec('an acceptance has nothing to review', not public.admin_catalog_review_signal(sid, 'dismissed', null, null));
 
   -- ---- saying no, deleting ----------------------------------------------------------------------------------
   perform test.as_user(3);
   update public.profiles set catalog_contribute = false where id = test.uid(3);
-  perform test.rec('saying no takes the person''s signals back',
+  perform test.rec('saying no takes all the person''s signals back (catalogue and scan)',
     not exists (select 1 from test.q_signals() where user_id = test.uid(3)));
   perform test.as_user(3);
   img := test.q_photo(h2);
   perform test.su();
   perform test.rec('...and nothing new is noted for them', not test.q_scan(img, h2, test.uid(3), cw, null, 2018));
   perform test.su();
-  delete from auth.users where id = test.uid(5);
-  perform test.rec('deleting an account deletes its signals', not exists (select 1 from test.q_signals() where user_id = test.uid(5)));
+  delete from auth.users where id = test.uid(4);
+  perform test.rec('deleting an account deletes its signals, reviewed ones included',
+    not exists (select 1 from test.q_signals() where user_id = test.uid(4)));
 end $$;
 
 -- ---- candidate review: independent households, one person counted once -------------------------------------
@@ -258,10 +300,10 @@ $$;
 grant execute on function test.q_scan_households(uuid) to public;
 
 do $$
-declare h3 uuid; h5 uuid; h6 uuid; cand uuid;
+declare h4 uuid; h5 uuid; h6 uuid; cand uuid;
 begin
   perform test.su();
-  select id into h3 from public.households where name = 'Q3';
+  select id into h4 from public.households where name = 'Q4';
   select id into h5 from public.households where name = 'Q5';
   select id into h6 from public.households where name = 'Q6';
   insert into public.catalog_candidates (identity_key, producer_norm, name_norm, producer, name, wine_type, country_code)
@@ -276,7 +318,7 @@ begin
   perform test.su();
   perform test.rec('...and a second person of one of those linked households adds nothing',
     test.q_scan_households(cand) = 1);
-  perform test.q_evidence(h3, 4, cand);
+  perform test.q_evidence(h4, 5, cand);
   perform test.su();
   perform test.rec('a second, independent household makes two', test.q_scan_households(cand) = 2);
 end $$;
