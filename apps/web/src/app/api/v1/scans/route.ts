@@ -1,4 +1,4 @@
-import { DomainError, IMAGE_SIDES, type ImageSide } from "@cellr/domain";
+import { DomainError, IMAGE_SIDES, LABEL_TEXT_LIMITS, type ImageSide } from "@cellr/domain";
 import { authed, readForm } from "@/server/http";
 import { LIMITS } from "@/server/ratelimit/service";
 import { servicesFor } from "@/server/services";
@@ -9,7 +9,21 @@ const bytesOf = async (value: FormDataEntryValue | null): Promise<Uint8Array | n
   value instanceof File ? new Uint8Array(await value.arrayBuffer()) : null;
 
 /**
- * POST multipart { photo, thumb?, side?, blurColor? } → keeps the photo, reads the label, and says what wine it
+ * What the phone's own OCR read on the label (Sprint S): a query only, bounded, never stored. Absent = not tried
+ * (the photo is read by the model as before); empty = tried, nothing read.
+ */
+function labelTextOf(form: FormData) {
+  const text = form.get("labelText");
+  if (typeof text !== "string") return null;
+  const ms = Number(form.get("labelTextMs"));
+  return {
+    text: text.slice(0, LABEL_TEXT_LIMITS.chars),
+    ms: Number.isFinite(ms) ? ms : null,
+  };
+}
+
+/**
+ * POST multipart { photo, thumb?, side?, blurColor?, labelText?, labelTextMs? } → keeps the photo, reads the label, and says what wine it
  * is (or may be) among the ones you already have. The photo is always kept; the answer may be "I couldn't read it".
  */
 export const POST = authed(async ({ request, ctx }) => {
@@ -25,5 +39,6 @@ export const POST = authed(async ({ request, ctx }) => {
     photo,
     thumb: await bytesOf(form.get("thumb")),
     blurColor: typeof form.get("blurColor") === "string" ? String(form.get("blurColor")) : null,
+    labelText: labelTextOf(form),
   });
 });

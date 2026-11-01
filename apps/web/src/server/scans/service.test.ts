@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { DomainError, type RawExtraction, type WineSummary } from "@cellr/domain";
+import {
+  DomainError,
+  type BottleArtRef,
+  type LabelTextCandidate,
+  type RawExtraction,
+  type WineSummary,
+} from "@cellr/domain";
 import type { GenerateObjectRequest, LlmProvider } from "@/server/ai/types";
 import type { Confirmation } from "./repository";
 import { createScanService, type ScanDeps } from "./service";
@@ -48,10 +54,20 @@ function setup(
     usageFails?: boolean;
     /** Confirmations per fingerprint (the cache), or how the cache fails. */
     recall?: Record<string, Confirmation[]> | "unavailable" | "throws";
+    /** What the label-text lookup finds (Sprint S), or how it fails; missing = not wired. */
+    text?: LabelTextCandidate[] | "unavailable" | "throws";
+    art?: Record<string, BottleArtRef> | "throws";
   } = {},
 ) {
   const state = {
-    uploads: [] as Array<{ photo: Uint8Array; side: string; cacheResult: string | null }>,
+    uploads: [] as Array<{
+      photo: Uint8Array;
+      side: string;
+      cacheResult: string | null;
+      text?: unknown;
+    }>,
+    lookups: [] as Array<{ householdId: string; phrases: string[] }>,
+    spent: 0,
     recalls: [] as Array<{ householdId: string; fingerprint: string }>,
     reads: [] as Array<{ imageId: string; householdId: string; producer: string; name: string }>,
     requests: [] as GenerateObjectRequest<unknown>[],
@@ -90,8 +106,8 @@ function setup(
           fingerprint,
         };
       },
-      async save(prepared, cacheResult = null) {
-        state.uploads.push({ photo: prepared.photo, side: prepared.side, cacheResult });
+      async save(prepared, cacheResult = null, text = null) {
+        state.uploads.push({ photo: prepared.photo, side: prepared.side, cacheResult, text });
         return {
           image: { id: "img1", side: prepared.side, blurColor: "#aabbcc", width: 600, height: 800 },
           photo: cleanPhoto,
@@ -107,10 +123,28 @@ function setup(
       if (options.recall === "unavailable") return null;
       return options.recall?.[fingerprint] ?? [];
     },
+    ...(options.text
+      ? {
+          findByText: async (householdId: string, phrases: string[]) => {
+            state.lookups.push({ householdId, phrases });
+            if (options.text === "throws") throw new Error("database unavailable");
+            if (options.text === "unavailable") return null;
+            return options.text!;
+          },
+        }
+      : {}),
+    art: async (ids) => {
+      const known = options.art;
+      if (known === "throws") throw new Error("art gone");
+      return new Map(ids.flatMap((id) => (known?.[id] ? [[id, known[id]] as const] : [])));
+    },
     wines: async () => options.wines ?? [],
     householdId: async () => "h1",
     llm: options.noAi ? null : llm,
-    spendScan: options.spend ?? (async () => {}),
+    spendScan: async () => {
+      state.spent += 1;
+      await (options.spend ?? (async () => {}))();
+    },
     recordUsage: async ({ task, status, usage, householdId }) => {
       if (options.usageFails) throw new Error("usage table gone");
       state.usage.push({ task, status, model: usage.model, householdId });
@@ -426,6 +460,170 @@ describe("scanning a label", () => {
       const down = setup({ answer: "unavailable" });
       await down.service.scan({ photo });
       expect([...remembered.state.reads, ...notLabel.state.reads, ...down.state.reads]).toEqual([]);
+    });
+  });
+
+  describe("database-first recognition: the printed label text", () => {
+    const catalog = (over: Partial<WineSummary> = {}): LabelTextCandidate => ({
+      wine: wine("c1", "Domaine Alpha", "Cuvée Silex", {
+        type: "white",
+        region: "Loire",
+        catalog: true,
+        aliases: [],
+        ...over,
+      }),
+      linkedTo: null,
+    });
+    const LABEL = "DOMAINE ALPHA\nCuvée Silex\n2019\nPouilly-Fumé";
+    const art: BottleArtRef = { id: "art1", width: 400, height: 1200, shared: true };
+
+    it("a known catalogue wine named exactly on a new photo is found without the model or the scan budget", async () => {
+      const { service, state } = setup({ text: [catalog()], art: { c1: art } });
+      const result = await service.scan({ photo, labelText: { text: LABEL, ms: 1834.6 } });
+      expect(result).toMatchObject({
+        outcome: "found",
+        fromText: true,
+        matches: [{ wine: { id: "c1" }, score: 1 }],
+        facts: { producer: "Domaine Alpha", name: "Cuvée Silex", year: 2019, nonVintage: false },
+        labelCorners: null,
+        art,
+      });
+      expect(state.requests).toHaveLength(0);
+      expect(state.spent).toBe(0);
+      expect(state.usage).toEqual([]);
+      expect(state.lookups[0]!.householdId).toBe("h1");
+      expect(state.lookups[0]!.phrases).toContain("domaine alpha");
+      // measured on the household's own photo row: the wine and year proposed and the timings, never the text
+      expect(state.uploads[0]!.text).toMatchObject({
+        result: "hit",
+        wineId: "c1",
+        year: 2019,
+        ocrMs: 1835,
+      });
+      expect(JSON.stringify(state.uploads[0]!.text)).not.toMatch(/silex|alpha/i);
+    });
+
+    it("the proposal takes part in catalogue learning, marked as coming from the label text", async () => {
+      const { service, state } = setup({ text: [catalog()] });
+      await service.scan({ photo, labelText: { text: LABEL, ms: 900 } });
+      expect(state.reads).toEqual([
+        {
+          imageId: "img1",
+          householdId: "h1",
+          producer: "Domaine Alpha",
+          name: "Cuvée Silex",
+          type: "white",
+          proposal: { kind: "catalog", wineId: "c1", year: 2019 },
+          source: "text",
+        },
+      ]);
+    });
+
+    it("the household's own wine linked to the catalogue wine is proposed, and learns nothing about the catalogue", async () => {
+      const own = {
+        wine: wine("mine", "Dom. Alpha", "Silex", { type: "white", region: "Loire" }),
+        linkedTo: "c1",
+      };
+      const { service, state } = setup({ text: [catalog(), own], art: { mine: art } });
+      const result = await service.scan({ photo, labelText: { text: LABEL, ms: 900 } });
+      expect(result).toMatchObject({ outcome: "found", matches: [{ wine: { id: "mine" } }], art });
+      expect(state.reads).toEqual([]);
+      expect(state.requests).toHaveLength(0);
+    });
+
+    it("anything short of an exact identity is read by the model as before (and spends the budget as before)", async () => {
+      for (const [label, candidates] of [
+        ["DOMAINE ALPHA\nCuvée Silex\nRéserve", [catalog()]], // a reserve bottling
+        [
+          "DOMAINE ALPHA\nCuvée Silex",
+          [
+            catalog(),
+            {
+              ...catalog({ type: "red" }),
+              wine: { ...catalog().wine, id: "c2", type: "red" as const },
+            },
+          ],
+        ],
+        ["Cuvée Silex", [catalog()]], // no producer
+      ] as const) {
+        const { service, state } = setup({ text: [...candidates] });
+        const result = await service.scan({ photo, labelText: { text: label, ms: 800 } });
+        expect(result.fromText).toBeUndefined();
+        expect(state.requests).toHaveLength(1);
+        expect(state.spent).toBe(1);
+        expect(state.uploads[0]!.text).toMatchObject({ result: "miss", ocrMs: 800 });
+      }
+    });
+
+    it("OCR unavailable, too slow or empty: straight to the model, measured as no text", async () => {
+      const { service, state } = setup({ text: [catalog()] });
+      const result = await service.scan({ photo, labelText: { text: "", ms: 4000 } });
+      expect(result.outcome).toBe("new"); // the model read it (nothing in this household matched)
+      expect(state.lookups).toHaveLength(0);
+      expect(state.requests).toHaveLength(1);
+      expect(state.uploads[0]!.text).toEqual({ result: "no_text", ocrMs: 4000 });
+      // an old phone that did not try at all: not measured
+      const old = setup({ text: [catalog()] });
+      await old.service.scan({ photo });
+      expect(old.state.uploads[0]!.text).toBeNull();
+      expect(old.state.requests).toHaveLength(1);
+    });
+
+    it("a lookup that is not set up yet, or fails, changes nothing", async () => {
+      for (const text of ["unavailable", "throws"] as const) {
+        const { service, state } = setup({ text });
+        const result = await service.scan({ photo, labelText: { text: LABEL, ms: 900 } });
+        expect(result.fromText).toBeUndefined();
+        expect(state.requests).toHaveLength(1);
+        expect(state.uploads[0]!.text).toBeNull();
+      }
+    });
+
+    it("works without AI configured or with the scan budget spent; without a match, the person fills it in as before", async () => {
+      const off = await setup({ noAi: true, text: [catalog()] }).service.scan({
+        photo,
+        labelText: { text: LABEL, ms: 900 },
+      });
+      expect(off).toMatchObject({ outcome: "found", fromText: true });
+      const spent = setup({
+        text: [catalog()],
+        spend: async () => {
+          throw new DomainError("RATE_LIMITED");
+        },
+      });
+      expect(
+        (await spent.service.scan({ photo, labelText: { text: LABEL, ms: 900 } })).outcome,
+      ).toBe("found");
+      const manual = await setup({ noAi: true, text: [] }).service.scan({
+        photo,
+        labelText: { text: LABEL, ms: 900 },
+      });
+      expect(manual).toMatchObject({ outcome: "unread", reason: "ai-off" });
+    });
+
+    it("missing 2D artwork keeps the drawn bottle", async () => {
+      const none = await setup({ text: [catalog()] }).service.scan({
+        photo,
+        labelText: { text: LABEL, ms: 900 },
+      });
+      expect(none.art).toBeNull();
+      const broken = await setup({ text: [catalog()], art: "throws" }).service.scan({
+        photo,
+        labelText: { text: LABEL, ms: 900 },
+      });
+      expect(broken).toMatchObject({ outcome: "found", art: null });
+    });
+
+    it("an identical photo already confirmed is answered by the cache first, without a text lookup", async () => {
+      const { service, state } = setup({
+        wines: [wine("w1", "Château Margaux", "Pavillon Rouge")],
+        recall: { "010203": [{ wineId: "w1", year: 2015 }] },
+        text: [catalog()],
+      });
+      const result = await service.scan({ photo, labelText: { text: LABEL, ms: 900 } });
+      expect(result.remembered).toBe(true);
+      expect(state.lookups).toHaveLength(0);
+      expect(state.uploads[0]!.text).toBeNull();
     });
   });
 });

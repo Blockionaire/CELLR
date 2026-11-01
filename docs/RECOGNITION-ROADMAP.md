@@ -1,8 +1,9 @@
 # CELLR recognition: what exists, and what is planned
 
 This document is the permanent record of CELLR's wine-recognition strategy. It separates what is **implemented**
-(Sprint G: identical-photo recognition; Sprint H: shared wine profiles) from what is **planned** for a later
-sprint. Nothing under "Future Sprint" exists yet. Backlog: GitHub issue #32.
+(Sprint G: identical-photo recognition; Sprint H: shared wine profiles; Sprints I/J: the catalogue and its learning;
+Sprint S: database-first recognition of new photos) from what is **planned**. Under "Future Sprint", only what is
+marked as done exists. Backlog: GitHub issue #32.
 
 ---
 
@@ -186,6 +187,97 @@ Still not done:
 - learning from different photos;
 - independent external verification beyond the owner's sources.
 
+## Implemented — Sprint S: database-first recognition (new photos of known catalogue wines)
+
+**What it does.** A _new_ photo of a wine in the canonical catalogue (another angle, another bottle, another day)
+is recognised from its **printed label text**, without the vision model, when that text names exactly one catalogue
+wine. The person confirms it in the normal scan review. Everything else goes to the vision model exactly as before.
+
+**Order in `server/scans/service.ts`**
+
+1. prepare (validate, clean, fingerprint);
+2. identical-photo cache (Sprint G);
+3. **label text** (only on a cache miss, only when the phone sent text): look the printed phrases up, decide in code;
+4. store the photo (with what happened, see Monitoring);
+5. on a text match: answer with the existing wine record, its 2D artwork, no budget spent, no `ai_usage` row;
+6. otherwise: spend the scan budget and ask the model, as before.
+
+**On the phone (OCR).** `features/scan/ocr.ts` runs tesseract.js (WebAssembly, in a Web Worker; English LSTM model)
+on a 1280 px copy of the photo. No paid OCR API; only the text is sent, next to the photo the app already uploads.
+
+- Loaded lazily: the scan screen warms it in the background; nothing on "save data" connections or without
+  WebAssembly. The files are self-hosted under `/ocr/<version>/` (copied from `node_modules` by
+  `apps/web/scripts/ocr-assets.mjs` before `dev`/`build`), cached immutably; the model is kept in IndexedDB.
+  Transfer on first use ≈ 1.5 MB (SIMD core, compressed) + 2.9 MB (model); the main-thread code is a separate
+  ≈ 6 KB chunk.
+- Bounded: a photo waits at most 3 s for text, and at most 1.5 s for a reader that is still loading. A read that runs
+  out of time terminates the worker. A load that fails (or takes over 30 s) is not retried during the visit. In all of
+  these cases the photo is sent without text at once.
+- Safari/iPhone: the core files are the LSTM-only builds with SIMD (Safari 16.4+) and without (older); `workerBlobURL`
+  is off (same-origin worker file). Verified in Chromium (desktop, and the iPhone 13 emulation of the e2e `phone`
+  project), **not yet on a physical iPhone**: per-device OCR timings are recorded on `/admin/ai` once beta phones use
+  it (see Limits).
+
+**Lookup.** `public.find_wines_by_label_text(household, phrases)` (migration `20261108000031`) takes at most 400
+normalised phrases (every 1–8 word run of each line, shortest lines first) and returns at most 40 wines: those of a
+printed producer (catalogue, or the household's own), the household's own wines whose name is printed, and the
+household's own wines verifiably linked (`wine_links`) to a found catalogue wine. Indexed equality lookups; the
+catalogue and the household's wines are never loaded whole. Another household's wines are never returned (the
+function checks membership). The text is not stored anywhere.
+
+**When the model is skipped (all must hold; `packages/domain/src/label-text.ts`)**
+
+- exactly **one catalogue wine** whose producer is printed and whose name or a **verified alias** is printed **as a
+  line of its own** (only estate words, a year or single stray characters may stand next to it), so "Pavillon Rouge
+  du Château Margaux" is never "Château Margaux";
+- no other catalogue wine is printed as fully (two colours, two countries, a wine and its reserve: not resolved);
+- nothing on the label contradicts it: a colour word it cannot be ("Blanc" on a red; "Blanc de Blancs" on a
+  sparkling wine is fine), a country it is not from, or a **qualifier** not in its own name (Réserve, Riserva,
+  Vieilles Vignes, Grand Cru, Spätlese …; Bordeaux classification statements such as "Grand Cru Classé" excepted);
+- no household wine rivals it: an own wine with the same identity, or one that `matchLabel` would call a strong
+  match, sends the photo to the model (and so to the person's choice). An own wine **linked** to the catalogue wine
+  is the one proposed, so household priority and existing links are kept; nothing is relinked.
+
+Fuzzy scores, similar names and incomplete text never match. A household's own (unlinked) wine is never matched by
+text alone: it is not a verified identity.
+
+**Vintage.** Taken only when exactly one plausible year is printed (not a founding year such as "Depuis 1855", not
+part of the wine's name, not in the future). Otherwise it stays **unknown** (never "non-vintage"); the review says
+so and the person chooses it. A read year has `medium` confidence; the person confirms or changes it.
+
+**Review and 2D artwork.** The review shows the existing wine's canonical data ("Recognised from the printed label
+text, without AI") and its published 2D bottle picture (`wine_bottle_art_for`, including verified inheritance for a
+linked household wine); without one, the drawn bottle as before. Bottles are only saved when the person confirms.
+
+**Learning (Sprint Q).** A text match of a catalogue wine is noted as a catalogue proposal (same consent, TTL,
+deduplication and independence rules) with `source = 'text'` on `catalog_scan_reads` and every resulting
+`catalog_scan_signals` row. A vintage corrected after a text match is a **text** scan signal, never counted as the
+vision model's misread nor as catalogue evidence; a catalogue correction after a text match is marked "via label
+text" for the reviewer and deduplicated apart. Nothing changes a catalogue wine. A linked household wine proposes
+nothing about the catalogue.
+
+**Monitoring (`/admin/ai` → Database-first recognition).** Per scan photo (household-private, on `bottle_images`):
+`text_result` (hit / miss / no_text), the proposed wine and year (hits), the phone's OCR time and the lookup time.
+`admin_recognition_paths` (service role) aggregates counts and timings only: photo-cache hits, text attempts and
+hits, the share read by the model, OCR and lookup timings (p50/p90), the measured latency and average known cost of
+vision label reads in the same period, vision calls avoided and the estimated saving (avoided × that measured
+cost), and what people did with text matches, derived from their bottles now: saved as proposed, year filled in,
+year corrected, saved as another wine (rejected), not saved. The scan analytics event says which path answered.
+
+**Limits**
+
+- **Real-photo accuracy is unmeasured.** The tests use rendered labels; curved, glossy, script-font or handwritten
+  labels will often give no usable text, and then the model reads them (safe, but no saving). Measure the text hit
+  rate and the rejection rate on `/admin/ai` during the beta before drawing conclusions.
+- **iPhone timings are unmeasured** in this environment (no WebKit, no device). The first use on a phone downloads
+  ≈ 4.4 MB; until the reader is loaded, scans go to the model.
+- **English model only**; accents are ignored by the matching, so French, Italian and Spanish names still match.
+- **Catalogue wines only**: hits grow with the catalogue (Sprints I/J/R).
+- When OCR text is read but not conclusive, the photo waited for it (≤ 3 s) before the model call; this is shown as
+  "Phone OCR, not matched".
+
+---
+
 ## Next focused sprint — reuse stable wine facts across vintages
 
 A shared profile is per vintage, so the 2020 vintage of a catalogue wine is still researched in full even when the
@@ -226,9 +318,9 @@ Not started.
 Recognise the same wine from different photographs, even when the camera angle, lighting, background or image
 resolution changes. Before making a paid vision call, evaluate inexpensive approaches:
 
-- local OCR of the label text;
-- barcode (EAN/UPC) identification where bottles carry one;
-- visual similarity (perceptual hashing or image embeddings).
+- local OCR of the label text — **done for catalogue wines (Sprint S)**;
+- barcode (EAN/UPC) identification where bottles carry one — not started;
+- visual similarity (perceptual hashing or image embeddings) — not started, and never on its own a verdict.
 
 Each is a signal to check, not a verdict.
 
@@ -258,7 +350,8 @@ recognition quality:
 
 ### D. Intelligent recognition routing
 
-Build a confidence-based pipeline:
+Steps 1–4 exist for catalogue wines (Sprint G cache → Sprint S label text → vision model), with step 5 through Sprint
+Q's correction signals. Barcode and household-wide (non-catalogue) text recognition do not. The pipeline:
 
 1. Check cheap and reliable signals first: the identical-photo cache (Sprint G), barcode and local OCR.
 2. Query the shared canonical knowledge base.

@@ -1,6 +1,7 @@
 import "server-only";
 import { DomainError, type ImageSide } from "@cellr/domain";
 import type { Db } from "@/server/db/clients";
+import type { Database } from "@/server/db/database.types";
 import { mapDbError, missingColumn } from "@/server/db/errors";
 import { allRows } from "@/server/db/paging";
 import type { ImageRepository, ImageRow } from "./types";
@@ -76,14 +77,27 @@ export function createImageRepository(db: Db): ImageRepository {
         height: row.height,
         blur_color: row.blurColor,
       };
-      const insert = (values: typeof base & { fingerprint?: string; cache_result?: string }) =>
+      const insert = (values: Database["public"]["Tables"]["bottle_images"]["Insert"]) =>
         db.from("bottle_images").insert(values).select(COLUMNS).single();
       const remembered = {
         ...(row.fingerprint ? { fingerprint: row.fingerprint } : {}),
         ...(row.cacheResult ? { cache_result: row.cacheResult } : {}),
       };
-      let { data, error } = await insert({ ...base, ...remembered });
-      // Before the recognition-cache step (20261029000021) the columns do not exist: keep the photo without them.
+      const text: Partial<Database["public"]["Tables"]["bottle_images"]["Insert"]> = row.text
+        ? {
+            text_result: row.text.result,
+            ...(row.text.result === "hit" && row.text.wineId
+              ? { text_wine_id: row.text.wineId, text_year: row.text.year ?? null }
+              : {}),
+            ...(row.text.ocrMs != null ? { ocr_ms: row.text.ocrMs } : {}),
+            ...(row.text.lookupMs != null ? { lookup_ms: row.text.lookupMs } : {}),
+          }
+        : {};
+      let { data, error } = await insert({ ...base, ...remembered, ...text });
+      // Before the label-text step (20261108000031) its columns do not exist: keep the photo without them; before
+      // the recognition-cache step (20261029000021) neither do those.
+      if (error && Object.keys(text).length > 0 && missingColumn(error))
+        ({ data, error } = await insert({ ...base, ...remembered }));
       if (error && Object.keys(remembered).length > 0 && missingColumn(error))
         ({ data, error } = await insert(base));
       if (error || !data) throw mapDbError(error!);

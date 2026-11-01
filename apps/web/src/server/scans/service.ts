@@ -2,13 +2,18 @@ import "server-only";
 import {
   DomainError,
   isUsableQuad,
+  LABEL_TEXT_LIMITS,
+  labelPhrases,
   matchLabel,
+  recognizeLabelText,
   normalizeExtraction,
   quadFromNumbers,
   confirmedFacts,
   recallScan,
+  type BottleArtRef,
   type ImageSide,
   type ScanResult,
+  type TextRecognition,
   type WineSummary,
 } from "@cellr/domain";
 import type { AiErrorKind, AiUsage, LlmProvider } from "@/server/ai";
@@ -19,13 +24,20 @@ import {
   parseLabelExtraction,
 } from "@/server/ai/prompts/label-extraction";
 import type { ImageService, UploadInput } from "@/server/images/service";
-import type { CacheResult } from "@/server/images/types";
+import type { CacheResult, TextMeasure } from "@/server/images/types";
 import type { ScanRepository } from "./repository";
 
 export interface ScanDeps {
   images: Pick<ImageService, "prepare" | "save">;
   /** What this household confirmed an identical photo to be (the recognition cache). */
   recall: ScanRepository["recall"];
+  /**
+   * The wines whose producer or name is printed on the label (Sprint S, database-first recognition). Missing =
+   * the label text is not used and every photo is read by the model as before.
+   */
+  findByText?: ScanRepository["findByText"];
+  /** Published 2D bottle pictures by wine (with verified catalogue inheritance). Missing or failing = none. */
+  art?: (wineIds: string[]) => Promise<ReadonlyMap<string, BottleArtRef>>;
   /**
    * Notes what the model read on this photo, and what CELLR proposed from it, for catalogue learning (never fails
    * the scan). `proposal`: the catalogue wine proposed, or the AI's own reading when nothing matched; null when the
@@ -38,6 +50,8 @@ export interface ScanDeps {
     name: string;
     type: string | null;
     proposal: ScanProposal | null;
+    /** Where the proposal came from (default: the vision model's reading). */
+    source?: "vision" | "text";
   }) => Promise<void>;
   /** The wines this household can choose from. */
   wines: () => Promise<WineSummary[]>;
@@ -73,8 +87,71 @@ const STATUS: Record<
  * identical photo this household already confirmed is answered from that confirmation, without the model. Every
  * way it can go wrong ends in the same place: the photo is kept and the person fills the wine in by hand.
  */
+/** What the phone read on the label itself (local OCR), sent along with the photo. Never stored. */
+export interface LabelText {
+  /** The printed text, line by line; null or empty when the OCR read nothing. */
+  text: string | null;
+  /** How long the OCR took on the phone (as it reports it; only used for measuring). */
+  ms: number | null;
+}
+
+const clampMs = (ms: number | null | undefined) =>
+  typeof ms === "number" && Number.isFinite(ms)
+    ? Math.max(0, Math.min(60_000, Math.round(ms)))
+    : null;
+
 export function createScanService(deps: ScanDeps) {
   const now = deps.now ?? (() => new Date());
+  const clock = () => performance.now();
+
+  /**
+   * Database-first recognition: does the printed text name exactly one known catalogue wine? Anything that goes
+   * wrong (no text, the lookup unavailable, the database) only means "not from the text", and the photo is read by
+   * the model as before. Returns what to record about it (never the text), or null when it was not tried.
+   */
+  async function fromText(
+    householdId: string,
+    label: LabelText | null | undefined,
+  ): Promise<{
+    measure: TextMeasure | null;
+    match: Extract<TextRecognition, { kind: "match" }> | null;
+  }> {
+    if (!label || !deps.findByText) return { measure: null, match: null };
+    const ocrMs = clampMs(label.ms);
+    const text = (label.text ?? "").slice(0, LABEL_TEXT_LIMITS.chars);
+    const phrases = labelPhrases(text);
+    if (phrases.length === 0) return { measure: { result: "no_text", ocrMs }, match: null };
+    const started = clock();
+    try {
+      const candidates = await deps.findByText(householdId, phrases);
+      if (candidates === null) return { measure: null, match: null }; // the database step is not taken yet
+      const found = recognizeLabelText(text, candidates, now());
+      const lookupMs = clampMs(clock() - started);
+      return found.kind === "match"
+        ? {
+            measure: {
+              result: "hit",
+              wineId: found.wine.id,
+              year: found.facts.year,
+              ocrMs,
+              lookupMs,
+            },
+            match: found,
+          }
+        : { measure: { result: "miss", ocrMs, lookupMs }, match: null };
+    } catch {
+      return { measure: null, match: null };
+    }
+  }
+
+  const artOf = async (wineId: string): Promise<BottleArtRef | null> => {
+    if (!deps.art) return null;
+    try {
+      return (await deps.art([wineId])).get(wineId) ?? null;
+    } catch {
+      return null; // the drawn bottle, as before
+    }
+  };
 
   return {
     async scan(input: {
@@ -82,6 +159,8 @@ export function createScanService(deps: ScanDeps) {
       thumb?: Uint8Array | null | undefined;
       blurColor?: string | null | undefined;
       side?: ImageSide;
+      /** What the phone's own OCR read on the label (Sprint S); absent when it did not try. */
+      labelText?: LabelText | null;
     }): Promise<ScanResult> {
       const upload: UploadInput = {
         side: input.side ?? "front",
@@ -109,7 +188,40 @@ export function createScanService(deps: ScanDeps) {
         cacheResult = null;
       }
 
-      const { image, photo } = await deps.images.save(prepared, cacheResult);
+      // Database-first: a new photo of a known catalogue wine, named exactly by its printed text, needs no model.
+      const text = remembered
+        ? { measure: null, match: null }
+        : await fromText(householdId, input.labelText);
+
+      const { image, photo } = await deps.images.save(prepared, cacheResult, text.measure);
+      if (text.match) {
+        const { wine, facts } = text.match;
+        // The catalogue wine is proposed for learning like any other match (source: the label text); a household's
+        // own wine (linked to it) proposes nothing to learn about the catalogue.
+        if (deps.noteRead && wine.catalog)
+          await deps
+            .noteRead({
+              imageId: image.id,
+              householdId,
+              producer: wine.producer,
+              name: wine.name,
+              type: wine.type,
+              proposal: { kind: "catalog", wineId: wine.id, year: facts.year },
+              source: "text",
+            })
+            .catch(() => {});
+        return {
+          image,
+          outcome: "found",
+          facts,
+          matches: [{ wine, score: 1 }],
+          reason: null,
+          // No model looked at this photo, so there is no label outline to straighten it by.
+          labelCorners: null,
+          fromText: true,
+          art: await artOf(wine.id),
+        };
+      }
       if (remembered)
         return {
           image,
@@ -120,6 +232,7 @@ export function createScanService(deps: ScanDeps) {
           // Corners belong to one photo; this is a new upload, so none are carried over.
           labelCorners: null,
           remembered: true,
+          art: await artOf(remembered.wine.id),
         };
       const unread = (reason: NonNullable<ScanResult["reason"]>): ScanResult => ({
         image,

@@ -66,6 +66,29 @@ describe("noting what a scan read, for catalogue learning", () => {
     });
   });
 
+  it("a proposal from the printed label text says so; a vision proposal says nothing new (older databases)", async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
+    await noteScanRead({
+      ...read,
+      proposal: { kind: "catalog", wineId: "cw-1", year: null },
+      source: "text",
+    });
+    expect(rpc).toHaveBeenLastCalledWith("catalog_note_scan_proposal", {
+      p_image_id: "img-1",
+      p_user_id: "user-1",
+      p_wine_id: "cw-1",
+      p_ai: null,
+      p_year: null,
+      p_source: "text",
+    });
+    await noteScanRead({
+      ...read,
+      proposal: { kind: "catalog", wineId: "cw-1", year: 2018 },
+      source: "vision",
+    });
+    expect(rpc.mock.lastCall?.[1]).not.toHaveProperty("p_source");
+  });
+
   it("no proposal is noted when the reading itself was refused", async () => {
     rpc.mockResolvedValueOnce({ data: null, error: { code: "42501" } });
     await noteScanRead({ ...read, proposal: { kind: "catalog", wineId: "cw-1", year: 2018 } });

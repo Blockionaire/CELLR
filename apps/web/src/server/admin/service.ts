@@ -7,6 +7,7 @@ import {
   isUserId,
   summarizeAiCosts,
   summarizeRecognitionCache,
+  summarizeRecognitionPaths,
   summarizeSharedProfiles,
   automationVerdict,
   candidateCounts,
@@ -35,6 +36,7 @@ import {
   readBudgetStatus,
   readFeedback,
   readRecognitionCache,
+  readRecognitionPaths,
   readSharedProfiles,
   readCatalog,
   readUserDirectory,
@@ -159,7 +161,7 @@ export async function adminAi(session: AdminSession, days: AdminRange, now = new
   assertAdmin(session);
   const end = new Date(now.getTime() + 60_000);
   const from = new Date(startOfUtcDay(now).getTime() - (days - 1) * day);
-  const [range, today, week, month, budget, cache, shared, catalog] = await Promise.all([
+  const [range, today, week, month, budget, cache, shared, catalog, paths] = await Promise.all([
     readAiCosts(session, from, end),
     readAiCosts(session, startOfUtcDay(now), end),
     readAiCosts(session, new Date(startOfUtcDay(now).getTime() - 6 * day), end),
@@ -168,6 +170,7 @@ export async function adminAi(session: AdminSession, days: AdminRange, now = new
     readRecognitionCache(session, from, end),
     readSharedProfiles(session, from, end),
     readCatalog(session, from, end),
+    readRecognitionPaths(session, from, end),
   ]);
   const sum = (c: typeof range) => (typeof c === "object" && c ? summarizeAiCosts(c) : null);
   const limits = getAiBudgetEnv();
@@ -183,6 +186,8 @@ export async function adminAi(session: AdminSession, days: AdminRange, now = new
         : budget,
     /** Null: not configured, or the cache's database step is not taken yet. */
     cache: typeof cache === "object" && cache ? summarizeRecognitionCache(cache) : null,
+    /** Null: not configured, or the label-text step (Sprint S) is not taken yet. */
+    paths: typeof paths === "object" && paths ? summarizeRecognitionPaths(paths) : null,
     /** Null: not configured, or the shared-profile step is not taken yet. */
     shared:
       typeof shared === "object" && shared

@@ -19,3 +19,6 @@ eval/scan/photos/
 eval/scan/expected.json
 eval/scan/expected.csv
 eval/scan/report.json
+
+# On-device OCR files, copied from node_modules by apps/web/scripts/ocr-assets.mjs
+apps/web/public/ocr/

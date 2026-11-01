@@ -127,6 +127,93 @@ export default async function AdminAiPage({
             )}
           </Section>
           <Section
+            title={`Database-first recognition, ${days} days`}
+            note="Scan photos by the path that answered them: the identical-photo cache, the label text read on the phone and matched exactly to a catalogue wine, or the vision model. Measured per scan; the saving multiplies the calls avoided by the measured average cost of a label read in the same period (an estimate). Label text is never stored."
+          >
+            {data.paths ? (
+              <>
+                <Kpis>
+                  <Kpi
+                    label="Vision calls avoided"
+                    value={num(data.paths.visionCallsAvoided)}
+                    hint={`${num(data.paths.cacheHits)} photo cache · ${num(data.paths.textHits)} label text`}
+                  />
+                  <Kpi
+                    label="Estimated saving"
+                    value={usd(data.paths.estimatedSavingsUsdMicro)}
+                    hint={
+                      data.paths.vision.avgCostUsdMicro === null
+                        ? "No costed label read in this period"
+                        : `at ${usd(data.paths.vision.avgCostUsdMicro)} per label read (${num(data.paths.vision.costedCalls)} measured)`
+                    }
+                  />
+                  <Kpi
+                    label="Read by the model"
+                    value={pct(data.paths.fallbackRate)}
+                    hint={`${num(data.paths.readByModel)} of ${num(data.paths.scans)} scans (or filled in by hand)`}
+                  />
+                  <Kpi
+                    label="Label text matched"
+                    value={pct(data.paths.textHitRate)}
+                    hint={`${num(data.paths.textHits)} of ${num(data.paths.textAttempts)} with text · ${num(data.paths.noText)} without text`}
+                  />
+                </Kpis>
+                <div className="mt-4">
+                  <Kpis>
+                    <Kpi
+                      label="Phone OCR, matched"
+                      value={ms(data.paths.ocrMs.hit)}
+                      hint={`p50 ${ms(data.paths.ocrMs.p50)} · p90 ${ms(data.paths.ocrMs.p90)} (all)`}
+                    />
+                    <Kpi
+                      label="Phone OCR, not matched"
+                      value={ms(data.paths.ocrMs.miss)}
+                      hint="Added before the model call"
+                    />
+                    <Kpi
+                      label="Catalogue lookup"
+                      value={ms(data.paths.lookupMs.avg)}
+                      hint={`p90 ${ms(data.paths.lookupMs.p90)} (server)`}
+                    />
+                    <Kpi
+                      label="Vision label read"
+                      value={ms(data.paths.vision.avgMs)}
+                      hint={`p90 ${ms(data.paths.vision.p90Ms)} · ${num(data.paths.vision.calls)} calls`}
+                    />
+                  </Kpis>
+                </div>
+                <div className="mt-4">
+                  <Kpis>
+                    <Kpi
+                      label="Text matches saved"
+                      value={num(data.paths.savedMatches)}
+                      hint={`${num(data.paths.outcomes.unsaved)} not (yet) added`}
+                    />
+                    <Kpi
+                      label="Saved as proposed"
+                      value={num(data.paths.outcomes.accepted)}
+                      hint={`${num(data.paths.outcomes.yearFilled)} more with a year filled in`}
+                    />
+                    <Kpi
+                      label="Year corrected"
+                      value={pct(data.paths.yearCorrectionRate)}
+                      hint={`${num(data.paths.outcomes.yearChanged)} saved with another year (OCR)`}
+                    />
+                    <Kpi
+                      label="Rejected"
+                      value={pct(data.paths.rejectionRate)}
+                      hint={`${num(data.paths.outcomes.differentWine)} saved as another wine`}
+                    />
+                  </Kpis>
+                </div>
+              </>
+            ) : (
+              <p className="text-body text-ink-2">
+                Not available yet: run 20261108000031_label_text_recognition.sql.
+              </p>
+            )}
+          </Section>
+          <Section
             title={`Shared wine profiles, ${days} days`}
             note="A wine profile researched once for a catalogue wine is reused by other households for the same vintage and language. A household's own wines always keep a private profile and are not counted here."
           >
@@ -283,3 +370,6 @@ function SplitTable({
     />
   );
 }
+
+const ms = (n: number | null | undefined) =>
+  n === null || n === undefined ? "—" : `${num(Math.round(n))} ms`;

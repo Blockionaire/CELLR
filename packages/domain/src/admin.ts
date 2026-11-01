@@ -156,6 +156,64 @@ export const summarizeRecognitionCache = (c: AdminRecognitionCache) => ({
   hitRate: shareOf(c.hits, c.hits + c.misses),
 });
 
+const Ms = Count.nullable();
+
+/**
+ * Database-first recognition (Sprint S), from the scan photos of a window: which path answered, how long the phone's
+ * OCR and the server's lookup took, what the vision reads of label photos measured in the same window, and what
+ * people did with text matches (derived from their bottles now). Counts and timings only.
+ */
+export const AdminRecognitionPathsSchema = z.object({
+  scans: Count,
+  cacheHits: Count,
+  textAttempts: Count,
+  textHits: Count,
+  textMisses: Count,
+  noText: Count,
+  textHitsWithYear: Count,
+  ocrMs: z.object({ hit: Ms, miss: Ms, p50: Ms, p90: Ms }),
+  lookupMs: z.object({ avg: Ms, p90: Ms }),
+  vision: z.object({
+    calls: Count,
+    avgMs: Ms,
+    p90Ms: Ms,
+    costedCalls: Count,
+    avgCostUsdMicro: Ms,
+  }),
+  outcomes: z.object({
+    accepted: Count,
+    yearChanged: Count,
+    yearFilled: Count,
+    differentWine: Count,
+    unsaved: Count,
+  }),
+});
+export type AdminRecognitionPaths = z.infer<typeof AdminRecognitionPathsSchema>;
+
+/**
+ * Only measured figures. Vision calls avoided = photo-cache hits + label-text hits. The saving is those calls times
+ * the measured average known cost of a label read in the same window (null without one): an estimate, labelled so.
+ * Rates are null without a denominator. A text match "saved" = bottles were added with that photo.
+ */
+export const summarizeRecognitionPaths = (p: AdminRecognitionPaths) => {
+  const avoided = p.cacheHits + p.textHits;
+  const saved =
+    p.outcomes.accepted + p.outcomes.yearChanged + p.outcomes.yearFilled + p.outcomes.differentWine;
+  const readByModel = Math.max(0, p.scans - avoided);
+  return {
+    ...p,
+    visionCallsAvoided: avoided,
+    readByModel,
+    fallbackRate: shareOf(readByModel, p.scans),
+    textHitRate: shareOf(p.textHits, p.textAttempts),
+    estimatedSavingsUsdMicro:
+      p.vision.avgCostUsdMicro === null ? null : Math.round(avoided * p.vision.avgCostUsdMicro),
+    savedMatches: saved,
+    rejectionRate: shareOf(p.outcomes.differentWine, saved),
+    yearCorrectionRate: shareOf(p.outcomes.yearChanged, saved),
+  };
+};
+
 /** Wine profiles reused from the shared cache (hit) or researched after looking (miss), plus the shared store. */
 export const AdminSharedProfilesSchema = z.object({
   hits: Count,

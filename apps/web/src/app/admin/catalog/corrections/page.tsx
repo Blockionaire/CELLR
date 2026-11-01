@@ -99,7 +99,7 @@ export default async function AdminCorrectionsPage() {
       {data.ai && (
         <Section
           title="Scan readings (last 30 days)"
-          note="How the scan's own reading fared: the vintage it read on a catalogue wine, and the AI's whole reading when nothing in the catalogue matched. A misread is a recognition error, not a catalogue error: it never counts towards the corrections above. Counts only; no values are kept."
+          note="How the vision model's own reading fared: the vintage it read on a catalogue wine, and the AI's whole reading when nothing in the catalogue matched. A misread is a recognition error, not a catalogue error: it never counts towards the corrections above. Vintages misread by the phone's label-text OCR are counted apart. Counts only; no values are kept. Corrections that followed a label-text match are marked “via label text” on each wine."
         >
           <Kpis>
             <Kpi label="Kept as read" value={num(data.ai.accepted)} />
@@ -113,6 +113,13 @@ export default async function AdminCorrectionsPage() {
                   .join(" · ") || "—"
               }
             />
+            {data.ai.text && (
+              <Kpi
+                label="Label text: year corrected"
+                value={num(data.ai.text.fields.year ?? 0)}
+                hint="Phone OCR, not the vision model"
+              />
+            )}
           </Kpis>
         </Section>
       )}

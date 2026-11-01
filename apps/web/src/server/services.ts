@@ -126,6 +126,8 @@ export function servicesFor(ctx: RequestContext) {
     scans: createScanService({
       images,
       recall: scanRepo.recall,
+      findByText: scanRepo.findByText,
+      art: (wineIds) => library.art(wineIds),
       // the person is this request's verified user, never a client-supplied id
       noteRead: (read) => noteScanRead({ ...read, userId: ctx.userId }),
       wines: async () => cellars.listWines((await household()).id),

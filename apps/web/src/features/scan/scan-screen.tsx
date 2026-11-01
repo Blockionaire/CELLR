@@ -9,6 +9,7 @@ import {
   matchLabel,
   suggestWine,
   type AddBottlesResult,
+  type BottleArtRef,
   type ScanResult,
   type WineSummary,
 } from "@cellr/domain";
@@ -37,6 +38,7 @@ import { useAddWish } from "@/features/wishlist/hooks";
 import { useCamera, type Camera } from "./camera";
 import { BackLabelPicker, BackLabelResult, BackLabelRetries, type BackRetry } from "./back-label";
 import { useScan } from "./hooks";
+import { warmOcr } from "./ocr";
 import { ModeBar, type ScanMode } from "./modes";
 import { SeriesTray, useScanSeries, type SeriesItem } from "./series";
 
@@ -106,6 +108,12 @@ export function ScanScreen({ currency }: { currency: string }) {
   // The camera belongs to the screen, not the viewfinder: going from a photo to its review and back does not
   // ask for the camera again (see camera.ts).
   const camera = useCamera(stage.name === "capture");
+  // The on-device label reader loads in the background once the camera had its moment (Sprint S); the first photo
+  // never waits for it longer than its budget.
+  useEffect(() => {
+    const timer = setTimeout(() => void warmOcr(), 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   /**
    * A photo read a while ago is matched again against the wines as they are now: a wine added from an earlier
@@ -114,8 +122,16 @@ export function ScanScreen({ currency }: { currency: string }) {
   const current = (result: ScanResult): ScanResult => {
     // Read from the cache, not this render: right after a wine is added, the list is fresher there.
     const list = queryClient.getQueryData<WineSummary[]>(winesKey) ?? wines.data;
-    // A remembered photo already names the wine this household confirmed for it.
-    if (!result.facts || result.outcome === "unread" || result.remembered || !list) return result;
+    // A remembered photo already names the wine this household confirmed for it; a label-text match names the
+    // catalogue wine (or the household's own wine linked to it) the server checked against the household's wines.
+    if (
+      !result.facts ||
+      result.outcome === "unread" ||
+      result.remembered ||
+      result.fromText ||
+      !list
+    )
+      return result;
     return { ...result, ...matchLabel(result.facts, list) };
   };
 
@@ -695,7 +711,15 @@ function Review({
             <div>
               <h2 className="font-display text-headline">{t("foundTitle")}</h2>
               <p className="mt-1 text-body text-ink-2">
-                {t(result.remembered ? "rememberedBody" : "foundBody")}
+                {t(
+                  result.remembered
+                    ? "rememberedBody"
+                    : result.fromText
+                      ? result.facts?.year === null
+                        ? "fromTextNoYearBody"
+                        : "fromTextBody"
+                      : "foundBody",
+                )}
               </p>
             </div>
           </div>
@@ -703,6 +727,7 @@ function Review({
             wine={matches[0].wine}
             year={facts?.year ?? null}
             owned={owned.get(matches[0].wine.id)}
+            art={result.art}
           />
           <Button size="lg" block onClick={() => onWine(matches[0]!.wine)}>
             {t("confirmFound")}
@@ -811,11 +836,13 @@ function Candidate({
   year,
   owned,
   onPick,
+  art,
 }: {
   wine: WineSummary;
   year: number | null;
   owned?: number | undefined;
   onPick?: () => void;
+  art?: BottleArtRef | null | undefined;
 }) {
   const locale = useLocale();
   const detail = [
@@ -831,6 +858,7 @@ function Candidate({
       owned={owned}
       onPick={onPick}
       size={onPick ? "thumb" : "card"}
+      art={art}
     />
   );
 }

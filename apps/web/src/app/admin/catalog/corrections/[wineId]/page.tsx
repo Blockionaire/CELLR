@@ -90,9 +90,11 @@ export default async function AdminCorrectionPage({
             rows={g.rows.map((s) => ({
               key: s.id,
               cells: [
-                s.lastSeenAt.slice(0, 10) === s.createdAt.slice(0, 10)
-                  ? date(s.createdAt)
-                  : `${date(s.createdAt)} · ${date(s.lastSeenAt)}`,
+                `${
+                  s.lastSeenAt.slice(0, 10) === s.createdAt.slice(0, 10)
+                    ? date(s.createdAt)
+                    : `${date(s.createdAt)} · ${date(s.lastSeenAt)}`
+                }${s.source === "text" ? " · via label text" : ""}`,
                 s.changedFields.map((f) => FIELD_LABEL[f]).join(", "),
                 s.changedFields
                   .map((f: SignalField) => `${FIELD_LABEL[f]}: ${show(s.proposed[f])}`)

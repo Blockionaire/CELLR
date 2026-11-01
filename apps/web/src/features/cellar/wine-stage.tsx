@@ -3,7 +3,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useMemo } from "react";
-import type { CellarView, WineSummary, WineType } from "@cellr/domain";
+import {
+  bottleArtUrl,
+  type BottleArtRef,
+  type CellarView,
+  type WineSummary,
+  type WineType,
+} from "@cellr/domain";
 import { api } from "@/lib/api";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { cn } from "@/ui/cn";
@@ -33,7 +39,10 @@ const SIZES = {
 
 export type StageSize = keyof typeof SIZES;
 
-/** A wine's bottle standing on its tinted stage: typeset from the producer, never a made-up label. */
+/**
+ * A wine's bottle standing on its tinted stage: the library's published 2D picture of it when there is one,
+ * otherwise typeset from the producer, never a made-up label.
+ */
 export function WineStage({
   type,
   producer,
@@ -41,6 +50,7 @@ export function WineStage({
   year,
   size = "thumb",
   muted = false,
+  art = null,
   className,
   bottleClassName,
 }: {
@@ -49,6 +59,8 @@ export function WineStage({
   name: string;
   year?: string | undefined;
   size?: StageSize;
+  /** The published 2D bottle picture (decorative: the name is always written beside it). */
+  art?: BottleArtRef | null | undefined;
   /** The kind of wine is not known yet: a neutral stage and a paler bottle. */
   muted?: boolean;
   className?: string;
@@ -68,13 +80,27 @@ export function WineStage({
         aria-hidden="true"
         className={cn("absolute left-1/2 -translate-x-1/2 rounded-full bg-surface/45", s.disc)}
       />
-      <BottleGlyph
-        shape={shapeFor(type)}
-        tint={type}
-        mark={labelMark(producer, name)}
-        year={year}
-        className={cn("relative", s.bottle, muted && "opacity-60", bottleClassName)}
-      />
+      {art ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a private, same-origin picture: the optimiser cannot fetch it
+        <img
+          src={bottleArtUrl(art.id)}
+          alt=""
+          width={art.width}
+          height={art.height}
+          decoding="async"
+          draggable={false}
+          data-art="true"
+          className="relative mb-[6%] h-[86%] w-auto max-w-[86%] object-contain drop-shadow-[0_6px_10px_rgb(0_0_0/0.18)]"
+        />
+      ) : (
+        <BottleGlyph
+          shape={shapeFor(type)}
+          tint={type}
+          mark={labelMark(producer, name)}
+          year={year}
+          className={cn("relative", s.bottle, muted && "opacity-60", bottleClassName)}
+        />
+      )}
     </span>
   );
 }
@@ -122,6 +148,8 @@ interface WineChoiceProps {
   /** Without it the row is plain content (no button), for use inside another card. */
   onPick?: (() => void) | undefined;
   size?: StageSize;
+  /** The wine's published 2D bottle picture, when known (otherwise the drawn bottle). */
+  art?: BottleArtRef | null | undefined;
 }
 
 /** One wine as a card: bottle on its stage, producer in bronze, the name in serif, and what we know of it. */
@@ -132,10 +160,11 @@ export function WineChoice({
   selected = false,
   onPick,
   size = "thumb",
+  art,
 }: WineChoiceProps) {
   const body = (
     <>
-      <WineStage type={wine.type} producer={wine.producer} name={wine.name} size={size} />
+      <WineStage type={wine.type} producer={wine.producer} name={wine.name} size={size} art={art} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-caption font-medium uppercase tracking-[0.14em] text-bronze">
           {wine.producer}

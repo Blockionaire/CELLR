@@ -12,6 +12,7 @@ export * from "./tonight";
 export * from "./wijnkelder-import";
 export * from "./image";
 export * from "./scan";
+export * from "./label-text";
 export * from "./catalog-learning";
 export * from "./sommelier";
 export * from "./cellar-facts";

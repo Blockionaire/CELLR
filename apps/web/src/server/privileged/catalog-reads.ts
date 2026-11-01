@@ -17,6 +17,8 @@ export async function noteScanRead(read: {
   name: string;
   type: string | null;
   proposal?: ScanProposal | null;
+  /** Where the proposal came from: the vision model's reading (default) or the printed label text (Sprint S). */
+  source?: "vision" | "text";
 }): Promise<void> {
   const db = createServiceClient();
   if (!db) return;
@@ -37,6 +39,8 @@ export async function noteScanRead(read: {
       p_wine_id: (read.proposal.kind === "catalog" ? read.proposal.wineId : null) as string,
       p_ai: (read.proposal.kind === "ai" ? read.proposal.ai : null) as never,
       p_year: read.proposal.year as number,
+      // only said when it is the label text, so a database without that step keeps working for vision readings
+      ...(read.source === "text" ? { p_source: "text" } : {}),
     });
   } catch {
     // never fails the scan
