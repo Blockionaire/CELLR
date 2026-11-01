@@ -5,6 +5,7 @@ import {
   formatStars,
   formatVintage,
   type CellarItem,
+  type BottlePhotoInvite,
   type HomeView,
   type OpenedEntry,
   type Reminder,
@@ -19,6 +20,7 @@ import { cn } from "@/ui/cn";
 import { EmptyState } from "@/ui/empty-state";
 import { ChevronRightIcon, StarIcon } from "@/ui/icons";
 import { Stars } from "@/ui/stars";
+import { BottlePhotoInviteCard } from "./bottle-photo-invite";
 import { ReviewNudge } from "./review-nudge";
 
 /** "yesterday", "3 days ago", in the viewer's language. */
@@ -46,9 +48,12 @@ export async function HomeScreen({
   home,
   name,
   reminders = [],
+  photoInvite = null,
 }: {
   home: HomeView;
   name: string | null;
+  /** One wine of the cellar to invite bottle photos for (secondary: below everything Home is for). */
+  photoInvite?: BottlePhotoInvite | null;
   /** Bottles being kept for a day that is coming up. */
   reminders?: readonly Reminder[];
 }) {
@@ -250,6 +255,8 @@ export async function HomeScreen({
           </Shelf>
         </>
       )}
+
+      {!empty && photoInvite && <BottlePhotoInviteCard invite={photoInvite} />}
 
       {/* Also with every bottle drunk: what was opened lately (and still waiting for a word) stays in view. */}
       {home.recentlyOpened.length > 0 && (

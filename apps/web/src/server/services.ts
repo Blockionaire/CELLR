@@ -119,6 +119,14 @@ export function servicesFor(ctx: RequestContext) {
   return {
     avatars,
     library,
+    /** Home's one bottle-photo invitation, in the household Home shows; none when anything is missing. */
+    bottlePhotoInvite: async () => {
+      try {
+        return await library.invite((await household()).id);
+      } catch {
+        return null;
+      }
+    },
     contribution: createContributionService(ctx.db, ctx.userId),
     households,
     cellar,

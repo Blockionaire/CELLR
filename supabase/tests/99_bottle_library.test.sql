@@ -27,6 +27,26 @@ begin
 end $$;
 grant execute on function test.send(uuid, text) to public;
 
+-- a contribution as releases before Sprint T allowed it (a second active one for the same wine), for history-based tests
+create function test.hist_send(u uuid, v uuid, path text) returns uuid language plpgsql security definer as $$
+declare sid uuid;
+begin
+  insert into storage.objects (bucket_id, name) values ('bottle-submissions', path);
+  insert into public.bottle_photo_submissions
+    (user_id, household_id, source_wine_id, source_vintage_id, canonical_wine_id, producer_text, wine_text, wine_type,
+     year, photo_path, width, height, consent_granted_at)
+  select u, (select b.household_id from public.bottles b where b.vintage_id = v and b.household_id in
+               (select m.household_id from public.household_members m where m.user_id = u) limit 1),
+         w.id, wv.id, case when w.status = 'canonical' then w.id end, p.name, w.name, w.wine_type, wv.year,
+         path, 1200, 1600, now()
+    from public.wine_vintages wv join public.wines w on w.id = wv.wine_id join public.producers p on p.id = w.producer_id
+   where wv.id = v
+  returning id into sid;
+  insert into public.bottle_photo_images (submission_id, position, photo_path, width, height) values (sid, 1, path, 1200, 1600);
+  return sid;
+end $$;
+grant execute on function test.hist_send(uuid, uuid, text) to public;
+
 do $$
 declare h1 uuid; h2 uuid; code text; cp uuid; cw uuid; cv uuid; cw2 uuid; pp uuid; pw uuid; pv uuid; ow uuid; ov uuid;
         r jsonb; s1 uuid; s2 uuid; s3 uuid; s4 uuid; s5 uuid; art uuid; art2 uuid; part uuid; oart uuid; ok boolean;
@@ -97,11 +117,13 @@ begin
     and exists (select 1 from test.bp() where id = s1 and status = 'pending'
                   and consent_granted_at is not null and reward_points = 10 and source_wine_id = cw
                   and canonical_wine_id = cw and household_id = h1 and producer_text = 'Château Bibliothèque'));
-  r := test.send(cv, 'two.jpg');
-  s2 := (r->>'id')::uuid;
-  perform test.rec('a second photo of the same wine is welcome but earns nothing',
-    (r->>'points')::int = 0
-    and exists (select 1 from test.bp() where id = s2 and reward_points is null and reward_granted_at is null));
+  -- Sprint T: a second contribution while the first is active is refused (see 99_bottle_photo_status); the second
+  -- photo below is history from before that rule
+  perform test.rec('a second contribution of the same wine is refused while the first is active',
+    test.error_of(format('select test.send(%L, %L)', cv, 'two.jpg')) like '%already_contributed%');
+  s2 := test.hist_send(test.uid(1), cv, test.uid(1) || '/two.jpg');
+  perform test.rec('an older second photo of the same wine earned nothing',
+    exists (select 1 from test.bp() where id = s2 and reward_points is null and reward_granted_at is null));
   perform test.rec('the same file cannot be recorded twice',
     test.denied(format('select public.submit_bottle_photo(%L, %L, 1200, 1600, true)', pv, test.uid(1) || '/two.jpg')));
   r := test.send(pv, 'three.jpg');

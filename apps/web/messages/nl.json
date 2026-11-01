@@ -494,7 +494,8 @@
       "swapStale": "Een van deze flessen is net door iemand anders verplaatst. Er is niets veranderd.",
       "consentRequired": "Vink het vakje aan zodat CELLR je foto mag gebruiken.",
       "photosUnavailable": "Foto's versturen kan nu even niet.",
-      "bottlePhotoSmall": "Die foto is te klein om mee te werken. Probeer een scherpere van de hele fles."
+      "bottlePhotoSmall": "Die foto is te klein om mee te werken. Probeer een scherpere van de hele fles.",
+      "alreadyContributed": "Je hebt al foto's van deze wijn gestuurd. Dankjewel!"
     }
   },
   "offline": {
@@ -1742,6 +1743,21 @@
     "total": "Je hebt {points} punten.",
     "close": "Klaar",
     "remove": "Deze foto weghalen",
-    "tipMore": "Tot 3 foto's: de hele fles, en als je wilt het voor- en achteretiket van dichtbij"
+    "tipMore": "Tot 3 foto's: de hele fles, en als je wilt het voor- en achteretiket van dichtbij",
+    "reward": "+{points} punten",
+    "receivedTitle": "Foto's ontvangen",
+    "receivedBody": "Dankjewel. Het CELLR-team maakt er de flesafbeelding van deze wijn mee.",
+    "receivedPoints": "Je hebt er {points} punten mee verdiend.",
+    "againTitle": "Nieuwe flesfoto's sturen?",
+    "againBody": "Je eerdere foto's konden niet worden gebruikt voor de afbeelding van deze wijn. Nieuwe zijn welkom.",
+    "againNoPoints": "Je kreeg al punten voor deze wijn, dus nieuwe foto's leveren er geen extra op.",
+    "alreadySent": "Je hebt al foto's van deze wijn gestuurd. Dankjewel!",
+    "inviteEyebrow": "Help je kelder in beeld te brengen",
+    "inviteBody": "1 tot 3 foto's van de hele fles helpen CELLR een 2D-afbeelding van {wine} te maken, voor jouw kelder en iedereen die hem heeft.",
+    "inviteCta": "Flesfoto's toevoegen",
+    "inviteLater": "Niet nu",
+    "addedTitle": "Help deze wijn in beeld te brengen",
+    "addedBody": "Niet de etiketfoto: 1 tot 3 foto's van de hele fles laten CELLR een 2D-afbeelding van deze wijn maken.",
+    "addedCta": "Flesfoto's toevoegen"
   }
 }

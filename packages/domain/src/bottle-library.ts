@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { IMAGE_LIMITS, sanitizeJpeg } from "./image";
-import { WINE_TYPES } from "./cellar";
+import { WINE_TYPES, type WineType } from "./cellar";
 
 /**
  * The demand-driven 2D bottle library. People may send a photo of a whole bottle of a wine they own (with consent);
@@ -185,6 +185,61 @@ export type BottlePhotoList = z.infer<typeof BottlePhotoListSchema>;
 
 /** At most this many photos in one contribution (the database enforces it too). */
 export const BOTTLE_PHOTO_MAX = 3;
+
+// ---- Where a person stands with a wine (Sprint T) -----------------------------------------------------------------
+
+/**
+ * Per person and wine (any vintage; a household wine counts with the catalogue wine it is verifiably mapped to):
+ * eligible = nothing sent yet; submitted = a contribution is pending, approved or used; rejected = every one was
+ * rejected, new photos are welcome; published = the wine already shows a 2D picture (its own or inherited).
+ */
+export const CONTRIBUTION_STATUSES = ["eligible", "submitted", "rejected", "published"] as const;
+export type ContributionStatus = (typeof CONTRIBUTION_STATUSES)[number];
+
+export const ContributionStateSchema = z.object({
+  wineId: z.uuid(),
+  status: z.enum(CONTRIBUTION_STATUSES),
+  /** What the points ledger actually holds for this person for this wine (0 or the one-time reward). */
+  points: z.number().int().min(0),
+});
+export type ContributionState = z.infer<typeof ContributionStateSchema>;
+
+/** The one wine Home may invite the person to picture (see bottle_photo_invite). */
+export interface BottlePhotoInvite {
+  wineId: string;
+  vintageId: string;
+  producer: string;
+  wineName: string;
+  type: WineType;
+  year: number | null;
+}
+
+/**
+ * What to show for a wine. "ask": the 1–3 photo request; "again": the request after a rejection; "received": a quiet
+ * thank-you (with the points earned, if any); "none": a picture exists. `reward` is the points to promise, only when the
+ * ledger holds none for this person and wine (never another 10 to someone already rewarded). An unknown status (the
+ * database step not taken yet) asks as before, without promising a number. `invite`: whether to ask unprompted (Home,
+ * after adding bottles): only someone who has sent nothing for this wine and was never rewarded for it.
+ */
+export function contributionView(status: ContributionState | null): {
+  show: "ask" | "again" | "received" | "none";
+  reward: number | null;
+  earned: number;
+  invite: boolean;
+} {
+  if (!status) return { show: "ask", reward: null, earned: 0, invite: false };
+  const reward = status.points > 0 ? null : BOTTLE_PHOTO_POINTS;
+  switch (status.status) {
+    case "published":
+      return { show: "none", reward: null, earned: status.points, invite: false };
+    case "submitted":
+      return { show: "received", reward: null, earned: status.points, invite: false };
+    case "rejected":
+      return { show: "again", reward, earned: status.points, invite: false };
+    default:
+      return { show: "ask", reward, earned: status.points, invite: status.points === 0 };
+  }
+}
 
 export const BottlePhotoDetailSchema = BottlePhotoRowSchema.extend({
   photoPath: z.string(),

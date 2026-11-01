@@ -676,6 +676,7 @@ export function VintageScreen({
             {!detail.art && (
               <BottlePhotoContribution
                 vintageId={detail.vintageId}
+                wineId={wine.id}
                 wine={`${wine.producer} ${wine.name}`}
               />
             )}
