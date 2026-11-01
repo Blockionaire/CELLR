@@ -1,5 +1,11 @@
 import "server-only";
-import type { BottleArtRef } from "@cellr/domain";
+import type {
+  BottleArtRef,
+  BottlePhotoInvite,
+  ContributionState,
+  ContributionStatus,
+  WineType,
+} from "@cellr/domain";
 import type { Db } from "@/server/db/clients";
 import { isMissingTable, mapDbError } from "@/server/db/errors";
 
@@ -15,6 +21,15 @@ export interface BottleLibraryRepository {
   }): Promise<{ id: string; points: number }>;
   /** My points (what the ledger holds for me). */
   points(): Promise<number>;
+  /**
+   * Where I stand with each of these wines (only wines I can see come back). Null when the database step
+   * (20261110000033) has not been taken yet.
+   */
+  status(wineIds: string[]): Promise<ContributionState[] | null>;
+  /** The one wine of this household's cellar Home may invite me to picture, if any (null also before that step). */
+  invite(householdId: string): Promise<BottlePhotoInvite | null>;
+  /** "Not now" for Home's invitation (30 days, on every device). */
+  dismissInvite(): Promise<void>;
   /** The published 2D bottle picture of each of these wines that has one (household wines through their mapping). */
   art(wineIds: string[]): Promise<Map<string, BottleArtRef>>;
   /**
@@ -40,6 +55,41 @@ export function createBottleLibraryRepository(db: Db): BottleLibraryRepository {
       if (error) throw mapDbError(error);
       const result = data as { id: string; points: number };
       return { id: result.id, points: Number(result.points) || 0 };
+    },
+
+    async status(wineIds) {
+      const ids = [...new Set(wineIds)].slice(0, 100);
+      if (ids.length === 0) return [];
+      const { data, error } = await db.rpc("bottle_photo_status", { p_wine_ids: ids });
+      if (error && notThere(error)) return null;
+      if (error) throw mapDbError(error);
+      return (data ?? []).map((r) => ({
+        wineId: r.wine_id,
+        status: r.status as ContributionStatus,
+        points: Number(r.points) || 0,
+      }));
+    },
+
+    async invite(householdId) {
+      const { data, error } = await db.rpc("bottle_photo_invite", { p_household_id: householdId });
+      if (error && notThere(error)) return null;
+      if (error) throw mapDbError(error);
+      const r = data?.[0];
+      return r && r.vintage_id
+        ? {
+            wineId: r.wine_id,
+            vintageId: r.vintage_id,
+            producer: r.producer,
+            wineName: r.name,
+            type: r.wine_type as WineType,
+            year: r.year ?? null,
+          }
+        : null;
+    },
+
+    async dismissInvite() {
+      const { error } = await db.rpc("dismiss_bottle_photo_invite");
+      if (error && !notThere(error)) throw mapDbError(error);
     },
 
     async points() {

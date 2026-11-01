@@ -80,6 +80,26 @@ export function createBottleLibraryService({ repo, store, remove }: BottleLibrar
 
     points: () => repo.points(),
 
+    /** Where I stand with these wines; unknown (null) when it cannot be read, and the app then asks as before. */
+    async status(wineIds: string[]) {
+      try {
+        return await repo.status(wineIds);
+      } catch {
+        return null;
+      }
+    },
+
+    /** Home's one invitation, or none (also when it cannot be read: Home never fails for it). */
+    async invite(householdId: string) {
+      try {
+        return await repo.invite(householdId);
+      } catch {
+        return null;
+      }
+    },
+
+    dismissInvite: () => repo.dismissInvite(),
+
     /** Published 2D bottle pictures by wine; a library that cannot be read is simply empty (the app falls back). */
     async art(wineIds: string[]): Promise<Map<string, BottleArtRef>> {
       try {
