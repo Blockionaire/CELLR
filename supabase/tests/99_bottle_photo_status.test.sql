@@ -37,7 +37,7 @@ do $$
 declare h1 uuid; h2 uuid; code text; cp uuid; cw uuid; cw2 uuid; cw3 uuid; v16 uuid; v18 uuid; v2 uuid; v3 uuid;
         pp uuid; pw uuid; pv uuid; lw uuid; lv uuid; ow uuid; r jsonb; s1 uuid; s2 uuid; ledger bigint; inv record;
 begin
-  perform test.mk_users(3);
+  perform test.mk_users(5);  -- users 4 and 5: the reward across a verified link (last block)
   perform test.as_user(1); h1 := public.create_household('Status 1'); code := public.create_invite(h1);
   perform test.as_user(2); perform public.join_household(code);             -- users 1 and 2 share household 1
   perform test.as_user(3); h2 := public.create_household('Status 2');
@@ -170,5 +170,72 @@ begin
   perform test.as_user(3);
   perform test.rec('a household that is not mine has no invitation for me',
     test.count_of(format('select 1 from public.bottle_photo_invite(%L)', h1)) = 0);
+end $$;
+-- ---- The reward across a verified link: once per person and identity, whichever wine it was earned on ----------
+do $$
+declare h4 uuid; h5 uuid; cp uuid; cb uuid; bv uuid; cc uuid; ccv uuid; pp uuid; wa uuid; av uuid; wd uuid; dv uuid;
+        r jsonb; s1 uuid;
+begin
+  perform test.as_user(4); h4 := public.create_household('Link 4');
+  perform test.as_user(5); h5 := public.create_household('Link 5');
+  perform test.su();
+  insert into public.producers (name, country_code, status, origin) values ('Domaine Lien', 'FR', 'canonical', 'verified')
+    returning id into cp;
+  insert into public.wines (producer_id, name, wine_type, country_code, status, origin)
+    values (cp, 'Cuvée B', 'red', 'FR', 'canonical', 'verified') returning id into cb;
+  insert into public.wine_vintages (wine_id, year) values (cb, 2019) returning id into bv;
+  insert into public.wines (producer_id, name, wine_type, country_code, status, origin)
+    values (cp, 'Cuvée C', 'white', 'FR', 'canonical', 'verified') returning id into cc;
+  insert into public.wine_vintages (wine_id, year) values (cc, 2020) returning id into ccv;
+
+  -- ---- A (provisional) rewarded first, then verifiably linked to B; rejected; resubmitted via B: earns 0 ---------
+  perform test.as_user(4);
+  insert into public.producers (name, owner_household_id) values ('Dom. Lien', h4) returning id into pp;
+  insert into public.wines (producer_id, name, wine_type, owner_household_id) values (pp, 'Ma B', 'red', h4) returning id into wa;
+  insert into public.wine_vintages (wine_id, year) values (wa, 2019) returning id into av;
+  insert into public.bottles (household_id, vintage_id) values (h4, av);
+  insert into public.bottles (household_id, vintage_id) values (h4, bv);
+  r := test.t_send(av, 'a.jpg');
+  s1 := (r->>'id')::uuid;
+  perform test.rec('a household wine earns its +10 (recorded on that wine)',
+    (r->>'points')::int = 10 and test.t_ledger(test.uid(4)) = 10);
+  perform test.su();
+  insert into public.wine_links (source_wine_id, canonical_wine_id, reason) values (wa, cb, 'verified');
+  perform test.as_user(4);
+  perform test.rec('once linked, the catalogue wine shows those points and no contribution is asked',
+    test.t_status(cb) = 'submitted' and test.t_points(cb) = 10
+    and test.error_of(format('select test.t_send(%L, %L)', bv, 'b-early.jpg')) = 'P0001:already_contributed');
+  perform test.as_service();
+  perform public.admin_review_bottle_photo(s1, 'rejected', null, 'blurry', test.uid(3));
+  perform test.as_user(4);
+  perform test.rec('after the rejection the catalogue wine asks again, promising nothing (10 already earned)',
+    test.t_status(cb) = 'rejected' and test.t_points(cb) = 10);
+  r := test.t_send(bv, 'b.jpg');
+  perform test.rec('resubmitted via the catalogue wine: accepted, and earns 0 (not another 10)',
+    (r->>'points')::int = 0 and test.t_ledger(test.uid(4)) = 10
+    and test.t_review(s1) = 'rejected:blurry');
+
+  -- ---- the reverse: C (catalogue) rewarded first; D (household) linked to C later; rejected; resubmitted via D ----
+  perform test.as_user(5);
+  insert into public.bottles (household_id, vintage_id) values (h5, ccv);
+  r := test.t_send(ccv, 'c.jpg');
+  s1 := (r->>'id')::uuid;
+  perform test.rec('the catalogue wine earns its +10', (r->>'points')::int = 10);
+  insert into public.producers (name, owner_household_id) values ('Lien', h5) returning id into pp;
+  insert into public.wines (producer_id, name, wine_type, owner_household_id) values (pp, 'Ma C', 'white', h5) returning id into wd;
+  insert into public.wine_vintages (wine_id, year) values (wd, 2020) returning id into dv;
+  insert into public.bottles (household_id, vintage_id) values (h5, dv);
+  perform test.su();
+  insert into public.wine_links (source_wine_id, canonical_wine_id, reason) values (wd, cc, 'verified');
+  perform test.as_service();
+  perform public.admin_review_bottle_photo(s1, 'rejected', null, null, test.uid(3));
+  perform test.as_user(5);
+  perform test.rec('the linked household wine shows the points earned on the catalogue wine',
+    test.t_status(wd) = 'rejected' and test.t_points(wd) = 10);
+  r := test.t_send(dv, 'd.jpg');
+  perform test.rec('resubmitted via the household wine: accepted, and earns 0',
+    (r->>'points')::int = 0 and test.t_ledger(test.uid(5)) = 10);
+  perform test.rec('...and both wines now say "submitted" with the one reward',
+    test.t_status(wd) = 'submitted' and test.t_status(cc) = 'submitted' and test.t_points(cc) = 10);
 end $$;
 rollback;

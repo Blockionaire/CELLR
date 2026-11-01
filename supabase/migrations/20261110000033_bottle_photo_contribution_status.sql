@@ -10,7 +10,8 @@
 --    points the ledger actually holds for them for it. Only their own submissions count; nobody else's are revealed.
 -- 3. A second ordinary contribution while one is active is refused in submit_bottle_photos itself (not only hidden),
 --    under a per-person-and-wine lock so two requests at once cannot both pass. After a rejection a new one is
---    accepted. The one-time +10 ledger rule is unchanged (it never pays twice).
+--    accepted. The +10 is paid once per person and identity: a reward already in the ledger for the other wine of a
+--    verified link counts too (earlier rows and reviews are kept as they are).
 -- 4. bottle_photo_invite(household): the one wine Home may invite the person to picture: in that household's cellar,
 --    no published or inherited picture, eligible and never rewarded, the most recently added first. None for 30 days
 --    after the person dismisses the invitation (kept on their profile, so on every device).
@@ -45,6 +46,16 @@ create function private.my_bottle_photo_keys(p_user uuid)
 $$;
 revoke all on function private.my_bottle_photo_keys(uuid) from public, anon, authenticated;
 
+-- The points the ledger holds for a person for one identity: a reward recorded on any wine of it (the catalogue wine,
+-- or a household wine verifiably mapped to it), whenever it was earned. The ledger rows themselves are never changed.
+create function private.bottle_photo_reward(p_user uuid, p_key uuid) returns int
+  language sql stable security definer set search_path = '' as $$
+  select coalesce(max(a.points), 0)::int from public.account_points a
+   where a.user_id = p_user and a.reason = 'bottle_photo'
+     and (a.ref_id = p_key or private.bottle_photo_key(a.ref_id) = p_key)
+$$;
+revoke all on function private.bottle_photo_reward(uuid, uuid) from public, anon, authenticated;
+
 -- ---- 2. The status, for the signed-in person ---------------------------------------------------------------------
 create function public.bottle_photo_status(p_wine_ids uuid[])
   returns table (wine_id uuid, status text, points int)
@@ -64,12 +75,8 @@ create function public.bottle_photo_status(p_wine_ids uuid[])
            when exists (select 1 from mine m where (m.key = w.k or m.canonical_wine_id = w.k)
                                               and m.status = 'rejected') then 'rejected'
            else 'eligible' end,
-         -- what the ledger holds for this person for this wine (the reward is once per person and wine)
-         coalesce((select max(a.points) from public.account_points a
-                    where a.user_id = auth.uid() and a.reason = 'bottle_photo'
-                      and (a.ref_id in (w.id, w.k)
-                           or a.ref_id in (select m.source_wine_id from mine m where m.key = w.k or m.canonical_wine_id = w.k)
-                           or a.ref_id in (select m.canonical_wine_id from mine m where m.key = w.k))), 0)::int
+         -- what the ledger holds for this person for this wine identity (the reward is once per person and identity)
+         private.bottle_photo_reward(auth.uid(), w.k)
     from w
 $$;
 revoke all on function public.bottle_photo_status(uuid[]) from public, anon;
@@ -142,12 +149,17 @@ begin
     values (sid, i, ph->>'path', (ph->>'width')::int, (ph->>'height')::int);
   end loop;
 
-  insert into public.account_points (user_id, reason, ref_id, points)
-  values (me, 'bottle_photo', coalesce(canon, v.wine_id), reward)
-  on conflict on constraint account_points_once do nothing;
-  if found then
-    earned := reward;
-    update public.bottle_photo_submissions set reward_points = reward, reward_granted_at = now() where id = sid;
+  -- The reward: once per person and wine identity. A reward already in the ledger for any wine of this identity (a
+  -- household wine rewarded before it was verifiably linked to this catalogue wine, or the other way round) counts.
+  -- Checked under the identity lock above, so two requests at once (via either wine) cannot both be paid.
+  if private.bottle_photo_reward(me, k) = 0 then
+    insert into public.account_points (user_id, reason, ref_id, points)
+    values (me, 'bottle_photo', coalesce(canon, v.wine_id), reward)
+    on conflict on constraint account_points_once do nothing;
+    if found then
+      earned := reward;
+      update public.bottle_photo_submissions set reward_points = reward, reward_granted_at = now() where id = sid;
+    end if;
   end if;
   return jsonb_build_object('id', sid, 'points', earned);
 end $$;

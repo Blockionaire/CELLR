@@ -26,7 +26,17 @@ drop function private.may_read_bottle_art(text);
 drop trigger wine_bottle_art_file_gone on public.wine_bottle_art;
 drop function private.queue_bottle_art_file();
 drop table public.bottle_art_orphans;
-delete from storage.buckets where id = 'bottle-art';
+-- Production has no bottle-art bucket. Where the database allows it (plain Postgres), the bucket row goes; real
+-- Supabase forbids deleting from its storage tables (storage.protect_delete), and there the bucket's settings are
+-- broken instead (public, no size or type limits). Either way the repair must leave it exactly as defined.
+do $$
+begin
+  begin
+    delete from storage.buckets where id = 'bottle-art';
+  exception when raise_exception or insufficient_privilege then
+    update storage.buckets set public = true, file_size_limit = null, allowed_mime_types = null where id = 'bottle-art';
+  end;
+end $$;
 drop function public.wine_bottle_art_for(uuid[]);
 create function public.wine_bottle_art_for(p_wine_ids uuid[])
   returns table (wine_id uuid, art_id uuid, width int, height int)
@@ -134,6 +144,9 @@ begin
   perform test.rec('the photo''s own page has the household too, and lists all three photos',
     d->>'householdId' = r.h::text and jsonb_array_length(d->'photos') = 3
     and public.admin_bottle_photo_path(r.sid, 3) = test.uid(1) || '/p3.jpg');
+  perform test.rec('the bottle-art bucket exists again, private, PNG/JPEG only, at most 5 MB',
+    (select not public and file_size_limit = 5242880 and allowed_mime_types = array['image/png', 'image/jpeg']
+       from storage.buckets where id = 'bottle-art'));
   perform test.rec('...the other admin readers work again (wine visuals, by scope)',
     jsonb_array_length(public.admin_wine_visuals('all', 'wanted', '', 50)) >= 1
     and public.admin_wine_visual(r.cw) ? 'household');
