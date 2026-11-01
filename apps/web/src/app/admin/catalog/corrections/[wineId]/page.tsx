@@ -64,8 +64,16 @@ export default async function AdminCorrectionPage({
       </PageTitle>
       {message && <Notice>{message}</Notice>}
       <Notice>
-        Reviewing a signal changes nothing in the catalogue. Fixing the catalogue record itself is a
-        separate step (master data editing comes later).
+        Reviewing a signal changes nothing in the catalogue. To fix the record itself, edit it in
+        the{" "}
+        <Link
+          href={`/admin/wines/${w.wineId}#details`}
+          prefetch={false}
+          className="text-accent-ink"
+        >
+          Wine Master Database
+        </Link>
+        .
       </Notice>
 
       {groups.map((g) => (

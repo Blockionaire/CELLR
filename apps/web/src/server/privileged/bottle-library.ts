@@ -132,16 +132,20 @@ export function reviewBottlePhoto(
   );
 }
 
-/** A sent photo's file, for the admin's eyes only. */
+/** One photo of a contribution (1 to 3), for the admin's eyes only. */
 export async function readBottlePhotoFile(
   session: AdminSession,
   id: string,
+  position = 1,
 ): Promise<Uint8Array | null> {
-  const detail = await readBottlePhoto(session, id);
-  if (!detail || detail === "missing" || detail === "none") return null;
+  assertAdmin(session);
+  const path = await rpc("admin_bottle_photo_path", { p_id: id, p_position: position }, (d) =>
+    typeof d === "string" ? d : null,
+  );
+  if (!path || path === "missing") return null;
   const db = createServiceClient();
   if (!db) return null;
-  const { data, error } = await db.storage.from(PHOTOS).download(detail.photoPath);
+  const { data, error } = await db.storage.from(PHOTOS).download(path);
   if (error || !data) return null;
   return new Uint8Array(await data.arrayBuffer());
 }

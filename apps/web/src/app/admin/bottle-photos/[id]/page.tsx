@@ -57,15 +57,24 @@ export default async function AdminBottlePhotoPage({
       {message && <Notice>{message}</Notice>}
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,20rem)_1fr]">
-        <a href={`/admin/bottle-photos/${p.id}/photo`} target="_blank" rel="noreferrer">
-          {/* eslint-disable-next-line @next/next/no-img-element -- a private, admin-only photo */}
-          <img
-            src={`/admin/bottle-photos/${p.id}/photo`}
-            alt={`The bottle photo of ${p.producer} ${p.wine}`}
-            data-testid="submission-photo"
-            className="w-full rounded-[14px] bg-raised object-contain ring-1 ring-hairline"
-          />
-        </a>
+        <div className="flex flex-col gap-3">
+          {(p.photos.length ? p.photos.map((x) => x.position) : [1]).map((n) => (
+            <a
+              key={n}
+              href={`/admin/bottle-photos/${p.id}/photo?n=${n}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- a private, admin-only photo */}
+              <img
+                src={`/admin/bottle-photos/${p.id}/photo?n=${n}`}
+                alt={`Bottle photo ${n} of ${p.producer} ${p.wine}`}
+                data-testid="submission-photo"
+                className="w-full rounded-[14px] bg-raised object-contain ring-1 ring-hairline"
+              />
+            </a>
+          ))}
+        </div>
         <div>
           <Section title="About this photo">
             <dl className="grid grid-cols-[10rem_1fr] gap-y-1 text-small">

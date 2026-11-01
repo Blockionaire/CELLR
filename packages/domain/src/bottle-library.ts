@@ -183,8 +183,16 @@ export const BottlePhotoListSchema = z.object({
 });
 export type BottlePhotoList = z.infer<typeof BottlePhotoListSchema>;
 
+/** At most this many photos in one contribution (the database enforces it too). */
+export const BOTTLE_PHOTO_MAX = 3;
+
 export const BottlePhotoDetailSchema = BottlePhotoRowSchema.extend({
   photoPath: z.string(),
+  /** Every photo of the contribution, in the order sent (one for contributions from before Sprint R). */
+  photos: z
+    .object({ position: z.number().int(), width: z.number().int(), height: z.number().int() })
+    .array()
+    .default([]),
   related: z
     .object({ id: z.uuid(), status: z.enum(BOTTLE_PHOTO_STATUSES), createdAt: z.string() })
     .array(),

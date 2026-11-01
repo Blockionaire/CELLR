@@ -4,12 +4,13 @@ import type { Db } from "@/server/db/clients";
 import { isMissingTable, mapDbError } from "@/server/db/errors";
 
 export interface BottleLibraryRepository {
-  /** Records a photo the server has stored, as the sender (consent, ownership and reward are checked there). */
+  /**
+   * Records one contribution of 1 to 3 photos the server has stored, as the sender (consent, ownership, the number
+   * of photos and the reward are checked there, all or nothing).
+   */
   submit(input: {
     vintageId: string;
-    path: string;
-    width: number;
-    height: number;
+    photos: { path: string; width: number; height: number }[];
     consent: boolean;
   }): Promise<{ id: string; points: number }>;
   /** My points (what the ledger holds for me). */
@@ -30,12 +31,10 @@ const notThere = (e: { code?: string }) =>
 /** The library as the signed-in person: row-level security and the storage policy apply to every read. */
 export function createBottleLibraryRepository(db: Db): BottleLibraryRepository {
   return {
-    async submit({ vintageId, path, width, height, consent }) {
-      const { data, error } = await db.rpc("submit_bottle_photo", {
+    async submit({ vintageId, photos, consent }) {
+      const { data, error } = await db.rpc("submit_bottle_photos", {
         p_vintage_id: vintageId,
-        p_photo_path: path,
-        p_width: width,
-        p_height: height,
+        p_photos: photos,
         p_consent: consent,
       });
       if (error) throw mapDbError(error);

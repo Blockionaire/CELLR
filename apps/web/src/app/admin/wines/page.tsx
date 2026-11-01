@@ -1,34 +1,38 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  WINE_VISUAL_FILTERS,
+  MASTER_FLAGS,
   WINE_VISUAL_SCOPES,
-  parseWineVisualFilter,
-  parseWineVisualScope,
-  type WineVisualFilter,
+  parseMasterFlags,
+  parseMasterPage,
+  parseMasterScope,
+  type MasterFlag,
   type WineVisualScope,
 } from "@cellr/domain";
-import { adminWineVisuals, getAdminSession } from "@/server/admin/service";
+import { adminWineMaster, getAdminSession } from "@/server/admin/service";
 import { cn } from "@/ui/cn";
-import { Notice, PageTitle, Table, num } from "../_ui";
-import { LIBRARY_MISSING } from "../bottle-photos/labels";
+import { Kpi, Kpis, Notice, PageTitle, Table, num } from "../_ui";
 
 export const dynamic = "force-dynamic";
 
 const SCOPE_LABEL: Record<WineVisualScope, string> = {
   all: "All wines",
-  catalogue: "Catalogue wines",
+  catalogue: "Canonical (catalogue)",
   household: "Household wines",
 };
-const FILTER_LABEL: Record<WineVisualFilter, string> = {
-  all: "Any picture state",
-  wanted: "Wanted (photos, no picture yet)",
-  published: "With a published picture",
+const FLAG_LABEL: Record<MasterFlag, string> = {
+  art: "Has published 2D",
+  no_art: "Missing published 2D",
+  pending: "Pending photos",
+  corrections: "Open corrections",
+  linked: "Linked to catalogue",
+  unlinked: "Household, not linked",
 };
 
 /**
- * Every wine in CELLR and its 2D bottle picture: the catalogue's and every household's own, the ones people sent
- * photos of first.
+ * The Wine Master Database: every wine in CELLR (the catalogue's and every household's own) in one list, searched,
+ * filtered and paged in the database in a fixed order (producer, wine, id), so it stays quick at 100k+ wines.
+ * The old "Wine visuals" links (?scope=…&filter=…) keep working.
  */
 export default async function AdminWinesPage({
   searchParams,
@@ -38,42 +42,62 @@ export default async function AdminWinesPage({
   const session = await getAdminSession();
   if (!session) notFound();
   const params = await searchParams;
-  const scope = parseWineVisualScope(params.scope);
-  const filter = parseWineVisualFilter(params.filter);
+  const scope = parseMasterScope(params.scope);
+  const flags = parseMasterFlags(params.f, params.filter);
+  const page = parseMasterPage(params.page);
   const q = typeof params.q === "string" ? params.q.slice(0, 80) : "";
-  const data = await adminWineVisuals(session, scope, filter, q);
-  const href = (next: { scope?: string; filter?: string }) =>
-    `/admin/wines?scope=${next.scope ?? scope}&filter=${next.filter ?? filter}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+  const data = await adminWineMaster(session, scope, flags, q, page);
+  const href = (next: { scope?: string; flags?: MasterFlag[]; page?: number }) => {
+    const s = new URLSearchParams({ scope: next.scope ?? scope });
+    const f = next.flags ?? flags;
+    if (f.length) s.set("f", f.join(","));
+    if (q) s.set("q", q);
+    if ((next.page ?? 1) > 1) s.set("page", String(next.page));
+    return `/admin/wines?${s.toString()}`;
+  };
+  const toggle = (f: MasterFlag) =>
+    flags.includes(f) ? flags.filter((x) => x !== f) : [...flags, f];
   if (!data.ready)
     return (
       <>
-        <PageTitle title="Wine visuals" />
+        <PageTitle title="Wine Master Database" />
         <Notice>
           {data.reason === "missing"
-            ? LIBRARY_MISSING
+            ? "Not available yet: run 20261107000030_wine_master.sql."
             : "SUPABASE_SERVICE_ROLE_KEY is not configured on the server, so there is nothing to read."}
         </Notice>
       </>
     );
+  const pages = Math.max(1, Math.ceil(data.total / data.size));
+  const c = data.counts;
   return (
     <>
       <PageTitle
-        title="Wine visuals"
-        note="Each wine's 2D bottle picture. Once published it is the wine's default picture in the app: a catalogue wine's for everyone who has it, a household wine's for that household only. Without one the app keeps its own picture."
+        title="Wine Master Database"
+        note="Every wine: the shared catalogue and each household's own. A catalogue wine's details and pictures are shared with everyone who has it; a household wine belongs to that household only."
       >
         <Link href="/admin/bottle-photos" prefetch={false} className="text-small text-accent-ink">
           Bottle photos →
         </Link>
       </PageTitle>
-      <form className="mb-3 flex flex-wrap items-end gap-2 text-small" action="/admin/wines">
+      <Kpis>
+        <Kpi label="All wines" value={num(c.all)} />
+        <Kpi label="Catalogue" value={num(c.catalogue)} />
+        <Kpi label="Household" value={num(c.household)} />
+        <Kpi label="Published 2D" value={num(c.published)} />
+        <Kpi label="With pending photos" value={num(c.pending)} />
+        <Kpi label="With open corrections" value={num(c.corrections)} />
+        <Kpi label="Verified links" value={num(c.linked)} />
+      </Kpis>
+      <form className="mb-3 mt-6 flex flex-wrap items-end gap-2 text-small" action="/admin/wines">
         <input type="hidden" name="scope" value={scope} />
-        <input type="hidden" name="filter" value={filter} />
+        {flags.length > 0 && <input type="hidden" name="f" value={flags.join(",")} />}
         <input
           name="q"
           defaultValue={q}
-          placeholder="Producer or wine"
+          placeholder="Producer, wine, alias, country, region or wine id"
           aria-label="Search wines"
-          className="rounded-[10px] bg-surface px-3 py-2 ring-1 ring-hairline"
+          className="w-96 max-w-full rounded-[10px] bg-surface px-3 py-2 ring-1 ring-hairline"
         />
         <button type="submit" className="rounded-full bg-ink px-4 py-2 text-canvas">
           Search
@@ -95,28 +119,34 @@ export default async function AdminWinesPage({
           </Link>
         ))}
       </nav>
-      <nav aria-label="Picture state" className="mb-4 flex flex-wrap gap-3 text-caption text-ink-2">
-        {WINE_VISUAL_FILTERS.map((f) => (
+      <nav aria-label="Filters" className="mb-4 flex flex-wrap gap-3 text-caption text-ink-2">
+        {MASTER_FLAGS.map((f) => (
           <Link
             key={f}
-            href={href({ filter: f })}
+            href={href({ flags: toggle(f) })}
             prefetch={false}
-            aria-current={f === filter ? "true" : undefined}
-            className={f === filter ? "text-ink underline" : "hover:text-ink"}
+            aria-pressed={flags.includes(f)}
+            className={flags.includes(f) ? "text-ink underline" : "hover:text-ink"}
           >
-            {FILTER_LABEL[f]}
+            {flags.includes(f) ? "✓ " : ""}
+            {FLAG_LABEL[f]}
           </Link>
         ))}
       </nav>
+      <p className="mb-2 text-caption text-ink-2" data-testid="master-total">
+        {num(data.total)} {data.total === 1 ? "wine" : "wines"} · page {page} of {pages}
+      </p>
       <Table
         head={[
           { label: "Wine" },
           { label: "Type" },
-          { label: "Kind" },
-          { label: "Picture" },
-          { label: "Drafts", numeric: true },
+          { label: "Origin" },
+          { label: "Status" },
+          { label: "Vintages", numeric: true },
+          { label: "2D art" },
           { label: "Pending photos", numeric: true },
-          { label: "All photos", numeric: true },
+          { label: "Corrections", numeric: true },
+          { label: "Catalogue link" },
         ]}
         rows={data.rows.map((r) => ({
           key: r.id,
@@ -129,18 +159,40 @@ export default async function AdminWinesPage({
             >
               {r.producer} — {r.name}
             </Link>,
-            [r.type, r.country].filter(Boolean).join(" · "),
+            r.type,
+            [r.country, r.region].filter(Boolean).join(" · ") || "—",
             r.status === "canonical"
               ? "Catalogue"
               : `Household: ${r.household ?? r.householdId ?? "—"}`,
+            num(r.vintages),
             r.published ? "Published" : "—",
-            num(r.drafts),
             num(r.pending),
-            num(r.photos),
+            r.status === "canonical" ? num(r.openCorrections) : "—",
+            r.status === "canonical"
+              ? r.linkedFrom > 0
+                ? `${num(r.linkedFrom)} household ${r.linkedFrom === 1 ? "wine" : "wines"}`
+                : "—"
+              : r.linkedTo
+                ? `→ ${r.linkedName ?? r.linkedTo}`
+                : "Not linked",
           ],
         }))}
         empty="No wines here."
       />
+      {pages > 1 && (
+        <nav aria-label="Pages" className="mt-4 flex gap-3 text-small">
+          {page > 1 && (
+            <Link href={href({ page: page - 1 })} prefetch={false} className="text-accent-ink">
+              ← Previous
+            </Link>
+          )}
+          {page < pages && (
+            <Link href={href({ page: page + 1 })} prefetch={false} className="text-accent-ink">
+              Next →
+            </Link>
+          )}
+        </nav>
+      )}
     </>
   );
 }

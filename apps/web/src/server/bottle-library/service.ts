@@ -1,6 +1,7 @@
 import "server-only";
 import {
   BOTTLE_PHOTO_LIMITS,
+  BOTTLE_PHOTO_MAX,
   DomainError,
   sanitizeJpeg,
   type BottleArtRef,
@@ -33,36 +34,46 @@ const refused = (reason: string) =>
  */
 export function createBottleLibraryService({ repo, store, remove }: BottleLibraryDeps) {
   return {
+    /**
+     * One contribution of 1 to 3 photos (front, back, the whole bottle…). Every photo is checked before anything is
+     * stored; if storing or recording fails part-way, every file stored for it is removed again, so a contribution
+     * is all or nothing. The reward stays once per person and wine, however many photos.
+     */
     async submit(
       vintageId: string,
       consent: boolean,
-      bytes: Uint8Array,
+      input: Uint8Array | Uint8Array[],
     ): Promise<BottlePhotoResult> {
       if (!consent)
         throw new DomainError("VALIDATION", "Tick the box to let CELLR use your photo.");
-      const clean = sanitizeJpeg(bytes, BOTTLE_PHOTO_LIMITS.bytes);
-      if (!clean.ok) throw refused(clean.reason);
-      if (Math.min(clean.width, clean.height) < BOTTLE_PHOTO_LIMITS.minEdge) throw refused("small");
-      const path = await store(clean.bytes);
-      if (!path)
-        throw new DomainError("INTERNAL", "Sending photos isn't available right now.", {
-          retryable: true,
-        });
+      const photos = Array.isArray(input) ? input : [input];
+      if (photos.length < 1 || photos.length > BOTTLE_PHOTO_MAX)
+        throw new DomainError("VALIDATION", `Send 1 to ${BOTTLE_PHOTO_MAX} photos.`);
+      const cleaned = photos.map((bytes) => {
+        const clean = sanitizeJpeg(bytes, BOTTLE_PHOTO_LIMITS.bytes);
+        if (!clean.ok) throw refused(clean.reason);
+        if (Math.min(clean.width, clean.height) < BOTTLE_PHOTO_LIMITS.minEdge)
+          throw refused("small");
+        return clean;
+      });
+      const stored: { path: string; width: number; height: number }[] = [];
       let sent: { id: string; points: number };
       try {
-        sent = await repo.submit({
-          vintageId,
-          path,
-          width: clean.width,
-          height: clean.height,
-          consent,
-        });
+        for (const clean of cleaned) {
+          const path = await store(clean.bytes);
+          if (!path)
+            throw new DomainError("INTERNAL", "Sending photos isn't available right now.", {
+              retryable: true,
+            });
+          stored.push({ path, width: clean.width, height: clean.height });
+        }
+        sent = await repo.submit({ vintageId, photos: stored, consent });
       } catch (error) {
-        // only a photo that was never recorded is taken away again
-        await remove([path]).catch(() => {});
+        // only photos that were never recorded are taken away again
+        if (stored.length) await remove(stored.map((p) => p.path)).catch(() => {});
         throw error;
       }
-      // The photo is sent and recorded from here on: a total that can't be read just now is simply not shown.
+      // The photos are sent and recorded from here on: a total that can't be read just now is simply not shown.
       const total = await repo.points().catch(() => null);
       return { ...sent, total };
     },

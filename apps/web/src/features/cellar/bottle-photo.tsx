@@ -2,8 +2,8 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
-import { ERROR_MESSAGES, type BottlePhotoResult } from "@cellr/domain";
+import { useEffect, useRef, useState } from "react";
+import { BOTTLE_PHOTO_MAX, ERROR_MESSAGES, type BottlePhotoResult } from "@cellr/domain";
 import { api, errorMessage } from "@/lib/api";
 import { preparePhoto, UnreadablePhotoError } from "@/lib/photo";
 import { Button } from "@/ui/button";
@@ -15,14 +15,14 @@ interface Picked {
   url: string;
 }
 
-/** Sends one bottle photo with the explicit yes; my points refresh after. */
+/** Sends one contribution of 1 to 3 bottle photos with the explicit yes; my points refresh after. */
 function useSendBottlePhoto() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ vintageId, file }: { vintageId: string; file: File }) => {
-      const prepared = await preparePhoto(file);
+    mutationFn: async ({ vintageId, files }: { vintageId: string; files: File[] }) => {
+      const prepared = await Promise.all(files.map((f) => preparePhoto(f)));
       const form = new FormData();
-      form.set("photo", prepared.photo, "bottle.jpg");
+      prepared.forEach((p, i) => form.append("photo", p.photo, `bottle-${i + 1}.jpg`));
       form.set("vintageId", vintageId);
       form.set("consent", "true");
       return api.upload<BottlePhotoResult>("/bottle-photos", form);
@@ -32,41 +32,46 @@ function useSendBottlePhoto() {
 }
 
 /**
- * Helping CELLR picture a wine: a photo of the whole bottle, sent only with the person's explicit yes that CELLR may
- * use it to make and show a 2D bottle picture of this wine. The photo itself is never shown in the app. The first
- * photo of a wine earns points; another one is welcome and says so.
+ * Helping CELLR picture a wine: 1 to 3 photos (the whole bottle, the labels close up), sent together with one
+ * explicit yes that CELLR may use them to make and show a 2D bottle picture of this wine. The photos themselves are
+ * never shown in the app. The first contribution for a wine earns points; another one is welcome and says so.
  */
 export function BottlePhotoContribution({ vintageId, wine }: { vintageId: string; wine: string }) {
   const t = useTranslations("bottlePhoto");
   const te = useTranslations();
   const send = useSendBottlePhoto();
   const [open, setOpen] = useState(false);
-  const [picked, setPicked] = useState<Picked | null>(null);
+  const [picked, setPicked] = useState<Picked[]>([]);
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<BottlePhotoResult | null>(null);
 
+  // each preview's local address goes when its photo does (removed, sent, the sheet closed or the page left)
+  const urls = useRef<Picked[]>([]);
   useEffect(() => {
-    if (!picked) return;
-    return () => URL.revokeObjectURL(picked.url);
+    urls.current = picked;
   }, [picked]);
+  useEffect(() => () => urls.current.forEach((p) => URL.revokeObjectURL(p.url)), []);
+  const drop = (gone: Picked[]) => gone.forEach((p) => URL.revokeObjectURL(p.url));
 
   const close = () => {
     setOpen(false);
-    setPicked(null);
+    drop(picked);
+    setPicked([]);
     setConsent(false);
     setError(null);
     setDone(null);
   };
 
   async function submit() {
-    if (!picked || !consent || send.isPending) return;
+    if (picked.length === 0 || !consent || send.isPending) return;
     setError(null);
     try {
-      setDone(await send.mutateAsync({ vintageId, file: picked.file }));
-      setPicked(null);
+      setDone(await send.mutateAsync({ vintageId, files: picked.map((p) => p.file) }));
+      drop(picked);
+      setPicked([]);
     } catch (e) {
-      // the photo and the yes stay, so sending can simply be tried again
+      // the photos and the yes stay, so sending can simply be tried again
       setError(
         e instanceof UnreadablePhotoError
           ? t("unreadable")
@@ -115,26 +120,52 @@ export function BottlePhotoContribution({ vintageId, wine }: { vintageId: string
               <li>{t("tipWhole")}</li>
               <li>{t("tipLight")}</li>
               <li>{t("tipBackground")}</li>
+              <li>{t("tipMore")}</li>
             </ul>
-            {picked && (
-              // eslint-disable-next-line @next/next/no-img-element -- a local preview, not sent yet
-              <img
-                src={picked.url}
-                alt={t("previewAlt")}
-                className="mx-auto max-h-64 w-auto rounded-[16px] bg-raised object-contain"
-              />
+            {picked.length > 0 && (
+              <ul className="grid grid-cols-3 gap-2" data-testid="bottle-photo-previews">
+                {picked.map((p, i) => (
+                  <li key={p.url} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- a local preview, not sent yet */}
+                    <img
+                      src={p.url}
+                      alt={t("previewAlt", { n: i + 1 })}
+                      className="aspect-[3/4] w-full rounded-[12px] bg-raised object-cover"
+                    />
+                    <button
+                      type="button"
+                      aria-label={t("remove")}
+                      onClick={() => {
+                        drop([p]);
+                        setPicked((all) => all.filter((x) => x !== p));
+                      }}
+                      className="absolute right-1 top-1 grid size-7 place-items-center rounded-full bg-canvas/90 text-small text-ink ring-1 ring-hairline"
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
-            <FileButton
-              variant={picked ? "ghost" : "secondary"}
-              block
-              accept="image/*"
-              onFile={(file) => {
-                setError(null);
-                setPicked({ file, url: URL.createObjectURL(file) });
-              }}
-            >
-              {picked ? t("another") : t("choose")}
-            </FileButton>
+            {picked.length < BOTTLE_PHOTO_MAX && (
+              <FileButton
+                variant={picked.length ? "ghost" : "secondary"}
+                block
+                accept="image/*"
+                onFile={(file) => {
+                  setError(null);
+                  setPicked((all) =>
+                    all.length >= BOTTLE_PHOTO_MAX
+                      ? all
+                      : [...all, { file, url: URL.createObjectURL(file) }],
+                  );
+                }}
+              >
+                {picked.length
+                  ? t("another", { count: picked.length + 1, max: BOTTLE_PHOTO_MAX })
+                  : t("choose")}
+              </FileButton>
+            )}
             <label className="flex items-start gap-3 rounded-[14px] bg-raised p-3 text-small text-ink">
               <input
                 type="checkbox"
@@ -152,11 +183,11 @@ export function BottlePhotoContribution({ vintageId, wine }: { vintageId: string
             )}
             <Button
               block
-              disabled={!picked || !consent}
+              disabled={picked.length === 0 || !consent}
               loading={send.isPending}
               onClick={() => void submit()}
             >
-              {t("send")}
+              {t("send", { count: Math.max(1, picked.length) })}
             </Button>
           </div>
         )}

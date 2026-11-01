@@ -427,3 +427,27 @@ The admin sees them under **Wine catalogue → Corrections**: per catalogue wine
 corrections (independent groups: households linked through a person, however long the chain, count as one), the changed fields, identity mismatches apart from detail corrections, acceptances, and a state
 (collecting, review needed from 2 households, conflict when households disagree on a value, resolved). Each signal
 can be marked reviewed or dismissed with an internal note.
+
+## Wine Master Database (Sprint R): integrity and audit retention
+
+Admins edit master data at `/admin/wines`. The database enforces:
+
+- **One name, one wine per producer.** A wine's name may not be another wine's alias at the same producer, and an
+  alias may not be another wine's name or alias there (the rule `catalog_import` applies). This holds for adding or
+  replacing aliases, renaming a wine and moving a wine to another producer; the answer is `conflict` and nothing
+  changes. Two wines may share a name when their type differs, as in the import.
+- **A vintage's year is fixed once anything refers to it** (bottles, tastings, valuations, insights, reminders,
+  shared profiles, vintage-specific 2D art or labels, photos sent of it): changing it would silently change what
+  those records are about. Its alcohol can always be corrected.
+- **A verified link decides.** A photo of a household's own wine can only be approved for the catalogue wine that
+  wine is linked to (an explicit unlink means none), and only then counts as a source for that catalogue wine's
+  picture. An older review's mapping that contradicts the link is not enough.
+
+`master_audit` keeps what was changed (before, after, reason, time, the acting admin):
+
+- **Household master data goes with the household.** Every row about a household's own wine or producer carries
+  that household and is deleted with it, and with the wine or producer itself when that is deleted.
+- **The catalogue's history stays**, also when the admin who made a change deletes their account (the actor is then
+  cleared). This is intentional: the catalogue is shared, public wine identity.
+- The only person in it is the acting admin. It is readable by the service role only and shown on admin pages only;
+  it is never exported or shared. Reasons are written by admins: keep them about the wine, never about people.

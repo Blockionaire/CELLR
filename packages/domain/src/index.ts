@@ -31,3 +31,4 @@ export * from "./rating-insights";
 export * from "./taste-context";
 export * from "./feedback";
 export * from "./bottle-library";
+export * from "./wine-master";
