@@ -748,6 +748,14 @@ create function public.admin_wine_master_record(p_wine uuid)
                                                          where c.id = l.canonical_wine_id))
                from public.wine_links l where l.source_wine_id = w.id),
     'linkedFrom', (select count(*) from public.wine_links l where l.canonical_wine_id = w.id),
+    'linkedSources', coalesce((select jsonb_agg(jsonb_build_object(
+                         'id', s.id, 'producer', sp.name, 'name', s.name, 'linkedAt', l.linked_at, 'reason', l.reason,
+                         'household', (select hh.name from public.households hh where hh.id = s.owner_household_id))
+                         order by l.linked_at desc)
+                       from (select * from public.wine_links x where x.canonical_wine_id = w.id
+                              order by x.linked_at desc limit 50) l
+                       join public.wines s on s.id = l.source_wine_id join public.producers sp on sp.id = s.producer_id),
+                      '[]'::jsonb),
     'householdLabels', coalesce((select jsonb_agg(x order by x->>'createdAt' desc) from (
                          select distinct on (i.id) jsonb_build_object(
                                   'id', i.id, 'side', i.side, 'year', v.year, 'createdAt', i.created_at,
@@ -763,6 +771,7 @@ create function public.admin_wine_master_record(p_wine uuid)
                          'createdAt', l.created_at) order by l.published_at desc nulls last, l.created_at desc)
                        from public.catalog_labels l where l.wine_id = w.id), '[]'::jsonb),
     'history', coalesce((select jsonb_agg(jsonb_build_object('entity', h.entity_type, 'action', h.action, 'at', h.at,
+                                                             'actor', h.actor,
                                                              'before', h.before, 'after', h.after, 'reason', h.reason)
                                           order by h.at desc, h.id desc)
                            from (select * from public.master_audit m where m.wine_id = w.id
@@ -773,10 +782,13 @@ create function public.admin_wine_master_record(p_wine uuid)
     left join public.producers p on p.id = w.producer_id
 $$;
 
--- A household label photo's file path, for the admin's preview only.
-create function public.admin_household_label_path(p_image uuid)
+-- A household label photo's file path, for the admin's preview only, and only as a photo of a bottle of this wine.
+create function public.admin_household_label_path(p_wine uuid, p_image uuid)
   returns text language sql stable security definer set search_path = '' as $$
-  select coalesce(i.web_path, i.original_path) from public.bottle_images i where i.id = p_image
+  select coalesce(i.web_path, i.original_path) from public.bottle_images i
+   where i.id = p_image
+     and exists (select 1 from public.bottles b join public.wine_vintages v on v.id = b.vintage_id
+                  where v.wine_id = p_wine and i.id in (b.front_image_id, b.back_image_id))
 $$;
 
 -- A curated label's file, for the admin's preview (drafts too).
@@ -800,7 +812,7 @@ begin
     'public.admin_publish_catalog_label(uuid, uuid)', 'public.admin_unpublish_catalog_label(uuid, uuid)',
     'public.admin_remove_catalog_label(uuid, uuid)', 'public.admin_bottle_photo_path(uuid, int)',
     'public.admin_wine_master(text, text[], text, int, int)', 'public.admin_wine_master_counts()',
-    'public.admin_wine_master_record(uuid)', 'public.admin_household_label_path(uuid)',
+    'public.admin_wine_master_record(uuid)', 'public.admin_household_label_path(uuid, uuid)',
     'public.admin_catalog_label_file(uuid)'] loop
     execute format('revoke all on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);

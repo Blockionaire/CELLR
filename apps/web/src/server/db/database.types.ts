@@ -2360,7 +2360,7 @@ export type Database = {
         Args: { p_actor: string; p_fields: Json; p_id: string };
         Returns: boolean;
       };
-      admin_household_label_path: { Args: { p_image: string }; Returns: string };
+      admin_household_label_path: { Args: { p_image: string; p_wine: string }; Returns: string };
       admin_producer_update: {
         Args: {
           p_actor: string;

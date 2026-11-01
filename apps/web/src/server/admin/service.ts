@@ -24,6 +24,8 @@ import {
   type BottlePhotoStatus,
   type WineVisualFilter,
   type WineVisualScope,
+  MASTER_PAGE_SIZE,
+  type MasterFlag,
 } from "@cellr/domain";
 import { getPageContext } from "@/server/context";
 import { getAdminAllowlist, getAiBudgetEnv } from "@/server/env";
@@ -68,6 +70,27 @@ import {
   reviewBottlePhoto,
   unpublishBottleArt,
 } from "@/server/privileged/bottle-library";
+import {
+  addCatalogLabel,
+  createVintage,
+  deleteVintage,
+  linkWine,
+  publishCatalogLabel,
+  readCatalogLabelFile,
+  readHouseholdLabelFile,
+  readWineMaster,
+  readWineMasterCounts,
+  readWineMasterRecord,
+  reassignProducer,
+  removeCatalogLabel,
+  setAliases,
+  setGrapes,
+  unlinkWine,
+  unpublishCatalogLabel,
+  updateProducer,
+  updateVintage,
+  updateWineDetails,
+} from "@/server/privileged/wine-master";
 import { assertAdmin, verifyAdmin, type AdminSession } from "./access";
 
 /**
@@ -350,4 +373,113 @@ export const bottleLibrary = {
   remove: removeBottleArt,
   photoFile: readBottlePhotoFile,
   artFile: readBottleArtFile,
+};
+
+// ---- The Wine Master Database (Sprint R) -------------------------------------------------------------------------
+
+/** Every wine, searched, filtered and paged in the database, with the overview's counts. */
+export async function adminWineMaster(
+  session: AdminSession,
+  scope: WineVisualScope,
+  flags: MasterFlag[],
+  query: string,
+  page: number,
+) {
+  assertAdmin(session);
+  const size = MASTER_PAGE_SIZE;
+  const [list, counts] = await Promise.all([
+    readWineMaster(session, scope, flags, query.slice(0, 80), size, (Math.max(1, page) - 1) * size),
+    readWineMasterCounts(session),
+  ]);
+  if (list === null || list === "missing" || counts === null || counts === "missing")
+    return {
+      ready: false as const,
+      reason: list === null || counts === null ? null : ("missing" as const),
+    };
+  await purgeBottleArtFiles().catch(() => {});
+  return { ready: true as const, ...list, counts, page, size };
+}
+
+/**
+ * One wine's master record, with the parts that already have their own pages: its 2D artwork and photos (Sprint P)
+ * and, for a catalogue wine, its correction signals (Sprint Q). For a household wine being linked: the catalogue
+ * wines matching the admin's search, and the one chosen to compare side by side. Nothing is ever chosen for the admin.
+ */
+export async function adminWineMasterRecord(
+  session: AdminSession,
+  wineId: string,
+  link: { query: string; compare: string | null } = { query: "", compare: null },
+) {
+  assertAdmin(session);
+  const record = await readWineMasterRecord(session, wineId);
+  if (record === null || record === "missing" || record === "none") return record;
+  const canonical = record.status === "canonical";
+  const [visual, correction, candidates, compare] = await Promise.all([
+    readWineVisual(session, wineId),
+    canonical ? readCorrection(session, wineId) : Promise.resolve(null),
+    !canonical && link.query
+      ? readWineMaster(session, "catalogue", [], link.query.slice(0, 80), 20, 0)
+      : Promise.resolve(null),
+    !canonical && link.compare
+      ? readWineMasterRecord(session, link.compare)
+      : Promise.resolve(null),
+  ]);
+  return {
+    record,
+    visual: visual && visual !== "missing" && visual !== "none" ? visual : null,
+    correction: correction && correction !== "missing" && correction !== "none" ? correction : null,
+    candidates: candidates && candidates !== "missing" ? candidates.rows : [],
+    compare:
+      compare && compare !== "missing" && compare !== "none" && compare.status === "canonical"
+        ? compare
+        : null,
+  };
+}
+
+/** Checks an uploaded label image (a clean PNG or JPEG within the limits) and keeps it as a draft for the wine. */
+export async function adminUploadCatalogLabel(
+  session: AdminSession,
+  wineId: string,
+  bytes: Uint8Array,
+  meta: { side: "front" | "back"; vintageId: string | null; source: string },
+): Promise<{ ok: true; id: string } | { ok: false; message: string }> {
+  assertAdmin(session);
+  const clean = cleanBottleArt(bytes);
+  if (!clean.ok)
+    return {
+      ok: false,
+      message:
+        clean.reason === "too-big"
+          ? "Too large: at most 4 MB and 4096 px."
+          : clean.reason === "unsupported"
+            ? "Too small: at least 200 px on each side."
+            : "Not a usable PNG or JPEG.",
+    };
+  const id = await addCatalogLabel(session, wineId, { ...clean, ...meta });
+  if (id === null) return { ok: false, message: "The service role is not configured." };
+  if (id === "missing") return { ok: false, message: "Run 20261107000030_wine_master.sql first." };
+  if (id === "gone")
+    return {
+      ok: false,
+      message: "Not uploaded: shared labels are for catalogue wines (and their own vintages) only.",
+    };
+  return { ok: true, id };
+}
+
+export const wineMaster = {
+  updateWine: updateWineDetails,
+  updateProducer,
+  reassignProducer,
+  setAliases,
+  setGrapes,
+  createVintage,
+  updateVintage,
+  deleteVintage,
+  link: linkWine,
+  unlink: unlinkWine,
+  publishLabel: publishCatalogLabel,
+  unpublishLabel: unpublishCatalogLabel,
+  removeLabel: removeCatalogLabel,
+  labelFile: readCatalogLabelFile,
+  householdLabelFile: readHouseholdLabelFile,
 };

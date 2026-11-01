@@ -79,7 +79,7 @@ async function sharePhoto(page: Page, vintageId: string, words: string) {
   });
   // a photo alone is not enough: the explicit yes is needed
   await expect(send).toBeDisabled();
-  await sheet.getByRole("checkbox", { name: /CELLR may use this photo/ }).check();
+  await sheet.getByRole("checkbox", { name: /CELLR may use these photos/ }).check();
   await send.click();
   await expect(sheet.getByText("Thank you!")).toBeVisible();
   return sheet;

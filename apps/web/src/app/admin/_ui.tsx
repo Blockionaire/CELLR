@@ -45,14 +45,17 @@ export function PageTitle({
 export function Section({
   title,
   note,
+  id,
   children,
 }: {
   title: string;
   note?: string;
+  /** An anchor, to link to the section */
+  id?: string;
   children: ReactNode;
 }) {
   return (
-    <section className="mb-8">
+    <section className="mb-8 scroll-mt-6" id={id} aria-label={title}>
       <h2 className="text-body font-semibold text-ink">{title}</h2>
       {note && <p className="mt-0.5 text-caption text-ink-2">{note}</p>}
       <div className="mt-3">{children}</div>

@@ -28,19 +28,28 @@ function jpeg(w: number, h: number): Uint8Array {
 
 const VINTAGE = "8b1f4c2e-3d5a-4e6f-9a7b-1c2d3e4f5a6b";
 
-function fake(options: { failSubmit?: boolean; stored?: boolean; failPoints?: boolean } = {}) {
+function fake(
+  options: {
+    failSubmit?: boolean;
+    stored?: boolean;
+    failPoints?: boolean;
+    storeLimit?: number;
+  } = {},
+) {
   const state = {
     stored: new Map<string, Uint8Array>(),
     removed: [] as string[],
     rewarded: new Set<string>(),
     points: 0,
     submits: 0,
+    recorded: [] as string[][],
   };
   const repo: Repo = {
-    async submit({ vintageId, consent }) {
+    async submit({ vintageId, consent, photos }) {
       if (options.failSubmit) throw new Error("db down");
       if (!consent) throw new Error("consent_required");
       state.submits++;
+      state.recorded.push(photos.map((p) => p.path));
       const first = !state.rewarded.has(vintageId);
       state.rewarded.add(vintageId);
       if (first) state.points += 10;
@@ -57,6 +66,7 @@ function fake(options: { failSubmit?: boolean; stored?: boolean; failPoints?: bo
     repo,
     store: async (bytes) => {
       if (options.stored === false) return null;
+      if (options.storeLimit !== undefined && state.stored.size >= options.storeLimit) return null;
       const path = `me/${state.stored.size}.jpg`;
       state.stored.set(path, bytes);
       return path;
@@ -124,6 +134,58 @@ describe("sending a bottle photo", () => {
     await expect(service.submit(VINTAGE, true, jpeg(1200, 1600))).rejects.toMatchObject({
       code: "INTERNAL",
     });
+  });
+});
+
+describe("a contribution of several photos", () => {
+  it("up to three photos make one contribution, rewarded once", async () => {
+    const { service, state } = fake();
+    const sent = await service.submit(VINTAGE, true, [
+      jpeg(1200, 1600),
+      jpeg(1600, 1200),
+      jpeg(900, 1200),
+    ]);
+    expect(sent).toEqual({ id: "s1", points: 10, total: 10 });
+    expect(state.recorded).toEqual([["me/0.jpg", "me/1.jpg", "me/2.jpg"]]);
+  });
+
+  it("none, or more than three, is refused before anything is stored", async () => {
+    const { service, state } = fake();
+    await expect(service.submit(VINTAGE, true, [])).rejects.toMatchObject({ code: "VALIDATION" });
+    await expect(
+      service.submit(
+        VINTAGE,
+        true,
+        Array.from({ length: 4 }, () => jpeg(1200, 1600)),
+      ),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
+    expect(state.stored.size).toBe(0);
+  });
+
+  it("one unusable photo stops the whole contribution before anything is stored", async () => {
+    const { service, state } = fake();
+    await expect(
+      service.submit(VINTAGE, true, [jpeg(1200, 1600), jpeg(200, 300)]),
+    ).rejects.toMatchObject({ code: "UPLOAD_REJECTED" });
+    expect(state.stored.size).toBe(0);
+    expect(state.submits).toBe(0);
+  });
+
+  it("when storing fails part-way, the photos already stored go again", async () => {
+    const { service, state } = fake({ storeLimit: 2 });
+    await expect(
+      service.submit(VINTAGE, true, [jpeg(1200, 1600), jpeg(1200, 1600), jpeg(1200, 1600)]),
+    ).rejects.toMatchObject({ code: "INTERNAL" });
+    expect(state.removed).toEqual(["me/0.jpg", "me/1.jpg"]);
+    expect(state.submits).toBe(0);
+  });
+
+  it("when the contribution cannot be recorded, every stored photo goes again", async () => {
+    const { service, state } = fake({ failSubmit: true });
+    await expect(
+      service.submit(VINTAGE, true, [jpeg(1200, 1600), jpeg(1200, 1600)]),
+    ).rejects.toThrow();
+    expect(state.removed).toEqual(["me/0.jpg", "me/1.jpg"]);
   });
 });
 

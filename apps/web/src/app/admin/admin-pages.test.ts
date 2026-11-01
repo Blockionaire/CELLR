@@ -27,12 +27,17 @@ const reads = {
   adminUploadBottleArt: vi.fn(),
   adminCorrections: vi.fn(),
   adminCorrection: vi.fn(),
+  adminWineMaster: vi.fn(),
+  adminWineMasterRecord: vi.fn(),
+  adminUploadCatalogLabel: vi.fn(),
 };
 const library = { photoFile: vi.fn(), artFile: vi.fn() };
+const master = { labelFile: vi.fn(), householdLabelFile: vi.fn() };
 vi.mock("@/server/admin/service", () => ({
   getAdminSession: async () => null,
   ...reads,
   bottleLibrary: library,
+  wineMaster: master,
 }));
 
 const params = { params: Promise.resolve({ id: "0b6f2c1e-6a1d-4f7e-9a3b-2c4d5e6f7a8b" }) };
@@ -105,7 +110,7 @@ describe("the admin boundary", () => {
   it.each([
     ["catalog", 6],
     ["bottle-photos", 1],
-    ["wines", 3],
+    ["wines", 16],
     ["catalog/corrections", 1],
   ] as const)(
     "every %s action checks the admin session again before anything else",
@@ -125,7 +130,7 @@ describe("the admin boundary", () => {
 
   it("every admin route (photos and pictures) checks the admin session and is not found without it", () => {
     const routes = files(path.join(SRC, "app/admin")).filter((f) => f.endsWith("route.ts"));
-    expect(routes.length).toBe(3);
+    expect(routes.length).toBe(6);
     for (const r of routes)
       expect(readFileSync(r, "utf8"), r).toMatch(
         /const session = await getAdminSession\(\);[\s\S]*?if \(!session \|\| [^)]*\) return new Response\(null, \{ status: 404 \}\);/,

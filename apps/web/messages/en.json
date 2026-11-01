@@ -1728,16 +1728,18 @@
     "tipLight": "Good light, no flash glare",
     "tipBackground": "A plain background if you can",
     "choose": "Take or choose a photo",
-    "another": "Take or choose another",
-    "previewAlt": "Your bottle photo",
-    "consent": "Yes, CELLR may use this photo to make a 2D bottle picture of this wine and show that picture in the app, to everyone who has this wine.",
-    "privacy": "Your photo itself is never shown to anyone in the app: only the CELLR team sees it. It is deleted with your account.",
-    "send": "Send photo",
+    "another": "Add another photo ({count} of {max})",
+    "previewAlt": "Your bottle photo {n}",
+    "consent": "Yes, CELLR may use these photos to make a 2D bottle picture of this wine and show that picture in the app, to everyone who has this wine.",
+    "privacy": "Your photos themselves are never shown to anyone in the app: only the CELLR team sees them. They are deleted with your account.",
+    "send": "Send {count, plural, one {photo} other {# photos}}",
     "unreadable": "That isn't a photo we can open. Try another one.",
     "thanks": "Thank you!",
     "earned": "You earned {points} points. We'll let your photo help picture this wine.",
     "alreadyEarned": "Thanks for another photo. You already earned points for this wine, so this one doesn't add more.",
     "total": "You have {points} points.",
-    "close": "Done"
+    "close": "Done",
+    "remove": "Remove this photo",
+    "tipMore": "Up to 3 photos: the whole bottle, and the front and back labels close up if you like"
   }
 }

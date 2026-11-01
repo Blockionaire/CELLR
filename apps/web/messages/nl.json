@@ -1728,16 +1728,18 @@
     "tipLight": "Goed licht, geen flitsreflectie",
     "tipBackground": "Een rustige achtergrond als het kan",
     "choose": "Maak of kies een foto",
-    "another": "Maak of kies een andere",
-    "previewAlt": "Jouw flesfoto",
-    "consent": "Ja, CELLR mag deze foto gebruiken om een 2D-flesafbeelding van deze wijn te maken en die afbeelding in de app te tonen aan iedereen die deze wijn heeft.",
-    "privacy": "Je foto zelf wordt in de app aan niemand getoond: alleen het CELLR-team ziet hem. Hij wordt verwijderd met je account.",
-    "send": "Foto versturen",
+    "another": "Nog een foto toevoegen ({count} van {max})",
+    "previewAlt": "Jouw flesfoto {n}",
+    "consent": "Ja, CELLR mag deze foto's gebruiken om een 2D-flesafbeelding van deze wijn te maken en die afbeelding in de app te tonen aan iedereen die deze wijn heeft.",
+    "privacy": "Je foto's zelf worden in de app aan niemand getoond: alleen het CELLR-team ziet ze. Ze worden verwijderd met je account.",
+    "send": "{count, plural, one {Foto versturen} other {# foto's versturen}}",
     "unreadable": "Die foto kunnen we niet openen. Probeer een andere.",
     "thanks": "Dankjewel!",
     "earned": "Je hebt {points} punten verdiend. Je foto helpt deze wijn in beeld te brengen.",
     "alreadyEarned": "Bedankt voor nog een foto. Je kreeg al punten voor deze wijn, dus deze levert er geen extra op.",
     "total": "Je hebt {points} punten.",
-    "close": "Klaar"
+    "close": "Klaar",
+    "remove": "Deze foto weghalen",
+    "tipMore": "Tot 3 foto's: de hele fles, en als je wilt het voor- en achteretiket van dichtbij"
   }
 }
