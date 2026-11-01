@@ -4,10 +4,16 @@
 -- after its own admin check), transactional, and writes the audit (before/after, actor, time, reason).
 --
 -- 1. master_audit: who changed which wine, producer, vintage, alias, grape list, link or shared label, and how.
+--    Retention: a household's own master data is private to it, so its audit rows go with it: with the household
+--    (household_id cascades) and with the household wine or producer itself (delete triggers). Catalogue rows stay
+--    as the catalogue's history. The only person recorded is the acting admin (actor, set null if that account goes);
+--    the free-text reason is written by admins and never shown outside the admin dashboard.
 -- 2. Identity guard: wines.producer_id stays immutable for everyone, except inside the one admin operation that
 --    reassigns a wine to another producer of the same scope (checked again in the trigger); nothing else is relaxed.
 -- 3. Admin edits: wine details, aliases, grapes, producer (rename with a shared-producer confirmation, or reassign
---    one wine), vintages (create, abv, a year change only when no bottle refers to it). Stale edits are refused.
+--    one wine), vintages (create, abv; a year change or removal only while nothing refers to the vintage). Stale
+--    edits are refused, and so is any name or alias that would also identify another wine of the same producer
+--    (the rule catalog_import already applies).
 -- 4. wine_links: the VERIFIED link from a household's own wine to a catalogue wine (who, when, why). Existing
 --    links (reviewed photo submissions, approved catalogue candidates) are kept as links; an unlink is remembered so a
 --    derived association does not come back. 2D artwork inheritance reads the link.
@@ -24,6 +30,8 @@ create table public.master_audit (
   entity_id   uuid not null,
   -- the wine the change belongs to, to show a wine's history in one place
   wine_id     uuid,
+  -- the household whose own wine or producer this is (null = the catalogue): its rows go with the household
+  household_id uuid references public.households on delete cascade,
   action      text not null check (action ~ '^[a-z_]{1,40}$'),
   actor       uuid references auth.users on delete set null,
   at          timestamptz not null default now(),
@@ -32,6 +40,8 @@ create table public.master_audit (
   reason      text check (char_length(reason) <= 500)
 );
 create index master_audit_wine_idx on public.master_audit (wine_id, at desc);
+create index master_audit_entity_idx on public.master_audit (entity_id);
+create index master_audit_household_idx on public.master_audit (household_id) where household_id is not null;
 alter table public.master_audit enable row level security;
 revoke all on public.master_audit from public, anon, authenticated;
 grant all on public.master_audit to service_role;
@@ -39,10 +49,28 @@ grant all on public.master_audit to service_role;
 create function private.master_log(p_type text, p_entity uuid, p_wine uuid, p_action text, p_actor uuid,
                                    p_before jsonb, p_after jsonb, p_reason text) returns void
   language sql volatile security definer set search_path = '' as $$
-  insert into public.master_audit (entity_type, entity_id, wine_id, action, actor, before, after, reason)
-  values (p_type, p_entity, p_wine, p_action, p_actor, p_before, p_after, nullif(left(btrim(p_reason), 500), ''))
+  insert into public.master_audit (entity_type, entity_id, wine_id, household_id, action, actor, before, after, reason)
+  values (p_type, p_entity, p_wine,
+          coalesce((select w.owner_household_id from public.wines w where w.id = p_wine),
+                   (select p.owner_household_id from public.producers p where p_type = 'producer' and p.id = p_entity)),
+          p_action, p_actor, p_before, p_after, nullif(left(btrim(p_reason), 500), ''))
 $$;
 revoke all on function private.master_log(text, uuid, uuid, text, uuid, jsonb, jsonb, text) from public, anon, authenticated;
+
+-- A household's own wine or producer that is deleted takes its audit rows along (the catalogue's stay).
+create function private.master_audit_forget() returns trigger
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if old.status = 'provisional' then
+    delete from public.master_audit where wine_id = old.id or entity_id = old.id;
+  end if;
+  return null;
+end $$;
+revoke all on function private.master_audit_forget() from public, anon, authenticated;
+create trigger wines_master_audit_forget after delete on public.wines
+  for each row execute function private.master_audit_forget();
+create trigger producers_master_audit_forget after delete on public.producers
+  for each row execute function private.master_audit_forget();
 
 -- ---- 2. Identity guard (replaces the generic trigger on wines with the same rules plus one narrow exception) -----
 create function private.wines_guard_identity() returns trigger
@@ -80,8 +108,44 @@ create function private.wine_json(p_wine uuid) returns jsonb
 $$;
 revoke all on function private.wine_json(uuid) from public, anon, authenticated;
 
+-- Whether a wine's name, or any of these aliases, would also identify ANOTHER wine of this producer: the name equal
+-- to another wine's alias, or an alias equal to another wine's name or alias (the rule catalog_import applies). Two
+-- wines may share a name when their type differs (the unique identity), as in the import.
+create function private.wine_names_clash(p_wine uuid, p_producer uuid, p_name text, p_aliases text[])
+  returns boolean language sql stable security definer set search_path = '' as $$
+  with mine as (select private.normalize_text(x) as n from unnest(coalesce(p_aliases, '{}')) x)
+  select exists (
+    select 1 from public.wines o
+     where o.producer_id = p_producer and o.id <> p_wine
+       and ((p_name is not null
+             and exists (select 1 from public.wine_aliases a
+                          where a.wine_id = o.id and a.normalized_alias = private.normalize_text(p_name)))
+            or o.normalized_name in (select n from mine)
+            or exists (select 1 from public.wine_aliases a
+                        where a.wine_id = o.id and a.normalized_alias in (select n from mine))))
+$$;
+revoke all on function private.wine_names_clash(uuid, uuid, text, text[]) from public, anon, authenticated;
+
+-- Everything that means "this vintage" (a household's bottles, tastings, valuations, insights and reminders; the
+-- catalogue's shared profile, vintage-specific 2D art and labels; photos sent of it): while any of it exists, the
+-- vintage's year cannot change (it would silently change what those records are about) and it cannot be removed.
+create function private.vintage_in_use(p_vintage uuid)
+  returns boolean language plpgsql stable security definer set search_path = '' as $$
+begin
+  return exists (select 1 from public.bottles x where x.vintage_id = p_vintage)
+      or exists (select 1 from public.tastings x where x.vintage_id = p_vintage)
+      or exists (select 1 from public.vintage_valuations x where x.vintage_id = p_vintage)
+      or exists (select 1 from public.vintage_insights x where x.vintage_id = p_vintage)
+      or exists (select 1 from public.drink_notices x where x.vintage_id = p_vintage)
+      or exists (select 1 from public.shared_wine_profiles x where x.vintage_id = p_vintage)
+      or exists (select 1 from public.wine_bottle_art x where x.vintage_id = p_vintage)
+      or exists (select 1 from public.catalog_labels x where x.vintage_id = p_vintage)
+      or exists (select 1 from public.bottle_photo_submissions x where x.source_vintage_id = p_vintage);
+end $$;
+revoke all on function private.vintage_in_use(uuid) from public, anon, authenticated;
+
 -- The editable details of a wine. p_expected = the updated_at the admin saw: anything else is 'stale'.
--- Returns ok | stale | conflict (that identity exists already) | invalid | none.
+-- Returns ok | stale | conflict (that identity exists already, or the new name is another wine's alias) | invalid | none.
 create function public.admin_wine_update(p_wine uuid, p_expected timestamptz, p_fields jsonb, p_reason text,
                                          p_actor uuid)
   returns text language plpgsql volatile security definer set search_path = '' as $$
@@ -95,6 +159,12 @@ begin
      or coalesce(btrim(p_fields->>'name'), '') = ''
      or (bs is not null and jsonb_typeof(bs) not in ('object', 'null')) then
     return 'invalid';
+  end if;
+  -- one name edit per producer at a time, so two edits cannot together make a name ambiguous
+  perform 1 from public.producers where id = w.producer_id for update;
+  if private.normalize_text(btrim(p_fields->>'name')) is distinct from w.normalized_name
+     and private.wine_names_clash(p_wine, w.producer_id, btrim(p_fields->>'name'), null) then
+    return 'conflict';
   end if;
   v_before := private.wine_json(p_wine);
   begin
@@ -143,7 +213,8 @@ begin
 end $$;
 
 -- Move ONE wine to another producer of the same scope (a wrong association), leaving the old producer and its
--- other wines as they are. Returns ok | stale | conflict | invalid | none.
+-- other wines as they are. 'conflict' when that identity exists there already, or its name or an alias would also
+-- identify a wine of the new producer. Returns ok | stale | conflict | invalid | none.
 create function public.admin_wine_reassign_producer(p_wine uuid, p_expected timestamptz, p_producer uuid,
                                                     p_reason text, p_actor uuid)
   returns text language plpgsql volatile security definer set search_path = '' as $$
@@ -156,6 +227,12 @@ begin
   if not exists (select 1 from public.producers p where p.id = p_producer and p.status = w.status
                    and p.owner_household_id is not distinct from w.owner_household_id) then
     return 'invalid';
+  end if;
+  -- both producers' names stay unambiguous: lock them (in a fixed order), then check the wine's name and aliases
+  perform 1 from public.producers where id in (w.producer_id, p_producer) order by id for update;
+  if private.wine_names_clash(p_wine, p_producer, w.name,
+                              array(select a.alias from public.wine_aliases a where a.wine_id = p_wine)) then
+    return 'conflict';
   end if;
   v_before := private.wine_json(p_wine);
   perform set_config('cellr.reassign_wine', p_wine::text, true);
@@ -171,15 +248,19 @@ begin
   return 'ok';
 end $$;
 
--- Replace a wine's verified aliases. Returns ok | invalid | none.
+-- Replace a wine's verified aliases. 'conflict' (nothing changes) when an alias is another wine's name or alias at
+-- the same producer. Returns ok | conflict | invalid | none.
 create function public.admin_wine_set_aliases(p_wine uuid, p_aliases text[], p_reason text, p_actor uuid)
   returns text language plpgsql volatile security definer set search_path = '' as $$
-declare v_before jsonb; a text[];
+declare v_before jsonb; a text[]; prod uuid;
 begin
-  if not exists (select 1 from public.wines where id = p_wine) then return 'none'; end if;
+  select producer_id into prod from public.wines where id = p_wine for update;
+  if not found then return 'none'; end if;
+  perform 1 from public.producers where id = prod for update;
   a := array(select distinct on (private.normalize_text(x)) btrim(x)
                from unnest(coalesce(p_aliases, '{}')) x where btrim(x) <> '' order by private.normalize_text(x));
   if cardinality(a) > 20 or exists (select 1 from unnest(a) x where char_length(x) > 160) then return 'invalid'; end if;
+  if private.wine_names_clash(p_wine, prod, null, a) then return 'conflict'; end if;
   select coalesce(jsonb_agg(alias order by alias), '[]') into v_before from public.wine_aliases where wine_id = p_wine;
   delete from public.wine_aliases where wine_id = p_wine;
   insert into public.wine_aliases (wine_id, alias) select p_wine, x from unnest(a) x;
@@ -231,16 +312,16 @@ begin
   return 'ok';
 end $$;
 
--- Correct a vintage: its alcohol, and its year only while no bottle refers to it (a bottle's vintage is part of a
--- household's cellar: it is never moved silently). Returns ok | in_use | conflict | invalid | none.
+-- Correct a vintage: its alcohol always; its year only while nothing refers to the vintage (private.vintage_in_use:
+-- a bottle, tasting, valuation, shared profile, label… would silently be about another year). Returns ok | in_use |
+-- conflict | invalid | none.
 create function public.admin_vintage_update(p_vintage uuid, p_year int, p_abv numeric, p_reason text, p_actor uuid)
   returns text language plpgsql volatile security definer set search_path = '' as $$
 declare v public.wine_vintages;
 begin
   select * into v from public.wine_vintages where id = p_vintage for update;
   if not found then return 'none'; end if;
-  if p_year is distinct from v.year::int
-     and exists (select 1 from public.bottles b where b.vintage_id = p_vintage) then
+  if p_year is distinct from v.year::int and private.vintage_in_use(p_vintage) then
     return 'in_use';
   end if;
   begin
@@ -255,17 +336,14 @@ begin
   return 'ok';
 end $$;
 
--- Remove a vintage added by mistake: only while nothing of a household refers to it (bottles, tastings, valuations).
--- Returns ok | in_use | none.
+-- Remove a vintage added by mistake: only while nothing refers to it (private.vintage_in_use). Returns ok | in_use | none.
 create function public.admin_vintage_delete(p_vintage uuid, p_reason text, p_actor uuid)
   returns text language plpgsql volatile security definer set search_path = '' as $$
 declare v public.wine_vintages;
 begin
   select * into v from public.wine_vintages where id = p_vintage for update;
   if not found then return 'none'; end if;
-  if exists (select 1 from public.bottles b where b.vintage_id = p_vintage)
-     or exists (select 1 from public.tastings t where t.vintage_id = p_vintage)
-     or exists (select 1 from public.vintage_valuations x where x.vintage_id = p_vintage) then
+  if private.vintage_in_use(p_vintage) then
     return 'in_use';
   end if;
   begin
@@ -368,11 +446,22 @@ begin
   return 'ok';
 end $$;
 
--- Reviewing a photo with a catalogue target now also records the verified link (it never replaces another one).
+-- Whether a household wine's verified link (or remembered unlink) says it is NOT this catalogue wine.
+create function private.link_contradicts(p_source uuid, p_target uuid)
+  returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.wine_links l
+                  where l.source_wine_id = p_source and l.canonical_wine_id is distinct from p_target)
+$$;
+revoke all on function private.link_contradicts(uuid, uuid) from public, anon, authenticated;
+
+-- Reviewing a photo. For a photo of a household's own wine, the verified link of that wine decides which catalogue
+-- wine the photo may be approved for: a target that contradicts it (another catalogue wine, or an explicit unlink)
+-- is refused, also when the target is the photo's own older mapping. Approving with a target and no link yet
+-- records the link first; if that fails, nothing changes. Photos sent for a catalogue wine are reviewed as before.
 create or replace function public.admin_review_bottle_photo(p_id uuid, p_status text, p_canonical uuid, p_note text,
                                                             p_actor uuid)
   returns boolean language plpgsql volatile security definer set search_path = '' as $$
-declare s record; cur uuid;
+declare s record; target uuid; linked boolean;
 begin
   if p_status not in ('pending', 'approved', 'rejected', 'used') then raise exception 'bad_status' using errcode = '22023'; end if;
   select x.id, x.canonical_wine_id, x.source_wine_id, w.status as source_status
@@ -384,8 +473,19 @@ begin
        or not exists (select 1 from public.wines w where w.id = p_canonical and w.status = 'canonical') then
       return false;
     end if;
-    select canonical_wine_id into cur from public.wine_links where source_wine_id = s.source_wine_id;
-    if cur is not null and cur <> p_canonical then return false; end if;
+  end if;
+  target := coalesce(p_canonical, s.canonical_wine_id);
+  if s.source_status = 'provisional' and target is not null
+     and (p_status in ('approved', 'used') or (p_canonical is not null and p_canonical is distinct from s.canonical_wine_id)) then
+    perform 1 from public.wine_links where source_wine_id = s.source_wine_id for update;
+    if private.link_contradicts(s.source_wine_id, target) then return false; end if;
+    linked := exists (select 1 from public.wine_links where source_wine_id = s.source_wine_id);
+    if not linked and p_status in ('approved', 'used') then
+      -- the link is recorded before anything else changes; a link that is not 'ok' leaves everything as it was
+      if public.admin_wine_link(s.source_wine_id, target, 'linked when reviewing a bottle photo', p_actor) <> 'ok' then
+        return false;
+      end if;
+    end if;
   end if;
   update public.bottle_photo_submissions
      set status = p_status,
@@ -393,9 +493,36 @@ begin
          admin_note = coalesce(nullif(btrim(p_note), ''), admin_note),
          reviewed_at = now(), reviewed_by = p_actor
    where id = p_id;
-  if p_canonical is not null and p_status in ('approved', 'used') and p_actor is not null then
-    perform public.admin_wine_link(s.source_wine_id, p_canonical, 'linked when reviewing a bottle photo', p_actor);
+  return true;
+end $$;
+
+-- Publishing a catalogue wine's picture made from photos: a photo of a household's own wine counts as a source only
+-- while that wine's verified link does not contradict the catalogue wine (an older review's mapping is not enough).
+-- Photos of the wine itself, sent for a catalogue wine or for a household's own wine, count as before.
+create or replace function public.admin_publish_bottle_art(p_art uuid, p_sources uuid[], p_actor uuid)
+  returns boolean language plpgsql volatile security definer set search_path = '' as $$
+declare wid uuid; wstatus public.catalog_status;
+begin
+  select a.wine_id, w.status into wid, wstatus
+    from public.wine_bottle_art a join public.wines w on w.id = a.wine_id
+   where a.id = p_art and a.vintage_id is null for update of a;
+  if wid is null then return false; end if;
+  if exists (
+    select 1 from unnest(coalesce(p_sources, '{}'::uuid[])) as src(id)
+      left join public.bottle_photo_submissions s on s.id = src.id
+     where s.id is null
+        or not (s.source_wine_id = wid
+                or (wstatus = 'canonical' and s.canonical_wine_id = wid and s.reviewed_by is not null
+                    and s.status in ('approved', 'used')
+                    and not private.link_contradicts(s.source_wine_id, wid)))) then
+    raise exception 'bad_source' using errcode = '22023';
   end if;
+  update public.wine_bottle_art set published_at = null, published_by = null
+   where wine_id = wid and vintage_id is null and published_at is not null and id <> p_art;
+  update public.wine_bottle_art set published_at = now(), published_by = p_actor where id = p_art;
+  update public.bottle_photo_submissions
+     set status = 'used', art_id = p_art, reviewed_at = now(), reviewed_by = p_actor
+   where id = any (coalesce(p_sources, '{}'));
   return true;
 end $$;
 
@@ -739,7 +866,8 @@ create function public.admin_wine_master_record(p_wine uuid)
                                      where b.vintage_id = v.id and b.front_image_id is not null),
                     'backPhotos', (select count(distinct b.back_image_id) from public.bottles b
                                     where b.vintage_id = v.id and b.back_image_id is not null),
-                    'sharedProfile', exists (select 1 from public.shared_wine_profiles sp where sp.vintage_id = v.id))
+                    'sharedProfile', exists (select 1 from public.shared_wine_profiles sp where sp.vintage_id = v.id),
+                    'inUse', private.vintage_in_use(v.id))
                   order by v.year nulls first) from public.wine_vintages v where v.wine_id = w.id), '[]'::jsonb),
     'link', (select jsonb_build_object('canonicalWineId', l.canonical_wine_id, 'reason', l.reason,
                                        'linkedAt', l.linked_at,

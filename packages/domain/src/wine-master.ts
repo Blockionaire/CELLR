@@ -122,6 +122,8 @@ export const WineMasterRecordSchema = z.object({
       frontPhotos: z.number().int(),
       backPhotos: z.number().int(),
       sharedProfile: z.boolean(),
+      /** Anything refers to this vintage (bottles, tastings, valuations, profiles, labels…): its year is fixed. */
+      inUse: z.boolean().default(false),
     })
     .array(),
   link: z
@@ -204,7 +206,7 @@ export const MASTER_RESULT_MESSAGE: Record<Exclude<MasterResult, "ok">, string> 
   confirm:
     "Not saved: this producer is shared by several wines. Tick the confirmation to rename them all.",
   in_use:
-    "Not saved: bottles in a cellar refer to this vintage, so its year cannot change and it cannot be removed.",
+    "Not saved: bottles, tastings, valuations, profiles, labels or photos refer to this vintage, so its year cannot change and it cannot be removed.",
 };
 
 const text = (max: number) =>

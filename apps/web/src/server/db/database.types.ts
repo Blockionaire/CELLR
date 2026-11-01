@@ -1365,6 +1365,7 @@ export type Database = {
           before: Json | null;
           entity_id: string;
           entity_type: string;
+          household_id: string | null;
           id: number;
           reason: string | null;
           wine_id: string | null;
@@ -1378,6 +1379,7 @@ export type Database = {
           before?: Json | null;
           entity_id: string;
           entity_type: string;
+          household_id?: string | null;
           id?: never;
           reason?: string | null;
           wine_id?: string | null;
@@ -1390,11 +1392,20 @@ export type Database = {
           before?: Json | null;
           entity_id?: string;
           entity_type?: string;
+          household_id?: string | null;
           id?: never;
           reason?: string | null;
           wine_id?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "master_audit_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       producers: {
         Row: {

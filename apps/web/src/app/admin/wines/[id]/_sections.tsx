@@ -272,7 +272,7 @@ export function VintagesSection({ record }: { record: R }) {
     <Section
       title="Vintages"
       id="vintages"
-      note="Alcohol can always be corrected. A vintage's year cannot change, and it cannot be removed, while bottles in a cellar refer to it."
+      note="Alcohol can always be corrected. A vintage's year cannot change, and it cannot be removed, while anything refers to it: bottles, tastings, valuations, profiles, labels or photos."
     >
       <Scope record={record} />
       <Table
@@ -300,8 +300,10 @@ export function VintagesSection({ record }: { record: R }) {
                   name="year"
                   defaultValue={v.year === null ? "NV" : String(v.year)}
                   aria-label="Year"
-                  readOnly={v.bottles > 0}
-                  title={v.bottles > 0 ? "Bottles refer to this vintage" : undefined}
+                  readOnly={v.inUse}
+                  title={
+                    v.inUse ? "Bottles, tastings or other records refer to this vintage" : undefined
+                  }
                   className={`${input} w-20 py-1 text-caption`}
                 />
                 <input
@@ -316,7 +318,7 @@ export function VintagesSection({ record }: { record: R }) {
                   Save
                 </button>
               </form>
-              {v.bottles === 0 && (
+              {!v.inUse && (
                 <form
                   action={deleteVintageAction.bind(null, record.id, v.id)}
                   className="flex items-center gap-1.5 text-caption"
