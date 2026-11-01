@@ -5,6 +5,7 @@ import {
   AdminAiCostsSchema,
   AdminBudgetStatusSchema,
   AdminRecognitionCacheSchema,
+  AdminRecognitionPathsSchema,
   AdminSharedProfilesSchema,
   AdminCatalogSchema,
   AdminUserRowSchema,
@@ -13,6 +14,7 @@ import {
   type AdminAiCosts,
   type AdminBudgetStatus,
   type AdminRecognitionCache,
+  type AdminRecognitionPaths,
   type AdminSharedProfiles,
   type AdminCatalog,
   type AdminFeedbackPage,
@@ -45,6 +47,7 @@ async function call<T>(
     | "admin_activity_series"
     | "admin_beta_feedback"
     | "admin_recognition_cache"
+    | "admin_recognition_paths"
     | "admin_shared_profiles"
     | "admin_catalog",
   args: Record<string, unknown>,
@@ -139,6 +142,20 @@ export function readRecognitionCache(
     "admin_recognition_cache",
     { p_from: from.toISOString(), p_to: to.toISOString() },
     (d) => AdminRecognitionCacheSchema.parse(d),
+  );
+}
+
+/** "missing" here also means only the label-text step (20261108000031) is still to be taken. */
+export function readRecognitionPaths(
+  session: AdminSession,
+  from: Date,
+  to: Date,
+): Read<AdminRecognitionPaths> {
+  return call(
+    session,
+    "admin_recognition_paths",
+    { p_from: from.toISOString(), p_to: to.toISOString() },
+    (d) => AdminRecognitionPathsSchema.parse(d),
   );
 }
 

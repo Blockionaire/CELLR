@@ -22,10 +22,27 @@ export interface NewImage {
   /** SHA-256 (hex) of the stored photo; kept only where the database has the column (see the repository). */
   fingerprint?: string | null;
   cacheResult?: CacheResult | null;
+  /** For a scan: what the printed label text did (Sprint S); kept only where the database has the columns. */
+  text?: TextMeasure | null;
 }
 
 /** For a scan: whether the recognition cache answered (no vision call) or not. */
 export type CacheResult = "hit" | "miss";
+
+/**
+ * For a scan: whether the label text read on the phone answered it (hit: no vision call), was read but not
+ * conclusive (miss), or there was no text (no_text: OCR unavailable, too slow or empty). Never the text itself.
+ */
+export interface TextMeasure {
+  /** Absent when the text was not used: the identical-photo cache answered first (only the OCR time is kept). */
+  result?: "hit" | "miss" | "no_text";
+  /** The wine proposed (hit only), and the year read with it. */
+  wineId?: string | null;
+  year?: number | null;
+  /** How long the phone's OCR took, as it reported (bounded), and the server's lookup. */
+  ocrMs?: number | null;
+  lookupMs?: number | null;
+}
 
 export interface ImageRepository {
   upload(path: string, bytes: Uint8Array): Promise<void>;

@@ -141,6 +141,8 @@
     "foundTitle": "Gevonden",
     "foundBody": "Dit lijkt een wijn die je al hebt.",
     "rememberedBody": "Deze foto heb je eerder bevestigd. Kijk hem na en bevestig opnieuw.",
+    "fromTextBody": "Herkend aan de gedrukte tekst op het etiket, zonder AI. Controleer de wijn en het jaar en bevestig.",
+    "fromTextNoYearBody": "Herkend aan de gedrukte tekst op het etiket, zonder AI. Het jaar was niet leesbaar: dat kies je hierna.",
     "confirmFound": "Ja, voeg flessen toe",
     "notThisOne": "Niet deze",
     "chooseTitle": "Is het een van deze?",

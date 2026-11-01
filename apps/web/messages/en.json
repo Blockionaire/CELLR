@@ -141,6 +141,8 @@
     "foundTitle": "We found it",
     "foundBody": "This looks like a wine you already have.",
     "rememberedBody": "You confirmed this exact photo before. Check it and confirm again.",
+    "fromTextBody": "Recognised from the printed label text, without AI. Check the wine and the year, then confirm.",
+    "fromTextNoYearBody": "Recognised from the printed label text, without AI. The year could not be read: you choose it next.",
     "confirmFound": "Yes, add bottles",
     "notThisOne": "Not this one",
     "chooseTitle": "Is it one of these?",

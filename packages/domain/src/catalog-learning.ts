@@ -355,6 +355,11 @@ export const CorrectionDetailSchema = z.object({
       createdAt: z.string(),
       /** The latest scan that gave this same answer (a repeat refreshes it; it never adds a row). */
       lastSeenAt: z.string(),
+      /**
+       * Where the proposal came from: the vision model's reading, or the printed label text matched to the catalogue
+       * (Sprint S; then a correction more likely means another bottling than a wrong record). Older databases: vision.
+       */
+      source: z.enum(["vision", "text"]).default("vision"),
     })
     .array(),
 });
@@ -365,6 +370,10 @@ export const AiSignalStatsSchema = z.object({
   corrected: z.number().int(),
   differentWine: z.number().int(),
   fields: z.record(z.string(), z.number().int()),
+  /** The phone's OCR on its own (Sprint S): a vintage it misread on a label-text match. Absent before that step. */
+  text: z
+    .object({ corrected: z.number().int(), fields: z.record(z.string(), z.number().int()) })
+    .optional(),
 });
 export type AiSignalStats = z.infer<typeof AiSignalStatsSchema>;
 

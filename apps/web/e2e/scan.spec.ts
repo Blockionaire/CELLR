@@ -471,6 +471,9 @@ test.describe("a batch of different wines", () => {
     page,
     request,
   }) => {
+    // Five photos, each also read by the on-device label reader (Sprint S) before it is sent: more work on the
+    // phone, which on a busy CI machine can take this long test past the default timeout.
+    test.slow();
     const { householdId, call } = await furnish(page, request, "batch");
     await call(
       "post",

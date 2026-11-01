@@ -9,7 +9,7 @@ import {
   type ImageSide,
 } from "@cellr/domain";
 import type { ActiveHousehold } from "@/server/cellar/types";
-import type { CacheResult, ImageRepository } from "./types";
+import type { CacheResult, ImageRepository, TextMeasure } from "./types";
 
 export interface PreparedPhoto {
   side: ImageSide;
@@ -71,6 +71,7 @@ export function createImageService(
   async function save(
     prepared: PreparedPhoto,
     cacheResult: CacheResult | null = null,
+    text: TextMeasure | null = null,
   ): Promise<{ image: ImageRef & { side: ImageSide }; photo: Uint8Array }> {
     const { id: householdId } = await household();
     // A fresh folder per photo: nothing is ever overwritten, and no name comes from the client.
@@ -95,6 +96,7 @@ export function createImageService(
         blurColor: prepared.blurColor,
         fingerprint: prepared.fingerprint,
         cacheResult,
+        text,
       });
       return {
         image: {

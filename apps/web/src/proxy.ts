@@ -67,8 +67,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except API routes (they authenticate themselves), build assets, PWA files and the public logo.
+  // Everything except API routes (they authenticate themselves), build assets, PWA files, the public logo and the
+  // on-device OCR files (static; they carry their own worker policy, see next.config.ts).
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|sw.js|offline.html|icons/|brand/|splash/).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|sw.js|offline.html|icons/|brand/|splash/|ocr/).*)",
   ],
 };

@@ -9,6 +9,8 @@ import {
   sumActivity,
   type AdminAiCosts,
   summarizeRecognitionCache,
+  summarizeRecognitionPaths,
+  AdminRecognitionPathsSchema,
   summarizeSharedProfiles,
   catalogShare,
 } from "./admin";
@@ -191,5 +193,54 @@ describe("the catalogue figures", () => {
     const base = { producers: 1, wines: 2, vintages: 3, aliases: 0, private_wines_created: 0 };
     expect(catalogShare({ ...base, bottles_catalog: 1, bottles_private: 3 })).toBe(0.25);
     expect(catalogShare({ ...base, bottles_catalog: 0, bottles_private: 0 })).toBeNull();
+  });
+});
+
+describe("database-first recognition paths", () => {
+  const paths = AdminRecognitionPathsSchema.parse({
+    scans: 20,
+    cacheHits: 2,
+    textAttempts: 12,
+    textHits: 6,
+    textMisses: 6,
+    noText: 4,
+    textHitsWithYear: 5,
+    ocrMs: { hit: "1820", miss: 2400, cacheHit: 700, p50: 2000, p90: 2900 },
+    lookupMs: { avg: 35, p90: 60 },
+    vision: { calls: 9, avgMs: 6100, p90Ms: 9000, costedCalls: 9, avgCostUsdMicro: 1500 },
+    outcomes: { accepted: 3, yearChanged: 1, yearFilled: 1, differentWine: 0, unsaved: 1 },
+  });
+
+  it("reports only measured figures: calls avoided, the read-by-model share, and the saving at the measured cost", () => {
+    const s = summarizeRecognitionPaths(paths);
+    expect(s.visionCallsAvoided).toBe(8);
+    expect(s.readByModel).toBe(12);
+    expect(s.fallbackRate).toBeCloseTo(0.6);
+    expect(s.textHitRate).toBeCloseTo(0.5);
+    expect(s.estimatedSavingsUsdMicro).toBe(12_000);
+    expect(s.savedMatches).toBe(5);
+    expect(s.rejectionRate).toBe(0);
+    expect(s.yearCorrectionRate).toBeCloseTo(0.2);
+    expect(s.ocrMs.hit).toBe(1820);
+  });
+
+  it("no measured cost, no saving; no scans, no rates", () => {
+    const none = summarizeRecognitionPaths(
+      AdminRecognitionPathsSchema.parse({
+        ...paths,
+        scans: 0,
+        cacheHits: 0,
+        textAttempts: 0,
+        textHits: 0,
+        vision: { ...paths.vision, avgCostUsdMicro: null, avgMs: null },
+        ocrMs: { hit: null, miss: null, p50: null, p90: null },
+        outcomes: { accepted: 0, yearChanged: 0, yearFilled: 0, differentWine: 0, unsaved: 0 },
+      }),
+    );
+    expect(none.estimatedSavingsUsdMicro).toBeNull();
+    expect(none.fallbackRate).toBeNull();
+    expect(none.textHitRate).toBeNull();
+    expect(none.rejectionRate).toBeNull();
+    expect(none.ocrMs.hit).toBeNull();
   });
 });

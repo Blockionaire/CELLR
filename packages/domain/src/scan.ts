@@ -6,6 +6,7 @@ import {
   type WineSummary,
   type WineType,
 } from "./cellar";
+import type { BottleArtRef } from "./bottle-library";
 import type { ImageRef } from "./image";
 import type { Quad } from "./label-crop";
 
@@ -166,7 +167,7 @@ export function suggestWine(facts: LabelFacts): {
 // ---- Matching against the wines you already have -----------------------------------------------------------
 
 /** Words that say what kind of estate it is, not which one: "Château Margaux" and "Margaux" are one name. */
-const ESTATE_WORDS = new Set([
+export const ESTATE_WORDS: ReadonlySet<string> = new Set([
   "chateau",
   "domaine",
   "maison",
@@ -403,6 +404,13 @@ export interface ScanResult {
    * the person confirms it like any other reading.
    */
   remembered?: boolean;
+  /**
+   * True when the label's printed text (read on the phone) named exactly one known catalogue wine, so no model was
+   * asked (Sprint S). The identity is the database's; the year is the phone's reading. Still only a suggestion.
+   */
+  fromText?: boolean;
+  /** The published 2D bottle picture of the wine found (its own, or inherited from its verified catalogue wine). */
+  art?: BottleArtRef | null;
 }
 
 /**
