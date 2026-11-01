@@ -216,7 +216,8 @@ on a 1280 px copy of the photo. No paid OCR API; only the text is sent, next to 
     ≈ 3–5 s of download (arithmetic, not measured). Until it has loaded, scans go to the model as before;
   - reader start: 0.44–0.53 s with an empty cache (excluding network), 0.21–0.24 s warm (model from IndexedDB);
   - one read of a 1280 px label: 0.4–0.8 s warm; 0.85–1.5 s in the e2e runs (parallel load, includes the wait).
-- Bounded: a photo waits at most 2.5 s for text, and at most 0.3 s for a reader that is still loading. A read that
+- Bounded: a photo waits at most 2.5 s for text (decoding the photo, queueing, reading and stopping the reader
+  included; work that finishes later is dropped), and at most 0.3 s for a reader that is still loading. A read that
   runs out of time, or a load that fails (or takes over 30 s), turns the reader off for the rest of the visit. Reads
   are queued one at a time (a batch reads two photos at once); a photo still queued when its budget ends goes on
   without text. In all of these cases the photo is sent without text at once.
@@ -245,6 +246,9 @@ function checks membership). The text is not stored anywhere.
 - exactly **one catalogue wine** whose producer is printed and whose name or a **verified alias** is printed **as a
   line of its own** (only estate words, a year or single stray characters may stand next to it), so "Pavillon Rouge
   du Château Margaux" is never "Château Margaux";
+- a name (or alias) that only repeats the producer's name never counts: a wine named after its estate ("Château
+  Margaux" by Château Margaux) is recognised from text only through a distinct verified alias printed on its own line,
+  because the estate's other cuvées print the estate's name too; otherwise the model reads it;
 - no other catalogue wine is printed as fully (two colours, two countries, a wine and its reserve: not resolved);
 - nothing on the label contradicts it: a colour word it cannot be ("Blanc" on a red; "Blanc de Blancs" on a
   sparkling wine is fine), a country it is not from, or a **qualifier** not in its own name (Réserve, Riserva,

@@ -117,9 +117,50 @@ describe("recognising a catalogue wine from label text", () => {
     });
     const pavillon = "PAVILLON ROUGE DU CHATEAU MARGAUX\n2016\nMargaux";
     expect(recognizeLabelText(pavillon, [margaux], NOW).kind).toBe("none");
+  });
+
+  it("a wine named after its estate is never confirmed by the estate's name: another cuvée prints it too", () => {
+    const flagship = catalog("gv", {
+      producer: "Château Margaux",
+      name: "Château Margaux",
+      type: "red",
+      region: "Bordeaux",
+    });
+    // the regression: the estate's second wine, not in the catalogue, must not be read as the flagship
+    expect(recognizeLabelText("CHATEAU MARGAUX\nPAVILLON ROUGE\n2016", [flagship], NOW)).toEqual({
+      kind: "none",
+      reason: "no-match",
+    });
+    // …nor the flagship's own label: nothing on it tells the two apart, so the model reads it
     expect(
-      recognizeLabelText("CHATEAU MARGAUX\nPremier Grand Cru Classé\n2016", [margaux], NOW),
-    ).toMatchObject({ kind: "match", facts: { year: 2016 } });
+      recognizeLabelText("CHATEAU MARGAUX\nPremier Grand Cru Classé\n2016", [flagship], NOW).kind,
+    ).toBe("none");
+    // a name that only repeats the estate's distinguishing word counts as the estate too
+    const alpha = catalog("a", { name: "Alpha" });
+    expect(recognizeLabelText("DOMAINE ALPHA\nCuvée Silex\n2019", [alpha], NOW).kind).toBe("none");
+    // an alias that is just the estate's name is no help either
+    const aliased = catalog("gv2", { ...flagship.wine, id: "gv2", aliases: ["Margaux"] });
+    expect(recognizeLabelText("CHATEAU MARGAUX\nPAVILLON ROUGE", [aliased], NOW).kind).toBe("none");
+  });
+
+  it("a wine named after its estate is still recognised through a distinct verified alias, printed on its own", () => {
+    const flagship = catalog("gv", {
+      producer: "Château Margaux",
+      name: "Château Margaux",
+      type: "red",
+      region: "Bordeaux",
+      aliases: ["Grand Vin"],
+    });
+    expect(
+      recognizeLabelText(
+        "CHATEAU MARGAUX\nGRAND VIN\nPremier Grand Cru Classé\n2016",
+        [flagship],
+        NOW,
+      ),
+    ).toMatchObject({ kind: "match", wine: { id: "gv" }, facts: { year: 2016 } });
+    expect(recognizeLabelText("CHATEAU MARGAUX\nPAVILLON ROUGE\n2016", [flagship], NOW).kind).toBe(
+      "none",
+    );
   });
 
   it("two catalogue wines both printed in full (same producer and name, red and white) are not resolved", () => {

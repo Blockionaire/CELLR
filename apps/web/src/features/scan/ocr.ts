@@ -115,17 +115,28 @@ export const ocrStatus = () => status;
  * Gives the reader up for the rest of the visit: a read that ran out of time means this device (or this moment) is
  * too slow, and every later photo would only wait for nothing. The worker is terminated so it stops using the phone.
  */
-async function giveUp(worker: OcrWorker | null) {
+function giveUp(worker: OcrWorker | null) {
   setStatus("failed");
   loading = null;
-  await worker?.terminate().catch(() => {});
+  // not waited for: stopping the worker must not hold the photo up
+  void worker?.terminate().catch(() => {});
 }
 
 /** One read at a time on the one reader (a batch reads two photos at once): the next waits for the previous. */
 let queue: Promise<unknown> = Promise.resolve();
 
-const timeout = (ms: number) =>
-  new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), Math.max(0, ms)));
+/**
+ * `work`, or "timeout" once `ms` have passed, whichever comes first. The timer is cleared either way, and a failure of
+ * `work` that comes after the deadline is dropped (nobody is waiting for it any more).
+ */
+function within<T>(work: Promise<T>, ms: number): Promise<T | "timeout"> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), Math.max(0, ms));
+  });
+  work.catch(() => {});
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+}
 
 /** Decodes a picture: createImageBitmap where there is one, otherwise an <img> (older Safari). */
 async function decode(photo: Blob): Promise<{ source: CanvasImageSource; w: number; h: number }> {
@@ -175,33 +186,38 @@ export async function readLabelText(
   if (status === "failed") return null;
   const started = now();
   const left = () => budgetMs - (now() - started);
+  const elapsed = () => Math.round(now() - started);
   // A reader still loading is waited for only briefly: this photo goes on without it, the next one will have it.
   const wait = status === "ready" ? left() : Math.min(left(), OCR.loadWaitMs);
-  const worker = await Promise.race([warmOcr(), timeout(wait)]);
-  if (worker === "timeout" || worker === null)
-    return { text: null, ms: Math.round(now() - started) };
-  try {
+  const worker = await within(warmOcr(), wait);
+  if (worker === "timeout" || worker === null) return { text: null, ms: elapsed() };
+
+  // Everything from here (decoding the photo, waiting behind another photo, reading) runs inside the one budget. When
+  // the budget ends first, the photo goes on without text and whatever is still running finishes unseen: a decode
+  // that completes late queues nothing, a read that never started never starts.
+  const read = { dropped: false, begun: false };
+  const work = (async (): Promise<string | null> => {
     const image = await shrink(photo);
-    if (!image) return { text: null, ms: Math.round(now() - started) };
-    let begun = false;
-    let dropped = false;
+    if (!image || read.dropped) return null;
     const job = queue.then(() => {
-      if (dropped) return null; // this photo has gone on without its text already
-      begun = true;
+      if (read.dropped) return null;
+      read.begun = true;
       return worker.recognize(image);
     });
     queue = job.catch(() => {});
-    const result = await Promise.race([job, timeout(left())]);
-    if (result === "timeout" || result === null) {
-      dropped = true;
-      // Still waiting behind another photo: just go on without text. Reading itself was too slow: stop trying.
-      if (begun) await giveUp(worker);
-      return { text: null, ms: Math.round(now() - started) };
-    }
-    const text = result.data.text.trim();
-    return { text: text === "" ? null : text, ms: Math.round(now() - started) };
+    const result = await job;
+    return result ? result.data.text.trim() || null : null;
+  })();
+  try {
+    const text = await within(work, left());
+    if (text !== "timeout") return { text, ms: elapsed() };
+    read.dropped = true;
+    // Reading itself was too slow: stop trying for this visit. Still decoding or queued: just go on without text.
+    if (read.begun) giveUp(worker);
+    return { text: null, ms: elapsed() };
   } catch {
-    await giveUp(worker);
-    return { text: null, ms: Math.round(now() - started) };
+    read.dropped = true;
+    giveUp(worker);
+    return { text: null, ms: elapsed() };
   }
 }

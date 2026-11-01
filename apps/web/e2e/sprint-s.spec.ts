@@ -239,5 +239,6 @@ test("without the on-device reader the photo goes straight to the vision model",
   await expect(page.getByRole("heading", { name: "We found it" })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/Recognised from the printed label text/)).toHaveCount(0);
   expect(await labelReads(householdId)).toBe("1");
-  expect((await photoRow(householdId))!.text_result).toBe("no_text");
+  // the reader's load failed before the photo (not tried: null) or while it waited (no_text): either way, no text
+  expect([null, "no_text"]).toContain((await photoRow(householdId))!.text_result);
 });

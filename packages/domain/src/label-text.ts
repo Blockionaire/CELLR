@@ -130,12 +130,34 @@ function nameOnItsOwnLine(lines: string[][], names: Tokens[], producer: Tokens):
 
 const printed = (lines: string[][], words: Tokens) => lines.some((l) => indexOfRun(l, words) >= 0);
 
-/** Exactly this wine is printed: its producer, and its name or a verified alias on a line of its own. */
-function namesExactly(lines: string[][], wine: WineSummary): boolean {
+/** The distinguishing words of a name (estate words such as "Château" left out), or all of them if none remain. */
+const coreOf = (words: Tokens): string[] => {
+  const kept = words.filter((t) => !ESTATE_WORDS.has(t));
+  return kept.length > 0 ? kept : [...words];
+};
+
+/**
+ * A name that says nothing beyond the producer ("Château Margaux" by Château Margaux, "Alpha" by Domaine Alpha): every
+ * one of its distinguishing words is already in the producer's name. Printed, it only shows the estate, and the
+ * estate's other cuvées ("Pavillon Rouge du Château Margaux") print it too.
+ */
+const onlyTheProducer = (name: Tokens, producer: Tokens) => {
+  const estate = new Set(coreOf(producer));
+  return coreOf(name).every((t) => estate.has(t));
+};
+
+/**
+ * Exactly this wine is printed: its producer, and its name or a verified alias on a line of its own. `distinct`: only
+ * names that say more than the producer count (for confirming a catalogue identity, where a guess is not allowed; a
+ * wine named after its estate is then recognised only through a distinct verified alias, otherwise by the model).
+ */
+function namesExactly(lines: string[][], wine: WineSummary, distinct = false): boolean {
   const producer = tokensOf(wine.producer);
   if (producer.length === 0 || !printed(lines, producer)) return false;
-  const names = [wine.name, ...(wine.aliases ?? [])].map(tokensOf).filter((n) => n.length > 0);
-  return nameOnItsOwnLine(lines, names, producer);
+  const names = [wine.name, ...(wine.aliases ?? [])]
+    .map(tokensOf)
+    .filter((n) => n.length > 0 && !(distinct && onlyTheProducer(n, producer)));
+  return names.length > 0 && nameOnItsOwnLine(lines, names, producer);
 }
 
 // ---- What the rest of the label says about colour, country and bottling --------------------------------------
@@ -377,7 +399,7 @@ export function recognizeLabelText(
   if (lines.length === 0) return none("no-text");
   if (candidates.length >= LABEL_TEXT_LIMITS.candidates) return none("too-many");
 
-  const exact = candidates.filter((c) => c.wine.catalog && namesExactly(lines, c.wine));
+  const exact = candidates.filter((c) => c.wine.catalog && namesExactly(lines, c.wine, true));
   if (exact.length === 0) return none("no-match");
   // Two catalogue wines both printed in full (two colours, two countries, a wine and its reserve): not ours to pick.
   if (exact.length > 1) return none("ambiguous");
