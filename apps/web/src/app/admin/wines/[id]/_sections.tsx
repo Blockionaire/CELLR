@@ -436,7 +436,7 @@ export function LabelsSection({ record }: { record: R }) {
             encType="multipart/form-data"
             className="mt-3 flex flex-wrap items-end gap-3"
           >
-            <Field label="Label image (PNG or JPEG, max 4 MB)">
+            <Field label="Label image (PNG or JPEG, at most 4 MB)">
               <input
                 type="file"
                 name="label"
@@ -532,9 +532,13 @@ export function ArtSection({ record, visual }: { record: R; visual: WineVisual |
         encType="multipart/form-data"
         className="flex flex-wrap items-end gap-3 text-small"
       >
-        <Field
-          label={`${published ? "Replace the picture" : "Upload a 2D bottle picture"} (PNG, transparent, upright, ≥ ${BOTTLE_ART_LIMITS.minEdge} px, ≤ 4 MB)`}
-        >
+        <p className="w-full text-caption text-ink-2">
+          {published ? "Replace the picture" : "Upload a 2D bottle picture"}: a finished picture of
+          the whole bottle, ideally a PNG with a transparent background, upright, at least{" "}
+          {BOTTLE_ART_LIMITS.minEdge} px wide, at most 4 MB. It is kept as a draft until you publish
+          it.
+        </p>
+        <Field label="Picture">
           <input
             type="file"
             name="picture"
