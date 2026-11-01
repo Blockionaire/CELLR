@@ -330,6 +330,8 @@ begin
     'ocrMs', jsonb_build_object(
       'hit', (select round(avg(ocr_ms)) from i where text_result = 'hit'),
       'miss', (select round(avg(ocr_ms)) from i where text_result = 'miss'),
+      -- read on the phone before the identical-photo cache answered: time the text was not needed
+      'cacheHit', (select round(avg(ocr_ms)) from i where cache_result = 'hit'),
       'p50', (select percentile_cont(0.5) within group (order by ocr_ms) from i where ocr_ms is not null),
       'p90', (select percentile_cont(0.9) within group (order by ocr_ms) from i where ocr_ms is not null)),
     'lookupMs', jsonb_build_object(

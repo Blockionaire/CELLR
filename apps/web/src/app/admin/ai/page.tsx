@@ -168,7 +168,7 @@ export default async function AdminAiPage({
                     <Kpi
                       label="Phone OCR, not matched"
                       value={ms(data.paths.ocrMs.miss)}
-                      hint="Added before the model call"
+                      hint={`Added before the model call · ${ms(data.paths.ocrMs.cacheHit)} before a photo-cache hit (not needed)`}
                     />
                     <Kpi
                       label="Catalogue lookup"

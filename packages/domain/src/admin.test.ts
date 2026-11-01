@@ -205,7 +205,7 @@ describe("database-first recognition paths", () => {
     textMisses: 6,
     noText: 4,
     textHitsWithYear: 5,
-    ocrMs: { hit: "1820", miss: 2400, p50: 2000, p90: 2900 },
+    ocrMs: { hit: "1820", miss: 2400, cacheHit: 700, p50: 2000, p90: 2900 },
     lookupMs: { avg: 35, p90: 60 },
     vision: { calls: 9, avgMs: 6100, p90Ms: 9000, costedCalls: 9, avgCostUsdMicro: 1500 },
     outcomes: { accepted: 3, yearChanged: 1, yearFilled: 1, differentWine: 0, unsaved: 1 },

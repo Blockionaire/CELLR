@@ -127,16 +127,36 @@ let queue: Promise<unknown> = Promise.resolve();
 const timeout = (ms: number) =>
   new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), Math.max(0, ms)));
 
-/** A copy of the photo at most `OCR.edge` long, turned upright; null when the browser cannot decode it. */
+/** Decodes a picture: createImageBitmap where there is one, otherwise an <img> (older Safari). */
+async function decode(photo: Blob): Promise<{ source: CanvasImageSource; w: number; h: number }> {
+  if (typeof createImageBitmap === "function") {
+    const bitmap = await createImageBitmap(photo);
+    return { source: bitmap, w: bitmap.width, h: bitmap.height };
+  }
+  const url = URL.createObjectURL(photo);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    return { source: img, w: img.naturalWidth, h: img.naturalHeight };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
+ * A copy of the (prepared: already upright, re-encoded, no camera metadata) photo at most `OCR.edge` long; null when
+ * the browser cannot decode it, and the photo then simply goes on without text.
+ */
 async function shrink(photo: Blob): Promise<HTMLCanvasElement | null> {
   try {
-    const bitmap = await createImageBitmap(photo, { imageOrientation: "from-image" });
-    const scale = Math.min(1, OCR.edge / Math.max(bitmap.width, bitmap.height));
+    const { source, w, h } = await decode(photo);
+    const scale = Math.min(1, OCR.edge / Math.max(w, h));
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close();
+    canvas.width = Math.max(1, Math.round(w * scale));
+    canvas.height = Math.max(1, Math.round(h * scale));
+    canvas.getContext("2d")?.drawImage(source, 0, 0, canvas.width, canvas.height);
+    if ("close" in source && typeof source.close === "function") source.close();
     return canvas;
   } catch {
     return null;

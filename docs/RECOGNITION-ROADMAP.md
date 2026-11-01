@@ -208,15 +208,30 @@ on a 1280 px copy of the photo. No paid OCR API; only the text is sent, next to 
 - Loaded lazily: the scan screen warms it in the background; nothing on "save data" connections or without
   WebAssembly. The files are self-hosted under `/ocr/<version>/` (copied from `node_modules` by
   `apps/web/scripts/ocr-assets.mjs` before `dev`/`build`), cached immutably; the model is kept in IndexedDB.
-  Transfer on first use ≈ 1.5 MB (SIMD core, compressed) + 2.9 MB (model); the main-thread code is a separate
-  ≈ 6 KB chunk.
-- Bounded: a photo waits at most 3 s for text, and at most 1.5 s for a reader that is still loading. A read that runs
-  out of time terminates the worker. A load that fails (or takes over 30 s) is not retried during the visit. In all of
-  these cases the photo is sent without text at once.
-- Safari/iPhone: the core files are the LSTM-only builds with SIMD (Safari 16.4+) and without (older); `workerBlobURL`
-  is off (same-origin worker file). Verified in Chromium (desktop, and the iPhone 13 emulation of the e2e `phone`
-  project), **not yet on a physical iPhone**: per-device OCR timings are recorded on `/admin/ai` once beta phones use
-  it (see Limits).
+  The `/ocr/*` files carry their own worker CSP (`script-src 'self' 'wasm-unsafe-eval'`); the pages' nonce CSP is
+  unchanged.
+- **First use vs warm** (measured in Chromium with iPhone 13 emulation on a fast CPU, localhost; not a phone):
+  - transfer on first use ≈ 4.0 MB compressed: core `.wasm` 1.06 MB (2.86 MB if the host does not compress `.wasm`),
+    model 2.95 MB, worker and glue ≈ 58 KB; the main-thread code is a separate ≈ 6 KB chunk. At 10 Mbit/s that is
+    ≈ 3–5 s of download (arithmetic, not measured). Until it has loaded, scans go to the model as before;
+  - reader start: 0.44–0.53 s with an empty cache (excluding network), 0.21–0.24 s warm (model from IndexedDB);
+  - one read of a 1280 px label: 0.4–0.8 s warm; 0.85–1.5 s in the e2e runs (parallel load, includes the wait).
+- Bounded: a photo waits at most 2.5 s for text, and at most 0.3 s for a reader that is still loading. A read that
+  runs out of time, or a load that fails (or takes over 30 s), turns the reader off for the rest of the visit. Reads
+  are queued one at a time (a batch reads two photos at once); a photo still queued when its budget ends goes on
+  without text. In all of these cases the photo is sent without text at once.
+- **Mobile Safari** (checked against the code and the engines' documented support, **not on a physical iPhone or in
+  WebKit**, which this environment does not have):
+  - Safari 16.4+: SIMD core (`tesseract-core-simd-lstm`), chosen by the same `WebAssembly.validate` probe as
+    wasm-feature-detect; older WebAssembly: the plain LSTM core;
+  - classic same-origin worker (`workerBlobURL: false`), `importScripts`, `fetch`: all supported;
+  - the photo is decoded with `createImageBitmap` without options (the prepared photo is already upright), or an
+    `<img>` where `createImageBitmap` is missing;
+  - IndexedDB unavailable (private browsing): tesseract.js fetches the model again instead (HTTP-cached);
+  - a Safari without `'wasm-unsafe-eval'` CSP support, or one that cannot compile the core: the load fails, the
+    reader is off for the visit, and every scan goes to the model exactly as before.
+
+  Per-device OCR timings appear on `/admin/ai` once beta phones use it.
 
 **Lookup.** `public.find_wines_by_label_text(household, phrases)` (migration `20261108000031`) takes at most 400
 normalised phrases (every 1–8 word run of each line, shortest lines first) and returns at most 40 wines: those of a
@@ -270,11 +285,28 @@ year corrected, saved as another wine (rejected), not saved. The scan analytics 
   labels will often give no usable text, and then the model reads them (safe, but no saving). Measure the text hit
   rate and the rejection rate on `/admin/ai` during the beta before drawing conclusions.
 - **iPhone timings are unmeasured** in this environment (no WebKit, no device). The first use on a phone downloads
-  ≈ 4.4 MB; until the reader is loaded, scans go to the model.
+  ≈ 4 MB; until the reader is loaded, scans go to the model.
 - **English model only**; accents are ignored by the matching, so French, Italian and Spanish names still match.
 - **Catalogue wines only**: hits grow with the catalogue (Sprints I/J/R).
-- When OCR text is read but not conclusive, the photo waited for it (≤ 3 s) before the model call; this is shown as
-  "Phone OCR, not matched".
+- When OCR text is read but not conclusive, the photo waited for it (≤ 2.5 s) before the model call; this is shown
+  as "Phone OCR, not matched".
+- **The phone reads before the identical-photo cache is checked.** The cache lives on the server and is keyed by the
+  SHA-256 of the server-cleaned photo, so the phone cannot know a photo is an exact repeat before it uploads it.
+  Checking first would need a new pre-check endpoint and an extra round trip on every scan (cache misses are the
+  large majority), or a second upload; neither was added. The cost on a cache hit is the OCR time (bounded by 2.5 s;
+  ≈ 1 s in the e2e run). It is measured: `/admin/ai` shows the average OCR time spent before photo-cache hits
+  ("… before a photo-cache hit (not needed)"). Within a batch, an identical photo is already held on the phone and
+  not sent.
+- **No straightened label after a text match.** The label outline (`labelCorners`) comes from the vision model,
+  which a text match does not call, so no label texture is made for that photo. The existing fallback applies:
+  - with published 2D artwork (the catalogue's or inherited), the artwork is shown, unchanged;
+  - otherwise the wine's page shows the drawn bottle with the whole photo as a print beside it, cellar cards show
+    the drawn bottle, and the 3D bottle wears the whole photo instead of just the label;
+  - the person can frame the label at any time on the wine's page ("Show us where the label is"), as before.
+
+  An outline guessed from the OCR text boxes was considered and not built: label edges are not text edges (margins,
+  artwork, curvature), and a wrong crop would look worse than this fallback. A curated catalogue label image as the
+  texture would be the reliable route; not in this sprint.
 
 ---
 

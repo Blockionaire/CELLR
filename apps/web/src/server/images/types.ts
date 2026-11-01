@@ -34,7 +34,8 @@ export type CacheResult = "hit" | "miss";
  * conclusive (miss), or there was no text (no_text: OCR unavailable, too slow or empty). Never the text itself.
  */
 export interface TextMeasure {
-  result: "hit" | "miss" | "no_text";
+  /** Absent when the text was not used: the identical-photo cache answered first (only the OCR time is kept). */
+  result?: "hit" | "miss" | "no_text";
   /** The wine proposed (hit only), and the year read with it. */
   wineId?: string | null;
   year?: number | null;

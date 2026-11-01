@@ -109,16 +109,14 @@ test("a new photo of a known catalogue wine is recognised from its label text, w
   await openScan(page);
   const size = uniqueSize();
   // the model is not programmed for this photo: if it were asked, the scan would not say "label text"
-  await takePhoto(
-    page,
-    await labelPhoto(size, [
-      producer.toUpperCase(),
-      name,
-      "2019",
-      "Pouilly-Fumé",
-      "Produit de France",
-    ]),
-  );
+  const photo = await labelPhoto(size, [
+    producer.toUpperCase(),
+    name,
+    "2019",
+    "Pouilly-Fumé",
+    "Produit de France",
+  ]);
+  await takePhoto(page, photo);
 
   await expect(page.getByRole("heading", { name: "We found it" })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/Recognised from the printed label text, without AI/)).toBeVisible();
@@ -147,6 +145,39 @@ test("a new photo of a known catalogue wine is recognised from its label text, w
       [householdId, wineId],
     ),
   ).toHaveLength(1);
+
+  // No model looked at the photo, so there is no label outline and no straightened label for the 3D bottle: the
+  // wine's page shows the existing fallback, the drawn bottle with the whole photo as a print (the person can frame
+  // the label there). A catalogue wine with published 2D artwork shows that instead.
+  const [bottle] = await sql<{ vintage: string; texture: string | null }>(
+    `select b.vintage_id as vintage, i.texture_path as texture
+       from public.bottles b join public.bottle_images i on i.id = b.front_image_id
+      where b.household_id = $1`,
+    [householdId],
+  );
+  expect(bottle!.texture).toBeNull();
+  await page.goto(`/cellar/${bottle!.vintage}`);
+  await expect(page.getByTestId("bottle-portrait")).toHaveAttribute("data-label", "print");
+  await page.screenshot({ path: "test-results/shots/sprint-s-text-match-portrait.png" });
+
+  // The same photo again, now confirmed: the identical-photo cache answers. The phone read the text first anyway (it
+  // cannot know before the server looked); that time is recorded apart.
+  await openScan(page);
+  await takePhoto(page, photo);
+  await expect(page.getByText(/You confirmed this exact photo before/)).toBeVisible({
+    timeout: 20_000,
+  });
+  const [again] = await sql<{ cache: string; text: string | null; ocr_ms: number | null }>(
+    `select cache_result as cache, text_result as text, ocr_ms from public.bottle_images
+      where household_id = $1 order by created_at desc limit 1`,
+    [householdId],
+  );
+  expect(again).toMatchObject({ cache: "hit", text: null });
+  expect(again!.ocr_ms).toBeGreaterThan(0);
+  test.info().annotations.push({
+    type: "ocr_ms before a photo-cache hit",
+    description: String(again!.ocr_ms),
+  });
 });
 
 test("a reserve bottling of the same name is not guessed: the vision model reads it as before", async ({

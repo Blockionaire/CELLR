@@ -84,6 +84,9 @@ begin
     values (h1, 'front', h1 || '/s2/photo.jpg', 'miss', 'miss', 2500, 30) returning id into img2;
   insert into public.bottle_images (household_id, side, original_path, cache_result, text_result)
     values (h1, 'front', h1 || '/s3/photo.jpg', 'miss', 'no_text') returning id into img3;
+  -- an identical-photo cache hit: the phone had read the text anyway; only that time is kept
+  insert into public.bottle_images (household_id, side, original_path, cache_result, ocr_ms)
+    values (h1, 'front', h1 || '/s4/photo.jpg', 'hit', 700);
   perform test.rec('a proposed wine is only kept with a text hit',
     test.denied(format('insert into public.bottle_images (household_id, side, original_path, text_result, text_wine_id) values (%L, %L, %L, %L, %L)',
                        h1, 'front', h1 || '/x/photo.jpg', 'miss', cw)));
@@ -132,8 +135,10 @@ begin
   -- ---- the admin's recognition paths: counts and timings only ------------------------------------------------
   s := public.admin_recognition_paths(now() - interval '1 day', now() + interval '1 day');
   perform test.rec('scans, text attempts, hits, misses and no-text are counted',
-    (s->>'scans')::int = 3 and (s->>'textAttempts')::int = 2 and (s->>'textHits')::int = 1
-    and (s->>'textMisses')::int = 1 and (s->>'noText')::int = 1 and (s->>'cacheHits')::int = 0);
+    (s->>'scans')::int = 4 and (s->>'textAttempts')::int = 2 and (s->>'textHits')::int = 1
+    and (s->>'textMisses')::int = 1 and (s->>'noText')::int = 1 and (s->>'cacheHits')::int = 1);
+  perform test.rec('the OCR time spent before a photo-cache hit is measured apart',
+    (s->'ocrMs'->>'cacheHit')::numeric = 700 and (s->'ocrMs'->>'hit')::numeric = 1800);
   perform test.rec('a hit saved with another year counts as a year change, not as accepted or another wine',
     (s->'outcomes'->>'yearChanged')::int = 1 and (s->'outcomes'->>'accepted')::int = 0
     and (s->'outcomes'->>'differentWine')::int = 0);

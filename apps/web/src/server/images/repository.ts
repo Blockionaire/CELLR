@@ -85,7 +85,7 @@ export function createImageRepository(db: Db): ImageRepository {
       };
       const text: Partial<Database["public"]["Tables"]["bottle_images"]["Insert"]> = row.text
         ? {
-            text_result: row.text.result,
+            ...(row.text.result ? { text_result: row.text.result } : {}),
             ...(row.text.result === "hit" && row.text.wineId
               ? { text_wine_id: row.text.wineId, text_year: row.text.year ?? null }
               : {}),

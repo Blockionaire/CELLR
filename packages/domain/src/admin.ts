@@ -171,7 +171,7 @@ export const AdminRecognitionPathsSchema = z.object({
   textMisses: Count,
   noText: Count,
   textHitsWithYear: Count,
-  ocrMs: z.object({ hit: Ms, miss: Ms, p50: Ms, p90: Ms }),
+  ocrMs: z.object({ hit: Ms, miss: Ms, cacheHit: Ms.default(null), p50: Ms, p90: Ms }),
   lookupMs: z.object({ avg: Ms, p90: Ms }),
   vision: z.object({
     calls: Count,

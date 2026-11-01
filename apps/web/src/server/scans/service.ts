@@ -189,8 +189,13 @@ export function createScanService(deps: ScanDeps) {
       }
 
       // Database-first: a new photo of a known catalogue wine, named exactly by its printed text, needs no model.
+      // An identical confirmed photo needs no text; the phone read it anyway (it cannot know before the server
+      // looked), so only how long that took is kept, to measure what reading first costs on cache hits.
       const text = remembered
-        ? { measure: null, match: null }
+        ? {
+            measure: input.labelText ? { ocrMs: clampMs(input.labelText.ms) } : null,
+            match: null,
+          }
         : await fromText(householdId, input.labelText);
 
       const { image, photo } = await deps.images.save(prepared, cacheResult, text.measure);

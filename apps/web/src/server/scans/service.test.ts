@@ -623,7 +623,8 @@ describe("scanning a label", () => {
       const result = await service.scan({ photo, labelText: { text: LABEL, ms: 900 } });
       expect(result.remembered).toBe(true);
       expect(state.lookups).toHaveLength(0);
-      expect(state.uploads[0]!.text).toBeNull();
+      // the text is not used; only what reading it cost is kept
+      expect(state.uploads[0]!.text).toEqual({ ocrMs: 900 });
     });
   });
 });
