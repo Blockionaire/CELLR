@@ -22,6 +22,7 @@ const reads = {
   adminCandidate: vi.fn(),
   adminBottlePhotos: vi.fn(),
   adminBottlePhoto: vi.fn(),
+  adminNextPhoto: vi.fn(),
   adminWineVisuals: vi.fn(),
   adminWineVisual: vi.fn(),
   adminUploadBottleArt: vi.fn(),

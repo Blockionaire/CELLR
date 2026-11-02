@@ -2358,6 +2358,16 @@ export type Database = {
       };
       admin_bottle_photo: { Args: { p_id: string }; Returns: Json };
       admin_bottle_photo_path: { Args: { p_id: string; p_position: number }; Returns: string };
+      admin_bottle_photo_queue: {
+        Args: {
+          p_limit: number;
+          p_offset: number;
+          p_query: string;
+          p_stage: string;
+          p_status: string;
+        };
+        Returns: Json;
+      };
       admin_bottle_photos: {
         Args: { p_limit: number; p_offset: number; p_status: string };
         Returns: Json;
@@ -2491,7 +2501,24 @@ export type Database = {
         Returns: Json;
       };
       admin_wine_master_counts: { Args: Record<PropertyKey, never>; Returns: Json };
+      admin_wine_master_facets: { Args: Record<PropertyKey, never>; Returns: Json };
       admin_wine_master_record: { Args: { p_wine: string }; Returns: Json };
+      admin_wine_master_search: {
+        Args: {
+          p_country: string;
+          p_desc: boolean;
+          p_flags: string[];
+          p_household: string;
+          p_limit: number;
+          p_offset: number;
+          p_query: string;
+          p_scope: string;
+          p_sort: string;
+          p_type: string;
+          p_vintages: string;
+        };
+        Returns: Json;
+      };
       admin_wine_reassign_producer: {
         Args: {
           p_actor: string;
@@ -2529,6 +2556,7 @@ export type Database = {
         Args: { p_filter: string; p_limit: number; p_query: string; p_scope: string };
         Returns: Json;
       };
+      admin_work_queue: { Args: Record<PropertyKey, never>; Returns: Json };
       ai_budget_hold: {
         Args: { p_daily: number; p_estimate: number; p_monthly: number; p_task: string };
         Returns: string;

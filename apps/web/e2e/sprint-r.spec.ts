@@ -169,7 +169,8 @@ test("the master database: find, link after comparing, correct with an audit, vi
   await expect(ownRow).toContainText("Not linked");
 
   // ---- linking: only after comparing side by side, with a reason and an explicit yes ---------------------------
-  await ownRow.getByRole("link").click();
+  // Sprint U: the whole row opens the wine (its one row link); the household in it is a filter link of its own
+  await ownRow.locator("a[data-row-link]").click();
   await expect(admin).toHaveURL(new RegExp(`/admin/wines/${own.wineId}`));
   await expect(admin.getByTestId("scope").first()).toContainText(`household wine of ${household}`);
   const links = admin.getByRole("region", { name: "Catalogue links" });

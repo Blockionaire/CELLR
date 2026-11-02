@@ -31,7 +31,9 @@ export async function reviewAction(id: string, form: FormData) {
   const message = !parsed.success
     ? "Not saved: check the fields."
     : (await bottleLibrary.review(session, photo, parsed.data)) === true
-      ? `Marked as ${parsed.data.status}.`
+      ? parsed.data.status === "approved"
+        ? "Marked as approved. Next: create the 2D artwork and upload it on the wine."
+        : `Marked as ${parsed.data.status}.`
       : "Not saved: the photo is gone, the target is not a catalogue wine, or the photo is already linked to another one.";
   revalidatePath("/admin/bottle-photos");
   revalidatePath(`/admin/bottle-photos/${photo}`);

@@ -16,7 +16,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     new Response(null, {
       status: 303,
       headers: {
-        location: `/admin/wines/${wine.data}?msg=${encodeURIComponent(message)}#labels`,
+        location: `/admin/wines/${wine.data}?msg=${encodeURIComponent(message)}&at=labels#labels`,
         "cache-control": "no-store",
       },
     });

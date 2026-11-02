@@ -10,8 +10,21 @@ import {
   type CandidateState,
 } from "@cellr/domain";
 import { adminCatalog, getAdminSession } from "@/server/admin/service";
-import { cn } from "@/ui/cn";
-import { Kpi, Kpis, Notice, PageTitle, Section, Table, date, num } from "../_ui";
+import {
+  Kpi,
+  Kpis,
+  Message,
+  Notice,
+  PageTitle,
+  Section,
+  Tab,
+  Table,
+  button,
+  date,
+  input,
+  link,
+  num,
+} from "../_ui";
 import { setModeAction } from "./actions";
 import { STATE_LABEL } from "./labels";
 
@@ -70,11 +83,12 @@ export default async function AdminCatalogPage({
     <>
       <PageTitle
         title="Wine catalogue"
+        crumbs={[{ label: "Wine catalogue" }]}
         note={`Wines households confirmed, grouped as candidates. A candidate asks for review from ${CATALOG_REVIEW.ready} independent households that confirmed it from a label (a person counts once, whatever their households; typed wines are shown apart and never count). Nothing is published without your approval; automatic publication is off.`}
       />
-      {message && <Notice>{message}</Notice>}
+      <Message text={message} />
       <p className="-mt-3 mb-6 text-small">
-        <Link href="/admin/catalog/corrections" prefetch={false} className="text-accent-ink">
+        <Link href="/admin/catalog/corrections" prefetch={false} className={link}>
           Corrections from scans →
         </Link>{" "}
         <span className="text-ink-2">
@@ -89,11 +103,7 @@ export default async function AdminCatalogPage({
         <form action={setModeAction} className="flex flex-wrap items-end gap-3 text-small">
           <label className="flex flex-col gap-1">
             <span className="text-ink-2">Catalogue learning</span>
-            <select
-              name="mode"
-              defaultValue={data.mode}
-              className="rounded-[10px] bg-surface px-3 py-2 ring-1 ring-hairline"
-            >
+            <select name="mode" defaultValue={data.mode} className={input}>
               {LEARNING_MODES.map((m) => (
                 <option key={m} value={m}>
                   {MODE_LABEL[m]}
@@ -101,7 +111,7 @@ export default async function AdminCatalogPage({
               ))}
             </select>
           </label>
-          <button type="submit" className="rounded-full bg-ink px-4 py-2 text-canvas">
+          <button type="submit" className={button}>
             Save
           </button>
         </form>
@@ -123,20 +133,11 @@ export default async function AdminCatalogPage({
         </Kpis>
       </Section>
 
-      <nav aria-label="State" className="mb-2 flex flex-wrap gap-2 text-small">
+      <nav aria-label="State" className="mb-3 flex flex-wrap gap-2">
         {FILTERS.map((f) => (
-          <Link
-            key={f}
-            href={href(f, sort)}
-            prefetch={false}
-            aria-current={f === state ? "page" : undefined}
-            className={cn(
-              "rounded-full px-3 py-1.5 ring-1 ring-hairline",
-              f === state ? "bg-raised text-ink" : "text-ink-2 hover:text-ink",
-            )}
-          >
+          <Tab key={f} href={href(f, sort)} current={f === state}>
             {f === "open" ? "All open" : f === "all" ? "Everything" : STATE_LABEL[f]}
-          </Link>
+          </Tab>
         ))}
       </nav>
       <nav aria-label="Sort" className="mb-4 flex flex-wrap gap-3 text-caption text-ink-2">
@@ -147,7 +148,9 @@ export default async function AdminCatalogPage({
             href={href(state, s)}
             prefetch={false}
             aria-current={s === sort ? "true" : undefined}
-            className={s === sort ? "text-ink underline" : "hover:text-ink"}
+            className={
+              s === sort ? "font-medium text-ink underline underline-offset-4" : "hover:text-ink"
+            }
           >
             {SORT_LABEL[s]}
           </Link>
@@ -165,15 +168,9 @@ export default async function AdminCatalogPage({
         ]}
         rows={data.rows.map((r) => ({
           key: r.id,
+          href: `/admin/catalog/${r.id}`,
           cells: [
-            <Link
-              key="w"
-              href={`/admin/catalog/${r.id}`}
-              prefetch={false}
-              className="text-accent-ink"
-            >
-              {r.producer} — {r.name}
-            </Link>,
+            `${r.producer} — ${r.name}`,
             [r.type, r.country, r.region].filter(Boolean).join(" · "),
             r.vintages.map((y) => (y === null ? "NV" : String(y))).join(", ") || "—",
             `${num(r.scanHouseholds)} label${r.manualHouseholds ? ` (+${num(r.manualHouseholds)} typed)` : ""}`,

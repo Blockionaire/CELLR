@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   FEEDBACK_CATEGORIES,
@@ -7,8 +6,7 @@ import {
   type FeedbackCategory,
 } from "@cellr/domain";
 import { adminFeedback, getAdminSession } from "@/server/admin/service";
-import { cn } from "@/ui/cn";
-import { Kpi, Kpis, Notice, PageTitle, Section, Table, date, num } from "../_ui";
+import { Kpi, Kpis, Notice, PageTitle, Pager, Section, Tab, Table, date, num } from "../_ui";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +58,7 @@ export default async function AdminFeedbackPage({
     <>
       <PageTitle
         title="Beta feedback"
+        crumbs={[{ label: "Beta feedback" }]}
         note="Sent by testers from Profile → Share feedback. Only what they typed and chose to include; no names, ids, URLs or diagnostics. Newest first."
       />
       <Section title="By category">
@@ -70,20 +69,11 @@ export default async function AdminFeedbackPage({
           ))}
         </Kpis>
       </Section>
-      <nav aria-label="Category" className="mb-4 flex flex-wrap gap-2 text-small">
+      <nav aria-label="Category" className="mb-4 flex flex-wrap gap-2">
         {[null, ...FEEDBACK_CATEGORIES].map((c) => (
-          <Link
-            key={c ?? "all"}
-            href={href(c)}
-            prefetch={false}
-            aria-current={c === category ? "page" : undefined}
-            className={cn(
-              "rounded-full px-3 py-1.5 ring-1 ring-hairline",
-              c === category ? "bg-raised text-ink" : "text-ink-2 hover:text-ink",
-            )}
-          >
+          <Tab key={c ?? "all"} href={href(c)} current={c === category}>
             {c ? LABEL[c] : "All"}
-          </Link>
+          </Tab>
         ))}
       </nav>
       <Table
@@ -108,25 +98,7 @@ export default async function AdminFeedbackPage({
         }))}
         empty="No feedback here yet."
       />
-      <nav aria-label="Pages" className="mt-4 flex items-center justify-between text-small">
-        {page > 1 ? (
-          <Link href={href(category, page - 1)} prefetch={false} className="text-accent-ink">
-            ← Newer
-          </Link>
-        ) : (
-          <span />
-        )}
-        <span className="text-ink-2">
-          Page {num(page)} of {num(result.pages)}
-        </span>
-        {page < result.pages ? (
-          <Link href={href(category, page + 1)} prefetch={false} className="text-accent-ink">
-            Older →
-          </Link>
-        ) : (
-          <span />
-        )}
-      </nav>
+      <Pager page={page} pages={result.pages} href={(p) => href(category, p)} />
     </>
   );
 }

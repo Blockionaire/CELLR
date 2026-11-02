@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CATALOG_REVIEW } from "@cellr/domain";
 import { adminCorrections, getAdminSession } from "@/server/admin/service";
-import { Kpi, Kpis, Notice, PageTitle, Section, Table, date, num } from "../../_ui";
+import { Kpi, Kpis, Notice, PageTitle, Section, Table, date, num, link } from "../../_ui";
 import { CORRECTION_STATE_LABEL, FIELD_LABEL, fieldList } from "./labels";
 
 export const dynamic = "force-dynamic";
@@ -31,9 +31,10 @@ export default async function AdminCorrectionsPage() {
     <>
       <PageTitle
         title="Corrections"
+        crumbs={[{ label: "Wine catalogue", href: "/admin/catalog" }, { label: "Corrections" }]}
         note={`What people did with a catalogue wine a scan proposed, when they saved: corrected one of its catalogue details (producer, name, colour, country, region) or chose another wine. ${CATALOG_REVIEW.ready} independent households asking for a change make it "review needed"; households disagreeing is a conflict. A corrected vintage is a scan misread and is counted below, not here. Nothing is changed automatically; editing catalogue wines comes later.`}
       >
-        <Link href="/admin/catalog" prefetch={false} className="text-small text-accent-ink">
+        <Link href="/admin/catalog" prefetch={false} className={`${link} text-small`}>
           ← Candidates
         </Link>
       </PageTitle>
@@ -74,15 +75,9 @@ export default async function AdminCorrectionsPage() {
           ]}
           rows={data.rows.map((r) => ({
             key: r.wineId,
+            href: `/admin/catalog/corrections/${r.wineId}`,
             cells: [
-              <Link
-                key="w"
-                href={`/admin/catalog/corrections/${r.wineId}`}
-                prefetch={false}
-                className="text-accent-ink"
-              >
-                {r.producer} — {r.name}
-              </Link>,
+              `${r.producer} — ${r.name}`,
               CORRECTION_STATE_LABEL[r.state],
               num(r.openHouseholds),
               num(r.corrected),

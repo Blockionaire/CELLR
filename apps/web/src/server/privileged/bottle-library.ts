@@ -3,11 +3,14 @@ import { randomUUID } from "node:crypto";
 import {
   BottlePhotoDetailSchema,
   BottlePhotoListSchema,
+  BottlePhotoQueueSchema,
   WineVisualRowSchema,
   WineVisualSchema,
   type BottleArtType,
   type BottlePhotoDetail,
   type BottlePhotoList,
+  type BottlePhotoQueue,
+  type PhotoStage,
   type BottlePhotoStatus,
   type WineVisual,
   type WineVisualFilter,
@@ -100,6 +103,31 @@ export function readBottlePhotos(
   assertAdmin(session);
   return rpc("admin_bottle_photos", { p_status: status, p_limit: limit, p_offset: offset }, (d) =>
     BottlePhotoListSchema.parse(d),
+  );
+}
+
+/** The photos with their workflow stage (Sprint U, 20261111000034): by review status or by stage, searched, paged. */
+export function readBottlePhotoQueue(
+  session: AdminSession,
+  filter: {
+    status: BottlePhotoStatus | "all" | null;
+    stage: PhotoStage | "all" | null;
+    query: string;
+  },
+  limit: number,
+  offset: number,
+): Result<BottlePhotoQueue> {
+  assertAdmin(session);
+  return rpc(
+    "admin_bottle_photo_queue",
+    {
+      p_status: filter.status,
+      p_stage: filter.stage,
+      p_query: filter.query,
+      p_limit: limit,
+      p_offset: offset,
+    },
+    (d) => BottlePhotoQueueSchema.parse(d),
   );
 }
 

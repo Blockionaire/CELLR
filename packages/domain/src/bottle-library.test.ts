@@ -7,6 +7,8 @@ import {
   BottlePhotoReviewSchema,
   cleanBottleArt,
   parseBottlePhotoFilter,
+  parsePhotoStage,
+  photoStage,
   sanitizePng,
 } from "./bottle-library";
 
@@ -207,5 +209,26 @@ describe("the admin's bottle-photo rows: one contract with the database", () => 
     expect(
       BottlePhotoRowSchema.safeParse({ ...row, householdId: null, household: null }).success,
     ).toBe(true);
+  });
+});
+
+describe("the bottle-photo workflow stage (Sprint U)", () => {
+  const none = { published: false, draft: false };
+  it("follows the review status for pending, rejected and used photos", () => {
+    expect(photoStage("pending", { published: true, draft: true })).toBe("pending");
+    expect(photoStage("rejected", none)).toBe("rejected");
+    expect(photoStage("used", none)).toBe("published");
+  });
+  it("for an approved photo, follows the wine's artwork: needed, then draft, then published", () => {
+    expect(photoStage("approved", none)).toBe("artwork_needed");
+    expect(photoStage("approved", { published: false, draft: true })).toBe("draft");
+    expect(photoStage("approved", { published: true, draft: false })).toBe("published");
+    // a replacement waiting is still a step to take
+    expect(photoStage("approved", { published: true, draft: true })).toBe("draft");
+  });
+  it("reads known stages only", () => {
+    expect(parsePhotoStage("artwork_needed")).toBe("artwork_needed");
+    expect(parsePhotoStage("all")).toBe("all");
+    expect(parsePhotoStage("approved")).toBeNull();
   });
 });

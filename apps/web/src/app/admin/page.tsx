@@ -1,5 +1,8 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { WorkQueue } from "@cellr/domain";
 import { adminOverview, getAdminSession } from "@/server/admin/service";
+import { cn } from "@/ui/cn";
 import { Kpi, Kpis, Notice, PageTitle, Section, num, pct, unavailable, usd } from "./_ui";
 
 export const dynamic = "force-dynamic";
@@ -7,14 +10,25 @@ export const dynamic = "force-dynamic";
 export default async function AdminOverviewPage() {
   const session = await getAdminSession();
   if (!session) notFound();
-  const { metrics: m, spendToday, spendMonth } = await adminOverview(session);
+  const { metrics: m, spendToday, spendMonth, queue } = await adminOverview(session);
   const costNote = unavailable(spendToday);
   return (
     <>
       <PageTitle
         title="Overview"
-        note="Definitions as in docs/METRICS.md. Activity windows are rolling, in UTC. A rate shows as unavailable when there is nothing to divide by."
+        note="What waits for you first, then the platform's numbers. Definitions as in docs/METRICS.md. Activity windows are rolling, in UTC. A rate shows as unavailable when there is nothing to divide by."
       />
+      <Section title="Work queue" note="Each item opens the list it counts, already filtered.">
+        {queue && queue !== "missing" ? (
+          <Queue q={queue} />
+        ) : (
+          <Notice tone="warn">
+            {queue === "missing"
+              ? "The work queue needs 20261111000034_admin_portal_workflow.sql."
+              : "SUPABASE_SERVICE_ROLE_KEY is not configured on the server, so there is nothing to read."}
+          </Notice>
+        )}
+      </Section>
       {!m ? (
         <Notice>
           Platform metrics are unavailable: the service role is not configured, or the AI-costs
@@ -89,5 +103,62 @@ export default async function AdminOverviewPage() {
         </>
       )}
     </>
+  );
+}
+
+function Queue({ q }: { q: WorkQueue }) {
+  const items = [
+    {
+      label: "Bottle photos awaiting review",
+      value: q.photosPending,
+      href: "/admin/bottle-photos?stage=pending",
+      hint: "Approve or reject",
+    },
+    {
+      label: "Approved contributions awaiting artwork",
+      value: q.artworkNeeded,
+      href: "/admin/bottle-photos?stage=artwork_needed",
+      hint: "Create and upload the 2D artwork",
+    },
+    {
+      label: "Artwork drafts awaiting publication",
+      value: q.artDrafts,
+      href: "/admin/wines?art=draft",
+      hint: `${num(q.photosWithDraft)} approved ${q.photosWithDraft === 1 ? "photo waits" : "photos wait"} on them`,
+    },
+    {
+      label: "Catalogue wines with open corrections",
+      value: q.corrections,
+      href: "/admin/catalog/corrections",
+      hint: "Signals from scans to review",
+    },
+    {
+      label: "Catalogue wines without artwork",
+      value: q.catalogueWithoutArt,
+      href: "/admin/wines?scope=catalogue&art=missing",
+      hint: "Shown with the drawn bottle",
+    },
+  ];
+  return (
+    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5" data-testid="work-queue">
+      {items.map((i, n) => (
+        <li key={i.label}>
+          <Link
+            href={i.href}
+            prefetch={false}
+            className={cn(
+              "flex h-full flex-col rounded-[14px] border bg-surface p-4 transition-colors hover:border-ink-3 hover:bg-raised",
+              i.value > 0 && n < 3 ? "border-accent-fg" : "border-hairline",
+            )}
+          >
+            <span className="text-small font-medium text-ink">{i.label}</span>
+            <span className="mt-1 font-display text-display tnum text-ink">{num(i.value)}</span>
+            <span className="mt-auto pt-1 text-caption text-ink-2">
+              {i.hint} <span aria-hidden="true">→</span>
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

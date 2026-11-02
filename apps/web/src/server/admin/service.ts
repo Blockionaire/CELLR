@@ -26,7 +26,9 @@ import {
   type WineVisualFilter,
   type WineVisualScope,
   MASTER_PAGE_SIZE,
-  type MasterFlag,
+  photoStage,
+  type MasterQuery,
+  type PhotoStage,
 } from "@cellr/domain";
 import { getPageContext } from "@/server/context";
 import { getAdminAllowlist, getAiBudgetEnv } from "@/server/env";
@@ -65,7 +67,7 @@ import {
   readBottleArtFile,
   readBottlePhoto,
   readBottlePhotoFile,
-  readBottlePhotos,
+  readBottlePhotoQueue,
   readWineVisual,
   readWineVisuals,
   removeBottleArt,
@@ -82,7 +84,10 @@ import {
   readHouseholdLabelFile,
   readWineMaster,
   readWineMasterCounts,
+  readWineMasterFacets,
   readWineMasterRecord,
+  readWineMasterSearch,
+  readWorkQueue,
   reassignProducer,
   removeCatalogLabel,
   setAliases,
@@ -122,13 +127,16 @@ const startOfUtcMonth = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.get
 export async function adminOverview(session: AdminSession, now = new Date()) {
   assertAdmin(session);
   const end = new Date(now.getTime() + 60_000);
-  const [metrics, today, month] = await Promise.all([
+  const [metrics, today, month, queue] = await Promise.all([
     getPlatformMetrics(now).catch(() => null),
     readAiCosts(session, startOfUtcDay(now), end),
     readAiCosts(session, startOfUtcMonth(now), end),
+    readWorkQueue(session),
   ]);
   return {
     metrics,
+    /** What waits for the admin; "missing" until 20261111000034 is applied, null without the service role. */
+    queue,
     spendToday: typeof today === "object" && today ? summarizeAiCosts(today) : today,
     spendMonth: typeof month === "object" && month ? summarizeAiCosts(month) : month,
   };
@@ -297,17 +305,39 @@ export const catalogReview = {
   reviewSignal,
 };
 
-/** The bottle library: photos people sent, and each canonical wine's 2D bottle pictures. */
+/** The bottle library: photos people sent, with their workflow stage, filtered and paged in the database. */
 export async function adminBottlePhotos(
   session: AdminSession,
-  status: BottlePhotoStatus | "all",
+  filter: {
+    status: BottlePhotoStatus | "all" | null;
+    stage: PhotoStage | "all" | null;
+    query: string;
+  },
   page: number,
 ) {
   assertAdmin(session);
   const size = 50;
-  const data = await readBottlePhotos(session, status, size, (Math.max(1, page) - 1) * size);
+  const data = await readBottlePhotoQueue(
+    session,
+    { ...filter, query: filter.query.slice(0, 80) },
+    size,
+    (Math.max(1, page) - 1) * size,
+  );
   if (data === null || data === "missing") return { ready: false as const, reason: data };
-  return { ready: true as const, ...data, page, size };
+  return {
+    ready: true as const,
+    ...data,
+    page,
+    size,
+    pages: Math.max(1, Math.ceil(data.total / size)),
+  };
+}
+
+/** The first photo waiting for the next step of a stage (for "next item" links), or null. */
+export async function adminNextPhoto(session: AdminSession, stage: PhotoStage) {
+  assertAdmin(session);
+  const data = await readBottlePhotoQueue(session, { status: null, stage, query: "" }, 1, 0);
+  return data && data !== "missing" ? (data.rows[0] ?? null) : null;
 }
 
 export async function adminBottlePhoto(session: AdminSession, id: string) {
@@ -316,13 +346,24 @@ export async function adminBottlePhoto(session: AdminSession, id: string) {
   if (detail === null || detail === "missing" || detail === "none") return detail;
   // For an optional, explicit link from a household's own wine to a catalogue wine: the same producer's catalogue
   // wines, to choose from. Never chosen for the admin.
-  const candidates =
+  const wines = [
+    ...new Set([detail.sourceWineId, detail.canonicalWineId].filter(Boolean)),
+  ] as string[];
+  const [candidates, visuals] = await Promise.all([
     detail.sourceCanonical === false && !detail.canonicalWineId
-      ? await readWineVisuals(session, "catalogue", "all", detail.producer, 20).then((r) =>
+      ? readWineVisuals(session, "catalogue", "all", detail.producer, 20).then((r) =>
           Array.isArray(r) ? r : [],
         )
-      : [];
-  return { detail, candidates };
+      : Promise.resolve([]),
+    Promise.all(wines.map((w) => readWineVisual(session, w))),
+  ]);
+  // the artwork of the wine(s) the photo is about: the same rule as the database's workflow stage
+  const art = visuals.flatMap((v) => (v && v !== "missing" && v !== "none" ? v.art : []));
+  const artState = {
+    published: art.some((a) => a.publishedAt !== null),
+    draft: art.some((a) => a.publishedAt === null),
+  };
+  return { detail, candidates, art: artState, stage: photoStage(detail.status, artState) };
 }
 
 export async function adminWineVisuals(
@@ -382,27 +423,37 @@ export const bottleLibrary = {
 
 // ---- The Wine Master Database (Sprint R) -------------------------------------------------------------------------
 
-/** Every wine, searched, filtered and paged in the database, with the overview's counts. */
-export async function adminWineMaster(
-  session: AdminSession,
-  scope: WineVisualScope,
-  flags: MasterFlag[],
-  query: string,
-  page: number,
-) {
+/** Every wine, searched, filtered, sorted and paged in the database, with the overview's counts and the filters' choices. */
+export async function adminWineMaster(session: AdminSession, query: MasterQuery) {
   assertAdmin(session);
   const size = MASTER_PAGE_SIZE;
-  const [list, counts] = await Promise.all([
-    readWineMaster(session, scope, flags, query.slice(0, 80), size, (Math.max(1, page) - 1) * size),
+  const [list, counts, facets] = await Promise.all([
+    readWineMasterSearch(session, query, size, (Math.max(1, query.page) - 1) * size),
     readWineMasterCounts(session),
+    readWineMasterFacets(session),
   ]);
-  if (list === null || list === "missing" || counts === null || counts === "missing")
+  if (
+    list === null ||
+    list === "missing" ||
+    counts === null ||
+    counts === "missing" ||
+    facets === null ||
+    facets === "missing"
+  )
     return {
       ready: false as const,
-      reason: list === null || counts === null ? null : ("missing" as const),
+      reason: list === null || counts === null || facets === null ? null : ("missing" as const),
     };
   await purgeBottleArtFiles().catch(() => {});
-  return { ready: true as const, ...list, counts, page, size };
+  return {
+    ready: true as const,
+    ...list,
+    counts,
+    countries: facets.countries,
+    page: query.page,
+    size,
+    pages: Math.max(1, Math.ceil(list.total / size)),
+  };
 }
 
 /**
@@ -413,13 +464,16 @@ export async function adminWineMaster(
 export async function adminWineMasterRecord(
   session: AdminSession,
   wineId: string,
-  link: { query: string; compare: string | null } = { query: "", compare: null },
+  link: { query: string; compare: string | null; from?: string | null } = {
+    query: "",
+    compare: null,
+  },
 ) {
   assertAdmin(session);
   const record = await readWineMasterRecord(session, wineId);
   if (record === null || record === "missing" || record === "none") return record;
   const canonical = record.status === "canonical";
-  const [visual, correction, candidates, compare] = await Promise.all([
+  const [visual, correction, candidates, compare, from] = await Promise.all([
     readWineVisual(session, wineId),
     canonical ? readCorrection(session, wineId) : Promise.resolve(null),
     !canonical && link.query
@@ -428,6 +482,8 @@ export async function adminWineMasterRecord(
     !canonical && link.compare
       ? readWineMasterRecord(session, link.compare)
       : Promise.resolve(null),
+    // the contribution the admin came from (Sprint U), shown only when it is about this wine
+    link.from ? readBottlePhoto(session, link.from) : Promise.resolve(null),
   ]);
   return {
     record,
@@ -437,6 +493,13 @@ export async function adminWineMasterRecord(
     compare:
       compare && compare !== "missing" && compare !== "none" && compare.status === "canonical"
         ? compare
+        : null,
+    from:
+      from &&
+      from !== "missing" &&
+      from !== "none" &&
+      (from.sourceWineId === wineId || from.canonicalWineId === wineId)
+        ? from
         : null,
   };
 }
