@@ -98,6 +98,7 @@ import {
   updateVintage,
   updateWineDetails,
 } from "@/server/privileged/wine-master";
+import { DEPENDENCY_SOURCE, MissingDependencyError } from "@/server/privileged/db-errors";
 import { assertAdmin, verifyAdmin, type AdminSession } from "./access";
 
 /**
@@ -470,38 +471,46 @@ export async function adminWineMasterRecord(
   },
 ) {
   assertAdmin(session);
-  const record = await readWineMasterRecord(session, wineId);
-  if (record === null || record === "missing" || record === "none") return record;
-  const canonical = record.status === "canonical";
-  const [visual, correction, candidates, compare, from] = await Promise.all([
-    readWineVisual(session, wineId),
-    canonical ? readCorrection(session, wineId) : Promise.resolve(null),
-    !canonical && link.query
-      ? readWineMaster(session, "catalogue", [], link.query.slice(0, 80), 20, 0)
-      : Promise.resolve(null),
-    !canonical && link.compare
-      ? readWineMasterRecord(session, link.compare)
-      : Promise.resolve(null),
-    // the contribution the admin came from (Sprint U), shown only when it is about this wine
-    link.from ? readBottlePhoto(session, link.from) : Promise.resolve(null),
-  ]);
-  return {
-    record,
-    visual: visual && visual !== "missing" && visual !== "none" ? visual : null,
-    correction: correction && correction !== "missing" && correction !== "none" ? correction : null,
-    candidates: candidates && candidates !== "missing" ? candidates.rows : [],
-    compare:
-      compare && compare !== "missing" && compare !== "none" && compare.status === "canonical"
-        ? compare
-        : null,
-    from:
-      from &&
-      from !== "missing" &&
-      from !== "none" &&
-      (from.sourceWineId === wineId || from.canonicalWineId === wineId)
-        ? from
-        : null,
-  };
+  try {
+    const record = await readWineMasterRecord(session, wineId);
+    if (record === null || record === "missing" || record === "none") return record;
+    const canonical = record.status === "canonical";
+    const [visual, correction, candidates, compare, from] = await Promise.all([
+      readWineVisual(session, wineId),
+      canonical ? readCorrection(session, wineId) : Promise.resolve(null),
+      !canonical && link.query
+        ? readWineMaster(session, "catalogue", [], link.query.slice(0, 80), 20, 0)
+        : Promise.resolve(null),
+      !canonical && link.compare
+        ? readWineMasterRecord(session, link.compare)
+        : Promise.resolve(null),
+      // the contribution the admin came from (Sprint U), shown only when it is about this wine
+      link.from ? readBottlePhoto(session, link.from) : Promise.resolve(null),
+    ]);
+    return {
+      record,
+      visual: visual && visual !== "missing" && visual !== "none" ? visual : null,
+      correction:
+        correction && correction !== "missing" && correction !== "none" ? correction : null,
+      candidates: candidates && candidates !== "missing" ? candidates.rows : [],
+      compare:
+        compare && compare !== "missing" && compare !== "none" && compare.status === "canonical"
+          ? compare
+          : null,
+      from:
+        from &&
+        from !== "missing" &&
+        from !== "none" &&
+        (from.sourceWineId === wineId || from.canonicalWineId === wineId)
+          ? from
+          : null,
+    };
+  } catch (e) {
+    // a database function the page needs uses an object another migration creates, and it is not there (logged)
+    if (e instanceof MissingDependencyError)
+      return { dependency: e.object, source: DEPENDENCY_SOURCE[e.object] ?? null } as const;
+    throw e;
+  }
 }
 
 /** Checks an uploaded label image (a clean PNG or JPEG within the limits) and keeps it as a draft for the wine. */
