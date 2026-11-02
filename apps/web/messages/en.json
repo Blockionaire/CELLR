@@ -494,7 +494,8 @@
       "swapStale": "One of these bottles was just moved by someone else. Nothing was changed.",
       "consentRequired": "Tick the box to let CELLR use your photo.",
       "photosUnavailable": "Sending photos isn't available right now.",
-      "bottlePhotoSmall": "That photo is too small to work from. Try a sharper one of the whole bottle."
+      "bottlePhotoSmall": "That photo is too small to work from. Try a sharper one of the whole bottle.",
+      "alreadyContributed": "You already sent photos of this wine. Thank you!"
     }
   },
   "offline": {
@@ -1742,6 +1743,21 @@
     "total": "You have {points} points.",
     "close": "Done",
     "remove": "Remove this photo",
-    "tipMore": "Up to 3 photos: the whole bottle, and the front and back labels close up if you like"
+    "tipMore": "Up to 3 photos: the whole bottle, and the front and back labels close up if you like",
+    "reward": "+{points} points",
+    "receivedTitle": "Photos received",
+    "receivedBody": "Thank you. The CELLR team uses them to make this wine's bottle picture.",
+    "receivedPoints": "You earned {points} points for them.",
+    "againTitle": "Send new bottle photos?",
+    "againBody": "Your earlier photos couldn't be used for this wine's picture. New ones are welcome.",
+    "againNoPoints": "You already earned your points for this wine, so new photos don't add more.",
+    "alreadySent": "You already sent photos of this wine. Thank you!",
+    "inviteEyebrow": "Help picture your cellar",
+    "inviteBody": "1 to 3 photos of the whole bottle help CELLR make a 2D picture of {wine}, for your cellar and everyone who has it.",
+    "inviteCta": "Add bottle photos",
+    "inviteLater": "Not now",
+    "addedTitle": "Help picture this wine",
+    "addedBody": "Not the label photo: 1 to 3 photos of the whole bottle let CELLR make a 2D picture of this wine.",
+    "addedCta": "Add bottle photos"
   }
 }

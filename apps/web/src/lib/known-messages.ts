@@ -33,6 +33,7 @@ export const KNOWN_MESSAGES = {
   "Open the bottle first, then tell us how it was.": "openFirst",
   "Pick a different wine to merge with.": "mergeSame",
   "That already exists.": "exists",
+  "You already sent photos of this wine. Thank you!": "alreadyContributed",
   "That bottle can't be put back.": "cantPutBack",
   "That bottle has already been opened.": "alreadyOpened",
   "That bottle is no longer in the cellar.": "notInCellar",

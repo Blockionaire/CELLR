@@ -12,9 +12,18 @@ export default async function HomePage() {
   const services = servicesFor(ctx);
   // A failure to read the cellar is an error (with a way to try again), never an empty cellar: someone with 200
   // bottles must not be told their cellar starts here. Reminders are an extra and may quietly be missing.
-  const [home, reminders] = await Promise.all([
+  const [home, reminders, photoInvite] = await Promise.all([
     services.cellar.home(),
     services.insights.reminders().catch(() => ({ ready: false, items: [] })),
+    // one wine to invite bottle photos for; never a reason for Home to fail
+    services.bottlePhotoInvite(),
   ]);
-  return <HomeScreen name={me.displayName} reminders={reminders.items} home={home} />;
+  return (
+    <HomeScreen
+      name={me.displayName}
+      reminders={reminders.items}
+      home={home}
+      photoInvite={photoInvite}
+    />
+  );
 }

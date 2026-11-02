@@ -45,6 +45,26 @@ begin
 end $$;
 grant execute on function test.r_send(uuid, text[]) to public;
 
+-- a contribution as releases before Sprint T allowed it (a second active one for the same wine), for history-based tests
+create function test.hist_send(u uuid, v uuid, path text) returns uuid language plpgsql security definer as $$
+declare sid uuid;
+begin
+  insert into storage.objects (bucket_id, name) values ('bottle-submissions', path);
+  insert into public.bottle_photo_submissions
+    (user_id, household_id, source_wine_id, source_vintage_id, canonical_wine_id, producer_text, wine_text, wine_type,
+     year, photo_path, width, height, consent_granted_at)
+  select u, (select b.household_id from public.bottles b where b.vintage_id = v and b.household_id in
+               (select m.household_id from public.household_members m where m.user_id = u) limit 1),
+         w.id, wv.id, case when w.status = 'canonical' then w.id end, p.name, w.name, w.wine_type, wv.year,
+         path, 1200, 1600, now()
+    from public.wine_vintages wv join public.wines w on w.id = wv.wine_id join public.producers p on p.id = w.producer_id
+   where wv.id = v
+  returning id into sid;
+  insert into public.bottle_photo_images (submission_id, position, photo_path, width, height) values (sid, 1, path, 1200, 1600);
+  return sid;
+end $$;
+grant execute on function test.hist_send(uuid, uuid, text) to public;
+
 do $$
 declare h1 uuid; h2 uuid; cp uuid; cp2 uuid; cw uuid; cw2 uuid; cv uuid; pp uuid; pp2 uuid; pw uuid; pw2 uuid; pw3 uuid;
         pv uuid; ow uuid; ov uuid; r text; j jsonb; ts timestamptz; nv uuid; ev uuid; lid uuid; lid2 uuid; sid uuid;
@@ -268,9 +288,13 @@ begin
   j := test.r_send(pv, array['a.jpg', 'b.jpg', 'c.jpg']);
   sid := (j->>'id')::uuid;
   perform test.rec('three photos make one contribution, rewarded once', (j->>'points')::int = 10 and test.r_photos(sid) = 3);
-  j := test.r_send(pv, array['d.jpg']);
-  perform test.rec('...a further contribution for the same wine earns nothing more',
-    (j->>'points')::int = 0 and test.r_photos((j->>'id')::uuid) = 1);
+  perform test.rec('...a further contribution for the same wine is refused while that one is active (Sprint T)',
+    test.error_of(format('select test.r_send(%L, array[''d.jpg''])', pv)) like '%already_contributed%');
+  -- history from before that rule: a second, unrewarded contribution
+  j := jsonb_build_object('id', test.hist_send(test.uid(1), pv, test.uid(1) || '/d.jpg'));
+  perform test.rec('...an older further contribution earned nothing more',
+    not exists (select 1 from public.bottle_photo_submissions where id = (j->>'id')::uuid and reward_points is not null)
+    and test.r_photos((j->>'id')::uuid) = 1);
   perform test.as_service();
   j := public.admin_bottle_photo(sid);
   perform test.rec('the admin sees every photo of a contribution', jsonb_array_length(j->'photos') = 3
@@ -463,7 +487,7 @@ begin
   insert into public.bottles (household_id, vintage_id) values (h6, sv2);
   insert into public.bottles (household_id, vintage_id) values (h6, cv);
   s_old := (test.r_send(sv, array['old.jpg'])->>'id')::uuid;
-  s_new := (test.r_send(sv, array['new.jpg'])->>'id')::uuid;
+  s_new := test.hist_send(test.uid(6), sv, test.uid(6) || '/new.jpg');  -- a second photo, as earlier releases allowed
   s_un := (test.r_send(sv2, array['un.jpg'])->>'id')::uuid;
   s_dir := (test.r_send(cv, array['direct.jpg'])->>'id')::uuid;
   perform test.as_service();

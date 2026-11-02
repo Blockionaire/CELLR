@@ -24,6 +24,8 @@ export function mapDbError(error: DbError): DomainError {
     );
   }
   if (message === "not_found") return new DomainError("NOT_FOUND");
+  if (message === "already_contributed")
+    return new DomainError("CONFLICT", "You already sent photos of this wine. Thank you!");
   if (message === "slot_out_of_bounds")
     return new DomainError("VALIDATION", "That spot doesn't exist in this rack.");
   if (message === "location_in_use") {

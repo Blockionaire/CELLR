@@ -6,6 +6,7 @@ import { formatVintage, type AddBottlesResult } from "@cellr/domain";
 import { Button, buttonStyles } from "@/ui/button";
 import { CheckIcon } from "@/ui/icons";
 import { AddedProfile } from "./added-profile";
+import { BottlePhotoOffer } from "./bottle-photo";
 import { LabelPhotoActions } from "./label-photo-actions";
 import { WineStage } from "./wine-stage";
 
@@ -78,6 +79,12 @@ export function AddedDone({
           <LabelPhotoActions vintageId={result.vintageId} side="front" image={null} />
         </div>
       )}
+      {/* Whole-bottle photos for the wine's 2D picture: a separate, optional ask, only if never sent for this wine. */}
+      <BottlePhotoOffer
+        vintageId={result.vintageId}
+        wineId={result.wine.id}
+        wine={`${result.wine.producer} ${result.wine.name}`}
+      />
       <div className="flex w-full max-w-sm flex-col gap-3">
         <Button size="lg" block onClick={onAnother}>
           {anotherLabel ?? t("addAnother")}

@@ -1487,6 +1487,7 @@ export type Database = {
         Row: {
           active_household_id: string | null;
           avatar_path: string | null;
+          bottle_photo_invite_dismissed_at: string | null;
           catalog_contribute: boolean | null;
           created_at: string;
           display_name: string | null;
@@ -1500,6 +1501,7 @@ export type Database = {
         Insert: {
           active_household_id?: string | null;
           avatar_path?: string | null;
+          bottle_photo_invite_dismissed_at?: string | null;
           catalog_contribute?: boolean | null;
           created_at?: string;
           display_name?: string | null;
@@ -1512,6 +1514,7 @@ export type Database = {
         Update: {
           active_household_id?: string | null;
           avatar_path?: string | null;
+          bottle_photo_invite_dismissed_at?: string | null;
           catalog_contribute?: boolean | null;
           created_at?: string;
           display_name?: string | null;
@@ -2534,7 +2537,26 @@ export type Database = {
         Args: { p_image_id: string; p_vintage_id: string };
         Returns: string;
       };
+      bottle_photo_invite: {
+        Args: { p_household_id: string };
+        Returns: {
+          name: string;
+          producer: string;
+          vintage_id: string;
+          wine_id: string;
+          wine_type: string;
+          year: number;
+        }[];
+      };
       bottle_photo_paths_of: { Args: { p_user: string }; Returns: string[] };
+      bottle_photo_status: {
+        Args: { p_wine_ids: string[] };
+        Returns: {
+          points: number;
+          status: string;
+          wine_id: string;
+        }[];
+      };
       catalog_import: { Args: { p_apply?: boolean; p_entries: Json }; Returns: Json };
       catalog_note_scan_proposal: {
         Args: {
@@ -2578,6 +2600,7 @@ export type Database = {
         Args: { p_household: string; p_max_uses?: number; p_ttl_hours?: number };
         Returns: string;
       };
+      dismiss_bottle_photo_invite: { Args: Record<PropertyKey, never>; Returns: undefined };
       find_person: {
         Args: { p_query: string };
         Returns: {

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const { createBottleLibraryService } = await import("./service");
+const { DomainError } = await import("@cellr/domain");
 type Repo = Parameters<typeof createBottleLibraryService>[0]["repo"];
 
 /** A tiny but well-formed JPEG of the given size: what the browser would send. */
@@ -34,6 +35,9 @@ function fake(
     stored?: boolean;
     failPoints?: boolean;
     storeLimit?: number;
+    /** Like the database since Sprint T: a second contribution for a wine with an active one is refused. */
+    oneActive?: boolean;
+    failStatus?: boolean;
   } = {},
 ) {
   const state = {
@@ -48,6 +52,8 @@ function fake(
     async submit({ vintageId, consent, photos }) {
       if (options.failSubmit) throw new Error("db down");
       if (!consent) throw new Error("consent_required");
+      if (options.oneActive && state.rewarded.has(vintageId))
+        throw new DomainError("CONFLICT", "You already sent photos of this wine. Thank you!");
       state.submits++;
       state.recorded.push(photos.map((p) => p.path));
       const first = !state.rewarded.has(vintageId);
@@ -61,6 +67,15 @@ function fake(
     },
     art: async () => new Map(),
     artFile: async () => null,
+    status: async (ids) => {
+      if (options.failStatus) throw new Error("db down");
+      return ids.map((wineId) => ({ wineId, status: "eligible" as const, points: 0 }));
+    },
+    invite: async () => {
+      if (options.failStatus) throw new Error("db down");
+      return null;
+    },
+    dismissInvite: async () => {},
   };
   const service = createBottleLibraryService({
     repo,
@@ -199,11 +214,47 @@ describe("the library's pictures", () => {
           throw new Error("function missing");
         },
         artFile: async () => null,
+        status: async () => [],
+        invite: async () => null,
+        dismissInvite: async () => {},
       },
       store: async () => null,
       remove: async () => {},
     });
     expect((await service.art(["w1"])).size).toBe(0);
     await expect(service.artFile("a1")).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+describe("one active contribution per wine (Sprint T)", () => {
+  it("a second contribution while one is active is refused, its uploaded files removed, no points paid", async () => {
+    const { service, state } = fake({ oneActive: true });
+    expect((await service.submit(VINTAGE, true, [jpeg(1200, 1600)])).points).toBe(10);
+    await expect(
+      service.submit(VINTAGE, true, [jpeg(1200, 1600), jpeg(1200, 1600)]),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    // the refused contribution's two files are gone again; the first one's file stays
+    expect(state.removed).toEqual(["me/1.jpg", "me/2.jpg"]);
+    expect(state.points).toBe(10);
+    expect(state.submits).toBe(1);
+  });
+
+  it("two requests at once: the one the database refuses leaves no files behind", async () => {
+    const { service, state } = fake({ oneActive: true });
+    const results = await Promise.allSettled([
+      service.submit(VINTAGE, true, [jpeg(1200, 1600)]),
+      service.submit(VINTAGE, true, [jpeg(1200, 1600)]),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((r) => r.status === "rejected")).toHaveLength(1);
+    expect(state.removed).toHaveLength(1);
+    expect(state.stored.size - state.removed.length).toBe(1);
+    expect(state.points).toBe(10);
+  });
+
+  it("a status or invitation that cannot be read is unknown, never an error for the page", async () => {
+    const { service } = fake({ failStatus: true });
+    await expect(service.status(["w1"])).resolves.toBeNull();
+    await expect(service.invite("h1")).resolves.toBeNull();
   });
 });

@@ -153,22 +153,30 @@ test("a household's own wine gets its own 2D bottle, seen only by that household
   const vintageId = await vintageOf(own.id);
 
   // ---- the person sends a photo: points once ----------------------------------------------------------------
-  let sheet = await sharePhoto(page, vintageId, "Bottle");
+  const sheet = await sharePhoto(page, vintageId, "Bottle");
   await expect(sheet.getByText("You earned 10 points.", { exact: false })).toBeVisible();
   await expect(sheet.getByTestId("points-total")).toHaveText("You have 10 points.");
   await sheet.getByRole("button", { name: "Done" }).click();
-  sheet = await sharePhoto(page, vintageId, "Again");
-  await expect(sheet.getByText(/already earned points for this wine/)).toBeVisible();
-  await expect(sheet.getByTestId("points-total")).toHaveText("You have 10 points.");
-  await sheet.getByRole("button", { name: "Done" }).click();
+  // Sprint T: once sent, the page says so instead of asking again, and the server refuses a second contribution
+  await expect(page.getByTestId("bottle-photo-received")).toContainText("You earned 10 points");
+  const token = await sessionToken(email);
+  const again = await request.post("/api/v1/bottle-photos", {
+    headers: { authorization: `Bearer ${token}` },
+    multipart: {
+      vintageId,
+      consent: "true",
+      photo: {
+        name: "again.jpg",
+        mimeType: "image/jpeg",
+        buffer: await makeJpeg(page, { width: 900, height: 1600 }),
+      },
+    },
+  });
+  expect(again.status()).toBe(409);
   const sent = await submissionsOf(email);
-  expect(sent.map((s) => [s.status, s.reward_points, s.consent])).toEqual([
-    ["pending", 10, true],
-    ["pending", null, true],
-  ]);
+  expect(sent.map((s) => [s.status, s.reward_points, s.consent])).toEqual([["pending", 10, true]]);
 
   // without consent the server refuses and records nothing; the raw photo is the admin's only
-  const token = await sessionToken(email);
   const noConsent = await request.post("/api/v1/bottle-photos", {
     headers: { authorization: `Bearer ${token}` },
     multipart: {
@@ -182,14 +190,14 @@ test("a household's own wine gets its own 2D bottle, seen only by that household
     },
   });
   expect(noConsent.status()).toBe(422);
-  expect(await submissionsOf(email)).toHaveLength(2);
+  expect(await submissionsOf(email)).toHaveLength(1);
   expect((await page.request.get(`/admin/bottle-photos/${sent[0]!.id}/photo`)).status()).toBe(404);
 
   // ---- the admin publishes straight onto the household's wine, no catalogue wine needed ---------------------
   const { admin, close } = await asAdmin(browser);
   await admin.goto("/admin/bottle-photos?status=pending");
   const row = admin.getByRole("row").filter({ hasText: name });
-  await expect(row).toHaveCount(2);
+  await expect(row).toHaveCount(1);
   await admin.goto(`/admin/bottle-photos/${sent[0]!.id}`);
   await expect(admin.getByText(household).first()).toBeVisible();
   await expect(admin.getByText(/its picture is seen only by/)).toBeVisible();

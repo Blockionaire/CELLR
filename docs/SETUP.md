@@ -83,6 +83,12 @@ missing step and simply leaves that feature switched off.
 | `20261020000015_friends.sql`                    | Friends: an account name and friend code, friend requests, and sharing ratings/taste/cellar    |
 | `20261021000016_recommendations_and_pin.sql`    | Recommending a wine to a friend, and signing in with a 6-digit PIN instead of an email code    |
 
+**`20261109000032_bottle_library_repair.sql` (run it even if you ran everything else).** The bottle-library
+migration `20261105000028` was changed after it had first been published, so a database that ran the first version
+kept old definitions: `/admin/bottle-photos` then fails ("Something went wrong") and publishing a 2D picture is
+refused. This step re-creates exactly what the current `20261105000028` defines. It changes no rows and is safe to run
+more than once. Rule for the future: a migration that may have been run is never edited; changes go in a new file.
+
 ### Check it worked
 
 Run this in the SQL Editor:
