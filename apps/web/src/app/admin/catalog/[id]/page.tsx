@@ -3,15 +3,24 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { AUTO_PUBLISH_ENABLED, WINE_TYPES } from "@cellr/domain";
 import { adminCandidate, getAdminSession } from "@/server/admin/service";
-import { Kpi, Kpis, Notice, PageTitle, Section, Table, date, num } from "../../_ui";
+import {
+  Kpi,
+  Kpis,
+  Notice,
+  PageTitle,
+  Section,
+  Table,
+  date,
+  num,
+  input,
+  button,
+  quiet,
+  link,
+} from "../../_ui";
 import { approveAction, editAction, mergeAction, sourceAction, statusAction } from "../actions";
 import { STATE_LABEL } from "../labels";
 
 export const dynamic = "force-dynamic";
-
-const input = "rounded-[10px] bg-surface px-3 py-2 ring-1 ring-hairline";
-const button = "rounded-full bg-ink px-4 py-2 text-small text-canvas";
-const quiet = "rounded-full px-4 py-2 text-small text-ink ring-1 ring-hairline";
 
 /**
  * One candidate: what households confirmed (counts and variations, never who), how it compares with the catalogue,
@@ -51,7 +60,7 @@ export default async function AdminCandidatePage({
         title={`${c.producer} — ${c.name}`}
         note={`Candidate · ${STATE_LABEL[state]} · grouping key ${c.identityKey}`}
       >
-        <Link href="/admin/catalog" prefetch={false} className="text-small text-accent-ink">
+        <Link href="/admin/catalog" prefetch={false} className={`${link} text-small`}>
           ← All candidates
         </Link>
       </PageTitle>
@@ -131,12 +140,7 @@ export default async function AdminCandidatePage({
             rows={c.siblings.map((s) => ({
               key: s.id,
               cells: [
-                <Link
-                  key="s"
-                  href={`/admin/catalog/${s.id}`}
-                  prefetch={false}
-                  className="text-accent-ink"
-                >
+                <Link key="s" href={`/admin/catalog/${s.id}`} prefetch={false} className={link}>
                   {s.name}
                 </Link>,
                 [s.type, s.country, s.status].filter(Boolean).join(" · "),
@@ -262,7 +266,7 @@ export default async function AdminCandidatePage({
                 href={s.url}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="text-accent-ink"
+                className={link}
               >
                 {s.name}
               </a>,

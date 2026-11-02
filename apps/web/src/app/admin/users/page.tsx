@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { parseAdminPage } from "@cellr/domain";
 import { adminUsers, getAdminSession } from "@/server/admin/service";
-import { Notice, PageTitle, Table, date, num, unavailable } from "../_ui";
+import { Notice, PageTitle, Pager, Table, date, num, unavailable } from "../_ui";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +28,7 @@ export default async function AdminUsersPage({
     <>
       <PageTitle
         title="Users"
+        crumbs={[{ label: "Users" }]}
         note={`${num(result.total)} accounts, newest first. Last activity is the latest known action (database or first-party event).`}
       />
       <Table
@@ -42,16 +42,14 @@ export default async function AdminUsersPage({
         ]}
         rows={result.rows.map((r) => ({
           key: r.user_id,
+          href: `/admin/users/${r.user_id}`,
           cells: [
-            <Link
-              key="u"
-              href={`/admin/users/${r.user_id}`}
-              prefetch={false}
-              className="hover:underline"
-            >
+            <>
               <span className="block text-ink">{r.display_name ?? "—"}</span>
-              <span className="block font-mono text-caption text-ink-3">{r.user_id}</span>
-            </Link>,
+              <span className="block font-mono text-caption font-normal text-ink-3">
+                {r.user_id}
+              </span>
+            </>,
             date(r.created_at),
             date(r.last_active_at),
             status(r.onboarded, r.activated),
@@ -61,25 +59,7 @@ export default async function AdminUsersPage({
         }))}
         empty="No accounts on this page."
       />
-      <nav aria-label="Pages" className="mt-4 flex items-center justify-between text-small">
-        {page > 1 ? (
-          <Link href={`/admin/users?page=${page - 1}`} prefetch={false} className="text-accent-ink">
-            ← Newer
-          </Link>
-        ) : (
-          <span />
-        )}
-        <span className="text-ink-2">
-          Page {num(page)} of {num(result.pages)}
-        </span>
-        {page < result.pages ? (
-          <Link href={`/admin/users?page=${page + 1}`} prefetch={false} className="text-accent-ink">
-            Older →
-          </Link>
-        ) : (
-          <span />
-        )}
-      </nav>
+      <Pager page={page} pages={result.pages} href={(p) => `/admin/users?page=${p}`} />
     </>
   );
 }

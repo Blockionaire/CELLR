@@ -2,6 +2,10 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import {
   WineMasterCountsSchema,
+  WineMasterFacetsSchema,
+  WineMasterSearchSchema,
+  WorkQueueSchema,
+  masterFlags,
   WineMasterListSchema,
   WineMasterRecordSchema,
   parseMasterResult,
@@ -9,7 +13,11 @@ import {
   type MasterFlag,
   type MasterResult,
   type WineDetails,
+  type MasterQuery,
   type WineMasterCounts,
+  type WineMasterFacets,
+  type WineMasterSearch,
+  type WorkQueue,
   type WineMasterList,
   type WineMasterRecord,
   type WineVisualScope,
@@ -71,6 +79,44 @@ export function readWineMaster(
     { p_scope: scope, p_flags: flags, p_query: query, p_limit: limit, p_offset: offset },
     (d) => WineMasterListSchema.parse(d),
   );
+}
+
+/** The master list with every filter and sort of Sprint U (20261111000034), in the database. */
+export function readWineMasterSearch(
+  session: AdminSession,
+  q: MasterQuery,
+  limit: number,
+  offset: number,
+): Result<WineMasterSearch> {
+  assertAdmin(session);
+  return rpc(
+    "admin_wine_master_search",
+    {
+      p_scope: q.scope,
+      p_flags: masterFlags(q),
+      p_query: q.q,
+      p_type: q.type,
+      p_country: q.country,
+      p_household: q.household,
+      p_vintages: q.vintages,
+      p_sort: q.sort,
+      p_desc: q.desc,
+      p_limit: limit,
+      p_offset: offset,
+    },
+    (d) => WineMasterSearchSchema.parse(d),
+  );
+}
+
+export function readWineMasterFacets(session: AdminSession): Result<WineMasterFacets> {
+  assertAdmin(session);
+  return rpc("admin_wine_master_facets", {}, (d) => WineMasterFacetsSchema.parse(d));
+}
+
+/** The overview's work queue: a few bounded counts. */
+export function readWorkQueue(session: AdminSession): Result<WorkQueue> {
+  assertAdmin(session);
+  return rpc("admin_work_queue", {}, (d) => WorkQueueSchema.parse(d));
 }
 
 export function readWineMasterCounts(session: AdminSession): Result<WineMasterCounts> {

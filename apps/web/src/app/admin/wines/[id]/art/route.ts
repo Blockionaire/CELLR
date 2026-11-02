@@ -12,11 +12,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const session = await getAdminSession();
   const wine = z.uuid().safeParse((await params).id);
   if (!session || !wine.success) return new Response(null, { status: 404 });
+  // the contribution the admin came from (a photo id) stays with the page; anything else is dropped
+  let from = "";
   const back = (message: string) =>
     new Response(null, {
       status: 303,
       headers: {
-        location: `/admin/wines/${wine.data}?msg=${encodeURIComponent(message)}`,
+        location: `/admin/wines/${wine.data}?msg=${encodeURIComponent(message)}&at=art${from}#art`,
         "cache-control": "no-store",
       },
     });
@@ -33,6 +35,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       e instanceof DomainError ? "Not uploaded: the file is too large." : "Not uploaded.",
     );
   }
+  const source = z.uuid().safeParse(form.get("from"));
+  if (source.success) from = `&from=${source.data}`;
   const picture = form.get("picture");
   if (!(picture instanceof File) || picture.size === 0) return back("Choose a picture first.");
   const result = await adminUploadBottleArt(
@@ -42,6 +46,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     String(form.get("note") ?? ""),
   );
   return back(
-    result.ok ? "Uploaded as a draft. Publish it to show it in the app." : result.message,
+    result.ok
+      ? "Uploaded as a draft. Check the preview, then publish it to show it in the app."
+      : `Not uploaded: ${result.message}`,
   );
 }

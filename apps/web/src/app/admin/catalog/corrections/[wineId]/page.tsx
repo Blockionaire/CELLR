@@ -3,14 +3,11 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import type { SignalField } from "@cellr/domain";
 import { adminCorrection, getAdminSession } from "@/server/admin/service";
-import { Notice, PageTitle, Section, Table, date } from "../../../_ui";
+import { Notice, PageTitle, Section, Table, date, input, small, link } from "../../../_ui";
 import { reviewSignalAction } from "../actions";
 import { FIELD_LABEL, REVIEW_LABEL } from "../labels";
 
 export const dynamic = "force-dynamic";
-
-const input = "rounded-[10px] bg-surface px-3 py-2 ring-1 ring-hairline";
-const quiet = "rounded-full px-3 py-1.5 text-caption text-ink ring-1 ring-hairline";
 
 const show = (v: unknown) => (v === undefined || v === null || v === "" ? "—" : String(v));
 
@@ -54,11 +51,7 @@ export default async function AdminCorrectionPage({
         title={`${w.producer} — ${w.name}`}
         note={`Catalogue record: ${[w.type, w.country, w.region].filter(Boolean).join(" · ")} · accepted as is by ${accepted} ${accepted === 1 ? "person" : "people"}`}
       >
-        <Link
-          href="/admin/catalog/corrections"
-          prefetch={false}
-          className="text-small text-accent-ink"
-        >
+        <Link href="/admin/catalog/corrections" prefetch={false} className={`${link} text-small`}>
           ← All corrections
         </Link>
       </PageTitle>
@@ -66,11 +59,7 @@ export default async function AdminCorrectionPage({
       <Notice>
         Reviewing a signal changes nothing in the catalogue. To fix the record itself, edit it in
         the{" "}
-        <Link
-          href={`/admin/wines/${w.wineId}#details`}
-          prefetch={false}
-          className="text-accent-ink"
-        >
+        <Link href={`/admin/wines/${w.wineId}#details`} prefetch={false} className={link}>
           Wine Master Database
         </Link>
         .
@@ -117,17 +106,17 @@ export default async function AdminCorrectionPage({
                     className={`${input} w-40 py-1 text-caption`}
                   />
                   {s.status !== "reviewed" && (
-                    <button name="status" value="reviewed" className={quiet}>
+                    <button name="status" value="reviewed" className={small}>
                       Reviewed
                     </button>
                   )}
                   {s.status !== "dismissed" && (
-                    <button name="status" value="dismissed" className={quiet}>
+                    <button name="status" value="dismissed" className={small}>
                       Dismiss
                     </button>
                   )}
                   {s.status !== "open" && (
-                    <button name="status" value="open" className={quiet}>
+                    <button name="status" value="open" className={small}>
                       Reopen
                     </button>
                   )}

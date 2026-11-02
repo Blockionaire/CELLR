@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { WINE_TYPES } from "./cellar";
+import { WINE_TYPES, type WineType } from "./cellar";
 import { WINE_VISUAL_SCOPES, type WineVisualScope } from "./bottle-library";
 
 /**
@@ -12,7 +12,9 @@ export const MASTER_PAGE_SIZE = 50;
 export const MASTER_FLAGS = [
   "art",
   "no_art",
+  "draft",
   "pending",
+  "approved",
   "corrections",
   "linked",
   "unlinked",
@@ -40,6 +42,141 @@ export const parseMasterPage = (v: unknown): number => {
   return Number.isFinite(n) && n >= 1 && n <= 100_000 ? n : 1;
 };
 
+// ---- The list's query (Sprint U): filters, sorting and paging, all kept in the URL ---------------------------------
+
+export const MASTER_SORTS = ["name", "type", "country", "vintages", "pending"] as const;
+export type MasterSort = (typeof MASTER_SORTS)[number];
+/** How many vintages a wine has: none, exactly one, two or more. */
+export const VINTAGE_COUNTS = ["none", "one", "many"] as const;
+export type VintageCount = (typeof VINTAGE_COUNTS)[number];
+/** The 2D artwork filter: a published picture, none published, or an uploaded draft waiting. */
+export const ART_FILTERS = ["published", "missing", "draft"] as const;
+export type ArtFilter = (typeof ART_FILTERS)[number];
+export const LINK_FILTERS = ["linked", "unlinked"] as const;
+export type LinkFilter = (typeof LINK_FILTERS)[number];
+
+export interface MasterQuery {
+  q: string;
+  scope: WineVisualScope;
+  type: WineType | null;
+  country: string | null;
+  household: string | null;
+  vintages: VintageCount | null;
+  art: ArtFilter | null;
+  link: LinkFilter | null;
+  pending: boolean;
+  approved: boolean;
+  corrections: boolean;
+  sort: MasterSort;
+  desc: boolean;
+  page: number;
+}
+
+type Params = Record<string, string | string[] | undefined>;
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+const pick = <T extends string>(list: readonly T[], v: unknown): T | null =>
+  (list as readonly unknown[]).includes(v) ? (v as T) : null;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const yes = (v: unknown) => v === "1" || v === "true" || v === "on";
+
+/**
+ * The list's query from a URL. The links of earlier sprints keep working: ?f=art,pending (Sprint R) and
+ * ?filter=published|wanted (the old wine visuals) are read as the matching filters; the named parameters win.
+ */
+export function parseMasterQuery(params: Params): MasterQuery {
+  const flags = parseMasterFlags(one(params.f), one(params.filter));
+  const has = (f: MasterFlag) => flags.includes(f);
+  const legacyArt: ArtFilter | null = has("art")
+    ? "published"
+    : has("no_art")
+      ? "missing"
+      : has("draft")
+        ? "draft"
+        : null;
+  const legacyLink: LinkFilter | null = has("linked")
+    ? "linked"
+    : has("unlinked")
+      ? "unlinked"
+      : null;
+  const country = one(params.country)?.trim().toUpperCase() ?? "";
+  const household = one(params.household)?.trim() ?? "";
+  return {
+    q: (one(params.q) ?? "").trim().slice(0, 80),
+    scope: parseMasterScope(one(params.scope)),
+    type: pick(WINE_TYPES, one(params.type)),
+    country: /^[A-Z]{2}$/.test(country) ? country : null,
+    household: UUID.test(household) ? household.toLowerCase() : null,
+    vintages: pick(VINTAGE_COUNTS, one(params.vintages)),
+    art: pick(ART_FILTERS, one(params.art)) ?? legacyArt,
+    link: pick(LINK_FILTERS, one(params.link)) ?? legacyLink,
+    pending: yes(one(params.pending)) || has("pending"),
+    approved: yes(one(params.approved)) || has("approved"),
+    corrections: yes(one(params.corrections)) || has("corrections"),
+    sort: pick(MASTER_SORTS, one(params.sort)) ?? "name",
+    desc: one(params.dir) === "desc",
+    page: parseMasterPage(one(params.page)),
+  };
+}
+
+/** The flags the database reads for a query. */
+export function masterFlags(q: MasterQuery): MasterFlag[] {
+  const out: MasterFlag[] = [];
+  if (q.art === "published") out.push("art");
+  if (q.art === "missing") out.push("no_art");
+  if (q.art === "draft") out.push("draft");
+  if (q.pending) out.push("pending");
+  if (q.approved) out.push("approved");
+  if (q.corrections) out.push("corrections");
+  if (q.link) out.push(q.link);
+  return out;
+}
+
+/** The query as its canonical query string: only what differs from the defaults, always in the same order. */
+export function masterSearch(q: MasterQuery): string {
+  const s = new URLSearchParams();
+  if (q.q) s.set("q", q.q);
+  if (q.scope !== "all") s.set("scope", q.scope);
+  if (q.type) s.set("type", q.type);
+  if (q.country) s.set("country", q.country);
+  if (q.household) s.set("household", q.household);
+  if (q.vintages) s.set("vintages", q.vintages);
+  if (q.art) s.set("art", q.art);
+  if (q.link) s.set("link", q.link);
+  if (q.pending) s.set("pending", "1");
+  if (q.approved) s.set("approved", "1");
+  if (q.corrections) s.set("corrections", "1");
+  if (q.sort !== "name") s.set("sort", q.sort);
+  if (q.desc) s.set("dir", "desc");
+  if (q.page > 1) s.set("page", String(q.page));
+  return s.toString();
+}
+
+/** Whether a query narrows the list at all (search or a filter; sorting and paging do not count). */
+export const masterFiltered = (q: MasterQuery) =>
+  Boolean(
+    q.q ||
+    q.scope !== "all" ||
+    q.type ||
+    q.country ||
+    q.household ||
+    q.vintages ||
+    q.art ||
+    q.link ||
+    q.pending ||
+    q.approved ||
+    q.corrections,
+  );
+
+/** Whether two query strings say the same thing (the order of the parameters aside). */
+export function sameSearch(a: string, b: string): boolean {
+  const norm = (x: string) =>
+    [...new URLSearchParams(x).entries()]
+      .map(([k, v]) => `${k}=${v}`)
+      .sort()
+      .join("&");
+  return norm(a) === norm(b);
+}
+
 const status = z.enum(["canonical", "provisional"]);
 
 export const WineMasterRowSchema = z.object({
@@ -54,7 +191,11 @@ export const WineMasterRowSchema = z.object({
   household: z.string().nullable(),
   vintages: z.number().int(),
   published: z.boolean(),
+  /** An uploaded picture is waiting to be published (Sprint U; absent from the older list). */
+  draft: z.boolean().default(false),
   pending: z.number().int(),
+  /** Approved photos of it (Sprint U; absent from the older list). */
+  approved: z.number().int().default(0),
   openCorrections: z.number().int(),
   /** The verified link of a household wine: the catalogue wine, or null (none, or explicitly unlinked). */
   linkedTo: z.uuid().nullable(),
@@ -69,6 +210,28 @@ export const WineMasterListSchema = z.object({
   rows: WineMasterRowSchema.array(),
 });
 export type WineMasterList = z.infer<typeof WineMasterListSchema>;
+
+export const WineMasterSearchSchema = WineMasterListSchema.extend({
+  /** The name of the household the list is filtered to, if any. */
+  household: z.string().nullable().default(null),
+});
+export type WineMasterSearch = z.infer<typeof WineMasterSearchSchema>;
+
+export const WineMasterFacetsSchema = z.object({
+  countries: z.object({ code: z.string(), n: z.number().int() }).array(),
+});
+export type WineMasterFacets = z.infer<typeof WineMasterFacetsSchema>;
+
+/** The admin overview's work queue: bounded counts of what is waiting for the admin. */
+export const WorkQueueSchema = z.object({
+  photosPending: z.number().int(),
+  artworkNeeded: z.number().int(),
+  photosWithDraft: z.number().int(),
+  artDrafts: z.number().int(),
+  corrections: z.number().int(),
+  catalogueWithoutArt: z.number().int(),
+});
+export type WorkQueue = z.infer<typeof WorkQueueSchema>;
 
 export const WineMasterCountsSchema = z.object({
   all: z.number().int(),

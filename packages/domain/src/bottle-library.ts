@@ -177,11 +177,50 @@ export const BottlePhotoRowSchema = z.object({
 });
 export type BottlePhotoRow = z.infer<typeof BottlePhotoRowSchema>;
 
+/**
+ * Where a contribution is in the bottle-photo → 2D-artwork workflow (Sprint U). Derived, never stored: from the review
+ * status, and for an approved or used photo from the CURRENT artwork of its wine (the database computes the same in
+ * private.bottle_photo_stage). A used photo whose picture was taken off or removed is not published any more: it is a
+ * draft again, or needs artwork. When a published picture and an unpublished one coexist, an approved photo says draft
+ * (a replacement waits: a step to take) and a used one says published (its artwork is live).
+ */
+export const PHOTO_STAGES = [
+  "pending",
+  "artwork_needed",
+  "draft",
+  "published",
+  "rejected",
+] as const;
+export type PhotoStage = (typeof PHOTO_STAGES)[number];
+export const parsePhotoStage = (v: unknown): PhotoStage | "all" | null =>
+  v === "all" || (PHOTO_STAGES as readonly unknown[]).includes(v)
+    ? (v as PhotoStage | "all")
+    : null;
+
+export function photoStage(
+  status: BottlePhotoStatus,
+  art: { published: boolean; draft: boolean },
+): PhotoStage {
+  if (status === "pending") return "pending";
+  if (status === "rejected") return "rejected";
+  if (status === "used" && art.published) return "published";
+  return art.draft ? "draft" : art.published ? "published" : "artwork_needed";
+}
+
 export const BottlePhotoListSchema = z.object({
   counts: z.record(z.string(), z.number().int()),
   rows: BottlePhotoRowSchema.array(),
 });
 export type BottlePhotoList = z.infer<typeof BottlePhotoListSchema>;
+
+export const BottlePhotoQueueSchema = z.object({
+  total: z.number().int(),
+  counts: z.record(z.string(), z.number().int()),
+  stages: z.record(z.string(), z.number().int()),
+  rows: BottlePhotoRowSchema.extend({ stage: z.enum(PHOTO_STAGES) }).array(),
+});
+export type BottlePhotoQueue = z.infer<typeof BottlePhotoQueueSchema>;
+export type BottlePhotoQueueRow = BottlePhotoQueue["rows"][number];
 
 /** At most this many photos in one contribution (the database enforces it too). */
 export const BOTTLE_PHOTO_MAX = 3;
