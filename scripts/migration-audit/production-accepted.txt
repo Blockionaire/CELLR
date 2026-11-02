@@ -1,0 +1,22 @@
+# Deviations of the production database (project vvelgyhbjfmjvxkzekyz) from the repository, verified read-only on
+# 2026-11-02 (see docs/MIGRATIONS.md, "Production inventory"). Each is pinned to the exact hash it was verified at: if it
+# changes, compare.sh fails again. Format: <kind>|<group>|<target hash>|<reason>; "?" = may be absent (platform object).
+#
+# Same code, reformatted when it was pasted into the SQL Editor (upper-case keywords, line breaks, a closing ";").
+# Verified token by token against the migration files; every string literal identical.
+function|public.admin_beta_feedback|cfafefb3a66e|20261028000020, reformatted on paste (same code)
+function|public.admin_recognition_cache|42e805a4d279|20261029000021, reformatted on paste (same code)
+function|public.recall_confirmed_scan|86302b13cba0|20261029000021, reformatted on paste (same code)
+# The 3-argument overload the first 20261105000028 created, kept on purpose by 20261109000032 ("stays, unused, until a
+# later clean-up"); the 4-argument function the app calls is identical to the repository's.
+function|public.admin_wine_visuals|c8def9da6090|earlier 0028 overload admin_wine_visuals(text, text, int), unused
+# Hosted Supabase platform objects, not created by a migration.
+?function|public.rls_auto_enable|c9b4ee595652|Supabase platform: the ensure_rls event trigger's function
+?schema|extensions|f83d351450c1|Supabase platform: anon has USAGE on the extensions schema
+?extension|pg_cron|31648562b5d9|Supabase platform: pg_cron lives in pg_catalog (job verified separately)
+?default_acl|public.S.postgres|d41d8cd98f00|Supabase platform: explicit, empty default privileges (same effect)
+?default_acl|public.f.postgres|d41d8cd98f00|Supabase platform: explicit, empty default privileges (same effect)
+?default_acl|public.r.postgres|d41d8cd98f00|Supabase platform: explicit, empty default privileges (same effect)
+?default_acl|storage.S.postgres|610c7502844f|Supabase platform: storage schema defaults
+?default_acl|storage.f.postgres|c85e4029bd99|Supabase platform: storage schema defaults
+?default_acl|storage.r.postgres|e1c80de2e973|Supabase platform: storage schema defaults

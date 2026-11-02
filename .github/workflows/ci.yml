@@ -45,6 +45,31 @@ jobs:
           pnpm offline-page
           git diff --exit-code -- apps/web/public/offline.html
 
+  migration-integrity:
+    # A migration that is on the base branch may already have run in production: it is never edited, removed or
+    # renamed; changes go in a new migration (docs/MIGRATIONS.md). Make this a required check in branch protection.
+    name: Migration integrity · applied migrations are never changed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 } # the guard needs the merge base with the base branch
+      - name: The guard's own tests
+        run: bash scripts/check-migration-immutability.test.sh
+      - name: No migration on the base branch was changed, removed or renamed
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            bash scripts/check-migration-immutability.sh "origin/$BASE_REF"
+          elif [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then
+            bash scripts/check-migration-immutability.sh "$BEFORE"
+          else
+            echo "nothing to compare with for a $EVENT run"
+          fi
+
   database:
     name: Database · migrations + permission suite (Postgres 16)
     runs-on: ubuntu-24.04
