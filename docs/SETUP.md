@@ -89,6 +89,13 @@ kept old definitions: `/admin/bottle-photos` then fails ("Something went wrong")
 refused. This step re-creates exactly what the current `20261105000028` defines. It changes no rows and is safe to run
 more than once. Rule for the future: a migration that may have been run is never edited; changes go in a new file.
 
+**`20261112000035_admin_workflow_repair.sql` (run it even if you ran everything else).** A database that ran
+`20261111000034` before its final version keeps three older admin functions: a bottle photo whose 2D picture was taken
+off or removed still shows as "published", the work queue misses it, and the publish check lets a photo of another wine
+through when that photo has no catalogue link. This step re-creates the final definitions of those three functions
+(same security and grants). It changes no rows and is safe to run more than once; on a database that already has the
+final `20261111000034` it changes nothing.
+
 ### Check it worked
 
 Run this in the SQL Editor:
