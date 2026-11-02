@@ -96,6 +96,13 @@ through when that photo has no catalogue link. This step re-creates the final de
 (same security and grants). It changes no rows and is safe to run more than once; on a database that already has the
 final `20261111000034` it changes nothing.
 
+**`20261113000036_push_reminders_repair.sql` (run it if you skipped `20261018000013_push_reminders.sql`).** The
+Wine Master Database checks whether anything refers to a vintage, reminders already sent included, so without
+`public.drink_notices` no wine with a vintage opens there (the page says which table is missing) and a vintage cannot
+be corrected or removed. This step creates exactly what `20261018000013` creates, only where it is missing, and gives
+the service role rights on those two tables only. It changes no rows, is safe to run more than once, and does nothing
+on a database that ran `20261018000013`. Reminders stay off until the push keys below are set.
+
 ### Check it worked
 
 Run this in the SQL Editor:

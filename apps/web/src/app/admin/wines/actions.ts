@@ -101,7 +101,9 @@ const done = (at: Place, wine: string, result: unknown, ok: string): never =>
         ? "Not saved: the service role is not configured."
         : result === "missing"
           ? "Not saved: run 20261107000030_wine_master.sql first."
-          : MASTER_RESULT_MESSAGE[parseMasterResult(result) as Exclude<MasterResult, "ok">],
+          : result === "dependency"
+            ? "Not saved: the database is missing an object this change needs, created by another migration (the server log names it). The Wine Master Database migration itself is in place."
+            : MASTER_RESULT_MESSAGE[parseMasterResult(result) as Exclude<MasterResult, "ok">],
   );
 
 export async function updateWineAction(wineId: string, form: FormData) {

@@ -25,21 +25,21 @@ import {
 import { assertAdmin, type AdminSession } from "@/server/admin/access";
 import { logError } from "@/server/log";
 import { createServiceClient } from "./client";
+import { MissingDependencyError, isMissingStep, missingDependency } from "./db-errors";
 
 /**
  * The Wine Master Database's privileged side (migration 20261107000030_wine_master.sql). Every function takes the
  * session only verifyAdmin issues and checks it again; every change is one database function that validates, refuses
  * stale or duplicate edits and writes the audit in the same transaction. Curated labels live in their own private
  * bucket (catalog-labels), written only from here; household label photos are only ever read, for the admin's eyes.
- * "missing" = the migration is not applied yet; null = no service role.
+ * "missing" = the migration is not applied yet; null = no service role. A read whose function needs an object another
+ * migration creates (and that is not there) throws MissingDependencyError instead; an edit answers "dependency".
  */
 const LABELS = "catalog-labels";
 const HOUSEHOLD_IMAGES = "bottle-images";
 
 type Result<T> = Promise<T | "missing" | null>;
-
-const missing = (e: { code?: string }) =>
-  e.code === "PGRST202" || e.code === "42883" || e.code === "PGRST205" || e.code === "42P01";
+type Edit = Result<MasterResult | "dependency">;
 
 type Rpc = (
   f: string,
@@ -55,13 +55,25 @@ async function rpc<T>(
   if (!db) return null;
   const { data, error } = await (db.rpc as unknown as Rpc)(fn, args);
   if (error) {
-    if (missing(error)) return "missing";
+    // the function itself is not there: its migration is still to be run
+    if (isMissingStep(error, fn)) return "missing";
+    // it is there, but something it uses is not (another migration's object): say which, never "run this migration"
+    const object = missingDependency(error, fn);
+    if (object) {
+      logError("db_dependency_missing", error, { fn, object, code: error.code ?? null });
+      throw new MissingDependencyError(fn, object, error.code ?? "");
+    }
     throw error;
   }
   return parse(data);
 }
 
-const change = (fn: string, args: Record<string, unknown>) => rpc(fn, args, parseMasterResult);
+/** An edit's answer; "dependency" = the edit's function needs an object the database does not have (logged). */
+const change = (fn: string, args: Record<string, unknown>) =>
+  rpc(fn, args, parseMasterResult).catch((e: unknown) => {
+    if (e instanceof MissingDependencyError) return "dependency" as const;
+    throw e;
+  });
 
 // ---- Reads -------------------------------------------------------------------------------------------------------
 
@@ -141,7 +153,7 @@ export function updateWineDetails(
   wineId: string,
   expected: string,
   details: WineDetails,
-): Result<MasterResult> {
+): Edit {
   assertAdmin(session);
   const { reason, ...fields } = details;
   return change("admin_wine_update", {
@@ -158,7 +170,7 @@ export function updateProducer(
   producerId: string,
   expected: string,
   edit: { name: string; country: string; reason: string; confirmWines: number | null },
-): Result<MasterResult> {
+): Edit {
   assertAdmin(session);
   return change("admin_producer_update", {
     p_producer: producerId,
@@ -177,7 +189,7 @@ export function reassignProducer(
   expected: string,
   producerId: string,
   reason: string,
-): Result<MasterResult> {
+): Edit {
   assertAdmin(session);
   return change("admin_wine_reassign_producer", {
     p_wine: wineId,
@@ -193,7 +205,7 @@ export function setAliases(
   wineId: string,
   aliases: string[],
   reason: string,
-): Result<MasterResult> {
+): Edit {
   assertAdmin(session);
   return change("admin_wine_set_aliases", {
     p_wine: wineId,
@@ -208,7 +220,7 @@ export function setGrapes(
   wineId: string,
   grapes: { grape: string; pct: number | null }[],
   reason: string,
-): Result<MasterResult> {
+): Edit {
   assertAdmin(session);
   return change("admin_wine_set_grapes", {
     p_wine: wineId,
@@ -222,7 +234,7 @@ export function createVintage(
   session: AdminSession,
   wineId: string,
   v: { year: number | null; abv: number | null; reason: string },
-): Result<MasterResult> {
+): Edit {
   assertAdmin(session);
   return change("admin_vintage_create", {
     p_wine: wineId,
@@ -237,7 +249,7 @@ export function updateVintage(
   session: AdminSession,
   vintageId: string,
   v: { year: number | null; abv: number | null; reason: string },
-): Result<MasterResult> {
+): Edit {
   assertAdmin(session);
   return change("admin_vintage_update", {
     p_vintage: vintageId,
@@ -248,11 +260,7 @@ export function updateVintage(
   });
 }
 
-export function deleteVintage(
-  session: AdminSession,
-  vintageId: string,
-  reason: string,
-): Result<MasterResult> {
+export function deleteVintage(session: AdminSession, vintageId: string, reason: string): Edit {
   assertAdmin(session);
   return change("admin_vintage_delete", {
     p_vintage: vintageId,
@@ -266,7 +274,7 @@ export function linkWine(
   sourceWineId: string,
   canonicalWineId: string,
   reason: string,
-): Result<MasterResult> {
+): Edit {
   assertAdmin(session);
   return change("admin_wine_link", {
     p_source: sourceWineId,
@@ -276,11 +284,7 @@ export function linkWine(
   });
 }
 
-export function unlinkWine(
-  session: AdminSession,
-  sourceWineId: string,
-  reason: string,
-): Result<MasterResult> {
+export function unlinkWine(session: AdminSession, sourceWineId: string, reason: string): Edit {
   assertAdmin(session);
   return change("admin_wine_unlink", {
     p_source: sourceWineId,

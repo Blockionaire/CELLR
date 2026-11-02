@@ -64,19 +64,30 @@ export default async function AdminWinePage({
     compare: compare.success ? compare.data : null,
     from: from.success ? from.data : null,
   });
-  if (data === "missing" || data === null)
+  if (data === "none") notFound();
+  if (data === "missing" || data === null || "dependency" in data)
     return (
       <>
         <PageTitle
           title="Wine Master Database"
           crumbs={[{ label: "Wine Master Database", href: list }]}
         />
-        <Notice tone="warn">
-          Not available: run 20261107000030_wine_master.sql (and set the service role).
+        <Notice
+          tone={data !== null && typeof data === "object" ? "danger" : "warn"}
+          testId="record-unavailable"
+        >
+          {data === null
+            ? "Not available: SUPABASE_SERVICE_ROLE_KEY is not configured on the server."
+            : data === "missing"
+              ? "Not available: run 20261107000030_wine_master.sql."
+              : `This wine cannot be shown: the database is missing ${data.dependency}, which the Wine Master Database's functions use. ${
+                  data.source
+                    ? `It is created by ${data.source}; run that migration.`
+                    : "Run the migration that creates it."
+                } The Wine Master Database migration itself is in place; do not run it again.`}
         </Notice>
       </>
     );
-  if (data === "none") notFound();
   const { record: w, visual } = data;
   const published = visual?.art.some((a) => a.publishedAt !== null) ?? false;
   const draft = visual?.art.some((a) => a.publishedAt === null) ?? false;

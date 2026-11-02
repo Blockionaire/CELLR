@@ -20,6 +20,7 @@ import {
 import { assertAdmin, type AdminSession } from "@/server/admin/access";
 import { logError } from "@/server/log";
 import { createServiceClient } from "./client";
+import { MissingDependencyError, isMissingStep, missingDependency } from "./db-errors";
 
 /**
  * The bottle library's privileged side. The raw photos people send live in a bucket no signed-in person can touch,
@@ -33,9 +34,6 @@ const PHOTOS = "bottle-submissions";
 const ART = "bottle-art";
 
 type Result<T> = Promise<T | "missing" | null>;
-
-const missing = (e: { code?: string }) =>
-  e.code === "PGRST202" || e.code === "42883" || e.code === "PGRST205" || e.code === "42P01";
 
 type Rpc = (
   f: string,
@@ -51,7 +49,14 @@ async function rpc<T>(
   if (!db) return null;
   const { data, error } = await (db.rpc as unknown as Rpc)(fn, args);
   if (error) {
-    if (missing(error)) return "missing";
+    // the function itself is not there: its migration is still to be run
+    if (isMissingStep(error, fn)) return "missing";
+    // it is there, but something it uses is not (another migration's object): say which, never "run this migration"
+    const object = missingDependency(error, fn);
+    if (object) {
+      logError("db_dependency_missing", error, { fn, object, code: error.code ?? null });
+      throw new MissingDependencyError(fn, object, error.code ?? "");
+    }
     throw error;
   }
   return parse(data);
@@ -290,7 +295,8 @@ export async function purgeBottleArtFiles(): Promise<void> {
   if (!db) return;
   const { data, error } = await db.from("bottle_art_orphans").select("path").limit(200);
   if (error) {
-    if (missing(error)) return;
+    // a tidy-up only: nothing to do while its table is not there
+    if (isMissingStep(error) || error.code === "42P01") return;
     throw error;
   }
   const paths = (data ?? []).map((r) => r.path);
