@@ -214,10 +214,18 @@ describe("the admin's bottle-photo rows: one contract with the database", () => 
 
 describe("the bottle-photo workflow stage (Sprint U)", () => {
   const none = { published: false, draft: false };
-  it("follows the review status for pending, rejected and used photos", () => {
+  it("follows the review status for pending and rejected photos", () => {
     expect(photoStage("pending", { published: true, draft: true })).toBe("pending");
-    expect(photoStage("rejected", none)).toBe("rejected");
-    expect(photoStage("used", none)).toBe("published");
+    expect(photoStage("rejected", { published: true, draft: false })).toBe("rejected");
+  });
+  it("for a used photo, follows the wine's current artwork, not its history", () => {
+    expect(photoStage("used", { published: true, draft: false })).toBe("published");
+    // publish → unpublish: the picture waits again as a draft
+    expect(photoStage("used", { published: false, draft: true })).toBe("draft");
+    // publish → remove: nothing is published, artwork is needed again
+    expect(photoStage("used", none)).toBe("artwork_needed");
+    // its artwork is live, a replacement draft waits: the contribution itself stays published
+    expect(photoStage("used", { published: true, draft: true })).toBe("published");
   });
   it("for an approved photo, follows the wine's artwork: needed, then draft, then published", () => {
     expect(photoStage("approved", none)).toBe("artwork_needed");

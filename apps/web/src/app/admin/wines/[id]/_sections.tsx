@@ -548,11 +548,16 @@ export function ArtSection({
   const canonical = record.status === "canonical";
   const published = w.art.find((a) => a.publishedAt !== null) ?? null;
   const drafts = w.art.filter((a) => a.publishedAt === null);
-  // photos a picture of this wine may be made from: sent for it, or explicitly linked to it after review
+  // photos a picture of this wine may be made from: sent for it, or explicitly linked to it after review. A used photo
+  // stays a source, so a picture taken off or removed can be published again from the contribution it was made from
+  // (the database checks every ticked photo again: same wine, or reviewed and not contradicted by a verified link).
   const sourceable = w.photos.filter(
     (p) =>
-      (p.sourceWineId === w.id && (p.status === "approved" || p.status === "pending")) ||
-      (p.sourceWineId !== w.id && p.status === "approved" && p.reviewedAt !== null),
+      (p.sourceWineId === w.id &&
+        (p.status === "approved" || p.status === "pending" || p.status === "used")) ||
+      (p.sourceWineId !== w.id &&
+        (p.status === "approved" || p.status === "used") &&
+        p.reviewedAt !== null),
   );
   const references = w.photos.filter((p) => p.status === "approved" || p.status === "used");
   const others = w.photos.filter((p) => !references.includes(p));
@@ -764,12 +769,18 @@ export function ArtSection({
                               name="source"
                               value={p.id}
                               defaultChecked={
-                                p.status === "approved" || (from !== null && p.id === from.id)
+                                p.status === "approved" ||
+                                (from !== null && p.id === from.id) ||
+                                // this very picture was made from it before (taken off, now again)
+                                p.artId === d.id
                               }
                               className="size-4 accent-[var(--accent-fg)]"
                             />
                             Photo of {date(p.createdAt)} · {vintage(p.year)} ·{" "}
                             {STATUS_LABEL[p.status]}
+                            {p.status === "used" && p.artId === d.id
+                              ? " (this picture was made from it)"
+                              : ""}
                           </label>
                         ))}
                       </fieldset>

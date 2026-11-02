@@ -27,7 +27,8 @@ grant execute on function test.u_ids(jsonb) to public;
 
 do $$
 declare h1 uuid; p1 uuid; p2 uuid; ph uuid; ca uuid; cb uuid; cc uuid; hw uuid; s1 uuid; s2 uuid; s3 uuid; s4 uuid;
-        s5 uuid; art uuid; j jsonb; a uuid[]; b uuid[]; all_ids uuid[];
+        s5 uuid; s6 uuid; art uuid; art2 uuid; art3 uuid; j jsonb; a uuid[]; b uuid[]; all_ids uuid[];
+        st text; aid uuid; rev timestamptz; ok boolean;
 begin
   perform test.mk_users(2);
   perform test.as_user(1); h1 := public.create_household('Portal 1');
@@ -67,7 +68,11 @@ begin
   s2 := test.u_photo(test.uid(1), cb, cb, 'approved', 'b.jpg');
   s3 := test.u_photo(test.uid(1), hw, null, 'approved', 'c.jpg');
   s4 := test.u_photo(test.uid(1), cc, cc, 'rejected', 'd.jpg');
-  s5 := test.u_photo(test.uid(2), cc, cc, 'used', 'e.jpg');
+  s5 := test.u_photo(test.uid(2), cc, cc, 'approved', 'e.jpg');
+  perform test.as_service();
+  art := public.admin_add_bottle_art(cc, cc || '/e.png', 'image/png', 400, 1200, null, test.uid(2));
+  perform public.admin_publish_bottle_art(art, array[s5], test.uid(2));
+  perform test.su();
   perform test.rec('stages follow the review status: pending, rejected, used = published',
     test.u_stage(s1) = 'pending' and test.u_stage(s4) = 'rejected' and test.u_stage(s5) = 'published');
   perform test.rec('...an approved photo of a wine without artwork needs artwork',
@@ -155,5 +160,51 @@ begin
   perform test.rec('the country filter lists the countries present',
     (select array_agg(c->>'code' order by c->>'code') from jsonb_array_elements(j->'countries') c)
       @> array['ES', 'FR', 'IT']);
+
+  -- ---- a used contribution follows its wine's CURRENT artwork; its review record is kept as it was ----------------
+  -- (s2 is used: it was the source of art, published on the catalogue wine cb)
+  perform test.su();
+  select status, art_id, reviewed_at into st, aid, rev from public.bottle_photo_submissions where id = s2;
+  perform test.as_service();
+  perform public.admin_unpublish_bottle_art(art);
+  perform test.rec('publish → unpublish: a used photo is no longer "published" but a draft (the picture waits again)',
+    test.u_stage(s2) = 'draft'
+    and (public.admin_bottle_photo_queue(null, 'draft', 'zenith', 50, 0)->>'total')::int = 1
+    and (public.admin_bottle_photo_queue(null, 'published', 'zenith', 50, 0)->>'total')::int = 0);
+  perform test.su();
+  perform test.rec('...its review status, source picture and review time are untouched',
+    (select status = st and art_id = aid and reviewed_at = rev from public.bottle_photo_submissions where id = s2));
+  perform test.as_service();
+  ok := public.admin_publish_bottle_art(art, array[s2], test.uid(2));
+  perform test.rec('re-publication from the original source contribution passes the provenance check: published',
+    ok and test.u_stage(s2) = 'published');
+
+  -- a replacement draft next to the live picture: a used photo stays published, an approved one says draft
+  perform test.su();
+  s6 := test.u_photo(test.uid(2), cb, cb, 'approved', 'f.jpg');
+  perform test.as_service();
+  art2 := public.admin_add_bottle_art(cb, cb || '/z.png', 'image/png', 400, 1200, null, test.uid(2));
+  perform test.rec('a published picture and a replacement draft: used = published, approved = draft (a step waits)',
+    test.u_stage(s2) = 'published' and test.u_stage(s6) = 'draft');
+
+  perform public.admin_remove_bottle_art(art2);
+  perform public.admin_remove_bottle_art(art);
+  j := public.admin_work_queue();
+  perform test.rec('publish → remove: a used photo needs artwork again, and the work queue counts it',
+    test.u_stage(s2) = 'artwork_needed' and test.u_stage(s6) = 'artwork_needed'
+    and (j->>'artworkNeeded')::int = 2);
+  perform test.su();
+  perform test.rec('...its review status stays used (only the removed picture''s reference is gone, by its foreign key)',
+    (select status = 'used' and art_id is null and reviewed_at = rev
+       from public.bottle_photo_submissions where id = s2));
+  perform test.as_service();
+  art3 := public.admin_add_bottle_art(cb, cb || '/n.png', 'image/png', 400, 1200, null, test.uid(2));
+  perform test.rec('...a new picture is a draft for it', test.u_stage(s2) = 'draft');
+  perform test.rec('...a photo of another wine is still refused as its source',
+    test.denied(format('select public.admin_publish_bottle_art(%L, array[%L]::uuid[], %L)', art3, s3, test.uid(2))));
+  ok := public.admin_publish_bottle_art(art3, array[s2, s6], test.uid(2));
+  perform test.rec('...and re-published from the original contribution (and the approved one): both published',
+    ok and test.u_stage(s2) = 'published' and test.u_stage(s6) = 'published'
+    and (select art_id from public.bottle_photo_submissions where id = s2) = art3);
 end $$;
 rollback;

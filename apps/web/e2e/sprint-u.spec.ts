@@ -437,6 +437,50 @@ test("a bottle photo to published 2D artwork: pending → approved → draft →
   await expect(admin.getByTestId("workflow")).toHaveAttribute("data-stage", "published");
   await expect(admin.getByTestId("next-step")).toContainText("Artwork published");
 
+  // ---- the stage follows the artwork as it is now, not the review history ----------------------------------------
+  const reviewed = async () =>
+    (
+      await sql<{ status: string; art: string | null }>(
+        "select status, art_id as art from public.bottle_photo_submissions where id = $1",
+        [sid],
+      )
+    )[0]!;
+  const firstArt = (await reviewed()).art!;
+  // publish → take it off: a draft again, the contribution still "used", and it can be published again from it
+  await admin.goto(`/admin/wines/${wine.id}?from=${sid}#art`);
+  await art.getByRole("button", { name: /Take it off/ }).click();
+  await expect(art.getByTestId("action-message")).toContainText("Taken off");
+  await admin.goto(`/admin/bottle-photos/${sid}`);
+  await expect(admin.getByTestId("workflow")).toHaveAttribute("data-stage", "draft");
+  await expect(admin.getByTestId("used-unpublished")).toContainText("no longer published");
+  expect(await reviewed()).toEqual({ status: "used", art: firstArt });
+  await admin.getByRole("link", { name: "Review & publish 2D Artwork →" }).click();
+  const source = art.getByRole("checkbox", { name: /this picture was made from it/ });
+  await expect(source).toBeChecked();
+  await art.getByRole("button", { name: "Publish for this household only" }).click();
+  await expect(art.getByTestId("publish-success")).toBeVisible();
+  expect(await reviewed()).toEqual({ status: "used", art: firstArt });
+  // publish → remove: artwork needed again; a new picture is published from the same, original contribution
+  await art.getByTestId("art-published").getByRole("button", { name: "Remove picture" }).click();
+  await expect(art.getByTestId("action-message")).toContainText("Picture removed.");
+  await admin.goto(`/admin/bottle-photos/${sid}`);
+  await expect(admin.getByTestId("workflow")).toHaveAttribute("data-stage", "artwork_needed");
+  await expect(admin.getByTestId("used-unpublished")).toBeVisible();
+  expect(await reviewed()).toEqual({ status: "used", art: null });
+  await admin.getByRole("link", { name: "Create / Upload 2D Artwork →" }).click();
+  await art.locator('input[name="picture"]').setInputFiles(await bottlePng(admin));
+  await art.getByRole("button", { name: "Upload as draft" }).click();
+  // the contribution the admin came from is ticked as the source; the database checks it again
+  await expect(art.getByRole("checkbox", { name: /Used/ })).toBeChecked();
+  await art.getByRole("button", { name: "Publish for this household only" }).click();
+  await expect(art.getByTestId("publish-success")).toBeVisible();
+  const again = await reviewed();
+  expect(again.status).toBe("used");
+  expect(again.art).not.toBe(firstArt);
+  await admin.goto(`/admin/bottle-photos/${sid}`);
+  await expect(admin.getByTestId("workflow")).toHaveAttribute("data-stage", "published");
+  await expect(admin.getByTestId("used-unpublished")).toHaveCount(0);
+
   // ---- the household's own wine in the master list: its household is a filter of its own -----------------------------
   await admin.goto(`/admin/wines?scope=household&q=${encodeURIComponent(name)}`);
   const own = admin.getByTestId("master-row").filter({ hasText: name });

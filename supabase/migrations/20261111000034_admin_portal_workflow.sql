@@ -1,15 +1,17 @@
--- Admin portal UX & workflow (Sprint U). Additive and read-only: five new admin reads, nothing existing is changed or
--- removed, no row is written. The list the Wine Master Database showed until now (admin_wine_master, Sprint R) stays
--- as it is and keeps serving the catalogue search of the link editor.
+-- Admin portal UX & workflow (Sprint U). Five new admin reads, and one fix to the publish check's provenance rule
+-- (6.); nothing is removed and the migration writes no row. The list the Wine Master Database showed until now
+-- (admin_wine_master, Sprint R) stays as it is and keeps serving the catalogue search of the link editor.
 --
 -- 1. private.bottle_photo_stage(submission): the bottle-photo → 2D-artwork workflow stage, DERIVED from the
---    submission's own review status and the artwork of the wine(s) it is about (never stored, so it cannot drift):
+--    submission's own review status and the CURRENT artwork of the wine(s) it is about (never stored, so it cannot
+--    drift; the review status itself is never rewritten):
 --      pending          the review status is pending
 --      rejected         the review status is rejected
---      published        the contribution was used for a published picture (status used), or it is approved and its
---                       wine already shows a published picture
---      draft            approved, and a finished picture was uploaded for its wine but is not published yet
---      artwork_needed   approved, and its wine has no picture yet: the admin's next step is to make one
+--      published        its wine shows a published picture now (status approved or used)
+--      draft            its wine has an uploaded, unpublished picture: a new one, or one taken off again
+--      artwork_needed   its wine has no picture now: none yet, or the one it was used for was removed
+--    Approved and used differ only when a published picture and an unpublished one coexist: an approved photo then
+--    says draft (a replacement waits: a step to take), a used one says published (its artwork is live).
 --    "Its wine" is the wine it was sent for and the catalogue wine it was reviewed for (the same two the admin's wine
 --    page and the publish check already use).
 -- 2. admin_bottle_photo_queue(...): the photos, filtered by review status (the old ?status= links) or by stage,
@@ -21,25 +23,58 @@
 --    counts per wine are only aggregated when a filter or the sort needs them.
 -- 4. admin_wine_master_facets(): the countries present, for the country filter.
 -- 5. admin_work_queue(): the overview's work queue, a handful of bounded counts.
+-- 6. admin_publish_bottle_art: unchanged, except that a source photo without a catalogue mapping can no longer slip
+--    past the provenance check (see below).
 -- Every function is for the service role only, like every admin read before it.
 
 -- ---- 1. The workflow stage of a contribution ---------------------------------------------------------------------
 create function private.bottle_photo_stage(s public.bottle_photo_submissions) returns text
   language sql stable security definer set search_path = '' as $$
-  select case s.status
-    when 'pending' then 'pending'
-    when 'rejected' then 'rejected'
-    when 'used' then 'published'
-    else case
-      when exists (select 1 from public.wine_bottle_art a
-                    where a.wine_id in (s.source_wine_id, s.canonical_wine_id) and a.vintage_id is null
-                      and a.published_at is null) then 'draft'
-      when exists (select 1 from public.wine_bottle_art a
-                    where a.wine_id in (s.source_wine_id, s.canonical_wine_id) and a.vintage_id is null
-                      and a.published_at is not null) then 'published'
-      else 'artwork_needed' end end
+  with art as (
+    select bool_or(a.published_at is not null) as published, bool_or(a.published_at is null) as draft
+      from public.wine_bottle_art a
+     where a.wine_id in (s.source_wine_id, s.canonical_wine_id) and a.vintage_id is null)
+  select case
+    when s.status = 'pending' then 'pending'
+    when s.status = 'rejected' then 'rejected'
+    when s.status = 'used' and art.published then 'published'
+    when art.draft then 'draft'
+    when art.published then 'published'
+    else 'artwork_needed' end
+    from art
 $$;
 revoke all on function private.bottle_photo_stage(public.bottle_photo_submissions) from public, anon, authenticated;
+
+-- Publishing a picture with the photos it was made from (20261107000030), the same in every way but one: a ticked
+-- photo that is of neither this wine nor (reviewed, approved or used) the catalogue wine it maps to is refused also when
+-- its catalogue mapping is empty. Before, "null = wine" left the check unknown and such a photo was let through. A used
+-- photo can be ticked again (re-publishing a picture taken off or removed) under exactly these rules.
+create or replace function public.admin_publish_bottle_art(p_art uuid, p_sources uuid[], p_actor uuid)
+  returns boolean language plpgsql volatile security definer set search_path = '' as $$
+declare wid uuid; wstatus public.catalog_status;
+begin
+  select a.wine_id, w.status into wid, wstatus
+    from public.wine_bottle_art a join public.wines w on w.id = a.wine_id
+   where a.id = p_art and a.vintage_id is null for update of a;
+  if wid is null then return false; end if;
+  if exists (
+    select 1 from unnest(coalesce(p_sources, '{}'::uuid[])) as src(id)
+      left join public.bottle_photo_submissions s on s.id = src.id
+     where s.id is null
+        or not coalesce(s.source_wine_id = wid
+                or (wstatus = 'canonical' and s.canonical_wine_id = wid and s.reviewed_by is not null
+                    and s.status in ('approved', 'used')
+                    and not private.link_contradicts(s.source_wine_id, wid)), false)) then
+    raise exception 'bad_source' using errcode = '22023';
+  end if;
+  update public.wine_bottle_art set published_at = null, published_by = null
+   where wine_id = wid and vintage_id is null and published_at is not null and id <> p_art;
+  update public.wine_bottle_art set published_at = now(), published_by = p_actor where id = p_art;
+  update public.bottle_photo_submissions
+     set status = 'used', art_id = p_art, reviewed_at = now(), reviewed_by = p_actor
+   where id = any (coalesce(p_sources, '{}'));
+  return true;
+end $$;
 
 -- ---- 2. The bottle-photo queue -------------------------------------------------------------------------------------
 -- p_status: pending | approved | rejected | used | all (or null); p_stage: one of the stages above | all (or null).
@@ -199,7 +234,7 @@ create function public.admin_work_queue()
   returns jsonb language sql stable security definer set search_path = '' as $$
   with open_photos as (
     select private.bottle_photo_stage(s) as stage
-      from public.bottle_photo_submissions s where s.status in ('pending', 'approved'))
+      from public.bottle_photo_submissions s where s.status <> 'rejected')
   select jsonb_build_object(
     'photosPending', (select count(*) from open_photos where stage = 'pending'),
     'artworkNeeded', (select count(*) from open_photos where stage = 'artwork_needed'),

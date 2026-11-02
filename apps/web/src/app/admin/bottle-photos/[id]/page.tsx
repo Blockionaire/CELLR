@@ -88,6 +88,7 @@ export default async function AdminBottlePhotoPage({
 
       <NextStep
         stage={stage}
+        used={p.status === "used"}
         wineId={wineId}
         photoId={p.id}
         next={next && next.id !== p.id ? next : null}
@@ -314,11 +315,14 @@ export default async function AdminBottlePhotoPage({
 
 function NextStep({
   stage,
+  used,
   wineId,
   photoId,
   next,
 }: {
   stage: keyof typeof STAGE_LABEL;
+  /** Its review status is used: it was the source of a picture once (kept as it was, whatever happened since). */
+  used: boolean;
   wineId: string | null;
   photoId: string;
   next: { id: string; producer: string; wine: string } | null;
@@ -389,10 +393,16 @@ function NextStep({
           ? "Next step: check the draft artwork and publish it"
           : "Next step: create the 2D artwork"}
       </p>
+      {used && (
+        <p className="mt-1 max-w-3xl text-small text-ink" data-testid="used-unpublished">
+          This photo was used for a picture that is no longer published (taken off or removed):
+          nothing is published for this wine now. Its review status stays Used.
+        </p>
+      )}
       <p className="mt-1 max-w-3xl text-small text-ink-2">
         {stage === "draft"
           ? "A finished picture is uploaded for this wine and waits as a draft. Check it, then publish it with this photo ticked as its source."
-          : "Make the finished 2D bottle picture from the approved photos yourself, outside CELLR (ideally a transparent PNG of the whole bottle, upright). Then upload it on the wine: it stays a draft until you publish it."}
+          : "Make the finished 2D bottle picture from the reference photos yourself, outside CELLR (ideally a transparent PNG of the whole bottle, upright). Then upload it on the wine: it stays a draft until you publish it."}
       </p>
       <Link
         href={artHref(wineId, photoId)}

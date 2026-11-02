@@ -25,7 +25,12 @@ workflow walkable without searching for the next step. Same portal, same design 
   `?scope=all`) redirect to the same list in the new form.
 - **Bottle-photo workflow.** Each contribution has a stage, derived and never stored: _Pending review → Approved,
   artwork needed → Artwork uploaded, draft → Artwork published_ (or _Rejected_). It comes from the review status plus
-  the artwork of the wine(s) the photo is about. The list's tabs are these stages (older `?status=` links still work).
+  the artwork the wine(s) the photo is about have _now_; the review status itself is never rewritten. So a `used`
+  contribution whose picture was taken off reads as a draft again, and one whose picture was removed reads as
+  artwork needed. When a published picture and a replacement draft coexist, an approved photo reads draft (a step
+  waits) and a used one reads published (its artwork is live). A used photo stays selectable as a source, so a picture
+  can be published again from the contribution it was made from. The list's tabs are these stages (older `?status=`
+  links still work).
   The photo page shows a stepper, one next step, and a prominent **Create / Upload 2D Artwork** link straight to the
   wine's `#art` section, which remembers the contribution.
 - **Artwork section.** Laid out as the admin works: 1. approved reference photos, 2. upload the finished artwork, 3. draft preview (on a checkerboard) and publish, 4. published. The publication scope is stated before publishing:
@@ -41,9 +46,11 @@ workflow walkable without searching for the next step. Same portal, same design 
 
 ## Migration
 
-`20261111000034_admin_portal_workflow.sql`: forward-only, additive, read-only. Five new service-role functions
+`20261111000034_admin_portal_workflow.sql`: forward-only; the migration writes no row. Five new service-role functions
 (`admin_wine_master_search`, `admin_wine_master_facets`, `admin_bottle_photo_queue`, `admin_work_queue`,
-`private.bottle_photo_stage`); nothing existing is changed and no row is written. The master search builds its SQL from
+`private.bottle_photo_stage`), and one fix to `admin_publish_bottle_art` (Sprint R). Its provenance check let a ticked
+photo through when that photo had no catalogue mapping, because `null = wine` left the check unknown rather than
+false. It is now refused like any photo of another wine; everything else in the function is unchanged. The master search builds its SQL from
 the filters in use, with every value bound as a parameter, so each search gets its own plan. Measured at 120,000
 wines: default list ~96 ms (Sprint R's list: ~110 ms), search ~89 ms, type + country ~52 ms, deep page ~220 ms,
 sort by vintage count ~275 ms; work queue ~45 ms.
