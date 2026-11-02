@@ -28,48 +28,26 @@ _Supabase → New project_
 
 ## 2. Create the database
 
-Two equivalent ways. **A is simplest**; B is better once you're comfortable with a terminal.
+The database is built and changed only by the migrations in `supabase/migrations/`, applied with the Supabase CLI,
+which also records what it applied. **`docs/MIGRATIONS.md` is the one procedure**: rules, deployment, checks and
+recovery.
 
-### A. Paste into the SQL Editor
+- **A new, empty project:** `docs/MIGRATIONS.md` §6. In short: `supabase link`, check with `db push --dry-run`,
+  then `db push --include-seed`.
+- **A project whose tables already exist** (for example, built by pasting files into the SQL Editor, as the
+  production project was): do **not** run `db push` there. It would try to run every migration again. Follow
+  `docs/MIGRATIONS.md` §5 (and §4 for production).
 
-_Supabase → SQL Editor → New query._ Run these files **in this order**, one at a time
-(open each in GitHub, use **Copy raw file**, paste, **Run**; each should end with "Success"):
-
-1. `supabase/migrations/20261010000001_foundation.sql`
-2. `…0002_identity_households.sql`
-3. `…0003_catalog.sql`
-4. `…0004_cellars_bottles.sql`
-5. `…0005_storage.sql`
-6. `…0006_platform.sql`
-7. `…0007_signup_allowlist.sql`
-8. `…0008_tastings.sql` (ratings: "how was it?" — added after the first version; see "Updating the database")
-9. `…0009_wishlist.sql` (the wishlist — also added later; see "Updating the database")
-10. `…0010_tighten_photo_bucket.sql` (photo bucket: JPEG only, 4 MB — also added later)
-11. `…0011_bottle_extras_and_insights.sql` (gift/bought, kept-for-an-occasion reminders, AI wine profiles — also added later)
-12. `…0012_merge_wines.sql` (merge a wine that was entered twice — also added later)
-13. `…0013_push_reminders.sql` (reminders on your phone when a wine is at its best — also added later)
-14. `…0014_valuations.sql` (what a bottle is worth, with sources and history — also added later)
-15. `…0015_friends.sql` (friends: account names, friend codes, requests and what you share — also added later)
-16. `…0016_recommendations_and_pin.sql` (recommending a wine to a friend, and signing in with a PIN — also added later)
-17. `supabase/seed/001_grapes.sql` (reference data: 160 grape varieties)
-
-If a file fails, stop: the files are not safe to re-run. Note which file and the error text.
-
-### B. With the Supabase CLI
-
-```bash
-pnpm install
-pnpm exec supabase login
-pnpm exec supabase link --project-ref <your-project-ref>   # the ref is in the project URL
-pnpm exec supabase db push --include-seed                   # asks for the database password
-```
+Do not paste migrations into the SQL Editor: nothing would record that they ran, and a later `db push` would run
+them again.
 
 ### Updating the database later
 
-New features sometimes need one more database step. They arrive as a new numbered file in
-`supabase/migrations/`. Run only the files **you have not run yet**, in order, the same way as above
-(SQL Editor → New query → paste → Run → "Success"). Nothing breaks while you wait: the app notices a
-missing step and simply leaves that feature switched off.
+New features sometimes need one more database step, which arrives as a new numbered file in
+`supabase/migrations/`. Apply it with the deployment workflow in `docs/MIGRATIONS.md` §2, before the app that needs
+it. Nothing breaks while you wait: the app notices a missing step and simply leaves that feature switched off.
+
+What some of the steps switch on:
 
 | File                                            | What it switches on                                                                            |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -83,29 +61,14 @@ missing step and simply leaves that feature switched off.
 | `20261020000015_friends.sql`                    | Friends: an account name and friend code, friend requests, and sharing ratings/taste/cellar    |
 | `20261021000016_recommendations_and_pin.sql`    | Recommending a wine to a friend, and signing in with a 6-digit PIN instead of an email code    |
 
-**`20261109000032_bottle_library_repair.sql` (run it even if you ran everything else).** The bottle-library
-migration `20261105000028` was changed after it had first been published, so a database that ran the first version
-kept old definitions: `/admin/bottle-photos` then fails ("Something went wrong") and publishing a 2D picture is
-refused. This step re-creates exactly what the current `20261105000028` defines. It changes no rows and is safe to run
-more than once. Rule for the future: a migration that may have been run is never edited; changes go in a new file.
-
-**`20261112000035_admin_workflow_repair.sql` (run it even if you ran everything else).** A database that ran
-`20261111000034` before its final version keeps three older admin functions: a bottle photo whose 2D picture was taken
-off or removed still shows as "published", the work queue misses it, and the publish check lets a photo of another wine
-through when that photo has no catalogue link. This step re-creates the final definitions of those three functions
-(same security and grants). It changes no rows and is safe to run more than once; on a database that already has the
-final `20261111000034` it changes nothing.
-
-**`20261113000036_push_reminders_repair.sql` (run it if you skipped `20261018000013_push_reminders.sql`).** The
-Wine Master Database checks whether anything refers to a vintage, reminders already sent included, so without
-`public.drink_notices` no wine with a vintage opens there (the page says which table is missing) and a vintage cannot
-be corrected or removed. This step creates exactly what `20261018000013` creates, only where it is missing, and gives
-the service role rights on those two tables only. It changes no rows, is safe to run more than once, and does nothing
-on a database that ran `20261018000013`. Reminders stay off until the push keys below are set.
+`20261109000032`, `20261112000035` and `20261113000036` are repairs. A database that ran an earlier version of
+`20261105000028` or `20261111000034`, or skipped `20261018000013`, kept old or missing objects. Each repair re-creates
+the final definitions, changes no rows, and changes nothing on a database that ran the final versions. The CLI applies
+them in order like any other step.
 
 ### Check it worked
 
-Run this in the SQL Editor:
+Run this in the SQL Editor (it only reads):
 
 ```sql
 select
@@ -308,7 +271,7 @@ You get: one bottle per physical bottle (the old app kept a count), racks with t
 you already drank (with the day), your tasting notes and scores (turned into half stars) and your favourites.
 Whatever cannot be understood (an unknown country, an impossible year, a note about a bottle that is not in the
 file) is listed, never guessed in silence. Do it once: doing it again adds everything a second time.
-Run the ratings step (migration 0008, see "Updating the database") **before** you import if you want your old
+Apply the ratings step (migration 0008, see "Updating the database") **before** you import if you want your old
 scores and notes: without it the cellar still comes over, but the ratings are left out and the screen says so.
 
 ## 7. Working on it locally
@@ -397,8 +360,8 @@ the table above.
 
 Read-only overview of users, product analytics and AI costs. To open it:
 
-1. Run `supabase/migrations/20261026000018_admin_dashboard.sql` in the Supabase SQL editor (read-only functions,
-   service role only; nothing changes for app users). Until then the pages say the database step is missing.
+1. Apply the migrations (`docs/MIGRATIONS.md` §2); `20261026000018_admin_dashboard.sql` adds read-only, service-role-only
+   functions and changes nothing for app users. Until then the pages say the database step is missing.
 2. Find your user id in Supabase → _Authentication → Users_ (the UUID, not your email).
 3. In Vercel set `CELLR_ADMIN_USER_IDS` to that id (several: comma-separated, no spaces needed) and redeploy.
    `SUPABASE_SERVICE_ROLE_KEY` must be set too.
@@ -406,8 +369,8 @@ Read-only overview of users, product analytics and AI costs. To open it:
 Anyone else (signed out, signed in without being listed, or with a malformed list) gets the normal sign-in or
 "not found" page. The dashboard is not linked from the app and is marked `noindex`, `no-store`.
 
-**Beta feedback inbox (`/admin/feedback`).** Run `supabase/migrations/20261028000020_beta_feedback.sql` in the
-SQL editor (one table and one read-only, service-role-only function; nothing changes for existing data). Until
+**Beta feedback inbox (`/admin/feedback`).** Needs `supabase/migrations/20261028000020_beta_feedback.sql`, applied
+like any migration (`docs/MIGRATIONS.md` §2; one table and one read-only, service-role-only function). Until
 then sending from the in-app "Share feedback" form fails with a plain error (the text stays in the form) and the
 inbox page says the step is missing.
 The inbox shows what testers sent from Profile → Share feedback: date, category, their text and the optional

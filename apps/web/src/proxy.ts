@@ -2,13 +2,15 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { buildCsp } from "@/lib/csp";
 import { getPublicEnv, isDevelopment } from "@/lib/public-env";
-import { classifyPath } from "@/lib/routes";
+import { ADMIN_NOT_FOUND_PATH, classifyPath, refuseAdmin } from "@/lib/routes";
+import { getAdminAllowlist } from "@/server/env";
 
 /**
  * Runs before every page request:
  *  1. refreshes the Supabase session cookie when it is about to expire,
  *  2. sends signed-out visitors to /sign-in (and signed-in ones away from it),
- *  3. attaches a fresh nonce-based Content-Security-Policy.
+ *  3. answers /admin with a real 404 for a signed-in person who is not on the admin allowlist,
+ *  4. attaches a fresh nonce-based Content-Security-Policy.
  * (Pages also check the session themselves — the proxy is a first layer, not the only one.)
  */
 export async function proxy(request: NextRequest) {
@@ -38,9 +40,11 @@ export async function proxy(request: NextRequest) {
   // getClaims() validates the token and refreshes it if needed (writing cookies through setAll).
   // It can throw on a corrupt cookie; that must read as "signed out", never take the whole site down.
   let signedIn = false;
+  let userId: string | null = null;
   try {
     const { data } = await supabase.auth.getClaims();
     signedIn = Boolean(data?.claims?.sub) && data?.claims?.role === "authenticated";
+    userId = signedIn ? String(data!.claims.sub) : null;
   } catch {
     signedIn = false;
   }
@@ -53,6 +57,22 @@ export async function proxy(request: NextRequest) {
     if (pathname !== "/") redirectTo.searchParams.set("next", pathname + search);
   } else if (kind === "auth-only" && signedIn) {
     redirectTo = new URL("/", request.url);
+  }
+
+  // The admin pages refuse non-admins themselves, but under the root loading boundary their notFound() comes after a
+  // 200 has been streamed. Decide the status here instead: the request is rewritten to a path no route matches, so
+  // the answer is the app's ordinary not-found page with a real 404. (Admins still pass every check in the pages.)
+  if (!redirectTo && refuseAdmin(pathname, userId, getAdminAllowlist())) {
+    // a page is shown the not-found page; anything else (a form post, a server action) gets an empty 404
+    const page = request.method === "GET" || request.method === "HEAD";
+    const notFound = page
+      ? NextResponse.rewrite(new URL(ADMIN_NOT_FOUND_PATH, request.url), {
+          request: { headers: requestHeaders },
+        })
+      : new NextResponse(null, { status: 404 });
+    for (const cookie of response.cookies.getAll()) notFound.cookies.set(cookie); // keep a refreshed session
+    notFound.headers.set("Content-Security-Policy", csp);
+    return notFound;
   }
 
   if (redirectTo) {

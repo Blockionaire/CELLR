@@ -50,9 +50,10 @@ Alle AI is in de tests nep (een lokaal OpenAI-compatibel endpoint): er wordt noo
      (select count(*) from private.allowed_signups)                                  as beta_lijst;          -- ≥ 1
    ```
 
-   Ontbreekt iets: draai de ontbrekende migraties uit `supabase/migrations/` in volgorde (de nieuwste is
+   Ontbreekt iets: pas de ontbrekende migraties toe zoals beschreven in `docs/MIGRATIONS.md` (nooit plakken in de
+   SQL Editor; zonder migratiegeschiedenis eerst §4/§5). Ter info: de nieuwste uit die tijd is
    `20261104000027_swap_bottles.sql`; daarvoor `20261103000026_back_label_if_empty.sql` en
-   `20261102000025_decimal_ratings.sql`: beoordelingen in tienden van een ster, bestaande cijfers blijven gelijk).
+   `20261102000025_decimal_ratings.sql`: beoordelingen in tienden van een ster, bestaande cijfers blijven gelijk.
 
    **Vereist vóór (of tegelijk met) de versie met slepen en wisselen: `20261104000027_swap_bottles.sql`.** Zonder
    deze migratie mislukt het wisselen van twee flessen met een duidelijke melding en verandert er niets (verplaatsen

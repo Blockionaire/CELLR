@@ -62,10 +62,12 @@ consider rolling back.
 
 - **Deploy** by merging a reviewed PR to `main`; Vercel builds production from it. Check the Preview of the
   PR first on a phone.
-- **Database migrations first.** Run a new migration in the Supabase SQL editor before (or right after)
-  merging the code that uses it. CELLR keeps working without the newest step (the affected feature says so
-  or is hidden), so the order is forgiving. The beta-feedback migration (`20261028000020_beta_feedback.sql`)
-  only adds a table and a read-only admin function.
+- **Database migrations first**, with the one workflow in `docs/MIGRATIONS.md` §2 (Supabase CLI: `migration list`,
+  `db push --dry-run`, `db push`, then the read-only `compare.sh` check), before (or right after) merging the code that
+  uses them. CELLR keeps working without the newest step (the affected feature says so or is hidden), so the order is
+  forgiving. Never paste a migration into the SQL Editor, and never run `db push` on a database without migration
+  history: production has none until the owner's bootstrap (`docs/MIGRATIONS.md` §4). A migration on `main` is never
+  edited; CI refuses it.
 - **Rollback** of the app: Vercel → Deployments → the previous production deployment → _Instant Rollback_
   (or _Promote to Production_). This does not touch the database.
 - **Migrations are not rolled back** in a hurry. They are additive; leave a new table in place and roll back
