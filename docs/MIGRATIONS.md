@@ -141,14 +141,18 @@ Do it only with the owner's go-ahead, in one sitting, at a quiet moment.
    - `pnpm exec supabase migration list --linked` shows 36 local = 36 remote.
    - `pnpm exec supabase db push --linked --dry-run` says "Remote database is up to date".
    - `compare.sh` (step 2) is still `equivalent`.
-5. **Rollback, if anything looks wrong.** This removes only the history rows; the schema was never touched:
+5. **Rollback, if anything looks wrong.** Revert exactly the history entries step 3 recorded, and nothing else. The
+   schema was never touched, so there is nothing else to undo. This applies only because step 2 verified the starting
+   state: no history at all, 0 remote. The command reverts the same 36 versions from the same files on `main`:
 
    ```bash
    pnpm exec supabase migration repair --linked --status reverted $(ls supabase/migrations/*.sql | xargs -n1 basename | cut -c1-14)
    ```
 
-   After that, `migration list` is back to 0 remote. If you want the table gone as well:
-   `drop schema supabase_migrations cascade;` in the SQL Editor (it only holds the history).
+   Then check: `pnpm exec supabase migration list --linked` shows 36 local and 0 remote again (the starting state),
+   and `compare.sh` (step 2) is still `equivalent`. Leave the `supabase_migrations` schema and its (now empty)
+   history table in place: the CLI uses them, and an empty history changes nothing. Never drop that schema or any
+   other schema as part of a rollback.
 
 From then on, §2 is the only way migrations reach production.
 
