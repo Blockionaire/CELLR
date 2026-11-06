@@ -398,6 +398,8 @@ function SizeSync({ onResized }: { onResized: () => void }) {
     // Called after layout and before the frame is painted: the new size is drawn in this same frame.
     const observer = new ResizeObserver(() => {
       const state = store.getState();
+      // A lost context draws nothing, and the page has put the bottle back and dropped the still: leave it all be.
+      if (state.gl.getContext().isContextLost()) return;
       if (!syncSize(state)) return;
       resized.current();
       // A resize clears the canvas: draw it again now, or this frame would show it empty.
