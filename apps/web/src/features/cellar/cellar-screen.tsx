@@ -311,6 +311,25 @@ export function CellarScreen({
         summary={t("summary", { bottles: data.bottleCount, wines: data.items.length })}
       />
 
+      {/* The four ways to see the cellar, across the full width, each with its icon and its name. */}
+      <Segmented
+        label={t("viewLabel")}
+        value={view}
+        onChange={(next) => {
+          // at once: a whole new layout gains nothing from a morph, and must not wait on one
+          setView(next);
+          rememberView(next);
+        }}
+        options={[
+          { value: "grid", label: t("viewGrid"), icon: <GridIcon size={18} /> },
+          { value: "list", label: t("viewList"), icon: <ListIcon size={18} /> },
+          { value: "racks", label: t("viewRacks"), icon: <RackIcon size={18} /> },
+          { value: "3d", label: t("view3d"), icon: <CubeIcon size={18} /> },
+        ]}
+        layout="block"
+        className="mb-3"
+      />
+
       <div
         className={cn(
           "sticky-bar sticky top-0 z-10 -mx-5 mb-2 px-5 py-2 sm:mx-0 sm:px-0",
@@ -341,11 +360,11 @@ export function CellarScreen({
           />
         </div>
       </div>
-      <div className="mb-4 flex items-center gap-2">
-        {collection && typeFacets.length > 1 && (
+      {collection && typeFacets.length > 1 && (
+        <div className="mb-4 flex items-center">
           <ul
             aria-label={tFilters("type")}
-            className="-ml-5 flex min-w-0 flex-1 gap-2 overflow-x-auto py-1 pl-5 pr-2 scrollbar-none [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] md:ml-0 md:pl-0"
+            className="-mx-5 flex min-w-0 flex-1 gap-2 overflow-x-auto px-5 py-1 scrollbar-none [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] md:mx-0 md:px-0"
           >
             <li className="shrink-0">
               <Chip
@@ -380,24 +399,8 @@ export function CellarScreen({
               </li>
             ))}
           </ul>
-        )}
-        <Segmented
-          label={t("viewLabel")}
-          value={view}
-          onChange={(next) => {
-            // at once: a whole new layout gains nothing from a morph, and must not wait on one
-            setView(next);
-            rememberView(next);
-          }}
-          options={[
-            { value: "grid", label: t("viewGrid"), icon: <GridIcon size={18} /> },
-            { value: "list", label: t("viewList"), icon: <ListIcon size={18} /> },
-            { value: "racks", label: t("viewRacks"), icon: <RackIcon size={18} /> },
-            { value: "3d", label: t("view3d"), icon: <CubeIcon size={18} /> },
-          ]}
-          className="ml-auto shrink-0 p-0.5"
-        />
-      </div>
+        </div>
+      )}
       {(view === "grid" || view === "list") && (
         <ActiveFilters filters={filters} onChange={setFilters} />
       )}

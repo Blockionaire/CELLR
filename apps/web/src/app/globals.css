@@ -84,6 +84,10 @@
   --stage-orange: light-dark(#f3ddc3, rgb(200 134 74 / 0.34));
   --stage-dessert: light-dark(#f2e2b5, rgb(199 154 62 / 0.34));
   --stage-fortified: light-dark(#e7d3c3, rgb(150 90 50 / 0.36));
+  /* the stage behind a finished 2D bottle picture: neutral, so the picture's own colours carry it; light on paper
+     (white fading to warm grey), a soft lifted glow fading to near-black on noir */
+  --art-stage-hi: light-dark(#ffffff, #3a2f33);
+  --art-stage-lo: light-dark(#e9e2d7, #110c0e);
 
   /* bottle glass and capsule (lighter on noir so a dark bottle never vanishes into the page) */
   --glass-red: light-dark(#2a1b20, #3a262c);
