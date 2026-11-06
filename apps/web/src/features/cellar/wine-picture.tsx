@@ -1,13 +1,8 @@
 import { ViewTransition } from "react";
-import {
-  bottleArtUrl,
-  formatVintage,
-  type BottleArtRef,
-  type ImageRef,
-  type WineType,
-} from "@cellr/domain";
+import { formatVintage, type BottleArtRef, type ImageRef, type WineType } from "@cellr/domain";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { cn } from "@/ui/cn";
+import { BottleArtImage } from "./bottle-art-image";
 import { LabelImage } from "./label-image";
 import { labelMark, shapeFor, STAGE } from "./wine-visuals";
 
@@ -80,17 +75,11 @@ export function WinePicture({
         <>
           {/* the bottle's shadow on the floor */}
           <span className="absolute bottom-[5%] left-1/2 h-[7%] w-[62%] -translate-x-1/2 rounded-[50%] bg-black/25 blur-[6px]" />
-          {/* eslint-disable-next-line @next/next/no-img-element -- a private, same-origin picture: the optimiser cannot fetch it */}
-          <img
-            src={bottleArtUrl(art.id)}
+          <BottleArtImage
+            art={art}
             alt={alt ?? ""}
-            width={art.width}
-            height={art.height}
-            loading="lazy"
-            decoding="async"
-            draggable={false}
             className={cn(
-              "relative mb-[6%] h-[88%] w-auto max-w-[92%] object-contain drop-shadow-[0_6px_10px_rgb(0_0_0/0.22)]",
+              "relative mb-[6%] h-[88%] w-auto max-w-[92%] drop-shadow-[0_6px_10px_rgb(0_0_0/0.22)]",
               bottleClassName,
               artClassName,
             )}
