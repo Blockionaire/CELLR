@@ -474,6 +474,9 @@ function Freezer({
     done.current = target.id;
     image.current = null;
     const state = store.getState();
+    // No still of this bottle yet (one is taken only once it slides clear; put back sooner, the rack simply stays
+    // live): an older one's view must not be read as this one's.
+    delete state.gl.domElement.dataset.stillView;
     syncSize(state);
     state.invalidate();
   }, [target, frozen, store]);
