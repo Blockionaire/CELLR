@@ -123,8 +123,9 @@ export function WineRow({ item, locale, shared = false }: ItemProps & { shared?:
         <WinePicture
           wine={item}
           shared={shared}
-          className="h-[4.5rem] w-14 shrink-0 rounded-[12px] ring-1 ring-hairline"
+          className="h-24 w-[4.5rem] shrink-0 rounded-[14px] ring-1 ring-hairline"
           bottleClassName="h-[84%]"
+          artClassName="mb-[3%] h-[94%]"
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-bronze">

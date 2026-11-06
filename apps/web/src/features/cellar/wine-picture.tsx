@@ -11,6 +11,14 @@ import { cn } from "@/ui/cn";
 import { LabelImage } from "./label-image";
 import { labelMark, shapeFor, STAGE } from "./wine-visuals";
 
+/**
+ * Behind a finished 2D bottle picture: a neutral field (light on paper, dark on noir) with a soft light from above and
+ * a shadow at the foot, so any bottle, light or dark glass, stands out the same way. Not the wine-type tint: the
+ * picture has its own colours.
+ */
+const ART_STAGE =
+  "bg-[radial-gradient(ellipse_90%_75%_at_50%_32%,var(--art-stage-hi)_0%,var(--art-stage-lo)_100%)]";
+
 export interface PictureWine {
   vintageId: string;
   type: WineType;
@@ -40,6 +48,7 @@ export function WinePicture({
   alt,
   className,
   bottleClassName,
+  artClassName,
 }: {
   wine: PictureWine;
   size?: "thumb" | "photo";
@@ -49,7 +58,10 @@ export function WinePicture({
   /** When the photo is the content (the wine's own page): what it shows. Otherwise it is decoration. */
   alt?: string;
   className?: string;
+  /** Sizes the drawn bottle, and the 2D picture unless artClassName is given. */
   bottleClassName?: string;
+  /** Sizes the 2D picture only (it fills its frame differently from the drawn bottle). */
+  artClassName?: string;
 }) {
   const vintage = formatVintage(wine.year);
   const art = wine.art ?? null;
@@ -60,13 +72,14 @@ export function WinePicture({
       data-art={art ? "true" : undefined}
       className={cn(
         "relative isolate flex items-end justify-center overflow-hidden",
-        STAGE[wine.type],
+        art ? ART_STAGE : STAGE[wine.type],
         className,
       )}
     >
       {art ? (
         <>
-          <span className="absolute -bottom-[18%] left-1/2 aspect-square w-[78%] -translate-x-1/2 rounded-full bg-surface/45" />
+          {/* the bottle's shadow on the floor */}
+          <span className="absolute bottom-[5%] left-1/2 h-[7%] w-[62%] -translate-x-1/2 rounded-[50%] bg-black/25 blur-[6px]" />
           {/* eslint-disable-next-line @next/next/no-img-element -- a private, same-origin picture: the optimiser cannot fetch it */}
           <img
             src={bottleArtUrl(art.id)}
@@ -77,8 +90,9 @@ export function WinePicture({
             decoding="async"
             draggable={false}
             className={cn(
-              "relative mb-[6%] h-[78%] w-auto max-w-[86%] object-contain drop-shadow-[0_6px_10px_rgb(0_0_0/0.18)]",
+              "relative mb-[6%] h-[88%] w-auto max-w-[92%] object-contain drop-shadow-[0_6px_10px_rgb(0_0_0/0.22)]",
               bottleClassName,
+              artClassName,
             )}
           />
         </>

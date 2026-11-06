@@ -18,6 +18,11 @@ interface SegmentedProps<T extends string> {
   onChange: (value: T) => void;
   /** Accessible name for the group, e.g. "Cellar view". */
   label: string;
+  /**
+   * "block": the full width, every option an equal share showing its icon AND its word, so what each one does is
+   * clear at a glance. Default "inline": as wide as its options, an icon alone when there is one.
+   */
+  layout?: "inline" | "block";
   className?: string;
 }
 
@@ -27,8 +32,10 @@ export function Segmented<T extends string>({
   value,
   onChange,
   label,
+  layout = "inline",
   className,
 }: SegmentedProps<T>) {
+  const block = layout === "block";
   const group = useId();
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -53,7 +60,10 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className={cn("inline-flex rounded-full bg-raised p-1", className)}
+      className={cn(
+        block ? "flex w-full rounded-full bg-raised p-1" : "inline-flex rounded-full bg-raised p-1",
+        className,
+      )}
     >
       {options.map((option, index) => {
         const selected = option.value === value;
@@ -66,13 +76,17 @@ export function Segmented<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
-            title={option.icon ? option.label : undefined}
+            title={option.icon && !block ? option.label : undefined}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             onKeyDown={(e) => onKeyDown(e, index)}
             className={cn(
               "relative h-9 rounded-full text-small font-medium transition-colors duration-150",
-              option.icon ? "grid w-9 place-items-center" : "min-w-16 px-4",
+              block
+                ? "inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 px-2"
+                : option.icon
+                  ? "grid w-9 place-items-center"
+                  : "min-w-16 px-4",
               selected ? "text-ink" : "text-ink-2 hover:text-ink",
             )}
           >
@@ -83,7 +97,14 @@ export function Segmented<T extends string>({
                 className="absolute inset-0 rounded-full bg-surface shadow-raised"
               />
             )}
-            {option.icon ? (
+            {option.icon && block ? (
+              <>
+                <span aria-hidden="true" className="relative shrink-0">
+                  {option.icon}
+                </span>
+                <span className="relative truncate">{option.label}</span>
+              </>
+            ) : option.icon ? (
               <>
                 <span aria-hidden="true" className="relative">
                   {option.icon}
