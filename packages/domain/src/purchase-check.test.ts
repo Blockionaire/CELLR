@@ -263,6 +263,49 @@ describe("2. similar wines you already own", () => {
     expect(r.similar[0]!.strength).toBe("moderate");
   });
 
+  it("the same producer alone is not enough: a different wine of the estate is not similar", () => {
+    // Same producer, same kind, same country, but another place and nothing known about the grapes.
+    const sibling = { producer: "Château Example", type: "red" as const, countryCode: "FR" };
+    expect(similarity(wine(), { ...sibling, region: null }, undefined)).toBeNull();
+    expect(similarity(wine(), { ...sibling, region: "Rhône" }, undefined)).toBeNull();
+    expect(
+      similarity(
+        wine({ appellation: "Pauillac", grapes: ["Merlot"] }),
+        { ...sibling, region: "Rhône" },
+        {
+          appellation: "Saint-Joseph",
+          grapes: ["Syrah"],
+        },
+      ),
+    ).toBeNull();
+    const cuvee = item({ producer: "Château Example", wineName: "Second Vin", region: "Rhône" });
+    expect(checkPurchase(input({ items: [cuvee] })).similar).toEqual([]);
+  });
+
+  it("the same producer still counts when a place or the grapes back it", () => {
+    const sibling = { producer: "Château Example", type: "red" as const, countryCode: "FR" };
+    const sameRegion = similarity(wine(), { ...sibling, region: "Bordeaux" }, undefined)!;
+    expect(sameRegion.reasons.map((r) => r.code)).toEqual([
+      "same_producer",
+      "same_region",
+      "same_country",
+    ]);
+    expect(sameRegion.score).toBeGreaterThanOrEqual(5); // strong
+    const sameGrape = similarity(
+      wine({ region: null, grapes: ["Merlot"] }),
+      { ...sibling, region: null },
+      {
+        appellation: null,
+        grapes: ["Merlot", "Cabernet Franc"],
+      },
+    )!;
+    expect(sameGrape.reasons.map((r) => r.code)).toEqual([
+      "same_producer",
+      "shared_grapes",
+      "same_country",
+    ]);
+  });
+
   it("one card per wine, with all its bottles over its vintages", () => {
     const y1 = item({ wineId: "same", region: "Bordeaux", year: 2015, count: 1 });
     const y2 = item({ wineId: "same", region: "Bordeaux", year: 2018, count: 3 });
@@ -326,6 +369,43 @@ describe("3. match with your taste", () => {
     expect(r.taste.fit).toBe("insufficient");
   });
 
+  it("a producer's highly rated whites say nothing about its red", () => {
+    const whites = [9, 10, 9].map((score) =>
+      tasting({ score, producer: "Château Example", type: "white", region: "Graves" }),
+    );
+    const r = checkPurchase(input({ tastings: whites }));
+    expect(r.taste.signals.some((s) => s.code === "producer")).toBe(false);
+    expect(r.taste.fit).toBe("insufficient");
+    expect(r.verdict).toBe("depends");
+  });
+
+  it("nor do its poorly rated whites make a mismatch", () => {
+    const whites = [3, 4].map((score) =>
+      tasting({ score, producer: "Château Example", type: "white" }),
+    );
+    const r = checkPurchase(input({ tastings: whites }));
+    expect(r.taste.signals.some((s) => s.code === "producer")).toBe(false);
+    expect(r.taste.fit).toBe("insufficient");
+  });
+
+  it("two liked reds of the producer still support the red", () => {
+    const reds = [8, 9].map((score) => tasting({ score, producer: "Château Example" }));
+    const whites = [3, 3].map((score) =>
+      tasting({ score, producer: "Château Example", type: "white" }),
+    );
+    const r = checkPurchase(input({ tastings: [...reds, ...whites] }));
+    expect(r.taste.signals).toContainEqual(
+      expect.objectContaining({ code: "producer", direction: "for", wines: 2, average: 4.3 }),
+    );
+    expect(r.taste.fit).toBe("positive");
+  });
+
+  it("with the kind of the wine unknown, the producer's ratings decide nothing", () => {
+    const reds = [8, 9].map((score) => tasting({ score, producer: "Château Example" }));
+    const r = checkPurchase(input({ wine: wine({ type: null }), tastings: reds }));
+    expect(r.taste.fit).toBe("insufficient");
+  });
+
   it("disliked grapes are a supported potential mismatch, and the advice is to skip", () => {
     const r = checkPurchase(
       input({
@@ -386,6 +466,25 @@ describe("4. the advice", () => {
     );
     expect(r.verdict).toBe("consider");
     expect(r.reasons[0]).toEqual({ code: "similar_owned", wines: 2, bottles: 3 });
+  });
+
+  it("'adds something new' only when the cellar's wines of that kind could be compared", () => {
+    // A red without a region or grapes known: it might be just like this one, so no claim of variety.
+    const undescribed = item({ region: null });
+    const r = checkPurchase(input({ items: [undescribed] }));
+    expect(r.similar).toEqual([]);
+    expect(r.reasons).toContainEqual({ code: "no_similar_found" });
+    expect(r.reasons).not.toContainEqual({ code: "adds_variety" });
+    // Its grapes (or appellation) known and different: then it can be said.
+    const known = checkPurchase(
+      input({
+        items: [undescribed],
+        traits: traitsOf([[undescribed.wineId, { grapes: ["Syrah"] }]]),
+      }),
+    );
+    expect(known.reasons).toContainEqual({ code: "adds_variety" });
+    const elsewhere = checkPurchase(input({ items: [item({ region: "Rioja" })] }));
+    expect(elsewhere.reasons).toContainEqual({ code: "adds_variety" });
   });
 
   it("three bottles of the exact wine already: probably skip, unless the taste supports it", () => {

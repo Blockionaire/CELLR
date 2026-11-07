@@ -286,8 +286,18 @@ const WEIGHT: Record<SimilarReason, number> = {
   shared_grapes: 2,
   same_country: 1,
 };
-/** Comparable from this score, with at least one finding besides the country (and always the same kind of wine). */
+/** Comparable from this score, with at least one ANCHOR finding (and always the same kind of wine). */
 export const SIMILAR_MIN = 3;
+/**
+ * The findings that say two wines are alike in the glass: where they come from, or what they are made of. The same
+ * producer (who can make very different wines) and the same country only ever add to one of these.
+ */
+export const SIMILAR_ANCHORS: ReadonlySet<SimilarReason> = new Set([
+  "same_appellation",
+  "same_region",
+  "same_grapes",
+  "shared_grapes",
+]);
 /** "Strong" from this score: e.g. the same appellation and the same grapes. */
 export const SIMILAR_STRONG = 5;
 export const SIMILAR_MAX = 3;
@@ -331,7 +341,7 @@ export function similarity(
   if (wine.countryCode && wine.countryCode === item.countryCode)
     reasons.push({ code: "same_country", value: item.countryCode });
   const score = reasons.reduce((s, r) => s + WEIGHT[r.code], 0);
-  if (score < SIMILAR_MIN || reasons.every((r) => r.code === "same_country")) return null;
+  if (score < SIMILAR_MIN || !reasons.some((r) => SIMILAR_ANCHORS.has(r.code))) return null;
   return { score, reasons };
 }
 
@@ -415,7 +425,7 @@ const meanOf = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0) / xs.len
 /**
  * Taste is judged from the person's own ratings, and only where enough different wines support it (the taste
  * profile's own minimums): a region, an appellation or a grape needs three rated wines of the same kind, the
- * producer two, this wine one (another vintage of it). What they said ("mostly red") and how they rate a whole kind
+ * producer two of the same kind, this wine one (another vintage of it). What they said ("mostly red") and how they rate a whole kind
  * of wine are weak signals: shown, never enough on their own.
  */
 export function tasteOf(
@@ -452,10 +462,11 @@ export function tasteOf(
   const others = points.filter((p) => !isThis(p));
   // Only wines of the same kind say something about this one (a red Bordeaux says little about a white one).
   const sameKind = wine.type ? others.filter((p) => p.type === wine.type) : [];
+  // The producer too: a producer's whites say nothing about its red (and an unknown kind cannot be checked).
   judge(
     "producer",
     wine.producer,
-    others.filter((p) => nameSimilarity(p.ref.producer, wine.producer) >= 0.9),
+    sameKind.filter((p) => nameSimilarity(p.ref.producer, wine.producer) >= 0.9),
     MIN_PRODUCER_WINES,
     "strong",
   );
@@ -527,6 +538,7 @@ export type VerdictReason =
   | { code: "maybe_owned" }
   | { code: "similar_owned"; wines: number; bottles: number }
   | { code: "adds_variety" }
+  | { code: "no_similar_found" }
   | { code: "few_details" }
   | { code: "cellar_empty" }
   | { code: "taste_fits" }
@@ -556,7 +568,13 @@ export function verdictOf(
   ownership: PurchaseOwnership,
   similar: readonly SimilarWine[],
   taste: PurchaseTaste,
-  context: { cellarBottles: number; detailed: boolean },
+  context: {
+    cellarBottles: number;
+    /** The wine in the shop is described well enough to compare (kind, and a place or grapes). */
+    detailed: boolean;
+    /** Every cellar wine of that kind has a place or grapes known: "nothing like it" can then be said. */
+    described: boolean;
+  },
 ): { verdict: PurchaseVerdict; reasons: VerdictReason[] } {
   const strongBottles = similar
     .filter((s) => s.strength === "strong")
@@ -585,8 +603,14 @@ export function verdictOf(
   if (similar.length > 0)
     reasons.push({ code: "similar_owned", wines: similar.length, bottles: similarBottles });
   else if (context.cellarBottles > 0 && ownership.kind === "none")
-    // "New for the cellar" only when there was enough to compare with; otherwise the details were missing.
-    reasons.push({ code: context.detailed ? "adds_variety" : "few_details" });
+    // "New for the cellar" only when both sides were described well enough to compare; otherwise say what is known.
+    reasons.push({
+      code: !context.detailed
+        ? "few_details"
+        : context.described
+          ? "adds_variety"
+          : "no_similar_found",
+    });
   reasons.push({
     code:
       taste.fit === "positive"
@@ -619,7 +643,17 @@ export function checkPurchase(input: PurchaseCheckInput): PurchaseCheckResult {
   const cellarBottles = input.items.reduce((n, i) => n + i.count, 0);
   const w = input.wine;
   const detailed = w.type !== null && Boolean(w.region || w.appellation || w.grapes.length > 0);
-  const { verdict, reasons } = verdictOf(ownership, similar, taste, { cellarBottles, detailed });
+  const described = input.items
+    .filter((i) => i.type === w.type)
+    .every((i) => {
+      const t = input.traits.get(i.wineId);
+      return Boolean(i.region || t?.appellation || (t?.grapes.length ?? 0) > 0);
+    });
+  const { verdict, reasons } = verdictOf(ownership, similar, taste, {
+    cellarBottles,
+    detailed,
+    described,
+  });
   return {
     wine: input.wine,
     priceCents: input.priceCents,

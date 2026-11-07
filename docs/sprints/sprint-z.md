@@ -41,14 +41,19 @@ Sommelier → **Purchase Check / Koopcheck** → `/sommelier/purchase-check`:
 - **Possibly the same** (never counted as owned): a very similar name (scan score ≥ 0.85), or the same estate and
   colour when the label shows no wine name.
 - **Similar**: the same kind of wine is required. Then: same producer +3, same appellation +3 (else same region +2),
-  same grapes +3 (else shared grapes +2), same country +1. Comparable from 3 with at least one finding besides the
-  country; strong from 5. At most three, one card per wine.
-- **Taste** (own ratings only): this wine's other vintage (1 rated), the producer (2), appellation, region or grape
-  (3 rated wines of the same kind). Liked means a mean of ≥ 3.5★, disliked ≤ 2.5★. A whole kind of wine, or what the
-  person said ("mostly red"), is weak and never decides. The fit is positive, mismatch, mixed or insufficient.
+  same grapes +3 (else shared grapes +2), same country +1. Comparable from 3 **and** with at least one place or grape
+  finding (appellation, region, same or shared grapes): the same producer or country only ever adds to one of those, so
+  a different wine of the same estate is not "similar" on its own. Strong from 5. At most three, one card per wine.
+- **Taste** (own ratings only, always of the **same kind** as the wine in the shop): this wine's other vintage (1
+  rated), the producer (2), appellation, region or grape (3). A producer's whites never decide about its red, and with
+  the kind unknown the producer's ratings decide nothing. Liked means a mean of ≥ 3.5★, disliked ≤ 2.5★. A whole kind
+  of wine, or what the person said ("mostly red"), is weak and never decides. The fit is positive, mismatch, mixed or
+  insufficient.
 - **Advice**: mismatch → probably skip. Redundant (≥ 3 bottles of the exact wine, ≥ 6 of the wine, ≥ 6 of strongly
   similar or ≥ 12 of similar wines) → depends if the taste fits, else probably skip. Taste fits → worth considering.
-  Anything else → depends on your priorities. The price is shown, never judged.
+  Anything else → depends on your priorities. The price is shown, never judged. "Adds something new" is only said when
+  the wine in the shop and every cellar wine of its kind have a place or grapes known; otherwise the result says no
+  comparable wine was found while some wines lack the details to compare.
 
 ## Limitations and follow-ups
 
