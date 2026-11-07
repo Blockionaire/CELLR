@@ -41,6 +41,8 @@ import { createContributionService } from "@/server/catalog/contribution";
 import { createScanRepository } from "@/server/scans/repository";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
+import { createPurchaseCheckRepository } from "@/server/purchase-check/repository";
+import { createPurchaseCheckService } from "@/server/purchase-check/service";
 import { createStatsService } from "@/server/stats/service";
 import { createInsightsRepository } from "@/server/insights/repository";
 import { createInsightsService } from "@/server/insights/service";
@@ -66,8 +68,9 @@ export function servicesFor(ctx: RequestContext) {
   };
   const images = createImageService(createImageRepository(ctx.db), household);
   // The signed-in person's own taste, in the active household: their answers and their own tastings only.
+  const tasteRepo = createTasteRepository(ctx.db);
   const taste = createTasteService({
-    repo: createTasteRepository(ctx.db),
+    repo: tasteRepo,
     userId: ctx.userId,
     household,
   });
@@ -239,6 +242,20 @@ export function servicesFor(ctx: RequestContext) {
       spend: () => limiter.enforce(LIMITS.chat),
       householdId: async () => (await household()).id,
       locale: async () => (await households.me()).locale,
+      recordUsage: ({ householdId, task, status, usage }) =>
+        recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
+    }),
+    // Koopcheck: read only. Its photo is never kept (no bottle image, no catalogue signal), nothing is written.
+    purchaseCheck: createPurchaseCheckService({
+      images,
+      findByText: scanRepo.findByText,
+      householdId: async () => (await household()).id,
+      inventory: () => cellar.inventory(),
+      traits: (wineIds) => createPurchaseCheckRepository(ctx.db).listWineTraits(wineIds),
+      insights: (householdId, vintageIds) => tasteRepo.listInsights(householdId, vintageIds),
+      taste: () => taste.evidence(),
+      llm: getLlmProvider(),
+      spendScan: () => limiter.enforce(LIMITS.scans),
       recordUsage: ({ householdId, task, status, usage }) =>
         recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
     }),
