@@ -251,7 +251,7 @@
   },
   "sommelier": {
     "title": "Sommelier",
-    "subtitle": "Ask what to open, and why. I only know the wines in your cellar.",
+    "subtitle": "Ask what to open and why, or check a bottle before you buy it.",
     "question": "Your question",
     "placeholder": "Ask about your cellar…",
     "send": "Send",
@@ -261,6 +261,8 @@
     "sommelier": "Sommelier",
     "newChat": "New conversation",
     "tryThese": "Try asking",
+    "moreIdeas": "More ideas ({count})",
+    "moreIdeasTitle": "More ideas",
     "chips": {
       "tonight": "What should I open tonight?",
       "steak": "Something for a steak dinner",
@@ -643,7 +645,19 @@
     "mergeTitle": "In your cellar twice?",
     "mergeBody": "Merge it with the other one; every bottle stays.",
     "glance": "At a glance",
-    "glanceDrink": "Drinking window"
+    "glanceDrink": "Drinking window",
+    "whereSpots": "{count, plural, one {# spot} other {# spots}}",
+    "whereSpotsUnplaced": "{count, plural, one {# spot} other {# spots}}, {unplaced} not placed",
+    "whereShow": "Show where in the rack",
+    "whereTitle": "Where it is",
+    "whereLoading": "Loading the rack…",
+    "whereFailed": "The rack couldn't be loaded.",
+    "whereRetry": "Try again",
+    "whereThisWine": "{count, plural, one {# bottle} other {# bottles}} of this wine",
+    "whereUnplaced": "{count, plural, one {# bottle has} other {# bottles have}} no place yet.",
+    "whereNone": "No bottle of this wine has a place in a rack right now.",
+    "whereUpdated": "Updated: a bottle was moved since this page loaded.",
+    "whereReadOnly": "Only for looking: move bottles with Move."
   },
   "openBottle": {
     "title": "Open a bottle",
@@ -694,7 +708,8 @@
     "position": "Position",
     "cellEmpty": "Shelf {row}, position {col}, empty",
     "cellBottle": "{wine}, shelf {row}, position {col}",
-    "free": "{count, plural, one {# free} other {# free}}"
+    "free": "{count, plural, one {# free} other {# free}}",
+    "cellThisWine": "{wine}, shelf {row}, position {col}, this wine"
   },
   "racks": {
     "emptyTitle": "Where do your bottles live?",

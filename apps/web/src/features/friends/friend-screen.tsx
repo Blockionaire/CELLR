@@ -485,6 +485,7 @@ function CellarTab({ wines, racks }: { wines: FriendCellarWine[]; racks: FriendR
             }
           >
             <RackGrid
+              label={r.label}
               rows={r.rows}
               cols={r.cols}
               bottles={r.bottles.map((b) => ({

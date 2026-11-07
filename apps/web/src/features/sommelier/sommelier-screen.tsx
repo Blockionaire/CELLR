@@ -33,6 +33,7 @@ import { plainSentence } from "./plain-sentence";
 import { cn } from "@/ui/cn";
 import { ChevronRightIcon, ScanIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
+import { Sheet } from "@/ui/sheet";
 import { useAskSommelier } from "./hooks";
 
 const CHIPS = ["tonight", "steak", "peak", "guests", "fish", "keep"] as const;
@@ -40,6 +41,8 @@ const CHIPS = ["tonight", "steak", "peak", "guests", "fish", "keep"] as const;
 const PERSONAL_CHIPS = ["love", "new", "match"] as const;
 /** With no bottles yet, the questions that still have an answer: about the cellar itself. */
 const EMPTY_CHIPS = ["bottles", "space"] as const;
+/** On a phone, this many example questions show; the rest wait behind "More ideas". */
+const SHOWN_ON_PHONE = 2;
 
 type Turn =
   | { role: "user"; text: string }
@@ -135,6 +138,7 @@ export function SommelierChat({
   const [draft, setDraft] = useState("");
   // The person's own taste is used unless they ask for general advice (for this conversation only).
   const [personal, setPersonal] = useState(true);
+  const [moreIdeas, setMoreIdeas] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
 
@@ -213,6 +217,9 @@ export function SommelierChat({
           : []),
         ...chips,
       ];
+  // The general sommelier with more questions than fit on a phone: the rest go behind "More ideas" there.
+  // (Tonight keeps its own row of dishes, which starts with the most common ones.)
+  const compact = mode === "chat" && examples.length > SHOWN_ON_PHONE;
 
   return (
     <div className="mx-auto w-full max-w-2xl pb-24 lg:pb-0">
@@ -237,20 +244,57 @@ export function SommelierChat({
           />
         )}
         {turns.length === 0 && (
-          <section aria-labelledby="chips-title">
+          <section aria-labelledby="chips-title" data-testid="example-questions">
             <h2
               id="chips-title"
               className="mb-3 text-caption font-medium uppercase tracking-[0.14em] text-bronze"
             >
               {t("tryThese")}
             </h2>
-            <div className="flex flex-wrap gap-2">
-              {examples.map((label) => (
-                <Chip key={label} onClick={() => void send(label)}>
+            <div className="flex flex-wrap items-center gap-2">
+              {examples.map((label, i) => (
+                <Chip
+                  key={label}
+                  // On a phone only the first few show: the rest are one tap away, so the screen stays the chat's.
+                  className={compact && i >= SHOWN_ON_PHONE ? "max-sm:hidden" : undefined}
+                  onClick={() => void send(label)}
+                >
                   {label}
                 </Chip>
               ))}
+              {compact && (
+                <button
+                  type="button"
+                  aria-haspopup="dialog"
+                  onClick={() => setMoreIdeas(true)}
+                  data-testid="more-ideas"
+                  className="h-9 px-2 text-small font-medium text-accent-fg underline-offset-4 hover:underline sm:hidden"
+                >
+                  {t("moreIdeas", { count: examples.length - SHOWN_ON_PHONE })}
+                </button>
+              )}
             </div>
+            {compact && (
+              <Sheet
+                open={moreIdeas}
+                onClose={() => setMoreIdeas(false)}
+                title={t("moreIdeasTitle")}
+              >
+                <div className="flex flex-wrap gap-2 pb-2" data-testid="more-ideas-list">
+                  {examples.slice(SHOWN_ON_PHONE).map((label) => (
+                    <Chip
+                      key={label}
+                      onClick={() => {
+                        setMoreIdeas(false);
+                        void send(label);
+                      }}
+                    >
+                      {label}
+                    </Chip>
+                  ))}
+                </div>
+              </Sheet>
+            )}
           </section>
         )}
 

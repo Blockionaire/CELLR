@@ -372,8 +372,9 @@ export function useRemoveLabelPhoto(vintageId: string, side: ImageSide = "front"
   });
 }
 
-export const useRacks = () =>
-  useQuery({ queryKey: racksKey, queryFn: () => api.get<RackView>("/racks") });
+/** Every place with its bottles by spot. `enabled: false` waits (a popup loads it only when it opens). */
+export const useRacks = (enabled = true) =>
+  useQuery({ queryKey: racksKey, queryFn: () => api.get<RackView>("/racks"), enabled });
 
 /** Anything that changes bottles must refresh every place that shows counts, spots or free space. */
 export function useRefreshCellar() {

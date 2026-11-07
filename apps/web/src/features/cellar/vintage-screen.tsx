@@ -9,6 +9,8 @@ import {
   historyEvents,
   groupBottlesByPlace,
   summarizePlaces,
+  whereSummary,
+  type WhereSummary,
   summarizeScores,
   type BottleExtrasView,
   type BottleView,
@@ -25,6 +27,7 @@ import { cn } from "@/ui/cn";
 import { ChevronRightIcon, PlusIcon, StarIcon } from "@/ui/icons";
 import { BarButton, BarIcon, MoveIcon } from "./action-bar";
 import { BottleSpot, useDay, useMoney } from "./bottle-bits";
+import { WhereSheet } from "./where-sheet";
 import { BottlePortrait, nameSize } from "./bottle-portrait";
 import { DrinkChart, PhasePill } from "./drink-chart";
 import { EditSheet } from "./edit-sheet";
@@ -80,6 +83,8 @@ export function VintageScreen({
     () => initial.opened.find((b) => b.id === initialRate) ?? null,
   );
   const [extrasFor, setExtrasFor] = useState<BottleView | null>(null);
+  // "Where is it?": what the page knew when it was opened, so a bottle moved since then is noticed (and said).
+  const [whereAt, setWhereAt] = useState<WhereSummary | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<readonly string[]>([]);
   const tBulk = useTranslations("bulk");
@@ -125,12 +130,21 @@ export function VintageScreen({
     worthCents !== null && averageCents !== null && averageCents > 0
       ? (worthCents - averageCents) / averageCents
       : null;
+  const located = whereSummary(detail.bottles);
+  // Exactly where: one bottle's own spot, or for several the places and how many spots (never one spot for all).
   const placeValue =
     places.length === 0
       ? ""
       : places.length === 1
         ? (places[0]!.label ?? t("notPlaced"))
         : `${places[0]!.label ?? t("notPlaced")} +${places.length - 1}`;
+  const placeDetail = located.single
+    ? t("spot", { row: located.single.row!, col: located.single.col! })
+    : located.spots.length === 0
+      ? null
+      : located.unplaced > 0
+        ? t("whereSpotsUnplaced", { count: located.spots.length, unplaced: located.unplaced })
+        : t("whereSpots", { count: located.spots.length });
   const cells: Array<{ key: string; value: ReactNode; label: ReactNode }> = [];
   if (count > 0) {
     cells.push(
@@ -143,7 +157,35 @@ export function VintageScreen({
         ),
         label: t("factBottles", { count }),
       },
-      { key: "where", value: placeValue, label: t("where") },
+      {
+        key: "where",
+        value:
+          located.spots.length > 0 ? (
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              onClick={() => setWhereAt(located)}
+              data-testid="where-trigger"
+              className="-mx-2 -my-1 inline-flex max-w-[calc(100%+1rem)] flex-col items-center rounded-control px-2 py-1 transition-colors duration-150 hover:bg-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-fg"
+            >
+              <span className="max-w-full truncate underline decoration-hairline decoration-2 underline-offset-[6px]">
+                {placeValue}
+              </span>
+              {placeDetail && (
+                <span
+                  className="max-w-full truncate text-small font-normal text-ink-2"
+                  data-testid="where-detail"
+                >
+                  {placeDetail}
+                </span>
+              )}
+              <span className="sr-only">{t("whereShow")}</span>
+            </button>
+          ) : (
+            placeValue
+          ),
+        label: t("where"),
+      },
     );
   }
   if (!detail.drink.uncertain && detail.drink.from !== null && detail.drink.until !== null) {
@@ -697,6 +739,12 @@ export function VintageScreen({
       </div>
 
       <OpenBottleSheet open={sheet === "open"} onClose={() => setSheet(null)} detail={detail} />
+      <WhereSheet
+        open={whereAt !== null}
+        onClose={() => setWhereAt(null)}
+        vintageId={detail.vintageId}
+        where={whereAt ?? located}
+      />
       <MoveBottleSheet
         open={sheet === "move"}
         onClose={() => setSheet(null)}

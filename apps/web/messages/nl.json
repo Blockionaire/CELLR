@@ -251,7 +251,7 @@
   },
   "sommelier": {
     "title": "Sommelier",
-    "subtitle": "Vraag wat je kunt openen, en waarom. Ik ken alleen de wijnen in je kelder.",
+    "subtitle": "Vraag wat je opent en waarom, of check een fles voordat je hem koopt.",
     "question": "Je vraag",
     "placeholder": "Vraag iets over je kelder…",
     "send": "Verstuur",
@@ -261,6 +261,8 @@
     "sommelier": "Sommelier",
     "newChat": "Nieuw gesprek",
     "tryThese": "Probeer eens",
+    "moreIdeas": "Meer ideeën ({count})",
+    "moreIdeasTitle": "Meer ideeën",
     "chips": {
       "tonight": "Wat open ik vanavond?",
       "steak": "Iets bij een biefstuk",
@@ -643,7 +645,19 @@
     "mergeTitle": "Staat deze wijn er dubbel in?",
     "mergeBody": "Voeg hem samen met de andere; alle flessen blijven.",
     "glance": "In één oogopslag",
-    "glanceDrink": "Drinkvenster"
+    "glanceDrink": "Drinkvenster",
+    "whereSpots": "{count, plural, one {# plek} other {# plekken}}",
+    "whereSpotsUnplaced": "{count, plural, one {# plek} other {# plekken}}, {unplaced} zonder plek",
+    "whereShow": "Toon waar in het rek",
+    "whereTitle": "Waar hij ligt",
+    "whereLoading": "Rek laden…",
+    "whereFailed": "Het rek kon niet geladen worden.",
+    "whereRetry": "Opnieuw proberen",
+    "whereThisWine": "{count, plural, one {# fles} other {# flessen}} van deze wijn",
+    "whereUnplaced": "{count, plural, one {# fles heeft} other {# flessen hebben}} nog geen plek.",
+    "whereNone": "Geen fles van deze wijn heeft nu een plek in een rek.",
+    "whereUpdated": "Bijgewerkt: er is een fles verplaatst sinds deze pagina laadde.",
+    "whereReadOnly": "Alleen om te bekijken: verplaatsen doe je met de knop Verplaatsen."
   },
   "openBottle": {
     "title": "Fles openen",
@@ -694,7 +708,8 @@
     "position": "Positie",
     "cellEmpty": "Plank {row}, positie {col}, leeg",
     "cellBottle": "{wine}, plank {row}, positie {col}",
-    "free": "{count, plural, one {# vrij} other {# vrij}}"
+    "free": "{count, plural, one {# vrij} other {# vrij}}",
+    "cellThisWine": "{wine}, plank {row}, positie {col}, deze wijn"
   },
   "racks": {
     "emptyTitle": "Waar liggen je flessen?",

@@ -29,6 +29,13 @@ interface RackGridProps {
   /** A bottle being dragged: its own spot, and the spot under the finger ("row:col" in this grid), while it moves and
    * while the move is being saved. */
   drag?: { sourceId: string | null; overKey: string | null; saving?: boolean } | undefined;
+  /**
+   * Bottles to point out (a wine's own bottles, seen from its page): ringed in the accent colour, the others dimmed.
+   * Purely visual; it never makes anything tappable.
+   */
+  highlight?: ReadonlySet<string> | undefined;
+  /** The unit's name: a grid with nothing to tap is still reachable by keyboard (to scroll a wide one) under it. */
+  label?: string | undefined;
   className?: string;
 }
 
@@ -70,6 +77,8 @@ export function RackGrid({
   slotKey,
   onBottlePointerDown,
   drag,
+  highlight,
+  label: unitLabel,
   className,
 }: RackGridProps) {
   const t = useTranslations("rack");
@@ -80,8 +89,20 @@ export function RackGrid({
   const bySpot = new Map<string, PlacedBottle>();
   for (const b of bottles) if (b.row !== null && b.col !== null) bySpot.set(`${b.row}:${b.col}`, b);
 
+  // Nothing to tap in it (a look, not an action): the grid itself takes focus, so a wide one scrolls by keyboard too.
+  const readOnly = !onEmpty && !onBottle;
   return (
-    <div className={cn("overflow-x-auto px-1 pb-2", className)}>
+    <div
+      role={readOnly ? "group" : undefined}
+      aria-label={readOnly ? unitLabel : undefined}
+      tabIndex={readOnly ? 0 : undefined}
+      className={cn(
+        "overflow-x-auto px-1 pb-2",
+        readOnly &&
+          "rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-fg",
+        className,
+      )}
+    >
       <div
         className="inline-grid justify-items-center gap-x-1.5 gap-y-0 pr-2"
         style={{ gridTemplateColumns: `1.5rem repeat(${cols}, 2.75rem)` }}
@@ -112,9 +133,12 @@ export function RackGrid({
                 const swapInto = over && !source;
                 const swappable = swapTargets && targeting && !active;
                 const name = `${bottle.producer} ${bottle.wineName} ${formatVintage(bottle.year)}`;
+                const marked = highlight?.has(bottle.bottleId) ?? false;
                 const label = swappable
                   ? tr("cellSwap", { wine: name, row, col })
-                  : t("cellBottle", { wine: name, row, col });
+                  : marked
+                    ? t("cellThisWine", { wine: name, row, col })
+                    : t("cellBottle", { wine: name, row, col });
                 const glyph = (
                   <BottleGlyph
                     shape={shapeFor(bottle.type)}
@@ -131,13 +155,17 @@ export function RackGrid({
                   STAGE[bottle.type],
                   active
                     ? "ring-2 ring-accent-fg ring-offset-2 ring-offset-surface"
-                    : swapInto
-                      ? "z-10 scale-110 ring-2 ring-accent-fg ring-offset-2 ring-offset-surface"
-                      : source
-                        ? "outline-dashed outline-2 outline-offset-2 outline-accent-fg/70"
-                        : swappable
-                          ? "ring-1 ring-accent-fg/45"
-                          : "ring-1 ring-hairline",
+                    : marked
+                      ? "z-10 ring-[3px] ring-accent-fg ring-offset-2 ring-offset-surface"
+                      : highlight
+                        ? "opacity-40 ring-1 ring-hairline"
+                        : swapInto
+                          ? "z-10 scale-110 ring-2 ring-accent-fg ring-offset-2 ring-offset-surface"
+                          : source
+                            ? "outline-dashed outline-2 outline-offset-2 outline-accent-fg/70"
+                            : swappable
+                              ? "ring-1 ring-accent-fg/45"
+                              : "ring-1 ring-hairline",
                   swapInto && drag?.saving && "animate-pulse",
                 );
                 // "these two trade places": over the bottle that would make way
@@ -181,6 +209,7 @@ export function RackGrid({
                     title={name}
                     data-slot={slot(row, col)}
                     data-bottle-id={bottle.bottleId}
+                    data-highlighted={marked || undefined}
                     className={base}
                   >
                     {glyph}

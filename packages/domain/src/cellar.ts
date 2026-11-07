@@ -590,6 +590,50 @@ export function placeSummary(
   return { first: all[0] ?? null, more: Math.max(0, all.length - 1) };
 }
 
+/**
+ * Where this vintage's bottles are, exactly, for the wine's page: every place by its stable id (in the order the page
+ * lists them), every bottle's own spot, and how many have no place yet. Nothing is merged: two bottles on one shelf
+ * are two spots, and a place's name never stands in for bottles that are elsewhere.
+ */
+export interface WhereSummary {
+  /** The places holding bottles of it (by id), with how many each. */
+  units: Array<{ id: string; label: string; count: number }>;
+  /** Every placed bottle, by place, then shelf, then position. */
+  spots: Array<Pick<BottleView, "id" | "locationId" | "locationLabel" | "row" | "col">>;
+  /** Bottles in the cellar without a place. */
+  unplaced: number;
+  /** The one bottle there is, when there is exactly one and it has an exact spot. */
+  single: Pick<BottleView, "id" | "locationId" | "locationLabel" | "row" | "col"> | null;
+}
+
+export function whereSummary(
+  bottles: readonly Pick<BottleView, "id" | "locationId" | "locationLabel" | "row" | "col">[],
+): WhereSummary {
+  const placed = bottles.filter((b) => b.locationId !== null);
+  const units: WhereSummary["units"] = [];
+  for (const b of placed) {
+    const unit = units.find((u) => u.id === b.locationId);
+    if (unit) unit.count += 1;
+    else units.push({ id: b.locationId!, label: b.locationLabel ?? "", count: 1 });
+  }
+  units.sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
+  const order = new Map(units.map((u, i) => [u.id, i]));
+  const spots = [...placed].sort(
+    (a, b) =>
+      order.get(a.locationId!)! - order.get(b.locationId!)! ||
+      (a.row ?? 0) - (b.row ?? 0) ||
+      (a.col ?? 0) - (b.col ?? 0),
+  );
+  const only = bottles.length === 1 ? bottles[0]! : null;
+  return {
+    units,
+    spots,
+    unplaced: bottles.length - placed.length,
+    single:
+      only && only.locationId !== null && only.row !== null && only.col !== null ? only : null,
+  };
+}
+
 /** Mean price of the bottles whose price is known, in whole cents; null if none is. */
 export function averagePrice(bottles: readonly Pick<BottleView, "priceCents">[]): number | null {
   const known = bottles.flatMap((b) => (b.priceCents === null ? [] : [b.priceCents]));
