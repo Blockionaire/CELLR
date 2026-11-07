@@ -1,6 +1,12 @@
 import "server-only";
 
-export type AiTask = "label_extraction" | "sommelier_chat" | "wine_insight" | "wine_valuation";
+export type AiTask =
+  | "label_extraction"
+  /** Koopcheck: the same label reading, of a bottle in a shop (counted apart, so scan metrics stay scans). */
+  | "purchase_check"
+  | "sommelier_chat"
+  | "wine_insight"
+  | "wine_valuation";
 
 /** Which of the configured models a task uses: the one that sees pictures, or the one that talks. */
 export type ModelKind = "vision" | "chat";

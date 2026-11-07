@@ -5,6 +5,7 @@ import {
   NO_PREFERENCES,
   type InsightOutput,
   type SaveTastePreferences,
+  type TastePreferences,
   type TasteProfileView,
   type TasteTasting,
   tasteExampleVintageIds,
@@ -16,7 +17,7 @@ import type { TasteRepository, TasteRow } from "./types";
 /** An AI profile counts for structure only when it is not a bare style estimate and not low confidence. */
 const reliable = (o: InsightOutput) => o.evidence !== "style_estimate" && o.confidence !== "low";
 /** And for grapes only when it rests on this exact wine or on the appellation's own rules. */
-const grapesTrusted = (o: InsightOutput) =>
+export const grapesTrusted = (o: InsightOutput) =>
   o.evidence === "exact_wine" || o.evidence === "appellation_rules";
 
 export function toTasteTastings(
@@ -52,29 +53,47 @@ export function createTasteService({
   userId: string;
   household: () => Promise<ActiveHousehold>;
 }) {
+  /** My own tastings in the active household (with what is reliably known about their wines), and my answers. */
+  async function load(): Promise<{
+    householdId: string;
+    tastings: TasteTasting[];
+    preferences: TastePreferences;
+    ready: TasteProfileView["ready"];
+  }> {
+    const { id } = await household();
+    const [rows, preferences] = await Promise.all([
+      repo.listMyTastings(id, userId),
+      repo.getPreferences(userId),
+    ]);
+    const insights =
+      rows && rows.length > 0
+        ? await repo.listInsights(
+            id,
+            rows.map((r) => r.vintageId),
+          )
+        : new Map();
+    return {
+      householdId: id,
+      tastings: toTasteTastings(rows ?? [], insights),
+      preferences: preferences ?? NO_PREFERENCES,
+      ready: { tastings: rows !== null, preferences: preferences !== null },
+    };
+  }
+
   return {
+    /**
+     * The evidence the profile is built from, for a server-side comparison (Koopcheck): only my own tastings and
+     * answers, in the active household. Never sent to the browser as such.
+     */
+    async evidence(): Promise<{ tastings: TasteTasting[]; preferences: TastePreferences }> {
+      const { tastings, preferences } = await load();
+      return { tastings, preferences };
+    },
+
     /** My taste profile: worked out on the server; only the aggregates (and a few example wines) leave it. */
     async profile(): Promise<TasteProfileView> {
-      const { id } = await household();
-      const [rows, preferences] = await Promise.all([
-        repo.listMyTastings(id, userId),
-        repo.getPreferences(userId),
-      ]);
-      const insights =
-        rows && rows.length > 0
-          ? await repo.listInsights(
-              id,
-              rows.map((r) => r.vintageId),
-            )
-          : new Map();
-      const view = buildTasteProfile(
-        toTasteTastings(rows ?? [], insights),
-        preferences ?? NO_PREFERENCES,
-        {
-          tastings: rows !== null,
-          preferences: preferences !== null,
-        },
-      );
+      const { householdId: id, tastings, preferences, ready } = await load();
+      const view = buildTasteProfile(tastings, preferences, ready);
       // Archived wines still count above; only the few example wines are checked, in one bounded lookup, so
       // none of them links to a page that no longer opens.
       const examples = tasteExampleVintageIds(view);

@@ -31,7 +31,7 @@ import { Chip } from "@/ui/chip";
 import { EmptyState } from "@/ui/empty-state";
 import { plainSentence } from "./plain-sentence";
 import { cn } from "@/ui/cn";
-import { ChevronRightIcon } from "@/ui/icons";
+import { ChevronRightIcon, ScanIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
 import { useAskSommelier } from "./hooks";
 
@@ -224,6 +224,7 @@ export function SommelierChat({
             {t("newChat")}
           </Button>
         )}
+        {mode === "chat" && turns.length === 0 && <PurchaseCheckEntry />}
         {empty && turns.length === 0 && (
           <EmptyState
             title={t("emptyTitle")}
@@ -372,6 +373,32 @@ const budgetLabel = (b: Budget) => {
   const [low, high] = BUDGET_EUROS[b];
   return high === null ? `€${low}+` : low === 0 ? `< €${high}` : `€${low}–${high}`;
 };
+
+/** The way into the Koopcheck: photograph a bottle in a shop and see whether it is worth buying. */
+function PurchaseCheckEntry() {
+  const t = useTranslations("purchaseCheck");
+  return (
+    <Link
+      href="/sommelier/purchase-check"
+      data-testid="purchase-check-entry"
+      className="group flex items-center gap-4 rounded-card bg-surface p-4 shadow-raised ring-1 ring-hairline transition-transform duration-150 ease-cellr active:scale-[0.99]"
+    >
+      <span
+        aria-hidden="true"
+        className="grid size-12 shrink-0 place-items-center rounded-full bg-accent/10 text-accent-fg"
+      >
+        <ScanIcon size={22} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-display text-title leading-snug text-ink">
+          {t("entryTitle")}
+        </span>
+        <span className="mt-0.5 block text-small text-ink-2">{t("entryBody")}</span>
+      </span>
+      <ChevronRightIcon size={18} className="shrink-0 text-ink-3" />
+    </Link>
+  );
+}
 
 function SendIcon() {
   return (
