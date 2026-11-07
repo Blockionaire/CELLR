@@ -1,7 +1,8 @@
 "use client";
 
-import { Canvas, useFrame, useStore, useThree } from "@react-three/fiber";
+import { Canvas, advance, useFrame, useStore, useThree, type RootState } from "@react-three/fiber";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
@@ -117,8 +118,15 @@ export default function CellarScene({
     dragged.current = moved;
   }, []);
   const [frozen, setFrozen] = useState(false);
+  const frozenRef = useRef(frozen);
+  useEffect(() => {
+    frozenRef.current = frozen;
+  }, [frozen]);
   const stillRef = useRef<Backdrop | null>(null);
   const showRef = useRef<THREE.Group>(null);
+  const rackRef = useRef<THREE.Group>(null);
+  const reframeRef = useRef<(() => Backdrop | null) | null>(null);
+  const takeRef = useRef<(() => Backdrop | null) | null>(null);
   const keyLight = useRef<THREE.SpotLight>(null);
   const rimLight = useRef<THREE.PointLight>(null);
   const studio = useMemo<Studio>(() => ({ keyLightRef: keyLight, rimLightRef: rimLight }), []);
@@ -137,15 +145,34 @@ export default function CellarScene({
     setFrozen(false);
     requestAnimationFrame(() => requestAnimationFrame(() => onBackdrop?.(null)));
   }, [onBackdrop]);
-  // The still is taken the moment a bottle is picked (while the camera is exactly where it was), but the live rack
-  // is only swapped for it once the bottle has slid clear of its slot: until then the rack's own boards cover it.
-  const onStill = useCallback((backdrop: Backdrop) => {
-    stillRef.current = backdrop;
-  }, []);
+  // The still of the rack is taken the moment the bottle has slid clear of its slot (until then the rack's own boards
+  // cover it). That frame draws the rack once, for the still, and then only the bottle: about the work of any other
+  // frame, where taking it earlier added a whole extra drawing of the rack to one frame. The still is in the page
+  // before this frame is shown (flushSync), so the rack is never missing. A bottle taken while the rack is frozen
+  // reuses the still it has.
   const onClear = useCallback(() => {
-    if (!stillRef.current) return; // no still could be taken: the rack stays live, behind the veil
-    setFrozen(true);
-    onBackdrop?.(stillRef.current);
+    if (frozenRef.current) {
+      if (stillRef.current) onBackdrop?.(stillRef.current);
+      return;
+    }
+    const still = takeRef.current?.() ?? null;
+    if (!still) return; // no still could be taken: the rack stays live, behind the veil
+    stillRef.current = still;
+    hideNow(rackRef);
+    flushSync(() => {
+      setFrozen(true);
+      onBackdrop?.(still);
+    });
+  }, [onBackdrop]);
+  // The view changed size while the still stands in for the rack (on a phone: the card coming back as the bottle goes
+  // home). Nothing is drawn again: the page shows the middle of the same picture (see takeStill), and only the point
+  // it steps back from is placed anew.
+  const onResized = useCallback(() => {
+    if (!frozenRef.current || !stillRef.current || !reframeRef.current) return;
+    const still = reframeRef.current();
+    if (!still) return;
+    stillRef.current = still;
+    onBackdrop?.(still);
   }, [onBackdrop]);
   const locked = showcase !== null;
   // Leaving (another unit, another page) three.js gives its context back on purpose; that is not a loss to report.
@@ -194,6 +221,7 @@ export default function CellarScene({
       />
       <pointLight ref={rimLight} intensity={0} color="#e6eeff" distance={30} decay={1.8} />
       <Prewarm />
+      <SizeSync onResized={onResized} />
       <Rig
         rows={rows}
         cols={cols}
@@ -201,7 +229,7 @@ export default function CellarScene({
         locked={locked}
         held={shown !== null}
       />
-      <group visible={!frozen}>
+      <group ref={rackRef} visible={!frozen}>
         <RackFrame rows={rows} cols={cols} kind={kind} />
         <Bottles
           rows={rows}
@@ -222,7 +250,9 @@ export default function CellarScene({
             cols={cols}
             frozen={frozen}
             hideRef={showRef}
-            onStill={onStill}
+            studio={studio}
+            reframeRef={reframeRef}
+            takeRef={takeRef}
           />
           <group ref={showRef}>
             <Showcase
@@ -340,9 +370,51 @@ function Prewarm() {
 // ---- A still of the rack -----------------------------------------------------------------------------------------
 
 /**
- * The moment a bottle is taken out, draws the rack (without that bottle, and without the bottle on display) once
- * and hands the picture to the page. From then on the rack is not drawn at all: the page shows the picture, blurred
- * and dimmed, so the background holds perfectly still however the bottle is turned, and costs nothing to render.
+ * The canvas follows its box in the same frame the box changes size. r3f's own measuring goes through a React update,
+ * which on a busy phone lands frames later: in between the canvas keeps its old size in the new box (the rack jumps
+ * when it catches up) and the drawing buffers are reallocated in the middle of the bottle's movement. The same
+ * size, measured the same way, reaches r3f a moment later and changes nothing then (it only resizes on a change).
+ * Returns true when the size changed.
+ */
+function syncSize(state: RootState): boolean {
+  const box = state.gl.domElement.parentElement;
+  if (!box) return false;
+  const r = box.getBoundingClientRect();
+  if (r.width <= 0 || r.height <= 0) return false;
+  if (r.width === state.size.width && r.height === state.size.height) return false;
+  state.setSize(r.width, r.height, r.top, r.left);
+  return true;
+}
+
+function SizeSync({ onResized }: { onResized: () => void }) {
+  const store = useStore();
+  const resized = useRef(onResized);
+  useLayoutEffect(() => {
+    resized.current = onResized;
+  }, [onResized]);
+  useLayoutEffect(() => {
+    const box = store.getState().gl.domElement.parentElement;
+    if (!box) return;
+    // Called after layout and before the frame is painted: the new size is drawn in this same frame.
+    const observer = new ResizeObserver(() => {
+      const state = store.getState();
+      // A lost context draws nothing, and the page has put the bottle back and dropped the still: leave it all be.
+      if (state.gl.getContext().isContextLost()) return;
+      if (!syncSize(state)) return;
+      resized.current();
+      // A resize clears the canvas: draw it again now, or this frame would show it empty.
+      advance(performance.now(), false, state);
+    });
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [store]);
+  return null;
+}
+
+/**
+ * While a bottle is out: the view takes its full size in the moment the bottle is picked (on a phone the screen fills
+ * up), so its first frame, and the still of the rack taken once it has slid clear, are drawn at the size they are seen
+ * at. Hands the scene the means to take that still (see takeStill), and to place it anew at another size (reframe).
  */
 function Freezer({
   target,
@@ -350,58 +422,140 @@ function Freezer({
   cols,
   frozen,
   hideRef,
-  onStill,
+  studio,
+  reframeRef,
+  takeRef,
 }: {
   target: SceneBottle;
   rows: number;
   cols: number;
   frozen: boolean;
   hideRef: React.RefObject<THREE.Group | null>;
-  onStill: (backdrop: Backdrop) => void;
+  studio: Studio;
+  reframeRef: React.RefObject<(() => Backdrop | null) | null>;
+  takeRef: React.RefObject<(() => Backdrop | null) | null>;
 }) {
-  const { gl, scene, camera } = useThree();
+  const store = useStore();
   const done = useRef<string | null>(null);
+  const image = useRef<HTMLCanvasElement | null>(null);
+  const view = useRef<THREE.Matrix4 | null>(null);
+
   useEffect(() => {
-    // One picture per time the rack is lifted out of the picture; a bottle taken while it is frozen reuses it.
-    if (frozen || done.current === target.id) return;
-    done.current = target.id;
-    const group = hideRef.current;
-    try {
-      if (group) group.visible = false;
-      performance.mark("cellr:still-start");
-      camera.updateMatrixWorld();
-      gl.render(scene, camera);
-      const [x, y, z] = slotPosition(target.row, target.col, rows, cols);
-      const at = new THREE.Vector3(x, y, z).project(camera);
-      const originX = ((at.x + 1) / 2) * 100;
-      const originY = ((1 - at.y) / 2) * 100;
-      // How the still was seen, readable from outside: the bottle must land where this view puts its slot.
-      camera.updateMatrixWorld();
+    takeRef.current = () =>
+      takeStill(store.getState(), { hideRef, studio, target, rows, cols, image, view });
+    reframeRef.current = () => {
+      const still = image.current;
+      const seen = view.current;
+      if (!still || !seen) return null;
+      const state = store.getState();
+      // How the page shows the still now (covering the new box, see takeStill), readable from outside: the bottle
+      // must land where this puts its slot. The same view as the camera's when the view kept its width (see Rig).
+      const { width, height } = state.size;
+      const k = Math.max(width / still.width, height / still.height);
       markCanvas(
-        gl.domElement,
+        state.gl.domElement,
         "stillView",
         new THREE.Matrix4()
-          .multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+          .makeScale((still.width * k) / width, (still.height * k) / height, 1)
+          .multiply(seen)
           .elements.join(","),
       );
-      // Copied straight away, while the drawing is still there (one GPU copy; no PNG to encode).
-      const image = document.createElement("canvas");
-      image.style.cssText = "display:block;width:100%;height:100%";
-      image.width = gl.domElement.width;
-      image.height = gl.domElement.height;
-      const ctx = image.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(gl.domElement, 0, 0);
-        onStill({ image, originX, originY });
-      }
-      performance.mark("cellr:still-ready");
-    } catch {
-      // keep the live rack
-    } finally {
-      if (group) group.visible = true;
-    }
-  }, [target, rows, cols, frozen, gl, scene, camera, hideRef, onStill]);
+      return { image: still, ...slotOnScreen(state, target, rows, cols) };
+    };
+    return () => {
+      takeRef.current = null;
+      reframeRef.current = null;
+    };
+  }, [takeRef, reframeRef, store, hideRef, studio, target, rows, cols]);
+
+  useEffect(() => {
+    // One still per time the rack is lifted out of the picture; a bottle taken while it is frozen reuses it.
+    if (frozen || done.current === target.id) return;
+    done.current = target.id;
+    image.current = null;
+    const state = store.getState();
+    // No still of this bottle yet (one is taken only once it slides clear; put back sooner, the rack simply stays
+    // live): an older one's view must not be read as this one's.
+    delete state.gl.domElement.dataset.stillView;
+    syncSize(state);
+    state.invalidate();
+  }, [target, frozen, store]);
   return null;
+}
+
+/** Stops drawing the rack from this frame on (the still stands in for it, see onClear). */
+function hideNow(ref: React.RefObject<THREE.Object3D | null>) {
+  if (ref.current) ref.current.visible = false;
+}
+
+/**
+ * Draws the rack alone (the bottle on display, its veil and its studio lights left out) and copies the picture into
+ * a new 2D canvas, kept in `image` (one GPU copy; no PNG to encode). Everything is put back as it was. Null when no
+ * picture could be taken (the live rack then stays).
+ */
+function takeStill(
+  { gl, scene, camera }: RootState,
+  opts: {
+    hideRef: React.RefObject<THREE.Object3D | null>;
+    studio: Studio;
+    target: SceneBottle;
+    rows: number;
+    cols: number;
+    image: { current: HTMLCanvasElement | null };
+    view: { current: THREE.Matrix4 | null };
+  },
+): Backdrop | null {
+  const { target, rows, cols, image, view } = opts;
+  const hide = opts.hideRef.current;
+  const lights = [opts.studio.keyLightRef.current, opts.studio.rimLightRef.current];
+  const was = { hide: hide?.visible, lights: lights.map((l) => l?.intensity ?? 0) };
+  try {
+    if (hide) hide.visible = false;
+    for (const l of lights) if (l) l.intensity = 0;
+    performance.mark("cellr:still-start");
+    camera.updateMatrixWorld();
+    gl.render(scene, camera);
+    // How the still was seen, readable from outside: the bottle must land where this view puts its slot.
+    const seen = new THREE.Matrix4().multiplyMatrices(
+      camera.projectionMatrix,
+      camera.matrixWorldInverse,
+    );
+    markCanvas(gl.domElement, "stillView", seen.elements.join(","));
+    // Copied straight away, while the drawing is still there. Shown covering its box: while a bottle is out the view
+    // keeps its width and only gains height (see Rig), so the smaller card it goes back to sees exactly the middle
+    // band of this picture, and covering the card shows just that band.
+    const still = document.createElement("canvas");
+    still.style.cssText = "display:block;width:100%;height:100%;object-fit:cover";
+    still.width = gl.domElement.width;
+    still.height = gl.domElement.height;
+    const ctx = still.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(gl.domElement, 0, 0);
+    image.current = still;
+    view.current = seen;
+    performance.mark("cellr:still-ready");
+    return { image: still, ...slotOnScreen({ camera }, target, rows, cols) };
+  } catch {
+    return null;
+  } finally {
+    if (hide && was.hide !== undefined) hide.visible = was.hide;
+    lights.forEach((l, i) => {
+      if (l) l.intensity = was.lights[i]!;
+    });
+  }
+}
+
+/** Where the slot is on the screen, in percent of the view: the point the still steps back from. */
+function slotOnScreen(
+  { camera }: Pick<RootState, "camera">,
+  target: SceneBottle,
+  rows: number,
+  cols: number,
+) {
+  const [x, y, z] = slotPosition(target.row, target.col, rows, cols);
+  camera.updateMatrixWorld();
+  const at = new THREE.Vector3(x, y, z).project(camera);
+  return { originX: ((at.x + 1) / 2) * 100, originY: ((1 - at.y) / 2) * 100 };
 }
 
 /** Writes a measurement onto the canvas element, for tests to read. */
@@ -519,7 +673,7 @@ function Rig({
     if (controls.current) controls.current.enabled = !locked;
   }, [locked]);
 
-  useFrame((state) => {
+  const fit = useCallback((state: RootState) => {
     const cam = state.camera as THREE.PerspectiveCamera;
     const now = state.size.width / Math.max(1, state.size.height);
     if (!heldNow.current) freeAspect.current = now;
@@ -534,6 +688,20 @@ function Rig({
       cam.fov = fov;
       cam.updateProjectionMatrix();
     }
+  }, []);
+  // The view's width is kept in the same moment the size changes (r3f has just set the camera's new aspect), not a
+  // frame later: the still of the rack and the bottle's first frame are drawn straight after.
+  const store = useStore();
+  useEffect(
+    () =>
+      store.subscribe((state, before) => {
+        if (state.size !== before.size) fit(state);
+      }),
+    [store, fit],
+  );
+
+  useFrame((state) => {
+    fit(state);
     const c = controls.current;
     if (!c) return;
     // While a bottle is out the camera does not move at all: the still of the rack and the slot the bottle goes

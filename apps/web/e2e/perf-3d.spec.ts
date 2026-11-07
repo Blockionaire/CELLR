@@ -209,3 +209,200 @@ test("frame times while a bottle comes out and goes back", async ({ page, reques
   fs.writeFileSync(file, JSON.stringify(results, null, 2));
   console.log(JSON.stringify(results));
 });
+
+/**
+ * Where the time goes, per bottle taken out (5 s from the key press: the slowed software renderer needs that long to
+ * bring it all the way out) and put back (2.5 s from Escape), on the same rack, CPU slowed like the tests above. Wraps the
+ * browser's own functions before the page loads, so the app needs no hooks: each animation-frame callback's duration
+ * (the main thread's work per frame), the copy of the rack's still (drawImage of the 3D canvas), texture uploads,
+ * shader compiles, program switches and draw calls per window, canvas resizes, long tasks and frame gaps.
+ */
+test("where the time goes while a bottle comes out and goes back", async ({ page, request }) => {
+  test.setTimeout(300_000);
+  await page.addInitScript(() => {
+    const w = window as unknown as Record<string, unknown> & {
+      perf_: {
+        cb: Array<[number, number]>;
+        frames: number[];
+        draw: Array<[number, number]>;
+        tex: Array<[number, number]>;
+        compile: number[];
+        programs: number[];
+        calls: number[];
+        resizes: number[];
+        long: Array<[number, number]>;
+      };
+    };
+    w.perf_ = {
+      cb: [],
+      frames: [],
+      draw: [],
+      tex: [],
+      compile: [],
+      programs: [],
+      calls: [],
+      resizes: [],
+      long: [],
+    };
+    const p = w.perf_;
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (fn) =>
+      raf((t) => {
+        const s = performance.now();
+        try {
+          fn(t);
+        } finally {
+          p.cb.push([s, performance.now() - s]);
+        }
+      });
+    const tick = (t: number) => {
+      p.frames.push(t);
+      raf(tick);
+    };
+    raf(tick);
+    const timed = (proto: object, name: string, into: Array<[number, number]>) => {
+      const o = proto as Record<string, (...a: unknown[]) => unknown>;
+      const f = o[name]!;
+      o[name] = function (this: unknown, ...a: unknown[]) {
+        const s = performance.now();
+        try {
+          return f.apply(this, a);
+        } finally {
+          into.push([s, performance.now() - s]);
+        }
+      };
+    };
+    const counted = (proto: object, name: string, into: number[]) => {
+      const o = proto as Record<string, (...a: unknown[]) => unknown>;
+      const f = o[name]!;
+      o[name] = function (this: unknown, ...a: unknown[]) {
+        into.push(performance.now());
+        return f.apply(this, a);
+      };
+    };
+    const draw2d = CanvasRenderingContext2D.prototype as unknown as Record<string, unknown>;
+    const orig = draw2d.drawImage as (...a: unknown[]) => unknown;
+    draw2d.drawImage = function (this: unknown, ...a: unknown[]) {
+      // only copies of a WebGL canvas (the still of the rack)
+      const from = a[0] as HTMLCanvasElement;
+      const s = performance.now();
+      try {
+        return orig.apply(this, a);
+      } finally {
+        if (from instanceof HTMLCanvasElement && from.dataset.engine !== undefined)
+          p.draw.push([s, performance.now() - s]);
+      }
+    };
+    for (const proto of [WebGL2RenderingContext.prototype, WebGLRenderingContext.prototype]) {
+      timed(proto, "texImage2D", p.tex);
+      timed(proto, "texSubImage2D", p.tex);
+      counted(proto, "linkProgram", p.compile);
+      counted(proto, "useProgram", p.programs);
+      counted(proto, "drawElements", p.calls);
+      counted(proto, "drawArrays", p.calls);
+      counted(proto, "drawElementsInstanced", p.calls);
+      counted(proto, "drawArraysInstanced", p.calls);
+    }
+    new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) p.long.push([e.startTime, e.duration]);
+    }).observe({ type: "longtask", buffered: true });
+    const watch = () => {
+      const canvas = document.querySelector('[data-testid="cellar-3d"] canvas[data-engine]');
+      if (!canvas) return void setTimeout(watch, 200);
+      let first = true;
+      new ResizeObserver(() => {
+        if (first) first = false;
+        else p.resizes.push(performance.now());
+      }).observe(canvas);
+    };
+    window.addEventListener("load", watch);
+  });
+  await stock(page, request);
+  const cdp = await page.context().newCDPSession(page);
+  await page.goto("/cellar");
+  await page.getByRole("radio", { name: "3D" }).click();
+  const scene = page.getByTestId("cellar-3d");
+  await expect(scene).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
+  await page.waitForTimeout(2500);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: Number(process.env.PERF_RATE ?? 4) });
+  const window_ = (from: number, to: number, key: number) =>
+    page.evaluate(
+      ([a, b, k]) => {
+        const p = (
+          window as unknown as {
+            perf_: {
+              cb: Array<[number, number]>;
+              frames: number[];
+              draw: Array<[number, number]>;
+              tex: Array<[number, number]>;
+              compile: number[];
+              programs: number[];
+              calls: number[];
+              resizes: number[];
+              long: Array<[number, number]>;
+            };
+          }
+        ).perf_;
+        const inT = (t: number) => t >= a! && t <= b!;
+        const f = p.frames.filter(inT);
+        const gaps = f
+          .slice(1)
+          .map((t, i) => t - f[i]!)
+          .sort((x, y) => x - y);
+        const q = (x: number) =>
+          Math.round(gaps[Math.min(gaps.length - 1, Math.floor(x * gaps.length))] ?? NaN);
+        const cb = p.cb.filter(([s]) => inT(s)).map(([, d]) => d);
+        const moving =
+          performance.getEntriesByName("cellr:showcase-moving").at(-1)?.startTime ?? NaN;
+        const sum = (xs: Array<[number, number]>) =>
+          Math.round(xs.filter(([s]) => inT(s)).reduce((n, [, d]) => n + d, 0));
+        return {
+          tapToMove: k ? Math.round((p.frames.find((t) => t > moving) ?? NaN) - k) : undefined,
+          frames: f.length,
+          p50: q(0.5),
+          p95: q(0.95),
+          max: q(1),
+          over50: gaps.filter((g) => g > 50).length,
+          longTasks: p.long.filter(([s]) => inT(s)).length,
+          longTaskMs: sum(p.long),
+          frameJsMax: Math.round(Math.max(0, ...cb)),
+          frameJsSum: Math.round(cb.reduce((n, d) => n + d, 0)),
+          stillCopyMs: sum(p.draw),
+          texUploads: p.tex.filter(([s]) => inT(s)).length,
+          texMs: sum(p.tex),
+          programsLinked: p.compile.filter(inT).length,
+          programSwitches: p.programs.filter(inT).length,
+          drawCalls: p.calls.filter(inT).length,
+          resizes: p.resizes.filter(inT).length,
+        };
+      },
+      [from, to, key] as const,
+    );
+  const results = [];
+  for (const name of [/shelf 2, position 3$/, /shelf 4, position 6$/, /shelf 1, position 1$/]) {
+    await page
+      .getByRole("list", { name: /Bottles in Perf rack/ })
+      .getByRole("button", { name })
+      .focus();
+    const key = await page.evaluate(() => performance.now());
+    await page.keyboard.press("Enter");
+    // the still of the rack stands behind the bottle (taken once it has slid clear of its slot)
+    await expect(page.getByTestId("rack-backdrop")).toHaveCount(1, { timeout: 15_000 });
+    await page.waitForTimeout(
+      Math.max(0, key + 5000 - (await page.evaluate(() => performance.now()))),
+    );
+    const back = await page.evaluate(() => performance.now());
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("rack-backdrop")).toHaveCount(0, { timeout: 15_000 });
+    await page.waitForTimeout(2000);
+    results.push({
+      out: await window_(key, key + 5000, key),
+      back: await window_(back, back + 2500, 0),
+    });
+  }
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+  const file = process.env.PERF_OUT ?? "test-results/perf-3d-where.json";
+  fs.mkdirSync("test-results", { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(results, null, 2));
+  console.log(JSON.stringify(results));
+});

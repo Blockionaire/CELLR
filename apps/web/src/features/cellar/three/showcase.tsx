@@ -51,18 +51,19 @@ function measureHandOff(
   const rack = rackMatrix(bottle.row, bottle.col, rows, cols).elements;
   const pose = Math.max(...now.map((v, i) => Math.abs(v - rack[i]!)));
   canvas.dataset.handoffPose = pose.toExponential(2);
+  const [x, y, z] = slotPosition(bottle.row, bottle.col, rows, cols);
+  camera.updateMatrixWorld();
+  const slot = new THREE.Vector3(x, y, z).project(camera);
+  // where the slot is on the screen (px), so a test can compare the pixels there before and after the hand-over
+  canvas.dataset.handoffSlot = `${(((slot.x + 1) / 2) * size.width).toFixed(1)},${(((1 - slot.y) / 2) * size.height).toFixed(1)}`;
   const still = canvas.dataset.stillView?.split(",").map(Number);
   if (still?.length === 16) {
-    // The slot as the still of the rack shows it, and as the camera sees it now: these must be the same pixel.
-    const [x, y, z] = slotPosition(bottle.row, bottle.col, rows, cols);
+    // The slot as the still of the rack shows it, and as the camera sees it now: these must be the same pixel. (Put
+    // back before it slid clear, a bottle has no still: the rack stayed live, and there is nothing to drift from.)
     const then = new THREE.Vector3(x, y, z).applyMatrix4(new THREE.Matrix4().fromArray(still));
-    camera.updateMatrixWorld();
-    const now = new THREE.Vector3(x, y, z).project(camera);
-    const dx = ((now.x - then.x) / 2) * size.width;
-    const dy = ((now.y - then.y) / 2) * size.height;
+    const dx = ((slot.x - then.x) / 2) * size.width;
+    const dy = ((slot.y - then.y) / 2) * size.height;
     canvas.dataset.handoffDrift = Math.hypot(dx, dy).toFixed(2);
-    // where the slot is on the screen (px), so a test can compare the pixels there before and after the hand-over
-    canvas.dataset.handoffSlot = `${(((now.x + 1) / 2) * size.width).toFixed(1)},${(((1 - now.y) / 2) * size.height).toFixed(1)}`;
   }
 }
 
