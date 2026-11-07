@@ -153,12 +153,14 @@ export function Sheet({
               : "pb-2 pt-2 md:pt-6",
           )}
         >
-          <div className={cn(bare && "sr-only")}>
-            <h2 id={titleId} className="font-display text-headline">
+          {/* min-w-0 + break-words: a long word (a wine's name without spaces) wraps here instead of pushing the
+              header, and the close button, past the edge of the screen, where a sideways swipe could reach it. */}
+          <div className={cn("min-w-0 flex-1", bare && "sr-only")}>
+            <h2 id={titleId} className="break-words font-display text-headline">
               {title}
             </h2>
             {description && (
-              <p id={descId} className="mt-1 text-small text-ink-2">
+              <p id={descId} className="mt-1 break-words text-small text-ink-2">
                 {description}
               </p>
             )}
