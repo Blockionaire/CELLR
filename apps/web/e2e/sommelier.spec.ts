@@ -1,5 +1,15 @@
 import { expect, test, type BrowserContextOptions, type Page } from "@playwright/test";
-import { api, apiClient, arrive, audit, bearer, sessionToken, sql, STACK } from "./helpers";
+import {
+  api,
+  apiClient,
+  arrive,
+  askExample,
+  audit,
+  bearer,
+  sessionToken,
+  sql,
+  STACK,
+} from "./helpers";
 
 const shot = (name: string) => `test-results/shots/${name}.png`;
 const project = () => test.info().project.name;
@@ -120,7 +130,7 @@ test.describe("the sommelier", () => {
 
     await page.goto("/sommelier");
     await expect(page.getByRole("heading", { level: 1, name: "Sommelier" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "What should I open tonight?" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "What would I love tonight?" })).toBeVisible();
     await page.screenshot({ path: shot(`sommelier-empty-${project()}`), fullPage: true });
     await ask(page, `What should I open first? ${m}`);
 
@@ -202,16 +212,16 @@ test.describe("the sommelier", () => {
     await furnish(call);
     await page.goto("/sommelier");
     // Nothing is programmed for this chip, so the (fake) AI answers with an error: the plain answer follows.
-    await page.getByRole("button", { name: "What is at its peak?" }).click();
+    await askExample(page, "What is at its peak?");
     const log = page.getByRole("log", { name: "Conversation" });
     await expect(
       log.getByText(/These are ready|Nothing is urgent|Nothing stands out/),
     ).toBeVisible();
     await expect(log.getByRole("link").first()).toBeVisible();
     // The chips make way for the conversation, and "New conversation" brings them back.
-    await expect(page.getByRole("button", { name: "What should I open tonight?" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "What would I love tonight?" })).toHaveCount(0);
     await page.getByRole("button", { name: "New conversation" }).click();
-    await expect(page.getByRole("button", { name: "What should I open tonight?" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "What would I love tonight?" })).toBeVisible();
   });
 
   test("the budget keeps it answering, plainly, and never asks the model", async ({

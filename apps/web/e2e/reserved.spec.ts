@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { apiClient, arrive, STACK } from "./helpers";
+import { apiClient, arrive, askExample, STACK } from "./helpers";
 
 const marker = () =>
   `[${test.info().parallelIndex}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}]`;
@@ -108,7 +108,7 @@ test.describe("bottles kept for an occasion", () => {
 
     // Without an AI answer, the plain suggestion carries the note.
     await page.getByRole("button", { name: "New conversation" }).click();
-    await page.getByRole("button", { name: "What is at its peak?" }).click();
+    await askExample(page, "What is at its peak?");
     await expect(page.getByTestId("reserved-note").first()).toContainText(
       "kept for Christmas dinner",
     );

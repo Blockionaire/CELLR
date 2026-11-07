@@ -15,6 +15,7 @@ import {
   summarizePlaces,
   groupBottlesByPlace,
   placeSummary,
+  whereSummary,
   UpdatePurchaseSchema,
   UpdateStorageSchema,
   UpdateWineSchema,
@@ -339,5 +340,49 @@ describe("changing a place", () => {
     expect(UpdateStorageSchema.safeParse({}).success).toBe(false);
     expect(UpdateStorageSchema.safeParse({ rows: 0 }).success).toBe(false);
     expect(UpdateStorageSchema.safeParse({ kind: "wardrobe" }).success).toBe(false);
+  });
+});
+
+describe("whereSummary (the wine page's exact location)", () => {
+  let n = 0;
+  const at = (id: string | null, label: string | null, row: number | null, col: number | null) => {
+    n += 1;
+    return { id: `b${n}`, locationId: id, locationLabel: label, row, col };
+  };
+
+  it("one bottle with a spot: that exact spot, by the place's id", () => {
+    const one = at("u-cellar", "Wijnkelder", 4, 1);
+    const w = whereSummary([one]);
+    expect(w.single).toEqual(one);
+    expect(w.units).toEqual([{ id: "u-cellar", label: "Wijnkelder", count: 1 }]);
+    expect(w.unplaced).toBe(0);
+  });
+
+  it("several bottles: never one spot for all of them", () => {
+    const w = whereSummary([at("r", "Rack", 2, 5), at("r", "Rack", 1, 2)]);
+    expect(w.single).toBeNull();
+    expect(w.units).toEqual([{ id: "r", label: "Rack", count: 2 }]);
+    expect(w.spots.map((s) => [s.row, s.col])).toEqual([
+      [1, 2],
+      [2, 5],
+    ]);
+  });
+
+  it("several places, told apart by id even when their names are the same; the unplaced counted apart", () => {
+    const w = whereSummary([
+      at("fridge", "Wine fridge", 3, 4),
+      at("rack-b", "Rack", 1, 1),
+      at(null, null, null, null),
+      at("rack-a", "Rack", 2, 2),
+    ]);
+    expect(w.units.map((u) => u.id)).toEqual(["rack-a", "rack-b", "fridge"]);
+    expect(w.spots.map((s) => s.locationId)).toEqual(["rack-a", "rack-b", "fridge"]);
+    expect(w.unplaced).toBe(1);
+    expect(w.single).toBeNull();
+  });
+
+  it("a single bottle without a place has no spot", () => {
+    const w = whereSummary([at(null, null, null, null)]);
+    expect(w).toMatchObject({ single: null, units: [], spots: [], unplaced: 1 });
   });
 });

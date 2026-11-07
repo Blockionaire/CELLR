@@ -222,3 +222,18 @@ export async function rateStars(page: Page, stars: number) {
   await slider.press("Home");
   for (let i = 0; i < Math.round((stars - 1) * 10); i++) await slider.press("ArrowRight");
 }
+
+/**
+ * Asks one of the Sommelier's example questions. On a phone only the first two show; the others wait behind
+ * "More ideas", so the sheet is opened first (retried until the page is live and it opens).
+ */
+export async function askExample(page: Page, name: string) {
+  const inline = page.getByRole("button", { name, exact: true });
+  if (!(await inline.isVisible())) {
+    await expect(async () => {
+      await page.getByTestId("more-ideas").click();
+      await expect(page.getByTestId("more-ideas-list")).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
+  }
+  await page.getByRole("button", { name, exact: true }).click();
+}
