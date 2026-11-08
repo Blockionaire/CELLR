@@ -126,6 +126,7 @@ export function WhereSheet({
                       bottles={unit.bottles}
                       highlight={new Set(mine.map((b) => b.bottleId))}
                       label={unit.label}
+                      fill
                       className="-mx-1 max-w-full"
                     />
                     <ul

@@ -13,6 +13,8 @@ export interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   inputClassName?: string;
 }
 
+const DATE_TYPES = new Set(["date", "time", "datetime-local", "month", "week"]);
+
 /** A labelled text input. The label is always real (never placeholder-only). */
 export function Field({
   label,
@@ -28,6 +30,10 @@ export function Field({
   const errorId = `${id}-error`;
   const describedBy =
     [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(" ") || undefined;
+  // iOS Safari draws date and time fields as a native control with a width of its own, wider than `w-full` allows:
+  // without its native appearance it is an ordinary box that takes the column's width like every other field (the
+  // native picker still opens on tap). Its value is centred by default; start it where every other field's text does.
+  const dateLike = DATE_TYPES.has(String(rest.type ?? ""));
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
@@ -46,6 +52,7 @@ export function Field({
           "h-12 w-full min-w-0 rounded-control border bg-surface px-4 text-body text-ink placeholder:text-ink-3",
           "transition-colors duration-150 ease-cellr focus-visible:border-accent-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg/30",
           error ? "border-danger" : "border-hairline",
+          dateLike && "block appearance-none text-left [&::-webkit-date-and-time-value]:text-left",
           inputClassName,
         )}
         {...rest}

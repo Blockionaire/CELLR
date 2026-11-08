@@ -36,6 +36,11 @@ interface RackGridProps {
   highlight?: ReadonlySet<string> | undefined;
   /** The unit's name: a grid with nothing to tap is still reachable by keyboard (to scroll a wide one) under it. */
   label?: string | undefined;
+  /**
+   * Spread the spots over the whole width (a rack shown to look at): columns share the width equally, never
+   * narrower than a 44px spot, so a rack too wide for the screen still scrolls sideways.
+   */
+  fill?: boolean;
   className?: string;
 }
 
@@ -79,6 +84,7 @@ export function RackGrid({
   drag,
   highlight,
   label: unitLabel,
+  fill = false,
   className,
 }: RackGridProps) {
   const t = useTranslations("rack");
@@ -104,8 +110,15 @@ export function RackGrid({
       )}
     >
       <div
-        className="inline-grid justify-items-center gap-x-1.5 gap-y-0 pr-2"
-        style={{ gridTemplateColumns: `1.5rem repeat(${cols}, 2.75rem)` }}
+        className={cn(
+          "justify-items-center gap-x-1.5 gap-y-0",
+          fill ? "grid min-w-max" : "inline-grid pr-2",
+        )}
+        style={{
+          gridTemplateColumns: fill
+            ? `1.5rem repeat(${cols}, minmax(2.75rem, 1fr))`
+            : `1.5rem repeat(${cols}, 2.75rem)`,
+        }}
       >
         <span aria-hidden="true" />
         {Array.from({ length: cols }, (_, c) => (
