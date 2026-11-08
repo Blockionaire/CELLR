@@ -20,7 +20,7 @@ import {
   UpdateStorageSchema,
   UpdateWineSchema,
 } from "./cellar";
-import { describeSlot, nextFreeSlots } from "./placement";
+import { describeSlot, nextFreeSlots, slotsFor } from "./placement";
 
 describe("normalizeText (must agree with the database's private.normalize_text)", () => {
   // The same table is asserted in supabase/tests/20_catalog.test.sql.
@@ -109,6 +109,32 @@ describe("contracts", () => {
     ).toBe(false);
   });
 
+  it("adding bottles on an exact spot: optional, needs a place, whole numbers from 1", () => {
+    const place = "7a2c1d1e-7a7c-4a5e-9d4e-3b6f3a1c2d4e";
+    const base = { wineId, year: 2019, quantity: 1, locationId: place };
+    expect(AddBottlesSchema.parse(base)).not.toHaveProperty("slot");
+    expect(AddBottlesSchema.parse({ ...base, slot: { row: 2, col: 3 } }).slot).toEqual({
+      row: 2,
+      col: 3,
+    });
+    for (const slot of [
+      { row: 0, col: 1 },
+      { row: 1, col: 0 },
+      { row: 1.5, col: 1 },
+      { row: 31, col: 1 },
+      { row: 1 },
+    ])
+      expect(AddBottlesSchema.safeParse({ ...base, slot }).success).toBe(false);
+    // a spot with no place (or "not placed yet") is refused
+    expect(
+      AddBottlesSchema.safeParse({ ...base, locationId: null, slot: { row: 1, col: 1 } }).success,
+    ).toBe(false);
+    expect(
+      AddBottlesSchema.safeParse({ wineId, year: 2019, quantity: 1, slot: { row: 1, col: 1 } })
+        .success,
+    ).toBe(false);
+  });
+
   it("a storage unit has a name and a sensible grid", () => {
     expect(CreateStorageSchema.parse({ label: "Wine fridge", rows: 6, cols: 4 }).kind).toBe(
       "fridge",
@@ -170,6 +196,27 @@ describe("nextFreeSlots", () => {
       ]);
     expect(nextFreeSlots(grid, taken, 5)).toEqual([{ row: 2, col: 3 }]);
     expect(nextFreeSlots(grid, [], 0)).toEqual([]);
+  });
+  it("slotsFor: the first bottle on the spot asked for, the rest on the next free ones", () => {
+    expect(slotsFor(grid, [{ row: 1, col: 1 }], 3, { row: 2, col: 2 })).toEqual([
+      { row: 2, col: 2 },
+      { row: 1, col: 2 },
+      { row: 1, col: 3 },
+    ]);
+    // never two bottles on the asked-for spot, and only what fits
+    expect(slotsFor(grid, [], 7, { row: 1, col: 1 })).toHaveLength(6);
+    expect(slotsFor(grid, [], 1, { row: 2, col: 3 })).toEqual([{ row: 2, col: 3 }]);
+  });
+  it("slotsFor: a taken spot or one outside the grid gives null, never another spot", () => {
+    expect(slotsFor(grid, [{ row: 2, col: 2 }], 1, { row: 2, col: 2 })).toBeNull();
+    expect(slotsFor(grid, [], 1, { row: 3, col: 1 })).toBeNull();
+    expect(slotsFor(grid, [], 1, { row: 1, col: 4 })).toBeNull();
+    expect(slotsFor(grid, [], 1, { row: 0, col: 1 })).toBeNull();
+  });
+  it("slotsFor without a spot is exactly nextFreeSlots", () => {
+    const taken = [{ row: 1, col: 2 }];
+    expect(slotsFor(grid, taken, 4)).toEqual(nextFreeSlots(grid, taken, 4));
+    expect(slotsFor(grid, taken, 4, null)).toEqual(nextFreeSlots(grid, taken, 4));
   });
   it("describes a spot in words", () => {
     expect(describeSlot({ row: 2, col: 4 })).toBe("Shelf 2 · Position 4");

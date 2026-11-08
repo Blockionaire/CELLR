@@ -577,7 +577,14 @@
     "inCellar": "In je kelder ×{count}",
     "scanTitle": "Wijn scannen",
     "scanBody": "Gebruik de camera of een foto van het etiket.",
-    "newWineHint": "Vul hem zelf in, zonder te scannen."
+    "newWineHint": "Vul hem zelf in, zonder te scannen.",
+    "spotLabel": "Plek",
+    "spotChange": "Andere plek",
+    "spotFirst": "De eerste fles komt hier; {count, plural, one {de andere gaat} other {de andere # gaan}} naar de volgende vrije plekken.",
+    "spotPickTitle": "Kies een plek",
+    "spotPickBody": "Tik op een vrije plek.",
+    "spotAuto": "Laat CELLR kiezen",
+    "firstAt": "De eerste staat op {spot}."
   },
   "newPlace": {
     "title": "Een plek voor je flessen",
@@ -740,7 +747,8 @@
     "dropSwap": "Wissel met {wine}",
     "dropCancel": "Laat los om hem terug te zetten",
     "unplacedNoSwap": "Een fles zonder plek kan alleen naar een vrije plek.",
-    "movingSwap": "Of tik op een fles om van plek te wisselen."
+    "movingSwap": "Of tik op een fles om van plek te wisselen.",
+    "addNewHere": "Nieuwe fles hier toevoegen"
   },
   "cellar3d": {
     "hint": "Sleep om te draaien · knijp om in te zoomen waar je wijst · twee vingers om te schuiven · tik op een fles",

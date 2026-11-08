@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { AddBottleFlow } from "@/features/cellar/add-bottle-flow";
+import { spotFromParams } from "@/features/cellar/add-spot";
 import { getPageContext } from "@/server/context";
 import { getPageMe } from "@/server/me";
 import { servicesFor } from "@/server/services";
@@ -11,11 +12,21 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 type Props = {
-  searchParams: Promise<{ wine?: string; year?: string; nv?: string; wish?: string }>;
+  searchParams: Promise<{
+    wine?: string;
+    year?: string;
+    nv?: string;
+    wish?: string;
+    /** An empty spot tapped in a rack: its place, shelf and position. */
+    place?: string;
+    row?: string;
+    col?: string;
+  }>;
 };
 
 export default async function AddBottlePage({ searchParams }: Props) {
-  const { wine: wineParam, year: yearParam, nv, wish } = await searchParams;
+  const params = await searchParams;
+  const { wine: wineParam, year: yearParam, nv, wish } = params;
   const [me, ctx] = await Promise.all([getPageMe(), getPageContext()]);
   const currency = me?.households.find((h) => h.id === me.activeHouseholdId)?.currency ?? "EUR";
 
@@ -30,12 +41,19 @@ export default async function AddBottlePage({ searchParams }: Props) {
 
   const wishId = z.uuid().safeParse(wish);
 
+  // From an empty spot in a rack: that spot is chosen already (only one of this household's own places).
+  const initialSpot =
+    ctx && params.place
+      ? spotFromParams(params, await servicesFor(ctx).cellar.storage())
+      : undefined;
+
   return (
     <AddBottleFlow
       currency={currency}
       initialWine={initialWine}
       initialYear={initialYear}
       wishId={wishId.success ? wishId.data : undefined}
+      initialSpot={initialSpot}
     />
   );
 }

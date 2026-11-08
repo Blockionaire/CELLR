@@ -416,6 +416,124 @@ describe("adding bottles", () => {
     ).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
+  describe("an exact spot for the first bottle (an empty spot tapped in a rack)", () => {
+    const at = (slot: { row: number; col: number }, quantity = 1) => ({
+      wineId,
+      year: 2020,
+      quantity,
+      locationId: FRIDGE.id,
+      priceCents: null,
+      purchasedAt: null,
+      formatMl: 750,
+      slot,
+    });
+
+    it("puts the bottle on that spot, not on the first free one", async () => {
+      const { repo, state } = fakeRepo({ unit: FRIDGE });
+      const service = createCellarService(repo, { userId: "me" });
+      const result = await service.addBottles(at({ row: 2, col: 3 }));
+      expect(state.inserts[0]!.map((b) => [b.locationId, b.row, b.col])).toEqual([
+        [FRIDGE.id, 2, 3],
+      ]);
+      expect(result).toMatchObject({
+        placed: 1,
+        unplaced: 0,
+        placeLabel: "Wine fridge",
+        firstSlot: { row: 2, col: 3 },
+      });
+    });
+
+    it("with several bottles the first keeps the spot and the rest take the next free ones", async () => {
+      const { repo, state } = fakeRepo({ unit: FRIDGE, occupied: [{ row: 1, col: 1 }] });
+      const service = createCellarService(repo, { userId: "me" });
+      const result = await service.addBottles(at({ row: 2, col: 2 }, 3));
+      expect(state.inserts[0]!.map((b) => [b.row, b.col])).toEqual([
+        [2, 2],
+        [1, 2],
+        [1, 3],
+      ]);
+      expect(result).toMatchObject({ placed: 3, unplaced: 0, firstSlot: { row: 2, col: 2 } });
+    });
+
+    it("bottles that do not fit any more are added without a place, and counted", async () => {
+      const { repo, state } = fakeRepo({
+        unit: FRIDGE,
+        occupied: [
+          { row: 1, col: 1 },
+          { row: 1, col: 2 },
+          { row: 1, col: 3 },
+          { row: 2, col: 1 },
+        ],
+      });
+      const service = createCellarService(repo, { userId: "me" });
+      const result = await service.addBottles(at({ row: 2, col: 3 }, 4));
+      expect(state.inserts[0]!.map((b) => [b.row, b.col])).toEqual([
+        [2, 3],
+        [2, 2],
+        [null, null],
+        [null, null],
+      ]);
+      expect(result).toMatchObject({ placed: 2, unplaced: 2 });
+    });
+
+    it("a taken spot is refused, and nothing is added somewhere else", async () => {
+      const { repo, state } = fakeRepo({ unit: FRIDGE, occupied: [{ row: 2, col: 3 }] });
+      const service = createCellarService(repo, { userId: "me" });
+      await expect(service.addBottles(at({ row: 2, col: 3 }))).rejects.toMatchObject({
+        code: "CONFLICT",
+        message: "That spot was just taken. Pick another.",
+      });
+      expect(state.inserts).toHaveLength(0);
+    });
+
+    it("a spot taken by someone else at the same moment is refused on the next look", async () => {
+      const occupied: Array<{ row: number; col: number }> = [];
+      const { repo, state } = fakeRepo({ unit: FRIDGE, occupied, conflictsBeforeSuccess: 1 });
+      const insert = repo.insertBottles.bind(repo);
+      repo.insertBottles = async (h, rows) => {
+        // the other person's bottle landed on the spot first
+        if (state.conflictsLeft > 0) occupied.push({ row: 1, col: 2 });
+        return insert(h, rows);
+      };
+      const service = createCellarService(repo, { userId: "me" });
+      await expect(service.addBottles(at({ row: 1, col: 2 }))).rejects.toMatchObject({
+        code: "CONFLICT",
+        message: "That spot was just taken. Pick another.",
+      });
+      expect(state.inserts).toHaveLength(0);
+    });
+
+    it("a spot outside the place is refused", async () => {
+      const { repo, state } = fakeRepo({ unit: FRIDGE });
+      const service = createCellarService(repo, { userId: "me" });
+      for (const slot of [
+        { row: 3, col: 1 },
+        { row: 1, col: 4 },
+      ])
+        await expect(service.addBottles(at(slot))).rejects.toMatchObject({
+          code: "VALIDATION",
+          message: "That spot doesn't exist in this place.",
+        });
+      expect(state.inserts).toHaveLength(0);
+    });
+
+    it("a place of another household is not found, spot or not", async () => {
+      const { repo, state } = fakeRepo({ unit: FRIDGE });
+      const service = createCellarService(repo, { userId: "me" });
+      await expect(
+        service.addBottles({ ...at({ row: 1, col: 1 }), locationId: "u-elsewhere" }),
+      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+      expect(state.inserts).toHaveLength(0);
+    });
+
+    it("without a spot the result says nothing about one (as before)", async () => {
+      const { repo } = fakeRepo({ unit: FRIDGE });
+      const service = createCellarService(repo, { userId: "me" });
+      const plain = { ...at({ row: 1, col: 1 }), slot: undefined };
+      expect(await service.addBottles(plain)).not.toHaveProperty("firstSlot");
+    });
+  });
+
   it("refuses an unknown wine or place, and needs a household", async () => {
     const { repo } = fakeRepo({ unit: FRIDGE });
     const service = createCellarService(repo, { userId: "me" });

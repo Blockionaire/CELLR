@@ -159,27 +159,39 @@ export type CreateWine = z.infer<typeof CreateWineSchema>;
 /** A calendar year, or null for non-vintage. */
 export const VintageYearSchema = z.number().int().min(1800).max(2100).nullable();
 
-export const AddBottlesSchema = z.object({
-  wineId: z.uuid(),
-  year: VintageYearSchema,
-  quantity: z.number().int().min(1).max(MAX_BOTTLES_PER_ADD),
-  /** Where they go. null = not placed yet. With a place, bottles take the next free spots in order. */
-  locationId: z.uuid().nullable().default(null),
-  /** Price paid PER BOTTLE, in the household's currency. */
-  priceCents: z.number().int().min(0).max(MAX_PRICE_CENTS).nullable().default(null),
-  purchasedAt: z.iso.date().nullable().default(null),
-  /** The shop or merchant. */
-  purchasedFrom: z
-    .string()
-    .trim()
-    .max(120)
-    .transform((v) => (v === "" ? null : v))
-    .nullable()
-    .optional(),
-  formatMl: z.number().int().min(100).max(30000).default(750),
-  /** A label photo already uploaded (from a scan or the camera); bottles of a known vintage share its photo. */
-  imageId: z.uuid().optional(),
-});
+export const AddBottlesSchema = z
+  .object({
+    wineId: z.uuid(),
+    year: VintageYearSchema,
+    quantity: z.number().int().min(1).max(MAX_BOTTLES_PER_ADD),
+    /** Where they go. null = not placed yet. With a place, bottles take the next free spots in order. */
+    locationId: z.uuid().nullable().default(null),
+    /** Price paid PER BOTTLE, in the household's currency. */
+    priceCents: z.number().int().min(0).max(MAX_PRICE_CENTS).nullable().default(null),
+    purchasedAt: z.iso.date().nullable().default(null),
+    /** The shop or merchant. */
+    purchasedFrom: z
+      .string()
+      .trim()
+      .max(120)
+      .transform((v) => (v === "" ? null : v))
+      .nullable()
+      .optional(),
+    formatMl: z.number().int().min(100).max(30000).default(750),
+    /** A label photo already uploaded (from a scan or the camera); bottles of a known vintage share its photo. */
+    imageId: z.uuid().optional(),
+    /**
+     * The exact spot for the first bottle (an empty spot tapped in a rack). Needs a place; the other bottles take
+     * the next free spots. A spot that is taken or outside the place is refused, never swapped for another.
+     */
+    slot: z
+      .object({ row: z.number().int().min(1).max(30), col: z.number().int().min(1).max(30) })
+      .optional(),
+  })
+  .refine((v) => v.slot === undefined || v.locationId !== null, {
+    message: "A place needs a shelf and a position.",
+    path: ["slot"],
+  });
 export type AddBottles = z.infer<typeof AddBottlesSchema>;
 
 // ---- Storage ------------------------------------------------------------------------------------
@@ -361,6 +373,8 @@ export interface AddBottlesResult {
   unplaced: number;
   /** Label of the storage unit they were placed in, if any. */
   placeLabel: string | null;
+  /** The spot the first bottle took, when an exact spot was asked for. */
+  firstSlot?: { row: number; col: number } | null;
 }
 
 // ---- Presentation helpers (pure) --------------------------------------------------------------------

@@ -25,6 +25,7 @@ export function AddedDone({
   hasPhoto?: boolean;
 }) {
   const t = useTranslations("addBottle");
+  const tv = useTranslations("vintage");
   const tPhoto = useTranslations("photo");
   return (
     <div className="flex flex-col items-center gap-6 py-2 text-center">
@@ -59,15 +60,21 @@ export function AddedDone({
           })}
         </p>
         <p className="mt-2 text-body text-ink-2">
-          {result.placeLabel === null
-            ? t("placedNone")
-            : result.unplaced === 0
-              ? t("placedAll", { place: result.placeLabel })
-              : t("placedSome", {
-                  placed: result.placed,
-                  place: result.placeLabel,
-                  unplaced: result.unplaced,
-                })}
+          {result.placeLabel !== null && result.firstSlot && result.bottleIds.length === 1
+            ? // one bottle on the spot that was asked for: say exactly where
+              t("placedAll", { place: `${result.placeLabel} · ${tv("spot", result.firstSlot)}` })
+            : result.placeLabel === null
+              ? t("placedNone")
+              : result.unplaced === 0
+                ? t("placedAll", { place: result.placeLabel })
+                : t("placedSome", {
+                    placed: result.placed,
+                    place: result.placeLabel,
+                    unplaced: result.unplaced,
+                  })}
+          {result.firstSlot && result.bottleIds.length > 1 && (
+            <> {t("firstAt", { spot: tv("spot", result.firstSlot) })}</>
+          )}
         </p>
       </div>
       <AddedProfile vintageId={result.vintageId} />
