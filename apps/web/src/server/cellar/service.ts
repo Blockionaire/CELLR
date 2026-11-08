@@ -10,7 +10,7 @@ import {
   drinkStatusOf,
   drinkUrgency,
   isDomainError,
-  nextFreeSlots,
+  slotsFor,
   pickExistingWine,
   countryConflict,
   orderBottles,
@@ -1012,6 +1012,10 @@ export function createCellarService(
       const unit = input.locationId ? await repo.getStorage(householdId, input.locationId) : null;
       if (input.locationId && !unit)
         throw new DomainError("NOT_FOUND", "We couldn't find that place.");
+      // An exact spot for the first bottle: it must be in this place (and, below, still free).
+      const first = unit && input.slot ? input.slot : null;
+      if (first && unit && (first.row > unit.rows || first.col > unit.cols))
+        throw new DomainError("VALIDATION", "That spot doesn't exist in this place.");
 
       const vintageId = await vintageOf(wine, input.year);
       // A photo given now is used; otherwise a new bottle shares the photo of its siblings.
@@ -1021,12 +1025,16 @@ export function createCellarService(
 
       for (let attempt = 1; ; attempt++) {
         const slots = unit
-          ? nextFreeSlots(
+          ? slotsFor(
               { rows: unit.rows, cols: unit.cols },
               await repo.occupiedSlots(unit.id),
               input.quantity,
+              first,
             )
           : [];
+        // The spot asked for is taken (perhaps a moment ago): say so, never put the bottle somewhere else.
+        if (slots === null)
+          throw new DomainError("CONFLICT", "That spot was just taken. Pick another.");
         const rows: NewBottle[] = Array.from({ length: input.quantity }, (_, i) => {
           const slot = slots[i];
           return {
@@ -1061,6 +1069,7 @@ export function createCellarService(
             placed: slots.length,
             unplaced: input.quantity - slots.length,
             placeLabel: unit?.label ?? null,
+            ...(first ? { firstSlot: slots[0] ?? null } : {}),
           };
         } catch (error) {
           // Someone filled the same spot a moment ago: look again and take the next free ones.

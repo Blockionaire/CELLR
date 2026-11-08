@@ -7,6 +7,7 @@ import { Button } from "@/ui/button";
 import { ChevronRightIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
 import { AddedDone } from "./added-done";
+import { addHref, type PreferredSpot } from "./add-spot";
 import { BottleDetails } from "./bottle-details";
 import { ChooseWine } from "./choose-wine";
 import { useForgetWish } from "@/features/wishlist/hooks";
@@ -24,6 +25,7 @@ export function AddBottleFlow({
   initialWine,
   initialYear,
   wishId,
+  initialSpot,
 }: {
   currency: string;
   /** Jump straight to "how many and where" for this wine (from "Add more"). */
@@ -31,6 +33,8 @@ export function AddBottleFlow({
   initialYear?: number | null | undefined;
   /** The wish this purchase fulfils: it comes off the wishlist once the bottles are in. */
   wishId?: string | undefined;
+  /** An empty spot tapped in a rack: the first bottle goes there (the person can still choose otherwise). */
+  initialSpot?: PreferredSpot | undefined;
 }) {
   const t = useTranslations("addBottle");
   const wines = useWines();
@@ -39,7 +43,9 @@ export function AddBottleFlow({
   const [query, setQuery] = useState("");
   const [wine, setWine] = useState<WineSummary | null>(initialWine ?? null);
   const [result, setResult] = useState<AddBottlesResult | null>(null);
-  const [lastPlace, setLastPlace] = useState<string | null | undefined>(undefined);
+  const [lastPlace, setLastPlace] = useState<string | null | undefined>(initialSpot?.locationId);
+  // Kept here, not in the details step, so going back to choose (or create) another wine keeps the spot.
+  const [spot, setSpot] = useState<PreferredSpot | null>(initialSpot ?? null);
 
   // Move focus to the new step's heading so keyboard and screen-reader users land in the right place.
   const heading = useRef<HTMLDivElement>(null);
@@ -95,7 +101,7 @@ export function AddBottleFlow({
       <div className="mx-auto w-full max-w-xl">
         {step === "choose" && (
           <ChooseWine
-            scanHref="/scan"
+            scanHref={addHref("/scan", spot)}
             wines={wines.data}
             query={query}
             onQuery={setQuery}
@@ -116,11 +122,15 @@ export function AddBottleFlow({
             wine={wine}
             currency={currency}
             preferredPlaceId={lastPlace}
+            spot={spot}
+            onSpotChange={setSpot}
             initialYear={result === null && wine.id === initialWine?.id ? initialYear : undefined}
             onChangeWine={() => setStep("choose")}
             onDone={(r, placeId) => {
               setResult(r);
               setLastPlace(placeId);
+              // that spot is taken now: another bottle goes wherever there is room
+              setSpot(null);
               setStep("done");
               if (wishId) forgetWish.mutate(wishId);
             }}

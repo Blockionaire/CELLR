@@ -15,6 +15,7 @@ import {
 } from "@cellr/domain";
 import { CatalogScanNote } from "@/features/account/catalog-section";
 import { AddedDone } from "@/features/cellar/added-done";
+import type { PreferredSpot } from "@/features/cellar/add-spot";
 import { BottleDetails } from "@/features/cellar/bottle-details";
 import { ChooseWine } from "@/features/cellar/choose-wine";
 import {
@@ -60,7 +61,14 @@ type Stage =
  * photo is kept the moment it is taken, so whatever goes wrong afterwards (no AI, no connection, a label that
  * cannot be read) never costs the person their picture: the wine can always be filled in by hand beside it.
  */
-export function ScanScreen({ currency }: { currency: string }) {
+export function ScanScreen({
+  currency,
+  initialSpot,
+}: {
+  currency: string;
+  /** From "add a bottle here" in a rack: the first bottle scanned goes on that spot (unless changed). */
+  initialSpot?: PreferredSpot | undefined;
+}) {
   const t = useTranslations("scan");
   const tAdd = useTranslations("addBottle");
   const tWish = useTranslations("wishlist");
@@ -73,6 +81,8 @@ export function ScanScreen({ currency }: { currency: string }) {
   const [mode, setMode] = useState<ScanMode>("single");
   // In a series the place chosen for one bottle is offered for the next.
   const [lastPlace, setLastPlace] = useState<string | null | undefined>(undefined);
+  // The rack spot this scan was started from; used once, by the first bottle added.
+  const [spot, setSpot] = useState<PreferredSpot | null>(initialSpot ?? null);
   const [stage, setStage] = useState<Stage>({ name: "capture", error: null, retry: null });
   // In a "found" review, "not this one" turns the screen into the new-wine form.
   const [rejectedFound, setRejectedFound] = useState(false);
@@ -299,7 +309,9 @@ export function ScanScreen({ currency }: { currency: string }) {
             key={`${stage.result.image.id}:${stage.wine.id}`}
             wine={stage.wine}
             currency={currency}
-            preferredPlaceId={stage.itemId ? lastPlace : undefined}
+            preferredPlaceId={spot ? spot.locationId : stage.itemId ? lastPlace : undefined}
+            spot={spot}
+            onSpotChange={setSpot}
             initialQuantity={mode === "same" && !stage.itemId ? 2 : 1}
             quantityHint={mode === "same" && !stage.itemId ? t("modes.sameQuantity") : undefined}
             initialYear={
@@ -357,6 +369,7 @@ export function ScanScreen({ currency }: { currency: string }) {
               const photo = backFor(stage.result.image.id);
               setBack(null);
               const sent = photo ? attachBackLabel(result.vintageId, photo) : null;
+              setSpot(null);
               if (!stage.itemId) {
                 setStage({
                   name: "done",

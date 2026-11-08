@@ -13,7 +13,7 @@ import {
   type StorageUnitView,
   type WineSummary,
 } from "@cellr/domain";
-import { checkMessage, errorMessage } from "@/lib/api";
+import { ApiError, checkMessage, errorMessage } from "@/lib/api";
 import { todayLocal } from "@/lib/local-date";
 import { Skeleton } from "@/ui/skeleton";
 import { Button } from "@/ui/button";
@@ -30,8 +30,10 @@ import { api } from "@/lib/api";
 import { CheckIcon, PlusIcon } from "@/ui/icons";
 import { Stepper } from "@/ui/stepper";
 import { cn } from "@/ui/cn";
+import type { PreferredSpot } from "./add-spot";
 import { useAddBottles, useStorage } from "./hooks";
 import { NewPlaceSheet } from "./new-place-sheet";
+import { SpotPickerSheet } from "./spot-picker-sheet";
 import { WineStage } from "./wine-stage";
 import { placeLine } from "./wine-visuals";
 
@@ -52,6 +54,12 @@ interface BottleDetailsProps {
   footer?: ReactNode;
   /** Shown under the wine (a scan shows its front label and offers the back). */
   labels?: ReactNode;
+  /**
+   * The exact spot for the first bottle (an empty spot tapped in a rack), owned by the flow so it survives
+   * choosing another wine. Choosing another place, or "not placed yet", lets it go.
+   */
+  spot?: PreferredSpot | null | undefined;
+  onSpotChange?: ((spot: PreferredSpot | null) => void) | undefined;
   onChangeWine: () => void;
   onDone: (result: AddBottlesResult, placeId: string | null) => void;
 }
@@ -82,11 +90,14 @@ export function BottleDetails({
   quantityHint,
   footer,
   labels,
+  spot = null,
+  onSpotChange,
   onChangeWine,
   onDone,
 }: BottleDetailsProps) {
   const t = useTranslations("addBottle");
   const tKinds = useTranslations("storageKinds");
+  const tv = useTranslations("vintage");
   const te = useTranslations();
   const locale = useLocale();
   const storage = useStorage();
@@ -108,6 +119,9 @@ export function BottleDetails({
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  /** The server said the chosen spot is taken: it stays chosen (never silently swapped) until another is picked. */
+  const [spotTaken, setSpotTaken] = useState(false);
 
   const units: StorageUnitView[] = storage.data ?? [];
   /** The place bottles go: the one chosen, else the first with room for all of them, else any with room. */
@@ -117,6 +131,18 @@ export function BottleDetails({
       : (list.find((u) => u.free >= quantity)?.id ?? list.find((u) => u.free > 0)?.id ?? null);
   const placeId = placeIn(units);
   const unit = units.find((u) => u.id === placeId) ?? null;
+  /** The chosen spot, while its place is the one chosen (and still exists). */
+  const activeSpot = spot && unit && unit.id === spot.locationId ? spot : null;
+  const spotText = activeSpot ? tv("spot", { row: activeSpot.row, col: activeSpot.col }) : null;
+
+  /** Another place (or none): the spot was in the old one, so it goes. */
+  function choosePlace(id: string | null) {
+    setChosenPlace(id);
+    if (spot && spot.locationId !== id) {
+      setSpotTaken(false);
+      onSpotChange?.(null);
+    }
+  }
 
   const thisYear = new Date().getFullYear();
   const recentYears = Array.from({ length: 6 }, (_, i) => thisYear - 1 - i);
@@ -145,6 +171,7 @@ export function BottleDetails({
   async function save() {
     // Saved before the places had loaded? Wait for them, so the bottles go where the form would have offered.
     const target = storage.isPending ? placeIn((await storage.refetch()).data ?? []) : placeId;
+    const slot = spot && target === spot.locationId ? { row: spot.row, col: spot.col } : undefined;
     const parsed = AddBottlesSchema.safeParse({
       wineId: wine.id,
       year,
@@ -154,6 +181,7 @@ export function BottleDetails({
       purchasedAt: date || null,
       purchasedFrom: extras.acquiredHow === "gift" ? null : shop,
       ...(imageId ? { imageId } : {}),
+      ...(slot ? { slot } : {}),
     });
     if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
     const extrasParsed = BottleExtrasSchema.safeParse(draftToInput(extras));
@@ -168,6 +196,8 @@ export function BottleDetails({
         );
       onDone(result, target);
     } catch (e) {
+      // The spot went in the meantime: say so where the spot is shown, and offer another one.
+      if (slot && e instanceof ApiError && e.code === "CONFLICT") setSpotTaken(true);
       setError(errorMessage(e, (k) => te(k), ERROR_MESSAGES));
     }
   }
@@ -288,7 +318,7 @@ export function BottleDetails({
                         .filter(Boolean)
                         .join(" · ")}
                       fill={u.capacity > 0 ? Math.min(1, u.used / u.capacity) : undefined}
-                      onSelect={() => setChosenPlace(u.id)}
+                      onSelect={() => choosePlace(u.id)}
                     />
                   );
                 })}
@@ -296,7 +326,7 @@ export function BottleDetails({
               selected={storage.isPending ? chosenPlace === null : placeId === null}
               title={t("notPlaced")}
               detail={t("notPlacedHint")}
-              onSelect={() => setChosenPlace(null)}
+              onSelect={() => choosePlace(null)}
             />
             <button
               type="button"
@@ -310,6 +340,34 @@ export function BottleDetails({
               <span className="text-small text-ink-2">{t("newPlaceHint")}</span>
             </button>
           </div>
+          {unit && activeSpot && spotText && (
+            <div
+              data-testid="add-spot"
+              className={cn(
+                "mt-3 flex items-center justify-between gap-3 rounded-[16px] p-3",
+                spotTaken ? "bg-danger/10 ring-1 ring-danger" : "bg-raised/60",
+              )}
+            >
+              <div className="min-w-0">
+                <p className="text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+                  {t("spotLabel")}
+                </p>
+                <p className="text-body font-medium text-ink tnum">{`${unit.label} · ${spotText}`}</p>
+                {quantity > 1 && (
+                  <p className="mt-0.5 text-small text-ink-2">
+                    {t("spotFirst", { count: quantity - 1 })}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="shrink-0 rounded-full px-3.5 py-2 text-small font-medium text-accent-fg ring-1 ring-hairline transition-colors duration-150 ease-cellr hover:bg-raised"
+              >
+                {t("spotChange")}
+              </button>
+            </div>
+          )}
           {unit && unit.free < quantity && (
             <p role="status" className="mt-3 text-small text-ink-2">
               {t("notEnough", { free: unit.free, rest: quantity - unit.free })}
@@ -369,8 +427,28 @@ export function BottleDetails({
       <NewPlaceSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        onCreated={(created) => setChosenPlace(created.id)}
+        onCreated={(created) => choosePlace(created.id)}
       />
+      {unit && activeSpot && (
+        <SpotPickerSheet
+          open={pickerOpen}
+          placeId={unit.id}
+          placeLabel={unit.label}
+          onClose={() => setPickerOpen(false)}
+          onPick={(row, col) => {
+            onSpotChange?.({ locationId: unit.id, row, col });
+            setSpotTaken(false);
+            setError(null);
+            setPickerOpen(false);
+          }}
+          onAuto={() => {
+            onSpotChange?.(null);
+            setSpotTaken(false);
+            setError(null);
+            setPickerOpen(false);
+          }}
+        />
+      )}
     </>
   );
 }

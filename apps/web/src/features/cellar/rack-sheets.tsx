@@ -18,6 +18,7 @@ import { cn } from "@/ui/cn";
 import { Field } from "@/ui/field";
 import { Sheet } from "@/ui/sheet";
 import { useToast } from "@/ui/toast";
+import { addHref } from "./add-spot";
 import { useDeleteStorage, useUpdateStorage } from "./hooks";
 import { BottlePortrait, nameSize, SlotMap } from "./bottle-portrait";
 import { KindPicker, StepRow } from "./new-place-sheet";
@@ -181,6 +182,11 @@ export function PlaceHereSheet({
   const spot = target
     ? `${target.unit.label} · ${tv("spot", { row: target.row, col: target.col })}`
     : "";
+  // The add flow opens with this place, shelf and position already chosen.
+  const addHere = addHref(
+    "/cellar/add",
+    target ? { locationId: target.unit.id, row: target.row, col: target.col } : null,
+  );
   return (
     <Sheet open={target !== null} onClose={onClose} title={t("placeTitle")} description={spot}>
       <div className="flex flex-col gap-4">
@@ -188,7 +194,8 @@ export function PlaceHereSheet({
           <>
             <p className="text-body text-ink-2">{t("placeNone")}</p>
             <Link
-              href="/cellar/add"
+              href={addHere}
+              data-testid="add-here"
               className={buttonStyles({ variant: "primary", size: "lg", block: true })}
             >
               {t("addBottle")}
@@ -220,6 +227,14 @@ export function PlaceHereSheet({
                 </li>
               ))}
             </ul>
+            {/* Or a bottle not in the cellar yet, straight onto this spot. */}
+            <Link
+              href={addHere}
+              data-testid="add-here"
+              className={buttonStyles({ variant: "secondary", size: "lg", block: true })}
+            >
+              {t("addNewHere")}
+            </Link>
           </>
         )}
         {error && (

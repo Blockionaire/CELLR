@@ -577,7 +577,14 @@
     "inCellar": "In your cellar ×{count}",
     "scanTitle": "Scan wine",
     "scanBody": "Use the camera or a photo of the label.",
-    "newWineHint": "Type it in yourself, without scanning."
+    "newWineHint": "Type it in yourself, without scanning.",
+    "spotLabel": "Spot",
+    "spotChange": "Another spot",
+    "spotFirst": "The first bottle goes here; {count, plural, one {the other takes} other {the other # take}} the next free spots.",
+    "spotPickTitle": "Choose a spot",
+    "spotPickBody": "Tap a free spot.",
+    "spotAuto": "Let CELLR choose",
+    "firstAt": "The first is on {spot}."
   },
   "newPlace": {
     "title": "A place for your bottles",
@@ -740,7 +747,8 @@
     "dropSwap": "Swap with {wine}",
     "dropCancel": "Let go to put it back",
     "unplacedNoSwap": "A bottle without a place can only go to a free spot.",
-    "movingSwap": "Or tap a bottle to swap places."
+    "movingSwap": "Or tap a bottle to swap places.",
+    "addNewHere": "Add a new bottle here"
   },
   "cellar3d": {
     "hint": "Drag to turn · pinch to zoom where you point · two fingers to slide · tap a bottle",
