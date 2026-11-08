@@ -229,6 +229,8 @@ export async function rateStars(page: Page, stars: number) {
  */
 export async function askExample(page: Page, name: string) {
   const inline = page.getByRole("button", { name, exact: true });
+  // the examples are on screen first (the page may still be showing its loading state)
+  await expect(page.getByTestId("example-questions")).toBeVisible();
   if (!(await inline.isVisible())) {
     await expect(async () => {
       await page.getByTestId("more-ideas").click();
