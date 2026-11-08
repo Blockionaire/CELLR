@@ -211,3 +211,115 @@ test("other sheets with the same long name stay inside the screen too, and a she
   await page.mouse.up();
   await expect(dialog).toBeHidden();
 });
+
+/**
+ * Every field of the open sheet against the screen as the phone shows it (the visual viewport, not the document):
+ * the same left edge and width as the form's column, nothing past the screen, and no sideways scroll range at all.
+ */
+const fields = (page: Page) =>
+  page.evaluate(() => {
+    const vv = window.visualViewport!;
+    const scroller = document.querySelector<HTMLElement>("dialog[open] .overflow-y-auto")!;
+    const form = scroller.querySelector("form")!.getBoundingClientRect();
+    const tried = scroller.scrollLeft;
+    scroller.scrollLeft = 200; // a sideways scroll, as a swipe would ask: there must be nowhere to go
+    const after = scroller.scrollLeft;
+    scroller.scrollLeft = tried;
+    return {
+      visible: { left: vv.offsetLeft, width: vv.width },
+      column: { left: Math.round(form.left), width: Math.round(form.width) },
+      scroller: { scrollWidth: scroller.scrollWidth, clientWidth: scroller.clientWidth, after },
+      controls: [
+        ...scroller.querySelectorAll<HTMLElement>("input:not([type=checkbox]), select"),
+      ].map((e) => {
+        const b = e.getBoundingClientRect();
+        return {
+          what: `${e.tagName.toLowerCase()}[${(e as HTMLInputElement).type}]`,
+          left: Math.round(b.left),
+          right: Math.round(b.right),
+          width: Math.round(b.width),
+        };
+      }),
+    };
+  });
+
+for (const scheme of ["light", "dark"] as const)
+  test(`an ordinary wine: every field, the purchase date too, is exactly the column's width, focused or not (${scheme})`, async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(90_000);
+    await page.emulateMedia({ colorScheme: scheme });
+    const { email } = await arrive(page, `sheetfields${scheme}`);
+    const { call } = await apiClient(request, email);
+    const wine = (
+      await call<{ id: string }>(
+        "post",
+        "/wines",
+        {
+          producer: "Domaine Leflaive",
+          name: "Puligny-Montrachet",
+          type: "white",
+          countryCode: "FR",
+          region: "Bourgogne",
+        },
+        201,
+      )
+    ).body;
+    await call(
+      "post",
+      "/bottles",
+      { wineId: wine.id, year: 2020, quantity: 2, locationId: null },
+      201,
+    );
+    await page.goto("/cellar");
+    await page.getByText("Puligny-Montrachet").first().click();
+    await page.waitForURL(/\/cellar\/[0-9a-f-]{36}/);
+    const dialog = page.getByRole("dialog");
+    await expect(async () => {
+      await page.getByRole("button", { name: "Edit", exact: true }).click();
+      await expect(dialog).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
+    await page.waitForTimeout(400);
+    await dialog.getByLabel("Appellation", { exact: true }).fill("Puligny-Montrachet Premier Cru");
+    await dialog.getByLabel("Purchase date").fill("2024-03-15");
+
+    const check = async (when: string) => {
+      const m = await fields(page);
+      expect(m.visible.left, when).toBe(0);
+      // the column sits inside the visible screen, with the sheet's own padding on both sides
+      expect(m.column.left, when).toBeGreaterThanOrEqual(16);
+      expect(m.column.left + m.column.width, when).toBeLessThanOrEqual(m.visible.width - 16);
+      expect(m.scroller.scrollWidth, when).toBeLessThanOrEqual(m.scroller.clientWidth);
+      expect(m.scroller.after, when).toBe(0);
+      expect(m.controls.length, when).toBeGreaterThanOrEqual(7);
+      for (const c of m.controls) {
+        expect(c.left, `${when}: ${c.what}`).toBe(m.column.left);
+        expect(c.width, `${when}: ${c.what}`).toBe(m.column.width);
+      }
+      return m;
+    };
+    const first = await check("closed keyboard");
+    console.log(`measured (${scheme}):`, JSON.stringify(first));
+
+    // Focus each field (as the keyboard or the date picker would), blur it, and swipe sideways after each.
+    const form = await page.evaluate(() => {
+      const r = document.querySelector("dialog[open] .overflow-y-auto")!.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom };
+    });
+    const y = Math.round((form.top + form.bottom) / 2);
+    for (const label of ["Wine name", "Appellation", "Purchase date", "Bought at", "Year"]) {
+      const field = dialog.getByLabel(label, { exact: true });
+      await field.scrollIntoViewIfNeeded();
+      await field.focus();
+      await check(`${label} focused`);
+      await swipe(page, { x: 350, y }, { x: 30, y: y - 10 });
+      await check(`${label} focused, after a swipe`);
+      await field.blur();
+      await swipe(page, { x: 340, y: y + 20 }, { x: 20, y: y + 10 });
+      await check(`${label} blurred, after a swipe`);
+    }
+    await expect(dialog.getByLabel("Purchase date")).toHaveValue("2024-03-15");
+    await dialog.getByLabel("Purchase date").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `test-results/shots/sheet-fields-${scheme}.png` });
+  });
