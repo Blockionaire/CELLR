@@ -1,10 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useId } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import {
   chartYears,
   drinkQuality,
+  phaseInYear,
   windowStretches,
   yearFraction,
   type DrinkPhase,
@@ -53,6 +54,36 @@ export function PhasePill({ phase, className }: { phase: DrinkPhase; className?:
   );
 }
 
+/** How long a finger rests on the chart before the point under it is "picked up" to inspect (ms). */
+const LONG_PRESS = 450;
+
+/** Where a chosen year sits on the chart: today itself for this year, the middle of any other year. */
+const yearPoint = (year: number, thisYear: number, today: number) =>
+  year === thisYear ? today : year + 0.5;
+
+/**
+ * The phase in a chosen year, by the same rule as today's; this year is today's own phase, so the two never disagree.
+ * Null without a window (nothing to say).
+ */
+export function phaseForYear(drink: DrinkSummary, year: number): DrinkPhase | null {
+  if (drink.from === null || drink.until === null || drink.position === null) return null;
+  const today = drink.from + drink.position * Math.max(1, drink.until - drink.from);
+  return year === Math.floor(today)
+    ? drink.phase
+    : phaseInYear(yearPoint(year, Math.floor(today), today), drink.from, drink.until);
+}
+
+/** The years a chart of this window lets you choose from (whole years, first to last), or null without a window. */
+export function chartYearRange(
+  drink: DrinkSummary,
+  year: number | null,
+): { first: number; last: number; thisYear: number } | null {
+  if (drink.from === null || drink.until === null || drink.position === null) return null;
+  const { start, end } = chartYears(year, drink.from, drink.until);
+  const today = drink.from + drink.position * Math.max(1, drink.until - drink.from);
+  return { first: start, last: end - 1, thisYear: Math.floor(today) };
+}
+
 /** A smooth cubic path through the points (Catmull-Rom), so the curve has no corners. */
 function smooth(points: ReadonlyArray<readonly [number, number]>): string {
   const f = (n: number) => n.toFixed(1);
@@ -80,15 +111,33 @@ export function DrinkChart({
   drink,
   year,
   opened,
+  explore,
+  size = "card",
 }: {
   drink: DrinkSummary;
   year: number | null;
   /** Bottles of this wine that were opened (a dot each, on the year they were). */
   opened: ReadonlyArray<{ openedAt: string | null }>;
+  /**
+   * Exploring the years: the chosen one is ringed on the curve, and a tap, a sideways drag or a long press on the
+   * chart chooses another (arrow keys too: the chart is a slider). Vertical swipes still scroll the page.
+   */
+  explore?: { selected: number; onSelect: (year: number) => void; label: string } | undefined;
+  /** "large": a taller drawing, for a screen of its own. */
+  size?: "card" | "large";
 }) {
   const t = useTranslations("drink");
   const day = useDay();
   const gradientId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const plot = useRef<HTMLDivElement>(null);
+  const press = useRef<{ x: number; timer: number | null } | null>(null);
+  const [inspecting, setInspecting] = useState(false);
+  useEffect(
+    () => () => {
+      if (press.current?.timer) window.clearTimeout(press.current.timer);
+    },
+    [],
+  );
   if (drink.from === null || drink.until === null || drink.position === null) return null;
   const { from, until } = drink;
   const today = from + drink.position * Math.max(1, until - from);
@@ -114,6 +163,72 @@ export function DrinkChart({
   const todayX = x(todayV);
   const todayY = y(drinkQuality(todayV, from, until));
   const clampedLabel = Math.min(0.9, Math.max(0.1, todayX / W));
+
+  // The chosen year (exploring): its point on the curve, and the years there are to choose from.
+  const thisYear = Math.floor(today);
+  const first = start;
+  const last = end - 1;
+  const chosen = explore ? Math.min(last, Math.max(first, explore.selected)) : null;
+  const chosenV =
+    chosen === null ? null : Math.min(end, Math.max(start, yearPoint(chosen, thisYear, today)));
+  const chosenPhase = chosen === null ? null : phaseForYear(drink, chosen);
+  const pick = (next: number) => {
+    const y = Math.min(last, Math.max(first, Math.round(next)));
+    if (explore && y !== chosen) explore.onSelect(y);
+  };
+  /** The whole year under a finger or the mouse. */
+  const yearAt = (clientX: number) => {
+    const box = plot.current!.getBoundingClientRect();
+    const u = ((clientX - box.left) / Math.max(1, box.width)) * W;
+    return Math.floor(start + ((u - PAD) / (W - 2 * PAD)) * (end - start));
+  };
+  const endPress = () => {
+    if (press.current?.timer) window.clearTimeout(press.current.timer);
+    press.current = null;
+    setInspecting(false);
+  };
+  const handlers = explore
+    ? {
+        onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
+          if (e.pointerType === "mouse" && e.button !== 0) return;
+          pick(yearAt(e.clientX));
+          // resting on a point picks it up, to inspect: the year and its phase, lifted above the finger
+          const timer = window.setTimeout(() => {
+            setInspecting(true);
+            navigator.vibrate?.(8);
+          }, LONG_PRESS);
+          press.current = { x: e.clientX, timer };
+        },
+        onPointerMove: (e: PointerEvent<HTMLDivElement>) => {
+          if (!press.current) return;
+          // a sideways drag scrubs through the years (a long press only while the finger rests)
+          if (Math.abs(e.clientX - press.current.x) > 6 && press.current.timer) {
+            window.clearTimeout(press.current.timer);
+            press.current.timer = null;
+          }
+          pick(yearAt(e.clientX));
+        },
+        onPointerUp: endPress,
+        onPointerCancel: endPress,
+        onLostPointerCapture: endPress,
+        onContextMenu: (e: { preventDefault: () => void }) => e.preventDefault(),
+        onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
+          const step: Record<string, number> = {
+            ArrowLeft: -1,
+            ArrowDown: -1,
+            ArrowRight: 1,
+            ArrowUp: 1,
+            PageDown: -5,
+            PageUp: 5,
+          };
+          if (e.key in step) pick((chosen ?? thisYear) + step[e.key]!);
+          else if (e.key === "Home") pick(first);
+          else if (e.key === "End") pick(last);
+          else return;
+          e.preventDefault();
+        },
+      }
+    : {};
 
   /** The tinted stretches behind the curve: opening up, at its best, drink soon. */
   const bands = [
@@ -149,7 +264,7 @@ export function DrinkChart({
   return (
     <figure className="mt-5">
       <div
-        role="img"
+        role={explore ? "group" : "img"}
         aria-label={t("chartLabel", { from, until, bestFrom, bestUntil })}
         className="relative pt-7"
         data-testid="drink-chart"
@@ -161,7 +276,29 @@ export function DrinkChart({
           {t("today")}
         </span>
 
-        <div className="relative h-40">
+        <div
+          ref={plot}
+          className={cn(
+            "relative",
+            size === "large" ? "h-56" : "h-40",
+            explore &&
+              "cursor-pointer touch-pan-y select-none rounded-[10px] outline-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-4 focus-visible:ring-offset-surface",
+          )}
+          {...(explore && chosen !== null
+            ? {
+                role: "slider",
+                tabIndex: 0,
+                "aria-label": explore.label,
+                "aria-valuemin": first,
+                "aria-valuemax": last,
+                "aria-valuenow": chosen,
+                "aria-valuetext": `${chosen}: ${t(`phase.${chosenPhase ?? "unknown"}`)}`,
+                "data-testid": "drink-scrub",
+                "data-selected": chosen,
+              }
+            : {})}
+          {...handlers}
+        >
           {bands.map(({ range, tint, round }) => (
             <span
               key={tint}
@@ -253,11 +390,48 @@ export function DrinkChart({
 
           <span
             aria-hidden="true"
+            data-testid="today-mark"
             className="absolute grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-accent-fg/20"
             style={{ left: left(todayX), top: top(todayY) }}
           >
             <span className="size-3.5 rounded-full bg-accent-fg ring-2 ring-surface" />
           </span>
+
+          {chosen !== null && chosenV !== null && (
+            <>
+              {/* the chosen year: a solid line down to the axis, its point ringed, its year above */}
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute bottom-[8%] top-0 w-px -translate-x-1/2 bg-ink/50"
+                style={{ left: left(x(chosenV)) }}
+              />
+              <span
+                aria-hidden="true"
+                data-testid="drink-selected-point"
+                className={cn(
+                  "pointer-events-none absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-ink/15 transition-[width,height] duration-150 ease-cellr motion-reduce:transition-none",
+                  inspecting ? "size-10" : "size-7",
+                )}
+                style={{
+                  left: left(x(chosenV)),
+                  top: top(y(drinkQuality(chosenV, from, until))),
+                }}
+              >
+                <span className="size-4 rounded-full border-[3px] border-ink bg-surface" />
+              </span>
+              <span
+                aria-hidden="true"
+                data-testid="drink-selected-label"
+                className={cn(
+                  "pointer-events-none absolute top-1 -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-2.5 py-0.5 text-caption font-semibold text-canvas shadow-raised tnum transition-transform duration-150 ease-cellr motion-reduce:transition-none",
+                  inspecting && "-translate-y-1 scale-110",
+                )}
+                style={{ left: left(Math.min(W - 30, Math.max(30, x(chosenV)))) }}
+              >
+                {inspecting && chosenPhase ? `${chosen} · ${t(`phase.${chosenPhase}`)}` : chosen}
+              </span>
+            </>
+          )}
         </div>
 
         <div className="relative mt-2 h-5">

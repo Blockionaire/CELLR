@@ -1902,5 +1902,57 @@
     "another": "Check another wine",
     "bottles": "{count, plural, one {# bottle} other {# bottles}}",
     "failed": "That didn't work. Try again."
+  },
+  "drinkDetail": {
+    "title": "Drinking window",
+    "show": "Show the drinking window",
+    "windowLabel": "Drinks well",
+    "today": "Today",
+    "chooseYear": "Choose a year on the chart",
+    "prevYear": "Previous year",
+    "nextYear": "Next year",
+    "thisYear": "this year",
+    "hint": "Tap, drag sideways or hold the chart to explore the years.",
+    "yearYoung": "In {year} it is still young: its window only opens in {from}. It needs more time.",
+    "yearDeveloping": "In {year} it is opening up: already good to drink, and still getting better towards its best years ({bestFrom}–{bestUntil}).",
+    "yearPeak": "In {year} it is at its best ({bestFrom}–{bestUntil}): the stretch it was made for.",
+    "yearReady": "In {year} it is still lovely, but past its best years: waiting longer adds nothing. Drink it by {until}.",
+    "yearPast": "In {year} it is past its window (which runs to {until}), by the estimate. Bottles can surprise, but do not count on it.",
+    "aboutTitle": "What this window means",
+    "about": "The window is the stretch of years in which this wine is expected to drink well. The curve shows the expected shape (opening up, at its best, easing off), not a measured score.",
+    "storage": "How a bottle is kept (temperature, light, rest) changes how it really develops: a cool, dark cellar slows it down, a warm kitchen speeds it up.",
+    "ownNote": "A window you set yourself.",
+    "agingTitle": "About its ageing",
+    "agingNote": "From the AI profile of this wine: an estimate, not a fact."
+  },
+  "valueDetail": {
+    "show": "Show the value",
+    "loading": "Loading the value…",
+    "kind": {
+      "own": "Your own value",
+      "market": "Estimate from prices found",
+      "offer": "One shop's asking price",
+      "ai": "AI estimate"
+    },
+    "method": {
+      "own": "You entered this value yourself; it was not looked up.",
+      "market": "The AI read asking prices for this wine and vintage on the pages above; the value is the middle of that range.",
+      "offer": "Based on one shop's asking price: a single offer, not a market price.",
+      "ai": "Estimated by the AI from what it knows about this wine, without checked sources."
+    },
+    "paidTitle": "What you paid",
+    "paidAverage": "{price} per bottle on average",
+    "diffOwn": "compared with what you paid",
+    "diffEstimate": "compared with what you paid (against an estimate)",
+    "factorsTitle": "What a bottle's value depends on",
+    "factors": {
+      "producer": "The producer, and how sought-after the wine is.",
+      "vintage": "The vintage, and where it stands in its drinking window.",
+      "rarity": "How rare it is: fewer bottles, higher prices.",
+      "condition": "Condition and storage: a well-kept bottle with a clean label is worth more.",
+      "channel": "Where it is sold: a shop's asking price is not what a buyer or an auction pays."
+    },
+    "notAnOffer": "An estimate is not an offer: what you would really get depends on the buyer, the bottle's condition and where you sell it.",
+    "manage": "Change or look up the value"
   }
 }

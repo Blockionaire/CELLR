@@ -5,6 +5,8 @@ import {
   drinkStatusOf,
   drinkUrgency,
   estimateDrinkWindow,
+  fractionalYear,
+  phaseInYear,
   priceFactor,
   styleOf,
   type DrinkInput,
@@ -136,6 +138,25 @@ describe("where a bottle stands today", () => {
     expect(drinkStatus(window, at(2028)).phase).toBe("ready"); // 80%
     expect(drinkStatus(window, at(2030)).phase).toBe("ready"); // the last year is still in the window
     expect(drinkStatus(window, at(2031)).phase).toBe("past");
+  });
+
+  it("phaseInYear: the phase of any year (for a chart), by exactly today's rule", () => {
+    expect(
+      [2018.5, 2020.5, 2023.5, 2027.5, 2030, 2031.5].map((t) => phaseInYear(t, 2020, 2030)),
+    ).toEqual(["young", "developing", "peak", "ready", "ready", "past"]);
+    for (const [year, month] of [
+      [2017, 3],
+      [2020, 0],
+      [2022, 6],
+      [2026, 11],
+      [2029, 5],
+      [2033, 2],
+    ] as const)
+      expect(phaseInYear(fractionalYear(at(year, month)), 2020, 2030)).toBe(
+        drinkStatus(window, at(year, month)).phase,
+      );
+    // a one-year window never divides by zero
+    expect(phaseInYear(2024.5, 2024, 2024)).toBe("peak");
   });
 
   it("counts the years until it opens and until it closes, with a sign", () => {

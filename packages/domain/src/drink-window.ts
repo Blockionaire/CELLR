@@ -461,6 +461,23 @@ export interface DrinkStatus {
   yearsLeft: number | null;
 }
 
+/** The phase at a point in the window: 0 = its first year, 1 = its last (below = not yet, above = past). */
+export function phaseAtPosition(position: number): Exclude<DrinkPhase, "unknown"> {
+  return position < 0
+    ? "young"
+    : position < 0.25
+      ? "developing"
+      : position < 0.7
+        ? "peak"
+        : position <= 1
+          ? "ready"
+          : "past";
+}
+
+/** The phase in calendar year `t` (fractions allowed) of a window from `from` to `until`: the same rule as today's. */
+export const phaseInYear = (t: number, from: number, until: number) =>
+  phaseAtPosition((t - from) / Math.max(1, until - from));
+
 export const fractionalYear = (now: Date): number => now.getUTCFullYear() + now.getUTCMonth() / 12;
 
 export function drinkStatus(window: DrinkWindow | null, now: Date): DrinkStatus {
@@ -474,16 +491,7 @@ export function drinkStatus(window: DrinkWindow | null, now: Date): DrinkStatus 
     };
   const t = fractionalYear(now);
   const position = (t - window.from) / Math.max(1, window.until - window.from);
-  const phase: DrinkPhase =
-    position < 0
-      ? "young"
-      : position < 0.25
-        ? "developing"
-        : position < 0.7
-          ? "peak"
-          : position <= 1
-            ? "ready"
-            : "past";
+  const phase = phaseAtPosition(position);
   const tenth = (n: number) => Math.round(n * 10) / 10;
   return {
     phase,

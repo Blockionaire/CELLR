@@ -1902,5 +1902,57 @@
     "another": "Andere wijn checken",
     "bottles": "{count, plural, one {# fles} other {# flessen}}",
     "failed": "Dat lukte niet. Probeer het opnieuw."
+  },
+  "drinkDetail": {
+    "title": "Drinkvenster",
+    "show": "Toon het drinkvenster",
+    "windowLabel": "Goed te drinken",
+    "today": "Nu",
+    "chooseYear": "Kies een jaar in de grafiek",
+    "prevYear": "Vorig jaar",
+    "nextYear": "Volgend jaar",
+    "thisYear": "dit jaar",
+    "hint": "Tik, sleep opzij of houd de grafiek vast om door de jaren te gaan.",
+    "yearYoung": "In {year} is hij nog jong: zijn drinkvenster opent pas in {from}. Hij heeft dan nog tijd nodig.",
+    "yearDeveloping": "In {year} opent hij zich: al goed te drinken, en hij wordt nog beter richting zijn beste jaren ({bestFrom}–{bestUntil}).",
+    "yearPeak": "In {year} is hij op zijn best ({bestFrom}–{bestUntil}): de periode waarvoor hij gemaakt is.",
+    "yearReady": "In {year} is hij nog heerlijk, maar voorbij zijn beste jaren: langer wachten levert niets meer op. Drink hem uiterlijk in {until}.",
+    "yearPast": "In {year} is hij volgens de schatting voorbij zijn venster (dat loopt tot {until}). Flessen kunnen verrassen, maar reken er niet op.",
+    "aboutTitle": "Wat dit venster betekent",
+    "about": "Het venster is de periode waarin deze wijn naar verwachting goed te drinken is. De curve toont het verwachte verloop (opbouw, hoogtepunt, afbouw), geen gemeten score.",
+    "storage": "Hoe een fles bewaard wordt (temperatuur, licht, rust) beïnvloedt hoe hij zich echt ontwikkelt: een koele, donkere kelder vertraagt het, een warme keuken versnelt het.",
+    "ownNote": "Een venster dat je zelf hebt ingesteld.",
+    "agingTitle": "Over het rijpen",
+    "agingNote": "Uit het AI-profiel van deze wijn: een schatting, geen feit."
+  },
+  "valueDetail": {
+    "show": "Toon de waarde",
+    "loading": "Waarde laden…",
+    "kind": {
+      "own": "Je eigen waarde",
+      "market": "Schatting uit gevonden prijzen",
+      "offer": "Vraagprijs van één winkel",
+      "ai": "AI-schatting"
+    },
+    "method": {
+      "own": "Deze waarde heb je zelf ingevuld; hij is niet opgezocht.",
+      "market": "De AI las vraagprijzen voor deze wijn en jaargang op de pagina's hierboven; de waarde is het midden van die prijzen.",
+      "offer": "Gebaseerd op de vraagprijs van één winkel: één aanbod, geen marktprijs.",
+      "ai": "Geschat door de AI op basis van wat die van deze wijn weet, zonder gecontroleerde bronnen."
+    },
+    "paidTitle": "Wat je betaalde",
+    "paidAverage": "Gemiddeld {price} per fles",
+    "diffOwn": "ten opzichte van wat je betaalde",
+    "diffEstimate": "ten opzichte van wat je betaalde (tegenover een schatting)",
+    "factorsTitle": "Waar de waarde van een fles van afhangt",
+    "factors": {
+      "producer": "De producent, en hoe gewild de wijn is.",
+      "vintage": "De jaargang, en waar hij staat in zijn drinkvenster.",
+      "rarity": "Hoe zeldzaam hij is: minder flessen, hogere prijzen.",
+      "condition": "Staat en bewaring: een goed bewaarde fles met een schoon etiket is meer waard.",
+      "channel": "Waar hij verkocht wordt: de vraagprijs van een winkel is niet wat een koper of veiling betaalt."
+    },
+    "notAnOffer": "Een schatting is geen bod: wat je echt zou krijgen hangt af van de koper, de staat van de fles en waar je verkoopt.",
+    "manage": "Waarde wijzigen of opzoeken"
   }
 }
