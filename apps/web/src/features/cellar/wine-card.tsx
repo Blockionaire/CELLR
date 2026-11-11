@@ -71,6 +71,7 @@ export function WineCard({ item, locale, shared = false }: ItemProps & { shared?
           shared={shared}
           className="aspect-[4/5] w-full rounded-[20px] shadow-raised ring-1 ring-hairline transition-transform duration-300 ease-spring group-hover/card:-translate-y-0.5 group-active/card:scale-[0.97]"
           bottleClassName="h-[80%]"
+          stage="wine"
         />
         <span className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5">
           <CountBadge count={item.count} />
@@ -126,6 +127,7 @@ export function WineRow({ item, locale, shared = false }: ItemProps & { shared?:
           className="h-24 w-[4.5rem] shrink-0 rounded-[14px] ring-1 ring-hairline"
           bottleClassName="h-[84%]"
           artClassName="mb-[3%] h-[94%]"
+          stage="wine"
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-caption font-medium uppercase tracking-[0.12em] text-bronze">

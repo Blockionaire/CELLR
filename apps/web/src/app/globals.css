@@ -88,6 +88,13 @@
      (white fading to warm grey), a soft lifted glow fading to near-black on noir */
   --art-stage-hi: light-dark(#ffffff, #3a2f33);
   --art-stage-lo: light-dark(#e9e2d7, #110c0e);
+  /* the wine stage behind a finished 2D bottle on a wine card: the hero's burgundy, quieter for a small card. The
+     same in both themes (as the hero): a warm candle-glow behind the bottle, deepening to darker wine at the edges,
+     light enough at the centre for dark glass, dark enough for pale glass */
+  --art-wine-glow: rgb(255 222 184 / 0.22);
+  --art-wine-hi: #7a2638;
+  --art-wine-mid: #561725;
+  --art-wine-lo: #2b0b14;
 
   /* bottle glass and capsule (lighter on noir so a dark bottle never vanishes into the page) */
   --glass-red: light-dark(#2a1b20, #3a262c);
