@@ -1,0 +1,28 @@
+{
+  "name": "@cellr/catalog-tools",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Provider imports, the coverage benchmark and the search load test for the wine catalogue (Sprint 004A). Local or staging databases only; see docs/sprints/sprint-004a/REPORT.md.",
+  "scripts": {
+    "import": "tsx import.ts",
+    "benchmark": "tsx benchmark.ts",
+    "perf": "tsx perf.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cellr/domain": "workspace:*",
+    "pg": "8.23.1",
+    "tsx": "4.21.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "^22.0.0",
+    "eslint": "9.39.5",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1",
+    "vitest": "5.0.3"
+  }
+}

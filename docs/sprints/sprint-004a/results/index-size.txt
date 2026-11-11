@@ -1,0 +1,1 @@
+index rows: 110951, table+index size: 72 MB

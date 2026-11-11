@@ -1,0 +1,31 @@
+{
+  "provider": "fixture",
+  "file": "fixture-xwines-layout.csv",
+  "sha256": "cef5c08262fa00560ee14eb1baf12902ccdeab44732b276ed1c166b153780e80",
+  "applied": true,
+  "pilot": false,
+  "retrieved_at": "2026-11-11",
+  "license": "CC0-1.0",
+  "rights_status": "verified",
+  "run": "8a2effd9-68d9-49ff-b7d5-caee30f2a0e9",
+  "rows": 7,
+  "adapter_records": 5,
+  "adapter_skipped": {
+    "WineryName/WineName": 1,
+    "WineID": 1
+  },
+  "inserted": 5,
+  "updated": 0,
+  "unchanged": 0,
+  "invalid": 0,
+  "possible_duplicates": 0,
+  "suggested_links": 0,
+  "problems": [],
+  "finish": {
+    "j": {
+      "run": "8a2effd9-68d9-49ff-b7d5-caee30f2a0e9",
+      "withdrawn": 0
+    }
+  },
+  "seconds": 0
+}

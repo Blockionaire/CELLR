@@ -1,0 +1,28 @@
+{
+  "provider": "xwines",
+  "file": "XWines_Full_100K_wines.csv",
+  "sha256": "eac2d812b5eb94264f3c4ee1764ccdacf764cdf1c2599c26e3832ed91a4662cc",
+  "applied": true,
+  "pilot": true,
+  "retrieved_at": "2026-11-11",
+  "license": "CC0-1.0",
+  "rights_status": "unverified",
+  "run": "7c83bdda-9248-45c3-a6db-fe40ed461d18",
+  "rows": 100646,
+  "adapter_records": 100646,
+  "adapter_skipped": {},
+  "inserted": 0,
+  "updated": 0,
+  "unchanged": 100646,
+  "invalid": 0,
+  "possible_duplicates": 331,
+  "suggested_links": 0,
+  "problems": [],
+  "finish": {
+    "j": {
+      "run": "7c83bdda-9248-45c3-a6db-fe40ed461d18",
+      "withdrawn": 0
+    }
+  },
+  "seconds": 56.2
+}
