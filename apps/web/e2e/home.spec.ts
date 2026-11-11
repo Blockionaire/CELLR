@@ -53,7 +53,7 @@ test.describe("home", () => {
     await expect(page).toHaveURL(/\/cellar\/add/);
   });
 
-  test("Tonight is the way in: one tap on a question asks it straight away", async ({
+  test("Tonight is the way in: one button, no question chips (those live in Tonight itself)", async ({
     page,
     request,
   }) => {
@@ -65,17 +65,12 @@ test.describe("home", () => {
     await expect(
       hero.getByRole("heading", { name: "What should we drink tonight?" }),
     ).toBeVisible();
-    await hero
-      .getByRole("navigation", { name: "Ask straight away" })
-      .getByRole("link", { name: "Steak tonight" })
-      .click();
-    await expect(page).toHaveURL(/\/tonight$/); // the question is not kept in the address
-    const log = page.getByRole("log");
-    await expect(log.getByText("Steak tonight")).toBeVisible();
-    // An answer comes (which one depends on the model; here, other tests may have taught it about steak).
-    await expect(log.getByText(/^Sommelier:/).first()).toBeVisible();
-    // Asked once: one question from the person on screen.
-    await expect(log.getByText("Steak tonight")).toHaveCount(1);
+    await expect(hero.getByRole("navigation")).toHaveCount(0);
+    await expect(hero.getByRole("link", { name: "Steak tonight" })).toHaveCount(0);
+    await hero.getByRole("link", { name: "Help me choose" }).click();
+    await expect(page).toHaveURL(/\/tonight$/);
+    // the questions to start with are still there, in Tonight
+    await expect(page.getByRole("button", { name: "Steak tonight" })).toBeVisible();
   });
 
   test("a cellar at a glance: the totals, what arrived and what was opened", async ({

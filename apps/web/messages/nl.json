@@ -93,12 +93,13 @@
     },
     "atPeak": "Nu op hun best",
     "summary": "{bottles, plural, one {# fles} other {# flessen}} · {wines, plural, one {# wijn} other {# wijnen}}",
-    "quickAsk": "Meteen vragen",
     "ratingsTitle": "Je beoordelingen",
     "ratingsSummary": "{count, plural, one {# wijn beoordeeld} other {# wijnen beoordeeld}} · gemiddeld {average} ★",
     "ratingsStart": "Je proefdagboek: beoordeel wat je opent",
     "nudgeWhen": "Geopend {when}",
-    "nudgeReview": "Beoordeel wijn"
+    "nudgeReview": "Beoordeel wijn",
+    "heroPhotoSlot": "Voeg flesfoto's toe van {wine}",
+    "heroPhotoSlotShort": "Foto toevoegen"
   },
   "cellar": {
     "title": "Kelder",

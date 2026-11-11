@@ -362,6 +362,41 @@ export interface HomeView {
   recentlyOpened: OpenedEntry[];
   /** My own ratings in this household, for the way to Ratings: different wines rated and their mean (stars). */
   myRatings?: { wines: number; average: number | null };
+  /**
+   * Wines of this cellar with a published 2D bottle picture, for the Tonight hero (at most two, see `heroArtWines`).
+   * Never a photo: a wine without such a picture is not here.
+   */
+  heroArt?: CellarItem[];
+}
+
+/** How many wines count as "recently added" for the hero (the same eight Home lists). */
+const RECENT = 8;
+
+/**
+ * The bottles for Home's Tonight hero: only wines in the cellar that have a published 2D bottle picture (`art`),
+ * never a photo. First the ones to open now (at the end of their window, or past it, then at their best: only when
+ * the window is about this very wine, as Home's own lists), most pressing first; then the most recently added; then
+ * any other, newest first. `items` comes newest first, as the cellar lists them.
+ */
+export function heroArtWines(items: readonly CellarItem[], max = 2): CellarItem[] {
+  const tier = (item: CellarItem, index: number) =>
+    item.drink.reliable &&
+    (item.drink.phase === "ready" || item.drink.phase === "past" || item.drink.phase === "peak")
+      ? 0
+      : index < RECENT
+        ? 1
+        : 2;
+  return items
+    .map((item, index) => ({ item, index, tier: tier(item, index) }))
+    .filter(({ item }) => Boolean(item.art))
+    .sort(
+      (a, b) =>
+        a.tier - b.tier ||
+        (a.tier === 0 ? a.item.drink.urgency - b.item.drink.urgency : 0) ||
+        a.index - b.index,
+    )
+    .slice(0, max)
+    .map(({ item }) => item);
 }
 
 export interface AddBottlesResult {

@@ -11,6 +11,7 @@ import {
   drinkUrgency,
   isDomainError,
   slotsFor,
+  heroArtWines,
   pickExistingWine,
   countryConflict,
   orderBottles,
@@ -326,6 +327,7 @@ export function buildHome(
       .sort((a, b) => (b.drink.position ?? 0) - (a.drink.position ?? 0))
       .slice(0, 3),
     recentlyOpened: opened.map((o) => ({ ...o })),
+    heroArt: heroArtWines(cellar.items),
   };
 }
 

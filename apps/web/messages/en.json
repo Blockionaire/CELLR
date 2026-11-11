@@ -93,12 +93,13 @@
     },
     "atPeak": "At their best now",
     "summary": "{bottles, plural, one {# bottle} other {# bottles}} · {wines, plural, one {# wine} other {# wines}}",
-    "quickAsk": "Ask straight away",
     "ratingsTitle": "Your ratings",
     "ratingsSummary": "{count, plural, one {# wine rated} other {# wines rated}} · average {average} ★",
     "ratingsStart": "Your tasting journal: rate what you open",
     "nudgeWhen": "Opened {when}",
-    "nudgeReview": "Review wine"
+    "nudgeReview": "Review wine",
+    "heroPhotoSlot": "Add bottle photos of {wine}",
+    "heroPhotoSlotShort": "Add photo"
   },
   "cellar": {
     "title": "Cellar",

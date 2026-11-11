@@ -394,25 +394,6 @@ dialog[open]::backdrop {
   animation-delay: calc(var(--i, 0) * 50ms);
 }
 
-/* The Tonight hero: the person's bottles fanned like cards; they settle in, and open a little on hover. */
-@keyframes fan-in {
-  from {
-    opacity: 0;
-    transform: translate(0, 18px) rotate(0deg);
-  }
-}
-.fan-card {
-  transform: translateX(var(--x)) rotate(var(--rot));
-  transform-origin: 50% 100%;
-  transition: transform 520ms var(--ease-spring);
-  animation: fan-in 700ms var(--ease-spring) both;
-  animation-delay: calc(120ms + var(--i, 0) * 70ms);
-}
-.group\/hero:hover .fan-card,
-.group\/hero:focus-within .fan-card {
-  transform: translateX(calc(var(--x) * 1.3)) rotate(calc(var(--rot) * 1.45)) translateY(-4px);
-}
-
 /* A wine's picture travels from its card into its page (and back). */
 ::view-transition-group(.wine-morph) {
   animation-duration: 420ms;

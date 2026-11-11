@@ -135,7 +135,7 @@ test.describe("what shall we drink tonight", () => {
     });
 
     await page.goto("/");
-    await page.getByRole("link", { name: /What should we drink tonight/ }).click();
+    await page.getByTestId("tonight-hero").getByRole("link", { name: "Help me choose" }).click();
     await expect(page).toHaveURL(/\/tonight$/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
       "What shall we drink tonight?",
