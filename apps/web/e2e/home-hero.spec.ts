@@ -1,6 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { apiClient, arrive, audit, makeJpeg, sql } from "./helpers";
-import { makeBottlePng, publishArt } from "./hero-art";
+import {
+  makeBottlePng,
+  makeRealisticBottlePng,
+  publishArt,
+  publishArtSized,
+  type BottleShape,
+} from "./hero-art";
 
 /**
  * Home's Tonight hero: compact, one action ("Help me choose" → Tonight), no question chips, and beside it only the
@@ -129,6 +135,7 @@ test.describe("Home's Tonight hero", () => {
     const height = heroBox.height;
     console.log(`${project()} hero height with art: ${height}px`);
     expect(height).toBeLessThanOrEqual(project() === "phone" ? 270 : 330);
+    if (wide) await expect(bottles.first().locator("img")).toHaveJSProperty("complete", true);
     await hero.screenshot({ path: shot("art") });
     expect(await audit(page)).toEqual([]);
 
@@ -221,4 +228,83 @@ test.describe("Home's Tonight hero", () => {
     await expect(page.getByTestId("bottle-photo-invite")).toHaveCount(0);
     await hero.screenshot({ path: shot("empty") });
   });
+
+  for (const width of [375, 390, 430])
+    test.describe(`on a ${width}px phone`, () => {
+      test.use({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true });
+      for (const shape of ["flute", "bordeaux"] as BottleShape[])
+        test(`a real-proportioned ${shape} stands large, whole and clear of the edge, in a compact hero`, async ({
+          page,
+          request,
+        }) => {
+          test.skip(project() !== "phone", "phone widths only");
+          test.setTimeout(60_000);
+          const { email } = await arrive(page, `hero${shape}${width}`);
+          const { call } = await apiClient(request, email);
+          const w = await wine(call, `Real ${shape}`, shape === "flute" ? "white" : "red");
+          // a library-sized picture: a big transparent canvas, the bottle in real proportions, a shadow drawn in
+          await publishArtSized(w.wineId, await makeRealisticBottlePng(page, shape), 1024, 1536);
+          await page.goto("/");
+          const hero = page.getByTestId("tonight-hero");
+          const bottle = hero.getByTestId("hero-bottle");
+          await expect(bottle).toHaveCount(1);
+          const img = bottle.locator("img");
+          await expect(img).toHaveJSProperty("complete", true);
+          // the bottle's outline is measured, and the picture is cut to it (only the empty border goes)
+          const art = bottle.locator("[data-art-cropped]");
+          await expect(art).toHaveAttribute("data-art-cropped", "true");
+          // measured once it has settled (it arrives with a small, brief tilt)
+          await expect
+            .poll(() =>
+              hero.evaluate(
+                (h) =>
+                  h.getAnimations({ subtree: true }).filter((a) => a.playState === "running")
+                    .length,
+              ),
+            )
+            .toBe(0);
+          const m = await hero.evaluate((h) => {
+            const box = (sel: string) => h.querySelector(sel)!.getBoundingClientRect();
+            const pic = h.querySelector<HTMLImageElement>('[data-testid="hero-bottle"] img')!;
+            const r = pic.getBoundingClientRect();
+            return {
+              hero: h.getBoundingClientRect().height,
+              heroRight: h.getBoundingClientRect().right,
+              heroTop: h.getBoundingClientRect().top,
+              heroBottom: h.getBoundingClientRect().bottom,
+              art: (({ x, y, width, height, right, bottom }) => ({
+                x,
+                y,
+                width,
+                height,
+                right,
+                bottom,
+              }))(box("[data-art-cropped]")),
+              // the whole picture as drawn, against its own proportions: never stretched
+              drawn: r.width / r.height,
+              natural: pic.naturalWidth / pic.naturalHeight,
+            };
+          });
+          console.log(`${width} ${shape}: ${JSON.stringify(m)}`);
+          expect(Math.abs(m.drawn - m.natural) / m.natural).toBeLessThan(0.005);
+          // prominent: most of the card's height, not a small sticker
+          expect(m.art.height).toBeGreaterThanOrEqual(0.75 * m.hero);
+          // clear of the card's edge, and inside the card
+          expect(m.heroRight - m.art.right).toBeGreaterThanOrEqual(24);
+          expect(m.art.y).toBeGreaterThanOrEqual(m.heroTop);
+          expect(m.art.bottom).toBeLessThanOrEqual(m.heroBottom);
+          // compact: about the height Sprint 002 gave it
+          expect(m.hero).toBeLessThanOrEqual(250);
+          // never over the words or the button
+          for (const part of [
+            hero.getByRole("heading", { name: "What should we drink tonight?" }),
+            hero.getByText("Tell me what you're eating and I'll choose from your own cellar."),
+            hero.getByTestId("tonight-cta"),
+          ])
+            expect(overlaps(m.art, (await part.boundingBox())!)).toBe(false);
+          await hero.screenshot({ path: shot(`${shape}-${width}`) });
+          await hero.getByTestId("tonight-cta").click();
+          await expect(page).toHaveURL(/\/tonight$/);
+        });
+    });
 });

@@ -313,7 +313,7 @@ function TonightHero({
         aria-hidden="true"
         className="pointer-events-none absolute -right-16 -top-20 size-72 rounded-full bg-[radial-gradient(closest-side,rgb(227_194_133/0.32),transparent)]"
       />
-      <div className="relative flex items-stretch gap-3 p-5 md:gap-6 md:p-8">
+      <div className="relative flex items-stretch gap-2 p-5 md:gap-6 md:p-8">
         <div className="min-w-0 flex-1">
           <p className="text-caption font-medium uppercase tracking-[0.18em] text-hero-gold">
             {eyebrow}
@@ -351,8 +351,10 @@ function TonightHero({
 
 /**
  * The cellar's own bottles as their finished 2D pictures, freestanding: no frame, no crop of the bottle, a soft
- * shadow on the floor and a faint warm halo so dark glass still reads on the wine colour. Decorative (the action is
- * the button beside them). One on a phone; a second, smaller and a little behind, on a wide screen.
+ * shadow on the floor and a warm halo so dark glass still reads on the wine colour. Decorative (the action is the
+ * button beside them). They get a column of their own beside the text, as tall as the text, and fill it: the
+ * bottle is as large as the card's own height allows (never taller than the card makes it), centred in its column so
+ * it stands clear of the edge. One on a phone; a second, smaller and a little behind, on a wide screen.
  */
 function HeroBottles({ wines }: { wines: CellarItem[] }) {
   const [first, second] = wines;
@@ -360,12 +362,21 @@ function HeroBottles({ wines }: { wines: CellarItem[] }) {
     <div
       aria-hidden="true"
       data-testid="hero-bottles"
-      className="pointer-events-none relative flex shrink-0 items-end justify-center gap-1 self-end md:mr-6 md:gap-0"
+      className="pointer-events-none relative flex w-[25%] max-w-[8.5rem] shrink-0 items-end justify-center self-stretch md:w-[15rem] md:max-w-none md:pr-4"
     >
-      {/* the warm halo behind the bottles */}
-      <span className="absolute inset-x-[-30%] bottom-[8%] top-[10%] rounded-full bg-[radial-gradient(closest-side,rgb(255_236_205/0.22),transparent)]" />
-      {second && <HeroBottle wine={second} className="hidden h-[10.5rem] md:block md:-mr-3" />}
-      {first && <HeroBottle wine={first} className="relative h-[8.75rem] md:h-[13rem]" />}
+      {/* candlelight behind the bottles: a warm halo, strongest just above the middle of the glass */}
+      <span className="absolute inset-x-[-25%] bottom-[2%] top-[4%] rounded-full bg-[radial-gradient(closest-side_at_50%_55%,rgb(255_226_178/0.28),rgb(255_226_178/0.08)_55%,transparent)]" />
+      {/* the floor they stand on: a soft band of light under the glass */}
+      <span className="absolute bottom-0 left-1/2 h-4 w-[90%] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(closest-side,rgb(255_236_205/0.18),transparent)]" />
+      {second && (
+        <HeroBottle wine={second} className="-mr-4 hidden h-[82%] w-[6.5rem] justify-end md:flex" />
+      )}
+      {first && (
+        <HeroBottle
+          wine={first}
+          className={cn("h-full w-full md:w-[7.5rem]", second && "md:justify-start")}
+        />
+      )}
     </div>
   );
 }
@@ -376,15 +387,21 @@ function HeroBottle({ wine, className }: { wine: CellarItem; className: string }
     <span
       data-testid="hero-bottle"
       data-vintage-id={wine.vintageId}
-      className={cn("settle-in relative flex flex-col items-center", className)}
+      // a frame the bottle fills (size container: the picture fits it both ways, so it is never stretched or cut)
+      className={cn(
+        "settle-in relative flex items-end justify-center pb-1.5 [container-type:size]",
+        className,
+      )}
     >
+      {/* its shadow on the floor: a dark contact shadow under a wider, softer one */}
+      <span className="absolute bottom-0.5 left-1/2 h-3 w-[70%] -translate-x-1/2 rounded-[50%] bg-black/35 blur-[6px]" />
+      <span className="absolute bottom-1 left-1/2 h-1.5 w-[40%] -translate-x-1/2 rounded-[50%] bg-black/55 blur-[3px]" />
       <BottleArtImage
         art={wine.art}
         alt=""
-        className="relative h-full w-auto drop-shadow-[0_10px_14px_rgb(0_0_0/0.45)]"
+        contain
+        className="relative drop-shadow-[0_12px_16px_rgb(0_0_0/0.45)]"
       />
-      {/* its shadow on the floor */}
-      <span className="absolute -bottom-1 left-1/2 h-2.5 w-[85%] -translate-x-1/2 rounded-[50%] bg-black/45 blur-[5px]" />
     </span>
   );
 }
