@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { InsightsEntry } from "@/features/stats/insights-entry";
 import { getLocale, getTranslations } from "next-intl/server";
 import {
@@ -13,6 +14,7 @@ import {
 } from "@cellr/domain";
 import { Greeting } from "@/features/account/greeting";
 import { DrinkLabel } from "@/features/cellar/drink-bits";
+import { BottleArtImage } from "@/features/cellar/bottle-art-image";
 import { WinePicture } from "@/features/cellar/wine-picture";
 import { FriendRequestsBanner } from "@/features/friends/entry";
 import { buttonStyles } from "@/ui/button";
@@ -21,6 +23,7 @@ import { EmptyState } from "@/ui/empty-state";
 import { ChevronRightIcon, StarIcon } from "@/ui/icons";
 import { Stars } from "@/ui/stars";
 import { BottlePhotoInviteCard } from "./bottle-photo-invite";
+import { HeroPhotoSlot } from "./hero-photo-slot";
 import { ReviewNudge } from "./review-nudge";
 
 /** "yesterday", "3 days ago", in the viewer's language. */
@@ -35,9 +38,6 @@ function whenOpened(iso: string, locale: string, now: number): string {
   }
   return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-days, "day");
 }
-
-/** Three of tonight's questions, one tap from Home: each opens Tonight already asking it. */
-const QUICK = ["steak", "pasta", "celebrate"] as const;
 
 /**
  * Home, in four parts: tonight (the reason to open the app), the bottles at their best, what just arrived, and
@@ -58,7 +58,6 @@ export async function HomeScreen({
   reminders?: readonly Reminder[];
 }) {
   const t = await getTranslations("home");
-  const tTonight = await getTranslations("tonight");
   const locale = await getLocale();
   const empty = home.bottleCount === 0;
   const now = Date.parse(home.generatedAt);
@@ -72,11 +71,10 @@ export async function HomeScreen({
     ...home.drinkSoon,
     ...home.atPeak.filter((p) => !home.drinkSoon.some((s) => s.vintageId === p.vintageId)),
   ].slice(0, 8);
-  // The hero shows a few of the person's own bottles: their photos first, the likely candidates first.
-  const heroWines = [...best, ...home.recentlyAdded]
-    .filter((w, i, all) => all.findIndex((x) => x.vintageId === w.vintageId) === i)
-    .sort((a, b) => Number(Boolean(b.image)) - Number(Boolean(a.image)))
-    .slice(0, 3);
+  // The hero shows the cellar's own 2D bottle pictures only (never a photo), chosen by the server: see heroArtWines.
+  const heroArt = empty ? [] : (home.heroArt ?? []);
+  // No picture yet, but a wine to picture: the hero keeps an empty place for it (and the card below steps aside).
+  const heroInvite = !empty && heroArt.length === 0 ? photoInvite : null;
   const money =
     home.valueCents === null
       ? null
@@ -105,9 +103,8 @@ export async function HomeScreen({
         title={t("heroTitle")}
         body={empty ? t("heroEmpty") : t("heroFilled")}
         cta={t("heroCta")}
-        quick={empty ? [] : QUICK.map((q) => tTonight(`chatChips.${q}`))}
-        wines={heroWines}
-        quickLabel={t("quickAsk")}
+        art={heroArt}
+        slot={heroInvite ? <HeroPhotoSlot invite={heroInvite} /> : null}
       />
 
       {/* The collection in one line, under Tonight: the way into Insights (it used to sit beside the greeting). */}
@@ -256,7 +253,7 @@ export async function HomeScreen({
         </>
       )}
 
-      {!empty && photoInvite && <BottlePhotoInviteCard invite={photoInvite} />}
+      {!empty && photoInvite && !heroInvite && <BottlePhotoInviteCard invite={photoInvite} />}
 
       {/* Also with every bottle drunk: what was opened lately (and still waiting for a word) stays in view. */}
       {home.recentlyOpened.length > 0 && (
@@ -283,25 +280,27 @@ export async function HomeScreen({
 }
 
 /**
- * The one big question, in the deep wine colour of both themes: the person's own bottles fanned out beside it,
- * three questions to start with, and the way in.
+ * The one big question, in the deep wine colour of both themes: the way in ("Help me choose", the one action; the
+ * whole card leads there too) and, beside it, the person's own bottles as finished 2D pictures standing in the
+ * candlelight (one on a phone, two on a wide screen). With no picture yet it may hold an empty place for one (a
+ * separate button: photos, not Tonight), or nothing at all.
  */
 function TonightHero({
   eyebrow,
   title,
   body,
   cta,
-  quick,
-  quickLabel,
-  wines,
+  art,
+  slot,
 }: {
   eyebrow: string;
   title: string;
   body: string;
   cta: string;
-  quick: string[];
-  quickLabel: string;
-  wines: CellarItem[];
+  /** Wines of the cellar with a published 2D picture, the first the most fitting (at most two are shown). */
+  art: CellarItem[];
+  /** The empty place for a bottle picture (its own control), when there is no picture to show. */
+  slot: ReactNode;
 }) {
   return (
     <section
@@ -314,90 +313,79 @@ function TonightHero({
         aria-hidden="true"
         className="pointer-events-none absolute -right-16 -top-20 size-72 rounded-full bg-[radial-gradient(closest-side,rgb(227_194_133/0.32),transparent)]"
       />
-      <Link href="/tonight" className="relative block p-6 pb-5 md:p-8 md:pb-6">
-        <p className="text-caption font-medium uppercase tracking-[0.18em] text-hero-gold">
-          {eyebrow}
-        </p>
-        <h2
-          id="tonight-title"
-          className="mt-3 max-w-[10ch] font-display text-[2.25rem] leading-[2.4rem] text-balance md:max-w-[16ch] md:text-[3rem] md:leading-[1.02]"
-        >
-          {title}
-        </h2>
-        <p className="mt-3 max-w-[12.5rem] text-small text-hero-ink/80 md:max-w-xs md:text-body">
-          {body}
-        </p>
-        <span className="mt-5 inline-flex h-11 items-center gap-1 rounded-full bg-hero-gold px-5 text-small font-semibold text-[#3a1119] transition-transform duration-200 ease-spring group-active/hero:scale-[0.97]">
-          {cta}
-          <ChevronRightIcon
-            size={18}
-            className="transition-transform duration-200 ease-spring group-hover/hero:translate-x-0.5"
-          />
-        </span>
-        <HeroFan wines={wines} />
-      </Link>
-      {quick.length > 0 && (
-        <nav
-          aria-label={quickLabel}
-          className="relative -mt-1 flex gap-2 overflow-x-auto px-6 pb-6 scrollbar-none md:px-8 md:pb-8"
-        >
-          {quick.map((q) => (
-            <Link
-              key={q}
-              href={`/tonight?ask=${encodeURIComponent(q)}`}
-              className="inline-flex h-9 shrink-0 items-center rounded-full bg-white/10 px-4 text-small text-hero-ink ring-1 ring-white/15 backdrop-blur-sm transition-[transform,background-color] duration-200 ease-spring hover:bg-white/15 active:scale-[0.96]"
-            >
-              {q}
-            </Link>
-          ))}
-        </nav>
-      )}
+      <div className="relative flex items-stretch gap-3 p-5 md:gap-6 md:p-8">
+        <div className="min-w-0 flex-1">
+          <p className="text-caption font-medium uppercase tracking-[0.18em] text-hero-gold">
+            {eyebrow}
+          </p>
+          <h2
+            id="tonight-title"
+            className="mt-2 max-w-[11ch] font-display text-[2rem] leading-[2.15rem] text-balance md:max-w-[16ch] md:text-[3rem] md:leading-[1.02]"
+          >
+            {title}
+          </h2>
+          <p className="mt-2 max-w-[15rem] text-small text-hero-ink/80 md:mt-3 md:max-w-xs md:text-body">
+            {body}
+          </p>
+          {/* The one action. Its tap area covers the whole card (the empty bottle place sits above it, its own button). */}
+          <Link
+            href="/tonight"
+            data-testid="tonight-cta"
+            className="mt-4 inline-flex rounded-full outline-none after:absolute after:inset-0 after:rounded-[28px] after:content-[''] focus-visible:ring-2 focus-visible:ring-hero-ink focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--hero-from)] md:mt-6"
+          >
+            {/* the press shows on the button itself; the link around it never moves, so its tap area stays put */}
+            <span className="inline-flex h-11 items-center gap-1 rounded-full bg-hero-gold px-5 text-small font-semibold text-[#3a1119] transition-transform duration-200 ease-spring group-active/hero:scale-[0.97] motion-reduce:transition-none">
+              {cta}
+              <ChevronRightIcon
+                size={18}
+                className="transition-transform duration-200 ease-spring group-hover/hero:translate-x-0.5"
+              />
+            </span>
+          </Link>
+        </div>
+        {art.length > 0 ? <HeroBottles wines={art} /> : slot}
+      </div>
     </section>
   );
 }
 
-/** Up to three of the person's own bottles, fanned like cards in a hand; they open a little on hover. */
-function HeroFan({ wines }: { wines: CellarItem[] }) {
-  const placed =
-    wines.length === 0
-      ? []
-      : wines.length === 1
-        ? [{ w: wines[0]!, rot: 0, x: 0 }]
-        : wines.length === 2
-          ? [
-              { w: wines[1]!, rot: -8, x: -16 },
-              { w: wines[0]!, rot: 5, x: 6 },
-            ]
-          : [
-              { w: wines[2]!, rot: -12, x: -26 },
-              { w: wines[1]!, rot: 10, x: 16 },
-              { w: wines[0]!, rot: -1, x: -4 },
-            ];
+/**
+ * The cellar's own bottles as their finished 2D pictures, freestanding: no frame, no crop of the bottle, a soft
+ * shadow on the floor and a faint warm halo so dark glass still reads on the wine colour. Decorative (the action is
+ * the button beside them). One on a phone; a second, smaller and a little behind, on a wide screen.
+ */
+function HeroBottles({ wines }: { wines: CellarItem[] }) {
+  const [first, second] = wines;
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute -right-3 top-9 h-[7.5rem] w-[5.5rem] min-[420px]:right-4 min-[420px]:h-32 min-[420px]:w-24 md:right-14 md:top-10 md:h-52 md:w-36"
+      data-testid="hero-bottles"
+      className="pointer-events-none relative flex shrink-0 items-end justify-center gap-1 self-end md:mr-6 md:gap-0"
     >
-      {placed.length === 0 ? (
-        <span className="absolute inset-0 rounded-[18px] bg-white/5 ring-1 ring-white/10" />
-      ) : (
-        placed.map(({ w, rot, x }, i) => (
-          <span
-            key={w.vintageId}
-            style={
-              {
-                "--rot": `${rot}deg`,
-                "--x": `${x}px`,
-                "--i": i,
-              } as React.CSSProperties
-            }
-            className="fan-card absolute inset-0 overflow-hidden rounded-[16px] shadow-[0_18px_30px_-12px_rgb(0_0_0/0.55)] ring-1 ring-white/15"
-          >
-            <WinePicture wine={w} className="size-full" />
-          </span>
-        ))
-      )}
+      {/* the warm halo behind the bottles */}
+      <span className="absolute inset-x-[-30%] bottom-[8%] top-[10%] rounded-full bg-[radial-gradient(closest-side,rgb(255_236_205/0.22),transparent)]" />
+      {second && <HeroBottle wine={second} className="hidden h-[10.5rem] md:block md:-mr-3" />}
+      {first && <HeroBottle wine={first} className="relative h-[8.75rem] md:h-[13rem]" />}
     </div>
+  );
+}
+
+function HeroBottle({ wine, className }: { wine: CellarItem; className: string }) {
+  if (!wine.art) return null;
+  return (
+    <span
+      data-testid="hero-bottle"
+      data-vintage-id={wine.vintageId}
+      className={cn("settle-in relative flex flex-col items-center", className)}
+    >
+      <BottleArtImage
+        art={wine.art}
+        alt=""
+        className="relative h-full w-auto drop-shadow-[0_10px_14px_rgb(0_0_0/0.45)]"
+      />
+      {/* its shadow on the floor */}
+      <span className="absolute -bottom-1 left-1/2 h-2.5 w-[85%] -translate-x-1/2 rounded-[50%] bg-black/45 blur-[5px]" />
+    </span>
   );
 }
 

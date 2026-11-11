@@ -785,7 +785,22 @@ describe("the home view", () => {
       unplaced: 0,
       recentlyAdded: [],
       recentlyOpened: [],
+      heroArt: [],
     });
+  });
+
+  it("gives the hero only wines of this cellar with a published 2D picture, never a photo", () => {
+    const art = { id: "art1", width: 300, height: 900 };
+    const home = buildHome(
+      [
+        row({ bottleId: "1", vintageId: "v1", wineId: "w1", image: { id: "photo" } as never }),
+        row({ bottleId: "2", vintageId: "v2", wineId: "w2", art }),
+      ],
+      units,
+      [],
+    );
+    expect(home.heroArt?.map((i) => i.vintageId)).toEqual(["v2"]);
+    expect(home.heroArt?.[0]?.art).toEqual(art);
   });
 });
 
