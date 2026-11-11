@@ -14,7 +14,6 @@ import {
 } from "@cellr/domain";
 import { Greeting } from "@/features/account/greeting";
 import { DrinkLabel } from "@/features/cellar/drink-bits";
-import { BottleArtImage } from "@/features/cellar/bottle-art-image";
 import { WinePicture } from "@/features/cellar/wine-picture";
 import { FriendRequestsBanner } from "@/features/friends/entry";
 import { buttonStyles } from "@/ui/button";
@@ -23,6 +22,7 @@ import { EmptyState } from "@/ui/empty-state";
 import { ChevronRightIcon, StarIcon } from "@/ui/icons";
 import { Stars } from "@/ui/stars";
 import { BottlePhotoInviteCard } from "./bottle-photo-invite";
+import { HeroArt } from "./hero-art";
 import { HeroPhotoSlot } from "./hero-photo-slot";
 import { ReviewNudge } from "./review-nudge";
 
@@ -369,7 +369,11 @@ function HeroBottles({ wines }: { wines: CellarItem[] }) {
       {/* the floor they stand on: a soft band of light under the glass */}
       <span className="absolute bottom-0 left-1/2 h-4 w-[90%] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(closest-side,rgb(255_236_205/0.18),transparent)]" />
       {second && (
-        <HeroBottle wine={second} className="-mr-4 hidden h-[82%] w-[6.5rem] justify-end md:flex" />
+        <HeroBottle
+          wine={second}
+          wideOnly
+          className="-mr-4 hidden h-[82%] w-[6.5rem] justify-end md:flex"
+        />
       )}
       {first && (
         <HeroBottle
@@ -381,27 +385,28 @@ function HeroBottles({ wines }: { wines: CellarItem[] }) {
   );
 }
 
-function HeroBottle({ wine, className }: { wine: CellarItem; className: string }) {
+function HeroBottle({
+  wine,
+  className,
+  wideOnly = false,
+}: {
+  wine: CellarItem;
+  className: string;
+  wideOnly?: boolean;
+}) {
   if (!wine.art) return null;
   return (
     <span
       data-testid="hero-bottle"
       data-vintage-id={wine.vintageId}
-      // a frame the bottle fills (size container: the picture fits it both ways, so it is never stretched or cut)
+      // a frame of fixed size the bottle fills (size container: fitted both ways, never stretched or cut, and
+      // nothing around it moves when the picture arrives)
       className={cn(
-        "settle-in relative flex items-end justify-center pb-1.5 [container-type:size]",
+        "relative flex items-end justify-center pb-1.5 [container-type:size]",
         className,
       )}
     >
-      {/* its shadow on the floor: a dark contact shadow under a wider, softer one */}
-      <span className="absolute bottom-0.5 left-1/2 h-3 w-[70%] -translate-x-1/2 rounded-[50%] bg-black/35 blur-[6px]" />
-      <span className="absolute bottom-1 left-1/2 h-1.5 w-[40%] -translate-x-1/2 rounded-[50%] bg-black/55 blur-[3px]" />
-      <BottleArtImage
-        art={wine.art}
-        alt=""
-        contain
-        className="relative drop-shadow-[0_12px_16px_rgb(0_0_0/0.45)]"
-      />
+      <HeroArt art={wine.art} wideOnly={wideOnly} />
     </span>
   );
 }

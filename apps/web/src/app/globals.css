@@ -394,6 +394,16 @@ dialog[open]::backdrop {
   animation-delay: calc(var(--i, 0) * 50ms);
 }
 
+/* The Tonight hero's bottle: the first time a tab shows it, it fades in (never again on coming back to Home). */
+@keyframes hero-art-in {
+  from {
+    opacity: 0;
+  }
+}
+.hero-art-in {
+  animation: hero-art-in 220ms ease-out both;
+}
+
 /* A wine's picture travels from its card into its page (and back). */
 ::view-transition-group(.wine-morph) {
   animation-duration: 420ms;
