@@ -339,7 +339,6 @@ export function WorthSection({
   const { data } = useInsight(vintageId);
   const saveValue = useSaveMyValue(vintageId);
   const valuate = useValuate(vintageId);
-  const money = useMoney(data?.currency ?? currency);
   const automatic = useAutomatic(vintageId) === true;
   const [editing, setEditing] = useState(false);
   const [valueText, setValueText] = useState("");
@@ -348,9 +347,7 @@ export function WorthSection({
 
   if (!data?.ready) return null;
   const view: VintageInsightView = data;
-  const legacy = view.insight?.output.value ?? null;
   const v = view.valuation;
-  const worth = currentValueCents(view);
   const message = (e: unknown) => errorMessage(e, (k) => te(k), ERROR_MESSAGES);
 
   async function lookup() {
@@ -388,83 +385,9 @@ export function WorthSection({
     setEditing(true);
   };
 
-  const monthLabel = (iso: string) =>
-    new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(
-      new Date(iso),
-    );
-
   return (
     <Section title={t("valueTitle")} testId="value" inline={bare}>
-      {worth !== null ? (
-        <>
-          <p className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-display text-display tnum text-ink" data-testid="worth">
-              {money(worth)}
-            </span>
-            <span className="text-body text-ink-2">{t("perBottle")}</span>
-          </p>
-          <p className="mt-1 text-small text-ink-2">
-            {view.myValueCents !== null
-              ? t("valueMine")
-              : v
-                ? valuationKind(v) === "market"
-                  ? t("valueRangeSourced", { low: money(v.lowCents), high: money(v.highCents) })
-                  : v.lowCents === v.highCents
-                    ? t("valueSingleOffer", { price: money(v.lowCents) })
-                    : t("valueSingleShop", { low: money(v.lowCents), high: money(v.highCents) })
-                : legacy
-                  ? t("valueRange", { low: money(legacy.lowCents), high: money(legacy.highCents) })
-                  : ""}
-          </p>
-          {view.myValueCents === null && v && (
-            <div className="mt-4 flex flex-col gap-2">
-              {v.basis && <p className="text-small text-ink">{v.basis}</p>}
-              {v.sources.length > 0 ? (
-                <div>
-                  <p className={EYEBROW}>{t("valueSources")}</p>
-                  <p className="text-caption text-ink-2">{t("valueSourcesNote")}</p>
-                  <ul className="mt-1.5 flex flex-wrap gap-2" data-testid="value-sources">
-                    {v.sources.map((s) => (
-                      <li key={s.url}>
-                        <a
-                          href={s.url}
-                          target="_blank"
-                          rel="noopener noreferrer nofollow"
-                          className="inline-flex min-h-9 items-center gap-1 rounded-full bg-raised px-3 text-small text-ink underline-offset-2 hover:underline"
-                        >
-                          {s.name}
-                          <span aria-hidden="true">↗</span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <p className="text-caption text-ink-2">{t("valueNoSources")}</p>
-              )}
-              <p className="text-caption text-ink-2">{t("valueAsOf", { day: day(v.valuedAt) })}</p>
-            </div>
-          )}
-          {view.myValueCents === null && !v && legacy?.basis && (
-            <p className="mt-1 text-caption text-ink-2">{legacy.basis}</p>
-          )}
-          {view.valueHistory.length > 1 && (
-            <div className="mt-5">
-              <p className={EYEBROW}>{t("valueHistory")}</p>
-              <div className="mt-2">
-                <ValueLine
-                  label={t("valueHistory")}
-                  points={view.valueHistory.map((h) => ({ month: h.valuedAt, cents: h.cents }))}
-                  format={money}
-                  monthLabel={monthLabel}
-                />
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        <p className="text-body text-ink-2">{t("valueNone")}</p>
-      )}
+      <WorthFacts view={view} currency={currency} />
 
       {view.valuationsReady && (
         <div className="mt-4 flex flex-col items-start gap-2">
@@ -524,5 +447,113 @@ export function WorthSection({
         </Button>
       )}
     </Section>
+  );
+}
+
+/**
+ * What a bottle is worth, read only: the value, what it rests on (your own, prices found on the web with their pages,
+ * or an older AI estimate), when it was looked up and how it went over time. Shared by "Worth today" on the page
+ * and its own screen; nothing here looks anything up.
+ */
+export function WorthFacts({
+  view,
+  currency,
+  testIdPrefix = "",
+}: {
+  view: VintageInsightView;
+  currency: string;
+  /** Kept apart from the page's own copy when shown twice (the page and its screen). */
+  testIdPrefix?: string;
+}) {
+  const t = useTranslations("insights");
+  const locale = useLocale();
+  const day = useDay();
+  const money = useMoney(view.currency ?? currency);
+  const legacy = view.insight?.output.value ?? null;
+  const v = view.valuation;
+  const worth = currentValueCents(view);
+  const monthLabel = (iso: string) =>
+    new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(
+      new Date(iso),
+    );
+  return (
+    <>
+      {worth !== null ? (
+        <>
+          <p className="flex flex-wrap items-baseline gap-x-2">
+            <span
+              className="font-display text-display tnum text-ink"
+              data-testid={`${testIdPrefix}worth`}
+            >
+              {money(worth)}
+            </span>
+            <span className="text-body text-ink-2">{t("perBottle")}</span>
+          </p>
+          <p className="mt-1 text-small text-ink-2">
+            {view.myValueCents !== null
+              ? t("valueMine")
+              : v
+                ? valuationKind(v) === "market"
+                  ? t("valueRangeSourced", { low: money(v.lowCents), high: money(v.highCents) })
+                  : v.lowCents === v.highCents
+                    ? t("valueSingleOffer", { price: money(v.lowCents) })
+                    : t("valueSingleShop", { low: money(v.lowCents), high: money(v.highCents) })
+                : legacy
+                  ? t("valueRange", { low: money(legacy.lowCents), high: money(legacy.highCents) })
+                  : ""}
+          </p>
+          {view.myValueCents === null && v && (
+            <div className="mt-4 flex flex-col gap-2">
+              {v.basis && <p className="text-small text-ink">{v.basis}</p>}
+              {v.sources.length > 0 ? (
+                <div>
+                  <p className={EYEBROW}>{t("valueSources")}</p>
+                  <p className="text-caption text-ink-2">{t("valueSourcesNote")}</p>
+                  <ul
+                    className="mt-1.5 flex flex-wrap gap-2"
+                    data-testid={`${testIdPrefix}value-sources`}
+                  >
+                    {v.sources.map((s) => (
+                      <li key={s.url}>
+                        <a
+                          href={s.url}
+                          target="_blank"
+                          rel="noopener noreferrer nofollow"
+                          className="inline-flex min-h-9 items-center gap-1 rounded-full bg-raised px-3 text-small text-ink underline-offset-2 hover:underline"
+                        >
+                          {s.name}
+                          <span aria-hidden="true">↗</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-caption text-ink-2">{t("valueNoSources")}</p>
+              )}
+              <p className="text-caption text-ink-2">{t("valueAsOf", { day: day(v.valuedAt) })}</p>
+            </div>
+          )}
+          {view.myValueCents === null && !v && legacy?.basis && (
+            <p className="mt-1 text-caption text-ink-2">{legacy.basis}</p>
+          )}
+          {view.valueHistory.length > 1 && (
+            <div className="mt-5">
+              <p className={EYEBROW}>{t("valueHistory")}</p>
+              <div className="mt-2">
+                <ValueLine
+                  label={t("valueHistory")}
+                  points={view.valueHistory.map((h) => ({ month: h.valuedAt, cents: h.cents }))}
+                  format={money}
+                  monthLabel={monthLabel}
+                />
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="text-body text-ink-2">{t("valueNone")}</p>
+      )}
+    </>
   );
 }

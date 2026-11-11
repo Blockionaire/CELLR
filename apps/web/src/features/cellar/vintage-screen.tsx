@@ -28,6 +28,8 @@ import { ChevronRightIcon, PlusIcon, StarIcon } from "@/ui/icons";
 import { BarButton, BarIcon, MoveIcon } from "./action-bar";
 import { BottleSpot, useDay, useMoney } from "./bottle-bits";
 import { WhereSheet } from "./where-sheet";
+import { DrinkSheet } from "./drink-sheet";
+import { ValueSheet } from "./value-sheet";
 import { BottlePortrait, nameSize } from "./bottle-portrait";
 import { DrinkChart, PhasePill } from "./drink-chart";
 import { EditSheet } from "./edit-sheet";
@@ -48,6 +50,12 @@ import { placeLine, shapeFor } from "./wine-visuals";
 import { pictureTransition } from "./wine-picture";
 
 type SheetName = "open" | "move" | "edit" | "place" | "merge" | null;
+
+/** A tile in "at a glance" that opens its own screen: the same look as "Where is it?", a little press to it. */
+const TILE_BUTTON =
+  "-mx-2 -my-1 inline-flex min-h-11 max-w-[calc(100%+1rem)] flex-col items-center justify-center rounded-control px-2 py-1 transition-[background-color,transform] duration-150 hover:bg-raised active:scale-[0.97] active:bg-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-fg motion-reduce:transition-none";
+const TILE_VALUE =
+  "max-w-full truncate underline decoration-hairline decoration-2 underline-offset-[6px]";
 
 /**
  * One vintage of one wine, as a page with a hero: the bottle on its stage with how ready it is and how many you
@@ -85,6 +93,10 @@ export function VintageScreen({
   const [extrasFor, setExtrasFor] = useState<BottleView | null>(null);
   // "Where is it?": what the page knew when it was opened, so a bottle moved since then is noticed (and said).
   const [whereAt, setWhereAt] = useState<WhereSummary | null>(null);
+  // The drinking window and the value, each on a screen of its own (from their tiles).
+  const [glance, setGlance] = useState<"drink" | "value" | null>(null);
+  const tGlance = useTranslations("drinkDetail");
+  const tValue = useTranslations("valueDetail");
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<readonly string[]>([]);
   const tBulk = useTranslations("bulk");
@@ -191,7 +203,20 @@ export function VintageScreen({
   if (!detail.drink.uncertain && detail.drink.from !== null && detail.drink.until !== null) {
     cells.push({
       key: "drink",
-      value: tDrink("window", { from: detail.drink.from, until: detail.drink.until }),
+      value: (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => setGlance("drink")}
+          data-testid="drink-trigger"
+          className={TILE_BUTTON}
+        >
+          <span className={TILE_VALUE}>
+            {tDrink("window", { from: detail.drink.from, until: detail.drink.until })}
+          </span>
+          <span className="sr-only">{tGlance("show")}</span>
+        </button>
+      ),
       label: t("glanceDrink"),
     });
   }
@@ -201,7 +226,18 @@ export function VintageScreen({
   if (worthCents !== null) {
     cells.push({
       key: "worth",
-      value: money(worthCents),
+      value: (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => setGlance("value")}
+          data-testid="worth-trigger"
+          className={TILE_BUTTON}
+        >
+          <span className={TILE_VALUE}>{money(worthCents)}</span>
+          <span className="sr-only">{tValue("show")}</span>
+        </button>
+      ),
       label: (
         <>
           {tInsights("valueTitle")}{" "}
@@ -739,6 +775,34 @@ export function VintageScreen({
       </div>
 
       <OpenBottleSheet open={sheet === "open"} onClose={() => setSheet(null)} detail={detail} />
+      <DrinkSheet
+        open={glance === "drink"}
+        onClose={() => setGlance(null)}
+        vintageId={detail.vintageId}
+        title={`${wine.producer} ${wine.name} ${vintageName}`}
+        drink={detail.drink}
+        year={detail.year}
+        opened={detail.opened}
+      />
+      <ValueSheet
+        open={glance === "value"}
+        onClose={() => setGlance(null)}
+        vintageId={detail.vintageId}
+        title={`${wine.producer} ${wine.name} ${vintageName}`}
+        currency={detail.currency ?? currency}
+        averagePriceCents={averageCents}
+        onManage={() => {
+          setGlance(null);
+          // once the sheet has gone: to "Worth today" on the page, where the value is changed or looked up
+          window.setTimeout(
+            () =>
+              document
+                .querySelector('[data-testid="value"]')
+                ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+            320,
+          );
+        }}
+      />
       <WhereSheet
         open={whereAt !== null}
         onClose={() => setWhereAt(null)}
