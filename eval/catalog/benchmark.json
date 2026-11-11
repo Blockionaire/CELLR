@@ -1,0 +1,1657 @@
+{
+  "description": "Sprint 004A catalogue benchmark: wines a CELLR user may look for, with the query they might type and the identity they mean. Identities are written from general wine knowledge as search targets, not as facts imported anywhere; a provider 'covers' a wine only when its own record says so (see scripts/catalog-tools/benchmark.ts).",
+  "version": 1,
+  "entries": [
+    {
+      "id": "b001",
+      "segment": "fr",
+      "query": "chateau margaux",
+      "expect": {
+        "producer": "Château Margaux",
+        "wine": "Château Margaux",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b002",
+      "segment": "fr",
+      "query": "pavillon rouge margaux",
+      "expect": {
+        "producer": "Château Margaux",
+        "wine": "Pavillon Rouge du Château Margaux",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "second-wine"
+    },
+    {
+      "id": "b003",
+      "segment": "fr",
+      "query": "lafite rothschild",
+      "expect": {
+        "producer": "Château Lafite Rothschild",
+        "wine": "Château Lafite Rothschild",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "no-estate-word"
+    },
+    {
+      "id": "b004",
+      "segment": "fr",
+      "query": "chateau latour",
+      "expect": {
+        "producer": "Château Latour",
+        "wine": "Château Latour",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b005",
+      "segment": "fr",
+      "query": "mouton rothschild",
+      "expect": {
+        "producer": "Château Mouton Rothschild",
+        "wine": "Château Mouton Rothschild",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "no-estate-word"
+    },
+    {
+      "id": "b006",
+      "segment": "fr",
+      "query": "haut brion",
+      "expect": {
+        "producer": "Château Haut-Brion",
+        "wine": "Château Haut-Brion",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "hyphen"
+    },
+    {
+      "id": "b007",
+      "segment": "fr",
+      "query": "yquem",
+      "expect": {
+        "producer": "Château d'Yquem",
+        "wine": "Château d'Yquem",
+        "type": "dessert",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "apostrophe"
+    },
+    {
+      "id": "b008",
+      "segment": "fr",
+      "query": "petrus",
+      "expect": {
+        "producer": "Petrus",
+        "wine": "Petrus",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b009",
+      "segment": "fr",
+      "query": "cheval blanc",
+      "expect": {
+        "producer": "Château Cheval Blanc",
+        "wine": "Château Cheval Blanc",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "no-estate-word"
+    },
+    {
+      "id": "b010",
+      "segment": "fr",
+      "query": "chateau palmer",
+      "expect": {
+        "producer": "Château Palmer",
+        "wine": "Château Palmer",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b011",
+      "segment": "fr",
+      "query": "lynch bages",
+      "expect": {
+        "producer": "Château Lynch-Bages",
+        "wine": "Château Lynch-Bages",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "hyphen"
+    },
+    {
+      "id": "b012",
+      "segment": "fr",
+      "query": "leoville las cases",
+      "expect": {
+        "producer": "Château Léoville Las Cases",
+        "wine": "Château Léoville Las Cases",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b013",
+      "segment": "similar",
+      "query": "leoville barton",
+      "expect": {
+        "producer": "Château Léoville Barton",
+        "wine": "Château Léoville Barton",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "similar-producer"
+    },
+    {
+      "id": "b014",
+      "segment": "similar",
+      "query": "leoville poyferre",
+      "expect": {
+        "producer": "Château Léoville Poyferré",
+        "wine": "Château Léoville Poyferré",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "similar-producer"
+    },
+    {
+      "id": "b015",
+      "segment": "similar",
+      "query": "pichon baron",
+      "expect": {
+        "producer": "Château Pichon Longueville Baron",
+        "wine": "Château Pichon Longueville Baron",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "similar-producer"
+    },
+    {
+      "id": "b016",
+      "segment": "similar",
+      "query": "pichon comtesse de lalande",
+      "expect": {
+        "producer": "Château Pichon Longueville Comtesse de Lalande",
+        "wine": "Château Pichon Longueville Comtesse de Lalande",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "similar-producer"
+    },
+    {
+      "id": "b017",
+      "segment": "fr",
+      "query": "guigal cotes du rhone",
+      "expect": {
+        "producer": "E. Guigal",
+        "wine": "Côtes du Rhône Rouge",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b018",
+      "segment": "fr",
+      "query": "beaucastel chateauneuf du pape",
+      "expect": {
+        "producer": "Château de Beaucastel",
+        "wine": "Châteauneuf-du-Pape",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "hyphen"
+    },
+    {
+      "id": "b019",
+      "segment": "fr",
+      "query": "chapoutier belleruche",
+      "expect": {
+        "producer": "M. Chapoutier",
+        "wine": "Belleruche Côtes du Rhône",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b020",
+      "segment": "fr",
+      "query": "louis jadot bourgogne pinot noir",
+      "expect": {
+        "producer": "Louis Jadot",
+        "wine": "Bourgogne Pinot Noir",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b021",
+      "segment": "fr",
+      "query": "william fevre chablis",
+      "expect": {
+        "producer": "William Fèvre",
+        "wine": "Chablis Champs Royaux",
+        "type": "white",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b022",
+      "segment": "fr",
+      "query": "pascal jolivet sancerre",
+      "expect": {
+        "producer": "Pascal Jolivet",
+        "wine": "Sancerre",
+        "type": "white",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b023",
+      "segment": "fr",
+      "query": "hugel gentil",
+      "expect": {
+        "producer": "Hugel",
+        "wine": "Gentil",
+        "type": "white",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b024",
+      "segment": "fr",
+      "query": "trimbach riesling",
+      "expect": {
+        "producer": "Trimbach",
+        "wine": "Riesling",
+        "type": "white",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b025",
+      "segment": "sparkling",
+      "query": "moet chandon brut imperial",
+      "expect": {
+        "producer": "Moët & Chandon",
+        "wine": "Brut Impérial",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "ampersand"
+    },
+    {
+      "id": "b026",
+      "segment": "sparkling",
+      "query": "veuve clicquot brut",
+      "expect": {
+        "producer": "Veuve Clicquot",
+        "wine": "Brut Carte Jaune",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "exact"
+    },
+    {
+      "id": "b027",
+      "segment": "sparkling",
+      "query": "dom perignon",
+      "expect": {
+        "producer": "Dom Pérignon",
+        "wine": "Dom Pérignon",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "single-vintages",
+      "variant": "accent"
+    },
+    {
+      "id": "b028",
+      "segment": "sparkling",
+      "query": "bollinger special cuvee",
+      "expect": {
+        "producer": "Bollinger",
+        "wine": "Special Cuvée",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "accent"
+    },
+    {
+      "id": "b029",
+      "segment": "sparkling",
+      "query": "laurent perrier cuvee rose",
+      "expect": {
+        "producer": "Laurent-Perrier",
+        "wine": "Cuvée Rosé",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "hyphen"
+    },
+    {
+      "id": "b030",
+      "segment": "sparkling",
+      "query": "ruinart blanc de blancs",
+      "expect": {
+        "producer": "Ruinart",
+        "wine": "Blanc de Blancs",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "exact"
+    },
+    {
+      "id": "b031",
+      "segment": "rose",
+      "query": "whispering angel",
+      "expect": {
+        "producer": "Château d'Esclans",
+        "wine": "Whispering Angel",
+        "type": "rose",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "name-only"
+    },
+    {
+      "id": "b032",
+      "segment": "rose",
+      "query": "minuty m de minuty",
+      "expect": {
+        "producer": "Château Minuty",
+        "wine": "M de Minuty",
+        "type": "rose",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b033",
+      "segment": "fr",
+      "query": "romanee conti la tache",
+      "expect": {
+        "producer": "Domaine de la Romanée-Conti",
+        "wine": "La Tâche",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b034",
+      "segment": "rose",
+      "query": "gerard bertrand cote des roses",
+      "expect": {
+        "producer": "Gérard Bertrand",
+        "wine": "Côte des Roses",
+        "type": "rose",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b035",
+      "segment": "nl-supermarket",
+      "query": "jp chenet cabernet syrah",
+      "expect": {
+        "producer": "J.P. Chenet",
+        "wine": "Cabernet-Syrah",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "punctuation"
+    },
+    {
+      "id": "b036",
+      "segment": "nl-supermarket",
+      "query": "grand sud merlot",
+      "expect": {
+        "producer": "Grand Sud",
+        "wine": "Merlot",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "generic-name"
+    },
+    {
+      "id": "b037",
+      "segment": "nl-supermarket",
+      "query": "le grand noir pinot noir",
+      "expect": {
+        "producer": "Le Grand Noir",
+        "wine": "Pinot Noir",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "generic-name"
+    },
+    {
+      "id": "b038",
+      "segment": "it",
+      "query": "tignanello",
+      "expect": {
+        "producer": "Marchesi Antinori",
+        "wine": "Tignanello",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "name-only"
+    },
+    {
+      "id": "b039",
+      "segment": "it",
+      "query": "sassicaia",
+      "expect": {
+        "producer": "Tenuta San Guido",
+        "wine": "Sassicaia",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "name-only"
+    },
+    {
+      "id": "b040",
+      "segment": "it",
+      "query": "ornellaia",
+      "expect": {
+        "producer": "Tenuta dell'Ornellaia",
+        "wine": "Ornellaia",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "name-only"
+    },
+    {
+      "id": "b041",
+      "segment": "it",
+      "query": "antinori solaia",
+      "expect": {
+        "producer": "Marchesi Antinori",
+        "wine": "Solaia",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b042",
+      "segment": "it",
+      "query": "gaja barbaresco",
+      "expect": {
+        "producer": "Gaja",
+        "wine": "Barbaresco",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b043",
+      "segment": "it",
+      "query": "masi costasera amarone",
+      "expect": {
+        "producer": "Masi",
+        "wine": "Costasera Amarone della Valpolicella Classico",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "partial-name"
+    },
+    {
+      "id": "b044",
+      "segment": "it",
+      "query": "allegrini amarone",
+      "expect": {
+        "producer": "Allegrini",
+        "wine": "Amarone della Valpolicella Classico",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "partial-name"
+    },
+    {
+      "id": "b045",
+      "segment": "it",
+      "query": "zenato ripassa",
+      "expect": {
+        "producer": "Zenato",
+        "wine": "Ripassa Valpolicella Ripasso Superiore",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "partial-name"
+    },
+    {
+      "id": "b046",
+      "segment": "nl-supermarket",
+      "query": "santa margherita pinot grigio",
+      "expect": {
+        "producer": "Santa Margherita",
+        "wine": "Pinot Grigio",
+        "type": "white",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "generic-name"
+    },
+    {
+      "id": "b047",
+      "segment": "sparkling",
+      "query": "mionetto prosecco brut",
+      "expect": {
+        "producer": "Mionetto",
+        "wine": "Prosecco Brut",
+        "type": "sparkling",
+        "country": "IT"
+      },
+      "vintage": "nv",
+      "variant": "exact"
+    },
+    {
+      "id": "b048",
+      "segment": "sparkling",
+      "query": "la marca prosecco",
+      "expect": {
+        "producer": "La Marca",
+        "wine": "Prosecco",
+        "type": "sparkling",
+        "country": "IT"
+      },
+      "vintage": "nv",
+      "variant": "exact"
+    },
+    {
+      "id": "b049",
+      "segment": "similar",
+      "query": "banfi brunello di montalcino",
+      "expect": {
+        "producer": "Castello Banfi",
+        "wine": "Brunello di Montalcino",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "same-wine-name"
+    },
+    {
+      "id": "b050",
+      "segment": "similar",
+      "query": "biondi santi brunello di montalcino",
+      "expect": {
+        "producer": "Biondi-Santi",
+        "wine": "Brunello di Montalcino",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "same-wine-name"
+    },
+    {
+      "id": "b051",
+      "segment": "it",
+      "query": "ruffino riserva ducale",
+      "expect": {
+        "producer": "Ruffino",
+        "wine": "Riserva Ducale Chianti Classico",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "word-order"
+    },
+    {
+      "id": "b052",
+      "segment": "it",
+      "query": "frescobaldi nipozzano",
+      "expect": {
+        "producer": "Frescobaldi",
+        "wine": "Castello di Nipozzano Chianti Rufina Riserva",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "partial-name"
+    },
+    {
+      "id": "b053",
+      "segment": "it",
+      "query": "donnafugata ben rye",
+      "expect": {
+        "producer": "Donnafugata",
+        "wine": "Ben Ryé Passito di Pantelleria",
+        "type": "dessert",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b054",
+      "segment": "sparkling",
+      "query": "ca del bosco cuvee prestige",
+      "expect": {
+        "producer": "Ca' del Bosco",
+        "wine": "Cuvée Prestige",
+        "type": "sparkling",
+        "country": "IT"
+      },
+      "vintage": "nv",
+      "variant": "apostrophe"
+    },
+    {
+      "id": "b055",
+      "segment": "sparkling",
+      "query": "ferrari brut trento",
+      "expect": {
+        "producer": "Ferrari",
+        "wine": "Brut",
+        "type": "sparkling",
+        "country": "IT"
+      },
+      "vintage": "nv",
+      "variant": "word-order"
+    },
+    {
+      "id": "b056",
+      "segment": "similar",
+      "query": "pio cesare barolo",
+      "expect": {
+        "producer": "Pio Cesare",
+        "wine": "Barolo",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "same-wine-name"
+    },
+    {
+      "id": "b057",
+      "segment": "similar",
+      "query": "fontanafredda barolo",
+      "expect": {
+        "producer": "Fontanafredda",
+        "wine": "Barolo",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "same-wine-name"
+    },
+    {
+      "id": "b058",
+      "segment": "similar",
+      "query": "tommasi amarone",
+      "expect": {
+        "producer": "Tommasi",
+        "wine": "Amarone della Valpolicella Classico",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "same-wine-name"
+    },
+    {
+      "id": "b059",
+      "segment": "it",
+      "query": "planeta chardonnay",
+      "expect": {
+        "producer": "Planeta",
+        "wine": "Chardonnay",
+        "type": "white",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "generic-name"
+    },
+    {
+      "id": "b060",
+      "segment": "it",
+      "query": "feudi di san gregorio fiano di avellino",
+      "expect": {
+        "producer": "Feudi di San Gregorio",
+        "wine": "Fiano di Avellino",
+        "type": "white",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b061",
+      "segment": "similar",
+      "query": "bertani amarone",
+      "expect": {
+        "producer": "Bertani",
+        "wine": "Amarone della Valpolicella Classico",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "same-wine-name"
+    },
+    {
+      "id": "b062",
+      "segment": "es",
+      "query": "marques de riscal reserva",
+      "expect": {
+        "producer": "Marqués de Riscal",
+        "wine": "Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b063",
+      "segment": "es",
+      "query": "vega sicilia unico",
+      "expect": {
+        "producer": "Vega Sicilia",
+        "wine": "Único",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b064",
+      "segment": "es",
+      "query": "muga reserva",
+      "expect": {
+        "producer": "Bodegas Muga",
+        "wine": "Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "estate-word"
+    },
+    {
+      "id": "b065",
+      "segment": "es",
+      "query": "vina ardanza",
+      "expect": {
+        "producer": "La Rioja Alta",
+        "wine": "Viña Ardanza Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b066",
+      "segment": "es",
+      "query": "cvne imperial reserva",
+      "expect": {
+        "producer": "CVNE",
+        "wine": "Imperial Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "acronym"
+    },
+    {
+      "id": "b067",
+      "segment": "es",
+      "query": "lopez de heredia vina tondonia reserva",
+      "expect": {
+        "producer": "R. López de Heredia",
+        "wine": "Viña Tondonia Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b068",
+      "segment": "nl-supermarket",
+      "query": "torres sangre de toro",
+      "expect": {
+        "producer": "Torres",
+        "wine": "Sangre de Toro",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b069",
+      "segment": "es",
+      "query": "torres vina esmeralda",
+      "expect": {
+        "producer": "Torres",
+        "wine": "Viña Esmeralda",
+        "type": "white",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b070",
+      "segment": "nl-supermarket",
+      "query": "freixenet cordon negro",
+      "expect": {
+        "producer": "Freixenet",
+        "wine": "Cordon Negro Brut",
+        "type": "sparkling",
+        "country": "ES"
+      },
+      "vintage": "nv",
+      "variant": "exact"
+    },
+    {
+      "id": "b071",
+      "segment": "sparkling",
+      "query": "anna de codorniu",
+      "expect": {
+        "producer": "Codorníu",
+        "wine": "Anna de Codorníu Blanc de Blancs",
+        "type": "sparkling",
+        "country": "ES"
+      },
+      "vintage": "nv",
+      "variant": "accent"
+    },
+    {
+      "id": "b072",
+      "segment": "nl-supermarket",
+      "query": "campo viejo reserva",
+      "expect": {
+        "producer": "Campo Viejo",
+        "wine": "Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "generic-name"
+    },
+    {
+      "id": "b073",
+      "segment": "es",
+      "query": "marques de caceres crianza",
+      "expect": {
+        "producer": "Marqués de Cáceres",
+        "wine": "Crianza",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b074",
+      "segment": "es",
+      "query": "faustino i gran reserva",
+      "expect": {
+        "producer": "Faustino",
+        "wine": "Faustino I Gran Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "roman-numeral"
+    },
+    {
+      "id": "b075",
+      "segment": "es",
+      "query": "martin codax albarino",
+      "expect": {
+        "producer": "Martín Códax",
+        "wine": "Albariño",
+        "type": "white",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b076",
+      "segment": "es",
+      "query": "alvaro palacios l ermita",
+      "expect": {
+        "producer": "Álvaro Palacios",
+        "wine": "L'Ermita",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "apostrophe"
+    },
+    {
+      "id": "b077",
+      "segment": "es",
+      "query": "protos crianza",
+      "expect": {
+        "producer": "Protos",
+        "wine": "Crianza",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "generic-name"
+    },
+    {
+      "id": "b078",
+      "segment": "es",
+      "query": "emilio moro malleolus",
+      "expect": {
+        "producer": "Emilio Moro",
+        "wine": "Malleolus",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b079",
+      "segment": "es",
+      "query": "pago de carraovejas",
+      "expect": {
+        "producer": "Pago de Carraovejas",
+        "wine": "Pago de Carraovejas",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b080",
+      "segment": "sparkling",
+      "query": "juve camps reserva de la familia",
+      "expect": {
+        "producer": "Juvé & Camps",
+        "wine": "Reserva de la Familia Brut Nature",
+        "type": "sparkling",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "ampersand"
+    },
+    {
+      "id": "b081",
+      "segment": "es",
+      "query": "ramon bilbao crianza",
+      "expect": {
+        "producer": "Ramón Bilbao",
+        "wine": "Crianza",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b082",
+      "segment": "nl-supermarket",
+      "query": "gato negro cabernet sauvignon",
+      "expect": {
+        "producer": "Gato Negro",
+        "wine": "Cabernet Sauvignon",
+        "type": "red",
+        "country": "CL"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "generic-name"
+    },
+    {
+      "id": "b083",
+      "segment": "nl-supermarket",
+      "query": "casillero del diablo cabernet sauvignon",
+      "expect": {
+        "producer": "Concha y Toro",
+        "wine": "Casillero del Diablo Cabernet Sauvignon",
+        "type": "red",
+        "country": "CL"
+      },
+      "vintage": "multi",
+      "variant": "brand-not-producer"
+    },
+    {
+      "id": "b084",
+      "segment": "nl-supermarket",
+      "query": "jacobs creek classic shiraz cabernet",
+      "expect": {
+        "producer": "Jacob's Creek",
+        "wine": "Classic Shiraz Cabernet",
+        "type": "red",
+        "country": "AU"
+      },
+      "vintage": "multi",
+      "variant": "apostrophe"
+    },
+    {
+      "id": "b085",
+      "segment": "nl-supermarket",
+      "query": "lindemans bin 65 chardonnay",
+      "expect": {
+        "producer": "Lindeman's",
+        "wine": "Bin 65 Chardonnay",
+        "type": "white",
+        "country": "AU"
+      },
+      "vintage": "multi",
+      "variant": "apostrophe"
+    },
+    {
+      "id": "b086",
+      "segment": "nl-supermarket",
+      "query": "yellow tail shiraz",
+      "expect": {
+        "producer": "[yellow tail]",
+        "wine": "Shiraz",
+        "type": "red",
+        "country": "AU"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "brackets"
+    },
+    {
+      "id": "b087",
+      "segment": "nl-supermarket",
+      "query": "hardys nottage hill chardonnay",
+      "expect": {
+        "producer": "Hardys",
+        "wine": "Nottage Hill Chardonnay",
+        "type": "white",
+        "country": "AU"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b088",
+      "segment": "nl-supermarket",
+      "query": "barefoot pinot grigio",
+      "expect": {
+        "producer": "Barefoot",
+        "wine": "Pinot Grigio",
+        "type": "white",
+        "country": "US"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "generic-name"
+    },
+    {
+      "id": "b089",
+      "segment": "nl-supermarket",
+      "query": "oxford landing sauvignon blanc",
+      "expect": {
+        "producer": "Oxford Landing",
+        "wine": "Sauvignon Blanc",
+        "type": "white",
+        "country": "AU"
+      },
+      "vintage": "multi",
+      "variant": "generic-name"
+    },
+    {
+      "id": "b090",
+      "segment": "nl-supermarket",
+      "query": "cono sur bicicleta pinot noir",
+      "expect": {
+        "producer": "Cono Sur",
+        "wine": "Bicicleta Pinot Noir",
+        "type": "red",
+        "country": "CL"
+      },
+      "vintage": "multi",
+      "variant": "exact"
+    },
+    {
+      "id": "b091",
+      "segment": "nl-supermarket",
+      "query": "santa rita 120 cabernet sauvignon",
+      "expect": {
+        "producer": "Santa Rita",
+        "wine": "120 Cabernet Sauvignon",
+        "type": "red",
+        "country": "CL"
+      },
+      "vintage": "multi",
+      "variant": "digits"
+    },
+    {
+      "id": "b092",
+      "segment": "nl-supermarket",
+      "query": "nederburg winemasters cabernet sauvignon",
+      "expect": {
+        "producer": "Nederburg",
+        "wine": "The Winemasters Cabernet Sauvignon",
+        "type": "red",
+        "country": "ZA"
+      },
+      "vintage": "multi",
+      "variant": "partial-name"
+    },
+    {
+      "id": "b093",
+      "segment": "nl-supermarket",
+      "query": "two oceans sauvignon blanc",
+      "expect": {
+        "producer": "Two Oceans",
+        "wine": "Sauvignon Blanc",
+        "type": "white",
+        "country": "ZA"
+      },
+      "vintage": "multi",
+      "variant": "generic-name"
+    },
+    {
+      "id": "b094",
+      "segment": "nl-supermarket",
+      "query": "mateus rose",
+      "expect": {
+        "producer": "Mateus",
+        "wine": "Rosé",
+        "type": "rose",
+        "country": "PT"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "accent"
+    },
+    {
+      "id": "b095",
+      "segment": "nl-supermarket",
+      "query": "gallo white zinfandel",
+      "expect": {
+        "producer": "Gallo Family Vineyards",
+        "wine": "White Zinfandel",
+        "type": "rose",
+        "country": "US"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "partial-producer"
+    },
+    {
+      "id": "b096",
+      "segment": "nl-supermarket",
+      "query": "isla negra cabernet sauvignon",
+      "expect": {
+        "producer": "Isla Negra",
+        "wine": "Cabernet Sauvignon",
+        "type": "red",
+        "country": "CL"
+      },
+      "vintage": "multi",
+      "variant": "generic-name"
+    },
+    {
+      "id": "b097",
+      "segment": "nl-wine",
+      "query": "apostelhoeve riesling",
+      "expect": {
+        "producer": "Apostelhoeve",
+        "wine": "Riesling",
+        "type": "white",
+        "country": "NL"
+      },
+      "vintage": "multi",
+      "variant": "dutch"
+    },
+    {
+      "id": "b098",
+      "segment": "nl-wine",
+      "query": "de kleine schorre auxerrois",
+      "expect": {
+        "producer": "De Kleine Schorre",
+        "wine": "Auxerrois",
+        "type": "white",
+        "country": "NL"
+      },
+      "vintage": "multi",
+      "variant": "dutch"
+    },
+    {
+      "id": "b099",
+      "segment": "eu-specialist",
+      "query": "dr loosen riesling",
+      "expect": {
+        "producer": "Dr. Loosen",
+        "wine": "Dr. L Riesling",
+        "type": "white",
+        "country": "DE"
+      },
+      "vintage": "multi",
+      "variant": "punctuation"
+    },
+    {
+      "id": "b100",
+      "segment": "eu-specialist",
+      "query": "egon muller scharzhofberger kabinett",
+      "expect": {
+        "producer": "Egon Müller",
+        "wine": "Scharzhofberger Riesling Kabinett",
+        "type": "white",
+        "country": "DE"
+      },
+      "vintage": "multi",
+      "variant": "umlaut"
+    },
+    {
+      "id": "b101",
+      "segment": "eu-specialist",
+      "query": "robert weil riesling trocken",
+      "expect": {
+        "producer": "Robert Weil",
+        "wine": "Riesling Trocken",
+        "type": "white",
+        "country": "DE"
+      },
+      "vintage": "multi",
+      "variant": "estate-word"
+    },
+    {
+      "id": "b102",
+      "segment": "eu-specialist",
+      "query": "donnhoff riesling trocken",
+      "expect": {
+        "producer": "Dönnhoff",
+        "wine": "Riesling Trocken",
+        "type": "white",
+        "country": "DE"
+      },
+      "vintage": "multi",
+      "variant": "umlaut"
+    },
+    {
+      "id": "b103",
+      "segment": "eu-specialist",
+      "query": "fx pichler gruner veltliner smaragd",
+      "expect": {
+        "producer": "F.X. Pichler",
+        "wine": "Grüner Veltliner Smaragd Dürnsteiner Kellerberg",
+        "type": "white",
+        "country": "AT"
+      },
+      "vintage": "multi",
+      "variant": "punctuation"
+    },
+    {
+      "id": "b104",
+      "segment": "eu-specialist",
+      "query": "brundlmayer kamptal terrassen gruner veltliner",
+      "expect": {
+        "producer": "Bründlmayer",
+        "wine": "Grüner Veltliner Kamptal Terrassen",
+        "type": "white",
+        "country": "AT"
+      },
+      "vintage": "multi",
+      "variant": "umlaut"
+    },
+    {
+      "id": "b105",
+      "segment": "eu-specialist",
+      "query": "domane wachau federspiel terrassen",
+      "expect": {
+        "producer": "Domäne Wachau",
+        "wine": "Grüner Veltliner Federspiel Terrassen",
+        "type": "white",
+        "country": "AT"
+      },
+      "vintage": "multi",
+      "variant": "umlaut"
+    },
+    {
+      "id": "b106",
+      "segment": "eu-specialist",
+      "query": "quinta do crasto reserva old vines",
+      "expect": {
+        "producer": "Quinta do Crasto",
+        "wine": "Reserva Old Vines",
+        "type": "red",
+        "country": "PT"
+      },
+      "vintage": "multi",
+      "variant": "estate-word"
+    },
+    {
+      "id": "b107",
+      "segment": "eu-specialist",
+      "query": "niepoort redoma",
+      "expect": {
+        "producer": "Niepoort",
+        "wine": "Redoma Tinto",
+        "type": "red",
+        "country": "PT"
+      },
+      "vintage": "multi",
+      "variant": "partial-name"
+    },
+    {
+      "id": "b108",
+      "segment": "eu-specialist",
+      "query": "taylors vintage port",
+      "expect": {
+        "producer": "Taylor's",
+        "wine": "Vintage Port",
+        "type": "fortified",
+        "country": "PT"
+      },
+      "vintage": "single-vintages",
+      "variant": "apostrophe"
+    },
+    {
+      "id": "b109",
+      "segment": "eu-specialist",
+      "query": "grahams 10 year old tawny",
+      "expect": {
+        "producer": "Graham's",
+        "wine": "10 Year Old Tawny Port",
+        "type": "fortified",
+        "country": "PT"
+      },
+      "vintage": "nv",
+      "variant": "digits"
+    },
+    {
+      "id": "b110",
+      "segment": "eu-specialist",
+      "query": "sigalas assyrtiko",
+      "expect": {
+        "producer": "Domaine Sigalas",
+        "wine": "Assyrtiko",
+        "type": "white",
+        "country": "GR"
+      },
+      "vintage": "multi",
+      "variant": "estate-word"
+    },
+    {
+      "id": "b111",
+      "segment": "eu-specialist",
+      "query": "royal tokaji aszu 5 puttonyos",
+      "expect": {
+        "producer": "Royal Tokaji",
+        "wine": "Tokaji Aszú 5 Puttonyos",
+        "type": "dessert",
+        "country": "HU"
+      },
+      "vintage": "multi",
+      "variant": "accent"
+    },
+    {
+      "id": "b112",
+      "segment": "eu-specialist",
+      "query": "barca velha",
+      "expect": {
+        "producer": "Casa Ferreirinha",
+        "wine": "Barca Velha",
+        "type": "red",
+        "country": "PT"
+      },
+      "vintage": "single-vintages",
+      "variant": "name-only"
+    },
+    {
+      "id": "b113",
+      "segment": "variant",
+      "query": "chateau margau",
+      "expect": {
+        "producer": "Château Margaux",
+        "wine": "Château Margaux",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "typo"
+    },
+    {
+      "id": "b114",
+      "segment": "variant",
+      "query": "tignanelo",
+      "expect": {
+        "producer": "Marchesi Antinori",
+        "wine": "Tignanello",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "typo"
+    },
+    {
+      "id": "b115",
+      "segment": "variant",
+      "query": "sasicaia",
+      "expect": {
+        "producer": "Tenuta San Guido",
+        "wine": "Sassicaia",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "typo"
+    },
+    {
+      "id": "b116",
+      "segment": "variant",
+      "query": "veuve cliquot",
+      "expect": {
+        "producer": "Veuve Clicquot",
+        "wine": "Brut Carte Jaune",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "common-misspelling"
+    },
+    {
+      "id": "b117",
+      "segment": "variant",
+      "query": "moet imperial",
+      "expect": {
+        "producer": "Moët & Chandon",
+        "wine": "Brut Impérial",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "partial"
+    },
+    {
+      "id": "b118",
+      "segment": "variant",
+      "query": "marquis de riscal",
+      "expect": {
+        "producer": "Marqués de Riscal",
+        "wine": "Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "translation"
+    },
+    {
+      "id": "b119",
+      "segment": "variant",
+      "query": "pichon lalande",
+      "expect": {
+        "producer": "Château Pichon Longueville Comtesse de Lalande",
+        "wine": "Château Pichon Longueville Comtesse de Lalande",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "nickname"
+    },
+    {
+      "id": "b120",
+      "segment": "variant",
+      "query": "tondonia",
+      "expect": {
+        "producer": "R. López de Heredia",
+        "wine": "Viña Tondonia Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "name-only"
+    },
+    {
+      "id": "b121",
+      "segment": "variant",
+      "query": "casillero diablo",
+      "expect": {
+        "producer": "Concha y Toro",
+        "wine": "Casillero del Diablo Cabernet Sauvignon",
+        "type": "red",
+        "country": "CL"
+      },
+      "vintage": "multi",
+      "variant": "dropped-word"
+    },
+    {
+      "id": "b122",
+      "segment": "variant",
+      "query": "yquem chateau d",
+      "expect": {
+        "producer": "Château d'Yquem",
+        "wine": "Château d'Yquem",
+        "type": "dessert",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "word-order"
+    },
+    {
+      "id": "b123",
+      "segment": "variant",
+      "query": "leoville las case",
+      "expect": {
+        "producer": "Château Léoville Las Cases",
+        "wine": "Château Léoville Las Cases",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "typo"
+    },
+    {
+      "id": "b124",
+      "segment": "variant",
+      "query": "amarone allegrini",
+      "expect": {
+        "producer": "Allegrini",
+        "wine": "Amarone della Valpolicella Classico",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "word-order"
+    },
+    {
+      "id": "b125",
+      "segment": "variant",
+      "query": "vega sicilla",
+      "expect": {
+        "producer": "Vega Sicilia",
+        "wine": "Único",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "typo"
+    },
+    {
+      "id": "b126",
+      "segment": "variant",
+      "query": "egon mueller",
+      "expect": {
+        "producer": "Egon Müller",
+        "wine": "Scharzhofberger Riesling Kabinett",
+        "type": "white",
+        "country": "DE"
+      },
+      "vintage": "multi",
+      "variant": "umlaut-transliteration"
+    },
+    {
+      "id": "b127",
+      "segment": "variant",
+      "query": "gruner veltliner bründlmayer",
+      "expect": {
+        "producer": "Bründlmayer",
+        "wine": "Grüner Veltliner Kamptal Terrassen",
+        "type": "white",
+        "country": "AT"
+      },
+      "vintage": "multi",
+      "variant": "word-order"
+    }
+  ]
+}

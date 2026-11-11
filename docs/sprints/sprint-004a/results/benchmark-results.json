@@ -1,0 +1,6562 @@
+{
+  "summary": {
+    "provider_records": 100646,
+    "coverage": {
+      "exact": 56,
+      "ambiguous": 1,
+      "partial": 38,
+      "producer-only": 17,
+      "missing": 15
+    },
+    "search": {
+      "queries": 127,
+      "with_covered_record": 95,
+      "top1": 77,
+      "top3": 84,
+      "top8": 92,
+      "not_found": 3,
+      "provider_marked_verified": 0,
+      "empty_results": 3
+    }
+  },
+  "entries": [
+    {
+      "id": "b001",
+      "segment": "fr",
+      "query": "chateau margaux",
+      "expect": {
+        "producer": "Château Margaux",
+        "wine": "Château Margaux",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "111987",
+          "producer": "Château Margaux",
+          "name": "Margaux du Château Margaux",
+          "type": "red",
+          "country": "FR",
+          "vintages": 65,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 4,
+      "target_ids": ["111987"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Château Margaux — Margaux du Château Margaux [provider/exact]",
+          "Château Margaux — Pavillon Blanc du Château Margaux [provider/exact]",
+          "Château Margaux — Pavillon Rouge du Château Margaux [provider/exact]"
+        ],
+        "verifiedProvider": false,
+        "ms": 21
+      }
+    },
+    {
+      "id": "b002",
+      "segment": "fr",
+      "query": "pavillon rouge margaux",
+      "expect": {
+        "producer": "Château Margaux",
+        "wine": "Pavillon Rouge du Château Margaux",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "second-wine",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "111557",
+          "producer": "Château Margaux",
+          "name": "Pavillon Rouge du Château Margaux",
+          "type": "red",
+          "country": "FR",
+          "vintages": 52,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "112842",
+          "producer": "Château Margaux",
+          "name": "Pavillon Blanc du Château Margaux",
+          "type": "white",
+          "country": "FR",
+          "vintages": 48,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.74
+        }
+      ],
+      "producer_records": 4,
+      "target_ids": ["111557"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Château Margaux — Pavillon Rouge du Château Margaux [provider/prefix]",
+          "Château Margaux — Pavillon Blanc du Château Margaux [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 14.6
+      }
+    },
+    {
+      "id": "b003",
+      "segment": "fr",
+      "query": "lafite rothschild",
+      "expect": {
+        "producer": "Château Lafite Rothschild",
+        "wine": "Château Lafite Rothschild",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "no-estate-word",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 2,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Barons de Rothschild (Lafite) — Saga Médoc [provider/prefix]",
+          "Barons de Rothschild (Lafite) — Légende (R) Médoc [provider/prefix]",
+          "Barons de Rothschild (Lafite) — Saga Pauillac [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 7.9
+      }
+    },
+    {
+      "id": "b004",
+      "segment": "fr",
+      "query": "chateau latour",
+      "expect": {
+        "producer": "Château Latour",
+        "wine": "Château Latour",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "111793",
+          "producer": "Château Latour",
+          "name": "Pauillac de Latour",
+          "type": "red",
+          "country": "FR",
+          "vintages": 72,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        }
+      ],
+      "producer_records": 3,
+      "target_ids": ["111793"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Château Latour — Pauillac de Latour [provider/exact]",
+          "Château Latour — Les Forts de Latour Pauillac [provider/exact]",
+          "Château Latour — Grand Vin Pauillac (Premier Grand Cru Classé) [provider/exact]"
+        ],
+        "verifiedProvider": false,
+        "ms": 17.4
+      }
+    },
+    {
+      "id": "b005",
+      "segment": "fr",
+      "query": "mouton rothschild",
+      "expect": {
+        "producer": "Château Mouton Rothschild",
+        "wine": "Château Mouton Rothschild",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "no-estate-word",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "111902",
+          "producer": "Château Mouton Rothschild",
+          "name": "Le Petit Mouton de Mouton Rothschild Pauillac",
+          "type": "red",
+          "country": "FR",
+          "vintages": 64,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.62
+        }
+      ],
+      "producer_records": 4,
+      "target_ids": ["111902"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Château Mouton Rothschild — Le Petit Mouton de Mouton Rothschild Pauillac [provider/prefix]",
+          "Château Mouton Rothschild — Aile d'Argent Blanc Bordeaux [provider/prefix]",
+          "Château Mouton Rothschild — En Hommage À Pauline Pauillac [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 16.6
+      }
+    },
+    {
+      "id": "b006",
+      "segment": "fr",
+      "query": "haut brion",
+      "expect": {
+        "producer": "Château Haut-Brion",
+        "wine": "Château Haut-Brion",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "hyphen",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 5,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Château les Carmes Haut-Brion — Pessac-Léognan [provider/prefix]",
+          "Château Larrivet Haut-Brion — Pessac-Léognan [provider/prefix]",
+          "Château Larrivet Haut-Brion — Les Hauts Pessac-Léognan [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 5.5
+      }
+    },
+    {
+      "id": "b007",
+      "segment": "fr",
+      "query": "yquem",
+      "expect": {
+        "producer": "Château d'Yquem",
+        "wine": "Château d'Yquem",
+        "type": "dessert",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "apostrophe",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "127476",
+          "producer": "Château d'Yquem",
+          "name": "Sauternes d'Yquem",
+          "type": "dessert",
+          "country": "FR",
+          "vintages": 18,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.67
+        }
+      ],
+      "producer_records": 3,
+      "target_ids": ["127476"],
+      "search": {
+        "rank": 3,
+        "top": [
+          "Château d'Yquem — Y [provider/prefix]",
+          "Château d'Yquem — Sauternes [provider/prefix]",
+          "Château d'Yquem — Sauternes d'Yquem [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 3.9
+      }
+    },
+    {
+      "id": "b008",
+      "segment": "fr",
+      "query": "petrus",
+      "expect": {
+        "producer": "Petrus",
+        "wine": "Petrus",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 1,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Pétrus — Pomerol [provider/exact]",
+          "Petrussa — Friulano [provider/prefix]",
+          "Petruskellerei — Lagrein [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 4.1
+      }
+    },
+    {
+      "id": "b009",
+      "segment": "fr",
+      "query": "cheval blanc",
+      "expect": {
+        "producer": "Château Cheval Blanc",
+        "wine": "Château Cheval Blanc",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "no-estate-word",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "119901",
+          "producer": "Château Cheval Blanc",
+          "name": "Le Petit Cheval Bordeaux Blanc",
+          "type": "white",
+          "country": "FR",
+          "vintages": 58,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.63
+        }
+      ],
+      "producer_records": 5,
+      "target_ids": ["119901"],
+      "search": {
+        "rank": 5,
+        "top": [
+          "Stone Bluff Cellars — Cheval Blanc [provider/exact]",
+          "Domaine du Cheval Blanc — Bordeaux [provider/prefix]",
+          "Cheval Quancard — Bordeaux Blanc Sec [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 5.8
+      }
+    },
+    {
+      "id": "b010",
+      "segment": "fr",
+      "query": "chateau palmer",
+      "expect": {
+        "producer": "Château Palmer",
+        "wine": "Château Palmer",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 8,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Chateau Palmer — Alter Ego de Château Palmer [provider/exact]",
+          "Chateau Palmer — Vin Blanc de Palmer [provider/exact]",
+          "Chateau Palmer — Grand Vin de Château Palmer (Grand Cru Classé) [provider/exact]"
+        ],
+        "verifiedProvider": false,
+        "ms": 79.2
+      }
+    },
+    {
+      "id": "b011",
+      "segment": "fr",
+      "query": "lynch bages",
+      "expect": {
+        "producer": "Château Lynch-Bages",
+        "wine": "Château Lynch-Bages",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "hyphen",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "112576",
+          "producer": "Château Lynch-Bages",
+          "name": "Blanc de Lynch-Bages",
+          "type": "white",
+          "country": "FR",
+          "vintages": 60,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.8
+        },
+        {
+          "external_id": "111799",
+          "producer": "Château Lynch-Bages",
+          "name": "Echo de Lynch-Bages Pauillac",
+          "type": "red",
+          "country": "FR",
+          "vintages": 33,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.63
+        }
+      ],
+      "producer_records": 3,
+      "target_ids": ["112576", "111799"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Château Lynch-Bages — Blanc de Lynch-Bages [provider/prefix]",
+          "Château Lynch-Bages — Echo de Lynch-Bages Pauillac [provider/prefix]",
+          "Château Lynch-Bages — Pauillac (Grand Cru Classé) [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 7.5
+      }
+    },
+    {
+      "id": "b012",
+      "segment": "fr",
+      "query": "leoville las cases",
+      "expect": {
+        "producer": "Château Léoville Las Cases",
+        "wine": "Château Léoville Las Cases",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 5,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Château Léoville Las Cases — Le Petit Lion Saint-Julien [provider/prefix]",
+          "Château Léoville Las Cases — Saint-Julien (Grand Cru Classé) [provider/prefix]",
+          "Château Léoville Las Cases — Château du Grand Parc Saint-Julien [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 14
+      }
+    },
+    {
+      "id": "b013",
+      "segment": "similar",
+      "query": "leoville barton",
+      "expect": {
+        "producer": "Château Léoville Barton",
+        "wine": "Château Léoville Barton",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "similar-producer",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "112280",
+          "producer": "Château Léoville Barton",
+          "name": "La Réserve de Leoville Barton Saint-Julien",
+          "type": "red",
+          "country": "FR",
+          "vintages": 63,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.6
+        }
+      ],
+      "producer_records": 2,
+      "target_ids": ["112280"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Château Léoville Barton — La Réserve de Leoville Barton Saint-Julien [provider/prefix]",
+          "Château Léoville Barton — Saint-Julien (Grand Cru Classé) [provider/prefix]",
+          "Hanappier Peyrelongue — Leoville Barton Grand Cru Classe Saint-Julien [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 11.3
+      }
+    },
+    {
+      "id": "b014",
+      "segment": "similar",
+      "query": "leoville poyferre",
+      "expect": {
+        "producer": "Château Léoville Poyferré",
+        "wine": "Château Léoville Poyferré",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "similar-producer",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "112121",
+          "producer": "Château Léoville Poyferré",
+          "name": "Pavillon de Léoville Poyferré Saint-Julien",
+          "type": "red",
+          "country": "FR",
+          "vintages": 61,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.62
+        }
+      ],
+      "producer_records": 4,
+      "target_ids": ["112121"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Château Léoville Poyferré — Pavillon de Léoville Poyferré Saint-Julien [provider/prefix]",
+          "Château Léoville Poyferré — Château Moulin Riche Saint-Julien [provider/prefix]",
+          "Château Léoville Poyferré — Saint-Julien (Grand Cru Classé) [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 9.9
+      }
+    },
+    {
+      "id": "b015",
+      "segment": "similar",
+      "query": "pichon baron",
+      "expect": {
+        "producer": "Château Pichon Longueville Baron",
+        "wine": "Château Pichon Longueville Baron",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "similar-producer",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Château Pichon Baron — Les Griffons Pauillac [provider/prefix]",
+          "Château Pichon Baron — Pauillac (Grand Cru Classé) [provider/prefix]",
+          "Château Pichon Baron — Les Tourelles de Longueville Pauillac [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 9.7
+      }
+    },
+    {
+      "id": "b016",
+      "segment": "similar",
+      "query": "pichon comtesse de lalande",
+      "expect": {
+        "producer": "Château Pichon Longueville Comtesse de Lalande",
+        "wine": "Château Pichon Longueville Comtesse de Lalande",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "similar-producer",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 3,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Château Pichon Longueville Comtesse de Lalande — Saint-Julien de Pichon Lalande [provider/prefix]",
+          "Château Pichon Longueville Comtesse de Lalande — Réserve (de la Comtesse) Pauillac [provider/prefix]",
+          "Château Pichon Longueville Comtesse de Lalande — Pauillac (Grand Cru Classé) [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 17.5
+      }
+    },
+    {
+      "id": "b017",
+      "segment": "fr",
+      "query": "guigal cotes du rhone",
+      "expect": {
+        "producer": "E. Guigal",
+        "wine": "Côtes du Rhône Rouge",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "111396",
+          "producer": "E. Guigal",
+          "name": "Côtes-du-Rhône Rouge",
+          "type": "red",
+          "country": "FR",
+          "vintages": 51,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "111839",
+          "producer": "E. Guigal",
+          "name": "Côtes-du-Rhône Rosé",
+          "type": "rose",
+          "country": "FR",
+          "vintages": 31,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.86
+        },
+        {
+          "external_id": "111455",
+          "producer": "E. Guigal",
+          "name": "Côtes-du-Rhône Blanc",
+          "type": "white",
+          "country": "FR",
+          "vintages": 59,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.67
+        }
+      ],
+      "producer_records": 30,
+      "target_ids": ["111396"],
+      "search": {
+        "rank": 2,
+        "top": [
+          "E. Guigal — Côtes-du-Rhône Rosé [provider/prefix]",
+          "E. Guigal — Côtes-du-Rhône Rouge [provider/prefix]",
+          "E. Guigal — Côtes-du-Rhône Blanc [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 34
+      }
+    },
+    {
+      "id": "b018",
+      "segment": "fr",
+      "query": "beaucastel chateauneuf du pape",
+      "expect": {
+        "producer": "Château de Beaucastel",
+        "wine": "Châteauneuf-du-Pape",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "hyphen",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "111414",
+          "producer": "Château de Beaucastel",
+          "name": "Châteauneuf-du-Pape",
+          "type": "red",
+          "country": "FR",
+          "vintages": 71,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "112137",
+          "producer": "Château de Beaucastel",
+          "name": "Châteauneuf-du-Pape Blanc",
+          "type": "white",
+          "country": "FR",
+          "vintages": 58,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.85
+        },
+        {
+          "external_id": "113229",
+          "producer": "Château de Beaucastel",
+          "name": "Vieilles Vignes Châteauneuf-du-Pape Blanc",
+          "type": "white",
+          "country": "FR",
+          "vintages": 54,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        }
+      ],
+      "producer_records": 6,
+      "target_ids": ["111414"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Château de Beaucastel — Châteauneuf-du-Pape [provider/prefix]",
+          "Château de Beaucastel — Châteauneuf-du-Pape Blanc [provider/prefix]",
+          "Château de Beaucastel — Vieilles Vignes Châteauneuf-du-Pape Blanc [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 29.6
+      }
+    },
+    {
+      "id": "b019",
+      "segment": "fr",
+      "query": "chapoutier belleruche",
+      "expect": {
+        "producer": "M. Chapoutier",
+        "wine": "Belleruche Côtes du Rhône",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "111456",
+          "producer": "M. Chapoutier",
+          "name": "Belleruche Côtes-du-Rhône",
+          "type": "red",
+          "country": "FR",
+          "vintages": 56,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "111724",
+          "producer": "M. Chapoutier",
+          "name": "Belleruche Côtes du Rhône Rosé",
+          "type": "rose",
+          "country": "FR",
+          "vintages": 28,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.9
+        },
+        {
+          "external_id": "111752",
+          "producer": "M. Chapoutier",
+          "name": "Belleruche Côtes-du-Rhône Blanc",
+          "type": "white",
+          "country": "FR",
+          "vintages": 42,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.88
+        },
+        {
+          "external_id": "126015",
+          "producer": "M. Chapoutier",
+          "name": "Côtes-du-Rhône Rosé",
+          "type": "rose",
+          "country": "FR",
+          "vintages": 20,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        },
+        {
+          "external_id": "112824",
+          "producer": "M. Chapoutier",
+          "name": "Côtes-du-Rhône",
+          "type": "red",
+          "country": "FR",
+          "vintages": 54,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        },
+        {
+          "external_id": "115161",
+          "producer": "M. Chapoutier",
+          "name": "Côtes-du-Rhône-Villages",
+          "type": "red",
+          "country": "FR",
+          "vintages": 33,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        }
+      ],
+      "producer_records": 66,
+      "target_ids": ["111456"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "M. Chapoutier — Belleruche Côtes-du-Rhône [provider/prefix]",
+          "M. Chapoutier — Belleruche Côtes du Rhône Rosé [provider/prefix]",
+          "M. Chapoutier — Belleruche Côtes-du-Rhône Blanc [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 13.2
+      }
+    },
+    {
+      "id": "b020",
+      "segment": "fr",
+      "query": "louis jadot bourgogne pinot noir",
+      "expect": {
+        "producer": "Louis Jadot",
+        "wine": "Bourgogne Pinot Noir",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "111404",
+          "producer": "Louis Jadot",
+          "name": "Bourgogne Pinot Noir",
+          "type": "red",
+          "country": "FR",
+          "vintages": 67,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "115047",
+          "producer": "Louis Jadot",
+          "name": "Les Remparts Bourgogne Pinot Noir",
+          "type": "red",
+          "country": "FR",
+          "vintages": 32,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.82
+        },
+        {
+          "external_id": "117585",
+          "producer": "Louis Jadot",
+          "name": "Bourgogne Pinot Noir Les Pierres Rouges",
+          "type": "red",
+          "country": "FR",
+          "vintages": 47,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.74
+        },
+        {
+          "external_id": "115784",
+          "producer": "Louis Jadot",
+          "name": "Bourgogne Pinot Noir Les Petites Pierres",
+          "type": "red",
+          "country": "FR",
+          "vintages": 50,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.72
+        }
+      ],
+      "producer_records": 208,
+      "target_ids": ["111404"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Louis Jadot — Bourgogne Pinot Noir [provider/exact]",
+          "Louis Jadot — Les Remparts Bourgogne Pinot Noir [provider/prefix]",
+          "Louis Jadot — Bourgogne Pinot Noir Les Pierres Rouges [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 33.8
+      }
+    },
+    {
+      "id": "b021",
+      "segment": "fr",
+      "query": "william fevre chablis",
+      "expect": {
+        "producer": "William Fèvre",
+        "wine": "Chablis Champs Royaux",
+        "type": "white",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "111834",
+          "producer": "William Fèvre",
+          "name": "Chablis 'Champs Royaux'",
+          "type": "white",
+          "country": "FR",
+          "vintages": 30,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 20,
+      "target_ids": ["111834"],
+      "search": {
+        "rank": 4,
+        "top": [
+          "William Fèvre — Chablis [provider/exact]",
+          "William Fèvre — Petit Chablis [provider/prefix]",
+          "Domaine William Fèvre — Chablis [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 8
+      }
+    },
+    {
+      "id": "b022",
+      "segment": "fr",
+      "query": "pascal jolivet sancerre",
+      "expect": {
+        "producer": "Pascal Jolivet",
+        "wine": "Sancerre",
+        "type": "white",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "115727",
+          "producer": "Pascal Jolivet",
+          "name": "Sancerre Rosé",
+          "type": "rose",
+          "country": "FR",
+          "vintages": 24,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.78
+        },
+        {
+          "external_id": "111623",
+          "producer": "Pascal Jolivet",
+          "name": "Sancerre Blanc",
+          "type": "white",
+          "country": "FR",
+          "vintages": 40,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.75
+        },
+        {
+          "external_id": "111939",
+          "producer": "Pascal Jolivet",
+          "name": "Sancerre Rouge",
+          "type": "red",
+          "country": "FR",
+          "vintages": 36,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.75
+        },
+        {
+          "external_id": "132436",
+          "producer": "Pascal Jolivet",
+          "name": "Sancerre Chateau Du Nozay",
+          "type": "white",
+          "country": "FR",
+          "vintages": 29,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.75
+        },
+        {
+          "external_id": "119737",
+          "producer": "Pascal Jolivet",
+          "name": "Sancerre Clos Du Roy Blanc",
+          "type": "white",
+          "country": "FR",
+          "vintages": 27,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.64
+        }
+      ],
+      "producer_records": 19,
+      "target_ids": ["115727", "111623", "111939", "132436", "119737"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Pascal Jolivet — Sancerre Rosé [provider/prefix]",
+          "Pascal Jolivet — Sancerre Blanc [provider/prefix]",
+          "Pascal Jolivet — Sancerre Rouge [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 7.6
+      }
+    },
+    {
+      "id": "b023",
+      "segment": "fr",
+      "query": "hugel gentil",
+      "expect": {
+        "producer": "Hugel",
+        "wine": "Gentil",
+        "type": "white",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "111541",
+          "producer": "Hugel",
+          "name": "Gentil",
+          "type": "white",
+          "country": "FR",
+          "vintages": 52,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 28,
+      "target_ids": ["111541"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Hugel — Gentil [provider/exact]",
+          "Hugel — Gewürztraminer [provider/fuzzy]",
+          "Hugel — Gewürztraminer Vendange Tardive [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 8.4
+      }
+    },
+    {
+      "id": "b024",
+      "segment": "fr",
+      "query": "trimbach riesling",
+      "expect": {
+        "producer": "Trimbach",
+        "wine": "Riesling",
+        "type": "white",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "111471",
+          "producer": "Trimbach",
+          "name": "Riesling Alsace",
+          "type": "white",
+          "country": "FR",
+          "vintages": 58,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.72
+        }
+      ],
+      "producer_records": 16,
+      "target_ids": ["111471"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Trimbach — Riesling Alsace [provider/prefix]",
+          "Trimbach — Riesling Alsace Réserve [provider/prefix]",
+          "Trimbach — Clos Sainte Hune Riesling Alsace [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 29.6
+      }
+    },
+    {
+      "id": "b025",
+      "segment": "sparkling",
+      "query": "moet chandon brut imperial",
+      "expect": {
+        "producer": "Moët & Chandon",
+        "wine": "Brut Impérial",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "ampersand",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "111394",
+          "producer": "Moët & Chandon",
+          "name": "Impérial Brut Champagne",
+          "type": "sparkling",
+          "country": "FR",
+          "vintages": 58,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.74
+        },
+        {
+          "external_id": "111479",
+          "producer": "Moët & Chandon",
+          "name": "Impérial Rosé Brut Champagne",
+          "type": "sparkling",
+          "country": "FR",
+          "vintages": 71,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.65
+        }
+      ],
+      "producer_records": 13,
+      "target_ids": ["111394", "111479"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Moët & Chandon — Impérial Brut Champagne [provider/prefix]",
+          "Moët & Chandon — Impérial Rosé Brut Champagne [provider/prefix]",
+          "Moët & Chandon — Réserve Impériale Brut Champagne [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 19.1
+      }
+    },
+    {
+      "id": "b026",
+      "segment": "sparkling",
+      "query": "veuve clicquot brut",
+      "expect": {
+        "producer": "Veuve Clicquot",
+        "wine": "Brut Carte Jaune",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "exact",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "111393",
+          "producer": "Veuve Clicquot",
+          "name": "Brut (Carte Jaune) Champagne",
+          "type": "sparkling",
+          "country": "FR",
+          "vintages": 71,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.81
+        }
+      ],
+      "producer_records": 20,
+      "target_ids": ["111393"],
+      "search": {
+        "rank": 4,
+        "top": [
+          "Veuve Clicquot — Brut Rosé Champagne [provider/prefix]",
+          "Veuve Clicquot — Privée Brut Champagne [provider/prefix]",
+          "Veuve Clicquot — Vintage Brut Champagne [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 5.7
+      }
+    },
+    {
+      "id": "b027",
+      "segment": "sparkling",
+      "query": "dom perignon",
+      "expect": {
+        "producer": "Dom Pérignon",
+        "wine": "Dom Pérignon",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "single-vintages",
+      "variant": "accent",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 9,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Dom Pérignon — Brut Champagne [provider/exact]",
+          "Dom Pérignon — Brut Rosé Champagne [provider/exact]",
+          "Dom Pérignon — Oenothèque Brut Champagne [provider/exact]"
+        ],
+        "verifiedProvider": false,
+        "ms": 9.6
+      }
+    },
+    {
+      "id": "b028",
+      "segment": "sparkling",
+      "query": "bollinger special cuvee",
+      "expect": {
+        "producer": "Bollinger",
+        "wine": "Special Cuvée",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "accent",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "111399",
+          "producer": "Bollinger",
+          "name": "Special Cuvée Brut Aÿ Champagne",
+          "type": "sparkling",
+          "country": "FR",
+          "vintages": 71,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        }
+      ],
+      "producer_records": 13,
+      "target_ids": ["111399"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Bollinger — Special Cuvée Brut Aÿ Champagne [provider/prefix]",
+          "Zonin — Prosecco Special Cuvée Brut [provider/fuzzy]",
+          "Tanggier — Special Cuvée Family Reserve Brut [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 18.3
+      }
+    },
+    {
+      "id": "b029",
+      "segment": "sparkling",
+      "query": "laurent perrier cuvee rose",
+      "expect": {
+        "producer": "Laurent-Perrier",
+        "wine": "Cuvée Rosé",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "hyphen",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 11,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Laurent-Perrier — Brut Cuvée Champagne Rosé [provider/prefix]",
+          "Laurent-Perrier — Alexandra Champagne Rosé (Grande Cuvée) [provider/prefix]",
+          "Laurent-Perrier — La Cuvée Brut Champagne [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 24.9
+      }
+    },
+    {
+      "id": "b030",
+      "segment": "sparkling",
+      "query": "ruinart blanc de blancs",
+      "expect": {
+        "producer": "Ruinart",
+        "wine": "Blanc de Blancs",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "exact",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "111468",
+          "producer": "Ruinart",
+          "name": "Blanc de Blancs Brut Champagne",
+          "type": "sparkling",
+          "country": "FR",
+          "vintages": 65,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.63
+        },
+        {
+          "external_id": "132281",
+          "producer": "Ruinart",
+          "name": "L'Exclusive Blanc de Blancs Brut",
+          "type": "sparkling",
+          "country": "FR",
+          "vintages": 32,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.6
+        }
+      ],
+      "producer_records": 8,
+      "target_ids": ["111468", "132281"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Ruinart — Blanc de Blancs Brut Champagne [provider/prefix]",
+          "Ruinart — L'Exclusive Blanc de Blancs Brut [provider/prefix]",
+          "Ruinart — Dom Ruinart Blanc de Blancs Brut Champagne [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 15.6
+      }
+    },
+    {
+      "id": "b031",
+      "segment": "rose",
+      "query": "whispering angel",
+      "expect": {
+        "producer": "Château d'Esclans",
+        "wine": "Whispering Angel",
+        "type": "rose",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "name-only",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "111397",
+          "producer": "Château d'Esclans",
+          "name": "Whispering Angel Rosé",
+          "type": "rose",
+          "country": "FR",
+          "vintages": 57,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.87
+        },
+        {
+          "external_id": "111921",
+          "producer": "Château d'Esclans",
+          "name": "The Palm Whispering Angel Rosé",
+          "type": "rose",
+          "country": "FR",
+          "vintages": 18,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.77
+        }
+      ],
+      "producer_records": 5,
+      "target_ids": ["111397", "111921"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Château d'Esclans — Whispering Angel Rosé [provider/prefix]",
+          "Château d'Esclans — The Palm Whispering Angel Rosé [provider/prefix]",
+          "Whispering Hills — Merlot [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 8.4
+      }
+    },
+    {
+      "id": "b032",
+      "segment": "rose",
+      "query": "minuty m de minuty",
+      "expect": {
+        "producer": "Château Minuty",
+        "wine": "M de Minuty",
+        "type": "rose",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 12,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Minuty — Cuvée de L'Oratoire Rouge [provider/prefix]",
+          "Minuty — M Rosé [provider/fuzzy]",
+          "Minuty — M Blanc [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 3.8
+      }
+    },
+    {
+      "id": "b033",
+      "segment": "fr",
+      "query": "romanee conti la tache",
+      "expect": {
+        "producer": "Domaine de la Romanée-Conti",
+        "wine": "La Tâche",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 11,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Domaine de La Romanée-Conti — La Tâche Grand Cru [provider/prefix]",
+          "Domaine de La Romanée-Conti — Romanée-Conti Grand Cru [provider/fuzzy]",
+          "Domaine de La Romanée-Conti — Montrachet Grand Cru [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 15.1
+      }
+    },
+    {
+      "id": "b034",
+      "segment": "rose",
+      "query": "gerard bertrand cote des roses",
+      "expect": {
+        "producer": "Gérard Bertrand",
+        "wine": "Côte des Roses",
+        "type": "rose",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "111419",
+          "producer": "Gérard Bertrand",
+          "name": "Côte des Roses Rosé",
+          "type": "rose",
+          "country": "FR",
+          "vintages": 15,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.91
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "112256",
+          "producer": "Gérard Bertrand",
+          "name": "Côte des Roses Rouge",
+          "type": "red",
+          "country": "FR",
+          "vintages": 25,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.79
+        }
+      ],
+      "producer_records": 70,
+      "target_ids": ["111419"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Gérard Bertrand — Côte des Roses Rosé [provider/prefix]",
+          "Gérard Bertrand — Côte des Roses Rouge [provider/prefix]",
+          "Gérard Bertrand — Côte des Roses Sauvignon Blanc [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 22.1
+      }
+    },
+    {
+      "id": "b035",
+      "segment": "nl-supermarket",
+      "query": "jp chenet cabernet syrah",
+      "expect": {
+        "producer": "J.P. Chenet",
+        "wine": "Cabernet-Syrah",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "punctuation",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "135187",
+          "producer": "JP. Chenet",
+          "name": "So Free Cabernet-Syrah",
+          "type": "red",
+          "country": "FR",
+          "vintages": 16,
+          "non_vintage": false,
+          "producer_sim": 0.86,
+          "name_sim": 0.79
+        },
+        {
+          "external_id": "111405",
+          "producer": "JP. Chenet",
+          "name": "Original Cabernet-Syrah",
+          "type": "red",
+          "country": "FR",
+          "vintages": 61,
+          "non_vintage": false,
+          "producer_sim": 0.86,
+          "name_sim": 0.77
+        }
+      ],
+      "producer_records": 23,
+      "target_ids": ["135187", "111405"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "JP. Chenet — So Free Cabernet-Syrah [provider/prefix]",
+          "JP. Chenet — Original Cabernet-Syrah [provider/prefix]",
+          "St. John — Cabernet-Syrah [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 20.7
+      }
+    },
+    {
+      "id": "b036",
+      "segment": "nl-supermarket",
+      "query": "grand sud merlot",
+      "expect": {
+        "producer": "Grand Sud",
+        "wine": "Merlot",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "generic-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "111895",
+          "producer": "Grand Sud",
+          "name": "Merlot",
+          "type": "red",
+          "country": "FR",
+          "vintages": 24,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "114719",
+          "producer": "Grand Sud",
+          "name": "Merlot Rose",
+          "type": "rose",
+          "country": "FR",
+          "vintages": 15,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.74
+        }
+      ],
+      "producer_records": 5,
+      "target_ids": ["111895"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Grand Sud — Merlot [provider/exact]",
+          "Grand Sud — Merlot Rose [provider/prefix]",
+          "Grand Sud — Merlot Pays d'Oc Halbtrocken [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 15.3
+      }
+    },
+    {
+      "id": "b037",
+      "segment": "nl-supermarket",
+      "query": "le grand noir pinot noir",
+      "expect": {
+        "producer": "Le Grand Noir",
+        "wine": "Pinot Noir",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "generic-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "111488",
+          "producer": "Le Grand Noir",
+          "name": "Pinot Noir",
+          "type": "red",
+          "country": "FR",
+          "vintages": 22,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 12,
+      "target_ids": ["111488"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Le Grand Noir — Pinot Noir [provider/exact]",
+          "Le Grand Clauzy — Classique Pinot Noir [provider/prefix]",
+          "Domaine du Grand Chemin — Le Bay Pinot Noir [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 6.9
+      }
+    },
+    {
+      "id": "b038",
+      "segment": "it",
+      "query": "tignanello",
+      "expect": {
+        "producer": "Marchesi Antinori",
+        "wine": "Tignanello",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "name-only",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Antinori — Tignanello [provider/exact]",
+          "Antinori — Tenuta Tignanello 'Solaia' [provider/prefix]",
+          "Antinori — Tenuta Tignanello 'Marchese Antinori' Chianti Classico Riserva [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 7.6
+      }
+    },
+    {
+      "id": "b039",
+      "segment": "it",
+      "query": "sassicaia",
+      "expect": {
+        "producer": "Tenuta San Guido",
+        "wine": "Sassicaia",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "name-only",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135826",
+          "producer": "Tenuta San Guido",
+          "name": "Sassicaia",
+          "type": "red",
+          "country": "IT",
+          "vintages": 72,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 3,
+      "target_ids": ["135826"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Tenuta San Guido — Sassicaia [provider/exact]",
+          "Poli Distillerie — Grappa di Bolgheri Sassicaia [provider/prefix]",
+          "Poli Distillerie — Grappa di Bolgheri Sassicaia Millesime [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 8.9
+      }
+    },
+    {
+      "id": "b040",
+      "segment": "it",
+      "query": "ornellaia",
+      "expect": {
+        "producer": "Tenuta dell'Ornellaia",
+        "wine": "Ornellaia",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "name-only",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Ornellaia — Ornus [provider/exact]",
+          "Ornellaia — Le Volte [provider/exact]",
+          "Ornellaia — La Grazia [provider/exact]"
+        ],
+        "verifiedProvider": false,
+        "ms": 5.1
+      }
+    },
+    {
+      "id": "b041",
+      "segment": "it",
+      "query": "antinori solaia",
+      "expect": {
+        "producer": "Marchesi Antinori",
+        "wine": "Solaia",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": ["Antinori — Tenuta Tignanello 'Solaia' [provider/prefix]"],
+        "verifiedProvider": false,
+        "ms": 11.7
+      }
+    },
+    {
+      "id": "b042",
+      "segment": "it",
+      "query": "gaja barbaresco",
+      "expect": {
+        "producer": "Gaja",
+        "wine": "Barbaresco",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135907",
+          "producer": "Gaja",
+          "name": "Barbaresco",
+          "type": "red",
+          "country": "IT",
+          "vintages": 69,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 25,
+      "target_ids": ["135907"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Gaja — Barbaresco [provider/exact]",
+          "Gaja — Costa Russi (Barbaresco) Langhe [provider/prefix]",
+          "Gaja — Sorì Tildìn (Barbaresco) Langhe [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 18.8
+      }
+    },
+    {
+      "id": "b043",
+      "segment": "it",
+      "query": "masi costasera amarone",
+      "expect": {
+        "producer": "Masi",
+        "wine": "Costasera Amarone della Valpolicella Classico",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "partial-name",
+      "coverage": "ambiguous",
+      "exact": [
+        {
+          "external_id": "135827",
+          "producer": "Masi",
+          "name": "Costasera Amarone della Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 53,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        },
+        {
+          "external_id": "136011",
+          "producer": "Masi",
+          "name": "Nectar Costasera Amarone della Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 49,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.92
+        },
+        {
+          "external_id": "136882",
+          "producer": "Masi",
+          "name": "Costasera Amarone della Valpolicella Classico Riserva",
+          "type": "red",
+          "country": "IT",
+          "vintages": 61,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.91
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "137549",
+          "producer": "Masi",
+          "name": "Mazzano Amarone Della Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 60,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.78
+        },
+        {
+          "external_id": "135930",
+          "producer": "Masi",
+          "name": "Bonacosta Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 47,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.78
+        },
+        {
+          "external_id": "136998",
+          "producer": "Masi",
+          "name": "Campolongo di Torbe Amarone della Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 44,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        },
+        {
+          "external_id": "136200",
+          "producer": "Masi",
+          "name": "Serego Alighieri Vaio Armaron Amarone della Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 58,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.64
+        }
+      ],
+      "producer_records": 36,
+      "target_ids": ["135827", "136011", "136882"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Masi — Costasera Amarone della Valpolicella Classico [provider/prefix]",
+          "Masi — Nectar Costasera Amarone della Valpolicella Classico [provider/prefix]",
+          "Masi — Costasera Amarone della Valpolicella Classico Riserva [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 17.2
+      }
+    },
+    {
+      "id": "b044",
+      "segment": "it",
+      "query": "allegrini amarone",
+      "expect": {
+        "producer": "Allegrini",
+        "wine": "Amarone della Valpolicella Classico",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "partial-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135879",
+          "producer": "Allegrini",
+          "name": "Amarone della Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 43,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "136797",
+          "producer": "Allegrini",
+          "name": "Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 26,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.85
+        },
+        {
+          "external_id": "147267",
+          "producer": "Allegrini",
+          "name": "Fieramonte Amarone della Valpolicella Riserva",
+          "type": "red",
+          "country": "IT",
+          "vintages": 39,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.63
+        },
+        {
+          "external_id": "137463",
+          "producer": "Allegrini",
+          "name": "Valpolicella",
+          "type": "red",
+          "country": "IT",
+          "vintages": 52,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.6
+        }
+      ],
+      "producer_records": 10,
+      "target_ids": ["135879"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Allegrini — Amarone della Valpolicella Classico [provider/prefix]",
+          "Allegrini — Fieramonte Amarone della Valpolicella Riserva [provider/prefix]",
+          "Lavarini — Amarone della Valpolicella Classico [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 13.7
+      }
+    },
+    {
+      "id": "b045",
+      "segment": "it",
+      "query": "zenato ripassa",
+      "expect": {
+        "producer": "Zenato",
+        "wine": "Ripassa Valpolicella Ripasso Superiore",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "partial-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135829",
+          "producer": "Zenato",
+          "name": "Ripassa Valpolicella Ripasso Superiore",
+          "type": "red",
+          "country": "IT",
+          "vintages": 62,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "135910",
+          "producer": "Zenato",
+          "name": "Valpolicella Superiore",
+          "type": "red",
+          "country": "IT",
+          "vintages": 29,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.74
+        },
+        {
+          "external_id": "135990",
+          "producer": "Zenato",
+          "name": "Valpolicella Classico Superiore",
+          "type": "red",
+          "country": "IT",
+          "vintages": 51,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.73
+        }
+      ],
+      "producer_records": 16,
+      "target_ids": ["135829"],
+      "search": {
+        "rank": 1,
+        "top": ["Zenato — Ripassa Valpolicella Ripasso Superiore [provider/prefix]"],
+        "verifiedProvider": false,
+        "ms": 10
+      }
+    },
+    {
+      "id": "b046",
+      "segment": "nl-supermarket",
+      "query": "santa margherita pinot grigio",
+      "expect": {
+        "producer": "Santa Margherita",
+        "wine": "Pinot Grigio",
+        "type": "white",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "generic-name",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "135861",
+          "producer": "Santa Margherita",
+          "name": "Pinot Grigio Valdadige",
+          "type": "white",
+          "country": "IT",
+          "vintages": 56,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.72
+        },
+        {
+          "external_id": "136246",
+          "producer": "Santa Margherita",
+          "name": "Pinot Grigio Alto Adige",
+          "type": "white",
+          "country": "IT",
+          "vintages": 59,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.7
+        }
+      ],
+      "producer_records": 33,
+      "target_ids": ["135861", "136246"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Santa Margherita — Pinot Grigio Valdadige [provider/prefix]",
+          "Santa Margherita — Pinot Grigio Alto Adige [provider/prefix]",
+          "Santa Margherita — Pinot Grigio Alto Adige Impronta del Fondatore [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 25.9
+      }
+    },
+    {
+      "id": "b047",
+      "segment": "sparkling",
+      "query": "mionetto prosecco brut",
+      "expect": {
+        "producer": "Mionetto",
+        "wine": "Prosecco Brut",
+        "type": "sparkling",
+        "country": "IT"
+      },
+      "vintage": "nv",
+      "variant": "exact",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "142678",
+          "producer": "Mionetto",
+          "name": "Il Prosecco",
+          "type": "sparkling",
+          "country": "IT",
+          "vintages": 32,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.69
+        },
+        {
+          "external_id": "142741",
+          "producer": "Mionetto",
+          "name": "Prosecco Rosé",
+          "type": "sparkling",
+          "country": "IT",
+          "vintages": 8,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.64
+        },
+        {
+          "external_id": "142669",
+          "producer": "Mionetto",
+          "name": "Prosecco Biologico",
+          "type": "sparkling",
+          "country": "IT",
+          "vintages": 20,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        },
+        {
+          "external_id": "146815",
+          "producer": "Mionetto",
+          "name": "Pisani Prosecco",
+          "type": "sparkling",
+          "country": "IT",
+          "vintages": 18,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.6
+        }
+      ],
+      "producer_records": 37,
+      "target_ids": ["142678", "142741", "142669", "146815"],
+      "search": {
+        "rank": 3,
+        "top": [
+          "Mionetto — Prestige Collection Brut Prosecco Treviso [provider/prefix]",
+          "Mionetto — Prosecco Valdobbiadene Superiore Millesimato Brut Rive Di Santo Stefano [provider/prefix]",
+          "Mionetto — Il Prosecco [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 29
+      }
+    },
+    {
+      "id": "b048",
+      "segment": "sparkling",
+      "query": "la marca prosecco",
+      "expect": {
+        "producer": "La Marca",
+        "wine": "Prosecco",
+        "type": "sparkling",
+        "country": "IT"
+      },
+      "vintage": "nv",
+      "variant": "exact",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135897",
+          "producer": "La Marca",
+          "name": "Prosecco",
+          "type": "sparkling",
+          "country": "IT",
+          "vintages": 47,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "148479",
+          "producer": "La Marca",
+          "name": "Prosecco Treviso",
+          "type": "sparkling",
+          "country": "IT",
+          "vintages": 17,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.69
+        }
+      ],
+      "producer_records": 8,
+      "target_ids": ["135897"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "La Marca — Prosecco [provider/exact]",
+          "La Marca — Prosecco Treviso [provider/prefix]",
+          "La Marca — Prosecco Treviso Extra Dry [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 6.4
+      }
+    },
+    {
+      "id": "b049",
+      "segment": "similar",
+      "query": "banfi brunello di montalcino",
+      "expect": {
+        "producer": "Castello Banfi",
+        "wine": "Brunello di Montalcino",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "same-wine-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135833",
+          "producer": "Banfi",
+          "name": "Brunello di Montalcino",
+          "type": "red",
+          "country": "IT",
+          "vintages": 50,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "136086",
+          "producer": "Banfi",
+          "name": "Poggio alle Mura Brunello di Montalcino",
+          "type": "red",
+          "country": "IT",
+          "vintages": 52,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.7
+        },
+        {
+          "external_id": "152082",
+          "producer": "Banfi",
+          "name": "Vigna Marrucheto Brunello di Montalcino",
+          "type": "red",
+          "country": "IT",
+          "vintages": 5,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.7
+        },
+        {
+          "external_id": "135884",
+          "producer": "Banfi",
+          "name": "Rosso di Montalcino",
+          "type": "red",
+          "country": "IT",
+          "vintages": 56,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.65
+        },
+        {
+          "external_id": "136428",
+          "producer": "Banfi",
+          "name": "Poggio all'Oro Brunello di Montalcino Riserva",
+          "type": "red",
+          "country": "IT",
+          "vintages": 66,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.63
+        },
+        {
+          "external_id": "139518",
+          "producer": "Banfi",
+          "name": "Poggio alle Mura Brunello di Montalcino Riserva",
+          "type": "red",
+          "country": "IT",
+          "vintages": 26,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.62
+        }
+      ],
+      "producer_records": 48,
+      "target_ids": ["135833"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Banfi — Brunello di Montalcino [provider/exact]",
+          "Banfi — Poggio alle Mura Brunello di Montalcino [provider/prefix]",
+          "Banfi — Vigna Marrucheto Brunello di Montalcino [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 35.3
+      }
+    },
+    {
+      "id": "b050",
+      "segment": "similar",
+      "query": "biondi santi brunello di montalcino",
+      "expect": {
+        "producer": "Biondi-Santi",
+        "wine": "Brunello di Montalcino",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "same-wine-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135892",
+          "producer": "Biondi-Santi",
+          "name": "Brunello di Montalcino",
+          "type": "red",
+          "country": "IT",
+          "vintages": 64,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "137556",
+          "producer": "Biondi-Santi",
+          "name": "Brunello di Montalcino Riserva",
+          "type": "red",
+          "country": "IT",
+          "vintages": 72,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.83
+        },
+        {
+          "external_id": "136759",
+          "producer": "Biondi-Santi",
+          "name": "Rosso di Montalcino",
+          "type": "red",
+          "country": "IT",
+          "vintages": 42,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.65
+        }
+      ],
+      "producer_records": 3,
+      "target_ids": ["135892"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Biondi-Santi — Brunello di Montalcino [provider/exact]",
+          "Biondi-Santi — Brunello di Montalcino Riserva [provider/prefix]",
+          "Fanti — Brunello di Montalcino [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 40.7
+      }
+    },
+    {
+      "id": "b051",
+      "segment": "it",
+      "query": "ruffino riserva ducale",
+      "expect": {
+        "producer": "Ruffino",
+        "wine": "Riserva Ducale Chianti Classico",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "word-order",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135849",
+          "producer": "Ruffino",
+          "name": "Riserva Ducale Chianti Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 66,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "136083",
+          "producer": "Ruffino",
+          "name": "Riserva Ducale Oro Chianti Classico (Gran Selezione Gold)",
+          "type": "red",
+          "country": "IT",
+          "vintages": 71,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.73
+        },
+        {
+          "external_id": "139306",
+          "producer": "Ruffino",
+          "name": "Tenuta Santedame Chianti Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 27,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        },
+        {
+          "external_id": "136276",
+          "producer": "Ruffino",
+          "name": "Aziano Chianti Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 45,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        }
+      ],
+      "producer_records": 30,
+      "target_ids": ["135849"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Ruffino — Riserva Ducale Chianti Classico [provider/prefix]",
+          "Ruffino — Riserva Ducale Oro Chianti Classico (Gran Selezione Gold) [provider/prefix]",
+          "Ruffino — Il Ducale Toscana [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 14.7
+      }
+    },
+    {
+      "id": "b052",
+      "segment": "it",
+      "query": "frescobaldi nipozzano",
+      "expect": {
+        "producer": "Frescobaldi",
+        "wine": "Castello di Nipozzano Chianti Rufina Riserva",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "partial-name",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 18,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [],
+        "verifiedProvider": false,
+        "ms": 9.9
+      }
+    },
+    {
+      "id": "b053",
+      "segment": "it",
+      "query": "donnafugata ben rye",
+      "expect": {
+        "producer": "Donnafugata",
+        "wine": "Ben Ryé Passito di Pantelleria",
+        "type": "dessert",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135889",
+          "producer": "Donnafugata",
+          "name": "Ben Ryé Passito di Pantelleria",
+          "type": "dessert",
+          "country": "IT",
+          "vintages": 55,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 26,
+      "target_ids": ["135889"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Donnafugata — Ben Ryé Passito di Pantelleria [provider/prefix]",
+          "Donnafugata — Lighea [provider/fuzzy]",
+          "Donnafugata — Lumera [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 10.7
+      }
+    },
+    {
+      "id": "b054",
+      "segment": "sparkling",
+      "query": "ca del bosco cuvee prestige",
+      "expect": {
+        "producer": "Ca' del Bosco",
+        "wine": "Cuvée Prestige",
+        "type": "sparkling",
+        "country": "IT"
+      },
+      "vintage": "nv",
+      "variant": "apostrophe",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "136032",
+          "producer": "Ca' del Bosco",
+          "name": "Franciacorta Cuvée Prestige",
+          "type": "sparkling",
+          "country": "IT",
+          "vintages": 23,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.7
+        },
+        {
+          "external_id": "141276",
+          "producer": "Ca' del Bosco",
+          "name": "Franciacorta Cuvée Prestige Rosé",
+          "type": "sparkling",
+          "country": "IT",
+          "vintages": 41,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.63
+        }
+      ],
+      "producer_records": 16,
+      "target_ids": ["136032", "141276"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Ca' del Bosco — Franciacorta Cuvée Prestige [provider/prefix]",
+          "Ca' del Bosco — Franciacorta Cuvée Prestige Rosé [provider/prefix]",
+          "Duchesse de Berry — Cuvée Prestige Bordeaux [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 20.7
+      }
+    },
+    {
+      "id": "b055",
+      "segment": "sparkling",
+      "query": "ferrari brut trento",
+      "expect": {
+        "producer": "Ferrari",
+        "wine": "Brut",
+        "type": "sparkling",
+        "country": "IT"
+      },
+      "vintage": "nv",
+      "variant": "word-order",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 17,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Ferrari — Trento Brut [provider/prefix]",
+          "Rotari — Talento Trento Brut [provider/fuzzy]",
+          "Frescobaldi — Trento Brut Millesimato [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 13.1
+      }
+    },
+    {
+      "id": "b056",
+      "segment": "similar",
+      "query": "pio cesare barolo",
+      "expect": {
+        "producer": "Pio Cesare",
+        "wine": "Barolo",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "same-wine-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135925",
+          "producer": "Pio Cesare",
+          "name": "Barolo",
+          "type": "red",
+          "country": "IT",
+          "vintages": 68,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "136769",
+          "producer": "Pio Cesare",
+          "name": "Ornato Barolo",
+          "type": "red",
+          "country": "IT",
+          "vintages": 36,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.67
+        }
+      ],
+      "producer_records": 12,
+      "target_ids": ["135925"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Pio Cesare — Barolo [provider/exact]",
+          "Pio Cesare — Ornato Barolo [provider/prefix]",
+          "Pio Cesare — Barbaresco [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 10.8
+      }
+    },
+    {
+      "id": "b057",
+      "segment": "similar",
+      "query": "fontanafredda barolo",
+      "expect": {
+        "producer": "Fontanafredda",
+        "wine": "Barolo",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "same-wine-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135888",
+          "producer": "Fontanafredda",
+          "name": "Barolo",
+          "type": "red",
+          "country": "IT",
+          "vintages": 67,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "138286",
+          "producer": "Fontanafredda",
+          "name": "Barolo Riserva",
+          "type": "red",
+          "country": "IT",
+          "vintages": 36,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.64
+        },
+        {
+          "external_id": "139399",
+          "producer": "Fontanafredda",
+          "name": "Lazzarito Barolo",
+          "type": "red",
+          "country": "IT",
+          "vintages": 60,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.62
+        }
+      ],
+      "producer_records": 45,
+      "target_ids": ["135888"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Fontanafredda — Barolo [provider/exact]",
+          "Fontanafredda — Barolo Riserva [provider/prefix]",
+          "Fontanafredda — Lazzarito Barolo [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 5.2
+      }
+    },
+    {
+      "id": "b058",
+      "segment": "similar",
+      "query": "tommasi amarone",
+      "expect": {
+        "producer": "Tommasi",
+        "wine": "Amarone della Valpolicella Classico",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "same-wine-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135831",
+          "producer": "Tommasi",
+          "name": "Amarone della Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 56,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "143936",
+          "producer": "Tommasi",
+          "name": "De Buris Amarone della Valpolicella Classico Riserva",
+          "type": "red",
+          "country": "IT",
+          "vintages": 17,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.81
+        },
+        {
+          "external_id": "138249",
+          "producer": "Tommasi",
+          "name": "Ca' Florian Amarone della Valpolicella Classico Riserva",
+          "type": "red",
+          "country": "IT",
+          "vintages": 40,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        },
+        {
+          "external_id": "150260",
+          "producer": "Tommasi",
+          "name": "Recioto della Valpolicella Classico",
+          "type": "dessert",
+          "country": "IT",
+          "vintages": 44,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.73
+        },
+        {
+          "external_id": "153536",
+          "producer": "Tommasi",
+          "name": "Grappa di Amarone della Valpolicella",
+          "type": "dessert",
+          "country": "IT",
+          "vintages": 16,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.72
+        },
+        {
+          "external_id": "137552",
+          "producer": "Tommasi",
+          "name": "Il Sestante Monte Masua Amarone della Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 38,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        }
+      ],
+      "producer_records": 39,
+      "target_ids": ["135831"],
+      "search": {
+        "rank": 2,
+        "top": [
+          "Tommasi — Ca' Florian Amarone [provider/prefix]",
+          "Tommasi — Amarone della Valpolicella Classico [provider/prefix]",
+          "Tommasi — Grappa di Amarone della Valpolicella [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 8.4
+      }
+    },
+    {
+      "id": "b059",
+      "segment": "it",
+      "query": "planeta chardonnay",
+      "expect": {
+        "producer": "Planeta",
+        "wine": "Chardonnay",
+        "type": "white",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "generic-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135938",
+          "producer": "Planeta",
+          "name": "Chardonnay",
+          "type": "white",
+          "country": "IT",
+          "vintages": 51,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 19,
+      "target_ids": ["135938"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Planeta — Chardonnay [provider/exact]",
+          "Plantagenet — Chardonnay [provider/fuzzy]",
+          "Urmeneta — Chardonnay [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 34
+      }
+    },
+    {
+      "id": "b060",
+      "segment": "it",
+      "query": "feudi di san gregorio fiano di avellino",
+      "expect": {
+        "producer": "Feudi di San Gregorio",
+        "wine": "Fiano di Avellino",
+        "type": "white",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "136607",
+          "producer": "Feudi di San Gregorio",
+          "name": "Fiano Di Avellino",
+          "type": "white",
+          "country": "IT",
+          "vintages": 41,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "148853",
+          "producer": "Feudi di San Gregorio",
+          "name": "Fior Fiore Fiano de Avellino",
+          "type": "white",
+          "country": "IT",
+          "vintages": 10,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.73
+        },
+        {
+          "external_id": "137769",
+          "producer": "Feudi di San Gregorio",
+          "name": "Fiano Di Avellino Pietracalda",
+          "type": "white",
+          "country": "IT",
+          "vintages": 31,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        }
+      ],
+      "producer_records": 25,
+      "target_ids": ["136607"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Feudi di San Gregorio — Fiano Di Avellino [provider/exact]",
+          "Feudi di San Gregorio — Fior Fiore Fiano de Avellino [provider/prefix]",
+          "Feudi di San Gregorio — Fiano Di Avellino Pietracalda [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 22.9
+      }
+    },
+    {
+      "id": "b061",
+      "segment": "similar",
+      "query": "bertani amarone",
+      "expect": {
+        "producer": "Bertani",
+        "wine": "Amarone della Valpolicella Classico",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "same-wine-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135976",
+          "producer": "Bertani",
+          "name": "Amarone della Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 63,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "137351",
+          "producer": "Bertani",
+          "name": "Collezione Amarone della Valpolicella",
+          "type": "red",
+          "country": "IT",
+          "vintages": 29,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.74
+        },
+        {
+          "external_id": "140575",
+          "producer": "Bertani",
+          "name": "Villa Novare Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 20,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.74
+        },
+        {
+          "external_id": "136125",
+          "producer": "Bertani",
+          "name": "Amarone della Valpolicella Valpantena",
+          "type": "red",
+          "country": "IT",
+          "vintages": 68,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.73
+        },
+        {
+          "external_id": "140441",
+          "producer": "Bertani",
+          "name": "Recioto della Valpolicella Classico Superiore",
+          "type": "dessert",
+          "country": "IT",
+          "vintages": 68,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.66
+        },
+        {
+          "external_id": "141459",
+          "producer": "Bertani",
+          "name": "Ognisanti Valpolicella Classico Superiore",
+          "type": "red",
+          "country": "IT",
+          "vintages": 29,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.64
+        }
+      ],
+      "producer_records": 21,
+      "target_ids": ["135976"],
+      "search": {
+        "rank": 2,
+        "top": [
+          "Bertani — Amarone della Valpolicella Valpantena [provider/prefix]",
+          "Bertani — Amarone della Valpolicella Classico [provider/prefix]",
+          "Bertani — Collezione Amarone della Valpolicella [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 13.9
+      }
+    },
+    {
+      "id": "b062",
+      "segment": "es",
+      "query": "marques de riscal reserva",
+      "expect": {
+        "producer": "Marqués de Riscal",
+        "wine": "Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "155289",
+          "producer": "Marqués de Riscal",
+          "name": "Rioja Reserva",
+          "type": "red",
+          "country": "ES",
+          "vintages": 72,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.73
+        }
+      ],
+      "producer_records": 21,
+      "target_ids": ["155289"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Marqués de Riscal — Rioja Reserva [provider/prefix]",
+          "Marqués de Riscal — Rioja Gran Reserva [provider/prefix]",
+          "Marqués de Riscal — Marqués de Arienzo Reserva Rioja [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 26.8
+      }
+    },
+    {
+      "id": "b063",
+      "segment": "es",
+      "query": "vega sicilia unico",
+      "expect": {
+        "producer": "Vega Sicilia",
+        "wine": "Único",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "155312",
+          "producer": "Vega Sicilia",
+          "name": "Unico",
+          "type": "red",
+          "country": "ES",
+          "vintages": 72,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 3,
+      "target_ids": ["155312"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Vega Sicilia — Unico [provider/exact]",
+          "Vega Sicilia — Unico Reserva Especial Edición [provider/prefix]",
+          "Vega Sicilia — Valbuena 5º [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 11
+      }
+    },
+    {
+      "id": "b064",
+      "segment": "es",
+      "query": "muga reserva",
+      "expect": {
+        "producer": "Bodegas Muga",
+        "wine": "Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "estate-word",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "155328",
+          "producer": "Muga",
+          "name": "Reserva",
+          "type": "red",
+          "country": "ES",
+          "vintages": 45,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "155646",
+          "producer": "Muga",
+          "name": "Unfiltered Reserva",
+          "type": "red",
+          "country": "ES",
+          "vintages": 32,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        }
+      ],
+      "producer_records": 15,
+      "target_ids": ["155328"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Muga — Reserva [provider/exact]",
+          "Muga — Unfiltered Reserva [provider/prefix]",
+          "Muga — Prado Enea Gran Reserva [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 71.1
+      }
+    },
+    {
+      "id": "b065",
+      "segment": "es",
+      "query": "vina ardanza",
+      "expect": {
+        "producer": "La Rioja Alta",
+        "wine": "Viña Ardanza Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "155302",
+          "producer": "La Rioja Alta",
+          "name": "Viña Ardanza Reserva",
+          "type": "red",
+          "country": "ES",
+          "vintages": 55,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "155515",
+          "producer": "La Rioja Alta",
+          "name": "Viña Arana Reserva",
+          "type": "red",
+          "country": "ES",
+          "vintages": 50,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.86
+        },
+        {
+          "external_id": "161160",
+          "producer": "La Rioja Alta",
+          "name": "Viña Ardanza Reserva Blanco Secco",
+          "type": "white",
+          "country": "ES",
+          "vintages": 43,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        },
+        {
+          "external_id": "156088",
+          "producer": "La Rioja Alta",
+          "name": "Viña Arana Gran Reserva",
+          "type": "red",
+          "country": "ES",
+          "vintages": 18,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        },
+        {
+          "external_id": "155332",
+          "producer": "La Rioja Alta",
+          "name": "Viña Alberdi Reserva",
+          "type": "red",
+          "country": "ES",
+          "vintages": 47,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.75
+        },
+        {
+          "external_id": "155427",
+          "producer": "La Rioja Alta",
+          "name": "Viña Ardanza Reserva Selección Especial",
+          "type": "red",
+          "country": "ES",
+          "vintages": 7,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.69
+        }
+      ],
+      "producer_records": 14,
+      "target_ids": ["155302"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "La Rioja Alta — Viña Ardanza Reserva [provider/prefix]",
+          "La Rioja Alta — Viña Ardanza Reserva Blanco Secco [provider/prefix]",
+          "La Rioja Alta — Viña Ardanza Reserva Selección Especial [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 11.2
+      }
+    },
+    {
+      "id": "b066",
+      "segment": "es",
+      "query": "cvne imperial reserva",
+      "expect": {
+        "producer": "CVNE",
+        "wine": "Imperial Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "acronym",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Imperial — Rioja Reserva [provider/fuzzy]",
+          "Tierra Imperial — Reserva Tempranillo [provider/fuzzy]",
+          "Tierra Imperial — Gran Reserva Tempranillo [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 14.1
+      }
+    },
+    {
+      "id": "b067",
+      "segment": "es",
+      "query": "lopez de heredia vina tondonia reserva",
+      "expect": {
+        "producer": "R. López de Heredia",
+        "wine": "Viña Tondonia Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "R. López de Heredia Viña Tondonia — Viña Tondonia Reserva [provider/prefix]",
+          "R. López de Heredia Viña Tondonia — Viña Bosconia Reserva [provider/prefix]",
+          "R. López de Heredia Viña Tondonia — Viña Tondonia Reserva Blanco [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 29.8
+      }
+    },
+    {
+      "id": "b068",
+      "segment": "nl-supermarket",
+      "query": "torres sangre de toro",
+      "expect": {
+        "producer": "Torres",
+        "wine": "Sangre de Toro",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Familia Torres — Sangre de Toro [provider/prefix]",
+          "Familia Torres — Sangre de Toro Blanco [provider/prefix]",
+          "Familia Torres — Sangre de Toro Rosado [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 5.2
+      }
+    },
+    {
+      "id": "b069",
+      "segment": "es",
+      "query": "torres vina esmeralda",
+      "expect": {
+        "producer": "Torres",
+        "wine": "Viña Esmeralda",
+        "type": "white",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Familia Torres — Viña Esmeralda [provider/prefix]",
+          "Familia Torres — Viña Esmeralda Rosado [provider/prefix]",
+          "Familia Torres — Vina Esmeralda Coral Edition Blanco [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 11.9
+      }
+    },
+    {
+      "id": "b070",
+      "segment": "nl-supermarket",
+      "query": "freixenet cordon negro",
+      "expect": {
+        "producer": "Freixenet",
+        "wine": "Cordon Negro Brut",
+        "type": "sparkling",
+        "country": "ES"
+      },
+      "vintage": "nv",
+      "variant": "exact",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "155456",
+          "producer": "Freixenet",
+          "name": "Cava Cordón Negro Brut",
+          "type": "sparkling",
+          "country": "ES",
+          "vintages": 66,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.88
+        },
+        {
+          "external_id": "157329",
+          "producer": "Freixenet",
+          "name": "Cordón Negro Reserva Brut",
+          "type": "sparkling",
+          "country": "ES",
+          "vintages": 54,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.82
+        },
+        {
+          "external_id": "156753",
+          "producer": "Freixenet",
+          "name": "Cordon Rosado Brut",
+          "type": "sparkling",
+          "country": "ES",
+          "vintages": 42,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.77
+        }
+      ],
+      "producer_records": 43,
+      "target_ids": ["155456", "157329", "156753"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Freixenet — Cava Cordón Negro Brut [provider/prefix]",
+          "Freixenet — Cordón Negro Reserva Brut [provider/prefix]",
+          "Freixenet — Cordón Negro Gran Seleccion cava [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 11
+      }
+    },
+    {
+      "id": "b071",
+      "segment": "sparkling",
+      "query": "anna de codorniu",
+      "expect": {
+        "producer": "Codorníu",
+        "wine": "Anna de Codorníu Blanc de Blancs",
+        "type": "sparkling",
+        "country": "ES"
+      },
+      "vintage": "nv",
+      "variant": "accent",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "160865",
+          "producer": "Codorníu",
+          "name": "Cava Brut Blanc de Blancs",
+          "type": "sparkling",
+          "country": "ES",
+          "vintages": 15,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.6
+        }
+      ],
+      "producer_records": 27,
+      "target_ids": ["160865"],
+      "search": {
+        "rank": null,
+        "top": [
+          "Anna de Codorniu — Brut [provider/exact]",
+          "Anna de Codorniu — I Love You [provider/exact]",
+          "Anna de Codorniu — Brut Nature [provider/exact]"
+        ],
+        "verifiedProvider": false,
+        "ms": 4
+      }
+    },
+    {
+      "id": "b072",
+      "segment": "nl-supermarket",
+      "query": "campo viejo reserva",
+      "expect": {
+        "producer": "Campo Viejo",
+        "wine": "Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "generic-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "155299",
+          "producer": "Campo Viejo",
+          "name": "Reserva",
+          "type": "red",
+          "country": "ES",
+          "vintages": 52,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "155347",
+          "producer": "Campo Viejo",
+          "name": "Gran Reserva",
+          "type": "red",
+          "country": "ES",
+          "vintages": 49,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        },
+        {
+          "external_id": "160537",
+          "producer": "Campo Viejo",
+          "name": "Dominio Reserva",
+          "type": "red",
+          "country": "ES",
+          "vintages": 30,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.67
+        }
+      ],
+      "producer_records": 18,
+      "target_ids": ["155299"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Campo Viejo — Reserva [provider/exact]",
+          "Campo Viejo — Gran Reserva [provider/prefix]",
+          "Campo Viejo — Dominio Reserva [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 15.1
+      }
+    },
+    {
+      "id": "b073",
+      "segment": "es",
+      "query": "marques de caceres crianza",
+      "expect": {
+        "producer": "Marqués de Cáceres",
+        "wine": "Crianza",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "155297",
+          "producer": "Marqués de Cáceres",
+          "name": "Rioja Crianza",
+          "type": "red",
+          "country": "ES",
+          "vintages": 51,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.73
+        }
+      ],
+      "producer_records": 18,
+      "target_ids": ["155297"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Marqués de Cáceres — Rioja Crianza [provider/prefix]",
+          "Marqués de Cáceres — Excellens Crianza Rioja [provider/prefix]",
+          "Marqués de Cáceres — Rioja Crianza Vendimia Seleccionada [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 14
+      }
+    },
+    {
+      "id": "b074",
+      "segment": "es",
+      "query": "faustino i gran reserva",
+      "expect": {
+        "producer": "Faustino",
+        "wine": "Faustino I Gran Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "roman-numeral",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "155292",
+          "producer": "Bodegas Faustino",
+          "name": "I Gran Reserva",
+          "type": "red",
+          "country": "ES",
+          "vintages": 66,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.77
+        },
+        {
+          "external_id": "156531",
+          "producer": "Bodegas Faustino",
+          "name": "I Gran Reserva 75 Aniversario",
+          "type": "red",
+          "country": "ES",
+          "vintages": 41,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.62
+        },
+        {
+          "external_id": "157828",
+          "producer": "Bodegas Faustino",
+          "name": "Faustino de Autor Reserva Especial",
+          "type": "red",
+          "country": "ES",
+          "vintages": 51,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        }
+      ],
+      "producer_records": 22,
+      "target_ids": ["155292", "156531", "157828"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Bodegas Faustino — I Gran Reserva [provider/prefix]",
+          "Bodegas Faustino — I Gran Reserva 75 Aniversario [provider/prefix]",
+          "Bodegas Faustino — Reserva [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 20.2
+      }
+    },
+    {
+      "id": "b075",
+      "segment": "es",
+      "query": "martin codax albarino",
+      "expect": {
+        "producer": "Martín Códax",
+        "wine": "Albariño",
+        "type": "white",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "156939",
+          "producer": "Martin Codax",
+          "name": "Bicos Albariño",
+          "type": "white",
+          "country": "ES",
+          "vintages": 21,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.75
+        },
+        {
+          "external_id": "157501",
+          "producer": "Martin Codax",
+          "name": "Alba Martin Albariño",
+          "type": "white",
+          "country": "ES",
+          "vintages": 13,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        },
+        {
+          "external_id": "155333",
+          "producer": "Martin Codax",
+          "name": "Rías Baixas Albariño",
+          "type": "white",
+          "country": "ES",
+          "vintages": 54,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.6
+        }
+      ],
+      "producer_records": 19,
+      "target_ids": ["156939", "157501", "155333"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Martin Codax — Alba Martin Albariño [provider/prefix]",
+          "Martin Codax — Bicos Albariño [provider/prefix]",
+          "Martin Codax — Rías Baixas Albariño [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 5.4
+      }
+    },
+    {
+      "id": "b076",
+      "segment": "es",
+      "query": "alvaro palacios l ermita",
+      "expect": {
+        "producer": "Álvaro Palacios",
+        "wine": "L'Ermita",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "apostrophe",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 9,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Álvaro Palacios — L'Ermita Velles Vinyes Priorat [provider/prefix]",
+          "Álvaro Palacios — Finca Dofí [provider/fuzzy]",
+          "Álvaro Palacios — Les Aubaguetes Priorat [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 10.9
+      }
+    },
+    {
+      "id": "b077",
+      "segment": "es",
+      "query": "protos crianza",
+      "expect": {
+        "producer": "Protos",
+        "wine": "Crianza",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "generic-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "155330",
+          "producer": "Protos",
+          "name": "Crianza",
+          "type": "red",
+          "country": "ES",
+          "vintages": 40,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 11,
+      "target_ids": ["155330"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Protos — Crianza [provider/exact]",
+          "Altos Ibéricos — Crianza [provider/fuzzy]",
+          "Montevannos — Crianza [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 8.8
+      }
+    },
+    {
+      "id": "b078",
+      "segment": "es",
+      "query": "emilio moro malleolus",
+      "expect": {
+        "producer": "Emilio Moro",
+        "wine": "Malleolus",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "155355",
+          "producer": "Emilio Moro",
+          "name": "Malleolus",
+          "type": "red",
+          "country": "ES",
+          "vintages": 45,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "156034",
+          "producer": "Emilio Moro",
+          "name": "Malleolus de Valderramiro",
+          "type": "red",
+          "country": "ES",
+          "vintages": 39,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        },
+        {
+          "external_id": "156218",
+          "producer": "Emilio Moro",
+          "name": "Malleolus de Sanchomartin",
+          "type": "red",
+          "country": "ES",
+          "vintages": 35,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        }
+      ],
+      "producer_records": 7,
+      "target_ids": ["155355"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Emilio Moro — Malleolus [provider/exact]",
+          "Emilio Moro — Malleolus de Valderramiro [provider/prefix]",
+          "Emilio Moro — Malleolus de Sanchomartin [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 9.8
+      }
+    },
+    {
+      "id": "b079",
+      "segment": "es",
+      "query": "pago de carraovejas",
+      "expect": {
+        "producer": "Pago de Carraovejas",
+        "wine": "Pago de Carraovejas",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 5,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Pago de Carraovejas — Reserva [provider/exact]",
+          "Pago de Carraovejas — El Anejón [provider/exact]",
+          "Pago de Carraovejas — Finca Y Bodega [provider/exact]"
+        ],
+        "verifiedProvider": false,
+        "ms": 9
+      }
+    },
+    {
+      "id": "b080",
+      "segment": "sparkling",
+      "query": "juve camps reserva de la familia",
+      "expect": {
+        "producer": "Juvé & Camps",
+        "wine": "Reserva de la Familia Brut Nature",
+        "type": "sparkling",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "ampersand",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "155375",
+          "producer": "Juvé & Camps",
+          "name": "Cava Gran Reserva Brut Nature Reserva de la Familia",
+          "type": "sparkling",
+          "country": "ES",
+          "vintages": 62,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        },
+        {
+          "external_id": "157225",
+          "producer": "Juvé & Camps",
+          "name": "Cava Reserva Brut Milesimé",
+          "type": "sparkling",
+          "country": "ES",
+          "vintages": 28,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.62
+        }
+      ],
+      "producer_records": 8,
+      "target_ids": ["155375", "157225"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Juvé & Camps — Cava Gran Reserva Brut Nature Reserva de la Familia [provider/prefix]",
+          "1853 — Reserva de la Familia [provider/fuzzy]",
+          "Santa Carolina — Reserva de Familia Carmenère [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 21.4
+      }
+    },
+    {
+      "id": "b081",
+      "segment": "es",
+      "query": "ramon bilbao crianza",
+      "expect": {
+        "producer": "Ramón Bilbao",
+        "wine": "Crianza",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "155293",
+          "producer": "Ramón Bilbao",
+          "name": "Crianza Rioja",
+          "type": "red",
+          "country": "ES",
+          "vintages": 60,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.73
+        }
+      ],
+      "producer_records": 18,
+      "target_ids": ["155293"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Ramón Bilbao — Crianza Rioja [provider/prefix]",
+          "Ramón Bilbao — The Journey Collection Crianza [provider/prefix]",
+          "Ramón Bilbao — Mirto [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 9.7
+      }
+    },
+    {
+      "id": "b082",
+      "segment": "nl-supermarket",
+      "query": "gato negro cabernet sauvignon",
+      "expect": {
+        "producer": "Gato Negro",
+        "wine": "Cabernet Sauvignon",
+        "type": "red",
+        "country": "CL"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "generic-name",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "San Pedro — Gato Negro Cabernet Sauvignon [provider/exact]",
+          "San Pedro — Gato Negro Cabernet Sauvignon-Merlot [provider/prefix]",
+          "Los Gatos — Cabernet Sauvignon [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 111.6
+      }
+    },
+    {
+      "id": "b083",
+      "segment": "nl-supermarket",
+      "query": "casillero del diablo cabernet sauvignon",
+      "expect": {
+        "producer": "Concha y Toro",
+        "wine": "Casillero del Diablo Cabernet Sauvignon",
+        "type": "red",
+        "country": "CL"
+      },
+      "vintage": "multi",
+      "variant": "brand-not-producer",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "162975",
+          "producer": "Concha y Toro",
+          "name": "Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 60,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.69
+        },
+        {
+          "external_id": "166646",
+          "producer": "Concha y Toro",
+          "name": "Los Vilos Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 23,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.69
+        },
+        {
+          "external_id": "162500",
+          "producer": "Concha y Toro",
+          "name": "Reservado Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 51,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.65
+        },
+        {
+          "external_id": "165866",
+          "producer": "Concha y Toro",
+          "name": "Gravas del Maipo Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 26,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.62
+        },
+        {
+          "external_id": "164287",
+          "producer": "Concha y Toro",
+          "name": "Seleccion Cabernet Sauvignon-Merlot",
+          "type": "red",
+          "country": "CL",
+          "vintages": 28,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        }
+      ],
+      "producer_records": 55,
+      "target_ids": ["162975", "166646", "162500", "165866", "164287", "162907", "163506"],
+      "search": {
+        "rank": null,
+        "top": [
+          "Casillero del Diablo — Cabernet Sauvignon (Reserva) [provider/prefix]",
+          "Casillero del Diablo — Cabernet Sauvignon-Malbec (Reserva) [provider/prefix]",
+          "Casillero del Diablo — Reserva Privada Cabernet Sauvignon [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 33
+      }
+    },
+    {
+      "id": "b084",
+      "segment": "nl-supermarket",
+      "query": "jacobs creek classic shiraz cabernet",
+      "expect": {
+        "producer": "Jacob's Creek",
+        "wine": "Classic Shiraz Cabernet",
+        "type": "red",
+        "country": "AU"
+      },
+      "vintage": "multi",
+      "variant": "apostrophe",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "174187",
+          "producer": "Jacob's Creek",
+          "name": "Classic Shiraz-Cabernet",
+          "type": "red",
+          "country": "AU",
+          "vintages": 46,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "174295",
+          "producer": "Jacob's Creek",
+          "name": "Shiraz-Cabernet",
+          "type": "red",
+          "country": "AU",
+          "vintages": 32,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.8
+        },
+        {
+          "external_id": "174232",
+          "producer": "Jacob's Creek",
+          "name": "Classic Shiraz",
+          "type": "red",
+          "country": "AU",
+          "vintages": 42,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.77
+        },
+        {
+          "external_id": "176565",
+          "producer": "Jacob's Creek",
+          "name": "Organic Shiraz-Cabernet",
+          "type": "red",
+          "country": "AU",
+          "vintages": 11,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.75
+        },
+        {
+          "external_id": "175368",
+          "producer": "Jacob's Creek",
+          "name": "Classic Cabernet-Merlot",
+          "type": "red",
+          "country": "AU",
+          "vintages": 27,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        },
+        {
+          "external_id": "174263",
+          "producer": "Jacob's Creek",
+          "name": "Classic Cabernet Sauvignon",
+          "type": "red",
+          "country": "AU",
+          "vintages": 27,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        }
+      ],
+      "producer_records": 63,
+      "target_ids": ["174187"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Jacob's Creek — Classic Shiraz-Cabernet [provider/fuzzy]",
+          "Jacob's Creek — Shiraz-Cabernet [provider/fuzzy]",
+          "Jacob's Creek — Classic Shiraz [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 18.2
+      }
+    },
+    {
+      "id": "b085",
+      "segment": "nl-supermarket",
+      "query": "lindemans bin 65 chardonnay",
+      "expect": {
+        "producer": "Lindeman's",
+        "wine": "Bin 65 Chardonnay",
+        "type": "white",
+        "country": "AU"
+      },
+      "vintage": "multi",
+      "variant": "apostrophe",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "174203",
+          "producer": "Lindeman's",
+          "name": "Bin 65 Chardonnay",
+          "type": "white",
+          "country": "AU",
+          "vintages": 34,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "175226",
+          "producer": "Lindeman's",
+          "name": "Bin 64 Crisp Chardonnay",
+          "type": "white",
+          "country": "AU",
+          "vintages": 24,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        },
+        {
+          "external_id": "176865",
+          "producer": "Lindeman's",
+          "name": "Chardonnay",
+          "type": "white",
+          "country": "AU",
+          "vintages": 28,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        },
+        {
+          "external_id": "177415",
+          "producer": "Lindeman's",
+          "name": "Bin 70 Chardonnay-Riesling",
+          "type": "white",
+          "country": "AU",
+          "vintages": 22,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.67
+        },
+        {
+          "external_id": "178210",
+          "producer": "Lindeman's",
+          "name": "Bin 77 Sémillon-Chardonnay",
+          "type": "white",
+          "country": "AU",
+          "vintages": 32,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.67
+        }
+      ],
+      "producer_records": 92,
+      "target_ids": ["174203"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Lindeman's — Bin 65 Chardonnay [provider/fuzzy]",
+          "Lindeman's — Bin 64 Crisp Chardonnay [provider/fuzzy]",
+          "Lindeman's — Chardonnay [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 15.7
+      }
+    },
+    {
+      "id": "b086",
+      "segment": "nl-supermarket",
+      "query": "yellow tail shiraz",
+      "expect": {
+        "producer": "[yellow tail]",
+        "wine": "Shiraz",
+        "type": "red",
+        "country": "AU"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "brackets",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "174176",
+          "producer": "Yellow Tail",
+          "name": "Shiraz",
+          "type": "red",
+          "country": "AU",
+          "vintages": 32,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "174304",
+          "producer": "Yellow Tail",
+          "name": "The Reserve Shiraz",
+          "type": "red",
+          "country": "AU",
+          "vintages": 21,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.64
+        },
+        {
+          "external_id": "174504",
+          "producer": "Yellow Tail",
+          "name": "Shiraz-Cabernet",
+          "type": "red",
+          "country": "AU",
+          "vintages": 37,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        },
+        {
+          "external_id": "174737",
+          "producer": "Yellow Tail",
+          "name": "Shiraz-Grenache",
+          "type": "red",
+          "country": "AU",
+          "vintages": 30,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        }
+      ],
+      "producer_records": 31,
+      "target_ids": ["174176"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Yellow Tail — Shiraz [provider/exact]",
+          "Yellow Tail — Shiraz-Cabernet [provider/prefix]",
+          "Yellow Tail — Shiraz-Grenache [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 9.5
+      }
+    },
+    {
+      "id": "b087",
+      "segment": "nl-supermarket",
+      "query": "hardys nottage hill chardonnay",
+      "expect": {
+        "producer": "Hardys",
+        "wine": "Nottage Hill Chardonnay",
+        "type": "white",
+        "country": "AU"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "174322",
+          "producer": "Hardys",
+          "name": "Nottage Hill Chardonnay",
+          "type": "white",
+          "country": "AU",
+          "vintages": 26,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "174293",
+          "producer": "Hardys",
+          "name": "Nottage Hill Shiraz",
+          "type": "red",
+          "country": "AU",
+          "vintages": 28,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.67
+        },
+        {
+          "external_id": "174733",
+          "producer": "Hardys",
+          "name": "Nottage Hill Riesling",
+          "type": "white",
+          "country": "AU",
+          "vintages": 32,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.67
+        },
+        {
+          "external_id": "174879",
+          "producer": "Hardys",
+          "name": "Nottage Hill Merlot",
+          "type": "red",
+          "country": "AU",
+          "vintages": 36,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.67
+        },
+        {
+          "external_id": "175207",
+          "producer": "Hardys",
+          "name": "HRB Chardonnay",
+          "type": "white",
+          "country": "AU",
+          "vintages": 27,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.62
+        },
+        {
+          "external_id": "174643",
+          "producer": "Hardys",
+          "name": "Varietal Range Chardonnay",
+          "type": "white",
+          "country": "AU",
+          "vintages": 32,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.6
+        }
+      ],
+      "producer_records": 71,
+      "target_ids": ["174322"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Hardys — Nottage Hill Chardonnay [provider/exact]",
+          "Hardys — Nottage Hill Merlot [provider/fuzzy]",
+          "Hardys — Nottage Hill Shiraz [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 16.5
+      }
+    },
+    {
+      "id": "b088",
+      "segment": "nl-supermarket",
+      "query": "barefoot pinot grigio",
+      "expect": {
+        "producer": "Barefoot",
+        "wine": "Pinot Grigio",
+        "type": "white",
+        "country": "US"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "generic-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "179105",
+          "producer": "Barefoot",
+          "name": "Pinot Grigio",
+          "type": "white",
+          "country": "US",
+          "vintages": 31,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "183568",
+          "producer": "Barefoot",
+          "name": "Pink Pinot Grigio",
+          "type": "rose",
+          "country": "US",
+          "vintages": 20,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.85
+        }
+      ],
+      "producer_records": 19,
+      "target_ids": ["179105"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Barefoot — Pinot Grigio [provider/exact]",
+          "Barefoot — Pink Pinot Grigio [provider/prefix]",
+          "Ogio — Pinot Grigio [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 26
+      }
+    },
+    {
+      "id": "b089",
+      "segment": "nl-supermarket",
+      "query": "oxford landing sauvignon blanc",
+      "expect": {
+        "producer": "Oxford Landing",
+        "wine": "Sauvignon Blanc",
+        "type": "white",
+        "country": "AU"
+      },
+      "vintage": "multi",
+      "variant": "generic-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "174466",
+          "producer": "Oxford Landing",
+          "name": "Sauvignon Blanc",
+          "type": "white",
+          "country": "AU",
+          "vintages": 35,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 11,
+      "target_ids": ["174466"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Oxford Landing — Sauvignon Blanc [provider/exact]",
+          "Oxford Landing — Cabernet Sauvignon [provider/fuzzy]",
+          "Oxford Landing — Cabernet Sauvignon-Shiraz [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 27.1
+      }
+    },
+    {
+      "id": "b090",
+      "segment": "nl-supermarket",
+      "query": "cono sur bicicleta pinot noir",
+      "expect": {
+        "producer": "Cono Sur",
+        "wine": "Bicicleta Pinot Noir",
+        "type": "red",
+        "country": "CL"
+      },
+      "vintage": "multi",
+      "variant": "exact",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "162555",
+          "producer": "Cono Sur",
+          "name": "Bicicleta Pinot Noir",
+          "type": "red",
+          "country": "CL",
+          "vintages": 45,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "163964",
+          "producer": "Cono Sur",
+          "name": "Bicicleta Pinot Noir Rosé",
+          "type": "rose",
+          "country": "CL",
+          "vintages": 22,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.89
+        },
+        {
+          "external_id": "162579",
+          "producer": "Cono Sur",
+          "name": "Bicicleta Reserva Pinot Noir",
+          "type": "red",
+          "country": "CL",
+          "vintages": 15,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.84
+        },
+        {
+          "external_id": "163020",
+          "producer": "Cono Sur",
+          "name": "Ocio Pinot Noir",
+          "type": "red",
+          "country": "CL",
+          "vintages": 27,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        },
+        {
+          "external_id": "162820",
+          "producer": "Cono Sur",
+          "name": "Organic Pinot Noir",
+          "type": "red",
+          "country": "CL",
+          "vintages": 24,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.7
+        },
+        {
+          "external_id": "162858",
+          "producer": "Cono Sur",
+          "name": "Bicicleta Merlot",
+          "type": "red",
+          "country": "CL",
+          "vintages": 25,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.63
+        }
+      ],
+      "producer_records": 68,
+      "target_ids": ["162555"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Cono Sur — Bicicleta Pinot Noir [provider/exact]",
+          "Cono Sur — Bicicleta Pinot Noir Rosé [provider/prefix]",
+          "Cono Sur — Bicicleta Reserva Pinot Noir [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 15.8
+      }
+    },
+    {
+      "id": "b091",
+      "segment": "nl-supermarket",
+      "query": "santa rita 120 cabernet sauvignon",
+      "expect": {
+        "producer": "Santa Rita",
+        "wine": "120 Cabernet Sauvignon",
+        "type": "red",
+        "country": "CL"
+      },
+      "vintage": "multi",
+      "variant": "digits",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "164230",
+          "producer": "Santa Rita",
+          "name": "Gran 120 Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 16,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.9
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "165678",
+          "producer": "Santa Rita",
+          "name": "120 Reservado Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 19,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.82
+        },
+        {
+          "external_id": "164794",
+          "producer": "Santa Rita",
+          "name": "Cabernet Sauvignon Rosé",
+          "type": "rose",
+          "country": "CL",
+          "vintages": 27,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.81
+        },
+        {
+          "external_id": "163614",
+          "producer": "Santa Rita",
+          "name": "Héroes Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 31,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.78
+        },
+        {
+          "external_id": "166352",
+          "producer": "Santa Rita",
+          "name": "120 Tres Medallas Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 5,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.77
+        },
+        {
+          "external_id": "163021",
+          "producer": "Santa Rita",
+          "name": "Reserva Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 52,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        }
+      ],
+      "producer_records": 112,
+      "target_ids": ["164230"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Santa Rita — Gran 120 Cabernet Sauvignon [provider/prefix]",
+          "Santa Rita — 120 Reservado Cabernet Sauvignon [provider/prefix]",
+          "Santa Rita — 120 Tres Medallas Cabernet Sauvignon [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 6.9
+      }
+    },
+    {
+      "id": "b092",
+      "segment": "nl-supermarket",
+      "query": "nederburg winemasters cabernet sauvignon",
+      "expect": {
+        "producer": "Nederburg",
+        "wine": "The Winemasters Cabernet Sauvignon",
+        "type": "red",
+        "country": "ZA"
+      },
+      "vintage": "multi",
+      "variant": "partial-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "170992",
+          "producer": "Nederburg",
+          "name": "The Winemaster's Cabernet Sauvignon",
+          "type": "red",
+          "country": "ZA",
+          "vintages": 51,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.95
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "171130",
+          "producer": "Nederburg",
+          "name": "The Winemaster's Cabernet Sauvignon-Shiraz",
+          "type": "red",
+          "country": "ZA",
+          "vintages": 32,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.86
+        },
+        {
+          "external_id": "172703",
+          "producer": "Nederburg",
+          "name": "The Winemaster's Cabernet Sauvignon Dry Rosé",
+          "type": "rose",
+          "country": "ZA",
+          "vintages": 39,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.83
+        },
+        {
+          "external_id": "172255",
+          "producer": "Nederburg",
+          "name": "Cabernet Sauvignon",
+          "type": "red",
+          "country": "ZA",
+          "vintages": 54,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        },
+        {
+          "external_id": "171394",
+          "producer": "Nederburg",
+          "name": "Foundation Cabernet Sauvignon",
+          "type": "red",
+          "country": "ZA",
+          "vintages": 53,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.73
+        },
+        {
+          "external_id": "171801",
+          "producer": "Nederburg",
+          "name": "The Manor Cabernet Sauvignon",
+          "type": "red",
+          "country": "ZA",
+          "vintages": 40,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        }
+      ],
+      "producer_records": 51,
+      "target_ids": ["170992"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Nederburg — The Winemaster's Cabernet Sauvignon [provider/fuzzy]",
+          "Nederburg — The Winemaster's Cabernet Sauvignon-Shiraz [provider/fuzzy]",
+          "Nederburg — Cabernet Sauvignon [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 24.9
+      }
+    },
+    {
+      "id": "b093",
+      "segment": "nl-supermarket",
+      "query": "two oceans sauvignon blanc",
+      "expect": {
+        "producer": "Two Oceans",
+        "wine": "Sauvignon Blanc",
+        "type": "white",
+        "country": "ZA"
+      },
+      "vintage": "multi",
+      "variant": "generic-name",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "171102",
+          "producer": "Two Oceans",
+          "name": "Sauvignon Blanc",
+          "type": "white",
+          "country": "ZA",
+          "vintages": 22,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "174068",
+          "producer": "Two Oceans",
+          "name": "Vineyard Selection Sauvignon Blanc",
+          "type": "white",
+          "country": "ZA",
+          "vintages": 4,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.77
+        },
+        {
+          "external_id": "174020",
+          "producer": "Two Oceans",
+          "name": "Sauvignon Blanc Sparkling",
+          "type": "sparkling",
+          "country": "ZA",
+          "vintages": 7,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        }
+      ],
+      "producer_records": 11,
+      "target_ids": ["171102"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Two Oceans — Sauvignon Blanc [provider/exact]",
+          "Two Oceans — Sauvignon Blanc Sparkling [provider/prefix]",
+          "Two Oceans — Vineyard Selection Sauvignon Blanc [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 21.7
+      }
+    },
+    {
+      "id": "b094",
+      "segment": "nl-supermarket",
+      "query": "mateus rose",
+      "expect": {
+        "producer": "Mateus",
+        "wine": "Rosé",
+        "type": "rose",
+        "country": "PT"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "accent",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "105288",
+          "producer": "Mateus",
+          "name": "Rosé",
+          "type": "rose",
+          "country": "PT",
+          "vintages": 63,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 12,
+      "target_ids": ["105288"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Mateus — Rosé [provider/exact]",
+          "Mateus — Shiraz Rosé [provider/prefix]",
+          "Mateus — Aragonêz Rosé [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 4.8
+      }
+    },
+    {
+      "id": "b095",
+      "segment": "nl-supermarket",
+      "query": "gallo white zinfandel",
+      "expect": {
+        "producer": "Gallo Family Vineyards",
+        "wine": "White Zinfandel",
+        "type": "rose",
+        "country": "US"
+      },
+      "vintage": "nv-or-unknown",
+      "variant": "partial-producer",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "179533",
+          "producer": "Gallo Family Vineyards",
+          "name": "White Zinfandel",
+          "type": "rose",
+          "country": "US",
+          "vintages": 25,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "179814",
+          "producer": "Gallo Family Vineyards",
+          "name": "Zinfandel",
+          "type": "red",
+          "country": "US",
+          "vintages": 36,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.77
+        },
+        {
+          "external_id": "186862",
+          "producer": "Gallo Family Vineyards",
+          "name": "Café Zinfandel",
+          "type": "red",
+          "country": "US",
+          "vintages": 26,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        }
+      ],
+      "producer_records": 25,
+      "target_ids": ["179533"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Gallo Family Vineyards — White Zinfandel [provider/prefix]",
+          "Fre — White Zinfandel [provider/fuzzy]",
+          "White Oak — Zinfandel [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 13.1
+      }
+    },
+    {
+      "id": "b096",
+      "segment": "nl-supermarket",
+      "query": "isla negra cabernet sauvignon",
+      "expect": {
+        "producer": "Isla Negra",
+        "wine": "Cabernet Sauvignon",
+        "type": "red",
+        "country": "CL"
+      },
+      "vintage": "multi",
+      "variant": "generic-name",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "166590",
+          "producer": "Isla Negra",
+          "name": "Cabernet Sauvignon Rosé",
+          "type": "rose",
+          "country": "CL",
+          "vintages": 11,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.88
+        },
+        {
+          "external_id": "163627",
+          "producer": "Isla Negra",
+          "name": "Cabernet Sauvignon-Merlot",
+          "type": "red",
+          "country": "CL",
+          "vintages": 16,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.84
+        },
+        {
+          "external_id": "163816",
+          "producer": "Isla Negra",
+          "name": "Cabernet Sauvignon Reserva",
+          "type": "red",
+          "country": "CL",
+          "vintages": 21,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.83
+        },
+        {
+          "external_id": "163923",
+          "producer": "Isla Negra",
+          "name": "Seashore Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 28,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.81
+        },
+        {
+          "external_id": "164018",
+          "producer": "Isla Negra",
+          "name": "Carmenère-Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 27,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.81
+        }
+      ],
+      "producer_records": 12,
+      "target_ids": ["166590", "163627", "163816", "163923", "164018", "163147", "166268"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Isla Negra — Cabernet Sauvignon Rosé [provider/prefix]",
+          "Isla Negra — Cabernet Sauvignon-Merlot [provider/prefix]",
+          "Isla Negra — Cabernet Sauvignon Reserva [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 132.2
+      }
+    },
+    {
+      "id": "b097",
+      "segment": "nl-wine",
+      "query": "apostelhoeve riesling",
+      "expect": {
+        "producer": "Apostelhoeve",
+        "wine": "Riesling",
+        "type": "white",
+        "country": "NL"
+      },
+      "vintage": "multi",
+      "variant": "dutch",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 1,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [],
+        "verifiedProvider": false,
+        "ms": 11.4
+      }
+    },
+    {
+      "id": "b098",
+      "segment": "nl-wine",
+      "query": "de kleine schorre auxerrois",
+      "expect": {
+        "producer": "De Kleine Schorre",
+        "wine": "Auxerrois",
+        "type": "white",
+        "country": "NL"
+      },
+      "vintage": "multi",
+      "variant": "dutch",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [],
+        "verifiedProvider": false,
+        "ms": 14.1
+      }
+    },
+    {
+      "id": "b099",
+      "segment": "eu-specialist",
+      "query": "dr loosen riesling",
+      "expect": {
+        "producer": "Dr. Loosen",
+        "wine": "Dr. L Riesling",
+        "type": "white",
+        "country": "DE"
+      },
+      "vintage": "multi",
+      "variant": "punctuation",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "106529",
+          "producer": "Dr. Loosen",
+          "name": "Dr. L Riesling",
+          "type": "white",
+          "country": "DE",
+          "vintages": 27,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "106533",
+          "producer": "Dr. Loosen",
+          "name": "Dr. L Riesling Dry",
+          "type": "white",
+          "country": "DE",
+          "vintages": 27,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.89
+        },
+        {
+          "external_id": "106694",
+          "producer": "Dr. Loosen",
+          "name": "Dr. L Sparkling Riesling",
+          "type": "sparkling",
+          "country": "DE",
+          "vintages": 28,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.86
+        }
+      ],
+      "producer_records": 38,
+      "target_ids": ["106529"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Dr. Loosen — Dr. L Riesling [provider/prefix]",
+          "Dr. Loosen — Dr. L Riesling Dry [provider/prefix]",
+          "Dr. Loosen — Riesling Trocken [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 6.5
+      }
+    },
+    {
+      "id": "b100",
+      "segment": "eu-specialist",
+      "query": "egon muller scharzhofberger kabinett",
+      "expect": {
+        "producer": "Egon Müller",
+        "wine": "Scharzhofberger Riesling Kabinett",
+        "type": "white",
+        "country": "DE"
+      },
+      "vintage": "multi",
+      "variant": "umlaut",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Egon Müller-Scharzhof — Scharzhofberger Riesling Kabinett [provider/prefix]",
+          "Egon Müller-Scharzhof — Scharzhofberger Riesling Eiswein [provider/fuzzy]",
+          "Egon Müller-Scharzhof — Scharzhofberger Riesling Auslese [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 17.4
+      }
+    },
+    {
+      "id": "b101",
+      "segment": "eu-specialist",
+      "query": "robert weil riesling trocken",
+      "expect": {
+        "producer": "Robert Weil",
+        "wine": "Riesling Trocken",
+        "type": "white",
+        "country": "DE"
+      },
+      "vintage": "multi",
+      "variant": "estate-word",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "106534",
+          "producer": "Robert Weil",
+          "name": "Riesling Trocken",
+          "type": "white",
+          "country": "DE",
+          "vintages": 29,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "106625",
+          "producer": "Robert Weil",
+          "name": "Riesling Kabinett Trocken",
+          "type": "white",
+          "country": "DE",
+          "vintages": 34,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.79
+        },
+        {
+          "external_id": "107053",
+          "producer": "Robert Weil",
+          "name": "Kiedricher Riesling Trocken",
+          "type": "white",
+          "country": "DE",
+          "vintages": 12,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        },
+        {
+          "external_id": "106766",
+          "producer": "Robert Weil",
+          "name": "Kiedrich Turmberg Riesling Trocken",
+          "type": "white",
+          "country": "DE",
+          "vintages": 19,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.65
+        },
+        {
+          "external_id": "106604",
+          "producer": "Robert Weil",
+          "name": "Kiedrich Klosterberg Riesling Trocken",
+          "type": "white",
+          "country": "DE",
+          "vintages": 34,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.62
+        }
+      ],
+      "producer_records": 11,
+      "target_ids": ["106534"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Robert Weil — Riesling Trocken [provider/exact]",
+          "Robert Weil — Riesling Kabinett Trocken [provider/prefix]",
+          "Robert Weil — Kiedricher Riesling Trocken [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 37.3
+      }
+    },
+    {
+      "id": "b102",
+      "segment": "eu-specialist",
+      "query": "donnhoff riesling trocken",
+      "expect": {
+        "producer": "Dönnhoff",
+        "wine": "Riesling Trocken",
+        "type": "white",
+        "country": "DE"
+      },
+      "vintage": "multi",
+      "variant": "umlaut",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "106541",
+          "producer": "Dönnhoff",
+          "name": "Riesling Trocken",
+          "type": "white",
+          "country": "DE",
+          "vintages": 24,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "106851",
+          "producer": "Dönnhoff",
+          "name": "Höllenpfad Riesling Trocken",
+          "type": "white",
+          "country": "DE",
+          "vintages": 24,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        },
+        {
+          "external_id": "107000",
+          "producer": "Dönnhoff",
+          "name": "Kahlenberg Riesling Trocken",
+          "type": "white",
+          "country": "DE",
+          "vintages": 19,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        },
+        {
+          "external_id": "107800",
+          "producer": "Dönnhoff",
+          "name": "Felsenberg Riesling Trocken",
+          "type": "white",
+          "country": "DE",
+          "vintages": 25,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.76
+        },
+        {
+          "external_id": "106683",
+          "producer": "Dönnhoff",
+          "name": "Tonschiefer Riesling Trocken",
+          "type": "white",
+          "country": "DE",
+          "vintages": 26,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.74
+        },
+        {
+          "external_id": "106561",
+          "producer": "Dönnhoff",
+          "name": "Riesling",
+          "type": "white",
+          "country": "DE",
+          "vintages": 35,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.69
+        }
+      ],
+      "producer_records": 28,
+      "target_ids": ["106541"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Dönnhoff — Riesling Trocken [provider/exact]",
+          "Dönnhoff — Felsenberg Riesling Trocken [provider/prefix]",
+          "Dönnhoff — Höllenpfad Riesling Trocken [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 34.3
+      }
+    },
+    {
+      "id": "b103",
+      "segment": "eu-specialist",
+      "query": "fx pichler gruner veltliner smaragd",
+      "expect": {
+        "producer": "F.X. Pichler",
+        "wine": "Grüner Veltliner Smaragd Dürnsteiner Kellerberg",
+        "type": "white",
+        "country": "AT"
+      },
+      "vintage": "multi",
+      "variant": "punctuation",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "194832",
+          "producer": "F.X. Pichler",
+          "name": "Dürnsteiner Kellerberg Grüner Veltliner Smaragd",
+          "type": "white",
+          "country": "AT",
+          "vintages": 31,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "194934",
+          "producer": "F.X. Pichler",
+          "name": "Dürnsteiner Grüner Veltliner",
+          "type": "white",
+          "country": "AT",
+          "vintages": 18,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.75
+        },
+        {
+          "external_id": "194583",
+          "producer": "F.X. Pichler",
+          "name": "Loibner Loibenberg Grüner Veltliner Smaragd",
+          "type": "white",
+          "country": "AT",
+          "vintages": 31,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.75
+        },
+        {
+          "external_id": "195173",
+          "producer": "F.X. Pichler",
+          "name": "Urgestein Terrassen Grüner Veltliner Smaragd",
+          "type": "white",
+          "country": "AT",
+          "vintages": 19,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.73
+        },
+        {
+          "external_id": "194272",
+          "producer": "F.X. Pichler",
+          "name": "M Grüner Veltliner Smaragd",
+          "type": "white",
+          "country": "AT",
+          "vintages": 33,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        }
+      ],
+      "producer_records": 11,
+      "target_ids": ["194832"],
+      "search": {
+        "rank": 5,
+        "top": [
+          "F.X. Pichler — M Grüner Veltliner Smaragd [provider/fuzzy]",
+          "F.X. Pichler — Loibner Loibenberg Grüner Veltliner Smaragd [provider/fuzzy]",
+          "Rudi Pichler — Terrassen Grüner Veltliner Smaragd [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 16.7
+      }
+    },
+    {
+      "id": "b104",
+      "segment": "eu-specialist",
+      "query": "brundlmayer kamptal terrassen gruner veltliner",
+      "expect": {
+        "producer": "Bründlmayer",
+        "wine": "Grüner Veltliner Kamptal Terrassen",
+        "type": "white",
+        "country": "AT"
+      },
+      "vintage": "multi",
+      "variant": "umlaut",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "193626",
+          "producer": "Weingut Bründlmayer",
+          "name": "Grüner Veltliner Kamptal Terrassen",
+          "type": "white",
+          "country": "AT",
+          "vintages": 33,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "194869",
+          "producer": "Weingut Bründlmayer",
+          "name": "Ried Lamm Grüner Veltliner Kamptal",
+          "type": "white",
+          "country": "AT",
+          "vintages": 30,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        },
+        {
+          "external_id": "194770",
+          "producer": "Weingut Bründlmayer",
+          "name": "Grüner Veltliner Reserve Alte Reben",
+          "type": "white",
+          "country": "AT",
+          "vintages": 31,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.65
+        }
+      ],
+      "producer_records": 22,
+      "target_ids": ["193626"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Weingut Bründlmayer — Grüner Veltliner Kamptal Terrassen [provider/prefix]",
+          "Engelbrecht — Kamptaler Terrassen Grüner Veltliner [provider/fuzzy]",
+          "Weingut Bründlmayer — Ried Lamm Grüner Veltliner Kamptal [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 21.4
+      }
+    },
+    {
+      "id": "b105",
+      "segment": "eu-specialist",
+      "query": "domane wachau federspiel terrassen",
+      "expect": {
+        "producer": "Domäne Wachau",
+        "wine": "Grüner Veltliner Federspiel Terrassen",
+        "type": "white",
+        "country": "AT"
+      },
+      "vintage": "multi",
+      "variant": "umlaut",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "193526",
+          "producer": "Domäne Wachau",
+          "name": "Grüner Veltliner Federspiel Terrassen",
+          "type": "white",
+          "country": "AT",
+          "vintages": 27,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "194093",
+          "producer": "Domäne Wachau",
+          "name": "Federspiel Grüner Veltliner",
+          "type": "white",
+          "country": "AT",
+          "vintages": 19,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.85
+        },
+        {
+          "external_id": "195719",
+          "producer": "Domäne Wachau",
+          "name": "Grüner Veltliner Steinfeder Terrassen",
+          "type": "white",
+          "country": "AT",
+          "vintages": 28,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.84
+        },
+        {
+          "external_id": "193690",
+          "producer": "Domäne Wachau",
+          "name": "Grüner Veltliner Federspiel Weissenkirchen",
+          "type": "white",
+          "country": "AT",
+          "vintages": 22,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.83
+        },
+        {
+          "external_id": "199223",
+          "producer": "Domäne Wachau",
+          "name": "Grüner Veltliner Federspiel Classic",
+          "type": "white",
+          "country": "AT",
+          "vintages": 15,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.81
+        },
+        {
+          "external_id": "196338",
+          "producer": "Domäne Wachau",
+          "name": "Grüner Veltliner Federspiel Kaiserberg",
+          "type": "white",
+          "country": "AT",
+          "vintages": 19,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.8
+        }
+      ],
+      "producer_records": 53,
+      "target_ids": ["193526"],
+      "search": {
+        "rank": 4,
+        "top": [
+          "Domäne Wachau — Riesling Federspiel Terrassen [provider/prefix]",
+          "Domäne Wachau — Neuburger Federspiel Terrassen [provider/prefix]",
+          "Domäne Wachau — Zweigelt Federspiel Terrassen Rosé [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 24
+      }
+    },
+    {
+      "id": "b106",
+      "segment": "eu-specialist",
+      "query": "quinta do crasto reserva old vines",
+      "expect": {
+        "producer": "Quinta do Crasto",
+        "wine": "Reserva Old Vines",
+        "type": "red",
+        "country": "PT"
+      },
+      "vintage": "multi",
+      "variant": "estate-word",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "101578",
+          "producer": "Quinta do Crasto",
+          "name": "Reserva Vinhas Velhas",
+          "type": "red",
+          "country": "PT",
+          "vintages": 50,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.6
+        }
+      ],
+      "producer_records": 19,
+      "target_ids": ["101578"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Quinta do Crasto — Reserva Vinhas Velhas [provider/fuzzy]",
+          "Quinta do Crasto — Finest Reserve Ruby Port [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 29.9
+      }
+    },
+    {
+      "id": "b107",
+      "segment": "eu-specialist",
+      "query": "niepoort redoma",
+      "expect": {
+        "producer": "Niepoort",
+        "wine": "Redoma Tinto",
+        "type": "red",
+        "country": "PT"
+      },
+      "vintage": "multi",
+      "variant": "partial-name",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "101760",
+          "producer": "Niepoort",
+          "name": "Douro Redoma Tinto",
+          "type": "red",
+          "country": "PT",
+          "vintages": 36,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.81
+        },
+        {
+          "external_id": "103065",
+          "producer": "Niepoort",
+          "name": "Douro Bioma Tinto",
+          "type": "red",
+          "country": "PT",
+          "vintages": 34,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.65
+        }
+      ],
+      "producer_records": 39,
+      "target_ids": ["101760", "103065"],
+      "search": {
+        "rank": 2,
+        "top": [
+          "Niepoort — Redoma Rosé [provider/prefix]",
+          "Niepoort — Douro Redoma Tinto [provider/prefix]",
+          "Niepoort — Douro Redoma Branco [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 12.1
+      }
+    },
+    {
+      "id": "b108",
+      "segment": "eu-specialist",
+      "query": "taylors vintage port",
+      "expect": {
+        "producer": "Taylor's",
+        "wine": "Vintage Port",
+        "type": "fortified",
+        "country": "PT"
+      },
+      "vintage": "single-vintages",
+      "variant": "apostrophe",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "101744",
+          "producer": "Taylor's",
+          "name": "Vintage Port",
+          "type": "fortified",
+          "country": "PT",
+          "vintages": 71,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "101960",
+          "producer": "Taylor's",
+          "name": "Quinta de Vargellas Vintage Port",
+          "type": "fortified",
+          "country": "PT",
+          "vintages": 55,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.74
+        },
+        {
+          "external_id": "103147",
+          "producer": "Taylor's",
+          "name": "Quinta de Terra Feita Vintage Port",
+          "type": "fortified",
+          "country": "PT",
+          "vintages": 58,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.68
+        },
+        {
+          "external_id": "101621",
+          "producer": "Taylor's",
+          "name": "Late Bottled Vintage Port",
+          "type": "fortified",
+          "country": "PT",
+          "vintages": 67,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.67
+        }
+      ],
+      "producer_records": 19,
+      "target_ids": ["101744"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Taylor's — Vintage Port [provider/fuzzy]",
+          "Poças — Vintage Port [provider/fuzzy]",
+          "Taylor's — Late Bottled Vintage Port [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 16.4
+      }
+    },
+    {
+      "id": "b109",
+      "segment": "eu-specialist",
+      "query": "grahams 10 year old tawny",
+      "expect": {
+        "producer": "Graham's",
+        "wine": "10 Year Old Tawny Port",
+        "type": "fortified",
+        "country": "PT"
+      },
+      "vintage": "nv",
+      "variant": "digits",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "W. & J. Graham's — 10 Year Old Tawny Port [provider/fuzzy]",
+          "Grant Burge — 10 Year Old Tawny [provider/fuzzy]",
+          "Porto Cruz — Gran Cruz 10 Year Old Tawny Port [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 10.2
+      }
+    },
+    {
+      "id": "b110",
+      "segment": "eu-specialist",
+      "query": "sigalas assyrtiko",
+      "expect": {
+        "producer": "Domaine Sigalas",
+        "wine": "Assyrtiko",
+        "type": "white",
+        "country": "GR"
+      },
+      "vintage": "multi",
+      "variant": "estate-word",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "193700",
+          "producer": "Domaine Sigalas",
+          "name": "Assyrtiko-Athiri",
+          "type": "white",
+          "country": "GR",
+          "vintages": 31,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.74
+        },
+        {
+          "external_id": "193508",
+          "producer": "Domaine Sigalas",
+          "name": "Assyrtiko Santorini",
+          "type": "white",
+          "country": "GR",
+          "vintages": 41,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.67
+        }
+      ],
+      "producer_records": 7,
+      "target_ids": ["193700", "193508"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Domaine Sigalas — Assyrtiko-Athiri [provider/prefix]",
+          "Domaine Sigalas — Assyrtiko Santorini [provider/prefix]",
+          "Mylonas — Assyrtiko [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 8.3
+      }
+    },
+    {
+      "id": "b111",
+      "segment": "eu-specialist",
+      "query": "royal tokaji aszu 5 puttonyos",
+      "expect": {
+        "producer": "Royal Tokaji",
+        "wine": "Tokaji Aszú 5 Puttonyos",
+        "type": "dessert",
+        "country": "HU"
+      },
+      "vintage": "multi",
+      "variant": "accent",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "193732",
+          "producer": "Royal Tokaji",
+          "name": "Aszú 6 puttonyos",
+          "type": "dessert",
+          "country": "HU",
+          "vintages": 40,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.73
+        },
+        {
+          "external_id": "193514",
+          "producer": "Royal Tokaji",
+          "name": "5 Puttonyos Aszú (Blue Label)",
+          "type": "dessert",
+          "country": "HU",
+          "vintages": 61,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.65
+        }
+      ],
+      "producer_records": 8,
+      "target_ids": ["193732", "193514"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Royal Tokaji — 5 Puttonyos Aszú (Blue Label) [provider/prefix]",
+          "Royal Tokaji — Aszú 6 puttonyos [provider/fuzzy]",
+          "Oremus — Tokaji Aszú 5 Puttonyos [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 9.5
+      }
+    },
+    {
+      "id": "b112",
+      "segment": "eu-specialist",
+      "query": "barca velha",
+      "expect": {
+        "producer": "Casa Ferreirinha",
+        "wine": "Barca Velha",
+        "type": "red",
+        "country": "PT"
+      },
+      "vintage": "single-vintages",
+      "variant": "name-only",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "101614",
+          "producer": "Casa Ferreirinha",
+          "name": "Barca Velha Douro",
+          "type": "red",
+          "country": "PT",
+          "vintages": 72,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.8
+        }
+      ],
+      "producer_records": 21,
+      "target_ids": ["101614"],
+      "search": {
+        "rank": 1,
+        "top": ["Casa Ferreirinha — Barca Velha Douro [provider/prefix]"],
+        "verifiedProvider": false,
+        "ms": 6.4
+      }
+    },
+    {
+      "id": "b113",
+      "segment": "variant",
+      "query": "chateau margau",
+      "expect": {
+        "producer": "Château Margaux",
+        "wine": "Château Margaux",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "typo",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "111987",
+          "producer": "Château Margaux",
+          "name": "Margaux du Château Margaux",
+          "type": "red",
+          "country": "FR",
+          "vintages": 65,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 4,
+      "target_ids": ["111987"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Château Margaux — Margaux du Château Margaux [provider/prefix]",
+          "Château Cusseau — Margaux [provider/prefix]",
+          "Château Baury — Margaux [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 9.5
+      }
+    },
+    {
+      "id": "b114",
+      "segment": "variant",
+      "query": "tignanelo",
+      "expect": {
+        "producer": "Marchesi Antinori",
+        "wine": "Tignanello",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "typo",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Antinori — Tignanello [provider/fuzzy]",
+          "Antinori — Tenuta Tignanello 'Solaia' [provider/fuzzy]",
+          "Antinori — Tenuta Tignanello 'Marchese Antinori' Chianti Classico Riserva [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 8.3
+      }
+    },
+    {
+      "id": "b115",
+      "segment": "variant",
+      "query": "sasicaia",
+      "expect": {
+        "producer": "Tenuta San Guido",
+        "wine": "Sassicaia",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "typo",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135826",
+          "producer": "Tenuta San Guido",
+          "name": "Sassicaia",
+          "type": "red",
+          "country": "IT",
+          "vintages": 72,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 3,
+      "target_ids": ["135826"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Tenuta San Guido — Sassicaia [provider/fuzzy]",
+          "Poli Distillerie — Grappa di Bolgheri Sassicaia [provider/fuzzy]",
+          "San Donaci — Anticaia Salice Salentino [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 6.8
+      }
+    },
+    {
+      "id": "b116",
+      "segment": "variant",
+      "query": "veuve cliquot",
+      "expect": {
+        "producer": "Veuve Clicquot",
+        "wine": "Brut Carte Jaune",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "common-misspelling",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "111393",
+          "producer": "Veuve Clicquot",
+          "name": "Brut (Carte Jaune) Champagne",
+          "type": "sparkling",
+          "country": "FR",
+          "vintages": 71,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.81
+        }
+      ],
+      "producer_records": 20,
+      "target_ids": ["111393"],
+      "search": {
+        "rank": 8,
+        "top": [
+          "Veuve Clicquot — Sec Champagne [provider/fuzzy]",
+          "Veuve Clicquot — Rich Champagne [provider/fuzzy]",
+          "Veuve Clicquot — Demi-Sec Champagne [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 8.2
+      }
+    },
+    {
+      "id": "b117",
+      "segment": "variant",
+      "query": "moet imperial",
+      "expect": {
+        "producer": "Moët & Chandon",
+        "wine": "Brut Impérial",
+        "type": "sparkling",
+        "country": "FR"
+      },
+      "vintage": "nv",
+      "variant": "partial",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "111394",
+          "producer": "Moët & Chandon",
+          "name": "Impérial Brut Champagne",
+          "type": "sparkling",
+          "country": "FR",
+          "vintages": 58,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.74
+        },
+        {
+          "external_id": "111479",
+          "producer": "Moët & Chandon",
+          "name": "Impérial Rosé Brut Champagne",
+          "type": "sparkling",
+          "country": "FR",
+          "vintages": 71,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.65
+        }
+      ],
+      "producer_records": 13,
+      "target_ids": ["111394", "111479"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Moët & Chandon — Impérial Brut Champagne [provider/prefix]",
+          "Moët & Chandon — Impérial Rosé Brut Champagne [provider/prefix]",
+          "Moët & Chandon — Ice Impérial (Demi-Sec) Champagne [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 9.3
+      }
+    },
+    {
+      "id": "b118",
+      "segment": "variant",
+      "query": "marquis de riscal",
+      "expect": {
+        "producer": "Marqués de Riscal",
+        "wine": "Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "translation",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "155289",
+          "producer": "Marqués de Riscal",
+          "name": "Rioja Reserva",
+          "type": "red",
+          "country": "ES",
+          "vintages": 72,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.73
+        }
+      ],
+      "producer_records": 21,
+      "target_ids": ["155289"],
+      "search": {
+        "rank": 5,
+        "top": [
+          "Marqués de Riscal — ABA de Marqués de Riscal [provider/fuzzy]",
+          "Marqués de Riscal — ARDO de Marqués de Riscal [provider/fuzzy]",
+          "Marqués de Riscal — Rosado [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 15.9
+      }
+    },
+    {
+      "id": "b119",
+      "segment": "variant",
+      "query": "pichon lalande",
+      "expect": {
+        "producer": "Château Pichon Longueville Comtesse de Lalande",
+        "wine": "Château Pichon Longueville Comtesse de Lalande",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "nickname",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 3,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Château Pichon Longueville Comtesse de Lalande — Saint-Julien de Pichon Lalande [provider/prefix]",
+          "Château Pichon Longueville Comtesse de Lalande — Réserve (de la Comtesse) Pauillac [provider/prefix]",
+          "Château Pichon Longueville Comtesse de Lalande — Pauillac (Grand Cru Classé) [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 14.3
+      }
+    },
+    {
+      "id": "b120",
+      "segment": "variant",
+      "query": "tondonia",
+      "expect": {
+        "producer": "R. López de Heredia",
+        "wine": "Viña Tondonia Reserva",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "name-only",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "R. López de Heredia Viña Tondonia — Viña Gravonia [provider/prefix]",
+          "R. López de Heredia Viña Tondonia — Viña Tondonia Reserva [provider/prefix]",
+          "R. López de Heredia Viña Tondonia — Viña Cubillo [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 7.8
+      }
+    },
+    {
+      "id": "b121",
+      "segment": "variant",
+      "query": "casillero diablo",
+      "expect": {
+        "producer": "Concha y Toro",
+        "wine": "Casillero del Diablo Cabernet Sauvignon",
+        "type": "red",
+        "country": "CL"
+      },
+      "vintage": "multi",
+      "variant": "dropped-word",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "162975",
+          "producer": "Concha y Toro",
+          "name": "Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 60,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.69
+        },
+        {
+          "external_id": "166646",
+          "producer": "Concha y Toro",
+          "name": "Los Vilos Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 23,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.69
+        },
+        {
+          "external_id": "162500",
+          "producer": "Concha y Toro",
+          "name": "Reservado Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 51,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.65
+        },
+        {
+          "external_id": "165866",
+          "producer": "Concha y Toro",
+          "name": "Gravas del Maipo Cabernet Sauvignon",
+          "type": "red",
+          "country": "CL",
+          "vintages": 26,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.62
+        },
+        {
+          "external_id": "164287",
+          "producer": "Concha y Toro",
+          "name": "Seleccion Cabernet Sauvignon-Merlot",
+          "type": "red",
+          "country": "CL",
+          "vintages": 28,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.61
+        }
+      ],
+      "producer_records": 55,
+      "target_ids": ["162975", "166646", "162500", "165866", "164287", "162907", "163506"],
+      "search": {
+        "rank": null,
+        "top": [
+          "Casillero del Diablo — Rosé (Reserva) [provider/prefix]",
+          "Casillero del Diablo — Brut (Reserva) [provider/prefix]",
+          "Casillero del Diablo — Malbec (Reserva) [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 6.6
+      }
+    },
+    {
+      "id": "b122",
+      "segment": "variant",
+      "query": "yquem chateau d",
+      "expect": {
+        "producer": "Château d'Yquem",
+        "wine": "Château d'Yquem",
+        "type": "dessert",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "word-order",
+      "coverage": "partial",
+      "exact": [],
+      "partial": [
+        {
+          "external_id": "127476",
+          "producer": "Château d'Yquem",
+          "name": "Sauternes d'Yquem",
+          "type": "dessert",
+          "country": "FR",
+          "vintages": 18,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.67
+        }
+      ],
+      "producer_records": 3,
+      "target_ids": ["127476"],
+      "search": {
+        "rank": 3,
+        "top": [
+          "Château d'Yquem — Y [provider/prefix]",
+          "Château d'Yquem — Sauternes [provider/prefix]",
+          "Château d'Yquem — Sauternes d'Yquem [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 6.4
+      }
+    },
+    {
+      "id": "b123",
+      "segment": "variant",
+      "query": "leoville las case",
+      "expect": {
+        "producer": "Château Léoville Las Cases",
+        "wine": "Château Léoville Las Cases",
+        "type": "red",
+        "country": "FR"
+      },
+      "vintage": "multi",
+      "variant": "typo",
+      "coverage": "producer-only",
+      "exact": [],
+      "partial": [],
+      "producer_records": 5,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Château Léoville Las Cases — Saint-Julien (Grand Cru Classé) [provider/prefix]",
+          "Château Léoville Las Cases — Le Petit Lion Saint-Julien [provider/prefix]",
+          "Château Léoville Las Cases — La Petite Marquise Saint-Julien [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 14.4
+      }
+    },
+    {
+      "id": "b124",
+      "segment": "variant",
+      "query": "amarone allegrini",
+      "expect": {
+        "producer": "Allegrini",
+        "wine": "Amarone della Valpolicella Classico",
+        "type": "red",
+        "country": "IT"
+      },
+      "vintage": "multi",
+      "variant": "word-order",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "135879",
+          "producer": "Allegrini",
+          "name": "Amarone della Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 43,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "136797",
+          "producer": "Allegrini",
+          "name": "Valpolicella Classico",
+          "type": "red",
+          "country": "IT",
+          "vintages": 26,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.85
+        },
+        {
+          "external_id": "147267",
+          "producer": "Allegrini",
+          "name": "Fieramonte Amarone della Valpolicella Riserva",
+          "type": "red",
+          "country": "IT",
+          "vintages": 39,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.63
+        },
+        {
+          "external_id": "137463",
+          "producer": "Allegrini",
+          "name": "Valpolicella",
+          "type": "red",
+          "country": "IT",
+          "vintages": 52,
+          "non_vintage": true,
+          "producer_sim": 1,
+          "name_sim": 0.6
+        }
+      ],
+      "producer_records": 10,
+      "target_ids": ["135879"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Allegrini — Amarone della Valpolicella Classico [provider/prefix]",
+          "Allegrini — Fieramonte Amarone della Valpolicella Riserva [provider/prefix]",
+          "Lavarini — Amarone della Valpolicella Classico [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 12.6
+      }
+    },
+    {
+      "id": "b125",
+      "segment": "variant",
+      "query": "vega sicilla",
+      "expect": {
+        "producer": "Vega Sicilia",
+        "wine": "Único",
+        "type": "red",
+        "country": "ES"
+      },
+      "vintage": "multi",
+      "variant": "typo",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "155312",
+          "producer": "Vega Sicilia",
+          "name": "Unico",
+          "type": "red",
+          "country": "ES",
+          "vintages": 72,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [],
+      "producer_records": 3,
+      "target_ids": ["155312"],
+      "search": {
+        "rank": 1,
+        "top": [
+          "Vega Sicilia — Unico [provider/fuzzy]",
+          "Vega Sicilia — Valbuena 5º [provider/fuzzy]",
+          "Benjamin de Rothschild-Vega Sicilia — Macán [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 9.7
+      }
+    },
+    {
+      "id": "b126",
+      "segment": "variant",
+      "query": "egon mueller",
+      "expect": {
+        "producer": "Egon Müller",
+        "wine": "Scharzhofberger Riesling Kabinett",
+        "type": "white",
+        "country": "DE"
+      },
+      "vintage": "multi",
+      "variant": "umlaut-transliteration",
+      "coverage": "missing",
+      "exact": [],
+      "partial": [],
+      "producer_records": 0,
+      "target_ids": [],
+      "search": {
+        "rank": null,
+        "top": [
+          "Mueller — Pinot Noir [provider/fuzzy]",
+          "Mueller — LB Chardonnay [provider/fuzzy]",
+          "McKenzie-Mueller — Malbec [provider/fuzzy]"
+        ],
+        "verifiedProvider": false,
+        "ms": 9.9
+      }
+    },
+    {
+      "id": "b127",
+      "segment": "variant",
+      "query": "gruner veltliner bründlmayer",
+      "expect": {
+        "producer": "Bründlmayer",
+        "wine": "Grüner Veltliner Kamptal Terrassen",
+        "type": "white",
+        "country": "AT"
+      },
+      "vintage": "multi",
+      "variant": "word-order",
+      "coverage": "exact",
+      "exact": [
+        {
+          "external_id": "193626",
+          "producer": "Weingut Bründlmayer",
+          "name": "Grüner Veltliner Kamptal Terrassen",
+          "type": "white",
+          "country": "AT",
+          "vintages": 33,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 1
+        }
+      ],
+      "partial": [
+        {
+          "external_id": "194869",
+          "producer": "Weingut Bründlmayer",
+          "name": "Ried Lamm Grüner Veltliner Kamptal",
+          "type": "white",
+          "country": "AT",
+          "vintages": 30,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.71
+        },
+        {
+          "external_id": "194770",
+          "producer": "Weingut Bründlmayer",
+          "name": "Grüner Veltliner Reserve Alte Reben",
+          "type": "white",
+          "country": "AT",
+          "vintages": 31,
+          "non_vintage": false,
+          "producer_sim": 1,
+          "name_sim": 0.65
+        }
+      ],
+      "producer_records": 22,
+      "target_ids": ["193626"],
+      "search": {
+        "rank": 4,
+        "top": [
+          "Weingut Bründlmayer — Grüner Veltliner Bankett [provider/prefix]",
+          "Weingut Bründlmayer — Ried Loiserberg Grüner Veltliner [provider/prefix]",
+          "Weingut Bründlmayer — Grüner Veltliner Reserve Alte Reben [provider/prefix]"
+        ],
+        "verifiedProvider": false,
+        "ms": 30.7
+      }
+    }
+  ]
+}

@@ -451,3 +451,20 @@ Admins edit master data at `/admin/wines`. The database enforces:
   cleared). This is intentional: the catalogue is shared, public wine identity.
 - The only person in it is the acting admin. It is readable by the service role only and shown on admin pages only;
   it is never exported or shared. Reasons are written by admins: keep them about the wine, never about people.
+
+## External providers and catalogue search (Sprint 004A)
+
+External wine data lives apart from the catalogue, in a staging area: `catalog_providers`, `catalog_import_runs`,
+`catalog_external_records` and `catalog_record_links`. Each provider carries its licence, a rights status
+(unverified / verified / blocked, with evidence) and a search scope. An import never creates or changes a CELLR wine.
+It can only suggest a link to one canonical wine with exactly the same identity, and an admin verifies that link.
+`public.catalog_search` searches the household's own wines, the catalogue and enabled provider records for
+autocomplete (`GET /api/v1/catalog/search`).
+
+People's search shows provider records only from providers in scope `public` with verified commercial rights.
+Pilot evaluation data is never shown to people: only the service-role `catalog_search_pilot` sees it, and only in a
+database its owner marked `pilot` or `staging`. Provider rights change only through `admin_catalog_provider_rights`
+(logged), never through an import.
+
+No provider is cleared for production: LWIN is blocked and X-Wines is pilot-only. Design, evidence, licensing
+assessment, coverage and performance: [`docs/sprints/sprint-004a/REPORT.md`](sprints/sprint-004a/REPORT.md).

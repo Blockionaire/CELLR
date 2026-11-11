@@ -1,0 +1,4 @@
+{
+  "description": "Staging Supabase projects the owner approved for catalogue imports (project refs). Production is always refused (lib.ts). Empty until a staging project exists; add a ref only in a reviewed PR.",
+  "staging_project_refs": []
+}

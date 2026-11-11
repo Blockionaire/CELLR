@@ -1,0 +1,8 @@
+WineID,WineName,Type,Elaborate,Grapes,Harmonize,ABV,Body,Acidity,Code,Country,RegionID,RegionName,WineryID,WineryName,Website,Vintages
+900001,Cuvée Fictive Rouge,Red,Assemblage/Blend,"['Merlot', 'Cabernet Franc']",[],13.5,Full-bodied,Medium,FR,France,1,Fictive Région,1,Domaine Imaginaire,,"[2015, 2016, 2018]"
+900002,Cuvée Fictive Réserve,Red,Assemblage/Blend,"['Merlot']",[],14.0,Full-bodied,Medium,FR,France,1,Fictive Région,1,Domaine Imaginaire,,"[2016, 2018]"
+900003,Brut Fictif,Sparkling,Assemblage/Blend,"['Chardonnay', 'Pinot Noir']",[],12.0,Medium-bodied,High,FR,France,2,Champagne Fictive,2,Maison Inventée,,"['N.V.']"
+900004,Rosé Fictif,Rosé,Varietal/100%,"['Grenache']",[],12.5,Light-bodied,Medium,FR,France,3,Provence Fictive,3,Château Imaginé,,"[2022, 2023]"
+900005,Vino Fittizio,Dessert/Port,Varietal/100%,"['Touriga Nacional']",[],20.0,Full-bodied,Low,PT,Portugal,4,Douro Fittizio,4,Quinta Inventada,,"[2011]"
+900006,Bad Row,Red,,[],[],,,,,,,,,,,
+x900007,Bad Id,Red,,[],[],,,,FR,France,,,5,Nobody,,[]

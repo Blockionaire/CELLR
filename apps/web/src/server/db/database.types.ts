@@ -848,6 +848,161 @@ export type Database = {
           },
         ];
       };
+      catalog_external_records: {
+        Row: {
+          appellation: string | null;
+          content_hash: string;
+          country_code: string | null;
+          created_at: string;
+          details: NonNullable<Json>;
+          external_id: string;
+          first_run_id: string | null;
+          id: string;
+          last_run_id: string | null;
+          modifications: string[];
+          name: string;
+          non_vintage: boolean;
+          normalized_name: string;
+          normalized_producer: string;
+          producer: string;
+          provider_id: string;
+          region: string | null;
+          source_url: string | null;
+          status: string;
+          updated_at: string;
+          vintages: number[];
+          wine_type: Database["public"]["Enums"]["wine_type"] | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          appellation?: string | null;
+          content_hash: string;
+          country_code?: string | null;
+          created_at?: string;
+          details?: NonNullable<Json>;
+          external_id: string;
+          first_run_id?: string | null;
+          id?: string;
+          last_run_id?: string | null;
+          modifications?: string[];
+          name: string;
+          non_vintage?: boolean;
+          normalized_name: string;
+          normalized_producer: string;
+          producer: string;
+          provider_id: string;
+          region?: string | null;
+          source_url?: string | null;
+          status?: string;
+          updated_at?: string;
+          vintages?: number[];
+          wine_type?: Database["public"]["Enums"]["wine_type"] | null;
+        };
+        Update: {
+          appellation?: string | null;
+          content_hash?: string;
+          country_code?: string | null;
+          created_at?: string;
+          details?: NonNullable<Json>;
+          external_id?: string;
+          first_run_id?: string | null;
+          id?: string;
+          last_run_id?: string | null;
+          modifications?: string[];
+          name?: string;
+          non_vintage?: boolean;
+          normalized_name?: string;
+          normalized_producer?: string;
+          producer?: string;
+          provider_id?: string;
+          region?: string | null;
+          source_url?: string | null;
+          status?: string;
+          updated_at?: string;
+          vintages?: number[];
+          wine_type?: Database["public"]["Enums"]["wine_type"] | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_external_records_first_run_id_fkey";
+            columns: ["first_run_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_import_runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catalog_external_records_last_run_id_fkey";
+            columns: ["last_run_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_import_runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catalog_external_records_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_providers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      catalog_import_runs: {
+        Row: {
+          counts: NonNullable<Json>;
+          dataset_version: string;
+          finished_at: string | null;
+          id: string;
+          license: string;
+          note: string | null;
+          pilot: boolean;
+          provider_id: string;
+          retrieved_at: string;
+          rights_status: string;
+          source_sha256: string | null;
+          source_url: string | null;
+          started_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          counts?: NonNullable<Json>;
+          dataset_version: string;
+          finished_at?: string | null;
+          id?: string;
+          license: string;
+          note?: string | null;
+          pilot?: boolean;
+          provider_id: string;
+          retrieved_at: string;
+          rights_status: string;
+          source_sha256?: string | null;
+          source_url?: string | null;
+          started_at?: string;
+        };
+        Update: {
+          counts?: NonNullable<Json>;
+          dataset_version?: string;
+          finished_at?: string | null;
+          id?: string;
+          license?: string;
+          note?: string | null;
+          pilot?: boolean;
+          provider_id?: string;
+          retrieved_at?: string;
+          rights_status?: string;
+          source_sha256?: string | null;
+          source_url?: string | null;
+          started_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_import_runs_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_providers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       catalog_labels: {
         Row: {
           content_type: string;
@@ -930,6 +1085,158 @@ export type Database = {
           updated_by?: string | null;
         };
         Relationships: [];
+      };
+      catalog_provider_rights_log: {
+        Row: {
+          actor: string;
+          after: NonNullable<Json>;
+          at: string;
+          before: Json | null;
+          id: number;
+          provider_id: string;
+          reason: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          actor: string;
+          after: NonNullable<Json>;
+          at?: string;
+          before?: Json | null;
+          id?: never;
+          provider_id: string;
+          reason: string;
+        };
+        Update: {
+          actor?: string;
+          after?: NonNullable<Json>;
+          at?: string;
+          before?: Json | null;
+          id?: never;
+          provider_id?: string;
+          reason?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_provider_rights_log_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_providers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      catalog_providers: {
+        Row: {
+          attribution: string | null;
+          commercial_use: boolean;
+          created_at: string;
+          homepage: string | null;
+          id: string;
+          legal_notice: string | null;
+          license: string;
+          license_url: string | null;
+          may_display: boolean;
+          may_store: boolean;
+          modification_notice: string | null;
+          name: string;
+          notes: string | null;
+          rights_evidence: string | null;
+          rights_status: string;
+          rights_verified_at: string | null;
+          rights_verified_by: string | null;
+          search_scope: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          attribution?: string | null;
+          commercial_use?: boolean;
+          created_at?: string;
+          homepage?: string | null;
+          id: string;
+          legal_notice?: string | null;
+          license: string;
+          license_url?: string | null;
+          may_display?: boolean;
+          may_store?: boolean;
+          modification_notice?: string | null;
+          name: string;
+          notes?: string | null;
+          rights_evidence?: string | null;
+          rights_status?: string;
+          rights_verified_at?: string | null;
+          rights_verified_by?: string | null;
+          search_scope?: string;
+          updated_at?: string;
+        };
+        Update: {
+          attribution?: string | null;
+          commercial_use?: boolean;
+          created_at?: string;
+          homepage?: string | null;
+          id?: string;
+          legal_notice?: string | null;
+          license?: string;
+          license_url?: string | null;
+          may_display?: boolean;
+          may_store?: boolean;
+          modification_notice?: string | null;
+          name?: string;
+          notes?: string | null;
+          rights_evidence?: string | null;
+          rights_status?: string;
+          rights_verified_at?: string | null;
+          rights_verified_by?: string | null;
+          search_scope?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      catalog_record_links: {
+        Row: {
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          reason: string | null;
+          record_id: string;
+          state: string;
+          wine_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          reason?: string | null;
+          record_id: string;
+          state: string;
+          wine_id: string;
+        };
+        Update: {
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          reason?: string | null;
+          record_id?: string;
+          state?: string;
+          wine_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_record_links_record_id_fkey";
+            columns: ["record_id"];
+            isOneToOne: true;
+            referencedRelation: "catalog_external_records";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catalog_record_links_wine_id_fkey";
+            columns: ["wine_id"];
+            isOneToOne: false;
+            referencedRelation: "wines";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       catalog_scan_reads: {
         Row: {
@@ -2388,6 +2695,20 @@ export type Database = {
         Args: { p_actor: string; p_from: string; p_into: string };
         Returns: boolean;
       };
+      admin_catalog_provider_rights: {
+        Args: { p: Json; p_actor: string; p_provider: string; p_reason: string };
+        Returns: Json;
+      };
+      admin_catalog_record_decide: {
+        Args: {
+          p_actor: string;
+          p_reason: string;
+          p_record: string;
+          p_state: string;
+          p_wine: string;
+        };
+        Returns: string;
+      };
       admin_catalog_review_signal: {
         Args: { p_actor: string; p_id: string; p_note: string; p_status: string };
         Returns: boolean;
@@ -2585,7 +2906,27 @@ export type Database = {
           wine_id: string;
         }[];
       };
+      catalog_external_import: {
+        Args: { p_apply?: boolean; p_provider: string; p_records: Json; p_run_id: string };
+        Returns: Json;
+      };
       catalog_import: { Args: { p_apply?: boolean; p_entries: Json }; Returns: Json };
+      catalog_import_run_finish: {
+        Args: { p_counts: Json; p_run_id: string; p_withdraw_missing: boolean };
+        Returns: Json;
+      };
+      catalog_import_run_start: {
+        Args: {
+          p_note?: string;
+          p_pilot?: boolean;
+          p_provider: string;
+          p_retrieved_at?: string;
+          p_sha256: string;
+          p_source_url: string;
+          p_version: string;
+        };
+        Returns: string;
+      };
       catalog_note_scan_proposal: {
         Args: {
           p_ai: Json;
@@ -2608,15 +2949,89 @@ export type Database = {
         };
         Returns: boolean;
       };
+      catalog_provider_register: { Args: { p: Json }; Returns: string };
       catalog_purge_scan_reads: { Args: Record<PropertyKey, never>; Returns: number };
       catalog_record_confirmation: {
         Args: { p_image_id?: string; p_wine_id: string; p_year: number };
         Returns: string;
       };
+      catalog_record_provenance: {
+        Args: { p_household_id: string; p_record: string };
+        Returns: Json;
+      };
       catalog_record_scan_outcome: {
         Args: { p_image_id: string; p_wine_id: string; p_year: number };
         Returns: string;
       };
+      catalog_search: {
+        Args: {
+          p_country?: string;
+          p_household_id: string;
+          p_limit?: number;
+          p_query: string;
+          p_region?: string;
+          p_type?: string;
+        };
+        Returns: {
+          attribution: string;
+          bottles: number;
+          country_code: string;
+          license: string;
+          license_url: string;
+          match: string;
+          matched_alias: string;
+          modified: boolean;
+          name: string;
+          producer: string;
+          provider_id: string;
+          provider_name: string;
+          provider_scope: string;
+          record_id: string;
+          region: string;
+          result_kind: string;
+          score: number;
+          source: string;
+          verified: boolean;
+          vintages: number[];
+          wine_id: string;
+          wine_type: string;
+        }[];
+      };
+      catalog_search_pilot: {
+        Args: {
+          p_country?: string;
+          p_household_id: string;
+          p_limit?: number;
+          p_query: string;
+          p_region?: string;
+          p_type?: string;
+        };
+        Returns: {
+          attribution: string;
+          bottles: number;
+          country_code: string;
+          license: string;
+          license_url: string;
+          match: string;
+          matched_alias: string;
+          modified: boolean;
+          name: string;
+          producer: string;
+          provider_id: string;
+          provider_name: string;
+          provider_scope: string;
+          record_id: string;
+          region: string;
+          result_kind: string;
+          score: number;
+          source: string;
+          verified: boolean;
+          vintages: number[];
+          wine_id: string;
+          wine_type: string;
+        }[];
+      };
+      catalog_target_identity: { Args: Record<PropertyKey, never>; Returns: Json };
       catalog_vintage: { Args: { p_wine_id: string; p_year: number }; Returns: string };
       check_signup_allowed: { Args: { p_email: string }; Returns: boolean };
       consume_rate_limit: {

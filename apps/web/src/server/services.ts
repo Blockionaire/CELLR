@@ -38,6 +38,8 @@ import { createRateLimiter, LIMITS } from "@/server/ratelimit/service";
 import { noteScanRead } from "@/server/privileged/catalog-reads";
 import { publishSharedProfile } from "@/server/privileged/shared-profiles";
 import { createContributionService } from "@/server/catalog/contribution";
+import { createCatalogSearchRepository } from "@/server/catalog/search-repository";
+import { createCatalogSearchService } from "@/server/catalog/search";
 import { createScanRepository } from "@/server/scans/repository";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
@@ -131,6 +133,11 @@ export function servicesFor(ctx: RequestContext) {
       }
     },
     contribution: createContributionService(ctx.db, ctx.userId),
+    catalogSearch: createCatalogSearchService({
+      repo: createCatalogSearchRepository(ctx.db),
+      householdId: async () => (await household()).id,
+      spend: () => limiter.enforce(LIMITS.catalogSearch),
+    }),
     households,
     cellar,
     images,

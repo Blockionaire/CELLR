@@ -34,3 +34,6 @@ export * from "./feedback";
 export * from "./bottle-library";
 export * from "./wine-master";
 export * from "./purchase-check";
+export * from "./catalog-search";
+export * from "./catalog-providers";
+export * from "./provenance";

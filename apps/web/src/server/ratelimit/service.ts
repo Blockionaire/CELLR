@@ -29,6 +29,8 @@ export const LIMITS = {
   purchaseCheck: { bucket: "purchase_check", limit: 120, windowSeconds: 3600 },
   /** Beta feedback: plenty for a person with a lot to say, not for a script filling the inbox. */
   feedback: { bucket: "feedback", limit: 10, windowSeconds: 3600 },
+  /** Wine-name autocomplete: a debounced search per pause in typing; a long evening of entry, not a scraper. */
+  catalogSearch: { bucket: "catalog_search", limit: 600, windowSeconds: 3600 },
 } as const satisfies Record<string, RateLimit>;
 
 export function createRateLimiter(repo: RateLimitRepository) {
