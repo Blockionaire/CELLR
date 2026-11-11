@@ -14,6 +14,13 @@ import { labelMark, shapeFor, STAGE } from "./wine-visuals";
 const ART_STAGE =
   "bg-[radial-gradient(ellipse_90%_75%_at_50%_32%,var(--art-stage-hi)_0%,var(--art-stage-lo)_100%)]";
 
+/**
+ * The wine stage, for a 2D bottle on a wine card that opens the wine's page: CELLR's burgundy (the hero's, tuned
+ * down), a soft warm glow behind the bottle and darker edges. Pure CSS, the same in both themes.
+ */
+const WINE_STAGE =
+  "bg-[radial-gradient(ellipse_62%_46%_at_50%_46%,var(--art-wine-glow)_0%,transparent_72%),radial-gradient(ellipse_115%_95%_at_50%_38%,var(--art-wine-hi)_0%,var(--art-wine-mid)_55%,var(--art-wine-lo)_100%)]";
+
 export interface PictureWine {
   vintageId: string;
   type: WineType;
@@ -44,6 +51,7 @@ export function WinePicture({
   className,
   bottleClassName,
   artClassName,
+  stage = "neutral",
 }: {
   wine: PictureWine;
   size?: "thumb" | "photo";
@@ -57,6 +65,11 @@ export function WinePicture({
   bottleClassName?: string;
   /** Sizes the 2D picture only (it fills its frame differently from the drawn bottle). */
   artClassName?: string;
+  /**
+   * What stands behind a finished 2D picture: the neutral field (default), or the burgundy wine stage of the wine
+   * cards. A photo and the drawn bottle are never affected.
+   */
+  stage?: "neutral" | "wine";
 }) {
   const vintage = formatVintage(wine.year);
   const art = wine.art ?? null;
@@ -65,16 +78,22 @@ export function WinePicture({
       aria-hidden={alt && (art || wine.image) ? undefined : true}
       data-photo={!art && wine.image ? "true" : undefined}
       data-art={art ? "true" : undefined}
+      data-stage={art ? stage : undefined}
       className={cn(
         "relative isolate flex items-end justify-center overflow-hidden",
-        art ? ART_STAGE : STAGE[wine.type],
+        art ? (stage === "wine" ? WINE_STAGE : ART_STAGE) : STAGE[wine.type],
         className,
       )}
     >
       {art ? (
         <>
-          {/* the bottle's shadow on the floor */}
-          <span className="absolute bottom-[5%] left-1/2 h-[7%] w-[62%] -translate-x-1/2 rounded-[50%] bg-black/25 blur-[6px]" />
+          {/* the bottle's shadow on the floor (a little deeper on the wine stage, so it still reads) */}
+          <span
+            className={cn(
+              "absolute bottom-[5%] left-1/2 h-[7%] w-[62%] -translate-x-1/2 rounded-[50%] blur-[6px]",
+              stage === "wine" ? "bg-black/40" : "bg-black/25",
+            )}
+          />
           <BottleArtImage
             art={art}
             alt={alt ?? ""}

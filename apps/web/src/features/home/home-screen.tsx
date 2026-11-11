@@ -478,6 +478,7 @@ function ShelfCard({
           shared={shared}
           className="aspect-[3/4] w-full rounded-[18px] shadow-raised ring-1 ring-hairline transition-transform duration-300 ease-spring group-hover/card:-translate-y-0.5 group-active/card:scale-[0.97]"
           bottleClassName="h-[80%]"
+          stage="wine"
         />
         <p className="mt-2.5 truncate text-caption font-medium uppercase tracking-[0.12em] text-bronze">
           {item.producer}
