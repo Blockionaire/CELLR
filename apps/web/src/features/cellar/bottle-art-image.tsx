@@ -98,16 +98,10 @@ export function BottleArtImage({
   art,
   alt,
   className,
-  contain = false,
 }: {
   art: BottleArtRef;
   alt: string;
   className?: string;
-  /**
-   * Fill a frame instead of a height: the bottle as large as fits in its nearest size container (an element with
-   * `container-type: size`), never stretched, never cut. The whole picture until the bottle's outline is known.
-   */
-  contain?: boolean;
 }) {
   // the server (and the first paint) shows the whole picture; the browser then knows, or measures, the bottle's box
   const box = useSyncExternalStore(
@@ -139,30 +133,6 @@ export function BottleArtImage({
       className={style ? "absolute max-w-none" : cn("object-contain", className)}
     />
   );
-  if (contain) {
-    // the bottle's own proportions (the whole picture's until measured), fitted into the frame both ways
-    const b = box ?? { l: 0, t: 0, w: 1, h: 1 };
-    const ratio = (b.w * art.width) / (b.h * art.height);
-    return (
-      <span
-        data-art-cropped={box ? "true" : undefined}
-        className={cn("block", className)}
-        style={{
-          aspectRatio: `${b.w * art.width} / ${b.h * art.height}`,
-          width: `min(100cqw, calc(100cqh * ${ratio.toFixed(5)}))`,
-        }}
-      >
-        <span className="relative block size-full overflow-hidden">
-          {img({
-            width: `${100 / b.w}%`,
-            height: `${100 / b.h}%`,
-            left: `${(-b.l / b.w) * 100}%`,
-            top: `${(-b.t / b.h) * 100}%`,
-          })}
-        </span>
-      </span>
-    );
-  }
   if (!box) return img();
   return (
     <span
