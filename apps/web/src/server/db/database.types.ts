@@ -1086,6 +1086,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      catalog_provider_rights_log: {
+        Row: {
+          actor: string;
+          after: NonNullable<Json>;
+          at: string;
+          before: Json | null;
+          id: number;
+          provider_id: string;
+          reason: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          actor: string;
+          after: NonNullable<Json>;
+          at?: string;
+          before?: Json | null;
+          id?: never;
+          provider_id: string;
+          reason: string;
+        };
+        Update: {
+          actor?: string;
+          after?: NonNullable<Json>;
+          at?: string;
+          before?: Json | null;
+          id?: never;
+          provider_id?: string;
+          reason?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_provider_rights_log_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_providers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       catalog_providers: {
         Row: {
           attribution: string | null;
@@ -2656,6 +2695,10 @@ export type Database = {
         Args: { p_actor: string; p_from: string; p_into: string };
         Returns: boolean;
       };
+      admin_catalog_provider_rights: {
+        Args: { p: Json; p_actor: string; p_provider: string; p_reason: string };
+        Returns: Json;
+      };
       admin_catalog_record_decide: {
         Args: {
           p_actor: string;
@@ -2906,7 +2949,7 @@ export type Database = {
         };
         Returns: boolean;
       };
-      catalog_provider_upsert: { Args: { p: Json }; Returns: string };
+      catalog_provider_register: { Args: { p: Json }; Returns: string };
       catalog_purge_scan_reads: { Args: Record<PropertyKey, never>; Returns: number };
       catalog_record_confirmation: {
         Args: { p_image_id?: string; p_wine_id: string; p_year: number };
@@ -2954,6 +2997,41 @@ export type Database = {
           wine_type: string;
         }[];
       };
+      catalog_search_pilot: {
+        Args: {
+          p_country?: string;
+          p_household_id: string;
+          p_limit?: number;
+          p_query: string;
+          p_region?: string;
+          p_type?: string;
+        };
+        Returns: {
+          attribution: string;
+          bottles: number;
+          country_code: string;
+          license: string;
+          license_url: string;
+          match: string;
+          matched_alias: string;
+          modified: boolean;
+          name: string;
+          producer: string;
+          provider_id: string;
+          provider_name: string;
+          provider_scope: string;
+          record_id: string;
+          region: string;
+          result_kind: string;
+          score: number;
+          source: string;
+          verified: boolean;
+          vintages: number[];
+          wine_id: string;
+          wine_type: string;
+        }[];
+      };
+      catalog_target_identity: { Args: Record<PropertyKey, never>; Returns: Json };
       catalog_vintage: { Args: { p_wine_id: string; p_year: number }; Returns: string };
       check_signup_allowed: { Args: { p_email: string }; Returns: boolean };
       consume_rate_limit: {

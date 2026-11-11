@@ -7,7 +7,7 @@
   "retrieved_at": "2026-11-11",
   "license": "CC0-1.0",
   "rights_status": "unverified",
-  "run": "7c83bdda-9248-45c3-a6db-fe40ed461d18",
+  "run": "f29e6ab1-ab68-4ea8-8223-7065b0776d53",
   "rows": 100646,
   "adapter_records": 100646,
   "adapter_skipped": {},
@@ -20,9 +20,9 @@
   "problems": [],
   "finish": {
     "j": {
-      "run": "7c83bdda-9248-45c3-a6db-fe40ed461d18",
+      "run": "f29e6ab1-ab68-4ea8-8223-7065b0776d53",
       "withdrawn": 0
     }
   },
-  "seconds": 56.2
+  "seconds": 53.1
 }

@@ -11,11 +11,15 @@ production import, no deployment**.
 | What was built?                                                                   | A provider-independent **staging catalogue** (providers with licence and rights status, import runs, external records with per-record provenance, record→canonical links), a trigger-maintained **search index**, a ranked **search function** + `GET /api/v1/catalog/search`, a **provenance model** for a future "Bronnen & betrouwbaarheid" section, provider adapters (X-Wines, LWIN-shaped, fixture), and import / benchmark / load-test tooling. |
 | Which provider?                                                                   | None is cleared for production. **X-Wines** (CC0, 100,646 wines) works technically and was used for the pilot, but its provenance is a legal blocker. **LWIN** is **blocked**: its CC BY page conflicts with Liv-ex's website and membership terms. **WineAPI.io** is unsuitable (public beta, 100–1,000 requests/day, undisclosed sources, free tier non-commercial) (§2, §3).                                                                        |
 | Coverage (127-wine benchmark, X-Wines)                                            | 56 exact + 20 same-wine-different-label-name (manual review) = **76 (60%)** present without ambiguity; 11 need a choice; 23 have only the producer (often only its second wine); 15 missing; 2 uncertain (§4).                                                                                                                                                                                                                                         |
-| Search quality                                                                    | Of 95 queries with a covered record: **77 top-1, 84 top-3, 92 top-8**. No provider result was ever marked verified (§4.3).                                                                                                                                                                                                                                                                                                                             |
-| Performance (100,646 records + 10,300 household wines, local Postgres 16, 4 vCPU) | p95 **23 ms** (1 client), **48 ms** (8), **90 ms** (16 concurrent clients); target was < 250 ms (§7).                                                                                                                                                                                                                                                                                                                                                  |
-| Tests                                                                             | 75 new SQL assertions (1108 total, all passing), 41 new unit tests; existing Scan, cellar and Purchase Check suites pass unchanged (§10).                                                                                                                                                                                                                                                                                                              |
+| Search quality                                                                    | Of 95 queries with a covered record: **77 top-1, 84 top-3, 92 top-8**, measured on the evaluation (pilot) search. No provider result was ever marked verified (§4.3).                                                                                                                                                                                                                                                                                  |
+| Performance (100,646 records + 10,300 household wines, local Postgres 16, 4 vCPU) | p95 **24 ms** (1 client), **47 ms** (8), **93 ms** (16 concurrent clients) on the evaluation path over 100k records; people's search 36 ms at 8 clients; target was < 250 ms (§7).                                                                                                                                                                                                                                                                     |
+| Tests                                                                             | 102 new SQL assertions (1135 total, all passing), 53 new unit tests; existing Scan, cellar and Purchase Check suites pass unchanged (§10).                                                                                                                                                                                                                                                                                                             |
 
 ---
+
+> **Review of PR #65 (§14).** An independent architecture and security review found three issues before merge:
+> pilot data could reach people's search, imports could overwrite reviewed provider rights, and the remote-target
+> check was too weak. All three are fixed in this PR; §3.5, §5–§8 and §10 describe the corrected design.
 
 ## 1. Existing architecture (audit)
 
@@ -173,20 +177,22 @@ Cloud Solutions (Terms §9). **Not suitable** until its terms state caching and 
 
 ### 3.5 What the system enforces (so nothing rests on memory)
 
-| Rule                                                                                                                              | Enforced by                                                                                                                                           |
-| --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No import of a provider whose licence does not allow storing                                                                      | `catalog_import_run_start` / `catalog_external_import` refuse (`may_store`)                                                                           |
-| No import at all while rights are `blocked` (LWIN)                                                                                | Both functions refuse, even for pilots (tested)                                                                                                       |
-| No non-pilot import before rights are `verified`                                                                                  | `catalog_import_run_start` refuses (tested); the pilot runner shows the refusal for X-Wines                                                           |
-| `verified` needs evidence, a date and who verified it                                                                             | Check constraint (tested)                                                                                                                             |
-| Records reach people only when storing **and** displaying are allowed; publicly only with verified commercial rights              | `search_scope` constraints (`off` / `pilot` / `public`) (tested)                                                                                      |
-| The import tool never sets `public` and refuses non-local databases                                                               | `scripts/catalog-tools/import.ts`, `assertSafeTarget` (unit-tested)                                                                                   |
-| Each run keeps the licence and rights status it was imported under, the retrieval date, file hash, source URL and dataset version | `catalog_import_runs` (tested)                                                                                                                        |
-| Each record keeps provider, external id, its source URL, first/last run and what CELLR modified                                   | `catalog_external_records` (tested)                                                                                                                   |
-| No ratings, prices or reviews in provider records                                                                                 | Import refuses `details` with those keys (tested); adapters never read them                                                                           |
-| Provider data stays separate from CELLR's and households' data                                                                    | Separate tables; a record never becomes a canonical wine; links are admin-verified and audited                                                        |
-| Attribution, licence link, modification flag and scope travel with every provider search result                                   | `catalog_search` columns → `CatalogSearchHit.provider`                                                                                                |
-| No implied endorsement                                                                                                            | `noEndorsement()` text; a unit test rejects "partner", "powered by", "official", "in samenwerking", "aangeboden door" in credits and provider notices |
+| Rule                                                                                                                                          | Enforced by                                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No import of a provider whose licence does not allow storing                                                                                  | `catalog_import_run_start` / `catalog_external_import` refuse (`may_store`)                                                                                                                                                               |
+| No import at all while rights are `blocked` (LWIN)                                                                                            | Both functions refuse, even for pilots (tested)                                                                                                                                                                                           |
+| No non-pilot import before rights are `verified`                                                                                              | `catalog_import_run_start` refuses (tested); the pilot runner shows the refusal for X-Wines                                                                                                                                               |
+| `verified` needs evidence, a date and who verified it                                                                                         | Check constraint (tested)                                                                                                                                                                                                                 |
+| Records reach people only from providers in scope `public` with verified commercial rights, re-checked at query time; pilot records **never** | `public.catalog_search` searches scope `public` only; `catalog_search_pilot` is service-role only and refuses outside pilot/staging databases; the app drops any non-`public` record again (`publicSearchHits`) (tested)                  |
+| An import never registers rights or changes licence, rights or scope                                                                          | `catalog_provider_register` sets descriptive fields only; rights only via `admin_catalog_provider_rights` (reason + actor, logged in `catalog_provider_rights_log`); `import.ts` calls neither (tested in SQL and by a source guard)      |
+| The tools write only to a local pilot database or an approved staging project; never production                                               | `assertSafeTarget` (approved staging refs, URL must name the project, production ref always refused) + `assertTargetIdentity` (the database must say `pilot`/`staging`; unmarked = production) (unit-tested; the pilot shows the refusal) |
+| A pilot scope cannot exist in a production database                                                                                           | `catalog_providers_guard` trigger + `private.catalog_settings` (written only by the database owner) (tested)                                                                                                                              |
+| Each run keeps the licence and rights status it was imported under, the retrieval date, file hash, source URL and dataset version             | `catalog_import_runs` (tested)                                                                                                                                                                                                            |
+| Each record keeps provider, external id, its source URL, first/last run and what CELLR modified                                               | `catalog_external_records` (tested)                                                                                                                                                                                                       |
+| No ratings, prices or reviews in provider records                                                                                             | Import refuses `details` with those keys (tested); adapters never read them                                                                                                                                                               |
+| Provider data stays separate from CELLR's and households' data                                                                                | Separate tables; a record never becomes a canonical wine; links are admin-verified and audited                                                                                                                                            |
+| Attribution, licence link, modification flag and scope travel with every provider search result                                               | `catalog_search` columns → `CatalogSearchHit.provider`                                                                                                                                                                                    |
+| No implied endorsement                                                                                                                        | `noEndorsement()` text; a unit test rejects "partner", "powered by", "official", "in samenwerking", "aangeboden door" in credits and provider notices                                                                                     |
 
 ### 3.6 Production-import blockers (open, not assumed)
 
@@ -283,8 +289,11 @@ Findings:
 ## 5. Database design (`supabase/migrations/20261114000037_catalog_search.sql`)
 
 ```
+private.catalog_settings   environment production|staging|pilot (+ project ref); owner-only; no row = production
 catalog_providers ─┐ licence, attribution, legal notice, modification notice,
                    │ may_store/may_display/commercial_use, rights_status + evidence, search_scope
+                   │ (pilot scope impossible in production: trigger)
+catalog_provider_rights_log  every rights/licence/scope change: before, after, reason, actor
 catalog_import_runs┤ dataset version, source URL, SHA-256, retrieved_at, pilot, licence + rights at import
 catalog_external_records (provider_id, external_id) unique
                    │ producer, name, type, country, region, appellation, vintages[], non_vintage,
@@ -292,6 +301,11 @@ catalog_external_records (provider_id, external_id) unique
                    │ content_hash, status active/withdrawn, first/last run
 catalog_record_links record → canonical wine, state suggested/verified/rejected (admin, audited)
 private.catalog_search_entries  one row per wine name, canonical alias, provider record (triggers)
+private.catalog_search_impl     the search; callable by no API role
+  public.catalog_search          people (authenticated): own household, providers in scope 'public' only
+  public.catalog_search_pilot    service role only, pilot/staging databases only: also scope 'pilot'
+public.catalog_provider_register     an import's only provider write: name, homepage, notes
+public.admin_catalog_provider_rights rights, licence, notices, scope: admin, reason + actor, logged
 
 public.wines / producers / wine_vintages / wine_aliases   ← unchanged; canonical vs provisional preserved
 households' bottles, tastings, valuations                  ← unchanged; never referenced by provider data
@@ -323,7 +337,9 @@ How the separations asked for map onto the design:
 
 ## 6. Search implementation
 
-`public.catalog_search(household, query, type?, country?, region?, limit?)` → compact rows. Exposed through
+`public.catalog_search(household, query, type?, country?, region?, limit?)` → compact rows (providers in scope `public`
+only). `public.catalog_search_pilot` runs the same implementation including scope `pilot`, for evaluation only
+(service role, pilot or staging databases). Exposed through
 `GET /api/v1/catalog/search?q=&type=&country=&region=&limit=` (`apps/web/src/app/api/v1/catalog/search/route.ts` →
 `server/catalog/search.ts` → `search-repository.ts`).
 
@@ -353,11 +369,17 @@ each benchmark query typed as its first 3, 5 and 8 characters, then in full, wit
 common words. That is 638 searches × 3 shuffled rounds = **1,914 searches per run**, after one warm-up pass. Timings are
 measured at the client: database time plus the local round trip. They exclude the API layer and the network.
 
+Evaluation path (`catalog_search_pilot`, the same implementation as people's search, over all 100,646 pilot records):
+
 | Concurrent clients |     p50 |         p95 |    p99 |    max | throughput |
 | -----------------: | ------: | ----------: | -----: | -----: | ---------: |
-|                  1 |  7.2 ms | **23.3 ms** |  61 ms | 153 ms |      101/s |
-|                  8 | 13.7 ms | **47.6 ms** | 110 ms | 298 ms |      414/s |
-|                 16 | 29.1 ms | **89.9 ms** | 192 ms | 543 ms |      398/s |
+|                  1 |  7.1 ms | **24.3 ms** |  64 ms | 163 ms |       99/s |
+|                  8 | 13.0 ms | **46.7 ms** |  87 ms | 228 ms |      435/s |
+|                 16 | 30.1 ms | **93.1 ms** | 196 ms | 528 ms |      395/s |
+
+People's path (`catalog_search` as a signed-in member, RLS and membership check, 8 clients): p50 9.7 ms, p95 **36.2
+ms**, p99 118 ms. In the pilot database this path searches CELLR's own wines only (no provider is `public` there), so it
+measures the wrapper and membership overhead, not a 100k provider set; the evaluation path above is the upper bound.
 
 - **Tuning that got here** (measured on the same data): the first version used threshold 0.55 and always ran the fuzzy
   branch, with p95 63 / 119 / 272 ms. "chateau margau" took 476 ms because 15,505 rows passed word similarity 0.55;
@@ -376,6 +398,10 @@ measured at the client: database time plus the local round trip. They exclude th
 `bash scripts/catalog-tools/pilot.sh <XWines_Full_100K_wines.csv>`, on a throwaway local Postgres that is deleted
 afterwards. Results are in `docs/sprints/sprint-004a/results/`.
 
+0. **Target checks:** the freshly built database has no environment mark, so it counts as production, and the tools
+   refused it ("the target database says it is production"). The owner then marked it `pilot` with plain SQL.
+   Providers were registered, and their rights set explicitly with `provider.ts rights` (logged). X-Wines got
+   `may_store`, `may_display`, rights `unverified`, scope `pilot`, and `commercial_use` false.
 1. **Fixture** (`eval/catalog/fixture-xwines-layout.csv`, CELLR-written fictitious wines). A dry run writes nothing.
    Applying it inserted 5 records; the adapter refused 2 bad rows. Re-importing gave 5 unchanged.
 2. **X-Wines non-pilot import: refused** ("rights are not verified; only a pilot run is allowed").
@@ -383,7 +409,8 @@ afterwards. Results are in `docs/sprints/sprint-004a/results/`.
    invalid. Duplicates within the provider are reported: 171 on the first run, 331 on the second (the second run counts
    both members of each pair).
 4. **Re-import:** 0 inserted, 0 updated, 100,646 unchanged (idempotent). `--withdraw-missing` withdrew 0.
-5. **Search** against the imported records: §4.3 and §7.
+5. **Pilot separation:** for "muga reserva", people's search returned **0** provider rows and the pilot search 20.
+6. **Search** against the imported records: §4.3 and §7.
 
 ---
 
@@ -419,19 +446,19 @@ Rules:
 - External facts always show their credit line.
 - AI estimates are always labelled as estimates (as the existing UI already does).
 - Household data is never mixed into the catalogue groups.
-- Pilot-scope data shows "proefgegevens" and is never presented as licensed.
+- Pilot-scope data never reaches a wine page at all; only `public` providers do.
 - No provider logos or "powered by"-style wording.
 
 ---
 
 ## 10. Checks run
 
-| Check                                                                                   | Result                                                                                                           |
-| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `pnpm db:test`: migrations + permission suite (Postgres 16)                             | **1108 passed**, 0 failed (75 new in `99_catalog_search.test.sql`; the 1033 existing ones unchanged and passing) |
-| `pnpm test`: unit tests, all packages (includes Scan, cellar and Purchase Check)        | see the PR description for the final run                                                                         |
-| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm db:types:check`, `pnpm build` | see the PR description                                                                                           |
-| Pilot (`pilot.sh`)                                                                      | passed end to end (§8)                                                                                           |
+| Check                                                                                                                                  | Result                                                                                                            |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `pnpm db:test`: migrations + permission suite (Postgres 16)                                                                            | **1135 passed**, 0 failed (102 new in `99_catalog_search.test.sql`; the 1033 existing ones unchanged and passing) |
+| `pnpm test`: unit tests, all packages (includes Scan, cellar and Purchase Check)                                                       | web 706 passed (12 skipped, as on `main`), domain 581, scan-eval 26, catalog-tools 14                             |
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm db:types:check`, `pnpm build`, bundle secret scan, migration-integrity guard | all pass (lint: one existing warning in `playwright.webkit.config.ts`)                                            |
+| Pilot (`pilot.sh`)                                                                                                                     | passed end to end (§8)                                                                                            |
 
 Not run here: `pnpm e2e` (main / nightly only in CI) and the real-Supabase-stack job (needs Docker). CI runs both.
 
@@ -448,7 +475,9 @@ Not run here: `pnpm e2e` (main / nightly only in CI) and the real-Supabase-stack
 3. **Admin review of record links** at `/admin/catalog` (verify / reject suggested links), reusing the Wine Master
    pages.
 4. **Resolve blockers B1–B5** (§3.6). If Liv-ex confirms: obtain the file, verify the LWIN adapter's column layout,
-   then run a staging import with `search_scope = 'pilot'`, review, and only then go `public`.
+   mark the staging database `staging` (owner SQL, with its project ref), add the ref to `approved-targets.json` in a
+   reviewed PR, run a staging import with `search_scope = 'pilot'`, review with `catalog_search_pilot`, and only then,
+   with verified rights, set `public`.
 5. **Measure on staging** (Supabase, PostgREST, real network): p95 at the API.
 6. **Build "Bronnen & betrouwbaarheid"** (§9) on the wine page, starting with AI estimates vs household data, which
    exist today.
@@ -465,8 +494,11 @@ Not run here: `pnpm e2e` (main / nightly only in CI) and the real-Supabase-stack
   is negligible at current scale; for bulk curated imports, measure on staging.
 - **Ranking:** the weights (owned +0.6, own +0.4, catalogue +0.3) are first choices validated on this benchmark only.
   Tune with real query logs: count them, do not store query text.
-- **Search scope `pilot` in production** would show unverified data. It is visible in every result
-  (`provider.scope`), but the production checklist must confirm no provider has `pilot` scope.
+- **Environment mark:** the protection relies on a production database having no `catalog_settings` row, or
+  `production`. Marking production as `staging` would be a deliberate owner action in SQL; the production checklist
+  should still confirm `select private.catalog_environment()` = `production` after each migration.
+- **Production ref list:** `PRODUCTION_PROJECT_REFS` holds today's production project. A new production project must be
+  added there.
 - **LWIN adapter** is written against an assumed column layout and refuses other files. It is unverified.
 
 ## 13. Reproduce
@@ -478,3 +510,11 @@ bash scripts/db-test.sh
 # check its SHA-256 against their INFO_Hashing.txt, unzip, then:
 bash scripts/catalog-tools/pilot.sh /path/to/XWines_Full_100K_wines.csv
 ```
+
+## 14. Review of PR #65: findings and fixes
+
+| #   | Finding                                                                                                                                 | Fix                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Pilot data exposure.** `catalog_search` returned providers with `search_scope in ('pilot','public')` to signed-in people.             | Fail-closed split: `private.catalog_search_impl` (no API role may call it); `public.catalog_search` passes scope `public` only and re-checks `rights_status = 'verified'`, storage, display and commercial rights at query time; `public.catalog_search_pilot` is service-role only and refuses unless the database owner marked the database `pilot` or `staging` (`private.catalog_settings`; no row = production). In production, a provider cannot be put in the pilot scope (trigger), and a pilot run is refused. `catalog_record_provenance` is public-scope only. The app drops any non-`public` provider row again (`publicSearchHits`), and the domain type no longer has a pilot scope.                                                              | SQL: people and anonymous callers cannot call the pilot search; the people-facing search (even as the service role) never returns pilot records, also in a pilot database; no provenance for them; with a pilot provider left behind in a production database, still nothing is shown and the pilot search refuses; scope can be switched off there but not on. Unit: pilot, unknown, missing and mis-cased scopes are dropped by the service. Pilot run: 0 vs 20 rows. |
+| 2   | **Imports could overwrite reviewed rights.** `import.ts` called `catalog_provider_upsert()` with the static configuration on every run. | `catalog_provider_upsert` is removed. `catalog_provider_register` sets only name, homepage and notes; a new provider starts with no rights (licence `unknown`, nothing stored or shown, `unverified`, scope `off`). Rights, licence, notices and scope change only through `admin_catalog_provider_rights(provider, fields, reason, actor)`: only the given fields change, unknown fields are refused, and every change is logged with before and after. `import.ts` only reads the provider (it fails if the provider is not registered) and rejects `--search-scope`. The admin CLI is `provider.ts`.                                                                                                                                                         | SQL: a register payload claiming verified/public rights is ignored; unverified → pilot run only → verified (with evidence) → re-registered with "unverified/off/no rights" in the payload → rights, evidence, licence and notices unchanged → later runs recorded under `verified`; 2 log entries, none for re-registering; reason and actor required. Unit: a source guard asserts the importer calls no provider registration or rights function.                     |
+| 3   | **Weak remote-target protection.** `--allow-remote-staging` accepted any remote database.                                               | That flag is removed (and now refused). A remote target needs `--staging-project <ref>`; the ref must be in `approved-targets.json` (empty until a staging project exists) and not be production; the URL must name that project (`db.<ref>.supabase.co`, or a Supabase pooler with user `postgres.<ref>`). Any URL containing the production ref (`vvelgyhbjfmjvxkzekyz`) is refused whatever the flags or the list say. After connecting, the database itself must report `staging` and the same project ref (or `pilot`/`staging` locally); an unmarked database is production and is refused. All tools (import, provider, benchmark, perf) go through this check. The local pilot workflow is unchanged apart from marking the throwaway database `pilot`. | Unit: local allowed; unapproved ref, another project's URL, the old flag and every production form refused (including production in the approved list); identity check refuses production, a wrong environment and a wrong ref. Pilot run: the unmarked database was refused before it was marked.                                                                                                                                                                      |

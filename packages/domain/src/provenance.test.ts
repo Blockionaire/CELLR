@@ -43,9 +43,6 @@ describe("provenance", () => {
       "Source: X-Wines dataset (2023) · licence CC0-1.0",
     );
   });
-  it("marks pilot data as such", () => {
-    expect(attributionLine({ ...notice, scope: "pilot" }, "en")).toMatch(/pilot data$/);
-  });
   it("never implies endorsement", () => {
     for (const locale of ["nl", "en"] as const) {
       const text = `${attributionLine(notice, locale)} ${noEndorsement(notice.providerName, locale)}`;

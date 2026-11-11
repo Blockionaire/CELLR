@@ -3,32 +3,26 @@
  *
  *   pnpm --filter @cellr/catalog-tools import --db <url> --provider xwines --file XWines_Full_100K_wines.csv \
  *     --sha256 <expected> --dataset-version "X-Wines 1.0 (2023-01)" --source-url https://… --retrieved-at 2026-11-11
- *     [--apply] [--pilot] [--search-scope pilot] [--withdraw-missing] [--limit N] [--out report.json]
+ *     [--apply] [--pilot] [--withdraw-missing] [--limit N] [--out report.json] [--staging-project <ref>]
  *
  * Dry run unless --apply. Idempotent: the same file again reports everything `unchanged`. Never writes CELLR wines.
  * Licensing is enforced by the database: a provider whose rights are not verified can only be imported with --pilot,
- * a blocked provider not at all, and this tool never sets a provider's search scope to "public" (an owner decision,
- * made with the rights evidence, never by an import).
+ * a blocked provider not at all. This tool never registers a provider or changes its licence, rights or scope: that is
+ * an admin action in provider.ts (logged). The provider must already be registered.
+ * Targets: a local pilot database, or an approved staging project (target.ts); production is always refused.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import {
-  ADAPTERS,
-  csvObjects,
-  PROVIDERS,
-  type ProviderId,
-  type ProviderRecord,
-} from "@cellr/domain";
-import { actAsService, assertSafeTarget, connect, parseArgs, sha256, str } from "./lib";
+import { ADAPTERS, csvObjects, type ProviderId, type ProviderRecord } from "@cellr/domain";
+import { parseArgs, sha256, str } from "./lib";
+import { connectToTarget } from "./target";
 
 const BATCH = 500;
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const db = str(args, "db");
-  assertSafeTarget(db, args);
   const providerId = str(args, "provider") as ProviderId;
-  const provider = PROVIDERS[providerId];
-  if (!provider) throw new Error(`unknown provider ${providerId}`);
+  if (!(providerId in ADAPTERS)) throw new Error(`no adapter for provider ${providerId}`);
   const file = str(args, "file");
   const bytes = readFileSync(file);
   const hash = sha256(bytes);
@@ -47,19 +41,25 @@ async function main() {
     else skipped[r.reason] = (skipped[r.reason] ?? 0) + 1;
   }
 
-  const scope = str(args, "search-scope", "off");
-  if (scope !== "off" && scope !== "pilot")
-    throw new Error("--search-scope may only be off or pilot");
+  if (args["search-scope"] !== undefined)
+    throw new Error(
+      "--search-scope is not an import option: a provider's scope is managed with provider.ts",
+    );
   const retrievedAt = str(args, "retrieved-at");
   if (Number.isNaN(Date.parse(retrievedAt))) throw new Error("--retrieved-at must be a date");
 
-  const client = await connect(db);
-  await actAsService(client);
+  const client = await connectToTarget(db, args);
   const started = performance.now();
   try {
-    await client.query("select public.catalog_provider_upsert($1::jsonb)", [
-      JSON.stringify({ ...provider, search_scope: scope }),
-    ]);
+    // read-only: the reviewed licence and rights as the database holds them (never the static configuration)
+    const registered = await client.query<{ license: string; rights_status: string }>(
+      "select license, rights_status from public.catalog_providers where id = $1",
+      [providerId],
+    );
+    if (registered.rows.length === 0)
+      throw new Error(
+        `provider ${providerId} is not registered: an admin registers it and sets its rights (provider.ts)`,
+      );
     let run: string | null = null;
     if (apply) {
       const r = await client.query<{ id: string }>(
@@ -110,8 +110,8 @@ async function main() {
       applied: apply,
       pilot: args.pilot === true,
       retrieved_at: retrievedAt,
-      license: provider.license,
-      rights_status: provider.rights_status,
+      license: registered.rows[0]!.license,
+      rights_status: registered.rows[0]!.rights_status,
       run,
       rows: Math.min(rows.length, limit),
       adapter_records: records.length,

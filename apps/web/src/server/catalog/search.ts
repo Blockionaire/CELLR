@@ -1,7 +1,7 @@
 import "server-only";
 import {
+  publicSearchHits,
   searchableQuery,
-  toSearchHit,
   type CatalogSearchQuery,
   type CatalogSearchResponse,
 } from "@cellr/domain";
@@ -34,7 +34,7 @@ export function createCatalogSearchService({ repo, householdId, spend }: Catalog
         limit: input.limit,
       });
       if (rows === null) return { query, results: [], available: false };
-      return { query, results: rows.map(toSearchHit), available: true };
+      return { query, results: publicSearchHits(rows), available: true };
     },
   };
 }

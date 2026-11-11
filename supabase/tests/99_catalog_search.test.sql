@@ -18,6 +18,23 @@ create function test.cs_count(h uuid, q text, lim int default 10) returns int la
   select cardinality(test.cs(h, q, null, null, null, lim))
 $$;
 grant execute on function test.cs_count(uuid, text, int) to public;
+-- the same, through the pilot search (service role, pilot or staging databases only)
+create function test.cs_pilot(h uuid, q text) returns text[] language sql as $$
+  select coalesce(array_agg(s.producer || ' | ' || s.name || ' | ' || s.source || ' | ' || coalesce(s.provider_scope, '-')
+                            order by s.ord), '{}')
+    from (select r.*, row_number() over () as ord from public.catalog_search_pilot(h, q) r) s
+$$;
+grant execute on function test.cs_pilot(uuid, text) to public;
+-- what the database owner (not an API role) does to mark a database
+create function test.set_env(e text) returns void language sql security definer as $$
+  insert into private.catalog_settings (environment, set_by) values (e, 'test suite')
+  on conflict (id) do update set environment = excluded.environment
+$$;
+grant execute on function test.set_env(text) to public;
+create function test.rights_log(p text) returns bigint language sql security definer as $$
+  select count(*) from public.catalog_provider_rights_log where provider_id = p
+$$;
+grant execute on function test.rights_log(text) to public;
 create function test.cs_entries(w uuid) returns bigint language sql security definer as $$
   select count(*) from private.catalog_search_entries where wine_id = w
 $$;
@@ -115,36 +132,90 @@ begin
   perform test.rec('staging: nor providers, runs or links', test.denied('select * from public.catalog_providers')
                    and test.denied('select * from public.catalog_import_runs') and test.denied('select * from public.catalog_record_links'));
   perform test.rec('staging: nor the search index', test.denied('select * from private.catalog_search_entries'));
-  perform test.rec('staging: people cannot register a provider', test.denied($q$select public.catalog_provider_upsert('{"id":"evil","name":"x","license":"x","may_store":true}')$q$));
+  perform test.rec('staging: people cannot register a provider', test.denied($q$select public.catalog_provider_register('{"id":"evil","name":"x"}')$q$));
+  perform test.rec('staging: people cannot change provider rights', test.denied($q$select public.admin_catalog_provider_rights('fixture', '{"may_store":true}', 'r', 'a')$q$));
+  perform test.rec('staging: people cannot read the rights log', test.denied('select * from public.catalog_provider_rights_log'));
+  perform test.rec('pilot: people can never call the pilot search', test.denied(format('select * from public.catalog_search_pilot(%L, %L)', h1, 'leoville')));
+  perform test.rec('pilot: people cannot read or set the database environment',
+    test.denied('select * from private.catalog_settings') and test.denied('select public.catalog_target_identity()')
+    and test.denied($q$insert into private.catalog_settings (environment, set_by) values ('pilot', 'me')$q$));
+  perform test.as_anon();
+  perform test.rec('pilot: anonymous callers can never call the pilot search', test.denied(format('select * from public.catalog_search_pilot(%L, %L)', h1, 'leoville')));
+  perform test.as_user(1);
   perform test.rec('staging: people cannot import', test.denied($q$select public.catalog_external_import('fixture', null, '[]', false)$q$));
   perform test.rec('staging: people cannot decide links', test.denied(format($q$select public.admin_catalog_record_decide(%L, %L, 'verified', null, null)$q$, gen_random_uuid(), cw)));
 
-  -- ---- providers and licences ----------------------------------------------------------------------------------------
+  -- ---- a database is production unless its owner marked it --------------------------------------------------------
   perform test.as_service();
+  perform test.rec('environment: an unmarked database is production', public.catalog_target_identity()->>'environment' = 'production');
+  perform test.rec('environment: the service role cannot mark it',
+    test.denied($q$insert into private.catalog_settings (environment, set_by) values ('pilot', 'service')$q$));
+  perform public.catalog_provider_register('{"id":"pilotprov","name":"Pilot provider"}');
+  perform public.admin_catalog_provider_rights('pilotprov', '{"license":"CC0-1.0","may_store":true,"may_display":true}', 'evaluation', 'test suite');
+  perform test.rec('pilot: in production a provider cannot be put in the pilot scope',
+    test.denied($q$select public.admin_catalog_provider_rights('pilotprov', '{"search_scope":"pilot"}', 'try', 'test suite')$q$));
+  perform test.rec('pilot: in production a pilot run is refused',
+    test.denied($q$select public.catalog_import_run_start('pilotprov', 'v1', null, null, null, null, true)$q$));
+  perform test.rec('pilot: in production the pilot search refuses', test.denied(format('select * from public.catalog_search_pilot(%L, %L)', h1, 'leoville')));
+
+  -- ---- registering is not managing rights --------------------------------------------------------------------------
+  perform public.catalog_provider_register('{"id":"grabby","name":"Grabby","license":"CC0-1.0","may_store":true,"may_display":true,"commercial_use":true,"rights_status":"verified","rights_evidence":"trust me","rights_verified_at":"2026-11-11","rights_verified_by":"import","search_scope":"public"}');
+  perform test.rec('register: a new provider starts with no rights, whatever the payload says',
+    test.count_of($q$select 1 from public.catalog_providers where id = 'grabby' and license = 'unknown' and not may_store
+                     and not may_display and not commercial_use and rights_status = 'unverified' and rights_evidence is null
+                     and search_scope = 'off'$q$) = 1);
+  perform test.rec('register: so it cannot be imported', test.denied($q$select public.catalog_import_run_start('grabby', 'v1', null, null)$q$));
+  perform test.rec('rights: a reason and an actor are required',
+    test.denied($q$select public.admin_catalog_provider_rights('grabby', '{"may_store":true}', '', 'a')$q$)
+    and test.denied($q$select public.admin_catalog_provider_rights('grabby', '{"may_store":true}', 'r', null)$q$));
+  perform test.rec('rights: an unknown field is refused',
+    test.denied($q$select public.admin_catalog_provider_rights('grabby', '{"owner":"me"}', 'r', 'a')$q$));
+
+  -- ---- providers and licences (through the rights function; the table's checks still apply) --------------------------
   perform test.rec('licence: no search scope without storage and display rights',
-    test.denied($q$select public.catalog_provider_upsert('{"id":"nolicence","name":"x","license":"x","may_store":true,"search_scope":"pilot"}')$q$));
+    test.denied($q$select public.admin_catalog_provider_rights('grabby', '{"may_store":true,"search_scope":"public"}', 'r', 'a')$q$));
   perform test.rec('licence: public search only with verified commercial rights',
-    test.denied($q$select public.catalog_provider_upsert('{"id":"unverified","name":"x","license":"x","may_store":true,"may_display":true,"commercial_use":true,"search_scope":"public"}')$q$));
+    test.denied($q$select public.admin_catalog_provider_rights('grabby', '{"may_store":true,"may_display":true,"commercial_use":true,"search_scope":"public"}', 'r', 'a')$q$));
   perform test.rec('licence: "verified" needs evidence, a date and who verified it',
-    test.denied($q$select public.catalog_provider_upsert('{"id":"claimed","name":"x","license":"x","may_store":true,"rights_status":"verified"}')$q$));
+    test.denied($q$select public.admin_catalog_provider_rights('grabby', '{"may_store":true,"rights_status":"verified"}', 'r', 'a')$q$));
+  perform public.catalog_provider_register('{"id":"blocked2","name":"Blocked"}');
+  perform public.admin_catalog_provider_rights('blocked2', '{"license":"CC-BY-4.0","may_store":true,"rights_status":"blocked"}', 'terms conflict', 'test suite');
   perform test.rec('licence: a blocked provider can never be shown',
-    test.denied($q$select public.catalog_provider_upsert('{"id":"blocked1","name":"x","license":"x","may_store":true,"may_display":true,"rights_status":"blocked","search_scope":"pilot"}')$q$));
-  perform public.catalog_provider_upsert('{"id":"blocked2","name":"Blocked","license":"CC-BY-4.0","may_store":true,"rights_status":"blocked"}');
+    test.denied($q$select public.admin_catalog_provider_rights('blocked2', '{"may_display":true,"search_scope":"public"}', 'r', 'a')$q$));
+
+  -- from here on this test database is a pilot database (what pilot.sh does as the database owner)
+  perform test.set_env('pilot');
+  perform test.rec('environment: marked by its owner', public.catalog_target_identity()->>'environment' = 'pilot');
   perform test.rec('licence: a blocked provider cannot be imported, not even as a pilot',
     test.denied($q$select public.catalog_import_run_start('blocked2', 'v1', null, null, null, null, true)$q$)
     and test.denied($q$select public.catalog_external_import('blocked2', null, '[]', false)$q$));
-  perform public.catalog_provider_upsert('{"id":"pending","name":"Pending","license":"CC0-1.0","may_store":true,"may_display":true}');
-  perform test.rec('licence: unverified rights allow only a pilot run',
-    test.denied($q$select public.catalog_import_run_start('pending', 'v1', null, null)$q$)
-    and public.catalog_import_run_start('pending', 'v1', null, null, null, '2026-11-11', true) is not null);
-  perform test.rec('licence: the run keeps the licence, rights status and retrieval date it was imported under',
-    test.count_of($q$select 1 from public.catalog_import_runs where provider_id = 'pending' and pilot and license = 'CC0-1.0'
-                     and rights_status = 'unverified' and retrieved_at = '2026-11-11'::timestamptz$q$) = 1);
-  perform public.catalog_provider_upsert('{"id":"readonly","name":"Read only","license":"none"}');
+  perform public.catalog_provider_register('{"id":"readonly","name":"Read only"}');
   perform test.rec('licence: no import when storing is not allowed',
-    test.denied($q$select public.catalog_import_run_start('readonly', 'v1', null, null)$q$)
+    test.denied($q$select public.catalog_import_run_start('readonly', 'v1', null, null, null, null, true)$q$)
     and test.denied($q$select public.catalog_external_import('readonly', null, '[]', false)$q$));
-  perform public.catalog_provider_upsert('{"id":"fixture","name":"Test fixture","license":"CC0-1.0","license_url":"https://creativecommons.org/publicdomain/zero/1.0/","attribution":"Test fixture data","legal_notice":"Test data, no warranty.","modification_notice":"Normalised by CELLR.","may_store":true,"may_display":true,"commercial_use":true,"rights_status":"verified","rights_evidence":"written by CELLR for tests","rights_verified_at":"2026-11-11","rights_verified_by":"test suite"}');
+
+  -- ---- a provider from unverified to verified, then imported again --------------------------------------------------
+  perform public.catalog_provider_register('{"id":"fixture","name":"Test fixture"}');
+  perform public.admin_catalog_provider_rights('fixture', '{"license":"CC0-1.0","license_url":"https://creativecommons.org/publicdomain/zero/1.0/","attribution":"Test fixture data","legal_notice":"Test data, no warranty.","modification_notice":"Normalised by CELLR.","may_store":true,"may_display":true}', 'evaluate the fixture', 'test suite');
+  perform test.rec('lifecycle: unverified rights allow only a pilot run',
+    test.denied($q$select public.catalog_import_run_start('fixture', 'v0', null, null)$q$)
+    and public.catalog_import_run_start('fixture', 'v0', null, null, null, '2026-10-30', true) is not null);
+  perform test.rec('lifecycle: the pilot run keeps the licence, rights status and retrieval date it was imported under',
+    test.count_of($q$select 1 from public.catalog_import_runs where provider_id = 'fixture' and pilot and license = 'CC0-1.0'
+                     and rights_status = 'unverified' and retrieved_at = '2026-10-30'::timestamptz$q$) = 1);
+  perform public.admin_catalog_provider_rights('fixture', '{"commercial_use":true,"rights_status":"verified","rights_evidence":"written by CELLR for tests","rights_verified_at":"2026-11-11","rights_verified_by":"test suite"}', 'our own test data', 'test suite');
+  -- an import registers the provider again with its static configuration: nothing about rights may change
+  perform public.catalog_provider_register('{"id":"fixture","name":"Test fixture (renamed)","license":"CC0-1.0","may_store":false,"may_display":false,"commercial_use":false,"rights_status":"unverified","rights_evidence":null,"search_scope":"off"}');
+  perform test.rec('lifecycle: re-registering keeps the verified rights, evidence, licence and notices',
+    test.count_of($q$select 1 from public.catalog_providers where id = 'fixture' and name = 'Test fixture (renamed)'
+                     and rights_status = 'verified' and rights_evidence = 'written by CELLR for tests'
+                     and rights_verified_by = 'test suite' and may_store and may_display and commercial_use
+                     and license = 'CC0-1.0' and attribution = 'Test fixture data' and search_scope = 'off'$q$) = 1);
+  perform test.rec('lifecycle: every rights change is logged, re-registering is not', test.rights_log('fixture') = 2);
+  perform test.rec('lifecycle: the log keeps before and after',
+    test.count_of($q$select 1 from public.catalog_provider_rights_log where provider_id = 'fixture'
+                     and before->>'rights_status' = 'unverified' and after->>'rights_status' = 'verified'
+                     and reason = 'our own test data'$q$) = 1);
 
   batch := $b$[
     {"external_id":"F1","producer":"Château Léoville Poyferré","name":"Château Léoville Poyferré","wine_type":"red","country_code":"FR","region":"Saint-Julien","vintages":[2015,2016,2016]},
@@ -201,7 +272,9 @@ begin
   perform test.as_user(1);
   perform test.rec('provider: hidden while the provider is not enabled for search', test.cs_count(h1, 'zuniga') = 0);
   perform test.as_service();
-  perform public.catalog_provider_upsert('{"id":"fixture","name":"Test fixture","license":"CC0-1.0","license_url":"https://creativecommons.org/publicdomain/zero/1.0/","attribution":"Test fixture data","legal_notice":"Test data, no warranty.","modification_notice":"Normalised by CELLR.","may_store":true,"may_display":true,"commercial_use":true,"rights_status":"verified","rights_evidence":"written by CELLR for tests","rights_verified_at":"2026-11-11","rights_verified_by":"test suite","search_scope":"public"}');
+  perform public.admin_catalog_provider_rights('fixture', '{"search_scope":"public"}', 'show the fixture', 'test suite');
+  perform test.rec('lifecycle: the runs after verification were imported under verified rights',
+    test.count_of($q$select 1 from public.catalog_import_runs where provider_id = 'fixture' and not pilot and rights_status = 'verified'$q$) = 2);
   perform test.as_user(1);
   arr := test.cs(h1, 'zuniga');
   perform test.rec('provider: shown once enabled, never verified', arr = array['Bodega Zúñiga Test | Reserva Especial | provider | prefix | false']);
@@ -229,6 +302,34 @@ begin
     arr[1] like '% | catalog | prefix | true' and 'Château Léoville Poyferré | Château Léoville Poyferré | provider | prefix | false' = any (arr));
   perform test.rec('provider: a typo on a provider record stays unverified',
     test.cs_first(h1, 'bodega zuniga tst') like '% | provider | fuzzy | false');
+
+  -- ---- pilot records never reach people ----------------------------------------------------------------------------
+  perform test.as_service();
+  perform public.admin_catalog_provider_rights('pilotprov', '{"search_scope":"pilot"}', 'evaluate', 'test suite');
+  run := public.catalog_import_run_start('pilotprov', 'p1', null, null, null, '2026-11-11', true);
+  perform public.catalog_external_import('pilotprov', run, $b$[
+    {"external_id":"P1","producer":"Pilotgoed Quercus","name":"Proefwijn Rood","wine_type":"red","country_code":"NL"}
+  ]$b$, true);
+  perform test.rec('pilot: the pilot search finds pilot records (service role, pilot database)',
+    'Pilotgoed Quercus | Proefwijn Rood | provider | pilot' = any (test.cs_pilot(h1, 'pilotgoed')));
+  perform test.rec('pilot: the pilot search also sees public records', 'Bodega Zúñiga Test | Reserva Especial | provider | public' = any (test.cs_pilot(h1, 'zuniga')));
+  perform test.rec('pilot: the people-facing search, even called by the service role, never returns them',
+    cardinality(test.cs(h1, 'pilotgoed')) = 0);
+  select r.record_id into rec from public.catalog_search_pilot(h1, 'pilotgoed') r limit 1;
+  perform test.as_user(1);
+  perform test.rec('pilot: a signed-in person never finds pilot records, even in a pilot database', test.cs_count(h1, 'pilotgoed') = 0);
+  perform test.rec('pilot: nor their provenance', rec is not null and public.catalog_record_provenance(h1, rec) is null);
+  perform test.su();
+  perform test.set_env('production');   -- e.g. a pilot database promoted, or a pilot row copied into production
+  perform test.as_user(1);
+  perform test.rec('pilot: a pilot provider left in a production database is still never shown', test.cs_count(h1, 'pilotgoed') = 0);
+  perform test.as_service();
+  perform test.rec('pilot: and the pilot search refuses there', test.denied(format('select * from public.catalog_search_pilot(%L, %L)', h1, 'pilotgoed')));
+  perform public.admin_catalog_provider_rights('pilotprov', '{"search_scope":"off"}', 'production clean-up', 'test suite');
+  perform test.rec('pilot: there its scope can be switched off, but not back on',
+    test.denied($q$select public.admin_catalog_provider_rights('pilotprov', '{"search_scope":"pilot"}', 'r', 'a')$q$));
+  perform test.su();
+  perform test.set_env('pilot');
 
   -- an admin verifies the suggestion: the record then IS the catalogue wine and is not shown twice
   perform test.as_service();

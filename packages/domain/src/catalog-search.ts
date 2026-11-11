@@ -73,8 +73,9 @@ export interface CatalogSearchHit {
   /** Bottles of it in the household's cellar now. */
   bottles: number;
   /**
-   * For a provider record: whose it is, the credit its licence requires, the licence link, whether CELLR modified
-   * the record, and where the provider is shown ("pilot": evaluation only — never presented as licensed data).
+   * For a provider record: whose it is, the credit its licence requires, the licence link and whether CELLR modified
+   * the record. Only providers in the "public" scope ever reach people (pilot data is never shown: see
+   * `publicSearchHits`).
    */
   provider: {
     id: string;
@@ -82,7 +83,7 @@ export interface CatalogSearchHit {
     license: string;
     licenseUrl: string | null;
     attribution: string | null;
-    scope: "pilot" | "public";
+    scope: "public";
     modified: boolean;
   } | null;
   /** For a provider record: the vintages it lists (empty when it lists none). */
@@ -163,13 +164,26 @@ export function toSearchHit(row: CatalogSearchRow): CatalogSearchHit {
             license: row.license ?? "",
             licenseUrl: row.license_url,
             attribution: row.attribution,
-            // anything but an explicit "public" is treated as the evaluation scope
-            scope: row.provider_scope === "public" ? "public" : "pilot",
+            scope: "public",
             modified: row.modified !== false,
           }
         : null,
     vintages: kind === "record" ? (row.vintages ?? []) : null,
   };
+}
+
+/**
+ * What people may see of the database's answer: every CELLR wine, and provider records only when the database marks
+ * their provider "public". Anything else (a pilot scope, an unknown or missing scope, a record without a provider) is
+ * dropped here as well, so pilot data cannot reach the app even if the database step were wrong. Fail closed.
+ */
+export function publicSearchHits(rows: readonly CatalogSearchRow[]): CatalogSearchHit[] {
+  return rows
+    .filter(
+      (r) =>
+        r.result_kind !== "record" || (r.provider_scope === "public" && Boolean(r.provider_id)),
+    )
+    .map(toSearchHit);
 }
 
 /**

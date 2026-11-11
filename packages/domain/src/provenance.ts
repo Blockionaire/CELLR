@@ -55,8 +55,8 @@ export interface SourceNotice {
   sourceUrl: string | null;
   retrievedAt: string | null;
   datasetVersion: string | null;
-  /** "pilot" sources are never presented as licensed data. */
-  scope: "pilot" | "public";
+  /** Only "public" providers ever reach a wine page (pilot data is never shown to people). */
+  scope: "public";
 }
 
 export interface ProvenancedFact {
@@ -102,7 +102,6 @@ export function attributionLine(n: SourceNotice, locale: Locale): string {
       ? [`Bron: ${credit}`, `licentie ${n.license}`]
       : [`Source: ${credit}`, `licence ${n.license}`];
   if (n.modified) parts.push(locale === "nl" ? "bewerkt door CELLR" : "modified by CELLR");
-  if (n.scope === "pilot") parts.push(locale === "nl" ? "proefgegevens" : "pilot data");
   return parts.join(" · ");
 }
 

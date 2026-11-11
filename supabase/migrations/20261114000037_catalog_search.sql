@@ -5,7 +5,8 @@
 -- 1. catalog_providers: one row per external data source, with its licence, what that licence allows (store,
 --    display, commercial use), the RIGHTS STATUS (unverified / verified / blocked, with the evidence) and where its
 --    records may appear (search_scope: off / pilot / public). Nothing is seeded: the owner registers a provider
---    explicitly (catalog_provider_upsert), so production is unchanged until someone decides to.
+--    explicitly (catalog_provider_register, then admin_catalog_provider_rights), so production is unchanged until
+--    someone decides to.
 --    The database enforces: no import while rights are 'blocked'; no import outside a pilot run, and no public
 --    search, until rights are 'verified' with evidence. Unresolved legal questions are blockers, not assumptions.
 -- 2. catalog_import_runs + catalog_external_records: a STAGING catalogue of provider records, keyed by
@@ -22,8 +23,44 @@
 --    which, with its licence, attribution and whether CELLR modified it). Another household's wines are never
 --    searched. A fuzzy or provider result is never reported as verified. It reads only; it writes nothing.
 --
+-- Pilot evaluation is separated fail-closed (review of PR #65): the people-facing search returns only providers in
+-- scope 'public' with verified commercial rights, checked again at query time; pilot results come only from
+-- catalog_search_pilot(), which only the service role may call and only in a database its owner marked as 'pilot' or
+-- 'staging' (private.catalog_settings). A database without that mark is production: there, no provider can even be
+-- put in the pilot scope. Provider rights are managed only through admin_catalog_provider_rights() (audited); an
+-- import registers descriptive fields at most and can never change rights, licence or scope.
+--
 -- Additive only. Shared wine profiles, scan matching, label-text recognition and Purchase Check are untouched.
 -- Until this runs, the app's search endpoint answers "unavailable" and every existing flow works as before.
+
+-- ---- 0. Which kind of database is this? ----------------------------------------------------------------------------
+-- One row, written only by the database owner with plain SQL (no API role may change it, not even the service role).
+-- No row = 'production', so a database is a pilot or staging database only when someone said so, on that database.
+create table private.catalog_settings (
+  id          boolean primary key default true check (id),
+  environment text not null check (environment in ('production', 'staging', 'pilot')),
+  -- e.g. the Supabase project ref of a staging project, checked by the import tool against its target
+  project_ref text check (project_ref ~ '^[a-z0-9]{8,40}$'),
+  set_by      text not null check (char_length(set_by) between 1 and 120),
+  set_at      timestamptz not null default now()
+);
+alter table private.catalog_settings enable row level security;
+revoke all on private.catalog_settings from public, anon, authenticated, service_role;
+
+create function private.catalog_environment() returns text
+  language sql stable security definer set search_path = '' as $$
+  select coalesce((select environment from private.catalog_settings where id), 'production')
+$$;
+revoke all on function private.catalog_environment() from public, anon, authenticated;
+
+-- What the import tool checks before it writes: the environment and the project ref this database says it is.
+create function public.catalog_target_identity() returns jsonb
+  language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object('environment', private.catalog_environment(),
+                            'project_ref', (select project_ref from private.catalog_settings where id))
+$$;
+revoke all on function public.catalog_target_identity() from public, anon, authenticated;
+grant execute on function public.catalog_target_identity() to service_role;
 
 -- ---- 1. Providers -----------------------------------------------------------------------------------------------
 create table public.catalog_providers (
@@ -66,6 +103,33 @@ create table public.catalog_providers (
 );
 create trigger catalog_providers_updated before update on public.catalog_providers
   for each row execute function private.set_updated_at();
+
+-- The pilot scope exists only in a database marked pilot or staging: in production it cannot be set at all.
+create function private.catalog_providers_guard() returns trigger
+  language plpgsql set search_path = '' as $$
+begin
+  if new.search_scope = 'pilot' and private.catalog_environment() = 'production' then
+    raise exception 'the pilot scope is not available in a production database' using errcode = '42501';
+  end if;
+  return new;
+end $$;
+create trigger catalog_providers_guard before insert or update on public.catalog_providers
+  for each row execute function private.catalog_providers_guard();
+
+-- Every change of a provider's rights, licence or scope: before, after, why and who. Kept with the provider.
+create table public.catalog_provider_rights_log (
+  id          bigint generated always as identity primary key,
+  provider_id text not null references public.catalog_providers on delete cascade,
+  before      jsonb,
+  after       jsonb not null,
+  reason      text not null check (char_length(btrim(reason)) between 1 and 500),
+  actor       text not null check (char_length(btrim(actor)) between 1 and 120),
+  at          timestamptz not null default now()
+);
+create index catalog_provider_rights_log_provider_idx on public.catalog_provider_rights_log (provider_id, at desc);
+alter table public.catalog_provider_rights_log enable row level security;
+revoke all on public.catalog_provider_rights_log from public, anon, authenticated;
+grant select, insert on public.catalog_provider_rights_log to service_role;
 
 -- ---- 2. Import runs and staged provider records -------------------------------------------------------------------
 create table public.catalog_import_runs (
@@ -293,9 +357,10 @@ select private.catalog_search_refresh_wine(w.id) from public.wines w;
 -- pg_trgm word similarity). Results are ranked: exact > prefix > fuzzy, and within that the household's own bottles,
 -- its own wines and the verified catalogue above provider records. At most 20 rows; a query is cut at 8 words and
 -- 80 characters. Only canonical wines are ever `verified`; `match = 'fuzzy'` is never an identity.
-create function public.catalog_search(p_household_id uuid, p_query text, p_type text default null,
-                                      p_country text default null, p_region text default null,
-                                      p_limit int default 10)
+-- The implementation, for callers that already checked who may see what: public.catalog_search (people; scope
+-- 'public' only) and public.catalog_search_pilot (service role; pilot databases only). Not callable by any API role.
+create function private.catalog_search_impl(p_household_id uuid, p_query text, p_type text, p_country text,
+                                            p_region text, p_limit int, p_scopes text[])
   returns table (result_kind text, wine_id uuid, record_id uuid, producer text, name text, matched_alias text,
                  wine_type text, country_code text, region text, source text, verified boolean, match text,
                  score real, bottles int, provider_id text, provider_name text, attribution text, license text,
@@ -316,7 +381,7 @@ declare
   n_pre   int;
   fuzzy   boolean;
 begin
-  if p_household_id is null or not (p_household_id = any (private.my_household_ids())) then return; end if;
+  if p_household_id is null then return; end if;
   q := private.normalize_text(left(coalesce(p_query, ''), 200));
   toks := (string_to_array(nullif(q, ''), ' '))[1:8];
   if toks is null then return; end if;
@@ -380,7 +445,10 @@ begin
         from cand c
         left join public.catalog_providers pr on pr.id = c.provider_id
        where c.kind <> 'record'
-          or (pr.search_scope in ('pilot', 'public')
+          or (pr.search_scope = any ($6)
+              -- a public provider's rights are checked again here, not only when its row was written
+              and (pr.search_scope <> 'public'
+                   or (pr.rights_status = 'verified' and pr.may_store and pr.may_display and pr.commercial_use))
               and not exists (select 1 from public.catalog_record_links l
                                where l.record_id = c.record_id and l.state = 'verified'))
     ),
@@ -422,35 +490,107 @@ begin
       left join public.wine_aliases a on a.id = b.alias_id
       left join public.catalog_external_records er on er.id = b.record_id
       left join public.catalog_providers pr on pr.id = er.provider_id
-     order by b.total desc, char_length(b.search_text), coalesce(b.wine_id, b.record_id)
+     -- ties broken by name, not by a random id, so a run can be repeated exactly
+     order by b.total desc, char_length(b.search_text), b.search_text, coalesce(b.wine_id, b.record_id)
      limit $4
-  $q$, cand, filters) using p_household_id, q, toks, lim, fuzzy;
+  $q$, cand, filters) using p_household_id, q, toks, lim, fuzzy, p_scopes;
+end $$;
+revoke all on function private.catalog_search_impl(uuid, text, text, text, text, int, text[])
+  from public, anon, authenticated, service_role;
+
+-- What people search (the API): the caller's own household only, and provider records only in scope 'public'.
+-- Pilot records are never returned here, whatever a provider row says, in any database.
+create function public.catalog_search(p_household_id uuid, p_query text, p_type text default null,
+                                      p_country text default null, p_region text default null,
+                                      p_limit int default 10)
+  returns table (result_kind text, wine_id uuid, record_id uuid, producer text, name text, matched_alias text,
+                 wine_type text, country_code text, region text, source text, verified boolean, match text,
+                 score real, bottles int, provider_id text, provider_name text, attribution text, license text,
+                 license_url text, provider_scope text, modified boolean, vintages smallint[])
+  language plpgsql stable security definer set search_path = '' as $$
+begin
+  if p_household_id is null or not (p_household_id = any (private.my_household_ids())) then return; end if;
+  return query select * from private.catalog_search_impl(p_household_id, p_query, p_type, p_country, p_region,
+                                                           p_limit, array['public']);
 end $$;
 revoke all on function public.catalog_search(uuid, text, text, text, text, int) from public, anon;
 grant execute on function public.catalog_search(uuid, text, text, text, text, int) to authenticated, service_role;
 
+-- Pilot evaluation (benchmarks, load tests): the same search including scope 'pilot'. Service role only, and only in
+-- a database marked 'pilot' or 'staging'; in production it refuses. Never wired to the app.
+create function public.catalog_search_pilot(p_household_id uuid, p_query text, p_type text default null,
+                                            p_country text default null, p_region text default null,
+                                            p_limit int default 10)
+  returns table (result_kind text, wine_id uuid, record_id uuid, producer text, name text, matched_alias text,
+                 wine_type text, country_code text, region text, source text, verified boolean, match text,
+                 score real, bottles int, provider_id text, provider_name text, attribution text, license text,
+                 license_url text, provider_scope text, modified boolean, vintages smallint[])
+  language plpgsql stable security definer set search_path = '' as $$
+begin
+  if private.catalog_environment() not in ('pilot', 'staging') then
+    raise exception 'pilot search is only available in a pilot or staging database' using errcode = '42501';
+  end if;
+  if not exists (select 1 from public.households h where h.id = p_household_id) then return; end if;
+  return query select * from private.catalog_search_impl(p_household_id, p_query, p_type, p_country, p_region,
+                                                           p_limit, array['pilot', 'public']);
+end $$;
+revoke all on function public.catalog_search_pilot(uuid, text, text, text, text, int) from public, anon, authenticated;
+grant execute on function public.catalog_search_pilot(uuid, text, text, text, text, int) to service_role;
+
 -- ---- 6. Importing provider records (service role only) ------------------------------------------------------------
-create function public.catalog_provider_upsert(p jsonb) returns text
+-- Registering a provider (what an import may do): its name, homepage and notes only. A new provider starts with no
+-- rights at all (nothing stored, nothing shown, rights unverified, licence 'unknown'); an existing provider's
+-- licence, rights, notices and scope are never touched here, whatever the payload says.
+create function public.catalog_provider_register(p jsonb) returns text
   language plpgsql security definer set search_path = '' as $$
 begin
-  insert into public.catalog_providers (id, name, license, license_url, attribution, homepage, legal_notice,
-                                        modification_notice, may_store, may_display, commercial_use, rights_status,
-                                        rights_evidence, rights_verified_at, rights_verified_by, search_scope, notes)
-  values (p->>'id', p->>'name', p->>'license', p->>'license_url', p->>'attribution', p->>'homepage',
-          p->>'legal_notice', p->>'modification_notice',
-          coalesce((p->>'may_store')::boolean, false), coalesce((p->>'may_display')::boolean, false),
-          coalesce((p->>'commercial_use')::boolean, false), coalesce(p->>'rights_status', 'unverified'),
-          p->>'rights_evidence', (p->>'rights_verified_at')::timestamptz, p->>'rights_verified_by',
-          coalesce(p->>'search_scope', 'off'), p->>'notes')
+  insert into public.catalog_providers (id, name, license, homepage, notes)
+  values (p->>'id', p->>'name', 'unknown', p->>'homepage', p->>'notes')
   on conflict (id) do update
-    set name = excluded.name, license = excluded.license, license_url = excluded.license_url,
-        attribution = excluded.attribution, homepage = excluded.homepage, legal_notice = excluded.legal_notice,
-        modification_notice = excluded.modification_notice, may_store = excluded.may_store,
-        may_display = excluded.may_display, commercial_use = excluded.commercial_use,
-        rights_status = excluded.rights_status, rights_evidence = excluded.rights_evidence,
-        rights_verified_at = excluded.rights_verified_at, rights_verified_by = excluded.rights_verified_by,
-        search_scope = excluded.search_scope, notes = excluded.notes;
+    set name = excluded.name, homepage = excluded.homepage, notes = excluded.notes;
   return p->>'id';
+end $$;
+
+-- Managing a provider's rights (an admin's decision, never an import's): licence, attribution, notices, what may be
+-- stored and shown, the rights status with its evidence, and the search scope. Every field not given keeps its value.
+-- Each change is logged with the reason and who made it. The table's checks still apply ("verified" needs evidence,
+-- public needs verified commercial rights, pilot is impossible in production).
+create function public.admin_catalog_provider_rights(p_provider text, p jsonb, p_reason text, p_actor text)
+  returns jsonb
+  language plpgsql security definer set search_path = '' as $$
+declare
+  v_before jsonb; v_after jsonb;
+  keys constant text[] := array['license', 'license_url', 'attribution', 'legal_notice', 'modification_notice',
+                                'may_store', 'may_display', 'commercial_use', 'rights_status', 'rights_evidence',
+                                'rights_verified_at', 'rights_verified_by', 'search_scope'];
+begin
+  if nullif(btrim(coalesce(p_reason, '')), '') is null or nullif(btrim(coalesce(p_actor, '')), '') is null then
+    raise exception 'a reason and an actor are required' using errcode = '22023';
+  end if;
+  if exists (select 1 from jsonb_object_keys(p) k where k <> all (keys)) then
+    raise exception 'unknown field' using errcode = '22023';
+  end if;
+  select jsonb_build_object('license', c.license, 'license_url', c.license_url, 'attribution', c.attribution,
+                            'legal_notice', c.legal_notice, 'modification_notice', c.modification_notice,
+                            'may_store', c.may_store, 'may_display', c.may_display, 'commercial_use', c.commercial_use,
+                            'rights_status', c.rights_status, 'rights_evidence', c.rights_evidence,
+                            'rights_verified_at', c.rights_verified_at, 'rights_verified_by', c.rights_verified_by,
+                            'search_scope', c.search_scope)
+    into v_before from public.catalog_providers c where c.id = p_provider for update;
+  if v_before is null then raise exception 'unknown provider %', p_provider using errcode = '22023'; end if;
+  v_after := v_before || p;
+  update public.catalog_providers
+     set license = v_after->>'license', license_url = v_after->>'license_url', attribution = v_after->>'attribution',
+         legal_notice = v_after->>'legal_notice', modification_notice = v_after->>'modification_notice',
+         may_store = (v_after->>'may_store')::boolean, may_display = (v_after->>'may_display')::boolean,
+         commercial_use = (v_after->>'commercial_use')::boolean, rights_status = v_after->>'rights_status',
+         rights_evidence = v_after->>'rights_evidence',
+         rights_verified_at = (v_after->>'rights_verified_at')::timestamptz,
+         rights_verified_by = v_after->>'rights_verified_by', search_scope = v_after->>'search_scope'
+   where id = p_provider;
+  insert into public.catalog_provider_rights_log (provider_id, before, after, reason, actor)
+  values (p_provider, v_before, v_after, btrim(p_reason), btrim(p_actor));
+  return v_after;
 end $$;
 
 -- A run needs: a provider whose licence allows storing, rights not 'blocked', and either verified rights or an
@@ -470,6 +610,9 @@ begin
   if pr.rights_status = 'blocked' then
     raise exception 'provider %: importing is blocked until its licence terms are established', p_provider
       using errcode = '42501';
+  end if;
+  if coalesce(p_pilot, false) and private.catalog_environment() = 'production' then
+    raise exception 'a pilot run is not allowed in a production database' using errcode = '42501';
   end if;
   if pr.rights_status <> 'verified' and not coalesce(p_pilot, false) then
     raise exception 'provider %: rights are not verified; only a pilot run is allowed', p_provider
@@ -650,7 +793,7 @@ end $$;
 -- ---- 7. Provenance of one provider record ("Bronnen & betrouwbaarheid") ------------------------------------------
 -- Everything a detail page needs to credit and qualify a provider record: whose it is, its id and page, the licence
 -- and its link, the required attribution and full legal notice, when it was retrieved, from which dataset version,
--- and what CELLR modified. Only for a record the caller could find in search (its provider is shown), never more.
+-- and what CELLR modified. Only for a record the caller could find in search (a 'public' provider), never more.
 create function public.catalog_record_provenance(p_household_id uuid, p_record uuid) returns jsonb
   language sql stable security definer set search_path = '' as $$
   select jsonb_build_object(
@@ -666,7 +809,8 @@ create function public.catalog_record_provenance(p_household_id uuid, p_record u
            'link', (select jsonb_build_object('wineId', l.wine_id, 'state', l.state)
                       from public.catalog_record_links l where l.record_id = e.id))
     from public.catalog_external_records e
-    join public.catalog_providers pr on pr.id = e.provider_id and pr.search_scope in ('pilot', 'public')
+    join public.catalog_providers pr on pr.id = e.provider_id and pr.search_scope = 'public'
+                                     and pr.rights_status = 'verified' and pr.may_display and pr.commercial_use
     left join public.catalog_import_runs fr on fr.id = e.first_run_id
     left join public.catalog_import_runs lr on lr.id = e.last_run_id
    where e.id = p_record and e.status = 'active'
@@ -675,13 +819,15 @@ $$;
 revoke all on function public.catalog_record_provenance(uuid, uuid) from public, anon;
 grant execute on function public.catalog_record_provenance(uuid, uuid) to authenticated, service_role;
 
-revoke all on function public.catalog_provider_upsert(jsonb),
+revoke all on function public.catalog_provider_register(jsonb),
+                       public.admin_catalog_provider_rights(text, jsonb, text, text),
                        public.catalog_import_run_start(text, text, text, text, text, timestamptz, boolean),
                        public.catalog_external_import(text, uuid, jsonb, boolean),
                        public.catalog_import_run_finish(uuid, boolean, jsonb),
                        public.admin_catalog_record_decide(uuid, uuid, text, text, uuid)
   from public, anon, authenticated;
-grant execute on function public.catalog_provider_upsert(jsonb),
+grant execute on function public.catalog_provider_register(jsonb),
+                          public.admin_catalog_provider_rights(text, jsonb, text, text),
                           public.catalog_import_run_start(text, text, text, text, text, timestamptz, boolean),
                           public.catalog_external_import(text, uuid, jsonb, boolean),
                           public.catalog_import_run_finish(uuid, boolean, jsonb),

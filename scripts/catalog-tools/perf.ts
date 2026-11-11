@@ -2,16 +2,21 @@
  * Search load test (Sprint 004A): what a debounced autocomplete would send, against a local database.
  *
  *   pnpm --filter @cellr/catalog-tools perf --db <url> --user <uuid> --household <uuid>
- *     --set ../../eval/catalog/benchmark.json [--concurrency 8] [--rounds 3] [--out perf.json]
+ *     --set ../../eval/catalog/benchmark.json [--mode pilot|public] [--concurrency 8] [--rounds 3] [--out perf.json]
  *
  * Each benchmark query is "typed": its first 3, 5 and 8 characters and the whole query, as separate searches
  * (what a 250 ms debounce sends for a person typing at a normal pace), plus each query with a filter. Every search
- * runs through public.catalog_search as the signed-in person (row-level security and the membership check apply).
+ * runs through the same search implementation:
+ *   --mode pilot  (default) public.catalog_search_pilot as the service role, so pilot-scope provider records (the 100k
+ *                 evaluation set) are searched; pilot or staging databases only;
+ *   --mode public public.catalog_search as the signed-in person (row-level security and the membership check apply);
+ *                 only 'public' providers are searched, so in a pilot database this measures CELLR's own wines only.
  * One warm-up pass is not counted. Latency is measured at the client: database time plus the local round trip, not
  * the network or the API layer.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { actAs, connect, parseArgs, percentile, shuffled, str } from "./lib";
+import { actAs, parseArgs, percentile, shuffled, str } from "./lib";
+import { connectToTarget } from "./target";
 
 interface Entry {
   query: string;
@@ -55,8 +60,20 @@ async function main() {
   ])
     base.push({ q, type: null, country: null, bucket: "common-words" });
 
-  const clients = await Promise.all(Array.from({ length: concurrency }, () => connect(db)));
-  await Promise.all(clients.map((c) => actAs(c, user)));
+  const mode = str(args, "mode", "pilot");
+  if (mode !== "pilot" && mode !== "public") throw new Error("--mode pilot|public");
+  const fn = mode === "pilot" ? "public.catalog_search_pilot" : "public.catalog_search";
+  // every connection is checked against the allowed targets and the database's own identity
+  const clients = await Promise.all(
+    Array.from({ length: concurrency }, () => connectToTarget(db, args)),
+  );
+  if (mode === "public")
+    await Promise.all(
+      clients.map(async (c) => {
+        await c.query("reset role");
+        await actAs(c, user);
+      }),
+    );
   const run = async (list: Q[]) => {
     const times: Array<{ ms: number; bucket: string; rows: number }> = [];
     let next = 0;
@@ -65,7 +82,7 @@ async function main() {
         while (next < list.length) {
           const item = list[next++]!;
           const t0 = performance.now();
-          const r = await c.query("select * from public.catalog_search($1, $2, $3, $4, null, 8)", [
+          const r = await c.query(`select * from ${fn}($1, $2, $3, $4, null, 8)`, [
             household,
             item.q,
             item.type,
@@ -99,6 +116,7 @@ async function main() {
   };
   const buckets = [...new Set(all.map((t) => t.bucket))];
   const report = {
+    mode,
     concurrency,
     rounds,
     searches: all.length,

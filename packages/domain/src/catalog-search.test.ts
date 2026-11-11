@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CatalogSearchQuerySchema,
   needsConfirmation,
+  publicSearchHits,
   searchableQuery,
   toSearchHit,
   type CatalogSearchRow,
@@ -99,7 +100,7 @@ describe("toSearchHit", () => {
       license: "CC0-1.0",
       licenseUrl: null,
       attribution: "credit",
-      scope: "pilot",
+      scope: "public",
       modified: true,
     });
     expect(hit.vintages).toEqual([2019]);
@@ -111,6 +112,33 @@ describe("toSearchHit", () => {
     const hit = toSearchHit(row({ match: "magic", wine_type: "beer" }));
     expect(hit.match).toBe("fuzzy");
     expect(hit.type).toBeNull();
+  });
+});
+
+describe("publicSearchHits", () => {
+  const record = (over: Partial<CatalogSearchRow>) =>
+    row({
+      result_kind: "record",
+      wine_id: null,
+      record_id: "r",
+      source: "provider",
+      verified: false,
+      provider_id: "p",
+      provider_scope: "public",
+      ...over,
+    });
+  it("keeps CELLR wines and public provider records", () => {
+    expect(publicSearchHits([row(), record({})]).map((h) => h.kind)).toEqual(["wine", "record"]);
+  });
+  it("drops pilot, unknown and missing scopes, and records without a provider", () => {
+    expect(
+      publicSearchHits([
+        record({ provider_scope: "pilot" }),
+        record({ provider_scope: null }),
+        record({ provider_scope: "Public" }),
+        record({ provider_id: null }),
+      ]),
+    ).toEqual([]);
   });
 });
 

@@ -1,0 +1,1 @@
+  provider rows for 'muga reserva': people's search 0, pilot search 20

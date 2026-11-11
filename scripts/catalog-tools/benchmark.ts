@@ -9,8 +9,9 @@
  *    contradicting type); ambiguous = more than one such record; partial = the producer with a close but not equal
  *    name, or the name with another type; producer-only; missing. The thresholds are the scan matcher's own
  *    similarity (packages/domain/src/scan.ts) and are heuristics: every match is written out for review.
- * 2. Search quality (with --db): the benchmark query through public.catalog_search, as a signed-in household member;
- *    where the covered record ranks, and that no provider result is ever marked verified.
+ * 2. Search quality (with --db): the benchmark query through public.catalog_search_pilot (the same search, including
+ *    pilot-scope providers; service role, pilot or staging databases only — people's search never shows pilot data),
+ *    for the test household: where the covered record ranks, and that no provider result is ever marked verified.
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import {
@@ -20,7 +21,8 @@ import {
   normalizeText,
   type ProviderRecord,
 } from "@cellr/domain";
-import { actAs, connect, parseArgs, str } from "./lib";
+import { parseArgs, str } from "./lib";
+import { connectToTarget } from "./target";
 
 interface Entry {
   id: string;
@@ -125,9 +127,7 @@ async function main() {
     { rank: number | null; top: string[]; verifiedProvider: boolean; ms: number }
   > = {};
   if (typeof args.db === "string") {
-    const client = await connect(args.db);
-    // people cannot read provider ids: map them once with the service role, then search as the person
-    await client.query("set role service_role");
+    const client = await connectToTarget(args.db, args);
     const map = new Map(
       (
         await client.query<{ id: string; external_id: string }>(
@@ -135,8 +135,6 @@ async function main() {
         )
       ).rows.map((r) => [r.id, r.external_id]),
     );
-    await client.query("reset role");
-    await actAs(client, str(args, "user"));
     for (const e of results) {
       const t0 = performance.now();
       const rows = (
@@ -147,7 +145,7 @@ async function main() {
           source: string;
           match: string;
           verified: boolean;
-        }>("select * from public.catalog_search($1, $2, null, null, null, 8)", [
+        }>("select * from public.catalog_search_pilot($1, $2, null, null, null, 8)", [
           str(args, "household"),
           e.query,
         ])

@@ -461,5 +461,10 @@ It can only suggest a link to one canonical wine with exactly the same identity,
 `public.catalog_search` searches the household's own wines, the catalogue and enabled provider records for
 autocomplete (`GET /api/v1/catalog/search`).
 
+People's search shows provider records only from providers in scope `public` with verified commercial rights.
+Pilot evaluation data is never shown to people: only the service-role `catalog_search_pilot` sees it, and only in a
+database its owner marked `pilot` or `staging`. Provider rights change only through `admin_catalog_provider_rights`
+(logged), never through an import.
+
 No provider is cleared for production: LWIN is blocked and X-Wines is pilot-only. Design, evidence, licensing
 assessment, coverage and performance: [`docs/sprints/sprint-004a/REPORT.md`](sprints/sprint-004a/REPORT.md).

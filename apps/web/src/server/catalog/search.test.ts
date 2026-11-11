@@ -22,7 +22,7 @@ const row: CatalogSearchRow = {
   attribution: "credit",
   license: "CC0-1.0",
   license_url: "https://creativecommons.org/publicdomain/zero/1.0/",
-  provider_scope: "pilot",
+  provider_scope: "public",
   modified: true,
   vintages: [2018, 2019],
 };
@@ -79,6 +79,17 @@ describe("catalog search service", () => {
       results: [],
       available: false,
     });
+  });
+  it("fails closed: a pilot or unscoped provider record never reaches the app", async () => {
+    const { service } = setup([
+      { ...row, record_id: "pilot", provider_scope: "pilot" },
+      { ...row, record_id: "none", provider_scope: null },
+      { ...row, record_id: "odd", provider_scope: "PUBLIC" },
+      { ...row, record_id: "nobody", provider_id: null },
+      row,
+    ]);
+    const out = await service.search({ q: "muga", limit: 8 });
+    expect(out.results.map((r) => r.recordId)).toEqual(["r1"]);
   });
   it("an empty answer is just empty", async () => {
     const { service } = setup([]);
