@@ -1,5 +1,7 @@
 [MASTER_BRIEF.md](https://github.com/user-attachments/files/34772657/MASTER_BRIEF.md)
+
 # CELLR — WINE INTELLIGENCE MEGA SPRINT
+
 ## Master execution brief for Claude Code · v1.1 · 12 November 2026
 
 **Project:** `Blockionaire/CELLR`  
@@ -50,20 +52,20 @@ As of the audit on **2026-11-11**, GitHub PR **#65** (Sprint 004A) is **merged i
 
 Established components and paths (verify whether subsequently renamed):
 
-| Existing capability | Repository starting point | Constraint |
-| --- | --- | --- |
-| Wine Master / canonical and provisional identities | `docs/CATALOG.md`, catalog migrations, `packages/domain/src/wine-master.ts` | Reuse, no duplicate master table |
-| Provider staging, rights, import logs, external source records | `supabase/migrations/20261114000037_catalog_search.sql` | Merged; migration immutability matters |
-| Server-side catalog search API | `apps/web/src/app/api/v1/catalog/search/route.ts`, `apps/web/src/server/catalog/search*` | Return bounded ranked results, enforce RLS and rights |
-| Provider adapters & pilot tools | `packages/domain/src/catalog-providers.ts`, `scripts/catalog-tools/` | Preserve audit, hashes, target guards |
-| Search contracts and confirmation rules | `packages/domain/src/catalog-search.ts` | External and fuzzy hits are NOT verified |
-| Client-side current add-bottle picker | `apps/web/src/features/cellar/choose-wine.tsx`, `add-bottle-flow.tsx` | Currently filters fetched wine list in memory |
-| Current scan flow | `apps/web/src/features/scan/*`, `apps/web/src/server/scans/*` | Existing OCR, vision fallback, image protections, matching and user confirmation |
-| Current Purchase Check | `apps/web/src/features/purchase-check/*`, `apps/web/src/server/purchase-check/*` | **Personal comparison currently runs in deterministic code**, not a general-purpose LLM each time |
-| Wine intelligence and shared profiles | `apps/web/src/server/insights/*`, `apps/web/src/features/cellar/wine-insight.tsx` | Reuse cached canonical vintage/language profiles; no cross-tenant data leak |
-| Provenance model | `packages/domain/src/provenance.ts` | Data model exists; actual wine-page UI is not yet integrated |
-| Rights-guarded SQL search | `public.catalog_search`, `public.catalog_search_pilot` | Pilot data inaccessible through ordinary public API |
-| Repository validation | root `package.json`, `pnpm check`, `pnpm db:types:check`, Playwright, migrations guard | CI E2E may be skipped; local execution requires proof |
+| Existing capability                                            | Repository starting point                                                                | Constraint                                                                                        |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Wine Master / canonical and provisional identities             | `docs/CATALOG.md`, catalog migrations, `packages/domain/src/wine-master.ts`              | Reuse, no duplicate master table                                                                  |
+| Provider staging, rights, import logs, external source records | `supabase/migrations/20261114000037_catalog_search.sql`                                  | Merged; migration immutability matters                                                            |
+| Server-side catalog search API                                 | `apps/web/src/app/api/v1/catalog/search/route.ts`, `apps/web/src/server/catalog/search*` | Return bounded ranked results, enforce RLS and rights                                             |
+| Provider adapters & pilot tools                                | `packages/domain/src/catalog-providers.ts`, `scripts/catalog-tools/`                     | Preserve audit, hashes, target guards                                                             |
+| Search contracts and confirmation rules                        | `packages/domain/src/catalog-search.ts`                                                  | External and fuzzy hits are NOT verified                                                          |
+| Client-side current add-bottle picker                          | `apps/web/src/features/cellar/choose-wine.tsx`, `add-bottle-flow.tsx`                    | Currently filters fetched wine list in memory                                                     |
+| Current scan flow                                              | `apps/web/src/features/scan/*`, `apps/web/src/server/scans/*`                            | Existing OCR, vision fallback, image protections, matching and user confirmation                  |
+| Current Purchase Check                                         | `apps/web/src/features/purchase-check/*`, `apps/web/src/server/purchase-check/*`         | **Personal comparison currently runs in deterministic code**, not a general-purpose LLM each time |
+| Wine intelligence and shared profiles                          | `apps/web/src/server/insights/*`, `apps/web/src/features/cellar/wine-insight.tsx`        | Reuse cached canonical vintage/language profiles; no cross-tenant data leak                       |
+| Provenance model                                               | `packages/domain/src/provenance.ts`                                                      | Data model exists; actual wine-page UI is not yet integrated                                      |
+| Rights-guarded SQL search                                      | `public.catalog_search`, `public.catalog_search_pilot`                                   | Pilot data inaccessible through ordinary public API                                               |
+| Repository validation                                          | root `package.json`, `pnpm check`, `pnpm db:types:check`, Playwright, migrations guard   | CI E2E may be skipped; local execution requires proof                                             |
 
 Current Sprint 004A benchmark (reference only; reproduce to validate):
 
@@ -84,7 +86,7 @@ A separate Claude Code session reported an additional read-only repo/documentati
 
 ## A. Production migration-history/bootstrap is a critical deployment dependency
 
-The audit reports that production was assembled partly by manually applying SQL in the Supabase editor, leaving migration history incomplete, and that `docs/MIGRATIONS.md` §4 documents a practiced bootstrap that has NOT been authorized or executed. Before any schema-related sprint work, inspect the current migration history process, published production reference, deployment method and safe reconciliation plan *without connecting to production or exposing credentials*. Record this as `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED` until independently verified otherwise. Do not call `supabase db push`, `migration repair`, migration bootstrap, schema changes, backfills or destructive operations against production; no owner approval for those actions is implied by this brief. Work with isolated local/staging stacks and additive migration files. Write an owner-only, step-by-step pre-deploy checklist with preflight evidence, dry-run, backups, verification and recovery/rollback actions. Block production deployment if history is unreconciled.
+The audit reports that production was assembled partly by manually applying SQL in the Supabase editor, leaving migration history incomplete, and that `docs/MIGRATIONS.md` §4 documents a practiced bootstrap that has NOT been authorized or executed. Before any schema-related sprint work, inspect the current migration history process, published production reference, deployment method and safe reconciliation plan _without connecting to production or exposing credentials_. Record this as `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED` until independently verified otherwise. Do not call `supabase db push`, `migration repair`, migration bootstrap, schema changes, backfills or destructive operations against production; no owner approval for those actions is implied by this brief. Work with isolated local/staging stacks and additive migration files. Write an owner-only, step-by-step pre-deploy checklist with preflight evidence, dry-run, backups, verification and recovery/rollback actions. Block production deployment if history is unreconciled.
 
 ## B. AI budget fail-open must be investigated before expanding AI use
 
@@ -100,7 +102,7 @@ Review `docs/RECOGNITION-ROADMAP.md` and the existing profile/cache logic for th
 
 ## E. Smaller audit follow-ups, not core scope diversions
 
-- Admin authorization/docs conflict: Sprint U docs suggest non-admin admin pages returned HTTP 200, while the reported `proxy.ts` behavior suggests HTTP 404. Verify actual *HTTP status, server-side access control and data disclosure* with non-admin and anonymous requests. If resolved, fix stale documentation; if not, fix exposure without redesigning admin navigation.
+- Admin authorization/docs conflict: Sprint U docs suggest non-admin admin pages returned HTTP 200, while the reported `proxy.ts` behavior suggests HTTP 404. Verify actual _HTTP status, server-side access control and data disclosure_ with non-admin and anonymous requests. If resolved, fix stale documentation; if not, fix exposure without redesigning admin navigation.
 - CI E2E is reportedly skipped on pull requests; targeted full-stack tests must run outside PR CI with documented test environment and artifacts. Preserve CI-enforced migration immutability.
 - Several cellar/3D/admin components are large; use focused changes, regression tests, and integration boundaries, not broad refactoring during this epic.
 - Reported repo and test totals are snapshots, not acceptance evidence; measure actual current counts.
@@ -186,15 +188,15 @@ Official pages: `https://www.liv-ex.com/lwin/`, `https://www.liv-ex.com/lwin-cre
 
 Record a rights decision for **each provider and each intended use**, not just a single vague `licensed=true` status:
 
-| Intended use | Evidence required |
-| --- | --- |
-| Download/evaluation in isolated environment | Published license or written permission sufficient for evaluation, and source-acquisition terms |
-| Store entire dataset in CELLR/Supabase | Reproduction/database rights and storage terms |
-| Display records to consumers | Public display/reutilization rights, attribution and derivative-data terms |
-| Combine/enrich data across providers | Sublicensing/derivative/attribution/database-right implications |
-| Pass data to model for AI inference | Provider AI-use clauses; provider content processing and privacy conditions |
-| Use dataset for model training | Separate, explicit right; **out of scope by default** |
-| Keep derived fields after license termination | Contract-specific retention and removal rights |
+| Intended use                                  | Evidence required                                                                               |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Download/evaluation in isolated environment   | Published license or written permission sufficient for evaluation, and source-acquisition terms |
+| Store entire dataset in CELLR/Supabase        | Reproduction/database rights and storage terms                                                  |
+| Display records to consumers                  | Public display/reutilization rights, attribution and derivative-data terms                      |
+| Combine/enrich data across providers          | Sublicensing/derivative/attribution/database-right implications                                 |
+| Pass data to model for AI inference           | Provider AI-use clauses; provider content processing and privacy conditions                     |
+| Use dataset for model training                | Separate, explicit right; **out of scope by default**                                           |
+| Keep derived fields after license termination | Contract-specific retention and removal rights                                                  |
 
 Do not treat this table as legal advice or overclaim clearance. Document evidence links, exact version, scope, reviewer, date, limitations and follow-up. If evidence is insufficient, keep provider `unverified` or `blocked` and `search_scope` not public.
 
@@ -231,16 +233,16 @@ Preferred execution model: **one umbrella initiative, incremental reviewable sub
 
 ## Planned work packages
 
-| ID | Name | Primary outcome | Can proceed if external rights unresolved? |
-| --- | --- | --- | --- |
-| **WI-00** | Baseline, architecture & threat model | Current-state audit, baseline tests, explicit execution plan | Yes |
-| **WI-01** | Provider adapters, identity quality & pilot coverage | Clean, benchmarked two-source staging foundation | With fixtures/X-Wines permitted pilot; LWIN gated |
-| **WI-02** | Shared search/autocomplete UX | Fast typing and candidate selection in cellar and Purchase Check | Yes, canonical + private CELLR data |
-| **WI-03** | Scan-to-catalog resolver | Consistent scan matching and safe confirmation | Yes, same legal fallback |
-| **WI-04** | Buying intelligence and profile reuse | Reuse good data and personalized advice without redundant AI | Yes, source-gated |
-| **WI-05** | Provenance, trust & wine pages | Visible sources and AI-estimate labeling | Yes |
-| **WI-06** | Admin governance, telemetry & operational safety | Review queues, quality and rights controls, observability | Yes |
-| **WI-07** | Full regression, stress, legal-readiness & release dossier | Evidence-based go/no-go with preview/PRs | Yes; public external launch may remain blocked |
+| ID        | Name                                                       | Primary outcome                                                  | Can proceed if external rights unresolved?        |
+| --------- | ---------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------- |
+| **WI-00** | Baseline, architecture & threat model                      | Current-state audit, baseline tests, explicit execution plan     | Yes                                               |
+| **WI-01** | Provider adapters, identity quality & pilot coverage       | Clean, benchmarked two-source staging foundation                 | With fixtures/X-Wines permitted pilot; LWIN gated |
+| **WI-02** | Shared search/autocomplete UX                              | Fast typing and candidate selection in cellar and Purchase Check | Yes, canonical + private CELLR data               |
+| **WI-03** | Scan-to-catalog resolver                                   | Consistent scan matching and safe confirmation                   | Yes, same legal fallback                          |
+| **WI-04** | Buying intelligence and profile reuse                      | Reuse good data and personalized advice without redundant AI     | Yes, source-gated                                 |
+| **WI-05** | Provenance, trust & wine pages                             | Visible sources and AI-estimate labeling                         | Yes                                               |
+| **WI-06** | Admin governance, telemetry & operational safety           | Review queues, quality and rights controls, observability        | Yes                                               |
+| **WI-07** | Full regression, stress, legal-readiness & release dossier | Evidence-based go/no-go with preview/PRs                         | Yes; public external launch may remain blocked    |
 
 **Do not confuse sub-sprint completion with public launch**. The mission may finish with all core CELLR functionality built and external providers deliberately disabled pending legal approval.
 
@@ -375,7 +377,7 @@ Preferred interaction:
 ### 3. Integrations
 
 A. `ChooseWine` in `add-bottle-flow.tsx` and related scan fallback flows. Keep the existing QR/photo action and existing quantity/location inputs intact.  
-B. `PurchaseCheckScreen` manual ConfirmStep: preferably a lightweight new *search first* entry path with selected candidate and editable confirmation. User can still choose **Type manually without selecting a result**.  
+B. `PurchaseCheckScreen` manual ConfirmStep: preferably a lightweight new _search first_ entry path with selected candidate and editable confirmation. User can still choose **Type manually without selecting a result**.  
 C. Reuse where other manually typed wine identity fields exist only if the business purpose and permissions match. Avoid broad UI replacement by default.
 
 ### 4. Compatibility and error treatment
@@ -489,21 +491,20 @@ Build a regression set of label-text/OCR samples and synthetic images representi
 
 Separate at least these layers:
 
-| Layer | Scope | Reuse policy |
-| --- | --- | --- |
-| Wine identity and factual attributes | Canonical CELLR wine / source record | Share only as permitted, with provenance |
+| Layer                                                                      | Scope                                                 | Reuse policy                                                                 |
+| -------------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Wine identity and factual attributes                                       | Canonical CELLR wine / source record                  | Share only as permitted, with provenance                                     |
 | Vintage-specific wine profile (grapes, style, drinking window, confidence) | Canonical wine + vintage + language + profile version | Reuse only if current validation, source quality, freshness and rights allow |
-| Household cellar context | Household | Never globally share |
-| Personal tastings/preferences | Individual user | Never globally share; use existing access rules |
-| Buying verdict | User × wine/vintage × price × cellar/taste context | Compute per request; do not globally cache |
-| AI prose explanation | Derived per user, if implemented | Must be grounded and visibly labeled; rate-limited |
+| Household cellar context                                                   | Household                                             | Never globally share                                                         |
+| Personal tastings/preferences                                              | Individual user                                       | Never globally share; use existing access rules                              |
+| Buying verdict                                                             | User × wine/vintage × price × cellar/taste context    | Compute per request; do not globally cache                                   |
+| AI prose explanation                                                       | Derived per user, if implemented                      | Must be grounded and visibly labeled; rate-limited                           |
 
 Existing `shared_wine_profiles`, household `vintage_insights`, `profileUpgrade`, `checkInsight`, `shareableInsight` and `PurchaseCheck` comparison logic are the starting point. Do not create another global profile table unless justified by a reviewed ADR and migration tests.
 
 ### 2. Candidate wine profile retrieval
 
 **Stable-facts enhancement (from `docs/RECOGNITION-ROADMAP.md`):** evaluate whether existing wine-level, source-backed facts can be reused safely across vintages separately from the existing vintage-specific AI profiles. Preserve provenance and source permissions. Explicitly forbid reusing drink windows, vintage valuations, year-specific harvest assertions and unsupported grape percentages across vintages. Add an ADR and positive/negative reuse tests; implement only if it fits existing architecture without creating contradictory caches.
-
 
 For manual Purchase Check, the candidate may **not be in the user's cellar**, and may be an external pilot/verified record with no canonical ID. Design an explicit route that works without creating a fake bottle or private tasting:
 
@@ -521,7 +522,7 @@ Potential cache key includes verified canonical wine ID, exact vintage (includin
 
 Keep the current deterministic `checkPurchase` as the authoritative recommendation engine unless an ADR and evidence justify a change.
 
-- Take exact selected candidate, optional price and currently available taste signals from the *signed-in person* and permitted household cellar data.
+- Take exact selected candidate, optional price and currently available taste signals from the _signed-in person_ and permitted household cellar data.
 - Compare expected style, body/tannin/acidity/sweetness, grapes where confidently known, overlap/diversification, existing cellar stock, user feedback and preference evidence.
 - Distinguish recommendation confidence from identity confidence. A recognized bottle can still have insufficient taste evidence.
 - Explanations must honestly describe why a score/verdict was produced; no hallucinated user history, producer awards, critic scores, market value, vintage-specific notes or personal ratings.
@@ -582,7 +583,7 @@ Only show sources **actually used** for a fact, never a generic provider logo on
 
 ### 2. Information precision
 
-- Never say a producer fact is *verified* merely because it came from a public dataset.
+- Never say a producer fact is _verified_ merely because it came from a public dataset.
 - Distinguish original provider value from CELLR normalization/transformation where required.
 - Show provider link, license, any modifications, dataset age and no-endorsement sentence in an accessible details panel.
 - Do not imply a drinking window or valuation is an objective fact; an AI-generated forecast must be labeled and its uncertainty preserved.
@@ -663,7 +664,7 @@ Use existing analytics style and rate limits; do not invent a second analytics S
 
 ## WI-07 — Integrated verification, performance, security and release dossier
 
-**Objective:** prove that the combined product actually works and document exactly what is *not* released.
+**Objective:** prove that the combined product actually works and document exactly what is _not_ released.
 
 ### 1. Full build and regression
 
@@ -687,27 +688,27 @@ Run relevant Playwright projects in a real local stack / valid preview environme
 
 Verify the production-migration bootstrap prerequisite **without applying anything to production**. Confirm any admin HTTP status/access discrepancy through actual anonymous/non-admin tests. Include failures of the new paid AI paths when usage-budget services are unavailable. Add a separate physical-device field-test checklist for real labels, mobile network and camera/OCR latency, leaving its status pending without actual hardware evidence.
 
-| Scenario | Expected outcome |
-| --- | --- |
-| Add existing cellar wine manually | Exact selected wine, correct vintage, quantities/location preserved |
-| Add canonical wine with new vintage | Existing canonical identity, allowed safe vintage flow |
-| Add wine not in catalog | Typed details preserved, provisional household identity created |
-| Autocomplete typo/alias | Candidate offered, explicit user confirmation, no false verification |
-| Search short/empty/common names | Stable bounded results and efficient response |
-| Select external unverified pilot record through public API | **Denied / not visible** |
-| Scan known label via OCR | Correct candidate and vintage; vision model avoided when safe |
-| Scan ambiguous near-twin label | No silent choice; explicit review screen |
-| Scan illegible label | Existing vision/manual fallback and photo handling |
-| Purchase Check manual recognized wine | Candidate → vintage → price → personalized verdict; no cellar mutation |
-| Purchase Check unknown wine | Manual option and honest uncertainty |
-| Purchase Check photo input | Current ephemeral image behavior retained |
-| Valid shared profile exists | Reused, no redundant AI call |
-| No cached profile / AI unavailable | Graceful fallback without fabricated claims |
-| Two households with similarly named provisional wines | No cross-household search, profiles, notes or verdict leakage |
-| Provider status switched to off/blocked | Public search/provenance stop returning its records |
-| User toggles light/dark or NL/EN | Search, cards, disclosures and results still usable |
-| iPhone, tablet and desktop | Touch targets, layout, search keyboard and navigation correct |
-| Keyboard/screen reader accessibility | Combobox roles, navigation, focus and source details work |
+| Scenario                                                   | Expected outcome                                                       |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Add existing cellar wine manually                          | Exact selected wine, correct vintage, quantities/location preserved    |
+| Add canonical wine with new vintage                        | Existing canonical identity, allowed safe vintage flow                 |
+| Add wine not in catalog                                    | Typed details preserved, provisional household identity created        |
+| Autocomplete typo/alias                                    | Candidate offered, explicit user confirmation, no false verification   |
+| Search short/empty/common names                            | Stable bounded results and efficient response                          |
+| Select external unverified pilot record through public API | **Denied / not visible**                                               |
+| Scan known label via OCR                                   | Correct candidate and vintage; vision model avoided when safe          |
+| Scan ambiguous near-twin label                             | No silent choice; explicit review screen                               |
+| Scan illegible label                                       | Existing vision/manual fallback and photo handling                     |
+| Purchase Check manual recognized wine                      | Candidate → vintage → price → personalized verdict; no cellar mutation |
+| Purchase Check unknown wine                                | Manual option and honest uncertainty                                   |
+| Purchase Check photo input                                 | Current ephemeral image behavior retained                              |
+| Valid shared profile exists                                | Reused, no redundant AI call                                           |
+| No cached profile / AI unavailable                         | Graceful fallback without fabricated claims                            |
+| Two households with similarly named provisional wines      | No cross-household search, profiles, notes or verdict leakage          |
+| Provider status switched to off/blocked                    | Public search/provenance stop returning its records                    |
+| User toggles light/dark or NL/EN                           | Search, cards, disclosures and results still usable                    |
+| iPhone, tablet and desktop                                 | Touch targets, layout, search keyboard and navigation correct          |
+| Keyboard/screen reader accessibility                       | Combobox roles, navigation, focus and source details work              |
 
 ### 3. Security and data correctness
 
@@ -765,20 +766,20 @@ Deliver `FINAL_REPORT.md` with:
 
 These are engineering targets, not evidence that a baseline already meets them. Never fabricate results to satisfy them.
 
-| Dimension | Target / rule | How measured |
-| --- | --- | --- |
-| Identity safety | **0** wrong automatic canonical identity assignments in adversarial golden set | Negative E2E/unit tests with independent expected outcomes |
-| External source visibility | **0** pilot/unverified results in public API | Authenticated/RLS/SQL integration tests |
-| Data licensing | **0** unapproved public providers; every shown source has recorded license + provenance | Rights register + runtime rights checks + rendered UI tests |
-| Tenant isolation | **0** cross-household private wine, profile, tasting or purchase data leaks | SQL RLS and service-route tests |
-| Search quality | No regression on original 127 cases; aim at least baseline 92/95 top-8 for covered 004A queries | Reproduced named benchmark, plus expanded test set |
-| Search speed | SQL p95 under 250ms on comparable local benchmark; measure full API separately | Repeatable load harness, p50/p95 and query plans |
-| AI reuse | When safe, valid shared profile reused without extra generation; no cross-vintage reuse | Spy/mock tests and usage telemetry |
-| User action | No cellar bottle mutation during a purchase comparison | E2E and server service tests |
-| Accessibility | No serious axe violations in changed screens, keyboard navigation complete | Automated checks + manual exploratory review |
-| Locale and themes | NL/EN, dark/light work, no untranslated key or severe layout failures | UI and snapshot/visual checks |
-| Regression | Existing scan, Purchase Check, cellar, profile, homepage and migration tests preserved | Full repo check + targeted end-to-end |
-| Review | One clean report/commit status per subsprint; clear final merge plan | EPIC.md and PR descriptions |
+| Dimension                  | Target / rule                                                                                   | How measured                                                |
+| -------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Identity safety            | **0** wrong automatic canonical identity assignments in adversarial golden set                  | Negative E2E/unit tests with independent expected outcomes  |
+| External source visibility | **0** pilot/unverified results in public API                                                    | Authenticated/RLS/SQL integration tests                     |
+| Data licensing             | **0** unapproved public providers; every shown source has recorded license + provenance         | Rights register + runtime rights checks + rendered UI tests |
+| Tenant isolation           | **0** cross-household private wine, profile, tasting or purchase data leaks                     | SQL RLS and service-route tests                             |
+| Search quality             | No regression on original 127 cases; aim at least baseline 92/95 top-8 for covered 004A queries | Reproduced named benchmark, plus expanded test set          |
+| Search speed               | SQL p95 under 250ms on comparable local benchmark; measure full API separately                  | Repeatable load harness, p50/p95 and query plans            |
+| AI reuse                   | When safe, valid shared profile reused without extra generation; no cross-vintage reuse         | Spy/mock tests and usage telemetry                          |
+| User action                | No cellar bottle mutation during a purchase comparison                                          | E2E and server service tests                                |
+| Accessibility              | No serious axe violations in changed screens, keyboard navigation complete                      | Automated checks + manual exploratory review                |
+| Locale and themes          | NL/EN, dark/light work, no untranslated key or severe layout failures                           | UI and snapshot/visual checks                               |
+| Regression                 | Existing scan, Purchase Check, cellar, profile, homepage and migration tests preserved          | Full repo check + targeted end-to-end                       |
+| Review                     | One clean report/commit status per subsprint; clear final merge plan                            | EPIC.md and PR descriptions                                 |
 
 **Definition of done for a sub-sprint:** code is integrated, regression tests written and run, CI or equivalent local checks pass, documentation reflects the exact shipped behavior, UX evidence captured if relevant, user checkpoint written, commit created and no critical known unresolved fault. A blocked dependency means **not done**, not automatically failed for unrelated work.
 
@@ -832,8 +833,8 @@ type MatchClass = "exact" | "verified_alias" | "prefix" | "fuzzy";
 
 type CandidateIdentity = {
   kind: CandidateKind;
-  wineId?: string;    // only for CELLR wine identities
-  recordId?: string;  // only for external provider records
+  wineId?: string; // only for CELLR wine identities
+  recordId?: string; // only for external provider records
   producer: string;
   name: string;
   type?: WineType | null;
@@ -853,7 +854,7 @@ type SelectedWineForBuying = {
 };
 ```
 
-When using the *actual* code, prefer existing `CatalogSearchHit`, `CatalogSearchQuerySchema`, `needsConfirmation`, `PurchaseWine`, `ScanResult` and existing source/license models. An adapter is better than a second source of truth. Keep all input/output validation in the domain/server boundaries.
+When using the _actual_ code, prefer existing `CatalogSearchHit`, `CatalogSearchQuerySchema`, `needsConfirmation`, `PurchaseWine`, `ScanResult` and existing source/license models. An adapter is better than a second source of truth. Keep all input/output validation in the domain/server boundaries.
 
 **Data-path separation:** fetching external text for listing, sending provider data into a model, persisting shared AI profiles, logging, and publishing to UI are distinct actions with distinct rights checks. A valid catalog read never implies permission to do every downstream action.
 
@@ -886,7 +887,7 @@ Use named fixtures (synthetic when licensing/accuracy is uncertain) for:
 9. LWIN-7 vs LWIN-11/16/18 interpreted as different abstraction levels;
 10. a provider record with rights revoked while the user has search UI open;
 11. very common prefix (`chateau`, `domaine`, `bodega`) at large scale;
-12. label text containing malicious instructions that are *data*, not a command.
+12. label text containing malicious instructions that are _data_, not a command.
 
 Do not put third-party copyrighted label art into test fixtures. Where sample product names refer to real brands, they are examples to drive behavior, not evidence of identity mapping unless documented.
 
@@ -1000,7 +1001,7 @@ Good subagent scopes:
 - Where multiple agents edit files, assign **disjoint ownership** or branch/worktree isolation. Do not race on shared files, migrations or generated DB types.
 - Main orchestrator reviews every diff, resolves conflicts and independently tests integrated code.
 - Allow smaller models (e.g., Sonnet/Haiku) for repetitive tests, searching and fixture generation if available, while the main Fable/Opus agent reviews high-risk architecture, SQL, rights and identity matching.
-- Parallelize only *independent* work. Rights review, schema design and API contracts must be settled before dependent UI work is merged.
+- Parallelize only _independent_ work. Rights review, schema design and API contracts must be settled before dependent UI work is merged.
 - Subagents must not claim a source is legally cleared or rewrite the top-level safety instructions.
 
 **Effort choice:** Fable 5.2 High is the recommended default for the full orchestration; Opus 5.5 High is a viable alternative. Go above High only for a demonstrated difficult architecture/security problem; high effort alone is not a substitute for independent tests.
@@ -1009,29 +1010,29 @@ Good subagent scopes:
 
 # 11. Risk register and mitigations
 
-| ID | Risk | Severity | Mitigation / validation |
-| --- | --- | --- | --- |
-| R-01 | Incorrect wine identity matched automatically | Critical | Conservative exact rules, independent gold set, explicit review on ambiguity |
-| R-02 | Unlicensed provider data in commercial UI | Critical | Rights gates, off by default, SQL + API negative tests, human evidence |
-| R-03 | Household/privacy data leaking through search/AI | Critical | RLS, auth, minimize LLM inputs, cross-tenant tests |
-| R-04 | Duplicate canonical wine identities | High | Existing Wine Master, admin verification, idempotent links, audits |
-| R-05 | Cross-vintage cached advice | High | Profile key exact vintage + locale/version; NV separated |
-| R-06 | Unpredictable cost from repeated AI calls | High | Reuse shared valid profiles, single-flight, rate limit and spend telemetry |
-| R-07 | Search results slow for common wine terms | High | Indexed bounded server search, benchmark common terms, explain plans |
-| R-08 | E2E CI skipped and hidden regression | High | Local full-stack targeted tests, screenshot/repro evidence, report skips |
-| R-09 | Large simultaneous code changes impossible to review | High | Small sub-sprint commits/PRs, independent reviews, checkpoints |
-| R-10 | External source discontinued/licence revoked | High | Immediate provider disable, rollback, provenance, alternate sources |
-| R-11 | LWIN schema assumptions wrong | High | Verify real official file before real import; hard rejection of unknown schema |
-| R-12 | X-Wines incomplete/outdated coverage | Medium-high | Benchmark per segment, curated growth, no completeness claims |
-| R-13 | UI returns generic verdict misrepresented as AI personalization | High | Clear logic ownership; personalized signals verified; uncertainty display |
-| R-14 | Photos, logos and market prices accidentally imported | High | Explicit allowlist of textual fields, parser tests, no remote images |
-| R-15 | Admin can inadvertently alter source legal status | High | Separate explicit audited rights workflow, two-person review recommended |
-| R-16 | Feature flags deployed partially | Medium-high | Backwards-compatible API, missing endpoint fallbacks, rollout checks |
-| R-17 | Production migration history incomplete | Critical | No db push/bootstrap; independent audit of `docs/MIGRATIONS.md` §4, owner-only reconciliation plan and deployment block |
-| R-18 | Paid AI budgets fail open on control outage | Critical | Verify current behavior; new paid calls fail closed/are hard-bounded, concurrency/retry tests, provider-side caps require owner action |
-| R-19 | Synthetic scan benchmarks mistaken for real iPhone accuracy | High | Golden real-photo consented test set and physical-device evidence; pending state when unavailable |
-| R-20 | Vintage-specific wine facts reused incorrectly across years | High | Wine-level vs vintage-level provenance contract, explicit non-reuse tests for valuations and drink windows |
-| R-21 | Admin authorization/docs status discrepancy | Medium-high | Test actual HTTP status and server-side auth; reconcile documentation or fix exposure |
+| ID   | Risk                                                            | Severity    | Mitigation / validation                                                                                                                |
+| ---- | --------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| R-01 | Incorrect wine identity matched automatically                   | Critical    | Conservative exact rules, independent gold set, explicit review on ambiguity                                                           |
+| R-02 | Unlicensed provider data in commercial UI                       | Critical    | Rights gates, off by default, SQL + API negative tests, human evidence                                                                 |
+| R-03 | Household/privacy data leaking through search/AI                | Critical    | RLS, auth, minimize LLM inputs, cross-tenant tests                                                                                     |
+| R-04 | Duplicate canonical wine identities                             | High        | Existing Wine Master, admin verification, idempotent links, audits                                                                     |
+| R-05 | Cross-vintage cached advice                                     | High        | Profile key exact vintage + locale/version; NV separated                                                                               |
+| R-06 | Unpredictable cost from repeated AI calls                       | High        | Reuse shared valid profiles, single-flight, rate limit and spend telemetry                                                             |
+| R-07 | Search results slow for common wine terms                       | High        | Indexed bounded server search, benchmark common terms, explain plans                                                                   |
+| R-08 | E2E CI skipped and hidden regression                            | High        | Local full-stack targeted tests, screenshot/repro evidence, report skips                                                               |
+| R-09 | Large simultaneous code changes impossible to review            | High        | Small sub-sprint commits/PRs, independent reviews, checkpoints                                                                         |
+| R-10 | External source discontinued/licence revoked                    | High        | Immediate provider disable, rollback, provenance, alternate sources                                                                    |
+| R-11 | LWIN schema assumptions wrong                                   | High        | Verify real official file before real import; hard rejection of unknown schema                                                         |
+| R-12 | X-Wines incomplete/outdated coverage                            | Medium-high | Benchmark per segment, curated growth, no completeness claims                                                                          |
+| R-13 | UI returns generic verdict misrepresented as AI personalization | High        | Clear logic ownership; personalized signals verified; uncertainty display                                                              |
+| R-14 | Photos, logos and market prices accidentally imported           | High        | Explicit allowlist of textual fields, parser tests, no remote images                                                                   |
+| R-15 | Admin can inadvertently alter source legal status               | High        | Separate explicit audited rights workflow, two-person review recommended                                                               |
+| R-16 | Feature flags deployed partially                                | Medium-high | Backwards-compatible API, missing endpoint fallbacks, rollout checks                                                                   |
+| R-17 | Production migration history incomplete                         | Critical    | No db push/bootstrap; independent audit of `docs/MIGRATIONS.md` §4, owner-only reconciliation plan and deployment block                |
+| R-18 | Paid AI budgets fail open on control outage                     | Critical    | Verify current behavior; new paid calls fail closed/are hard-bounded, concurrency/retry tests, provider-side caps require owner action |
+| R-19 | Synthetic scan benchmarks mistaken for real iPhone accuracy     | High        | Golden real-photo consented test set and physical-device evidence; pending state when unavailable                                      |
+| R-20 | Vintage-specific wine facts reused incorrectly across years     | High        | Wine-level vs vintage-level provenance contract, explicit non-reuse tests for valuations and drink windows                             |
+| R-21 | Admin authorization/docs status discrepancy                     | Medium-high | Test actual HTTP status and server-side auth; reconcile documentation or fix exposure                                                  |
 
 ---
 
