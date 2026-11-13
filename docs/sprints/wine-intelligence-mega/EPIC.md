@@ -6,20 +6,20 @@ Brief: [`MASTER_BRIEF.md`](MASTER_BRIEF.md) (v1.1). Per-sub-sprint evidence: [`p
 ## Resume block
 
 ```text
-LAST VERIFIED CHECKPOINT: WI-05 (WI-02..04 independently reviewed: progress/WI-04-review.md)
+LAST VERIFIED CHECKPOINT: WI-06 (WI-02..04 independently reviewed: progress/WI-04-review.md)
 BRANCH / SHA: claude/wine-intelligence-mega-sprint-agnxu9 (base: main @ 770aaab); see `git log --grep '^WI-0'`
 STATUS: WI-00 PASS; WI-01 PASS (real LWIN import blocked by design); WI-02 PASS (behind `wine_search`, off);
         WI-03 PASS on programmed readings (behind `scan_resolver`, off; real labels pending);
         WI-04 PASS (behind `purchase_intel`, off; research claim always on once migration 0039 is applied);
-        WI-05 PASS (behind `sources_panel`, off)
+        WI-05 PASS (behind `sources_panel`, off); WI-06 PASS (admin only)
 CHANGED FILES / PR: draft PR https://github.com/Blockionaire/CELLR/pull/68 ; per sub-sprint: progress/WI-0x.md §1
 CURRENT FEATURE FLAGS: CELLR_FEATURES unset everywhere (all four features off)
-LAST GREEN CHECKS: format, lint, typecheck, unit (web 777 / domain 643 / scan-eval 83 / catalog-tools 86),
-                   db:test 1247, db:test:budget, db:types:check, migrations:check, e2e wine-search 24/24, scan-resolver 4/4, purchase-intel 4/4, sources 8/8 (features on, port 3101),
+LAST GREEN CHECKS: format, lint, typecheck, unit (web 781 / domain 643 / scan-eval 83 / catalog-tools 86),
+                   db:test 1281, db:test:budget, db:types:check, migrations:check, e2e wine-search 24/24, scan-resolver 4/4, purchase-intel 4/4, sources 8/8 (features on, port 3101), admin-sources 2/2,
                    e2e regression with features off: 135 passed, 4 flaky (R-26), 0 failed
 PENDING BLOCKERS: PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED · REAL_LABEL_VALIDATION_PENDING ·
                   LWIN rights blocked · X-Wines rights unverified (pilot only)
-NEXT SAFE ACTION: WI-06 (admin: provider overview, link review queue, off switch; privacy-first counters)
+NEXT SAFE ACTION: WI-07 (full regression, cross-flow matrix, red-team list, FINAL_REPORT.md)
 DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the X-Wines download (the file is in an
                isolated scratch folder of the session, never in Git: re-download it from the authors' Drive folder
                and check the SHA-256 in pilot.sh if a new session needs it)
@@ -35,7 +35,7 @@ DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the X-Wines
 | WI-03 | Scan-to-catalogue resolver                      | **PASS** on programmed readings (behind `scan_resolver`, off); real labels **PENDING** | [`progress/WI-03.md`](progress/WI-03.md)                                                         |
 | WI-04 | Buying intelligence and profile reuse           | **PASS** (behind `purchase_intel`, off); independently reviewed                        | [`progress/WI-04.md`](progress/WI-04.md), [`progress/WI-04-review.md`](progress/WI-04-review.md) |
 | WI-05 | Provenance, trust and wine pages                | **PASS** (behind `sources_panel`, off)                                                 | [`progress/WI-05.md`](progress/WI-05.md)                                                         |
-| WI-06 | Admin governance, telemetry, operational safety | not started                                                                            |                                                                                                  |
+| WI-06 | Admin governance, telemetry, operational safety | **PASS** (admin only)                                                                  | [`progress/WI-06.md`](progress/WI-06.md)                                                         |
 | WI-07 | Regression, stress, legal readiness, dossier    | not started                                                                            |                                                                                                  |
 
 ## Branch and PR strategy
@@ -177,3 +177,6 @@ The brief's R-01 to R-21 apply as written (`MASTER_BRIEF.md` §11). Baseline fin
 - **2026-11-13 — WI-05 PASS.** "Bronnen & betrouwbaarheid": four groups on the wine page, the identification block
   in a Koopcheck result. External sources are credited only through `wine_source_notices` (migration `…0040`):
   a verified link, an active record, a source cleared and shown to people right now. Open for the owner: R-27.
+- **2026-11-13 — WI-06 PASS.** `/admin/sources`: rights and imports per source, the link review queue with a
+  required reason, the off switch; nothing there can switch a source on. Two anonymous events and one property,
+  counted without persons (migration `…0041`).

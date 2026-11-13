@@ -124,6 +124,28 @@ because they fail closed; the platform-wide ceiling does not.
   (rights evidence) cannot travel even if the function changed. Links are http(s) only and open with
   `noopener noreferrer nofollow`; nothing of a source is embedded.
 
+- **WI-06 (no flag; admin only):** `/admin/sources` behind the existing admin guard (verified session on the
+  server-only allowlist, checked by the layout, the page and again by each Server Action). Four new service-role
+  functions (migration `…0041`): three read, one writes a note on a suggested link. **No function, page or action
+  can switch a source on or mark rights verified**; the dashboard only narrows (the off switch) and decides links,
+  each with a required reason, logged with the admin's id. The repository's own boundary tests
+  (`admin-pages.test.ts`) were extended to the new page, its two actions and the new privileged module.
+- **WI-06, events:** two new first-party events and one property (`docs/METRICS.md`). Built from counters and fixed
+  words; no typed text, wine, source, price or taste. Not sent under Do Not Track / GPC. The admin function that
+  counts them joins no person or household.
+
+### Retention and deletion of what this epic added
+
+| Data                                          | Where                                  | Kept until                                                                 | Deleted with                                                              |
+| --------------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| A source's records and import runs            | `catalog_external_records`, `…_runs`   | withdrawn (kept, hidden) when the source stops listing them                | nothing of a person; a provider row is not deletable while it has records |
+| Links record ↔ catalogue wine, with decisions | `catalog_record_links`, `master_audit` | kept as the audit of who decided what                                      | the record or the wine (cascade); the audit row stays                     |
+| Rights changes                                | `catalog_provider_rights_log`          | kept                                                                       | the provider                                                              |
+| Research claims                               | `private.shared_profile_claims`        | given back at once; else 120 s; tidied after a day                         | the vintage (cascade)                                                     |
+| Search queries                                | nowhere                                | not stored: not in logs, not in events, one minute in the browser's memory | —                                                                         |
+| A Koopcheck's wine, price and photo           | nowhere                                | not stored                                                                 | —                                                                         |
+| Usage events                                  | `analytics_events`                     | no automatic expiry (existing behaviour)                                   | the account                                                               |
+
 ### Prompt injection, as of WI-04
 
 No model input was added in WI-02 to WI-04, so there is no new injection surface. For the record: text of a wine

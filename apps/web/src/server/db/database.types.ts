@@ -2691,6 +2691,10 @@ export type Database = {
       admin_catalog_correction: { Args: { p_wine: string }; Returns: Json };
       admin_catalog_corrections: { Args: Record<PropertyKey, never>; Returns: Json };
       admin_catalog_label_file: { Args: { p_label: string }; Returns: Json };
+      admin_catalog_link_queue: {
+        Args: { p_limit?: number; p_offset?: number; p_provider?: string; p_state?: string };
+        Returns: Json;
+      };
       admin_catalog_merge: {
         Args: { p_actor: string; p_from: string; p_into: string };
         Returns: boolean;
@@ -2713,6 +2717,10 @@ export type Database = {
         };
         Returns: string;
       };
+      admin_catalog_record_flag: {
+        Args: { p_actor: string; p_reason: string; p_record: string };
+        Returns: string;
+      };
       admin_catalog_review_signal: {
         Args: { p_actor: string; p_id: string; p_note: string; p_status: string };
         Returns: boolean;
@@ -2733,6 +2741,7 @@ export type Database = {
         };
         Returns: boolean;
       };
+      admin_catalog_sources_overview: { Args: Record<PropertyKey, never>; Returns: Json };
       admin_catalog_update: {
         Args: { p_actor: string; p_fields: Json; p_id: string };
         Returns: boolean;
@@ -2811,6 +2820,7 @@ export type Database = {
         };
         Returns: string;
       };
+      admin_wine_intelligence_metrics: { Args: { p_days?: number }; Returns: Json };
       admin_wine_link: {
         Args: { p_actor: string; p_reason: string; p_source: string; p_target: string };
         Returns: string;

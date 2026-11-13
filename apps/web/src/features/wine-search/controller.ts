@@ -60,6 +60,69 @@ export interface SearchControllerOptions {
   clearTimer?: (handle: unknown) => void;
 }
 
+/** How one search field was used: numbers and flags only. */
+export interface SearchStats {
+  requests: number;
+  zeroResults: boolean;
+  limited: boolean;
+  failed: boolean;
+  slowestMs: number;
+}
+
+export const SEARCH_SURFACES = ["add", "koopcheck", "scan"] as const;
+export type SearchSurface = (typeof SEARCH_SURFACES)[number];
+
+/**
+ * The one anonymous event a used search field sends when it is done with (docs/METRICS.md): where it was, how it
+ * ended, and coarse buckets. By construction it cannot hold the text typed, a wine's name or id, or a household:
+ * every value is a number, a flag, or one of the fixed words below.
+ */
+export function searchSessionEvent(
+  stats: SearchStats,
+  end: {
+    surface: SearchSurface;
+    outcome: "selected" | "left";
+    /** Which kind of result was chosen. */
+    source?: "owned" | "household" | "catalog" | "provider" | "local" | undefined;
+    /** Its place in the list, from 1. */
+    rank?: number | undefined;
+  },
+): Record<string, string | number | boolean> {
+  const rank = end.rank ?? 0;
+  const ms = stats.slowestMs;
+  return {
+    surface: end.surface,
+    outcome: end.outcome,
+    requests: Math.min(stats.requests, 50),
+    zero_results: stats.zeroResults,
+    limited: stats.limited,
+    failed: stats.failed,
+    slowest:
+      ms < 250
+        ? "under_250ms"
+        : ms < 700
+          ? "under_700ms"
+          : ms < 1500
+            ? "under_1500ms"
+            : "over_1500ms",
+    ...(end.outcome === "selected"
+      ? {
+          source: end.source ?? "local",
+          rank:
+            rank <= 0
+              ? "none"
+              : rank === 1
+                ? "1"
+                : rank <= 3
+                  ? "2_3"
+                  : rank <= 8
+                    ? "4_8"
+                    : "9_plus",
+        }
+      : {}),
+  };
+}
+
 export const SEARCH_DEFAULTS = {
   debounceMs: 250,
   cooldownMs: 30_000,
@@ -92,6 +155,8 @@ export function createSearchController(options: SearchControllerOptions) {
   let unavailable = false;
   let disposed = false;
   let requests = 0;
+  /** What happened in this field, as counts and flags only (never what was typed): for one anonymous event. */
+  const seen = { zeroResults: false, limited: false, failed: false, slowestMs: 0 };
 
   const set = (next: SearchState) => {
     state = next;
@@ -152,8 +217,10 @@ export function createSearchController(options: SearchControllerOptions) {
     inFlight = controller;
     const mine = ++sequence;
     requests++;
+    const startedAt = now();
     try {
       const response = await options.search(query, controller.signal);
+      seen.slowestMs = Math.max(seen.slowestMs, now() - startedAt);
       if (disposed || mine !== sequence) return; // a newer query was typed meanwhile: this answer is stale
       inFlight = null;
       if (!response.available) {
@@ -163,12 +230,15 @@ export function createSearchController(options: SearchControllerOptions) {
       // The server bounds its answer; a longer one is cut here too, whatever it sent.
       const results = response.results.slice(0, CATALOG_SEARCH.maxLimit);
       remember(query, results);
+      if (results.length === 0) seen.zeroResults = true;
       set({ ...state, status: "ready", query, results });
     } catch (error) {
       if (disposed || mine !== sequence) return;
       inFlight = null;
       const why = options.classify(error);
       if (why === "aborted") return;
+      if (why === "rate_limited") seen.limited = true;
+      else seen.failed = true;
       if (why === "rate_limited") {
         limitedUntil = now() + cooldownMs;
         return limited({ ...state, status: "limited", query: null, results: [] });
@@ -228,6 +298,8 @@ export function createSearchController(options: SearchControllerOptions) {
     },
     /** How many requests were actually sent (for tests and for measuring). */
     requestCount: () => requests,
+    /** Counts and flags of this field's use so far; nothing that was typed or found. */
+    stats: (): SearchStats => ({ requests, ...seen }),
     dispose() {
       disposed = true;
       cancelPending();

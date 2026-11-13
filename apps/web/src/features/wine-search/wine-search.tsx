@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   CATALOG_SEARCH,
   matchesSearch,
@@ -15,6 +15,8 @@ import { Button } from "@/ui/button";
 import { cn } from "@/ui/cn";
 import { CheckIcon, ChevronRightIcon, SearchIcon } from "@/ui/icons";
 import { Skeleton } from "@/ui/skeleton";
+import { track } from "@/lib/analytics";
+import { searchSessionEvent, type SearchSurface } from "./controller";
 import { useWineSearch } from "./use-wine-search";
 
 const VISIBLE = CATALOG_SEARCH.defaultLimit;
@@ -63,6 +65,8 @@ export interface WineSearchProps {
   onWine: (wine: WineSummary, hit: CatalogSearchHit | null) => void;
   /** A record of an external source was chosen: it is never a CELLR wine; the person confirms its details. */
   onRecord: (hit: CatalogSearchHit) => void;
+  /** Where this field is, for the one anonymous usage event it sends (never what was typed). */
+  surface?: SearchSurface | undefined;
 }
 
 /**
@@ -84,11 +88,29 @@ export function WineSearch({
   selectedId,
   onWine,
   onRecord,
+  surface = "add",
 }: WineSearchProps) {
   const t = useTranslations("wineSearch");
   const tTypes = useTranslations("wineTypes");
   const locale = useLocale();
   const search = useWineSearch(value);
+  // One anonymous event per used field: when a result is chosen, or when the field is left without one.
+  const reported = useRef(false);
+  const statsOf = search.stats;
+  const report = (
+    outcome: "selected" | "left",
+    selection?: { source: "owned" | "household" | "catalog" | "provider" | "local"; rank: number },
+  ) => {
+    const stats = statsOf();
+    if (reported.current || stats.requests === 0) return;
+    reported.current = true;
+    track("wine_search_session", searchSessionEvent(stats, { surface, outcome, ...selection }));
+  };
+  const reportRef = useRef(report);
+  useEffect(() => {
+    reportRef.current = report;
+  });
+  useEffect(() => () => reportRef.current("left"), []);
   const inputId = useId();
   const listId = useId();
   const hintId = useId();
@@ -129,6 +151,10 @@ export function WineSearch({
   const optionId = (key: string) => `${listId}-${key.replace(/[^a-zA-Z0-9]/g, "-")}`;
 
   function choose(option: Option) {
+    report("selected", {
+      source: option.kind === "local" ? "local" : option.hit.source,
+      rank: options.findIndex((o) => o.key === option.key) + 1,
+    });
     if (option.kind === "local") return onWine(option.wine, null);
     const wine = wineOfHit(option.hit);
     if (wine) onWine(wine, option.hit);

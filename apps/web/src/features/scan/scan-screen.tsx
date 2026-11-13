@@ -839,6 +839,7 @@ function Review({
             catalog={
               catalogSearch
                 ? {
+                    surface: "scan",
                     onRecord: (hit) => {
                       setFromRecord({
                         draft: draftOfRecord(hit),

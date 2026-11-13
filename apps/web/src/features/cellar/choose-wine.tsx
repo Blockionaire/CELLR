@@ -46,7 +46,8 @@ interface ChooseWineProps {
    * sources CELLR may show) instead of filtering the fetched list here. A record of an external source is never a
    * CELLR wine: the screen opens the "new wine" form with its details for the person to confirm. Absent = as before.
    */
-  catalog?: { onRecord: (hit: CatalogSearchHit) => void } | undefined;
+  catalog?:
+    { onRecord: (hit: CatalogSearchHit) => void; surface?: "add" | "scan" | undefined } | undefined;
 }
 
 /** Step 1: find the wine in your own list as you type, or add it. Everything is local, so it's instant. */
@@ -99,6 +100,7 @@ export function ChooseWine({
           selectedId={selectedId}
           onWine={onPick}
           onRecord={catalog.onRecord}
+          surface={catalog.surface ?? "add"}
         />
       ) : (
         <LocalList

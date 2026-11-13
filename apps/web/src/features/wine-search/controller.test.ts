@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogSearchHit, CatalogSearchResponse } from "@cellr/domain";
-import { createSearchController, type SearchFailure } from "./controller";
+import { createSearchController, searchSessionEvent, type SearchFailure } from "./controller";
 
 const hit = (name: string): CatalogSearchHit => ({
   kind: "wine",
@@ -361,5 +361,74 @@ describe("wine search as you type", () => {
     }
     advance(250);
     expect(controller.requestCount()).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("the one anonymous event of a used search field", () => {
+  it("counts what happened, in buckets, and holds nothing that was typed or found", async () => {
+    const { controller, calls, advance, settle, ok } = harness();
+    controller.setInput("Château Très Secret 1982");
+    advance(250);
+    advance(400); // the answer took 400 ms
+    calls[0]!.resolve(ok([], "chateau tres secret 1982"));
+    await settle();
+    controller.setInput("margaux");
+    advance(250);
+    calls[1]!.resolve(ok(["Margaux"], "margaux"));
+    await settle();
+    const stats = controller.stats();
+    expect(stats).toEqual({
+      requests: 2,
+      zeroResults: true,
+      limited: false,
+      failed: false,
+      slowestMs: 400,
+    });
+    const event = searchSessionEvent(stats, {
+      surface: "koopcheck",
+      outcome: "selected",
+      source: "catalog",
+      rank: 2,
+    });
+    expect(event).toEqual({
+      surface: "koopcheck",
+      outcome: "selected",
+      requests: 2,
+      zero_results: true,
+      limited: false,
+      failed: false,
+      slowest: "under_700ms",
+      source: "catalog",
+      rank: "2_3",
+    });
+    // nothing typed, no name, no id: only fixed words, numbers and flags
+    expect(JSON.stringify(event)).not.toMatch(/secret|margaux|chateau|1982|id-/i);
+    expect(Object.keys(event).length).toBeLessThanOrEqual(10);
+  });
+
+  it("a field left without a choice says so, without a source or a rank; limits and failures are flags", async () => {
+    const { controller, calls, advance, settle } = harness();
+    controller.setInput("margaux");
+    advance(250);
+    calls[0]!.reject({ why: "rate_limited" });
+    await settle();
+    const event = searchSessionEvent(controller.stats(), { surface: "add", outcome: "left" });
+    expect(event).toMatchObject({ outcome: "left", limited: true, failed: false, requests: 1 });
+    expect(event).not.toHaveProperty("source");
+    expect(event).not.toHaveProperty("rank");
+  });
+
+  it("buckets: the rank and the slowest answer are never exact numbers", () => {
+    const base = { requests: 999, zeroResults: false, limited: false, failed: true };
+    const at = (rank: number, slowestMs: number) =>
+      searchSessionEvent(
+        { ...base, slowestMs },
+        { surface: "scan", outcome: "selected", source: "owned", rank },
+      );
+    expect(at(1, 10)).toMatchObject({ rank: "1", slowest: "under_250ms", requests: 50 });
+    expect(at(3, 699)).toMatchObject({ rank: "2_3", slowest: "under_700ms" });
+    expect(at(8, 1499)).toMatchObject({ rank: "4_8", slowest: "under_1500ms" });
+    expect(at(20, 9000)).toMatchObject({ rank: "9_plus", slowest: "over_1500ms" });
+    expect(at(0, 0)).toMatchObject({ rank: "none" });
   });
 });

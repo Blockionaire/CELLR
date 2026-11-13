@@ -32,6 +32,7 @@ const NAV: AdminNavGroup[] = [
       { href: "/admin/bottle-photos", label: "Bottle photos" },
       { href: "/admin/catalog", label: "Wine catalogue" },
       { href: "/admin/catalog/corrections", label: "Corrections" },
+      { href: "/admin/sources", label: "External sources" },
     ],
   },
   {
@@ -64,8 +65,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
         <AdminNav groups={NAV} />
         <p className="mt-8 hidden px-3 text-caption text-ink-3 md:block">
-          Read-only, except catalogue review, the bottle library and the Wine Master Database (every
-          change there is audited). Costs are estimates, not invoices.
+          Read-only, except catalogue review, the bottle library, the Wine Master Database and
+          external sources (every change there is audited). Costs are estimates, not invoices.
         </p>
       </aside>
       <main id="admin-main" className="mx-auto w-full min-w-0 max-w-7xl px-4 py-6 md:px-8 md:py-8">

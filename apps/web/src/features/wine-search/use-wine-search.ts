@@ -38,7 +38,9 @@ export const searchWines = (query: string, signal: AbortSignal) =>
  * Wine search as you type, for a field whose text the screen owns. The controller (debounce, cancelling, memory,
  * limits) lives as long as the component; leaving the screen cancels whatever was pending.
  */
-export function useWineSearch(input: string): SearchState & { retry: () => void } {
+export function useWineSearch(
+  input: string,
+): SearchState & { retry: () => void; stats: SearchController["stats"] } {
   const [controller] = useState<SearchController>(() =>
     createSearchController({ search: searchWines, classify: classifySearchError }),
   );
@@ -49,5 +51,5 @@ export function useWineSearch(input: string): SearchState & { retry: () => void 
     controller.getState,
     controller.getState,
   );
-  return { ...state, retry: controller.retry };
+  return { ...state, retry: controller.retry, stats: controller.stats };
 }

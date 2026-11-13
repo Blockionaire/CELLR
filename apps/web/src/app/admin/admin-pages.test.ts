@@ -82,7 +82,7 @@ const files = (dir: string): string[] =>
 describe("the admin boundary", () => {
   it("every admin page checks the session itself", () => {
     const pages = files(path.join(SRC, "app/admin")).filter((f) => /(page|layout)\.tsx$/.test(f));
-    expect(pages.length).toBe(15);
+    expect(pages.length).toBe(16);
     for (const p of pages)
       expect(readFileSync(p, "utf8")).toMatch(
         /if \(!(session|\(await getAdminSession\(\)\))\) notFound\(\)/,
@@ -96,12 +96,14 @@ describe("the admin boundary", () => {
       )
         continue;
       const text = readFileSync(f, "utf8");
-      expect(text, f).not.toMatch(/@\/server\/admin|privileged\/(admin|catalog-admin)/);
+      expect(text, f).not.toMatch(
+        /@\/server\/admin|privileged\/(admin|catalog-admin|sources-admin)/,
+      );
     }
     // The admin pages are server-rendered only. The one exception is the catalogue review's Server Actions (they
     // are reachable over HTTP, so each checks the admin session again before doing anything; see below).
-    const ACTIONS = ["catalog", "bottle-photos", "wines", "catalog/corrections"].map((d) =>
-      path.join(SRC, `app/admin/${d}/actions.ts`),
+    const ACTIONS = ["catalog", "bottle-photos", "wines", "catalog/corrections", "sources"].map(
+      (d) => path.join(SRC, `app/admin/${d}/actions.ts`),
     );
     for (const f of files(path.join(SRC, "app/admin")))
       if (!ACTIONS.includes(f) && !f.endsWith(".test.ts"))
@@ -113,6 +115,7 @@ describe("the admin boundary", () => {
     ["bottle-photos", 1],
     ["wines", 16],
     ["catalog/corrections", 1],
+    ["sources", 2],
   ] as const)(
     "every %s action checks the admin session again before anything else",
     (dir, count) => {

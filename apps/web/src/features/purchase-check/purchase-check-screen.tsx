@@ -25,6 +25,7 @@ import {
 import { useWines } from "@/features/cellar/hooks";
 import { countryName, placeLine } from "@/features/cellar/wine-visuals";
 import { WinePicture } from "@/features/cellar/wine-picture";
+import { track } from "@/lib/analytics";
 import { errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { cn } from "@/ui/cn";
@@ -248,6 +249,18 @@ export function PurchaseCheckScreen({
           onCompare={async (wine, priceCents) => {
             try {
               const result = await compare.mutateAsync({ wine, priceCents });
+              // counts and coarse labels only: no wine, no price, nothing about what the person likes
+              track("purchase_check_completed", {
+                entry: chosen ? "search" : step.recognition?.wine ? "photo" : "typed",
+                knowledge: result.knowledge
+                  ? result.knowledge.status
+                  : result.knowledge === null
+                    ? "none"
+                    : "off",
+                verdict: result.verdict,
+                taste_fit: result.taste.fit,
+                priced: priceCents !== null,
+              });
               setStep({ kind: "result", result });
               window.scrollTo({ top: 0 });
             } catch {
@@ -391,6 +404,7 @@ function SearchStep({
         // "Your wines": the household's own, never the whole shared catalogue (that is what the search is for)
         localWines={wines.data?.filter((w) => !w.catalog)}
         idleTitle={t("searchIdle")}
+        surface="koopcheck"
         onWine={onWine}
         onRecord={onRecord}
       />

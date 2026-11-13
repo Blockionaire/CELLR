@@ -38,6 +38,8 @@ export function useScan() {
         outcome: result.outcome,
         // which path answered (no wine, text or photo in it): the photo cache, the label text, or the model
         path: result.remembered ? "photo_cache" : result.fromText ? "label_text" : "vision",
+        // with the resolver: whether the match was exact, a choice, or nothing (a status word, never a wine)
+        ...(result.resolution ? { resolution: result.resolution.status } : {}),
       }),
     onError: () => track("wine_scan_failed", { outcome: "error" }),
   });

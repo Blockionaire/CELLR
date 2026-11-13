@@ -21,6 +21,10 @@ export const ANALYTICS_EVENTS = [
   "3d_bottle_selected",
   "drink_soon_viewed",
   "import_completed",
+  // Wine Intelligence (WI-06). One event per search field that was used, and one per finished Koopcheck: counts
+  // and a few coarse labels only. Never the text typed, a wine, a price or anything about a person's taste.
+  "wine_search_session",
+  "purchase_check_completed",
 ] as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];
