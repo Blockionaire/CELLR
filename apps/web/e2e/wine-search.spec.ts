@@ -289,6 +289,47 @@ test.describe("wine search: adding a bottle", () => {
     await expect(options(page).filter({ hasText: ext.providerName })).toHaveCount(0);
     await expect(named(page, ext.name)).toHaveCount(0);
   });
+
+  test("a source switched off while its record is on screen: the record cannot be used, and the same search no longer shows it", async ({
+    page,
+  }) => {
+    const m = marker();
+    const ext = await seedProviderRecord(m);
+    const { householdId } = await arrive(page, "stale");
+    const before = await counts(householdId);
+    await page.goto("/cellar/add");
+    const query = `tinto fixture ${m}`;
+    let requests = 0;
+    page.on("request", (r) => {
+      if (r.url().includes("/api/v1/catalog/search")) requests++;
+    });
+    await combobox(page).fill(query);
+    const row = options(page).filter({ hasText: ext.providerName });
+    await expect(row).toHaveCount(1);
+
+    // the source loses its rights while its record is still on this screen
+    await sql("select public.admin_catalog_provider_disable($1, $2, $3, true)", [
+      ext.provider,
+      "rights withdrawn (e2e)",
+      "e2e",
+    ]);
+    // choosing it asks the server first: it is gone, so it is not used, the list is refreshed and the screen says so
+    await row.click();
+    await expect(page.getByTestId("wine-search-withdrawn")).toBeVisible();
+    await expect(options(page).filter({ hasText: ext.providerName })).toHaveCount(0);
+    await expect(page.getByTestId("wine-search")).toBeVisible(); // the "new wine" form did not open
+    await expect(combobox(page)).toHaveValue(query);
+
+    // the very same search again, well inside a minute: asked again, never served from the browser's memory
+    const asked = requests;
+    await combobox(page).fill("");
+    await combobox(page).fill(query);
+    await expect(page.getByTestId("wine-search")).toHaveAttribute("data-status", "ready");
+    expect(requests).toBeGreaterThan(asked);
+    await expect(options(page).filter({ hasText: ext.providerName })).toHaveCount(0);
+    await expect(page.getByTestId("wine-search-withdrawn")).toHaveCount(0); // said once, until the person types
+    expect(await counts(householdId)).toEqual(before); // nothing was created from the withdrawn record
+  });
 });
 
 test.describe("wine search: when it cannot answer", () => {

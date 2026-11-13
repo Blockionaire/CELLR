@@ -150,15 +150,38 @@ export function WineSearch({
   const activeIndex = options.findIndex((o) => o.key === active);
   const optionId = (key: string) => `${listId}-${key.replace(/[^a-zA-Z0-9]/g, "-")}`;
 
+  // A record of an external source that was on screen but is no longer offered by the server (its source was
+  // switched off meanwhile): said once, until the person types again.
+  const [withdrawn, setWithdrawn] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const confirmRecord = search.confirmRecord;
+
   function choose(option: Option) {
-    report("selected", {
-      source: option.kind === "local" ? "local" : option.hit.source,
+    const selection = {
+      source: option.kind === "local" ? ("local" as const) : option.hit.source,
       rank: options.findIndex((o) => o.key === option.key) + 1,
-    });
-    if (option.kind === "local") return onWine(option.wine, null);
-    const wine = wineOfHit(option.hit);
-    if (wine) onWine(wine, option.hit);
-    else onRecord(option.hit);
+    };
+    if (option.kind === "local") {
+      report("selected", selection);
+      return onWine(option.wine, null);
+    }
+    const hit = option.hit;
+    const wine = wineOfHit(hit);
+    if (wine) {
+      report("selected", selection);
+      return onWine(wine, hit);
+    }
+    // An external record is never used from what is on screen: the server is asked again first.
+    if (confirming || !hit.recordId) return;
+    setConfirming(true);
+    void confirmRecord(hit.recordId)
+      .then((still) => {
+        if (still) {
+          report("selected", selection);
+          onRecord(hit);
+        } else setWithdrawn(true);
+      })
+      .finally(() => setConfirming(false));
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -224,6 +247,7 @@ export function WineSearch({
           value={value}
           onChange={(e) => {
             setActive(null);
+            setWithdrawn(false);
             onValue(e.target.value);
           }}
           onKeyDown={onKeyDown}
@@ -241,6 +265,16 @@ export function WineSearch({
       <p role="status" aria-live="polite" className="sr-only" data-testid="wine-search-status">
         {announcement}
       </p>
+
+      {withdrawn && !fallbackReason && (
+        <p
+          role="status"
+          className="rounded-card bg-accent/10 px-4 py-3 text-small text-ink ring-1 ring-accent-fg/30"
+          data-testid="wine-search-withdrawn"
+        >
+          {t("notice.withdrawn")}
+        </p>
+      )}
 
       {fallbackReason && (
         <div

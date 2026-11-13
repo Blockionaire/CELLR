@@ -2018,7 +2018,8 @@
       "unavailable": "Zoeken in de wijncatalogus is nog niet beschikbaar. Kies uit de lijst hieronder, of voeg de wijn zelf toe.",
       "limited": "Dat was veel zoeken. Zoeken pauzeert even en gaat vanzelf weer verder. Kies intussen uit de lijst hieronder, of voeg de wijn zelf toe.",
       "offline": "CELLR is nu niet bereikbaar. Wat je hebt getypt blijft staan. De lijst hieronder is wat al geladen was.",
-      "error": "Zoeken werkt nu even niet. Wat je hebt getypt blijft staan. De lijst hieronder is wat al geladen was."
+      "error": "Zoeken werkt nu even niet. Wat je hebt getypt blijft staan. De lijst hieronder is wat al geladen was.",
+      "withdrawn": "Dat resultaat is niet meer beschikbaar bij de bron. De lijst is bijgewerkt; je kunt de wijn ook zelf toevoegen."
     },
     "chosen": "Gekozen"
   },

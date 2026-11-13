@@ -432,3 +432,118 @@ describe("the one anonymous event of a used search field", () => {
     expect(at(0, 0)).toMatchObject({ rank: "none" });
   });
 });
+
+describe("records of external sources are never used from memory", () => {
+  const record = (id: string): CatalogSearchHit => ({
+    ...hit(`Record ${id}`),
+    kind: "record",
+    wineId: null,
+    recordId: id,
+    source: "provider",
+    verified: false,
+    provider: {
+      id: "fixture",
+      name: "Fixture",
+      attribution: null,
+      license: "CC0-1.0",
+      licenseUrl: null,
+      scope: "public",
+      modified: false,
+    },
+  });
+  const answer = (hits: CatalogSearchHit[], query: string): CatalogSearchResponse => ({
+    query,
+    results: hits,
+    available: true,
+  });
+
+  it("an answer that holds an external record is not remembered: the same search asks the server again", async () => {
+    const { controller, calls, advance, settle } = harness();
+    controller.setInput("tinto");
+    advance(250);
+    calls[0]!.resolve(answer([hit("Tinto"), record("r1")], "tinto"));
+    await settle();
+    expect(controller.getState().results).toHaveLength(2);
+    controller.setInput("tint");
+    advance(250);
+    calls[1]!.resolve(answer([hit("Tinto")], "tint")); // CELLR wines only: this one may be remembered
+    await settle();
+    controller.setInput("tinto"); // back to the first query, well inside the minute
+    expect(controller.getState().status).toBe("loading"); // not served from memory
+    advance(250);
+    expect(calls.map((c) => c.query)).toEqual(["tinto", "tint", "tinto"]);
+    // the source was switched off meanwhile: the fresh answer no longer holds the record
+    calls[2]!.resolve(answer([hit("Tinto")], "tinto"));
+    await settle();
+    expect(controller.getState().results.map((r) => r.kind)).toEqual(["wine"]);
+    controller.setInput("tint"); // while an answer with CELLR wines only still comes from memory
+    expect(controller.getState().status).toBe("ready");
+    expect(calls).toHaveLength(3);
+  });
+
+  it("choosing a record asks the server first: still offered means yes", async () => {
+    const { controller, calls, advance, settle } = harness();
+    controller.setInput("tinto");
+    advance(250);
+    calls[0]!.resolve(answer([record("r1")], "tinto"));
+    await settle();
+    const confirmed = controller.confirmRecord("r1");
+    expect(calls).toHaveLength(2); // asked at once, no debounce, not from memory
+    calls[1]!.resolve(answer([record("r1")], "tinto"));
+    expect(await confirmed).toBe(true);
+  });
+
+  it("a record whose source was switched off meanwhile is refused, and the list shows the fresh answer", async () => {
+    const { controller, calls, advance, settle } = harness();
+    controller.setInput("tinto");
+    advance(250);
+    calls[0]!.resolve(answer([hit("Tinto"), record("r1")], "tinto"));
+    await settle();
+    const confirmed = controller.confirmRecord("r1");
+    calls[1]!.resolve(answer([hit("Tinto")], "tinto"));
+    expect(await confirmed).toBe(false);
+    expect(controller.getState()).toMatchObject({ status: "ready", query: "tinto" });
+    expect(controller.getState().results.some((r) => r.kind === "record")).toBe(false);
+  });
+
+  it("a record that cannot be confirmed is not used: offline, an error, the rate limit, another record", async () => {
+    for (const why of ["network", "other", "rate_limited"] as const) {
+      const { controller, calls, advance, settle } = harness();
+      controller.setInput("tinto");
+      advance(250);
+      calls[0]!.resolve(answer([record("r1")], "tinto"));
+      await settle();
+      const confirmed = controller.confirmRecord("r1");
+      calls[1]!.reject({ why });
+      expect(await confirmed, why).toBe(false);
+    }
+    const { controller, calls, advance, settle } = harness();
+    controller.setInput("tinto");
+    advance(250);
+    calls[0]!.resolve(answer([record("r1")], "tinto"));
+    await settle();
+    const other = controller.confirmRecord("r2");
+    calls[1]!.resolve(answer([record("r1")], "tinto"));
+    expect(await other).toBe(false);
+    // and during a cool-down nothing is asked at all, so nothing is confirmed
+    const limited = harness();
+    limited.controller.setInput("tinto");
+    limited.advance(250);
+    limited.calls[0]!.reject({ why: "rate_limited" });
+    await limited.settle();
+    expect(await limited.controller.confirmRecord("r1")).toBe(false);
+    expect(limited.calls).toHaveLength(1);
+  });
+
+  it("typing something else while a record is being confirmed: the old confirmation never says yes", async () => {
+    const { controller, calls, advance, settle } = harness();
+    controller.setInput("tinto");
+    advance(250);
+    calls[0]!.resolve(answer([record("r1")], "tinto"));
+    await settle();
+    const confirmed = controller.confirmRecord("r1");
+    controller.setInput("blanco");
+    calls[1]!.resolve(answer([record("r1")], "tinto"));
+    expect(await confirmed).toBe(false);
+  });
+});

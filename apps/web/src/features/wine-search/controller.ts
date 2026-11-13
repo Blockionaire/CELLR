@@ -173,6 +173,10 @@ export function createSearchController(options: SearchControllerOptions) {
   };
   const remember = (query: string, results: CatalogSearchHit[]) => {
     cache.delete(query);
+    // An answer that holds a record of an external source is never remembered: such a source can be switched off
+    // at any moment (its rights withdrawn), and the server is the only one who knows. Asking again costs one
+    // request; showing a withdrawn record costs more.
+    if (results.some((hit) => hit.kind === "record")) return;
     cache.set(query, { results, at: now() });
     while (cache.size > cacheSize) cache.delete(cache.keys().next().value as string);
   };
@@ -288,6 +292,26 @@ export function createSearchController(options: SearchControllerOptions) {
       cancelPending();
       set({ ...state, status: "loading" });
       void ask(query);
+    },
+    /**
+     * Before a record of an external source is USED: asks the server afresh whether it still offers that record for
+     * what is typed (never from memory). True only when it does. False when it is gone (the list then shows the
+     * fresh answer), and also when the server cannot be asked right now: a record that cannot be confirmed is not
+     * used. The server stays the authority; this only closes the gap between "shown" and "chosen".
+     */
+    async confirmRecord(recordId: string): Promise<boolean> {
+      if (disposed) return false;
+      const query = searchableQuery(state.input);
+      if (query === null || unavailable || now() < limitedUntil) return false;
+      cancelPending();
+      set({ ...state, status: "loading" });
+      await ask(query);
+      return (
+        !disposed &&
+        state.status === "ready" &&
+        state.query === query &&
+        state.results.some((hit) => hit.kind === "record" && hit.recordId === recordId)
+      );
     },
     /**
      * The screen was left: whatever was pending is cancelled and a late answer is ignored. Unlike `dispose`, the

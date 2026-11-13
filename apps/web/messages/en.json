@@ -2018,7 +2018,8 @@
       "unavailable": "Searching the wine catalogue isn't available yet. Choose from the list below, or add the wine yourself.",
       "limited": "That was a lot of searching. Search pauses for a moment and resumes by itself. Meanwhile, choose from the list below or add the wine yourself.",
       "offline": "CELLR can't be reached right now. What you typed is kept. The list below is what was already loaded.",
-      "error": "Search isn't working right now. What you typed is kept. The list below is what was already loaded."
+      "error": "Search isn't working right now. What you typed is kept. The list below is what was already loaded.",
+      "withdrawn": "That result is no longer available from its source. The list has been refreshed; you can also add the wine yourself."
     },
     "chosen": "Chosen"
   },
