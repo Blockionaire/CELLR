@@ -1,27 +1,21 @@
 # WI-001 — Wine Intelligence Mega Sprint: final report
 
-> **DRAFT.** The rows of §4 marked pending are filled in by the final WI-07 commit. Until then, do not read this
-> file as a completed regression.
-
-Date: 2026-11-13 · Branch: `claude/wine-intelligence-mega-sprint-agnxu9` · Draft PR:
-[Blockionaire/CELLR#68](https://github.com/Blockionaire/CELLR/pull/68) · Base: `main` @ `770aaab`
-
 **Nothing was merged, deployed, imported into a hosted database, enabled for people, purchased or sent.** Every
 feature of this epic is behind a server-side switch that is off by default. What "passed" means here: automated
 tests on a local stack. What it does not mean is in §9.
 
 ## 1. Result by sub-sprint
 
-| ID    | Scope                                      | Status                                                                       | Commit               | Evidence                                        |
-| ----- | ------------------------------------------ | ---------------------------------------------------------------------------- | -------------------- | ----------------------------------------------- |
-| WI-00 | Baseline, architecture, threat model       | PASS                                                                         | `7f3e365`            | `progress/WI-00.md`                             |
-| WI-01 | Provider adapters, identity quality, pilot | PASS · real LWIN import **blocked by design**                                | `2375fa3`            | `progress/WI-01.md`                             |
-| WI-02 | Shared search / autocomplete               | PASS (flag `wine_search`)                                                    | `fcc103f`            | `progress/WI-02.md`                             |
-| WI-03 | Scan-to-catalogue resolver                 | PASS on programmed readings (flag `scan_resolver`) · real labels **PENDING** | `cd44c9c`            | `progress/WI-03.md`                             |
-| WI-04 | Buying intelligence, profile reuse         | PASS (flag `purchase_intel`) · AI explanation **not built**                  | `354ce1b`, `11b7569` | `progress/WI-04.md`, `progress/WI-04-review.md` |
-| WI-05 | Sources & reliability                      | PASS (flag `sources_panel`) · shown with test sources only                   | `7895209`            | `progress/WI-05.md`                             |
-| WI-06 | Admin, counts, operational safety          | PASS (admin only) · some metrics **not measured**                            | `09c041e`            | `progress/WI-06.md`                             |
-| WI-07 | Regression, red team, dossier              | **IN PROGRESS** (this file is a draft until §4 is filled in)                 | this commit          | this file                                       |
+| ID    | Scope                                      | Status                                                                                                               | Commit               | Evidence                                        |
+| ----- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- | -------------------- | ----------------------------------------------- |
+| WI-00 | Baseline, architecture, threat model       | PASS                                                                                                                 | `7f3e365`            | `progress/WI-00.md`                             |
+| WI-01 | Provider adapters, identity quality, pilot | PASS · real LWIN import **blocked by design**                                                                        | `2375fa3`            | `progress/WI-01.md`                             |
+| WI-02 | Shared search / autocomplete               | PASS (flag `wine_search`)                                                                                            | `fcc103f`            | `progress/WI-02.md`                             |
+| WI-03 | Scan-to-catalogue resolver                 | PASS on programmed readings (flag `scan_resolver`) · real labels **PENDING**                                         | `cd44c9c`            | `progress/WI-03.md`                             |
+| WI-04 | Buying intelligence, profile reuse         | PASS (flag `purchase_intel`) · AI explanation **not built**                                                          | `354ce1b`, `11b7569` | `progress/WI-04.md`, `progress/WI-04-review.md` |
+| WI-05 | Sources & reliability                      | PASS (flag `sources_panel`) · shown with test sources only                                                           | `7895209`            | `progress/WI-05.md`                             |
+| WI-06 | Admin, counts, operational safety          | PASS (admin only) · some metrics **not measured**                                                                    | `09c041e`            | `progress/WI-06.md`                             |
+| WI-07 | Regression, red team, dossier              | PASS with listed exceptions: 20 e2e failures and 4 flaky in the whole-suite run, **none caused by this epic** (§4.1) | this commit          | this file, `progress/WI-07.md`                  |
 
 ## 2. What a person can do once the switches are on
 
@@ -52,18 +46,44 @@ scripts only; production was never contacted.
 
 Commands, on this branch's head, on one shared 4-vCPU machine:
 
-| Command                                                                                                                          | Result                                                                                      |
-| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `pnpm install --frozen-lockfile`                                                                                                 | **pending**: being run for the final commit of WI-07                                        |
-| `pnpm format:check`, `pnpm lint`, `pnpm typecheck`                                                                               | **pending**: being run for the final commit of WI-07                                        |
-| `pnpm test`                                                                                                                      | **pending**: being run for the final commit of WI-07                                        |
-| `pnpm db:test`                                                                                                                   | 1295 passed, 0 failed (after adding the red-team file); re-run pending for the final commit |
-| `pnpm db:types:check`, `pnpm migrations:check`                                                                                   | **pending**: being run for the final commit of WI-07                                        |
-| `pnpm db:test:budget`, `pnpm db:test:imports`                                                                                    | **pending**: being run for the final commit of WI-07                                        |
-| `pnpm build`                                                                                                                     | **pending**: being run for the final commit of WI-07                                        |
-| Playwright, whole suite, phone + desktop, `--retries=2`, features **off** (default server) and the WI specs with features **on** | **pending**: being run for the final commit of WI-07                                        |
+| Command                                                                              | Result                                                                                                             |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `pnpm install --frozen-lockfile`                                                     | lockfile unchanged; done in 1.7 s                                                                                  |
+| `pnpm format:check`, `pnpm lint`, `pnpm typecheck`                                   | pass (lint: 0 errors, 1 warning that is also on `main`)                                                            |
+| `pnpm test`                                                                          | web 781 passed + 12 skipped · domain 643 · scan-eval 83 · catalog-tools 86                                         |
+| `pnpm db:test`                                                                       | **1295 passed, 0 failed, 0 errors**                                                                                |
+| `pnpm db:types:check`, `pnpm migrations:check`                                       | types current; 4 new migration files, none on `main` changed                                                       |
+| `pnpm db:test:budget`, `pnpm db:test:imports`                                        | 20 concurrent holds with room for 7: 7 granted · 10 concurrent run starts: 1 open                                  |
+| `pnpm build`                                                                         | pass                                                                                                               |
+| Playwright, whole suite: 736 tests, phone + desktop, `--retries=2`, 2 workers, 1.0 h | **644 passed · 20 failed · 4 flaky · 68 skipped.** Every failure is explained in §4.1; none is caused by this epic |
+| The five specs of this epic, each run on its own                                     | `wine-search` 24/24 · `scan-resolver` 4/4 · `purchase-intel` 4/4 · `sources` 8/8 · `admin-sources` 2/2             |
 
 CI skips end-to-end tests on pull requests by design, so the e2e result above is from this local run, not from CI.
+
+### 4.1 The 20 failures and 4 flaky tests of the whole-suite run
+
+"Not caused by this epic" is a claim, so here is how each group was checked. Baseline = `main` @ `770aaab`, built and
+run on the same machine.
+
+| Group                                                   | Tests                                                                                                                                                                                                       | Cause                                                                                                                                                                                                                                                                                                             | How it was checked                                                                                                                                                                                 |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `signup_closed` (15 failed)                             | every test that creates the admin user after `flows.spec` has run: `admin-http` ×2, `admin-sources` ×2, `catalog-learning`, `feedback`, `sprint-p` ×2, `sprint-q`, `sprint-r` ×2, `sprint-t`, `sprint-u` ×3 | **A defect of the existing test suite.** `flows.spec` ("the sign-up gate") adds `@example.test` to the sign-up allowlist and never removes it. From then on the database refuses to insert the admin (`feedback-admin@cellr.invalid`), also when it already exists. Which tests are hit depends only on run order | Reproduced with two files that are **unchanged from `main`**: `flows.spec:232` then `sprint-u.spec:130` gives `signup_closed`. The same admin specs run without `flows` before them: 10 of 10 pass |
+| 3D cellar (2 failed)                                    | `cellar3d.spec:152`, phone and desktop                                                                                                                                                                      | Fails every time in this environment: a tap on the 3D canvas does not select the bottle (WebGL is rendered in software here)                                                                                                                                                                                      | **Baseline: fails 4 of 4.** This branch: 4 of 4. The 3D code is unchanged                                                                                                                          |
+| Racks accessibility (1 failed, 1 flaky)                 | `racks.spec:371`, dark and light, desktop                                                                                                                                                                   | A colour-contrast violation in the "place here" dialog                                                                                                                                                                                                                                                            | **Baseline: the light case fails 4 of 4.** The racks code is unchanged                                                                                                                             |
+| Scan, phone profile (2 failed, 2 flaky)                 | `scan.spec:188` and `:226` failed; `scan.spec:119` and `label-frame.spec:348` flaky                                                                                                                         | R-26: the test chooses a photo before the screen is interactive. Worse while the 3D tests take the CPU                                                                                                                                                                                                            | Baseline shows the same race (`scan.spec:188` failed 1 of 2 there). This branch, the two tests alone on desktop: 12 of 12 pass                                                                     |
+| `sources.spec:270`, phone (flaky; this epic's own spec) | one `page.goto` was aborted once (`net::ERR_ABORTED`); the test passed on retry                                                                                                                             | Not established. It passed 8 of 8 on its own, twice                                                                                                                                                                                                                                                               | listed as flaky, not as passed                                                                                                                                                                     |
+
+**Two facts about `main` the owner should know (R-28), found while checking this:**
+
+1. **The end-to-end job on `main` does not finish.** The last four CI runs on `main` ended as "cancelled": the step
+   `pnpm --filter @cellr/web e2e` is stopped by the job's 30-minute limit (for example run 197: 07:53 to 08:22,
+   cancelled). The whole suite takes about an hour on this machine. So no recent CI run has shown the whole suite
+   green, on `main` or anywhere.
+2. **The suite poisons itself**: the allowlist entry above. Any order that runs `flows.spec` before an admin test
+   fails that test.
+
+Neither was changed by this epic (other sprints' tests and the CI workflow are outside its scope), and both are
+cheap to fix: delete the allowlist row in an `afterAll` of that `describe`, and split or lengthen the e2e job.
 
 Baseline for comparison (WI-00, `main` @ `770aaab`): unit web 706 / domain 581 / scan-eval 26 / catalog-tools 14;
 `db:test` 1135. Added by this epic: 75 web, 62 domain, 57 scan-eval, 72 catalog-tools and 160 database tests, and
@@ -175,22 +195,24 @@ existing tasks when it cannot be checked (verified in code, unchanged).
 
 ## 9. What is not proven, not built, or open
 
-| Item                                                                                  | State                                                                                 |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Recognition of **real** label photographs                                             | `REAL_LABEL_VALIDATION_PENDING`: 0 consented photos exist                             |
-| A physical iPhone, a mobile network, VoiceOver, a tablet                              | not run (`UX_ACCEPTANCE.md` §4)                                                       |
-| Production migration history                                                          | `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED`: owner only                                 |
-| Any real external source shown to people                                              | none; credits were exercised with CELLR's own test sources                            |
-| Real LWIN layout                                                                      | unknown; the adapter is marked unverified and refuses any other file                  |
-| Optional AI explanation of a verdict                                                  | not built (ADR-003, decision 10)                                                      |
-| Live p50 / p95, cancellations, edit-after-confirm rate                                | not measured (`docs/METRICS.md`)                                                      |
-| Eight existing specs bound to the old selectors                                       | must be updated in the change that switches `wine_search` on (`progress/WI-02.md` §4) |
-| Phone-profile scan specs are racy on baseline (R-26); `insights.spec:113` flaked once | not product defects as far as established; CI masks them with a retry                 |
-| The independent review covered WI-02 to WI-04 only                                    | WI-05 and WI-06 are self-verified                                                     |
-| `analytics_events` has no automatic expiry                                            | existing behaviour, unchanged                                                         |
-| `docs/MIGRATIONS.md` §4 says 36 migrations; `main` has 37                             | reported, not edited (owner's document of record)                                     |
+| Item                                                                                             | State                                                                                 |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| Recognition of **real** label photographs                                                        | `REAL_LABEL_VALIDATION_PENDING`: 0 consented photos exist                             |
+| A physical iPhone, a mobile network, VoiceOver, a tablet                                         | not run (`UX_ACCEPTANCE.md` §4)                                                       |
+| Production migration history                                                                     | `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED`: owner only                                 |
+| Any real external source shown to people                                                         | none; credits were exercised with CELLR's own test sources                            |
+| Real LWIN layout                                                                                 | unknown; the adapter is marked unverified and refuses any other file                  |
+| Optional AI explanation of a verdict                                                             | not built (ADR-003, decision 10)                                                      |
+| Live p50 / p95, cancellations, edit-after-confirm rate                                           | not measured (`docs/METRICS.md`)                                                      |
+| Eight existing specs bound to the old selectors                                                  | must be updated in the change that switches `wine_search` on (`progress/WI-02.md` §4) |
+| The whole e2e suite is not green in this environment, and does not finish in CI on `main` (R-28) | 20 failures explained in §4.1, none from this epic; two cheap fixes named there       |
+| Phone-profile scan specs are racy on baseline (R-26); `insights.spec:113` flaked once            | not product defects as far as established                                             |
+| The independent review covered WI-02 to WI-04 only                                               | WI-05 and WI-06 are self-verified                                                     |
+| `analytics_events` has no automatic expiry                                                       | existing behaviour, unchanged                                                         |
+| `docs/MIGRATIONS.md` §4 says 36 migrations; `main` has 37                                        | reported, not edited (owner's document of record)                                     |
 
-No P0 is open. No tenant leak, no pilot visibility and no wrong automatic identity is known.
+No P0 is open. No tenant leak, no pilot visibility and no wrong automatic identity is known. P1 found and fixed
+during the epic: the import lifecycle of 004A (WI-01) and the research claim (WI-04 review).
 
 ## 10. Rollback
 
