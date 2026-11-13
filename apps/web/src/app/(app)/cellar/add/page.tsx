@@ -4,6 +4,7 @@ import { z } from "zod";
 import { AddBottleFlow } from "@/features/cellar/add-bottle-flow";
 import { spotFromParams } from "@/features/cellar/add-spot";
 import { getPageContext } from "@/server/context";
+import { getFeatures } from "@/server/env";
 import { getPageMe } from "@/server/me";
 import { servicesFor } from "@/server/services";
 
@@ -54,6 +55,7 @@ export default async function AddBottlePage({ searchParams }: Props) {
       initialYear={initialYear}
       wishId={wishId.success ? wishId.data : undefined}
       initialSpot={initialSpot}
+      catalogSearch={getFeatures().wine_search}
     />
   );
 }

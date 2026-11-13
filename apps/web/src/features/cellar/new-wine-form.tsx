@@ -7,6 +7,7 @@ import {
   ERROR_MESSAGES,
   WINE_COUNTRIES,
   WINE_TYPES,
+  type CatalogSearchHit,
   type WineSummary,
   type WineType,
 } from "@cellr/domain";
@@ -30,17 +31,41 @@ export interface NewWineDraft {
   region: string | null;
 }
 
+/**
+ * What a record of an external source says, as the start of the "new wine" form. Only what the form can show: a
+ * country it has no option for is left open, and a type the source did not state is left for the person to choose.
+ */
+export function draftOfRecord(hit: CatalogSearchHit): NewWineDraft {
+  return {
+    producer: hit.producer,
+    name: hit.name,
+    type: hit.type,
+    countryCode: (WINE_COUNTRIES as readonly string[]).includes(hit.countryCode ?? "")
+      ? hit.countryCode
+      : null,
+    region: hit.region,
+  };
+}
+
 interface NewWineFormProps {
   initialName: string;
   /** Starts the form from what a label scan read; the person checks and corrects it. */
   draft?: NewWineDraft | undefined;
   /** Producers already in the household's list, offered as suggestions so spellings stay consistent. */
   producers: string[];
+  /** Where the starting details came from, when not from the person or their own label (an external source). */
+  notice?: string | undefined;
   onCreated: (wine: WineSummary) => void;
 }
 
 /** Step 1b: only what identifies the wine. Three required answers; the rest is optional. */
-export function NewWineForm({ initialName, draft, producers, onCreated }: NewWineFormProps) {
+export function NewWineForm({
+  initialName,
+  draft,
+  producers,
+  notice,
+  onCreated,
+}: NewWineFormProps) {
   const t = useTranslations("addBottle");
   const tTypes = useTranslations("wineTypes");
   const te = useTranslations();
@@ -77,6 +102,15 @@ export function NewWineForm({ initialName, draft, producers, onCreated }: NewWin
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-6">
+      {notice && (
+        <p
+          role="status"
+          data-testid="new-wine-notice"
+          className="rounded-card bg-accent/10 px-4 py-3 text-small text-ink ring-1 ring-accent-fg/30"
+        >
+          {notice}
+        </p>
+      )}
       {/* A live preview: the bottle on its stage, typeset from what is typed. Decorative, the fields say it all. */}
       <div
         aria-hidden="true"

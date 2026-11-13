@@ -25,7 +25,7 @@ import {
   type BackLabelAttempt,
 } from "@/features/cellar/hooks";
 import { LabelImage } from "@/features/cellar/label-image";
-import { NewWineForm } from "@/features/cellar/new-wine-form";
+import { draftOfRecord, NewWineForm, type NewWineDraft } from "@/features/cellar/new-wine-form";
 import { useOwnedCounts, WineChoice } from "@/features/cellar/wine-stage";
 import { placeLine } from "@/features/cellar/wine-visuals";
 import { ApiError, errorMessage } from "@/lib/api";
@@ -64,10 +64,13 @@ type Stage =
 export function ScanScreen({
   currency,
   initialSpot,
+  catalogSearch = false,
 }: {
   currency: string;
   /** From "add a bottle here" in a rack: the first bottle scanned goes on that spot (unless changed). */
   initialSpot?: PreferredSpot | undefined;
+  /** The `wine_search` feature: correcting a reading searches the database, not only the fetched list. */
+  catalogSearch?: boolean | undefined;
 }) {
   const t = useTranslations("scan");
   const tAdd = useTranslations("addBottle");
@@ -287,6 +290,7 @@ export function ScanScreen({
             result={stage.result}
             rejectedFound={rejectedFound}
             wines={wines.data ?? []}
+            catalogSearch={catalogSearch}
             onReject={() => setRejectedFound(true)}
             onWine={(wine) =>
               setStage({ name: "details", result: stage.result, wine, itemId: stage.itemId })
@@ -672,6 +676,7 @@ function Review({
   result,
   rejectedFound,
   wines,
+  catalogSearch,
   onReject,
   onWine,
   onAgain,
@@ -680,6 +685,7 @@ function Review({
   result: ScanResult;
   rejectedFound: boolean;
   wines: WineSummary[];
+  catalogSearch: boolean;
   onReject: () => void;
   onWine: (wine: WineSummary) => void;
   onAgain: () => void;
@@ -691,6 +697,11 @@ function Review({
   const [chosenNew, setChosenNew] = useState(false);
   // A wrong guess is corrected by finding the right wine among your own, not by typing it in again (a duplicate).
   const [searching, setSearching] = useState(false);
+  // A record of an external source chosen while searching: it starts the form below, for the person to check.
+  const [fromRecord, setFromRecord] = useState<{ draft: NewWineDraft; provider: string } | null>(
+    null,
+  );
+  const tAdd = useTranslations("addBottle");
   const { outcome, facts, matches } = result;
   const [query, setQuery] = useState(facts?.producer ?? facts?.name ?? "");
   const wantsForm =
@@ -786,7 +797,23 @@ function Review({
             query={query}
             onQuery={setQuery}
             onPick={onWine}
-            onNew={() => setSearching(false)}
+            onNew={() => {
+              setFromRecord(null);
+              setSearching(false);
+            }}
+            catalog={
+              catalogSearch
+                ? {
+                    onRecord: (hit) => {
+                      setFromRecord({
+                        draft: draftOfRecord(hit),
+                        provider: hit.provider?.name ?? "",
+                      });
+                      setSearching(false);
+                    },
+                  }
+                : undefined
+            }
           />
         </section>
       )}
@@ -810,15 +837,19 @@ function Review({
               )}
             </div>
           )}
-          {wines.length > 0 && (
+          {(wines.length > 0 || catalogSearch) && (
             <Button variant="secondary" size="lg" block onClick={() => setSearching(true)}>
               <SearchIcon size={18} />
               {t("searchMine")}
             </Button>
           )}
           <NewWineForm
+            key={fromRecord ? "record" : "read"}
             initialName=""
-            draft={facts ? suggestWine(facts) : undefined}
+            draft={fromRecord?.draft ?? (facts ? suggestWine(facts) : undefined)}
+            notice={
+              fromRecord ? tAdd("recordNotice", { provider: fromRecord.provider }) : undefined
+            }
             producers={producers}
             onCreated={onWine}
           />

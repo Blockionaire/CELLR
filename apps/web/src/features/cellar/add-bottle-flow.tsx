@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import type { AddBottlesResult, WineSummary } from "@cellr/domain";
+import type { AddBottlesResult, CatalogSearchHit, WineSummary } from "@cellr/domain";
 import { Button } from "@/ui/button";
 import { ChevronRightIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
@@ -12,7 +12,7 @@ import { BottleDetails } from "./bottle-details";
 import { ChooseWine } from "./choose-wine";
 import { useForgetWish } from "@/features/wishlist/hooks";
 import { useWines } from "./hooks";
-import { NewWineForm } from "./new-wine-form";
+import { draftOfRecord, NewWineForm, type NewWineDraft } from "./new-wine-form";
 
 type Step = "choose" | "new" | "details" | "done";
 
@@ -26,6 +26,7 @@ export function AddBottleFlow({
   initialYear,
   wishId,
   initialSpot,
+  catalogSearch = false,
 }: {
   currency: string;
   /** Jump straight to "how many and where" for this wine (from "Add more"). */
@@ -35,6 +36,8 @@ export function AddBottleFlow({
   wishId?: string | undefined;
   /** An empty spot tapped in a rack: the first bottle goes there (the person can still choose otherwise). */
   initialSpot?: PreferredSpot | undefined;
+  /** The `wine_search` feature: find the wine through the database search instead of the fetched list. */
+  catalogSearch?: boolean | undefined;
 }) {
   const t = useTranslations("addBottle");
   const wines = useWines();
@@ -42,6 +45,11 @@ export function AddBottleFlow({
   const [step, setStep] = useState<Step>(initialWine ? "details" : "choose");
   const [query, setQuery] = useState("");
   const [wine, setWine] = useState<WineSummary | null>(initialWine ?? null);
+  // A record of an external source that was chosen: its details start the "new wine" form, where the person
+  // checks them. It is never used as a CELLR wine, and nothing about the record is kept.
+  const [fromRecord, setFromRecord] = useState<{ draft: NewWineDraft; provider: string } | null>(
+    null,
+  );
   const [result, setResult] = useState<AddBottlesResult | null>(null);
   const [lastPlace, setLastPlace] = useState<string | null | undefined>(initialSpot?.locationId);
   // Kept here, not in the details step, so going back to choose (or create) another wine keeps the spot.
@@ -74,7 +82,13 @@ export function AddBottleFlow({
     setStep("details");
   }
 
+  function startFromRecord(hit: CatalogSearchHit) {
+    setFromRecord({ draft: draftOfRecord(hit), provider: hit.provider?.name ?? "" });
+    setStep("new");
+  }
+
   function reset() {
+    setFromRecord(null);
     setWine(null);
     setResult(null);
     setQuery("");
@@ -106,13 +120,20 @@ export function AddBottleFlow({
             query={query}
             onQuery={setQuery}
             onPick={pick}
-            onNew={() => setStep("new")}
+            onNew={() => {
+              setFromRecord(null);
+              setStep("new");
+            }}
             selectedId={wine?.id}
+            catalog={catalogSearch ? { onRecord: startFromRecord } : undefined}
           />
         )}
         {step === "new" && (
           <NewWineForm
+            key={fromRecord ? "record" : "typed"}
             initialName={query.trim()}
+            draft={fromRecord?.draft}
+            notice={fromRecord ? t("recordNotice", { provider: fromRecord.provider }) : undefined}
             producers={[...new Set((wines.data ?? []).map((w) => w.producer))]}
             onCreated={pick}
           />

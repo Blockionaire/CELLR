@@ -6,16 +6,17 @@ Brief: [`MASTER_BRIEF.md`](MASTER_BRIEF.md) (v1.1). Per-sub-sprint evidence: [`p
 ## Resume block
 
 ```text
-LAST VERIFIED CHECKPOINT: WI-01
+LAST VERIFIED CHECKPOINT: WI-02
 BRANCH / SHA: claude/wine-intelligence-mega-sprint-agnxu9 (base: main @ 770aaab); see `git log --grep '^WI-0'`
-STATUS: WI-00 PASS; WI-01 PASS (real LWIN import blocked by design); WI-02 in progress
+STATUS: WI-00 PASS; WI-01 PASS (real LWIN import blocked by design); WI-02 PASS (behind `wine_search`, off)
 CHANGED FILES / PR: draft PR https://github.com/Blockionaire/CELLR/pull/68 ; per sub-sprint: progress/WI-0x.md §1
 CURRENT FEATURE FLAGS: CELLR_FEATURES unset everywhere (all four features off)
-LAST GREEN CHECKS: format, lint, typecheck, unit (web 706 / domain 616 / scan-eval 26 / catalog-tools 86),
-                   db:test 1202, db:test:imports, db:types:check, migrations:check, pilot.sh end to end
+LAST GREEN CHECKS: format, lint, typecheck, unit (web 723 / domain 616 / scan-eval 26 / catalog-tools 86),
+                   db:test 1202 (no schema change since WI-01), e2e wine-search 24/24 (features on, port 3101),
+                   e2e regression with features off: 135 passed, 4 flaky (R-26), 0 failed
 PENDING BLOCKERS: PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED · REAL_LABEL_VALIDATION_PENDING ·
                   LWIN rights blocked · X-Wines rights unverified (pilot only)
-NEXT SAFE ACTION: WI-02 (wine search UI in add-bottle and Koopcheck, behind `wine_search`)
+NEXT SAFE ACTION: WI-03 (scan resolver over bounded candidates, behind `scan_resolver`)
 DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the X-Wines download (the file is in an
                isolated scratch folder of the session, never in Git: re-download it from the authors' Drive folder
                and check the SHA-256 in pilot.sh if a new session needs it)
@@ -23,16 +24,16 @@ DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the X-Wines
 
 ## Status by sub-sprint
 
-| ID    | Name                                            | Status                                         | Evidence                                 |
-| ----- | ----------------------------------------------- | ---------------------------------------------- | ---------------------------------------- |
-| WI-00 | Baseline, architecture and threat model         | **PASS**                                       | [`progress/WI-00.md`](progress/WI-00.md) |
-| WI-01 | Provider adapters, identity quality, pilot      | **PASS** (real LWIN import: blocked by design) | [`progress/WI-01.md`](progress/WI-01.md) |
-| WI-02 | Shared search / autocomplete UX                 | not started                                    |                                          |
-| WI-03 | Scan-to-catalogue resolver                      | not started                                    |                                          |
-| WI-04 | Buying intelligence and profile reuse           | not started                                    |                                          |
-| WI-05 | Provenance, trust and wine pages                | not started                                    |                                          |
-| WI-06 | Admin governance, telemetry, operational safety | not started                                    |                                          |
-| WI-07 | Regression, stress, legal readiness, dossier    | not started                                    |                                          |
+| ID    | Name                                            | Status                                          | Evidence                                 |
+| ----- | ----------------------------------------------- | ----------------------------------------------- | ---------------------------------------- |
+| WI-00 | Baseline, architecture and threat model         | **PASS**                                        | [`progress/WI-00.md`](progress/WI-00.md) |
+| WI-01 | Provider adapters, identity quality, pilot      | **PASS** (real LWIN import: blocked by design)  | [`progress/WI-01.md`](progress/WI-01.md) |
+| WI-02 | Shared search / autocomplete UX                 | **PASS** (behind `wine_search`, off by default) | [`progress/WI-02.md`](progress/WI-02.md) |
+| WI-03 | Scan-to-catalogue resolver                      | not started                                     |                                          |
+| WI-04 | Buying intelligence and profile reuse           | not started                                     |                                          |
+| WI-05 | Provenance, trust and wine pages                | not started                                     |                                          |
+| WI-06 | Admin governance, telemetry, operational safety | not started                                     |                                          |
+| WI-07 | Regression, stress, legal readiness, dossier    | not started                                     |                                          |
 
 ## Branch and PR strategy
 
@@ -134,6 +135,7 @@ The brief's R-01 to R-21 apply as written (`MASTER_BRIEF.md` §11). Baseline fin
 | R-23 | **New.** The scan and manual entry rank **every** wine the household can see in memory (`GET /api/v1/wines`); this does not scale with the catalogue.                                                                       | WI-02 and WI-03 move both to bounded server-side candidates.                                                                    |
 | R-24 | **New (WI-01).** The search's `match = 'exact'` means "the query equals the producer, the name or both", not "this is the wine".                                                                                            | The resolver (WI-03) decides identity with `isCatalogIdentity`, never with the search's match class.                            |
 | R-25 | **New (WI-01).** The import's link suggestion compares normalised text: names differing only in signs ("Auslese \*" / "\*\*") are one identity to it.                                                                       | A suggestion is never a link; the review screen (WI-06) shows the names as written and `identityRelation`'s verdict.            |
+| R-26 | **New (WI-02).** The phone-profile scan specs choose a photo right after `page.goto`; before the screen is interactive the choice is lost. 5 of 32 runs failed on **baseline** source here; CI masks it with a retry.       | Not a product defect. New specs wait for the screen to be interactive; fixing the old specs is a follow-up (WI-07 list).        |
 
 ## Decisions
 
@@ -152,3 +154,6 @@ The brief's R-01 to R-21 apply as written (`MASTER_BRIEF.md` §11). Baseline fin
   import run per provider (a defect of the merged foundation closed), the off switch, rights register and e-mail
   drafts. An independent review found real defects in the first version; all P1/P2 were fixed before the checkpoint.
   Real LWIN data: not obtained, import blocked by three gates.
+- **2026-11-13 — WI-02 PASS.** One search component (combobox + listbox) for add-bottle, the scan review and
+  Koopcheck's new "Handmatig zoeken" step, on Sprint 004A's `catalog_search`; behind `wine_search` (off). A second
+  e2e server with every feature on (port 3101). Automated only: no physical device, no real network.

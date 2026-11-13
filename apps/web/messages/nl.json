@@ -585,7 +585,8 @@
     "spotPickTitle": "Kies een plek",
     "spotPickBody": "Tik op een vrije plek.",
     "spotAuto": "Laat CELLR kiezen",
-    "firstAt": "De eerste staat op {spot}."
+    "firstAt": "De eerste staat op {spot}.",
+    "recordNotice": "Deze gegevens komen van {provider}, een externe bron die CELLR niet heeft geverifieerd. Controleer ze voordat je verdergaat; de wijn wordt als je eigen wijn toegevoegd."
   },
   "newPlace": {
     "title": "Een plek voor je flessen",
@@ -1902,7 +1903,21 @@
     "edit": "Wijn aanpassen",
     "another": "Andere wijn checken",
     "bottles": "{count, plural, one {# fles} other {# flessen}}",
-    "failed": "Dat lukte niet. Probeer het opnieuw."
+    "failed": "Dat lukte niet. Probeer het opnieuw.",
+    "stepSearch": "Zoek de wijn",
+    "searchHint": "Typ de producent of de naam van de wijn en kies hem uit de lijst. Er wordt niets aan je kelder toegevoegd.",
+    "searchLabel": "Zoek de wijn uit de winkel",
+    "searchPlaceholder": "Producent of naam van de wijn",
+    "searchIdle": "Je wijnen",
+    "typeWithoutResult": "Typ handmatig zonder een resultaat te kiezen",
+    "searchAgain": "Opnieuw zoeken",
+    "chosen": {
+      "owned": "Gekozen uit jouw kelder. Controleer de jaargang in de winkel en vul eventueel de prijs in.",
+      "household": "Gekozen uit je eigen wijnen. Controleer de jaargang in de winkel en vul eventueel de prijs in.",
+      "catalog": "Gekozen uit de CELLR-catalogus. Controleer de jaargang in de winkel en vul eventueel de prijs in.",
+      "provider": "Overgenomen van {provider}, een externe bron die CELLR niet heeft geverifieerd. Controleer de gegevens, de jaargang en de prijs."
+    },
+    "searchInstead": "Handmatig zoeken"
   },
   "drinkDetail": {
     "title": "Drinkvenster",
@@ -1955,5 +1970,29 @@
     },
     "notAnOffer": "Een schatting is geen bod: wat je echt zou krijgen hangt af van de koper, de staat van de fles en waar je verkoopt.",
     "manage": "Waarde wijzigen of opzoeken"
+  },
+  "wineSearch": {
+    "searching": "Zoeken…",
+    "count": "{count, plural, =0 {Geen wijnen gevonden} one {1 wijn gevonden} other {# wijnen gevonden}}",
+    "keyboardHint": "Gebruik de pijltjestoetsen omhoog en omlaag om door de resultaten te gaan en Enter om er een te kiezen.",
+    "resultsTitle": "Gevonden wijnen",
+    "ownTitle": "Je wijnen",
+    "none": "Niets gevonden voor “{query}”. Je kunt de wijn hieronder zelf toevoegen.",
+    "more": "{count, plural, one {Toon nog 1} other {Toon nog #}}",
+    "retry": "Opnieuw proberen",
+    "alias": "Ook bekend als {alias}",
+    "similar": "Vergelijkbare naam",
+    "source": {
+      "owned": "In jouw kelder",
+      "household": "Jouw wijn",
+      "catalog": "CELLR-catalogus",
+      "provider": "Externe databron, nog niet geverifieerd"
+    },
+    "notice": {
+      "unavailable": "Zoeken in de wijncatalogus is nog niet beschikbaar. Dit zijn je eigen wijnen; je kunt de wijn ook zelf toevoegen.",
+      "limited": "Dat was veel zoeken. Zoeken pauzeert even. Dit zijn je eigen wijnen; je kunt de wijn ook zelf toevoegen.",
+      "offline": "CELLR is nu niet bereikbaar. Wat je hebt getypt blijft staan. Dit zijn je eigen wijnen.",
+      "error": "Zoeken werkt nu even niet. Wat je hebt getypt blijft staan. Dit zijn je eigen wijnen."
+    }
   }
 }

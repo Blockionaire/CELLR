@@ -239,3 +239,6 @@ export async function askExample(page: Page, name: string) {
   }
   await page.getByRole("button", { name, exact: true }).click();
 }
+
+/** The same build with every Wine Intelligence feature switched on (playwright.config.ts). */
+export const FEATURES_URL = "http://localhost:3101";
