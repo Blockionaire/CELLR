@@ -6,20 +6,19 @@ Brief: [`MASTER_BRIEF.md`](MASTER_BRIEF.md) (v1.1). Per-sub-sprint evidence: [`p
 ## Resume block
 
 ```text
-LAST VERIFIED CHECKPOINT: WI-04 (independent review of WI-02..04 PENDING: see progress/WI-04.md §5)
+LAST VERIFIED CHECKPOINT: WI-04 + independent review of WI-02..04 (progress/WI-04-review.md: no P1, findings fixed)
 BRANCH / SHA: claude/wine-intelligence-mega-sprint-agnxu9 (base: main @ 770aaab); see `git log --grep '^WI-0'`
 STATUS: WI-00 PASS; WI-01 PASS (real LWIN import blocked by design); WI-02 PASS (behind `wine_search`, off);
         WI-03 PASS on programmed readings (behind `scan_resolver`, off; real labels pending);
         WI-04 PASS (behind `purchase_intel`, off; research claim always on once migration 0039 is applied)
 CHANGED FILES / PR: draft PR https://github.com/Blockionaire/CELLR/pull/68 ; per sub-sprint: progress/WI-0x.md §1
 CURRENT FEATURE FLAGS: CELLR_FEATURES unset everywhere (all four features off)
-LAST GREEN CHECKS: format, lint, typecheck, unit (web 765 / domain 635 / scan-eval 83 / catalog-tools 86),
-                   db:test 1222, db:test:budget, db:types:check, migrations:check, e2e wine-search 24/24, scan-resolver 4/4, purchase-intel 4/4 (features on, port 3101),
+LAST GREEN CHECKS: format, lint, typecheck, unit (web 771 / domain 635 / scan-eval 83 / catalog-tools 86),
+                   db:test 1229, db:test:budget, db:types:check, migrations:check, e2e wine-search 24/24, scan-resolver 4/4, purchase-intel 4/4 (features on, port 3101),
                    e2e regression with features off: 135 passed, 4 flaky (R-26), 0 failed
 PENDING BLOCKERS: PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED · REAL_LABEL_VALIDATION_PENDING ·
                   LWIN rights blocked · X-Wines rights unverified (pilot only)
-NEXT SAFE ACTION: record the independent review (progress/WI-04-review.md), then WI-05 (sources section on the
-                  wine page and Koopcheck result, behind `sources_panel`; `packages/domain/src/wine-sources.ts` is its start)
+NEXT SAFE ACTION: WI-05 (sources section on the wine page and Koopcheck result, behind `sources_panel`)
 DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the X-Wines download (the file is in an
                isolated scratch folder of the session, never in Git: re-download it from the authors' Drive folder
                and check the SHA-256 in pilot.sh if a new session needs it)
@@ -27,16 +26,16 @@ DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the X-Wines
 
 ## Status by sub-sprint
 
-| ID    | Name                                            | Status                                                                                 | Evidence                                 |
-| ----- | ----------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------- |
-| WI-00 | Baseline, architecture and threat model         | **PASS**                                                                               | [`progress/WI-00.md`](progress/WI-00.md) |
-| WI-01 | Provider adapters, identity quality, pilot      | **PASS** (real LWIN import: blocked by design)                                         | [`progress/WI-01.md`](progress/WI-01.md) |
-| WI-02 | Shared search / autocomplete UX                 | **PASS** (behind `wine_search`, off by default)                                        | [`progress/WI-02.md`](progress/WI-02.md) |
-| WI-03 | Scan-to-catalogue resolver                      | **PASS** on programmed readings (behind `scan_resolver`, off); real labels **PENDING** | [`progress/WI-03.md`](progress/WI-03.md) |
-| WI-04 | Buying intelligence and profile reuse           | **PASS** (behind `purchase_intel`, off); independent review **PENDING**                | [`progress/WI-04.md`](progress/WI-04.md) |
-| WI-05 | Provenance, trust and wine pages                | not started                                                                            |                                          |
-| WI-06 | Admin governance, telemetry, operational safety | not started                                                                            |                                          |
-| WI-07 | Regression, stress, legal readiness, dossier    | not started                                                                            |                                          |
+| ID    | Name                                            | Status                                                                                 | Evidence                                                                                         |
+| ----- | ----------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| WI-00 | Baseline, architecture and threat model         | **PASS**                                                                               | [`progress/WI-00.md`](progress/WI-00.md)                                                         |
+| WI-01 | Provider adapters, identity quality, pilot      | **PASS** (real LWIN import: blocked by design)                                         | [`progress/WI-01.md`](progress/WI-01.md)                                                         |
+| WI-02 | Shared search / autocomplete UX                 | **PASS** (behind `wine_search`, off by default)                                        | [`progress/WI-02.md`](progress/WI-02.md)                                                         |
+| WI-03 | Scan-to-catalogue resolver                      | **PASS** on programmed readings (behind `scan_resolver`, off); real labels **PENDING** | [`progress/WI-03.md`](progress/WI-03.md)                                                         |
+| WI-04 | Buying intelligence and profile reuse           | **PASS** (behind `purchase_intel`, off); independently reviewed                        | [`progress/WI-04.md`](progress/WI-04.md), [`progress/WI-04-review.md`](progress/WI-04-review.md) |
+| WI-05 | Provenance, trust and wine pages                | not started                                                                            |                                                                                                  |
+| WI-06 | Admin governance, telemetry, operational safety | not started                                                                            |                                                                                                  |
+| WI-07 | Regression, stress, legal readiness, dossier    | not started                                                                            |                                                                                                  |
 
 ## Branch and PR strategy
 
@@ -170,3 +169,6 @@ The brief's R-01 to R-21 apply as written (`MASTER_BRIEF.md` §11). Baseline fin
   only (ADR-003). No model call, no write. Migration `…0039`: a research claim so two simultaneous first requests
   pay once (R-22). `BUDGET_MODES`: any future paid task fails closed (R-18). No AI explanation built. The
   independent review was interrupted by a usage limit and restarted: PENDING.
+- **2026-11-13 — Independent review of WI-02 to WI-04.** No P1. P2: the research claim was never given back (a
+  failed or rate-limited first request made others wait 30 s for nothing, with every flag off); fixed with a
+  release function and a take-over by the waiting request. Three P3 and four minor findings fixed.

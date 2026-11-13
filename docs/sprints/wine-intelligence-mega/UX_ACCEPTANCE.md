@@ -51,6 +51,9 @@ not a mobile network, not a phone.
 | same, p95                                                             |          105 ms |                     255 ms |
 | typing a full query → first result visible (includes 250 ms debounce) |     0.82–0.86 s |                0.83–0.89 s |
 
+A later run with five specs sharing the machine measured more: desktop p50 99 / p95 166 ms, phone p50 130 / p95 356 ms
+(one call 882 ms). The numbers move with the load on this one machine; they are not a service level.
+
 The typed-to-visible times include the deliberate 250 ms debounce and the test runner's own polling, so they are an
 upper bound of what a person perceives on this machine. The brief's initial target (p95 ≤ ~700 ms for server and
 network, excluding the debounce) is met here; it has **not** been measured on a real network (WI-07 lists it as

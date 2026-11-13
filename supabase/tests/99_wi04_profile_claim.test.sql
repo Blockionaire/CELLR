@@ -73,6 +73,26 @@ begin
   perform test.wi4_age(cv, 'en', 12);
   perform test.rec('claim: and free after that least time', public.claim_shared_profile_research(cv, 'en', 1));
 
+  -- giving a claim back: the next request takes it at once instead of waiting for a profile that is not coming
+  perform test.as_user(1);
+  perform test.rec('release: people may not give a claim back', test.wi4_forbidden(
+    format('select public.release_shared_profile_research(%L, %L)', cv, 'en')));
+  perform test.as_anon();
+  perform test.rec('release: nor anonymous callers', test.wi4_forbidden(
+    format('select public.release_shared_profile_research(%L, %L)', cv, 'en')));
+  perform test.as_service();
+  perform test.rec('release: held before it is given back', not public.claim_shared_profile_research(cv, 'en'));
+  perform public.release_shared_profile_research(cv, 'en');
+  perform test.rec('release: only that vintage and language are given back',
+    test.wi4_claims() = 2 and not public.claim_shared_profile_research(cv, 'nl')
+    and not public.claim_shared_profile_research(cv2, 'en'));
+  perform test.rec('release: the next request gets it at once', public.claim_shared_profile_research(cv, 'en'));
+  perform public.release_shared_profile_research(cv, 'en');
+  perform public.release_shared_profile_research(cv, 'en');
+  perform test.rec('release: giving back twice, or nothing, is not an error',
+    public.release_shared_profile_research(gen_random_uuid(), 'en') is null and test.wi4_claims() = 2);
+  perform test.rec('release: and it is claimable again', public.claim_shared_profile_research(cv, 'en'));
+
   -- nothing to share, nothing to claim: research goes ahead as before and nothing is written
   perform test.rec('claim: a household''s own wine is always "go ahead", and leaves no claim',
     public.claim_shared_profile_research(pv, 'en') and public.claim_shared_profile_research(pv, 'en')

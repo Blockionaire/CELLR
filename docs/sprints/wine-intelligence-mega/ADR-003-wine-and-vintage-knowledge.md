@@ -55,19 +55,30 @@ nobody could see on the screen.
 ## Research once (single flight)
 
 Two first requests for the same catalogue vintage, seconds apart, both paid for the research (R-22). Migration
-`20261116000039` adds a **claim**: `claim_shared_profile_research(vintage, language)` (service role only).
+`20261116000039` adds a **claim**: `claim_shared_profile_research(vintage, language)` and
+`release_shared_profile_research(vintage, language)` (service role only).
 
-- The first request gets the claim and researches. A second request does not; it polls for the shared profile for
-  at most 30 s (`SHARED_WAIT`) and reuses it. If none appears, it researches itself: nobody is blocked.
-- A claim expires by itself (120 s by default, bounded 10–600 s). It holds a vintage id, a language and a time: no
-  household, no person.
+- The first request gets the claim, passes its own rate limit and researches.
+- A request that does not get the claim looks every 2 s: is the shared profile there (reuse it, pay nothing), or has
+  the claim been given back (take it, and research)? Only the one that takes the claim researches; the others keep
+  waiting for it. After one research timeout (60 s, `SHARED_WAIT`) a request stops waiting and researches anyway:
+  nobody is blocked.
+- **A claim is always given back** by the request that took it: after publishing, after a failure, after a refusal
+  by its rate limit, after a result that cannot be shared. So nobody waits for a profile that is not coming. (The
+  first version did not do this; the independent review found it: `progress/WI-04-review.md`, finding 1.)
+- A claim whose request died expires by itself (120 s by default, bounded 10–600 s). That is longer than a research
+  call can take (60 s, plus at most 40 s for its one retry), so a live request never loses its claim.
+- A claim holds a vintage id, a language and a time: no household, no person.
 - It is taken only for a vintage whose profile can be shared (canonical wine, canonical producer). For anything else
   the answer is "go ahead" and nothing is written.
 - If the claim cannot be asked (function not deployed, database error) research goes ahead as before.
 
-This changes an existing paid path only by **removing** calls. It is active whenever the migration is deployed; it is
-not behind a feature flag, because it has no visible behaviour except a short wait for the second of two
-simultaneous first requests.
+This changes an existing paid path only by **removing** calls. It is active whenever the migration is deployed and
+is not behind a feature flag. What a person can notice: the second of two simultaneous first requests gets its
+profile when the first one's research is done, instead of running its own.
+
+Known limits, accepted: a research call slower than 60 s lets a waiter start a second one; a request that waited and
+then researches can take up to about two research timeouts in total.
 
 ## Consequences
 

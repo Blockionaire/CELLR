@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  DomainError,
   InsightOutputSchema,
   PROFILE_VERSION,
   type InsightOutput,
@@ -56,6 +57,10 @@ function world(
     claims?: "on" | "down";
     /** The research call fails for these households (the model is down for them). */
     aiDownFor?: string[];
+    /** These households are over their own rate limit: the spend is refused. */
+    limitedFor?: string[];
+    /** Claims cannot be given back (an older database): they only expire. */
+    noRelease?: boolean;
   } = {},
 ) {
   const claimed = new Set<string>();
@@ -140,6 +145,7 @@ function world(
       locale: async () => locale,
       llm,
       spend: async () => {
+        if (options.limitedFor?.includes(id)) throw new DomainError("RATE_LIMITED");
         spent += 1;
       },
       recordUsage: async (e) => void usage.push({ householdId: e.householdId }),
@@ -152,6 +158,13 @@ function world(
               claimed.add(key);
               return true;
             },
+            ...(options.noRelease
+              ? {}
+              : {
+                  releaseShared: async (vintageId: string, language: string) => {
+                    claimed.delete(`${vintageId}:${language}`);
+                  },
+                }),
             sleep: async (ms: number) => {
               sleeps.push(ms);
               // while one request waits, the other's research gets on
@@ -374,18 +387,73 @@ describe("two households ask for the same uncached vintage at the same moment (W
     expect(views.every((v) => v.insight?.output.summary.includes("Pavillon Rouge"))).toBe(true);
   });
 
-  it("the first one's research fails: the second waits its bounded time, then researches itself, once", async () => {
+  it("the first one's research fails: its claim is given back, and the next request researches without waiting", async () => {
     const w = world({ claims: "on", aiDownFor: ["A"] });
     await expect(w.household("A").generate("v2019")).rejects.toMatchObject({
       code: "AI_UNAVAILABLE",
     });
+    expect(w.claimed.size).toBe(0);
     const callsAfterA = w.calls.length;
     const b = await w.household("B").generate("v2019");
-    // B waited the whole window (never longer), found nothing, and then paid for exactly one research itself
-    expect(w.sleeps.reduce((x, y) => x + y, 0)).toBe(30_000);
+    expect(w.sleeps).toEqual([]);
     expect(w.calls.length - callsAfterA).toBe(1);
     expect(b.insight?.output.summary).toContain("Pavillon Rouge");
     expect(w.shared.has("v2019:en")).toBe(true);
+    // A asks again: the shared profile is there now, so nothing is waited for and nothing is paid
+    const again = await w.household("A").generate("v2019");
+    expect(again.insight?.output).toEqual(b.insight?.output);
+    expect(w.sleeps).toEqual([]);
+    expect(w.calls.length - callsAfterA).toBe(1);
+  });
+
+  it("a person over their own rate limit holds no claim: nobody waits because of them", async () => {
+    const w = world({ claims: "on", limitedFor: ["A"] });
+    await expect(w.household("A").generate("v2019")).rejects.toMatchObject({
+      code: "RATE_LIMITED",
+    });
+    expect(w.claimed.size).toBe(0);
+    expect(w.calls).toHaveLength(0);
+    await w.household("B").generate("v2019");
+    expect(w.sleeps).toEqual([]);
+    expect(w.calls).toHaveLength(1);
+  });
+
+  it("a profile that cannot be shared (not sure enough) still gives the claim back", async () => {
+    const w = world({ claims: "on", answer: { confidence: "medium" } });
+    await w.household("A").generate("v2019");
+    expect(w.shared.size).toBe(0);
+    expect(w.claimed.size).toBe(0);
+    await w.household("B").generate("v2019");
+    expect(w.sleeps).toEqual([]);
+  });
+
+  it("the first one's research fails while others wait: exactly one of them takes over, the rest reuse its profile", async () => {
+    const w = world({ claims: "on", aiDownFor: ["A"] });
+    w.holdResearch();
+    const a = w.household("A").generate("v2019");
+    await tick();
+    await tick();
+    const waiting = ["B", "C", "D"].map((h) => w.household(h).generate("v2019"));
+    for (let i = 0; i < 4; i++) await tick();
+    expect(w.calls).toHaveLength(1); // only A's
+    w.release(); // A's research now fails (also its one retry without search)
+    await expect(a).rejects.toMatchObject({ code: "AI_UNAVAILABLE" });
+    const views = await Promise.all(waiting);
+    const results = ["B", "C", "D"].map((h) => w.privateRows.get(`${h}:v2019`)?.cacheResult);
+    expect(results.filter((r) => r === "miss")).toHaveLength(1); // one researched
+    expect(results.filter((r) => r === "hit")).toHaveLength(2); // two reused it
+    expect(w.spent()).toBe(2); // A's (refused by the model) and the one that took over
+    expect(views.every((v) => v.insight?.output.summary.includes("Pavillon Rouge"))).toBe(true);
+    expect(w.claimed.size).toBe(0);
+  });
+
+  it("a claim nobody gives back (its request died): the wait is bounded by one research timeout", async () => {
+    const w = world({ claims: "on", noRelease: true });
+    w.claimed.add("v2019:en");
+    const b = await w.household("B").generate("v2019");
+    expect(w.sleeps.reduce((x, y) => x + y, 0)).toBe(60_000);
+    expect(w.calls).toHaveLength(1);
+    expect(b.insight?.output.summary).toContain("Pavillon Rouge");
   });
 
   it("another vintage, another language and a household's own wine never wait for each other", async () => {

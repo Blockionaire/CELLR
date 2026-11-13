@@ -2002,7 +2002,7 @@
     "count": "{count, plural, =0 {Geen wijnen gevonden} one {1 wijn gevonden} other {# wijnen gevonden}}",
     "keyboardHint": "Gebruik de pijltjestoetsen omhoog en omlaag om door de resultaten te gaan en Enter om er een te kiezen.",
     "resultsTitle": "Gevonden wijnen",
-    "ownTitle": "Je wijnen",
+    "ownTitle": "Wijnen om uit te kiezen",
     "none": "Niets gevonden voor “{query}”. Je kunt de wijn hieronder zelf toevoegen.",
     "more": "{count, plural, one {Toon nog 1} other {Toon nog #}}",
     "retry": "Opnieuw proberen",
@@ -2015,10 +2015,11 @@
       "provider": "Externe databron, nog niet geverifieerd"
     },
     "notice": {
-      "unavailable": "Zoeken in de wijncatalogus is nog niet beschikbaar. Dit zijn je eigen wijnen; je kunt de wijn ook zelf toevoegen.",
-      "limited": "Dat was veel zoeken. Zoeken pauzeert even. Dit zijn je eigen wijnen; je kunt de wijn ook zelf toevoegen.",
-      "offline": "CELLR is nu niet bereikbaar. Wat je hebt getypt blijft staan. Dit zijn je eigen wijnen.",
-      "error": "Zoeken werkt nu even niet. Wat je hebt getypt blijft staan. Dit zijn je eigen wijnen."
-    }
+      "unavailable": "Zoeken in de wijncatalogus is nog niet beschikbaar. Kies uit de lijst hieronder, of voeg de wijn zelf toe.",
+      "limited": "Dat was veel zoeken. Zoeken pauzeert even en gaat vanzelf weer verder. Kies intussen uit de lijst hieronder, of voeg de wijn zelf toe.",
+      "offline": "CELLR is nu niet bereikbaar. Wat je hebt getypt blijft staan. De lijst hieronder is wat al geladen was.",
+      "error": "Zoeken werkt nu even niet. Wat je hebt getypt blijft staan. De lijst hieronder is wat al geladen was."
+    },
+    "chosen": "Gekozen"
   }
 }

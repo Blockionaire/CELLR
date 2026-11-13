@@ -59,3 +59,21 @@ export async function claimSharedProfileResearch(
   }
   return data !== false;
 }
+
+/**
+ * Gives the research claim back (public.release_shared_profile_research): this request is done with the vintage,
+ * whatever came of it. Never throws: a claim that cannot be given back expires by itself.
+ */
+export async function releaseSharedProfileResearch(
+  vintageId: string,
+  language: ProfileLanguage,
+): Promise<void> {
+  const db = createServiceClient();
+  if (!db) return;
+  const { error } = await db.rpc("release_shared_profile_research", {
+    p_vintage_id: vintageId,
+    p_language: language,
+  });
+  if (error && error.code !== "PGRST202" && error.code !== "42883")
+    logError("shared_profile_release_failed", error);
+}

@@ -39,6 +39,7 @@ import { noteScanRead } from "@/server/privileged/catalog-reads";
 import {
   claimSharedProfileResearch,
   publishSharedProfile,
+  releaseSharedProfileResearch,
 } from "@/server/privileged/shared-profiles";
 import { createContributionService } from "@/server/catalog/contribution";
 import { createCatalogSearchRepository } from "@/server/catalog/search-repository";
@@ -110,6 +111,7 @@ export function servicesFor(ctx: RequestContext) {
     spendValuation: () => limiter.enforce(LIMITS.valuations),
     publishShared: publishSharedProfile,
     claimShared: claimSharedProfileResearch,
+    releaseShared: releaseSharedProfileResearch,
     recordUsage: ({ householdId, task, status, usage }) =>
       recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
   });

@@ -254,7 +254,7 @@ export function WineSearch({
           <ul
             id={listId}
             role="listbox"
-            aria-label={t("resultsTitle")}
+            aria-labelledby={`${listId}-title`}
             aria-busy={waiting}
             hidden={options.length === 0}
             className={cn("flex flex-col gap-3", waiting && "opacity-70")}
@@ -328,7 +328,8 @@ export function WineSearch({
                   </span>
                   {selected ? (
                     <span className="grid size-7 shrink-0 place-items-center rounded-full bg-accent text-accent-ink">
-                      <CheckIcon size={16} />
+                      <CheckIcon size={16} aria-hidden="true" />
+                      <span className="sr-only">{t("chosen")}</span>
                     </span>
                   ) : (
                     <ChevronRightIcon

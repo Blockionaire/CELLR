@@ -197,13 +197,52 @@ describe("wine search as you type", () => {
     controller.retry();
     expect(calls).toHaveLength(1);
     expect(controller.getState()).toMatchObject({ status: "limited", input: "latour" });
-    advance(30_000);
-    controller.setInput("latour 2");
-    advance(250);
-    expect(calls.map((c) => c.query)).toEqual(["margaux", "latour 2"]);
-    calls[1]!.resolve(ok(["Latour"], "latour 2"));
+    advance(26_000); // still inside the cool-down: nothing is asked
+    expect(calls).toHaveLength(1);
+    // the cool-down ends: the search asks ONCE, by itself, for what is typed by then
+    advance(2_000);
+    expect(calls.map((c) => c.query)).toEqual(["margaux", "latour"]);
+    expect(controller.getState().status).toBe("loading");
+    calls[1]!.resolve(ok(["Latour"], "latour"));
     await settle();
-    expect(controller.getState().status).toBe("ready");
+    expect(controller.getState()).toMatchObject({ status: "ready", query: "latour" });
+  });
+
+  it("limited again right after the cool-down: one request per cool-down, never a storm", async () => {
+    const { controller, calls, advance, settle } = harness({ cooldownMs: 30_000 });
+    controller.setInput("margaux");
+    advance(250);
+    calls[0]!.reject({ why: "rate_limited" });
+    await settle();
+    for (let round = 1; round <= 3; round++) {
+      advance(30_000);
+      expect(calls).toHaveLength(round + 1);
+      calls[round]!.reject({ why: "rate_limited" });
+      await settle();
+      expect(controller.getState().status).toBe("limited");
+    }
+    expect(calls).toHaveLength(4); // 1 + one per cool-down, over a minute and a half
+  });
+
+  it("the field was emptied during the cool-down: nothing is asked when it ends, and leaving cancels it", async () => {
+    const { controller, calls, advance, settle } = harness({ cooldownMs: 30_000 });
+    controller.setInput("margaux");
+    advance(250);
+    calls[0]!.reject({ why: "rate_limited" });
+    await settle();
+    controller.setInput("");
+    expect(controller.getState().status).toBe("idle");
+    advance(60_000);
+    expect(calls).toHaveLength(1);
+
+    controller.setInput("latour"); // typed inside a fresh cool-down?  no: the cool-down has passed, so it asks
+    advance(250);
+    expect(calls).toHaveLength(2);
+    calls[1]!.reject({ why: "rate_limited" });
+    await settle();
+    controller.cancel(); // the screen is left
+    advance(60_000);
+    expect(calls).toHaveLength(2);
   });
 
   it("a deployment without the search endpoint is asked once, then never again", async () => {

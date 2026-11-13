@@ -2002,7 +2002,7 @@
     "count": "{count, plural, =0 {No wines found} one {1 wine found} other {# wines found}}",
     "keyboardHint": "Use the up and down arrow keys to move through the results and Enter to choose one.",
     "resultsTitle": "Wines found",
-    "ownTitle": "Your wines",
+    "ownTitle": "Wines to choose from",
     "none": "Nothing found for “{query}”. You can add the wine yourself below.",
     "more": "{count, plural, one {Show 1 more} other {Show # more}}",
     "retry": "Try again",
@@ -2015,10 +2015,11 @@
       "provider": "External source, not verified"
     },
     "notice": {
-      "unavailable": "Searching the wine catalogue isn't available yet. These are your own wines; you can also add the wine yourself.",
-      "limited": "That was a lot of searching. Search pauses for a moment. These are your own wines; you can also add the wine yourself.",
-      "offline": "CELLR can't be reached right now. What you typed is kept. These are your own wines.",
-      "error": "Search isn't working right now. What you typed is kept. These are your own wines."
-    }
+      "unavailable": "Searching the wine catalogue isn't available yet. Choose from the list below, or add the wine yourself.",
+      "limited": "That was a lot of searching. Search pauses for a moment and resumes by itself. Meanwhile, choose from the list below or add the wine yourself.",
+      "offline": "CELLR can't be reached right now. What you typed is kept. The list below is what was already loaded.",
+      "error": "Search isn't working right now. What you typed is kept. The list below is what was already loaded."
+    },
+    "chosen": "Chosen"
   }
 }

@@ -197,12 +197,16 @@ export function PurchaseCheckScreen({
           onWine={(wine, hit) => {
             setDraft(draftOfChoice(wine));
             setChosen({
-              source:
-                hit?.source === "catalog"
+              // chosen from the list shown before anything was typed (no search hit): what the wine itself says
+              source: hit
+                ? hit.source === "catalog"
                   ? "catalog"
-                  : hit?.source === "owned"
+                  : hit.source === "owned"
                     ? "owned"
-                    : "household",
+                    : "household"
+                : wine.catalog
+                  ? "catalog"
+                  : "household",
               provider: null,
             });
             compare.reset();
@@ -380,7 +384,8 @@ function SearchStep({
         label={t("searchLabel")}
         placeholder={t("searchPlaceholder")}
         autoFocus
-        localWines={wines.data}
+        // "Your wines": the household's own, never the whole shared catalogue (that is what the search is for)
+        localWines={wines.data?.filter((w) => !w.catalog)}
         idleTitle={t("searchIdle")}
         onWine={onWine}
         onRecord={onRecord}

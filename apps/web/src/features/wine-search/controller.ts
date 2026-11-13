@@ -87,6 +87,8 @@ export function createSearchController(options: SearchControllerOptions) {
   /** Only the answer to the request with this number may change what is shown. */
   let sequence = 0;
   let limitedUntil = 0;
+  /** Fires once when a cool-down ends, to ask again for what is typed then. */
+  let resume: unknown = null;
   let unavailable = false;
   let disposed = false;
   let requests = 0;
@@ -98,6 +100,8 @@ export function createSearchController(options: SearchControllerOptions) {
   const cancelPending = () => {
     if (timer !== null) clearTimer(timer);
     timer = null;
+    if (resume !== null) clearTimer(resume);
+    resume = null;
     inFlight?.abort();
     inFlight = null;
     sequence++;
@@ -117,11 +121,32 @@ export function createSearchController(options: SearchControllerOptions) {
     return known.results;
   };
 
+  /**
+   * "Too many searches": the own list is shown, and when the cool-down ends the search asks ONCE more for what is
+   * typed by then, so the notice does not stay until the person happens to type again.
+   */
+  const limited = (next: SearchState) => {
+    if (resume !== null) clearTimer(resume);
+    resume = setTimer(
+      () => {
+        resume = null;
+        if (disposed || state.status !== "limited") return;
+        const query = searchableQuery(state.input);
+        if (query === null) return set({ ...state, status: "idle", query: null, results: [] });
+        set({ ...state, status: "loading" });
+        void ask(query);
+      },
+      Math.max(0, limitedUntil - now()),
+    );
+    set(next);
+  };
+
   async function ask(query: string) {
     timer = null;
     if (disposed) return;
     if (unavailable) return set({ ...state, status: "unavailable", query: null, results: [] });
-    if (now() < limitedUntil) return set({ ...state, status: "limited", query: null, results: [] });
+    if (now() < limitedUntil)
+      return limited({ ...state, status: "limited", query: null, results: [] });
     inFlight?.abort();
     const controller = new AbortController();
     inFlight = controller;
@@ -144,13 +169,11 @@ export function createSearchController(options: SearchControllerOptions) {
       inFlight = null;
       const why = options.classify(error);
       if (why === "aborted") return;
-      if (why === "rate_limited") limitedUntil = now() + cooldownMs;
-      set({
-        ...state,
-        status: why === "rate_limited" ? "limited" : why === "network" ? "offline" : "error",
-        query: null,
-        results: [],
-      });
+      if (why === "rate_limited") {
+        limitedUntil = now() + cooldownMs;
+        return limited({ ...state, status: "limited", query: null, results: [] });
+      }
+      set({ ...state, status: why === "network" ? "offline" : "error", query: null, results: [] });
     }
   }
 
@@ -181,7 +204,8 @@ export function createSearchController(options: SearchControllerOptions) {
       const known = recall(query);
       if (known) return set({ input, query, status: "ready", results: known });
       if (unavailable) return set({ input, query: null, status: "unavailable", results: [] });
-      if (now() < limitedUntil) return set({ input, query: null, status: "limited", results: [] });
+      if (now() < limitedUntil)
+        return limited({ input, query: null, status: "limited", results: [] });
       // earlier results stay visible while waiting, so the list does not flicker on every letter
       set({ ...state, input, status: "loading" });
       timer = setTimer(() => void ask(query), debounceMs);

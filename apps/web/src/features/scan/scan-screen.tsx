@@ -161,7 +161,10 @@ export function ScanScreen({
         ...result.matches.map((m) => m.wine),
         ...own.filter((w) => !known.has(w.id)),
       ]);
-      return { ...result, ...again };
+      // matched again here: the server's status and reasons no longer describe this answer, so they are let go
+      const { resolution: _stale, ...rest } = result;
+      void _stale;
+      return { ...rest, ...again };
     }
     return { ...result, ...matchLabel(result.facts, list) };
   };

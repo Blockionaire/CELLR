@@ -3182,6 +3182,10 @@ export type Database = {
         Args: { p_friend: string; p_note?: string; p_vintage: string };
         Returns: string;
       };
+      release_shared_profile_research: {
+        Args: { p_language: string; p_vintage_id: string };
+        Returns: undefined;
+      };
       remove_friend: { Args: { p_user: string }; Returns: boolean };
       respond_friend_request: { Args: { p_accept: boolean; p_id: string }; Returns: boolean };
       send_friend_request: { Args: { p_user: string }; Returns: string };

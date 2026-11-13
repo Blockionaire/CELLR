@@ -28,12 +28,12 @@ is not a forecast.
 
 ## 3. Database cost added
 
-| Flow                | Per action                                                    | Bound                                                             | Measured (local, 100k external + 10k catalogue rows)                                  |
-| ------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Wine search         | 1 `catalog_search` call per pause in typing (250 ms debounce) | 600 per person per hour; 20 rows; one request in flight per field | SQL p95 98 ms at 16 clients (`SEARCH_PERFORMANCE.md`); through the app p95 105–255 ms |
-| Scan resolver       | own wines + 1 producer lookup (≤ 40) + 1 search (20)          | per scan; scans are limited to 40 per person per hour             | not separately measured                                                               |
-| Koopcheck knowledge | 1 wine row + ≤ 30 shared profiles of that wine                | 120 comparisons per person per hour                               | not separately measured                                                               |
-| Research claim      | 1 upsert + 1 bounded delete, only before a research call      | profiles are limited to 40 per person per hour                    | not separately measured                                                               |
+| Flow                | Per action                                                         | Bound                                                             | Measured (local, 100k external + 10k catalogue rows)                                  |
+| ------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Wine search         | 1 `catalog_search` call per pause in typing (250 ms debounce)      | 600 per person per hour; 20 rows; one request in flight per field | SQL p95 98 ms at 16 clients (`SEARCH_PERFORMANCE.md`); through the app p95 105–255 ms |
+| Scan resolver       | own wines + 1 producer lookup (≤ 40) + 1 search (20)               | per scan; scans are limited to 40 per person per hour             | not separately measured                                                               |
+| Koopcheck knowledge | 1 wine row + ≤ 30 shared profiles of that wine                     | 120 comparisons per person per hour                               | not separately measured                                                               |
+| Research claim      | 1 upsert + 1 bounded delete before a research call, 1 delete after | profiles are limited to 40 per person per hour                    | not separately measured                                                               |
 
 ## 4. What bounds spending, and what does not (unchanged facts, see `SECURITY_AND_PRIVACY.md` §4)
 

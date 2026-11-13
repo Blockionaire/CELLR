@@ -7,9 +7,10 @@
 -- researched in this language right now": the first request gets it and researches; a second request does not, and
 -- waits a moment for the first one's profile instead of paying for the same research.
 --
--- A claim is not a lock: it expires by itself (a request that failed never blocks anyone for longer than the wait),
--- it holds no household or person, and it is only ever taken for a vintage whose profile CAN be shared (a canonical
--- wine of a canonical producer). For any other vintage the answer is "go ahead" and nothing is written.
+-- A claim is not a lock: the request that took it gives it back when it is done (researched, failed, or refused by
+-- its rate limit), and it expires by itself if that request died. It holds no household or person, and it is only
+-- ever taken for a vintage whose profile CAN be shared (a canonical wine of a canonical producer). For any other
+-- vintage the answer is "go ahead" and nothing is written.
 
 create table private.shared_profile_claims (
   vintage_id uuid not null references public.wine_vintages on delete cascade,
@@ -47,9 +48,25 @@ begin
      set claimed_at = now()
    where c.claimed_at < now() - ttl;
   get diagnostics n = row_count;
-  -- a claim older than a day is of no use to anyone: kept tidy without a schedule
-  delete from private.shared_profile_claims where claimed_at < now() - interval '1 day';
+  -- A claim older than a day is of no use to anyone: kept tidy without a schedule. Rows another call is working on
+  -- are skipped, so two calls tidying at the same moment never wait for each other.
+  delete from private.shared_profile_claims c
+   using (select o.vintage_id, o.language from private.shared_profile_claims o
+           where o.claimed_at < now() - interval '1 day'
+           limit 50 for update skip locked) old
+   where c.vintage_id = old.vintage_id and c.language = old.language;
   return n = 1;
 end $$;
-revoke all on function public.claim_shared_profile_research(uuid, text, int) from public, anon, authenticated;
-grant execute on function public.claim_shared_profile_research(uuid, text, int) to service_role;
+
+-- Gives a claim back: the request that held it is done, whatever the outcome. Idempotent; nothing to give back is
+-- not an error. A waiting request then takes the claim at its next look and researches, instead of waiting on.
+create function public.release_shared_profile_research(p_vintage_id uuid, p_language text) returns void
+  language sql volatile security definer set search_path = '' as $$
+  delete from private.shared_profile_claims where vintage_id = p_vintage_id and language = p_language
+$$;
+revoke all on function public.claim_shared_profile_research(uuid, text, int),
+                       public.release_shared_profile_research(uuid, text)
+  from public, anon, authenticated;
+grant execute on function public.claim_shared_profile_research(uuid, text, int),
+                          public.release_shared_profile_research(uuid, text)
+  to service_role;

@@ -28,7 +28,9 @@ export interface PurchaseCheckRepository {
    */
   getCatalogWine(wineId: string): Promise<CatalogWineFacts | null>;
   /**
-   * The shared profiles of the vintages of one catalogue wine, in one language (at most 30, newest vintage first).
+   * The shared profiles of the vintages of one catalogue wine, in one language: at most 60, the most recently
+   * researched first. A wine with more profiled vintages than that may miss an old one, which then simply counts as
+   * "no profile of that vintage" (less is shown, never something wrong).
    * Public wine knowledge: no household, person, price or note is in them. Empty before that database step.
    */
   listSharedProfiles(wineId: string, language: ProfileLanguage): Promise<StoredProfile[]>;
@@ -88,7 +90,8 @@ export function createPurchaseCheckRepository(db: Db): PurchaseCheckRepository {
         .select("output, generated_at, wine_vintages!inner(year, wine_id)")
         .eq("wine_vintages.wine_id", wineId)
         .eq("language", language)
-        .limit(30);
+        .order("generated_at", { ascending: false })
+        .limit(60);
       // Before 20261030000022 the table does not exist: nothing is known, nothing fails.
       if (error && (error.code === "42P01" || error.code === "PGRST205")) return [];
       if (error) throw mapDbError(error);
