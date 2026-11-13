@@ -25,6 +25,7 @@
     "e2e": "pnpm --filter @cellr/web e2e",
     "scan:eval": "pnpm --filter @cellr/scan-eval start",
     "db:test:budget": "bash scripts/db-budget-concurrency.sh",
+    "db:test:imports": "bash scripts/db-import-concurrency.sh",
     "migrations:check": "bash scripts/check-migration-immutability.sh origin/main",
     "migrations:check:test": "bash scripts/check-migration-immutability.test.sh"
   },

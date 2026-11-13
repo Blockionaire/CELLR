@@ -1,0 +1,13 @@
+LWIN,STATUS,PRODUCER_TITLE,PRODUCER_NAME,WINE,COUNTRY,REGION,SUB_REGION,COLOUR,TYPE,DESIGNATION,CLASSIFICATION
+9000001,Live,Chateau,Imaginaire,,France,Bordeaux Fictif,Margaux Fictif,Red,Wine,AOC Fictive,Premier Cru Fictif
+9000002,Live,Chateau,Imaginaire,Pavillon Fictif,France,Bordeaux Fictif,Margaux Fictif,Red,Wine,AOC Fictive,
+9000003,Live,Domaine,Inventé,Les Perdrix Fictives,France,Bourgogne Fictive,,White,Wine,AOC Fictive,
+9000004,Live,,Maison Bulle Fictive,Brut,France,Champagne Fictive,,White,Sparkling,AOC Fictive,
+9000005,Live,Quinta,Inventada,Vintage Fictício,Portugal,Douro Fictício,,Red,Fortified Wine,DOC Fictícia,
+9000006,Live,Bodegas,Ejemplo,Gran Reserva,Spain,Rioja Ficticia,,Red,Wine,DOCa Ficticia,
+9000007,Live,Weingut,Beispiel,Riesling Spätlese,Germany,Mosel Fiktiv,,White,Wine,,
+9000008,Live,,Destilería Ficticia,Añejo,Mexico,,,,Spirit,,
+9000009,Deleted,Chateau,Supprimé,,France,Bordeaux Fictif,,Red,Wine,,
+900001,Live,Chateau,Trop Court,,France,,,Red,Wine,,
+90000100,Live,Chateau,Trop Long,,France,,,Red,Wine,,
+9000010,Combined,Domaine,Fusionné,Cuvée,France,,,Red,Wine,,

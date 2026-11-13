@@ -1,0 +1,40 @@
+{
+  "provider": "lwin_fixture",
+  "file": "fixture-lwin-layout.csv",
+  "sha256": "160b1934a2bbb2a98aa58a68dd637a0bb2a699d949eadbf35910fc4264369505",
+  "applied": true,
+  "pilot": false,
+  "retrieved_at": "2026-11-13",
+  "license": "CC0-1.0",
+  "rights_status": "verified",
+  "run": "d02de5a5-b27e-4313-9fbd-882bf815d02b",
+  "rows": 12,
+  "schema": "lwin-assumed-layout-v0",
+  "layout_verified": false,
+  "adapter_records": 7,
+  "adapter_skipped": {
+    "TYPE (not wine)": 1,
+    "STATUS": 2,
+    "LWIN": 2
+  },
+  "unmapped_types": {},
+  "implausible_vintage_rows": 0,
+  "warnings": [
+    "5 row(s) skipped",
+    "the lwin-assumed-layout-v0 layout is an assumption, not verified against the provider's real file"
+  ],
+  "inserted": 0,
+  "updated": 0,
+  "unchanged": 7,
+  "invalid": 0,
+  "possible_duplicates": 0,
+  "suggested_links": 0,
+  "problems": [],
+  "finish": {
+    "j": {
+      "run": "d02de5a5-b27e-4313-9fbd-882bf815d02b",
+      "withdrawn": 0
+    }
+  },
+  "seconds": 0
+}

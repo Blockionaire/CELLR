@@ -134,6 +134,28 @@ export const PROVIDERS = {
     search_scope: "off",
     notes: "Hand-written records for tests and the adapter pilot.",
   },
+  lwin_fixture: {
+    id: "lwin_fixture",
+    name: "CELLR LWIN-layout test fixture",
+    license: "CC0-1.0",
+    license_url: null,
+    attribution: "CELLR test fixture (not real data, not LWIN data)",
+    homepage: null,
+    legal_notice:
+      "Fictitious records written by CELLR in the column layout CELLR ASSUMES the LWIN file has. Not Liv-ex data; the codes are invented.",
+    modification_notice: null,
+    may_store: true,
+    may_display: true,
+    commercial_use: true,
+    rights_status: "verified",
+    rights_evidence:
+      "Written by CELLR for tests (eval/catalog/fixture-lwin-layout.csv); no third-party data, no real LWIN codes.",
+    rights_verified_at: "2026-11-13",
+    rights_verified_by: "WI-01",
+    search_scope: "off",
+    notes:
+      "Exercises the LWIN adapter end to end without any Liv-ex data. Says nothing about the real file's layout.",
+  },
 } as const satisfies Record<string, ProviderInfo>;
 export type ProviderId = keyof typeof PROVIDERS;
 
@@ -167,6 +189,9 @@ export function parseCsv(text: string): string[][] {
       field = "";
     } else field += c;
   }
+  // A quote that is never closed swallows every following line into one field: the rest of the file would be
+  // silently missing, so this is an unreadable file, not a short one.
+  if (quoted) throw new Error("a quoted field is never closed");
   if (field !== "" || row.length > 0) {
     row.push(field);
     rows.push(row);
@@ -180,18 +205,33 @@ export function csvObjects(text: string, required: readonly string[]): Record<st
   if (!header) throw new Error("empty file");
   const missing = required.filter((c) => !header.includes(c));
   if (missing.length > 0) throw new Error(`missing columns: ${missing.join(", ")}`);
+  // A column named twice would let one silently overwrite the other.
+  const twice = header.find((h, i) => header.indexOf(h) !== i);
+  if (twice !== undefined) throw new Error(`column ${JSON.stringify(twice)} occurs twice`);
+  // A row with more or fewer fields than the header (an unquoted comma in a name, a cut-off line) would put values
+  // under the wrong columns: a winery id as the producer. Never mapped; the whole file is refused.
+  const ragged = rows.findIndex((r) => r.length !== header.length);
+  if (ragged !== -1)
+    throw new Error(
+      `row ${ragged + 2} has ${rows[ragged]!.length} fields, the header has ${header.length}`,
+    );
   return rows.map((r) => Object.fromEntries(header.map((h, i) => [h, r[i] ?? ""])));
 }
 
 // ---- Shared helpers -------------------------------------------------------------------------------------------------
 
+/** What exports write when a value is missing: never a name. */
+const PLACEHOLDER = /^(null|nan|n\/a|#n\/a|none|undefined|-+|\?+)$/i;
+
 const clean = (v: string | undefined, max: number): string | null => {
   const t = (v ?? "")
+    // invisible direction and joining marks: they change how a name is shown, never what it is
+    .replace(/[\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g, "")
     // eslint-disable-next-line no-control-regex -- stripping control characters is the point
     .replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return t === "" ? null : t.slice(0, max).trim();
+  return t === "" || PLACEHOLDER.test(t) ? null : t.slice(0, max).trim();
 };
 
 /** The list inside a Python-style list literal: "['Merlot', 'Syrah']" → ["Merlot", "Syrah"]. */
@@ -342,13 +382,27 @@ export function countryCodeOf(name: string | undefined): string | null {
 /** One row of the LWIN database file (wine level: LWIN-7). Deleted or combined codes are not imported. */
 export function fromLwinRow(row: Record<string, string>): AdapterResult {
   const id = (row.LWIN ?? "").trim();
-  if (!/^\d{7}$/.test(id)) return { ok: false, reason: "LWIN" };
+  if (!/^\d{7}$/.test(id) || /^0+$/.test(id)) return { ok: false, reason: "LWIN" };
   if ((row.STATUS ?? "").trim().toLowerCase() !== "live") return { ok: false, reason: "STATUS" };
-  const producer = clean([row.PRODUCER_TITLE, row.PRODUCER_NAME].filter(Boolean).join(" "), 120);
+  // each part is cleaned on its own, so a placeholder ("NULL") in one never becomes part of a name ("Chateau NULL"),
+  // and a title alone ("Chateau") is not a producer
+  const producerName = clean(row.PRODUCER_NAME, 120);
+  if (!producerName) return { ok: false, reason: "PRODUCER/WINE" };
+  const producer = clean(
+    [clean(row.PRODUCER_TITLE, 40), producerName].filter(Boolean).join(" "),
+    120,
+  );
   const name = clean(row.WINE, 160) ?? producer;
   if (!producer || !name) return { ok: false, reason: "PRODUCER/WINE" };
   const colour = (row.COLOUR ?? "").trim().toLowerCase();
   const kind = (row.TYPE ?? "").trim().toLowerCase();
+  // LWIN also numbers spirits and other drinks: CELLR's catalogue is wine only.
+  if (
+    /spirit|whisk|beer|sake|cider|liqueur|cognac|armagnac|brandy|calvados|grappa|rum|gin|vodka|tequila|mezcal/.test(
+      kind,
+    )
+  )
+    return { ok: false, reason: "TYPE (not wine)" };
   const type: WineType | null = kind.includes("fortified")
     ? "fortified"
     : kind.includes("sparkling") || kind.includes("champagne")
@@ -382,12 +436,209 @@ export function fromLwinRow(row: Record<string, string>): AdapterResult {
   };
 }
 
+export interface ProviderAdapter {
+  /** The file layout this adapter reads. A file with another header is refused, never mapped by guessing. */
+  schema: string;
+  /**
+   * Whether that layout was checked against the provider's real, lawfully obtained file. False = written from an
+   * assumption: usable with synthetic fixtures only, and a real import stays blocked until someone verified it.
+   */
+  layoutVerified: boolean;
+  columns: readonly string[];
+  map: (row: Record<string, string>) => AdapterResult;
+  /**
+   * For an adapter whose layout is not verified: the SHA-256 of the one file it may read, CELLR's own fixture. Any
+   * other file is refused, whatever provider it is offered for.
+   */
+  fixtureSha256?: string;
+}
+
 export const ADAPTERS = {
-  xwines: { columns: XWINES_COLUMNS, map: fromXWinesRow },
-  lwin: { columns: LWIN_COLUMNS, map: fromLwinRow },
+  xwines: {
+    schema: "xwines-wines-csv-v1",
+    layoutVerified: true,
+    columns: XWINES_COLUMNS,
+    map: fromXWinesRow,
+  },
+  lwin: {
+    schema: "lwin-assumed-layout-v0",
+    layoutVerified: false,
+    columns: LWIN_COLUMNS,
+    map: fromLwinRow,
+  },
   // the fixture uses the X-Wines layout, so the adapter path is the same one a real file takes
-  fixture: { columns: XWINES_COLUMNS, map: fromXWinesRow },
-} as const satisfies Record<
-  ProviderId,
-  { columns: readonly string[]; map: (row: Record<string, string>) => AdapterResult }
->;
+  fixture: {
+    schema: "xwines-wines-csv-v1",
+    layoutVerified: true,
+    columns: XWINES_COLUMNS,
+    map: fromXWinesRow,
+  },
+  // fictitious records in the ASSUMED LWIN layout: tests the adapter, proves nothing about the real file
+  lwin_fixture: {
+    schema: "lwin-assumed-layout-v0",
+    layoutVerified: false,
+    columns: LWIN_COLUMNS,
+    map: fromLwinRow,
+    // eval/catalog/fixture-lwin-layout.csv (pinned by scripts/catalog-tools/eval.test.ts)
+    fixtureSha256: "160b1934a2bbb2a98aa58a68dd637a0bb2a699d949eadbf35910fc4264369505",
+  },
+} as const satisfies Record<ProviderId, ProviderAdapter>;
+
+// ---- Looking at a file before anything is imported ----------------------------------------------------------------
+
+export interface FileInspection {
+  schema: string;
+  layoutVerified: boolean;
+  /** Data rows in the file (the header not counted). */
+  rows: number;
+  /** The rows the adapter could map. */
+  records: ProviderRecord[];
+  /** Rows it could not map, by reason. */
+  skipped: Record<string, number>;
+  /** External ids that occur more than once (the first 20) and how many rows that concerns. */
+  duplicateIds: string[];
+  duplicateRows: number;
+  /** Provider type values CELLR has no type for, with their counts (left empty, never guessed). */
+  unmappedTypes: Record<string, number>;
+  /** Rows with a vintage CELLR dropped as implausible. */
+  implausibleVintageRows: number;
+  /** Rows containing the replacement character or a classic mis-decoding ("Ã©"): the file was not read as UTF-8. */
+  encodingRows: number;
+  /** Why this file must not be imported as it is. Empty = it may be. */
+  fatal: string[];
+  warnings: string[];
+}
+
+/** UTF-8 that was read as Latin-1 or Windows-1252: "Ã©" for "é", "Ã‚" for "Â", "â€™" for "’". A heuristic. */
+const MOJIBAKE =
+  /Ã[\u0080-\u009f\u00a1-\u00bf\u0152\u0153\u0160\u0161\u0178\u017d\u017e\u02c6\u02dc\u2013-\u203a]|Â[\u00a1-\u00bf]|â€[\u0090-\u009f\u0153\u02dc\u2018-\u201e\u2122]/;
+const REPLACEMENT = /\uFFFD/;
+
+/** Bytes as UTF-8 text, or null when they are not valid UTF-8 (a Latin-1 or UTF-16 export). */
+export function decodeUtf8(bytes: Uint8Array): string | null {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Everything worth knowing about a provider file before a single record is written: does it have the layout the
+ * adapter was written for, is it comma-separated UTF-8, are its ids unique, what could not be mapped. A file with a
+ * fatal problem is not imported at all (half a file with silently overwritten duplicates is worse than none).
+ */
+export function inspectProviderFile(text: string, providerId: ProviderId): FileInspection {
+  const adapter: ProviderAdapter = ADAPTERS[providerId];
+  const out: FileInspection = {
+    schema: adapter.schema,
+    layoutVerified: adapter.layoutVerified,
+    rows: 0,
+    records: [],
+    skipped: {},
+    duplicateIds: [],
+    duplicateRows: 0,
+    unmappedTypes: {},
+    implausibleVintageRows: 0,
+    encodingRows: 0,
+    fatal: [],
+    warnings: [],
+  };
+  let rows: Record<string, string>[];
+  try {
+    rows = csvObjects(text, adapter.columns);
+  } catch (e) {
+    const header =
+      (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text).split(/\r?\n/, 1)[0] ?? "";
+    const other = [";", "\t", "|"].find((d) => {
+      const cols = header.split(d).map((c) => c.trim().replace(/^"|"$/g, ""));
+      return adapter.columns.every((c) => cols.includes(c));
+    });
+    out.fatal.push(
+      other
+        ? `the file is separated by ${JSON.stringify(other)}, not by commas`
+        : `not the ${adapter.schema} layout: ${e instanceof Error ? e.message : "unreadable"}`,
+    );
+    return out;
+  }
+  out.rows = rows.length;
+  // A file with a header and nothing else is a failed export, not an empty catalogue: importing it as a full file
+  // would withdraw every record of the provider.
+  if (rows.length === 0) {
+    out.fatal.push("the file holds no rows");
+    return out;
+  }
+  let replaced = 0;
+  const seen = new Map<string, number>();
+  for (const row of rows) {
+    const values = Object.values(row);
+    if (values.some((v) => REPLACEMENT.test(v))) replaced++;
+    else if (values.some((v) => MOJIBAKE.test(v))) out.encodingRows++;
+    const r = adapter.map(row);
+    if (!r.ok) {
+      out.skipped[r.reason] = (out.skipped[r.reason] ?? 0) + 1;
+      continue;
+    }
+    const n = (seen.get(r.record.external_id) ?? 0) + 1;
+    seen.set(r.record.external_id, n);
+    if (n > 1) {
+      out.duplicateRows++;
+      if (n === 2 && out.duplicateIds.length < 20) out.duplicateIds.push(r.record.external_id);
+      continue; // the first row of an id stands; a second one is never allowed to overwrite it silently
+    }
+    if (r.record.modifications.includes("type not mapped")) {
+      const raw = (row.Type ?? row.TYPE ?? row.COLOUR ?? "").trim() || "(empty)";
+      out.unmappedTypes[raw] = (out.unmappedTypes[raw] ?? 0) + 1;
+    }
+    if (r.record.modifications.includes("implausible vintages dropped"))
+      out.implausibleVintageRows++;
+    out.records.push(r.record);
+  }
+  if (out.duplicateRows > 0)
+    out.fatal.push(
+      `${out.duplicateRows} row(s) repeat an external id (${out.duplicateIds.slice(0, 5).join(", ")}…): ids must be unique`,
+    );
+  // The replacement character is proof the text was decoded wrongly. The "Ã©" patterns are a heuristic (a name may
+  // legitimately hold such a pair), so they are fatal only when they are common, as they are in a mis-decoded file.
+  const suspicious = out.encodingRows;
+  out.encodingRows += replaced;
+  if (replaced > 0 || (suspicious >= 3 && suspicious / out.rows > 0.005))
+    out.fatal.push(`${out.encodingRows} row(s) are not valid UTF-8 text (mis-decoded characters)`);
+  else if (suspicious > 0)
+    out.warnings.push(`${suspicious} row(s) look mis-decoded ("Ã©"): check them`);
+  if (out.rows > 0 && out.records.length === 0) out.fatal.push("no row could be mapped");
+  const skippedTotal = Object.values(out.skipped).reduce((a, b) => a + b, 0);
+  if (out.rows >= 50 && skippedTotal / out.rows > 0.2)
+    out.fatal.push(
+      `${skippedTotal} of ${out.rows} rows could not be mapped: this is probably not the ${adapter.schema} layout`,
+    );
+  else if (skippedTotal > 0) out.warnings.push(`${skippedTotal} row(s) skipped`);
+  if (!adapter.layoutVerified)
+    out.warnings.push(
+      `the ${adapter.schema} layout is an assumption, not verified against the provider's real file`,
+    );
+  const unmapped = Object.values(out.unmappedTypes).reduce((a, b) => a + b, 0);
+  if (unmapped > 0)
+    out.warnings.push(`${unmapped} record(s) have a type CELLR does not map (left empty)`);
+  return out;
+}
+
+/**
+ * Why this file may not be imported for this provider, or null when it may. Two gates: the file itself (layout,
+ * separator, encoding, unique ids, no ragged rows), and the adapter: one written from an assumed layout reads exactly
+ * one file, CELLR's own fixture, recognised by its SHA-256 — not by the name of the provider it is offered for. A
+ * real LWIN file therefore cannot be imported under any provider until the layout was verified against it and
+ * `layoutVerified` was changed in a reviewed commit. (Whether the provider's RIGHTS allow an import is a third,
+ * separate gate, in the database.)
+ */
+export function importBlocker(
+  providerId: ProviderId,
+  inspection: FileInspection,
+  fileSha256: string,
+): string | null {
+  if (inspection.fatal.length > 0) return inspection.fatal[0]!;
+  const adapter: ProviderAdapter = ADAPTERS[providerId];
+  if (!adapter.layoutVerified && (!adapter.fixtureSha256 || adapter.fixtureSha256 !== fileSha256))
+    return `the ${inspection.schema} layout was never verified against a real ${PROVIDERS[providerId].name} file: a real import stays blocked until it is`;
+  return null;
+}

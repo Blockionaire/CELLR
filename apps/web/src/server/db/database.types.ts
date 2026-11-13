@@ -2695,6 +2695,10 @@ export type Database = {
         Args: { p_actor: string; p_from: string; p_into: string };
         Returns: boolean;
       };
+      admin_catalog_provider_disable: {
+        Args: { p_actor: string; p_block?: boolean; p_provider: string; p_reason: string };
+        Returns: Json;
+      };
       admin_catalog_provider_rights: {
         Args: { p: Json; p_actor: string; p_provider: string; p_reason: string };
         Returns: Json;
@@ -2911,6 +2915,7 @@ export type Database = {
         Returns: Json;
       };
       catalog_import: { Args: { p_apply?: boolean; p_entries: Json }; Returns: Json };
+      catalog_import_run_abandon: { Args: { p_reason: string; p_run_id: string }; Returns: Json };
       catalog_import_run_finish: {
         Args: { p_counts: Json; p_run_id: string; p_withdraw_missing: boolean };
         Returns: Json;

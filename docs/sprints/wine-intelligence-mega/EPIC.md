@@ -6,31 +6,33 @@ Brief: [`MASTER_BRIEF.md`](MASTER_BRIEF.md) (v1.1). Per-sub-sprint evidence: [`p
 ## Resume block
 
 ```text
-LAST VERIFIED CHECKPOINT: WI-00
-BRANCH / SHA: claude/wine-intelligence-mega-sprint-agnxu9 (base: main @ 770aaab)
-STATUS: WI-00 PASS; WI-01 next
-CHANGED FILES / PR: see "Status by sub-sprint"; one umbrella draft PR for the branch
+LAST VERIFIED CHECKPOINT: WI-01
+BRANCH / SHA: claude/wine-intelligence-mega-sprint-agnxu9 (base: main @ 770aaab); see `git log --grep '^WI-0'`
+STATUS: WI-00 PASS; WI-01 PASS (real LWIN import blocked by design); WI-02 in progress
+CHANGED FILES / PR: draft PR https://github.com/Blockionaire/CELLR/pull/68 ; per sub-sprint: progress/WI-0x.md §1
 CURRENT FEATURE FLAGS: CELLR_FEATURES unset everywhere (all four features off)
-LAST GREEN CHECKS: format, lint, typecheck, unit (web 706 / domain 586 / scan-eval 26 / catalog-tools 14),
-                   db:test 1135, db:types:check, migrations:check, build, bundle-secrets, e2e admin-http 3/3
+LAST GREEN CHECKS: format, lint, typecheck, unit (web 706 / domain 616 / scan-eval 26 / catalog-tools 86),
+                   db:test 1202, db:test:imports, db:types:check, migrations:check, pilot.sh end to end
 PENDING BLOCKERS: PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED · REAL_LABEL_VALIDATION_PENDING ·
                   LWIN rights blocked · X-Wines rights unverified (pilot only)
-NEXT SAFE ACTION: WI-01 (provider adapters, benchmark to 200+, rights register)
-DO NOT REPEAT: the baseline audit below; the 004A schema review (no redesign needed, ADR-001)
+NEXT SAFE ACTION: WI-02 (wine search UI in add-bottle and Koopcheck, behind `wine_search`)
+DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the X-Wines download (the file is in an
+               isolated scratch folder of the session, never in Git: re-download it from the authors' Drive folder
+               and check the SHA-256 in pilot.sh if a new session needs it)
 ```
 
 ## Status by sub-sprint
 
-| ID    | Name                                            | Status      | Evidence                                 |
-| ----- | ----------------------------------------------- | ----------- | ---------------------------------------- |
-| WI-00 | Baseline, architecture and threat model         | **PASS**    | [`progress/WI-00.md`](progress/WI-00.md) |
-| WI-01 | Provider adapters, identity quality, pilot      | not started |                                          |
-| WI-02 | Shared search / autocomplete UX                 | not started |                                          |
-| WI-03 | Scan-to-catalogue resolver                      | not started |                                          |
-| WI-04 | Buying intelligence and profile reuse           | not started |                                          |
-| WI-05 | Provenance, trust and wine pages                | not started |                                          |
-| WI-06 | Admin governance, telemetry, operational safety | not started |                                          |
-| WI-07 | Regression, stress, legal readiness, dossier    | not started |                                          |
+| ID    | Name                                            | Status                                         | Evidence                                 |
+| ----- | ----------------------------------------------- | ---------------------------------------------- | ---------------------------------------- |
+| WI-00 | Baseline, architecture and threat model         | **PASS**                                       | [`progress/WI-00.md`](progress/WI-00.md) |
+| WI-01 | Provider adapters, identity quality, pilot      | **PASS** (real LWIN import: blocked by design) | [`progress/WI-01.md`](progress/WI-01.md) |
+| WI-02 | Shared search / autocomplete UX                 | not started                                    |                                          |
+| WI-03 | Scan-to-catalogue resolver                      | not started                                    |                                          |
+| WI-04 | Buying intelligence and profile reuse           | not started                                    |                                          |
+| WI-05 | Provenance, trust and wine pages                | not started                                    |                                          |
+| WI-06 | Admin governance, telemetry, operational safety | not started                                    |                                          |
+| WI-07 | Regression, stress, legal readiness, dossier    | not started                                    |                                          |
 
 ## Branch and PR strategy
 
@@ -130,15 +132,23 @@ The brief's R-01 to R-21 apply as written (`MASTER_BRIEF.md` §11). Baseline fin
 | R-21 | Docs were stale, code is right: non-admin gets 404, anonymous 307.                                                                                                                                                          | `sprint-u.md` corrected; closed.                                                                                                |
 | R-22 | **New.** No single-flight for profile generation: two first requests for one vintage can both pay (documented in the roadmap).                                                                                              | WI-04 adds a guard only where a NEW path would add calls.                                                                       |
 | R-23 | **New.** The scan and manual entry rank **every** wine the household can see in memory (`GET /api/v1/wines`); this does not scale with the catalogue.                                                                       | WI-02 and WI-03 move both to bounded server-side candidates.                                                                    |
+| R-24 | **New (WI-01).** The search's `match = 'exact'` means "the query equals the producer, the name or both", not "this is the wine".                                                                                            | The resolver (WI-03) decides identity with `isCatalogIdentity`, never with the search's match class.                            |
+| R-25 | **New (WI-01).** The import's link suggestion compares normalised text: names differing only in signs ("Auslese \*" / "\*\*") are one identity to it.                                                                       | A suggestion is never a link; the review screen (WI-06) shows the names as written and `identityRelation`'s verdict.            |
 
 ## Decisions
 
-| ADR                              | Decision                                                                                     |
-| -------------------------------- | -------------------------------------------------------------------------------------------- |
-| [ADR-001](ADR-001-identities.md) | External identifiers and identity lifecycle: keep the 004A schema; no second identity system |
+| ADR                                   | Decision                                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| [ADR-001](ADR-001-identities.md)      | External identifiers and identity lifecycle: keep the 004A schema; no second identity system            |
+| [ADR-002](ADR-002-provider-rights.md) | Three gates before a provider record reaches a person; one open import run per provider; the off switch |
 
 ## Status log
 
 - **2026-11-13 — WI-00 PASS.** Baseline reproduced on `main` @ `770aaab`; §1A audit leads verified against code and
   by running tests; feature flags added (all off); EPIC, ADR-001, security and privacy baseline and the owner-only
   release checklist written.
+- **2026-11-13 — WI-01 PASS.** File inspection and adapter gates, LWIN-layout fixture and code parser, identity
+  comparison with 61 hand-labelled pairs, benchmark v2 (247 entries; the 004A numbers reproduced exactly), one open
+  import run per provider (a defect of the merged foundation closed), the off switch, rights register and e-mail
+  drafts. An independent review found real defects in the first version; all P1/P2 were fixed before the checkpoint.
+  Real LWIN data: not obtained, import blocked by three gates.

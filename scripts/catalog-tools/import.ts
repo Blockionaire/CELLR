@@ -12,7 +12,14 @@
  * Targets: a local pilot database, or an approved staging project (target.ts); production is always refused.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { ADAPTERS, csvObjects, type ProviderId, type ProviderRecord } from "@cellr/domain";
+import {
+  ADAPTERS,
+  decodeUtf8,
+  importBlocker,
+  inspectProviderFile,
+  type ProviderId,
+  type ProviderRecord,
+} from "@cellr/domain";
 import { parseArgs, sha256, str } from "./lib";
 import { connectToTarget } from "./target";
 
@@ -22,7 +29,8 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const db = str(args, "db");
   const providerId = str(args, "provider") as ProviderId;
-  if (!(providerId in ADAPTERS)) throw new Error(`no adapter for provider ${providerId}`);
+  if (!Object.hasOwn(ADAPTERS, providerId))
+    throw new Error(`no adapter for provider ${providerId}`);
   const file = str(args, "file");
   const bytes = readFileSync(file);
   const hash = sha256(bytes);
@@ -31,15 +39,22 @@ async function main() {
   const apply = args.apply === true;
   const limit = typeof args.limit === "string" ? Number(args.limit) : Infinity;
 
-  const adapter = ADAPTERS[providerId];
-  const rows = csvObjects(bytes.toString("utf8"), adapter.columns);
-  const records: ProviderRecord[] = [];
-  const skipped: Record<string, number> = {};
-  for (const row of rows.slice(0, limit)) {
-    const r = adapter.map(row);
-    if (r.ok) records.push(r.record);
-    else skipped[r.reason] = (skipped[r.reason] ?? 0) + 1;
-  }
+  // The whole file is looked at before anything is written: layout, separator, encoding, unique ids. A file with a
+  // fatal problem, or an adapter whose layout was never verified against the provider's real file, imports nothing.
+  const text = decodeUtf8(bytes);
+  if (text === null) throw new Error("the file is not valid UTF-8 text: nothing imported");
+  const inspection = inspectProviderFile(text, providerId);
+  const blocker = importBlocker(providerId, inspection, hash);
+  if (blocker) throw new Error(`${blocker}: nothing imported`);
+  const records: ProviderRecord[] = inspection.records.slice(0, limit);
+  // "Withdraw what this file no longer has" is only true of the whole file.
+  const withdraw = args["withdraw-missing"] === true;
+  if (withdraw && limit !== Infinity)
+    throw new Error(
+      "--withdraw-missing cannot be combined with --limit: a part of a file says nothing about the rest",
+    );
+  const skipped = inspection.skipped;
+  const rows = { length: inspection.rows };
 
   if (args["search-scope"] !== undefined)
     throw new Error(
@@ -60,6 +75,22 @@ async function main() {
       throw new Error(
         `provider ${providerId} is not registered: an admin registers it and sets its rights (provider.ts)`,
       );
+    // A full file that suddenly holds far fewer records than the provider has now is more likely a damaged export
+    // than a provider that withdrew most of its catalogue: refused unless someone says so explicitly.
+    if (apply && withdraw && args["allow-shrink"] !== true) {
+      const active = Number(
+        (
+          await client.query<{ n: string }>(
+            "select count(*) as n from public.catalog_external_records where provider_id = $1 and status = 'active'",
+            [providerId],
+          )
+        ).rows[0]!.n,
+      );
+      if (active > 0 && records.length < active * 0.8)
+        throw new Error(
+          `the file holds ${records.length} records but ${active} are active: refusing to withdraw ${active - records.length} records (pass --allow-shrink if the provider really removed them)`,
+        );
+    }
     let run: string | null = null;
     if (apply) {
       const r = await client.query<{ id: string }>(
@@ -85,21 +116,37 @@ async function main() {
       suggested_links: 0,
     };
     const problems: unknown[] = [];
-    for (let i = 0; i < records.length; i += BATCH) {
-      const r = await client.query<{ j: Record<string, number> & { problems: unknown[] } }>(
-        "select public.catalog_external_import($1, $2, $3::jsonb, $4) as j",
-        [providerId, run, JSON.stringify(records.slice(i, i + BATCH)), apply],
-      );
-      const j = r.rows[0]!.j;
-      for (const k of Object.keys(totals) as Array<keyof typeof totals>) totals[k] += j[k] ?? 0;
-      if (problems.length < 20) problems.push(...j.problems.slice(0, 20 - problems.length));
+    try {
+      for (let i = 0; i < records.length; i += BATCH) {
+        const r = await client.query<{ j: Record<string, number> & { problems: unknown[] } }>(
+          "select public.catalog_external_import($1, $2, $3::jsonb, $4) as j",
+          [providerId, run, JSON.stringify(records.slice(i, i + BATCH)), apply],
+        );
+        const j = r.rows[0]!.j;
+        for (const k of Object.keys(totals) as Array<keyof typeof totals>) totals[k] += j[k] ?? 0;
+        if (problems.length < 20) problems.push(...j.problems.slice(0, 20 - problems.length));
+      }
+    } catch (error) {
+      // A run that failed half-way is closed as such, with the reason: never left looking like one still running,
+      // and never finished as if it were complete.
+      if (run)
+        await client
+          .query("select public.catalog_import_run_abandon($1, $2)", [
+            run,
+            `import failed: ${error instanceof Error ? error.message : "error"}`.slice(0, 300),
+          ])
+          .catch(() => {});
+      throw error;
     }
+    // Records the database refused are missing from this run: withdrawing "what the run did not see" would then
+    // withdraw records the file does hold. The run is finished without withdrawing, and says so.
+    const withdrawNow = withdraw && totals.invalid === 0;
     let finish: unknown = null;
     if (apply && run)
       finish = (
         await client.query("select public.catalog_import_run_finish($1, $2, $3::jsonb) as j", [
           run,
-          args["withdraw-missing"] === true,
+          withdrawNow,
           JSON.stringify({ ...totals, adapter_skipped: skipped }),
         ])
       ).rows[0];
@@ -114,8 +161,18 @@ async function main() {
       rights_status: registered.rows[0]!.rights_status,
       run,
       rows: Math.min(rows.length, limit),
+      schema: inspection.schema,
+      layout_verified: inspection.layoutVerified,
       adapter_records: records.length,
       adapter_skipped: skipped,
+      unmapped_types: inspection.unmappedTypes,
+      implausible_vintage_rows: inspection.implausibleVintageRows,
+      warnings: [
+        ...inspection.warnings,
+        ...(withdraw && !withdrawNow
+          ? [`${totals.invalid} record(s) were refused by the database: nothing was withdrawn`]
+          : []),
+      ],
       ...totals,
       problems,
       finish,

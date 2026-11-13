@@ -1,0 +1,4 @@
+the file holds no rows: nothing imported
+--withdraw-missing cannot be combined with --limit: a part of a file says nothing about the rest
+the file holds 1000 records but 100646 are active: refusing to withdraw 99646 records (pass --allow-shrink if the provider really removed them)
+after the refusals: active=100646 withdrawn=0 open runs=0
