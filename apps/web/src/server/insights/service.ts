@@ -81,12 +81,15 @@ export interface InsightsDeps {
    * ago (its profile is then waited for instead of paying for the same research). Missing or failing = research as
    * before.
    */
-  claimShared?: (vintageId: string, language: ProfileLanguage) => Promise<boolean>;
+  claimShared?: (
+    vintageId: string,
+    language: ProfileLanguage,
+  ) => Promise<{ mine: boolean; token: string | null }>;
   /**
    * Gives the claim back as soon as this request is done with it (researched and published, failed, or refused by
    * its rate limit), so nobody waits for a profile that is not coming. Missing or failing = the claim expires.
    */
-  releaseShared?: (vintageId: string, language: ProfileLanguage) => Promise<void>;
+  releaseShared?: (vintageId: string, language: ProfileLanguage, token: string) => Promise<void>;
   /** Waits (injectable so tests do not). */
   sleep?: (ms: number) => Promise<void>;
 }
@@ -211,14 +214,18 @@ export function createInsightsService(deps: InsightsDeps) {
       // A waiting request goes ahead as soon as the claim is given back (the first one failed, or was refused by
       // its rate limit) or, at the latest, after one research timeout; then it is the one that researches, and the
       // rest keep waiting for it. Whatever happens next, a claim this request took is given back (see `finally`).
-      let claimed = false;
+      // The token is the proof of holding the claim: only a request with a token gives a claim back. A request that
+      // goes ahead WITHOUT one (the claim could not be asked, or its wait ran out) never touches another's claim.
+      let token: string | null = null;
       if (shareable && deps.claimShared) {
-        const claim = () => deps.claimShared!(vintageId, language).catch(() => true);
-        claimed = await claim();
+        // A claim that cannot be asked is never a reason not to research: go ahead, holding nothing.
+        const claim = () =>
+          deps.claimShared!(vintageId, language).catch(() => ({ mine: true, token: null }));
+        let answer = await claim();
         const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
         for (
           let waited = 0;
-          !claimed && waited < SHARED_WAIT.forMs;
+          !answer.mine && waited < SHARED_WAIT.forMs;
           waited += SHARED_WAIT.everyMs
         ) {
           await sleep(SHARED_WAIT.everyMs);
@@ -237,14 +244,15 @@ export function createInsightsService(deps: InsightsDeps) {
             if (!saved) throw new DomainError("INTERNAL", NOT_READY);
             return view(id, currency, vintageId);
           }
-          claimed = await claim();
+          answer = await claim();
         }
+        token = answer.mine ? answer.token : null;
       }
       try {
         return await research();
       } finally {
-        if (claimed && deps.releaseShared)
-          await deps.releaseShared(vintageId, language).catch(() => {});
+        if (token !== null && deps.releaseShared)
+          await deps.releaseShared(vintageId, language, token).catch(() => {});
       }
 
       async function research(): Promise<VintageInsightView> {

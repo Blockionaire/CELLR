@@ -3051,7 +3051,7 @@ export type Database = {
       check_signup_allowed: { Args: { p_email: string }; Returns: boolean };
       claim_shared_profile_research: {
         Args: { p_language: string; p_ttl_seconds?: number; p_vintage_id: string };
-        Returns: boolean;
+        Returns: Json;
       };
       consume_rate_limit: {
         Args: { p_bucket: string; p_limit: number; p_window_seconds: number };
@@ -3193,8 +3193,8 @@ export type Database = {
         Returns: string;
       };
       release_shared_profile_research: {
-        Args: { p_language: string; p_vintage_id: string };
-        Returns: undefined;
+        Args: { p_language: string; p_token: string; p_vintage_id: string };
+        Returns: boolean;
       };
       remove_friend: { Args: { p_user: string }; Returns: boolean };
       respond_friend_request: { Args: { p_accept: boolean; p_id: string }; Returns: boolean };

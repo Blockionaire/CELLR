@@ -61,9 +61,18 @@ function world(
     limitedFor?: string[];
     /** Claims cannot be given back (an older database): they only expire. */
     noRelease?: boolean;
+    /** The claim call itself fails for these households (a transient database error): they go ahead unclaimed. */
+    claimErrorFor?: string[];
+    /** Giving a claim back fails (a transient database error): the claim is left to expire. */
+    releaseFails?: boolean;
   } = {},
 ) {
-  const claimed = new Set<string>();
+  /** The claims as the database holds them: one per vintage and language, each with its owner's token. */
+  const claimed = new Map<string, string>();
+  /** Claims whose time has passed: the next request to ask takes them over (and the old token is void). */
+  const expired = new Set<string>();
+  const released: string[] = [];
+  let tokens = 0;
   const sleeps: number[] = [];
   /** Research calls that have started and not yet been let go (so two requests can overlap). */
   const pending: Array<() => void> = [];
@@ -153,16 +162,23 @@ function world(
         ? {
             claimShared: async (vintageId: string, language: string) => {
               if (options.claims === "down") throw new Error("database unavailable");
+              if (options.claimErrorFor?.includes(id)) throw new Error("connection reset");
               const key = `${vintageId}:${language}`;
-              if (claimed.has(key)) return false;
-              claimed.add(key);
-              return true;
+              if (claimed.has(key) && !expired.has(key)) return { mine: false, token: null };
+              expired.delete(key);
+              const token = `token-${++tokens}`;
+              claimed.set(key, token);
+              return { mine: true, token };
             },
             ...(options.noRelease
               ? {}
               : {
-                  releaseShared: async (vintageId: string, language: string) => {
-                    claimed.delete(`${vintageId}:${language}`);
+                  releaseShared: async (vintageId: string, language: string, token: string) => {
+                    released.push(token);
+                    if (options.releaseFails) throw new Error("connection reset");
+                    const key = `${vintageId}:${language}`;
+                    // only the token that took the claim gives it back
+                    if (claimed.get(key) === token) claimed.delete(key);
                   },
                 }),
             sleep: async (ms: number) => {
@@ -188,6 +204,9 @@ function world(
     usage,
     spent: () => spent,
     claimed,
+    released,
+    /** The claim's time has passed: whoever asks next takes it over. */
+    expire: (key: string) => void expired.add(key),
     sleeps,
     /** From now on research calls wait until `release()`. */
     holdResearch: () => {
@@ -449,11 +468,81 @@ describe("two households ask for the same uncached vintage at the same moment (W
 
   it("a claim nobody gives back (its request died): the wait is bounded by one research timeout", async () => {
     const w = world({ claims: "on", noRelease: true });
-    w.claimed.add("v2019:en");
+    w.claimed.set("v2019:en", "token-of-a-request-that-died");
     const b = await w.household("B").generate("v2019");
     expect(w.sleeps.reduce((x, y) => x + y, 0)).toBe(60_000);
     expect(w.calls).toHaveLength(1);
     expect(b.insight?.output.summary).toContain("Pavillon Rouge");
+  });
+
+  it("a slow request whose claim was taken over does not give back the new owner's claim", async () => {
+    const w = world({ claims: "on" });
+    w.holdResearch();
+    const a = w.household("A").generate("v2019"); // A claims, and its research hangs
+    await tick();
+    await tick();
+    const tokenA = w.claimed.get("v2019:en");
+    w.expire("v2019:en"); // ... longer than the claim lasts
+    const b = w.household("B").generate("v2019"); // B takes the claim over and researches too
+    await tick();
+    await tick();
+    const tokenB = w.claimed.get("v2019:en");
+    expect(tokenB).toBeDefined();
+    expect(tokenB).not.toBe(tokenA);
+    expect(w.calls).toHaveLength(2);
+    const c = w.household("C").generate("v2019"); // C sees B's claim and waits
+    await tick();
+    await tick();
+    expect(w.calls).toHaveLength(2);
+    w.release();
+    await Promise.all([a, b, c]);
+    // A gave back with ITS token, which no longer opens anything; B's claim was B's to give back
+    expect(w.released).toContain(tokenA);
+    expect(w.released).toContain(tokenB);
+    expect(w.calls).toHaveLength(2); // C never researched: it reused the profile
+    expect(w.privateRows.get("C:v2019")?.cacheResult).toBe("hit");
+    expect(w.claimed.size).toBe(0);
+  });
+
+  it("a request whose claim call failed goes ahead unclaimed and never gives back another request's claim", async () => {
+    const w = world({ claims: "on", claimErrorFor: ["B"] });
+    w.holdResearch();
+    const a = w.household("A").generate("v2019"); // A holds the claim
+    await tick();
+    await tick();
+    const tokenA = w.claimed.get("v2019:en");
+    const b = w.household("B").generate("v2019"); // B's claim call fails: it researches without a claim
+    await tick();
+    await tick();
+    expect(w.calls).toHaveLength(2);
+    expect(w.claimed.get("v2019:en")).toBe(tokenA); // A's claim is untouched
+    const c = w.household("C").generate("v2019"); // C still sees A's claim and waits
+    await tick();
+    await tick();
+    expect(w.calls).toHaveLength(2);
+    w.release();
+    await Promise.all([a, b, c]);
+    expect(w.released).toEqual([tokenA]); // B held nothing, so it gave nothing back
+    expect(w.calls).toHaveLength(2);
+    expect(w.privateRows.get("C:v2019")?.cacheResult).toBe("hit");
+  });
+
+  it("giving the claim back fails: the profile is still returned, and the claim is left to expire", async () => {
+    const w = world({ claims: "on", releaseFails: true });
+    const a = await w.household("A").generate("v2019");
+    expect(a.insight?.output.summary).toContain("Pavillon Rouge");
+    expect(w.claimed.size).toBe(1); // still there: it expires by itself
+    // the next household finds the shared profile first, so the leftover claim costs nobody a wait
+    await w.household("B").generate("v2019");
+    expect(w.sleeps).toEqual([]);
+    expect(w.calls).toHaveLength(1);
+  });
+
+  it("nothing to share: no token, nothing given back", async () => {
+    const w = world({ claims: "on" });
+    await w.household("A").generate("vOwn");
+    expect(w.claimed.size).toBe(0);
+    expect(w.released).toEqual([]);
   });
 
   it("another vintage, another language and a household's own wine never wait for each other", async () => {
@@ -469,7 +558,7 @@ describe("two households ask for the same uncached vintage at the same moment (W
     expect(w.calls).toHaveLength(4);
     expect(w.sleeps).toEqual([]);
     // a household's own wine has no shared identity: no claim is even asked for it
-    expect([...w.claimed].sort()).toEqual(["v2019:en", "v2019:nl", "v2020:en"]);
+    expect([...w.claimed.keys()].sort()).toEqual(["v2019:en", "v2019:nl", "v2020:en"]);
     w.release();
     await Promise.all(all);
   });
