@@ -65,6 +65,12 @@ matches, include it in A5 (`awk '$1 <= 20261114000037'`); if not, follow `MIGRAT
 Migrations are forward-only: if the app misbehaves, roll back the **app** (`BETA-OPERATIONS.md` §5) and leave the
 schema. Every migration of this epic is additive; the previous app version does not use the new objects.
 
+The migrations of this epic, in order (B2 must list exactly these, after `20261114000037`):
+`20261115000038_wi01_provider_lifecycle`, `20261116000039_wi04_profile_research_claim`,
+`20261117000040_wi05_wine_source_notices`, `20261118000041_wi06_admin_sources`. After B3, with every switch still
+off, two things are live: Admin → External sources, and the research claim (two simultaneous first profile requests
+research once).
+
 ## Part C — Switch features on (one at a time, each reversible by removing its name)
 
 | #   | `CELLR_FEATURES` value (cumulative)                      | Check before the next step                                                           |
@@ -84,3 +90,6 @@ schema. Every migration of this epic is additive; the previous app version does 
 - [ ] A provider-side hard spending limit and alert on the AI account (owner; see `SECURITY_AND_PRIVACY.md` §4).
 - [ ] `REAL_LABEL_VALIDATION_PENDING`: consented real label photos and a physical iPhone run (`UX_ACCEPTANCE.md`).
 - [ ] Sending the Liv-ex and X-Wines e-mails (drafts only, in this folder).
+- [ ] **R-27:** decide whether a wine created from a source's record keeps that record's id, so its page can credit
+      the source (`progress/WI-05.md` §7). Needed before any source is shown to people.
+- [ ] Before `wine_search` goes on for people: update the eight specs bound to the old selectors (`progress/WI-02.md` §4).
