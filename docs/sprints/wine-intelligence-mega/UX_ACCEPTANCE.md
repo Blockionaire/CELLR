@@ -110,6 +110,13 @@ Feature `purchase_intel`. Spec: `apps/web/e2e/purchase-intel.spec.ts` (2 tests �
 Screenshot (written by the run, not committed): `apps/web/test-results/shots/wi04-koopcheck-profile-{phone,desktop}.png`.
 The profile text in these tests is a programmed answer of the local stack's fake model.
 
+## 2c. Sources & reliability (WI-05) — AUTOMATED PASS
+
+Feature `sources_panel`. Spec: `apps/web/e2e/sources.spec.ts` (4 tests × phone and desktop). Detail and the list of
+states checked: `progress/WI-05.md` §4. Screenshots of four states (catalogue wine with profile, own wine, two
+sources in dark and light; NL and EN) are written by the run. With real data no external source is shown, because
+none is cleared for people.
+
 ## 3. Real labels: acquisition protocol — `REAL_LABEL_VALIDATION_PENDING`
 
 No real label photograph exists in this repository or was used anywhere in this epic. Count of consented real photos:

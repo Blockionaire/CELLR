@@ -6,19 +6,20 @@ Brief: [`MASTER_BRIEF.md`](MASTER_BRIEF.md) (v1.1). Per-sub-sprint evidence: [`p
 ## Resume block
 
 ```text
-LAST VERIFIED CHECKPOINT: WI-04 + independent review of WI-02..04 (progress/WI-04-review.md: no P1, findings fixed)
+LAST VERIFIED CHECKPOINT: WI-05 (WI-02..04 independently reviewed: progress/WI-04-review.md)
 BRANCH / SHA: claude/wine-intelligence-mega-sprint-agnxu9 (base: main @ 770aaab); see `git log --grep '^WI-0'`
 STATUS: WI-00 PASS; WI-01 PASS (real LWIN import blocked by design); WI-02 PASS (behind `wine_search`, off);
         WI-03 PASS on programmed readings (behind `scan_resolver`, off; real labels pending);
-        WI-04 PASS (behind `purchase_intel`, off; research claim always on once migration 0039 is applied)
+        WI-04 PASS (behind `purchase_intel`, off; research claim always on once migration 0039 is applied);
+        WI-05 PASS (behind `sources_panel`, off)
 CHANGED FILES / PR: draft PR https://github.com/Blockionaire/CELLR/pull/68 ; per sub-sprint: progress/WI-0x.md §1
 CURRENT FEATURE FLAGS: CELLR_FEATURES unset everywhere (all four features off)
-LAST GREEN CHECKS: format, lint, typecheck, unit (web 771 / domain 635 / scan-eval 83 / catalog-tools 86),
-                   db:test 1229, db:test:budget, db:types:check, migrations:check, e2e wine-search 24/24, scan-resolver 4/4, purchase-intel 4/4 (features on, port 3101),
+LAST GREEN CHECKS: format, lint, typecheck, unit (web 777 / domain 643 / scan-eval 83 / catalog-tools 86),
+                   db:test 1247, db:test:budget, db:types:check, migrations:check, e2e wine-search 24/24, scan-resolver 4/4, purchase-intel 4/4, sources 8/8 (features on, port 3101),
                    e2e regression with features off: 135 passed, 4 flaky (R-26), 0 failed
 PENDING BLOCKERS: PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED · REAL_LABEL_VALIDATION_PENDING ·
                   LWIN rights blocked · X-Wines rights unverified (pilot only)
-NEXT SAFE ACTION: WI-05 (sources section on the wine page and Koopcheck result, behind `sources_panel`)
+NEXT SAFE ACTION: WI-06 (admin: provider overview, link review queue, off switch; privacy-first counters)
 DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the X-Wines download (the file is in an
                isolated scratch folder of the session, never in Git: re-download it from the authors' Drive folder
                and check the SHA-256 in pilot.sh if a new session needs it)
@@ -33,7 +34,7 @@ DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the X-Wines
 | WI-02 | Shared search / autocomplete UX                 | **PASS** (behind `wine_search`, off by default)                                        | [`progress/WI-02.md`](progress/WI-02.md)                                                         |
 | WI-03 | Scan-to-catalogue resolver                      | **PASS** on programmed readings (behind `scan_resolver`, off); real labels **PENDING** | [`progress/WI-03.md`](progress/WI-03.md)                                                         |
 | WI-04 | Buying intelligence and profile reuse           | **PASS** (behind `purchase_intel`, off); independently reviewed                        | [`progress/WI-04.md`](progress/WI-04.md), [`progress/WI-04-review.md`](progress/WI-04-review.md) |
-| WI-05 | Provenance, trust and wine pages                | not started                                                                            |                                                                                                  |
+| WI-05 | Provenance, trust and wine pages                | **PASS** (behind `sources_panel`, off)                                                 | [`progress/WI-05.md`](progress/WI-05.md)                                                         |
 | WI-06 | Admin governance, telemetry, operational safety | not started                                                                            |                                                                                                  |
 | WI-07 | Regression, stress, legal readiness, dossier    | not started                                                                            |                                                                                                  |
 
@@ -127,17 +128,18 @@ the provider's rights status and search scope in the database, changed only by `
 
 The brief's R-01 to R-21 apply as written (`MASTER_BRIEF.md` §11). Baseline findings that change or sharpen them:
 
-| ID   | Finding at baseline                                                                                                                                                                                                         | Handling                                                                                                                        |
-| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| R-17 | Confirmed from `docs/MIGRATIONS.md` §3–§4: production has no migration history. §4 also says "36 migrations", but `main` now has 37 (`…0037_catalog_search.sql` merged in PR #65 and, per the 004A report, never deployed). | `RELEASE_CHECKLIST.md`: bootstrap the 36, then apply 0037 and this epic's migrations through §2. Deployment blocked until then. |
-| R-18 | Confirmed in code: `withBudget` lets a call through when the hold cannot be checked, and holds nothing when no budget is set.                                                                                               | `SECURITY_AND_PRIVACY.md` §4; new paid paths fail closed (WI-04).                                                               |
-| R-19 | Confirmed: 0 consented real label photos; OCR and iPhone timings are documented as unmeasured.                                                                                                                              | `REAL_LABEL_VALIDATION_PENDING`; protocol in WI-03.                                                                             |
-| R-21 | Docs were stale, code is right: non-admin gets 404, anonymous 307.                                                                                                                                                          | `sprint-u.md` corrected; closed.                                                                                                |
-| R-22 | **New.** No single-flight for profile generation: two first requests for one vintage can both pay (documented in the roadmap).                                                                                              | WI-04 adds a guard only where a NEW path would add calls.                                                                       |
-| R-23 | **New.** The scan and manual entry rank **every** wine the household can see in memory (`GET /api/v1/wines`); this does not scale with the catalogue.                                                                       | WI-02 and WI-03 move both to bounded server-side candidates.                                                                    |
-| R-24 | **New (WI-01).** The search's `match = 'exact'` means "the query equals the producer, the name or both", not "this is the wine".                                                                                            | The resolver (WI-03) decides identity with `isCatalogIdentity`, never with the search's match class.                            |
-| R-25 | **New (WI-01).** The import's link suggestion compares normalised text: names differing only in signs ("Auslese \*" / "\*\*") are one identity to it.                                                                       | A suggestion is never a link; the review screen (WI-06) shows the names as written and `identityRelation`'s verdict.            |
-| R-26 | **New (WI-02).** The phone-profile scan specs choose a photo right after `page.goto`; before the screen is interactive the choice is lost. 5 of 32 runs failed on **baseline** source here; CI masks it with a retry.       | Not a product defect. New specs wait for the screen to be interactive; fixing the old specs is a follow-up (WI-07 list).        |
+| ID   | Finding at baseline                                                                                                                                                                                                            | Handling                                                                                                                              |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| R-17 | Confirmed from `docs/MIGRATIONS.md` §3–§4: production has no migration history. §4 also says "36 migrations", but `main` now has 37 (`…0037_catalog_search.sql` merged in PR #65 and, per the 004A report, never deployed).    | `RELEASE_CHECKLIST.md`: bootstrap the 36, then apply 0037 and this epic's migrations through §2. Deployment blocked until then.       |
+| R-18 | Confirmed in code: `withBudget` lets a call through when the hold cannot be checked, and holds nothing when no budget is set.                                                                                                  | `SECURITY_AND_PRIVACY.md` §4; new paid paths fail closed (WI-04).                                                                     |
+| R-19 | Confirmed: 0 consented real label photos; OCR and iPhone timings are documented as unmeasured.                                                                                                                                 | `REAL_LABEL_VALIDATION_PENDING`; protocol in WI-03.                                                                                   |
+| R-21 | Docs were stale, code is right: non-admin gets 404, anonymous 307.                                                                                                                                                             | `sprint-u.md` corrected; closed.                                                                                                      |
+| R-22 | **New.** No single-flight for profile generation: two first requests for one vintage can both pay (documented in the roadmap).                                                                                                 | WI-04 adds a guard only where a NEW path would add calls.                                                                             |
+| R-23 | **New.** The scan and manual entry rank **every** wine the household can see in memory (`GET /api/v1/wines`); this does not scale with the catalogue.                                                                          | WI-02 and WI-03 move both to bounded server-side candidates.                                                                          |
+| R-24 | **New (WI-01).** The search's `match = 'exact'` means "the query equals the producer, the name or both", not "this is the wine".                                                                                               | The resolver (WI-03) decides identity with `isCatalogIdentity`, never with the search's match class.                                  |
+| R-25 | **New (WI-01).** The import's link suggestion compares normalised text: names differing only in signs ("Auslese \*" / "\*\*") are one identity to it.                                                                          | A suggestion is never a link; the review screen (WI-06) shows the names as written and `identityRelation`'s verdict.                  |
+| R-26 | **New (WI-02).** The phone-profile scan specs choose a photo right after `page.goto`; before the screen is interactive the choice is lost. 5 of 32 runs failed on **baseline** source here; CI masks it with a retry.          | Not a product defect. New specs wait for the screen to be interactive; fixing the old specs is a follow-up (WI-07 list).              |
+| R-27 | **New (WI-05). Rights, for the owner.** A wine created from an external record keeps nothing of that record, so its page credits no source. A licence such as CC BY may require the credit wherever the adapted data is shown. | No source is public, so nothing is shown uncredited today. **Decide before clearing any source for people** (`progress/WI-05.md` §7). |
 
 ## Decisions
 
@@ -172,3 +174,6 @@ The brief's R-01 to R-21 apply as written (`MASTER_BRIEF.md` §11). Baseline fin
 - **2026-11-13 — Independent review of WI-02 to WI-04.** No P1. P2: the research claim was never given back (a
   failed or rate-limited first request made others wait 30 s for nothing, with every flag off); fixed with a
   release function and a take-over by the waiting request. Three P3 and four minor findings fixed.
+- **2026-11-13 — WI-05 PASS.** "Bronnen & betrouwbaarheid": four groups on the wine page, the identification block
+  in a Koopcheck result. External sources are credited only through `wine_source_notices` (migration `…0040`):
+  a verified link, an active record, a source cleared and shown to people right now. Open for the owner: R-27.

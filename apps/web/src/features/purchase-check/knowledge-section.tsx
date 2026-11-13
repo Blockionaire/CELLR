@@ -1,8 +1,9 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { formatVintage, type AddedFact, type PurchaseKnowledge } from "@cellr/domain";
+import { formatVintage, safeHttpUrl, type AddedFact, type PurchaseKnowledge } from "@cellr/domain";
 import { countryName } from "@/features/cellar/wine-visuals";
+import { SourceIdentity, useWineSources } from "@/features/sources/sources-section";
 
 /**
  * What CELLR already knew about the wine in the shop, beyond what the person confirmed (the `purchase_intel`
@@ -13,16 +14,21 @@ import { countryName } from "@/features/cellar/wine-visuals";
 export function KnowledgeSection({
   knowledge,
   vintageKnown,
+  sourcesPanel = false,
 }: {
   knowledge: PurchaseKnowledge;
   /** The person gave a vintage (or said the wine has none): without one there is no vintage profile to expect. */
   vintageKnown: boolean;
+  /** The `sources_panel` feature: also say what the catalogue's own facts rest on. */
+  sourcesPanel?: boolean | undefined;
 }) {
   const t = useTranslations("purchaseCheck.knowledge");
   const tCheck = useTranslations("purchaseCheck");
   const tTypes = useTranslations("wineTypes");
   const locale = useLocale();
   const { added, profile, status } = knowledge;
+  const tSources = useTranslations("sources");
+  const sources = useWineSources(knowledge.catalogWineId, sourcesPanel);
 
   const years = (list: Array<number | null>) =>
     new Intl.ListFormat(locale, { type: "conjunction" }).format(list.map((y) => formatVintage(y)));
@@ -99,6 +105,26 @@ export function KnowledgeSection({
             ))}
           </ul>
         </div>
+      )}
+
+      {sourcesPanel && sources.data?.catalog && (
+        <details className="group/pcsrc" data-testid="pc-sources">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 text-small font-medium text-accent-fg [&::-webkit-details-marker]:hidden">
+            {tSources("catalogTitle")}
+          </summary>
+          <div className="pb-1">
+            <SourceIdentity
+              identity={{
+                origin: "cellr_catalog",
+                catalogSources: sources.data.catalogSources.map((c) => ({
+                  ...c,
+                  url: safeHttpUrl(c.url),
+                })),
+                external: sources.data.external.filter((n) => n.scope === "public"),
+              }}
+            />
+          </div>
+        </details>
       )}
 
       {!profile && (

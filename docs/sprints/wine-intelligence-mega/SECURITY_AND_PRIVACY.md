@@ -117,6 +117,13 @@ because they fail closed; the platform-wide ceiling does not.
   called from the one privileged module that already publishes shared profiles. No person or household is recorded.
 - **WI-04, budget:** `BUDGET_MODES` makes any future paid task fail closed (§4). No task uses it yet.
 
+- **WI-05 (`sources_panel`):** one new read route, `GET /api/v1/wines/:id/sources` (404 without the feature). The
+  wine is read under RLS (another household's own wine is "not found"); credits come from `wine_source_notices`
+  (security definer, empty search path, membership checked, the provider's rights and scope read at call time). The
+  provider tables stay closed to people. A notice is checked against a schema on the server, so internal columns
+  (rights evidence) cannot travel even if the function changed. Links are http(s) only and open with
+  `noopener noreferrer nofollow`; nothing of a source is embedded.
+
 ### Prompt injection, as of WI-04
 
 No model input was added in WI-02 to WI-04, so there is no new injection surface. For the record: text of a wine

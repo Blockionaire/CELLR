@@ -9,5 +9,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** Koopcheck: is the bottle in the shop worth buying, given your cellar and your taste? */
 export default function PurchaseCheckPage() {
-  return <PurchaseCheckScreen catalogSearch={getFeatures().wine_search} />;
+  const features = getFeatures();
+  return (
+    <PurchaseCheckScreen
+      catalogSearch={features.wine_search}
+      sourcesPanel={features.sources_panel}
+    />
+  );
 }

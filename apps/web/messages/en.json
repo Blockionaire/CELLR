@@ -2021,5 +2021,47 @@
       "error": "Search isn't working right now. What you typed is kept. The list below is what was already loaded."
     },
     "chosen": "Chosen"
+  },
+  "sources": {
+    "title": "Sources & reliability",
+    "hint": "Where the details about this wine come from.",
+    "identityTitle": "Wine identification",
+    "characteristicsTitle": "Wine characteristics",
+    "aiTitle": "CELLR AI analysis",
+    "yoursTitle": "Your data",
+    "ownWine": "Your household added this wine itself. CELLR has not checked it and no external source was used for it.",
+    "checkedWith": "CELLR checked the name, producer and origin with:",
+    "checkedNoPages": "CELLR checked this wine. No pages are on record for it.",
+    "alsoListed": "Also listed in {provider}",
+    "creditMore": "Licence and details",
+    "license": "Licence",
+    "record": "Record at the source",
+    "dataset": "version {version}",
+    "retrieved": "retrieved on {date}",
+    "changes": "Changes by CELLR",
+    "changesDefault": "CELLR modified this source's data.",
+    "relation": "What this does and does not mean",
+    "notVerifiedBySource": "A source listing this wine does not make its details verified.",
+    "legal": "Full notice",
+    "aiCaveat": "Estimates by CELLR, made with AI. Not established facts and not the producer's view.",
+    "ai": {
+      "profile": "Wine profile (grapes, style, taste)",
+      "window_profile": "Drinking window: an estimate from the wine profile",
+      "window_table": "Drinking window: a rough estimate from region, colour, label and price",
+      "valuation": "Value: an estimate from asking prices that were found"
+    },
+    "aiNotResearched": "Made without consulting pages about this wine: based on general knowledge of the style.",
+    "aiPages": "Consulted:",
+    "yours": {
+      "bottles": "{count, plural, one {1 bottle in the cellar} other {# bottles in the cellar}}",
+      "opened": "{count, plural, one {1 opened bottle} other {# opened bottles}}",
+      "prices": "{count, plural, one {1 purchase price} other {# purchase prices}}",
+      "tastings": "{count, plural, one {1 tasting note} other {# tasting notes}}",
+      "photos": "{count, plural, one {1 photo of your own} other {# photos of your own}}",
+      "own_window": "your own drinking window",
+      "own_value": "your own value"
+    },
+    "yoursPrivate": "Recorded by your household and visible to your household only.",
+    "catalogTitle": "Source of the wine details"
   }
 }

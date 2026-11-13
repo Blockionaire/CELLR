@@ -3236,6 +3236,7 @@ export type Database = {
           wine_id: string;
         }[];
       };
+      wine_source_notices: { Args: { p_household_id: string; p_wine_id: string }; Returns: Json };
     };
     Enums: {
       bottle_status: "in_cellar" | "opened" | "gifted" | "removed";

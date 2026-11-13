@@ -45,6 +45,7 @@ import { createContributionService } from "@/server/catalog/contribution";
 import { createCatalogSearchRepository } from "@/server/catalog/search-repository";
 import { createCatalogSearchService } from "@/server/catalog/search";
 import { createWineResolver } from "@/server/catalog/resolver";
+import { createWineSourcesRepository, createWineSourcesService } from "@/server/catalog/sources";
 import { createScanRepository } from "@/server/scans/repository";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
@@ -147,6 +148,11 @@ export function servicesFor(ctx: RequestContext) {
       }
     },
     contribution: createContributionService(ctx.db, ctx.userId),
+    // What a wine page may credit (`sources_panel`): read as the person; the route is closed without the feature.
+    wineSources: createWineSourcesService({
+      repo: createWineSourcesRepository(ctx.db),
+      householdId: async () => (await household()).id,
+    }),
     catalogSearch: createCatalogSearchService({
       repo: createCatalogSearchRepository(ctx.db),
       householdId: async () => (await household()).id,

@@ -2021,5 +2021,47 @@
       "error": "Zoeken werkt nu even niet. Wat je hebt getypt blijft staan. De lijst hieronder is wat al geladen was."
     },
     "chosen": "Gekozen"
+  },
+  "sources": {
+    "title": "Bronnen & betrouwbaarheid",
+    "hint": "Waar de gegevens over deze wijn vandaan komen.",
+    "identityTitle": "Wijnidentificatie",
+    "characteristicsTitle": "Wijnkenmerken",
+    "aiTitle": "CELLR AI-analyse",
+    "yoursTitle": "Jouw gegevens",
+    "ownWine": "Deze wijn hebben jullie zelf toegevoegd. CELLR heeft hem niet nagekeken en er is geen externe bron voor gebruikt.",
+    "checkedWith": "CELLR heeft naam, producent en herkomst nagekeken met:",
+    "checkedNoPages": "CELLR heeft deze wijn nagekeken. Bij deze wijn zijn geen pagina's vastgelegd.",
+    "alsoListed": "Ook opgenomen in {provider}",
+    "creditMore": "Licentie en details",
+    "license": "Licentie",
+    "record": "Record bij de bron",
+    "dataset": "versie {version}",
+    "retrieved": "opgehaald op {date}",
+    "changes": "Aanpassingen door CELLR",
+    "changesDefault": "CELLR heeft de gegevens van deze bron bewerkt.",
+    "relation": "Wat dit wel en niet betekent",
+    "notVerifiedBySource": "Dat een bron deze wijn noemt, maakt de gegevens niet gecontroleerd.",
+    "legal": "Volledige vermelding",
+    "aiCaveat": "Schattingen van CELLR, gemaakt met AI. Geen vaststaande feiten en geen oordeel van de producent.",
+    "ai": {
+      "profile": "Wijnprofiel (druiven, stijl, smaak)",
+      "window_profile": "Drinkvenster: een schatting uit het wijnprofiel",
+      "window_table": "Drinkvenster: een grove schatting op basis van regio, kleur, etiket en prijs",
+      "valuation": "Waarde: een schatting op basis van gevonden vraagprijzen"
+    },
+    "aiNotResearched": "Gemaakt zonder pagina's over deze wijn te raadplegen: gebaseerd op algemene kennis van de stijl.",
+    "aiPages": "Geraadpleegd:",
+    "yours": {
+      "bottles": "{count, plural, one {1 fles in de kelder} other {# flessen in de kelder}}",
+      "opened": "{count, plural, one {1 geopende fles} other {# geopende flessen}}",
+      "prices": "{count, plural, one {1 aankoopprijs} other {# aankoopprijzen}}",
+      "tastings": "{count, plural, one {1 proefnotitie} other {# proefnotities}}",
+      "photos": "{count, plural, one {1 eigen foto} other {# eigen foto's}}",
+      "own_window": "een eigen drinkvenster",
+      "own_value": "een eigen waarde"
+    },
+    "yoursPrivate": "Door jullie vastgelegd en alleen zichtbaar voor jullie huishouden.",
+    "catalogTitle": "Bron van de wijngegevens"
   }
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import { SourcesSection, useWineSources } from "@/features/sources/sources-section";
 import { useState, ViewTransition, type ReactNode } from "react";
 import {
   currentValueCents,
@@ -10,6 +11,7 @@ import {
   groupBottlesByPlace,
   summarizePlaces,
   whereSummary,
+  wineSourcesView,
   type WhereSummary,
   summarizeScores,
   type BottleExtrasView,
@@ -68,6 +70,7 @@ export function VintageScreen({
   currency,
   initialRate,
   initialPick = false,
+  sourcesPanel = false,
 }: {
   initial: VintageDetail;
   currency: string;
@@ -75,6 +78,8 @@ export function VintageScreen({
   initialRate?: string | undefined;
   /** Came here to take a bottle out (Tonight's "take this bottle"): the open sheet is up, easiest bottle first. */
   initialPick?: boolean;
+  /** The `sources_panel` feature: "Bronnen & betrouwbaarheid", folded, low on the page. */
+  sourcesPanel?: boolean | undefined;
 }) {
   const t = useTranslations("vintage");
   const tTasting = useTranslations("tasting");
@@ -108,6 +113,7 @@ export function VintageScreen({
   const extras = useExtras(initial.vintageId);
   const extrasOf = (bottleId: string) => extras.data?.items.find((e) => e.bottleId === bottleId);
   const insight = useInsight(initial.vintageId);
+  const wineSources = useWineSources(initial.wine.id, sourcesPanel);
   const money = useMoney(detail.currency ?? currency);
   const day = useDay();
 
@@ -709,6 +715,38 @@ export function VintageScreen({
               ))}
             </ol>
           </Section>
+        )}
+
+        {/* Where everything on this page comes from. Shown once the server said what may be credited. */}
+        {sourcesPanel && wineSources.data && (
+          <SourcesSection
+            view={wineSourcesView({
+              wine: {
+                type: wine.type,
+                countryCode: wine.countryCode,
+                region: wine.region,
+                appellation: wine.appellation,
+              },
+              data: wineSources.data,
+              drink: detail.drink,
+              insight: insight.data?.insight
+                ? {
+                    generatedAt: insight.data.insight.generatedAt,
+                    researched: insight.data.insight.output.researched,
+                    sources: insight.data.insight.output.sources,
+                  }
+                : null,
+              valuation: insight.data?.valuation ?? null,
+              ownValue: (insight.data?.myValueCents ?? null) !== null,
+              yours: {
+                bottles: detail.bottles.length,
+                opened: detail.opened.length,
+                tastings: detail.tastings.length,
+                prices: detail.bottles.filter((b) => b.priceCents !== null).length,
+                photos: (detail.image ? 1 : 0) + (detail.backImage ? 1 : 0),
+              },
+            })}
+          />
         )}
 
         {/* Completing the page: everything that could still be added, folded away so it never interrupts. */}

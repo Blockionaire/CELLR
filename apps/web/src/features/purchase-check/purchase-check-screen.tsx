@@ -134,9 +134,12 @@ const draftOfChoice = (c: {
  */
 export function PurchaseCheckScreen({
   catalogSearch = false,
+  sourcesPanel = false,
 }: {
   /** The `wine_search` feature: typing a wine starts with the database search ("Handmatig zoeken"). */
   catalogSearch?: boolean | undefined;
+  /** The `sources_panel` feature: the result also says what the catalogue's facts rest on. */
+  sourcesPanel?: boolean | undefined;
 }) {
   const t = useTranslations("purchaseCheck");
   const te = useTranslations();
@@ -258,6 +261,7 @@ export function PurchaseCheckScreen({
       {step.kind === "result" && (
         <ResultStep
           result={step.result}
+          sourcesPanel={sourcesPanel}
           onEdit={() => setStep({ kind: "confirm", recognition: null })}
           onRestart={restart}
         />
@@ -635,10 +639,12 @@ const VERDICT_TONE: Record<PurchaseCheckResult["verdict"], string> = {
 
 function ResultStep({
   result,
+  sourcesPanel,
   onEdit,
   onRestart,
 }: {
   result: PurchaseCheckResult;
+  sourcesPanel: boolean;
   onEdit: () => void;
   onRestart: () => void;
 }) {
@@ -769,6 +775,7 @@ function ResultStep({
         <KnowledgeSection
           knowledge={result.knowledge}
           vintageKnown={wine.year !== null || wine.nonVintage}
+          sourcesPanel={sourcesPanel}
         />
       )}
 
