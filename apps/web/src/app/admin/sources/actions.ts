@@ -80,12 +80,24 @@ export async function disableSourceAction(form: FormData) {
     .safeParse({ providerId: field(form, "providerId"), reason: field(form, "reason") });
   if (!parsed.success) return back("Not changed: a reason of at least three characters is needed.");
   const block = form.get("block") === "on";
+  // The outcome is decided first and the redirect made after it: `back()` redirects by throwing, so inside the
+  // `try` its own redirect was caught as if the database had failed, and every outcome read "could not be switched
+  // off" (found by the independent review).
+  let outcome: "done" | "missing" | "failed";
   try {
-    const done = await adminSources.disable(session, { ...parsed.data, block });
-    if (done !== true) return back("Not changed: the database step for this has not been taken.");
+    outcome =
+      (await adminSources.disable(session, { ...parsed.data, block })) === true
+        ? "done"
+        : "missing";
   } catch {
-    return back("Not changed: the source could not be switched off. Nothing was altered.");
+    outcome = "failed";
   }
+  if (outcome === "missing")
+    return back(
+      "Not changed: the database step for this has not been taken, or no service role is configured.",
+    );
+  if (outcome === "failed")
+    return back("Not changed: the source could not be switched off. Nothing was altered.");
   return back(
     block
       ? "Source switched off and blocked: it is out of search and credits, and cannot be imported."

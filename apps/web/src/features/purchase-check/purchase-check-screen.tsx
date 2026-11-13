@@ -249,7 +249,7 @@ export function PurchaseCheckScreen({
           onCompare={async (wine, priceCents) => {
             try {
               const result = await compare.mutateAsync({ wine, priceCents });
-              // counts and coarse labels only: no wine, no price, nothing about what the person likes
+              // counts and coarse labels only: no wine, no price, no advice, nothing about what the person likes
               track("purchase_check_completed", {
                 entry: chosen ? "search" : step.recognition?.wine ? "photo" : "typed",
                 knowledge: result.knowledge
@@ -257,8 +257,6 @@ export function PurchaseCheckScreen({
                   : result.knowledge === null
                     ? "none"
                     : "off",
-                verdict: result.verdict,
-                taste_fit: result.taste.fit,
                 priced: priceCents !== null,
               });
               setStep({ kind: "result", result });

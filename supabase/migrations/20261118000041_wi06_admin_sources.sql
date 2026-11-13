@@ -8,8 +8,8 @@
 --    optionally of one source only.
 -- 3. admin_catalog_record_flag(): "needs investigation": the link stays a suggestion (so nothing changes for
 --    people), the note is kept on it, and the audit log records who said so and why.
--- 4. admin_wine_intelligence_metrics(): counts of the new product events by a few coarse properties. No person, no
---    household, no text anyone typed: the events themselves hold none (see docs/METRICS.md).
+-- 4. admin_wine_intelligence_metrics(): counts of the new product events by a few coarse properties. No person and
+--    no household is joined, and an event's properties are treated as untrusted text (see the function).
 --
 -- Deliberately absent: any way to switch a source ON from the dashboard. Clearing a source for people stays a
 -- deliberate admin_catalog_provider_rights() call with evidence; the dashboard only narrows (the off switch of
@@ -113,7 +113,9 @@ end $$;
 -- "Needs investigation": nothing changes for people (a suggestion is never shown), the note stays on the link.
 create function public.admin_catalog_record_flag(p_record uuid, p_reason text, p_actor uuid) returns text
   language plpgsql security definer set search_path = '' as $$
-declare v_wine uuid; v_before jsonb; v_reason text := nullif(left(btrim(coalesce(p_reason, '')), 480), '');
+declare v_wine uuid; v_before jsonb;
+        -- 470 + the 21 characters of the prefix below stay inside the column's 500
+        v_reason text := nullif(left(btrim(coalesce(p_reason, '')), 470), '');
 begin
   if v_reason is null then raise exception 'a reason is required' using errcode = '22023'; end if;
   select l.wine_id, to_jsonb(l) - 'record_id' into v_wine, v_before
@@ -126,60 +128,77 @@ begin
   return 'ok';
 end $$;
 
--- Counts only. The events carry no query text, no wine, no person's taste (docs/METRICS.md); this adds no join to
--- people or households, and a property value is only ever one of a short fixed list set by the app.
+-- Counts only, and robust against anything a signed-in person can write. An event row is written by its own user
+-- (through the app, or straight into the table, which the grant of 20261010000006 allows), so its properties are
+-- UNTRUSTED text: a value is counted under its own name only when it is one of the fixed words the app sends, and as
+-- 'other' otherwise; a number is clamped before it is added. One hostile row can therefore add at most 1 to a count
+-- and 50 to "requests": it cannot break the page or put its own text on it. No person and no household is joined.
+create function private.wi_label(p_value jsonb, p_allowed text[], p_missing text) returns text
+  language sql immutable set search_path = '' as $$
+  select case when p_value is null or jsonb_typeof(p_value) = 'null' then p_missing
+              when jsonb_typeof(p_value) = 'string' and (p_value #>> '{}') = any (p_allowed) then p_value #>> '{}'
+              else 'other' end
+$$;
+revoke all on function private.wi_label(jsonb, text[], text) from public, anon, authenticated;
+
 create function public.admin_wine_intelligence_metrics(p_days int default 30) returns jsonb
   language sql stable security definer set search_path = '' as $$
   with since as (select now() - make_interval(days => least(greatest(coalesce(p_days, 30), 1), 365)) as t),
   ev as (
     select e.name, e.props from public.analytics_events e, since
-     where e.at >= since.t
-       and e.name in ('wine_search_session', 'purchase_check_completed', 'wine_scan_completed'))
+     where e.at >= since.t and jsonb_typeof(e.props) = 'object'
+       and e.name in ('wine_search_session', 'purchase_check_completed', 'wine_scan_completed')),
+  search as (
+    select private.wi_label(props->'surface', array['add', 'koopcheck', 'scan'], 'unknown') as surface,
+           private.wi_label(props->'outcome', array['selected', 'left'], 'unknown') as outcome,
+           private.wi_label(props->'source', array['owned', 'household', 'catalog', 'provider', 'local'], 'none') as source,
+           private.wi_label(props->'rank', array['1', '2_3', '4_8', '9_plus', 'none'], 'none') as rank,
+           private.wi_label(props->'slowest', array['under_250ms', 'under_700ms', 'under_1500ms', 'over_1500ms'], 'none') as slowest,
+           -- a number between 0 and 50, whatever was sent
+           case when jsonb_typeof(props->'requests') = 'number'
+                then least(greatest((props->>'requests')::numeric, 0), 50) else 0 end as requests,
+           props->'zero_results' = 'true'::jsonb as zero_results,
+           props->'limited' = 'true'::jsonb as limited,
+           props->'failed' = 'true'::jsonb as failed
+      from ev where name = 'wine_search_session'),
+  checks as (
+    select private.wi_label(props->'knowledge', array['vintage_profile', 'stable_facts', 'catalog_only', 'none', 'off'], 'off') as knowledge,
+           private.wi_label(props->'entry', array['photo', 'search', 'typed'], 'unknown') as entry
+      from ev where name = 'purchase_check_completed'),
+  scans as (
+    select private.wi_label(props->'resolution', array['exact_candidate', 'ambiguous', 'not_found'], 'not_recorded') as resolution
+      from ev where name = 'wine_scan_completed')
   select jsonb_build_object(
     'days', least(greatest(coalesce(p_days, 30), 1), 365),
     'search', (select jsonb_build_object(
         'sessions', count(*),
-        'requests', coalesce(sum(case when jsonb_typeof(props->'requests') = 'number' then (props->>'requests')::numeric end), 0),
-        'withSelection', count(*) filter (where props->>'outcome' = 'selected'),
-        'endedNew', count(*) filter (where props->>'outcome' = 'new_wine'),
-        'abandoned', count(*) filter (where props->>'outcome' = 'left'),
-        'zeroResult', count(*) filter (where (props->>'zero_results')::text = 'true'),
-        'limited', count(*) filter (where (props->>'limited')::text = 'true'),
-        'failed', count(*) filter (where (props->>'failed')::text = 'true'),
-        'bySurface', (select coalesce(jsonb_object_agg(s.k, s.n), '{}'::jsonb) from (
-            select coalesce(props->>'surface', 'unknown') as k, count(*) as n from ev
-             where name = 'wine_search_session' group by 1) s),
-        'bySource', (select coalesce(jsonb_object_agg(s.k, s.n), '{}'::jsonb) from (
-            select coalesce(props->>'source', 'none') as k, count(*) as n from ev
-             where name = 'wine_search_session' and props->>'outcome' = 'selected' group by 1) s),
-        'byRank', (select coalesce(jsonb_object_agg(s.k, s.n), '{}'::jsonb) from (
-            select coalesce(props->>'rank', 'none') as k, count(*) as n from ev
-             where name = 'wine_search_session' and props->>'outcome' = 'selected' group by 1) s),
-        'bySlowest', (select coalesce(jsonb_object_agg(s.k, s.n), '{}'::jsonb) from (
-            select coalesce(props->>'slowest', 'none') as k, count(*) as n from ev
-             where name = 'wine_search_session' group by 1) s))
-      from ev where name = 'wine_search_session'),
+        'requests', coalesce(sum(requests), 0),
+        'withSelection', count(*) filter (where outcome = 'selected'),
+        'abandoned', count(*) filter (where outcome = 'left'),
+        'zeroResult', count(*) filter (where zero_results),
+        'limited', count(*) filter (where limited),
+        'failed', count(*) filter (where failed),
+        'bySurface', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb)
+                        from (select surface as k, count(*) as n from search group by 1) s),
+        'bySource', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb)
+                       from (select source as k, count(*) as n from search where outcome = 'selected' group by 1) s),
+        'byRank', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb)
+                     from (select rank as k, count(*) as n from search where outcome = 'selected' group by 1) s),
+        'bySlowest', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb)
+                        from (select slowest as k, count(*) as n from search group by 1) s))
+      from search),
     'purchaseCheck', (select jsonb_build_object(
         'completed', count(*),
-        'byKnowledge', (select coalesce(jsonb_object_agg(s.k, s.n), '{}'::jsonb) from (
-            select coalesce(props->>'knowledge', 'off') as k, count(*) as n from ev
-             where name = 'purchase_check_completed' group by 1) s),
-        'byVerdict', (select coalesce(jsonb_object_agg(s.k, s.n), '{}'::jsonb) from (
-            select coalesce(props->>'verdict', 'unknown') as k, count(*) as n from ev
-             where name = 'purchase_check_completed' group by 1) s),
-        'byTasteFit', (select coalesce(jsonb_object_agg(s.k, s.n), '{}'::jsonb) from (
-            select coalesce(props->>'taste_fit', 'unknown') as k, count(*) as n from ev
-             where name = 'purchase_check_completed' group by 1) s),
-        'byEntry', (select coalesce(jsonb_object_agg(s.k, s.n), '{}'::jsonb) from (
-            select coalesce(props->>'entry', 'unknown') as k, count(*) as n from ev
-             where name = 'purchase_check_completed' group by 1) s))
-      from ev where name = 'purchase_check_completed'),
+        'byKnowledge', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb)
+                          from (select knowledge as k, count(*) as n from checks group by 1) s),
+        'byEntry', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb)
+                      from (select entry as k, count(*) as n from checks group by 1) s))
+      from checks),
     'scan', (select jsonb_build_object(
         'completed', count(*),
-        'byResolution', (select coalesce(jsonb_object_agg(s.k, s.n), '{}'::jsonb) from (
-            select coalesce(props->>'resolution', 'not_recorded') as k, count(*) as n from ev
-             where name = 'wine_scan_completed' group by 1) s))
-      from ev where name = 'wine_scan_completed'))
+        'byResolution', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb)
+                           from (select resolution as k, count(*) as n from scans group by 1) s))
+      from scans))
 $$;
 
 revoke all on function public.admin_catalog_sources_overview(),

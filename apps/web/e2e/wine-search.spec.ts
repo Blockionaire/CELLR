@@ -294,41 +294,53 @@ test.describe("wine search: adding a bottle", () => {
     page,
   }) => {
     const m = marker();
-    const ext = await seedProviderRecord(m);
+    const first = await seedProviderRecord(`${m}a`);
+    const second = await seedProviderRecord(`${m}b`);
     const { householdId } = await arrive(page, "stale");
     const before = await counts(householdId);
     await page.goto("/cellar/add");
-    const query = `tinto fixture ${m}`;
     let requests = 0;
     page.on("request", (r) => {
       if (r.url().includes("/api/v1/catalog/search")) requests++;
     });
-    await combobox(page).fill(query);
-    const row = options(page).filter({ hasText: ext.providerName });
-    await expect(row).toHaveCount(1);
+    const off = (provider: string) =>
+      sql("select public.admin_catalog_provider_disable($1, $2, $3, true)", [
+        provider,
+        "rights withdrawn (e2e)",
+        "e2e",
+      ]);
+    const ready = () =>
+      expect(page.getByTestId("wine-search")).toHaveAttribute("data-status", "ready");
 
-    // the source loses its rights while its record is still on this screen
-    await sql("select public.admin_catalog_provider_disable($1, $2, $3, true)", [
-      ext.provider,
-      "rights withdrawn (e2e)",
-      "e2e",
-    ]);
-    // choosing it asks the server first: it is gone, so it is not used, the list is refreshed and the screen says so
-    await row.click();
-    await expect(page.getByTestId("wine-search-withdrawn")).toBeVisible();
-    await expect(options(page).filter({ hasText: ext.providerName })).toHaveCount(0);
-    await expect(page.getByTestId("wine-search")).toBeVisible(); // the "new wine" form did not open
-    await expect(combobox(page)).toHaveValue(query);
-
-    // the very same search again, well inside a minute: asked again, never served from the browser's memory
+    // 1. The same search again, well inside a minute: an answer that held an external record is never served from
+    //    the browser's memory, so the server is asked again and the withdrawn record is gone.
+    const queryA = `tinto fixture ${m}a`;
+    await combobox(page).fill(queryA);
+    await expect(options(page).filter({ hasText: first.providerName })).toHaveCount(1);
+    await off(first.provider);
     const asked = requests;
     await combobox(page).fill("");
-    await combobox(page).fill(query);
-    await expect(page.getByTestId("wine-search")).toHaveAttribute("data-status", "ready");
-    expect(requests).toBeGreaterThan(asked);
-    await expect(options(page).filter({ hasText: ext.providerName })).toHaveCount(0);
-    await expect(page.getByTestId("wine-search-withdrawn")).toHaveCount(0); // said once, until the person types
-    expect(await counts(householdId)).toEqual(before); // nothing was created from the withdrawn record
+    await combobox(page).fill(queryA);
+    await ready();
+    await expect.poll(() => requests).toBeGreaterThan(asked);
+    await expect(options(page).filter({ hasText: first.providerName })).toHaveCount(0);
+
+    // 2. A record that is still on screen when its source is switched off: choosing it asks the server first. It is
+    //    gone, so it is not used; the list shows the fresh answer and the screen says so.
+    const queryB = `tinto fixture ${m}b`;
+    await combobox(page).fill(queryB);
+    const row = options(page).filter({ hasText: second.providerName });
+    await expect(row).toHaveCount(1);
+    await off(second.provider);
+    await row.click();
+    await expect(page.getByTestId("wine-search-withdrawn")).toBeVisible();
+    await expect(options(page).filter({ hasText: second.providerName })).toHaveCount(0);
+    await expect(page.getByTestId("wine-search")).toBeVisible(); // the "new wine" form did not open
+    await expect(combobox(page)).toHaveValue(queryB);
+    // said once: it goes when the person types again
+    await combobox(page).fill(`${queryB} x`);
+    await expect(page.getByTestId("wine-search-withdrawn")).toHaveCount(0);
+    expect(await counts(householdId)).toEqual(before); // nothing was created from a withdrawn record
   });
 });
 

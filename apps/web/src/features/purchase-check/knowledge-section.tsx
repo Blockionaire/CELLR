@@ -108,7 +108,13 @@ export function KnowledgeSection({
       )}
 
       {sourcesPanel && sources.data?.catalog && (
-        <details className="group/pcsrc" data-testid="pc-sources">
+        <details
+          className="group/pcsrc"
+          data-testid="pc-sources"
+          onToggle={(event) => {
+            if (event.currentTarget.open) void sources.refetch();
+          }}
+        >
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 text-small font-medium text-accent-fg [&::-webkit-details-marker]:hidden">
             {tSources("catalogTitle")}
           </summary>

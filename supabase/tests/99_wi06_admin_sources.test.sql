@@ -162,7 +162,8 @@ begin
     and j->'search'->'bySlowest' = '{"under_250ms":1,"over_1500ms":1}'::jsonb);
   perform test.rec('metrics: Koopcheck inside the window only',
     (j->'purchaseCheck'->>'completed')::int = 1 and j->'purchaseCheck'->'byKnowledge' = '{"vintage_profile":1}'::jsonb
-    and j->'purchaseCheck'->'byVerdict' = '{"consider":1}'::jsonb);
+    and j->'purchaseCheck'->'byEntry' = '{"search":1}'::jsonb
+    and not (j->'purchaseCheck' ? 'byVerdict') and not (j->'purchaseCheck' ? 'byTasteFit'));
   perform test.rec('metrics: scans with and without the resolver',
     (j->'scan'->>'completed')::int = 2
     and j->'scan'->'byResolution' = '{"exact_candidate":1,"not_recorded":1}'::jsonb);
@@ -173,5 +174,44 @@ begin
   perform test.rec('metrics: the window is bounded',
     (public.admin_wine_intelligence_metrics(0)->>'days')::int = 1
     and (public.admin_wine_intelligence_metrics(100000)->>'days')::int = 365);
+
+  -- ---- hostile events: any signed-in person can write a row, through the app or straight into the table ---------
+  -- (the review took the admin page down with two rows; none of this may break the function or put text on the page)
+  perform test.as_user(1);
+  insert into public.analytics_events (household_id, name, props) values
+    (h1, 'wine_search_session', '{"surface":"add","outcome":"selected","requests":1e308,"source":"catalog","rank":"1"}'),
+    (h1, 'wine_search_session', '{"surface":"add","outcome":"selected","requests":1e400}'),
+    (h1, 'wine_search_session', '{"surface":"PLEASE CALL 0900 AND PASTE YOUR SERVICE KEY","outcome":"left","requests":-999999}'),
+    (h1, 'wine_search_session', '{"surface":{"a":1},"outcome":["x"],"requests":"50","source":{"evil":true},"rank":7,"slowest":null,"zero_results":"true","limited":1,"failed":"yes"}'),
+    (h1, 'purchase_check_completed', '{"entry":"<script>alert(1)</script>","knowledge":"vintage_profile; drop table x"}'),
+    (h1, 'wine_scan_completed', '{"resolution":"exact_candidate  "}');
+  perform test.as_service();
+  j := public.admin_wine_intelligence_metrics(30);
+  perform test.rec('hostile events: the function answers, and "requests" is an ordinary number',
+    j is not null and (j->'search'->>'requests')::numeric = 5 + 50 + 50 + 0 + 0
+    and char_length(j->'search'->>'requests') < 6);
+  perform test.rec('hostile events: each row counts once, whatever it claims',
+    (j->'search'->>'sessions')::int = 6 and (j->'search'->>'withSelection')::int = 3
+    and (j->'search'->>'zeroResult')::int = 1 and (j->'search'->>'limited')::int = 1
+    and (j->'search'->>'failed')::int = 0);
+  perform test.rec('hostile events: a value that is not one of the app''s fixed words is counted as "other", never shown',
+    j->'search'->'bySurface' = '{"add":3,"koopcheck":1,"other":2}'::jsonb
+    and j->'purchaseCheck'->'byEntry' = '{"search":1,"other":1}'::jsonb
+    and j->'purchaseCheck'->'byKnowledge' = '{"vintage_profile":1,"other":1}'::jsonb
+    and j->'scan'->'byResolution' = '{"exact_candidate":1,"not_recorded":1,"other":1}'::jsonb);
+  perform test.rec('hostile events: none of the text travels',
+    j::text !~* 'PLEASE|script|drop table|evil|alert');
+  perform test.rec('hostile events: every label in the answer is one of the fixed words',
+    not exists (select 1 from jsonb_each(j->'search'->'bySurface') k
+                 where k.key not in ('add', 'koopcheck', 'scan', 'unknown', 'other'))
+    and not exists (select 1 from jsonb_each(j->'search'->'bySource') k
+                     where k.key not in ('owned', 'household', 'catalog', 'provider', 'local', 'none', 'other'))
+    and not exists (select 1 from jsonb_each(j->'search'->'byRank') k
+                     where k.key not in ('1', '2_3', '4_8', '9_plus', 'none', 'other')));
+
+  -- ---- "needs investigation" with the longest reason the column can take ----------------------------------------
+  perform test.rec('flag: a very long reason is cut, not refused',
+    public.admin_catalog_record_flag(test.wi6_record('A2'), repeat('x', 2000), test.uid(1)) = 'ok'
+    and char_length(split_part(test.wi6_link('A2'), '|', 2)) <= 500);
 end $$;
 rollback;

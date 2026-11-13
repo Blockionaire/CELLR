@@ -199,7 +199,9 @@ test.describe("sources and reliability", () => {
     const yours = page.getByTestId("sources-yours");
     await expect(yours).toContainText("2 bottles in the cellar");
     await expect(yours).toContainText("2 purchase prices");
-    await expect(yours).toContainText("visible to your household only");
+    // no promise about who can see it that the app does not keep: friends see what the person shares in Profile
+    await expect(yours).toContainText("not part of the shared CELLR catalogue");
+    await expect(yours).not.toContainText("household only");
     // nothing of a source is loaded: no image, frame or script from outside the app
     expect(await section.locator("img, iframe, script").count()).toBe(0);
     expect(await audit(page)).toEqual([]);

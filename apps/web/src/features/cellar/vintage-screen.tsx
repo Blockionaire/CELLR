@@ -720,6 +720,7 @@ export function VintageScreen({
         {/* Where everything on this page comes from. Shown once the server said what may be credited. */}
         {sourcesPanel && wineSources.data && (
           <SourcesSection
+            onOpen={() => void wineSources.refetch()}
             view={wineSourcesView({
               wine: {
                 type: wine.type,

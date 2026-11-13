@@ -134,6 +134,24 @@ because they fail closed; the platform-wide ceiling does not.
   words; no typed text, wine, source, price or taste. Not sent under Do Not Track / GPC. The admin function that
   counts them joins no person or household.
 
+### What the browser may still show after a source is switched off
+
+The server is the authority and answers at once: `catalog_search`, `catalog_record_provenance` and
+`wine_source_notices` read the source's rights and scope on every call; API answers are `Cache-Control: no-store`;
+the service worker never stores API answers; nothing is written to local or session storage. What remains is the
+memory of an open page:
+
+| Where                                    | Before the hardening round                   | Now                                                                                                                      |
+| ---------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Search results in an open field          | remembered for 60 s per query                | an answer that holds an external record is **not remembered**; the same search asks the server again                     |
+| Choosing an external record on screen    | used as shown                                | the server is asked first; gone, offline or rate-limited means it is **not used**, and the screen says so                |
+| Credits on an open wine page / Koopcheck | 5 minutes, and not refreshed on an idle page | asked again when the section is opened, when the page or window is opened again after 15 s, and every 60 s while visible |
+| A form already filled from a record      | stays (the person is editing it)             | unchanged: what the person has confirmed and typed is theirs; it is saved as their own wine, with no source              |
+
+So the longest a withdrawn source's **credit** can stay on screen is 60 s on a page left open and visible; a
+withdrawn **record** cannot be chosen at all. A record's text that is already on screen stays until the next
+keystroke or the next answer. This is a reduction of an exposure window, not a guarantee about pixels already drawn.
+
 ### Retention and deletion of what this epic added
 
 | Data                                          | Where                                  | Kept until                                                                 | Deleted with                                                              |

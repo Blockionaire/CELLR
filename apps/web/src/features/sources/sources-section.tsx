@@ -26,13 +26,30 @@ import { ChevronRightIcon } from "@/ui/icons";
  * Links open outside the app, carry no referrer, and nothing of a source is loaded: no logo, no image, no script.
  */
 
+/**
+ * How long a credit may be shown from the browser's memory. A source can be switched off at any moment (its rights
+ * withdrawn); the server stops crediting it at once, so what matters here is how soon an open page asks again:
+ *  - older than `freshMs` when the section is opened, the page is opened again or the window gets the focus: asked
+ *    again before it is trusted;
+ *  - an open, visible page asks again every `everyMs` by itself.
+ * So a withdrawn source's credit can stay on an open page for at most `everyMs`, and is never brought back from
+ * memory after `freshMs`. Nothing is stored beyond the page (responses are `no-store`; the service worker never
+ * keeps API answers).
+ */
+export const SOURCES_FRESHNESS = { freshMs: 15_000, everyMs: 60_000 } as const;
+
 /** What the server adds (catalogue check pages, cleared external sources) for one wine; off = nothing is asked. */
 export function useWineSources(wineId: string | null, enabled: boolean) {
   return useQuery({
     queryKey: ["wine-sources", wineId],
     queryFn: () => api.get<WineSourcesData>(`/wines/${wineId}/sources`),
     enabled: enabled && wineId !== null,
-    staleTime: 5 * 60_000,
+    staleTime: SOURCES_FRESHNESS.freshMs,
+    gcTime: SOURCES_FRESHNESS.everyMs,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: SOURCES_FRESHNESS.everyMs,
+    refetchIntervalInBackground: false,
     retry: false,
   });
 }
@@ -170,7 +187,14 @@ export function SourceIdentity({ identity }: { identity: WineSourcesView["identi
   );
 }
 
-export function SourcesSection({ view }: { view: WineSourcesView }) {
+export function SourcesSection({
+  view,
+  onOpen,
+}: {
+  view: WineSourcesView;
+  /** The section was opened: the moment to ask the server again what may be credited. */
+  onOpen?: (() => void) | undefined;
+}) {
   const t = useTranslations("sources");
   const tCheck = useTranslations("purchaseCheck");
   const locale = useLocale();
@@ -181,7 +205,13 @@ export function SourcesSection({ view }: { view: WineSourcesView }) {
     field === "type" ? tCheck("type") : field === "countryCode" ? tCheck("country") : tCheck(field);
 
   return (
-    <details className="group/sources border-t border-hairline py-5" data-testid="sources">
+    <details
+      className="group/sources border-t border-hairline py-5"
+      data-testid="sources"
+      onToggle={(event) => {
+        if (event.currentTarget.open) onOpen?.();
+      }}
+    >
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <span>
           <span className="block font-display text-headline text-ink">{t("title")}</span>

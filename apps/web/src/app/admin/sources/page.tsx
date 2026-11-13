@@ -77,7 +77,9 @@ export default async function AdminSourcesPage({
   const [sources, queue, metrics] = await Promise.all([
     adminSources.overview(session),
     adminSources.links(session, state, page, PAGE_SIZE, source),
-    adminSources.metrics(session, 30),
+    // The counts are a convenience: if they cannot be read (or do not have the expected shape), the rest of the
+    // page, the off switch included, must still work.
+    adminSources.metrics(session, 30).catch(() => null),
   ]);
   const blocked =
     sources === "missing" || queue === "missing"
@@ -100,7 +102,7 @@ export default async function AdminSourcesPage({
         crumbs={[{ label: "External sources" }]}
         note="Wine datasets from outside CELLR: their rights, what was imported, and which of their records are the same wine as a catalogue wine."
       />
-      <Message text={first(params.msg) ?? null} />
+      <Message text={first(params.msg)?.slice(0, 300) ?? null} />
       <Notice testId="rights-notice">
         <span className="font-semibold">Clearing a source is a human decision.</span> Whether a
         licence allows CELLR to store, show and commercially use a dataset is checked by a person
@@ -186,7 +188,7 @@ export default async function AdminSourcesPage({
 
       <Section
         title="Use of search, scan matching and Koopcheck (30 days)"
-        note="Counts of anonymous events only. They never hold what someone typed, a wine, a price or a person's taste, and are not sent at all under Do Not Track."
+        note="Counts of product events only: how often, and a few fixed labels. Like every product event they are stored with the account that sent them, but they never hold what someone typed, a wine, a source, a price, an advice or a rating, and they are not sent at all under Do Not Track. A label that is not one the app sends is counted as other."
       >
         <Metrics metrics={typeof metrics === "object" && metrics ? metrics : null} />
       </Section>
@@ -501,10 +503,8 @@ function Metrics({ metrics }: { metrics: IntelligenceMetrics | null }) {
           <dd>{spread(purchaseCheck?.byKnowledge ?? {})}</dd>
         </div>
         <div>
-          <dt className="font-medium text-ink">Koopcheck: advice / taste evidence</dt>
-          <dd>
-            {spread(purchaseCheck?.byVerdict ?? {})} — {spread(purchaseCheck?.byTasteFit ?? {})}
-          </dd>
+          <dt className="font-medium text-ink">Koopcheck: how the wine was entered</dt>
+          <dd>{spread(purchaseCheck?.byEntry ?? {})}</dd>
         </div>
         <div>
           <dt className="font-medium text-ink">Scan: how the match ended (resolver on)</dt>

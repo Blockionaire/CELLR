@@ -118,7 +118,6 @@ export const IntelligenceMetricsSchema = z.object({
       sessions: z.number(),
       requests: z.number(),
       withSelection: z.number(),
-      endedNew: z.number(),
       abandoned: z.number(),
       zeroResult: z.number(),
       limited: z.number(),
@@ -133,8 +132,6 @@ export const IntelligenceMetricsSchema = z.object({
     .object({
       completed: z.number(),
       byKnowledge: Counts,
-      byVerdict: Counts,
-      byTasteFit: Counts,
       byEntry: Counts,
     })
     .nullable(),

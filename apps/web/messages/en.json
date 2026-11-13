@@ -2062,7 +2062,7 @@
       "own_window": "your own drinking window",
       "own_value": "your own value"
     },
-    "yoursPrivate": "Recorded by your household and visible to your household only.",
+    "yoursPrivate": "Recorded by your household. It is not part of the shared CELLR catalogue; friends see only what you share with them in Profile.",
     "catalogTitle": "Source of the wine details"
   }
 }

@@ -68,7 +68,11 @@ Two first requests for the same catalogue vintage, seconds apart, both paid for 
   first version did not do this; the independent review found it: `progress/WI-04-review.md`, finding 1.)
 - A claim whose request died expires by itself (120 s by default, bounded 10–600 s). That is longer than a research
   call can take (60 s, plus at most 40 s for its one retry), so a live request never loses its claim.
-- A claim holds a vintage id, a language and a time: no household, no person.
+- **A claim has an owner.** Taking it returns a random token; only that token gives the claim back. A request that
+  was slow enough to lose its claim (expired, taken over), or that never held one (its own claim call failed and it
+  went ahead, as designed), gives nothing back. Before this, both could delete another request's claim, after which
+  a third request researched in parallel with the real owner (hardening round, `progress/WI-08-hardening.md`).
+- A claim holds a vintage id, a language, a time and that token: no household, no person.
 - It is taken only for a vintage whose profile can be shared (canonical wine, canonical producer). For anything else
   the answer is "go ahead" and nothing is written.
 - If the claim cannot be asked (function not deployed, database error) research goes ahead as before.
