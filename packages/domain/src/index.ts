@@ -37,3 +37,4 @@ export * from "./purchase-check";
 export * from "./catalog-search";
 export * from "./catalog-providers";
 export * from "./provenance";
+export * from "./features";

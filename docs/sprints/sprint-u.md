@@ -66,6 +66,11 @@ sort by vintage count ~275 ms; work queue ~45 ms.
 
 ## Known limitation (pre-existing)
 
+> **Resolved after this sprint** (commit `5031f46`, 2026-11-02): the proxy now checks admins, so a signed-in
+> non-admin gets a real HTTP 404 and an anonymous request is redirected to sign-in. Verified on 2026-11-13 by
+> `e2e/admin-http.spec.ts` (3 passed, local stack); see `docs/sprints/wine-intelligence-mega/progress/WI-00.md`.
+> The text below describes the state at the time of Sprint U.
+
 For a signed-in person who is not an admin, admin pages render the "not found" page but answer HTTP 200, not 404. No
 admin data is shown. The cause is the root streaming boundary (`app/loading.tsx`), which sends the shell before the
 admin layout's `notFound()`. It reproduces on `main` before this sprint and fails `feedback.spec` and
