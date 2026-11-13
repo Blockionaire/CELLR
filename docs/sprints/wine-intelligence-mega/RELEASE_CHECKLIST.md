@@ -1,6 +1,11 @@
 # WI-001 — Release checklist (owner only)
 
-**State: `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED` — deployment of this epic is BLOCKED until Part A is done.**
+**State: `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED` — the migrations of this epic are BLOCKED until Part A is done.**
+
+**Merging is deploying.** Vercel builds production from `main` (`docs/BETA-OPERATIONS.md` §5), so the merge in B1
+puts this epic's app code on production before its migrations. That is the order this checklist assumes, and
+`BETA-OPERATIONS.md` calls it forgiving; what the app does in between is in B1. The verdicts per step are in
+[`progress/WI-08-hardening.md`](progress/WI-08-hardening.md) §7.
 
 Nothing in this file was executed by the coding agent. No command here was run against production, staging or any
 hosted project during the epic. Every step is for the owner, on their own machine, with their own credentials.
@@ -52,33 +57,38 @@ matches, include it in A5 (`awk '$1 <= 20261114000037'`); if not, follow `MIGRAT
 
 ## Part B — Apply the new migrations (the normal workflow, `MIGRATIONS.md` §2)
 
-| #   | Step                                                                                                                        | Must show                                          |
-| --- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| B1  | The release commit is merged to `main` by the owner; CI is green, including the migration-integrity job                     | green                                              |
-| B2  | `pnpm exec supabase db push --linked --dry-run`                                                                             | exactly the migrations listed in `FINAL_REPORT.md` |
-| B3  | `pnpm exec supabase db push --linked`                                                                                       | applied, no error                                  |
-| B4  | `bash scripts/migration-audit/compare.sh --target "$DATABASE_URL" --accept scripts/migration-audit/production-accepted.txt` | `RESULT: equivalent`                               |
-| B5  | `psql "$DATABASE_URL" -Atc "select private.catalog_environment()"`                                                          | `production`                                       |
-| B6  | `psql "$DATABASE_URL" -Atc "select count(*) from public.catalog_providers where search_scope <> 'off'"`                     | `0`                                                |
-| B7  | Deploy the app. `CELLR_FEATURES` stays unset: every flow behaves as before.                                                 | smoke: sign in, add a bottle, scan, Koopcheck      |
+| #   | Step                                                                                                                                                                                                                                                                                                                                        | Must show                                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| B1  | The release commit is merged to `main` by the owner; CI is green, including the migration-integrity job. **This deploys the app**, every switch off. Until B3 every flow works as today (tested on a database without these migrations: `progress/WI-08-hardening.md` §6); Admin → External sources says its database step has not been run | green; smoke: sign in, add a bottle, scan, Koopcheck |
+| B2  | `pnpm exec supabase db push --linked --dry-run`                                                                                                                                                                                                                                                                                             | exactly the migrations listed in `FINAL_REPORT.md`   |
+| B3  | `pnpm exec supabase db push --linked`                                                                                                                                                                                                                                                                                                       | applied, no error                                    |
+| B4  | `bash scripts/migration-audit/compare.sh --target "$DATABASE_URL" --accept scripts/migration-audit/production-accepted.txt`                                                                                                                                                                                                                 | `RESULT: equivalent`                                 |
+| B5  | `psql "$DATABASE_URL" -Atc "select private.catalog_environment()"`                                                                                                                                                                                                                                                                          | `production`                                         |
+| B6  | `psql "$DATABASE_URL" -Atc "select count(*) from public.catalog_providers where search_scope <> 'off'"`                                                                                                                                                                                                                                     | `0`                                                  |
+| B7  | The app is already deployed (B1). `CELLR_FEATURES` stays unset: every flow behaves as before. Open Admin → External sources                                                                                                                                                                                                                 | the page loads and lists no source that is shown     |
 
 Migrations are forward-only: if the app misbehaves, roll back the **app** (`BETA-OPERATIONS.md` §5) and leave the
 schema. Every migration of this epic is additive; the previous app version does not use the new objects.
 
 The migrations of this epic, in order (B2 must list exactly these, after `20261114000037`):
 `20261115000038_wi01_provider_lifecycle`, `20261116000039_wi04_profile_research_claim`,
-`20261117000040_wi05_wine_source_notices`, `20261118000041_wi06_admin_sources`. After B3, with every switch still
+`20261117000040_wi05_wine_source_notices`, `20261118000041_wi06_admin_sources`,
+`20261119000042_hardening_search_scope_link_review`. After B3, with every switch still
 off, two things are live: Admin → External sources, and the research claim (two simultaneous first profile requests
 research once).
 
 ## Part C — Switch features on (one at a time, each reversible by removing its name)
 
-| #   | `CELLR_FEATURES` value (cumulative)                      | Check before the next step                                                           |
-| --- | -------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| C1  | `wine_search`                                            | add a bottle by typing; Koopcheck "Handmatig zoeken"; no provider rows in results    |
-| C2  | `wine_search,sources_panel`                              | a wine page shows its sources; a typed wine shows only "Door jullie ingevoerd"       |
-| C3  | `wine_search,sources_panel,scan_resolver`                | scan a known wine and an unknown one; `/admin/ai` recognition numbers look as before |
-| C4  | `wine_search,sources_panel,scan_resolver,purchase_intel` | Koopcheck on a catalogue wine with a shared profile shows it, with no AI usage row   |
+Verdicts and their reasons: `progress/WI-08-hardening.md` §7.2. In short: C1, C2 and C3 are a conditional GO after
+Part B; **C4 (`scan_resolver`) is a NO-GO until real label photos and a real iPhone have been through it**. The
+values below are cumulative.
+
+| #   | `CELLR_FEATURES` value (cumulative)                      | Check before the next step                                                                                                                     |
+| --- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1  | `wine_search`                                            | add a bottle by typing; Koopcheck "Handmatig zoeken"; no provider rows in results                                                              |
+| C2  | `wine_search,sources_panel`                              | a wine page shows its sources; a typed wine shows only "Door jullie ingevoerd"                                                                 |
+| C3  | `wine_search,sources_panel,purchase_intel`               | Koopcheck on a catalogue wine with a shared profile shows it, with no AI usage row                                                             |
+| C4  | `wine_search,sources_panel,purchase_intel,scan_resolver` | **only after `REAL_LABEL_VALIDATION_PENDING` is lifted**: scan a known wine and an unknown one; `/admin/ai` recognition numbers look as before |
 
 ## Part D — Not part of any release without a separate, explicit decision
 
@@ -92,4 +102,5 @@ research once).
 - [ ] Sending the Liv-ex and X-Wines e-mails (drafts only, in this folder).
 - [ ] **R-27:** decide whether a wine created from a source's record keeps that record's id, so its page can credit
       the source (`progress/WI-05.md` §7). Needed before any source is shown to people.
-- [ ] Before `wine_search` goes on for people: update the eight specs bound to the old selectors (`progress/WI-02.md` §4).
+- [x] The existing specs bound to the old selectors hold with the features on or off (`progress/WI-08-hardening.md`
+      §4). To run the whole suite against a build with every feature on: Actions → CI → Run workflow → features `on`.

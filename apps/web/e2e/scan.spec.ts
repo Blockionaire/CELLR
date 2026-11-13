@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { apiClient, arrive, audit, makeJpeg, sql, STACK } from "./helpers";
+import { apiClient, arrive, audit, makeJpeg, sql, STACK, chooseFile } from "./helpers";
 
 const shot = (name: string) => `test-results/shots/${name}.png`;
 const project = () => test.info().project.name;
@@ -53,10 +53,11 @@ async function furnish(page: Page, request: Parameters<typeof apiClient>[0], who
 
 /** Takes a photo: the first file chooser on the page is the camera one. */
 const takePhoto = async (page: Page, photo: Buffer, name = "IMG_0001.jpg") =>
-  page
-    .locator('input[type="file"]')
-    .first()
-    .setInputFiles({ name, mimeType: "image/jpeg", buffer: photo });
+  chooseFile(page.locator('input[type="file"]').first(), {
+    name,
+    mimeType: "image/jpeg",
+    buffer: photo,
+  });
 
 test.describe("scanning a label", () => {
   test("a wine you already have: we find it, you say how many and where, and the photo goes with the bottles", async ({
@@ -305,14 +306,11 @@ test.describe("scanning a label", () => {
       return route.continue();
     });
     await page.goto("/scan");
-    await page
-      .locator('input[type="file"]')
-      .first()
-      .setInputFiles({
-        name: "notes.jpg",
-        mimeType: "image/jpeg",
-        buffer: Buffer.from("just some words"),
-      });
+    await chooseFile(page.locator('input[type="file"]').first(), {
+      name: "notes.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from("just some words"),
+    });
     await expect(page.getByText("We couldn’t open that photo. Try another one.")).toBeVisible();
     expect(sent).toBe(0);
   });
@@ -391,7 +389,7 @@ test.describe("several bottles in a row", () => {
     await page.waitForLoadState("networkidle");
     await page.getByRole("radio", { name: "Batch" }).click();
     // Two photos picked from the library at once.
-    await page.locator('input[type="file"]:not([capture])').setInputFiles([
+    await chooseFile(page.locator('input[type="file"]:not([capture])'), [
       { name: "a.jpg", mimeType: "image/jpeg", buffer: await makeJpeg(page, first) },
       { name: "b.jpg", mimeType: "image/jpeg", buffer: await makeJpeg(page, second) },
     ]);
@@ -510,7 +508,7 @@ test.describe("a batch of different wines", () => {
     await page.waitForLoadState("networkidle");
     await page.getByRole("radio", { name: "Batch" }).click();
     const margaux = await makeJpeg(page, sizes[0]!);
-    await page.locator('input[type="file"]:not([capture])').setInputFiles([
+    await chooseFile(page.locator('input[type="file"]:not([capture])'), [
       { name: "a.jpg", mimeType: "image/jpeg", buffer: margaux },
       { name: "b.jpg", mimeType: "image/jpeg", buffer: await makeJpeg(page, sizes[1]!) },
       { name: "c.jpg", mimeType: "image/jpeg", buffer: await makeJpeg(page, sizes[2]!) },
@@ -601,7 +599,7 @@ test.describe("a batch of different wines", () => {
     const library = page.locator('input[type="file"]:not([capture])');
     const tray = page.getByTestId("series");
 
-    await library.setInputFiles({
+    await chooseFile(library, {
       name: "a.jpg",
       mimeType: "image/jpeg",
       buffer: await makeJpeg(page, first),
@@ -609,7 +607,7 @@ test.describe("a batch of different wines", () => {
     await expect(tray.locator('li[data-status="failed"]')).toHaveCount(1);
     await expect(tray).toContainText(/No connection/);
 
-    await library.setInputFiles({
+    await chooseFile(library, {
       name: "b.jpg",
       mimeType: "image/jpeg",
       buffer: await makeJpeg(page, second),

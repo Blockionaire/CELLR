@@ -9,6 +9,7 @@ import {
   STACK,
   wineBody,
   wineChoice,
+  chooseFile,
 } from "./helpers";
 
 /**
@@ -363,10 +364,11 @@ test.describe("adding a bottle on the spot you tapped", () => {
     const photo = await makeJpeg(page, { ...size, words: "Margaux" });
     // a photo chosen before the page has hydrated is never seen: choose it again until it is read
     await expect(async () => {
-      await page
-        .locator('input[type="file"]')
-        .first()
-        .setInputFiles({ name: "IMG_0001.jpg", mimeType: "image/jpeg", buffer: photo });
+      await chooseFile(page.locator('input[type="file"]').first(), {
+        name: "IMG_0001.jpg",
+        mimeType: "image/jpeg",
+        buffer: photo,
+      });
       await expect(page.getByRole("heading", { name: "We found it" })).toBeVisible({
         timeout: 4_000,
       });

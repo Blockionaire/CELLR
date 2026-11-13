@@ -87,6 +87,16 @@ begin
   perform test.rec('notices: not with another household''s id', public.wine_source_notices(h2, cw) = '[]'::jsonb);
   perform test.as_user(2);
   perform test.rec('notices: every household sees the same public credit', jsonb_array_length(public.wine_source_notices(h2, cw)) = 2);
+  -- no household named, and a household the caller has left: nothing (hardening round, a gap the review named)
+  perform test.rec('notices: not without a household', public.wine_source_notices(null, cw) = '[]'::jsonb);
+  perform test.su();
+  insert into public.household_members (household_id, user_id, role) values (h1, test.uid(2), 'member');
+  perform test.as_user(2);
+  perform test.rec('notices: a member of the household is answered', jsonb_array_length(public.wine_source_notices(h1, cw)) = 2);
+  perform test.su();
+  delete from public.household_members where household_id = h1 and user_id = test.uid(2);
+  perform test.as_user(2);
+  perform test.rec('notices: not for a household the caller has left', public.wine_source_notices(h1, cw) = '[]'::jsonb);
   perform test.as_anon();
   perform test.rec('notices: not for anonymous callers',
     test.denied(format('select public.wine_source_notices(%L, %L)', h1, cw)));

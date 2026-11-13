@@ -6,25 +6,26 @@ Brief: [`MASTER_BRIEF.md`](MASTER_BRIEF.md) (v1.1). Per-sub-sprint evidence: [`p
 ## Resume block
 
 ```text
-LAST VERIFIED CHECKPOINT: WI-07 (final). The epic's scope is complete; see FINAL_REPORT.md
-BRANCH / SHA: claude/wine-intelligence-mega-sprint-agnxu9 (base: main @ 770aaab); see `git log --grep '^WI-0'`
-STATUS: WI-00 PASS; WI-01 PASS (real LWIN import blocked by design); WI-02 PASS (behind `wine_search`, off);
-        WI-03 PASS on programmed readings (behind `scan_resolver`, off; real labels pending);
-        WI-04 PASS (behind `purchase_intel`, off; research claim always on once migration 0039 is applied);
-        WI-05 PASS (behind `sources_panel`, off); WI-06 PASS (admin only);
-        WI-07 PASS with listed exceptions (whole e2e suite: 20 failures, none from this epic)
-CHANGED FILES / PR: draft PR https://github.com/Blockionaire/CELLR/pull/68 ; per sub-sprint: progress/WI-0x.md §1
+LAST VERIFIED CHECKPOINT: WI-08 (hardening of PR #68). See progress/WI-08-hardening.md (findings, GO / NO-GO)
+BRANCH / SHA: claude/wine-intelligence-mega-sprint-agnxu9 (base: main @ 770aaab); see `git log --oneline`
+STATUS: WI-00 to WI-07 as below; WI-08: 1 P1 and 7 P2 fixed with tests, e2e CI job re-defined (not yet run on GitHub)
+CHANGED FILES / PR: draft PR https://github.com/Blockionaire/CELLR/pull/68 (not merged; merging deploys the app)
 CURRENT FEATURE FLAGS: CELLR_FEATURES unset everywhere (all four features off)
-LAST GREEN CHECKS: format, lint, typecheck, unit (web 781 / domain 643 / scan-eval 83 / catalog-tools 86),
-                   db:test 1295, db:test:budget, db:types:check, migrations:check, e2e wine-search 24/24, scan-resolver 4/4, purchase-intel 4/4, sources 8/8 (features on, port 3101), admin-sources 2/2,
-                   e2e regression with features off: 135 passed, 4 flaky (R-26), 0 failed
+LAST GREEN CHECKS: format, lint, typecheck, unit (web 793 / domain 643 / scan-eval 83 / catalog-tools 86),
+                   db:test 1327, db:test:budget, db:test:imports, db:test:claims, db:types:check, migrations:check
+                   (5 new files), build; e2e wine-search 26/26, scan-resolver 4/4, purchase-intel 4/4, sources 8/8,
+                   admin-sources 3/3; whole suite, switches off: 660 passed, 5 failed, 8 flaky (FINAL_REPORT §4.1);
+                   the app on a database without migrations 0037-0042: 212 passed, 0 failed
+VERDICT: merge = conditional GO; wine_search, sources_panel, purchase_intel = conditional GO after the migrations,
+         in that order; scan_resolver = NO-GO until real labels and a real iPhone; no external source may be shown
 PENDING BLOCKERS: PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED · REAL_LABEL_VALIDATION_PENDING ·
-                  LWIN rights blocked · X-Wines rights unverified (pilot only)
-NEXT SAFE ACTION: none for the agent. Owner: review PR #68 commit by commit; RELEASE_CHECKLIST.md; the decisions in
-                  FINAL_REPORT.md §6 (e-mails, R-27) and §4.1 (R-28: the e2e job on main)
-DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the X-Wines download (the file is in an
-               isolated scratch folder of the session, never in Git: re-download it from the authors' Drive folder
-               and check the SHA-256 in pilot.sh if a new session needs it)
+                  LWIN rights blocked · X-Wines rights unverified (pilot only) ·
+                  cellar3d.spec:152 and racks.spec:371 fail or flake on main too (not from this epic, not changed)
+NEXT SAFE ACTION: none for the agent. Owner: review PR #68; decide on the merge (progress/WI-08-hardening.md §7.1);
+                  watch the first sharded e2e run on main; RELEASE_CHECKLIST.md Part A and B before any switch
+DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the reviews of WI-02 to WI-06; the X-Wines
+               download (the file is in an isolated scratch folder of the session, never in Git: re-download it
+               from the authors' Drive folder and check the SHA-256 in pilot.sh if a new session needs it)
 ```
 
 ## Status by sub-sprint
@@ -39,6 +40,7 @@ DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the X-Wines
 | WI-05 | Provenance, trust and wine pages                | **PASS** (behind `sources_panel`, off)                                                 | [`progress/WI-05.md`](progress/WI-05.md)                                                         |
 | WI-06 | Admin governance, telemetry, operational safety | **PASS** (admin only)                                                                  | [`progress/WI-06.md`](progress/WI-06.md)                                                         |
 | WI-07 | Regression, stress, legal readiness, dossier    | **PASS with listed exceptions**                                                        | [`FINAL_REPORT.md`](FINAL_REPORT.md), [`progress/WI-07.md`](progress/WI-07.md)                   |
+| WI-08 | Hardening of PR #68 before merge                | **DONE**: 1 P1 and 7 P2 fixed with tests; GO / NO-GO written                           | [`progress/WI-08-hardening.md`](progress/WI-08-hardening.md)                                     |
 
 ## Branch and PR strategy
 
@@ -98,17 +100,19 @@ the provider's rights status and search scope in the database, changed only by `
 
 ## Stop / go matrix
 
-| Gate                                      | State                                    | Blocks                                                     |
-| ----------------------------------------- | ---------------------------------------- | ---------------------------------------------------------- |
-| `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED` | **OPEN** (owner action, never done here) | any production migration of this epic; any deployment      |
-| X-Wines commercial rights                 | **unverified** (pilot only)              | X-Wines records in people's search                         |
-| LWIN rights                               | **blocked** pending Liv-ex in writing    | any LWIN import, real-file adapter verification            |
-| `REAL_LABEL_VALIDATION_PENDING`           | **OPEN** (0 consented real photos)       | any recognition-accuracy claim; "field validated" status   |
-| Real iPhone OCR / latency evidence        | **OPEN** (no device in this environment) | any device performance claim                               |
-| AI budget fail-open on control outage     | **documented**; new paid paths guarded   | nothing, provided new paid paths use the fail-closed guard |
-| Provider-side hard spending cap           | **owner action** (cannot be set in code) | calling the app-level budget a bill cap                    |
-| Admin non-admin 200 vs 404                | **closed**: real 404, verified by HTTP   | nothing                                                    |
-| CI E2E skipped on pull requests           | by design (`ci.yml`)                     | "CI green" as E2E evidence: E2E is run locally and logged  |
+| Gate                                       | State                                    | Blocks                                                                          |
+| ------------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------- |
+| `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED`  | **OPEN** (owner action, never done here) | any production migration of this epic; any deployment                           |
+| X-Wines commercial rights                  | **unverified** (pilot only)              | X-Wines records in people's search                                              |
+| LWIN rights                                | **blocked** pending Liv-ex in writing    | any LWIN import, real-file adapter verification                                 |
+| `REAL_LABEL_VALIDATION_PENDING`            | **OPEN** (0 consented real photos)       | any recognition-accuracy claim; "field validated" status                        |
+| Real iPhone OCR / latency evidence         | **OPEN** (no device in this environment) | any device performance claim                                                    |
+| AI budget fail-open on control outage      | **documented**; new paid paths guarded   | nothing, provided new paid paths use the fail-closed guard                      |
+| Provider-side hard spending cap            | **owner action** (cannot be set in code) | calling the app-level budget a bill cap                                         |
+| Admin non-admin 200 vs 404                 | **closed**: real 404, verified by HTTP   | nothing                                                                         |
+| CI E2E skipped on pull requests            | by design (`ci.yml`)                     | "CI green" as E2E evidence: E2E is run locally and logged                       |
+| Sharded e2e job on `main`                  | **defined, never run on GitHub**         | calling the e2e job proven: its first run on `main` is the proof                |
+| Merging = deploying (Vercel builds `main`) | by design (`BETA-OPERATIONS.md` §5)      | nothing, with every switch off: tested on a database without the new migrations |
 
 ## Test matrix
 
@@ -125,6 +129,8 @@ the provider's rights status and search scope in the database, changed only by `
 | E2E           | `pnpm --filter @cellr/web e2e`                        | main/nightly CI; **local here** | `admin-http` 3/3 locally; full run in WI-07 |
 | Real Supabase | `supabase start` job                                  | CI only (needs Docker)          | CANNOT RUN here (no Docker daemon)          |
 | Budget race   | `pnpm db:test:budget`                                 | local only (not in CI)          | run in WI-04                                |
+| Import race   | `pnpm db:test:imports`                                | local only (not in CI)          | added in WI-01                              |
+| Claim race    | `pnpm db:test:claims`                                 | local only (not in CI)          | added in WI-08                              |
 
 ## Risk register
 
@@ -143,6 +149,7 @@ The brief's R-01 to R-21 apply as written (`MASTER_BRIEF.md` §11). Baseline fin
 | R-26 | **New (WI-02).** The phone-profile scan specs choose a photo right after `page.goto`; before the screen is interactive the choice is lost. 5 of 32 runs failed on **baseline** source here; CI masks it with a retry.                                                                                               | Not a product defect. New specs wait for the screen to be interactive; fixing the old specs is a follow-up (WI-07 list).              |
 | R-27 | **New (WI-05). Rights, for the owner.** A wine created from an external record keeps nothing of that record, so its page credits no source. A CC BY source (LWIN, as published) makes that credit a licence condition; a CC0 source (X-Wines, as published) does not, but the rights register still plans a credit. | No source is public, so nothing is shown uncredited today. **Decide before clearing any source for people** (`progress/WI-05.md` §7). |
 | R-28 | **New (WI-07). Existing test infrastructure.** On `main` the e2e CI job is cancelled by its 30-minute limit (last four runs), and `flows.spec` leaves a sign-up allowlist entry that makes every later admin test fail. So the whole suite is not a working gate today.                                             | Reported with reproduction in `FINAL_REPORT.md` §4.1. Not changed by this epic. Two cheap fixes are named there.                      |
+| R-29 | **New (WI-08).** `cellar3d.spec:152` (a tap on the 3D picture does not select the bottle) and `racks.spec:371` (contrast, dark) fail or flake on `main` in this environment. If they do so on GitHub's runners, the sharded e2e job stays red for reasons outside this epic. Not changed, not skipped.              |
 
 ## Decisions
 
@@ -186,3 +193,11 @@ The brief's R-01 to R-21 apply as written (`MASTER_BRIEF.md` §11). Baseline fin
 - **2026-11-13 — WI-07.** Static, unit and database checks green (1295 database tests). Whole e2e suite: 644 passed,
   20 failed, 4 flaky; every failure traced to the existing suite or environment and compared with `main` (R-28).
   Red-team test of the search function added. `FINAL_REPORT.md` written. Nothing merged or deployed.
+- **2026-11-13 — WI-08, hardening before merge.** Independent review of WI-05 and WI-06: one P1 (a false privacy
+  sentence) and three P2 (a hidden source could empty people's search; an approved link survived a change of the
+  record's identity; any signed-in person could break the admin page), all fixed with tests (migration `…0042`).
+  Research claims have an owner (a token); 20 simultaneous claims, takeovers and late releases tested. External
+  records are no longer used from the browser's memory. The sign-up gate test no longer breaks other tests; the scan
+  tests wait for the screen; the e2e job is split in eight shards (not yet run on GitHub). Existing specs hold with
+  the features on or off. R-28: addressed in the repository, to be proven by the first run on `main`. GO / NO-GO in
+  `progress/WI-08-hardening.md` §7. Nothing merged, deployed or switched on.

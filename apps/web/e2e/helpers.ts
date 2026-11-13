@@ -261,3 +261,19 @@ export const wineChoice = (scope: Page | Locator, name: string | RegExp) =>
 /** The field of that screen: a searchbox in the classic list, a combobox in the wine search; one label for both. */
 export const wineField = (scope: Page | Locator) =>
   scope.getByLabel("Search your wines, or add a new one");
+
+/**
+ * Hands files to a file field once the screen can notice them. Right after a navigation the field is already on
+ * the page while React has not taken it over yet; a file set in that gap is never seen, and the test then waits
+ * for a result that will not come (the scan specs failed this way now and then, on `main` too). React marks every
+ * element it has taken over, so wait for that mark first. A person cannot hit this: they need the button to work.
+ */
+export async function chooseFile(input: Locator, files: Parameters<Locator["setInputFiles"]>[0]) {
+  await expect
+    .poll(
+      () => input.evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactProps$"))),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+  await input.setInputFiles(files);
+}

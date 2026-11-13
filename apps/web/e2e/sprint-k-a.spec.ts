@@ -15,6 +15,7 @@ import {
   sql,
   STACK,
   wineBody,
+  chooseFile,
 } from "./helpers";
 
 /**
@@ -64,14 +65,11 @@ test.describe("zooming the label frame", () => {
     ).body;
     await page.goto(`/cellar/${added.vintageId}`);
     await page.waitForLoadState("networkidle");
-    await page
-      .locator('input[type="file"]')
-      .first()
-      .setInputFiles({
-        name: "front.jpg",
-        mimeType: "image/jpeg",
-        buffer: await makeJpeg(page, { width: 900, height: 1200, words: "Domaine Test" }),
-      });
+    await chooseFile(page.locator('input[type="file"]').first(), {
+      name: "front.jpg",
+      mimeType: "image/jpeg",
+      buffer: await makeJpeg(page, { width: 900, height: 1200, words: "Domaine Test" }),
+    });
     const dialog = page.getByRole("dialog", { name: "Show us where the label is" });
     const framer = dialog.getByTestId("framer");
     await expect(framer).toHaveAttribute("data-zoom", "1.00");
@@ -162,28 +160,22 @@ async function scanToDetails(page: Page, call: Call, n: number) {
   const size = sizeFor(n);
   await program(size);
   await page.goto("/scan");
-  await page
-    .locator('input[type="file"]')
-    .first()
-    .setInputFiles({
-      name: "front.jpg",
-      mimeType: "image/jpeg",
-      buffer: await makeJpeg(page, { ...size, words: "Kappa" }),
-    });
+  await chooseFile(page.locator('input[type="file"]').first(), {
+    name: "front.jpg",
+    mimeType: "image/jpeg",
+    buffer: await makeJpeg(page, { ...size, words: "Kappa" }),
+  });
   await expect(page.getByLabel("Producer")).toHaveValue("Domaine Kappa");
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "How many, and where?" })).toBeVisible();
   await expect(page.getByTestId("scan-labels")).toBeVisible();
 }
 const backPhoto = async (page: Page) =>
-  page
-    .getByTestId("scan-labels")
-    .locator('input[type="file"]')
-    .setInputFiles({
-      name: "back.jpg",
-      mimeType: "image/jpeg",
-      buffer: await makeJpeg(page, { width: 600, height: 800, words: "Back" }),
-    });
+  chooseFile(page.getByTestId("scan-labels").locator('input[type="file"]'), {
+    name: "back.jpg",
+    mimeType: "image/jpeg",
+    buffer: await makeJpeg(page, { width: 600, height: 800, words: "Back" }),
+  });
 const images = (householdId: string) =>
   sql<{ front: string | null; back: string | null }>(
     "select front_image_id as front, back_image_id as back from public.bottles where household_id = $1",
@@ -411,7 +403,7 @@ test.describe("a back label in a series", () => {
     await page.goto("/scan");
     await page.waitForLoadState("networkidle");
     await page.getByRole("radio", { name: "Batch" }).click();
-    await page.locator('input[type="file"]:not([capture])').setInputFiles([
+    await chooseFile(page.locator('input[type="file"]:not([capture])'), [
       {
         name: "a.jpg",
         mimeType: "image/jpeg",

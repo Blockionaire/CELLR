@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import sharp from "sharp";
-import { arrive, sql, STACK } from "./helpers";
+import { arrive, sql, STACK, chooseFile } from "./helpers";
 
 /**
  * Sprint S: database-first recognition, on the phone. A NEW photo of a known catalogue wine is read on the phone
@@ -73,10 +73,11 @@ async function openScan(page: Page) {
 }
 
 const takePhoto = async (page: Page, photo: Buffer) =>
-  page
-    .locator('input[type="file"]')
-    .first()
-    .setInputFiles({ name: "IMG_0101.jpg", mimeType: "image/jpeg", buffer: photo });
+  chooseFile(page.locator('input[type="file"]').first(), {
+    name: "IMG_0101.jpg",
+    mimeType: "image/jpeg",
+    buffer: photo,
+  });
 
 const photoRow = async (householdId: string) =>
   (

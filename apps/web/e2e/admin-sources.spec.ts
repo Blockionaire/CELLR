@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type BrowserContextOptions } from "@playwright/test";
-import { arrive, audit, FEATURES_URL, signIn, sql, stamp } from "./helpers";
+import { APP_URL, arrive, audit, FEATURES_URL, signIn, sql, stamp } from "./helpers";
 
 /**
  * Wine Intelligence WI-06: /admin/sources (the sources' rights and imports, the link review queue, the off switch)
@@ -232,6 +232,69 @@ test.describe("admin: external sources", () => {
     ).toEqual([{ actor: `admin:${ADMIN_ID}`, reason: "e2e: licence withdrawn by the source" }]);
     await off.getByText(/Rights history/).click();
     await expect(off).toContainText("verified / public → blocked / off");
+    await close();
+  });
+
+  // The two admin actions are plain form posts, reachable by anyone who can build the request. The same request is
+  // sent three ways; only the admin's own, from the app's own address, does anything.
+  test("a link decision posted from another site, or by someone who is not the admin, does nothing", async ({
+    page,
+    browser,
+  }) => {
+    const m = stamp();
+    const src = await seed(m);
+    const { admin, close } = await asAdmin(browser);
+    await admin.goto(`/admin/sources?source=${src.provider}`);
+    // exactly what the admin's browser would post: the form's hidden fields (the action reference included)
+    const hidden = await admin
+      .locator(`[data-testid="link-card"][data-record="${src.k1}"] form input[type="hidden"]`)
+      .evaluateAll((els) =>
+        els.map((e) => [(e as HTMLInputElement).name, (e as HTMLInputElement).value] as const),
+      );
+    expect(hidden.some(([n]) => n.startsWith("$ACTION_"))).toBe(true);
+    const form = {
+      ...Object.fromEntries(hidden),
+      reason: "posted by hand: same producer and name",
+      state: "verified",
+    };
+    const suggested = await linkOf(src.k1);
+    expect(suggested?.state).toBe("suggested");
+
+    // 1. the admin's own session, but the request comes from another site: refused before the action runs
+    const foreign = await admin.request.post("/admin/sources", {
+      headers: { origin: "https://elsewhere.example" },
+      multipart: form,
+      maxRedirects: 0,
+    });
+    expect(foreign.status(), "from another site").toBeGreaterThanOrEqual(400);
+    expect(await linkOf(src.k1)).toEqual(suggested);
+
+    // 2. a signed-in person who is not the admin, from the app's own address: not found
+    await arrive(page, "notadmin");
+    const stranger = await page.request.post("/admin/sources", {
+      headers: { origin: APP_URL },
+      multipart: form,
+      maxRedirects: 0,
+    });
+    expect(stranger.status(), "not the admin").toBe(404);
+    expect(await linkOf(src.k1)).toEqual(suggested);
+    expect(
+      await sql("select 1 from public.master_audit where wine_id = $1 and entity_type = 'link'", [
+        src.wineId,
+      ]),
+    ).toEqual([]);
+
+    // 3. the very same request from the admin, from the app's own address: it is a valid request, and it works
+    const own = await admin.request.post("/admin/sources", {
+      headers: { origin: APP_URL },
+      multipart: form,
+      maxRedirects: 0,
+    });
+    expect(own.status(), "the admin, same site").toBe(303);
+    expect(await linkOf(src.k1)).toEqual({
+      state: "verified",
+      reason: "posted by hand: same producer and name",
+    });
     await close();
   });
 

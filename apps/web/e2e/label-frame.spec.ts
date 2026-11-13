@@ -10,6 +10,7 @@ import {
   sql,
   STACK,
   wineBody,
+  chooseFile,
 } from "./helpers";
 
 const shot = (name: string) => `test-results/shots/${name}.png`;
@@ -183,14 +184,11 @@ test.describe("framing the label on the wine's page", () => {
     const { vintageId } = await furnish(page, request, "frame");
     await page.goto(`/cellar/${vintageId}`);
     await page.waitForLoadState("networkidle"); // choosing a file before the page has hydrated does nothing
-    await page
-      .locator('input[type="file"]')
-      .first()
-      .setInputFiles({
-        name: "front.jpg",
-        mimeType: "image/jpeg",
-        buffer: await makeJpeg(page, { width: 900, height: 1200, words: "Domaine Test" }),
-      });
+    await chooseFile(page.locator('input[type="file"]').first(), {
+      name: "front.jpg",
+      mimeType: "image/jpeg",
+      buffer: await makeJpeg(page, { width: 900, height: 1200, words: "Domaine Test" }),
+    });
 
     const dialog = page.getByRole("dialog", { name: "Show us where the label is" });
     await expect(dialog).toBeVisible();
@@ -230,14 +228,11 @@ test.describe("framing the label on the wine's page", () => {
     const { vintageId } = await furnish(page, request, "framebad");
     await page.goto(`/cellar/${vintageId}`);
     await page.waitForLoadState("networkidle"); // choosing a file before the page has hydrated does nothing
-    await page
-      .locator('input[type="file"]')
-      .first()
-      .setInputFiles({
-        name: "front.jpg",
-        mimeType: "image/jpeg",
-        buffer: await makeJpeg(page),
-      });
+    await chooseFile(page.locator('input[type="file"]').first(), {
+      name: "front.jpg",
+      mimeType: "image/jpeg",
+      buffer: await makeJpeg(page),
+    });
     const dialog = page.getByRole("dialog", { name: "Show us where the label is" });
     await expect(dialog).toBeVisible();
     // Push the top-left corner right past the top-right one: the frame folds over itself.
@@ -258,14 +253,11 @@ test.describe("framing the label on the wine's page", () => {
     await page.goto(`/cellar/${vintageId}`);
     await page.waitForLoadState("networkidle"); // choosing a file before the page has hydrated does nothing
     await expect(page.getByText("Back label", { exact: true })).toBeVisible();
-    await page
-      .locator('input[type="file"]')
-      .nth(1)
-      .setInputFiles({
-        name: "back.jpg",
-        mimeType: "image/jpeg",
-        buffer: await makeJpeg(page, { words: "Importer BV" }),
-      });
+    await chooseFile(page.locator('input[type="file"]').nth(1), {
+      name: "back.jpg",
+      mimeType: "image/jpeg",
+      buffer: await makeJpeg(page, { words: "Importer BV" }),
+    });
     await expect(page.getByText("Photo saved.")).toBeVisible();
     await expect(page.getByRole("img", { name: /Back label of/ })).toBeVisible();
     const rows = await sql<{ back_image_id: string | null; front_image_id: string | null }>(
@@ -381,14 +373,11 @@ test.describe("the 3D bottle and the scan", () => {
       }),
     });
     await page.goto("/scan");
-    await page
-      .locator('input[type="file"]')
-      .first()
-      .setInputFiles({
-        name: "IMG.jpg",
-        mimeType: "image/jpeg",
-        buffer: await makeJpeg(page, { ...size, words: "Texture" }),
-      });
+    await chooseFile(page.locator('input[type="file"]').first(), {
+      name: "IMG.jpg",
+      mimeType: "image/jpeg",
+      buffer: await makeJpeg(page, { ...size, words: "Texture" }),
+    });
     await expect(page.getByRole("heading", { name: "A new wine" })).toBeVisible();
     await expect
       .poll(

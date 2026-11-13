@@ -15,6 +15,7 @@ import {
   sql,
   stamp,
   STACK,
+  chooseFile,
 } from "./helpers";
 
 /**
@@ -347,10 +348,11 @@ test.describe("the wine resolver behind a scan", () => {
     const { call } = await apiClient(request, email);
     await call("post", "/storage", { label: "Wine fridge", kind: "fridge", rows: 3, cols: 4 }, 201);
     const takePhoto = async (p: Page, photo: Buffer) =>
-      p
-        .locator('input[type="file"]')
-        .first()
-        .setInputFiles({ name: "IMG_1.jpg", mimeType: "image/jpeg", buffer: photo });
+      chooseFile(p.locator('input[type="file"]').first(), {
+        name: "IMG_1.jpg",
+        mimeType: "image/jpeg",
+        buffer: photo,
+      });
 
     // the colour was not read: red and white of the same name are offered apart, each with its colour and why
     const size = uniqueSize();

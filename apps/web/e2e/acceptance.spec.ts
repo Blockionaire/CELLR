@@ -1,5 +1,14 @@
 import { expect, test, type BrowserContextOptions, type Page } from "@playwright/test";
-import { codeFor, makeJpeg, onboardCreate, rateStars, sql, STACK, uniqueEmail } from "./helpers";
+import {
+  codeFor,
+  makeJpeg,
+  onboardCreate,
+  rateStars,
+  sql,
+  STACK,
+  uniqueEmail,
+  chooseFile,
+} from "./helpers";
 
 /**
  * The private-beta acceptance flow, start to finish, the way a new person goes through it on a phone:
@@ -84,14 +93,11 @@ test("a new person, from the first code to signing back in, loses nothing", asyn
   await page.goto("/scan");
   await expect(page.getByTestId("shutter")).toBeVisible();
   await page.screenshot({ path: shot(`scan-${test.info().project.name}`) });
-  await page
-    .locator('input[type="file"]')
-    .first()
-    .setInputFiles({
-      name: "IMG_0001.jpg",
-      mimeType: "image/jpeg",
-      buffer: await makeJpeg(page, { ...size, exif: true, words: "Musar" }),
-    });
+  await chooseFile(page.locator('input[type="file"]').first(), {
+    name: "IMG_0001.jpg",
+    mimeType: "image/jpeg",
+    buffer: await makeJpeg(page, { ...size, exif: true, words: "Musar" }),
+  });
 
   // 6. What was read is there to check; the vintage comes along.
   await expect(page.getByRole("heading", { name: "A new wine" })).toBeVisible();
@@ -134,14 +140,11 @@ test("a new person, from the first code to signing back in, loses nothing", asyn
   // 9. The front label came with the scan; add the back label.
   await expect(page.getByRole("img", { name: /^Label of/ }).first()).toBeVisible();
   await page.waitForLoadState("networkidle");
-  await page
-    .locator('input[type="file"]')
-    .nth(1)
-    .setInputFiles({
-      name: "back.jpg",
-      mimeType: "image/jpeg",
-      buffer: await makeJpeg(page, { words: "Importer BV" }),
-    });
+  await chooseFile(page.locator('input[type="file"]').nth(1), {
+    name: "back.jpg",
+    mimeType: "image/jpeg",
+    buffer: await makeJpeg(page, { words: "Importer BV" }),
+  });
   await expect(page.getByText("Photo saved.")).toBeVisible();
   await expect(page.getByRole("img", { name: /Back label of/ })).toBeVisible();
   const labels = await sql<{ front: boolean; back: boolean }>(

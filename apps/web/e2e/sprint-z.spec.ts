@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { apiClient, arrive, audit, makeJpeg, sql, STACK } from "./helpers";
+import { apiClient, arrive, audit, makeJpeg, sql, STACK, chooseFile } from "./helpers";
 
 /**
  * Sprint Z — Koopcheck: standing in a shop, photograph a bottle, correct what was read, and see whether it is worth
@@ -91,10 +91,11 @@ const counts = async (householdId: string) => {
 };
 
 const takePhoto = (page: Page, photo: Buffer) =>
-  page
-    .locator('input[type="file"]')
-    .first()
-    .setInputFiles({ name: "IMG_0001.jpg", mimeType: "image/jpeg", buffer: photo });
+  chooseFile(page.locator('input[type="file"]').first(), {
+    name: "IMG_0001.jpg",
+    mimeType: "image/jpeg",
+    buffer: photo,
+  });
 
 /** Chooses a photo once the page is live (a file chosen before it hydrates is not seen), until its preview shows. */
 const choosePhoto = (page: Page, photo: Buffer) =>
