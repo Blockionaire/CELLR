@@ -57,7 +57,8 @@ export default defineConfig({
   use: {
     // E2E_BASE_URL=http://localhost:3101 runs any existing spec against the server with every feature switched on
     // (a compatibility check; specs that drive the old picker by its buttons are expected to differ there).
-    baseURL: process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`,
+    // (`||`, not `??`: CI passes an empty string when the features run was not asked for)
+    baseURL: process.env.E2E_BASE_URL || `http://localhost:${PORT}`,
     trace: "retain-on-failure",
     launchOptions: executablePath
       ? { executablePath, args: ["--no-sandbox"] }
