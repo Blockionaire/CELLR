@@ -68,9 +68,22 @@ pending, not as passed).
   bottle in the person's hand.
 - Nothing about a chosen external record is stored (ADR-001, decision 7).
 
-## 2. Scan review with the resolver (WI-03)
+## 2. Scan review with the resolver (WI-03) — AUTOMATED PASS on programmed readings
 
-Not built yet at this checkpoint.
+Feature `scan_resolver`. Specs: `apps/web/e2e/scan-resolver.spec.ts` (2 tests × phone and desktop),
+`scripts/scan-eval/golden.test.ts` (57 tests on the golden set `eval/scan/golden-resolver.json`).
+
+| Behaviour                                                                                          | Checked by      |
+| -------------------------------------------------------------------------------------------------- | --------------- |
+| An exact reading: one wine, said to be "Precies deze naam in de CELLR-catalogus", still to confirm | e2e             |
+| "Niet deze" / "Not this one" leads to the editable form with what was read                         | e2e             |
+| Red and white of one name, colour not read: both offered, each with its colour and why             | e2e + axe       |
+| "None of these: it is a new wine" opens the form; nothing was created until then                   | e2e             |
+| The vintage is the label's: an unread year stays unknown, an impossible one is dropped             | e2e, golden set |
+| With the feature off the review looks exactly as before (no reasons, no colour in the detail line) | existing specs  |
+
+The readings in these tests are programmed answers of the local stack's fake model and hand-written texts. They prove
+the pipeline and the identity rules; they say **nothing** about how well real labels are read (§3).
 
 ## 3. Real labels: acquisition protocol — `REAL_LABEL_VALIDATION_PENDING`
 

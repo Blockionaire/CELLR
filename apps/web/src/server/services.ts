@@ -40,6 +40,7 @@ import { publishSharedProfile } from "@/server/privileged/shared-profiles";
 import { createContributionService } from "@/server/catalog/contribution";
 import { createCatalogSearchRepository } from "@/server/catalog/search-repository";
 import { createCatalogSearchService } from "@/server/catalog/search";
+import { createWineResolver } from "@/server/catalog/resolver";
 import { createScanRepository } from "@/server/scans/repository";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
@@ -48,7 +49,7 @@ import { createPurchaseCheckService } from "@/server/purchase-check/service";
 import { createStatsService } from "@/server/stats/service";
 import { createInsightsRepository } from "@/server/insights/repository";
 import { createInsightsService } from "@/server/insights/service";
-import { getPushEnv } from "@/server/env";
+import { getFeatures, getPushEnv } from "@/server/env";
 import { createPushRepository } from "@/server/push/repository";
 import { createPushService } from "@/server/push/service";
 import { createTasteRepository } from "@/server/taste/repository";
@@ -120,6 +121,13 @@ export function servicesFor(ctx: RequestContext) {
     },
   });
   const scanRepo = createScanRepository(ctx.db);
+  const features = getFeatures();
+  // Everything it reads, it reads as the signed-in person (row-level security and the search's own membership check).
+  const wineResolver = createWineResolver({
+    ownWines: (householdId) => cellars.listOwnWines(householdId),
+    findByText: scanRepo.findByText,
+    search: createCatalogSearchRepository(ctx.db).search,
+  });
   const avatars = createAvatarService(createAvatarRepository(ctx.db), ctx.userId);
   return {
     avatars,
@@ -149,6 +157,14 @@ export function servicesFor(ctx: RequestContext) {
       // the person is this request's verified user, never a client-supplied id
       noteRead: (read) => noteScanRead({ ...read, userId: ctx.userId }),
       wines: async () => cellars.listWines((await household()).id),
+      // The `scan_resolver` feature: a reading is matched against a bounded set of candidates, read as the person.
+      ...(features.scan_resolver
+        ? {
+            resolve: wineResolver.resolve,
+            // under the person's own row-level security: only a wine their household can see comes back
+            wineById: (wineId: string) => cellars.getWine(wineId),
+          }
+        : {}),
       householdId: async () => (await household()).id,
       llm: getLlmProvider(),
       spendScan: () => limiter.enforce(LIMITS.scans),

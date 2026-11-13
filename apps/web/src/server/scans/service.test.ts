@@ -57,6 +57,10 @@ function setup(
     /** What the label-text lookup finds (Sprint S), or how it fails; missing = not wired. */
     text?: LabelTextCandidate[] | "unavailable" | "throws";
     art?: Record<string, BottleArtRef> | "throws";
+    /** The wine resolver (WI-03), or how it fails; missing = not wired (matching against every wine, as before). */
+    resolve?: ScanDeps["resolve"];
+    /** A wine by id (WI-03), for remembered photos; missing = every wine is loaded, as before. */
+    wineById?: Record<string, WineSummary>;
   } = {},
 ) {
   const state = {
@@ -68,6 +72,8 @@ function setup(
     }>,
     lookups: [] as Array<{ householdId: string; phrases: string[] }>,
     spent: 0,
+    /** How often every wine the household can see was loaded. */
+    wineLists: 0,
     recalls: [] as Array<{ householdId: string; fingerprint: string }>,
     reads: [] as Array<{ imageId: string; householdId: string; producer: string; name: string }>,
     requests: [] as GenerateObjectRequest<unknown>[],
@@ -138,7 +144,12 @@ function setup(
       if (known === "throws") throw new Error("art gone");
       return new Map(ids.flatMap((id) => (known?.[id] ? [[id, known[id]] as const] : [])));
     },
-    wines: async () => options.wines ?? [],
+    wines: async () => {
+      state.wineLists += 1;
+      return options.wines ?? [];
+    },
+    ...(options.resolve ? { resolve: options.resolve } : {}),
+    ...(options.wineById ? { wineById: async (id: string) => options.wineById![id] ?? null } : {}),
     householdId: async () => "h1",
     llm: options.noAi ? null : llm,
     spendScan: async () => {
@@ -626,5 +637,156 @@ describe("scanning a label", () => {
       // the text is not used; only what reading it cost is kept
       expect(state.uploads[0]!.text).toEqual({ ocrMs: 900 });
     });
+  });
+});
+
+describe("scanning with the wine resolver (the scan_resolver feature)", () => {
+  const margaux = wine("c2", "Château Margaux", "Pavillon Rouge du Château Margaux", {
+    catalog: true,
+    aliases: ["Pavillon Rouge"],
+  });
+  const exact = async () =>
+    ({
+      status: "exact_candidate" as const,
+      candidates: [
+        {
+          wine: margaux,
+          score: 0.98,
+          kind: "canonical" as const,
+          exact: true,
+          reasons: ["catalog_identity" as const, "alias" as const],
+        },
+      ],
+      year: 2015,
+      nonVintage: false,
+    }) satisfies Awaited<ReturnType<NonNullable<ScanDeps["resolve"]>>>;
+
+  it("the resolver's answer is the scan's answer, and every wine is no longer loaded", async () => {
+    const { service, state } = setup({ resolve: exact, wines: [wine("other", "Other", "Wine")] });
+    const result = await service.scan({ photo });
+    expect(result).toMatchObject({
+      outcome: "found",
+      matches: [{ wine: { id: "c2" }, score: 0.98 }],
+      resolution: { status: "exact_candidate", reasons: { c2: ["catalog_identity", "alias"] } },
+    });
+    // the year is the label's; the resolver's candidate never changes it
+    expect(result.facts?.year).toBe(2015);
+    expect(state.wineLists).toBe(0);
+    expect(state.spent).toBe(1); // one label read, as before: the resolver costs nothing
+    expect(state.requests).toHaveLength(1);
+  });
+
+  it("an ambiguous answer is a choice, with why each candidate is offered", async () => {
+    const reserve = wine("c15", "Domaine Test", "Cuvée Alpha Réserve", { catalog: true });
+    const alpha = wine("c14", "Domaine Test", "Cuvée Alpha", { catalog: true });
+    const { service } = setup({
+      answer: raw({ producer: "Domaine Test", wine_name: "Alpha Reserve" }),
+      resolve: async () => ({
+        status: "ambiguous",
+        candidates: [
+          { wine: reserve, score: 0.9, kind: "canonical", exact: false, reasons: ["similar_name"] },
+          { wine: alpha, score: 0.8, kind: "canonical", exact: false, reasons: ["other_bottling"] },
+        ],
+        year: 2015,
+        nonVintage: false,
+      }),
+    });
+    const result = await service.scan({ photo });
+    expect(result.outcome).toBe("choose");
+    expect(result.matches.map((m) => m.wine.id)).toEqual(["c15", "c14"]);
+    expect(result.resolution?.reasons).toEqual({ c15: ["similar_name"], c14: ["other_bottling"] });
+  });
+
+  it("nothing found is a new wine, and nothing about a catalogue wine is noted for learning", async () => {
+    const { service, state } = setup({
+      resolve: async () => ({ status: "not_found", candidates: [], year: 2015, nonVintage: false }),
+    });
+    const result = await service.scan({ photo });
+    expect(result).toMatchObject({
+      outcome: "new",
+      matches: [],
+      resolution: { status: "not_found" },
+    });
+    expect(state.reads).toHaveLength(1); // the AI's own reading, as before
+  });
+
+  it("when the resolver cannot answer (not deployed, or the database fails) the scan matches as it did before", async () => {
+    for (const resolve of [
+      async () => null,
+      async () => {
+        throw new Error("database unavailable");
+      },
+    ] satisfies Array<NonNullable<ScanDeps["resolve"]>>) {
+      const { service, state } = setup({
+        resolve,
+        wines: [wine("w1", "Château Margaux", "Pavillon Rouge")],
+      });
+      const result = await service.scan({ photo });
+      expect(result.outcome).toBe("found");
+      expect(result.matches[0]?.wine.id).toBe("w1");
+      expect(result.resolution).toBeUndefined();
+      expect(state.wineLists).toBe(1);
+    }
+  });
+
+  it("the resolver is asked for the caller's own household, with the plausibility-checked reading", async () => {
+    const seen: Array<{ householdId: string; year: number | null }> = [];
+    const { service } = setup({
+      answer: raw({ vintage: 2087 }), // an impossible year is dropped before anything is matched
+      resolve: async (householdId, facts) => {
+        seen.push({ householdId, year: facts.year });
+        return { status: "not_found", candidates: [], year: facts.year, nonVintage: false };
+      },
+    });
+    await service.scan({ photo });
+    expect(seen).toEqual([{ householdId: "h1", year: null }]);
+  });
+
+  it("the resolver is not asked when no model read anything, nor for a text match or a remembered photo", async () => {
+    let asked = 0;
+    const resolve = async () => {
+      asked += 1;
+      return null;
+    };
+    await setup({ resolve, noAi: true }).service.scan({ photo });
+    await setup({ resolve, answer: "unavailable" }).service.scan({ photo });
+    await setup({ resolve, answer: raw({ is_wine_label: false }) }).service.scan({ photo });
+    const fingerprint = "010203";
+    await setup({
+      resolve,
+      recall: { [fingerprint]: [{ wineId: "w1", year: 2015 }] },
+      wineById: { w1: wine("w1", "Château Margaux", "Pavillon Rouge") },
+    }).service.scan({ photo });
+    expect(asked).toBe(0);
+  });
+
+  it("a remembered photo looks its one wine up by id instead of loading every wine", async () => {
+    const fingerprint = "010203";
+    const known = wine("w1", "Château Margaux", "Pavillon Rouge");
+    const { service, state } = setup({
+      resolve: exact,
+      recall: { [fingerprint]: [{ wineId: "w1", year: 2015 }] },
+      wineById: { w1: known },
+    });
+    const result = await service.scan({ photo });
+    expect(result).toMatchObject({
+      outcome: "found",
+      remembered: true,
+      matches: [{ wine: { id: "w1" } }],
+    });
+    expect(state.wineLists).toBe(0);
+    expect(state.spent).toBe(0);
+  });
+
+  it("a remembered photo of a wine the household can no longer see is not trusted", async () => {
+    const fingerprint = "010203";
+    const { service, state } = setup({
+      resolve: exact,
+      recall: { [fingerprint]: [{ wineId: "gone", year: 2015 }] },
+      wineById: {},
+    });
+    const result = await service.scan({ photo });
+    expect(result.remembered).toBeUndefined();
+    expect(state.spent).toBe(1); // read by the model, like any other photo
   });
 });

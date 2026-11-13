@@ -248,6 +248,17 @@
       "sameHint": "Meerdere flessen van één wijn: scan één etiket en kies hoeveel. Eén keer gelezen.",
       "batchHint": "Verschillende wijnen: een foto per etiket, na elkaar. Elke foto wordt apart gelezen en gecontroleerd.",
       "sameQuantity": "Eén scan voor allemaal: de foto en gegevens gaan op elke fles."
+    },
+    "why": {
+      "catalog_identity": "Precies deze naam in de CELLR-catalogus",
+      "alias": "Gevonden op een andere naam van deze wijn",
+      "own_identity": "Je eigen wijn, precies deze naam",
+      "own_similar": "Je eigen wijn, met een vergelijkbare naam",
+      "similar_name": "Een vergelijkbare naam, niet dezelfde",
+      "other_bottling": "Een andere botteling met een vergelijkbare naam",
+      "producer_only": "Dezelfde producent; er is geen wijnnaam gelezen",
+      "type_differs": "Een andere kleur dan gelezen",
+      "country_differs": "Een ander land dan gelezen"
     }
   },
   "sommelier": {

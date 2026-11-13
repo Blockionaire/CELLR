@@ -269,6 +269,20 @@ export function createCellarRepository(db: Db): CellarRepository {
       return data.map(toWine);
     },
 
+    async listOwnWines(householdId) {
+      const { data, error } = await allRows((from, to) =>
+        db
+          .from("wines")
+          .select(WINE_COLUMNS)
+          .eq("owner_household_id", householdId)
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      );
+      if (error) throw mapDbError(error);
+      return data.map(toWine);
+    },
+
     async getWine(wineId) {
       const { data, error } = await db
         .from("wines")

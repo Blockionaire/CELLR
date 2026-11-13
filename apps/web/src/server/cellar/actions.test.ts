@@ -99,6 +99,9 @@ function fake(
     async listWines() {
       return [];
     },
+    async listOwnWines() {
+      return [];
+    },
     async getWine(id) {
       return options.wineExists === false || id !== WINE.id ? null : WINE;
     },

@@ -248,6 +248,17 @@
       "sameHint": "Several bottles of one wine: scan one label, then say how many. Read once.",
       "batchHint": "Different wines: a photo per label, one after another. Each is read and checked on its own.",
       "sameQuantity": "One scan covers them all: the photo and details go on every bottle."
+    },
+    "why": {
+      "catalog_identity": "Exactly this name in the CELLR catalogue",
+      "alias": "Matched on another name of this wine",
+      "own_identity": "Your own wine, exactly this name",
+      "own_similar": "Your own wine, with a similar name",
+      "similar_name": "A similar name, not the same",
+      "other_bottling": "Another bottling of a similar name",
+      "producer_only": "The same producer; no wine name was read",
+      "type_differs": "Another colour than was read",
+      "country_differs": "Another country than was read"
     }
   },
   "sommelier": {

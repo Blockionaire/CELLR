@@ -39,3 +39,4 @@ export * from "./catalog-providers";
 export * from "./provenance";
 export * from "./features";
 export * from "./catalog-identity";
+export * from "./wine-resolver";

@@ -6,8 +6,12 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "reac
 import {
   ERROR_MESSAGES,
   formatVintage,
+  MATCH,
   matchLabel,
+  RESOLVE_REASONS,
+  scoreWine,
   suggestWine,
+  type ResolveReason,
   type AddBottlesResult,
   type BottleArtRef,
   type ScanResult,
@@ -145,6 +149,20 @@ export function ScanScreen({
       !list
     )
       return result;
+    // The resolver's answer (WI-03) came from a bounded lookup on the server. It is matched again only against its
+    // own candidates plus the household's own wines as they are now (a wine added from an earlier photo of this
+    // batch), never against the whole catalogue; and only when that changes something is its "why" let go.
+    if (result.resolution) {
+      const own = list.filter((w) => !w.catalog);
+      const known = new Set(result.matches.map((m) => m.wine.id));
+      if (own.every((w) => known.has(w.id) || scoreWine(result.facts!, w) < MATCH.maybe))
+        return result;
+      const again = matchLabel(result.facts, [
+        ...result.matches.map((m) => m.wine),
+        ...own.filter((w) => !known.has(w.id)),
+      ]);
+      return { ...result, ...again };
+    }
     return { ...result, ...matchLabel(result.facts, list) };
   };
 
@@ -711,6 +729,18 @@ function Review({
     (outcome === "found" && (rejectedFound || !matches[0]));
   const producers = [...new Set(wines.map((w) => w.producer))];
   const unsure = facts ? Object.values(facts.confidence).includes("low") : false;
+  /**
+   * Why the resolver offers this wine (WI-03), in words: what tells the candidates apart. Undefined without the
+   * resolver, so the review looks exactly as it did.
+   */
+  const whyOf = (wineId: string): string | undefined => {
+    const reasons = result.resolution?.reasons[wineId];
+    if (!reasons) return undefined;
+    return reasons
+      .filter((r): r is ResolveReason => (RESOLVE_REASONS as readonly string[]).includes(r))
+      .map((r) => t(`why.${r}`))
+      .join(" · ");
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -752,6 +782,7 @@ function Review({
             year={facts?.year ?? null}
             owned={owned.get(matches[0].wine.id)}
             art={result.art}
+            why={whyOf(matches[0].wine.id)}
           />
           <Button size="lg" block onClick={() => onWine(matches[0]!.wine)}>
             {t("confirmFound")}
@@ -776,6 +807,7 @@ function Review({
                   year={facts?.year ?? null}
                   owned={owned.get(m.wine.id)}
                   onPick={() => onWine(m.wine)}
+                  why={whyOf(m.wine.id)}
                 />
               </li>
             ))}
@@ -881,28 +913,41 @@ function Candidate({
   owned,
   onPick,
   art,
+  why,
 }: {
   wine: WineSummary;
   year: number | null;
   owned?: number | undefined;
   onPick?: () => void;
   art?: BottleArtRef | null | undefined;
+  /** Why this wine is offered (the resolver's reasons, in words). With it, the colour is shown too. */
+  why?: string | undefined;
 }) {
   const locale = useLocale();
+  const tTypes = useTranslations("wineTypes");
   const detail = [
     year === null ? null : formatVintage(year),
+    // what tells two candidates apart: with the resolver's reasons the colour is said as well
+    why !== undefined ? tTypes(wine.type) : null,
     placeLine(wine.region, wine.countryCode, locale),
   ]
     .filter(Boolean)
     .join(" · ");
   return (
-    <WineChoice
-      wine={wine}
-      detail={detail}
-      owned={owned}
-      onPick={onPick}
-      size={onPick ? "thumb" : "card"}
-      art={art}
-    />
+    <div className="flex flex-col gap-1.5" data-testid="scan-candidate" data-wine={wine.id}>
+      <WineChoice
+        wine={wine}
+        detail={detail}
+        owned={owned}
+        onPick={onPick}
+        size={onPick ? "thumb" : "card"}
+        art={art}
+      />
+      {why && (
+        <p className="px-1 text-caption text-ink-2" data-testid="scan-why">
+          {why}
+        </p>
+      )}
+    </div>
   );
 }

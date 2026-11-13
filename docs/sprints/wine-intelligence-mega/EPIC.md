@@ -6,17 +6,18 @@ Brief: [`MASTER_BRIEF.md`](MASTER_BRIEF.md) (v1.1). Per-sub-sprint evidence: [`p
 ## Resume block
 
 ```text
-LAST VERIFIED CHECKPOINT: WI-02
+LAST VERIFIED CHECKPOINT: WI-03
 BRANCH / SHA: claude/wine-intelligence-mega-sprint-agnxu9 (base: main @ 770aaab); see `git log --grep '^WI-0'`
-STATUS: WI-00 PASS; WI-01 PASS (real LWIN import blocked by design); WI-02 PASS (behind `wine_search`, off)
+STATUS: WI-00 PASS; WI-01 PASS (real LWIN import blocked by design); WI-02 PASS (behind `wine_search`, off);
+        WI-03 PASS on programmed readings (behind `scan_resolver`, off; real labels pending)
 CHANGED FILES / PR: draft PR https://github.com/Blockionaire/CELLR/pull/68 ; per sub-sprint: progress/WI-0x.md §1
 CURRENT FEATURE FLAGS: CELLR_FEATURES unset everywhere (all four features off)
-LAST GREEN CHECKS: format, lint, typecheck, unit (web 723 / domain 616 / scan-eval 26 / catalog-tools 86),
-                   db:test 1202 (no schema change since WI-01), e2e wine-search 24/24 (features on, port 3101),
+LAST GREEN CHECKS: format, lint, typecheck, unit (web 743 / domain 616 / scan-eval 83 / catalog-tools 86),
+                   db:test 1202 (no schema change since WI-01), e2e wine-search 24/24 and scan-resolver 4/4 (features on, port 3101),
                    e2e regression with features off: 135 passed, 4 flaky (R-26), 0 failed
 PENDING BLOCKERS: PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED · REAL_LABEL_VALIDATION_PENDING ·
                   LWIN rights blocked · X-Wines rights unverified (pilot only)
-NEXT SAFE ACTION: WI-03 (scan resolver over bounded candidates, behind `scan_resolver`)
+NEXT SAFE ACTION: WI-04 (Koopcheck reuses catalogue facts and valid shared profiles, behind `purchase_intel`)
 DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the X-Wines download (the file is in an
                isolated scratch folder of the session, never in Git: re-download it from the authors' Drive folder
                and check the SHA-256 in pilot.sh if a new session needs it)
@@ -24,16 +25,16 @@ DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the X-Wines
 
 ## Status by sub-sprint
 
-| ID    | Name                                            | Status                                          | Evidence                                 |
-| ----- | ----------------------------------------------- | ----------------------------------------------- | ---------------------------------------- |
-| WI-00 | Baseline, architecture and threat model         | **PASS**                                        | [`progress/WI-00.md`](progress/WI-00.md) |
-| WI-01 | Provider adapters, identity quality, pilot      | **PASS** (real LWIN import: blocked by design)  | [`progress/WI-01.md`](progress/WI-01.md) |
-| WI-02 | Shared search / autocomplete UX                 | **PASS** (behind `wine_search`, off by default) | [`progress/WI-02.md`](progress/WI-02.md) |
-| WI-03 | Scan-to-catalogue resolver                      | not started                                     |                                          |
-| WI-04 | Buying intelligence and profile reuse           | not started                                     |                                          |
-| WI-05 | Provenance, trust and wine pages                | not started                                     |                                          |
-| WI-06 | Admin governance, telemetry, operational safety | not started                                     |                                          |
-| WI-07 | Regression, stress, legal readiness, dossier    | not started                                     |                                          |
+| ID    | Name                                            | Status                                                                                 | Evidence                                 |
+| ----- | ----------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------- |
+| WI-00 | Baseline, architecture and threat model         | **PASS**                                                                               | [`progress/WI-00.md`](progress/WI-00.md) |
+| WI-01 | Provider adapters, identity quality, pilot      | **PASS** (real LWIN import: blocked by design)                                         | [`progress/WI-01.md`](progress/WI-01.md) |
+| WI-02 | Shared search / autocomplete UX                 | **PASS** (behind `wine_search`, off by default)                                        | [`progress/WI-02.md`](progress/WI-02.md) |
+| WI-03 | Scan-to-catalogue resolver                      | **PASS** on programmed readings (behind `scan_resolver`, off); real labels **PENDING** | [`progress/WI-03.md`](progress/WI-03.md) |
+| WI-04 | Buying intelligence and profile reuse           | not started                                                                            |                                          |
+| WI-05 | Provenance, trust and wine pages                | not started                                                                            |                                          |
+| WI-06 | Admin governance, telemetry, operational safety | not started                                                                            |                                          |
+| WI-07 | Regression, stress, legal readiness, dossier    | not started                                                                            |                                          |
 
 ## Branch and PR strategy
 
@@ -157,3 +158,7 @@ The brief's R-01 to R-21 apply as written (`MASTER_BRIEF.md` §11). Baseline fin
 - **2026-11-13 — WI-02 PASS.** One search component (combobox + listbox) for add-bottle, the scan review and
   Koopcheck's new "Handmatig zoeken" step, on Sprint 004A's `catalog_search`; behind `wine_search` (off). A second
   e2e server with every feature on (port 3101). Automated only: no physical device, no real network.
+- **2026-11-13 — WI-03 PASS (programmed readings).** `resolveWine`: the unchanged `matchLabel` rules over a bounded
+  candidate set (own wines, that producer's wines, the best search hits) with a reason per candidate; provider
+  records are never scan candidates. Golden set (synthetic): 0 wrong automatic identities in 36 readings and 15
+  texts. `REAL_LABEL_VALIDATION_PENDING` stands: 0 real photos, no device.
