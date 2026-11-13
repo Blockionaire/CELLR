@@ -1,6 +1,16 @@
 import path from "node:path";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
-import { apiClient, arrive, audit, makeJpeg, sessionToken, sql, stamp, signIn } from "./helpers";
+import {
+  APP_URL,
+  apiClient,
+  arrive,
+  audit,
+  makeJpeg,
+  sessionToken,
+  sql,
+  stamp,
+  signIn,
+} from "./helpers";
 
 /**
  * Sprint U: the admin portal as a daily tool. Readable in both themes (axe colour contrast on the rendered pages),
@@ -22,7 +32,7 @@ async function asAdmin(browser: Browser, theme: "dark" | "light" = "dark", viewp
     ADMIN_EMAIL,
   ]);
   const context = await browser.newContext({ viewport, colorScheme: theme });
-  await context.addCookies([{ name: "theme", value: theme, url: "http://localhost:3100" }]);
+  await context.addCookies([{ name: "theme", value: theme, url: APP_URL }]);
   const admin = await context.newPage();
   await signIn(admin, ADMIN_EMAIL);
   return { admin, close: () => context.close() };

@@ -22,6 +22,16 @@ const ADMIN_EMAIL = "feedback-admin@cellr.invalid";
 
 const marker = () =>
   `${test.info().parallelIndex}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+/**
+ * A made-up word no other run shares. The names of this test must not resemble the ones an earlier run (the other
+ * project, a retry) published to the shared catalogue: a look-alike catalogue wine is rightly offered as a choice
+ * by the scan resolver (feature `scan_resolver`), and this test is about a wine nobody has seen yet.
+ */
+const word = () =>
+  Array.from(
+    { length: 9 },
+    () => "abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)],
+  ).join("");
 
 async function program(plan: Record<string, unknown>) {
   const res = await fetch(`${STACK}/__test/openai`, {
@@ -60,8 +70,8 @@ test.describe("catalogue learning", () => {
   }) => {
     test.setTimeout(240_000);
     const m = marker();
-    const producer = `Domaine Learning ${m}`;
-    const wine = `Cuvée Gamma ${m}`;
+    const producer = `Domaine ${word()}`;
+    const wine = `Cuvée ${word()}`;
     const label = {
       is_wine_label: true,
       producer,

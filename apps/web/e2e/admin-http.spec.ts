@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { arrive, makeJpeg, sessionToken, signIn, sql, stamp } from "./helpers";
+import { APP_URL, arrive, makeJpeg, sessionToken, signIn, sql, stamp } from "./helpers";
 
 /**
  * Sprint V: the admin dashboard answers people who are not admins with a REAL 404 (not the not-found page under a
@@ -125,7 +125,7 @@ test("a signed-in person who is not an admin gets a real 404 and nothing of the 
   await close();
   expect(hidden.some(([n]) => n.startsWith("$ACTION_"))).toBe(true);
   const action = await page.request.post(`/admin/wines/${wineId}`, {
-    headers: { origin: "http://localhost:3100" },
+    headers: { origin: APP_URL },
     multipart: {
       ...Object.fromEntries(hidden),
       name: "Hijacked",
@@ -142,7 +142,7 @@ test("a signed-in person who is not an admin gets a real 404 and nothing of the 
   expect(action.status()).toBe(404);
   expect(await sql("select name from public.wines where id = $1", [wineId])).toEqual([{ name }]);
   const upload = await page.request.post(`/admin/wines/${wineId}/art`, {
-    headers: { origin: "http://localhost:3100" },
+    headers: { origin: APP_URL },
     multipart: { note: "x" },
   });
   expect(upload.status()).toBe(404);

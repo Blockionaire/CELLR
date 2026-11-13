@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { aiWindow, apiClient, arrive, bearer, sql } from "./helpers";
+import { aiWindow, apiClient, APP_URL, arrive, bearer, sql } from "./helpers";
 
 /**
  * Not a test: a photographer. Fills a believable cellar (label photos, an AI window, an opened and rated bottle)
@@ -220,7 +220,7 @@ test("photograph the main screens", async ({ page, request, browser }) => {
         hasTouch: size.mobile,
         colorScheme: scheme,
       });
-      await context.addCookies([{ name: "locale", value: "nl", url: "http://localhost:3100" }]);
+      await context.addCookies([{ name: "locale", value: "nl", url: APP_URL }]);
       const p = await context.newPage();
       for (const [name, url] of screens.filter(([n]) => !pickScreens || pickScreens.includes(n))) {
         await p.goto(url);

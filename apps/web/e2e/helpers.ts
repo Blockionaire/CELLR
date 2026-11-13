@@ -1,7 +1,14 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 
 export const STACK = "http://localhost:54321";
+
+/**
+ * Where the app under test is served: the default server, or the one `E2E_BASE_URL` names (playwright.config.ts
+ * uses the same rule for `baseURL`). Requests that must look same-origin, and cookies set before the first
+ * navigation, take their address from here instead of a fixed port.
+ */
+export const APP_URL = process.env.E2E_BASE_URL || "http://localhost:3100";
 export const PUBLISHABLE_KEY = "sb_publishable_localstack_0000000000";
 
 /** A fresh, never-before-seen address on the allowed test domain. */
@@ -242,3 +249,15 @@ export async function askExample(page: Page, name: string) {
 
 /** The same build with every Wine Intelligence feature switched on (playwright.config.ts). */
 export const FEATURES_URL = "http://localhost:3101";
+
+/**
+ * A wine offered on the "choose a wine" screen. The classic list offers each wine as a button; the wine search
+ * (feature `wine_search`) offers it as an option of a listbox. A test that means "choose this wine" uses this, so
+ * it holds whichever of the two the server shows. Tests of the search itself (wine-search.spec.ts) stay exact.
+ */
+export const wineChoice = (scope: Page | Locator, name: string | RegExp) =>
+  scope.getByRole("button", { name }).or(scope.getByRole("option", { name }));
+
+/** The field of that screen: a searchbox in the classic list, a combobox in the wine search; one label for both. */
+export const wineField = (scope: Page | Locator) =>
+  scope.getByLabel("Search your wines, or add a new one");

@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContextOptions } from "@playwright/test";
-import { aiWindow, api, apiClient, arrive, audit, sessionToken, sql } from "./helpers";
+import { aiWindow, api, apiClient, APP_URL, arrive, audit, sessionToken, sql } from "./helpers";
 
 const shot = (name: string) => `test-results/shots/${name}.png`;
 const project = () => test.info().project.name;
@@ -195,9 +195,7 @@ test.describe("insights", () => {
     const { email } = await arrive(page, "statsnl");
     const { call } = await apiClient(request, email);
     await furnish(call);
-    await page
-      .context()
-      .addCookies([{ name: "locale", value: "nl", url: "http://localhost:3100" }]);
+    await page.context().addCookies([{ name: "locale", value: "nl", url: APP_URL }]);
     await sql(
       "update public.profiles set locale = 'nl' where id = (select id from auth.users where email = $1)",
       [email],

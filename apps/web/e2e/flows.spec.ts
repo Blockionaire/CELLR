@@ -8,6 +8,7 @@ import {
 } from "@playwright/test";
 import {
   api,
+  APP_URL,
   onboardCreate,
   PUBLISHABLE_KEY,
   sessionToken,
@@ -203,7 +204,7 @@ test.describe("households: invite, join, remove", () => {
       const invite = await (
         await alice.page.request.post(`/api/v1/households/${me.activeHouseholdId}/invites`, {
           data: {},
-          headers: { origin: "http://localhost:3100" },
+          headers: { origin: APP_URL },
         })
       ).json();
       const joined = await api(alice.page.request, token, "post", "/households/join", {
@@ -218,7 +219,7 @@ test.describe("households: invite, join, remove", () => {
       // And the database still refuses it, in words the person can act on.
       const left = await alice.page.request.delete(
         `/api/v1/households/${me.activeHouseholdId}/members/${me.userId}`,
-        { headers: { origin: "http://localhost:3100" } },
+        { headers: { origin: APP_URL } },
       );
       expect(left.status()).toBe(409);
       expect((await left.json()).error.message).toMatch(/last owner/);

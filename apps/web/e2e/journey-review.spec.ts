@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
-import { apiClient, arrive, codeFor, sql, uniqueEmail, wineBody } from "./helpers";
+import { APP_URL, apiClient, arrive, codeFor, sql, uniqueEmail, wineBody } from "./helpers";
 
 /**
  * Not a test: a photographer for the journeys a beta tester takes first. A brand-new person from the sign-in page
@@ -36,8 +36,7 @@ async function context(
     colorScheme: scheme,
     locale: locale === "nl" ? "nl-NL" : "en-GB",
   });
-  if (locale === "nl")
-    await ctx.addCookies([{ name: "locale", value: "nl", url: "http://localhost:3100" }]);
+  if (locale === "nl") await ctx.addCookies([{ name: "locale", value: "nl", url: APP_URL }]);
   return ctx;
 }
 

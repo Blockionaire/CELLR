@@ -1,5 +1,15 @@
 import { expect, test, type BrowserContextOptions, type Page } from "@playwright/test";
-import { api, apiClient, arrive, makeJpeg, sessionToken, sql, STACK, wineBody } from "./helpers";
+import {
+  api,
+  apiClient,
+  arrive,
+  makeJpeg,
+  sessionToken,
+  sql,
+  STACK,
+  wineBody,
+  wineChoice,
+} from "./helpers";
 
 /**
  * "Add a bottle here": an empty spot tapped in a rack opens the add flow with that place, shelf and position
@@ -85,8 +95,7 @@ test.describe("adding a bottle on the spot you tapped", () => {
     );
 
     // 2. an existing wine: the place and the exact spot are chosen and shown
-    await page
-      .getByRole("button", { name: /Chablis Premier Cru/ })
+    await wineChoice(page, /Chablis Premier Cru/)
       .first()
       .click();
     await expect(place(page, "Stellingkast")).toHaveAttribute("aria-checked", "true");
@@ -130,8 +139,7 @@ test.describe("adding a bottle on the spot you tapped", () => {
 
     // "Add another" goes back to choosing, with no spot any more (it is taken)
     await page.getByRole("button", { name: "Add another" }).click();
-    await page
-      .getByRole("button", { name: /Chablis Premier Cru/ })
+    await wineChoice(page, /Chablis Premier Cru/)
       .first()
       .click();
     await expect(page.getByTestId("add-spot")).toBeHidden();
@@ -147,8 +155,7 @@ test.describe("adding a bottle on the spot you tapped", () => {
 
     // one bottle: the last screen says exactly where
     await page.goto(`/cellar/add?place=${ids.rack}&row=3&col=5`);
-    await page
-      .getByRole("button", { name: /Chablis Premier Cru/ })
+    await wineChoice(page, /Chablis Premier Cru/)
       .first()
       .click();
     await page.getByLabel("Vintage").fill("2021");
@@ -157,8 +164,7 @@ test.describe("adding a bottle on the spot you tapped", () => {
 
     // 5. another place, then back: the spot is gone, and the bottle takes the first free spot as before
     await page.goto(`/cellar/add?place=${ids.rack}&row=4&col=4`);
-    await page
-      .getByRole("button", { name: /Chablis Premier Cru/ })
+    await wineChoice(page, /Chablis Premier Cru/)
       .first()
       .click();
     await expect(page.getByTestId("add-spot")).toContainText("Shelf 4 · Position 4");
@@ -172,8 +178,7 @@ test.describe("adding a bottle on the spot you tapped", () => {
 
     // …and "Not placed yet" clears it too
     await page.goto(`/cellar/add?place=${ids.rack}&row=4&col=4`);
-    await page
-      .getByRole("button", { name: /Chablis Premier Cru/ })
+    await wineChoice(page, /Chablis Premier Cru/)
       .first()
       .click();
     await page.getByRole("radio", { name: /Not placed yet/ }).click();
@@ -181,8 +186,7 @@ test.describe("adding a bottle on the spot you tapped", () => {
 
     // 4. the spot is taken while the form is open: refused with a clear message, nothing added anywhere
     await page.goto(`/cellar/add?place=${ids.rack}&row=4&col=4`);
-    await page
-      .getByRole("button", { name: /Chablis Premier Cru/ })
+    await wineChoice(page, /Chablis Premier Cru/)
       .first()
       .click();
     await page.getByLabel("Vintage").fill("2023");
@@ -250,8 +254,7 @@ test.describe("adding a bottle on the spot you tapped", () => {
       `place=${ids.rack}&row=x`,
     ]) {
       await page.goto(`/cellar/add?${q}`);
-      await page
-        .getByRole("button", { name: /Chablis Premier Cru/ })
+      await wineChoice(page, /Chablis Premier Cru/)
         .first()
         .click();
       await expect(page.getByLabel("Vintage")).toBeVisible();
@@ -260,8 +263,7 @@ test.describe("adding a bottle on the spot you tapped", () => {
     // direct entry: no spot, the first place with room is chosen, the scanner link is plain
     await page.goto("/cellar/add");
     await expect(page.getByRole("link", { name: /Scan wine/ })).toHaveAttribute("href", "/scan");
-    await page
-      .getByRole("button", { name: /Chablis Premier Cru/ })
+    await wineChoice(page, /Chablis Premier Cru/)
       .first()
       .click();
     await expect(place(page, "Stellingkast")).toHaveAttribute("aria-checked", "true");
@@ -301,8 +303,7 @@ test.describe("adding a bottle on the spot you tapped", () => {
     expect(owners[0]!.n).toBe("2");
 
     await otherPage.goto(`/cellar/add?place=${ids.rack}&row=3&col=3`);
-    await otherPage
-      .getByRole("button", { name: /Chablis Premier Cru/ })
+    await wineChoice(otherPage, /Chablis Premier Cru/)
       .first()
       .click();
     await expect(otherPage.getByLabel("Vintage")).toBeVisible();
