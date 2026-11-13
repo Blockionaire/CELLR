@@ -48,7 +48,21 @@ const years: Record<string, number | null> = { v2019: 2019, v2020: 2020, vNV: nu
  * One database shared by several households: each household's private profiles, the shared profiles (keyed by
  * vintage and language, as the unique constraint does), and every paid research call.
  */
-function world(options: { answer?: Record<string, unknown>; sharedDown?: boolean } = {}) {
+function world(
+  options: {
+    answer?: Record<string, unknown>;
+    sharedDown?: boolean;
+    /** Research claims (WI-04): "on" = as the database gives them out; "down" = the claim cannot be taken. */
+    claims?: "on" | "down";
+    /** The research call fails for these households (the model is down for them). */
+    aiDownFor?: string[];
+  } = {},
+) {
+  const claimed = new Set<string>();
+  const sleeps: number[] = [];
+  /** Research calls that have started and not yet been let go (so two requests can overlap). */
+  const pending: Array<() => void> = [];
+  let hold = false;
   const privateRows = new Map<string, InsightRow & { cacheResult?: string }>();
   const shared = new Map<string, { output: InsightOutput; model: string; generatedAt: string }>();
   const calls: GenerateObjectRequest<unknown>[] = [];
@@ -82,6 +96,13 @@ function world(options: { answer?: Record<string, unknown>; sharedDown?: boolean
     const llm: LlmProvider = {
       async generateObject<T>(request: GenerateObjectRequest<T>) {
         calls.push(request as GenerateObjectRequest<unknown>);
+        if (hold) await new Promise<void>((release) => pending.push(release));
+        if (options.aiDownFor?.includes(id))
+          return {
+            ok: false as const,
+            kind: "unavailable" as const,
+            usage: { model: "research-model", tokensIn: 0, tokensOut: 0, latencyMs: 1 },
+          };
         const value = request.parse(answer(options.answer ?? {}));
         return {
           ok: true as const,
@@ -122,6 +143,22 @@ function world(options: { answer?: Record<string, unknown>; sharedDown?: boolean
         spent += 1;
       },
       recordUsage: async (e) => void usage.push({ householdId: e.householdId }),
+      ...(options.claims
+        ? {
+            claimShared: async (vintageId: string, language: string) => {
+              if (options.claims === "down") throw new Error("database unavailable");
+              const key = `${vintageId}:${language}`;
+              if (claimed.has(key)) return false;
+              claimed.add(key);
+              return true;
+            },
+            sleep: async (ms: number) => {
+              sleeps.push(ms);
+              // while one request waits, the other's research gets on
+              await new Promise((r) => setImmediate(r));
+            },
+          }
+        : {}),
       publishShared: async (e) => {
         const key = `${e.vintageId}:${e.language}`;
         if (!canonical.has(e.vintageId) || shared.has(key)) return false;
@@ -137,6 +174,17 @@ function world(options: { answer?: Record<string, unknown>; sharedDown?: boolean
     calls,
     usage,
     spent: () => spent,
+    claimed,
+    sleeps,
+    /** From now on research calls wait until `release()`. */
+    holdResearch: () => {
+      hold = true;
+    },
+    release: () => {
+      hold = false;
+      for (const r of pending.splice(0)) r();
+    },
+    pending: () => pending.length,
   };
 }
 
@@ -282,5 +330,96 @@ describe("research a wine once, reuse it in every household", () => {
       },
     });
     await expect(service.generate("v2019")).resolves.toMatchObject({ ready: true });
+  });
+});
+
+describe("two households ask for the same uncached vintage at the same moment (WI-04)", () => {
+  const tick = () => new Promise((r) => setImmediate(r));
+
+  it("one research call: the second request waits for the first one's profile and pays nothing", async () => {
+    const w = world({ claims: "on" });
+    w.holdResearch();
+    const a = w.household("A").generate("v2019");
+    await tick();
+    await tick();
+    expect(w.calls).toHaveLength(1); // A is researching
+    const b = w.household("B").generate("v2019");
+    await tick();
+    await tick();
+    expect(w.calls).toHaveLength(1); // B did not start a second research: it waits
+    expect(w.sleeps.length).toBeGreaterThan(0);
+    w.release();
+    const [first, second] = await Promise.all([a, b]);
+    expect(w.calls).toHaveLength(1);
+    expect(w.spent()).toBe(1);
+    expect(w.usage).toHaveLength(1);
+    expect(first.insight?.output.summary).toContain("Pavillon Rouge");
+    expect(second.insight?.output).toEqual(first.insight?.output);
+    expect(w.privateRows.get("B:v2019")?.cacheResult).toBe("hit");
+    expect(w.privateRows.get("A:v2019")?.cacheResult).toBe("miss");
+  });
+
+  it("ten at once: still one research call", async () => {
+    const w = world({ claims: "on" });
+    w.holdResearch();
+    const all = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].map((h) =>
+      w.household(h).generate("v2019"),
+    );
+    for (let i = 0; i < 6; i++) await tick();
+    expect(w.calls).toHaveLength(1);
+    w.release();
+    const views = await Promise.all(all);
+    expect(w.calls).toHaveLength(1);
+    expect(w.spent()).toBe(1);
+    expect(views.every((v) => v.insight?.output.summary.includes("Pavillon Rouge"))).toBe(true);
+  });
+
+  it("the first one's research fails: the second waits its bounded time, then researches itself, once", async () => {
+    const w = world({ claims: "on", aiDownFor: ["A"] });
+    await expect(w.household("A").generate("v2019")).rejects.toMatchObject({
+      code: "AI_UNAVAILABLE",
+    });
+    const callsAfterA = w.calls.length;
+    const b = await w.household("B").generate("v2019");
+    // B waited the whole window (never longer), found nothing, and then paid for exactly one research itself
+    expect(w.sleeps.reduce((x, y) => x + y, 0)).toBe(30_000);
+    expect(w.calls.length - callsAfterA).toBe(1);
+    expect(b.insight?.output.summary).toContain("Pavillon Rouge");
+    expect(w.shared.has("v2019:en")).toBe(true);
+  });
+
+  it("another vintage, another language and a household's own wine never wait for each other", async () => {
+    const w = world({ claims: "on" });
+    w.holdResearch();
+    const all = [
+      w.household("A").generate("v2019"),
+      w.household("B").generate("v2020"),
+      w.household("C", "nl").generate("v2019"),
+      w.household("D").generate("vOwn"),
+    ];
+    for (let i = 0; i < 6; i++) await tick();
+    expect(w.calls).toHaveLength(4);
+    expect(w.sleeps).toEqual([]);
+    // a household's own wine has no shared identity: no claim is even asked for it
+    expect([...w.claimed].sort()).toEqual(["v2019:en", "v2019:nl", "v2020:en"]);
+    w.release();
+    await Promise.all(all);
+  });
+
+  it("a claim that cannot be taken changes nothing: research goes ahead as before", async () => {
+    const w = world({ claims: "down" });
+    await w.household("A").generate("v2019");
+    expect(w.calls).toHaveLength(1);
+    expect(w.sleeps).toEqual([]);
+  });
+
+  it("a profile that is already shared is reused without any claim or wait", async () => {
+    const w = world({ claims: "on" });
+    await w.household("A").generate("v2019");
+    w.claimed.clear();
+    await w.household("B").generate("v2019");
+    expect(w.calls).toHaveLength(1);
+    expect(w.claimed.size).toBe(0);
+    expect(w.sleeps).toEqual([]);
   });
 });

@@ -9,7 +9,7 @@ import { canDeleteAccounts, deleteAuthUser } from "@/server/privileged/account";
 import { pinStatus, removePin, setPin } from "@/server/privileged/pin";
 import { createAuthGateway } from "@/server/auth/gateway";
 import { createAuthService } from "@/server/auth/service";
-import { DomainError } from "@cellr/domain";
+import { DomainError, type ProfileLanguage } from "@cellr/domain";
 import { createCellarRepository } from "@/server/cellar/repository";
 import { createCellarService } from "@/server/cellar/service";
 import type { RequestContext } from "@/server/context";
@@ -36,7 +36,10 @@ import { createHouseholdService } from "@/server/households/service";
 import { createRateLimitRepository } from "@/server/ratelimit/repository";
 import { createRateLimiter, LIMITS } from "@/server/ratelimit/service";
 import { noteScanRead } from "@/server/privileged/catalog-reads";
-import { publishSharedProfile } from "@/server/privileged/shared-profiles";
+import {
+  claimSharedProfileResearch,
+  publishSharedProfile,
+} from "@/server/privileged/shared-profiles";
 import { createContributionService } from "@/server/catalog/contribution";
 import { createCatalogSearchRepository } from "@/server/catalog/search-repository";
 import { createCatalogSearchService } from "@/server/catalog/search";
@@ -106,6 +109,7 @@ export function servicesFor(ctx: RequestContext) {
     spend: () => limiter.enforce(LIMITS.insights),
     spendValuation: () => limiter.enforce(LIMITS.valuations),
     publishShared: publishSharedProfile,
+    claimShared: claimSharedProfileResearch,
     recordUsage: ({ householdId, task, status, usage }) =>
       recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
   });
@@ -277,6 +281,21 @@ export function servicesFor(ctx: RequestContext) {
       traits: (wineIds) => createPurchaseCheckRepository(ctx.db).listWineTraits(wineIds),
       insights: (householdId, vintageIds) => tasteRepo.listInsights(householdId, vintageIds),
       taste: () => taste.evidence(),
+      // The `purchase_intel` feature: what is already known about the chosen catalogue wine is read (as the
+      // person) and reused. Two reads; no model, no budget, no write.
+      ...(features.purchase_intel
+        ? {
+            knowledge: async (wineId: string, language: ProfileLanguage) => {
+              const repo = createPurchaseCheckRepository(ctx.db);
+              const [catalog, profiles] = await Promise.all([
+                repo.getCatalogWine(wineId),
+                repo.listSharedProfiles(wineId, language),
+              ]);
+              return { catalog, profiles };
+            },
+            locale: async () => (await households.me()).locale,
+          }
+        : {}),
       llm: getLlmProvider(),
       spendScan: () => limiter.enforce(LIMITS.scans),
       recordUsage: ({ householdId, task, status, usage }) =>

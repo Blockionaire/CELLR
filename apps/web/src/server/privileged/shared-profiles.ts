@@ -35,3 +35,27 @@ export async function publishSharedProfile(entry: {
   }
   return data === true;
 }
+
+/**
+ * Says "this vintage is being researched in this language now" (public.claim_shared_profile_research). True: it is
+ * this request's to research (also when there is nothing to share, or the claim cannot be taken: without the service
+ * role or the database step everything works as before). False: another request claimed it moments ago; its profile
+ * is worth waiting for instead of paying for the same research twice.
+ */
+export async function claimSharedProfileResearch(
+  vintageId: string,
+  language: ProfileLanguage,
+): Promise<boolean> {
+  const db = createServiceClient();
+  if (!db) return true;
+  const { data, error } = await db.rpc("claim_shared_profile_research", {
+    p_vintage_id: vintageId,
+    p_language: language,
+  });
+  if (error) {
+    if (error.code !== "PGRST202" && error.code !== "42883")
+      logError("shared_profile_claim_failed", error);
+    return true;
+  }
+  return data !== false;
+}

@@ -3039,6 +3039,10 @@ export type Database = {
       catalog_target_identity: { Args: Record<PropertyKey, never>; Returns: Json };
       catalog_vintage: { Args: { p_wine_id: string; p_year: number }; Returns: string };
       check_signup_allowed: { Args: { p_email: string }; Returns: boolean };
+      claim_shared_profile_research: {
+        Args: { p_language: string; p_ttl_seconds?: number; p_vintage_id: string };
+        Returns: boolean;
+      };
       consume_rate_limit: {
         Args: { p_bucket: string; p_limit: number; p_window_seconds: number };
         Returns: boolean;

@@ -34,6 +34,7 @@ import { ChevronRightIcon, CloseIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
 import { Skeleton } from "@/ui/skeleton";
 import { useComparePurchase, useRecognizeBottle } from "./hooks";
+import { KnowledgeSection } from "./knowledge-section";
 
 /** The wine search is loaded only when the typed path starts with it (the `wine_search` feature). */
 const WineSearch = dynamic(
@@ -758,6 +759,13 @@ function ResultStep({
           </Link>
         </p>
       </Section>
+
+      {result.knowledge && (
+        <KnowledgeSection
+          knowledge={result.knowledge}
+          vintageKnown={wine.year !== null || wine.nonVintage}
+        />
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button size="lg" block onClick={onRestart}>

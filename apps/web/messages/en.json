@@ -1928,7 +1928,22 @@
       "catalog": "Chosen from the CELLR catalogue. Check the vintage in the shop, and add the price if you like.",
       "provider": "Taken from {provider}, an external source that CELLR has not verified. Check the details, the vintage and the price."
     },
-    "searchInstead": "Search by name instead"
+    "searchInstead": "Search by name instead",
+    "knowledge": {
+      "title": "What CELLR already knows about this wine",
+      "profileLabel": "Profile of {vintage} · CELLR's AI estimate · {date}",
+      "window": "Estimated to drink well from {from} through {until}.",
+      "profileCaveat": "{count, plural, =0 {An estimate by CELLR, not a tasting note and not the producer's view.} one {An estimate by CELLR based on 1 source it consulted, not a tasting note and not the producer's view.} other {An estimate by CELLR based on # sources it consulted, not a tasting note and not the producer's view.}}",
+      "addedIntro": "Filled in where you left it open. What you entered yourself was not changed.",
+      "origin": {
+        "catalog": "CELLR catalogue",
+        "estimateVintage": "CELLR's AI estimate for this vintage",
+        "estimateWine": "CELLR's AI estimate, from the profile of {years}"
+      },
+      "noteOtherVintage": "CELLR has no profile of this vintage yet. A drinking window, price or harvest description of another vintage is never carried over.",
+      "noteNoVintage": "You gave no vintage, so CELLR shows no vintage profile. A drinking window or price belongs to one vintage.",
+      "noteCatalogOnly": "CELLR has no profile of this wine yet. Only the details in the CELLR catalogue were used."
+    }
   },
   "drinkDetail": {
     "title": "Drinking window",

@@ -9,6 +9,7 @@ import {
 } from "./cellar";
 import { MATCH, nameSimilarity, scoreWine, type Confidence, type LabelFacts } from "./scan";
 import { toSommelierBottle, type SommelierBottle } from "./sommelier";
+import type { PurchaseKnowledge } from "./wine-knowledge";
 import {
   FAVOURITE_MIN_SCORE,
   MIN_FAVOURITE_WINES,
@@ -561,6 +562,13 @@ export interface PurchaseCheckResult {
   verdict: PurchaseVerdict;
   /** Short, concrete reasons, most important first (at most four). */
   reasons: VerdictReason[];
+  /**
+   * What CELLR knew about this wine beyond what the person confirmed, and where each part came from (the
+   * `purchase_intel` feature): catalogue facts, a reused profile of this vintage, or the wine's stable facts.
+   * `wine` above is the wine as it was COMPARED (the confirmed facts with only their open fields filled); this says
+   * what was filled in. Absent or null: nothing was added, the comparison used the confirmed facts alone.
+   */
+  knowledge?: PurchaseKnowledge | null;
 }
 
 /** The advice follows from the findings, never the other way round. */

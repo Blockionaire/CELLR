@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { withBudget } from "./budget";
-import type { GenerateObjectRequest, LlmProvider } from "./types";
+import { BUDGET_FAIL_OPEN, budgetModeOf, withBudget } from "./budget";
+import type { AiTask, GenerateObjectRequest, LlmProvider } from "./types";
 
 const request: GenerateObjectRequest<string> = {
   task: "sommelier_chat",
@@ -92,5 +92,78 @@ describe("the platform AI budget", () => {
     await withBudget(provider(), model, hold).generateObject({ ...search, maxSearches: 2 });
     await withBudget(provider(), model, hold).generateObject({ ...search, maxSearches: 4 });
     expect(held[1]).toBeGreaterThan(held[0]!);
+  });
+});
+
+describe("a NEW paid path fails closed (Wine Intelligence, R-18)", () => {
+  // a task that does not exist yet: whatever is added later starts here
+  const fresh: GenerateObjectRequest<string> = {
+    ...request,
+    task: "purchase_explanation" as AiTask,
+  };
+
+  it("the tasks that fail open are exactly the five that existed before; every other task is closed", () => {
+    expect([...BUDGET_FAIL_OPEN].sort()).toEqual([
+      "label_extraction",
+      "purchase_check",
+      "sommelier_chat",
+      "wine_insight",
+      "wine_valuation",
+    ]);
+    for (const task of ["purchase_explanation", "auto_profile", "", "LABEL_EXTRACTION", "toString"])
+      expect(budgetModeOf(task)).toBe("closed");
+  });
+
+  it("the budget service is down: no call is made, the feature gets `budget` and takes its no-AI path", async () => {
+    const inner = provider();
+    const hold = vi.fn(async () => Promise.reject(new Error("db down")));
+    const result = await withBudget(inner, model, hold).generateObject(fresh);
+    expect(inner.calls).toBe(0);
+    expect(result).toMatchObject({ ok: false, kind: "budget", usage: { notSent: true } });
+  });
+
+  it("no budget is configured at all: nothing bounds the spending, so no call is made", async () => {
+    const inner = provider();
+    const result = await withBudget(inner, model, async () => "").generateObject(fresh);
+    expect(inner.calls).toBe(0);
+    expect(result).toMatchObject({ ok: false, kind: "budget" });
+  });
+
+  it("the budget is spent: no call (as for every task)", async () => {
+    const inner = provider();
+    const result = await withBudget(inner, model, async () => null).generateObject(fresh);
+    expect(inner.calls).toBe(0);
+    expect(result.ok).toBe(false);
+  });
+
+  it("with room in a working budget the call is made once, with its hold", async () => {
+    const inner = provider();
+    const result = await withBudget(inner, model, async () => "hold-9").generateObject(fresh);
+    expect(inner.calls).toBe(1);
+    expect(result.usage.budgetHold?.id).toBe("hold-9");
+  });
+
+  it("a storm of simultaneous requests during an outage makes zero calls, and the wrapper never retries", async () => {
+    const inner = provider();
+    let checks = 0;
+    const hold = async () => {
+      checks += 1;
+      throw new Error("timeout");
+    };
+    const guarded = withBudget(inner, model, hold);
+    const results = await Promise.all(
+      Array.from({ length: 50 }, () => guarded.generateObject(fresh)),
+    );
+    expect(inner.calls).toBe(0);
+    expect(checks).toBe(50); // one check per request: no retry loop
+    expect(results.every((r) => !r.ok && r.kind === "budget")).toBe(true);
+  });
+
+  it("the same outage leaves the existing paths as they were: they go ahead, each bounded by its own rate limit", async () => {
+    const inner = provider();
+    const guarded = withBudget(inner, model, async () => Promise.reject(new Error("db down")));
+    for (const task of BUDGET_FAIL_OPEN)
+      await guarded.generateObject({ ...request, task: task as AiTask });
+    expect(inner.calls).toBe(BUDGET_FAIL_OPEN.size);
   });
 });

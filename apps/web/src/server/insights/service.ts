@@ -76,7 +76,22 @@ export interface InsightsDeps {
     model: string;
     generatedAt: string;
   }) => Promise<boolean>;
+  /**
+   * Says a shareable vintage is being researched in this language now; false when another request said so moments
+   * ago (its profile is then waited for instead of paying for the same research). Missing or failing = research as
+   * before.
+   */
+  claimShared?: (vintageId: string, language: ProfileLanguage) => Promise<boolean>;
+  /** Waits (injectable so tests do not). */
+  sleep?: (ms: number) => Promise<void>;
 }
+
+/**
+ * How long a request waits for another request's research of the same vintage before it researches itself. Short
+ * of a research call (up to a minute), long enough for most to finish; a request never waits and then pays less
+ * than twice in the worst case, and never waits for ever.
+ */
+export const SHARED_WAIT = { everyMs: 2_000, forMs: 30_000 } as const;
 
 const STATUS: Record<
   AiErrorKind,
@@ -180,6 +195,34 @@ export function createInsightsService(deps: InsightsDeps) {
         return view(id, currency, vintageId);
       }
       const shareable = shared?.eligible === true;
+
+      // Two households asking for the same uncached vintage at the same moment: the first researches, the second
+      // waits a little for that profile instead of paying for the same research. Only before anything is spent,
+      // only for a wine whose profile can be shared, and never for ever: after the wait it researches itself.
+      if (shareable && deps.claimShared && deps.llm) {
+        const mine = await deps.claimShared(vintageId, language).catch(() => true);
+        if (!mine) {
+          const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+          for (let waited = 0; waited < SHARED_WAIT.forMs; waited += SHARED_WAIT.everyMs) {
+            await sleep(SHARED_WAIT.everyMs);
+            const again = await deps.repo.getShared(vintageId, language).catch(() => null);
+            const ready = again?.profile ? reusableInsight(again.profile.output, wine) : null;
+            if (again?.profile && ready) {
+              const saved = await deps.repo.saveInsight(id, vintageId, {
+                output:
+                  stored && upgrade === "fill"
+                    ? mergeInsight(stored, ready)
+                    : { ...ready, value: stored?.value ?? null },
+                model: again.profile.model,
+                generatedAt: again.profile.generatedAt,
+                cacheResult: "hit",
+              });
+              if (!saved) throw new DomainError("INTERNAL", NOT_READY);
+              return view(id, currency, vintageId);
+            }
+          }
+        }
+      }
 
       if (!deps.llm)
         throw new DomainError("AI_UNAVAILABLE", "Wine profiles aren't switched on yet.", {

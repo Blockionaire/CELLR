@@ -85,6 +85,28 @@ Feature `scan_resolver`. Specs: `apps/web/e2e/scan-resolver.spec.ts` (2 tests ×
 The readings in these tests are programmed answers of the local stack's fake model and hand-written texts. They prove
 the pipeline and the identity rules; they say **nothing** about how well real labels are read (§3).
 
+## 2b. Koopcheck with what CELLR already knows (WI-04) — AUTOMATED PASS
+
+Feature `purchase_intel`. Spec: `apps/web/e2e/purchase-intel.spec.ts` (2 tests × phone and desktop); unit:
+`packages/domain/src/wine-knowledge.test.ts` (19), `server/purchase-check/service.test.ts` (9 new).
+
+| Behaviour                                                                                                    | Checked by           |
+| ------------------------------------------------------------------------------------------------------------ | -------------------- |
+| A wine the household does not own, chosen by search, vintage 2019: the 2019 profile is shown, as an estimate | e2e + axe            |
+| The profile says whose estimate it is, of which vintage, from which date, on how many consulted sources      | e2e                  |
+| Each value CELLR filled in names its origin ("CELLR catalogue", "CELLR's AI estimate for this vintage")      | e2e                  |
+| Vintage 2020 (no profile): grapes "from the profile of 2019"; **no** drinking window, summary or price       | e2e                  |
+| No vintage given: stable facts only, and a sentence saying why no vintage profile is shown                   | e2e                  |
+| What the person typed (grapes "Syrah") is never replaced                                                     | e2e (API), unit      |
+| A wine that merely resembles the catalogue wine gets nothing added                                           | e2e (API), unit      |
+| A stored profile that no longer qualifies is not used; the comparison still answers                          | e2e (API), unit      |
+| No model call, no AI usage row, no bottle, wine, image or profile row written by three comparisons           | e2e + database check |
+| Nothing of the household that had the profile researched (id, e-mail, price paid) is in the answer           | e2e (API)            |
+| With the feature off the answer has no `knowledge` and adds nothing                                          | e2e (default server) |
+
+Screenshot (written by the run, not committed): `apps/web/test-results/shots/wi04-koopcheck-profile-{phone,desktop}.png`.
+The profile text in these tests is a programmed answer of the local stack's fake model.
+
 ## 3. Real labels: acquisition protocol — `REAL_LABEL_VALIDATION_PENDING`
 
 No real label photograph exists in this repository or was used anywhere in this epic. Count of consented real photos:

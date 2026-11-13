@@ -98,3 +98,29 @@ because they fail closed; the platform-wide ceiling does not.
 ## 5. Changes by sub-sprint
 
 - **WI-00:** none to behaviour. `CELLR_FEATURES` added (server only, everything off by default).
+- **WI-01:** imports only (service role, operator's machine). One open run per provider; the off switch
+  `admin_catalog_provider_disable`. No consumer path changed.
+- **WI-02 (`wine_search`):** the browser now calls `GET /api/v1/catalog/search` while typing. Same endpoint, same
+  membership check and rate limit (600 per hour, fails closed) as Sprint 004A. The query is not logged and not kept
+  in the browser beyond a one-minute in-memory cache. A chosen external record stores nothing: the person's
+  confirmed form becomes their own wine. Response keys are pinned by an e2e test.
+- **WI-03 (`scan_resolver`):** three reads as the signed-in person replace "every visible wine". Provider records
+  are dropped before matching, whatever their scope. No new data leaves the server: `resolution.reasons` holds
+  reason codes per candidate wine id, nothing else. Photo handling, retention and the vision call are unchanged.
+- **WI-04 (`purchase_intel`):** Koopcheck's compare reads one catalogue wine and up to 30 shared profiles of it,
+  as the person (RLS: a shared profile is readable by a signed-in person who can see its vintage, which for a
+  catalogue wine is everyone; it holds public wine knowledge only, and a check constraint keeps values out). It writes nothing and calls no model. The response gains `knowledge`: catalogue
+  facts and CELLR's own estimate, no household's data. Verified by e2e: the researching household's id, e-mail and
+  price never appear in another household's answer.
+- **WI-04, research claim:** `private.shared_profile_claims` (vintage, language, time). RLS on, no grants, reachable
+  only through `claim_shared_profile_research` (security definer, empty search path, service role only). It is
+  called from the one privileged module that already publishes shared profiles. No person or household is recorded.
+- **WI-04, budget:** `BUDGET_MODES` makes any future paid task fail closed (§4). No task uses it yet.
+
+### Prompt injection, as of WI-04
+
+No model input was added in WI-02 to WI-04, so there is no new injection surface. For the record: text of a wine
+name, a label or an external record reaches a model only on the paths that existed (label reading, profile research,
+sommelier), with their existing output schemas and checks. Records of external providers are in none of those
+prompts. A profile's text is shown to people as plain text (React escapes it) and is never executed or re-sent to a
+model by Koopcheck.
