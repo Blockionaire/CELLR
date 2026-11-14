@@ -1,0 +1,17 @@
+index rows: 110958, table+index size: 76 MB
+catalog_external_records: 93 MB
+catalog_external_records_first_run_idx: 1536 kB
+catalog_external_records_identity_idx: 9752 kB
+catalog_external_records_pkey: 5752 kB
+catalog_external_records_provider_id_external_id_key: 6216 kB
+catalog_external_records_run_idx: 1400 kB
+catalog_search_entries: 33 MB
+catalog_search_entries_alias_uq: 8192 bytes
+catalog_search_entries_id_seq: 8192 bytes
+catalog_search_entries_name_prefix: 5624 kB
+catalog_search_entries_pkey: 4664 kB
+catalog_search_entries_producer_prefix: 3136 kB
+catalog_search_entries_record_uq: 5744 kB
+catalog_search_entries_trgm: 22 MB
+catalog_search_entries_wine_idx: 1688 kB
+catalog_search_entries_wine_uq: 432 kB

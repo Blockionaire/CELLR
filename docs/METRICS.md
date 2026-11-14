@@ -38,6 +38,35 @@ only source for a headline number.
 (`beta_feedback`), never in `analytics_events`, and is never counted or joined into these numbers. It is an
 explicit message, readable only in `/admin/feedback` (see `docs/BETA-OPERATIONS.md` §6).
 
+## Wine Intelligence events (WI-06)
+
+Two first-party events and one extra property, counted by `public.admin_wine_intelligence_metrics()` (service role
+only) and shown on `/admin/sources`. Like every client event they are not sent at all under Do Not Track / GPC.
+
+| Event                      | Sent                                                               | Properties (every value is a number, a flag or one of the fixed words listed)                                                                                                                                                                                                             |
+| -------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wine_search_session`      | once per search field that made at least one request, when it ends | `surface` add / koopcheck / scan · `outcome` selected / left · `requests` (capped at 50) · `zero_results` · `limited` · `failed` · `slowest` under_250ms … over_1500ms · on a choice: `source` and `rank` 1 / 2_3 / 4_8 / 9_plus                                                          |
+| `purchase_check_completed` | once per finished Koopcheck comparison                             | `entry` photo / search / typed · `knowledge` vintage_profile / stable_facts / catalog_only / none / off · `priced` (a flag, never the price). **Not** the advice and **not** the taste fit: both say something about the person, and neither is needed to see whether the feature is used |
+| `wine_scan_completed`      | as before                                                          | new: `resolution` exact_candidate / ambiguous / not_found, only when the resolver answered                                                                                                                                                                                                |
+
+**Never in them:** what was typed, a wine's name or id, a source's name, a price, an advice, a person's ratings or
+preferences. **They are not anonymous in storage:** like every product event, a row carries the account that sent
+it (`analytics_events.user_id`). The admin counts join no person or household.
+
+**The properties are untrusted.** A signed-in person can write any small JSON into their own event rows (through
+`/api/v1/events`, or straight into the table). `admin_wine_intelligence_metrics` therefore counts a value under its
+own name only when it is one of the fixed words above and as `other` otherwise, and clamps `requests` to 0–50 per
+row. One hostile row adds at most 1 to a count; it cannot break the admin page or put its own text on it.
+`searchSessionEvent` builds the search event from counters only, and a test asserts the typed text cannot appear.
+
+**What they can and cannot answer.** Counts per field or per comparison, not per request: "search count" is the sum
+of `requests`; latency is the slowest answer of a field in four buckets, not a p50 / p95 (the measured percentiles
+are in `SEARCH_PERFORMANCE.md` and are from a test machine); "cancelled" requests are not counted. A zero-result
+rate is "fields that saw at least one empty answer". Edit-after-confirm rates are not measured.
+
+**Retention.** `analytics_events` has no automatic expiry today (unchanged by this epic). These events add one row
+per search field used and one per Koopcheck. Deleting an account deletes its events with it (the existing cascade).
+
 ## AI cost (estimate)
 
 - **Unit:** US dollars, stored as micro-USD (`ai_usage.cost_usd_micro`, 1 USD = 1 000 000).

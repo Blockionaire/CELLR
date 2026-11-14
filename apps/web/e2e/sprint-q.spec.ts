@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { arrive, makeJpeg, signIn, sql, STACK } from "./helpers";
+import { arrive, makeJpeg, signIn, sql, STACK, chooseFile } from "./helpers";
 
 /**
  * Sprint Q: a scan proposes a catalogue wine, the person corrects the vintage the scan read and saves. That is a scan
@@ -27,10 +27,11 @@ async function program(size: { width: number; height: number }, content: unknown
 }
 
 const takePhoto = async (page: Page, photo: Buffer) =>
-  page
-    .locator('input[type="file"]')
-    .first()
-    .setInputFiles({ name: "IMG_0007.jpg", mimeType: "image/jpeg", buffer: photo });
+  chooseFile(page.locator('input[type="file"]').first(), {
+    name: "IMG_0007.jpg",
+    mimeType: "image/jpeg",
+    buffer: photo,
+  });
 
 test.afterEach(async () => {
   // The switch is shared by every test: leave it as it ships.

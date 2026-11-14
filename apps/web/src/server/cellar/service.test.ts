@@ -89,6 +89,9 @@ function fakeRepo(
     async listWines() {
       return [WINE];
     },
+    async listOwnWines() {
+      return [];
+    },
     async getWine(id) {
       return id === WINE.id ? WINE : (options.known?.find((w) => w.id === id) ?? null);
     },

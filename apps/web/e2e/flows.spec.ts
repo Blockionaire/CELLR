@@ -8,6 +8,7 @@ import {
 } from "@playwright/test";
 import {
   api,
+  APP_URL,
   onboardCreate,
   PUBLISHABLE_KEY,
   sessionToken,
@@ -203,7 +204,7 @@ test.describe("households: invite, join, remove", () => {
       const invite = await (
         await alice.page.request.post(`/api/v1/households/${me.activeHouseholdId}/invites`, {
           data: {},
-          headers: { origin: "http://localhost:3100" },
+          headers: { origin: APP_URL },
         })
       ).json();
       const joined = await api(alice.page.request, token, "post", "/households/join", {
@@ -218,7 +219,7 @@ test.describe("households: invite, join, remove", () => {
       // And the database still refuses it, in words the person can act on.
       const left = await alice.page.request.delete(
         `/api/v1/households/${me.activeHouseholdId}/members/${me.userId}`,
-        { headers: { origin: "http://localhost:3100" } },
+        { headers: { origin: APP_URL } },
       );
       expect(left.status()).toBe(409);
       expect((await left.json()).error.message).toMatch(/last owner/);
@@ -228,37 +229,86 @@ test.describe("households: invite, join, remove", () => {
   });
 });
 
+/**
+ * The allowlist is ONE table for the whole database, and the rest of the suite signs people up while these tests
+ * run (in other workers, and in the other project). A non-empty list closes sign-up for everyone who is not on it.
+ * So a gate test:
+ *  - puts its own marker on the list first (which is what makes the list non-empty for as long as it runs);
+ *  - also admits everyone the suite itself creates: `…@example.test` (uniqueEmail) and the fixed admin of the admin
+ *    specs (`…@cellr.invalid`);
+ *  - takes its marker away again, and the suite's entries with it unless another gate test is still running. An
+ *    empty list means "open to all", which is what every other spec expects.
+ * Before this, the entry was left behind for the rest of the run, and every admin spec that came later failed with
+ * `signup_closed` (the database refuses the admin's insert, also when the admin already exists).
+ */
+const SUITE_SIGNUPS = ["@example.test", "@cellr.invalid"];
+/** Opening and closing happen one at a time across all workers (an advisory lock), each as one transaction. */
+const GATE_LOCK = 20261119;
+async function withSignupGate(run: () => Promise<void>) {
+  // [a-z0-9-] only: it is written into the SQL below (a DO block takes no parameters)
+  const marker = `gate-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}@gate.invalid`;
+  const entries = SUITE_SIGNUPS.map((e) => `('${e}', 'e2e')`).join(", ");
+  await sql(`do $$ begin
+    perform pg_advisory_xact_lock(${GATE_LOCK});
+    insert into private.allowed_signups (entry, note) values ('${marker}', 'e2e-gate');
+    insert into private.allowed_signups (entry, note) values ${entries} on conflict do nothing;
+  end $$`);
+  try {
+    await run();
+  } finally {
+    await sql(`do $$ begin
+      perform pg_advisory_xact_lock(${GATE_LOCK});
+      delete from private.allowed_signups where entry = '${marker}';
+      delete from private.allowed_signups where note = 'e2e'
+         and not exists (select 1 from private.allowed_signups where note = 'e2e-gate');
+    end $$`);
+  }
+}
+
 test.describe("the sign-up gate (private beta)", () => {
   test("only listed addresses can create an account; the message is friendly", async ({ page }) => {
-    await sql(
-      "insert into private.allowed_signups (entry, note) values ('@example.test', 'e2e') on conflict do nothing",
-    );
-    await page.goto("/sign-in");
-    await page.getByLabel("Email").fill("stranger@not-on-the-list.test");
-    await page.getByRole("button", { name: "Send me a code" }).click();
-    await expect(page.locator("form").getByRole("alert")).toHaveText(
-      "CELLR is invite-only for now, and this email isn't on the list yet.",
-    );
+    await withSignupGate(async () => {
+      await page.goto("/sign-in");
+      await page.getByLabel("Email").fill("stranger@not-on-the-list.test");
+      await page.getByRole("button", { name: "Send me a code" }).click();
+      await expect(page.locator("form").getByRole("alert")).toHaveText(
+        "CELLR is invite-only for now, and this email isn't on the list yet.",
+      );
 
-    await page.getByLabel("Email").fill(uniqueEmail("listed"));
-    await page.getByRole("button", { name: "Send me a code" }).click();
-    await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+      await page.getByLabel("Email").fill(uniqueEmail("listed"));
+      await page.getByRole("button", { name: "Send me a code" }).click();
+      await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+    });
   });
 
   test("the database refuses a stranger even when the app is bypassed entirely", async () => {
-    await sql(
-      "insert into private.allowed_signups (entry, note) values ('@example.test', 'e2e') on conflict do nothing",
-    );
-    // Calling Auth directly with the (public) publishable key — exactly what an attacker would do.
-    const res = await fetch(`${STACK}/auth/v1/otp`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "intruder@evil.test", create_user: true }),
+    await withSignupGate(async () => {
+      // Calling Auth directly with the (public) publishable key — exactly what an attacker would do.
+      const res = await fetch(`${STACK}/auth/v1/otp`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "intruder@evil.test", create_user: true }),
+      });
+      expect(res.status).toBe(500);
+      expect(await sql("select 1 from auth.users where email = 'intruder@evil.test'")).toHaveLength(
+        0,
+      );
     });
-    expect(res.status).toBe(500);
-    expect(await sql("select 1 from auth.users where email = 'intruder@evil.test'")).toHaveLength(
-      0,
+  });
+
+  test("the gate leaves nothing behind: afterwards the list is as the rest of the suite expects it", async () => {
+    await withSignupGate(async () => {
+      expect(
+        await sql("select 1 from private.allowed_signups where note in ('e2e', 'e2e-gate')"),
+      ).not.toHaveLength(0);
+    });
+    // No gate test of THIS worker is running now. Another worker's may be: then its marker is still there and the
+    // suite's entries with it, which is equally fine for everyone. Never the suite's entries without a marker.
+    const left = await sql<{ note: string }>(
+      "select note from private.allowed_signups where note in ('e2e', 'e2e-gate')",
     );
+    const markers = left.filter((r) => r.note === "e2e-gate").length;
+    if (markers === 0) expect(left).toHaveLength(0);
   });
 });
 

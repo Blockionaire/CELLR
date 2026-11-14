@@ -1,0 +1,4 @@
+duplicate (provider, external id) rows: 0
+records by status: active=100658
+verified links: 0, suggested: 0
+CELLR wines written by imports: 0

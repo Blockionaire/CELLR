@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContextOptions, type Page } from "@playwright/test";
-import { api, apiClient, arrive, bearer, makeJpeg, sessionToken, sql } from "./helpers";
+import { api, apiClient, arrive, bearer, makeJpeg, sessionToken, sql, wineField } from "./helpers";
 
 /**
  * Sprint O: a profile photo; scanning straight from "Add a bottle"; a full review from Home.
@@ -163,7 +163,7 @@ test("Cellar → + → Scan wine opens the scanner; choosing and adding by hand 
   await expect(scan).toContainText("Scan wine");
   // Scanning is the first thing on the screen; search and "add by hand" follow.
   const scanBox = (await scan.boundingBox())!;
-  const search = (await page.getByRole("searchbox").boundingBox())!;
+  const search = (await wineField(page).boundingBox())!;
   expect(scanBox.y).toBeLessThan(search.y);
   await expect(page.getByRole("button", { name: /Add a new wine/ })).toBeVisible();
   await scan.click();

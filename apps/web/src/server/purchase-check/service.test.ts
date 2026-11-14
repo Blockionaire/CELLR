@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  checkInsight,
   DomainError,
   NO_PREFERENCES,
+  type CatalogWineFacts,
+  type RawInsight,
+  type StoredProfile,
   type CellarItem,
   type InsightOutput,
   type LabelTextCandidate,
@@ -73,6 +77,9 @@ function setup(
     insights?: Map<string, InsightOutput>;
     tastings?: TasteTasting[];
     tasteFails?: boolean;
+    /** What CELLR knows about a catalogue wine (WI-04), or how reading it fails; missing = not wired. */
+    knowledge?: PurchaseCheckDeps["knowledge"];
+    locale?: string;
   } = {},
 ) {
   const state = {
@@ -116,6 +123,9 @@ function setup(
             return options.text as LabelTextCandidate[];
           },
         }
+      : {}),
+    ...(options.knowledge
+      ? { knowledge: options.knowledge, locale: async () => options.locale ?? "nl" }
       : {}),
     householdId: async () => "h1",
     inventory: async () => {
@@ -343,5 +353,222 @@ describe("Koopcheck: comparing the confirmed wine", () => {
     });
     expect(result.catalog).toBe(false);
     expect(result.ownership.kind).toBe("exact");
+  });
+});
+
+describe("Koopcheck: what CELLR already knows about the wine (the purchase_intel feature)", () => {
+  const confirmed = {
+    producer: "Château Example",
+    name: "Grand Vin",
+    year: 2019,
+    nonVintage: false,
+    type: null,
+    countryCode: null,
+    region: null,
+    appellation: null,
+    grapes: [],
+  };
+  const facts: CatalogWineFacts = {
+    id: "cat1",
+    type: "red",
+    countryCode: "FR",
+    region: "Bordeaux",
+    appellation: "Margaux",
+    grapes: [],
+  };
+  const rawProfile: RawInsight = {
+    summary: "The grand vin of the estate in a warm year.",
+    style: "Structured red",
+    grapes: ["Cabernet Sauvignon", "Merlot"],
+    tasting: "Cassis.",
+    serving_temp_min_c: 16,
+    serving_temp_max_c: 18,
+    decant_minutes: 60,
+    abv_percent: 13.5,
+    pairings: ["Lamb"],
+    aging: "Keep.",
+    body: 4,
+    tannin: 4,
+    sweetness: 1,
+    acidity: 3,
+    flavors: [],
+    pairing_kinds: ["lamb"],
+    drink_from_year: 2026,
+    drink_until_year: 2040,
+    country_code: "FR",
+    region: "Bordeaux",
+    appellation: "Margaux",
+    confidence: "high",
+    evidence: "exact_wine",
+    sources: [{ name: "Estate", url: "https://example.org/grand-vin" }],
+  };
+  const shared = (year: number, over: Partial<RawInsight> = {}): StoredProfile => ({
+    year,
+    output: checkInsight(
+      { ...rawProfile, drink_from_year: year + 7, drink_until_year: year + 21, ...over },
+      year,
+      ["https://example.org/grand-vin"],
+      true,
+    ),
+    generatedAt: `${year + 2}-01-01T00:00:00.000Z`,
+  });
+  /** A cellar wine of other grapes in common: found as similar only once the grapes are known. */
+  const neighbour = item({
+    wineId: "w2",
+    vintageId: "v2",
+    producer: "Château Voisin",
+    wineName: "Cuvée",
+    region: "Bordeaux",
+    count: 6,
+  });
+  const neighbourTraits: WineTraitsRow = {
+    wineId: "w2",
+    appellation: "Margaux",
+    grapes: ["Cabernet Sauvignon", "Merlot"],
+    aliases: [],
+    catalog: false,
+  };
+  const known =
+    (profiles: StoredProfile[], catalog: CatalogWineFacts | null = facts, seen: unknown[] = []) =>
+    async (wineId: string, language: string) => {
+      seen.push([wineId, language]);
+      return { catalog, profiles };
+    };
+
+  it("a catalogue wine the household does not own: a valid profile of this vintage is reused, with no model call", async () => {
+    const seen: unknown[] = [];
+    const { service, state } = setup({
+      text: [catalogue()],
+      items: [neighbour],
+      traits: [neighbourTraits],
+      knowledge: known([shared(2019)], facts, seen),
+    });
+    const result = await service.compare({ wine: confirmed, priceCents: 2450 });
+    expect(result.catalog).toBe(true);
+    expect(result.ownership.kind).toBe("none");
+    expect(result.knowledge).toMatchObject({
+      status: "vintage_profile",
+      catalogWineId: "cat1",
+      profile: { year: 2019, drinkWindow: { from: 2026, until: 2040 } },
+    });
+    // the comparison now knows the kind, the place and the grapes: the neighbour is recognised as similar
+    expect(result.wine).toMatchObject({
+      type: "red",
+      appellation: "Margaux",
+      grapes: ["Cabernet Sauvignon", "Merlot"],
+    });
+    expect(result.similar.map((s) => s.bottle.vintageId)).toEqual(["v2"]);
+    expect(result.similar[0]!.reasons.map((r) => r.code)).toEqual(
+      expect.arrayContaining(["same_appellation", "same_grapes"]),
+    );
+    // asked once, for that catalogue wine, in the person's language
+    expect(seen).toEqual([["cat1", "nl"]]);
+    // nothing was paid for, read from a photo, or recorded
+    expect(state.requests).toHaveLength(0);
+    expect(state.spent).toBe(0);
+    expect(state.usage).toEqual([]);
+    expect(state.prepared).toBe(0);
+  });
+
+  it("another vintage of that wine: only the stable facts cross; no window and no text of the other year", async () => {
+    const { service } = setup({
+      text: [catalogue()],
+      items: [neighbour],
+      traits: [neighbourTraits],
+      knowledge: known([shared(2015), shared(2016)]),
+    });
+    const result = await service.compare({ wine: { ...confirmed, year: 2021 }, priceCents: null });
+    expect(result.knowledge).toMatchObject({ status: "stable_facts", profile: null });
+    expect(result.knowledge!.added.find((a) => a.field === "grapes")).toMatchObject({
+      origin: "ai_estimate",
+      level: "wine",
+      fromYears: [2016, 2015],
+    });
+    expect(result.wine.year).toBe(2021);
+    expect(JSON.stringify(result)).not.toMatch(/warm year|2022|2023|2036|2037/);
+  });
+
+  it("without the feature the answer is exactly what it was: no knowledge is read or reported", async () => {
+    const withIt = setup({ text: [catalogue()], items: [neighbour], traits: [neighbourTraits] });
+    const result = await withIt.service.compare({ wine: confirmed, priceCents: null });
+    expect(result).not.toHaveProperty("knowledge");
+    expect(result.wine).toEqual(confirmed);
+    expect(result.similar).toEqual([]);
+  });
+
+  it("knowledge that cannot be read never breaks the comparison", async () => {
+    const { service } = setup({
+      text: [catalogue()],
+      items: [neighbour],
+      traits: [neighbourTraits],
+      knowledge: async () => {
+        throw new Error("database unavailable");
+      },
+    });
+    const result = await service.compare({ wine: confirmed, priceCents: null });
+    expect(result.knowledge).toBeNull();
+    expect(result.verdict).toBeDefined();
+    expect(result.wine).toEqual(confirmed);
+  });
+
+  it("facts that are not exactly a catalogue wine get nothing added: no lookup at all", async () => {
+    const seen: unknown[] = [];
+    const { service } = setup({
+      text: [catalogue()],
+      knowledge: known([shared(2019)], facts, seen),
+    });
+    const result = await service.compare({
+      wine: { ...confirmed, name: "Grand Vin Réserve Spéciale" },
+      priceCents: null,
+    });
+    expect(result.catalog).toBe(false);
+    expect(result.knowledge).toBeNull();
+    expect(seen).toEqual([]);
+  });
+
+  it("a wine the catalogue does not hold as its own (a household's wine) has no verified facts to add", async () => {
+    const { service } = setup({
+      text: [catalogue()],
+      knowledge: known([shared(2019)], null),
+    });
+    const result = await service.compare({ wine: confirmed, priceCents: null });
+    expect(result.knowledge).toBeNull();
+    expect(result.wine).toEqual(confirmed);
+  });
+
+  it("what the person typed is compared as typed, whatever the catalogue or a profile says", async () => {
+    const typed = {
+      ...confirmed,
+      type: "red" as const,
+      countryCode: "FR" as const,
+      region: "Mijn regio",
+      appellation: "Mijn appellation",
+      grapes: ["Malbec"],
+    };
+    const { service } = setup({ text: [catalogue()], knowledge: known([shared(2019)]) });
+    const result = await service.compare({ wine: typed, priceCents: null });
+    expect(result.wine).toEqual(typed);
+    expect(result.knowledge).toMatchObject({ status: "vintage_profile", added: [] });
+  });
+
+  it("a profile that does not meet the bar is not reused, and nothing is made up in its place", async () => {
+    const { service } = setup({
+      text: [catalogue()],
+      knowledge: known([shared(2019, { confidence: "medium" })]),
+    });
+    const result = await service.compare({ wine: confirmed, priceCents: null });
+    expect(result.knowledge).toMatchObject({ status: "catalog_only", profile: null });
+    expect(result.wine.grapes).toEqual([]);
+  });
+
+  it("the profiles are asked for in the person's own language", async () => {
+    const seen: unknown[] = [];
+    const { service } = setup({
+      text: [catalogue()],
+      knowledge: known([], facts, seen),
+      locale: "en-GB",
+    });
+    await service.compare({ wine: confirmed, priceCents: null });
+    expect(seen).toEqual([["cat1", "en"]]);
   });
 });

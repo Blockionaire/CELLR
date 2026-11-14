@@ -19,19 +19,37 @@ import {
   csvObjects,
   nameSimilarity,
   normalizeText,
+  searchableQuery,
   type ProviderRecord,
 } from "@cellr/domain";
 import { parseArgs, str } from "./lib";
 import { connectToTarget } from "./target";
 
+type Kind = "positive" | "perturbation" | "filter" | "generic" | "adversarial";
+interface Expect {
+  producer: string;
+  wine: string;
+  type: string;
+  country: string;
+}
 interface Entry {
   id: string;
+  /** Absent = "positive" (every Sprint 004A entry). */
+  kind?: Kind;
   segment: string;
   query: string;
-  expect: { producer: string; wine: string; type: string; country: string };
-  vintage: string;
+  /** The identity meant (positive, perturbation). */
+  expect?: Expect;
+  vintage?: string;
   variant: string;
+  /** perturbation: the entry whose record this misspelt query must still find. */
+  base?: string;
+  /** positive (near twin): the sibling wine's name that must not be offered before the wine asked for. */
+  decoy?: string;
+  /** filter: what every returned row must satisfy. */
+  filter?: { type?: string; country?: string };
 }
+const kindOf = (e: Entry): Kind => e.kind ?? "positive";
 type Coverage = "exact" | "ambiguous" | "partial" | "producer-only" | "missing";
 
 const STRONG = 0.9;
@@ -44,7 +62,7 @@ const words = (s: string) =>
     .filter((w) => w.length >= 3);
 const key4 = (w: string) => w.slice(0, 4);
 
-export function classify(entry: Entry, byKey: Map<string, ProviderRecord[]>) {
+export function classify(entry: { expect: Expect }, byKey: Map<string, ProviderRecord[]>) {
   const keys = new Set(words(entry.expect.producer).map(key4));
   const seen = new Set<ProviderRecord>();
   for (const k of keys) for (const r of byKey.get(k) ?? []) seen.add(r);
@@ -119,12 +137,51 @@ async function main() {
       byKey.set(k, list);
     }
 
-  const results = set.entries.map((e) => ({ ...e, ...classify(e, byKey) }));
+  // Coverage is decided from the provider's file by `classify` (letter-pair similarity on names, in TypeScript); the
+  // search under test ranks with pg_trgm in SQL. The two share no code, so the search is never its own oracle.
+  const NONE = {
+    coverage: "missing" as Coverage,
+    exact: [],
+    partial: [],
+    producer_records: 0,
+    target_ids: [] as string[],
+  };
+  const positives = new Map(
+    set.entries
+      .filter((e) => kindOf(e) === "positive")
+      .map((e) => [e.id, classify({ expect: e.expect! }, byKey)]),
+  );
+  const results = set.entries.map((e) => {
+    const k = kindOf(e);
+    // a misspelt query must find the record of the entry it was derived from, whatever its own spelling
+    const c =
+      k === "positive"
+        ? positives.get(e.id)!
+        : k === "perturbation"
+          ? (positives.get(e.base!) ?? NONE)
+          : NONE;
+    return { ...e, ...c };
+  });
 
   // ---- search quality, through the real function ------------------------------------------------------------------
   const search: Record<
     string,
-    { rank: number | null; top: string[]; verifiedProvider: boolean; ms: number }
+    {
+      rank: number | null;
+      top: string[];
+      verifiedProvider: boolean;
+      ms: number;
+      rows: number;
+      /** the query as the API would search it; null = too short to be a search (never reaches the database) */
+      searched: string | null;
+      error: string | null;
+      /** filter: rows that contradict the filter */
+      filterViolations: number;
+      /** near twin: the sibling was offered before the wine asked for */
+      decoyFirst: boolean | null;
+      /** two or more rows that are exactly the same producer, name and type */
+      duplicates: number;
+    }
   > = {};
   if (typeof args.db === "string") {
     const client = await connectToTarget(args.db, args);
@@ -136,23 +193,42 @@ async function main() {
       ).rows.map((r) => [r.id, r.external_id]),
     );
     for (const e of results) {
+      const k = kindOf(e);
+      // exactly what the API does before it asks the database (packages/domain/src/catalog-search.ts)
+      const searched = searchableQuery(e.query);
       const t0 = performance.now();
-      const rows = (
-        await client.query<{
-          record_id: string | null;
-          producer: string;
-          name: string;
-          source: string;
-          match: string;
-          verified: boolean;
-        }>("select * from public.catalog_search_pilot($1, $2, null, null, null, 8)", [
-          str(args, "household"),
-          e.query,
-        ])
-      ).rows;
+      type Row = {
+        record_id: string | null;
+        producer: string;
+        name: string;
+        source: string;
+        match: string;
+        verified: boolean;
+        wine_type: string | null;
+        country_code: string | null;
+      };
+      let rows: Row[] = [];
+      let error: string | null = null;
+      if (searched !== null)
+        try {
+          rows = (
+            await client.query<Row>(
+              "select * from public.catalog_search_pilot($1, $2, $3, $4, null, 8)",
+              [str(args, "household"), searched, e.filter?.type ?? null, e.filter?.country ?? null],
+            )
+          ).rows;
+        } catch (err) {
+          error = err instanceof Error ? err.message.slice(0, 200) : "error";
+        }
       const ms = performance.now() - t0;
       const ext = rows.map((r) => (r.record_id ? (map.get(r.record_id) ?? null) : null));
       const idx = ext.findIndex((x) => x !== null && e.target_ids.includes(x));
+      const decoyAt = e.decoy
+        ? rows.findIndex((r) => normalizeText(r.name) === normalizeText(e.decoy!))
+        : -1;
+      const keys = rows.map(
+        (r) => `${normalizeText(r.producer)}|${normalizeText(r.name)}|${r.wine_type ?? ""}`,
+      );
       search[e.id] = {
         rank: idx === -1 ? null : idx + 1,
         top: rows
@@ -163,6 +239,19 @@ async function main() {
           ),
         verifiedProvider: rows.some((r) => r.source === "provider" && r.verified),
         ms: Math.round(ms * 10) / 10,
+        rows: rows.length,
+        searched,
+        error,
+        filterViolations:
+          k === "filter"
+            ? rows.filter(
+                (r) =>
+                  (e.filter?.type !== undefined && r.wine_type !== e.filter.type) ||
+                  (e.filter?.country !== undefined && r.country_code !== e.filter.country),
+              ).length
+            : 0,
+        decoyFirst: e.decoy ? decoyAt !== -1 && (idx === -1 || decoyAt < idx) : null,
+        duplicates: keys.length - new Set(keys).size,
       };
     }
     await client.end();
@@ -170,35 +259,82 @@ async function main() {
 
   // ---- summary ------------------------------------------------------------------------------------------------------
   const classes: Coverage[] = ["exact", "ambiguous", "partial", "producer-only", "missing"];
-  const segments = [...new Set(results.map((r) => r.segment))];
+  const positive = results.filter((r) => kindOf(r) === "positive");
+  const segments = [...new Set(positive.map((r) => r.segment))];
   const count = (list: typeof results, c: Coverage) => list.filter((r) => r.coverage === c).length;
   const lines = [
     `| Segment | Wines | ${classes.join(" | ")} |`,
     `| --- | --: | ${classes.map(() => "--:").join(" | ")} |`,
     ...segments.map((s) => {
-      const l = results.filter((r) => r.segment === s);
+      const l = positive.filter((r) => r.segment === s);
       return `| ${s} | ${l.length} | ${classes.map((c) => count(l, c)).join(" | ")} |`;
     }),
-    `| **all** | **${results.length}** | ${classes.map((c) => `**${count(results, c)}**`).join(" | ")} |`,
+    `| **all** | **${positive.length}** | ${classes.map((c) => `**${count(positive, c)}**`).join(" | ")} |`,
   ];
-  const covered = results.filter((r) => r.target_ids.length > 0);
-  const ranked = covered.map((r) => search[r.id]?.rank ?? null);
-  const searchSummary =
-    Object.keys(search).length === 0
-      ? null
-      : {
-          queries: results.length,
-          with_covered_record: covered.length,
-          top1: ranked.filter((r) => r === 1).length,
-          top3: ranked.filter((r) => r !== null && r <= 3).length,
-          top8: ranked.filter((r) => r !== null).length,
-          not_found: ranked.filter((r) => r === null).length,
-          provider_marked_verified: Object.values(search).filter((s) => s.verifiedProvider).length,
-          empty_results: Object.values(search).filter((s) => s.top.length === 0).length,
-        };
+  const searched = Object.keys(search).length > 0;
+  /** Rank statistics of the entries that have a covered record. */
+  const ranks = (list: typeof results) => {
+    const covered = list.filter((r) => r.target_ids.length > 0);
+    const ranked = covered.map((r) => search[r.id]?.rank ?? null);
+    return {
+      queries: list.length,
+      with_covered_record: covered.length,
+      top1: ranked.filter((r) => r === 1).length,
+      top3: ranked.filter((r) => r !== null && r <= 3).length,
+      top8: ranked.filter((r) => r !== null).length,
+      not_found: ranked.filter((r) => r === null).length,
+      not_found_ids: covered.filter((r) => (search[r.id]?.rank ?? null) === null).map((r) => r.id),
+      not_first_ids: covered
+        .filter((r) => (search[r.id]?.rank ?? null) !== null && search[r.id]!.rank !== 1)
+        .map((r) => r.id),
+    };
+  };
+  const of = (k: Kind) => results.filter((r) => kindOf(r) === k);
+  const all = Object.values(search);
+  const original = positive.filter((r) => Number(r.id.slice(1)) <= 127);
+  const twins = positive.filter((r) => r.decoy);
+  const searchSummary = !searched
+    ? null
+    : {
+        // the same 127 queries as Sprint 004A, for a like-for-like comparison
+        sprint_004a_set: ranks(original),
+        all_positive: ranks(positive),
+        new_positive: ranks(positive.filter((r) => Number(r.id.slice(1)) > 127)),
+        perturbation: ranks(of("perturbation")),
+        near_twins: {
+          queries: twins.length,
+          sibling_offered_first: twins.filter((r) => search[r.id]?.decoyFirst).map((r) => r.id),
+        },
+        filter: {
+          queries: of("filter").length,
+          rows_contradicting_the_filter: of("filter").reduce(
+            (n, r) => n + (search[r.id]?.filterViolations ?? 0),
+            0,
+          ),
+        },
+        generic: of("generic").map((r) => ({
+          query: r.query,
+          rows: search[r.id]?.rows ?? 0,
+          ms: search[r.id]?.ms ?? null,
+        })),
+        adversarial: {
+          queries: of("adversarial").length,
+          not_a_search: of("adversarial").filter((r) => search[r.id]?.searched === null).length,
+          errors: of("adversarial")
+            .filter((r) => search[r.id]?.error)
+            .map((r) => r.id),
+          over_the_limit: of("adversarial").filter((r) => (search[r.id]?.rows ?? 0) > 8).length,
+        },
+        provider_marked_verified: all.filter((s) => s.verifiedProvider).length,
+        errors: all.filter((s) => s.error).length,
+        queries_with_duplicate_rows: all.filter((s) => s.duplicates > 0).length,
+        empty_results: all.filter((s) => s.searched !== null && s.rows === 0).length,
+      };
   const summary = {
     provider_records: records.length,
-    coverage: Object.fromEntries(classes.map((c) => [c, count(results, c)])),
+    entries: results.length,
+    coverage: Object.fromEntries(classes.map((c) => [c, count(positive, c)])),
+    coverage_sprint_004a_set: Object.fromEntries(classes.map((c) => [c, count(original, c)])),
     search: searchSummary,
   };
   console.log(lines.join("\n"));

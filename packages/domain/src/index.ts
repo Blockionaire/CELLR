@@ -37,3 +37,8 @@ export * from "./purchase-check";
 export * from "./catalog-search";
 export * from "./catalog-providers";
 export * from "./provenance";
+export * from "./features";
+export * from "./catalog-identity";
+export * from "./wine-resolver";
+export * from "./wine-knowledge";
+export * from "./wine-sources";

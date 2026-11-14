@@ -46,6 +46,25 @@ const open3D = async (page: Page) => {
 };
 
 /**
+ * A point of the picture near its top-left corner, away from any bottle. Not the corner itself: on a wide screen the
+ * picture sits in a card with rounded corners, and 6 px in from the corner is the card's rim, where a tap is not a
+ * tap on the picture (and rightly does nothing). The point is checked to be on the picture, so a test that says
+ * "a tap beside the bottle" really taps the picture.
+ */
+async function besideTheBottle(page: Page, scene: Locator) {
+  const box = (await scene.boundingBox())!;
+  const point = { x: box.x + 32, y: box.y + 32 };
+  expect(
+    await page.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.matches("canvas[data-engine]") ?? false,
+      point,
+    ),
+    "the tap lands on the 3D picture",
+  ).toBe(true);
+  return point;
+}
+
+/**
  * How many pixels the 3D picture adds to the card: the card is photographed with and without the canvas
  * and the two are compared. (Reading a WebGL canvas directly gives a blank buffer outside the frame.)
  */
@@ -192,14 +211,15 @@ test.describe("the 3D cellar", () => {
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await expect(panel).toHaveAttribute("data-open", "true");
     await page.waitForTimeout(2500); // it has settled on display
-    // (on a phone the picture now fills the screen, so measure it again)
-    const out = (await scene.boundingBox())!;
-    await page.mouse.click(out.x + 6, out.y + 6);
+    // (on a phone the picture now fills the screen, so the point is measured now)
+    const away = await besideTheBottle(page, scene);
+    await page.mouse.click(away.x, away.y);
     await expect(panel).toHaveAttribute("data-open", "false");
 
     // A tap on empty background with nothing on display does nothing.
     await expect(home).toHaveCount(0, { timeout: 10_000 });
-    await page.mouse.click(box.x + 6, box.y + 6);
+    const empty = await besideTheBottle(page, scene);
+    await page.mouse.click(empty.x, empty.y);
     await expect(panel).toHaveAttribute("data-open", "false");
 
     // The other unit is empty: it still draws its frame, and it is a different scene.

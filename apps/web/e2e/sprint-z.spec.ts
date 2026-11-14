@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { apiClient, arrive, audit, makeJpeg, sql, STACK } from "./helpers";
+import { apiClient, arrive, audit, makeJpeg, sql, STACK, chooseFile } from "./helpers";
 
 /**
  * Sprint Z — Koopcheck: standing in a shop, photograph a bottle, correct what was read, and see whether it is worth
@@ -91,10 +91,11 @@ const counts = async (householdId: string) => {
 };
 
 const takePhoto = (page: Page, photo: Buffer) =>
-  page
-    .locator('input[type="file"]')
-    .first()
-    .setInputFiles({ name: "IMG_0001.jpg", mimeType: "image/jpeg", buffer: photo });
+  chooseFile(page.locator('input[type="file"]').first(), {
+    name: "IMG_0001.jpg",
+    mimeType: "image/jpeg",
+    buffer: photo,
+  });
 
 /** Chooses a photo once the page is live (a file chosen before it hydrates is not seen), until its preview shows. */
 const choosePhoto = (page: Page, photo: Buffer) =>
@@ -259,8 +260,14 @@ test("in Dutch, and in the dark: the entry and the result read as CELLR", async 
   await page.goto("/sommelier");
   await expect(page.getByText("Koopcheck — Is deze wijn het kopen waard?")).toBeVisible();
   await page.getByTestId("purchase-check-entry").click();
-  await page.getByRole("button", { name: "Typ de wijn liever zelf in" }).click();
+  // Typing it in: at once, or (with the wine search on) one step past the search.
+  const manual = page.getByTestId("pc-manual");
+  await expect(manual).toHaveText(/^(Typ de wijn liever zelf in|Handmatig zoeken)$/);
+  await manual.click();
   const confirm = page.getByTestId("pc-confirm");
+  const typeIt = page.getByTestId("pc-type");
+  await expect(confirm.or(typeIt)).toBeVisible();
+  if (await typeIt.isVisible()) await typeIt.click();
   await confirm.getByLabel("Producent", { exact: true }).fill("Château Koopcheck");
   await confirm.getByLabel("Wijnnaam of cuvée").fill("Grand Vin");
   await confirm.getByLabel("Jaargang", { exact: true }).fill("2019");

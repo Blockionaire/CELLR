@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { preparePhoto, UnreadablePhotoError, type PreparedPhoto } from "@/lib/photo";
 import { Button } from "@/ui/button";
 import { FileButton } from "@/ui/file-button";
@@ -36,22 +36,44 @@ export function BackLabelPicker({
   frontImageId,
   value,
   onChange,
+  onPreparing,
 }: {
   frontImageId: string;
   value: PreparedPhoto | null;
   onChange: (next: PreparedPhoto | null) => void;
+  /**
+   * A photo was chosen and is being made ready (opened, resized: it takes a moment on a phone). The promise gives
+   * the photo, or nothing when it could not be read or another choice replaced it. Whoever adds the bottles in
+   * that moment waits for it, so the back label is never dropped unseen.
+   */
+  onPreparing?: ((ready: Promise<PreparedPhoto | null>) => void) | undefined;
 }) {
   const t = useTranslations("photo");
   const toast = useToast();
   const preview = useObjectUrl(value?.photo ?? null);
-  const choose = async (file: File) => {
-    try {
-      onChange(await preparePhoto(file));
-    } catch (e) {
-      toast.show(e instanceof UnreadablePhotoError ? t("unreadable") : t("frameFailed"), {
-        tone: "error",
-      });
-    }
+  // Only the latest choice counts: an earlier photo that is ready later, or one removed meanwhile, changes nothing.
+  const latest = useRef(0);
+  const choose = (file: File) => {
+    const turn = ++latest.current;
+    const ready = preparePhoto(file).then(
+      (photo) => {
+        if (turn !== latest.current) return null;
+        onChange(photo);
+        return photo;
+      },
+      (e: unknown) => {
+        if (turn === latest.current)
+          toast.show(e instanceof UnreadablePhotoError ? t("unreadable") : t("frameFailed"), {
+            tone: "error",
+          });
+        return null;
+      },
+    );
+    onPreparing?.(ready);
+  };
+  const remove = () => {
+    latest.current++;
+    onChange(null);
   };
   return (
     <section
@@ -90,7 +112,7 @@ export function BackLabelPicker({
             {value ? t("retakeBack") : t("addBack")}
           </FileButton>
           {value && (
-            <Button size="sm" variant="ghost" onClick={() => onChange(null)}>
+            <Button size="sm" variant="ghost" onClick={remove}>
               {t("removeBack")}
             </Button>
           )}

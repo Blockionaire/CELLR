@@ -76,7 +76,30 @@ export interface InsightsDeps {
     model: string;
     generatedAt: string;
   }) => Promise<boolean>;
+  /**
+   * Says a shareable vintage is being researched in this language now; false when another request said so moments
+   * ago (its profile is then waited for instead of paying for the same research). Missing or failing = research as
+   * before.
+   */
+  claimShared?: (
+    vintageId: string,
+    language: ProfileLanguage,
+  ) => Promise<{ mine: boolean; token: string | null }>;
+  /**
+   * Gives the claim back as soon as this request is done with it (researched and published, failed, or refused by
+   * its rate limit), so nobody waits for a profile that is not coming. Missing or failing = the claim expires.
+   */
+  releaseShared?: (vintageId: string, language: ProfileLanguage, token: string) => Promise<void>;
+  /** Waits (injectable so tests do not). */
+  sleep?: (ms: number) => Promise<void>;
 }
+
+/**
+ * How long a request waits for another request's research of the same vintage before it researches itself: as long
+ * as one research call may take (its timeout), checked every two seconds. A request stops waiting at once when the
+ * profile is there or when the other request gave its claim back; it never waits for ever.
+ */
+export const SHARED_WAIT = { everyMs: 2_000, forMs: 60_000 } as const;
 
 const STATUS: Record<
   AiErrorKind,
@@ -185,114 +208,163 @@ export function createInsightsService(deps: InsightsDeps) {
         throw new DomainError("AI_UNAVAILABLE", "Wine profiles aren't switched on yet.", {
           retryable: false,
         });
-      await deps.spend();
 
-      const ask = (research: boolean) =>
-        deps.llm!.generateObject({
-          task: "wine_insight",
-          model: "chat",
-          system: INSIGHT_SYSTEM,
-          user: insightUserMessage({
-            producer: detail.wine.producer,
-            wine: detail.wine.name,
-            year: detail.year,
-            type: detail.wine.type,
-            region: detail.wine.region,
-            country: detail.wine.countryCode,
-            appellation: detail.wine.appellation,
-            currency,
-            // A wine whose profile may be shared is researched from public facts only: what this household paid
-            // is private and must not shape a text other households will read.
-            paidCents: shareable ? null : detail.averagePriceCents,
-            language: language === "nl" ? "Dutch" : "English",
-            research,
-          }),
-          schemaName: "wine_insight",
-          jsonSchema: INSIGHT_SCHEMA,
-          parse: parseInsight,
-          maxOutputTokens: 1200,
-          timeoutMs: research ? 60_000 : 40_000,
-          temperature: 0.2,
-          // One bounded research call per profile: it must search (at most twice) before it answers.
-          ...(research ? { webSearch: true, maxSearches: 2, requireSearch: true } : {}),
-        });
-      const record = (r: Awaited<ReturnType<typeof ask>>) =>
-        deps
-          .recordUsage({
-            householdId: id,
-            task: "wine_insight",
-            status: r.ok ? "ok" : STATUS[r.kind],
-            usage: r.usage,
-          })
-          .catch(() => {});
-      let result = await ask(true);
-      await record(result);
-      // Research counts only when the call came back and a search really ran. Otherwise: an existing profile is
-      // kept as it is (a failed search never replaces it with another generic text; asking again later may
-      // research it). A new profile is written without search instead, once, and marked as not researched so
-      // a later explicit ask can still ground it. Out of budget or rate-limited means stop.
-      const researched = result.ok && (result.usage.webSearchCalls ?? 0) > 0;
-      if (!researched) {
-        if (stored) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
-        if (!result.ok && result.kind !== "budget" && result.kind !== "rate_limited") {
-          result = await ask(false);
-          await record(result);
+      // Two households asking for the same uncached vintage at the same moment: the first researches, the others
+      // wait for that profile instead of paying for the same research. Only for a wine whose profile can be shared.
+      // A waiting request goes ahead as soon as the claim is given back (the first one failed, or was refused by
+      // its rate limit) or, at the latest, after one research timeout; then it is the one that researches, and the
+      // rest keep waiting for it. Whatever happens next, a claim this request took is given back (see `finally`).
+      // The token is the proof of holding the claim: only a request with a token gives a claim back. A request that
+      // goes ahead WITHOUT one (the claim could not be asked, or its wait ran out) never touches another's claim.
+      let token: string | null = null;
+      if (shareable && deps.claimShared) {
+        // A claim that cannot be asked is never a reason not to research: go ahead, holding nothing.
+        const claim = () =>
+          deps.claimShared!(vintageId, language).catch(() => ({ mine: true, token: null }));
+        let answer = await claim();
+        const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+        for (
+          let waited = 0;
+          !answer.mine && waited < SHARED_WAIT.forMs;
+          waited += SHARED_WAIT.everyMs
+        ) {
+          await sleep(SHARED_WAIT.everyMs);
+          const again = await deps.repo.getShared(vintageId, language).catch(() => null);
+          const ready = again?.profile ? reusableInsight(again.profile.output, wine) : null;
+          if (again?.profile && ready) {
+            const saved = await deps.repo.saveInsight(id, vintageId, {
+              output:
+                stored && upgrade === "fill"
+                  ? mergeInsight(stored, ready)
+                  : { ...ready, value: stored?.value ?? null },
+              model: again.profile.model,
+              generatedAt: again.profile.generatedAt,
+              cacheResult: "hit",
+            });
+            if (!saved) throw new DomainError("INTERNAL", NOT_READY);
+            return view(id, currency, vintageId);
+          }
+          answer = await claim();
         }
+        token = answer.mine ? answer.token : null;
       }
-      if (!result.ok) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
-
-      const fresh = checkInsight(
-        result.value,
-        detail.year,
-        researched ? (result.consulted ?? []) : [],
-        researched,
-      );
-      if (!fresh) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
-      // "replace": the new profile stands on its own (an old valuation kept inside it stays).
-      const output =
-        stored && upgrade === "fill"
-          ? mergeInsight(stored, fresh)
-          : { ...fresh, value: stored?.value ?? null };
-      const generatedAt = new Date().toISOString();
-      const saved = await deps.repo.saveInsight(id, vintageId, {
-        output,
-        model: result.usage.model,
-        generatedAt,
-        ...(shareable ? { cacheResult: "miss" as const } : {}),
-      });
-      if (!saved) throw new DomainError("INTERNAL", NOT_READY);
-
-      // Offer it to every household when it is this exact wine, researched and sure, and agrees with the wine.
-      // The fresh profile itself is offered (never one merged with this household's older text or value).
-      if (
-        shareable &&
-        deps.publishShared &&
-        shareableInsight(fresh, wine, result.value.country_code)
-      )
-        await deps
-          .publishShared({
-            vintageId,
-            language,
-            output: { ...fresh, value: null },
-            model: result.usage.model,
-            generatedAt,
-          })
-          .catch(() => false);
-
-      // What the person left empty (region, appellation, country) is filled in from what the AI knows, judged by
-      // the checked profile's confidence and evidence (not the model's own claim); what they typed is never
-      // overwritten. A wine from the shared catalogue refuses edits, and that is fine.
-      if (deps.fillWine) {
-        const known = checkOrigin(result.value, fresh);
-        const w = detail.wine;
-        const patch = {
-          ...(known.countryCode && !w.countryCode ? { countryCode: known.countryCode } : {}),
-          ...(known.region && !w.region ? { region: known.region } : {}),
-          ...(known.appellation && !w.appellation ? { appellation: known.appellation } : {}),
-        };
-        if (Object.keys(patch).length > 0) await deps.fillWine(w.id, patch).catch(() => {});
+      try {
+        return await research();
+      } finally {
+        if (token !== null && deps.releaseShared)
+          await deps.releaseShared(vintageId, language, token).catch(() => {});
       }
-      return view(id, currency, vintageId);
+
+      async function research(): Promise<VintageInsightView> {
+        await deps.spend();
+
+        const ask = (research: boolean) =>
+          deps.llm!.generateObject({
+            task: "wine_insight",
+            model: "chat",
+            system: INSIGHT_SYSTEM,
+            user: insightUserMessage({
+              producer: detail.wine.producer,
+              wine: detail.wine.name,
+              year: detail.year,
+              type: detail.wine.type,
+              region: detail.wine.region,
+              country: detail.wine.countryCode,
+              appellation: detail.wine.appellation,
+              currency,
+              // A wine whose profile may be shared is researched from public facts only: what this household paid
+              // is private and must not shape a text other households will read.
+              paidCents: shareable ? null : detail.averagePriceCents,
+              language: language === "nl" ? "Dutch" : "English",
+              research,
+            }),
+            schemaName: "wine_insight",
+            jsonSchema: INSIGHT_SCHEMA,
+            parse: parseInsight,
+            maxOutputTokens: 1200,
+            timeoutMs: research ? 60_000 : 40_000,
+            temperature: 0.2,
+            // One bounded research call per profile: it must search (at most twice) before it answers.
+            ...(research ? { webSearch: true, maxSearches: 2, requireSearch: true } : {}),
+          });
+        const record = (r: Awaited<ReturnType<typeof ask>>) =>
+          deps
+            .recordUsage({
+              householdId: id,
+              task: "wine_insight",
+              status: r.ok ? "ok" : STATUS[r.kind],
+              usage: r.usage,
+            })
+            .catch(() => {});
+        let result = await ask(true);
+        await record(result);
+        // Research counts only when the call came back and a search really ran. Otherwise: an existing profile is
+        // kept as it is (a failed search never replaces it with another generic text; asking again later may
+        // research it). A new profile is written without search instead, once, and marked as not researched so
+        // a later explicit ask can still ground it. Out of budget or rate-limited means stop.
+        const researched = result.ok && (result.usage.webSearchCalls ?? 0) > 0;
+        if (!researched) {
+          if (stored) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
+          if (!result.ok && result.kind !== "budget" && result.kind !== "rate_limited") {
+            result = await ask(false);
+            await record(result);
+          }
+        }
+        if (!result.ok) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
+
+        const fresh = checkInsight(
+          result.value,
+          detail.year,
+          researched ? (result.consulted ?? []) : [],
+          researched,
+        );
+        if (!fresh) throw new DomainError("AI_UNAVAILABLE", undefined, { retryable: true });
+        // "replace": the new profile stands on its own (an old valuation kept inside it stays).
+        const output =
+          stored && upgrade === "fill"
+            ? mergeInsight(stored, fresh)
+            : { ...fresh, value: stored?.value ?? null };
+        const generatedAt = new Date().toISOString();
+        const saved = await deps.repo.saveInsight(id, vintageId, {
+          output,
+          model: result.usage.model,
+          generatedAt,
+          ...(shareable ? { cacheResult: "miss" as const } : {}),
+        });
+        if (!saved) throw new DomainError("INTERNAL", NOT_READY);
+
+        // Offer it to every household when it is this exact wine, researched and sure, and agrees with the wine.
+        // The fresh profile itself is offered (never one merged with this household's older text or value).
+        if (
+          shareable &&
+          deps.publishShared &&
+          shareableInsight(fresh, wine, result.value.country_code)
+        )
+          await deps
+            .publishShared({
+              vintageId,
+              language,
+              output: { ...fresh, value: null },
+              model: result.usage.model,
+              generatedAt,
+            })
+            .catch(() => false);
+
+        // What the person left empty (region, appellation, country) is filled in from what the AI knows, judged by
+        // the checked profile's confidence and evidence (not the model's own claim); what they typed is never
+        // overwritten. A wine from the shared catalogue refuses edits, and that is fine.
+        if (deps.fillWine) {
+          const known = checkOrigin(result.value, fresh);
+          const w = detail.wine;
+          const patch = {
+            ...(known.countryCode && !w.countryCode ? { countryCode: known.countryCode } : {}),
+            ...(known.region && !w.region ? { region: known.region } : {}),
+            ...(known.appellation && !w.appellation ? { appellation: known.appellation } : {}),
+          };
+          if (Object.keys(patch).length > 0) await deps.fillWine(w.id, patch).catch(() => {});
+        }
+        return view(id, currency, vintageId);
+      }
     },
 
     /**

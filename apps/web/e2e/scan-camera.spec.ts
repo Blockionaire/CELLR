@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { arrive, makeJpeg } from "./helpers";
+import { arrive, makeJpeg, chooseFile } from "./helpers";
 import { expectReachable } from "./scan-helpers";
 
 /**
@@ -99,10 +99,11 @@ test.describe("without a live camera, the phone's own camera takes over", () => 
     expect(await calls()).toBe(1);
 
     // A photo with the phone's own camera: off to its review, then back to the viewfinder.
-    await page
-      .locator('input[type="file"]')
-      .first()
-      .setInputFiles({ name: "a.jpg", mimeType: "image/jpeg", buffer: await makeJpeg(page) });
+    await chooseFile(page.locator('input[type="file"]').first(), {
+      name: "a.jpg",
+      mimeType: "image/jpeg",
+      buffer: await makeJpeg(page),
+    });
     await expect(page.getByTestId("capture")).toHaveCount(0);
     await page.getByRole("button", { name: "Try another photo" }).click();
     await expect(page.getByTestId("capture")).toBeVisible();

@@ -411,6 +411,15 @@ export interface ScanResult {
   fromText?: boolean;
   /** The published 2D bottle picture of the wine found (its own, or inherited from its verified catalogue wine). */
   art?: BottleArtRef | null;
+  /**
+   * Present when the wine resolver matched the reading (Wine Intelligence WI-03): its status, and per candidate wine
+   * why it is offered (`ResolveReason`s), so the review can show what tells the candidates apart. How sure the MATCH
+   * is; how legible the label was stays in `facts.confidence`.
+   */
+  resolution?: {
+    status: "exact_candidate" | "ambiguous" | "not_found";
+    reasons: Record<string, readonly string[]>;
+  };
 }
 
 /**

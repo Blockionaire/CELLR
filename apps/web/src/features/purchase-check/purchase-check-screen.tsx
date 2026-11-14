@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
@@ -10,6 +11,7 @@ import {
   PurchaseWineSchema,
   WINE_COUNTRIES,
   WINE_TYPES,
+  type CatalogSearchHit,
   type PurchaseCheckResult,
   type PurchaseRecognition,
   type PurchaseWine,
@@ -17,10 +19,13 @@ import {
   type SommelierBottle,
   type TasteSignal,
   type VerdictReason,
+  type WineSummary,
   type WineType,
 } from "@cellr/domain";
+import { useWines } from "@/features/cellar/hooks";
 import { countryName, placeLine } from "@/features/cellar/wine-visuals";
 import { WinePicture } from "@/features/cellar/wine-picture";
+import { track } from "@/lib/analytics";
 import { errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { cn } from "@/ui/cn";
@@ -28,7 +33,25 @@ import { Field } from "@/ui/field";
 import { FileButton } from "@/ui/file-button";
 import { ChevronRightIcon, CloseIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
+import { Skeleton } from "@/ui/skeleton";
 import { useComparePurchase, useRecognizeBottle } from "./hooks";
+import { KnowledgeSection } from "./knowledge-section";
+
+/** The wine search is loaded only when the typed path starts with it (the `wine_search` feature). */
+const WineSearch = dynamic(
+  () => import("@/features/wine-search/wine-search").then((m) => m.WineSearch),
+  {
+    // Not in the server's HTML: a search field that is on screen before it works loses what is typed into it.
+    // The skeleton stands in until the field can answer, and then it takes the focus.
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-col gap-3" aria-hidden="true">
+        <Skeleton className="h-14 rounded-full" />
+        <Skeleton className="h-[5.25rem] rounded-card" />
+      </div>
+    ),
+  },
+);
 
 /** The form as typed: plain strings, checked (by the same schema as the server) only when sent. */
 interface Draft {
@@ -72,20 +95,61 @@ const draftOf = (wine: PurchaseWine, price = ""): Draft => ({
 
 type Step =
   | { kind: "photo" }
+  | { kind: "search" }
   | { kind: "confirm"; recognition: PurchaseRecognition | null }
   | { kind: "result"; result: PurchaseCheckResult };
+
+/**
+ * Where the wine on the confirm step came from when it was chosen from the search: the person's own wines, the
+ * CELLR catalogue, or an external source (never a CELLR wine). Only said to the person; the comparison itself only
+ * ever uses the facts they confirmed.
+ */
+interface Chosen {
+  source: "owned" | "household" | "catalog" | "provider";
+  provider: string | null;
+}
+
+const knownCountry = (code: string | null | undefined) =>
+  (WINE_COUNTRIES as readonly string[]).includes(code ?? "") ? (code as string) : "";
+
+/** A chosen wine as the form's starting point. The vintage is never filled in: the bottle in the shop decides. */
+const draftOfChoice = (c: {
+  producer: string;
+  name: string;
+  type: WineType | null;
+  countryCode: string | null;
+  region: string | null;
+}): Draft => ({
+  ...EMPTY,
+  producer: c.producer,
+  name: c.name,
+  type: c.type,
+  countryCode: knownCountry(c.countryCode),
+  region: c.region ?? "",
+});
 
 /**
  * KOOPCHECK. Standing in a shop: photograph the bottle, check what was read, and see whether it is worth buying
  * given the cellar and your own ratings. The photo is only read (never kept), the wine is never added anywhere, and
  * a correction is compared again without reading the photo again.
  */
-export function PurchaseCheckScreen() {
+export function PurchaseCheckScreen({
+  catalogSearch = false,
+  sourcesPanel = false,
+}: {
+  /** The `wine_search` feature: typing a wine starts with the database search ("Handmatig zoeken"). */
+  catalogSearch?: boolean | undefined;
+  /** The `sources_panel` feature: the result also says what the catalogue's facts rest on. */
+  sourcesPanel?: boolean | undefined;
+}) {
   const t = useTranslations("purchaseCheck");
   const te = useTranslations();
   const failed = (e: unknown) => errorMessage(e, (k) => te(k), ERROR_MESSAGES);
   const [step, setStep] = useState<Step>({ kind: "photo" });
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  // Kept here, so "search again" and "edit" come back to what was typed and chosen.
+  const [searchText, setSearchText] = useState("");
+  const [chosen, setChosen] = useState<Chosen | null>(null);
   const recognize = useRecognizeBottle();
   const compare = useComparePurchase();
 
@@ -93,6 +157,8 @@ export function PurchaseCheckScreen() {
     recognize.reset();
     compare.reset();
     setDraft(EMPTY);
+    setSearchText("");
+    setChosen(null);
     setStep({ kind: "photo" });
   };
 
@@ -108,6 +174,7 @@ export function PurchaseCheckScreen() {
 
       {step.kind === "photo" && (
         <PhotoStep
+          search={catalogSearch}
           reading={recognize.isPending}
           error={recognize.error ? failed(recognize.error) : null}
           onRead={async (file) => {
@@ -121,14 +188,60 @@ export function PurchaseCheckScreen() {
           }}
           onManual={() => {
             setDraft(EMPTY);
+            setChosen(null);
+            setStep(catalogSearch ? { kind: "search" } : { kind: "confirm", recognition: null });
+          }}
+        />
+      )}
+
+      {step.kind === "search" && (
+        <SearchStep
+          text={searchText}
+          onText={setSearchText}
+          onWine={(wine, hit) => {
+            setDraft(draftOfChoice(wine));
+            setChosen({
+              // chosen from the list shown before anything was typed (no search hit): what the wine itself says
+              source: hit
+                ? hit.source === "catalog"
+                  ? "catalog"
+                  : hit.source === "owned"
+                    ? "owned"
+                    : "household"
+                : wine.catalog
+                  ? "catalog"
+                  : "household",
+              provider: null,
+            });
+            compare.reset();
             setStep({ kind: "confirm", recognition: null });
           }}
+          onRecord={(hit) => {
+            setDraft(draftOfChoice(hit));
+            setChosen({ source: "provider", provider: hit.provider?.name ?? "" });
+            compare.reset();
+            setStep({ kind: "confirm", recognition: null });
+          }}
+          onType={() => {
+            // what was typed is kept as the start of the form, for the person to split into producer and name
+            setDraft({ ...EMPTY, producer: searchText.trim().slice(0, 120) });
+            setChosen(null);
+            compare.reset();
+            setStep({ kind: "confirm", recognition: null });
+          }}
+          onRestart={restart}
         />
       )}
 
       {step.kind === "confirm" && (
         <ConfirmStep
           recognition={step.recognition}
+          chosen={chosen}
+          onSearchAgain={
+            catalogSearch && step.recognition === null
+              ? () => setStep({ kind: "search" })
+              : undefined
+          }
           draft={draft}
           onChange={setDraft}
           comparing={compare.isPending}
@@ -136,6 +249,16 @@ export function PurchaseCheckScreen() {
           onCompare={async (wine, priceCents) => {
             try {
               const result = await compare.mutateAsync({ wine, priceCents });
+              // counts and coarse labels only: no wine, no price, no advice, nothing about what the person likes
+              track("purchase_check_completed", {
+                entry: chosen ? "search" : step.recognition?.wine ? "photo" : "typed",
+                knowledge: result.knowledge
+                  ? result.knowledge.status
+                  : result.knowledge === null
+                    ? "none"
+                    : "off",
+                priced: priceCents !== null,
+              });
               setStep({ kind: "result", result });
               window.scrollTo({ top: 0 });
             } catch {
@@ -149,6 +272,7 @@ export function PurchaseCheckScreen() {
       {step.kind === "result" && (
         <ResultStep
           result={step.result}
+          sourcesPanel={sourcesPanel}
           onEdit={() => setStep({ kind: "confirm", recognition: null })}
           onRestart={restart}
         />
@@ -160,11 +284,14 @@ export function PurchaseCheckScreen() {
 // ---- Step A: the photo --------------------------------------------------------------------------------------
 
 function PhotoStep({
+  search,
   reading,
   error,
   onRead,
   onManual,
 }: {
+  /** The typed path starts with the wine search ("Handmatig zoeken") instead of an empty form. */
+  search: boolean;
   reading: boolean;
   error: string | null;
   onRead: (file: File) => void;
@@ -233,8 +360,8 @@ function PhotoStep({
         </p>
       )}
       {!reading && (
-        <Button variant="ghost" className="self-start" onClick={onManual}>
-          {t("typeInstead")}
+        <Button variant="ghost" className="self-start" onClick={onManual} data-testid="pc-manual">
+          {t(search ? "searchInstead" : "typeInstead")}
         </Button>
       )}
     </section>
@@ -243,8 +370,56 @@ function PhotoStep({
 
 // ---- Step B: confirm or correct -----------------------------------------------------------------------------
 
+// ---- Step A2: find the wine by typing ("Handmatig zoeken") -----------------------------------------------------
+
+function SearchStep({
+  text,
+  onText,
+  onWine,
+  onRecord,
+  onType,
+  onRestart,
+}: {
+  text: string;
+  onText: (value: string) => void;
+  onWine: (wine: WineSummary, hit: CatalogSearchHit | null) => void;
+  onRecord: (hit: CatalogSearchHit) => void;
+  onType: () => void;
+  onRestart: () => void;
+}) {
+  const t = useTranslations("purchaseCheck");
+  const wines = useWines();
+  return (
+    <section aria-labelledby="pc-search" className="flex flex-col gap-4" data-testid="pc-search">
+      <StepTitle id="pc-search">{t("stepSearch")}</StepTitle>
+      <p className="text-small text-ink-2">{t("searchHint")}</p>
+      <WineSearch
+        value={text}
+        onValue={onText}
+        label={t("searchLabel")}
+        placeholder={t("searchPlaceholder")}
+        autoFocus
+        // "Your wines": the household's own, never the whole shared catalogue (that is what the search is for)
+        localWines={wines.data?.filter((w) => !w.catalog)}
+        idleTitle={t("searchIdle")}
+        surface="koopcheck"
+        onWine={onWine}
+        onRecord={onRecord}
+      />
+      <Button variant="secondary" size="lg" block onClick={onType} data-testid="pc-type">
+        {t("typeWithoutResult")}
+      </Button>
+      <Button variant="ghost" className="self-start" onClick={onRestart}>
+        {t("another")}
+      </Button>
+    </section>
+  );
+}
+
 function ConfirmStep({
   recognition,
+  chosen,
+  onSearchAgain,
   draft,
   onChange,
   comparing,
@@ -253,6 +428,10 @@ function ConfirmStep({
   onRestart,
 }: {
   recognition: PurchaseRecognition | null;
+  /** The wine was chosen from the search: where from. */
+  chosen: Chosen | null;
+  /** Back to the search with what was typed (only on the typed path). */
+  onSearchAgain?: (() => void) | undefined;
   draft: Draft;
   onChange: (d: Draft) => void;
   comparing: boolean;
@@ -308,6 +487,12 @@ function ConfirmStep({
         <Note>{t("fromText")}</Note>
       ) : recognition?.catalog ? (
         <Note>{t("fromCatalog")}</Note>
+      ) : chosen ? (
+        <Note tone={chosen.source === "provider" ? "warn" : undefined}>
+          <span data-testid="pc-chosen" data-source={chosen.source}>
+            {t(`chosen.${chosen.source}`, { provider: chosen.provider ?? "" })}
+          </span>
+        </Note>
       ) : null}
       <p className="text-small text-ink-2">{t("confirmHint")}</p>
 
@@ -444,6 +629,11 @@ function ConfirmStep({
       <Button type="submit" size="lg" block loading={comparing}>
         {t("compare")}
       </Button>
+      {onSearchAgain && (
+        <Button type="button" variant="ghost" className="self-start" onClick={onSearchAgain}>
+          {t("searchAgain")}
+        </Button>
+      )}
       <Button type="button" variant="ghost" className="self-start" onClick={onRestart}>
         {t("another")}
       </Button>
@@ -461,10 +651,12 @@ const VERDICT_TONE: Record<PurchaseCheckResult["verdict"], string> = {
 
 function ResultStep({
   result,
+  sourcesPanel,
   onEdit,
   onRestart,
 }: {
   result: PurchaseCheckResult;
+  sourcesPanel: boolean;
   onEdit: () => void;
   onRestart: () => void;
 }) {
@@ -591,6 +783,14 @@ function ResultStep({
         </p>
       </Section>
 
+      {result.knowledge && (
+        <KnowledgeSection
+          knowledge={result.knowledge}
+          vintageKnown={wine.year !== null || wine.nonVintage}
+          sourcesPanel={sourcesPanel}
+        />
+      )}
+
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button size="lg" block onClick={onRestart}>
           {t("another")}
@@ -714,7 +914,7 @@ function StepTitle({ id, children }: { id: string; children: ReactNode }) {
   );
 }
 
-function Note({ children, tone }: { children: ReactNode; tone?: "warn" }) {
+function Note({ children, tone }: { children: ReactNode; tone?: "warn" | undefined }) {
   return (
     <p
       role={tone === "warn" ? "status" : undefined}

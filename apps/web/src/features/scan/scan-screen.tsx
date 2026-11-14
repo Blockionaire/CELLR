@@ -6,8 +6,12 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "reac
 import {
   ERROR_MESSAGES,
   formatVintage,
+  MATCH,
   matchLabel,
+  RESOLVE_REASONS,
+  scoreWine,
   suggestWine,
+  type ResolveReason,
   type AddBottlesResult,
   type BottleArtRef,
   type ScanResult,
@@ -25,7 +29,7 @@ import {
   type BackLabelAttempt,
 } from "@/features/cellar/hooks";
 import { LabelImage } from "@/features/cellar/label-image";
-import { NewWineForm } from "@/features/cellar/new-wine-form";
+import { draftOfRecord, NewWineForm, type NewWineDraft } from "@/features/cellar/new-wine-form";
 import { useOwnedCounts, WineChoice } from "@/features/cellar/wine-stage";
 import { placeLine } from "@/features/cellar/wine-visuals";
 import { ApiError, errorMessage } from "@/lib/api";
@@ -64,10 +68,13 @@ type Stage =
 export function ScanScreen({
   currency,
   initialSpot,
+  catalogSearch = false,
 }: {
   currency: string;
   /** From "add a bottle here" in a rack: the first bottle scanned goes on that spot (unless changed). */
   initialSpot?: PreferredSpot | undefined;
+  /** The `wine_search` feature: correcting a reading searches the database, not only the fetched list. */
+  catalogSearch?: boolean | undefined;
 }) {
   const t = useTranslations("scan");
   const tAdd = useTranslations("addBottle");
@@ -89,6 +96,11 @@ export function ScanScreen({
   // An optional back label, tied to the front photo it was taken with: it can never go on to another wine.
   const [back, setBack] = useState<{ imageId: string; photo: PreparedPhoto } | null>(null);
   const backFor = (imageId: string) => (back?.imageId === imageId ? back.photo : null);
+  // The back label last chosen for a front photo, as a promise: it is made ready in the background (opened, resized),
+  // which takes a phone a moment. This, not `back` (which is for showing it), is what "Add" goes by: tapped while the
+  // photo is still being made ready, or just before it is, the bottles go in at once and the label follows, instead
+  // of being left out without a word.
+  const backChoice = useRef<{ imageId: string; ready: Promise<PreparedPhoto | null> } | null>(null);
   // Back labels of a series that could not be saved, each tied to its own wine, until retried or dismissed.
   const [backRetries, setBackRetries] = useState<BackRetry[]>([]);
   const heading = useRef<HTMLDivElement>(null);
@@ -142,6 +154,23 @@ export function ScanScreen({
       !list
     )
       return result;
+    // The resolver's answer (WI-03) came from a bounded lookup on the server. It is matched again only against its
+    // own candidates plus the household's own wines as they are now (a wine added from an earlier photo of this
+    // batch), never against the whole catalogue; and only when that changes something is its "why" let go.
+    if (result.resolution) {
+      const own = list.filter((w) => !w.catalog);
+      const known = new Set(result.matches.map((m) => m.wine.id));
+      if (own.every((w) => known.has(w.id) || scoreWine(result.facts!, w) < MATCH.maybe))
+        return result;
+      const again = matchLabel(result.facts, [
+        ...result.matches.map((m) => m.wine),
+        ...own.filter((w) => !known.has(w.id)),
+      ]);
+      // matched again here: the server's status and reasons no longer describe this answer, so they are let go
+      const { resolution: _stale, ...rest } = result;
+      void _stale;
+      return { ...rest, ...again };
+    }
     return { ...result, ...matchLabel(result.facts, list) };
   };
 
@@ -287,6 +316,7 @@ export function ScanScreen({
             result={stage.result}
             rejectedFound={rejectedFound}
             wines={wines.data ?? []}
+            catalogSearch={catalogSearch}
             onReject={() => setRejectedFound(true)}
             onWine={(wine) =>
               setStage({ name: "details", result: stage.result, wine, itemId: stage.itemId })
@@ -322,9 +352,18 @@ export function ScanScreen({
               <BackLabelPicker
                 frontImageId={stage.result.image.id}
                 value={backFor(stage.result.image.id)}
-                onChange={(photo) =>
-                  setBack(photo ? { imageId: stage.result.image.id, photo } : null)
-                }
+                onChange={(photo) => {
+                  const imageId = stage.result.image.id;
+                  const current = backChoice.current?.imageId === imageId;
+                  // Ready: shown, unless its bottles were added meanwhile (then it has gone with them) or another
+                  // label is on screen by now. Removed: nothing follows the bottles any more.
+                  if (photo && !current) return;
+                  if (!photo && current) backChoice.current = null;
+                  setBack(photo ? { imageId, photo } : null);
+                }}
+                onPreparing={(ready) => {
+                  backChoice.current = { imageId: stage.result.image.id, ready };
+                }}
               />
             }
             footer={
@@ -366,31 +405,48 @@ export function ScanScreen({
             onDone={(result, placeId) => {
               // The bottles are in. The back label (if any) follows on its own: whatever happens to it, the
               // bottles stay added, and the photo is only uploaded now, so leaving earlier left nothing behind.
-              const photo = backFor(stage.result.image.id);
+              const shown = backFor(stage.result.image.id);
+              const choice =
+                backChoice.current?.imageId === stage.result.image.id
+                  ? backChoice.current.ready
+                  : null;
+              backChoice.current = null;
               setBack(null);
-              const sent = photo ? attachBackLabel(result.vintageId, photo) : null;
+              // The photo to put on: the one chosen last, when it is ready (if it cannot be read, the one that was
+              // shown before it).
+              const coming = choice?.then((photo) => photo ?? shown) ?? null;
               setSpot(null);
               if (!stage.itemId) {
                 setStage({
                   name: "done",
                   result,
-                  back: photo ? { photo, outcome: "saving" } : undefined,
+                  back: coming && shown ? { photo: shown, outcome: "saving" } : undefined,
                 });
-                void sent?.then((outcome) =>
+                void coming?.then(async (photo) => {
+                  if (!photo) return;
+                  if (photo !== shown)
+                    setStage((s) =>
+                      s.name === "done" && s.result === result
+                        ? { ...s, back: { photo, outcome: "saving" } }
+                        : s,
+                    );
+                  const outcome = await attachBackLabel(result.vintageId, photo);
                   setStage((s) =>
                     s.name === "done" && s.result === result && s.back
                       ? { ...s, back: { ...s.back, outcome } }
                       : s,
-                  ),
-                );
+                  );
+                });
                 return;
               }
               // In a series nothing waits: an existing back label is kept; a failure stays listed with its
               // wine and "Try again" until it is saved or dismissed.
-              void sent?.then(({ outcome, imageId }) => {
+              void coming?.then(async (photo) => {
+                if (!photo) return;
+                const { outcome, imageId } = await attachBackLabel(result.vintageId, photo);
                 const wine = `${result.wine.producer} ${result.wine.name} ${formatVintage(result.year)}`;
                 if (outcome === "exists") toast.show(te("photo.backKeptFor", { wine }));
-                if (outcome === "failed" && photo)
+                if (outcome === "failed")
                   setBackRetries((list) => [
                     ...list,
                     {
@@ -672,6 +728,7 @@ function Review({
   result,
   rejectedFound,
   wines,
+  catalogSearch,
   onReject,
   onWine,
   onAgain,
@@ -680,6 +737,7 @@ function Review({
   result: ScanResult;
   rejectedFound: boolean;
   wines: WineSummary[];
+  catalogSearch: boolean;
   onReject: () => void;
   onWine: (wine: WineSummary) => void;
   onAgain: () => void;
@@ -691,6 +749,11 @@ function Review({
   const [chosenNew, setChosenNew] = useState(false);
   // A wrong guess is corrected by finding the right wine among your own, not by typing it in again (a duplicate).
   const [searching, setSearching] = useState(false);
+  // A record of an external source chosen while searching: it starts the form below, for the person to check.
+  const [fromRecord, setFromRecord] = useState<{ draft: NewWineDraft; provider: string } | null>(
+    null,
+  );
+  const tAdd = useTranslations("addBottle");
   const { outcome, facts, matches } = result;
   const [query, setQuery] = useState(facts?.producer ?? facts?.name ?? "");
   const wantsForm =
@@ -700,6 +763,18 @@ function Review({
     (outcome === "found" && (rejectedFound || !matches[0]));
   const producers = [...new Set(wines.map((w) => w.producer))];
   const unsure = facts ? Object.values(facts.confidence).includes("low") : false;
+  /**
+   * Why the resolver offers this wine (WI-03), in words: what tells the candidates apart. Undefined without the
+   * resolver, so the review looks exactly as it did.
+   */
+  const whyOf = (wineId: string): string | undefined => {
+    const reasons = result.resolution?.reasons[wineId];
+    if (!reasons) return undefined;
+    return reasons
+      .filter((r): r is ResolveReason => (RESOLVE_REASONS as readonly string[]).includes(r))
+      .map((r) => t(`why.${r}`))
+      .join(" · ");
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -741,6 +816,7 @@ function Review({
             year={facts?.year ?? null}
             owned={owned.get(matches[0].wine.id)}
             art={result.art}
+            why={whyOf(matches[0].wine.id)}
           />
           <Button size="lg" block onClick={() => onWine(matches[0]!.wine)}>
             {t("confirmFound")}
@@ -765,6 +841,7 @@ function Review({
                   year={facts?.year ?? null}
                   owned={owned.get(m.wine.id)}
                   onPick={() => onWine(m.wine)}
+                  why={whyOf(m.wine.id)}
                 />
               </li>
             ))}
@@ -786,7 +863,24 @@ function Review({
             query={query}
             onQuery={setQuery}
             onPick={onWine}
-            onNew={() => setSearching(false)}
+            onNew={() => {
+              setFromRecord(null);
+              setSearching(false);
+            }}
+            catalog={
+              catalogSearch
+                ? {
+                    surface: "scan",
+                    onRecord: (hit) => {
+                      setFromRecord({
+                        draft: draftOfRecord(hit),
+                        provider: hit.provider?.name ?? "",
+                      });
+                      setSearching(false);
+                    },
+                  }
+                : undefined
+            }
           />
         </section>
       )}
@@ -810,15 +904,19 @@ function Review({
               )}
             </div>
           )}
-          {wines.length > 0 && (
+          {(wines.length > 0 || catalogSearch) && (
             <Button variant="secondary" size="lg" block onClick={() => setSearching(true)}>
               <SearchIcon size={18} />
               {t("searchMine")}
             </Button>
           )}
           <NewWineForm
+            key={fromRecord ? "record" : "read"}
             initialName=""
-            draft={facts ? suggestWine(facts) : undefined}
+            draft={fromRecord?.draft ?? (facts ? suggestWine(facts) : undefined)}
+            notice={
+              fromRecord ? tAdd("recordNotice", { provider: fromRecord.provider }) : undefined
+            }
             producers={producers}
             onCreated={onWine}
           />
@@ -850,28 +948,41 @@ function Candidate({
   owned,
   onPick,
   art,
+  why,
 }: {
   wine: WineSummary;
   year: number | null;
   owned?: number | undefined;
   onPick?: () => void;
   art?: BottleArtRef | null | undefined;
+  /** Why this wine is offered (the resolver's reasons, in words). With it, the colour is shown too. */
+  why?: string | undefined;
 }) {
   const locale = useLocale();
+  const tTypes = useTranslations("wineTypes");
   const detail = [
     year === null ? null : formatVintage(year),
+    // what tells two candidates apart: with the resolver's reasons the colour is said as well
+    why !== undefined ? tTypes(wine.type) : null,
     placeLine(wine.region, wine.countryCode, locale),
   ]
     .filter(Boolean)
     .join(" · ");
   return (
-    <WineChoice
-      wine={wine}
-      detail={detail}
-      owned={owned}
-      onPick={onPick}
-      size={onPick ? "thumb" : "card"}
-      art={art}
-    />
+    <div className="flex flex-col gap-1.5" data-testid="scan-candidate" data-wine={wine.id}>
+      <WineChoice
+        wine={wine}
+        detail={detail}
+        owned={owned}
+        onPick={onPick}
+        size={onPick ? "thumb" : "card"}
+        art={art}
+      />
+      {why && (
+        <p className="px-1 text-caption text-ink-2" data-testid="scan-why">
+          {why}
+        </p>
+      )}
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import "server-only";
-import { parseAdminAllowlist } from "@cellr/domain";
+import { parseAdminAllowlist, parseFeatures, type FeatureFlags } from "@cellr/domain";
 import { getPublicEnv, isDevelopment, type PublicEnv } from "@/lib/public-env";
 
 /** Server-side view of the environment. Validated lazily, so `next build` works without secrets. */
@@ -95,4 +95,12 @@ export function getCronSecret(): string | null {
  */
 export function getAdminAllowlist(): ReadonlySet<string> {
   return parseAdminAllowlist(process.env.CELLR_ADMIN_USER_IDS);
+}
+
+/**
+ * Which Wine Intelligence features are switched on in this deployment: names from CELLR_FEATURES, comma-separated
+ * (or "all"). Unset = everything off, so every flow works as it did before. Server only: pages pass the booleans on.
+ */
+export function getFeatures(): FeatureFlags {
+  return parseFeatures(process.env.CELLR_FEATURES);
 }

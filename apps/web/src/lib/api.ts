@@ -20,10 +20,16 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
   let response: Response;
   try {
     const init: RequestInit = { method, credentials: "same-origin" };
+    if (signal) init.signal = signal;
     if (body instanceof FormData) {
       init.body = body; // the browser adds the multipart boundary itself
     } else if (body !== undefined) {
@@ -31,7 +37,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       init.body = JSON.stringify(body);
     }
     response = await fetch(`/api/v1${path}`, init);
-  } catch {
+  } catch (error) {
+    // A request the screen itself cancelled (a newer search replaced it) is not a network failure.
+    if (signal?.aborted) throw error;
     throw new ApiError("NETWORK", "", true);
   }
 
@@ -51,7 +59,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>("GET", path),
+  /** `signal` lets the caller cancel a request that a newer one has replaced (search as you type). */
+  get: <T>(path: string, options?: { signal?: AbortSignal }) =>
+    request<T>("GET", path, undefined, options?.signal),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body ?? {}),
   /** Sends files (a photo); everything else goes as JSON. */
   upload: <T>(path: string, form: FormData, method: "POST" | "PUT" = "POST") =>

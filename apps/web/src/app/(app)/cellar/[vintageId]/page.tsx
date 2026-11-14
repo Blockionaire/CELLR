@@ -4,6 +4,7 @@ import { z } from "zod";
 import { isDomainError } from "@cellr/domain";
 import { VintageScreen } from "@/features/cellar/vintage-screen";
 import { getPageContext } from "@/server/context";
+import { getFeatures } from "@/server/env";
 import { getPageMe } from "@/server/me";
 import { servicesFor } from "@/server/services";
 
@@ -44,6 +45,7 @@ export default async function VintagePage({ params, searchParams }: Props) {
       currency={currency}
       initialRate={rate}
       initialPick={pick === "1"}
+      sourcesPanel={getFeatures().sources_panel}
     />
   );
 }

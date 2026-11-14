@@ -248,6 +248,17 @@
       "sameHint": "Several bottles of one wine: scan one label, then say how many. Read once.",
       "batchHint": "Different wines: a photo per label, one after another. Each is read and checked on its own.",
       "sameQuantity": "One scan covers them all: the photo and details go on every bottle."
+    },
+    "why": {
+      "catalog_identity": "Exactly this name in the CELLR catalogue",
+      "alias": "Matched on another name of this wine",
+      "own_identity": "Your own wine, exactly this name",
+      "own_similar": "Your own wine, with a similar name",
+      "similar_name": "A similar name, not the same",
+      "other_bottling": "Another bottling of a similar name",
+      "producer_only": "The same producer; no wine name was read",
+      "type_differs": "Another colour than was read",
+      "country_differs": "Another country than was read"
     }
   },
   "sommelier": {
@@ -585,7 +596,8 @@
     "spotPickTitle": "Choose a spot",
     "spotPickBody": "Tap a free spot.",
     "spotAuto": "Let CELLR choose",
-    "firstAt": "The first is on {spot}."
+    "firstAt": "The first is on {spot}.",
+    "recordNotice": "These details come from {provider}, an external source that CELLR has not verified. Check them before you continue; the wine is added as your own."
   },
   "newPlace": {
     "title": "A place for your bottles",
@@ -1902,7 +1914,36 @@
     "edit": "Correct the wine",
     "another": "Check another wine",
     "bottles": "{count, plural, one {# bottle} other {# bottles}}",
-    "failed": "That didn't work. Try again."
+    "failed": "That didn't work. Try again.",
+    "stepSearch": "Find the wine",
+    "searchHint": "Type the producer or the name of the wine and choose it from the list. Nothing is added to your cellar.",
+    "searchLabel": "Search for the wine in the shop",
+    "searchPlaceholder": "Producer or name of the wine",
+    "searchIdle": "Your wines",
+    "typeWithoutResult": "Type it in without choosing a result",
+    "searchAgain": "Search again",
+    "chosen": {
+      "owned": "Chosen from your cellar. Check the vintage in the shop, and add the price if you like.",
+      "household": "Chosen from your own wines. Check the vintage in the shop, and add the price if you like.",
+      "catalog": "Chosen from the CELLR catalogue. Check the vintage in the shop, and add the price if you like.",
+      "provider": "Taken from {provider}, an external source that CELLR has not verified. Check the details, the vintage and the price."
+    },
+    "searchInstead": "Search by name instead",
+    "knowledge": {
+      "title": "What CELLR already knows about this wine",
+      "profileLabel": "Profile of {vintage} · CELLR's AI estimate · {date}",
+      "window": "Estimated to drink well from {from} through {until}.",
+      "profileCaveat": "{count, plural, =0 {An estimate by CELLR, not a tasting note and not the producer's view.} one {An estimate by CELLR based on 1 source it consulted, not a tasting note and not the producer's view.} other {An estimate by CELLR based on # sources it consulted, not a tasting note and not the producer's view.}}",
+      "addedIntro": "Filled in where you left it open. What you entered yourself was not changed.",
+      "origin": {
+        "catalog": "CELLR catalogue",
+        "estimateVintage": "CELLR's AI estimate for this vintage",
+        "estimateWine": "CELLR's AI estimate, from the profile of {years}"
+      },
+      "noteOtherVintage": "CELLR has no profile of this vintage yet. A drinking window, price or harvest description of another vintage is never carried over.",
+      "noteNoVintage": "You gave no vintage, so CELLR shows no vintage profile. A drinking window or price belongs to one vintage.",
+      "noteCatalogOnly": "CELLR has no profile of this wine yet. Only the details in the CELLR catalogue were used."
+    }
   },
   "drinkDetail": {
     "title": "Drinking window",
@@ -1955,5 +1996,73 @@
     },
     "notAnOffer": "An estimate is not an offer: what you would really get depends on the buyer, the bottle's condition and where you sell it.",
     "manage": "Change or look up the value"
+  },
+  "wineSearch": {
+    "searching": "Searching…",
+    "count": "{count, plural, =0 {No wines found} one {1 wine found} other {# wines found}}",
+    "keyboardHint": "Use the up and down arrow keys to move through the results and Enter to choose one.",
+    "resultsTitle": "Wines found",
+    "ownTitle": "Wines to choose from",
+    "none": "Nothing found for “{query}”. You can add the wine yourself below.",
+    "more": "{count, plural, one {Show 1 more} other {Show # more}}",
+    "retry": "Try again",
+    "alias": "Also known as {alias}",
+    "similar": "Similar name",
+    "source": {
+      "owned": "In your cellar",
+      "household": "Your wine",
+      "catalog": "CELLR catalogue",
+      "provider": "External source, not verified"
+    },
+    "notice": {
+      "unavailable": "Searching the wine catalogue isn't available yet. Choose from the list below, or add the wine yourself.",
+      "limited": "That was a lot of searching. Search pauses for a moment and resumes by itself. Meanwhile, choose from the list below or add the wine yourself.",
+      "offline": "CELLR can't be reached right now. What you typed is kept. The list below is what was already loaded.",
+      "error": "Search isn't working right now. What you typed is kept. The list below is what was already loaded.",
+      "withdrawn": "That result is no longer available from its source. The list has been refreshed; you can also add the wine yourself."
+    },
+    "chosen": "Chosen"
+  },
+  "sources": {
+    "title": "Sources & reliability",
+    "hint": "Where the details about this wine come from.",
+    "identityTitle": "Wine identification",
+    "characteristicsTitle": "Wine characteristics",
+    "aiTitle": "CELLR AI analysis",
+    "yoursTitle": "Your data",
+    "ownWine": "Your household added this wine itself. CELLR has not checked it and no external source was used for it.",
+    "checkedWith": "CELLR checked the name, producer and origin with:",
+    "checkedNoPages": "CELLR checked this wine. No pages are on record for it.",
+    "alsoListed": "Also listed in {provider}",
+    "creditMore": "Licence and details",
+    "license": "Licence",
+    "record": "Record at the source",
+    "dataset": "version {version}",
+    "retrieved": "retrieved on {date}",
+    "changes": "Changes by CELLR",
+    "changesDefault": "CELLR modified this source's data.",
+    "relation": "What this does and does not mean",
+    "notVerifiedBySource": "A source listing this wine does not make its details verified.",
+    "legal": "Full notice",
+    "aiCaveat": "Estimates by CELLR, made with AI. Not established facts and not the producer's view.",
+    "ai": {
+      "profile": "Wine profile (grapes, style, taste)",
+      "window_profile": "Drinking window: an estimate from the wine profile",
+      "window_table": "Drinking window: a rough estimate from region, colour, label and price",
+      "valuation": "Value: an estimate from asking prices that were found"
+    },
+    "aiNotResearched": "Made without consulting pages about this wine: based on general knowledge of the style.",
+    "aiPages": "Consulted:",
+    "yours": {
+      "bottles": "{count, plural, one {1 bottle in the cellar} other {# bottles in the cellar}}",
+      "opened": "{count, plural, one {1 opened bottle} other {# opened bottles}}",
+      "prices": "{count, plural, one {1 purchase price} other {# purchase prices}}",
+      "tastings": "{count, plural, one {1 tasting note} other {# tasting notes}}",
+      "photos": "{count, plural, one {1 photo of your own} other {# photos of your own}}",
+      "own_window": "your own drinking window",
+      "own_value": "your own value"
+    },
+    "yoursPrivate": "Recorded by your household. It is not part of the shared CELLR catalogue; friends see only what you share with them in Profile.",
+    "catalogTitle": "Source of the wine details"
   }
 }

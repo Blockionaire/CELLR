@@ -162,9 +162,10 @@ function namesExactly(lines: string[][], wine: WineSummary, distinct = false): b
 
 // ---- What the rest of the label says about colour, country and bottling --------------------------------------
 
+export type ColourEvidence = Evidence;
 type Evidence = "red" | "white" | "rose" | "sparkling" | "fortified";
 
-const COLOUR_WORDS: Record<string, Evidence> = {
+export const COLOUR_WORDS: Record<string, Evidence> = {
   rouge: "red",
   rosso: "red",
   tinto: "red",
@@ -235,7 +236,7 @@ const COUNTRY_WORDS: ReadonlyArray<[string[], string]> = [
 ];
 
 /** A different bottling of the same name: a reserve, a selection, a late harvest, a classified cru. */
-const QUALIFIERS = new Set([
+export const QUALIFIERS: ReadonlySet<string> = new Set([
   "reserve",
   "reserva",
   "riserva",
@@ -306,7 +307,7 @@ const FOUNDED = new Set([
 const ownWords = (wine: WineSummary) =>
   new Set([wine.producer, wine.name, ...(wine.aliases ?? []), wine.region ?? ""].flatMap(tokensOf));
 
-const stripStatements = (line: Tokens): string[] => {
+export const stripStatements = (line: readonly string[]): string[] => {
   let rest = [...line];
   for (const s of STATEMENTS) {
     let at = indexOfRun(rest, s);

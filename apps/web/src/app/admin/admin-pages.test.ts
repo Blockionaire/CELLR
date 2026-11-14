@@ -32,6 +32,14 @@ const reads = {
   adminWineMasterRecord: vi.fn(),
   adminUploadCatalogLabel: vi.fn(),
 };
+const sources = {
+  overview: vi.fn(),
+  links: vi.fn(),
+  metrics: vi.fn(),
+  decideLink: vi.fn(),
+  flagLink: vi.fn(),
+  disable: vi.fn(),
+};
 const library = { photoFile: vi.fn(), artFile: vi.fn() };
 const master = { labelFile: vi.fn(), householdLabelFile: vi.fn() };
 vi.mock("@/server/admin/service", () => ({
@@ -39,7 +47,10 @@ vi.mock("@/server/admin/service", () => ({
   ...reads,
   bottleLibrary: library,
   wineMaster: master,
+  adminSources: sources,
+  LINK_STATES: ["suggested", "verified", "rejected"],
 }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 const params = { params: Promise.resolve({ id: "0b6f2c1e-6a1d-4f7e-9a3b-2c4d5e6f7a8b" }) };
 const search = { searchParams: Promise.resolve({ page: "2", days: "7" }) };
@@ -60,6 +71,7 @@ describe("admin pages without an admin session", () => {
     ["wine visuals", () => import("./wines/page"), search],
     ["wine visual", () => import("./wines/[id]/page"), { ...params, ...search }],
     ["corrections", () => import("./catalog/corrections/page"), search],
+    ["external sources", () => import("./sources/page"), search],
     [
       "correction",
       () => import("./catalog/corrections/[wineId]/page"),
@@ -69,7 +81,25 @@ describe("admin pages without an admin session", () => {
     const Page = (await load()).default as (p: unknown) => Promise<unknown>;
     await expect(Page(props)).rejects.toThrow("NEXT_NOT_FOUND");
     for (const read of Object.values(reads)) expect(read).not.toHaveBeenCalled();
+    for (const read of Object.values(sources)) expect(read).not.toHaveBeenCalled();
   });
+
+  // Server Actions are reachable over HTTP by anyone who can build the request: without an admin session each
+  // one answers "not found" before it reads a single field or calls anything.
+  it.each(["decideLinkAction", "disableSourceAction"] as const)(
+    "external sources · %s: not found, nothing done",
+    async (name) => {
+      const actions = await import("./sources/actions");
+      const form = new FormData();
+      form.set("recordId", "0b6f2c1e-6a1d-4f7e-9a3b-2c4d5e6f7a8b");
+      form.set("wineId", "0b6f2c1e-6a1d-4f7e-9a3b-2c4d5e6f7a8b");
+      form.set("providerId", "xwines");
+      form.set("state", "verified");
+      form.set("reason", "a perfectly good reason");
+      await expect(actions[name](form)).rejects.toThrow("NEXT_NOT_FOUND");
+      for (const write of Object.values(sources)) expect(write).not.toHaveBeenCalled();
+    },
+  );
 });
 
 const SRC = path.resolve(import.meta.dirname, "../..");
@@ -82,7 +112,7 @@ const files = (dir: string): string[] =>
 describe("the admin boundary", () => {
   it("every admin page checks the session itself", () => {
     const pages = files(path.join(SRC, "app/admin")).filter((f) => /(page|layout)\.tsx$/.test(f));
-    expect(pages.length).toBe(15);
+    expect(pages.length).toBe(16);
     for (const p of pages)
       expect(readFileSync(p, "utf8")).toMatch(
         /if \(!(session|\(await getAdminSession\(\)\))\) notFound\(\)/,
@@ -96,12 +126,14 @@ describe("the admin boundary", () => {
       )
         continue;
       const text = readFileSync(f, "utf8");
-      expect(text, f).not.toMatch(/@\/server\/admin|privileged\/(admin|catalog-admin)/);
+      expect(text, f).not.toMatch(
+        /@\/server\/admin|privileged\/(admin|catalog-admin|sources-admin)/,
+      );
     }
     // The admin pages are server-rendered only. The one exception is the catalogue review's Server Actions (they
     // are reachable over HTTP, so each checks the admin session again before doing anything; see below).
-    const ACTIONS = ["catalog", "bottle-photos", "wines", "catalog/corrections"].map((d) =>
-      path.join(SRC, `app/admin/${d}/actions.ts`),
+    const ACTIONS = ["catalog", "bottle-photos", "wines", "catalog/corrections", "sources"].map(
+      (d) => path.join(SRC, `app/admin/${d}/actions.ts`),
     );
     for (const f of files(path.join(SRC, "app/admin")))
       if (!ACTIONS.includes(f) && !f.endsWith(".test.ts"))
@@ -113,6 +145,7 @@ describe("the admin boundary", () => {
     ["bottle-photos", 1],
     ["wines", 16],
     ["catalog/corrections", 1],
+    ["sources", 2],
   ] as const)(
     "every %s action checks the admin session again before anything else",
     (dir, count) => {

@@ -170,6 +170,8 @@ export interface CellarRepository {
 
   /** Wines the household can pick from: its own plus the shared catalogue. Newest first. */
   listWines(householdId: string): Promise<WineSummary[]>;
+  /** Only the household's own wines (never the catalogue's): bounded by the household. */
+  listOwnWines(householdId: string): Promise<WineSummary[]>;
   getWine(wineId: string): Promise<WineSummary | null>;
   /**
    * Finds the producer by (accent-insensitive) name or creates a private one. Returns its id. `exactCountry`: a

@@ -2,6 +2,9 @@ import "server-only";
 import {
   catalogIdentityOf,
   checkPurchase,
+  enrichPurchaseWine,
+  profileLanguage,
+  WINE_COUNTRIES,
   DomainError,
   LABEL_TEXT_LIMITS,
   labelPhrases,
@@ -9,8 +12,12 @@ import {
   normalizeExtraction,
   purchaseWineFrom,
   recognizeLabelText,
+  type CatalogWineFacts,
   type CellarView,
   type InsightOutput,
+  type ProfileLanguage,
+  type PurchaseKnowledge,
+  type StoredProfile,
   type LabelTextCandidate,
   type PurchaseCheckResult,
   type PurchaseRecognition,
@@ -46,6 +53,17 @@ export interface PurchaseCheckDeps {
   insights: (householdId: string, vintageIds: string[]) => Promise<Map<string, InsightOutput>>;
   /** The signed-in person's own tastings in this household and their own answers. */
   taste: () => Promise<{ tastings: TasteTasting[]; preferences: TastePreferences }>;
+  /**
+   * What CELLR already knows about a catalogue wine (the `purchase_intel` feature): the catalogue's own facts and
+   * the shared profiles of its vintages. Read only, as the person; NEVER a model call, a budget or a write. Missing
+   * = the comparison uses the confirmed facts alone, as before.
+   */
+  knowledge?: (
+    wineId: string,
+    language: ProfileLanguage,
+  ) => Promise<{ catalog: CatalogWineFacts | null; profiles: StoredProfile[] }>;
+  /** The person's language (shared profiles are per language). Needed only with `knowledge`. */
+  locale?: () => Promise<string>;
   /** Null = no AI configured: the person types the wine. */
   llm: LlmProvider | null;
   /** Spends from the scan budget (a label read costs the same either way); throws RATE_LIMITED when gone. */
@@ -240,8 +258,32 @@ export function createPurchaseCheckService(deps: PurchaseCheckDeps) {
         traits.set(c.wine.id, t);
       }
 
-      return checkPurchase({
-        wine,
+      // What CELLR already knows about exactly this catalogue wine fills the fields the person left open: verified
+      // catalogue facts, then a valid profile of this vintage, then only the wine's stable facts. Reading it never
+      // asks a model and never writes; if it cannot be read, the comparison goes ahead on the confirmed facts.
+      let compared = wine;
+      let knowledge: PurchaseKnowledge | null = null;
+      if (deps.knowledge && catalog) {
+        try {
+          const language = profileLanguage(deps.locale ? await deps.locale() : "en");
+          const known = await deps.knowledge(catalog.id, language);
+          if (known.catalog) {
+            const enriched = enrichPurchaseWine(
+              wine,
+              known.catalog,
+              known.profiles,
+              WINE_COUNTRIES,
+            );
+            compared = enriched.wine;
+            knowledge = enriched.knowledge;
+          }
+        } catch {
+          knowledge = null;
+        }
+      }
+
+      const result = checkPurchase({
+        wine: compared,
         priceCents: request.priceCents,
         catalogWineId: catalog?.id ?? null,
         items: view.items,
@@ -249,6 +291,7 @@ export function createPurchaseCheckService(deps: PurchaseCheckDeps) {
         tastings: taste.tastings,
         preferences: taste.preferences,
       });
+      return deps.knowledge ? { ...result, knowledge } : result;
     },
   };
 }

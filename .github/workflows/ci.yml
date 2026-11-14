@@ -7,6 +7,12 @@ on:
   schedule:
     - cron: "17 3 * * *" # nightly: the long end-to-end run
   workflow_dispatch: # or by hand, from the Actions tab
+    inputs:
+      features:
+        description: "End to end against the server with every Wine Intelligence feature on"
+        type: choice
+        options: ["off", "on"]
+        default: "off"
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -79,11 +85,21 @@ jobs:
       - run: bash scripts/db-test.sh
 
   e2e:
-    name: End to end · whole app against the local stack
+    name: End to end · shard ${{ matrix.shard }} of ${{ strategy.job-total }}
     # The long one: not on every pull request, but on main, nightly and on demand.
+    #
+    # The whole suite (about 740 tests on two projects) takes about an hour on one runner, so one job could never
+    # finish inside its limit and was cancelled every time. It is split into shards that run side by side, each with
+    # its own local stack, its own database and the same build. Every shard must finish well inside the limit below:
+    # if the suite grows until one does not, add a shard here (the number in `--shard` follows by itself).
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      # one red shard says which tests failed; the others still report theirs
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -94,17 +110,31 @@ jobs:
       - run: pnpm build
       - name: No server secrets in the browser bundle
         run: bash scripts/check-bundle-secrets.sh
-      - run: pnpm --filter @cellr/web e2e
+      - run: pnpm --filter @cellr/web e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
         env:
           CI: "1"
+          # By hand only (Actions → CI → Run workflow → "features: on"): the same suite against the server that has
+          # every Wine Intelligence feature switched on. The check to run before a feature is switched on for people.
+          E2E_BASE_URL: ${{ inputs.features == 'on' && 'http://localhost:3101' || '' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-results
+          name: playwright-results-${{ matrix.shard }}
           path: |
             apps/web/test-results
             apps/web/playwright-report
           retention-days: 7
+
+  e2e-result:
+    name: End to end · whole app against the local stack
+    # One name to look at (and to require): green only when every shard was.
+    if: always() && github.event_name != 'pull_request'
+    needs: e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - run: |
+          [ "${{ needs.e2e.result }}" = "success" ] || { echo "at least one shard failed or was cancelled"; exit 1; }
 
   secrets:
     name: Secret scan

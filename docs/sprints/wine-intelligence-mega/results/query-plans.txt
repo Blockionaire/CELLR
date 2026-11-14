@@ -1,0 +1,56 @@
+== chateau
+SET
+Function Scan on catalog_search_pilot (actual rows=8 loops=1)
+  Buffers: shared hit=5879
+Planning Time: 0.091 ms
+Execution Time: 30.705 ms
+
+== chateau margaux
+SET
+Function Scan on catalog_search_pilot (actual rows=8 loops=1)
+  Buffers: shared hit=3926
+Planning Time: 0.075 ms
+Execution Time: 19.187 ms
+
+== chateau margau
+SET
+Function Scan on catalog_search_pilot (actual rows=8 loops=1)
+  Buffers: shared hit=3924
+Planning Time: 0.091 ms
+Execution Time: 26.054 ms
+
+== marques de riscal reserva
+SET
+Function Scan on catalog_search_pilot (actual rows=8 loops=1)
+  Buffers: shared hit=3535
+Planning Time: 0.093 ms
+Execution Time: 34.787 ms
+
+== inner: every 3+ letter word as a trigram LIKE (GIN)
+Limit (actual rows=146 loops=1)
+  ->  Sort (actual rows=146 loops=1)
+        Sort Key: (char_length(search_text)), id
+        Sort Method: quicksort  Memory: 30kB
+        ->  Bitmap Heap Scan on catalog_search_entries e (actual rows=146 loops=1)
+              Recheck Cond: ((search_text ~~ '%chateau%'::text) AND (search_text ~~ '%margaux%'::text))
+              Filter: ((household_id IS NULL) OR (household_id = 'cccccccc-0000-0000-0000-000000000001'::uuid))
+              Heap Blocks: exact=114
+              ->  Bitmap Index Scan on catalog_search_entries_trgm (actual rows=146 loops=1)
+                    Index Cond: ((search_text ~~ '%chateau%'::text) AND (search_text ~~ '%margaux%'::text))
+Planning Time: 1.146 ms
+Execution Time: 1.479 ms
+
+== inner: typo by trigram word similarity (GIN)
+SET
+Limit (actual rows=400 loops=1)
+  ->  Sort (actual rows=400 loops=1)
+        Sort Key: (extensions.word_similarity('chateau margau'::text, search_text)) DESC, id
+        Sort Method: quicksort  Memory: 41kB
+        ->  Bitmap Heap Scan on catalog_search_entries e (actual rows=424 loops=1)
+              Filter: (('chateau margau'::text OPERATOR(extensions.<%) search_text) AND ((household_id IS NULL) OR (household_id = 'cccccccc-0000-0000-0000-000000000001'::uuid)))
+              Rows Removed by Filter: 1514
+              Heap Blocks: exact=674
+              ->  Bitmap Index Scan on catalog_search_entries_trgm (actual rows=1938 loops=1)
+                    Index Cond: (search_text OPERATOR(extensions.%>) 'chateau margau'::text)
+Planning Time: 2.564 ms
+Execution Time: 35.979 ms

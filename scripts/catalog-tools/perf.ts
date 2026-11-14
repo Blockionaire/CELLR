@@ -19,8 +19,10 @@ import { actAs, parseArgs, percentile, shuffled, str } from "./lib";
 import { connectToTarget } from "./target";
 
 interface Entry {
+  id: string;
   query: string;
-  expect: { type: string; country: string };
+  /** Absent on filter, generic and adversarial entries (benchmark v2): those are not "typed" here. */
+  expect?: { type: string; country: string };
 }
 
 async function main() {
@@ -30,8 +32,15 @@ async function main() {
   const household = str(args, "household");
   const concurrency = Number(str(args, "concurrency", "8"));
   const rounds = Number(str(args, "rounds", "3"));
-  const entries = (JSON.parse(readFileSync(str(args, "set"), "utf8")) as { entries: Entry[] })
-    .entries;
+  // --subset 004a: only the 127 queries of Sprint 004A (b001–b127), for a like-for-like comparison with its numbers;
+  // default: every entry that names a wine (the others are measured by benchmark.ts).
+  const subset = str(args, "subset", "all");
+  if (subset !== "all" && subset !== "004a") throw new Error("--subset all|004a");
+  const entries = (
+    JSON.parse(readFileSync(str(args, "set"), "utf8")) as { entries: Entry[] }
+  ).entries
+    .filter((e) => e.expect !== undefined)
+    .filter((e) => subset === "all" || Number(e.id.slice(1)) <= 127);
 
   type Q = { q: string; type: string | null; country: string | null; bucket: string };
   const base: Q[] = [];
@@ -42,8 +51,8 @@ async function main() {
     base.push({ q: e.query, type: null, country: null, bucket: "full" });
     base.push({
       q: e.query,
-      type: e.expect.type,
-      country: e.expect.country,
+      type: e.expect!.type,
+      country: e.expect!.country,
       bucket: "full+filters",
     });
   }
@@ -117,6 +126,8 @@ async function main() {
   const buckets = [...new Set(all.map((t) => t.bucket))];
   const report = {
     mode,
+    subset,
+    queries: entries.length,
     concurrency,
     rounds,
     searches: all.length,

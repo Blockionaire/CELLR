@@ -5,7 +5,17 @@ import {
   type BrowserContextOptions,
   type Page,
 } from "@playwright/test";
-import { api, arrive, audit, PUBLISHABLE_KEY, sessionToken, sql, STACK, wineBody } from "./helpers";
+import {
+  api,
+  arrive,
+  audit,
+  PUBLISHABLE_KEY,
+  sessionToken,
+  sql,
+  STACK,
+  wineBody,
+  wineChoice,
+} from "./helpers";
 
 const shot = (name: string) => `test-results/shots/${name}.png`;
 const project = () => test.info().project.name;
@@ -192,8 +202,7 @@ test.describe("the cellar loop", () => {
     // Through the screen: pick the wine from the list, two bottles, the rack is preselected.
     await page.goto("/cellar/add");
     await page.getByLabel("Search your wines, or add a new one").fill("chablis");
-    await page
-      .getByRole("button", { name: /Chablis Premier Cru/ })
+    await wineChoice(page, /Chablis Premier Cru/)
       .first()
       .click();
     await page.getByLabel("Vintage").fill("2019");
@@ -416,12 +425,10 @@ test.describe("the cellar screens are accessible and look right in both themes",
       expect(await audit(page), "list").toEqual([]);
 
       await page.goto("/cellar/add");
-      await expect(
-        page.getByRole("button", { name: /Château Margaux|Pavillon Rouge/ }),
-      ).toBeVisible();
+      await expect(wineChoice(page, /Château Margaux|Pavillon Rouge/)).toBeVisible();
       expect(await audit(page), "choose").toEqual([]);
       await page.screenshot({ path: shot(`add-choose-${scheme}-${project()}`), fullPage: true });
-      await page.getByRole("button", { name: /Pavillon Rouge/ }).click();
+      await wineChoice(page, /Pavillon Rouge/).click();
       await expect(page.getByLabel("Vintage")).toBeVisible();
       expect(await audit(page), "details").toEqual([]);
       await page.screenshot({ path: shot(`add-details-${scheme}-${project()}`), fullPage: true });

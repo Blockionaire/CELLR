@@ -10,6 +10,7 @@ import {
   sql,
   STACK,
   wineBody,
+  chooseFile,
 } from "./helpers";
 
 const shot = (name: string) => `test-results/shots/${name}.png`;
@@ -212,14 +213,11 @@ test.describe("the wishlist", () => {
     });
     expect(res.ok).toBe(true);
     await page.goto("/scan");
-    await page
-      .locator('input[type="file"]')
-      .first()
-      .setInputFiles({
-        name: "shop.jpg",
-        mimeType: "image/jpeg",
-        buffer: await makeJpeg(page, size),
-      });
+    await chooseFile(page.locator('input[type="file"]').first(), {
+      name: "shop.jpg",
+      mimeType: "image/jpeg",
+      buffer: await makeJpeg(page, size),
+    });
     await expect(page.getByRole("heading", { name: "A new wine" })).toBeVisible();
     await page.getByRole("button", { name: "Continue" }).click();
     await page.getByRole("button", { name: "Not buying it? Save to wishlist" }).click();

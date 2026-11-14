@@ -1,0 +1,10 @@
+{
+  "id": "xwines",
+  "name": "X-Wines dataset",
+  "license": "CC0-1.0",
+  "may_store": true,
+  "may_display": true,
+  "commercial_use": false,
+  "rights_status": "unverified",
+  "search_scope": "pilot"
+}

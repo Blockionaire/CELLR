@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { spotFromParams } from "@/features/cellar/add-spot";
 import { ScanScreen } from "@/features/scan/scan-screen";
 import { getPageContext } from "@/server/context";
+import { getFeatures } from "@/server/env";
 import { getPageMe } from "@/server/me";
 import { servicesFor } from "@/server/services";
 
@@ -21,5 +22,11 @@ export default async function ScanPage({ searchParams }: Props) {
     ctx && params.place
       ? spotFromParams(params, await servicesFor(ctx).cellar.storage())
       : undefined;
-  return <ScanScreen currency={currency} initialSpot={initialSpot} />;
+  return (
+    <ScanScreen
+      currency={currency}
+      initialSpot={initialSpot}
+      catalogSearch={getFeatures().wine_search}
+    />
+  );
 }

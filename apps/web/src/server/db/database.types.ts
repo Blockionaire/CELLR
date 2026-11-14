@@ -2691,9 +2691,17 @@ export type Database = {
       admin_catalog_correction: { Args: { p_wine: string }; Returns: Json };
       admin_catalog_corrections: { Args: Record<PropertyKey, never>; Returns: Json };
       admin_catalog_label_file: { Args: { p_label: string }; Returns: Json };
+      admin_catalog_link_queue: {
+        Args: { p_limit?: number; p_offset?: number; p_provider?: string; p_state?: string };
+        Returns: Json;
+      };
       admin_catalog_merge: {
         Args: { p_actor: string; p_from: string; p_into: string };
         Returns: boolean;
+      };
+      admin_catalog_provider_disable: {
+        Args: { p_actor: string; p_block?: boolean; p_provider: string; p_reason: string };
+        Returns: Json;
       };
       admin_catalog_provider_rights: {
         Args: { p: Json; p_actor: string; p_provider: string; p_reason: string };
@@ -2707,6 +2715,10 @@ export type Database = {
           p_state: string;
           p_wine: string;
         };
+        Returns: string;
+      };
+      admin_catalog_record_flag: {
+        Args: { p_actor: string; p_reason: string; p_record: string };
         Returns: string;
       };
       admin_catalog_review_signal: {
@@ -2729,6 +2741,7 @@ export type Database = {
         };
         Returns: boolean;
       };
+      admin_catalog_sources_overview: { Args: Record<PropertyKey, never>; Returns: Json };
       admin_catalog_update: {
         Args: { p_actor: string; p_fields: Json; p_id: string };
         Returns: boolean;
@@ -2807,6 +2820,7 @@ export type Database = {
         };
         Returns: string;
       };
+      admin_wine_intelligence_metrics: { Args: { p_days?: number }; Returns: Json };
       admin_wine_link: {
         Args: { p_actor: string; p_reason: string; p_source: string; p_target: string };
         Returns: string;
@@ -2911,6 +2925,7 @@ export type Database = {
         Returns: Json;
       };
       catalog_import: { Args: { p_apply?: boolean; p_entries: Json }; Returns: Json };
+      catalog_import_run_abandon: { Args: { p_reason: string; p_run_id: string }; Returns: Json };
       catalog_import_run_finish: {
         Args: { p_counts: Json; p_run_id: string; p_withdraw_missing: boolean };
         Returns: Json;
@@ -3034,6 +3049,10 @@ export type Database = {
       catalog_target_identity: { Args: Record<PropertyKey, never>; Returns: Json };
       catalog_vintage: { Args: { p_wine_id: string; p_year: number }; Returns: string };
       check_signup_allowed: { Args: { p_email: string }; Returns: boolean };
+      claim_shared_profile_research: {
+        Args: { p_language: string; p_ttl_seconds?: number; p_vintage_id: string };
+        Returns: Json;
+      };
       consume_rate_limit: {
         Args: { p_bucket: string; p_limit: number; p_window_seconds: number };
         Returns: boolean;
@@ -3173,6 +3192,10 @@ export type Database = {
         Args: { p_friend: string; p_note?: string; p_vintage: string };
         Returns: string;
       };
+      release_shared_profile_research: {
+        Args: { p_language: string; p_token: string; p_vintage_id: string };
+        Returns: boolean;
+      };
       remove_friend: { Args: { p_user: string }; Returns: boolean };
       respond_friend_request: { Args: { p_accept: boolean; p_id: string }; Returns: boolean };
       send_friend_request: { Args: { p_user: string }; Returns: string };
@@ -3223,6 +3246,7 @@ export type Database = {
           wine_id: string;
         }[];
       };
+      wine_source_notices: { Args: { p_household_id: string; p_wine_id: string }; Returns: Json };
     };
     Enums: {
       bottle_status: "in_cellar" | "opened" | "gifted" | "removed";

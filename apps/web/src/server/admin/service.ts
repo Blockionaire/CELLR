@@ -560,3 +560,34 @@ export const wineMaster = {
   labelFile: readCatalogLabelFile,
   householdLabelFile: readHouseholdLabelFile,
 };
+
+// ---- External sources (Wine Intelligence WI-06) ------------------------------------------------------------------
+import {
+  decideLink,
+  disableSource,
+  flagLink,
+  readIntelligenceMetrics,
+  readLinkQueue,
+  readSources,
+} from "@/server/privileged/sources-admin";
+
+export {
+  LINK_STATES,
+  type IntelligenceMetrics,
+  type LinkRow,
+  type LinkState,
+  type SourceOverview,
+} from "@/server/privileged/sources-admin";
+
+/**
+ * What the admin can see and do about external sources: read their rights and imports, decide links, and switch a
+ * source off. Each function checks the admin session itself. Nothing here can switch a source on.
+ */
+export const adminSources = {
+  overview: readSources,
+  links: readLinkQueue,
+  metrics: readIntelligenceMetrics,
+  decideLink,
+  flagLink,
+  disable: disableSource,
+};

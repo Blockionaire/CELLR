@@ -11,7 +11,10 @@ import {
   confirmedFacts,
   recallScan,
   type BottleArtRef,
+  scanOutcomeOf,
   type ImageSide,
+  type LabelFacts,
+  type ResolveOutcome,
   type ScanResult,
   type TextRecognition,
   type WineSummary,
@@ -55,6 +58,14 @@ export interface ScanDeps {
   }) => Promise<void>;
   /** The wines this household can choose from. */
   wines: () => Promise<WineSummary[]>;
+  /**
+   * The wine resolver (the `scan_resolver` feature): matches a reading against a bounded set of candidates the
+   * server looks up, by the same identity rules. Missing, failing or answering null (its database steps are not
+   * taken) = matched against `wines()` as before.
+   */
+  resolve?: (householdId: string, facts: LabelFacts) => Promise<ResolveOutcome | null>;
+  /** One wine the household can see, by id (for a remembered photo, instead of loading every wine). */
+  wineById?: (wineId: string) => Promise<WineSummary | null>;
   householdId: () => Promise<string>;
   /** Null = no AI configured: the photo is kept and the person fills the wine in by hand. */
   llm: LlmProvider | null;
@@ -144,6 +155,35 @@ export function createScanService(deps: ScanDeps) {
     }
   }
 
+  /** The wines a remembered photo was confirmed as: looked up one by one when that is possible, else all wines. */
+  const confirmedWines = async (confirmations: ReadonlyArray<{ wineId: string }>) => {
+    if (!deps.wineById) return deps.wines();
+    // a remembered photo counts only with exactly one confirmation: never more than a few lookups
+    const ids = [...new Set(confirmations.map((c) => c.wineId))].slice(0, 3);
+    const found = await Promise.all(ids.map((id) => deps.wineById!(id)));
+    return found.filter((w): w is WineSummary => w !== null);
+  };
+
+  /**
+   * Which wine the reading is: through the resolver when there is one (a bounded set of candidates), else against
+   * every wine the household can see, as before. Either way the decision is `matchLabel`'s.
+   */
+  const matchReading = async (
+    householdId: string,
+    facts: LabelFacts,
+  ): Promise<Pick<ScanResult, "outcome" | "matches" | "resolution">> => {
+    const resolved = deps.resolve ? await deps.resolve(householdId, facts).catch(() => null) : null;
+    if (!resolved) return matchLabel(facts, await deps.wines());
+    return {
+      outcome: scanOutcomeOf(resolved.status),
+      matches: resolved.candidates.map(({ wine, score }) => ({ wine, score })),
+      resolution: {
+        status: resolved.status,
+        reasons: Object.fromEntries(resolved.candidates.map((c) => [c.wine.id, c.reasons])),
+      },
+    };
+  };
+
   const artOf = async (wineId: string): Promise<BottleArtRef | null> => {
     if (!deps.art) return null;
     try {
@@ -180,7 +220,9 @@ export function createScanService(deps: ScanDeps) {
         const confirmations = await deps.recall(householdId, prepared.fingerprint);
         if (confirmations) {
           remembered =
-            confirmations.length > 0 ? recallScan(confirmations, await deps.wines()) : null;
+            confirmations.length > 0
+              ? recallScan(confirmations, await confirmedWines(confirmations))
+              : null;
           cacheResult = remembered ? "hit" : "miss";
         }
       } catch {
@@ -280,7 +322,7 @@ export function createScanService(deps: ScanDeps) {
       if (!result.ok) return unread(result.kind === "budget" ? "budget" : "ai-down");
       const facts = normalizeExtraction(result.value, now());
       if (!facts) return unread("not-a-label");
-      const { outcome, matches } = matchLabel(facts, await deps.wines());
+      const { outcome, matches, resolution } = await matchReading(householdId, facts);
       if (deps.noteRead && facts.producer && facts.name)
         await deps
           .noteRead({
@@ -299,7 +341,15 @@ export function createScanService(deps: ScanDeps) {
         corners && image.width && image.height && isUsableQuad(corners, image.width, image.height)
           ? corners
           : null;
-      return { image, outcome, facts, matches, reason: null, labelCorners };
+      return {
+        image,
+        outcome,
+        facts,
+        matches,
+        reason: null,
+        labelCorners,
+        ...(resolution ? { resolution } : {}),
+      };
     },
   };
 }
