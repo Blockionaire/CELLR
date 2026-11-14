@@ -27,6 +27,7 @@ import { isOut } from "./showcase-machine";
 import {
   Owned,
   bottleGroups,
+  buildAmbience,
   buildBottleKit,
   buildStructure,
   markerMatrix,
@@ -353,14 +354,28 @@ function Structure({ model, level }: { model: RenderModel; level: Quality }) {
   const { invalidate } = useThree();
   const built = useMemo(() => {
     const owned = new Owned();
-    return { owned, meshes: buildStructure(model, QUALITY[level], owned) };
+    return {
+      owned,
+      meshes: buildStructure(model, QUALITY[level], owned),
+      // premium: the glow round the strips of light, and the shadow the furniture casts where it stands
+      ambience: buildAmbience(model, QUALITY[level], owned),
+    };
   }, [model, level]);
   useEffect(() => {
     invalidate();
     return () => built.owned.dispose();
   }, [built, invalidate]);
+  const { glow, shadow } = built.ambience;
   return (
     <group>
+      {shadow && (
+        <mesh
+          geometry={shadow.geometry}
+          material={shadow.material}
+          raycast={noRaycast}
+          renderOrder={-1}
+        />
+      )}
       {built.meshes.map((mesh) => (
         <mesh
           key={mesh.role}
@@ -370,6 +385,14 @@ function Structure({ model, level }: { model: RenderModel; level: Quality }) {
           renderOrder={mesh.transparent ? 3 : 0}
         />
       ))}
+      {glow && (
+        <mesh
+          geometry={glow.geometry}
+          material={glow.material}
+          raycast={noRaycast}
+          renderOrder={2}
+        />
+      )}
     </group>
   );
 }
@@ -401,8 +424,8 @@ function Bottles({
   const spec = QUALITY[level];
   const kit = useMemo(() => {
     const owned = new Owned();
-    return { owned, parts: buildBottleKit(QUALITY[level], owned) };
-  }, [level]);
+    return { owned, parts: buildBottleKit(QUALITY[level], owned, model.fidelity) };
+  }, [level, model.fidelity]);
   useEffect(() => () => kit.owned.dispose(), [kit]);
 
   const groups = useMemo(() => bottleGroups(placed), [placed]);
@@ -435,6 +458,8 @@ function Bottles({
           items={items}
           kit={kit.parts}
           shadows={shadows}
+          // a bottle along a wall throws its shadow on what is behind it (premium, where shadows are drawn)
+          wallAt={model.renderer === "wall" ? (model.built.surface ?? 0) : null}
           hiddenId={hiddenId}
           onClick={onPick ? pick(items) : undefined}
         />
@@ -474,6 +499,7 @@ function ShapeGroup({
   items,
   kit,
   shadows,
+  wallAt,
   hiddenId,
   onClick,
 }: {
@@ -481,6 +507,8 @@ function ShapeGroup({
   items: PlacedBottle[];
   kit: BottleKit;
   shadows: boolean;
+  /** How far out from the wall the surface behind the bottles is; null when they do not hang on a wall. */
+  wallAt: number | null;
   hiddenId: string | null;
   onClick: ((e: ThreeEvent<MouseEvent>) => void) | undefined;
 }) {
@@ -489,6 +517,7 @@ function ShapeGroup({
   const label = useRef<THREE.InstancedMesh>(null);
   const foil = useRef<THREE.InstancedMesh>(null);
   const shade = useRef<THREE.InstancedMesh>(null);
+  const wall = useRef<THREE.InstancedMesh>(null);
   useLayoutEffect(() => {
     const meshes = [glass.current, label.current, foil.current];
     if (meshes.some((m) => !m)) return;
@@ -508,8 +537,15 @@ function ShapeGroup({
         if (hidden) matrix.scale(GONE);
         shade.current.setMatrixAt(i, matrix);
       }
+      if (wall.current && wallAt !== null) {
+        // on the surface behind it, a little below and to the right: the light comes from the upper left
+        const [x, y] = item.pose.position;
+        matrix.makeTranslation(x + 0.1, y - 0.2, wallAt + 0.006);
+        if (hidden) matrix.scale(GONE);
+        wall.current.setMatrixAt(i, matrix);
+      }
     });
-    for (const mesh of [...meshes, shade.current]) {
+    for (const mesh of [...meshes, shade.current, wall.current]) {
       if (!mesh) continue;
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
@@ -517,8 +553,9 @@ function ShapeGroup({
       mesh.computeBoundingSphere();
     }
     invalidate();
-  }, [items, hiddenId, invalidate]);
+  }, [items, hiddenId, wallAt, invalidate]);
   const count = items.length;
+  const onWall = wallAt !== null && kit.wallShadow !== null && kit.wallShade !== null;
   return (
     <group>
       <instancedMesh
@@ -539,6 +576,14 @@ function ShapeGroup({
         <instancedMesh
           ref={shade}
           args={[kit.shadow, kit.shade, count]}
+          renderOrder={1}
+          raycast={noRaycast}
+        />
+      )}
+      {onWall && (
+        <instancedMesh
+          ref={wall}
+          args={[kit.wallShadow!, kit.wallShade!, count]}
           renderOrder={1}
           raycast={noRaycast}
         />

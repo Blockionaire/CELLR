@@ -160,10 +160,13 @@ export default function InspectableStorage({
   useEffect(() => {
     const el = stage.current;
     if (!el) return;
-    const observer = new ResizeObserver(() => setLayout(layoutForWidth(el.clientWidth)));
+    // no place given for the panel outside a narrow picture: it becomes a sheet inside it, never nothing
+    const hasSlot = panelSlot !== null && panelSlot !== undefined;
+    const measure = () => setLayout(layoutForWidth(el.clientWidth, hasSlot));
+    const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [panelSlot]);
 
   // ---- asking for a bottle, and letting it go ---------------------------------------------------------------------
   const inspect = useCallback(
@@ -246,12 +249,12 @@ export default function InspectableStorage({
   );
 
   const open = state.phase === "extracting" || state.phase === "inspecting";
-  const stacked = layout === "stacked";
+  const stacked = layout === "stacked" && panelSlot != null;
   const details_ = (
     <InspectionPanel
       ref={panel}
       open={open}
-      stacked={stacked}
+      place={stacked ? "below" : layout === "side" ? "beside" : "sheet"}
       details={details}
       how={plan ? labels.how[plan.reason] : null}
       labels={labels}
@@ -312,16 +315,19 @@ export default function InspectableStorage({
           <CloseIcon className="size-5" />
         </button>
       )}
-      {stacked ? (panelSlot ? createPortal(details_, panelSlot) : null) : details_}
+      {stacked && panelSlot ? createPortal(details_, panelSlot) : details_}
     </div>
   );
 }
 
-/** What the bottle that is out is: beside it on a wide picture, below the picture on a narrow one. */
+/**
+ * What the bottle that is out is: beside it on a wide picture, below the picture on a narrow one, or (when the
+ * screen gave no place below it) a sheet over the lower part of the picture.
+ */
 function InspectionPanel({
   ref,
   open,
-  stacked,
+  place,
   details,
   how,
   labels,
@@ -329,7 +335,7 @@ function InspectionPanel({
 }: {
   ref: React.RefObject<HTMLElement | null>;
   open: boolean;
-  stacked: boolean;
+  place: "beside" | "below" | "sheet";
   details: InspectionDetails | null;
   how: string | null;
   labels: InspectionLabels;
@@ -350,17 +356,24 @@ function InspectionPanel({
       tabIndex={-1}
       inert={!open}
       data-open={open}
+      data-place={place}
       data-testid="inspection-panel"
       className={cn(
         "flex flex-col gap-3 overflow-y-auto bg-surface/95 p-5 outline-none ring-1 ring-hairline backdrop-blur-xl",
         "transition-[transform,opacity] duration-500 ease-cellr motion-reduce:transition-none",
         "focus-visible:ring-2 focus-visible:ring-accent-fg",
-        stacked
+        place === "below"
           ? cn("rounded-card", open ? "opacity-100" : "hidden")
-          : cn(
-              "absolute inset-y-3 right-3 z-10 w-[min(26rem,46%)] rounded-card shadow-raised",
-              open ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-8 opacity-0",
-            ),
+          : place === "beside"
+            ? cn(
+                "absolute inset-y-3 right-3 z-10 w-[min(26rem,46%)] rounded-card shadow-raised",
+                open ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-8 opacity-0",
+              )
+            : // the sheet: the lower 46 % of the picture, the share the bottle's frame leaves (three/layout PANEL)
+              cn(
+                "absolute inset-x-3 bottom-3 z-10 h-[calc(46%-0.75rem)] rounded-card shadow-raised",
+                open ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0",
+              ),
       )}
     >
       {d && (

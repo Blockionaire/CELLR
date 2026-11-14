@@ -15,7 +15,10 @@ import {
 } from "../three/layout";
 import { makeShadowTexture } from "../three/label-texture";
 import { contactShadowTexture } from "../three/materials";
+import { PAPER_COLOUR, foilLook, paperLook, placeGlass, shownGlass } from "./bottle-look";
 import type { QualitySpec } from "./model";
+import type { Fidelity } from "./palette";
+import { distantLabelTexture } from "./textures";
 import { BOTTLE_L, BOTTLE_R } from "./parts";
 import type { Owned } from "./resources";
 
@@ -37,6 +40,8 @@ export interface HeroGeometry {
 }
 
 export interface HeroKit {
+  /** How it is drawn: the look it has in its place is the storage view's at this fidelity. */
+  fidelity: Fidelity;
   /** The geometries of a shape: made the first time that shape is looked at, then kept. */
   geometry(shape: BottleShape): HeroGeometry;
   glass: THREE.MeshPhysicalMaterial;
@@ -57,7 +62,6 @@ export interface HeroKit {
   blank: THREE.Texture;
 }
 
-const PAPER_COLOUR = "#e8dcc2";
 /** Segments round the bottle: it is seen large. */
 const ROUND = { body: 96, liquid: 48, cap: 64, label: 64 };
 
@@ -71,7 +75,9 @@ export function labelBand(shape: BottleShape): { from: number; to: number; radiu
   };
 }
 
-export function buildHeroKit(owned: Owned): HeroKit {
+export function buildHeroKit(owned: Owned, fidelity: Fidelity = "premium"): HeroKit {
+  const premium = fidelity === "premium";
+  const foil = foilLook(fidelity);
   const made = new Map<BottleShape, HeroGeometry>();
   const lathe = (points: Array<[number, number]>, segments: number) =>
     owned.add(
@@ -97,6 +103,7 @@ export function buildHeroKit(owned: Owned): HeroKit {
       }),
     );
   return {
+    fidelity,
     geometry(shape) {
       const had = made.get(shape);
       if (had) return had;
@@ -134,9 +141,21 @@ export function buildHeroKit(owned: Owned): HeroKit {
       }),
     ),
     liquid: owned.add(new THREE.MeshStandardMaterial({ roughness: 0.32, envMapIntensity: 0.45 })),
-    paper: owned.add(new THREE.MeshStandardMaterial({ color: PAPER_COLOUR, roughness: 0.85 })),
+    // premium: the band always wears a picture (a white dot until told otherwise), so that the print of a label
+    // can be put on it without the shader changing
+    paper: owned.add(
+      new THREE.MeshStandardMaterial({
+        color: PAPER_COLOUR,
+        roughness: paperLook(fidelity).roughness,
+        ...(premium ? { map: blank } : {}),
+      }),
+    ),
     foil: owned.add(
-      new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.75, envMapIntensity: 1.1 }),
+      new THREE.MeshStandardMaterial({
+        roughness: foil.roughness,
+        metalness: foil.metalness,
+        envMapIntensity: foil.env,
+      }),
     ),
     front: print(),
     back: print(),
@@ -205,25 +224,19 @@ export function labelWraps(
   };
 }
 
-/** The glass of a bottle as the storage view draws it at a level of detail (resources.ts, buildBottleKit). */
-export function placeGlass(quality: QualitySpec) {
-  return quality.clearcoat
-    ? { roughness: 0.05, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03, env: 1.35 }
-    : { roughness: 0.08, metalness: 0.1, clearcoat: 0, clearcoatRoughness: 0.03, env: 1.5 };
-}
-/** The glass on display. */
-const SHOWN_GLASS = {
-  roughness: 0.04,
-  metalness: 0,
-  clearcoat: 1,
-  clearcoatRoughness: 0.02,
-  env: 1.3,
-};
-
 const tint = { place: new THREE.Color(), shown: new THREE.Color() };
 
-/** Sets the kit up for one bottle: its colours, and the look it has in its place. */
-export function dressHero(kit: HeroKit, type: WineType, transparent: boolean): void {
+/**
+ * Sets the kit up for one bottle: its colours, and the look it has in its place. `labels`: the storage view draws
+ * the print of a label on its bottles at this level of detail, so the bottle that leaves its place wears it too.
+ */
+export function dressHero(
+  kit: HeroKit,
+  type: WineType,
+  transparent: boolean,
+  labels = false,
+): void {
+  if (kit.fidelity === "premium") kit.paper.map = labels ? distantLabelTexture() : kit.blank;
   kit.liquid.color.set(LIQUID[type]);
   kit.foil.color.set(FOIL[type]);
   // a bottle that fades up out of its place is see-through as a whole while it does
@@ -252,15 +265,16 @@ export function lookAt(
   rise: number,
   opacity: number,
 ): void {
-  const from = placeGlass(quality);
+  const from = placeGlass(quality, kit.fidelity);
+  const shown = shownGlass(kit.fidelity);
   const mix = (a: number, b: number) => a + (b - a) * rise;
   kit.glass.color.lerpColors(tint.place.set(GLASS[type]), tint.shown.set(GLASS_TINT[type]), rise);
   kit.glass.opacity = (1 - GLASS_CLEAR[type] * 0.72 * rise) * opacity;
-  kit.glass.roughness = mix(from.roughness, SHOWN_GLASS.roughness);
-  kit.glass.metalness = mix(from.metalness, SHOWN_GLASS.metalness);
-  kit.glass.clearcoat = mix(from.clearcoat, SHOWN_GLASS.clearcoat);
-  kit.glass.clearcoatRoughness = mix(from.clearcoatRoughness, SHOWN_GLASS.clearcoatRoughness);
-  kit.glass.envMapIntensity = mix(from.env, SHOWN_GLASS.env);
+  kit.glass.roughness = mix(from.roughness, shown.roughness);
+  kit.glass.metalness = mix(from.metalness, shown.metalness);
+  kit.glass.clearcoat = mix(from.clearcoat, shown.clearcoat);
+  kit.glass.clearcoatRoughness = mix(from.clearcoatRoughness, shown.clearcoatRoughness);
+  kit.glass.envMapIntensity = mix(from.env, shown.env);
   for (const m of [kit.liquid, kit.paper, kit.foil]) m.opacity = opacity;
   for (const m of [kit.front, kit.back]) {
     m.opacity = rise * opacity;
@@ -303,7 +317,9 @@ export function prewarmSet(kit: HeroKit): { group: THREE.Group; dispose(): void 
   coated.clearcoat = 1;
   const plain = kit.glass.clone();
   plain.clearcoat = 0;
-  const faded = [kit.liquid.clone(), kit.foil.clone()];
+  // what fades up out of its place is see-through while it does. The paper is in this list since it wears a
+  // picture (the label's print from afar): a material with a picture is another shader than one without.
+  const faded = [kit.liquid.clone(), kit.foil.clone(), kit.paper.clone()];
   for (const m of faded) m.transparent = true;
   // the ring that marks the chosen bottle when it is back in its place (the storage view's own, resources.ts)
   const ring = new THREE.MeshBasicMaterial({ color: "#d9a441", toneMapped: false });
@@ -333,3 +349,5 @@ export function prewarmSet(kit: HeroKit): { group: THREE.Group; dispose(): void 
     },
   };
 }
+
+export { placeGlass } from "./bottle-look";

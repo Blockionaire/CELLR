@@ -296,7 +296,7 @@ test("the camera turns and zooms, within limits, and a drag is not a tap", async
 });
 
 test("changing template gives back what the last one took", async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   await show(page, "template=rack_classic");
   const template = page.getByLabel("Template", { exact: true });
   const settle = async (id: string) => {
@@ -304,6 +304,10 @@ test("changing template gives back what the last one took", async ({ page }) => 
     await expect(canvasOf(page)).toHaveAttribute("data-template", id);
     await page.waitForTimeout(250);
   };
+  // Once round every template first. The bottles' kit outlives a change of template and holds a few things that
+  // reach the graphics card the first time a place needs them (since sprint 2B.2: the shadow of a bottle on a
+  // wall, which a rack never draws). Seen once, they are there; what is held is compared after that.
+  for (const [id] of TEMPLATES) await settle(id);
   await settle("cooler_dual");
   await settle("rack_classic");
   const base = { geometries: await num(page, "geometries"), textures: await num(page, "textures") };

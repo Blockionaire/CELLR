@@ -15,6 +15,16 @@ import type {
 export type SurfaceKind =
   "wood" | "brushed" | "steel" | "lacquer" | "matte" | "stone" | "glass" | "glow";
 
+/**
+ * How a place is drawn. `classic`: as sprints 2A and 2B.1 drew it (kept so the two can be compared side by side,
+ * in the gallery and in measurements; to be removed once `premium` is accepted). `premium`: sprint 2B.2.
+ */
+export const FIDELITIES = ["classic", "premium"] as const;
+export type Fidelity = (typeof FIDELITIES)[number];
+
+/** The relief a surface has under light (premium only, and only at the highest level of detail). */
+export type Relief = "grain" | "brushed" | "speckle";
+
 export interface SurfaceSpec {
   kind: SurfaceKind;
   color: string;
@@ -22,6 +32,9 @@ export interface SurfaceSpec {
   metalness: number;
   /** How strongly the room is mirrored in it. */
   env: number;
+  /** Premium: which fine picture it wears as relief, and how deep. */
+  relief?: Relief;
+  reliefDepth?: number;
   /** Glass and glow only. */
   opacity?: number;
   emissive?: string;
@@ -97,7 +110,69 @@ export interface Look {
   surfaces: Readonly<Record<MaterialRole, SurfaceSpec>>;
   /** The light inside (a point light that is always in the scene: off is intensity 0). */
   light: { color: string; intensity: number };
+  /** The colour of the light strips: the top one, and the one under a zone bar. Null: not lit. */
+  zoneLights: readonly [string | null, string | null];
 }
+
+/**
+ * The premium finishes (sprint 2B.2). What changed against `FINISH`, and why:
+ * - wood: a little less rough (an oiled or waxed board has a soft sheen, not a chalky face), mirrors the room
+ *   less (wood is not glossy), and wears its grain as relief;
+ * - blackened steel is POWDER-COATED: paint over metal, so it is barely metallic, fairly rough, with a fine skin;
+ * - brushed stainless and brass: fully metal, rough enough that the room is a soft streak in them and never a
+ *   mirror, with the brushing as relief;
+ * - lacquer: satin, not a mirror.
+ */
+const PREMIUM_FINISH: Readonly<
+  Record<StorageMaterial, (color: StorageColor) => Omit<SurfaceSpec, "color">>
+> = {
+  wood: () => ({
+    kind: "wood",
+    roughness: 0.5,
+    metalness: 0,
+    env: 0.42,
+    relief: "grain",
+    reliefDepth: 1.1,
+  }),
+  metal: (color) =>
+    color === "black" || color === "graphite"
+      ? {
+          kind: "steel",
+          roughness: 0.58,
+          metalness: 0.3,
+          env: 0.7,
+          relief: "speckle",
+          reliefDepth: 0.25,
+        }
+      : {
+          kind: "brushed",
+          roughness: color === "brass" ? 0.34 : 0.4,
+          metalness: 1,
+          env: 0.85,
+          relief: "brushed",
+          reliefDepth: 0.5,
+        },
+  lacquer: () => ({
+    kind: "lacquer",
+    roughness: 0.3,
+    metalness: 0,
+    env: 0.65,
+    relief: "speckle",
+    reliefDepth: 0.08,
+  }),
+};
+
+/** The premium tones: the same names, a touch richer where the classic ones were flat. */
+export const PREMIUM_TONES: Readonly<Record<StorageColor, string>> = {
+  ...TONES,
+  oak: "#a9794a",
+  walnut: "#5e3a25",
+  mahogany: "#51241a",
+  pine: "#cba56e",
+  graphite: "#2a2d32",
+  stainless: "#b3b6ba",
+  brass: "#a8823f",
+};
 
 /** What each template does with its appearance beyond the frame: where wood is not the frame, what the shelves are. */
 export interface LookOptions {
@@ -105,7 +180,23 @@ export interface LookOptions {
   shelf?: SurfaceSpec;
   /** The second light strip of a dual-zone cooler: cooler above, as its upper zone is. */
   secondGlow?: string;
+  /** How it is drawn. Left out: premium. */
+  fidelity?: Fidelity;
+  /**
+   * Premium: a place with two zones lit apart. The upper zone's light is the cooler of the two, the lower the
+   * warmer, whatever the chosen colour of light: that is what tells the zones apart at a glance. (It says how the
+   * zones are LIT. It is not a temperature, measured or set.)
+   */
+  twoZones?: boolean;
 }
+
+/** The light of each of two zones, for a chosen colour of light: [upper, lower]. */
+export const ZONE_LIGHTS: Readonly<
+  Record<Exclude<StorageLighting, "none">, readonly [string, string]>
+> = {
+  warm: ["#fff0d8", "#ffc37a"],
+  cool: ["#d2e4ff", "#ffe6c2"],
+};
 
 const BEECH: SurfaceSpec = {
   kind: "wood",
@@ -121,9 +212,17 @@ export const COOLER_SHELF = BEECH;
  * what a template does not use costs nothing.
  */
 export function lookFor(appearance: StorageAppearance, options: LookOptions = {}): Look {
-  const tone = TONES[appearance.color];
-  const frame: SurfaceSpec = { ...FINISH[appearance.material](appearance.color), color: tone };
-  const lightTone = LIGHT_TONES[appearance.lighting];
+  const premium = (options.fidelity ?? "premium") === "premium";
+  const tone = (premium ? PREMIUM_TONES : TONES)[appearance.color];
+  const frame: SurfaceSpec = {
+    ...(premium ? PREMIUM_FINISH : FINISH)[appearance.material](appearance.color),
+    color: tone,
+  };
+  const chosen = LIGHT_TONES[appearance.lighting];
+  const zoned = premium && options.twoZones && appearance.lighting !== "none";
+  const [upper, lower] = zoned
+    ? ZONE_LIGHTS[appearance.lighting as "warm" | "cool"]
+    : [chosen, chosen ? (options.secondGlow ?? chosen) : null];
   const glow = (color: string | null): SurfaceSpec => ({
     kind: "glow",
     color: color ?? "#2a2a2a",
@@ -131,46 +230,91 @@ export function lookFor(appearance: StorageAppearance, options: LookOptions = {}
     metalness: 0,
     env: 0.2,
     emissive: color ?? "#000000",
-    emissiveIntensity: color ? 1.7 : 0,
+    emissiveIntensity: color ? (premium ? 2.2 : 1.7) : 0,
   });
+  const shelf = options.shelf ?? frame;
   return {
     surfaces: {
       frame,
-      shelf: options.shelf ?? frame,
+      shelf:
+        premium && options.shelf
+          ? { ...shelf, roughness: 0.55, env: 0.4, relief: "grain", reliefDepth: 0.9 }
+          : shelf,
       // the inside and the back: the same finish, darker, and barely mirroring the room
       back: {
         ...frame,
-        color: shade(tone, 0.55),
+        color: shade(tone, premium ? 0.42 : 0.55),
         roughness: 0.85,
-        env: 0.25,
+        env: premium ? 0.18 : 0.25,
         metalness: frame.metalness * 0.4,
       },
-      metal: { kind: "brushed", color: "#b9b4ab", roughness: 0.3, metalness: 0.9, env: 1 },
+      metal: premium
+        ? {
+            kind: "brushed",
+            color: "#bdb9b1",
+            roughness: 0.36,
+            metalness: 1,
+            env: 0.85,
+            relief: "brushed",
+            reliefDepth: 0.45,
+          }
+        : { kind: "brushed", color: "#b9b4ab", roughness: 0.3, metalness: 0.9, env: 1 },
       trim: { kind: "matte", color: "#121314", roughness: 0.55, metalness: 0.1, env: 0.4 },
-      stone: { kind: "stone", color: "#d9d5cd", roughness: 0.35, metalness: 0, env: 0.5 },
-      wall: { kind: "matte", color: "#cfc8bb", roughness: 0.95, metalness: 0, env: 0.1 },
+      stone: premium
+        ? {
+            kind: "stone",
+            color: "#d6d1c8",
+            roughness: 0.42,
+            metalness: 0,
+            env: 0.45,
+            relief: "speckle",
+            reliefDepth: 0.12,
+          }
+        : { kind: "stone", color: "#d9d5cd", roughness: 0.35, metalness: 0, env: 0.5 },
+      wall: premium
+        ? {
+            kind: "matte",
+            color: "#d6cfc2",
+            roughness: 0.96,
+            metalness: 0,
+            env: 0.06,
+            relief: "speckle",
+            reliefDepth: 0.2,
+          }
+        : { kind: "matte", color: "#cfc8bb", roughness: 0.95, metalness: 0, env: 0.1 },
       neutral: { kind: "matte", color: "#8d8f93", roughness: 0.8, metalness: 0, env: 0.2 },
       slot: { kind: "matte", color: "#5d6066", roughness: 0.8, metalness: 0, env: 0.2 },
-      glass: {
-        kind: "glass",
-        color: "#dfe9ee",
-        roughness: 0.04,
-        metalness: 0,
-        env: 1.4,
-        opacity: 0.14,
-      },
-      glow: glow(lightTone),
-      glowB: glow(lightTone ? (options.secondGlow ?? lightTone) : null),
+      // premium glass: a faint cool tint, the room in it as two soft bands, and still see-through between them
+      glass: premium
+        ? {
+            kind: "glass",
+            color: "#d3e0e6",
+            roughness: 0.03,
+            metalness: 0,
+            env: 1.9,
+            opacity: 0.34,
+          }
+        : {
+            kind: "glass",
+            color: "#dfe9ee",
+            roughness: 0.04,
+            metalness: 0,
+            env: 1.4,
+            opacity: 0.14,
+          },
+      glow: glow(upper),
+      glowB: glow(lower),
       display: {
         kind: "glow",
         color: "#0c1418",
         roughness: 0.3,
         metalness: 0,
         env: 0.4,
-        emissive: "#8fd3ff",
-        emissiveIntensity: 0.9,
+        emissive: premium ? "#9fdcff" : "#8fd3ff",
+        emissiveIntensity: premium ? 1.25 : 0.9,
       },
     },
-    light: { color: lightTone ?? "#ffffff", intensity: lightTone ? 1 : 0 },
+    light: { color: (zoned ? upper : chosen) ?? "#ffffff", intensity: chosen ? 1 : 0 },
+    zoneLights: [upper, lower],
   };
 }

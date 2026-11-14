@@ -65,10 +65,17 @@ export interface Display {
   scale: number;
 }
 
-/** The panel beside the bottle (wide) or below the picture, outside it (narrow: the bottle has the whole picture). */
-export type InspectionLayout = "side" | "stacked";
-export const layoutForWidth = (width: number): InspectionLayout =>
-  width >= 720 ? "side" : "stacked";
+/**
+ * Where the panel is, and so where the bottle stands:
+ * - `side`: a wide picture. The panel is beside the bottle, inside the picture.
+ * - `stacked`: a narrow picture, and the screen has given a place for the panel below it. The bottle has the whole
+ *   picture.
+ * - `sheet`: a narrow picture and NO place for the panel outside it. The panel is a sheet over the lower part of
+ *   the picture, and the bottle stands in the part above it. (The fallback: a panel is never simply not there.)
+ */
+export type InspectionLayout = "side" | "stacked" | "sheet";
+export const layoutForWidth = (width: number, hasSlot = true): InspectionLayout =>
+  width >= 720 ? "side" : hasSlot ? "stacked" : "sheet";
 
 /**
  * Where the bottle stands in the picture, as fractions of it (x: -0.5 left … 0.5 right, y: -0.5 bottom … 0.5 top)
@@ -81,8 +88,11 @@ export function inspectionFrame(
   height: number,
   safeTop = 0,
 ): { x: number; y: number; fill: number } {
+  // beside the panel, or above a sheet: the existing view's own frames for exactly these two
   if (layout === "side")
     return showcaseFrame("side" satisfies ShowcaseLayout, width, height, safeTop);
+  if (layout === "sheet")
+    return showcaseFrame("top" satisfies ShowcaseLayout, width, height, safeTop);
   const w = Math.max(1, width);
   const h = Math.max(1, height);
   const inset = 12;

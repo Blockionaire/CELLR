@@ -15,6 +15,7 @@ import {
 } from "@cellr/domain";
 import type { Fill } from "@/features/cellar/storage3d/fixtures";
 import type { Quality } from "@/features/cellar/storage3d/model";
+import { FIDELITIES, type Fidelity } from "@/features/cellar/storage3d/palette";
 
 /**
  * What the template gallery (/design/cellar-3d) is showing, as plain data that fits in the address bar: a link to
@@ -92,7 +93,22 @@ export interface GalleryState {
   legacyKind: LegacyKind;
   /** A bottle to take out and look at as soon as the picture is up ("b-2:3:1"), or "" for none. */
   inspect: string;
+  /** How it is drawn: as before sprint 2B.2, or as since. For looking at the two side by side. */
+  fidelity: Fidelity;
+  /** What stands behind the place in the gallery: the app's own light paper, or a dark studio. The gallery's only. */
+  studio: Studio;
+  /**
+   * Where a narrow screen puts the panel of the bottle that is out: below the picture (the gallery gives it a
+   * place), or inside it (a screen that gives none: the renderer's own fallback, to look at and to test).
+   */
+  panel: PanelPlace;
 }
+
+export const PANEL_PLACES = ["below", "inside"] as const;
+export type PanelPlace = (typeof PANEL_PLACES)[number];
+
+export const STUDIOS = ["light", "dark"] as const;
+export type Studio = (typeof STUDIOS)[number];
 
 /** The id the gallery gives the bottle on a spot (fixtures.ts): nothing else is taken from the address. */
 const BOTTLE_ID = /^b-\d{1,2}:\d{1,2}:\d{1,2}$/;
@@ -153,6 +169,9 @@ export function normalize(input: Partial<Record<keyof GalleryState, unknown>>): 
       !legacy && typeof input.inspect === "string" && BOTTLE_ID.test(input.inspect)
         ? input.inspect
         : "",
+    fidelity: oneOf(input.fidelity, FIDELITIES, "premium"),
+    studio: oneOf(input.studio, STUDIOS, "light"),
+    panel: oneOf(input.panel, PANEL_PLACES, "below"),
   };
 }
 
@@ -166,8 +185,37 @@ export function toQuery(state: GalleryState): string {
   return q.toString();
 }
 
+/** What of the state decides the place itself. The rest (how it is drawn, what is behind it) leaves it alone. */
+const PLACE_FIELDS = [
+  "sample",
+  "template",
+  "rows",
+  "cols",
+  "cap",
+  "material",
+  "color",
+  "lighting",
+  "door",
+  "unknown",
+  "legacyKind",
+] as const satisfies ReadonlyArray<keyof GalleryState>;
+type PlaceState = Pick<GalleryState, (typeof PLACE_FIELDS)[number]>;
+
+/**
+ * The place as one string: the same string is the same place. The gallery keeps the place it has built for as
+ * long as this stays the same, so choosing another studio or another panel builds nothing again.
+ */
+export const placeKey = (state: PlaceState): string =>
+  JSON.stringify(PLACE_FIELDS.map((field) => state[field]));
+export function placeFromKey(key: string): ResolvedStorage {
+  const values = JSON.parse(key) as unknown[];
+  return placeOf(
+    Object.fromEntries(PLACE_FIELDS.map((field, i) => [field, values[i]])) as unknown as PlaceState,
+  );
+}
+
 /** The place the state describes, as the database would hold it, read back through the domain's own adapter. */
-export function placeOf(state: GalleryState): ResolvedStorage {
+export function placeOf(state: PlaceState): ResolvedStorage {
   if (state.sample === "legacy")
     return resolveStorage({ kind: state.legacyKind, rows: state.rows, cols: state.cols });
   if (state.sample === "unknown") return resolveStorage(UNKNOWN_CASES[state.unknown].stored);
