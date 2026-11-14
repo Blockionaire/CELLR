@@ -23,6 +23,11 @@ export const KNOWN_MESSAGES = {
   "Say what the occasion is.": "occasion",
   "Ask a question.": "askQuestion",
   "Say something about it: give it stars, a word or a note.": "tastingEmpty",
+  "This kind of place has no temperature zones.": "placeNoZones",
+  "This kind of place has fewer temperature zones.": "placeFewerZones",
+  "The zones must cover every shelf once, from top to bottom.": "zonesCoverShelves",
+  "That colour does not come in this material.": "colourNotInMaterial",
+  "This kind of place does not come like that.": "lookNotOffered",
   // Answers from the server.
   "This setting is not available yet.": "settingNotYet",
   "Ratings go in tenths of a star.": "ratingTenths",
@@ -82,6 +87,9 @@ const KNOWN_PATTERNS = [
   [/(isn't|aren't|is not|are not) (switched on|configured|set up)/, "notSwitchedOn"],
   [/^You are the only owner of .+, which still has other people in it/, "onlyOwnerOf"],
   [/^That is more than we can bring in at once/, "importTooBig"],
+  // What a kind of place supports (packages/domain, storage-config): the numbers differ per template.
+  [/^This kind of place takes \d+ to \d+ here\.$/, "placeSizeLimit"],
+  [/^This kind of place holds at most \d+ bottles\.$/, "placeTooManyBottles"],
 ] as const;
 
 export type KnownKey =

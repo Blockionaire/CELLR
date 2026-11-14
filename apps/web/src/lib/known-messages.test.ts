@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { StorageConfigSchema, defaultStorageConfig } from "@cellr/domain";
 import en from "../../messages/en.json";
 import nl from "../../messages/nl.json";
 import { KNOWN_KEYS, knownMessage } from "./known-messages";
@@ -70,5 +71,47 @@ describe("known messages", () => {
     expect(knownMessage("Looking up prices isn't switched on yet.")).toBe("notSwitchedOn");
     expect(knownMessage("Something nobody wrote down.")).toBeNull();
     expect(knownMessage(null)).toBeNull();
+  });
+
+  it("knows every sentence the checks on a place's configuration can give", () => {
+    const config = defaultStorageConfig("cooler_dual");
+    const zone = { fromRow: 1, toRow: 3, purpose: "storage", targetTempC: 12 };
+    const sentences = [
+      { ...config, structure: { ...config.structure, rows: 99 } },
+      { ...config, structure: { ...config.structure, rows: 1, zones: [] } },
+      {
+        ...config,
+        structure: { ...config.structure, rows: 20, cols: 12, cellCapacity: 2, zones: [] },
+      },
+      { ...config, structure: { ...config.structure, cols: 13, zones: [] } },
+      { ...config, structure: { ...config.structure, zones: [zone] } },
+      { ...config, structure: { ...config.structure, rows: 3, zones: [zone, zone, zone] } },
+      {
+        ...defaultStorageConfig("rack_classic"),
+        structure: { ...defaultStorageConfig("rack_classic").structure, rows: 3, zones: [zone] },
+      },
+      { ...config, appearance: { ...config.appearance, color: "oak" } },
+      { ...config, appearance: { ...config.appearance, door: "none" } },
+    ].flatMap(
+      (input) => StorageConfigSchema.safeParse(input).error?.issues.map((i) => i.message) ?? [],
+    );
+    // the ones this app words itself (the library's own, for a wrong type or a number past a hard limit, fall back
+    // to the general "something doesn't look right", as everywhere)
+    const own = sentences.filter((s) => /^(This kind of place|The zones|That colour)/.test(s));
+    expect(new Set(own.map(knownMessage))).toEqual(
+      new Set([
+        "placeSizeLimit",
+        "placeTooManyBottles",
+        "placeFewerZones",
+        "placeNoZones",
+        "zonesCoverShelves",
+        "colourNotInMaterial",
+        "lookNotOffered",
+      ]),
+    );
+    expect(own.filter((s) => knownMessage(s) === null)).toEqual([]);
+    expect(knownMessage("This kind of place holds at most 480 bottles.")).toBe(
+      "placeTooManyBottles",
+    );
   });
 });
