@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
+import { PREVIEW_URL } from "./helpers";
 
 /**
  * Not a test: a photographer for the template gallery (Smart Cellar 3D, sprint 2A). Takes every storage template
@@ -10,7 +11,8 @@ import { expect, test } from "@playwright/test";
  * ONLY=wall_pegs,wall_rails takes those templates again and nothing else.
  */
 test.skip(!process.env.VISUAL_STORAGE3D, "only when asked for (VISUAL_STORAGE3D=1)");
-test.use({ deviceScaleFactor: 2 });
+// the gallery is open only on the test server that declares itself a Vercel preview
+test.use({ deviceScaleFactor: 2, baseURL: PREVIEW_URL });
 
 const OUT = process.env.SHOTS_DIR ?? "test-results/storage3d";
 

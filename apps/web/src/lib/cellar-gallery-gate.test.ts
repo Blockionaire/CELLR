@@ -16,6 +16,7 @@ const vercel = (kind: "production" | "preview", more: GalleryEnv = {}): GalleryE
   VERCEL_REGION: "fra1",
   ...more,
 });
+/** Every switch the gallery has ever had. The second one was removed; it is here to pin that it opens nothing. */
 const BOTH = { DESIGN_GALLERY: "1", CELLAR_GALLERY_LOCAL_BUILD: "1" };
 
 describe("local development", () => {
@@ -49,8 +50,9 @@ describe("a Vercel preview deployment", () => {
     ).toBe(true);
   });
 
-  it("the switch for one\'s own machine does not open it", () => {
+  it("the removed local-build switch neither opens it nor is needed", () => {
     expect(open(vercel("preview", { CELLAR_GALLERY_LOCAL_BUILD: "1" }))).toBe(false);
+    expect(open(vercel("preview", BOTH))).toBe(true);
   });
 
   it("a custom environment (staging, qa) is not a preview", () => {
@@ -103,16 +105,77 @@ describe("anything else that is hosted", () => {
   });
 });
 
-describe("a production build on one\'s own machine (the browser tests)", () => {
-  it("is closed with nothing set, and with DESIGN_GALLERY=1 alone", () => {
-    expect(open({ NODE_ENV: "production" })).toBe(false);
-    expect(open({ NODE_ENV: "production", DESIGN_GALLERY: "1" })).toBe(false);
-    expect(open({ NODE_ENV: "production", CELLAR_GALLERY_LOCAL_BUILD: "1" })).toBe(false);
-    expect(open({})).toBe(false);
+/**
+ * Regression (sprint 2A, final review): there used to be a way to open the gallery in a production build that
+ * carries no Vercel marker (DESIGN_GALLERY=1 with CELLAR_GALLERY_LOCAL_BUILD=1, meant for the browser tests). The
+ * app cannot prove such a place is somebody's own machine, so it must stay closed whatever is set.
+ */
+describe("a production build with no Vercel marker at all", () => {
+  const FLAG_VALUES = [undefined, "", "0", "1", "true", "yes", "on", "preview", "development"];
+  /** Everything that has ever been, or could be mistaken for, a gallery switch. */
+  const FLAGS = [
+    "DESIGN_GALLERY",
+    "CELLAR_GALLERY_LOCAL_BUILD",
+    "CELLAR_GALLERY",
+    "CELLAR_GALLERY_ENABLED",
+    "NEXT_PUBLIC_DESIGN_GALLERY",
+    "CELLR_FEATURES",
+  ];
+
+  it("is closed for every combination of the two switches there have been, at every value", () => {
+    let tried = 0;
+    for (const design of FLAG_VALUES)
+      for (const local of FLAG_VALUES) {
+        const env = {
+          NODE_ENV: "production",
+          DESIGN_GALLERY: design,
+          CELLAR_GALLERY_LOCAL_BUILD: local,
+        };
+        expect(open(env), JSON.stringify(env)).toBe(false);
+        tried += 1;
+      }
+    expect(tried).toBe(FLAG_VALUES.length ** 2);
   });
 
-  it("is open with both switches", () => {
-    expect(open({ NODE_ENV: "production", ...BOTH })).toBe(true);
-    expect(open({ NODE_ENV: "test", ...BOTH })).toBe(true);
+  it("is closed for every subset of every flag set to 1", () => {
+    for (let mask = 0; mask < 2 ** FLAGS.length; mask++) {
+      const env: Record<string, string> = { NODE_ENV: "production" };
+      FLAGS.forEach((name, bit) => {
+        if (mask & (1 << bit)) env[name] = name === "CELLR_FEATURES" ? "all" : "1";
+      });
+      expect(open(env), JSON.stringify(env)).toBe(false);
+    }
+  });
+
+  it("is closed whatever NODE_ENV is, except development", () => {
+    for (const mode of [
+      undefined,
+      "",
+      "production",
+      "test",
+      "staging",
+      "PRODUCTION",
+      "Development",
+      "dev",
+    ])
+      expect(open({ NODE_ENV: mode, ...BOTH }), String(mode)).toBe(false);
+    expect(open(BOTH)).toBe(false);
+    expect(open({})).toBe(false);
+    // the one way in without Vercel: `next dev`
+    expect(open({ NODE_ENV: "development" })).toBe(true);
+  });
+
+  it("is closed with every other hint of a host one could think of, none of which is Vercel saying 'preview'", () => {
+    const hints: GalleryEnv[] = [
+      { HOSTNAME: "localhost" },
+      { HOST: "127.0.0.1", PORT: "3100" },
+      { CI: "true" },
+      { PLAYWRIGHT: "1" },
+      { NEXT_PUBLIC_VERCEL_ENV: "preview" }, // the public copy is not the system variable
+      { VERCEL_GIT_COMMIT_REF: "feature" },
+      { AWS_LAMBDA_FUNCTION_NAME: "fn" },
+    ];
+    for (const hint of hints)
+      expect(open({ NODE_ENV: "production", ...BOTH, ...hint }), JSON.stringify(hint)).toBe(false);
   });
 });

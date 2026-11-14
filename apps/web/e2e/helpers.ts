@@ -251,6 +251,12 @@ export async function askExample(page: Page, name: string) {
 export const FEATURES_URL = "http://localhost:3101";
 
 /**
+ * The same build declaring itself a Vercel preview deployment (playwright.config.ts): the only kind of production
+ * build on which the Smart Cellar template gallery is open.
+ */
+export const PREVIEW_URL = "http://localhost:3102";
+
+/**
  * A wine offered on the "choose a wine" screen. The classic list offers each wine as a button; the wine search
  * (feature `wine_search`) offers it as an option of a listbox. A test that means "choose this wine" uses this, so
  * it holds whichever of the two the server shows. Tests of the search itself (wine-search.spec.ts) stay exact.

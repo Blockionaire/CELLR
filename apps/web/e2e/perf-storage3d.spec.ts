@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
+import { PREVIEW_URL } from "./helpers";
 
 /**
  * Not a test: a measuring bench for the layout-driven 3D view (Smart Cellar 3D, sprint 2A), against the existing
@@ -16,7 +17,8 @@ import { expect, test, type Page } from "@playwright/test";
  * compare on this machine and nothing about a phone. Draw calls, triangles and textures are the same everywhere.
  */
 test.skip(!process.env.PERF_STORAGE3D, "only when asked for (PERF_STORAGE3D=1)");
-test.use({ deviceScaleFactor: 1 });
+// the gallery is open only on the test server that declares itself a Vercel preview
+test.use({ deviceScaleFactor: 1, baseURL: PREVIEW_URL });
 
 const OUT = process.env.PERF_OUT ?? "test-results/perf-storage3d.json";
 

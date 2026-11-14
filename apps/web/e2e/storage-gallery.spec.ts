@@ -1,11 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
-import { audit } from "./helpers";
+import { APP_URL, PREVIEW_URL, audit } from "./helpers";
 
 /**
  * The template gallery of Smart Cellar 3D (/design/cellar-3d, sprint 2A): every storage template drawn by the new
  * layout-driven 3D view, next to the flat picture of the same place. No account and no database: the gallery makes
  * its places and bottles up from numbers, so these tests need nothing but the page.
+ *
+ * They run against the test server that declares itself a Vercel preview: the gallery is closed on any other
+ * production build (the last tests of this file are about exactly that).
  */
+test.use({ baseURL: PREVIEW_URL });
 const TEMPLATES: Array<[id: string, renderer: "grid" | "bins" | "wall"]> = [
   ["rack_classic", "grid"],
   ["rack_double_depth", "grid"],
@@ -385,4 +389,44 @@ test("what is typed into the address stays inside what a template allows", async
   expect(await num(page, "bottles")).toBeLessThanOrEqual(1200);
   await page.goto("/design/cellar-3d?template=..%2F..%2Fetc");
   await expect(page.getByLabel("Template", { exact: true })).toHaveValue("rack_classic");
+});
+
+/**
+ * The gallery's gate, in a browser. The ordinary test server is a production build with DESIGN_GALLERY=1 and
+ * nothing that says where it runs: the app cannot tell it from a production host, so it shows no gallery.
+ */
+test.describe("where the gallery is closed", () => {
+  test("a production build with no Vercel marker shows nothing of it, with DESIGN_GALLERY=1 set", async ({
+    page,
+  }) => {
+    for (const address of [
+      "/design/cellar-3d",
+      "/design/cellar-3d?template=diamond_bins&fill=full",
+    ]) {
+      await page.goto(APP_URL + address);
+      await expect(
+        page.getByRole("heading", { name: "We couldn't find that page." }),
+      ).toBeVisible();
+      await expect(page.getByTestId("cellar-gallery")).toHaveCount(0);
+      await expect(page.getByTestId("gallery-stage")).toHaveCount(0);
+      await expect(page.getByTestId("layout-map")).toHaveCount(0);
+      await expect(page.locator("canvas")).toHaveCount(0);
+      expect(await page.title()).not.toContain("Storage templates");
+      await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute(
+        "content",
+        /noindex/,
+      );
+    }
+  });
+
+  test("the design-system page on that same server is open, as it always was", async ({ page }) => {
+    await page.goto(APP_URL + "/design");
+    await expect(page.getByRole("heading", { name: "Design system", level: 1 })).toBeVisible();
+  });
+
+  test("the preview server shows it, and is not for search engines either", async ({ page }) => {
+    await page.goto("/design/cellar-3d");
+    await expect(page.getByTestId("cellar-gallery")).toBeVisible();
+    await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute("content", /noindex/);
+  });
 });

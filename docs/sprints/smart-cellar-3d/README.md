@@ -72,20 +72,20 @@ screens exist. Switching it on is a migration of its own.
 All in `apps/web`. Nothing under `supabase/`, `packages/domain` or `src/app/api` changed; `src/server/env.ts` gained one
 function (the gallery's gate).
 
-| File                                                     | What                                                                                                     |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `src/features/cellar/storage3d/parts.ts`, `families.ts`  | A place as plain numbers: parts and poses for the grid, bins and wall families, and the neutral picture. |
-| `…/storage3d/palette.ts`                                 | What the catalogue's named looks are, as surfaces.                                                       |
-| `…/storage3d/model.ts`                                   | Which renderer a place gets, where each bottle goes, camera framing, the levels of detail.               |
-| `…/storage3d/resources.ts`                               | The three.js side: merged furniture, the shared bottle kit, ownership and release.                       |
-| `…/storage3d/template-scene.tsx`                         | The React Three Fiber scene. Refuses a place from before templates.                                      |
-| `…/storage3d/layout-cells.ts`, `layout-map.tsx`          | The read-only flat picture, as data and as a component.                                                  |
-| `…/storage3d/fixtures.ts`                                | Made-up places and bottles for the gallery and the tests.                                                |
-| `src/features/design/cellar-gallery*.ts(x)`              | The gallery and its state (what the address may ask for).                                                |
-| `src/app/design/cellar-3d/page.tsx`                      | The route. Local development and Vercel previews that ask for it; never production.                      |
-| `src/lib/cellar-gallery-gate.ts`                         | The gallery's own gate (stricter than `/design`'s), asked through `server/env.ts`.                       |
-| `e2e/storage-gallery.spec.ts`                            | The gallery in a browser: 28 tests on a desktop and a phone profile.                                     |
-| `e2e/visual-storage3d.spec.ts`, `perf-storage3d.spec.ts` | The photographer and the measuring bench (run only when asked for).                                      |
+| File                                                     | What                                                                                                                                                                  |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/features/cellar/storage3d/parts.ts`, `families.ts`  | A place as plain numbers: parts and poses for the grid, bins and wall families, and the neutral picture.                                                              |
+| `…/storage3d/palette.ts`                                 | What the catalogue's named looks are, as surfaces.                                                                                                                    |
+| `…/storage3d/model.ts`                                   | Which renderer a place gets, where each bottle goes, camera framing, the levels of detail.                                                                            |
+| `…/storage3d/resources.ts`                               | The three.js side: merged furniture, the shared bottle kit, ownership and release.                                                                                    |
+| `…/storage3d/template-scene.tsx`                         | The React Three Fiber scene. Refuses a place from before templates.                                                                                                   |
+| `…/storage3d/layout-cells.ts`, `layout-map.tsx`          | The read-only flat picture, as data and as a component.                                                                                                               |
+| `…/storage3d/fixtures.ts`                                | Made-up places and bottles for the gallery and the tests.                                                                                                             |
+| `src/features/design/cellar-gallery*.ts(x)`              | The gallery and its state (what the address may ask for).                                                                                                             |
+| `src/app/design/cellar-3d/page.tsx`                      | The route. `next dev` and Vercel previews that ask for it; closed everywhere else.                                                                                    |
+| `src/lib/cellar-gallery-gate.ts`                         | The gallery's own gate (stricter than `/design`'s), asked through `server/env.ts`.                                                                                    |
+| `e2e/storage-gallery.spec.ts`                            | The gallery in a browser: 34 tests on a desktop and a phone profile, against a test server that declares itself a Vercel preview (`playwright.config.ts`, port 3102). |
+| `e2e/visual-storage3d.spec.ts`, `perf-storage3d.spec.ts` | The photographer and the measuring bench (run only when asked for).                                                                                                   |
 
 **Not changed:** `three/scene.tsx` and everything else in `three/`, `rack-grid.tsx`, `cellar-3d-view.tsx`, placing,
 swapping and dragging, every service and route, the database. **No product screen mounts the new view.**
@@ -107,7 +107,8 @@ swapping and dragging, every service and route, the database. **No product scree
 9. The order of locks is: the place, then its zones (and bottles before places only for reading). Code that holds a
    zone row and needs the place must not wait for it.
 10. The template gallery is never open on a production deployment, whatever is set there
-    (`lib/cellar-gallery-gate.ts`). Do not route it back through `/design`'s gate. In the flat picture a position
+    (`lib/cellar-gallery-gate.ts`), nor in any production build that does not prove it is a Vercel preview: do not
+    add a switch for "a local production build", and do not route it back through `/design`'s gate. In the flat picture a position
     stands for its front bottle only: a press never reaches a bottle behind a free front.
 11. The new 3D view never draws a place from before templates, and the existing view is not replaced until parity
     and speed are shown on real devices (ADR-002). An index in a pile is drawn as "one more bottle in the pile",

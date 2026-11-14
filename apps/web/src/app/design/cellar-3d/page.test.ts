@@ -83,8 +83,23 @@ describe("/design/cellar-3d", () => {
     expect(generateMetadata()).toEqual(CLOSED_METADATA);
   });
 
-  it("the browser tests\' own server (both switches, nothing hosted): open", async () => {
-    environment({ DESIGN_GALLERY: "1", CELLAR_GALLERY_LOCAL_BUILD: "1" });
+  it("a production build with no Vercel marker: not found for every combination of gallery flags", async () => {
+    for (const flags of [
+      {},
+      { DESIGN_GALLERY: "1" },
+      { CELLAR_GALLERY_LOCAL_BUILD: "1" },
+      { DESIGN_GALLERY: "1", CELLAR_GALLERY_LOCAL_BUILD: "1" },
+    ])
+      for (const mode of ["production", "test"]) {
+        environment({ NODE_ENV: mode, ...flags });
+        await expect(open(), `${mode} ${JSON.stringify(flags)}`).rejects.toMatchObject(NOT_FOUND);
+        expect(generateMetadata(), `${mode} ${JSON.stringify(flags)}`).toEqual(CLOSED_METADATA);
+      }
+  });
+
+  it("the browser tests\' own server declares itself a Vercel preview, and is open as one", async () => {
+    // what playwright.config.ts sets on its third server
+    environment({ ...VERCEL_PREVIEW, DESIGN_GALLERY: "1" });
     await expect(open()).resolves.toBeTruthy();
   });
 

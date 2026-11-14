@@ -136,26 +136,32 @@ not fourteen colours of one.
 ## 7. The gallery
 
 `/design/cellar-3d` has a gate of its own, stricter than the existing `/design` page's (`lib/cellar-gallery-gate.ts`,
-asked through `isCellarGalleryEnabled()` in `server/env.ts`). It is open in exactly three places:
+asked through `isCellarGalleryEnabled()` in `server/env.ts`). It fails closed: it is open in exactly two places.
 
-| Where                                                                                             | Open when                                                                                |
-| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Local development (`next dev`)                                                                    | always, unless the environment says it is production                                     |
-| A Vercel **preview** deployment                                                                   | `VERCEL_ENV` is exactly `preview` **and** `DESIGN_GALLERY=1` is set on it                |
-| A production build on one's own machine (browser tests)                                           | `DESIGN_GALLERY=1` **and** `CELLAR_GALLERY_LOCAL_BUILD=1`, and nothing that looks hosted |
-| **A Vercel production deployment**                                                                | **never. No flag or combination of flags opens it.**                                     |
-| Anything else (a custom Vercel environment, an unknown host, a host that does not say what it is) | never                                                                                    |
+| Where                                                                              | Gallery                                                                        |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Local development (`next dev`)                                                     | open, unless the environment says it is production                             |
+| A Vercel **preview** deployment                                                    | open when `VERCEL_ENV` is exactly `preview` **and** `DESIGN_GALLERY=1`         |
+| **A Vercel production deployment**                                                 | **closed. No flag or combination of flags opens it.**                          |
+| **A production build that carries no Vercel marker**                               | **closed, whatever is set.** The app cannot prove it is not a production host. |
+| A custom Vercel environment, an unknown environment name, a host that does not say | closed                                                                         |
 
-Where it is closed the address shows the app's "not found" page and nothing of the gallery (how exactly: §11); it
-is always `noindex`. It needs no account and reads no database: places and bottles are made from numbers by
-`fixtures.ts`, the same every time.
+There is no switch for "a production build on my own machine". Where it is closed the address shows the app's "not
+found" page and nothing of the gallery (how exactly: §11); it is always `noindex`. It needs no account and reads no
+database: places and bottles are made from numbers by `fixtures.ts`, the same every time.
 
 **To open it**
 
 ```bash
 pnpm --filter web dev                       # then http://localhost:3000/design/cellar-3d
-# or the production build, as the tests do (both switches):
-pnpm --filter web build && DESIGN_GALLERY=1 CELLAR_GALLERY_LOCAL_BUILD=1 pnpm --filter web exec next start -p 3100
+```
+
+A production build (`next start`) shows it only when it declares itself a Vercel preview that asked for it, which is
+what the browser tests' own server does (`playwright.config.ts`, port 3102):
+
+```bash
+pnpm --filter web build
+VERCEL=1 VERCEL_ENV=preview VERCEL_TARGET_ENV=preview DESIGN_GALLERY=1 pnpm --filter web exec next start -p 3102
 ```
 
 On Vercel: set `DESIGN_GALLERY=1` for the **Preview** environment. Setting it for Production opens `/design` there
@@ -295,16 +301,17 @@ All run on 2026-11-14 on the branch, against the production build where a browse
 | `pnpm format:check`                                                                        | clean                                                                                 |
 | `pnpm lint`                                                                                | 0 errors (1 warning, in `playwright.webkit.config.ts`, from before this sprint)       |
 | `pnpm typecheck`                                                                           | clean, all four packages                                                              |
-| `pnpm test`                                                                                | `apps/web` 970 passed, 12 skipped (as before); `packages/domain` 902; scripts 86 + 83 |
-| of which new                                                                               | 165 tests in 6 files (below)                                                          |
+| `pnpm test`                                                                                | `apps/web` 973 passed, 12 skipped (as before); `packages/domain` 902; scripts 86 + 83 |
+| of which new                                                                               | 168 tests in 6 files (below)                                                          |
 | `three/legacy-parity.test.ts`, `three/layout.test.ts`                                      | pass, files unchanged                                                                 |
 | `pnpm build`                                                                               | succeeds; `/design/cellar-3d` is a dynamic route                                      |
 | `scripts/check-bundle-secrets.sh`                                                          | no server secrets in the client bundle                                                |
 | `pnpm migrations:check`                                                                    | 0 new migration files, none changed                                                   |
-| `e2e/storage-gallery.spec.ts`, desktop and phone profiles                                  | 60 passed, 2 skipped (the mouse and keyboard tests on the phone profile)              |
+| `e2e/storage-gallery.spec.ts`, desktop and phone profiles                                  | 66 passed, 2 skipped (the mouse and keyboard tests on the phone profile)              |
+| `e2e/smoke.spec.ts`, `three-view.spec.ts` on the ordinary test server, desktop             | 28 passed: the server other specs use is as it was                                    |
 | `e2e/cellar3d.spec.ts`, `cellar3d-precision`, `three-view` (the existing 3D view), desktop | 18 passed, 1 failed, **and that one fails the same way on `main`** (below)            |
 
-**New unit tests (165)**
+**New unit tests (168)**
 
 | File                                  | Tests | What they pin                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------------------------------- | ----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -312,10 +319,11 @@ All run on 2026-11-14 on the branch, against the production build where a browse
 | `storage3d/resources.test.ts`         |    29 | One mesh per material role for every template (900 spots = as many meshes as 6); glass does not write depth; everything made is released, per template and level, and after fifty open-and-close cycles; shared pictures are not released; fewer triangles per level; poses; **picking with real rays**: every bottle in racks, walls and bins, and the front bottle of a deep rack.                                                                                         |
 | `storage3d/layout-map.test.tsx`       |    19 | The flat picture agrees with the 3D placement for all 14 templates; front and back are kept apart and never moved forward; a compartment is a count; unknown arrangements are counts; duplicates are reported; roles, names, one Tab stop. **A position with a free front and a bottle behind it chooses nothing** (two and three deep, whatever was chosen before); pressed means the front bottle is the chosen one; a rear bottle chosen in 3D is marked as the rear one. |
 | `design/cellar-gallery-state.test.ts` |     7 | Every template at its default reads without a fallback; anything typed into the address is clamped to the catalogue; every offered look can be chosen; a link is a picture; the measured sizes are 40, 200, 900, 1,200.                                                                                                                                                                                                                                                      |
-| `lib/cellar-gallery-gate.test.ts`     |    15 | The gate as plain data: development open; a Vercel preview open only when it asked; **Vercel production closed in every combination of switches**; custom environments, unknown environments and hosts that do not say what they are closed; a local production build needs both switches.                                                                                                                                                                                   |
-| `app/design/cellar-3d/page.test.ts`   |     9 | The page behind its real gate in each configuration: development, Vercel preview (asked and not), Vercel production (with `DESIGN_GALLERY=1`, with every switch), a bare production build; closed means "not found" and no title; always noindex; `/design` keeps its own gate.                                                                                                                                                                                              |
+| `lib/cellar-gallery-gate.test.ts`     |    17 | The gate as plain data: development open; a Vercel preview open only when it asked; **Vercel production closed in every combination of switches**; custom and unknown environments closed; **a production build with no Vercel marker closed for every combination and value of every gallery flag, past and present** (81 value pairs, all 64 subsets of six flags, every `NODE_ENV` but `development`).                                                                    |
+| `app/design/cellar-3d/page.test.ts`   |    10 | The page behind its real gate in each configuration: development, Vercel preview (asked and not), Vercel production (with `DESIGN_GALLERY=1`, with every switch), a production build with no Vercel marker under every flag combination; closed means "not found" and no title; always noindex; `/design` keeps its own gate.                                                                                                                                                |
 
-**Browser tests (`storage-gallery.spec.ts`, 31 per profile):** each of the 14 templates is drawn by its family's
+**Browser tests (`storage-gallery.spec.ts`, 34 per profile, against the test server that declares itself a Vercel
+preview):** each of the 14 templates is drawn by its family's
 renderer with at most 30 draw calls and the same bottle count as the flat picture; nothing is drawn at rest; a tap
 chooses the bottle under it in 3D and marks it flat; a tap on a deep position takes the front bottle; **a tap
 through a glass door reaches the bottle**; a pile names the compartment and no place in it; turning and zooming
@@ -324,7 +332,8 @@ counts to where they were**; the flat picture from the keyboard; **a position wi
 mouse, touch or keyboard; a rear bottle chosen in 3D is marked as the rear one and its position still chooses
 nothing**; no WCAG 2.1 AA violations (axe) for a rack and
 for bins; the four unknown arrangements get the neutral picture; a place from before templates is drawn by the
-existing view; lost graphics memory is reported and recovered from; a 320 px phone does not scroll sideways; a
+existing view; lost graphics memory is reported and recovered from; **the ordinary test server, a production build with
+`DESIGN_GALLERY=1` and no Vercel marker, shows nothing of the gallery while `/design` on it is open**; a 320 px phone does not scroll sideways; a
 wild address is clamped.
 
 **The one failing test is not from this sprint.** `e2e/cellar3d.spec.ts:171` ("tapping a bottle in the picture
@@ -336,15 +345,15 @@ be the software renderer of this machine. Browser tests do not run on pull reque
 **How the gallery is closed, exactly.** The production build was started in seven configurations and asked for
 `/design/cellar-3d` and `/design`:
 
-| Environment of the server                                                     | `/design/cellar-3d`           | `/design` (unchanged gate) |
-| ----------------------------------------------------------------------------- | ----------------------------- | -------------------------- |
-| nothing set                                                                   | not found, no gallery content | not found                  |
-| `DESIGN_GALLERY=1` alone                                                      | **not found**                 | open                       |
-| `VERCEL_ENV=production` + `DESIGN_GALLERY=1`                                  | **not found**                 | open                       |
-| `VERCEL_ENV=production` + `DESIGN_GALLERY=1` + `CELLAR_GALLERY_LOCAL_BUILD=1` | **not found**                 | open                       |
-| `VERCEL_ENV=preview`, not asked                                               | not found                     | not found                  |
-| `VERCEL_ENV=preview` + `DESIGN_GALLERY=1`                                     | open                          | open                       |
-| own machine, both switches (the tests' server)                                | open                          | open                       |
+| Environment of the server                                             | `/design/cellar-3d`           | `/design` (unchanged gate) |
+| --------------------------------------------------------------------- | ----------------------------- | -------------------------- |
+| no Vercel marker, nothing set                                         | not found, no gallery content | not found                  |
+| no Vercel marker, `DESIGN_GALLERY=1`                                  | **not found**                 | open                       |
+| no Vercel marker, `CELLAR_GALLERY_LOCAL_BUILD=1` (the removed switch) | **not found**                 | not found                  |
+| no Vercel marker, both of those (open before the final hardening)     | **not found**                 | open                       |
+| `VERCEL_ENV=production` + both                                        | **not found**                 | open                       |
+| `VERCEL_ENV=preview`, not asked                                       | not found                     | not found                  |
+| `VERCEL_ENV=preview` + `DESIGN_GALLERY=1`                             | open                          | open                       |
 
 "Not found" is the app's not-found page with none of the gallery in it: no markup, no title, `noindex`. Its HTTP
 status is 200, not 404: the app's root layout streams (`app/loading.tsx`), so `notFound()` cannot change a status
@@ -355,7 +364,8 @@ static file of the build; it holds drawing code and made-up wines and nothing el
 The Vercel rows were made by setting Vercel's variables on a local server, not on Vercel: no deployment was made.
 The gate rests on `VERCEL_ENV`, which Vercel sets at build and run time while "Automatically expose System
 Environment Variables" is on (the default). With that switched off a deployment cannot be recognised as a preview
-and stays closed; the local case is refused on anything carrying a hosting marker.
+and stays closed. The gate trusts that variable: a host that is not Vercel and is given `VERCEL_ENV=preview` and
+`DESIGN_GALLERY=1` by hand is declaring itself a preview that asked.
 
 ## 12. Known gaps, for sprint 2B
 
@@ -411,7 +421,24 @@ browser tests with mouse, touch and keyboard. Placing, swapping and dragging in 
 opens anywhere. It now has its own (§7): a Vercel production deployment is closed whatever is set. `/design` is
 unchanged. Tested as plain data, through the page, and against real servers (§11).
 
-One judgement to confirm: the third open case, a production build on one's own machine with two switches. It exists
-because the browser tests run against `next start`, and it is refused on anything that looks hosted. If the tests
-should instead be the only thing able to open it, the second switch can be replaced by a value the test runner
-generates per run.
+## 15. Final gate hardening (2026-11-14)
+
+After the corrections of §14 one way in remained that the app could not justify: a production build carrying no
+Vercel marker opened the gallery when `DESIGN_GALLERY=1` and `CELLAR_GALLERY_LOCAL_BUILD=1` were both set. It
+existed for the browser tests, which run against `next start`. The app cannot prove that such an environment is
+somebody's own machine and not a production host that does not say what it is.
+
+- **The override is gone.** `cellarGalleryOpenIn` has two open cases left: `next dev`, and a Vercel preview that
+  asked. Everything else, an unrecognised production environment first of all, is closed. The list of hosting
+  markers that guarded the override went with it.
+- **The browser tests simulate a Vercel preview** instead: `playwright.config.ts` starts a third copy of the build
+  (port 3102) with `VERCEL=1`, `VERCEL_ENV=preview`, `VERCEL_TARGET_ENV=preview`, and the gallery's three specs
+  point at it (`PREVIEW_URL`). The two existing test servers do not get those variables: Next itself reads
+  `VERCEL_ENV` (it changes the manifest link on every page), and no other spec should run under it. Nothing in the
+  production checks was loosened to make the tests pass.
+- **The ordinary test server became evidence.** It is a production build with `DESIGN_GALLERY=1` and no Vercel
+  marker, and a browser test now asserts that it shows nothing of the gallery while `/design` on it is open.
+- **Regression tests.** A production build with no Vercel marker stays closed for all 81 value pairs of the two
+  switches, for all 64 subsets of six flag names, for every `NODE_ENV` except `development`, and with a handful of
+  host hints. They fail (seven tests) when the override is put back.
+- `next dev` and explicitly enabled Vercel previews work as before. `/design` is untouched.
