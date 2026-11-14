@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame, useStore, useThree, type ThreeEvent } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
@@ -16,11 +16,14 @@ import {
   placeBottles,
   qualityFor,
   type PlacedBottle,
+  type Placement,
   type Quality,
   type RenderModel,
   type StoredBottle,
 } from "./model";
 import { AIR, BOTTLE_L, BOTTLE_R } from "./parts";
+import { Inspection, hidesInstance, type InspectionProps } from "./showcase-hero";
+import { isOut } from "./showcase-machine";
 import {
   Owned,
   bottleGroups,
@@ -57,6 +60,13 @@ export interface TemplateSceneProps {
   onLost?: (() => void) | undefined;
   /** Write what was drawn onto the canvas element (for the gallery's readout and the tests). */
   debug?: boolean | undefined;
+  /** Where the bottles lie, when the caller has worked it out already (it needs it too); else worked out here. */
+  placement?: Placement | undefined;
+  /**
+   * Taking a bottle out to look at it (sprint 2B.1). Left out, a tap only chooses a bottle, as before. Given, the
+   * view shows the bottle of `inspection.state` out of its place; what may happen and when is decided outside.
+   */
+  inspection?: InspectionProps | undefined;
 }
 
 function lowPower(): boolean {
@@ -75,18 +85,32 @@ export default function TemplateScene({
   onReady,
   onLost,
   debug = false,
+  placement: given,
+  inspection,
 }: TemplateSceneProps) {
   if (model.renderer === "legacy")
     throw new Error(
       "A place from before templates is drawn by the existing 3D view, not by this one.",
     );
-  const placement = useMemo(() => placeBottles(model, bottles), [model, bottles]);
+  const worked = useMemo(() => given ?? placeBottles(model, bottles), [given, model, bottles]);
+  const placement = worked;
   // The level starts from how much there is to draw; slow frames can only lower it, for as long as this place is up.
   const start = quality ?? qualityFor(placement.placed.length, lowPower());
   const [lowered, setLowered] = useState<{ from: Quality; to: Quality } | null>(null);
   const level = lowered && lowered.from === start ? lowered.to : start;
   const spec = QUALITY[level];
   const dragged = useRef(false);
+  // a bottle is out (on display or moving): the camera holds still and a tap does not choose another
+  const out = inspection !== undefined && isOut(inspection.state);
+  const outBottle =
+    out && inspection
+      ? (placement.placed.find((b) => b.id === inspection.state.bottleId) ?? null)
+      : null;
+  const hiddenId = hidesInstance(outBottle) ? outBottle!.id : null;
+  const storage = useRef<THREE.Group>(null);
+  const onDrag = useCallback((moved: boolean) => {
+    dragged.current = moved;
+  }, []);
   const leaving = useRef(false);
   useEffect(() => {
     leaving.current = false;
@@ -114,23 +138,48 @@ export default function TemplateScene({
         onReady?.();
       }}
       onPointerMissed={() => {
-        if (!dragged.current) onPick?.(null);
+        if (dragged.current) return;
+        // beside the bottle that is out: it goes back. Otherwise: nothing is chosen.
+        if (out) inspection.onDismiss();
+        else onPick?.(null);
       }}
     >
       <Lighting model={model} />
-      <Rig model={model} reducedMotion={reducedMotion} dragged={dragged} />
-      <Structure model={model} level={level} />
-      <Bottles
-        placed={placement.placed}
-        empties={placement.empties}
-        model={model}
-        level={level}
-        selectedId={selectedId}
-        onPick={onPick}
-      />
+      <Rig model={model} reducedMotion={reducedMotion} dragged={dragged} locked={out} />
+      {/* the place itself: not drawn while a picture of it stands in behind the bottle that is out */}
+      <group ref={storage}>
+        <Structure model={model} level={level} />
+        <Bottles
+          placed={placement.placed}
+          empties={placement.empties}
+          model={model}
+          level={level}
+          selectedId={out ? null : selectedId}
+          hiddenId={hiddenId}
+          onPick={
+            out
+              ? () => {
+                  if (!dragged.current) inspection.onDismiss();
+                }
+              : onPick
+          }
+        />
+      </group>
+      {inspection && (
+        <Inspection
+          inspection={inspection}
+          model={model}
+          placed={placement.placed}
+          level={level}
+          storage={storage}
+          reducedMotion={reducedMotion}
+          onDrag={onDrag}
+        />
+      )}
       <Pace
         level={level}
-        fixed={quality !== undefined}
+        // not while a bottle is out: the place it comes back to must be the place it left, to the pixel
+        fixed={quality !== undefined || out}
         onSlow={() => {
           const next = lowerQuality(level);
           if (next) setLowered({ from: start, to: next });
@@ -198,10 +247,13 @@ function Rig({
   model,
   reducedMotion,
   dragged,
+  locked,
 }: {
   model: RenderModel;
   reducedMotion: boolean;
   dragged: React.RefObject<boolean>;
+  /** A bottle is out: the camera holds still, so that it comes back to the very view it left. */
+  locked: boolean;
 }) {
   const { camera, gl, size, invalidate } = useThree();
   const controls = useRef<OrbitControls | null>(null);
@@ -268,9 +320,15 @@ function Rig({
     invalidate();
   }, [framing, model.bounds, camera, invalidate]);
 
+  // while a bottle is out the controls do not listen: turning the bottle does not turn the place
+  useLayoutEffect(() => {
+    const c = controls.current;
+    if (c) c.enabled = !locked;
+  }, [locked, camera, gl, reducedMotion]);
+
   useFrame(() => {
     const c = controls.current;
-    if (!c) return;
+    if (!c || locked) return;
     // the point looked at stays on the place, however the view is slid
     const [tx, ty] = framing.target;
     const x = Math.min(tx + framing.reach.x, Math.max(tx - framing.reach.x, c.target.x));
@@ -327,6 +385,7 @@ function Bottles({
   model,
   level,
   selectedId,
+  hiddenId,
   onPick,
 }: {
   placed: PlacedBottle[];
@@ -334,6 +393,8 @@ function Bottles({
   model: RenderModel;
   level: Quality;
   selectedId: string | null;
+  /** The bottle that is out to be looked at: not drawn here meanwhile (it is drawn once, by the showcase). */
+  hiddenId: string | null;
   onPick: ((id: string | null) => void) | undefined;
 }) {
   const { invalidate } = useThree();
@@ -374,19 +435,21 @@ function Bottles({
           items={items}
           kit={kit.parts}
           shadows={shadows}
+          hiddenId={hiddenId}
           onClick={onPick ? pick(items) : undefined}
         />
       ))}
       {groups.tokens.length > 0 && (
         <Tokens
-          key={`tokens-${groups.tokens.length}`}
+          // a new level of detail is a new kit: the counters are made anew with it, and placed anew
+          key={`tokens-${groups.tokens.length}-${level}`}
           items={groups.tokens}
           kit={kit.parts}
           onClick={onPick ? pick(groups.tokens) : undefined}
         />
       )}
       {empties.length > 0 && (
-        <Dots key={`dots-${empties.length}`} at={empties} kit={kit.parts} model={model} />
+        <Dots key={`dots-${empties.length}-${level}`} at={empties} kit={kit.parts} model={model} />
       )}
       {selected && (
         <mesh
@@ -404,18 +467,21 @@ function Bottles({
 const colour = new THREE.Color();
 const matrix = new THREE.Matrix4();
 const PAPER = new THREE.Color("#e8dcc2");
+const GONE = new THREE.Vector3(1e-4, 1e-4, 1e-4);
 
 function ShapeGroup({
   shape,
   items,
   kit,
   shadows,
+  hiddenId,
   onClick,
 }: {
   shape: BottleShape;
   items: PlacedBottle[];
   kit: BottleKit;
   shadows: boolean;
+  hiddenId: string | null;
   onClick: ((e: ThreeEvent<MouseEvent>) => void) | undefined;
 }) {
   const { invalidate } = useThree();
@@ -427,14 +493,20 @@ function ShapeGroup({
     const meshes = [glass.current, label.current, foil.current];
     if (meshes.some((m) => !m)) return;
     items.forEach((item, i) => {
+      // the bottle that is out is drawn by the showcase, and only there: here it is shrunk to nothing, in place
+      // (kept in place and not quite nothing, so that the group's bounds and its hit-testing stay sound)
+      const hidden = item.id === hiddenId;
       poseMatrix(item.pose, matrix);
+      if (hidden) matrix.scale(GONE);
       for (const mesh of meshes) mesh!.setMatrixAt(i, matrix);
       glass.current!.setColorAt(i, colour.set(GLASS[item.type]));
       label.current!.setColorAt(i, PAPER);
       foil.current!.setColorAt(i, colour.set(FOIL[item.type]));
       if (shade.current) {
         const [x, y, z] = item.pose.position;
-        shade.current.setMatrixAt(i, matrix.makeTranslation(x, y - BOTTLE_R - AIR + 0.006, z));
+        matrix.makeTranslation(x, y - BOTTLE_R - AIR + 0.006, z);
+        if (hidden) matrix.scale(GONE);
+        shade.current.setMatrixAt(i, matrix);
       }
     });
     for (const mesh of [...meshes, shade.current]) {
@@ -445,7 +517,7 @@ function ShapeGroup({
       mesh.computeBoundingSphere();
     }
     invalidate();
-  }, [items, invalidate]);
+  }, [items, hiddenId, invalidate]);
   const count = items.length;
   return (
     <group>
@@ -642,10 +714,29 @@ function Readout({
         );
       },
       ids: () => placed.map((b) => b.id),
+      /** The shader programs that exist, by name and by what they were compiled for (for the prewarm tests). */
+      programs: () =>
+        (store.getState().gl.info.programs ?? []).map((p) => `${p.name}|${p.cacheKey}`),
+      /** What a ray from a point of the canvas (CSS px) meets, nearest first: for tests of hit-testing. */
+      probe(x: number, y: number) {
+        const { scene } = store.getState();
+        const ray = new THREE.Raycaster();
+        ray.setFromCamera(
+          new THREE.Vector2((x / size.width) * 2 - 1, -(y / size.height) * 2 + 1),
+          camera,
+        );
+        return ray
+          .intersectObjects(scene.children, true)
+          .slice(0, 6)
+          .map(
+            (h) =>
+              `${h.object.type}${h.instanceId === undefined ? "" : `#${h.instanceId}`}@${h.distance.toFixed(2)}`,
+          );
+      },
     };
     return () => {
       delete w.__cellrStorage3d;
     };
-  }, [camera, size, placed]);
+  }, [camera, size, placed, store]);
   return null;
 }

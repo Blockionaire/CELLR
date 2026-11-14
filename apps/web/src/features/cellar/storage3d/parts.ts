@@ -144,6 +144,29 @@ export function penetration(pose: Pose, part: Part): number {
   return BOTTLE_R + Math.min(hw - Math.abs(cx), hh - Math.abs(cy));
 }
 
+/**
+ * Two bottles in their poses: how far they reach into each other (0 or less: apart). Exact for bottles lying the
+ * same way; for two that lie differently it is the overlap of the boxes around them, which only overstates.
+ */
+export function bottleOverlap(a: Pose, b: Pose): number {
+  if (a.lie === "token" || b.lie === "token") return -Infinity;
+  if (a.lie !== b.lie) {
+    const [p, q] = [poseBounds(a), poseBounds(b)];
+    return Math.min(
+      ...[0, 1, 2].map((i) => Math.min(p.max[i]!, q.max[i]!) - Math.max(p.min[i]!, q.min[i]!)),
+    );
+  }
+  const along = a.lie === "z" ? 2 : 0;
+  const across = a.lie === "z" ? [0, 1] : [1, 2];
+  const axisGap = Math.abs(a.position[along]! - b.position[along]!) - BOTTLE_L;
+  if (axisGap >= 0) return -axisGap;
+  const d = Math.hypot(
+    a.position[across[0]!]! - b.position[across[0]!]!,
+    a.position[across[1]!]! - b.position[across[1]!]!,
+  );
+  return 2 * BOTTLE_R - d;
+}
+
 /** The box around a set of parts (and bottles). */
 export function boundsOf(
   parts: readonly Part[],

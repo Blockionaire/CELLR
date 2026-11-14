@@ -27,7 +27,14 @@ const TEMPLATES: Array<[id: string, renderer: "grid" | "bins" | "wall"]> = [
   ["wall_rails", "wall"],
 ];
 
-const canvasOf = (page: Page) => page.locator('[data-testid="gallery-stage"] canvas');
+// the 3D view's own canvas (a picture of the place, also a canvas, stands behind it while a bottle is out)
+const canvasOf = (page: Page) => page.locator('[data-testid="gallery-stage"] canvas[data-engine]');
+const storageOf = (page: Page) => page.getByTestId("inspectable-storage");
+/** Since sprint 2B.1 a tap takes the bottle out. Puts it back and waits until it is home. */
+async function putBack(page: Page) {
+  await page.keyboard.press("Escape");
+  await expect(storageOf(page)).toHaveAttribute("data-showcase", "idle", { timeout: 30_000 });
+}
 const num = async (page: Page, name: string) =>
   Number(await canvasOf(page).getAttribute(`data-${name}`));
 
@@ -96,15 +103,20 @@ test("a tap chooses the bottle under it, in 3D and flat alike", async ({ page, h
   await show(page, "template=rack_double_depth&rows=3&cols=4&fill=full");
   const picked = page.getByTestId("gallery-picked");
   await expect(picked).toHaveText("No bottle chosen.");
-  // a front bottle
+  // a front bottle: chosen, and (since sprint 2B.1) taken out to be looked at
   const at = await whereIs(page, "b-2:3:1");
   await tap(page, at, hasTouch);
   await expect(picked).toContainText("shelf 2, position 3, at the front");
+  await expect(storageOf(page)).toHaveAttribute("data-showcase-bottle", "b-2:3:1");
   await expect(page.locator('[data-cell="2:3"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('[aria-pressed="true"]')).toHaveCount(1);
+  // put back, it is still the chosen bottle
+  await putBack(page);
+  await expect(picked).toContainText("shelf 2, position 3, at the front");
+  await expect(page.locator('[data-cell="2:3"]')).toHaveAttribute("aria-pressed", "true");
   // a tap beside the place lets go of it
   const box = (await canvasOf(page).boundingBox())!;
-  await tap(page, { x: box.x + 6, y: box.y + 6 }, hasTouch);
+  await tap(page, { x: box.x + 6, y: box.y + box.height - 6 }, hasTouch);
   await expect(picked).toHaveText("No bottle chosen.");
 });
 
@@ -117,6 +129,8 @@ test("a tap on a position with a bottle in front never takes the one behind", as
     const at = await whereIs(page, id);
     await tap(page, at, hasTouch);
     await expect(page.getByTestId("gallery-picked")).toContainText("at the front");
+    await expect(storageOf(page)).toHaveAttribute("data-showcase-bottle", id);
+    await putBack(page);
   }
 });
 
@@ -181,6 +195,11 @@ test("flat: a rear bottle chosen in 3D is marked as the rear one, and its positi
   await expect(grid.locator('[aria-pressed="true"]')).toHaveCount(0);
   await expect(grid.locator("[data-chosen-place]")).toHaveCount(1);
 
+  // with nothing before it, it was drawn out for real (sprint 2B.1); its spot is still the back one
+  await expect(storageOf(page)).toHaveAttribute("data-showcase-mode", "physical");
+  await putBack(page);
+  await expect(button).toHaveAttribute("data-chosen-place", "2");
+
   // pressing that position lets go; it does not, now or on a second press, choose the rear bottle itself
   await button.click();
   await expect(picked).toHaveText("No bottle chosen.");
@@ -214,6 +233,9 @@ test("a glass door does not get in the way of choosing a bottle", async ({ page,
     const at = await whereIs(page, id);
     await tap(page, at, hasTouch);
     await expect(page.getByTestId("gallery-picked")).toContainText(`shelf ${row}, position ${col}`);
+    // through the glass, the bottle is shown, not drawn out
+    await expect(storageOf(page)).toHaveAttribute("data-showcase-reason", "behind_door");
+    await putBack(page);
   }
 });
 
@@ -341,7 +363,9 @@ test("a place from before templates is drawn by the existing 3D view", async ({ 
   await expect(canvas).toBeVisible({ timeout: 30_000 });
   // the new view writes its name on its canvas; the existing one does not, and this is the existing one
   await expect(canvas).not.toHaveAttribute("data-renderer", /.*/);
-  await expect(page.getByText("This is the existing 3D view, unchanged.")).toBeVisible();
+  await expect(page.getByText(/This is the existing 3D view, unchanged/)).toBeVisible();
+  // a tap there chooses, as before: the new showcase is not offered for a place the new view does not draw
+  await expect(page.getByTestId("inspectable-storage")).toHaveCount(0);
   await expect(page.getByRole("grid").getByRole("button")).toHaveCount(24);
 });
 
