@@ -7,7 +7,7 @@ vi.mock("@/server/env", async (original) => ({
   isDesignGalleryEnabled: () => gate.open,
 }));
 
-import Page, { metadata } from "./page";
+import Page, { generateMetadata } from "./page";
 
 /**
  * The template gallery is a workbench, not a product screen: outside development it exists only where
@@ -44,7 +44,13 @@ describe("/design/cellar-3d", () => {
     expect(isDesignGalleryEnabled()).toBe(true);
   });
 
-  it("is not for search engines", () => {
-    expect(metadata.robots).toEqual({ index: false, follow: false });
+  it("is not for search engines, and where it is closed its name is not in the answer either", () => {
+    gate.open = true;
+    expect(generateMetadata()).toEqual({
+      title: "Storage templates",
+      robots: { index: false, follow: false },
+    });
+    gate.open = false;
+    expect(generateMetadata()).toEqual({ robots: { index: false, follow: false } });
   });
 });

@@ -626,7 +626,7 @@ export function buildWall(spec: WallSpec): Built {
   const cx = (col: number) => (col - (cols + 1) / 2) * pitchX;
   const cy = (row: number) => ((rows + 1) / 2 - row) * pitchY;
   // the wall itself, so that what hangs on it reads as hanging
-  parts.push(box("wall", [W + 3, H + 3, 0.05], [0, 0, -0.03], { soft: true }));
+  parts.push(box("wall", [W + 1.6, H + 1.6, 0.05], [0, 0, -0.03], { soft: true }));
   // two supports under the body of every bottle (its weight is in the body, not the neck)
   const under = [-1.1, 0.2];
 

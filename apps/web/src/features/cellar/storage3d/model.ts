@@ -47,7 +47,7 @@ export interface RenderModel {
   look: Look;
   parts: readonly Part[];
   built: Built;
-  /** The box around the furniture. */
+  /** The box around the furniture and every spot a bottle can be on. */
   bounds: { min: Vec3; max: Vec3 };
 }
 
@@ -113,11 +113,20 @@ export function buildModel(resolved: ResolvedStorage): RenderModel {
     look,
     parts: built.parts,
     built,
-    // the camera frames the mount and its bottles; the piece of wall behind a wall mount is only a backdrop
-    bounds: boundsOf(
-      renderer === "wall" ? built.parts.filter((p) => p.role !== "wall") : built.parts,
-    ),
+    // what the camera has to hold: the furniture AND every spot a bottle can be on (on rails and pegs a bottle
+    // reaches well past what carries it)
+    bounds: boundsOf(built.parts, everyPose(resolved, built)),
   };
+}
+
+/** The pose of every spot of the place, full or not. */
+function everyPose(resolved: ResolvedStorage, built: Built): Pose[] {
+  const at = built.poseOf ?? built.pileOf;
+  if (!at) return [];
+  const out: Pose[] = [];
+  for (const cell of resolved.layout.cells)
+    for (let i = 1; i <= cell.capacity; i++) out.push(at(cell.row, cell.col, i));
+  return out;
 }
 
 // ---- Bottles --------------------------------------------------------------------------------------------------------

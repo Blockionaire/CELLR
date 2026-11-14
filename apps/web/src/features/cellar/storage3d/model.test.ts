@@ -23,7 +23,7 @@ import {
   type RenderModel,
 } from "./model";
 import { MATERIAL_ROLES, TONES, lookFor } from "./palette";
-import { BOTTLE_L, BOTTLE_R, penetration, type Pose } from "./parts";
+import { BOTTLE_L, BOTTLE_R, penetration, type Pose, poseBounds } from "./parts";
 
 const FAMILY_OF: Record<string, "grid" | "bins" | "wall"> = {
   rack_classic: "grid",
@@ -628,6 +628,32 @@ describe("the camera", () => {
           expect(f.reach.x).toBeGreaterThan(0);
           expect(f.reach.y).toBeGreaterThan(0);
         }
+    }
+  });
+
+  it("holds every bottle, not only what carries it: on rails and pegs a bottle reaches past its mount", () => {
+    const cases: Array<
+      [StorageTemplateId, { rows?: number; cols?: number; cellCapacity?: number }]
+    > = [
+      ...STORAGE_TEMPLATE_IDS.map((id): [StorageTemplateId, object] => [id, {}]),
+      ["wall_rails", { rows: 6, cols: 3, cellCapacity: 2 }],
+      ["wall_rails", { rows: 1, cols: 8, cellCapacity: 3 }],
+      ["wall_pegs", { rows: 1, cols: 1 }],
+      ["rack_double_depth", { rows: 1, cols: 1, cellCapacity: 3 }],
+    ];
+    for (const [id, c] of cases) {
+      const m = modelOf(id, c);
+      for (const b of full(m).placed) {
+        const box = poseBounds(b.pose);
+        for (let i = 0; i < 3; i++) {
+          expect(box.min[i], `${id} ${JSON.stringify(c)} ${b.id}`).toBeGreaterThanOrEqual(
+            m.bounds.min[i]! - 1e-9,
+          );
+          expect(box.max[i], `${id} ${JSON.stringify(c)} ${b.id}`).toBeLessThanOrEqual(
+            m.bounds.max[i]! + 1e-9,
+          );
+        }
+      }
     }
   });
 

@@ -7,6 +7,7 @@ import { expect, test } from "@playwright/test";
  * in its default look and in another look it offers, on a phone-sized and a desktop-sized stage, plus the neutral
  * picture, the existing view, and the flat pictures.
  *   VISUAL_STORAGE3D=1 SHOTS_DIR=/some/dir pnpm exec playwright test visual-storage3d --project=desktop
+ * ONLY=wall_pegs,wall_rails takes those templates again and nothing else.
  */
 test.skip(!process.env.VISUAL_STORAGE3D, "only when asked for (VISUAL_STORAGE3D=1)");
 test.use({ deviceScaleFactor: 2 });
@@ -35,6 +36,8 @@ const SIZES = [
   { name: "phone", width: 390, height: 844 },
 ] as const;
 
+const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
+
 test("photograph every template", async ({ page }) => {
   test.setTimeout(1_800_000);
   fs.mkdirSync(OUT, { recursive: true });
@@ -54,6 +57,7 @@ test("photograph every template", async ({ page }) => {
   for (const size of SIZES) {
     await page.setViewportSize({ width: size.width, height: size.height });
     for (const [id, alternate] of TEMPLATES) {
+      if (ONLY && !ONLY.includes(id)) continue;
       await shoot(`${size.name}-default-${id}`, `template=${id}&quality=high`);
       // the look the address asked for is the look that was drawn: nothing fell back to the default
       if (size.name === "desktop") {
@@ -64,6 +68,7 @@ test("photograph every template", async ({ page }) => {
         }
       }
     }
+    if (ONLY) continue;
     await shoot(`${size.name}-neutral`, "sample=unknown&unknown=bins-as-depth&quality=high");
     await shoot(`${size.name}-legacy`, "sample=legacy&rows=5&cols=8");
     await shoot(`${size.name}-map-depth`, "template=rack_double_depth&cap=3", "map");

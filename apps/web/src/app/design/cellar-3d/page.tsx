@@ -4,10 +4,11 @@ import { CellarGallery } from "@/features/design/cellar-gallery";
 import { normalize } from "@/features/design/cellar-gallery-state";
 import { isDesignGalleryEnabled } from "@/server/env";
 
-export const metadata: Metadata = {
-  title: "Storage templates",
-  robots: { index: false, follow: false },
-};
+/** Where the gallery is closed, not even its name is in the answer. */
+export function generateMetadata(): Metadata {
+  const robots = { index: false, follow: false };
+  return isDesignGalleryEnabled() ? { title: "Storage templates", robots } : { robots };
+}
 
 /**
  * The template gallery of Smart Cellar 3D (sprint 2A). Development and preview deployments only: in production it
