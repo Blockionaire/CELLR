@@ -85,7 +85,9 @@ Hard ceilings for any place (`STORAGE_LIMITS`): 30 rows, 30 cols, 16 bottles per
      not sure, and are told apart in `fallbacks`: a template the app does not know (`unknown_template`); a known
      template that belongs to another kind than the place is stored as (`template_kind_mismatch`); and more bottles
      per cell than the template describes, or more than one with no template at all (`capacity_not_in_template`:
-     two bottles on a wall peg, three deep in a rack that is one deep). In all three:
+     two bottles on a wall peg, three deep in a rack that is one deep). Since sprint 1B there is a fourth: a
+     template stored next to another meaning of the index than its own (`semantics_mismatch`; the database stores
+     `slot_semantics`, and for a place without a template that column is never read). In all of them:
      - every cell and its capacity is kept exactly as stored (rule 1), so every bottle's `(row, col, index)` is the
        same spot, in the same order;
      - `arrangementKnown` is false, and the kind's own template stands in for the look and the limits only;
@@ -94,7 +96,7 @@ Hard ceilings for any place (`STORAGE_LIMITS`): 30 rows, 30 cols, 16 bottles per
 
      So `arrangementKnown` means something that can be relied on: the layout's family and semantics are the
      template's own, and no cell holds more than the template describes. It is either that, or exactly one of the
-     three reasons. A size in shelves or cells beyond a template's limits does not make a place unknown: it is the
+     reasons above. A size in shelves or cells beyond a template's limits does not make a place unknown: it is the
      same furniture, larger.
 
      A screen must not draw such a place as some template's furniture: it shows the cells and how full they are.

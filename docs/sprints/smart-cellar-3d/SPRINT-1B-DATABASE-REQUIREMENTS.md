@@ -1,8 +1,19 @@
 # Smart Cellar 3D — what the database and the server must enforce (input for sprint 1B)
 
-Written in sprint 1A (2026-11-14). **Nothing here has been built or applied.** Sprint 1A added no migration, no RPC
-and no API field. This document says what sprint 1B has to add so that the domain model of sprint 1A
-(`ADR-001-templates-and-slot-identity.md`) is true in the database as well, and what must not break on the way.
+Written in sprint 1A (2026-11-14) as the baseline for sprint 1B. **Sprint 1B has now built it** (migrations
+`20261120000043` to `20261123000046`): what was built, tested and found is in
+[`SPRINT-1B-REPORT.md`](./SPRINT-1B-REPORT.md). This document stays the reasoning behind the rules.
+
+Three things in it were **corrected while building**, because the first proposal did not hold up against real
+PostgreSQL or against the requirement to expand first:
+
+1. **§3, how a writer that knows no index is handled.** The proposed mechanism (a column trigger leaving a note in a
+   transaction setting) was tested before anything was built and fails silently in ordinary situations. It was not
+   built. The rule now uses only the values of the row and **refuses** the one case it cannot decide.
+2. **§2, the old unique index** is dropped in a migration of its own (0046), after the new one is proven to be there,
+   not in the same migration as the rest.
+3. **§1, more than one bottle per cell is switched off in the database** (`private.cellar_settings`) until the app can
+   show it. This was not in the first version of this document at all.
 
 A principle for all of it: **a feature flag is not a guard.** `CELLR_FEATURES` decides what the app shows. Every
 signed-in person can also talk to PostgREST directly with the publishable key, as themselves, under RLS (that is how
@@ -44,6 +55,15 @@ Names are proposals; the meanings are the decision.
 - **`slot_semantics` is the one thing from the catalogue the database is told**, because it has to protect it: what
   the index of a bottle in this place means (§5). The server writes it from the template, together with the
   template.
+
+### More than one bottle per cell is off until the app can show it
+
+Today's app draws one bottle per `(row, col)`. A second bottle in a cell would simply not be seen. So
+`cell_capacity > 1` is refused by the database (`depth_not_enabled`) for every writer until
+`private.cellar_settings.depth_placement` is true. That table has one row, no grant to any API role (not the service
+role either) and is changed only by the database owner in a later migration, when the API and the screens for depth
+exist. With every place one bottle per cell, the bounds check keeps every bottle at index 1. A feature flag in the
+app is not involved and could not do this: a signed-in person can write through PostgREST directly.
 
 ### The semantics column: no default, and nothing said about a place that has no template
 
@@ -112,9 +132,11 @@ Required:
 
 1. Create the new unique index on `(location_id, loc_row, loc_col, loc_index)` with the same predicate. Every
    existing row has `loc_index = 1`, so it is valid the moment it exists.
-2. Drop the old index **in the same migration, after the new one exists** (a migration is one transaction), or two
-   bottles could never share a cell. This is the one destructive statement of the sprint. `docs/MIGRATIONS.md` rule 2
-   asks for an explicit decision: **owner approval needed.**
+2. Drop the old index **in a migration of its own (0046), after the new one exists and has been checked** (that it is
+   there, unique, valid, on these four columns with this predicate); 0046 stops and leaves the old index when the
+   check fails. While both exist a cell still holds one bottle, so the time between the two migrations is safe.
+   This is the one destructive statement of the sprint. `docs/MIGRATIONS.md` rule 2 asks for an explicit decision:
+   **owner approval needed.**
 3. `bottles_location_complete` stays as it is (place, row and col are all there or all absent). `loc_index` is not
    part of it: it is `not null default 1`, and it is kept honest by the rules of §3, not by a default.
 
@@ -136,62 +158,67 @@ Who writes without an index, now and for as long as the schema lives:
 | The existing `swap_bottles` function      | Its own updates of `location_id, loc_row, loc_col` (§8).                               |
 
 None of them can be reached by a schema in the app or by a feature flag. The rule therefore lives in the database, in
-the trigger every write to `bottles` goes through:
+the trigger every write to `bottles` goes through (`private.check_bottle_location`, migration 0043).
+
+### What was proposed first, and why it was not built
+
+The first version of this section had the trigger find out whether the UPDATE **named** `loc_index`: a column
+trigger (`before update of loc_index`) would leave a note in a transaction setting, and the bounds trigger would read
+it and put a bottle at index 1 when it was moved without the index being named.
+
+It was run against PostgreSQL 16 before anything was built:
+[`experiments/index-named-trigger.sql`](./experiments/index-named-trigger.sql). In the ordinary cases it works
+(single and multi-row updates, several statements in one transaction, a rollback to a savepoint). It goes wrong,
+**each time without any error**, when something outside the two triggers changes:
+
+| What changes                                                                     | What happens, silently                                               |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Another BEFORE trigger, sorted between the two, skips a row                      | the note stays; the next move without an index keeps the old index   |
+| One of the two triggers is renamed so the order flips                            | a move that names index 2 is put at index 1                          |
+| The setting is written by hand (any SQL session can)                             | a move without an index keeps index 2                                |
+| One of the two triggers is disabled (maintenance, a restore, a replication role) | named moves are reset to 1                                           |
+| A writer sends the whole row back (PUT, an upsert, a table editor)               | it "names" an index it only read earlier, and that is taken as meant |
+
+So whether the rule holds would depend on the names of two triggers, on every other trigger on the table, on a
+session setting, and on how each client builds its UPDATE. When one of them is off, a bottle lands on a spot nobody
+asked for and nothing says so. That is the one outcome this section exists to rule out.
+
+### What is built: only the values of the row, and a refusal where they cannot tell
 
 - **R1. A bottle with no place has index 1.** When `location_id` is null or the bottle is not in the cellar, the
-  trigger sets `loc_index := 1` with the fields it already clears. An index never waits on an unplaced bottle for the
-  next place it is put in.
-- **R2. An update that moves a bottle to another cell and does not name the index puts it at index 1.** "Another
-  cell" is `(location_id, loc_row, loc_col)` being distinct from before. This is ADR-001 §2 enforced: a spot written
-  without an index IS index 1 of that cell.
-- **R3. An update that names `loc_index` gets the index it names**, then the bounds check and the unique index.
-- **R4. An update that neither moves the bottle nor names the index changes nothing about its spot** (a price, a
-  note, a photo on a bottle that lies at the back).
+  trigger sets `loc_index := 1` with the fields it already clears. An index never waits on an unplaced bottle.
+- **R2. A bottle that was at index 1 (or had no place) and is moved to another cell gets the index that is
+  written.** Left out, that is still 1: the front of the cell, which is what a writer without an index means, and
+  what ADR-001 §2 says a spot without an index is.
+- **R3. A bottle moved to another cell with a DIFFERENT index than it had gets that index.** It cannot differ by
+  being left out, so it was meant.
+- **R4. A bottle at an index above 1, moved to another cell with the SAME index, is refused:**
+  `slot_index_ambiguous` (`23514`). Either the writer left the index out, or it wants that very index again. The row
+  looks the same both ways, and one of the two readings puts the bottle where nobody asked. Nothing is guessed.
+- **R5. Within one cell, a changed index is taken as written. Nothing changed about the spot: nothing is checked,
+  and the place is not locked.**
 
-After R2 the ordinary guards decide. If index 1 of the target cell is taken, the write fails with the same `23505`
-that has always meant "that spot was just taken", which every version of the app already handles
-(`service.ts`, move and restore). **The bottle is refused. It is never put somewhere the writer did not name.**
+How a writer that DOES know the index moves a back bottle to the back of another cell: take it out of its place
+first (R1 puts it at index 1), then put it where it goes (R2 or R3). `swap_bottles_v2` does exactly that inside one
+transaction; a `move` function for the app's own move will do the same when the API for depth is built.
 
-How the trigger knows whether the index was named (plpgsql cannot see a statement's SET list, a column trigger can):
+What each writer gets:
 
-1. `create trigger bottles_index_named before update of loc_index on public.bottles for each row`: PostgreSQL fires a
-   column trigger exactly when the column is a target in the SET list, also when the value written equals the old
-   one. Its function does one thing: `perform set_config('cellr.index_named', new.id::text, true)` (local to the
-   transaction).
-2. `bottles_location` (the existing trigger and name) runs after it: row triggers of one kind fire in name order, and
-   `bottles_index_named` sorts before `bottles_location`. On an update it reads the setting, **clears it**, and
-   applies R2 when the setting was not this row's id. Clearing matters: a later statement in the same transaction
-   that moves the same bottle without an index must not inherit the earlier one's "named".
+- **Old app, rolled-back app:** every move of a front bottle works exactly as before (index 1). A move of a back
+  bottle is refused; the app shows its general "that can't be done" and nothing changed. Opening, removing and
+  restoring go through R1. Such bottles only exist once depth has been switched on.
+- **Direct PostgREST:** the same rules and the same refusals: there is no request that sets a spot without passing
+  through the trigger. Verified through PostgREST itself (`scripts/real-stack-smoke.mjs`), including one request
+  that moves several bottles at once.
+- **The app from the depth API on:** names `loc_index` in every write that places a bottle, and moves a back bottle
+  through a function.
 
-The setting carries no authority. It records a fact the database itself established about one statement; a caller who
-could set it by hand would only be saying "I mean this index", which they may say anyway by naming the column, and
-bounds, uniqueness and RLS apply either way.
+The price of refusing: an app that knows the index cannot move a back bottle to the same depth elsewhere with one
+plain UPDATE. That is a small cost paid by new code, in exchange for no silent misplacement by any code.
 
-If this mechanism does not hold up under test, the fallback is stricter, not looser: R2 applies to **every** update
-that changes the cell, and only the versioned functions (`swap_bottles_v2`, `save_storage_layout`, a `move_bottle_v2`)
-may place a bottle at an index above 1 in another cell.
-
-What each writer then gets:
-
-- **Old app, rolled-back app:** a move addresses a cell and gets its index 1, or a refusal. Opening, removing and
-  restoring a bottle go through R1. Nothing it does can leave a bottle at an index it has never heard of.
-- **Direct PostgREST:** the same rules, the same refusals. There is no request that sets a spot without passing
-  through the trigger.
-- **The app from sprint 1B on:** names `loc_index` in every write that places a bottle, insert or update, including
-  when it is 1. It never leans on the default or on R2. A request body with `{row, col}` and no index is written as
-  index 1, explicitly.
-
-Tests this needs (`supabase/tests/30_cellar.test.sql`, and the real-stack job for the PostgREST shape):
-
-- a bottle at index 2 moved by `(location, row, col)` alone arrives at index 1; with index 1 there taken it is
-  refused (`23505`) and is still where it was, at index 2;
-- the same move naming `loc_index = 2` arrives at index 2; naming the index it already has, in another cell, keeps it;
-- two statements in one transaction on one bottle: the first names the index, the second does not, and the second
-  gets R2;
-- an update of an unrelated column leaves a back bottle at the back;
-- opened, removed, gifted, unplaced: index 1; restored by an old-style update: index 1 or refused;
-- a multi-row update, and an `insert ... on conflict do update`, row by row;
-- the trigger order itself (dropping and recreating either trigger must not change it: assert on `pg_trigger`).
+Tests: `supabase/tests/99_smart_cellar_structure.test.sql` (every row of the list above, a multi-row update, opened
+and restored bottles), `scripts/real-stack-smoke.mjs` (through PostgREST), `scripts/db-placement-concurrency.sh`
+(the old-style move against a resize).
 
 ## 4. Bounds, resizing and the race between them
 
@@ -204,8 +231,9 @@ Required (new migration, `create or replace` on both functions; the old migratio
 - `check_bottle_location`: read the place with `for share`, so it waits for a resize in flight and then sees the new
   size (a foreign-key check only takes `for key share`, which a plain `update` of the place does not conflict with:
   that is why the race exists). Check `loc_index <= cell_capacity` as well; raise the existing
-  `slot_out_of_bounds` (`23514`), which `server/db/errors.ts` already maps. The same function carries R1 and R2 of
-  §3, applied BEFORE the bounds check, so what is checked is the spot the bottle will really have.
+  `slot_out_of_bounds` (`23514`), which `server/db/errors.ts` already maps. The same function carries the rules of §3,
+  applied BEFORE the bounds check, so what is checked is the spot the bottle will really have. An update that
+  changes nothing about a bottle's spot is not checked again and does not lock the place.
 - `check_location_resize`: fire on `update of grid_rows, grid_cols, cell_capacity`; refuse when any in-cellar bottle
   has `loc_row > grid_rows or loc_col > grid_cols or loc_index > cell_capacity`; raise the existing
   `location_in_use`.
@@ -259,11 +287,12 @@ the stored `slot_semantics` no longer matches the template's, and reading takes 
 (`resolveStorage(...).layout.semantics`, `occupancyOf`) and answer 409 saying how many bottles are in the way and
 what the choices are.
 
-### An explicit migration of positions (later; sprint 1B only has to reject)
+### An explicit migration of positions (later; sprint 1B only rejects, and built none of this)
 
 When a person really has replaced a rack by bins, the bottles are still theirs and still in that place. The
-migration is a choice they make, never something a save does on its own. It belongs in `save_storage_layout` (§7) as
-one more argument, `p_positions`:
+migration is a choice they make, never something a save does on its own. `save_storage_layout` as built has NO such
+argument and answers `semantics_change`. When a screen needs it, a new function (or version) takes one more
+argument, `p_positions`:
 
 | Mode             | What happens to the bottles of the place                                                                                                       | When it can be offered                              |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
@@ -322,24 +351,27 @@ Whether a template has zones at all, and how many, is a server check (the catalo
 A place's structure and its zones must change together or not at all, and PostgREST has no multi-statement
 transaction. Required: one RPC, in the style of `swap_bottles`:
 
-`public.save_storage_layout(p_household uuid, p_location uuid, p_template text, p_slot_semantics text, p_rows
-smallint, p_cols smallint, p_cell_capacity smallint, p_appearance jsonb, p_zones jsonb, p_positions text default
-'keep') returns text`
+`public.save_storage_layout(p_household uuid, p_location uuid, p_kind location_kind, p_template text,
+p_slot_semantics text, p_rows smallint, p_cols smallint, p_cell_capacity smallint, p_appearance jsonb, p_zones jsonb)
+returns text` (as built, migration 0045)
 
 - **`security invoker`**, `set search_path = ''`: every read and write goes through the caller's own RLS, and
   `p_household` narrows, it grants nothing (as in `20261104000027_swap_bottles.sql`);
-- locks the place `for update` first (placements wait on it through §4's `for share`);
-- updates the place (the resize trigger refuses a shrink past a bottle), replaces the zones, and lets the deferred
-  constraint check the split at commit;
-- sets `slot_semantics` together with `template` (the server passes both; the function does not look anything up);
-- takes `p_positions` (§5). Sprint 1B implements `keep` only, which is: change nothing about the bottles, and fail
-  when the change of meaning is not allowed. The other modes are specified in §5 and can come when a screen needs
-  them;
-- returns `saved` / `not_found` / `in_use` / `semantics_change`; `execute` revoked from `public` and `anon`, granted
-  to `authenticated`.
+- locks the place `for no key update` first (placements wait on it through §4's `for share`; so do zone writers, §6);
+- sets `kind`, `template` and `slot_semantics` together (the server passes all three from the catalogue; the
+  function looks nothing up), the size and the look; replaces the zones when `p_zones` is an array (`[]` removes
+  them, NULL leaves them);
+- asks for the deferred zone check before it returns, so a layout that does not hold is undone inside the call;
+- returns `saved` / `not_found` / `in_use` / `semantics_change` / `invalid_zones` / `depth_not_enabled`; in every case
+  but `saved` nothing at all changed. `execute` revoked from `public` and `anon`, granted to `authenticated`.
 
-Creating a place with zones needs the same atomicity (insert the place, insert its zones): either the same function
-with a null `p_location`, or a second one.
+One writer of a place's zones at a time: a row trigger on the zones table takes the same row lock on the place before
+any zone is written, also for a direct write. Without it two transactions could each commit a set of zones that is
+sound alone and broken together (`scripts/db-placement-concurrency.sh`, steps 5 and 6).
+
+Creating a place WITH zones in one go is not built: the place is inserted first (a plain insert, as today) and its
+zones are saved with this function. If the second step fails the place exists without zones, which is a valid
+state. A create-with-zones function can come with the builder if that turns out not to be enough.
 
 ## 8. Swapping bottles
 
@@ -357,17 +389,18 @@ arguments, same return values) with one change in meaning and one in mechanics:
   the same for b. A bottle at index 2 is, in the only terms this caller has, not at the spot it named. The function
   returns `stale` and changes nothing.
 - So it swaps only two bottles that are both at index 1, and after the swap both are at index 1 of the other's cell.
-  Its updates name `loc_index = 1`, so the result does not depend on R2 of §3.
+  Its updates name `loc_index = 1`.
 
-`stale` is a value every caller already handles ("One of these bottles was just moved by someone else. Nothing was
+(As built, 0045.) `stale` is a value every caller already handles ("One of these bottles was just moved by someone else. Nothing was
 changed.", `service.ts`). The wording is not exact for this case, but it is safe, it is true that nothing changed,
 and the caller's next read shows the cellar as it is. A new return value would reach old servers as `not_found`
 (`repository.ts` maps anything it does not know to that), which is worse. **Owner decision** if a distinct value is
 preferred all the same.
 
-Left unreplaced, the old body would compare `(location, row, col)` only and then move those three fields: with R2 it
-would put a back bottle on the front of another cell on the word of a caller who never saw it. That is the behaviour
-this section rules out, so replacing the body is part of the same migration as the index, not a later nicety.
+Left unreplaced, the old body would compare `(location, row, col)` only and then move those three fields: it could
+put a back bottle on the front of another cell on the word of a caller who never saw it (or be stopped half-way by
+§3 R4, depending on where the two bottles are). That is the behaviour this section rules out, so replacing the body
+is part of the same set of migrations as the index, not a later nicety.
 
 ### `swap_bottles_v2`: the whole spot, checked
 
@@ -382,8 +415,9 @@ smallint, p_b uuid, p_b_location uuid, p_b_row smallint, p_b_col smallint, p_b_i
   changed;
 - the same bottle twice: `invalid`. Two bottles of ONE cell in a place whose `slot_semantics` is `ordinal`: `invalid`
   too (trading two counters of one bin moves nothing and means nothing);
-- then: a to no place, b to a's spot, a to b's old spot, each update naming `loc_index`. The bounds trigger checks
-  both; the unique index holds after every statement;
+- then: BOTH to no place (which puts both at index 1, §3 R1), b to a's old spot, a to b's old spot, each naming
+  `loc_index`. Taking both out first is what keeps every step unambiguous under §3 R4, also when two back bottles
+  of different cells trade places. The bounds trigger checks both; the unique index holds after every statement;
 - undo is the same call with the two new spots as the expected ones.
 
 A new name, not an overload: PostgREST resolves overloads by argument names, and one function a name apart is not
@@ -453,9 +487,9 @@ The migration is forward-only (`docs/MIGRATIONS.md`): roll back the app, not the
 and the previous app running:
 
 - every existing place and bottle reads and writes exactly as before (no template, capacity 1, index 1);
-- **the old app's moves stay safe by the database's own rules, not by its code** (§3): a move it makes addresses a
-  cell and gets index 1 or a refusal; a bottle it opens, removes or restores is at index 1; it can never carry an
-  index above 1 into another cell;
+- **the old app's moves stay safe by the database's own rules, not by its code** (§3): a move of a front bottle
+  addresses a cell and gets index 1, as always; a move of a back bottle is refused and changes nothing; a bottle it
+  opens, removes or restores is at index 1; it can never carry an index above 1 into another cell;
 - **the old `swap_bottles` refuses what it cannot verify** (§8): a bottle at an index above 1 gives `stale` and
   nothing changes. For bottles at index 1 it works as it always has;
 - the old app cannot change what an index means: it writes `kind`, never `template` or `slot_semantics` (so the

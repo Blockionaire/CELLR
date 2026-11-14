@@ -72,6 +72,27 @@ exception when others then
   return sqlstate || ':' || sqlerrm;
 end $$;
 
+-- The one value `q` gives, as text, read at this moment: also right after a write earlier in the same expression
+-- (a plain sub-select there would still look at the data as it was when the statement began).
+create function test.val(q text) returns text language plpgsql as $$
+declare t text;
+begin
+  execute q into t;
+  return t;
+end $$;
+
+-- Like error_of, for rules that are only checked at COMMIT (deferred constraints): `q` runs, the deferred checks are
+-- asked for now, and when one fails everything `q` did is undone. '' when all is well (and `q` stays done).
+create function test.commit_error_of(q text) returns text language plpgsql as $$
+begin
+  execute q;
+  set constraints all immediate;
+  set constraints all deferred;
+  return '';
+exception when others then
+  return sqlstate || ':' || sqlerrm;
+end $$;
+
 create function test.count_of(q text) returns bigint language plpgsql as $$
 declare n bigint;
 begin
