@@ -10,7 +10,11 @@ import {
   occupancyOf,
   slotKey,
 } from "./storage-layout";
-import { DEFAULT_TEMPLATE_FOR_KIND } from "./storage-templates";
+import {
+  DEFAULT_TEMPLATE_FOR_KIND,
+  STORAGE_TEMPLATE_IDS,
+  STORAGE_TEMPLATES,
+} from "./storage-templates";
 
 /** A seeded random (mulberry32): the same cases on every run. */
 function seeded(seed: number) {
@@ -121,6 +125,7 @@ describe("a place from before templates, read in the new terms", () => {
         for (let cols = 1; cols <= 30; cols++) {
           const r = resolveStorage({ kind, rows, cols });
           expect(r.legacy).toBe(true);
+          expect(r.arrangementKnown).toBe(true);
           expect(r.fallbacks).toEqual([]);
           expect(r.template.id).toBe(DEFAULT_TEMPLATE_FOR_KIND[kind]);
           expect(r.template.kind).toBe(kind);
@@ -239,6 +244,9 @@ describe("a place with a template, read back", () => {
     });
     expect(r.fallbacks).toEqual(["unknown_template"]);
     expect(r.legacy).toBe(false);
+    expect(r.arrangementKnown).toBe(false);
+    // two bottles per cell in furniture this app does not know: the index is a counter, not a depth
+    expect(r.layout.semantics).toBe("ordinal");
     expect(r.template.id).toBe("cooler_single");
     expect(r.layout.capacity).toBe(80);
     expect(occupancyOf(r.layout, taken).stranded).toEqual([]);
@@ -359,6 +367,177 @@ describe("a place with a template, read back", () => {
       );
       expect(r.layout.capacity).toBeGreaterThanOrEqual(1);
       expect(r.appearance.v).toBe(1);
+      // furniture the app is not sure of never gets a depth
+      if (!r.arrangementKnown && r.structure.cellCapacity > 1)
+        expect(r.layout.semantics).toBe("ordinal");
+      expect(
+        r.fallbacks.includes("unknown_template") && r.fallbacks.includes("template_kind_mismatch"),
+      ).toBe(false);
+    }
+  });
+});
+
+describe("a template that does not belong to the place's kind", () => {
+  /** Every (kind, template) pair where the template is of another kind: 14 templates x the 5 other kinds. */
+  const mismatches = STORAGE_KINDS.flatMap((kind) =>
+    STORAGE_TEMPLATE_IDS.filter((id) => STORAGE_TEMPLATES[id].kind !== kind).map(
+      (template) => ({ kind, template }) as const,
+    ),
+  );
+
+  it("is every such pair, and each is reported as a mismatch, not as an unknown template", () => {
+    expect(mismatches).toHaveLength(14 * 5);
+    for (const { kind, template } of mismatches)
+      for (const cellCapacity of [1, 2, 9]) {
+        const r = resolveStorage({ kind, rows: 4, cols: 3, template, cellCapacity });
+        expect(r.fallbacks).toEqual(["template_kind_mismatch"]);
+        expect(r.arrangementKnown).toBe(false);
+        expect(r.legacy).toBe(false);
+        // the kind's own template stands in; the stored one is not used for anything
+        expect(r.template.id).toBe(DEFAULT_TEMPLATE_FOR_KIND[kind]);
+        expect(r.structure.template).toBe(DEFAULT_TEMPLATE_FOR_KIND[kind]);
+        expect(r.template.kind).toBe(kind);
+      }
+  });
+
+  it("keeps every stored spot: the same cells, the same capacity, the same identities in the same order", () => {
+    for (const { kind, template } of mismatches)
+      for (const cellCapacity of [1, 2, 9]) {
+        const stored = { kind, rows: 4, cols: 3, cellCapacity };
+        const r = resolveStorage({ ...stored, template });
+        expect(r.layout.capacity).toBe(4 * 3 * cellCapacity);
+        expect(r.layout.cells).toHaveLength(12);
+        // exactly the spots the same place has without a template, and with its kind's own
+        expect(enumerateSlots(r.layout)).toEqual(enumerateSlots(resolveStorage(stored).layout));
+        // a bottle anywhere in it, the deepest spot of the last cell included, is still on a valid spot
+        const taken = [
+          { row: 1, col: 1 },
+          { row: 4, col: 3, index: cellCapacity },
+          { row: 2, col: 2, index: Math.ceil(cellCapacity / 2) },
+        ];
+        expect(occupancyOf(r.layout, taken).stranded).toEqual([]);
+        expect(occupancyOf(r.layout, taken).used).toBe(new Set(taken.map(slotKey)).size);
+      }
+  });
+
+  it("never reads the index as a position in some other furniture", () => {
+    for (const { kind, template } of mismatches) {
+      const deep = resolveStorage({ kind, rows: 4, cols: 3, template, cellCapacity: 3 });
+      // neither the stored template's meaning nor the stand-in's: a counter, which claims nothing
+      expect(deep.layout.semantics).toBe("ordinal");
+      // one bottle per cell has no index to give a meaning to
+      const flat = resolveStorage({ kind, rows: 4, cols: 3, template, cellCapacity: 1 });
+      expect(flat.layout.cells.every((c) => c.capacity === 1)).toBe(true);
+    }
+    // the case that matters most: a rack stored with a bin's template must not turn a bin's counters into depths,
+    // and a place of bins stored with a rack's template must not keep claiming depths
+    const rackWithBins = resolveStorage({
+      kind: "fridge",
+      rows: 2,
+      cols: 2,
+      template: "diamond_bins",
+      cellCapacity: 8,
+    });
+    expect(rackWithBins.template.semantics).toBe("depth");
+    expect(rackWithBins.layout.semantics).toBe("ordinal");
+    const binsWithRack = resolveStorage({
+      kind: "other",
+      rows: 5,
+      cols: 8,
+      template: "rack_double_depth",
+      cellCapacity: 2,
+    });
+    expect(binsWithRack.layout.semantics).toBe("ordinal");
+  });
+
+  it("is not triggered by a template of the place's own kind, whatever its cells hold", () => {
+    for (const id of STORAGE_TEMPLATE_IDS) {
+      const t = STORAGE_TEMPLATES[id];
+      for (const cellCapacity of [1, t.cellCapacity.max]) {
+        const r = resolveStorage({
+          kind: t.kind,
+          rows: t.rows.min,
+          cols: t.cols.min,
+          template: id,
+          cellCapacity,
+        });
+        expect(r.fallbacks).toEqual([]);
+        expect(r.arrangementKnown).toBe(true);
+        expect(r.template).toBe(t);
+        // here the index means what the template says it means
+        expect(r.layout.semantics).toBe(t.semantics);
+        expect(r.layout.family).toBe(t.family);
+      }
+    }
+    // two deep in a rack is a depth; several in a bin is a counter
+    expect(
+      resolveStorage({
+        kind: "rack",
+        rows: 5,
+        cols: 8,
+        template: "rack_double_depth",
+        cellCapacity: 2,
+      }).layout.semantics,
+    ).toBe("depth");
+    expect(
+      resolveStorage({ kind: "rack", rows: 2, cols: 3, template: "diamond_bins", cellCapacity: 8 })
+        .layout.semantics,
+    ).toBe("ordinal");
+  });
+
+  it("an unknown template is told apart from a mismatched one, and is treated as carefully", () => {
+    for (const kind of STORAGE_KINDS)
+      for (const template of [
+        "hex_rack_2031",
+        "",
+        "RACK_CLASSIC",
+        "__proto__",
+        7,
+        {},
+      ] as unknown[]) {
+        for (const cellCapacity of [1, 4]) {
+          const stored = { kind, rows: 3, cols: 5, cellCapacity };
+          const r = resolveStorage({ ...stored, template: template as string });
+          expect(r.fallbacks).toEqual(["unknown_template"]);
+          expect(r.arrangementKnown).toBe(false);
+          expect(r.template.id).toBe(DEFAULT_TEMPLATE_FOR_KIND[kind]);
+          expect(enumerateSlots(r.layout)).toEqual(enumerateSlots(resolveStorage(stored).layout));
+          if (cellCapacity > 1) expect(r.layout.semantics).toBe("ordinal");
+        }
+      }
+  });
+
+  it("a kind this app does not know, with a template it does: the template is what there is to go on", () => {
+    const r = resolveStorage({
+      kind: "cave" as never,
+      rows: 2,
+      cols: 3,
+      template: "diamond_bins",
+      cellCapacity: 8,
+    });
+    expect(r.fallbacks).toEqual(["unknown_kind"]);
+    expect(r.arrangementKnown).toBe(true);
+    expect(r.template.id).toBe("diamond_bins");
+    expect(r.layout).toMatchObject({ family: "bins", semantics: "ordinal", capacity: 48 });
+    // with neither known, nothing is claimed
+    const neither = resolveStorage({
+      kind: "cave" as never,
+      rows: 2,
+      cols: 3,
+      template: "stalactite",
+      cellCapacity: 2,
+    });
+    expect(neither.fallbacks).toEqual(["unknown_kind", "unknown_template"]);
+    expect(neither.arrangementKnown).toBe(false);
+    expect(neither.layout).toMatchObject({ semantics: "ordinal", capacity: 12 });
+  });
+
+  it("leaves a place from before templates exactly as it was", () => {
+    for (const kind of STORAGE_KINDS) {
+      const r = resolveStorage({ kind, rows: 5, cols: 4 });
+      expect(r).toMatchObject({ legacy: true, arrangementKnown: true, fallbacks: [] });
+      expect(r.layout.semantics).toBe(STORAGE_TEMPLATES[DEFAULT_TEMPLATE_FOR_KIND[kind]].semantics);
+      expect(legacy(enumerateSlots(r.layout))).toEqual(nextFreeSlots({ rows: 5, cols: 4 }, [], 20));
     }
   });
 });

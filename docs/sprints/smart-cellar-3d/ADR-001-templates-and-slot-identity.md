@@ -78,9 +78,22 @@ Hard ceilings for any place (`STORAGE_LIMITS`): 30 rows, 30 cols, 16 bottles per
 - **Read** (`resolveStorage`, `readAppearance`): never throws.
   1. What decides which spots exist is what the database enforces (grid size, and later the stored cell capacity).
      It is never narrowed to a template's limits, so a bottle's spot is never read away.
-  2. Everything else is a hint. An unknown template falls back to the kind's own; zones that do not add up are left
-     out whole; a look of another version becomes the template's default whole; a look of this version with one
-     choice the template lacks has that choice replaced. What was replaced is listed in `fallbacks`.
+  2. Everything else is a hint. Zones that do not add up are left out whole; a look of another version becomes the
+     template's default whole; a look of this version with one choice the template lacks has that choice replaced.
+     What was replaced is listed in `fallbacks`.
+  3. A place is only read as a particular piece of furniture when the app is sure which one it is. Two cases are
+     not sure, and are told apart in `fallbacks`: a template the app does not know (`unknown_template`), and a known
+     template that belongs to another kind than the place is stored as (`template_kind_mismatch`). In both:
+     - every cell and its capacity is kept exactly as stored (rule 1), so every bottle's `(row, col, index)` is the
+       same spot, in the same order;
+     - `arrangementKnown` is false, and the kind's own template stands in for the look and the limits only;
+     - with more than one bottle per cell the layout's semantics is `ordinal`: the index is a bare counter. Neither
+       the stored template's meaning nor the stand-in's is claimed. (The same holds for a one-bottle template that
+       is stored with more.)
+
+     A screen must not draw such a place as some template's furniture: it shows the cells and how full they are.
+     A place from before templates is none of this: no template is stored, `legacy` is true, `arrangementKnown` is
+     true, and it is exactly the grid it always was.
 
 ### 6. Temperature is a setting
 

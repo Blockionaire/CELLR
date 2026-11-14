@@ -50,4 +50,6 @@ is already tested against what exists.
 3. A temperature on a zone is a setting. No measured value is stored with a zone.
 4. Reading never throws and never reads a bottle's spot away; writing refuses what it does not know.
 5. While a place has no template it is drawn exactly as today (`legacy-parity.test.ts` is the gate).
+   A place whose template is unknown, or belongs to another kind, is not drawn as any template's furniture
+   (`arrangementKnown` is false): cells and counts only.
 6. A feature flag hides a screen. It does not protect data: constraints, triggers and RLS do.
