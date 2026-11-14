@@ -96,6 +96,11 @@ export function ScanScreen({
   // An optional back label, tied to the front photo it was taken with: it can never go on to another wine.
   const [back, setBack] = useState<{ imageId: string; photo: PreparedPhoto } | null>(null);
   const backFor = (imageId: string) => (back?.imageId === imageId ? back.photo : null);
+  // The back label last chosen for a front photo, as a promise: it is made ready in the background (opened, resized),
+  // which takes a phone a moment. This, not `back` (which is for showing it), is what "Add" goes by: tapped while the
+  // photo is still being made ready, or just before it is, the bottles go in at once and the label follows, instead
+  // of being left out without a word.
+  const backChoice = useRef<{ imageId: string; ready: Promise<PreparedPhoto | null> } | null>(null);
   // Back labels of a series that could not be saved, each tied to its own wine, until retried or dismissed.
   const [backRetries, setBackRetries] = useState<BackRetry[]>([]);
   const heading = useRef<HTMLDivElement>(null);
@@ -347,9 +352,18 @@ export function ScanScreen({
               <BackLabelPicker
                 frontImageId={stage.result.image.id}
                 value={backFor(stage.result.image.id)}
-                onChange={(photo) =>
-                  setBack(photo ? { imageId: stage.result.image.id, photo } : null)
-                }
+                onChange={(photo) => {
+                  const imageId = stage.result.image.id;
+                  const current = backChoice.current?.imageId === imageId;
+                  // Ready: shown, unless its bottles were added meanwhile (then it has gone with them) or another
+                  // label is on screen by now. Removed: nothing follows the bottles any more.
+                  if (photo && !current) return;
+                  if (!photo && current) backChoice.current = null;
+                  setBack(photo ? { imageId, photo } : null);
+                }}
+                onPreparing={(ready) => {
+                  backChoice.current = { imageId: stage.result.image.id, ready };
+                }}
               />
             }
             footer={
@@ -391,31 +405,48 @@ export function ScanScreen({
             onDone={(result, placeId) => {
               // The bottles are in. The back label (if any) follows on its own: whatever happens to it, the
               // bottles stay added, and the photo is only uploaded now, so leaving earlier left nothing behind.
-              const photo = backFor(stage.result.image.id);
+              const shown = backFor(stage.result.image.id);
+              const choice =
+                backChoice.current?.imageId === stage.result.image.id
+                  ? backChoice.current.ready
+                  : null;
+              backChoice.current = null;
               setBack(null);
-              const sent = photo ? attachBackLabel(result.vintageId, photo) : null;
+              // The photo to put on: the one chosen last, when it is ready (if it cannot be read, the one that was
+              // shown before it).
+              const coming = choice?.then((photo) => photo ?? shown) ?? null;
               setSpot(null);
               if (!stage.itemId) {
                 setStage({
                   name: "done",
                   result,
-                  back: photo ? { photo, outcome: "saving" } : undefined,
+                  back: coming && shown ? { photo: shown, outcome: "saving" } : undefined,
                 });
-                void sent?.then((outcome) =>
+                void coming?.then(async (photo) => {
+                  if (!photo) return;
+                  if (photo !== shown)
+                    setStage((s) =>
+                      s.name === "done" && s.result === result
+                        ? { ...s, back: { photo, outcome: "saving" } }
+                        : s,
+                    );
+                  const outcome = await attachBackLabel(result.vintageId, photo);
                   setStage((s) =>
                     s.name === "done" && s.result === result && s.back
                       ? { ...s, back: { ...s.back, outcome } }
                       : s,
-                  ),
-                );
+                  );
+                });
                 return;
               }
               // In a series nothing waits: an existing back label is kept; a failure stays listed with its
               // wine and "Try again" until it is saved or dismissed.
-              void sent?.then(({ outcome, imageId }) => {
+              void coming?.then(async (photo) => {
+                if (!photo) return;
+                const { outcome, imageId } = await attachBackLabel(result.vintageId, photo);
                 const wine = `${result.wine.producer} ${result.wine.name} ${formatVintage(result.year)}`;
                 if (outcome === "exists") toast.show(te("photo.backKeptFor", { wine }));
-                if (outcome === "failed" && photo)
+                if (outcome === "failed")
                   setBackRetries((list) => [
                     ...list,
                     {

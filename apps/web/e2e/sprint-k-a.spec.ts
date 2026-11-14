@@ -170,11 +170,19 @@ async function scanToDetails(page: Page, call: Call, n: number) {
   await expect(page.getByRole("heading", { level: 1, name: "How many, and where?" })).toBeVisible();
   await expect(page.getByTestId("scan-labels")).toBeVisible();
 }
-const backPhoto = async (page: Page) =>
+/**
+ * Chooses a back photo. `large` is a photo the size a phone takes (12 megapixels): making it ready takes the
+ * browser a moment, long enough for "Add" to be tapped meanwhile.
+ */
+const backPhoto = async (page: Page, { large = false }: { large?: boolean } = {}) =>
   chooseFile(page.getByTestId("scan-labels").locator('input[type="file"]'), {
     name: "back.jpg",
     mimeType: "image/jpeg",
-    buffer: await makeJpeg(page, { width: 600, height: 800, words: "Back" }),
+    buffer: await makeJpeg(page, {
+      width: large ? 3000 : 600,
+      height: large ? 4000 : 800,
+      words: "Back",
+    }),
   });
 const images = (householdId: string) =>
   sql<{ front: string | null; back: string | null }>(
@@ -219,6 +227,25 @@ test.describe("a back label while scanning", () => {
         householdId,
       ]),
     ).toHaveLength(1);
+    const [row] = await images(householdId);
+    expect(row!.front).toBeTruthy();
+    expect(row!.back).toBeTruthy();
+    expect(row!.back).not.toBe(row!.front);
+  });
+
+  // A phone needs a moment to make a photo ready. Tapping "Add" in that moment used to add the bottles without the
+  // back label, and say nothing: the label must follow the bottles.
+  test("a back label chosen a moment before 'Add' still goes on the bottles", async ({
+    page,
+    request,
+  }) => {
+    const { email, householdId } = await arrive(page, "kquick");
+    const { call } = await apiClient(request, email);
+    await scanToDetails(page, call, 9);
+    await backPhoto(page, { large: true });
+    // no waiting for the preview: straight on
+    await page.getByRole("button", { name: "Add 1 bottle" }).click();
+    await expect(page.getByTestId("back-label-result")).toHaveAttribute("data-state", "saved");
     const [row] = await images(householdId);
     expect(row!.front).toBeTruthy();
     expect(row!.back).toBeTruthy();
@@ -428,7 +455,9 @@ test.describe("a back label in a series", () => {
       return route.continue();
     });
     await tray.getByRole("button", { name: "Add", exact: true }).first().click();
-    await backPhoto(page);
+    // A photo as large as a phone's, and "Add" straight after it: the label is still being made ready, and must
+    // follow the bottles all the same (it used to be left out without a word).
+    await backPhoto(page, { large: true });
     await page.getByRole("button", { name: /^Add 1 bottle/ }).click();
     const retries = page.getByTestId("back-retries");
     await expect(retries.getByTestId("back-retry")).toHaveCount(1);

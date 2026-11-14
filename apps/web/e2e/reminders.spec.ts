@@ -1,5 +1,5 @@
 import { createECDH, randomBytes, randomUUID } from "node:crypto";
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { apiClient, arrive, sql, STACK, wineBody } from "./helpers";
 
 // The same secret the test server is started with (playwright.config.ts).
@@ -175,7 +175,17 @@ test.describe("reminders when a wine is at its best", () => {
     await other.close();
   });
 
+  // What the browser says about notifications decides what the profile shows, and browsers differ: the full Chrome
+  // starts at "not asked yet", the headless shell that CI runs starts at "blocked". Each test below says which
+  // state it is about, so it does not depend on the browser it happens to run in.
+  const browserSays = (page: Page, permission: "default" | "denied") =>
+    page.addInitScript((state) => {
+      if ("Notification" in window)
+        Object.defineProperty(window.Notification, "permission", { get: () => state });
+    }, permission);
+
   test("the profile offers to switch them on", async ({ page }) => {
+    await browserSays(page, "default");
     await arrive(page, "remindui");
     await page.goto("/profile");
     const section = page.getByTestId("reminders");
@@ -183,5 +193,23 @@ test.describe("reminders when a wine is at its best", () => {
     await expect(section.getByRole("button", { name: "Turn on for this phone" })).toBeVisible({
       timeout: 10_000,
     });
+    await expect(section.getByText(/Notifications are blocked/)).toHaveCount(0);
+  });
+
+  test("with notifications blocked in the browser, the profile says so and offers no switch", async ({
+    page,
+  }) => {
+    await browserSays(page, "denied");
+    await arrive(page, "remindno");
+    await page.goto("/profile");
+    const section = page.getByTestId("reminders");
+    await expect(section.getByRole("heading", { name: "Reminders" })).toBeVisible();
+    await expect(
+      section.getByText(
+        "Notifications are blocked for CELLR. Allow them in your phone’s settings, then come back here.",
+      ),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(section.getByRole("button", { name: "Turn on for this phone" })).toHaveCount(0);
+    await expect(section.getByRole("button", { name: "Turn off" })).toHaveCount(0);
   });
 });
