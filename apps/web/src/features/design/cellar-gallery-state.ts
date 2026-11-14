@@ -90,7 +90,12 @@ export interface GalleryState {
   quality: "auto" | Quality;
   unknown: UnknownCase;
   legacyKind: LegacyKind;
+  /** A bottle to take out and look at as soon as the picture is up ("b-2:3:1"), or "" for none. */
+  inspect: string;
 }
+
+/** The id the gallery gives the bottle on a spot (fixtures.ts): nothing else is taken from the address. */
+const BOTTLE_ID = /^b-\d{1,2}:\d{1,2}:\d{1,2}$/;
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, Math.round(n)));
 const oneOf = <T extends string>(value: unknown, options: readonly T[], fallback: T): T =>
@@ -144,6 +149,10 @@ export function normalize(input: Partial<Record<keyof GalleryState, unknown>>): 
     quality: oneOf(input.quality, ["auto", "high", "balanced", "low"] as const, "auto"),
     unknown: oneOf(input.unknown, Object.keys(UNKNOWN_CASES) as UnknownCase[], "unknown-template"),
     legacyKind: oneOf(input.legacyKind, LEGACY_KINDS, "rack"),
+    inspect:
+      !legacy && typeof input.inspect === "string" && BOTTLE_ID.test(input.inspect)
+        ? input.inspect
+        : "",
   };
 }
 

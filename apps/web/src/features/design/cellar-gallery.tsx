@@ -1,7 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useId, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import {
   STORAGE_PALETTES,
   STORAGE_TEMPLATES,
@@ -9,8 +18,13 @@ import {
   type StorageTemplateId,
 } from "@cellr/domain";
 import { fixtureBottles, type FixtureBottle } from "@/features/cellar/storage3d/fixtures";
+import type {
+  InspectableStorageHandle,
+  InspectionDetails,
+} from "@/features/cellar/storage3d/inspectable-storage";
 import { LayoutMap } from "@/features/cellar/storage3d/layout-map";
-import { buildModel } from "@/features/cellar/storage3d/model";
+import { buildModel, type PlacedBottle } from "@/features/cellar/storage3d/model";
+import type { ShowcaseState } from "@/features/cellar/storage3d/showcase-machine";
 import { Button } from "@/ui/button";
 import {
   LEGACY_KINDS,
@@ -27,10 +41,10 @@ import {
  * picture of the same place side by side, with made-up bottles. Not a product screen: English only, no account,
  * no database. A place from before templates is shown by the EXISTING 3D view, untouched, for comparison.
  */
-const TemplateScene = dynamic(() => import("@/features/cellar/storage3d/template-scene"), {
-  ssr: false,
-  loading: () => <StageNote>Loading the 3D view…</StageNote>,
-});
+const InspectableStorage = dynamic(
+  () => import("@/features/cellar/storage3d/inspectable-storage"),
+  { ssr: false, loading: () => <StageNote>Loading the 3D view…</StageNote> },
+);
 const LegacyScene = dynamic(() => import("@/features/cellar/three/scene"), {
   ssr: false,
   loading: () => <StageNote>Loading the 3D view…</StageNote>,
@@ -90,12 +104,20 @@ export function CellarGallery({ initial }: { initial: GalleryState }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [lost, setLost] = useState(false);
   const [mount, setMount] = useState(0);
+  // where the inspection stands, for the words beside the picture (the view itself holds the state)
+  const [showcase, setShowcase] = useState<{ phase: string; bottleId: string | null }>({
+    phase: "idle",
+    bottleId: null,
+  });
+  const [panelSlot, setPanelSlot] = useState<HTMLElement | null>(null);
+  const storage = useRef<InspectableStorageHandle | null>(null);
   const reduced = useMedia("(prefers-reduced-motion: reduce)");
   const supported = useSyncExternalStore(none, hasWebGL, () => true);
 
   const set = (patch: Partial<GalleryState>) => {
     setSelected(null);
-    setState((s) => normalize({ ...s, ...patch }));
+    // a bottle named in the address is taken out once, when the page opens: not again after a change
+    setState((s) => normalize({ ...s, ...patch, inspect: "" }));
   };
   // the address follows what is shown, so a picture can be linked to
   useEffect(() => {
@@ -110,13 +132,37 @@ export function CellarGallery({ initial }: { initial: GalleryState }) {
   );
   const mapBottles = useMemo(() => bottles.map((b) => ({ ...b, name: wineName(b) })), [bottles]);
   const picked = selected === null ? null : (bottles.find((b) => b.id === selected) ?? null);
+  // what a bottle is, for the panel beside it: made-up wines, the same every time
+  const detailsOf = useCallback(
+    (placed: PlacedBottle): InspectionDetails | null => {
+      const b = bottles.find((x) => x.id === placed.id);
+      if (!b) return null;
+      const { producer, name, year, place, type } = b.wine;
+      return {
+        label: { producer, name, year, place, type },
+        title: name,
+        subtitle: `${producer}${year ? ` · ${year}` : " · non-vintage"}`,
+        facts: [
+          ["Kind", type],
+          ["From", place],
+          ["Vintage", year ? String(year) : "non-vintage"],
+        ],
+        where: whereIs(b, resolved),
+      };
+    },
+    [bottles, resolved],
+  );
+  const onShowcase = useCallback(
+    (now: ShowcaseState) => setShowcase({ phase: now.phase, bottleId: now.bottleId }),
+    [],
+  );
   const t = STORAGE_TEMPLATES[state.template];
   const isTemplate = state.sample === "template";
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24 pt-8 sm:px-6" data-testid="cellar-gallery">
       <p className="text-caption uppercase tracking-[0.18em] text-bronze">
-        Smart Cellar 3D · sprint 2A · preview only
+        Smart Cellar 3D · sprints 2A and 2B.1 · preview only
       </p>
       <h1 className="mt-2 font-display text-display">Storage templates</h1>
       <p className="mt-2 max-w-prose text-small text-ink-2">
@@ -144,7 +190,9 @@ export function CellarGallery({ initial }: { initial: GalleryState }) {
             <Choice
               label="Template"
               value={state.template}
-              onChange={(template) =>
+              onChange={(template) => {
+                // another place: nothing of the last one stays chosen
+                setSelected(null);
                 setState(
                   normalize({
                     sample: "template",
@@ -152,8 +200,8 @@ export function CellarGallery({ initial }: { initial: GalleryState }) {
                     fill: state.fill,
                     quality: state.quality,
                   }),
-                )
-              }
+                );
+              }}
               options={STORAGE_TEMPLATE_IDS.map((id) => [id, TEMPLATE_NAMES[id]])}
             />
           )}
@@ -327,33 +375,66 @@ export function CellarGallery({ initial }: { initial: GalleryState }) {
                   onLost={() => setLost(true)}
                 />
               ) : (
-                <TemplateScene
+                <InspectableStorage
                   key={`template-${mount}`}
+                  handleRef={storage}
                   model={model}
                   bottles={bottles}
                   quality={state.quality === "auto" ? undefined : state.quality}
                   selectedId={selected}
-                  onPick={setSelected}
+                  onSelect={setSelected}
+                  detailsOf={detailsOf}
+                  initialInspect={state.inspect || undefined}
+                  panelSlot={panelSlot}
                   reducedMotion={reduced}
                   onLost={() => setLost(true)}
+                  onState={onShowcase}
                   debug
                 />
               )}
             </div>
+            {/* on a narrow screen the panel of the bottle that is out goes here, below the picture */}
+            <div ref={setPanelSlot} className="mt-3 empty:hidden" data-testid="inspection-slot" />
             <p className="mt-2 text-caption text-ink-3">
-              Drag to turn, pinch or scroll to zoom, two fingers or right-drag to slide. Tap a
-              bottle to choose it.
-              {model.renderer === "legacy" && " This is the existing 3D view, unchanged."}
+              Drag to turn, pinch or scroll to zoom, two fingers or right-drag to slide.
+              {model.renderer === "legacy"
+                ? " Tap a bottle to choose it. This is the existing 3D view, unchanged: its own showcase is in the app, not in this gallery."
+                : " Tap a bottle to take it out and look at it; drag it to turn it; tap beside it, press Escape or use the close button to put it back."}
             </p>
-            <p className="mt-2 min-h-6 text-small" role="status" data-testid="gallery-picked">
-              {picked ? describe(picked, resolved) : "No bottle chosen."}
-            </p>
+            <div className="mt-2 flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2">
+              <p className="text-small" role="status" data-testid="gallery-picked">
+                {picked ? describe(picked, resolved) : "No bottle chosen."}
+              </p>
+              {picked && model.renderer !== "legacy" && (
+                // one button, always there while a bottle is chosen, so that the focus can come back to it
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  data-testid="gallery-inspect"
+                  onClick={() =>
+                    showcase.phase === "idle"
+                      ? storage.current?.inspect(picked.id)
+                      : storage.current?.dismiss()
+                  }
+                >
+                  {showcase.phase === "idle" ? "Take it out" : "Put it back"}
+                </Button>
+              )}
+            </div>
             {model.renderer !== "legacy" && (
-              <p className="text-caption text-ink-3">
-                Taking a bottle out to look at it is not part of this view yet (sprint 2B): a tap
-                only chooses it.
+              <p className="text-caption text-ink-3" data-testid="gallery-showcase-state">
+                {showcase.phase === "idle"
+                  ? "Every bottle is in its place."
+                  : `A bottle is ${
+                      showcase.phase === "extracting"
+                        ? "on its way out"
+                        : showcase.phase === "inspecting"
+                          ? "out, on display"
+                          : "on its way home"
+                    }. Its spot does not change.`}
               </p>
             )}
+            <ShowcaseCases />
           </section>
 
           <section aria-label="Flat view">
@@ -363,7 +444,10 @@ export function CellarGallery({ initial }: { initial: GalleryState }) {
               resolved={resolved}
               bottles={mapBottles}
               selectedId={selected}
-              onSelect={setSelected}
+              // while a bottle is out, a press here puts it back: the chosen bottle does not change under it
+              onSelect={(id) =>
+                showcase.phase === "idle" ? setSelected(id) : storage.current?.dismiss()
+              }
               label={isTemplate ? TEMPLATE_NAMES[state.template] : "Storage place"}
             />
           </section>
@@ -373,19 +457,85 @@ export function CellarGallery({ initial }: { initial: GalleryState }) {
   );
 }
 
+/**
+ * The cases that are hard to get right, one link each: the place, and the bottle that is taken out when it opens.
+ * (The bottles of the gallery are the same every time, so a link can name one.)
+ */
+const SHOWCASE_CASES: ReadonlyArray<readonly [label: string, query: string]> = [
+  [
+    "Front bottle of a double-depth rack: drawn out",
+    "template=rack_double_depth&fill=full&inspect=b-2:3:1",
+  ],
+  [
+    "Rear bottle, front taken: shown, not drawn out",
+    "template=rack_double_depth&fill=full&inspect=b-2:3:2",
+  ],
+  [
+    "Rear bottle, front free: drawn out through the free place",
+    "template=rack_double_depth&rows=8&cols=1&inspect=b-7:1:2",
+  ],
+  [
+    "A bottle in a diamond bin: lifted from its pile",
+    "template=diamond_bins&fill=full&inspect=b-1:2:3",
+  ],
+  [
+    "A bottle on a wall rail: lifted off, away from the wall",
+    "template=wall_rails&rows=6&cols=2&fill=full&inspect=b-3:1:1",
+  ],
+  [
+    "Rear bottle on a rail three deep",
+    "template=wall_rails&rows=4&cols=2&cap=3&fill=full&inspect=b-2:1:3",
+  ],
+  ["A cabinet behind a glass door", "template=cabinet_closed&door=glass&fill=full&inspect=b-2:3:1"],
+  ["A cabinet with its doors open", "template=cabinet_closed&door=solid&fill=full&inspect=b-2:3:1"],
+  ["A dual-zone cooler", "template=cooler_dual&fill=full&inspect=b-6:2:1"],
+  [
+    "A place whose arrangement is not known",
+    "sample=unknown&unknown=bins-as-depth&fill=full&inspect=b-1:2:1",
+  ],
+];
+
+function ShowcaseCases() {
+  return (
+    <details
+      className="mt-4 rounded-card border border-hairline bg-surface p-4"
+      data-testid="showcase-cases"
+    >
+      <summary className="cursor-pointer text-small font-medium">
+        Showcase: the hard cases, one link each
+      </summary>
+      <ul className="mt-3 grid gap-2 text-small sm:grid-cols-2">
+        {SHOWCASE_CASES.map(([label, query]) => (
+          <li key={query}>
+            <a
+              className="text-accent-fg underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-fg"
+              href={`/design/cellar-3d?${query}`}
+            >
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 const wineName = (b: FixtureBottle) =>
   `${b.wine.producer} ${b.wine.name}${b.wine.year ? ` ${b.wine.year}` : ""}`;
 
-/** Where the chosen bottle is, in words that claim no more than is known. */
-function describe(b: FixtureBottle, resolved: ReturnType<typeof placeOf>): string {
-  const name = wineName(b);
+/** The chosen bottle and where it is. */
+const describe = (b: FixtureBottle, resolved: ReturnType<typeof placeOf>): string =>
+  `${wineName(b)} — ${whereIs(b, resolved)}`;
+
+/** Where a bottle is, in words that claim no more than is known. */
+function whereIs(b: FixtureBottle, resolved: ReturnType<typeof placeOf>): string {
   const index = b.index ?? 1;
   const cell = resolved.layout.cells.find((c) => c.row === b.row && c.col === b.col);
   if (!resolved.arrangementKnown || resolved.layout.semantics === "ordinal")
-    return `${name} — in compartment ${b.row}·${b.col}. Where in the compartment it lies is not recorded.`;
+    return `in compartment ${b.row}·${b.col}. Where in the compartment it lies is not recorded.`;
   if ((cell?.capacity ?? 1) > 1)
-    return `${name} — shelf ${b.row}, position ${b.col}, ${index === 1 ? "at the front" : index === cell!.capacity ? "at the back" : `place ${index} from the front`}.`;
-  return `${name} — shelf ${b.row}, position ${b.col}.`;
+    return `shelf ${b.row}, position ${b.col}, ${index === 1 ? "at the front" : index === cell!.capacity ? "at the back" : `place ${index} from the front`}.`;
+  return `shelf ${b.row}, position ${b.col}.`;
 }
 
 /**
@@ -397,7 +547,7 @@ function Drawn() {
   useEffect(() => {
     const read = () => {
       const canvas = document.querySelector<HTMLCanvasElement>(
-        '[data-testid="gallery-stage"] canvas',
+        '[data-testid="gallery-stage"] canvas[data-engine]',
       );
       if (!canvas) return;
       const d = canvas.dataset;

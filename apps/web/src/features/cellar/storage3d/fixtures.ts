@@ -36,17 +36,55 @@ export const FIXTURE_WINES: ReadonlyArray<{
   name: string;
   type: WineType;
   year: number | null;
+  /** Where it is from. As made up as the rest. */
+  place: string;
 }> = [
-  { producer: "Domaine du Lac", name: "Les Pierres", type: "red", year: 2018 },
-  { producer: "Castello Vento", name: "Riserva", type: "red", year: 2016 },
-  { producer: "Bodega Alta", name: "Gran Reserva", type: "red", year: 2012 },
-  { producer: "Weingut Stein", name: "Riesling Kabinett", type: "white", year: 2021 },
-  { producer: "Domaine Morel", name: "Chablis Vieilles Vignes", type: "white", year: 2020 },
-  { producer: "Maison Clair", name: "Brut Réserve", type: "sparkling", year: null },
-  { producer: "Mas des Roses", name: "Rosé", type: "rose", year: 2023 },
-  { producer: "Quinta Norte", name: "Vintage Port", type: "fortified", year: 2011 },
-  { producer: "Château d'Or", name: "Sauternes", type: "dessert", year: 2015 },
-  { producer: "Kabaj Brda", name: "Rebula", type: "orange", year: 2019 },
+  {
+    producer: "Domaine du Lac",
+    name: "Les Pierres",
+    type: "red",
+    year: 2018,
+    place: "Rhône, France",
+  },
+  { producer: "Castello Vento", name: "Riserva", type: "red", year: 2016, place: "Tuscany, Italy" },
+  { producer: "Bodega Alta", name: "Gran Reserva", type: "red", year: 2012, place: "Rioja, Spain" },
+  {
+    producer: "Weingut Stein",
+    name: "Riesling Kabinett",
+    type: "white",
+    year: 2021,
+    place: "Mosel, Germany",
+  },
+  {
+    producer: "Domaine Morel",
+    name: "Chablis Vieilles Vignes",
+    type: "white",
+    year: 2020,
+    place: "Burgundy, France",
+  },
+  {
+    producer: "Maison Clair",
+    name: "Brut Réserve",
+    type: "sparkling",
+    year: null,
+    place: "Champagne, France",
+  },
+  { producer: "Mas des Roses", name: "Rosé", type: "rose", year: 2023, place: "Provence, France" },
+  {
+    producer: "Quinta Norte",
+    name: "Vintage Port",
+    type: "fortified",
+    year: 2011,
+    place: "Douro, Portugal",
+  },
+  {
+    producer: "Château d'Or",
+    name: "Sauternes",
+    type: "dessert",
+    year: 2015,
+    place: "Bordeaux, France",
+  },
+  { producer: "Kabaj Brda", name: "Rebula", type: "orange", year: 2019, place: "Brda, Slovenia" },
 ];
 
 export type Fill = "empty" | "partial" | "full";

@@ -666,7 +666,10 @@ export function buildWall(spec: WallSpec): Built {
         parts.push(rod("frame", "z", rodR, reach, [cx(c) + dx, y, 0.05 + reach / 2]));
         // the upturned tip that keeps the front bottle from rolling off
         parts.push(
-          rod("frame", "y", rodR, 0.2, [cx(c) + dx, y + 0.08, 0.05 + reach + rodR], { soft: true }),
+          // low enough that a bottle can be lifted over it without meeting the rod of the row above
+          rod("frame", "y", rodR, 0.12, [cx(c) + dx, y + 0.04, 0.05 + reach + rodR], {
+            soft: true,
+          }),
         );
       }
     }

@@ -6,17 +6,19 @@ off and leaves every existing place and bottle as it is.
 
 ## Where it stands
 
-| Sprint                           | Status                           | What it is                                                                                                                        |
-| -------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 0 — audit and architecture       | done (2026-11-14, no files)      | What exists, what to reuse, the plan.                                                                                             |
-| 1A — domain foundation           | done, merged (PR #69)            | Template catalogue, logical layout engine, configuration schemas, adapter for what exists.                                        |
-| 1B — database foundation         | done, merged (PR #70)            | Columns, limits, the whole-spot index, bounds and resize under a lock, zones, the swap and save functions. Depth is switched off. |
-| 1C — API                         | not started                      | The server reads and writes the new columns; a move for back bottles; export v2; what friends see.                                |
-| **2A — template renderer**       | **done (2026-11-14), in review** | A second 3D view that draws all 14 templates from a layout, a read-only flat picture, a closed gallery. In no product screen.     |
-| 2B — renderer into the app       | not started                      | The showcase in the new view, parity and speed on real devices, then the cellar screens read a layout behind a flag.              |
-| 3 — builder                      | not started                      | Choosing a template, sizing it, the look, a live preview.                                                                         |
-| 4 — depth and zones in daily use | not started                      | Placing, moving and swapping with an index; zones on screen.                                                                      |
-| 5 — placement advice             | not started                      | A deterministic, explained suggestion for where a bottle goes.                                                                    |
+| Sprint                                | Status                           | What it is                                                                                                                                                                     |
+| ------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0 — audit and architecture            | done (2026-11-14, no files)      | What exists, what to reuse, the plan.                                                                                                                                          |
+| 1A — domain foundation                | done, merged (PR #69)            | Template catalogue, logical layout engine, configuration schemas, adapter for what exists.                                                                                     |
+| 1B — database foundation              | done, merged (PR #70)            | Columns, limits, the whole-spot index, bounds and resize under a lock, zones, the swap and save functions. Depth is switched off.                                              |
+| 1C — API                              | not started                      | The server reads and writes the new columns; a move for back bottles; export v2; what friends see.                                                                             |
+| 2A — template renderer                | done, merged (PR #71)            | A second 3D view that draws all 14 templates from a layout, a read-only flat picture, a closed gallery. In no product screen.                                                  |
+| **2B.1 — bottle showcase**            | **done (2026-11-14), in review** | Taking a bottle out of the new view to look at it: a state machine, a checked way out per bottle, an inspection transition where there is none, a panel. In no product screen. |
+| 2B.2 — materials, light, real devices | not started                      | The look of the furniture and the light; the showcase and the view measured on real phones (checklist in the 2B.1 report); doors that open, shelves that slide.                |
+| 2B.3 — renderer into the app          | not started                      | After 1C: the cellar screens read a layout and mount the new view behind a flag.                                                                                               |
+| 3 — builder                           | not started                      | Choosing a template, sizing it, the look, a live preview.                                                                                                                      |
+| 4 — depth and zones in daily use      | not started                      | Placing, moving and swapping with an index; zones on screen.                                                                                                                   |
+| 5 — placement advice                  | not started                      | A deterministic, explained suggestion for where a bottle goes.                                                                                                                 |
 
 ## Documents
 
@@ -30,6 +32,10 @@ off and leaves every existing place and bottle as it is.
   3D view beside the existing one, and how it is put together.
 - [`SPRINT-2A-REPORT.md`](./SPRINT-2A-REPORT.md): what sprint 2A built, how to open the gallery, the pictures, the
   measurements and what they do not say, and what is left for 2B.
+- [`ADR-003-bottle-showcase.md`](./ADR-003-bottle-showcase.md): the decisions of sprint 2B.1: what may happen to a
+  bottle that is taken out, and how it may leave its place.
+- [`SPRINT-2B1-REPORT.md`](./SPRINT-2B1-REPORT.md): what sprint 2B.1 built, the hard cases, the pictures, the
+  measurements, and the checklist for testing on real devices.
 - [`experiments/index-named-trigger.sql`](./experiments/index-named-trigger.sql): the design that was tested and NOT
   built, and why.
 
@@ -90,6 +96,30 @@ function (the gallery's gate).
 **Not changed:** `three/scene.tsx` and everything else in `three/`, `rack-grid.tsx`, `cellar-3d-view.tsx`, placing,
 swapping and dragging, every service and route, the database. **No product screen mounts the new view.**
 
+## What sprint 2B.1 added (bottle showcase)
+
+All in `apps/web`. Nothing under `supabase/`, `packages/domain`, `src/server`, `src/lib` or `src/app/api` changed.
+
+| File                                                       | What                                                                                                    |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `…/storage3d/showcase-machine.ts`                          | What may happen to a bottle that is taken out: a pure state machine.                                    |
+| `…/storage3d/showcase-plan.ts`                             | How a bottle leaves its place: a checked physical path, or an inspection transition and why.            |
+| `…/storage3d/showcase-film.ts`                             | The movement as one function of progress; where the bottle stands on display.                           |
+| `…/storage3d/hero-kit.ts`                                  | The one bottle on display: geometry, materials and look, made once per scene.                           |
+| `…/storage3d/showcase-hero.tsx`                            | Plays the film inside the view; the picture of the place behind it; hand-off measurement; warm-up.      |
+| `…/storage3d/inspectable-storage.tsx`                      | What a screen mounts: the view, the picture, the panel, taps, Escape and focus.                         |
+| `…/storage3d/template-scene.tsx` (extended)                | An optional `inspection`: hides the bottle that is out, locks the camera, mounts the bottle on display. |
+| `src/features/design/cellar-gallery*.ts(x)`                | The gallery takes bottles out; a link can name a bottle to take out; the hard cases, one link each.     |
+| `e2e/storage-showcase.spec.ts`, `e2e/storage3d.ts`         | The showcase in a browser, and what the gallery specs share.                                            |
+| `e2e/visual-showcase3d.spec.ts`, `perf-showcase3d.spec.ts` | The photographer and the measuring bench (run only when asked for).                                     |
+
+Two things of sprint 2A were corrected on the way: the counters of the neutral picture lost their places when the
+level of detail changed (they are made anew with it now), and a wall rail's tip was 8 hundredths too tall for a
+bottle to be lifted over it.
+
+**Not changed:** everything in `three/` (the existing view and its showcase), `rack-grid.tsx`, `cellar-3d-view.tsx`,
+placing, moving and swapping, every service and route, the database, the gallery's gate.
+
 ## Rules for whoever continues
 
 1. A released template id never changes kind, family or slot semantics (pinned in `storage-templates.test.ts`).
@@ -113,5 +143,8 @@ swapping and dragging, every service and route, the database. **No product scree
 11. The new 3D view never draws a place from before templates, and the existing view is not replaced until parity
     and speed are shown on real devices (ADR-002). An index in a pile is drawn as "one more bottle in the pile",
     never as a place in it.
-12. No migration is run against production from here. `docs/MIGRATIONS.md` describes 36 migrations and `main` has
+12. A bottle is only shown being drawn out along a path that was checked to touch nothing
+    (`showcase-plan.ts`). Where there is none, it is shown without a path, and the person is told so. Looking at a
+    bottle never changes its address, and a pile is never given positions.
+13. No migration is run against production from here. `docs/MIGRATIONS.md` describes 36 migrations and `main` has
     more: see the 1B report, §8, before anything is pushed.
