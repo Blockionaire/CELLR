@@ -1,7 +1,7 @@
 # Smart Cellar 3D — what the database and the server must enforce (input for sprint 1B)
 
 Written in sprint 1A (2026-11-14) as the baseline for sprint 1B. **Sprint 1B has now built it** (migrations
-`20261120000043` to `20261123000046`): what was built, tested and found is in
+`20261120000043` to `20261122000045`, plus one gated file that is not a migration): what was built, tested and found is in
 [`SPRINT-1B-REPORT.md`](./SPRINT-1B-REPORT.md). This document stays the reasoning behind the rules.
 
 Three things in it were **corrected while building**, because the first proposal did not hold up against real
@@ -10,9 +10,13 @@ PostgreSQL or against the requirement to expand first:
 1. **§3, how a writer that knows no index is handled.** The proposed mechanism (a column trigger leaving a note in a
    transaction setting) was tested before anything was built and fails silently in ordinary situations. It was not
    built. The rule now uses only the values of the row and **refuses** the one case it cannot decide.
-2. **§2, the old unique index** is dropped in a migration of its own (0046), after the new one is proven to be there,
-   not in the same migration as the rest.
-3. **§1, more than one bottle per cell is switched off in the database** (`private.cellar_settings`) until the app can
+2. **§2, the old unique index is NOT dropped by any migration.** Dropping it is destructive and the owner has not
+   authorised it. The statement lives in `supabase/gated-migrations/`, outside what `db push` reads, without a
+   version number, and is run only by the tests. Migrations 0043-0045 are complete and safe with the old index in
+   force.
+3. **§6, direct writes of zone rows** never wait for the place while holding a zone: that order deadlocks against
+   `save_storage_layout`. Found in review, reproduced, fixed (`zone_place_busy`).
+4. **§1, more than one bottle per cell is switched off in the database** (`private.cellar_settings`) until the app can
    show it. This was not in the first version of this document at all.
 
 A principle for all of it: **a feature flag is not a guard.** `CELLR_FEATURES` decides what the app shows. Every
@@ -132,11 +136,15 @@ Required:
 
 1. Create the new unique index on `(location_id, loc_row, loc_col, loc_index)` with the same predicate. Every
    existing row has `loc_index = 1`, so it is valid the moment it exists.
-2. Drop the old index **in a migration of its own (0046), after the new one exists and has been checked** (that it is
-   there, unique, valid, on these four columns with this predicate); 0046 stops and leaves the old index when the
-   check fails. While both exist a cell still holds one bottle, so the time between the two migrations is safe.
-   This is the one destructive statement of the sprint. `docs/MIGRATIONS.md` rule 2 asks for an explicit decision:
-   **owner approval needed.**
+2. **The old index stays.** Removing it is the one destructive statement this design needs in the end, and
+   `docs/MIGRATIONS.md` rule 2 asks for an explicit decision that has not been taken. So it is not a migration:
+   `supabase/gated-migrations/smart_cellar_drop_legacy_slot_index.sql` is outside the folder `db push` reads and has
+   no version number (it gets one on the day it is released, later than everything on `main` then; a number given
+   now would be "too old" by then and `db push` would refuse it). The file checks that the new index is there,
+   unique, valid and on these four columns before it drops anything, and stops otherwise.
+   While both indexes exist a cell holds one bottle, whatever the depth switch says: two locks on the same door.
+   Everything else in this document works in that state (`99_smart_cellar_as_deployed.test.sql`, which is also the
+   tripwire: it fails the day the gated file is moved into `supabase/migrations` without its own review).
 3. `bottles_location_complete` stays as it is (place, row and col are all there or all absent). `loc_index` is not
    part of it: it is `not null default 1`, and it is kept honest by the rules of §3, not by a default.
 
@@ -365,9 +373,25 @@ returns text` (as built, migration 0045)
 - returns `saved` / `not_found` / `in_use` / `semantics_change` / `invalid_zones` / `depth_not_enabled`; in every case
   but `saved` nothing at all changed. `execute` revoked from `public` and `anon`, granted to `authenticated`.
 
-One writer of a place's zones at a time: a row trigger on the zones table takes the same row lock on the place before
-any zone is written, also for a direct write. Without it two transactions could each commit a set of zones that is
-sound alone and broken together (`scripts/db-placement-concurrency.sh`, steps 5 and 6).
+One writer of a place's zones at a time: a row trigger on the zones table takes the same row lock on the place when a
+zone is written, also for a direct write. Without it two transactions could each commit a set of zones that is
+sound alone and broken together (`scripts/db-placement-concurrency.sh`, steps 4 and 5).
+
+**The order of the locks is: the place, then its zones.** That is the order of this function and of deleting a place
+(the place, then its zones by cascade); neither can be turned round. A direct UPDATE or DELETE of a zone row comes
+the other way: the statement holds the zone's row lock before any trigger runs. As first written the trigger then
+WAITED for the place, and against a save of that place the two waited for each other: reproduced on PostgreSQL 16,
+"deadlock detected" after one second, for the update and for the delete (no data was harmed; one statement was
+ended). So a direct update or delete **never waits**: it takes the place's lock if it is free and is otherwise
+refused at once with `zone_place_busy` (`55P03`), having changed nothing. An insert holds no row yet and may wait.
+Inside this function and inside a delete of the place the lock is the transaction's own, so nothing is refused.
+
+- **The retry strategy:** `zone_place_busy` means "try again" (`server/db/errors.ts` maps it to a retryable
+  conflict). Better still, change zones through this function, which waits its turn in the right order. A direct
+  write can also meet a place that is merely having a bottle put in it at that instant; the answer is the same.
+- **Tested** with two sessions in `scripts/db-placement-concurrency.sh` (steps 9 to 11): both orders, update and
+  delete; 40 unheld races; a writer that retries; deleting the place against a direct update; and a control that
+  puts the waiting trigger back and shows the same two sessions deadlock.
 
 Creating a place WITH zones in one go is not built: the place is inserted first (a plain insert, as today) and its
 zones are saved with this function. If the second step fails the place exists without zones, which is a valid

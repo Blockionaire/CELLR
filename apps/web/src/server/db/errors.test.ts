@@ -16,6 +16,7 @@ describe("mapDbError", () => {
     [{ code: "23514", message: "layout_semantics_change" }, "CONFLICT"],
     [{ code: "23514", message: "zones_not_a_split" }, "VALIDATION"],
     [{ code: "23514", message: "depth_not_enabled" }, "VALIDATION"],
+    [{ code: "55P03", message: "zone_place_busy" }, "CONFLICT"],
     [{ code: "23505", message: "duplicate key value" }, "CONFLICT"],
     [{ code: "23503", message: "violates foreign key constraint" }, "CONFLICT"],
     [{ code: "23514", message: "violates check constraint" }, "VALIDATION"],

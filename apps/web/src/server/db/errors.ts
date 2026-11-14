@@ -10,7 +10,7 @@ interface DbError {
  * Translates Postgres / PostgREST errors into domain errors (and therefore human copy).
  * Codes we raise ourselves: 54000 rate_limited · P0001 last_owner, not_found · 23514 slot_out_of_bounds / location_in_use,
  * and since migrations 0043-0045 (Smart Cellar 3D): 23514 slot_index_ambiguous / layout_semantics_change /
- * zones_not_a_split / depth_not_enabled.
+ * zones_not_a_split / depth_not_enabled, and 55P03 zone_place_busy.
  */
 export function mapDbError(error: DbError): DomainError {
   const code = error.code ?? "";
@@ -41,6 +41,10 @@ export function mapDbError(error: DbError): DomainError {
   // What an index means would change under the bottles of a place more than one deep (0043).
   if (message === "layout_semantics_change")
     return new DomainError("CONFLICT", "There are still bottles in it. Move them out first.");
+  // A zone row written directly while its place is being changed or a bottle is being placed in it (0044): the
+  // write is refused at once instead of waiting in an order that could deadlock. Trying again is the remedy.
+  if (message === "zone_place_busy")
+    return new DomainError("CONFLICT", undefined, { retryable: true });
   if (message === "zones_not_a_split") {
     return new DomainError(
       "VALIDATION",

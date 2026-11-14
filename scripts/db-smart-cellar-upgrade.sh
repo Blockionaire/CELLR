@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
-# Rehearses the Smart Cellar 3D migrations (0043-0046) on a THROWAWAY database that already holds a cellar, the way
-# production does: built with every migration before 0043, filled, and only then upgraded.
+# Rehearses the Smart Cellar 3D migrations (0043-0045) on a THROWAWAY database that already holds a cellar, the way
+# production does: built with every migration before 0043, filled, and only then upgraded. And, separately, the
+# GATED file that is not a migration (supabase/gated-migrations: it drops the old unique index and is not authorised).
 #
 #   1. Before: places of every kind (a 30 x 30 one, a wall rack, an empty one), bottles on spots, without a place,
 #      opened, removed. A picture is taken of every row: every column, plus where the row physically is (ctid) and
 #      which transaction last wrote it (xmin).
-#   2. 0043, 0044 and 0045 are applied. The picture is the same to the byte: no place and no bottle was updated,
-#      moved or rewritten; the new columns have their defaults; the OLD unique index is still there next to the new.
-#   3. What every app version does still works between 0045 and 0046 (the state a half-finished deploy is in): add,
-#      move, swap, resize, open. And two bottles in one cell are still refused by the old index.
-#   4. 0046 refuses to drop the old index when the new one is not there (it is taken away for the test), and leaves
-#      the database as it was. With the new index back, 0046 drops the old one. The picture is still the same.
-#   5. After: the same app actions again, and the switch for more than one bottle per cell is off.
+#   2. 0043, 0044 and 0045 are applied: THIS IS WHAT A RELEASE DEPLOYS. The picture is the same to the byte: no place
+#      and no bottle was updated, moved or rewritten; the new columns have their defaults; the OLD unique index is
+#      still there next to the new one, and no migration in supabase/migrations drops it.
+#   3. What every app version does works in that state: add, move, swap, resize, open. Two bottles in one cell are
+#      still refused by the old index, also with the depth switch turned on.
+#   4. The gated file (for the day it is authorised): it refuses to drop the old index when the new one is not
+#      there, or is not the right one, and leaves the database as it was. With the new index in place it drops the
+#      old one. The picture is still the same.
+#   5. After that: the same app actions again, and the switch for more than one bottle per cell is off.
 # Never point it at a real database: it builds its own.   bash scripts/db-smart-cellar-upgrade.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -83,9 +86,10 @@ cmp -s "$WORK/before" "$WORK/expanded" || fail "0043-0045 changed, moved or rewr
 [ "$(su "select count(*) from public.cellar_location_zones")" = 0 ] || fail "zones appeared from nowhere"
 [ "$(su "select count(*) from pg_indexes where schemaname = 'public' and indexname in ('bottles_slot_unique', 'bottles_slot_index_unique')")" = 2 ] \
   || fail "after 0045 both unique indexes should exist"
-echo "• after 0043-0045: every place and bottle is the same row, in the same spot of the table, last written by the same transaction; the old index is still there"
+! grep -liE 'drop +index' "$ROOT"/supabase/migrations/2026112*.sql >/dev/null || fail "a Smart Cellar migration in supabase/migrations drops an index"
+echo "• after 0043-0045 (what a release deploys): every place and bottle is the same row, in the same spot of the table, last written by the same transaction; the old index is still in force and no migration drops it"
 
-# ---- 3. The app of today, between 0045 and 0046 -------------------------------------------------------------------
+# ---- 3. The app of today on what is deployed: 0043-0045, the old index in force -------------------------------------
 app_still_works() {   # $1 = label
   local L B1 B2 out
   out=$(as1 "insert into public.cellar_locations (cellar_id, household_id, label, grid_rows, grid_cols) values ('$C', '$H', 'Scratch', 5, 8)")
@@ -107,35 +111,43 @@ app_still_works() {   # $1 = label
   su "delete from public.bottles where id in ('$B1', '$B2')" >/dev/null
   out=$(as1 "delete from public.cellar_locations where id = '$L' returning 'deleted'"); [ "$out" = deleted ] || fail "$1: an owner deleting an empty place: $out"
 }
-app_still_works "between 0045 and 0046"
+app_still_works "as deployed"
 L=$(su "select id from public.cellar_locations where label = 'A rack'")
 out=$(su "insert into public.bottles (household_id, vintage_id, location_id, loc_row, loc_col, loc_index) values ('$H', '$V', '$L', 1, 1, 1)" 2>&1 || true)
-echo "$out" | grep -q 'duplicate key' || fail "between 0045 and 0046 a second bottle in a cell was not refused"
-echo "• between 0045 and 0046 the app's own actions work as before (add, refuse a taken cell, move, swap, resize, open, put back)"
+echo "$out" | grep -q 'duplicate key' || fail "as deployed, a second bottle in a cell was not refused"
+# even with the switch turned on, the old index keeps a cell to one bottle
+su "update private.cellar_settings set depth_placement = true;
+    insert into public.cellar_locations (cellar_id, household_id, label, template, slot_semantics, cell_capacity) values ('$C', '$H', 'Scratch deep', 'rack_double_depth', 'depth', 2)" >/dev/null
+SD=$(su "select id from public.cellar_locations where label = 'Scratch deep'")
+su "insert into public.bottles (household_id, vintage_id, location_id, loc_row, loc_col, loc_index) values ('$H', '$V', '$SD', 1, 1, 2)" >/dev/null
+out=$(su "insert into public.bottles (household_id, vintage_id, location_id, loc_row, loc_col, loc_index) values ('$H', '$V', '$SD', 1, 1, 1)" 2>&1 || true)
+echo "$out" | grep -q 'bottles_slot_unique' || fail "as deployed with the switch on, a second bottle got into a cell: $out"
+su "delete from public.bottles where location_id = '$SD'; delete from public.cellar_locations where id = '$SD'; update private.cellar_settings set depth_placement = false" >/dev/null
+echo "• as deployed the app's own actions work as before (add, refuse a taken cell, move, swap, resize, open, put back); a cell holds one bottle even with the depth switch on"
 
-# ---- 4. 0046 ----------------------------------------------------------------------------------------------------
-DROP=$(ls "$ROOT"/supabase/migrations/*000046_*.sql)
+# ---- 4. The gated file (NOT part of a release until the owner says so) ----------------------------------------------
+DROP="$ROOT/supabase/gated-migrations/smart_cellar_drop_legacy_slot_index.sql"
 su "drop index public.bottles_slot_index_unique" >/dev/null
-if apply "$DROP"; then fail "0046 dropped the old index although its replacement was missing"; fi
-grep -q 'the old index stays' "$WORK/apply.err" || fail "0046 failed for another reason: $(cat "$WORK/apply.err")"
-[ "$(su "select count(*) from pg_indexes where schemaname = 'public' and indexname = 'bottles_slot_unique'")" = 1 ] || fail "the old index is gone although 0046 stopped"
+if apply "$DROP"; then fail "the gated file dropped the old index although its replacement was missing"; fi
+grep -q 'the old index stays' "$WORK/apply.err" || fail "the gated file failed for another reason: $(cat "$WORK/apply.err")"
+[ "$(su "select count(*) from pg_indexes where schemaname = 'public' and indexname = 'bottles_slot_unique'")" = 1 ] || fail "the old index is gone although the gated file stopped"
 su "create unique index bottles_slot_index_unique on public.bottles (location_id, loc_row, loc_col) where status = 'in_cellar' and location_id is not null" >/dev/null
-if apply "$DROP"; then fail "0046 accepted a replacement index on the wrong columns"; fi
+if apply "$DROP"; then fail "the gated file accepted a replacement index on the wrong columns"; fi
 su "drop index public.bottles_slot_index_unique;
     create unique index bottles_slot_index_unique on public.bottles (location_id, loc_row, loc_col, loc_index) where status = 'in_cellar' and location_id is not null" >/dev/null
-apply "$DROP" || fail "0046 failed with the replacement in place: $(cat "$WORK/apply.err")"
+apply "$DROP" || fail "the gated file failed with the replacement in place: $(cat "$WORK/apply.err")"
 [ "$(su "select string_agg(indexname, ',' order by indexname) from pg_indexes where schemaname = 'public' and indexname like 'bottles_slot%'")" = bottles_slot_index_unique ] \
-  || fail "after 0046 exactly the new index should be left"
+  || fail "after the gated file exactly the new index should be left"
 picture "$WORK/after"
-cmp -s "$WORK/before" "$WORK/after" || fail "0046 changed a place or a bottle"
-echo "• 0046 stops, and keeps the old index, when its replacement is missing or is not the right one; with it in place the old index goes, and every row is still untouched"
+cmp -s "$WORK/before" "$WORK/after" || fail "the gated file changed a place or a bottle"
+echo "• the gated file stops, and keeps the old index, when its replacement is missing or is not the right one; with it in place the old index goes, and every row is still untouched"
 
 # ---- 5. After ---------------------------------------------------------------------------------------------------
-app_still_works "after 0046"
+app_still_works "after the gated file"
 [ "$(su "select private.depth_placement_enabled()")" = f ] || fail "more than one bottle per cell is on after the migrations"
 out=$(as1 "update public.cellar_locations set template = 'rack_double_depth', slot_semantics = 'depth', cell_capacity = 2 where label = 'Empty'")
 echo "$out" | grep -q depth_not_enabled || fail "a place two deep was accepted with the switch off: $out"
 picture "$WORK/end"
 cmp -s "$WORK/before" "$WORK/end" || fail "at the end an old row differs from the picture taken before"
-echo "• after 0046 the same actions work; more than one bottle per cell is off and refused"
+echo "• after the gated file the same actions work; more than one bottle per cell is off and refused"
 echo "• the upgrade leaves every existing place and bottle exactly as it was"

@@ -46,13 +46,14 @@ Nothing in the app calls these modules yet.
 
 ## What sprint 1B added (database)
 
-| File                                                             | What                                                                                       |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `supabase/migrations/20261120000043` to `20261123000046`         | See the report, §1. The last one drops the old unique index and needs the owner's yes.     |
-| `supabase/tests/99_smart_cellar_{structure,zones,rpcs}.test.sql` | 164 tests, run by `pnpm db:test` and by CI on plain Postgres and on a real Supabase stack. |
-| `scripts/db-placement-concurrency.sh` (`pnpm db:test:placement`) | Placement, resizing, zones and swaps from many sessions at once.                           |
-| `scripts/db-smart-cellar-upgrade.sh` (`pnpm db:test:upgrade`)    | The migrations on a database that already holds a cellar: no row is touched.               |
-| `scripts/real-stack-smoke.mjs` (extended)                        | The same rules through PostgREST itself.                                                   |
+| File                                                                         | What                                                                                                                                  |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `supabase/migrations/20261120000043` to `20261122000045`                     | Three additive migrations. See the report, §1.                                                                                        |
+| `supabase/gated-migrations/`                                                 | The one destructive statement (dropping the old unique index). **Not a migration, cannot be pushed, not authorised.**                 |
+| `supabase/tests/99_smart_cellar_{as_deployed,structure,zones,rpcs}.test.sql` | 186 tests, run by `pnpm db:test` and by CI on plain Postgres and on a real Supabase stack. `as_deployed` is also the gate's tripwire. |
+| `scripts/db-placement-concurrency.sh` (`pnpm db:test:placement`)             | Placement, resizing, zones and swaps from many sessions at once.                                                                      |
+| `scripts/db-smart-cellar-upgrade.sh` (`pnpm db:test:upgrade`)                | The migrations on a database that already holds a cellar: no row is touched.                                                          |
+| `scripts/real-stack-smoke.mjs` (extended)                                    | The same rules through PostgREST itself.                                                                                              |
 
 Outside the database: `database.types.ts` regenerated; `server/db/errors.ts` words the four new refusals;
 `storage-compat.ts` reads the stored `slot_semantics`. **Not changed:** every service, repository and route, the 3D
@@ -73,5 +74,9 @@ screens exist. Switching it on is a migration of its own.
 6. A feature flag hides a screen. It does not protect data: constraints, triggers and RLS do.
 7. A bottle is never put on an index its writer did not name. Where the database cannot tell what was meant it
    refuses (`slot_index_ambiguous`); do not replace that with a guess.
-8. No migration is run against production from here. `docs/MIGRATIONS.md` describes 36 migrations and `main` has
-   more: see the 1B report, §8, before anything is pushed.
+8. The old unique index `bottles_slot_unique` stays until the owner says otherwise. Nothing in
+   `supabase/gated-migrations/` is ever run by hand or moved into `supabase/migrations` without that.
+9. The order of locks is: the place, then its zones (and bottles before places only for reading). Code that holds a
+   zone row and needs the place must not wait for it.
+10. No migration is run against production from here. `docs/MIGRATIONS.md` describes 36 migrations and `main` has
+    more: see the 1B report, §8, before anything is pushed.

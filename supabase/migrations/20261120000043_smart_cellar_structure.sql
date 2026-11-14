@@ -1,5 +1,5 @@
 -- =====================================================================
--- 0043 Smart Cellar 3D, sprint 1B (1 of 4): what a place is and where a bottle is in it
+-- 0043 Smart Cellar 3D, sprint 1B (1 of 3): what a place is and where a bottle is in it
 -- =====================================================================
 -- docs/sprints/smart-cellar-3d/ADR-001-templates-and-slot-identity.md says what these mean;
 -- docs/sprints/smart-cellar-3d/SPRINT-1B-DATABASE-REQUIREMENTS.md says why each rule is here.
@@ -7,7 +7,8 @@
 -- ADDITIVE ONLY. Nothing is dropped, renamed or rewritten in this file:
 --   * new columns on cellar_locations and bottles, each with a default that is today's behaviour;
 --   * new CHECK constraints (every existing row already satisfies them: the columns did not exist);
---   * a SECOND unique index next to bottles_slot_unique (that one stays; 0046 removes it, separately);
+--   * a SECOND unique index next to bottles_slot_unique. THAT ONE STAYS IN FORCE: removing it is destructive, is not
+--     authorised, and is not a migration (supabase/gated-migrations/). This migration is complete without it;
 --   * one function replaced with the same name and signature (private.check_bottle_location);
 --   * one new trigger on cellar_locations, one new private table (a switch), new column grants.
 -- No row of cellar_locations or bottles is updated. `add column ... default` is a catalogue change in Postgres 16:
@@ -131,6 +132,8 @@ comment on column public.bottles.loc_index is
 -- One bottle per WHOLE spot. Built next to bottles_slot_unique, which stays in force: while both exist, a cell
 -- still holds one bottle (the old index) and that bottle is alone on its spot (this one). Every existing row has
 -- loc_index = 1, so this index holds for all of them the moment it exists.
+-- So with these migrations alone there are TWO locks on "more than one bottle per cell": the switch above, and
+-- the old index. Everything here works as long as the old index remains, for as long as that is.
 create unique index bottles_slot_index_unique on public.bottles (location_id, loc_row, loc_col, loc_index)
   where status = 'in_cellar' and location_id is not null;
 

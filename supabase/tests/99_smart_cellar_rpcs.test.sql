@@ -1,6 +1,12 @@
 -- Smart Cellar 3D, sprint 1B (0045): the swap that does not know an index stays conservative, the one that does
 -- checks the whole spot, and a layout with its zones is saved in one go or not at all.
+-- THE FUTURE STATE. These tests need two bottles in one cell, which the old one-bottle-per-cell index
+-- (bottles_slot_unique) forbids for as long as it exists: and it exists, because removing it is not authorised
+-- (supabase/gated-migrations/README.md). So the gated file itself is run here first, inside this transaction, and
+-- rolled back with it: what is tested is exactly what would be released, and the database is left as it was.
+-- The state as it is DEPLOYED (old index in force) is 99_smart_cellar_as_deployed.test.sql.
 begin;
+\ir ../gated-migrations/smart_cellar_drop_legacy_slot_index.sql
 do $$
 declare h1 uuid; h2 uuid; code text; cp uuid; cw uuid; v uuid; c1 uuid; c2 uuid;
         legacy uuid; deep uuid; bins uuid; cooler uuid; theirs uuid;

@@ -1,5 +1,5 @@
 -- =====================================================================
--- 0045 Smart Cellar 3D, sprint 1B (3 of 4): swapping bottles and saving a layout, each in one go
+-- 0045 Smart Cellar 3D, sprint 1B (3 of 3): swapping bottles and saving a layout, each in one go
 -- =====================================================================
 -- ADDITIVE, with ONE function replaced under the same name, signature and grants (public.swap_bottles): its
 -- behaviour for every bottle that exists today is unchanged; what changes is spelled out below.

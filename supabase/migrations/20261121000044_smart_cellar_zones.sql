@@ -1,5 +1,5 @@
 -- =====================================================================
--- 0044 Smart Cellar 3D, sprint 1B (2 of 4): temperature zones
+-- 0044 Smart Cellar 3D, sprint 1B (2 of 3): temperature zones
 -- =====================================================================
 -- ADDITIVE ONLY: one new table with its triggers, policies and grants. Nothing existing is changed.
 --
@@ -48,20 +48,40 @@ create trigger zones_identity_immutable before update on public.cellar_location_
   for each row execute function private.forbid_change('household_id', 'location_id');
 
 -- ---- One writer of a place's zones at a time ----------------------------------------------------------------------
--- Whoever writes a zone first takes the row lock on its place (the lock an UPDATE of the place takes). So two
--- people changing the zones of one place, or one changing its zones while another changes its shelves, go one
--- after the other, and the check at commit below sees everything the earlier one did. Without this, two
--- transactions could each commit a set of zones that is sound on its own and broken together.
+-- Whoever writes a zone takes the row lock on its place (the lock an UPDATE of the place takes). So two people
+-- changing the zones of one place, or one changing its zones while another changes its shelves, go one after the
+-- other, and the check at commit below sees everything the earlier one did. Without this, two transactions could
+-- each commit a set of zones that is sound on its own and broken together.
+--
+-- THE ORDER OF THE LOCKS: THE PLACE FIRST, THEN ITS ZONES. That is the order of save_storage_layout (0045: it
+-- locks the place, then replaces the zones) and of deleting a place (the place, then its zones by cascade), and
+-- neither can be turned round. A direct UPDATE or DELETE of a zone row comes the other way: by the time this
+-- trigger runs, the statement already HOLDS the zone's row lock. If it then WAITED for the place while a save of
+-- that place waited for the zone, the two would wait for each other (reproduced on Postgres 16: the direct write
+-- is ended with "deadlock detected" after a second; scripts/db-placement-concurrency.sh keeps the reproduction).
+-- So a direct update or delete never waits here: it takes the place's lock if it is free, and otherwise is
+-- refused at once with 'zone_place_busy' (55P03, lock_not_available), having changed nothing. The writer tries
+-- again, or better, saves the layout through save_storage_layout, which waits its turn in the right order.
+-- An INSERT holds no row yet, so it may wait. Inside save_storage_layout and a delete of the place, the lock is
+-- already this transaction's own, and nothing is refused.
 create function private.lock_zone_location() returns trigger
   language plpgsql security definer set search_path = '' as $$
 declare loc uuid; hh uuid;
 begin
   if tg_op = 'DELETE' then loc := old.location_id; hh := old.household_id;
   else loc := new.location_id; hh := new.household_id; end if;
-  -- no row when the place itself is being deleted (its zones go with it): nothing to lock then.
+  -- No row is found when the place itself is being deleted (its zones go with it): nothing to lock then.
   -- The household match (as in private.check_bottle_location): a row that claims another household never
   -- reaches, let alone locks, that household's place.
-  perform 1 from public.cellar_locations l where l.id = loc and l.household_id = hh for no key update;
+  if tg_op = 'INSERT' then
+    perform 1 from public.cellar_locations l where l.id = loc and l.household_id = hh for no key update;
+    return new;
+  end if;
+  begin
+    perform 1 from public.cellar_locations l where l.id = loc and l.household_id = hh for no key update nowait;
+  exception when lock_not_available then
+    raise exception 'zone_place_busy' using errcode = '55P03';
+  end;
   if tg_op = 'DELETE' then return old; end if;
   return new;
 end $$;

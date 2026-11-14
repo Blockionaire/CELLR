@@ -1,5 +1,11 @@
--- Smart Cellar 3D, sprint 1B (0043, 0046): what a place is, where a bottle is in it, and what stays exactly as it was.
+-- Smart Cellar 3D, sprint 1B (0043): what a place is, where a bottle is in it, and what stays exactly as it was.
+-- THE FUTURE STATE. These tests need two bottles in one cell, which the old one-bottle-per-cell index
+-- (bottles_slot_unique) forbids for as long as it exists: and it exists, because removing it is not authorised
+-- (supabase/gated-migrations/README.md). So the gated file itself is run here first, inside this transaction, and
+-- rolled back with it: what is tested is exactly what would be released, and the database is left as it was.
+-- The state as it is DEPLOYED (old index in force) is 99_smart_cellar_as_deployed.test.sql.
 begin;
+\ir ../gated-migrations/smart_cellar_drop_legacy_slot_index.sql
 do $$
 declare h1 uuid; h2 uuid; code text; cp uuid; cw uuid; v uuid; c1 uuid; c2 uuid;
         legacy uuid; wall uuid; deep uuid; shallow uuid; bins uuid; pegs uuid; other uuid;
@@ -55,7 +61,7 @@ begin
     test.affected(format('update public.cellar_locations set grid_rows = 5, label = %L where id = %L', 'Rack A', legacy)) = 1);
   perform test.rec('and still cannot shrink past a bottle',
     test.error_of(format('update public.cellar_locations set grid_cols = 2 where id = %L', legacy)) = '23514:location_in_use');
-  perform test.rec('the old one-bottle-per-cell index is gone, the whole-spot index is there (0046)',
+  perform test.rec('(in this test) the gated replacement ran: the old index is gone, the whole-spot index is there',
     to_regclass('public.bottles_slot_unique') is null and to_regclass('public.bottles_slot_index_unique') is not null);
 
   -- ================================================================================================
