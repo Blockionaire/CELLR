@@ -13,6 +13,14 @@ const PORT = 3100;
 // server keeps them off, as production does, so every existing spec keeps testing today's behaviour; specs for the
 // new features point at this one (`test.use({ baseURL: FEATURES_URL })`).
 const FEATURES_PORT = 3101;
+// A third copy of the same build that declares itself a Vercel PREVIEW deployment. The Smart Cellar template gallery
+// (/design/cellar-3d) is open only in `next dev` and on a Vercel preview that asked for it; a production build
+// that carries no Vercel marker stays closed whatever flags are set (src/lib/cellar-gallery-gate.ts), and the two
+// servers above are exactly that. So the gallery's specs point here (`test.use({ baseURL: PREVIEW_URL })`), and
+// the default server is what proves that an unrecognised production build shows no gallery. Vercel's variables are
+// not put on the other servers: Next itself reads VERCEL_ENV (it changes the manifest link), and no other spec
+// should run under it.
+const PREVIEW_PORT = 3102;
 const STACK_URL = "http://localhost:54321";
 // The sandbox ships Chromium at a fixed path; CI lets Playwright find its own browser. That is not the same browser:
 // without a path Playwright runs its "headless shell", and a path to the full Chrome runs that instead. They differ
@@ -99,6 +107,14 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
       env: { ...APP_ENV, CELLR_FEATURES: "all" },
+    },
+    {
+      command: `pnpm exec next start -p ${PREVIEW_PORT}`,
+      url: `http://localhost:${PREVIEW_PORT}/manifest.webmanifest`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+      // what Vercel sets on a preview deployment (DESIGN_GALLERY=1 is already in APP_ENV)
+      env: { ...APP_ENV, VERCEL: "1", VERCEL_ENV: "preview", VERCEL_TARGET_ENV: "preview" },
     },
   ],
 });
