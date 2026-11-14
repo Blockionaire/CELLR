@@ -705,6 +705,133 @@ describe("more bottles per cell than the template describes", () => {
   });
 });
 
+describe("the meaning of the index as the database stores it (cellar_locations.slot_semantics)", () => {
+  const SEMANTICS = ["depth", "ordinal", "single"] as const;
+
+  it("a place without a template: the stored value is never read, whatever it is", () => {
+    for (const kind of STORAGE_KINDS) {
+      const bare = resolveStorage({ kind, rows: 6, cols: 6 });
+      for (const semantics of [null, "depth", "ordinal", "single", "sideways", ""])
+        expect(resolveStorage({ kind, rows: 6, cols: 6, template: null, semantics })).toEqual(bare);
+      expect(bare).toMatchObject({ legacy: true, arrangementKnown: true, fallbacks: [] });
+    }
+  });
+
+  it("an existing wall rack is pegs with one position each, also on a database that says 'depth' about it", () => {
+    // what a column default of 'depth' would have put on every existing row: it must change nothing
+    const r = resolveStorage({
+      kind: "wall",
+      rows: 6,
+      cols: 6,
+      template: null,
+      cellCapacity: 1,
+      semantics: "depth",
+    });
+    expect(r).toMatchObject({ legacy: true, arrangementKnown: true, fallbacks: [] });
+    expect(r.template.id).toBe("wall_pegs");
+    expect(r.layout).toMatchObject({ family: "wall", semantics: "single", capacity: 36 });
+    expect(legacy(enumerateSlots(r.layout))).toEqual(nextFreeSlots({ rows: 6, cols: 6 }, [], 36));
+  });
+
+  it("a template stored with its own semantics is that template's arrangement", () => {
+    for (const id of STORAGE_TEMPLATE_IDS) {
+      const t = STORAGE_TEMPLATES[id];
+      for (const cellCapacity of [1, t.cellCapacity.max]) {
+        const r = resolveStorage({
+          kind: t.kind,
+          rows: 3,
+          cols: 3,
+          template: id,
+          cellCapacity,
+          semantics: t.semantics,
+        });
+        expect(r).toMatchObject({ arrangementKnown: true, fallbacks: [], legacy: false });
+        expect(r.layout.semantics).toBe(t.semantics);
+      }
+    }
+  });
+
+  it("a template stored with ANOTHER semantics: neither is believed, every spot is kept", () => {
+    for (const id of STORAGE_TEMPLATE_IDS) {
+      const t = STORAGE_TEMPLATES[id];
+      for (const semantics of [...SEMANTICS.filter((s) => s !== t.semantics), null, "sideways"])
+        for (const cellCapacity of [1, t.cellCapacity.max]) {
+          const stored = { kind: t.kind, rows: 3, cols: 4, template: id, cellCapacity };
+          const r = resolveStorage({ ...stored, semantics });
+          expect(r.fallbacks).toEqual(["semantics_mismatch"]);
+          expect(r.arrangementKnown).toBe(false);
+          expect(r.legacy).toBe(false);
+          // the same spots, in the same order, as when nothing was wrong
+          expect(enumerateSlots(r.layout)).toEqual(enumerateSlots(resolveStorage(stored).layout));
+          expect(r.layout.capacity).toBe(12 * cellCapacity);
+          // with more than one bottle per cell the index is a bare counter: not the stored meaning, not the
+          // template's, and above all never a depth that was not there
+          if (cellCapacity > 1) expect(r.layout.semantics).toBe("ordinal");
+        }
+    }
+  });
+
+  it("bins stored as 'depth' are not read as depths, and a deep rack stored as 'ordinal' not as that rack", () => {
+    const bins = resolveStorage({
+      kind: "rack",
+      rows: 2,
+      cols: 3,
+      template: "diamond_bins",
+      cellCapacity: 8,
+      semantics: "depth",
+    });
+    expect(bins.layout.semantics).toBe("ordinal");
+    expect(bins.arrangementKnown).toBe(false);
+    const rack = resolveStorage({
+      kind: "rack",
+      rows: 5,
+      cols: 8,
+      template: "rack_double_depth",
+      cellCapacity: 2,
+      semantics: "ordinal",
+    });
+    expect(rack.layout.semantics).toBe("ordinal");
+    expect(rack.arrangementKnown).toBe(false);
+    expect(occupancyOf(rack.layout, [{ row: 5, col: 8, index: 2 }]).stranded).toEqual([]);
+  });
+
+  it("only one reason is given, the first that applies", () => {
+    // an unknown template is reported as that, not also as a mismatch of semantics it cannot have
+    expect(
+      resolveStorage({ kind: "rack", rows: 2, cols: 2, template: "hex_2031", semantics: "depth" })
+        .fallbacks,
+    ).toEqual(["unknown_template"]);
+    expect(
+      resolveStorage({
+        kind: "wall",
+        rows: 2,
+        cols: 2,
+        template: "rack_classic",
+        semantics: "depth",
+      }).fallbacks,
+    ).toEqual(["template_kind_mismatch"]);
+    expect(
+      resolveStorage({
+        kind: "wall",
+        rows: 2,
+        cols: 2,
+        template: "wall_pegs",
+        cellCapacity: 2,
+        semantics: "depth",
+      }).fallbacks,
+    ).toEqual(["capacity_not_in_template"]);
+  });
+
+  it("a caller that does not read the column at all gets what it got before it existed", () => {
+    for (const id of STORAGE_TEMPLATE_IDS) {
+      const t = STORAGE_TEMPLATES[id];
+      const stored = { kind: t.kind, rows: 3, cols: 3, template: id, cellCapacity: 1 };
+      expect(resolveStorage(stored)).toEqual(resolveStorage({ ...stored, semantics: t.semantics }));
+      expect(resolveStorage({ ...stored, semantics: undefined })).toEqual(resolveStorage(stored));
+    }
+  });
+});
+
 describe("the contracts existing clients use are untouched", () => {
   it("creating and changing a place takes what it always took, and gives what it always gave", () => {
     expect(CreateStorageSchema.parse({ label: " Wine fridge ", rows: 5, cols: 4 })).toEqual({

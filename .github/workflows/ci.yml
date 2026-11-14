@@ -83,6 +83,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: bash scripts/db-test.sh
+      # Smart Cellar 3D: placement, resizing, zones and swaps from many sessions at once (with the two-session
+      # reproduction of the zone deadlock), and the migrations on a database that already holds a cellar.
+      - name: Placement, zones and swaps under concurrency
+        run: bash scripts/db-placement-concurrency.sh
+      - name: Upgrade rehearsal · existing places and bottles are not touched
+        run: bash scripts/db-smart-cellar-upgrade.sh
 
   e2e:
     name: End to end · shard ${{ matrix.shard }} of ${{ strategy.job-total }}

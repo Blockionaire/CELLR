@@ -3,6 +3,40 @@
 This is the one place that says how the database changes. `SETUP.md`, `BETA-OPERATIONS.md` and the checklists point
 here.
 
+> ## ⛔ STOP: the bootstrap procedure in §4 is OUTDATED. Do not run its commands.
+>
+> **Added 2026-11-14 (Smart Cellar 3D, sprint 1B). Nobody connected to production to write this.**
+>
+> - §3 and §4 were written on 2026-11-02 for **36** migrations (`0001`-`0036`). The repository has moved on:
+>   `main` had **42** migration files before sprint 1B (`…000037` with PR #65, `…000038`-`…000042` with PR #68), and
+>   sprint 1B adds `…000043`-`…000045`.
+> - **Whether `0037`-`0042` have been applied in production is not established anywhere in this repository**, and
+>   neither is whether the bootstrap below was ever carried out. The inventory in §3 is from before all of them.
+> - The command in §4 step 3 records as applied **every file that is in `supabase/migrations` at the moment it
+>   is run**. Run today it would mark `0037` and everything after it as applied **without running them**: their
+>   tables and functions would be missing, and the history would say they are there. The matching rollback command
+>   in step 5 has the same flaw the other way round.
+> - **There is no corrected command here, on purpose.** Which versions may be recorded depends on what production
+>   actually holds, and that has not been looked at. A command written without that knowledge would be a guess.
+>
+> **Before any `migration repair` or any `db push` against production, this must happen first, read-only:**
+>
+> 1. **A schema inventory.** Compare production with the repository object by object
+>    (`bash scripts/migration-audit/compare.sh --target "$DATABASE_URL"`, in a session forced read-only; or
+>    `scripts/migration-audit/fingerprint.sql` in the SQL Editor and `compare.sh --target-file`). Attribute every
+>    difference to its migration with `bash scripts/migration-audit/inventory.sh`. The result is a list, per
+>    migration from `0037` on, of "all its objects are there and identical", "some are", or "none are".
+> 2. **A migration-history inventory.** Does `supabase_migrations.schema_migrations` exist, and which versions does
+>    it hold (`pnpm exec supabase migration list --linked`, which only reads)?
+> 3. **A written decision by the owner**, from those two lists, of exactly which versions are recorded as applied and
+>    which are still to be run, following §5 migration by migration. Only then a repair, and only then a push.
+>
+> Until that is done: **no `migration repair`, no `db push`, no SQL Editor paste.** `db push --dry-run` is safe to
+> look at and must list exactly what the decision says is still to be run, nothing else.
+>
+> Also: `supabase/gated-migrations/` holds SQL that is deliberately **not** a migration (it drops an index and is not
+> authorised). `db push` cannot run it. Do not run it by hand. See the README in that folder.
+
 ## 1. Rules
 
 1. **A migration on `main` is never edited, removed or renamed.** It may already have run in production. A change,
@@ -17,9 +51,9 @@ here.
 
 ## 2. Deploying a migration (the one workflow)
 
-Prerequisite: the production database has a migration history (`supabase_migrations.schema_migrations`). **Today it
-has none**: until the owner has done the bootstrap in §4, `db push` would try to run all 36 migrations again. Do not
-run it; see §5.
+Prerequisite: the production database has a migration history (`supabase_migrations.schema_migrations`) **that has
+been checked against the schema** (see the STOP notice at the top). On 2026-11-02 it had none: without a correct
+history `db push` would try to run every migration again, from the first. Do not run it; see §5.
 
 On a laptop with the repository at the merged `main`, and the database password at hand:
 
@@ -99,6 +133,13 @@ Deviations that are not migrations' doing:
 
 ## 4. Bootstrapping production's migration history (owner action, not yet done)
 
+> **⛔ OUTDATED: DO NOT RUN THE COMMANDS IN THIS SECTION AS WRITTEN.** See the STOP notice at the top of this
+> document. This section describes the bootstrap as it was rehearsed for 36 migrations on 2026-11-02. It is kept as
+> the record of what was rehearsed and of the order of the steps (backup, read-only preflight, record, verify,
+> rollback). Its step 3 and step 5 commands take their list of versions from the files in `supabase/migrations`,
+> which are no longer the 36 this section is about. The read-only steps (1, 2 and the `compare.sh` check) are still
+> right and are where to start.
+
 Recording the 36 migrations as applied **changes only the history table**, never the schema or data. It was rehearsed
 end to end on a throwaway database built the way production was (`bash scripts/migration-audit/rehearse-bootstrap.sh`):
 
@@ -127,8 +168,9 @@ Do it only with the owner's go-ahead, in one sitting, at a quiet moment.
    This must print an empty line (no history table yet). `pnpm exec supabase migration list --linked` must show 36
    local and 0 remote.
 
-3. **Record the history.** The versions are exactly the 36 files on `main` (0001–0036), so a mistyped version is
-   impossible:
+3. **Record the history.** ⛔ **OUTDATED, DO NOT RUN:** when this was written the versions were exactly the 36
+   files on `main` (0001–0036). That is no longer true, and this command would record every later migration as
+   applied without running it:
 
    ```bash
    pnpm exec supabase migration repair --linked --status applied $(ls supabase/migrations/*.sql | xargs -n1 basename | cut -c1-14)
@@ -143,7 +185,8 @@ Do it only with the owner's go-ahead, in one sitting, at a quiet moment.
    - `compare.sh` (step 2) is still `equivalent`.
 5. **Rollback, if anything looks wrong.** Revert exactly the history entries step 3 recorded, and nothing else. The
    schema was never touched, so there is nothing else to undo. This applies only because step 2 verified the starting
-   state: no history at all, 0 remote. The command reverts the same 36 versions from the same files on `main`:
+   state: no history at all, 0 remote. ⛔ **OUTDATED, DO NOT RUN** (the same list of files as step 3, so it would
+   also revert versions that were applied properly afterwards). As written, it reverted the same 36 versions:
 
    ```bash
    pnpm exec supabase migration repair --linked --status reverted $(ls supabase/migrations/*.sql | xargs -n1 basename | cut -c1-14)

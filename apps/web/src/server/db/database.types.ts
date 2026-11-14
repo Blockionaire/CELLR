@@ -520,6 +520,7 @@ export type Database = {
           household_id: string;
           id: string;
           loc_col: number | null;
+          loc_index: number;
           loc_row: number | null;
           location_id: string | null;
           notes: string | null;
@@ -544,6 +545,7 @@ export type Database = {
           household_id: string;
           id?: string;
           loc_col?: number | null;
+          loc_index?: number;
           loc_row?: number | null;
           location_id?: string | null;
           notes?: string | null;
@@ -567,6 +569,7 @@ export type Database = {
           household_id?: string;
           id?: string;
           loc_col?: number | null;
+          loc_index?: number;
           loc_row?: number | null;
           location_id?: string | null;
           notes?: string | null;
@@ -1382,8 +1385,58 @@ export type Database = {
           },
         ];
       };
+      cellar_location_zones: {
+        Row: {
+          created_at: string;
+          from_row: number;
+          household_id: string;
+          id: string;
+          location_id: string;
+          purpose: string;
+          target_temp_c: number | null;
+          to_row: number;
+          updated_at: string;
+          zone_index: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          from_row: number;
+          household_id: string;
+          id?: string;
+          location_id: string;
+          purpose: string;
+          target_temp_c?: number | null;
+          to_row: number;
+          updated_at?: string;
+          zone_index: number;
+        };
+        Update: {
+          created_at?: string;
+          from_row?: number;
+          household_id?: string;
+          id?: string;
+          location_id?: string;
+          purpose?: string;
+          target_temp_c?: number | null;
+          to_row?: number;
+          updated_at?: string;
+          zone_index?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cellar_location_zones_location_id_household_id_fkey";
+            columns: ["location_id", "household_id"];
+            isOneToOne: false;
+            referencedRelation: "cellar_locations";
+            referencedColumns: ["id", "household_id"];
+          },
+        ];
+      };
       cellar_locations: {
         Row: {
+          appearance: Json | null;
+          cell_capacity: number;
           cellar_id: string;
           created_at: string;
           grid_cols: number;
@@ -1392,11 +1445,15 @@ export type Database = {
           id: string;
           kind: Database["public"]["Enums"]["location_kind"];
           label: string;
+          slot_semantics: string | null;
           sort_order: number;
+          template: string | null;
           updated_at: string;
         };
         ComputedFields: never;
         Insert: {
+          appearance?: Json | null;
+          cell_capacity?: number;
           cellar_id: string;
           created_at?: string;
           grid_cols?: number;
@@ -1405,10 +1462,14 @@ export type Database = {
           id?: string;
           kind?: Database["public"]["Enums"]["location_kind"];
           label: string;
+          slot_semantics?: string | null;
           sort_order?: number;
+          template?: string | null;
           updated_at?: string;
         };
         Update: {
+          appearance?: Json | null;
+          cell_capacity?: number;
           cellar_id?: string;
           created_at?: string;
           grid_cols?: number;
@@ -1417,7 +1478,9 @@ export type Database = {
           id?: string;
           kind?: Database["public"]["Enums"]["location_kind"];
           label?: string;
+          slot_semantics?: string | null;
           sort_order?: number;
+          template?: string | null;
           updated_at?: string;
         };
         Relationships: [
@@ -3198,6 +3261,21 @@ export type Database = {
       };
       remove_friend: { Args: { p_user: string }; Returns: boolean };
       respond_friend_request: { Args: { p_accept: boolean; p_id: string }; Returns: boolean };
+      save_storage_layout: {
+        Args: {
+          p_appearance: Json;
+          p_cell_capacity: number;
+          p_cols: number;
+          p_household: string;
+          p_kind: Database["public"]["Enums"]["location_kind"];
+          p_location: string;
+          p_rows: number;
+          p_slot_semantics: string;
+          p_template: string;
+          p_zones: Json;
+        };
+        Returns: string;
+      };
       send_friend_request: { Args: { p_user: string }; Returns: string };
       shared_wine_profile: {
         Args: { p_language: string; p_vintage_id: string };
@@ -3230,6 +3308,22 @@ export type Database = {
           p_a_row: number;
           p_b: string;
           p_b_col: number;
+          p_b_location: string;
+          p_b_row: number;
+          p_household: string;
+        };
+        Returns: string;
+      };
+      swap_bottles_v2: {
+        Args: {
+          p_a: string;
+          p_a_col: number;
+          p_a_index: number;
+          p_a_location: string;
+          p_a_row: number;
+          p_b: string;
+          p_b_col: number;
+          p_b_index: number;
           p_b_location: string;
           p_b_row: number;
           p_household: string;

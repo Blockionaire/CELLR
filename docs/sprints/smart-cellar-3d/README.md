@@ -6,22 +6,27 @@ off and leaves every existing place and bottle as it is.
 
 ## Where it stands
 
-| Sprint                           | Status                             | What it is                                                                                 |
-| -------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------ |
-| 0 — audit and architecture       | done (2026-11-14, no files)        | What exists, what to reuse, the plan.                                                      |
-| **1A — domain foundation**       | **done (2026-11-14), in review**   | Template catalogue, logical layout engine, configuration schemas, adapter for what exists. |
-| 1B — database and API            | not started; needs owner decisions | Columns, index, triggers, zones table, RPCs, API fields. See the requirements document.    |
-| 2 — renderer and 2D on layouts   | not started                        | The 3D view and the racks grid read a layout; the bins and wall families are drawn.        |
-| 3 — builder                      | not started                        | Choosing a template, sizing it, the look, a live preview.                                  |
-| 4 — depth and zones in daily use | not started                        | Placing, moving and swapping with an index; zones on screen.                               |
-| 5 — placement advice             | not started                        | A deterministic, explained suggestion for where a bottle goes.                             |
+| Sprint                           | Status                           | What it is                                                                                                                        |
+| -------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 0 — audit and architecture       | done (2026-11-14, no files)      | What exists, what to reuse, the plan.                                                                                             |
+| 1A — domain foundation           | done, merged (PR #69)            | Template catalogue, logical layout engine, configuration schemas, adapter for what exists.                                        |
+| **1B — database foundation**     | **done (2026-11-14), in review** | Columns, limits, the whole-spot index, bounds and resize under a lock, zones, the swap and save functions. Depth is switched off. |
+| 1C — API                         | not started                      | The server reads and writes the new columns; a move for back bottles; export v2; what friends see.                                |
+| 2 — renderer and 2D on layouts   | not started                      | The 3D view and the racks grid read a layout; the bins and wall families are drawn.                                               |
+| 3 — builder                      | not started                      | Choosing a template, sizing it, the look, a live preview.                                                                         |
+| 4 — depth and zones in daily use | not started                      | Placing, moving and swapping with an index; zones on screen.                                                                      |
+| 5 — placement advice             | not started                      | A deterministic, explained suggestion for where a bottle goes.                                                                    |
 
 ## Documents
 
 - [`ADR-001-templates-and-slot-identity.md`](./ADR-001-templates-and-slot-identity.md): the decisions of sprint 1A.
   Read this first.
-- [`SPRINT-1B-DATABASE-REQUIREMENTS.md`](./SPRINT-1B-DATABASE-REQUIREMENTS.md): what the database and the server must
-  enforce, what must keep working, and the decisions the owner has to take. Nothing in it has been built.
+- [`SPRINT-1B-DATABASE-REQUIREMENTS.md`](./SPRINT-1B-DATABASE-REQUIREMENTS.md): why the database enforces what it
+  enforces, with the corrections made while building it.
+- [`SPRINT-1B-REPORT.md`](./SPRINT-1B-REPORT.md): what sprint 1B built, the migrations, the guarantees, what old
+  clients get, the test results, and what is not known about production.
+- [`experiments/index-named-trigger.sql`](./experiments/index-named-trigger.sql): the design that was tested and NOT
+  built, and why.
 
 ## What sprint 1A added (code)
 
@@ -37,11 +42,25 @@ All in `packages/domain/src`, pure TypeScript, exported from `@cellr/domain`:
 Outside the domain package only: the new check sentences are registered and translated (`known-messages.ts`,
 `messages/en.json`, `messages/nl.json`), and `three/legacy-parity.test.ts` pins where the 3D view draws a bottle.
 
-**Not changed:** `placement.ts`, the storage schemas in `cellar.ts`, every service, repository and route, the 3D
-view, the racks view, the database, the generated types.
+Nothing in the app calls these modules yet.
 
-Nothing in the app calls the new modules yet. That is the point of the sprint: the next ones build on something that
-is already tested against what exists.
+## What sprint 1B added (database)
+
+| File                                                                         | What                                                                                                                                  |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `supabase/migrations/20261120000043` to `20261122000045`                     | Three additive migrations. See the report, §1.                                                                                        |
+| `supabase/gated-migrations/`                                                 | The one destructive statement (dropping the old unique index). **Not a migration, cannot be pushed, not authorised.**                 |
+| `supabase/tests/99_smart_cellar_{as_deployed,structure,zones,rpcs}.test.sql` | 186 tests, run by `pnpm db:test` and by CI on plain Postgres and on a real Supabase stack. `as_deployed` is also the gate's tripwire. |
+| `scripts/db-placement-concurrency.sh` (`pnpm db:test:placement`)             | Placement, resizing, zones and swaps from many sessions at once.                                                                      |
+| `scripts/db-smart-cellar-upgrade.sh` (`pnpm db:test:upgrade`)                | The migrations on a database that already holds a cellar: no row is touched.                                                          |
+| `scripts/real-stack-smoke.mjs` (extended)                                    | The same rules through PostgREST itself.                                                                                              |
+
+Outside the database: `database.types.ts` regenerated; `server/db/errors.ts` words the four new refusals;
+`storage-compat.ts` reads the stored `slot_semantics`. **Not changed:** every service, repository and route, the 3D
+view, the racks view, `placement.ts`, the storage schemas in `cellar.ts`.
+
+**More than one bottle per cell is switched off in the database** (`private.cellar_settings`) until the API and the
+screens exist. Switching it on is a migration of its own.
 
 ## Rules for whoever continues
 
@@ -53,3 +72,11 @@ is already tested against what exists.
    A place whose template is unknown, belongs to another kind, or does not describe that many bottles per cell
    is not drawn as any template's furniture (`arrangementKnown` is false): cells and counts only.
 6. A feature flag hides a screen. It does not protect data: constraints, triggers and RLS do.
+7. A bottle is never put on an index its writer did not name. Where the database cannot tell what was meant it
+   refuses (`slot_index_ambiguous`); do not replace that with a guess.
+8. The old unique index `bottles_slot_unique` stays until the owner says otherwise. Nothing in
+   `supabase/gated-migrations/` is ever run by hand or moved into `supabase/migrations` without that.
+9. The order of locks is: the place, then its zones (and bottles before places only for reading). Code that holds a
+   zone row and needs the place must not wait for it.
+10. No migration is run against production from here. `docs/MIGRATIONS.md` describes 36 migrations and `main` has
+    more: see the 1B report, §8, before anything is pushed.
