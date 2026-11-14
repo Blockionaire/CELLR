@@ -19,15 +19,15 @@ writing and testing the migration (`pnpm db:test`, the Supabase stack job).
 
 Names are proposals; the meanings are the decision.
 
-| Table                   | Column             | Type and default                | Constraint                                                                    | Domain field              |
-| ----------------------- | ------------------ | ------------------------------- | ----------------------------------------------------------------------------- | ------------------------- |
-| `cellar_locations`      | `template`         | `text null`                     | `template ~ '^[a-z][a-z0-9_]{0,39}$'`                                         | `structure.template`      |
-| `cellar_locations`      | `cell_capacity`    | `smallint not null default 1`   | `between 1 and 16`                                                            | `structure.cellCapacity`  |
-| `cellar_locations`      | `appearance`       | `jsonb null`                    | `jsonb_typeof = 'object' and pg_column_size(appearance) < 1024`               | `StorageAppearance`       |
-| `cellar_locations`      | (table check)      |                                 | `grid_rows * grid_cols * cell_capacity <= 1200`                               | `STORAGE_LIMITS.capacity` |
-| `cellar_locations`      | `slot_semantics`   | `text not null default 'depth'` | `in ('depth', 'ordinal', 'single')`; `'single'` only with `cell_capacity = 1` | `LogicalLayout.semantics` |
-| `bottles`               | `loc_index`        | `smallint not null default 1`   | `between 1 and 16`                                                            | `SlotAddress.index`       |
-| `cellar_location_zones` | new table (see §6) |                                 |                                                                               | `structure.zones`         |
+| Table                   | Column             | Type and default              | Constraint                                                      | Domain field              |
+| ----------------------- | ------------------ | ----------------------------- | --------------------------------------------------------------- | ------------------------- |
+| `cellar_locations`      | `template`         | `text null`                   | `template ~ '^[a-z][a-z0-9_]{0,39}$'`                           | `structure.template`      |
+| `cellar_locations`      | `cell_capacity`    | `smallint not null default 1` | `between 1 and 16`                                              | `structure.cellCapacity`  |
+| `cellar_locations`      | `appearance`       | `jsonb null`                  | `jsonb_typeof = 'object' and pg_column_size(appearance) < 1024` | `StorageAppearance`       |
+| `cellar_locations`      | (table check)      |                               | `grid_rows * grid_cols * cell_capacity <= 1200`                 | `STORAGE_LIMITS.capacity` |
+| `cellar_locations`      | `slot_semantics`   | `text null`, no default       | see "The semantics column" below                                | `LogicalLayout.semantics` |
+| `bottles`               | `loc_index`        | `smallint not null default 1` | `between 1 and 16`                                              | `SlotAddress.index`       |
+| `cellar_location_zones` | new table (see §6) |                               |                                                                 | `structure.zones`         |
 
 - `template null` is "a place from before templates" (`ResolvedStorage.legacy`). No backfill: existing rows stay
   exactly as they are, and the renderer keeps drawing them the old way.
@@ -42,8 +42,65 @@ Names are proposals; the meanings are the decision.
   furniture: `resolveStorage` reports `template_kind_mismatch`, keeps every cell and its capacity, and reads an index
   past 1 as a bare counter (`storage-compat.ts`, rule 3).
 - **`slot_semantics` is the one thing from the catalogue the database is told**, because it has to protect it: what
-  the index of a bottle in this place means (§5). The server writes it from the template. The default `'depth'` on
-  every existing row claims nothing: with one bottle per cell there is no index to give a meaning to.
+  the index of a bottle in this place means (§5). The server writes it from the template, together with the
+  template.
+
+### The semantics column: no default, and nothing said about a place that has no template
+
+An earlier draft of this document proposed `slot_semantics text not null default 'depth'`. **That default is
+withdrawn.** It would have written `'depth'` on every existing row, including every wall rack, and the template an
+existing wall rack is read as (`wall_pegs`) is `single`. The moment the adapter compares the stored semantics with
+the template's (§5), every wall rack that exists today would disagree with itself and stop being a known
+arrangement. A default must not be able to do that to data nobody touched.
+
+So:
+
+- `slot_semantics text null`, **no default, no backfill**. After the migration every existing row has `null`, which
+  means "not stated". It is not a claim, so it cannot be a wrong one.
+- `check (slot_semantics is null or slot_semantics in ('depth', 'ordinal', 'single'))`.
+- `check ((template is null) = (slot_semantics is null))`: a template and its semantics are stated together or not at
+  all. The old app writes neither, so every write it makes still passes.
+- `check (cell_capacity = 1 or slot_semantics is not null)`: more than one bottle per cell needs a stated meaning.
+- `check (slot_semantics is distinct from 'single' or cell_capacity = 1)`.
+
+Should a later decision prefer a non-null column with a placeholder value all the same, the first rule below still
+holds and is what keeps existing places safe: **for a place without a template the adapter does not read this column,
+whatever it contains.**
+
+### How the adapter must read these columns (`resolveStorage`, sprint 1B)
+
+`StoredStorage` gains `semantics` (the stored `slot_semantics`). The rules, in the order they are applied:
+
+| Stored                                                                  | Read as                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `template` null, `cell_capacity` 1 (**every place that exists today**)  | A place from before templates: `legacy: true`, `arrangementKnown: true`, no fallbacks. Template and semantics come from the **kind** (`DEFAULT_TEMPLATE_FOR_KIND`), as in sprint 1A. `slot_semantics` is **not read**: null, `'depth'` or anything else gives the same result.                         |
+| The same, `kind = 'wall'` (**existing wall storage**)                   | The row above, spelled out: `wall_pegs`, semantics `single`, one position per peg, a `rows` x `cols` layout. Not `depth`, and not a mismatch, because nothing stored is compared with anything.                                                                                                        |
+| `template` null, `cell_capacity` above 1                                | Cannot be stored (the third check). Met all the same: every cell and its capacity kept, `capacity_not_in_template`, `arrangementKnown: false`, `legacy: false`, the index a bare counter. Already so in sprint 1A.                                                                                     |
+| A template, `cell_capacity` 1, stored semantics equal to the template's | The template's own arrangement, known. With one bottle per cell there is no index beyond 1 to misread, whichever semantics it is.                                                                                                                                                                      |
+| A template, more per cell than the template describes                   | Sprint 1A already: `capacity_not_in_template`, not known, every spot kept (wall pegs with two per peg; a one-deep rack stored three deep).                                                                                                                                                             |
+| **A template whose stored semantics differ from the template's**        | New in sprint 1B: fallback `semantics_mismatch`, `arrangementKnown: false`. Every cell and its capacity kept. With more than one bottle per cell the layout's semantics is `ordinal`: neither the stored meaning nor the template's is claimed, least of all the stronger one. Reported, never thrown. |
+| A template with stored semantics null                                   | Cannot be stored (the second check). Met all the same: treated as the row above.                                                                                                                                                                                                                       |
+
+`semantics_mismatch` joins `unknown_template`, `template_kind_mismatch` and `capacity_not_in_template` as the reasons
+an arrangement is not known, and the invariant sprint 1A tests keeps holding: **known, or exactly one of those
+reasons; when known, the layout's family and semantics are the template's own.** The catalogue rule that a released
+template never changes its semantics (ADR-001 §1) means a mismatch can only come from a write around the server or a
+defect, never from an upgrade of the app.
+
+**What a place from before templates keeps, exactly:**
+
+- **Appearance.** While `legacy` is true the 3D view draws the place from its kind, rows and columns as it does today
+  (`STORAGE_LOOK[kind]`, `slotPosition`, `rackMatrix`). `ResolvedStorage.appearance` is then only the kind's default
+  look as a stand-in: it is not a stored fact and must not replace today's drawing. A place stops being legacy when
+  its owner gives it a template, and not before. `apps/web/src/features/cellar/three/legacy-parity.test.ts` pins the
+  drawing.
+- **Slot ordering.** The same cells in the same order as `nextFreeSlots` has always filled them
+  (`storage-compat.test.ts`: every kind at every size, and the exhaustive parity cases).
+- **Behaviour.** Its bottles are at index 1 and stay there (§3). Its kind can still be changed with bottles in it,
+  as today: the row is one bottle per cell, so §5 allows it, and `slot_semantics` stays null through it. A legacy
+  wall rack that becomes a rack is then read through `rack_classic`; nothing stored changed and no bottle moved.
+- **No write on its behalf.** The migration does not set `template`, `slot_semantics` or `appearance` on any existing
+  row, and neither does the app when it merely reads a place.
 
 ## 2. One bottle per spot, with an index
 
@@ -180,6 +237,7 @@ has this `location_id`.
 | --------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------- |
 | `slot_semantics` unchanged (any template, any family, any size) | allowed     | allowed, subject to §4 (no bottle stranded)                             |
 | `slot_semantics` changes and the OLD `cell_capacity` is 1       | allowed     | allowed, subject to §4: every bottle is at index 1, which meant nothing |
+| `slot_semantics` was null (a place from before templates)       | allowed     | allowed, subject to §4: the same case, its `cell_capacity` is always 1  |
 | `slot_semantics` changes and the OLD `cell_capacity` is above 1 | allowed     | **rejected**                                                            |
 
 - The second row is today's behaviour and stays: a rack can become a wall rack or a fridge with its bottles in it
@@ -194,10 +252,8 @@ has this `location_id`.
 `location_in_use`. It reads the place's bottles under the lock of §4, so a placement cannot slip in beside it.
 
 **A template changed without its semantics** (a direct write of `template` alone) cannot strengthen a claim either:
-the stored `slot_semantics` no longer matches the template's, and reading takes the weaker one. This is the same
-rule as a template of the wrong kind (`resolveStorage`, rule 3), and sprint 1B has to extend it: `StoredStorage`
-gains `semantics`, and a stored value that disagrees with the template's gives `arrangementKnown: false` and a bare
-counter. A server check refuses the write in the first place.
+the stored `slot_semantics` no longer matches the template's, and reading takes neither (`semantics_mismatch`, §1
+"How the adapter must read these columns"). A server check refuses the write in the first place.
 
 **Server check (friendlier, not a replacement):** compare the layout before and after
 (`resolveStorage(...).layout.semantics`, `occupancyOf`) and answer 409 saying how many bottles are in the way and
@@ -402,7 +458,8 @@ and the previous app running:
   index above 1 into another cell;
 - **the old `swap_bottles` refuses what it cannot verify** (§8): a bottle at an index above 1 gives `stale` and
   nothing changes. For bottles at index 1 it works as it always has;
-- the old app cannot change what an index means: it writes `kind`, never `slot_semantics`, and a change of
+- the old app cannot change what an index means: it writes `kind`, never `template` or `slot_semantics` (so the
+  check that pairs them always passes for it), and a change of
   semantics on a place that is more than one deep and holds bottles is rejected for every writer (§5);
 - a place that was given two bottles per cell while the new app ran is the one degraded case, and it is a matter of
   display: the old racks view keys bottles by `row:col`, so it shows one of the two. No data is lost or changed; the

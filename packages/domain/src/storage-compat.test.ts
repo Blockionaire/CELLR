@@ -167,6 +167,27 @@ describe("a place from before templates, read in the new terms", () => {
     }
   });
 
+  it("an existing wall rack stays what it is: pegs, one position each, known, in the old order", () => {
+    for (const [rows, cols] of [
+      [6, 6],
+      [1, 1],
+      [30, 30],
+    ] as const) {
+      const r = resolveStorage({ kind: "wall", rows, cols });
+      expect(r).toMatchObject({ legacy: true, arrangementKnown: true, fallbacks: [] });
+      expect(r.template.id).toBe("wall_pegs");
+      expect(r.layout).toMatchObject({
+        family: "wall",
+        semantics: "single",
+        capacity: rows * cols,
+      });
+      expect(r.layout.cells.every((c) => c.capacity === 1)).toBe(true);
+      expect(legacy(enumerateSlots(r.layout))).toEqual(
+        nextFreeSlots({ rows, cols }, [], rows * cols),
+      );
+    }
+  });
+
   it("is the same whether the new fields are absent or null", () => {
     const bare = resolveStorage({ kind: "rack", rows: 5, cols: 8 });
     expect(
@@ -287,19 +308,33 @@ describe("a place with a template, read back", () => {
   });
 
   it("never reads a bottle's spot away: the stored size wins over the template's limits", () => {
-    // more shelves than an undercounter cooler is sold with, and three deep where it offers two
-    const r = resolveStorage({
+    // more shelves than an undercounter cooler is sold with, two deep as it may be: still that cooler, only larger
+    const tall = resolveStorage({
+      kind: "fridge",
+      rows: 30,
+      cols: 30,
+      template: "cooler_undercounter",
+      cellCapacity: 2,
+    });
+    expect(tall.fallbacks).toEqual([]);
+    expect(tall.arrangementKnown).toBe(true);
+    expect(tall.layout).toMatchObject({ semantics: "depth", capacity: 1800 });
+    expect(occupancyOf(tall.layout, [{ row: 30, col: 30, index: 2 }]).stranded).toEqual([]);
+    // (it could not be WRITTEN like this)
+    expect(StorageStructureSchema.safeParse(tall.structure).success).toBe(false);
+
+    // three deep where it offers two: every spot is kept, but it is no longer read as that cooler
+    const deep = resolveStorage({
       kind: "fridge",
       rows: 30,
       cols: 30,
       template: "cooler_undercounter",
       cellCapacity: 3,
     });
-    expect(r.fallbacks).toEqual([]);
-    expect(r.layout.capacity).toBe(2700);
-    expect(occupancyOf(r.layout, [{ row: 30, col: 30, index: 3 }]).stranded).toEqual([]);
-    // (it could not be WRITTEN like this)
-    expect(StorageStructureSchema.safeParse(r.structure).success).toBe(false);
+    expect(deep.fallbacks).toEqual(["capacity_not_in_template"]);
+    expect(deep.arrangementKnown).toBe(false);
+    expect(deep.layout).toMatchObject({ semantics: "ordinal", capacity: 2700 });
+    expect(occupancyOf(deep.layout, [{ row: 30, col: 30, index: 3 }]).stranded).toEqual([]);
   });
 
   it("a peg stored with more than one bottle: the spots exist, with no claim about where on the peg", () => {
@@ -314,6 +349,10 @@ describe("a place with a template, read back", () => {
     expect(r.layout.semantics).toBe("ordinal");
     expect(r.layout.capacity).toBe(8);
     expect(occupancyOf(r.layout, [{ row: 1, col: 1, index: 2 }]).stranded).toEqual([]);
+    // two bottles on one peg is not wall pegs as the app knows them: it must not be shown as if it were
+    expect(r.arrangementKnown).toBe(false);
+    expect(r.fallbacks).toEqual(["capacity_not_in_template"]);
+    expect(r.legacy).toBe(false);
   });
 
   it("a size or capacity that is not a number from the database is made safe, and it says so", () => {
@@ -539,6 +578,130 @@ describe("a template that does not belong to the place's kind", () => {
       expect(r.layout.semantics).toBe(STORAGE_TEMPLATES[DEFAULT_TEMPLATE_FOR_KIND[kind]].semantics);
       expect(legacy(enumerateSlots(r.layout))).toEqual(nextFreeSlots({ rows: 5, cols: 4 }, [], 20));
     }
+  });
+});
+
+describe("more bottles per cell than the template describes", () => {
+  const UNSURE = [
+    "unknown_template",
+    "template_kind_mismatch",
+    "capacity_not_in_template",
+  ] as const;
+
+  it("wall pegs with several bottles per peg: every spot and every bottle kept, never shown as known", () => {
+    for (const cellCapacity of [2, 3, 16]) {
+      const stored = {
+        kind: "wall",
+        rows: 6,
+        cols: 6,
+        template: "wall_pegs",
+        cellCapacity,
+      } as const;
+      const r = resolveStorage(stored);
+      expect(r.arrangementKnown).toBe(false);
+      expect(r.fallbacks).toEqual(["capacity_not_in_template"]);
+      expect(r.legacy).toBe(false);
+      expect(r.layout.semantics).toBe("ordinal");
+      // the spots: all of them, the same as any place of that size, in the same order
+      expect(r.layout.capacity).toBe(36 * cellCapacity);
+      expect(enumerateSlots(r.layout).map(slotKey)).toEqual(
+        enumerateSlots(
+          resolveStorage({
+            kind: "other",
+            rows: 6,
+            cols: 6,
+            template: "rack_generic",
+            cellCapacity,
+          }).layout,
+        ).map(slotKey),
+      );
+      // the occupancy: a full peg, a half-full one, the last index of the last peg
+      const taken = [
+        ...Array.from({ length: cellCapacity }, (_, i) => ({ row: 1, col: 1, index: i + 1 })),
+        { row: 3, col: 4, index: 2 },
+        { row: 6, col: 6, index: cellCapacity },
+      ];
+      const o = occupancyOf(r.layout, taken);
+      expect(o).toMatchObject({ used: cellCapacity + 2, stranded: [], doubled: [] });
+      expect(o.free).toBe(36 * cellCapacity - cellCapacity - 2);
+      // and the next free spot is found as in any other place
+      expect(nextFreeAddresses(r.layout, taken, 1)).toEqual([{ row: 1, col: 2, index: 1 }]);
+    }
+    // one bottle per peg is wall pegs, known
+    const pegs = resolveStorage({
+      kind: "wall",
+      rows: 6,
+      cols: 6,
+      template: "wall_pegs",
+      cellCapacity: 1,
+    });
+    expect(pegs).toMatchObject({ arrangementKnown: true, fallbacks: [], legacy: false });
+    expect(pegs.layout.semantics).toBe("single");
+  });
+
+  it("every template with its own kind, at every capacity: known exactly up to what the template describes", () => {
+    for (const id of STORAGE_TEMPLATE_IDS) {
+      const t = STORAGE_TEMPLATES[id];
+      for (let cellCapacity = 1; cellCapacity <= 16; cellCapacity++) {
+        const r = resolveStorage({ kind: t.kind, rows: 3, cols: 4, template: id, cellCapacity });
+        const described = cellCapacity <= t.cellCapacity.max;
+        expect(r.arrangementKnown).toBe(described);
+        expect(r.fallbacks).toEqual(described ? [] : ["capacity_not_in_template"]);
+        expect(r.layout.semantics).toBe(described ? t.semantics : "ordinal");
+        // whichever it is, no spot is lost
+        expect(r.layout.capacity).toBe(12 * cellCapacity);
+        expect(r.structure.cellCapacity).toBe(cellCapacity);
+      }
+    }
+  });
+
+  it("a place with no template and more than one bottle per cell is not a place from before templates", () => {
+    for (const kind of STORAGE_KINDS) {
+      const r = resolveStorage({ kind, rows: 4, cols: 5, cellCapacity: 2 });
+      expect(r.legacy).toBe(false);
+      expect(r.arrangementKnown).toBe(false);
+      expect(r.fallbacks).toEqual(["capacity_not_in_template"]);
+      expect(r.layout).toMatchObject({ semantics: "ordinal", capacity: 40 });
+      expect(occupancyOf(r.layout, [{ row: 4, col: 5, index: 2 }]).stranded).toEqual([]);
+    }
+  });
+
+  it("what `arrangementKnown` promises holds for every kind, template and capacity", () => {
+    let known = 0;
+    let unsure = 0;
+    for (const kind of STORAGE_KINDS)
+      for (const template of [null, "hex_rack_2031", ...STORAGE_TEMPLATE_IDS])
+        for (let cellCapacity = 1; cellCapacity <= 16; cellCapacity++) {
+          const r = resolveStorage({ kind, rows: 2, cols: 3, template, cellCapacity });
+          const reasons = r.fallbacks.filter((f) => (UNSURE as readonly string[]).includes(f));
+          // known, or exactly one reason why not
+          expect(reasons).toHaveLength(r.arrangementKnown ? 0 : 1);
+          if (r.arrangementKnown) {
+            known++;
+            // the layout is the template's own, and nothing in it exceeds what the template describes
+            expect(r.layout.semantics).toBe(r.template.semantics);
+            expect(r.layout.family).toBe(r.template.family);
+            expect(r.template.kind).toBe(kind);
+            expect(cellCapacity).toBeLessThanOrEqual(r.template.cellCapacity.max);
+            if (template !== null) expect(r.template.id).toBe(template);
+          } else {
+            unsure++;
+            // nothing is claimed about where in a cell a bottle lies
+            if (cellCapacity > 1) expect(r.layout.semantics).toBe("ordinal");
+          }
+          // a layout that says "one position per cell" has one position per cell
+          if (r.layout.semantics === "single")
+            expect(r.layout.cells.every((c) => c.capacity === 1)).toBe(true);
+          // a place from before templates is exactly: no template, one bottle per cell, known
+          expect(r.legacy).toBe(template === null && cellCapacity === 1);
+          if (r.legacy) expect(r.arrangementKnown).toBe(true);
+          // and always: every stored spot, nothing more
+          expect(r.layout.capacity).toBe(6 * cellCapacity);
+          expect(enumerateSlots(r.layout)).toHaveLength(6 * cellCapacity);
+        }
+    expect(known + unsure).toBe(6 * 16 * 16);
+    expect(known).toBeGreaterThan(30);
+    expect(unsure).toBeGreaterThan(1000);
   });
 });
 

@@ -36,7 +36,8 @@ import {
  * 2. Everything else is a hint. A template this app does not know, zones that do not add up, a look from another
  *    version: each falls back to something safe and is reported in `fallbacks`, never thrown.
  * 3. A place is only read as a particular piece of furniture when the app is sure which one it is. A template it
- *    does not know, or one that belongs to another kind than the place is stored as, is NOT read as some other
+ *    does not know, one that belongs to another kind than the place is stored as, or more bottles per cell than
+ *    the template describes (two on a peg; two deep in a place that has no template at all) is NOT read as some
  *    template's arrangement: the cells and their capacity are kept exactly (rule 1), `arrangementKnown` is false,
  *    and an index past 1 is a bare counter, never a depth.
  */
@@ -92,6 +93,11 @@ export type StorageFallback =
   | "unknown_template"
   /** The stored template is known, but belongs to another kind than the place is stored as. */
   | "template_kind_mismatch"
+  /**
+   * The place holds more bottles per cell than its template describes (two on a wall peg, three deep in a rack
+   * that is one deep), or more than one without any template to say what that means.
+   */
+  | "capacity_not_in_template"
   | "size"
   | "cell_capacity"
   | "zones"
@@ -103,15 +109,17 @@ export interface ResolvedStorage {
   appearance: StorageAppearance;
   layout: LogicalLayout;
   /**
-   * A place from before templates (no template stored). It is exactly what it was: a `rows` x `cols` grid of
-   * single spots, and the renderer keeps drawing it the way it always has.
+   * A place from before templates: no template stored, one bottle per cell. It is exactly what it was: a `rows` x
+   * `cols` grid of single spots, and the renderer keeps drawing it the way it always has.
    */
   legacy: boolean;
   /**
-   * Whether the app knows how this place is physically arranged. False when its template is unknown or does not
-   * belong to its kind: then `template` is only the kind's own (for a look and for limits), the layout's cells and
-   * capacity are still exactly what is stored, and nothing may present the place as that template's furniture or
-   * an index as a position in it. Show the cells and how full they are.
+   * Whether the app knows how this place is physically arranged. When true, the layout's family and semantics are
+   * the template's own and its cells hold no more than the template describes. False when the template is unknown,
+   * does not belong to the place's kind, or does not describe this many bottles per cell: then `template` is only
+   * a stand-in (for a look and for limits), the layout's cells and capacity are still exactly what is stored, and
+   * nothing may present the place as that template's furniture or an index as a position in it. Show the cells
+   * and how full they are. `fallbacks` says which of the three it was.
    */
   arrangementKnown: boolean;
   /** Empty when everything stored was used as it is. */
@@ -137,8 +145,8 @@ function readZones(
 
 /**
  * Reads a stored place into the new terms. Never throws; see the rules at the top of this file.
- * For a place from before templates the result is its kind's default template over its own grid, one bottle per
- * cell, no zones, the default look, and `legacy: true`.
+ * For a place from before templates (no template, one bottle per cell) the result is its kind's default template
+ * over its own grid, no zones, the default look, and `legacy: true`.
  */
 export function resolveStorage(stored: StoredStorage): ResolvedStorage {
   const fallbacks: StorageFallback[] = [];
@@ -147,12 +155,12 @@ export function resolveStorage(stored: StoredStorage): ResolvedStorage {
   if (!knownKind) fallbacks.push("unknown_kind");
   const kind: StorageKind = knownKind ? stored.kind : "other";
 
-  const legacy = stored.template === undefined || stored.template === null;
-  const named = legacy ? null : getStorageTemplate(stored.template);
+  const noTemplate = stored.template === undefined || stored.template === null;
+  const named = noTemplate ? null : getStorageTemplate(stored.template);
   const ofKind = STORAGE_TEMPLATES[DEFAULT_TEMPLATE_FOR_KIND[kind]];
   let template = ofKind;
   let arrangementKnown = true;
-  if (!legacy && !named) {
+  if (!noTemplate && !named) {
     fallbacks.push("unknown_template");
     arrangementKnown = false;
   } else if (named && knownKind && named.kind !== kind) {
@@ -180,13 +188,19 @@ export function resolveStorage(stored: StoredStorage): ResolvedStorage {
     zones: [],
   };
 
-  // More than one bottle in a cell, where the app cannot say how they lie: a place whose arrangement is not known
-  // (rule 3), or a template of one spot per cell that is stored with more. The spots exist (rule 1), but nothing
-  // is claimed about where in the cell they are.
+  // More bottles in a cell than the template describes: a peg holds one, a classic rack is one deep, and a place
+  // without a template has only ever held one per cell. The template is then not a true picture of the place.
+  const described = noTemplate ? 1 : template.cellCapacity.max;
+  if (arrangementKnown && structure.cellCapacity > described) {
+    fallbacks.push("capacity_not_in_template");
+    arrangementKnown = false;
+  }
+  const legacy = noTemplate && arrangementKnown;
+
+  // More than one bottle in a cell, where the app cannot say how they lie (rule 3): the spots exist (rule 1), but
+  // nothing is claimed about where in the cell they are. Otherwise the index means what the template says.
   const semantics: SlotSemantics =
-    structure.cellCapacity > 1 && (!arrangementKnown || template.semantics === "single")
-      ? "ordinal"
-      : template.semantics;
+    structure.cellCapacity > 1 && !arrangementKnown ? "ordinal" : template.semantics;
   const layout = uniformLayout({
     family: template.family,
     semantics,
