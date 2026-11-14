@@ -69,7 +69,8 @@ screens exist. Switching it on is a migration of its own.
 
 ## What sprint 2A added (renderer and gallery)
 
-All in `apps/web`. Nothing under `supabase/`, `packages/domain`, `src/server` or `src/app/api` changed.
+All in `apps/web`. Nothing under `supabase/`, `packages/domain` or `src/app/api` changed; `src/server/env.ts` gained one
+function (the gallery's gate).
 
 | File                                                     | What                                                                                                     |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -81,7 +82,8 @@ All in `apps/web`. Nothing under `supabase/`, `packages/domain`, `src/server` or
 | `…/storage3d/layout-cells.ts`, `layout-map.tsx`          | The read-only flat picture, as data and as a component.                                                  |
 | `…/storage3d/fixtures.ts`                                | Made-up places and bottles for the gallery and the tests.                                                |
 | `src/features/design/cellar-gallery*.ts(x)`              | The gallery and its state (what the address may ask for).                                                |
-| `src/app/design/cellar-3d/page.tsx`                      | The route. 404 unless development or `DESIGN_GALLERY=1`.                                                 |
+| `src/app/design/cellar-3d/page.tsx`                      | The route. Local development and Vercel previews that ask for it; never production.                      |
+| `src/lib/cellar-gallery-gate.ts`                         | The gallery's own gate (stricter than `/design`'s), asked through `server/env.ts`.                       |
 | `e2e/storage-gallery.spec.ts`                            | The gallery in a browser: 28 tests on a desktop and a phone profile.                                     |
 | `e2e/visual-storage3d.spec.ts`, `perf-storage3d.spec.ts` | The photographer and the measuring bench (run only when asked for).                                      |
 
@@ -104,8 +106,11 @@ swapping and dragging, every service and route, the database. **No product scree
    `supabase/gated-migrations/` is ever run by hand or moved into `supabase/migrations` without that.
 9. The order of locks is: the place, then its zones (and bottles before places only for reading). Code that holds a
    zone row and needs the place must not wait for it.
-10. The new 3D view never draws a place from before templates, and the existing view is not replaced until parity
+10. The template gallery is never open on a production deployment, whatever is set there
+    (`lib/cellar-gallery-gate.ts`). Do not route it back through `/design`'s gate. In the flat picture a position
+    stands for its front bottle only: a press never reaches a bottle behind a free front.
+11. The new 3D view never draws a place from before templates, and the existing view is not replaced until parity
     and speed are shown on real devices (ADR-002). An index in a pile is drawn as "one more bottle in the pile",
     never as a place in it.
-11. No migration is run against production from here. `docs/MIGRATIONS.md` describes 36 migrations and `main` has
+12. No migration is run against production from here. `docs/MIGRATIONS.md` describes 36 migrations and `main` has
     more: see the 1B report, §8, before anything is pushed.

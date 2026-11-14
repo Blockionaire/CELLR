@@ -116,6 +116,92 @@ test("a tap on a position with a bottle in front never takes the one behind", as
   }
 });
 
+/**
+ * Regression (sprint 2A review): a deep position whose front is free while a bottle lies behind it. The flat
+ * picture shows the front as free and says so; pressing it must not quietly choose the bottle behind.
+ */
+test("flat: a position with a free front and a bottle behind it chooses nothing", async ({
+  page,
+}) => {
+  await show(page, "template=rack_double_depth&rows=4&cols=6");
+  const grid = page.getByRole("grid");
+  const picked = page.getByTestId("gallery-picked");
+  // every such position of this (made-up, always the same) rack
+  const freeFronts = grid.getByRole("button", { name: /: front: free; back: (?!free)/ });
+  const count = await freeFronts.count();
+  expect(count, "the fixture has positions with a free front and a taken back").toBeGreaterThan(0);
+  for (let i = 0; i < count; i++) {
+    await freeFronts.nth(i).click();
+    await expect(picked).toHaveText("No bottle chosen.");
+    await expect(grid.locator('[aria-pressed="true"]')).toHaveCount(0);
+    await expect(grid.locator("[data-chosen-place]")).toHaveCount(0);
+  }
+  // the keyboard is the same press
+  await freeFronts.first().focus();
+  await page.keyboard.press("Enter");
+  await expect(picked).toHaveText("No bottle chosen.");
+  await page.keyboard.press("Space");
+  await expect(picked).toHaveText("No bottle chosen.");
+
+  // with another bottle chosen first, pressing a free front lets go of it and still does not take the one behind
+  const taken = grid.getByRole("button", { name: /: front: (?!free)/ }).first();
+  await taken.click();
+  await expect(picked).toContainText("at the front");
+  await freeFronts.first().click();
+  await expect(picked).toHaveText("No bottle chosen.");
+});
+
+/**
+ * The bottle behind a free front CAN be chosen where it can be pointed at: in the 3D view, with nothing before
+ * it. The flat picture then says which place it is, the cell is still not "pressed" (its front is free), and
+ * pressing the cell lets go of it. A rack one position wide, so no neighbour stands before the bottle.
+ */
+test("flat: a rear bottle chosen in 3D is marked as the rear one, and its position still chooses nothing", async ({
+  page,
+  hasTouch,
+}) => {
+  await show(page, "template=rack_double_depth&rows=8&cols=1");
+  const grid = page.getByRole("grid");
+  const picked = page.getByTestId("gallery-picked");
+  const button = grid.locator('[data-cell="7:1"]');
+  await expect(button).toHaveAttribute(
+    "aria-label",
+    /^Shelf 7, position 1: front: free; back: (?!free).+/,
+  );
+
+  await tap(page, await whereIs(page, "b-7:1:2"), hasTouch);
+  await expect(picked).toContainText("shelf 7, position 1, at the back");
+  await expect(button).toHaveAttribute("data-chosen-place", "2");
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+  await expect(button).toHaveAttribute("aria-label", /front: free; back: .+ \(chosen\)$/);
+  await expect(grid.locator('[aria-pressed="true"]')).toHaveCount(0);
+  await expect(grid.locator("[data-chosen-place]")).toHaveCount(1);
+
+  // pressing that position lets go; it does not, now or on a second press, choose the rear bottle itself
+  await button.click();
+  await expect(picked).toHaveText("No bottle chosen.");
+  await button.click();
+  await expect(picked).toHaveText("No bottle chosen.");
+  await expect(grid.locator("[data-chosen-place]")).toHaveCount(0);
+});
+
+test("flat: a position with both places taken chooses its front bottle, says which, and lets go again", async ({
+  page,
+}) => {
+  await show(page, "template=rack_double_depth&rows=1&cols=2&fill=full");
+  const picked = page.getByTestId("gallery-picked");
+  const button = page.locator('[data-cell="1:1"]');
+  await button.click();
+  await expect(picked).toContainText("shelf 1, position 1, at the front");
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  await expect(button).toHaveAttribute("data-chosen-place", "1");
+  await expect(button).toHaveAttribute("aria-label", /front: .+ \(chosen\); back: [^()]+$/);
+  await expect(page.locator("[data-chosen-place]")).toHaveCount(1);
+  await button.click();
+  await expect(picked).toHaveText("No bottle chosen.");
+  await expect(page.locator("[data-chosen-place]")).toHaveCount(0);
+});
+
 test("a glass door does not get in the way of choosing a bottle", async ({ page, hasTouch }) => {
   await show(page, "template=cooler_single&door=glass&fill=full");
   const ids = await bottleIds(page);

@@ -135,20 +135,32 @@ not fourteen colours of one.
 
 ## 7. The gallery
 
-`/design/cellar-3d` — development, and deployments where `DESIGN_GALLERY=1` is set (the same switch as the existing
-`/design` page). Anywhere else the address shows the app's "not found" page and nothing of the gallery (how exactly:
-§11); it is marked `noindex`. It needs no account and reads no
-database: places and bottles are made from numbers by `fixtures.ts`, the same every time.
+`/design/cellar-3d` has a gate of its own, stricter than the existing `/design` page's (`lib/cellar-gallery-gate.ts`,
+asked through `isCellarGalleryEnabled()` in `server/env.ts`). It is open in exactly three places:
+
+| Where                                                                                             | Open when                                                                                |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Local development (`next dev`)                                                                    | always, unless the environment says it is production                                     |
+| A Vercel **preview** deployment                                                                   | `VERCEL_ENV` is exactly `preview` **and** `DESIGN_GALLERY=1` is set on it                |
+| A production build on one's own machine (browser tests)                                           | `DESIGN_GALLERY=1` **and** `CELLAR_GALLERY_LOCAL_BUILD=1`, and nothing that looks hosted |
+| **A Vercel production deployment**                                                                | **never. No flag or combination of flags opens it.**                                     |
+| Anything else (a custom Vercel environment, an unknown host, a host that does not say what it is) | never                                                                                    |
+
+Where it is closed the address shows the app's "not found" page and nothing of the gallery (how exactly: §11); it
+is always `noindex`. It needs no account and reads no database: places and bottles are made from numbers by
+`fixtures.ts`, the same every time.
 
 **To open it**
 
 ```bash
 pnpm --filter web dev                       # then http://localhost:3000/design/cellar-3d
-# or the production build, as the tests do:
-pnpm --filter web build && DESIGN_GALLERY=1 pnpm --filter web exec next start -p 3100
+# or the production build, as the tests do (both switches):
+pnpm --filter web build && DESIGN_GALLERY=1 CELLAR_GALLERY_LOCAL_BUILD=1 pnpm --filter web exec next start -p 3100
 ```
 
-On Vercel: set `DESIGN_GALLERY=1` on a **preview** deployment only. Do not set it on production.
+On Vercel: set `DESIGN_GALLERY=1` for the **Preview** environment. Setting it for Production opens `/design` there
+(as it always has) but not this gallery. The gate decides what is shown; who can reach a preview deployment at all
+is Vercel's deployment protection.
 
 **Controls:** what to show (a template, a place from before templates, a place with an unknown arrangement); the
 template (all 14); shelves, across, and deep or per bin, each inside the template's limits; material, colour,
@@ -170,6 +182,11 @@ anything (`cellar-gallery-state.test.ts`).
 - Arrangement not known: the same counts, and a sentence saying that the app does not know how the place is
   arranged.
 - Bottles stored on a spot the place does not have are counted in a line under the picture.
+- **Choosing.** A position stands for its FRONT bottle and only that one. Pressing a position whose front is free
+  chooses nothing, even with a bottle behind it: a press does what the picture shows and what the cell says
+  ("front: free"). A bottle behind the front is chosen where it can be pointed at, in the 3D view; the flat picture
+  then marks which place it is (a ring on that dot, "back: … (chosen)" in the cell's name) and the cell is not
+  "pressed". A compartment stands for no bottle.
 - Keyboard: one Tab stop; arrow keys move between cells (skipping where a layout has none); Enter or Space chooses.
   Screen reader: a named grid; each cell says what is there ("Shelf 1, position 2: front: …; back: free").
 - A phone: cells are at least 44 px; a wide place scrolls sideways inside its own box, the page does not
@@ -278,31 +295,34 @@ All run on 2026-11-14 on the branch, against the production build where a browse
 | `pnpm format:check`                                                                        | clean                                                                                 |
 | `pnpm lint`                                                                                | 0 errors (1 warning, in `playwright.webkit.config.ts`, from before this sprint)       |
 | `pnpm typecheck`                                                                           | clean, all four packages                                                              |
-| `pnpm test`                                                                                | `apps/web` 942 passed, 12 skipped (as before); `packages/domain` 902; scripts 86 + 83 |
-| of which new                                                                               | 137 tests in 5 files (below)                                                          |
+| `pnpm test`                                                                                | `apps/web` 970 passed, 12 skipped (as before); `packages/domain` 902; scripts 86 + 83 |
+| of which new                                                                               | 165 tests in 6 files (below)                                                          |
 | `three/legacy-parity.test.ts`, `three/layout.test.ts`                                      | pass, files unchanged                                                                 |
 | `pnpm build`                                                                               | succeeds; `/design/cellar-3d` is a dynamic route                                      |
 | `scripts/check-bundle-secrets.sh`                                                          | no server secrets in the client bundle                                                |
 | `pnpm migrations:check`                                                                    | 0 new migration files, none changed                                                   |
-| `e2e/storage-gallery.spec.ts`, desktop and phone profiles                                  | 54 passed, 2 skipped (the mouse and keyboard tests on the phone profile)              |
+| `e2e/storage-gallery.spec.ts`, desktop and phone profiles                                  | 60 passed, 2 skipped (the mouse and keyboard tests on the phone profile)              |
 | `e2e/cellar3d.spec.ts`, `cellar3d-precision`, `three-view` (the existing 3D view), desktop | 18 passed, 1 failed, **and that one fails the same way on `main`** (below)            |
 
-**New unit tests (137)**
+**New unit tests (165)**
 
-| File                                  | Tests | What they pin                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------------------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `storage3d/model.test.ts`             |    86 | Every template → a renderer of its family; 14 different geometries; legacy → never drawn here; depth behind; distinct positions; nothing intersects; bottles rest on something; piles by count; stranded bottles reported; neutral fallback; every offered look resolves; framing of the smallest and largest place at three aspect ratios, holding every bottle; the levels of detail. |
-| `storage3d/resources.test.ts`         |    29 | One mesh per material role for every template (900 spots = as many meshes as 6); glass does not write depth; everything made is released, per template and level, and after fifty open-and-close cycles; shared pictures are not released; fewer triangles per level; poses; **picking with real rays**: every bottle in racks, walls and bins, and the front bottle of a deep rack.    |
-| `storage3d/layout-map.test.tsx`       |    11 | The flat picture agrees with the 3D placement for all 14 templates; front and back are kept apart and never moved forward; a compartment is a count; unknown arrangements are counts; duplicates are reported; roles, names, one Tab stop.                                                                                                                                              |
-| `design/cellar-gallery-state.test.ts` |     7 | Every template at its default reads without a fallback; anything typed into the address is clamped to the catalogue; every offered look can be chosen; a link is a picture; the measured sizes are 40, 200, 900, 1,200.                                                                                                                                                                 |
-| `app/design/cellar-3d/page.test.ts`   |     4 | The page answers "not found" where the switch is off; the switch is on only in development or with `DESIGN_GALLERY=1`; noindex; no title where closed.                                                                                                                                                                                                                                  |
+| File                                  | Tests | What they pin                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------- | ----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `storage3d/model.test.ts`             |    86 | Every template → a renderer of its family; 14 different geometries; legacy → never drawn here; depth behind; distinct positions; nothing intersects; bottles rest on something; piles by count; stranded bottles reported; neutral fallback; every offered look resolves; framing of the smallest and largest place at three aspect ratios, holding every bottle; the levels of detail.                                                                                      |
+| `storage3d/resources.test.ts`         |    29 | One mesh per material role for every template (900 spots = as many meshes as 6); glass does not write depth; everything made is released, per template and level, and after fifty open-and-close cycles; shared pictures are not released; fewer triangles per level; poses; **picking with real rays**: every bottle in racks, walls and bins, and the front bottle of a deep rack.                                                                                         |
+| `storage3d/layout-map.test.tsx`       |    19 | The flat picture agrees with the 3D placement for all 14 templates; front and back are kept apart and never moved forward; a compartment is a count; unknown arrangements are counts; duplicates are reported; roles, names, one Tab stop. **A position with a free front and a bottle behind it chooses nothing** (two and three deep, whatever was chosen before); pressed means the front bottle is the chosen one; a rear bottle chosen in 3D is marked as the rear one. |
+| `design/cellar-gallery-state.test.ts` |     7 | Every template at its default reads without a fallback; anything typed into the address is clamped to the catalogue; every offered look can be chosen; a link is a picture; the measured sizes are 40, 200, 900, 1,200.                                                                                                                                                                                                                                                      |
+| `lib/cellar-gallery-gate.test.ts`     |    15 | The gate as plain data: development open; a Vercel preview open only when it asked; **Vercel production closed in every combination of switches**; custom environments, unknown environments and hosts that do not say what they are closed; a local production build needs both switches.                                                                                                                                                                                   |
+| `app/design/cellar-3d/page.test.ts`   |     9 | The page behind its real gate in each configuration: development, Vercel preview (asked and not), Vercel production (with `DESIGN_GALLERY=1`, with every switch), a bare production build; closed means "not found" and no title; always noindex; `/design` keeps its own gate.                                                                                                                                                                                              |
 
-**Browser tests (`storage-gallery.spec.ts`, 28 per profile):** each of the 14 templates is drawn by its family's
+**Browser tests (`storage-gallery.spec.ts`, 31 per profile):** each of the 14 templates is drawn by its family's
 renderer with at most 30 draw calls and the same bottle count as the flat picture; nothing is drawn at rest; a tap
 chooses the bottle under it in 3D and marks it flat; a tap on a deep position takes the front bottle; **a tap
 through a glass door reaches the bottle**; a pile names the compartment and no place in it; turning and zooming
 stop at their limits and a drag is not a tap; **going through all fourteen templates twice returns the geometry and texture
-counts to where they were**; the flat picture from the keyboard; no WCAG 2.1 AA violations (axe) for a rack and
+counts to where they were**; the flat picture from the keyboard; **a position with a free front and a bottle behind it chooses nothing, by
+mouse, touch or keyboard; a rear bottle chosen in 3D is marked as the rear one and its position still chooses
+nothing**; no WCAG 2.1 AA violations (axe) for a rack and
 for bins; the four unknown arrangements get the neutral picture; a place from before templates is drawn by the
 existing view; lost graphics memory is reported and recovered from; a 320 px phone does not scroll sideways; a
 wild address is clamped.
@@ -313,13 +333,29 @@ clean and the same test run there: it fails identically. This sprint changes no 
 reported here so that it is not mistaken for a regression, and not fixed here because it is not in scope; it may
 be the software renderer of this machine. Browser tests do not run on pull requests in this repository's CI.
 
-**How the gallery is closed, exactly.** With `DESIGN_GALLERY` unset, the production build was started and asked for
-`/design/cellar-3d`: the answer is the app's "not found" page, with none of the gallery in it (no markup, no
-title) and `noindex`. Its HTTP status is 200, not 404: the app's root layout streams (`app/loading.tsx`), so
-`notFound()` cannot change a status that has already been sent. The existing `/design` page behaves the same way
-today. A hard 404 would be a rule in `proxy.ts`, which this sprint does not touch; it is listed for 2B. The
-gallery's script, like every route's, is a static file of the build; it holds drawing code and made-up wines and
-nothing else.
+**How the gallery is closed, exactly.** The production build was started in seven configurations and asked for
+`/design/cellar-3d` and `/design`:
+
+| Environment of the server                                                     | `/design/cellar-3d`           | `/design` (unchanged gate) |
+| ----------------------------------------------------------------------------- | ----------------------------- | -------------------------- |
+| nothing set                                                                   | not found, no gallery content | not found                  |
+| `DESIGN_GALLERY=1` alone                                                      | **not found**                 | open                       |
+| `VERCEL_ENV=production` + `DESIGN_GALLERY=1`                                  | **not found**                 | open                       |
+| `VERCEL_ENV=production` + `DESIGN_GALLERY=1` + `CELLAR_GALLERY_LOCAL_BUILD=1` | **not found**                 | open                       |
+| `VERCEL_ENV=preview`, not asked                                               | not found                     | not found                  |
+| `VERCEL_ENV=preview` + `DESIGN_GALLERY=1`                                     | open                          | open                       |
+| own machine, both switches (the tests' server)                                | open                          | open                       |
+
+"Not found" is the app's not-found page with none of the gallery in it: no markup, no title, `noindex`. Its HTTP
+status is 200, not 404: the app's root layout streams (`app/loading.tsx`), so `notFound()` cannot change a status
+that has already been sent. The existing `/design` page behaves the same way. A hard 404 would be a rule in
+`proxy.ts`, which this sprint does not touch; it is listed for 2B. The gallery's script, like every route's, is a
+static file of the build; it holds drawing code and made-up wines and nothing else.
+
+The Vercel rows were made by setting Vercel's variables on a local server, not on Vercel: no deployment was made.
+The gate rests on `VERCEL_ENV`, which Vercel sets at build and run time while "Automatically expose System
+Environment Variables" is on (the default). With that switched off a deployment cannot be recognised as a preview
+and stays closed; the local case is refused on anything carrying a hosting marker.
 
 ## 12. Known gaps, for sprint 2B
 
@@ -350,7 +386,32 @@ nothing else.
 ## 13. What did not change
 
 - No file under `supabase/`: no migration added or run, the old unique index stays, depth stays switched off.
-- No file under `packages/domain`, `apps/web/src/server`, `apps/web/src/app/api`.
+- No file under `packages/domain` or `apps/web/src/app/api`. In `apps/web/src/server` one function was ADDED to
+  `env.ts` (`isCellarGalleryEnabled`, the gallery's gate, added in review); nothing there was changed, and
+  `isDesignGalleryEnabled` and `/design` behave as before. `playwright.config.ts` gained one variable for the tests'
+  own server.
 - `three/scene.tsx`, `showcase.tsx`, `rack-grid.tsx`, `cellar-3d-view.tsx`, placing and swapping: untouched.
 - No new dependency. No downloaded asset.
 - No product screen imports `storage3d/`. The only route that does is closed in production.
+
+## 14. Review corrections (2026-11-14)
+
+Two corrections after review, both narrow.
+
+**1. The flat picture chose the wrong bottle.** `LayoutMap` chose "the first taken place" of a deep position. With
+the front free and a bottle behind, the picture showed the front as free, the cell said "front: free", and a press
+chose the bottle behind. Now a position stands for its front bottle only (`frontOf`, `chosenByPressing` in
+`layout-cells.ts`); a free front chooses nothing. The smallest change that makes sight, words and press agree: no
+second control was added to the flat picture. A rear bottle is chosen in the 3D view, and the flat picture then
+marks which place it is. `aria-pressed` now means "the front bottle of this position is the chosen one" (it used
+to mean "some bottle of this position"). Pinned by unit tests, which fail when the old line is put back, and by
+browser tests with mouse, touch and keyboard. Placing, swapping and dragging in the product were not touched.
+
+**2. The gallery could be opened in production by one flag.** It shared `/design`'s gate, which `DESIGN_GALLERY=1`
+opens anywhere. It now has its own (§7): a Vercel production deployment is closed whatever is set. `/design` is
+unchanged. Tested as plain data, through the page, and against real servers (§11).
+
+One judgement to confirm: the third open case, a production build on one's own machine with two switches. It exists
+because the browser tests run against `next start`, and it is refused on anything that looks hosted. If the tests
+should instead be the only thing able to open it, the second switch can be replaced by a value the test runner
+generates per run.

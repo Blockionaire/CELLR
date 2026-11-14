@@ -169,12 +169,12 @@ The free **Hobby** plan is meant for personal, non-commercial use, which fits a 
 3. _Project → Environment Variables_ (a separate menu item from _Settings → Environments_, which is
    something else), from _Supabase → Project Settings → API Keys_ and _Data API_:
 
-   | Name                                   | Value                            | Environments       | Notes                                                                 |
-   | -------------------------------------- | -------------------------------- | ------------------ | --------------------------------------------------------------------- |
-   | `NEXT_PUBLIC_SUPABASE_URL`             | `https://<ref>.supabase.co`      | Production+Preview | public; no trailing slash                                             |
-   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…`               | Production+Preview | public by design; protected by row-level security                     |
-   | `SUPABASE_SERVICE_ROLE_KEY`            | the **secret** key `sb_secret_…` | Production+Preview | **mark as Sensitive.** Bypasses all security; only the server uses it |
-   | `DESIGN_GALLERY`                       | `1`                              | **Preview only**   | Enables `/design` for reviewing the design system on your phone       |
+   | Name                                   | Value                            | Environments       | Notes                                                                        |
+   | -------------------------------------- | -------------------------------- | ------------------ | ---------------------------------------------------------------------------- |
+   | `NEXT_PUBLIC_SUPABASE_URL`             | `https://<ref>.supabase.co`      | Production+Preview | public; no trailing slash                                                    |
+   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…`               | Production+Preview | public by design; protected by row-level security                            |
+   | `SUPABASE_SERVICE_ROLE_KEY`            | the **secret** key `sb_secret_…` | Production+Preview | **mark as Sensitive.** Bypasses all security; only the server uses it        |
+   | `DESIGN_GALLERY`                       | `1`                              | **Preview only**   | Enables `/design`; on Preview also `/design/cellar-3d` (never in Production) |
 
    Set these _before_ the build you care about (`NEXT_PUBLIC_*` values are compiled in).
 

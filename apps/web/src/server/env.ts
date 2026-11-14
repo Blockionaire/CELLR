@@ -1,5 +1,6 @@
 import "server-only";
 import { parseAdminAllowlist, parseFeatures, type FeatureFlags } from "@cellr/domain";
+import { cellarGalleryOpenIn } from "@/lib/cellar-gallery-gate";
 import { getPublicEnv, isDevelopment, type PublicEnv } from "@/lib/public-env";
 
 /** Server-side view of the environment. Validated lazily, so `next build` works without secrets. */
@@ -12,6 +13,15 @@ export function getServerEnv(): ServerEnv {
 /** The /design gallery is for development and for Vercel *preview* deployments (set DESIGN_GALLERY=1 there). */
 export function isDesignGalleryEnabled(): boolean {
   return isDevelopment() || process.env.DESIGN_GALLERY === "1";
+}
+
+/**
+ * The Smart Cellar template gallery (/design/cellar-3d) has a stricter gate of its own: local development, a Vercel
+ * preview deployment that asked for it, never a production deployment whatever is set. The rule and its reasons:
+ * lib/cellar-gallery-gate.ts. `isDesignGalleryEnabled` above is unchanged and still decides /design.
+ */
+export function isCellarGalleryEnabled(): boolean {
+  return cellarGalleryOpenIn(process.env);
 }
 
 export interface AiEnv {

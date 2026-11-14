@@ -2,7 +2,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { STORAGE_TEMPLATE_IDS, resolveStorage } from "@cellr/domain";
 import { fixtureBottles, fixturePlace, type FixtureBottle } from "./fixtures";
-import { MAP_LABELS_EN, cellLabel, mapData, modeOf, type MapBottle } from "./layout-cells";
+import {
+  MAP_LABELS_EN,
+  cellLabel,
+  chosenByPressing,
+  chosenPlace,
+  frontOf,
+  mapData,
+  modeOf,
+  type MapBottle,
+} from "./layout-cells";
 import { LayoutMap } from "./layout-map";
 import { buildModel, placeBottles } from "./model";
 
@@ -164,5 +173,125 @@ describe("the flat picture, on the page", () => {
     expect(out).toContain('data-testid="layout-map-unknown"');
     expect(out).toContain("does not know how this place is arranged");
     expect(html()).not.toContain("layout-map-unknown");
+  });
+});
+
+/**
+ * Regression (sprint 2A review): a deep position with a FREE front and a bottle behind it. The picture shows the
+ * front as free and the cell says "front: free", so pressing the cell must not choose the bottle behind.
+ */
+describe("pressing a position chooses its front bottle, and only that", () => {
+  const deep = (cellCapacity = 2) =>
+    fixturePlace({ template: "rack_double_depth", rows: 1, cols: 3, cellCapacity });
+  const bottle = (id: string, col: number, index: number): MapBottle => ({
+    id,
+    row: 1,
+    col,
+    index,
+    type: "red",
+    name: id,
+  });
+  // position 1: front free, back taken. position 2: both taken. position 3: front taken, back free.
+  const BOTTLES = [
+    bottle("rear-alone", 1, 2),
+    bottle("front-2", 2, 1),
+    bottle("rear-2", 2, 2),
+    bottle("front-3", 3, 1),
+  ];
+  const cells = () => mapData(deep(), BOTTLES).cells;
+
+  it("a free front with a bottle behind stands for no bottle", () => {
+    const [freeFront] = cells();
+    expect(freeFront!.slots!.map((b) => b?.id ?? null)).toEqual([null, "rear-alone"]);
+    expect(frontOf(freeFront!)).toBeNull();
+    expect(chosenByPressing(freeFront!, null)).toBeNull();
+    // whatever was chosen before, pressing it never lands on the bottle behind
+    for (const before of [null, "front-2", "rear-2", "rear-alone", "front-3"])
+      expect(chosenByPressing(freeFront!, before), String(before)).toBeNull();
+  });
+
+  it("three deep, with only the back taken, or only the middle: still no bottle", () => {
+    const three = deep(3);
+    const only = (index: number) => mapData(three, [bottle("behind", 1, index)]).cells[0]!;
+    for (const index of [2, 3]) {
+      expect(frontOf(only(index))).toBeNull();
+      expect(chosenByPressing(only(index), null)).toBeNull();
+    }
+    expect(chosenByPressing(only(1), null)).toBe("behind");
+  });
+
+  it("a taken front is chosen, whatever lies behind, and pressing again lets go", () => {
+    const [, both, frontOnly] = cells();
+    expect(chosenByPressing(both!, null)).toBe("front-2");
+    expect(chosenByPressing(both!, "front-2")).toBeNull();
+    // with the bottle BEHIND it chosen (in the 3D view), pressing chooses the front one: never stays on the rear
+    expect(chosenByPressing(both!, "rear-2")).toBe("front-2");
+    expect(chosenByPressing(frontOnly!, null)).toBe("front-3");
+  });
+
+  it("a compartment and a single position keep their meaning", () => {
+    const bins = fixturePlace({ template: "diamond_bins", rows: 1, cols: 1, cellCapacity: 4 });
+    const pile = mapData(bins, [{ id: "p", row: 1, col: 1, index: 3, type: "red", name: "p" }])
+      .cells[0]!;
+    expect(frontOf(pile)).toBeNull();
+    expect(chosenByPressing(pile, null)).toBeNull();
+    const single = fixturePlace({ template: "rack_classic", rows: 1, cols: 1 });
+    const cell = mapData(single, [{ id: "s", row: 1, col: 1, type: "red", name: "s" }]).cells[0]!;
+    expect(chosenByPressing(cell, null)).toBe("s");
+  });
+
+  it("knows which place of a cell holds the chosen bottle", () => {
+    const [freeFront, both] = cells();
+    expect(chosenPlace(freeFront!, "rear-alone")).toBe(2);
+    expect(chosenPlace(freeFront!, "front-2")).toBeNull();
+    expect(chosenPlace(both!, "front-2")).toBe(1);
+    expect(chosenPlace(both!, "rear-2")).toBe(2);
+    expect(chosenPlace(both!, null)).toBeNull();
+  });
+
+  const html = (selectedId: string | null) =>
+    renderToStaticMarkup(
+      <LayoutMap
+        resolved={deep()}
+        bottles={BOTTLES}
+        label="Deep"
+        selectedId={selectedId}
+        onSelect={() => {}}
+      />,
+    );
+  const cellHtml = (out: string, key: string) =>
+    out.match(new RegExp(`<button[^>]*data-cell="${key}"[^>]*>`))![0];
+
+  it("on the page: a free front reads as free and is not pressed, even when the bottle behind it is the chosen one", () => {
+    const idle = cellHtml(html(null), "1:1");
+    expect(idle).toContain('aria-label="Shelf 1, position 1: front: free; back: rear-alone"');
+    expect(idle).toContain('aria-pressed="false"');
+    expect(idle).not.toContain("data-chosen-place");
+
+    // chosen in the 3D view: the cell says which place it is, and is still not "pressed" (its front is free)
+    const rearChosen = cellHtml(html("rear-alone"), "1:1");
+    expect(rearChosen).toContain(
+      'aria-label="Shelf 1, position 1: front: free; back: rear-alone (chosen)"',
+    );
+    expect(rearChosen).toContain('aria-pressed="false"');
+    expect(rearChosen).toContain('data-chosen-place="2"');
+  });
+
+  it("on the page: pressed means the front bottle is the chosen one", () => {
+    const front = cellHtml(html("front-2"), "1:2");
+    expect(front).toContain('aria-pressed="true"');
+    expect(front).toContain('data-chosen-place="1"');
+    expect(front).toContain("front: front-2 (chosen); back: rear-2");
+    const rear = cellHtml(html("rear-2"), "1:2");
+    expect(rear).toContain('aria-pressed="false"');
+    expect(rear).toContain('data-chosen-place="2"');
+    expect(rear).toContain("front: front-2; back: rear-2 (chosen)");
+    // exactly one cell is pressed at most, and none when a rear bottle is chosen
+    expect(html("front-2").match(/aria-pressed="true"/g)).toHaveLength(1);
+    expect(html("rear-2").match(/aria-pressed="true"/g)).toBeNull();
+  });
+
+  it("says in the legend that a position chooses its front bottle only", () => {
+    expect(html(null)).toContain("Choosing a position chooses its front bottle only.");
   });
 });

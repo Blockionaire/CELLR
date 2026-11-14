@@ -113,7 +113,8 @@ export interface MapLabels {
   empty: (row: number, col: number) => string;
   position: (row: number, col: number, wine: string) => string;
   depth: (row: number, col: number, parts: string[]) => string;
-  depthPart: (place: number, of: number, wine: string | null) => string;
+  /** `chosen`: this is the place of the bottle that is chosen right now. */
+  depthPart: (place: number, of: number, wine: string | null, chosen: boolean) => string;
   count: (row: number, col: number, used: number, capacity: number) => string;
   unknownNote: string;
   countNote: string;
@@ -126,13 +127,13 @@ export const MAP_LABELS_EN: MapLabels = {
   empty: (row, col) => `Shelf ${row}, position ${col}: free`,
   position: (row, col, wine) => `Shelf ${row}, position ${col}: ${wine}`,
   depth: (row, col, parts) => `Shelf ${row}, position ${col}: ${parts.join("; ")}`,
-  depthPart: (place, of, wine) =>
-    `${place === 1 ? "front" : place === of ? "back" : `place ${place} from the front`}: ${wine ?? "free"}`,
+  depthPart: (place, of, wine, chosen) =>
+    `${place === 1 ? "front" : place === of ? "back" : `place ${place} from the front`}: ${wine ?? "free"}${chosen ? " (chosen)" : ""}`,
   count: (row, col, used, capacity) => `Compartment ${row}·${col}: ${used} of ${capacity} bottles`,
   unknownNote:
     "CELLR does not know how this place is arranged. It shows which compartments there are and how many bottles are in each, not where in a compartment a bottle is.",
   depthNote:
-    "Large circle: the bottle at the front. Small dots beside it: the places behind it, front to back.",
+    "Large circle: the bottle at the front. Small dots beside it: the places behind it, front to back. Choosing a position chooses its front bottle only.",
   countNote:
     "A compartment holds a loose pile: how many bottles are in it is shown, not where each one lies.",
   stranded: (n) =>
@@ -140,8 +141,38 @@ export const MAP_LABELS_EN: MapLabels = {
   summary: (used, capacity) => `${used} of ${capacity} spots taken`,
 };
 
-/** What a screen reader says for a cell. */
-export function cellLabel(cell: MapCell, labels: MapLabels): string {
+/**
+ * The bottle a cell stands for when it is pressed: the one at the FRONT (index 1), and only that one. A position
+ * whose front is free stands for no bottle, however many lie behind it: the picture shows the front as free and
+ * says so, and pressing it must not quietly reach past that to a bottle the person did not point at. A compartment
+ * stands for no bottle either (it has no "the bottle here").
+ */
+export function frontOf(cell: MapCell): MapBottle | null {
+  return cell.mode === "count" ? null : (cell.slots![0] ?? null);
+}
+
+/** What is chosen after a cell is pressed: its front bottle, or nothing (also when that bottle was chosen already). */
+export function chosenByPressing(cell: MapCell, selectedId: string | null): string | null {
+  const front = frontOf(cell);
+  return front && front.id !== selectedId ? front.id : null;
+}
+
+/**
+ * Which place of a cell holds the chosen bottle (1 = the front), or null. A bottle behind the front can be chosen
+ * elsewhere (in the 3D view, where it can be pointed at); the flat picture then shows which one it is.
+ */
+export function chosenPlace(cell: MapCell, selectedId: string | null): number | null {
+  if (selectedId === null || cell.mode === "count") return null;
+  const at = cell.slots!.findIndex((b) => b?.id === selectedId);
+  return at < 0 ? null : at + 1;
+}
+
+/** What a screen reader says for a cell. `selectedId`: the chosen bottle, so a deep cell can say which place it is. */
+export function cellLabel(
+  cell: MapCell,
+  labels: MapLabels,
+  selectedId: string | null = null,
+): string {
   if (cell.mode === "count") return labels.count(cell.row, cell.col, cell.used, cell.capacity);
   const slots = cell.slots!;
   if (cell.mode === "position")
@@ -151,6 +182,8 @@ export function cellLabel(cell: MapCell, labels: MapLabels): string {
   return labels.depth(
     cell.row,
     cell.col,
-    slots.map((b, i) => labels.depthPart(i + 1, slots.length, b?.name ?? null)),
+    slots.map((b, i) =>
+      labels.depthPart(i + 1, slots.length, b?.name ?? null, b !== null && b.id === selectedId),
+    ),
   );
 }

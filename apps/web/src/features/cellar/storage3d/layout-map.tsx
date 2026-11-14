@@ -6,6 +6,8 @@ import { cn } from "@/ui/cn";
 import {
   MAP_LABELS_EN,
   cellLabel,
+  chosenByPressing,
+  chosenPlace,
   mapData,
   type MapBottle,
   type MapCell,
@@ -20,8 +22,11 @@ import {
  * compartment how many, as a number and a bar, with no bottle drawn at any particular place in it. A place whose
  * arrangement is not known: the same count, and a line saying so.
  *
- * One tab stop; the arrow keys move from cell to cell; Enter or Space chooses the cell's bottle (the front one of a
- * deep cell). Cells are at least 44 px, and a wide place scrolls sideways inside its own box.
+ * One tab stop; the arrow keys move from cell to cell; Enter or Space chooses the cell's FRONT bottle and no other.
+ * A deep position whose front is free chooses nothing, even with a bottle behind it: what a press does is what the
+ * picture shows and what the cell says. A bottle behind the front is chosen where it can be pointed at (the 3D view);
+ * this picture then marks which place it is, in sight and in words. Cells are at least 44 px, and a wide place
+ * scrolls sideways inside its own box.
  */
 export interface LayoutMapProps {
   resolved: ResolvedStorage;
@@ -119,10 +124,12 @@ export function LayoutMap({
                 const cell = byKey.get(`${r + 1}:${c + 1}`);
                 if (!cell) return <span key={c} role="gridcell" aria-hidden="true" />;
                 const key = `${cell.row}:${cell.col}`;
-                const front =
-                  cell.mode === "count" ? null : (cell.slots!.find((b) => b !== null) ?? null);
                 const holdsSelected =
                   selectedId !== null && cell.bottles.some((b) => b.id === selectedId);
+                const place = chosenPlace(cell, selectedId);
+                // pressed means: the bottle this cell stands for (its front one) is the chosen one. A compartment
+                // stands for none, so it is pressed when the chosen bottle is somewhere in it.
+                const pressed = cell.mode === "count" ? holdsSelected : place === 1;
                 return (
                   <div key={c} role="gridcell" aria-colindex={c + 1} className="grid">
                     <button
@@ -132,19 +139,15 @@ export function LayoutMap({
                         else refs.current.delete(key);
                       }}
                       tabIndex={key === current ? 0 : -1}
-                      aria-label={cellLabel(cell, labels)}
-                      aria-pressed={onSelect ? holdsSelected : undefined}
+                      aria-label={cellLabel(cell, labels, selectedId)}
+                      aria-pressed={onSelect ? pressed : undefined}
+                      data-chosen-place={place ?? undefined}
                       data-cell={key}
                       data-used={cell.used}
                       data-capacity={cell.capacity}
                       onFocus={() => setFocus(key)}
                       onKeyDown={(e) => move(e, cell)}
-                      onClick={() => {
-                        if (!onSelect) return;
-                        // a compartment has no "the bottle here": choosing it chooses nothing in particular
-                        if (cell.mode === "count") return onSelect(null);
-                        onSelect(front && front.id !== selectedId ? front.id : null);
-                      }}
+                      onClick={() => onSelect?.(chosenByPressing(cell, selectedId))}
                       className={cn(
                         "relative min-h-11 min-w-11 text-left transition-[box-shadow,background-color] duration-150 ease-cellr",
                         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-fg",
@@ -154,7 +157,11 @@ export function LayoutMap({
                         holdsSelected && "ring-2 ring-accent-fg",
                       )}
                     >
-                      {cell.mode === "count" ? <CountCell cell={cell} /> : <SpotCell cell={cell} />}
+                      {cell.mode === "count" ? (
+                        <CountCell cell={cell} />
+                      ) : (
+                        <SpotCell cell={cell} chosen={place} />
+                      )}
                     </button>
                   </div>
                 );
@@ -172,8 +179,11 @@ export function LayoutMap({
   );
 }
 
-/** One position of a rack: the front bottle as a disc in its wine's colour, and a pip for every place behind it. */
-function SpotCell({ cell }: { cell: MapCell }) {
+/**
+ * One position of a rack: the front bottle as a disc in its wine's colour, and a pip for every place behind it.
+ * `chosen`: the place (1 = front) of the chosen bottle, which gets a ring of its own.
+ */
+function SpotCell({ cell, chosen }: { cell: MapCell; chosen: number | null }) {
   const slots = cell.slots!;
   const front = slots[0];
   return (
@@ -182,6 +192,7 @@ function SpotCell({ cell }: { cell: MapCell }) {
         className={cn(
           "block size-8 rounded-full",
           front ? "ring-1 ring-hairline" : "border border-dashed border-ink-3/50",
+          chosen === 1 && "outline-2 outline-offset-1 outline-accent-fg",
         )}
         style={front ? { backgroundColor: `var(--wine-${front.type})` } : undefined}
       />
@@ -190,7 +201,11 @@ function SpotCell({ cell }: { cell: MapCell }) {
           {slots.slice(1).map((b, i) => (
             <span
               key={i}
-              className={cn("block size-2 rounded-full", b ? "" : "border border-ink-3/50")}
+              className={cn(
+                "block size-2 rounded-full",
+                b ? "" : "border border-ink-3/50",
+                chosen === i + 2 && "outline-2 outline-offset-1 outline-accent-fg",
+              )}
               style={b ? { backgroundColor: `var(--wine-${b.type})` } : undefined}
             />
           ))}

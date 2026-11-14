@@ -38,6 +38,9 @@ const APP_ENV: Record<string, string> = {
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_localstack_0000000000",
   SUPABASE_SERVICE_ROLE_KEY: "sb_secret_localstack_00000000000000",
   DESIGN_GALLERY: "1",
+  // The Smart Cellar template gallery needs a second switch in a production build on one's own machine, and is
+  // closed on anything hosted whatever is set (src/lib/cellar-gallery-gate.ts).
+  CELLAR_GALLERY_LOCAL_BUILD: "1",
   // One fixed admin (e2e/feedback.spec.ts creates this user): the /admin dashboard is otherwise closed.
   CELLR_ADMIN_USER_IDS: "00000000-0000-4000-8000-00000000ad01",
   // An OpenAI-compatible endpoint inside the local stack: tests program what it answers.
