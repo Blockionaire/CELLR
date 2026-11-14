@@ -14,7 +14,10 @@ const PORT = 3100;
 // new features point at this one (`test.use({ baseURL: FEATURES_URL })`).
 const FEATURES_PORT = 3101;
 const STACK_URL = "http://localhost:54321";
-// The sandbox ships Chromium at a fixed path; CI lets Playwright find its own browser.
+// The sandbox ships Chromium at a fixed path; CI lets Playwright find its own browser. That is not the same browser:
+// without a path Playwright runs its "headless shell", and a path to the full Chrome runs that instead. They differ
+// where a test can see it (the headless shell reports notifications as blocked, for one). To reproduce a CI failure
+// here, point PLAYWRIGHT_CHROMIUM_PATH at the headless shell (…/chromium_headless_shell-*/…/chrome-headless-shell).
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined;
 
 // Reminders: the test server sends Web Push to the local stack's fake push service (https, self-signed, trusted
