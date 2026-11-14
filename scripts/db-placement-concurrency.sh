@@ -357,7 +357,10 @@ echo "• control (the zone trigger made to wait, as first written): the same tw
 # ---- 12. The gated file: the old index goes (on this throwaway database only) --------------------------------------
 "${PSQL[@]}" -X -q -v ON_ERROR_STOP=1 -f "$ROOT/supabase/gated-migrations/smart_cellar_drop_legacy_slot_index.sql" >/dev/null
 [ "$(su "select to_regclass('public.bottles_slot_unique') is null")" = t ] || fail "the gated file did not remove the old index"
-su "delete from public.bottles where location_id in ('$BINS', '$DEEP')" >/dev/null
+# The races above leave the deep rack as whichever side won the last one (step 8 may have saved it one deep): put
+# it back to two deep before using its back spots, so this step does not depend on who won.
+su "delete from public.bottles where location_id in ('$BINS', '$DEEP');
+    update public.cellar_locations set template = 'rack_double_depth', slot_semantics = 'depth', grid_rows = 5, grid_cols = 4, cell_capacity = 2 where id = '$DEEP'" >/dev/null
 for i in $(seq 1 16); do as $((i % 2 + 1)) "$(ins "$BINS" 1 1 $(((i - 1) % 8 + 1)))" >"$OUT/s2-$i" & done; wait
 [ "$(su "select count(*) || '/' || count(distinct loc_index) from public.bottles where location_id = '$BINS'")" = "8/8" ] \
   || fail "a bin of 8 filled by 16 sessions does not hold exactly one bottle per index"
