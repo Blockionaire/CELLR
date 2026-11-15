@@ -214,7 +214,18 @@ Not run here: the full end-to-end suite (CI runs it nightly and on `main`; on a 
 
 ## 10. CI results
 
-<!--CI-->
+GitHub Actions on PR #74 (commit `50cf2d4`):
+
+| Job                                                                                         | Result                                                                                                                                        |
+| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Format · lint · types · unit tests                                                          | success                                                                                                                                       |
+| Database · migrations + permission suite (Postgres 16)                                      | success (includes `99_smart_cellar_api.test.sql`)                                                                                             |
+| Database · real Supabase stack (`supabase start`, the SQL suite, the real-stack smoke test) | success                                                                                                                                       |
+| Migration integrity · applied migrations are never changed                                  | success                                                                                                                                       |
+| Secret scan                                                                                 | success                                                                                                                                       |
+| Dependency audit                                                                            | success                                                                                                                                       |
+| Vercel Preview Comments                                                                     | success                                                                                                                                       |
+| End to end · whole app / shards                                                             | skipped: the workflow runs them nightly and on `main`, not on pull requests. The new HTTP spec and the affected suites were run locally (§9). |
 
 ## 11. Production deployment prerequisites
 
