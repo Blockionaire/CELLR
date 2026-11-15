@@ -72,10 +72,24 @@ is **database (§4 steps 1–6) → merge PR #75 (step 7)**. Never the other way
   errors. An accidental early merge would degrade the feature, not break the app. Do not plan on it.
 - The **old** app (current production) runs fine on the new schema: it never touches the new tables. So there is no
   window in which app and database disagree.
-- **Not verified (no Vercel access from this session):** which Supabase project Preview deployments use, and whether
-  production deploys automatically on push to `main`. Check both under Vercel → Project → Settings → Git and
-  Environment Variables before step 7. If Previews point at production Supabase, the PR #75 preview is a good smoke test
-  after step 6.
+- **Previews use the production database (documented, not yet seen live).** `docs/SETUP.md` §5 sets
+  `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` for **Production
+  and Preview**. Previews are behind Vercel Authentication (checked 2026-11-15: the PR #75 preview redirects to the
+  Vercel login). Consequences:
+  - the PR #75 preview has run against production since its first push. Without 0046 it degrades: nothing is kept and
+    nothing errors;
+  - after step 4, **any** preview (any branch) writes sommelier conversations to production. The PR #75 preview then
+    becomes the smoke test before the merge (step 6b).
+- **Owner check before step 7** (this session got 403 on team `jp-builds`), in Vercel → project `cellr`:
+  1. _Settings → Git_: **Production Branch** is `main`, and Git deployments are not disabled or ignored (no Ignored Build
+     Step that skips `main`);
+  2. _Settings → Environment Variables_: `NEXT_PUBLIC_SUPABASE_URL` for **Production** is
+     `https://vvelgyhbjfmjvxkzekyz.supabase.co`. For **Preview**, note which project it names. If it is the same, the
+     points above apply;
+  3. _Deployments_: the newest **Production** deployment is from `main` at `2f4079e` (the PR #74 merge). That confirms
+     the automatic deploy on merge;
+  4. _Settings → Deployment Protection_: Preview protection stays on (it keeps previews, which hold the service-role key
+     to production, away from the public).
 
 ## 4. Procedure
 
@@ -83,12 +97,44 @@ On a laptop, with the database password, from a checkout of the **exact commit t
 head). `db push` reads the migration files from disk, and once 0046 has run in production its file may never change
 (`MIGRATIONS.md` §1).
 
-**0. Before you start.** Get the go-ahead (§6). No other merges to `main` during the window. Confirm a recent backup
-(Supabase → Database → Backups). Optional, read-only:
+**0. Before you start.** Get the go-ahead (§6). No other merges to `main` during the window.
+
+**0a. A backup of your own: required.** The Supabase organisation is on the **Free** plan, which has **no**
+automatic daily backups and no PITR (checked 2026-11-15: plan `free`; Supabase docs: daily backups are for Pro, Team
+and Enterprise, and Free projects should export with `supabase db dump`). So there is nothing to restore from unless
+you make it. The three-file dump from the Supabase guide reads production and writes the files on **your** machine.
+Keep them encrypted and out of git and chats: `data.sql` holds people's accounts and cellars. It needs Docker, the
+connection string (Supabase → Connect → Session pooler) and the database password.
 
 ```bash
-pnpm exec supabase db dump --linked -f pre-0046-schema.sql
+pnpm exec supabase db dump --db-url "$DATABASE_URL" -f roles.sql --role-only
 ```
+
+```bash
+pnpm exec supabase db dump --db-url "$DATABASE_URL" -f schema.sql
+```
+
+```bash
+pnpm exec supabase db dump --db-url "$DATABASE_URL" -f data.sql --use-copy --data-only -x "storage.buckets_vectors" -x "storage.vector_indexes"
+```
+
+Check that `data.sql` contains `COPY public.wines` and `COPY auth.users`, and that its size is plausible (a few MB at
+most). Storage files (label photos, avatars) are not in a database dump. This release does not touch them.
+
+**0b. The files that will run are the tested ones.** `db push` runs what is on disk:
+
+```bash
+sha256sum supabase/migrations/20261123000046_sommelier_conversations.sql
+```
+
+It must print `9e85e2e0415db95747738014ca00d40afb22e43a6f062c7f41495fc827c69898`, the file rehearsed and tested in
+CI. Then:
+
+```bash
+git diff 14efa58 HEAD -- supabase/migrations
+```
+
+It must print nothing: no migration changed since the security fix that was audited.
 
 **1. Link and preflight (read-only).** Each check must pass, or stop.
 
@@ -166,6 +212,10 @@ select jobname, schedule, active from cron.job order by jobname;
 
 It must show two active jobs: `catalog-scan-reads-purge` and `sommelier-conversations-purge`.
 
+**6b. Smoke the PR #75 preview** (if it uses production, see §3): ask the sommelier something, reload, rate an
+answer, start a new conversation. These are real rows in production; "New conversation" deletes the conversation
+again.
+
 **6. Smoke the current app (still the old code):** sign in, open the cellar, a wine, Tonight and the sommelier. Nothing
 may have changed for people.
 
@@ -187,6 +237,12 @@ It must print nothing.
 
 ## 5. Rollback
 
+**Restoring data** (only if a migration damaged existing rows, which none of 0037–0046 is written to do): with the
+dump from step 0a, either load the affected tables' `COPY` blocks from `data.sql` back into production (with
+`SET session_replication_role = replica`), or restore everything into a new project
+(`psql --single-transaction -f roles.sql -f schema.sql -c 'SET session_replication_role = replica' -f data.sql`) and
+point Vercel at it. Both are owner actions with downtime. Decide per incident.
+
 1. **After step 2 or 3, before step 4:** only the history changed. Revert exactly what step 2 recorded (the same
    36 versions, `--status reverted`) and the database is as it was. Rehearsed on 2026-11-02 for this exact list.
 2. **A migration fails during step 4:** the CLI stops at that file. Earlier files stay applied and recorded; the
@@ -201,6 +257,7 @@ It must print nothing.
 
 | #   | Action                                                                              | Kind             | Who              |
 | --- | ----------------------------------------------------------------------------------- | ---------------- | ---------------- |
+| A0  | Step 0a: make the backup dump (reads production; production data on your machine)   | data handling    | owner (password) |
 | A1  | Decide to release 0037–0045 together with 0046 (§2)                                 | decision         | owner            |
 | A2  | Step 2: `migration repair` (creates the history schema and writes 36 rows)          | production write | owner (password) |
 | A3  | Step 4: `db push` (applies 0037–0046)                                               | production write | owner (password) |
@@ -221,5 +278,14 @@ The full end-to-end run on the branch (manual run 43711511361) has every shard g
 All sommelier specs are green. Separate follow-ups:
 
 - **Shard 8 capacity:** shard 8 holds the CPU-heavy 3D specs and takes 19–29 min against a 30-min job limit (`ci.yml`
-  asks for another shard when that happens).
+  asks for another shard when that happens). Issue #77.
+- **OCR vintage flake:** issue #78. **storage-showcase timeout** (and the storage-gallery flake): issue #79.
 - **Simultaneous duplicate question ids:** see issue #76.
+
+**`main` moved on 2026-11-15** (PR #74, Smart Cellar sprint 1C: no migrations, app code only). It was merged into this
+branch (`5d02ae7`) and checked there:
+
+- `pnpm check`: domain 922, web 1177 and database 1591 tests;
+- the types check and the migration-integrity check;
+- the release rehearsal on the merged tree: equivalent, 1591/1591;
+- the sommelier, Smart Cellar API, Tonight, reserved and taste end-to-end specs: 105 passed.
