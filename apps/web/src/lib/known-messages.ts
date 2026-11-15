@@ -78,6 +78,17 @@ export const KNOWN_MESSAGES = {
   "Sending photos isn't available right now.": "photosUnavailable",
   "That photo is too small to work from. Try a sharper one of the whole bottle.":
     "bottlePhotoSmall",
+  // Smart Cellar, sprint 1C: a place with a template, the layout API and export version 2
+  "This place was set up in a newer version of CELLR. Update the app to change its size or kind.":
+    "placeNewerVersion",
+  "This place is set up as a particular kind of storage, and its kind comes with that.":
+    "placeKindFixed",
+  "That size doesn't fit how this place is set up.": "placeSizeNotTemplate",
+  "This place was just changed by someone else. Try again.": "placeChangedMeanwhile",
+  "Someone else was changing this place. Try again.": "placeBusy",
+  "More than one bottle per position isn't switched on yet.": "depthOff",
+  "Changing a layout isn't switched on here yet.": "layoutWritesOff",
+  "That export version isn't available.": "exportVersionUnavailable",
 } as const;
 
 /** Sentences with a part that changes, or a family of sentences that all mean the same to the person. */

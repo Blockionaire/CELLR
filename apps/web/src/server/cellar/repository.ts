@@ -1,7 +1,9 @@
 import "server-only";
 import {
   DomainError,
+  legacyEditProblem,
   normalizeText,
+  type LegacyEditProblem,
   type BottleStatus,
   type CreateStorage,
   type Descriptor,
@@ -16,7 +18,7 @@ import {
 } from "@cellr/domain";
 import type { Db } from "@/server/db/clients";
 import type { Database } from "@/server/db/database.types";
-import { isMissingTable, mapDbError } from "@/server/db/errors";
+import { isMissingTable, mapDbError, missingColumn } from "@/server/db/errors";
 import { allRows } from "@/server/db/paging";
 import type {
   ActiveHousehold,
@@ -160,6 +162,27 @@ const ratingsNotReady = () =>
   );
 
 const isUniqueViolation = (error: { code?: string }) => error.code === "23505";
+
+/**
+ * Why the old API may not reshape a place that has a template (sprint 1C), in words. Its kind follows from its
+ * template, and its size must stay inside what the template allows: otherwise the two would quietly disagree.
+ */
+export function legacyEditRefusal(problem: LegacyEditProblem): DomainError {
+  switch (problem) {
+    case "unknown_template":
+      return new DomainError(
+        "CONFLICT",
+        "This place was set up in a newer version of CELLR. Update the app to change its size or kind.",
+      );
+    case "kind_mismatch":
+      return new DomainError(
+        "CONFLICT",
+        "This place is set up as a particular kind of storage, and its kind comes with that.",
+      );
+    case "size_outside_template":
+      return new DomainError("VALIDATION", "That size doesn't fit how this place is set up.");
+  }
+}
 
 export function createCellarRepository(db: Db): CellarRepository {
   async function usedByLocation(householdId: string): Promise<Map<string, number>> {
@@ -555,19 +578,78 @@ export function createCellarRepository(db: Db): CellarRepository {
       if (patch.kind !== undefined) update.kind = patch.kind;
       if (patch.rows !== undefined) update.grid_rows = patch.rows;
       if (patch.cols !== undefined) update.grid_cols = patch.cols;
-      const { data, error } = await db
+
+      // A place with a template (Smart Cellar, sprint 1C) keeps its kind and a size its template allows: the old API
+      // must not make the two disagree. A rename is never checked, and a place without a template is edited exactly
+      // as it always was. The check and the write are tied together: the write only applies while the template is
+      // still the one that was checked, so a layout saved in between is never overwritten by a stale check.
+      let sameTemplate: { template: string | null } | null = null;
+      if (patch.kind !== undefined || patch.rows !== undefined || patch.cols !== undefined) {
+        const shape = await db
+          .from("cellar_locations")
+          .select("template, kind, grid_rows, grid_cols, cell_capacity")
+          .eq("household_id", householdId)
+          .eq("id", id)
+          .maybeSingle();
+        if (shape.error) {
+          // A database without the Smart Cellar step (no such column): no place there has a template. Only that
+          // answer means so; anything else is the error it is.
+          if (!missingColumn(shape.error)) throw mapDbError(shape.error);
+        } else if (!shape.data) {
+          return null;
+        } else {
+          sameTemplate = { template: shape.data.template };
+          if (shape.data.template !== null) {
+            const problem = legacyEditProblem(
+              {
+                template: shape.data.template,
+                kind: shape.data.kind as StorageKind,
+                rows: shape.data.grid_rows,
+                cols: shape.data.grid_cols,
+                cellCapacity: shape.data.cell_capacity,
+              },
+              patch,
+            );
+            if (problem) throw legacyEditRefusal(problem);
+          }
+        }
+      }
+
+      let write = db
         .from("cellar_locations")
         .update(update)
         .eq("household_id", householdId)
-        .eq("id", id)
-        .select(STORAGE_COLUMNS)
-        .maybeSingle();
+        .eq("id", id);
+      if (sameTemplate)
+        write =
+          sameTemplate.template === null
+            ? write.is("template", null)
+            : write.eq("template", sameTemplate.template);
+      const { data, error } = await write.select(STORAGE_COLUMNS).maybeSingle();
       if (error) {
         if (isUniqueViolation(error))
           throw new DomainError("CONFLICT", "You already have a place with that name.");
         throw mapDbError(error);
       }
-      if (!data) return null;
+      if (!data) {
+        if (!sameTemplate) return null;
+        // Nothing matched: the place is gone, or its template changed after it was checked.
+        const still = await db
+          .from("cellar_locations")
+          .select("id")
+          .eq("household_id", householdId)
+          .eq("id", id)
+          .maybeSingle();
+        if (still.error) throw mapDbError(still.error);
+        if (!still.data) return null;
+        throw new DomainError(
+          "CONFLICT",
+          "This place was just changed by someone else. Try again.",
+          {
+            retryable: true,
+          },
+        );
+      }
       const used = await usedByLocation(householdId);
       return toStorage(data, used.get(id) ?? 0);
     },
