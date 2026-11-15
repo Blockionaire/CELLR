@@ -10,15 +10,18 @@ import { seededRandom } from "./textures";
 
 /**
  * The front label of the bottle on display, premium (sprint 2B.2): the existing view's own drawing of a label
- * (`drawLabel`, unchanged), set at TWICE the size, on paper that has a tooth. Seen as large as the bottle is on
- * display, the existing 640 px label is soft on a phone's sharp screen; the same drawing at 1280 px is crisp.
+ * (`drawLabel`, unchanged), on paper that has a tooth.
+ *
+ * NOT LARGER THAN IT WAS. The first version of this drew the label at twice the size. Measured, that made taking a
+ * bottle out four times slower to answer (about 20 ms became 80), and worked out, it bought nothing: on display
+ * the label is at most some 500 device pixels tall on any screen, and the existing 640×760 label already has
+ * more. So the size is the existing one, and the paper's grain is a small tile drawn once per page and laid over
+ * every label as a pattern: one fill, not sixteen thousand.
  *
  * What a label SAYS is not made here: producer, name, year and place come from the caller, and in the gallery
  * they are made-up wines. No label of a real producer is imitated, and nothing is downloaded: a label with a photo
  * of a real one (the app's own, later) is the existing view's business and is handed straight to it.
  */
-const SCALE = 2;
-
 let fontsLoaded: Promise<void> | null = null;
 /**
  * The fonts a label is set in, fetched once. The existing view loads them when it draws a label (a canvas does not
@@ -34,29 +37,55 @@ function fonts(): Promise<void> {
   return fontsLoaded;
 }
 
-/** The tooth of the paper: a fine, uneven grain, and fibres here and there. The same on every label. */
-function paperGrain(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-  const rnd = seededRandom(2718);
-  for (let i = 0; i < 16000; i++) {
-    const dark = rnd() < 0.6;
-    ctx.fillStyle = dark ? `rgba(70,55,40,${rnd() * 0.035})` : `rgba(255,255,255,${rnd() * 0.05})`;
-    ctx.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 2.5, 1 + rnd() * 1.5);
+/** The side of the grain's tile, in pixels. */
+export const GRAIN_TILE = 256;
+let grain: HTMLCanvasElement | null = null;
+/** The tooth of the paper: a fine, uneven grain and a few fibres, on a tile that repeats. Drawn once per page. */
+function grainTile(): HTMLCanvasElement {
+  if (grain) return grain;
+  const tile = document.createElement("canvas");
+  tile.width = tile.height = GRAIN_TILE;
+  const ctx = tile.getContext("2d");
+  if (ctx) {
+    const rnd = seededRandom(2718);
+    for (let i = 0; i < 1100; i++) {
+      const dark = rnd() < 0.6;
+      ctx.fillStyle = dark
+        ? `rgba(70,55,40,${rnd() * 0.035})`
+        : `rgba(255,255,255,${rnd() * 0.05})`;
+      ctx.fillRect(rnd() * GRAIN_TILE, rnd() * GRAIN_TILE, 0.6 + rnd() * 1.4, 0.6 + rnd() * 0.9);
+    }
+    for (let i = 0; i < 14; i++) {
+      ctx.strokeStyle = `rgba(90,70,50,${0.02 + rnd() * 0.04})`;
+      ctx.lineWidth = 0.4 + rnd() * 0.5;
+      const [x, y, a, len] = [
+        20 + rnd() * (GRAIN_TILE - 40),
+        20 + rnd() * (GRAIN_TILE - 40),
+        rnd() * Math.PI,
+        4 + rnd() * 14,
+      ];
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(
+        x + Math.cos(a) * len * 0.5 + 2,
+        y + Math.sin(a) * len * 0.5,
+        x + Math.cos(a) * len,
+        y + Math.sin(a) * len,
+      );
+      ctx.stroke();
+    }
   }
-  for (let i = 0; i < 180; i++) {
-    ctx.strokeStyle = `rgba(90,70,50,${0.02 + rnd() * 0.04})`;
-    ctx.lineWidth = 0.6 + rnd() * 0.8;
-    const [x, y, a, len] = [rnd() * w, rnd() * h, rnd() * Math.PI, 6 + rnd() * 26];
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.quadraticCurveTo(
-      x + Math.cos(a) * len * 0.5 + 3,
-      y + Math.sin(a) * len * 0.5,
-      x + Math.cos(a) * len,
-      y + Math.sin(a) * len,
-    );
-    ctx.stroke();
+  grain = tile;
+  return tile;
+}
+
+/** Lays the paper over a drawn label: the grain, and a darkening towards the edges where it curves away. */
+function paper(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+  const pattern = ctx.createPattern(grainTile(), "repeat");
+  if (pattern) {
+    ctx.fillStyle = pattern;
+    ctx.fillRect(0, 0, w, h);
   }
-  // the sheet is a little darker towards its edges, where it curves away round the glass
   const edge = ctx.createLinearGradient(0, 0, w, 0);
   edge.addColorStop(0, "rgba(40,30,20,0.16)");
   edge.addColorStop(0.12, "rgba(40,30,20,0)");
@@ -66,7 +95,7 @@ function paperGrain(ctx: CanvasRenderingContext2D, w: number, h: number): void {
   ctx.fillRect(0, 0, w, h);
 }
 
-/** A drawn label at twice the existing size, on toothed paper. A photo label: the existing view's, as it is. */
+/** A drawn label on toothed paper, at the existing size. A photo label: the existing view's, as it is. */
 export async function makeFineLabelTexture(
   spec: LabelSpec,
   maxAnisotropy = 8,
@@ -74,15 +103,12 @@ export async function makeFineLabelTexture(
   if (spec.photoUrl) return makeLabelTexture(spec, maxAnisotropy);
   await fonts();
   const canvas = document.createElement("canvas");
-  canvas.width = LABEL_W * SCALE;
-  canvas.height = LABEL_H * SCALE;
+  canvas.width = LABEL_W;
+  canvas.height = LABEL_H;
   const ctx = canvas.getContext("2d");
   if (ctx) {
-    ctx.save();
-    ctx.scale(SCALE, SCALE);
     drawLabel(ctx, spec);
-    ctx.restore();
-    paperGrain(ctx, canvas.width, canvas.height);
+    paper(ctx, canvas.width, canvas.height);
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -92,6 +118,3 @@ export async function makeFineLabelTexture(
   texture.userData = { aspect: LABEL_W / LABEL_H, photo: false, fine: true };
   return texture;
 }
-
-/** How many pixels across a drawn label is, at each fidelity (the existing view's, and twice that). */
-export const LABEL_PIXELS = { classic: LABEL_W, premium: LABEL_W * SCALE } as const;

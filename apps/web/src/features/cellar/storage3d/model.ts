@@ -291,7 +291,10 @@ export interface QualitySpec {
   rounded: boolean;
   /**
    * Premium only, and never anything that changes where a bottle is or whether it can be chosen:
-   * `relief`: surfaces wear their grain as relief under light (two more texture reads a pixel);
+   * `relief`: surfaces wear their grain as relief under light (two more texture reads a pixel). OFF AT EVERY LEVEL
+   * for now: measured in software rendering it made turning a small place 14 points slower (29 % against 14 %
+   * over the baseline) for a difference that is hard to see at the distance a place is looked at from. The
+   * materials can do it (`materialFor`); whether a level gets it back is for the device validation to say;
    * `glow`: the soft glow round a strip of light, and the shadow a piece of furniture casts on its floor or wall;
    * `labels`: a bottle in its place wears the print of a label, not a plain band of paper.
    */
@@ -308,7 +311,7 @@ export const QUALITY: Readonly<Record<Quality, QualitySpec>> = {
     clearcoat: true,
     shadows: true,
     rounded: true,
-    relief: true,
+    relief: false,
     glow: true,
     labels: true,
     maxDpr: 2,

@@ -64,7 +64,7 @@ a different place on every part, so two boards never show the same piece of wood
 `bottle-look.ts`, read by both the instanced bottles and the bottle on display, so the hand-over between the two
 is the same numbers by construction. No template has a material of its own.
 
-- Wood: roughness 0.5, barely mirrors the room, wears its grain as relief at the highest level.
+- Wood: roughness 0.5, barely mirrors the room; its grain can be worn as relief (off for now, see §7).
 - Blackened steel is powder-coated (metalness 0.3, roughness 0.58); stainless and brass are fully metal and
   brushed, never polished (roughness ≥ 0.34): a soft streak of the room, not a mirror.
 - Glass: 34 % with two soft bands of reflection (one alpha picture), no refraction, no second pass. Bottles behind
@@ -89,10 +89,15 @@ entered, never sensor readings, and nothing in this view suggests otherwise.
 
 |                               | high | balanced | low |
 | ----------------------------- | ---- | -------- | --- |
-| relief (bump)                 | yes  | no       | no  |
+| relief (bump)                 | no   | no       | no  |
 | glow and ground shadow        | yes  | yes      | no  |
 | label print on rack bottles   | yes  | yes      | no  |
 | vertex shading, fine pictures | yes  | yes      | yes |
+
+Relief is built and tested (`materialFor(spec, "premium", true)`) and switched off at every level: in software
+rendering it made turning a 40-bottle place 14 points slower (29 % over the baseline with it, 14 % without) for a
+difference that is hard to see at the distance a place is looked at from. On a real GPU it is three texture reads
+a pixel and probably nearly free; the device validation decides whether `high` gets it back.
 
 `buildModel` takes no level: spots, parts and poses are decided before a level is chosen. Tests hold that the
 same bottles are on the same screen positions at all three levels and that a tap takes the tapped bottle at each.

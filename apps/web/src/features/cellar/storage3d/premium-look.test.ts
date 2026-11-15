@@ -208,7 +208,7 @@ describe("premium finishes", () => {
     expect(a).toBe(b);
   });
 
-  it("relief is the highest level's only; the painted corners are every level's", () => {
+  it("a material can wear its grain as relief when asked; the painted corners are every level's", () => {
     const spec = lookFor({
       v: 1,
       material: "wood",
@@ -223,8 +223,8 @@ describe("premium finishes", () => {
     expect(fine.map).toBe(fineWoodTexture());
     expect(plain.map).toBe(fineWoodTexture());
     expect(fine.vertexColors && plain.vertexColors).toBe(true);
-    expect(QUALITY.high.relief).toBe(true);
-    expect(QUALITY.balanced.relief || QUALITY.low.relief).toBe(false);
+    // no level asks for relief today: its cost was measured and its gain was small (see QualitySpec.relief)
+    for (const level of LEVELS) expect(QUALITY[level].relief).toBe(false);
     fine.dispose();
     plain.dispose();
   });
@@ -541,7 +541,7 @@ describe("the level of detail changes how it is drawn, never what is there", () 
     for (const key of keys) expect(key).not.toMatch(/slot|spot|pose|pick|bottleId|row|col/i);
     expect(QUALITY.low).toMatchObject({ relief: false, glow: false, labels: false });
     expect(QUALITY.balanced).toMatchObject({ relief: false, glow: true, labels: true });
-    expect(QUALITY.high).toMatchObject({ relief: true, glow: true, labels: true });
+    expect(QUALITY.high).toMatchObject({ relief: false, glow: true, labels: true });
   });
 
   it("a place holds what its catalogue entry says, whichever way it is drawn", () => {

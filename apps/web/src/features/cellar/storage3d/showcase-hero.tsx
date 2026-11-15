@@ -195,7 +195,7 @@ export function ShowcaseHero({
       mark(canvas, `${side}Label`, data.photo ? "photo" : "drawn");
       invalidate();
     };
-    // premium: the same drawing of a label at twice the size, on toothed paper (fine-label.ts)
+    // premium: the same drawing of a label, on toothed paper (fine-label.ts)
     void (kit.fidelity === "premium" ? makeFineLabelTexture : makeLabelTexture)(
       spec,
       anisotropy,
