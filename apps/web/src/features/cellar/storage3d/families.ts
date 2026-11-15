@@ -30,6 +30,13 @@ export interface Built {
   emptyOf?: (row: number, col: number, rank: number) => Vec3;
   /** Where the light inside sits, when the place can be lit. */
   light: Vec3 | null;
+  /**
+   * The inside of a lit cabinet, for shading it (sprint 2B.2): each lit zone's height, and which strip lights it
+   * (0: the strip under the top, 1: a strip under a zone bar). Says how the inside is LIT, nothing else.
+   */
+  interior?: { halfWidth: number; zones: Array<{ top: number; bottom: number; strip: 0 | 1 }> };
+  /** A wall mount: how far out from the wall the surface behind the bottles is (where their shadows fall). */
+  surface?: number;
 }
 
 const DEPTH_GAP = 0.15;
@@ -54,6 +61,8 @@ export interface GridStyle {
   /** Thickness of a side panel. */
   side: number;
   back: boolean;
+  /** Joinery, as against a plain frame: a recessed plinth under it and a slim cornice over it. */
+  trim?: boolean;
   /** A body around it: a cabinet with a crown and a plinth, a cooler, a cooler under a worktop. */
   shell?: "cabinet" | "cooler" | "undercounter";
 }
@@ -66,6 +75,11 @@ export interface GridSpec {
   style: GridStyle;
   door: StorageDoor;
   lit: boolean;
+  /**
+   * The furnishing the premium look adds (sprint 2B.2): a plinth and a cornice, the hardware of a wall rail. It
+   * never moves a spot or a bottle. Left out: the furniture exactly as sprint 2A built it.
+   */
+  detail?: boolean;
 }
 
 const ZONE_GAP = 0.34;
@@ -172,6 +186,14 @@ export function buildGrid(spec: GridSpec): Built {
   let light: Vec3 | null = null;
   const outerW = W + 2 * s.side;
 
+  // ---- a piece of furniture, not a crate of boards: it stands on a recessed plinth and ends in a slim cornice
+  if (s.trim && spec.detail) {
+    parts.push(box("frame", [outerW + 0.14, 0.09, D + 0.1], [0, top + s.board + 0.045, zc + 0.03]));
+    parts.push(
+      box("frame", [outerW - 0.16, 0.3, D - 0.22], [0, bottom - s.board / 2 - 0.15, zc - 0.05]),
+    );
+  }
+
   // ---- bodies
   if (s.shell === "cabinet") {
     parts.push(box("frame", [outerW + 0.3, 0.16, D + 0.2], [0, top + s.board + 0.08, zc + 0.05])); // crown
@@ -251,7 +273,17 @@ export function buildGrid(spec: GridSpec): Built {
     }
   }
   // ---- light strips: one under the top, one under each zone bar
+  let interior: Built["interior"];
   if (spec.lit || s.shell === "cooler" || s.shell === "undercounter" || s.shell === "cabinet") {
+    const edges = [top, ...bars, bottom];
+    interior = {
+      halfWidth: W / 2,
+      zones: edges.slice(0, -1).map((from, i) => ({
+        top: from - (i === 0 ? 0 : ZONE_GAP / 2),
+        bottom: edges[i + 1]! + (i === edges.length - 2 ? 0 : ZONE_GAP / 2),
+        strip: i === 0 ? 0 : 1,
+      })),
+    };
     if (light === null) light = [0, top - 0.35, zFront - 0.5];
     parts.push(box("glow", [W * 0.86, 0.03, 0.06], [0, top - 0.04, zFront - 0.3], { soft: true }));
     for (const by of bars)
@@ -266,6 +298,7 @@ export function buildGrid(spec: GridSpec): Built {
     parts,
     poseOf: (row, col, index) => ({ position: [xOf(col), yOf(row), zOf(index)], lie: "z" }),
     light,
+    ...(interior ? { interior } : {}),
   };
 }
 
@@ -345,6 +378,7 @@ export const GRID_STYLES: Partial<Record<StorageTemplateId, GridStyle>> = {
     sides: "panel",
     side: 0.16,
     back: true,
+    trim: true,
   },
   // the same carpentry, open at the ends so its depth shows, and no back: light falls through to the second row
   rack_double_depth: {
@@ -614,6 +648,8 @@ export interface WallSpec {
   cols: number;
   cap: number;
   mount: "pegs" | "rails";
+  /** The premium look's hardware (see GridSpec.detail). */
+  detail?: boolean;
 }
 
 export function buildWall(spec: WallSpec): Built {
@@ -650,6 +686,7 @@ export function buildWall(spec: WallSpec): Built {
       parts,
       poseOf: (row, col) => ({ position: [cx(col), cy(row), z], lie: "x" }),
       light: null,
+      surface: board,
     };
   }
   // rails: two upright strips per column on the bare wall, and from each a rod under every bottle, long enough for
@@ -658,6 +695,22 @@ export function buildWall(spec: WallSpec): Built {
   const z1 = 0.08 + BOTTLE_R + (cap - 1) * step; // index 1
   const reach = cap * step + 0.16;
   const rodR = 0.04;
+  for (let c = 1; spec.detail && c <= cols; c++) {
+    // what makes two strips one rack: a tie across them at the top and at the bottom, and the plates it is
+    // screwed to the wall by (all of it flat against the wall, behind the bottles)
+    const mid = cx(c) + (under[0]! + under[1]!) / 2;
+    const span = under[1]! - under[0]!;
+    for (const sign of [-1, 1]) {
+      const ty = sign * (H / 2 + 0.01);
+      parts.push(box("frame", [span + 0.14, 0.08, 0.04], [mid, ty, 0.02]));
+      for (const dx of under) {
+        parts.push(box("frame", [0.3, 0.26, 0.03], [cx(c) + dx, ty + sign * 0.16, 0.015]));
+        parts.push(
+          rod("metal", "z", 0.035, 0.03, [cx(c) + dx, ty + sign * 0.2, 0.04], { soft: true }),
+        );
+      }
+    }
+  }
   for (let c = 1; c <= cols; c++)
     for (const dx of under) {
       parts.push(box("frame", [0.14, H + 0.1, 0.05], [cx(c) + dx, 0, 0.025]));
@@ -680,6 +733,7 @@ export function buildWall(spec: WallSpec): Built {
       lie: "x",
     }),
     light: null,
+    surface: 0,
   };
 }
 

@@ -10,6 +10,7 @@ import {
   type LabelSpec,
 } from "../three/label-texture";
 import { BOTTLE_LENGTH, SHOWCASE_DEPTH } from "../three/layout";
+import { makeFineLabelTexture } from "./fine-label";
 import {
   buildHeroKit,
   dressHero,
@@ -178,7 +179,7 @@ export function ShowcaseHero({
   const spoken = label ? JSON.stringify(label) : null;
   useEffect(() => {
     const canvas = gl.domElement;
-    dressHero(kit, bottle.type, plan.mode === "emerge");
+    dressHero(kit, bottle.type, plan.mode === "emerge", quality.labels);
     if (spoken === null) return;
     let alive = true;
     const made: THREE.Texture[] = [];
@@ -194,7 +195,11 @@ export function ShowcaseHero({
       mark(canvas, `${side}Label`, data.photo ? "photo" : "drawn");
       invalidate();
     };
-    void makeLabelTexture(spec, anisotropy).then((t) => wear("front", t));
+    // premium: the same drawing of a label, on toothed paper (fine-label.ts)
+    void (kit.fidelity === "premium" ? makeFineLabelTexture : makeLabelTexture)(
+      spec,
+      anisotropy,
+    ).then((t) => wear("front", t));
     void makeBackLabelTexture(spec, anisotropy).then((t) => wear("back", t));
     return () => {
       alive = false;
@@ -204,7 +209,7 @@ export function ShowcaseHero({
       mark(canvas, "frontLabel", null);
       mark(canvas, "backLabel", null);
     };
-  }, [spoken, kit, bottle.type, plan.mode, gl, invalidate]);
+  }, [spoken, kit, bottle.type, plan.mode, quality.labels, gl, invalidate]);
 
   // ---- Leaving: the place comes back, whatever state the movement was in ---------------------------------------
   useEffect(() => {
@@ -730,8 +735,8 @@ export function Inspection({
   const rimLight = useRef<THREE.PointLight>(null);
   const kit = useMemo(() => {
     const owned = new Owned();
-    return { owned, parts: buildHeroKit(owned) };
-  }, []);
+    return { owned, parts: buildHeroKit(owned, model.fidelity) };
+  }, [model.fidelity]);
   useEffect(() => () => kit.owned.dispose(), [kit]);
   usePrewarm(kit.parts, keyLight, rimLight);
 

@@ -26,11 +26,13 @@ import { LayoutMap } from "@/features/cellar/storage3d/layout-map";
 import { buildModel, type PlacedBottle } from "@/features/cellar/storage3d/model";
 import type { ShowcaseState } from "@/features/cellar/storage3d/showcase-machine";
 import { Button } from "@/ui/button";
+import { cn } from "@/ui/cn";
 import {
   LEGACY_KINDS,
   UNKNOWN_CASES,
   normalize,
-  placeOf,
+  placeFromKey,
+  placeKey,
   toQuery,
   type GalleryState,
   type UnknownCase,
@@ -124,8 +126,10 @@ export function CellarGallery({ initial }: { initial: GalleryState }) {
     window.history.replaceState(null, "", `?${toQuery(state)}`);
   }, [state]);
 
-  const resolved = useMemo(() => placeOf(state), [state]);
-  const model = useMemo(() => buildModel(resolved), [resolved]);
+  // the place is built again only when the place changes, not when what is around it does (a studio, a panel)
+  const place = placeKey(state);
+  const resolved = useMemo(() => placeFromKey(place), [place]);
+  const model = useMemo(() => buildModel(resolved, state.fidelity), [resolved, state.fidelity]);
   const bottles = useMemo(
     () => fixtureBottles(resolved.layout, state.fill),
     [resolved, state.fill],
@@ -199,6 +203,9 @@ export function CellarGallery({ initial }: { initial: GalleryState }) {
                     template,
                     fill: state.fill,
                     quality: state.quality,
+                    fidelity: state.fidelity,
+                    studio: state.studio,
+                    panel: state.panel,
                   }),
                 );
               }}
@@ -306,6 +313,41 @@ export function CellarGallery({ initial }: { initial: GalleryState }) {
               />
             )}
           </div>
+          {state.sample !== "legacy" && (
+            <div
+              className="grid grid-cols-2 gap-3 border-t border-hairline pt-3"
+              data-testid="gallery-review"
+            >
+              <Choice
+                label="Look"
+                value={state.fidelity}
+                onChange={(fidelity) => set({ fidelity })}
+                options={[
+                  ["premium", "premium (2B.2)"],
+                  ["classic", "as before (2B.1)"],
+                ]}
+              />
+              <Choice
+                label="Studio"
+                value={state.studio}
+                // what stands behind the place changes nothing of the place: the chosen bottle stays chosen
+                onChange={(studio) => setState((was) => normalize({ ...was, studio }))}
+                options={[
+                  ["light", "light"],
+                  ["dark", "dark"],
+                ]}
+              />
+              <Choice
+                label="Panel on a narrow screen"
+                value={state.panel}
+                onChange={(panel) => setState((was) => normalize({ ...was, panel }))}
+                options={[
+                  ["below", "below the picture"],
+                  ["inside", "inside it (no place given)"],
+                ]}
+              />
+            </div>
+          )}
           <dl
             className="grid grid-cols-2 gap-x-3 gap-y-1 border-t border-hairline pt-3 text-caption text-ink-2"
             data-testid="gallery-facts"
@@ -335,8 +377,16 @@ export function CellarGallery({ initial }: { initial: GalleryState }) {
         <div className="flex min-w-0 flex-col gap-6">
           <section aria-label="3D view">
             <div
-              className="relative h-[26rem] overflow-hidden rounded-card border border-hairline bg-[radial-gradient(ellipse_at_50%_30%,var(--color-raised),var(--color-canvas))] sm:h-[34rem]"
+              className={cn(
+                "relative h-[26rem] overflow-hidden rounded-card border border-hairline sm:h-[34rem]",
+                // a dark studio is this box's own background: nothing of the app's theme changes
+                state.studio === "dark" && state.sample !== "legacy"
+                  ? "bg-[radial-gradient(ellipse_at_50%_28%,#4a423b,#1d1a18_62%,#121010)]"
+                  : "bg-[radial-gradient(ellipse_at_50%_30%,var(--color-raised),var(--color-canvas))]",
+              )}
               data-testid="gallery-stage"
+              data-studio={state.studio}
+              data-fidelity={state.fidelity}
               style={{ touchAction: "none", cursor: "grab" }}
             >
               {!supported ? (
@@ -385,7 +435,7 @@ export function CellarGallery({ initial }: { initial: GalleryState }) {
                   onSelect={setSelected}
                   detailsOf={detailsOf}
                   initialInspect={state.inspect || undefined}
-                  panelSlot={panelSlot}
+                  panelSlot={state.panel === "inside" ? null : panelSlot}
                   reducedMotion={reduced}
                   onLost={() => setLost(true)}
                   onState={onShowcase}
@@ -524,11 +574,11 @@ const wineName = (b: FixtureBottle) =>
   `${b.wine.producer} ${b.wine.name}${b.wine.year ? ` ${b.wine.year}` : ""}`;
 
 /** The chosen bottle and where it is. */
-const describe = (b: FixtureBottle, resolved: ReturnType<typeof placeOf>): string =>
+const describe = (b: FixtureBottle, resolved: ReturnType<typeof placeFromKey>): string =>
   `${wineName(b)} — ${whereIs(b, resolved)}`;
 
 /** Where a bottle is, in words that claim no more than is known. */
-function whereIs(b: FixtureBottle, resolved: ReturnType<typeof placeOf>): string {
+function whereIs(b: FixtureBottle, resolved: ReturnType<typeof placeFromKey>): string {
   const index = b.index ?? 1;
   const cell = resolved.layout.cells.find((c) => c.row === b.row && c.col === b.col);
   if (!resolved.arrangementKnown || resolved.layout.semantics === "ordinal")

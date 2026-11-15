@@ -3,6 +3,8 @@ import { STORAGE_PALETTES, STORAGE_TEMPLATES, STORAGE_TEMPLATE_IDS } from "@cell
 import {
   UNKNOWN_CASES,
   normalize,
+  placeFromKey,
+  placeKey,
   placeOf,
   toQuery,
   type UnknownCase,
@@ -87,6 +89,45 @@ describe("what the template gallery shows", () => {
     expect(toQuery(normalize({ template: "rack_metal" }))).toBe(
       "sample=template&template=rack_metal",
     );
+  });
+
+  it("how it is drawn, the studio and the panel's place are in the link too, and only as offered", () => {
+    const plain = normalize({ template: "rack_classic" });
+    expect(plain).toMatchObject({ fidelity: "premium", studio: "light", panel: "below" });
+    const s = normalize({
+      template: "cooler_dual",
+      fidelity: "classic",
+      studio: "dark",
+      panel: "inside",
+    });
+    expect(s).toMatchObject({ fidelity: "classic", studio: "dark", panel: "inside" });
+    expect(normalize(Object.fromEntries(new URLSearchParams(toQuery(s))))).toEqual(s);
+    expect(toQuery(s)).toContain("fidelity=classic");
+    // anything else typed there is the default, never passed on
+    expect(
+      normalize({ template: "rack_classic", fidelity: "ultra", studio: "#000", panel: "<b>" }),
+    ).toEqual(plain);
+  });
+
+  it("the studio, the look and the panel are not the place: the place stays the one that was built", () => {
+    const a = normalize({ template: "cooler_dual", rows: "8", lighting: "cool" });
+    for (const other of [
+      { studio: "dark" },
+      { panel: "inside" },
+      { fidelity: "classic" },
+      { quality: "low" },
+      { fill: "full" },
+    ])
+      expect(placeKey(normalize({ ...a, ...other }))).toBe(placeKey(a));
+    for (const other of [{ rows: "6" }, { door: "solid" }, { lighting: "warm" }, { cols: "3" }])
+      expect(placeKey(normalize({ ...a, ...other }))).not.toBe(placeKey(a));
+    // and the key gives the place back, exactly
+    for (const id of STORAGE_TEMPLATE_IDS) {
+      const state = normalize({ template: id });
+      expect(placeFromKey(placeKey(state))).toEqual(placeOf(state));
+    }
+    const unknown = normalize({ sample: "unknown", unknown: "bins-as-depth" });
+    expect(placeFromKey(placeKey(unknown))).toEqual(placeOf(unknown));
   });
 
   it("has a place from before templates, and places whose arrangement is not known", () => {

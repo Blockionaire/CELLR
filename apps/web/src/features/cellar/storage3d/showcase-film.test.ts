@@ -295,6 +295,32 @@ describe("where the bottle stands in the picture", () => {
     expect(stacked.y).toBeCloseTo(0, 12);
   });
 
+  it("a narrow picture with no place for the panel outside it: a sheet inside, and the bottle above it", () => {
+    expect(layoutForWidth(719, true)).toBe("stacked");
+    expect(layoutForWidth(719, false)).toBe("sheet");
+    expect(layoutForWidth(320, false)).toBe("sheet");
+    // a wide picture has the panel beside the bottle either way
+    expect(layoutForWidth(720, false)).toBe("side");
+    for (const [w, h] of [
+      [296, 416],
+      [356, 416],
+      [366, 520],
+      [700, 640],
+    ] as const) {
+      const sheet = inspectionFrame("sheet", w, h);
+      const stacked = inspectionFrame("stacked", w, h);
+      expect(sheet.x).toBeCloseTo(0, 12);
+      // the bottle's foot is above the sheet, which has the lower 46 % of the picture
+      const foot = (0.5 - (sheet.y - sheet.fill / 2)) * h;
+      expect(foot).toBeLessThanOrEqual(h * 0.54);
+      // its top is inside the picture
+      expect((0.5 - (sheet.y + sheet.fill / 2)) * h).toBeGreaterThanOrEqual(0);
+      // smaller than with the whole picture to itself, and still a bottle one can look at
+      expect(sheet.fill).toBeLessThan(stacked.fill);
+      expect(sheet.fill * h).toBeGreaterThan(h * 0.4);
+    }
+  });
+
   it("is large on a phone: most of the picture's height, and never wider than the picture", () => {
     for (const [w, h] of [
       [296, 416],

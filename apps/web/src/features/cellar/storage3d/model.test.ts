@@ -22,7 +22,7 @@ import {
   rendererFor,
   type RenderModel,
 } from "./model";
-import { MATERIAL_ROLES, TONES, lookFor } from "./palette";
+import { FIDELITIES, MATERIAL_ROLES, PREMIUM_TONES, TONES, lookFor } from "./palette";
 import { BOTTLE_L, BOTTLE_R, penetration, type Pose, poseBounds } from "./parts";
 
 const FAMILY_OF: Record<string, "grid" | "bins" | "wall"> = {
@@ -522,16 +522,27 @@ describe("appearance", () => {
         for (const color of STORAGE_PALETTES[material])
           for (const lighting of t.appearance.lighting)
             for (const door of t.appearance.doors) {
-              const m = modelOf(id, { appearance: { material, color, lighting, door } });
-              expect(m.resolved.appearance).toMatchObject({ material, color, lighting, door });
-              for (const role of MATERIAL_ROLES) expect(m.look.surfaces[role]).toBeDefined();
-              expect(m.look.surfaces.frame.color).toBe(TONES[color]);
-              expect(m.look.light.intensity).toBe(lighting === "none" ? 0 : 1);
-              expect(m.look.surfaces.glow.emissiveIntensity).toBe(lighting === "none" ? 0 : 1.7);
-              expect(lookFor(m.resolved.appearance)).toEqual(lookFor(m.resolved.appearance));
-              // a door is drawn exactly when the look has one
-              const hasGlass = m.parts.some((p) => p.role === "glass");
-              expect(hasGlass).toBe(door === "glass");
+              // both ways of drawing it: as before sprint 2B.2 (its tones and its glow unchanged), and as since
+              for (const fidelity of FIDELITIES) {
+                const m = buildModel(
+                  fixturePlace({ template: id, appearance: { material, color, lighting, door } }),
+                  fidelity,
+                );
+                const classic = fidelity === "classic";
+                expect(m.resolved.appearance).toMatchObject({ material, color, lighting, door });
+                for (const role of MATERIAL_ROLES) expect(m.look.surfaces[role]).toBeDefined();
+                expect(m.look.surfaces.frame.color).toBe((classic ? TONES : PREMIUM_TONES)[color]);
+                expect(m.look.light.intensity).toBe(lighting === "none" ? 0 : 1);
+                expect(m.look.surfaces.glow.emissiveIntensity).toBe(
+                  lighting === "none" ? 0 : classic ? 1.7 : 2.2,
+                );
+                expect(lookFor(m.resolved.appearance, { fidelity })).toEqual(
+                  lookFor(m.resolved.appearance, { fidelity }),
+                );
+                // a door is drawn exactly when the look has one
+                const hasGlass = m.parts.some((p) => p.role === "glass");
+                expect(hasGlass).toBe(door === "glass");
+              }
             }
     }
   });

@@ -18,7 +18,7 @@ import {
   type BinShape,
   type Built,
 } from "./families";
-import { COOLER_SHELF, lookFor, type Look } from "./palette";
+import { COOLER_SHELF, lookFor, type Fidelity, type Look } from "./palette";
 import { boundsOf, type Part, type Pose, type Vec3 } from "./parts";
 
 /**
@@ -44,6 +44,8 @@ export interface RenderModel {
   /** The template whose furniture is drawn; null when no furniture is (legacy, neutral). */
   templateId: StorageTemplateId | null;
   resolved: ResolvedStorage;
+  /** How it is drawn: as before sprint 2B.2 (`classic`, kept for comparison) or as since (`premium`). */
+  fidelity: Fidelity;
   look: Look;
   parts: readonly Part[];
   built: Built;
@@ -74,13 +76,13 @@ export function rendererFor(resolved: ResolvedStorage): RendererKind {
   return "neutral";
 }
 
-export function buildModel(resolved: ResolvedStorage): RenderModel {
+export function buildModel(resolved: ResolvedStorage, fidelity: Fidelity = "premium"): RenderModel {
   const renderer = rendererFor(resolved);
   const { rows, cols, cellCapacity: cap, zones } = resolved.structure;
   const id = resolved.template.id;
   const a = resolved.appearance;
   let built: Built;
-  let look: Look = lookFor(a);
+  let look: Look = lookFor(a, { fidelity });
   if (renderer === "grid") {
     const style = GRID_STYLES[id]!;
     const cooler = style.shell === "cooler" || style.shell === "undercounter";
@@ -100,16 +102,32 @@ export function buildModel(resolved: ResolvedStorage): RenderModel {
       style,
       door: a.door,
       lit: a.lighting !== "none",
+      detail: fidelity === "premium",
     });
-    if (cooler) look = lookFor(a, { shelf: COOLER_SHELF, secondGlow: "#ffd7a3" });
+    if (cooler)
+      look = lookFor(a, {
+        shelf: COOLER_SHELF,
+        secondGlow: "#ffd7a3",
+        fidelity,
+        // two zones are lit apart, so that they can be told apart
+        twoZones: split.length >= 2,
+      });
   } else if (renderer === "bins") built = buildBins({ rows, cols, cap, shape: BIN_SHAPES[id]! });
-  else if (renderer === "wall") built = buildWall({ rows, cols, cap, mount: WALL_MOUNTS[id]! });
+  else if (renderer === "wall")
+    built = buildWall({
+      rows,
+      cols,
+      cap,
+      mount: WALL_MOUNTS[id]!,
+      detail: fidelity === "premium",
+    });
   else if (renderer === "neutral") built = buildNeutral({ rows, cols, cap });
   else built = { parts: [], light: null };
   return {
     renderer,
     templateId: renderer === "legacy" || renderer === "neutral" ? null : id,
     resolved,
+    fidelity,
     look,
     parts: built.parts,
     built,
@@ -271,14 +289,53 @@ export interface QualitySpec {
   shadows: boolean;
   /** Softened edges on the furniture. */
   rounded: boolean;
+  /**
+   * Premium only, and never anything that changes where a bottle is or whether it can be chosen:
+   * `relief`: surfaces wear their grain as relief under light (two more texture reads a pixel). OFF AT EVERY LEVEL
+   * for now: measured in software rendering it made turning a small place 14 points slower (29 % against 14 %
+   * over the baseline) for a difference that is hard to see at the distance a place is looked at from. The
+   * materials can do it (`materialFor`); whether a level gets it back is for the device validation to say;
+   * `glow`: the soft glow round a strip of light, and the shadow a piece of furniture casts on its floor or wall;
+   * `labels`: a bottle in its place wears the print of a label, not a plain band of paper.
+   */
+  relief: boolean;
+  glow: boolean;
+  labels: boolean;
   /** The sharpest the picture is drawn, in device pixels per CSS pixel. */
   maxDpr: number;
 }
 
 export const QUALITY: Readonly<Record<Quality, QualitySpec>> = {
-  high: { radial: 32, clearcoat: true, shadows: true, rounded: true, maxDpr: 2 },
-  balanced: { radial: 18, clearcoat: false, shadows: true, rounded: false, maxDpr: 1.5 },
-  low: { radial: 10, clearcoat: false, shadows: false, rounded: false, maxDpr: 1.25 },
+  high: {
+    radial: 32,
+    clearcoat: true,
+    shadows: true,
+    rounded: true,
+    relief: false,
+    glow: true,
+    labels: true,
+    maxDpr: 2,
+  },
+  balanced: {
+    radial: 18,
+    clearcoat: false,
+    shadows: true,
+    rounded: false,
+    relief: false,
+    glow: true,
+    labels: true,
+    maxDpr: 1.5,
+  },
+  low: {
+    radial: 10,
+    clearcoat: false,
+    shadows: false,
+    rounded: false,
+    relief: false,
+    glow: false,
+    labels: false,
+    maxDpr: 1.25,
+  },
 };
 
 /** The level for a scene: by how much there is to draw, a step lower on a small phone. */

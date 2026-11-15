@@ -276,7 +276,13 @@ describe("warming the shaders up before the first bottle is taken out", () => {
     ]);
     set.dispose();
     expect(mine.n).toBe(copies.length);
-    expect(copies.length).toBe(5); // the glass twice, two faded ones, the ring of the chosen bottle
+    // the glass twice, three faded ones (wine, foil, and the paper with its print), the ring of the chosen bottle
+    expect(copies.length).toBe(6);
+    // the paper's see-through shader is warmed up with its picture on it (sprint 2B.2: found by measuring)
+    const paper = copies.filter(
+      (m) => (m as THREE.MeshStandardMaterial).map === kit.paper.map && m.transparent,
+    );
+    expect(paper.length).toBeGreaterThanOrEqual(1);
     expect(kits.n).toBe(0);
     owned.dispose();
   });
