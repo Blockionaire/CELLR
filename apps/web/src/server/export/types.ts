@@ -21,6 +21,8 @@ export interface ExportBottleRow {
   notes: string | null;
   addedAt: string;
   openedAt: string | null;
+  /** The bottle's index within its position: only read for export version 2 (it needs migration 0043). */
+  index?: number;
 }
 
 export interface ExportTastingRow {
@@ -35,7 +37,8 @@ export interface ExportTastingRow {
 }
 
 export interface ExportRepository {
-  bottles(householdId: string): Promise<ExportBottleRow[]>;
+  /** `withIndex`: read each bottle's index too (export version 2). Left out, the query is version 1's, unchanged. */
+  bottles(householdId: string, options?: { withIndex?: boolean }): Promise<ExportBottleRow[]>;
   /** Empty until the ratings step has been run. */
   tastings(householdId: string): Promise<ExportTastingRow[]>;
 }

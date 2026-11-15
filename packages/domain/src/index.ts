@@ -46,3 +46,5 @@ export * from "./storage-templates";
 export * from "./storage-layout";
 export * from "./storage-config";
 export * from "./storage-compat";
+export * from "./smart-cellar";
+export * from "./export-v2";

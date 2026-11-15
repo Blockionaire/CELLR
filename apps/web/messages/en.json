@@ -516,7 +516,15 @@
       "consentRequired": "Tick the box to let CELLR use your photo.",
       "photosUnavailable": "Sending photos isn't available right now.",
       "bottlePhotoSmall": "That photo is too small to work from. Try a sharper one of the whole bottle.",
-      "alreadyContributed": "You already sent photos of this wine. Thank you!"
+      "alreadyContributed": "You already sent photos of this wine. Thank you!",
+      "placeNewerVersion": "This place was set up in a newer version of CELLR. Update the app to change its size or kind.",
+      "placeKindFixed": "This place is set up as a particular kind of storage, and its kind comes with that.",
+      "placeSizeNotTemplate": "That size doesn't fit how this place is set up.",
+      "placeChangedMeanwhile": "This place was just changed by someone else. Try again.",
+      "placeBusy": "Someone else was changing this place. Try again.",
+      "depthOff": "More than one bottle per position isn't switched on yet.",
+      "layoutWritesOff": "Changing a layout isn't switched on here yet.",
+      "exportVersionUnavailable": "That export version isn't available."
     }
   },
   "offline": {
