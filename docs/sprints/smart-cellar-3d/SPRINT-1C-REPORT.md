@@ -21,18 +21,18 @@ Read before anything was written: `server/cellar/{types,repository,service}.ts`,
 layout,templates}.ts` and `export.ts`, migrations 0004 (places, RLS), 0015 (friends), 0043-0045, the gated
 migration, the SQL suite for 0043-0045, the e2e helpers and the local stack, ADR-001 to ADR-004.
 
-| Convention found | Used as |
-| --- | --- |
-| `authed()` wraps every route: origin check (CSRF; bearer exempt), session or bearer → `RequestContext`, `DomainError` → status and `{ error: { code, message, retryable } }` | Every new route uses it; nothing new in the HTTP layer |
-| `readJson(request, schema)`: size limit, JSON only, zod → 422 | The layout PUT reads `StorageConfigSchema` (strict) |
-| `uuidParam`: a malformed id is 404, never a validation hint | All `:id` routes |
-| Composition root `servicesFor(ctx)`: services from repositories running AS the user (`ctx.db`, RLS applies) | `smartCellar` service, its repository on `ctx.db`; no service role |
-| The active household: `getActiveHousehold(userId)`, else "Create or join a household first." (404) | The same `household()` |
-| Paging: `allRows` (the data API cuts at 1000 rows) | Occupancy and placements |
-| A database step not taken yet: `isMissingTable`, `missingColumn`, a kind message, never a crash | `isSchemaMissing` adds PGRST202 (function); only these codes |
-| Feature switches: server-only env, parsed fail-closed (`parseFeatures`); stricter gate for unreleased work (`cellarGalleryOpenIn`) | `CELLR_SMART_CELLAR` with the gallery gate's environment rule for writes |
-| API versioning: `/api/v1`, additive changes, new routes for new representations | `/api/v1/smart-cellar/*` and `export?version=2`; no response shape changed |
-| Every server sentence translated (`lib/known-messages.ts`, `messages/{en,nl}.json`, enforced by a test) | Eight new sentences, both languages |
+| Convention found                                                                                                                                                             | Used as                                                                    |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `authed()` wraps every route: origin check (CSRF; bearer exempt), session or bearer → `RequestContext`, `DomainError` → status and `{ error: { code, message, retryable } }` | Every new route uses it; nothing new in the HTTP layer                     |
+| `readJson(request, schema)`: size limit, JSON only, zod → 422                                                                                                                | The layout PUT reads `StorageConfigSchema` (strict)                        |
+| `uuidParam`: a malformed id is 404, never a validation hint                                                                                                                  | All `:id` routes                                                           |
+| Composition root `servicesFor(ctx)`: services from repositories running AS the user (`ctx.db`, RLS applies)                                                                  | `smartCellar` service, its repository on `ctx.db`; no service role         |
+| The active household: `getActiveHousehold(userId)`, else "Create or join a household first." (404)                                                                           | The same `household()`                                                     |
+| Paging: `allRows` (the data API cuts at 1000 rows)                                                                                                                           | Occupancy and placements                                                   |
+| A database step not taken yet: `isMissingTable`, `missingColumn`, a kind message, never a crash                                                                              | `isSchemaMissing` adds PGRST202 (function); only these codes               |
+| Feature switches: server-only env, parsed fail-closed (`parseFeatures`); stricter gate for unreleased work (`cellarGalleryOpenIn`)                                           | `CELLR_SMART_CELLAR` with the gallery gate's environment rule for writes   |
+| API versioning: `/api/v1`, additive changes, new routes for new representations                                                                                              | `/api/v1/smart-cellar/*` and `export?version=2`; no response shape changed |
+| Every server sentence translated (`lib/known-messages.ts`, `messages/{en,nl}.json`, enforced by a test)                                                                      | Eight new sentences, both languages                                        |
 
 What the database offers (0043-0045) and how it is used: `save_storage_layout` (SECURITY INVOKER; locks the place
 `for no key update`, replaces kind/template/semantics/size/capacity/appearance and, when `p_zones` is not null, the
@@ -55,37 +55,37 @@ packages/domain                       resolveStorage (unchanged) · smart-cellar
 
 The contracts are in ADR-005 §1. In short:
 
-| Route | Closed | `read` | `write` (preview / `next dev`) |
-| --- | --- | --- | --- |
-| `GET /api/v1/smart-cellar` | 404 | capabilities, `writes: false` | capabilities, `writes: true` |
-| `GET /api/v1/smart-cellar/storage[/:id[/bottles]]` | 404 | 200 | 200 |
-| `PUT /api/v1/smart-cellar/storage/:id/layout` | 404 (body not looked at) | 403 (body not looked at) | 200 / 404 / 409 / 422 |
-| `GET /api/v1/export` | v1 | v1 | v1 |
-| `GET /api/v1/export?version=2` | 422 | v2 | v2 |
+| Route                                              | Closed                   | `read`                        | `write` (preview / `next dev`) |
+| -------------------------------------------------- | ------------------------ | ----------------------------- | ------------------------------ |
+| `GET /api/v1/smart-cellar`                         | 404                      | capabilities, `writes: false` | capabilities, `writes: true`   |
+| `GET /api/v1/smart-cellar/storage[/:id[/bottles]]` | 404                      | 200                           | 200                            |
+| `PUT /api/v1/smart-cellar/storage/:id/layout`      | 404 (body not looked at) | 403 (body not looked at)      | 200 / 404 / 409 / 422          |
+| `GET /api/v1/export`                               | v1                       | v1                            | v1                             |
+| `GET /api/v1/export?version=2`                     | 422                      | v2                            | v2                             |
 
 ## 3. Exact changed files
 
-| File | Change |
-| --- | --- |
-| `packages/domain/src/smart-cellar.ts` | **new**: views, `indexMeaningOf`, `layoutChangeProblem`, `legacyEditProblem`, `DEPTH_PLACEMENT_ENABLED` |
-| `packages/domain/src/smart-cellar.test.ts` | **new**: 14 tests |
-| `packages/domain/src/export-v2.ts` | **new**: `CellrExportV2`, `EXPORT_V2_VERSION`, `EXPORT_VERSIONS` |
-| `packages/domain/src/index.ts` | exports the two new modules |
-| `apps/web/src/lib/smart-cellar-gate.ts` (+ `.test.ts`) | **new**: the switch; 6 tests incl. every combination of other variables |
-| `apps/web/src/server/env.ts` | `getSmartCellarAccess()` |
-| `apps/web/src/server/smart-cellar/{types,repository,service}.ts` (+ `service.test.ts`) | **new**: 20 tests |
-| `apps/web/src/server/services.ts` | wires `smartCellar`; export gets `smartPlaces` only where reads are on |
-| `apps/web/src/app/api/v1/smart-cellar/route.ts`, `storage/route.ts`, `storage/[id]/route.ts`, `storage/[id]/bottles/route.ts`, `storage/[id]/layout/route.ts` | **new** routes |
-| `apps/web/src/server/cellar/repository.ts` (+ `repository.test.ts`) | the old edit of a place: template guard, tied to the template it checked; 8 new tests |
-| `apps/web/src/server/export/{types,repository,service}.ts` (+ `service.test.ts`) | version 2 beside version 1 (one read for bottles and indexes); 6 new tests |
-| `apps/web/src/app/api/v1/export/route.ts` | `?version=2`; other versions 422 |
-| `apps/web/src/features/cellar/storage3d/from-api.ts` (+ `.test.ts`) | **new**: API views → `ResolvedStorage`, `StoredBottle`; 6 tests |
-| `apps/web/src/lib/known-messages.ts`, `apps/web/messages/{en,nl}.json` | eight new sentences, translated |
-| `apps/web/playwright.config.ts` | `CELLR_SMART_CELLAR=write` on the 3101 server (an unmarked production build: reads only) and on 3102 (a preview: writes) |
-| `apps/web/e2e/smart-cellar-api.spec.ts` | **new**: 22 HTTP tests through the real PostgREST |
-| `supabase/tests/99_smart_cellar_api.test.sql` | **new**: friends, members, depth and the legacy index, in SQL |
-| `docs/SETUP.md` | the `CELLR_SMART_CELLAR` setting |
-| `docs/sprints/smart-cellar-3d/{README.md, ADR-005-smart-cellar-api.md, SPRINT-1C-REPORT.md}` | roadmap, decisions, this report |
+| File                                                                                                                                                          | Change                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `packages/domain/src/smart-cellar.ts`                                                                                                                         | **new**: views, `indexMeaningOf`, `layoutChangeProblem`, `legacyEditProblem`, `DEPTH_PLACEMENT_ENABLED`                  |
+| `packages/domain/src/smart-cellar.test.ts`                                                                                                                    | **new**: 14 tests                                                                                                        |
+| `packages/domain/src/export-v2.ts`                                                                                                                            | **new**: `CellrExportV2`, `EXPORT_V2_VERSION`, `EXPORT_VERSIONS`                                                         |
+| `packages/domain/src/index.ts`                                                                                                                                | exports the two new modules                                                                                              |
+| `apps/web/src/lib/smart-cellar-gate.ts` (+ `.test.ts`)                                                                                                        | **new**: the switch; 6 tests incl. every combination of other variables                                                  |
+| `apps/web/src/server/env.ts`                                                                                                                                  | `getSmartCellarAccess()`                                                                                                 |
+| `apps/web/src/server/smart-cellar/{types,repository,service}.ts` (+ `service.test.ts`)                                                                        | **new**: 20 tests                                                                                                        |
+| `apps/web/src/server/services.ts`                                                                                                                             | wires `smartCellar`; export gets `smartPlaces` only where reads are on                                                   |
+| `apps/web/src/app/api/v1/smart-cellar/route.ts`, `storage/route.ts`, `storage/[id]/route.ts`, `storage/[id]/bottles/route.ts`, `storage/[id]/layout/route.ts` | **new** routes                                                                                                           |
+| `apps/web/src/server/cellar/repository.ts` (+ `repository.test.ts`)                                                                                           | the old edit of a place: template guard, tied to the template it checked; 8 new tests                                    |
+| `apps/web/src/server/export/{types,repository,service}.ts` (+ `service.test.ts`)                                                                              | version 2 beside version 1 (one read for bottles and indexes); 6 new tests                                               |
+| `apps/web/src/app/api/v1/export/route.ts`                                                                                                                     | `?version=2`; other versions 422                                                                                         |
+| `apps/web/src/features/cellar/storage3d/from-api.ts` (+ `.test.ts`)                                                                                           | **new**: API views → `ResolvedStorage`, `StoredBottle`; 6 tests                                                          |
+| `apps/web/src/lib/known-messages.ts`, `apps/web/messages/{en,nl}.json`                                                                                        | eight new sentences, translated                                                                                          |
+| `apps/web/playwright.config.ts`                                                                                                                               | `CELLR_SMART_CELLAR=write` on the 3101 server (an unmarked production build: reads only) and on 3102 (a preview: writes) |
+| `apps/web/e2e/smart-cellar-api.spec.ts`                                                                                                                       | **new**: 22 HTTP tests through the real PostgREST                                                                        |
+| `supabase/tests/99_smart_cellar_api.test.sql`                                                                                                                 | **new**: friends, members, depth and the legacy index, in SQL                                                            |
+| `docs/SETUP.md`                                                                                                                                               | the `CELLR_SMART_CELLAR` setting                                                                                         |
+| `docs/sprints/smart-cellar-3d/{README.md, ADR-005-smart-cellar-api.md, SPRINT-1C-REPORT.md}`                                                                  | roadmap, decisions, this report                                                                                          |
 
 Not changed: anything under `supabase/migrations` and `supabase/gated-migrations`, `packages/domain/src/storage-*.ts`
 and `export.ts`, every existing route's path and response shape, `server/cellar/service.ts`, `server/friends/*`, the
@@ -136,17 +136,17 @@ save of any kind leaves the row and its zones unchanged.
 
 ## 6. Backward compatibility guarantees
 
-| What | Guarantee | Evidence |
-| --- | --- | --- |
-| `/api/v1/storage` GET/POST/PATCH/DELETE, `/api/v1/racks`, `/api/v1/bottles` | Same paths, same request and response shapes; no field added or removed | browser tests: key sets pinned, on the closed and the open server |
-| A place with `template = NULL`, `cell_capacity = 1` | Edited exactly as before: any kind, any size the database allows; the update only applies while it still has no template | repository tests; browser test (to 30 × 30 and another kind) |
-| A place with a template, through the old edit | Rename: always. Kind: only its template's (else 409). Size: within the template (else 422). Unknown template: rename only (409). Zones: the database refuses a change of shelves they do not split (422). Tied to the template that was checked (409 retryable if it changed) | repository tests (8); browser test on both servers; mutation check (guard removed → test fails) |
-| Placing and moving without an index (every client of today) | Index 1, the database's rule; a move into a templated place works | browser test |
-| Two-coordinate swaps | Unchanged for every bottle at index 1; a bottle at index > 1 is never swapped by it (stale, 409) | browser tests |
-| Capacity | Old API: `rows × cols` as always; new API: `rows × cols × cellCapacity`, both from what is stored | browser test: equal for every place from before templates |
-| Export version 1 | Same keys, same order, same query; the default; identical on every server | unit tests (key order pinned); browser test (closed vs open server, byte-equal apart from the time) |
-| Friends | `friend_racks` / `friend_cellar` unchanged; nothing of template, look, zones or temperatures | SQL test (exact keys); browser test |
-| A database without 0043-0045 | Old API unchanged (the template check is skipped only on "no such column"; any other error stops the edit); new API: 404 "isn't set up", capabilities `schema: "missing"` | unit tests (fake client); not run against a real old database (see §11) |
+| What                                                                        | Guarantee                                                                                                                                                                                                                                                                     | Evidence                                                                                            |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `/api/v1/storage` GET/POST/PATCH/DELETE, `/api/v1/racks`, `/api/v1/bottles` | Same paths, same request and response shapes; no field added or removed                                                                                                                                                                                                       | browser tests: key sets pinned, on the closed and the open server                                   |
+| A place with `template = NULL`, `cell_capacity = 1`                         | Edited exactly as before: any kind, any size the database allows; the update only applies while it still has no template                                                                                                                                                      | repository tests; browser test (to 30 × 30 and another kind)                                        |
+| A place with a template, through the old edit                               | Rename: always. Kind: only its template's (else 409). Size: within the template (else 422). Unknown template: rename only (409). Zones: the database refuses a change of shelves they do not split (422). Tied to the template that was checked (409 retryable if it changed) | repository tests (8); browser test on both servers; mutation check (guard removed → test fails)     |
+| Placing and moving without an index (every client of today)                 | Index 1, the database's rule; a move into a templated place works                                                                                                                                                                                                             | browser test                                                                                        |
+| Two-coordinate swaps                                                        | Unchanged for every bottle at index 1; a bottle at index > 1 is never swapped by it (stale, 409)                                                                                                                                                                              | browser tests                                                                                       |
+| Capacity                                                                    | Old API: `rows × cols` as always; new API: `rows × cols × cellCapacity`, both from what is stored                                                                                                                                                                             | browser test: equal for every place from before templates                                           |
+| Export version 1                                                            | Same keys, same order, same query; the default; identical on every server                                                                                                                                                                                                     | unit tests (key order pinned); browser test (closed vs open server, byte-equal apart from the time) |
+| Friends                                                                     | `friend_racks` / `friend_cellar` unchanged; nothing of template, look, zones or temperatures                                                                                                                                                                                  | SQL test (exact keys); browser test                                                                 |
+| A database without 0043-0045                                                | Old API unchanged (the template check is skipped only on "no such column"; any other error stops the edit); new API: 404 "isn't set up", capabilities `schema: "missing"`                                                                                                     | unit tests (fake client); not run against a real old database (see §11)                             |
 
 ## 7. Export version 2
 
@@ -183,21 +183,34 @@ than flatten it; keep `fallbacks` as a warning, not as data; treat `setToC` as a
 
 All through the app to the real PostgREST and Postgres, as the person (browser tests), and in SQL as each role:
 
-| Who | Result |
-| --- | --- |
-| Anonymous, and a bad token | 401 on every Smart Cellar route and on export version 2 |
-| Signed in, no household | 404 "Create or join a household first." |
-| Owner | reads, saves |
-| Member (joined by invite) | reads, saves (members may edit places; only owners delete them) |
-| Another household | 404 on the place, its bottles and its layout, the same as an id that does not exist, with nothing of it in the answer; its own list does not contain it; `save_storage_layout` called directly with the victim's household answers `not_found`; the zones table returns nothing; the place is unchanged |
-| A friend who may see the whole cellar | the friend view exactly as before (`label, kind, rows, cols, bottles`), with no template, look, zone or temperature anywhere in it; 404 on the Smart Cellar routes for the friend's places; no zone rows readable; no layout writable (SQL) |
-| Service role | not used by any of this |
+| Who                                   | Result                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Anonymous, and a bad token            | 401 on every Smart Cellar route and on export version 2                                                                                                                                                                                                                                                 |
+| Signed in, no household               | 404 "Create or join a household first."                                                                                                                                                                                                                                                                 |
+| Owner                                 | reads, saves                                                                                                                                                                                                                                                                                            |
+| Member (joined by invite)             | reads, saves (members may edit places; only owners delete them)                                                                                                                                                                                                                                         |
+| Another household                     | 404 on the place, its bottles and its layout, the same as an id that does not exist, with nothing of it in the answer; its own list does not contain it; `save_storage_layout` called directly with the victim's household answers `not_found`; the zones table returns nothing; the place is unchanged |
+| A friend who may see the whole cellar | the friend view exactly as before (`label, kind, rows, cols, bottles`), with no template, look, zone or temperature anywhere in it; 404 on the Smart Cellar routes for the friend's places; no zone rows readable; no layout writable (SQL)                                                             |
+| Service role                          | not used by any of this                                                                                                                                                                                                                                                                                 |
 
 ## 9. Database and integration test results
 
-| Check | Result |
-| --- | --- |
-<!--CHECKS-->
+| Check                                                                                                                                                                                                                                            | Result                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm format:check`                                                                                                                                                                                                                              | clean                                                                                                                                                                                                                                                                                                                 |
+| `pnpm lint`                                                                                                                                                                                                                                      | 0 errors, 1 warning (the one `main` has: an anonymous default export in a config file)                                                                                                                                                                                                                                |
+| `pnpm typecheck`                                                                                                                                                                                                                                 | clean                                                                                                                                                                                                                                                                                                                 |
+| `pnpm test`                                                                                                                                                                                                                                      | web 1,149 passed, 12 skipped (85 files; 46 new); domain 916 (14 new); catalog-tools 86; scan-eval 83                                                                                                                                                                                                                  |
+| `pnpm build`                                                                                                                                                                                                                                     | succeeds                                                                                                                                                                                                                                                                                                              |
+| `scripts/check-bundle-secrets.sh`                                                                                                                                                                                                                | no server secrets in the client bundle (89 files)                                                                                                                                                                                                                                                                     |
+| `pnpm migrations:check`                                                                                                                                                                                                                          | OK: 0 new migration files, none changed                                                                                                                                                                                                                                                                               |
+| `pnpm db:test` (Postgres 16, every migration, the whole permission suite)                                                                                                                                                                        | **1,529 passed, 0 failed, 0 errors**, including the new `99_smart_cellar_api.test.sql`                                                                                                                                                                                                                                |
+| `e2e/smart-cellar-api.spec.ts` (through Next.js to the real PostgREST and Postgres of the local stack)                                                                                                                                           | **22 passed, 0 failed**, run twice in a row (44/44); the phone project skips it by design (HTTP only)                                                                                                                                                                                                                 |
+| Existing browser suites that touch places, bottles, swaps, export, friends and the gallery: `racks`, `drag-swap`, `cellar.spec`, `account`, `friends`, `rack-fill`, `add-to-spot`, `import`, `storage-gallery`, `three-view` (desktop and phone) | 171 passed, 28 skipped (by project), **1 failed: `racks.spec.ts:371` (light), an accessibility audit of the "place here" dialog finding one element below contrast. Not a regression: on a fresh build of `main` (a076cbb) the same test failed 3 of 6 runs, the same way; on this branch it also passes some runs.** |
+| Mutation check                                                                                                                                                                                                                                   | With the production write block removed and with the old edit's template check removed (one build), exactly the two tests that guard them failed; both restored                                                                                                                                                       |
+
+Not run here: the full end-to-end suite (CI runs it nightly and on `main`; on a pull request those jobs are skipped), the real Supabase stack
+(`supabase start`; CI runs it on this PR), and a database without migrations 0043-0045 (see §12, limitation 2).
 
 ## 10. CI results
 
