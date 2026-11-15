@@ -165,7 +165,7 @@ Nothing reads feedback automatically; it changes no answer and trains nothing (V
 - _Simultaneous duplicates._ Two requests with the same question id **at the same moment** can both reach the model
   (neither is kept when the other checks). Only one answer is kept and both responses return it; the extra call counts
   against the person's chat limit (60/h). Normal retries are sequential and never call the model twice. Closing this
-  fully needs a claim before the model is asked (a pending question row); not worth it for V1.
+  fully needs a claim before the model is asked (a pending question row); not worth it for V1. Tracked in issue #76.
 - _Question id existence._ Sending someone else's question id yields `saved: null` (the id is taken) and nothing of
   theirs. Ids are random v4 UUIDs that only their owner has seen.
 - _"New conversation" on one device while a question is on its way on another_: that question starts the new
