@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContextOptions, type Page } from "@playwright/test";
-import { api, apiClient, arrive, audit, sessionToken, sql, STACK } from "./helpers";
+import { api, apiClient, arrive, audit, sessionToken, sql, STACK, uniqueEmail } from "./helpers";
 
 /**
  * The sommelier's kept conversation (migration 0046) and the ratings of its answers: there again after a wine page,
@@ -235,6 +235,71 @@ test.describe("the sommelier remembers", () => {
     expect(rows[0]!.conversation_id).not.toBe(old);
   });
 
+  test("an app left open for more than 7 days lets the old conversation go, and never sends it again", async ({
+    page,
+    request,
+  }) => {
+    await page.clock.install();
+    const { email } = await arrive(page, "memopen");
+    await furnish((await apiClient(request, email)).call);
+    const m = marker();
+    await program(m, { content: { answer: "A week ago.", bottle_refs: [] } });
+    await page.goto("/sommelier");
+    await ask(page, `Old question ${m}`);
+    const log = page.getByRole("log", { name: "Conversation" });
+    await expect(log.getByText("A week ago.")).toBeVisible();
+
+    // Eight days pass with the app open: on the server, and in the page.
+    await sql(
+      "update public.sommelier_conversations set last_activity_at = now() - interval '8 days' where user_id = $1",
+      [await userId(email)],
+    );
+    await page.clock.fastForward(8 * 86_400_000);
+
+    // Coming back to the screen: the old copy is gone.
+    await nav(page, "Home").click();
+    await expect(page).toHaveURL(/\/$/);
+    await nav(page, "Sommelier").click();
+    await expect(page.getByTestId("example-questions")).toBeVisible();
+    await expect(log.getByText("A week ago.")).toHaveCount(0);
+
+    // And the next question does not carry it.
+    const m2 = marker();
+    await program(m2, { content: { answer: "Today.", bottle_refs: [] } });
+    await ask(page, `New question ${m2}`);
+    await expect(log.getByText("Today.")).toBeVisible();
+    expect((await callsFor(m2))[0]!.user).not.toContain("Old question");
+    expect((await kept(email)).map((r) => r.content)).toEqual([`New question ${m2}`, null]);
+  });
+
+  test("a screen left open for more than 7 days asks without the old conversation", async ({
+    page,
+    request,
+  }) => {
+    await page.clock.install();
+    const { email } = await arrive(page, "memstay");
+    await furnish((await apiClient(request, email)).call);
+    const m = marker();
+    await program(m, { content: { answer: "Before the week.", bottle_refs: [] } });
+    await page.goto("/sommelier");
+    await ask(page, `First question ${m}`);
+    const log = page.getByRole("log", { name: "Conversation" });
+    await expect(log.getByText("Before the week.")).toBeVisible();
+    await sql(
+      "update public.sommelier_conversations set last_activity_at = now() - interval '8 days' where user_id = $1",
+      [await userId(email)],
+    );
+    await page.clock.fastForward(8 * 86_400_000);
+
+    // Asked on the very same screen, never left.
+    const m2 = marker();
+    await program(m2, { content: { answer: "After the week.", bottle_refs: [] } });
+    await ask(page, `Second question ${m2}`);
+    await expect(log.getByText("After the week.")).toBeVisible();
+    await expect(log.getByText("Before the week.")).toHaveCount(0);
+    expect((await callsFor(m2))[0]!.user).not.toContain("First question");
+  });
+
   test("the API: a question sent twice is answered once, and nobody else sees, rates or clears your conversation", async ({
     page,
     browser,
@@ -300,6 +365,187 @@ test.describe("the sommelier remembers", () => {
       ).status(),
     ).toBe(404);
     await context.close();
+  });
+});
+
+/**
+ * Security of the replay (a question id sent again): the kept answer comes back only from the person's LIVE
+ * conversation in the household they ask in. Never after 7 quiet days, "New conversation", a household change or
+ * losing the membership; then it is simply a new question.
+ */
+test.describe("a question id only brings back what is alive", () => {
+  type Reply = {
+    text: string | null;
+    source: string;
+    saved?: { conversationId: string; messageId: string } | null;
+  };
+
+  test("replay inside the live conversation; two identical requests at once keep one answer", async ({
+    page,
+    request,
+  }) => {
+    const { email } = await arrive(page, "rpllive");
+    await furnish((await apiClient(request, email)).call);
+    const token = await sessionToken(email);
+    const post = async (text: string, questionId: string) => {
+      const res = await api(request, token, "post", "/sommelier", {
+        messages: [{ role: "user", text }],
+        questionId,
+      });
+      expect(res.status()).toBe(200);
+      return (await res.json()) as Reply;
+    };
+
+    const m = marker();
+    await program(m, { content: { answer: "Kept once.", bottle_refs: [] } });
+    const q = crypto.randomUUID();
+    const first = await post(`Once? ${m}`, q);
+    const again = await post(`Once? ${m}`, q);
+    expect(again).toMatchObject({ text: "Kept once.", saved: first.saved });
+    expect(await callsFor(m)).toHaveLength(1);
+
+    // At the same moment: both get the same kept answer, and it is kept once. (Both may reach the model, since
+    // neither is kept yet when the other asks: at most one extra call, counted against the person's chat limit.)
+    const m2 = marker();
+    await program(m2, { content: { answer: "Together.", bottle_refs: [] }, delayMs: 1500 });
+    const q2 = crypto.randomUUID();
+    const [a, b] = await Promise.all([post(`Together? ${m2}`, q2), post(`Together? ${m2}`, q2)]);
+    expect(a.saved).toBeTruthy();
+    expect(b.saved).toEqual(a.saved);
+    expect(b.text).toBe(a.text);
+    const stored = await sql<{ n: string }>(
+      "select count(*) as n from public.sommelier_messages where id = $1 or reply_to = $1",
+      [q2],
+    );
+    expect(Number(stored[0]!.n)).toBe(2);
+    expect((await callsFor(m2)).length).toBeLessThanOrEqual(2);
+  });
+
+  test("never after 7 quiet days, a new conversation, or in another household", async ({
+    page,
+    request,
+  }) => {
+    const { email, householdId: home } = await arrive(page, "rplgone");
+    await furnish((await apiClient(request, email)).call);
+    const token = await sessionToken(email);
+    const q = crypto.randomUUID();
+    const m = marker();
+    const post = async () => {
+      const res = await api(request, token, "post", "/sommelier", {
+        messages: [{ role: "user", text: `The same question ${m}` }],
+        questionId: q,
+      });
+      expect(res.status()).toBe(200);
+      return (await res.json()) as Reply;
+    };
+    const conversation = async () =>
+      (
+        (await (await api(request, token, "get", "/sommelier/conversation")).json()) as {
+          conversation: { id: string; messages: Array<{ role: string; answer?: Reply }> } | null;
+        }
+      ).conversation;
+
+    await program(m, { content: { answer: "The first time.", bottle_refs: [] } });
+    const first = await post();
+    expect(first.text).toBe("The first time.");
+
+    // 7 quiet days: the kept answer is not handed back; it is a new question in a new conversation.
+    await sql(
+      "update public.sommelier_conversations set last_activity_at = now() - interval '7 days 5 minutes' where id = $1",
+      [first.saved!.conversationId],
+    );
+    await program(m, { content: { answer: "After a quiet week.", bottle_refs: [] } });
+    const afterWeek = await post();
+    expect(afterWeek.text).toBe("After a quiet week.");
+    expect(afterWeek.saved!.conversationId).not.toBe(first.saved!.conversationId);
+    expect((await conversation())!.messages).toHaveLength(2);
+    expect(await callsFor(m)).toHaveLength(2);
+
+    // "New conversation": the old question id no longer reaches what was deleted.
+    expect((await api(request, token, "delete", "/sommelier/conversation")).status()).toBe(204);
+    await program(m, { content: { answer: "After starting over.", bottle_refs: [] } });
+    const fresh = await post();
+    expect(fresh.text).toBe("After starting over.");
+    expect(fresh.saved!.conversationId).not.toBe(afterWeek.saved!.conversationId);
+
+    // Another household (empty, so the plain answer, no model): nothing of the first household comes back.
+    const other = (await (
+      await api(request, token, "post", "/households", { name: "Second home" })
+    ).json()) as {
+      id: string;
+    };
+    expect(
+      (await api(request, token, "put", "/households/active", { householdId: other.id })).status(),
+    ).toBe(200);
+    const elsewhere = await post();
+    expect(elsewhere.source).toBe("basic");
+    expect(elsewhere.text).toBeNull();
+    expect(elsewhere.saved!.conversationId).not.toBe(fresh.saved!.conversationId);
+    // And back home: the conversation there was replaced (one per person), so the question is asked anew.
+    await api(request, token, "put", "/households/active", { householdId: home });
+    expect(await conversation()).toBeNull();
+    await program(m, { content: { answer: "Back home.", bottle_refs: [] } });
+    expect((await post()).text).toBe("Back home.");
+    expect(await callsFor(m)).toHaveLength(4);
+  });
+
+  test("never after losing the membership of the household it was kept in", async ({
+    page,
+    request,
+  }) => {
+    const { email } = await arrive(page, "rplleft");
+    const { call } = await apiClient(request, email);
+    const token = await sessionToken(email);
+    // A second household, with a cellar of its own, where the question is asked.
+    const second = (await call<{ id: string }>("post", "/households", { name: "Shared flat" }, 201))
+      .body;
+    await call("put", "/households/active", { householdId: second.id }, 200);
+    await furnish(call);
+    const q = crypto.randomUUID();
+    const m = marker();
+    const post = async () =>
+      (await (
+        await api(request, token, "post", "/sommelier", {
+          messages: [{ role: "user", text: `Where we live ${m}` }],
+          questionId: q,
+        })
+      ).json()) as Reply;
+    await program(m, { content: { answer: "In the shared flat.", bottle_refs: [] } });
+    const asked = await post();
+    expect(asked.text).toBe("In the shared flat.");
+
+    // Someone else becomes its owner, and this person is taken out of it.
+    const flatmate = uniqueEmail("rplmate");
+    await sessionToken(flatmate);
+    const mate = await userId(flatmate);
+    await sql(
+      "insert into public.household_members (household_id, user_id, role) values ($1, $2, 'owner')",
+      [second.id, mate],
+    );
+    await sql("delete from public.household_members where household_id = $1 and user_id = $2", [
+      second.id,
+      await userId(email),
+    ]);
+
+    // Nothing of it can be read, rated or brought back by the old question id.
+    expect(await (await api(request, token, "get", "/sommelier/conversation")).json()).toEqual({
+      conversation: null,
+    });
+    expect(
+      (
+        await api(request, token, "put", "/sommelier/feedback", {
+          messageId: asked.saved!.messageId,
+          rating: "positive",
+        })
+      ).status(),
+    ).toBe(404);
+    const again = await post();
+    expect(again.text).not.toBe("In the shared flat.");
+    expect(again.saved?.conversationId).not.toBe(asked.saved!.conversationId);
+    const left = await sql("select 1 from public.sommelier_conversations where id = $1", [
+      asked.saved!.conversationId,
+    ]);
+    expect(left).toHaveLength(0);
   });
 });
 

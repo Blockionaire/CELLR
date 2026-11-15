@@ -16,7 +16,7 @@ import type {
 } from "@cellr/domain";
 import { track } from "@/lib/analytics";
 import { api } from "@/lib/api";
-import { chatStateFrom, ratingIn, withRating, type ChatState } from "./turns";
+import { chatStateFrom, EMPTY_CHAT, ratingIn, withRating, type ChatState } from "./turns";
 
 /** The general chat, as the screen holds it: kept in the query cache, so it is there again after any other screen. */
 export const CHAT_KEY = ["sommelier", "conversation"] as const;
@@ -67,7 +67,7 @@ export function useChat(enabled: boolean, initial: SommelierConversationView | u
 
 /** Changes the chat as the screen holds it (also after the screen was left: the cache outlives it). */
 export const updateChat = (client: QueryClient, update: (state: ChatState) => ChatState) =>
-  client.setQueryData<ChatState>(CHAT_KEY, (state) => update(state ?? { turns: [] }));
+  client.setQueryData<ChatState>(CHAT_KEY, (state) => update(state ?? EMPTY_CHAT));
 
 /** "New conversation": the kept one is deleted on the server first; only then is the screen cleared. */
 export function useNewConversation() {
@@ -75,7 +75,7 @@ export function useNewConversation() {
   return useMutation({
     mutationFn: () => api.delete("/sommelier/conversation"),
     meta: { refresh: false },
-    onSuccess: () => updateChat(client, () => ({ turns: [] })),
+    onSuccess: () => updateChat(client, () => EMPTY_CHAT),
   });
 }
 

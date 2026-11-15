@@ -7,11 +7,13 @@
 --    * Written only by the app's server with the service role (public.sommelier_record_exchange): what is stored as
 --      the sommelier's answer is exactly what the server answered, never something a client made up.
 --    * Read, and deleted, by the person themselves: nobody else, not the other members of their household, not
---      friends, not visitors. The read policy is also the retention rule: a conversation is visible only while the
---      person is a member of its household and it was used in the last 7 days (private.sommelier_cutoff). So an
---      expired conversation is never loaded again, whenever the clean-up happens to run.
---    * Deleted when the person starts a new one, when they next ask after it expired or in another household, every
---      hour by pg_cron once expired (section 5), and with the account or the household (cascade).
+--      friends, not visitors.
+--    * ALIVE only while it was used in the last 7 days and its person still belongs to its household
+--      (private.sommelier_alive, the one definition). Only a live conversation can be read, continued, have a question
+--      answered again from what was kept (replay), or have its answers rated; a dead one is never brought back by any
+--      path, whenever the clean-up happens to run.
+--    * Deleted when the person starts a new one, when they next ask after it died or in another household, every
+--      hour by pg_cron once dead (section 5), and with the account or the household (cascade).
 --    * At most 100 messages (50 questions and answers): the oldest go first.
 -- 2. FEEDBACK. One rating per person per answer ('positive' | 'negative'); it can be changed and withdrawn.
 --    * Holds no words: which answer (ids), the rating, when, the model that answered, the kind of question and
@@ -21,11 +23,17 @@
 --    * Written only through public.sommelier_set_feedback, which takes the model and the kind of question from the
 --      stored answer: a client chooses a rating, never what it is recorded against.
 
--- ---- 0. How long a conversation lives: 7 days after it was last used ----------------------------------------------
-create function private.sommelier_cutoff() returns timestamptz
-  language sql stable set search_path = '' as $$ select now() - interval '7 days' $$;
-revoke all on function private.sommelier_cutoff() from public, anon;
-grant execute on function private.sommelier_cutoff() to authenticated, service_role;
+-- ---- 0. When a conversation is alive: used in the last 7 days, and its person still belongs to its household -------
+-- The one definition: the read policy, storing (and answering a question again), rating and the clean-up all use it.
+-- SECURITY INVOKER: inside the read policy it runs as the person and sees only memberships they can see anyway.
+create function private.sommelier_alive(p_household uuid, p_user uuid, p_last_activity timestamptz)
+  returns boolean language sql stable security invoker set search_path = '' as $$
+  select p_last_activity > now() - interval '7 days'
+     and exists (select 1 from public.household_members m
+                  where m.household_id = p_household and m.user_id = p_user)
+$$;
+revoke all on function private.sommelier_alive(uuid, uuid, timestamptz) from public, anon;
+grant execute on function private.sommelier_alive(uuid, uuid, timestamptz) to authenticated, service_role;
 
 -- ---- 1. The conversation ----------------------------------------------------------------------------------------
 create table public.sommelier_conversations (
@@ -39,7 +47,6 @@ create table public.sommelier_conversations (
   constraint sommelier_conversations_id_user unique (id, user_id)
 );
 create index sommelier_conversations_household_idx on public.sommelier_conversations (household_id);
-create index sommelier_conversations_activity_idx on public.sommelier_conversations (last_activity_at);
 
 -- question_kind: the kinds of question the sommelier tells apart (sommelierQuestionKind in packages/domain).
 create table public.sommelier_messages (
@@ -76,8 +83,7 @@ alter table public.sommelier_messages enable row level security;
 
 create policy sommelier_conversations_select on public.sommelier_conversations for select to authenticated
   using (user_id = (select auth.uid())
-         and last_activity_at > (select private.sommelier_cutoff())
-         and private.is_household_member(household_id));
+         and private.sommelier_alive(household_id, user_id, last_activity_at));
 create policy sommelier_conversations_delete on public.sommelier_conversations for delete to authenticated
   using (user_id = (select auth.uid()));
 -- A message is visible exactly while its conversation is (the sub-select runs under the policy above).
@@ -116,8 +122,11 @@ grant select on public.sommelier_feedback to authenticated;
 grant all on public.sommelier_feedback to service_role;
 
 -- ---- 3. Storing a question and its answer (the app's server, service role) --------------------------------------
--- Appends to the person's conversation in this household, or starts one (replacing any other: there is only ever
--- one). The same question id again gives back what was stored the first time and stores nothing.
+-- Appends to the person's live conversation in this household, or starts one (replacing any other: there is only ever
+-- one). The same question id again, in that same live conversation, gives back what was stored the first time and
+-- stores nothing (replay). A question id kept in a conversation that has since expired, that was held in another
+-- household, that the person deleted ("new conversation"), or in a household they no longer belong to, is never
+-- answered from what was kept: it is a new question in a new conversation (the old one is deleted), or refused.
 -- Returns {conversationId, messageId (the answer), replayed, answer (only when replayed)}.
 create function public.sommelier_record_exchange(
   p_user_id uuid, p_household_id uuid, p_question_id uuid, p_question text,
@@ -131,34 +140,38 @@ begin
   if p_user_id is null or p_household_id is null or p_question_id is null or p_answer is null then
     raise exception 'invalid_arguments' using errcode = '22023';
   end if;
-  -- One writer per person at a time: two questions at once cannot both start a conversation.
+  -- One writer per person at a time: two questions at once (or the same one twice) are taken one after the other.
   perform pg_advisory_xact_lock(hashtextextended('sommelier:' || p_user_id::text, 0));
 
-  select q.conversation_id, a.id as answer_id, a.answer into v_found
-    from public.sommelier_messages q
-    join public.sommelier_messages a on a.reply_to = q.id
-   where q.id = p_question_id and q.user_id = p_user_id;
-  if found then
-    return jsonb_build_object('conversationId', v_found.conversation_id, 'messageId', v_found.answer_id,
-                              'replayed', true, 'answer', v_found.answer);
-  end if;
-
+  -- Nothing is kept in, or given back from, a household the person does not belong to: checked before anything else.
   if not exists (select 1 from public.household_members m
                   where m.household_id = p_household_id and m.user_id = p_user_id) then
     raise exception 'not_a_member' using errcode = '42501';
   end if;
 
+  -- Their live conversation in this household, locked so a clean-up or "new conversation" waits for this to finish.
   select c.id into v_conversation
     from public.sommelier_conversations c
    where c.user_id = p_user_id and c.household_id = p_household_id
-     and c.last_activity_at > private.sommelier_cutoff();
-  if v_conversation is null then
-    -- none yet, expired, or held in another household: that one goes, a new one begins
+     and private.sommelier_alive(c.household_id, c.user_id, c.last_activity_at)
+   for update;
+
+  if v_conversation is not null then
+    -- The same question again: answered from what was kept, but only from this live conversation.
+    select a.id as answer_id, a.answer into v_found
+      from public.sommelier_messages q
+      join public.sommelier_messages a on a.reply_to = q.id
+     where q.id = p_question_id and q.user_id = p_user_id and q.conversation_id = v_conversation;
+    if found then
+      return jsonb_build_object('conversationId', v_conversation, 'messageId', v_found.answer_id,
+                                'replayed', true, 'answer', v_found.answer);
+    end if;
+    update public.sommelier_conversations c set last_activity_at = now() where c.id = v_conversation;
+  else
+    -- None yet, dead, or held in another household: that one goes (with any question id kept in it), a new one begins.
     delete from public.sommelier_conversations c where c.user_id = p_user_id;
     insert into public.sommelier_conversations (user_id, household_id)
       values (p_user_id, p_household_id) returning id into v_conversation;
-  else
-    update public.sommelier_conversations c set last_activity_at = now() where c.id = v_conversation;
   end if;
 
   insert into public.sommelier_messages (id, conversation_id, user_id, role, content)
@@ -184,8 +197,9 @@ grant execute on function public.sommelier_record_exchange(uuid, uuid, uuid, tex
 
 -- ---- 4. Rating an answer (the person) -----------------------------------------------------------------------------
 -- 'positive' or 'negative' sets (or changes) the person's rating of one of their own answers; null (or leaving
--- it out) withdraws it.
--- Returns the rating as it now stands. An answer that is not theirs, or not an answer, is 'not_found'.
+-- it out) withdraws it. Only an answer in their live conversation can be rated.
+-- Returns the rating as it now stands. An answer that is not theirs, not an answer, or in a conversation that is no
+-- longer alive, is 'not_found'.
 create function public.sommelier_set_feedback(p_message_id uuid, p_rating text default null)
   returns text language plpgsql volatile security definer set search_path = '' as $$
 declare
@@ -201,7 +215,9 @@ begin
 
   select a.conversation_id, a.model, a.question_kind, a.answer ->> 'source' as source into m
     from public.sommelier_messages a
-   where a.id = p_message_id and a.user_id = v_user and a.role = 'assistant';
+    join public.sommelier_conversations c on c.id = a.conversation_id and c.user_id = a.user_id
+   where a.id = p_message_id and a.user_id = v_user and a.role = 'assistant'
+     and private.sommelier_alive(c.household_id, c.user_id, c.last_activity_at);
   if not found then
     raise exception 'not_found' using errcode = 'P0002';
   end if;
@@ -224,15 +240,18 @@ end $$;
 revoke all on function public.sommelier_set_feedback(uuid, text) from public, anon, authenticated;
 grant execute on function public.sommelier_set_feedback(uuid, text) to authenticated, service_role;
 
--- ---- 5. Retention: expired conversations are deleted, also when nobody asks anything ----------------------------
--- Every hour, pg_cron deletes conversations unused for 7 days (their messages go with them). Feedback stays.
+-- ---- 5. Retention: dead conversations are deleted, also when nobody asks anything --------------------------------
+-- Every hour, pg_cron deletes conversations that are no longer alive: unused for 7 days, or whose person left the
+-- household (their messages go with them). Feedback stays.
 -- On Supabase pg_cron is available and this creates the job; elsewhere (plain Postgres in tests and CI) it is
 -- skipped with a warning. The read policy hides an expired conversation either way.
 -- Verify after running: select jobname, schedule, active from cron.job where jobname = 'sommelier-conversations-purge';
 create function public.sommelier_purge_expired() returns integer
   language sql volatile security invoker set search_path = '' as $$
   with gone as (
-    delete from public.sommelier_conversations c where c.last_activity_at <= private.sommelier_cutoff() returning 1
+    delete from public.sommelier_conversations c
+     where not private.sommelier_alive(c.household_id, c.user_id, c.last_activity_at)
+    returning 1
   )
   select count(*)::int from gone
 $$;

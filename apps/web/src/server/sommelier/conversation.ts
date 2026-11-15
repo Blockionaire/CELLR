@@ -38,8 +38,13 @@ export function createSommelierChatService(deps: SommelierChatDeps) {
       if (!questionId || (request.mode ?? "chat") !== "chat")
         return deps.ask(request, { model: () => {} });
 
-      // Already answered (a retry of a question that did reach us): the kept answer, no second call.
-      const kept = await deps.repo.findExchange(questionId).catch(() => null);
+      // Without a household nothing is kept or brought back; the sommelier itself says what it can.
+      const householdId = await deps.householdId().catch(() => null);
+      if (!householdId) return { ...(await deps.ask(request, { model: () => {} })), saved: null };
+
+      // Already answered (a retry of a question that did reach us): the kept answer, no second call. Only from the
+      // live conversation in this household (the database decides what is alive and theirs).
+      const kept = await deps.repo.findExchange(householdId, questionId).catch(() => null);
       if (kept)
         return {
           ...kept.answer,
@@ -49,19 +54,16 @@ export function createSommelierChatService(deps: SommelierChatDeps) {
       let model: string | null = null;
       const answer = await deps.ask(request, { model: (id) => (model = id) });
       const question = request.messages.at(-1)!.text;
-      const householdId = await deps.householdId().catch(() => null);
-      const saved = householdId
-        ? await deps
-            .record({
-              householdId,
-              questionId,
-              question,
-              answer,
-              model: answer.source === "ai" ? model : null,
-              questionKind: sommelierQuestionKind(question),
-            })
-            .catch(() => null)
-        : null;
+      const saved = await deps
+        .record({
+          householdId,
+          questionId,
+          question,
+          answer,
+          model: answer.source === "ai" ? model : null,
+          questionKind: sommelierQuestionKind(question),
+        })
+        .catch(() => null);
       if (!saved) return { ...answer, saved: null };
       const ref = { conversationId: saved.conversationId, messageId: saved.messageId };
       // The same question reached us twice at once and the other one was kept first: that is the answer.

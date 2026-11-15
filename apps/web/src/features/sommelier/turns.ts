@@ -1,4 +1,9 @@
-import type { SommelierAnswer, SommelierConversationView, SommelierRating } from "@cellr/domain";
+import {
+  SOMMELIER_CONVERSATION_DAYS,
+  type SommelierAnswer,
+  type SommelierConversationView,
+  type SommelierRating,
+} from "@cellr/domain";
 
 /**
  * One step of a conversation on screen. In the general chat a question and its answer carry the ids they are kept
@@ -17,10 +22,22 @@ export type Turn =
 /** The general chat as the screen holds it, between visits (the query cache) and across them (the server). */
 export interface ChatState {
   turns: Turn[];
+  /** When the last kept question was asked (ms); null while nothing is kept. */
+  lastAskedAt: number | null;
 }
+
+export const EMPTY_CHAT: ChatState = { turns: [], lastAskedAt: null };
+
+/**
+ * A kept conversation is gone 7 days after its last question. The server already hides it then; this is for a screen
+ * (or an app) that stayed open that long: its copy is gone too, and is never sent to the model again.
+ */
+export const chatExpired = (state: ChatState | undefined, now: number) =>
+  state?.lastAskedAt != null && now - state.lastAskedAt > SOMMELIER_CONVERSATION_DAYS * 86_400_000;
 
 /** The kept conversation, as turns. */
 export const chatStateFrom = (view: SommelierConversationView): ChatState => ({
+  lastAskedAt: view.conversation ? Date.parse(view.conversation.lastActivityAt) : null,
   turns: (view.conversation?.messages ?? []).map((m): Turn =>
     m.role === "user"
       ? { role: "user", id: m.id, text: m.text }
@@ -41,7 +58,8 @@ export const withRating = (
   state: ChatState,
   messageId: string,
   rating: SommelierRating | null,
-) => ({
+): ChatState => ({
+  ...state,
   turns: state.turns.map((t) =>
     t.role === "sommelier" && t.id === messageId ? { ...t, rating } : t,
   ),

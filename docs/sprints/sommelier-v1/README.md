@@ -50,14 +50,20 @@ server/sommelier/conversation.ts   createSommelierChatService: wraps the unchang
 
 ## 2. Retention policy
 
-| Data                        | Kept                                                                                    | Deleted                                                                                                                                                                                          |
-| --------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Conversation + its messages | While used: 7 days after the **last** question. At most 100 messages (oldest go first). | "New conversation" (at once) · the next question after it expired or in another household · hourly pg_cron purge (`sommelier-conversations-purge`, `41 * * * *`) · account or household deletion |
-| Feedback rows               | Until the account is deleted. Holds no words: ids, rating, time, model, kind, source.   | Withdrawing a rating (row deleted) · account deletion (cascade). Deliberately **not** with the conversation (no FK), so the quality numbers outlive the 7 days.                                  |
+| Data                        | Kept                                                                                                                                | Deleted                                                                                                                                                                                                                  |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Conversation + its messages | While **alive**: used in the last 7 days **and** its person still belongs to its household. At most 100 messages (oldest go first). | "New conversation" (at once) · the next question after it died or in another household · hourly pg_cron purge of every dead conversation (`sommelier-conversations-purge`, `41 * * * *`) · account or household deletion |
+| Feedback rows               | Until the account is deleted. Holds no words: ids, rating, time, model, kind, source.                                               | Withdrawing a rating (row deleted) · account deletion (cascade). Deliberately **not** with the conversation (no FK), so the quality numbers outlive the 7 days.                                                          |
 
-**Expiry is enforced by the database, not by the clean-up.** The read policy on `sommelier_conversations` only shows a
-conversation used after `private.sommelier_cutoff()` (now − 7 days) in a household the person still belongs to; the
-messages policy follows it. So an expired conversation is never loaded again even if the purge has not run.
+**Expiry is enforced by the database, not by the clean-up.** One function, `private.sommelier_alive(household, user,
+last_activity_at)`, says whether a conversation is alive (used after now − 7 days, and the person is still a member of
+its household). It is used by the read policy (and through it the messages policy), by storing a question
+(including answering a repeated question id from what was kept), by rating, and by the clean-up. So a dead
+conversation is never loaded, continued, replayed or rated again, even if the purge has not run.
+
+**The screen follows the same rule.** The kept chat lives in the browser's query cache for as long as the app is open.
+The conversation view carries `lastActivityAt`; a copy older than 7 days (an app or screen left open that long) is
+let go when the screen opens and before a question is sent, so it is neither shown nor sent to the model again.
 
 **Physical deletion.** On Supabase the migration schedules `public.sommelier_purge_expired()` hourly with pg_cron
 (the same pattern as `catalog-scan-reads-purge` in migration 0024). Where pg_cron is missing (plain Postgres in CI)
@@ -92,24 +98,31 @@ Nothing reads feedback automatically; it changes no answer and trains nothing (V
 
 ## 4. Files
 
-| Area     | Files                                                                                                                                                                                                              |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Database | `supabase/migrations/20261123000046_sommelier_conversations.sql` (new), `supabase/tests/99_sommelier_conversations.test.sql` (new), `apps/web/src/server/db/database.types.ts` (regen)                             |
-| Domain   | `packages/domain/src/sommelier-conversation.ts` (+ test, new), `sommelier.ts` (`questionId`), `index.ts`                                                                                                           |
-| Server   | `server/sommelier/conversation.ts` (+ test), `repository.ts`, `types.ts` (new); `server/privileged/sommelier-conversations.ts` (new); `server/sommelier/service.ts` (model observer, + test); `server/services.ts` |
-| API      | `app/api/v1/sommelier/route.ts`, `…/conversation/route.ts` (new), `…/feedback/route.ts` (new)                                                                                                                      |
-| Screen   | `features/sommelier/sommelier-screen.tsx`, `hooks.ts`, `turns.ts` (+ test, new); `app/(app)/sommelier/page.tsx`; `messages/en.json`, `nl.json`                                                                     |
-| E2E      | `apps/web/e2e/sommelier-memory.spec.ts` (new)                                                                                                                                                                      |
+| Area     | Files                                                                                                                                                                                                                  |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Database | `supabase/migrations/20261123000046_sommelier_conversations.sql` (new), `supabase/tests/99_sommelier_conversations.test.sql`, `99_sommelier_replay.test.sql` (new), `apps/web/src/server/db/database.types.ts` (regen) |
+| Domain   | `packages/domain/src/sommelier-conversation.ts` (+ test, new), `sommelier.ts` (`questionId`), `index.ts`                                                                                                               |
+| Server   | `server/sommelier/conversation.ts` (+ test), `repository.ts`, `types.ts` (new); `server/privileged/sommelier-conversations.ts` (new); `server/sommelier/service.ts` (model observer, + test); `server/services.ts`     |
+| API      | `app/api/v1/sommelier/route.ts`, `…/conversation/route.ts` (new), `…/feedback/route.ts` (new)                                                                                                                          |
+| Screen   | `features/sommelier/sommelier-screen.tsx`, `hooks.ts`, `turns.ts` (+ test, new); `app/(app)/sommelier/page.tsx`; `messages/en.json`, `nl.json`                                                                         |
+| E2E      | `apps/web/e2e/sommelier-memory.spec.ts` (new)                                                                                                                                                                          |
 
 ## 5. Tests
 
-- **Database** (`pnpm db:test`, 1555 assertions, of which 42 new): server-only writes; same-household and other users
+- **Replay security** (`supabase/tests/99_sommelier_replay.test.sql`, 20 assertions; 11 of them fail against the
+  first version of 0046): replay in a live conversation; never after 7 days, a household change (and back), losing
+  the membership, or "new conversation"; another person's question id returns nothing of theirs and keeps nothing;
+  rating only in a live conversation; the clean-up deletes expired and left-household conversations.
+- **Database** (`pnpm db:test`, 1575 assertions, of which 62 new): server-only writes; same-household and other users
   read, rate, clear nothing; idempotent replay; household check; 6d23h alive / 7d+ hidden / purge; household switch
   and leaving; 100-message cap; feedback copy-from-answer, change, withdraw, no duplicates, no direct writes; account
   deletion cascades.
 - **Unit**: domain (question kind, contracts, stored-answer guard), chat service (keep, replay, race, failure paths,
   Tonight untouched), sommelier model observer, screen turns helpers.
-- **E2E** (`e2e/sommelier-memory.spec.ts`, phone + desktop, 14 runs): wine page → back, nav and browser back ×3, reload,
+- **E2E** (`e2e/sommelier-memory.spec.ts`, phone + desktop, 24 runs). Replay through the API: inside the live
+  conversation (no second model call), two identical requests at once (one kept answer, both get it), never after
+  7 days / "New conversation" / another household / losing the membership. An app, and a single screen, left open
+  for 8 days (Playwright clock): the old copy is let go and not sent to the model. And: wine page → back, nav and browser back ×3, reload,
   fresh tab (no memory) restore with no extra model call, follow-up carries restored context; question in flight
   while leaving answered once; new conversation clears screen + server and context; 7-day expiry; API isolation,
   idempotency, validation; thumbs set/change/withdraw/fast taps/reload/axe; taste-profile button look, 44 px touch
@@ -118,7 +131,47 @@ Nothing reads feedback automatically; it changes no answer and trains nothing (V
 
 ![Kept and rated, phone](./rated-phone.jpg) ![Taste buttons, phone](./taste-buttons-phone.jpg)
 
-## 6. Risks and open points
+## 6. Security review (PR #75, before merge)
+
+**Found and fixed.**
+
+1. _Replay before the access checks (the cause)._ `sommelier_record_exchange` looked up a repeated question id by
+   id and person only, **before** checking the membership, and without looking at the conversation's age or
+   household. It runs with the service role, so row-level security did not apply: a retried question id could hand
+   back an answer from an expired conversation, from another household, or from a household the person had left.
+   Now the membership is checked first, and a kept answer is given back only from the person's live conversation in
+   the household they ask in (locked `FOR UPDATE`, so a clean-up or "New conversation" waits). Any other question id
+   is a new question in a new conversation; the dead one is deleted.
+2. _The app's own pre-check (`findExchange`) was not scoped to the active household._ Row-level security already
+   hid expired and left-household conversations, but a person in two households could get an answer about the other
+   cellar. It now reads only the live conversation of the active household.
+3. _Rating_ accepted answers in dead conversations; now only in a live one.
+4. _The clean-up_ removed only expired conversations; it now removes every dead one (also after leaving a household).
+5. _The browser's copy_ outlived the 7 days in an app left open; see §2.
+
+**Checked, no change needed.**
+
+- RLS: no client write grants on conversations or messages; feedback only through its function; reads (and the
+  user's delete) only of their own live conversation. The hygiene suite (RLS on, no `anon` access, pinned
+  `search_path`) passes.
+- `SECURITY DEFINER`: only `sommelier_set_feedback` (pinned `search_path`, `auth.uid()`, input checked, ownership and
+  liveness checked). `sommelier_record_exchange` and `sommelier_purge_expired` are invoker functions executable by
+  the service role only; `private.sommelier_alive` is an invoker helper in a schema PostgREST does not expose.
+- API routes: all `authed` (cookie or bearer), origin-checked for writes, bodies validated (uuids), no client-supplied
+  user or household id anywhere.
+
+**Accepted, documented.**
+
+- _Simultaneous duplicates._ Two requests with the same question id **at the same moment** can both reach the model
+  (neither is kept when the other checks). Only one answer is kept and both responses return it; the extra call counts
+  against the person's chat limit (60/h). Normal retries are sequential and never call the model twice. Closing this
+  fully needs a claim before the model is asked (a pending question row); not worth it for V1.
+- _Question id existence._ Sending someone else's question id yields `saved: null` (the id is taken) and nothing of
+  theirs. Ids are random v4 UUIDs that only their owner has seen.
+- _"New conversation" on one device while a question is on its way on another_: that question starts the new
+  conversation. Intended.
+
+## 7. Risks and open points
 
 - **Production migration state is unverified** (MIGRATIONS.md STOP notice). 0046 is additive and self-contained, but
   must go through the documented inventory/decision before any `db push`.

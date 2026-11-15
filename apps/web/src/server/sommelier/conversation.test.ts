@@ -20,9 +20,10 @@ const chat = (text: string, extra: Partial<AskSommelier> = {}): AskSommelier => 
 function setup(
   options: {
     answer?: SommelierAnswer;
-    kept?: Awaited<ReturnType<SommelierConversationRepository["findExchange"]>>;
+    /** What is kept, per household: a question is only ever found in the household it was kept in. */
+    kept?: Record<string, Awaited<ReturnType<SommelierConversationRepository["findExchange"]>>>;
     record?: RecordedExchange | null | "fails";
-    household?: "fails";
+    household?: "fails" | string;
   } = {},
 ) {
   const state = {
@@ -30,10 +31,18 @@ function setup(
     recorded: [] as Array<Omit<ExchangeEntry, "userId">>,
     cleared: [] as string[],
     rated: [] as Array<[string, string | null]>,
+    lookedUp: [] as Array<[string, string]>,
   };
   const repo: SommelierConversationRepository = {
-    current: async (householdId) => ({ id: `c-${householdId}`, messages: [] }),
-    findExchange: async () => options.kept ?? null,
+    current: async (householdId) => ({
+      id: `c-${householdId}`,
+      lastActivityAt: "2026-11-15T10:00:00.000Z",
+      messages: [],
+    }),
+    findExchange: async (householdId, questionId) => {
+      state.lookedUp.push([householdId, questionId]);
+      return options.kept?.[householdId] ?? null;
+    },
     clear: async (userId) => void state.cleared.push(userId),
     rate: async (messageId, rating) => {
       state.rated.push([messageId, rating]);
@@ -58,7 +67,7 @@ function setup(
     userId: "u1",
     householdId: async () => {
       if (options.household === "fails") throw new Error("no household");
-      return "h1";
+      return options.household ?? "h1";
     },
   });
   return { service, state };
@@ -105,14 +114,33 @@ describe("the kept conversation", () => {
   });
 
   it("a question already answered gets the kept answer back, without asking the model again", async () => {
-    const kept = { conversationId: "c1", messageId: "a0", answer: answerOf("Kept.") };
+    const kept = { h1: { conversationId: "c1", messageId: "a0", answer: answerOf("Kept.") } };
     const { service, state } = setup({ kept });
     const reply = await service.ask(chat("What goes with lamb?"));
     expect(reply).toMatchObject({
       text: "Kept.",
       saved: { conversationId: "c1", messageId: "a0" },
     });
+    expect(state.lookedUp).toEqual([["h1", QID]]);
     expect(state.asked).toHaveLength(0);
+    expect(state.recorded).toHaveLength(0);
+  });
+
+  it("a question kept in another household is never brought back: it is asked, and kept, in this one", async () => {
+    const kept = { h1: { conversationId: "c1", messageId: "a0", answer: answerOf("About h1.") } };
+    const { service, state } = setup({ kept, household: "h2" });
+    const reply = await service.ask(chat("What goes with lamb?"));
+    expect(reply).toMatchObject({ text: "Open the Barolo.", saved: { messageId: "a1" } });
+    expect(state.lookedUp).toEqual([["h2", QID]]);
+    expect(state.asked).toHaveLength(1);
+    expect(state.recorded[0]).toMatchObject({ householdId: "h2", questionId: QID });
+  });
+
+  it("without a household nothing is looked up or kept; the sommelier still answers", async () => {
+    const { service, state } = setup({ household: "fails" });
+    const reply = await service.ask(chat("Anything?"));
+    expect(reply).toMatchObject({ text: "Open the Barolo.", saved: null });
+    expect(state.lookedUp).toHaveLength(0);
     expect(state.recorded).toHaveLength(0);
   });
 
@@ -150,7 +178,9 @@ describe("the kept conversation", () => {
 
   it("loads the conversation of the active household, starts anew for this person, and rates as them", async () => {
     const { service, state } = setup();
-    expect(await service.current()).toEqual({ conversation: { id: "c-h1", messages: [] } });
+    expect(await service.current()).toEqual({
+      conversation: { id: "c-h1", lastActivityAt: "2026-11-15T10:00:00.000Z", messages: [] },
+    });
     await service.clear();
     expect(state.cleared).toEqual(["u1"]);
     expect(await service.rate({ messageId: "a1", rating: "negative" })).toEqual({

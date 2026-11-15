@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SommelierAnswer } from "@cellr/domain";
-import { chatStateFrom, newQuestionId, ratingIn, spoken, withRating } from "./turns";
+import { chatExpired, chatStateFrom, newQuestionId, ratingIn, spoken, withRating } from "./turns";
 
 const answer = (text: string | null): SommelierAnswer => ({
   source: text === null ? "basic" : "ai",
@@ -14,6 +14,7 @@ describe("the kept chat on screen", () => {
   const state = chatStateFrom({
     conversation: {
       id: "c1",
+      lastActivityAt: "2026-11-10T12:00:00.000Z",
       messages: [
         { id: "q1", role: "user", text: "What now?" },
         { id: "a1", role: "assistant", answer: answer("Open the Barolo."), rating: "positive" },
@@ -32,7 +33,20 @@ describe("the kept chat on screen", () => {
     ]);
     expect(ratingIn(state, "a1")).toBe("positive");
     expect(ratingIn(state, "a2")).toBeNull();
-    expect(chatStateFrom({ conversation: null })).toEqual({ turns: [] });
+    expect(chatStateFrom({ conversation: null })).toEqual({ turns: [], lastAskedAt: null });
+  });
+
+  it("is let go 7 days after its last question, also when the screen stayed open that long", () => {
+    const asked = Date.parse("2026-11-10T12:00:00.000Z");
+    expect(state.lastAskedAt).toBe(asked);
+    const day = 86_400_000;
+    expect(chatExpired(state, asked + 7 * day - 1)).toBe(false);
+    expect(chatExpired(state, asked + 7 * day + 1)).toBe(true);
+    // nothing kept (or not yet): nothing to let go
+    expect(chatExpired({ turns: [], lastAskedAt: null }, asked + 30 * day)).toBe(false);
+    expect(chatExpired(undefined, asked)).toBe(false);
+    // a rating keeps when the last question was asked
+    expect(withRating(state, "a1", null).lastAskedAt).toBe(asked);
   });
 
   it("is what the model hears next: the words, a plain answer in its own sentence", () => {

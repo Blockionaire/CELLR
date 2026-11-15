@@ -41,6 +41,7 @@ import { PageHeader } from "@/ui/page-header";
 import { Sheet } from "@/ui/sheet";
 import { useToast } from "@/ui/toast";
 import {
+  CHAT_KEY,
   updateChat,
   useAskSommelier,
   useChat,
@@ -48,7 +49,7 @@ import {
   useNewConversation,
   useRateAnswer,
 } from "./hooks";
-import { newQuestionId, spoken, type Turn } from "./turns";
+import { chatExpired, EMPTY_CHAT, newQuestionId, spoken, type ChatState, type Turn } from "./turns";
 
 const CHIPS = ["tonight", "steak", "peak", "guests", "fish", "keep"] as const;
 /** Questions that lean on the person's own taste (shown while it is in use). */
@@ -158,7 +159,16 @@ export function SommelierChat({
   const turns = kept ? (chat.data?.turns ?? []) : localTurns;
   /** Always from the latest turns: an answer that arrives after the screen was left still lands in the kept chat. */
   const setTurns = (update: (current: Turn[]) => Turn[]) =>
-    kept ? updateChat(client, (state) => ({ turns: update(state.turns) })) : setLocalTurns(update);
+    kept
+      ? updateChat(client, (state) => ({ ...state, turns: update(state.turns) }))
+      : setLocalTurns(update);
+  /** The kept chat as it stands now; a copy older than its 7 days is let go first (an app left open that long). */
+  const liveTurns = () => {
+    if (!kept) return turns;
+    if (!chatExpired(client.getQueryData<ChatState>(CHAT_KEY), Date.now())) return turns;
+    updateChat(client, () => EMPTY_CHAT);
+    return [];
+  };
   // A kept question may still be on its way from before the screen was left: it counts as asking, so it is never
   // asked twice and the conversation cannot be cleared under it.
   const askingKept = useChatAsking();
@@ -175,6 +185,12 @@ export function SommelierChat({
   const end = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
 
+  // Opened again after the kept conversation's 7 days (the app stayed open): its old copy goes, unseen and unsent.
+  useEffect(() => {
+    if (kept && !pending) liveTurns();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- on arrival only
+  }, []);
+
   // Keep the newest words in view.
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
@@ -187,7 +203,7 @@ export function SommelierChat({
     if (question === "" || pending || restoring || sending.current) return;
     // In the kept chat the question gets its id here, so sending it again can never keep it twice.
     const asked = { role: "user", text: question, id: kept ? newQuestionId() : undefined } as const;
-    const history: Turn[] = [...turns.filter((x) => x.role !== "error"), asked];
+    const history: Turn[] = [...liveTurns().filter((x) => x.role !== "error"), asked];
     setTurns((current) => [...current, asked]);
     setDraft("");
     await answer(history, asked);
@@ -216,6 +232,8 @@ export function SommelierChat({
           ...(saved ? { id: saved.messageId, rating: null } : {}),
         },
       ]);
+      // Kept: its 7 days start again from this question.
+      if (kept && saved) updateChat(client, (state) => ({ ...state, lastAskedAt: Date.now() }));
     } catch (e) {
       setTurns((current) => [
         ...current,
@@ -242,8 +260,9 @@ export function SommelierChat({
     const asked = { role: "user", text: failed.retry, id } as const;
     const others = (list: Turn[]) =>
       list.filter((x) => x !== failed && !(x.role === "user" && x.id === id));
+    const before = others(liveTurns()).filter((x) => x.role !== "error");
     setTurns((current) => [...others(current), asked]);
-    void answer([...others(turns).filter((x) => x.role !== "error"), asked], asked);
+    void answer([...before, asked], asked);
   }
 
   /** A new conversation: in the kept chat the old one is deleted first, so it is never sent to the model again. */

@@ -30,8 +30,12 @@ export interface RecordedExchange {
 export interface SommelierConversationRepository {
   /** Their conversation in this household; null when there is none (or before the 0046 database step). */
   current(householdId: string): Promise<SavedSommelierConversation | null>;
-  /** A question of theirs that was already answered and kept, with its answer; null when it is not. */
+  /**
+   * A question of theirs already answered and kept in their live conversation in this household, with its answer;
+   * null otherwise (never from an expired conversation, another household, or one they deleted or left).
+   */
   findExchange(
+    householdId: string,
     questionId: string,
   ): Promise<{ conversationId: string; messageId: string; answer: SommelierAnswer } | null>;
   /** Deletes their conversation (its messages go with it; ratings stay). */

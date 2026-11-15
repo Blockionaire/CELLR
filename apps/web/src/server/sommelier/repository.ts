@@ -18,7 +18,7 @@ export function createSommelierConversationRepository(db: Db): SommelierConversa
       // Row-level security: only the person's own, still alive, in a household they belong to.
       const { data: conversation, error } = await db
         .from("sommelier_conversations")
-        .select("id")
+        .select("id, last_activity_at")
         .eq("household_id", householdId)
         .maybeSingle();
       if (error && isMissingTable(error)) return null;
@@ -58,19 +58,29 @@ export function createSommelierConversationRepository(db: Db): SommelierConversa
           rating: isRating(rating) ? rating : null,
         });
       }
-      return { id: conversation.id, messages: out };
+      return { id: conversation.id, lastActivityAt: conversation.last_activity_at, messages: out };
     },
 
-    async findExchange(questionId) {
-      const { data, error } = await db
-        .from("sommelier_messages")
-        .select("id, conversation_id, answer")
-        .eq("reply_to", questionId)
+    async findExchange(householdId, questionId) {
+      // Only from the live conversation in the household being asked in: row-level security shows only the
+      // person's own, alive, in a household they still belong to; the household is narrowed here as well.
+      const { data: conversation, error } = await db
+        .from("sommelier_conversations")
+        .select("id")
+        .eq("household_id", householdId)
         .maybeSingle();
       if (error && isMissingTable(error)) return null;
       if (error) throw mapDbError(error);
+      if (!conversation) return null;
+      const { data, error: readError } = await db
+        .from("sommelier_messages")
+        .select("id, answer")
+        .eq("conversation_id", conversation.id)
+        .eq("reply_to", questionId)
+        .maybeSingle();
+      if (readError) throw mapDbError(readError);
       if (!data || !isStoredAnswer(data.answer)) return null;
-      return { conversationId: data.conversation_id, messageId: data.id, answer: data.answer };
+      return { conversationId: conversation.id, messageId: data.id, answer: data.answer };
     },
 
     async clear(userId) {

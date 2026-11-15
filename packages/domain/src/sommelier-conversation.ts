@@ -67,9 +67,14 @@ export type SavedSommelierMessage =
 
 export interface SavedSommelierConversation {
   id: string;
+  /** When its last question was asked (ISO): it is gone SOMMELIER_CONVERSATION_DAYS after that. */
+  lastActivityAt: string;
   /** Oldest first: each question followed by its answer. */
   messages: SavedSommelierMessage[];
 }
+
+/** A kept conversation lives this long after its last question (the database enforces it: migration 0046). */
+export const SOMMELIER_CONVERSATION_DAYS = 7;
 
 /** GET /sommelier/conversation: the person's conversation, or null when there is none to continue. */
 export interface SommelierConversationView {
