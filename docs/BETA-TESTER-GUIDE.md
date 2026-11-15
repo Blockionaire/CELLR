@@ -53,6 +53,8 @@ hoeveel flessen je hebt.
 1. Zoek **Mijn smaakprofiel** en beantwoord de korte vragen (overslaan mag ook).
 2. Vraag de **Sommelier** wat je vanavond zou kunnen openen, of wat er past bij een gerecht.
 3. Probeer dezelfde vraag eens **zonder** je smaak te laten meewegen. Merk je verschil?
+4. Was een antwoord nuttig? Tik op het **duimpje omhoog** of **omlaag** onder het antwoord (nog eens tikken trekt
+   je keuze in). Je gesprek blijft 7 dagen bewaard, ook als je de app sluit; met **Nieuw gesprek** begin je opnieuw.
 
 De Sommelier kiest alleen uit wijnen die je echt in je kelder hebt. Zegt hij iets wat niet klopt, dan horen
 we dat graag.

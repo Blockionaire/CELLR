@@ -15,6 +15,7 @@ export * from "./scan";
 export * from "./label-text";
 export * from "./catalog-learning";
 export * from "./sommelier";
+export * from "./sommelier-conversation";
 export * from "./cellar-facts";
 export * from "./wishlist";
 export * from "./insights";

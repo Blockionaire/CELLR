@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
+import { ThumbsDown, ThumbsUp, type LucideIcon } from "lucide-react";
 import { ReservedNote } from "@/features/cellar/reserved-note";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -10,6 +12,7 @@ import {
   useSyncExternalStore,
   type FormEvent,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import {
   BUDGET_EUROS,
@@ -21,6 +24,8 @@ import {
   type PairingVerdict,
   type SommelierAnswer,
   type SommelierBottle,
+  type SommelierConversationView,
+  type SommelierRating,
 } from "@cellr/domain";
 import { placeLine } from "@/features/cellar/wine-visuals";
 import { PhasePill } from "@/features/tonight/pick-bits";
@@ -34,7 +39,16 @@ import { cn } from "@/ui/cn";
 import { ChevronRightIcon, ScanIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
 import { Sheet } from "@/ui/sheet";
-import { useAskSommelier } from "./hooks";
+import { useToast } from "@/ui/toast";
+import {
+  updateChat,
+  useAskSommelier,
+  useChat,
+  useChatAsking,
+  useNewConversation,
+  useRateAnswer,
+} from "./hooks";
+import { newQuestionId, spoken, type Turn } from "./turns";
 
 const CHIPS = ["tonight", "steak", "peak", "guests", "fish", "keep"] as const;
 /** Questions that lean on the person's own taste (shown while it is in use). */
@@ -44,21 +58,15 @@ const EMPTY_CHIPS = ["bottles", "space"] as const;
 /** On a phone, this many example questions show; the rest wait behind "More ideas". */
 const SHOWN_ON_PHONE = 2;
 
-type Turn =
-  | { role: "user"; text: string }
-  | { role: "sommelier"; answer: SommelierAnswer }
-  | { role: "error"; message: string; retry: string };
-
-/** The words of a turn as the server wants them: only what was said, never what was shown. */
-const spoken = (turn: Turn, basic: (a: SommelierAnswer) => string) =>
-  turn.role === "user"
-    ? { role: "user" as const, text: turn.text }
-    : turn.role === "sommelier"
-      ? { role: "assistant" as const, text: turn.answer.text ?? basic(turn.answer) }
-      : null;
-
-/** The general sommelier: anything about the cellar. */
-export function SommelierScreen({ hasBottles }: { hasBottles: boolean }) {
+/** The general sommelier: anything about the cellar. Its conversation is kept (see sommelier-conversation.ts). */
+export function SommelierScreen({
+  hasBottles,
+  conversation,
+}: {
+  hasBottles: boolean;
+  /** The kept conversation, read with the page; left out when it could not be, and the screen reads it itself. */
+  conversation?: SommelierConversationView | undefined;
+}) {
   const t = useTranslations("sommelier");
   return (
     <SommelierChat
@@ -67,6 +75,7 @@ export function SommelierScreen({ hasBottles }: { hasBottles: boolean }) {
       subtitle={t("subtitle")}
       chips={CHIPS.map((id) => t(`chips.${id}`))}
       hasBottles={hasBottles}
+      conversation={conversation}
     />
   );
 }
@@ -110,6 +119,10 @@ function useBudget(): [Budget, (b: Budget) => void] {
 /**
  * A conversation with the sommelier. "tonight" is the same sommelier asked about tonight's dish or evening: it
  * judges the bottles in the cellar honestly, and suggests wines to buy, within the budget, when none fit.
+ *
+ * The general chat ("chat") is kept: in the query cache while the app is open (so it is there again after a wine
+ * page, with a question still on its way), and on the server for 7 days (so it is there again after the app was
+ * closed). Coming back only shows it: nothing is asked again. Tonight's conversation stays on this screen.
  */
 export function SommelierChat({
   mode,
@@ -118,6 +131,7 @@ export function SommelierChat({
   chips,
   hasBottles,
   initialQuestion,
+  conversation,
 }: {
   mode: "chat" | "tonight";
   title: string;
@@ -127,14 +141,33 @@ export function SommelierChat({
   hasBottles: boolean;
   /** A question asked from elsewhere (Home's "steak tonight"): asked at once, as if typed here. */
   initialQuestion?: string | undefined;
+  /** The general chat's kept conversation, as the page read it. */
+  conversation?: SommelierConversationView | undefined;
 }) {
   const t = useTranslations("sommelier");
   const te = useTranslations();
-  const ask = useAskSommelier();
+  const toast = useToast();
+  const client = useQueryClient();
+  const ask = useAskSommelier(mode);
   const [budget, setBudget] = useBudget();
-  const [turns, setTurns] = useState<Turn[]>(() =>
+  const kept = mode === "chat";
+  const chat = useChat(kept, conversation);
+  const [localTurns, setLocalTurns] = useState<Turn[]>(() =>
     initialQuestion ? [{ role: "user", text: initialQuestion }] : [],
   );
+  const turns = kept ? (chat.data?.turns ?? []) : localTurns;
+  /** Always from the latest turns: an answer that arrives after the screen was left still lands in the kept chat. */
+  const setTurns = (update: (current: Turn[]) => Turn[]) =>
+    kept ? updateChat(client, (state) => ({ turns: update(state.turns) })) : setLocalTurns(update);
+  // A kept question may still be on its way from before the screen was left: it counts as asking, so it is never
+  // asked twice and the conversation cannot be cleared under it.
+  const askingKept = useChatAsking();
+  const pending = kept ? askingKept : ask.isPending;
+  // Only when the page could not bring the conversation along: it is being read, and nothing is asked meanwhile.
+  const restoring = kept && chat.isPending;
+  const reset = useNewConversation();
+  // Set at once (the pending state shows a render later): a double tap cannot send the same question twice.
+  const sending = useRef(false);
   const [draft, setDraft] = useState("");
   // The person's own taste is used unless they ask for general advice (for this conversation only).
   const [personal, setPersonal] = useState(true);
@@ -145,42 +178,80 @@ export function SommelierChat({
   // Keep the newest words in view.
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
-  }, [turns.length, ask.isPending]);
+  }, [turns.length, pending]);
 
   const basicSentence = (a: SommelierAnswer) => plainSentence(a, t);
 
   async function send(text: string) {
     const question = text.trim();
-    if (question === "" || ask.isPending) return;
-    const history: Turn[] = [
-      ...turns.filter((x) => x.role !== "error"),
-      { role: "user", text: question },
-    ];
-    setTurns([...turns, { role: "user", text: question }]);
+    if (question === "" || pending || restoring || sending.current) return;
+    // In the kept chat the question gets its id here, so sending it again can never keep it twice.
+    const asked = { role: "user", text: question, id: kept ? newQuestionId() : undefined } as const;
+    const history: Turn[] = [...turns.filter((x) => x.role !== "error"), asked];
+    setTurns((current) => [...current, asked]);
     setDraft("");
-    await answer(history, question);
+    await answer(history, asked);
   }
 
   /** Asks about the conversation so far (ending in the person's question) and adds the answer. */
-  async function answer(history: Turn[], question: string) {
+  async function answer(history: Turn[], asked: { text: string; id?: string | undefined }) {
     const messages = history
       .map((x) => spoken(x, basicSentence))
       .filter((m): m is NonNullable<typeof m> => m !== null)
       .slice(-10);
+    sending.current = true;
     try {
-      const answer = await ask.mutateAsync({
+      const { saved, ...reply } = await ask.mutateAsync({
         messages,
         mode,
         budget: mode === "tonight" ? budget : null,
         personal,
+        ...(asked.id ? { questionId: asked.id } : {}),
       });
-      setTurns((current) => [...current, { role: "sommelier", answer }]);
+      setTurns((current) => [
+        ...current,
+        {
+          role: "sommelier",
+          answer: reply,
+          ...(saved ? { id: saved.messageId, rating: null } : {}),
+        },
+      ]);
     } catch (e) {
       setTurns((current) => [
         ...current,
-        { role: "error", message: errorMessage(e, (k) => te(k), ERROR_MESSAGES), retry: question },
+        {
+          role: "error",
+          message: errorMessage(e, (k) => te(k), ERROR_MESSAGES),
+          retry: asked.text,
+          questionId: asked.id,
+        },
       ]);
+    } finally {
+      sending.current = false;
     }
+  }
+
+  /**
+   * Tries a failed question again. In the kept chat it is the same question (the same id: had it reached the
+   * server after all, its kept answer comes back, without a second call), moved to the end; Tonight asks anew.
+   */
+  function retry(failed: Extract<Turn, { role: "error" }>) {
+    const id = failed.questionId;
+    if (!kept || !id) return void send(failed.retry);
+    if (pending || restoring || sending.current) return;
+    const asked = { role: "user", text: failed.retry, id } as const;
+    const others = (list: Turn[]) =>
+      list.filter((x) => x !== failed && !(x.role === "user" && x.id === id));
+    setTurns((current) => [...others(current), asked]);
+    void answer([...others(turns).filter((x) => x.role !== "error"), asked], asked);
+  }
+
+  /** A new conversation: in the kept chat the old one is deleted first, so it is never sent to the model again. */
+  function startOver() {
+    if (!kept) return setLocalTurns([]);
+    reset.mutate(undefined, {
+      onError: () => toast.show(t("newChatFailed"), { tone: "error" }),
+    });
   }
 
   // Asked from Home: the question is already on screen (see the initial state); fetch its answer once, and
@@ -190,7 +261,7 @@ export function SommelierChat({
     if (!initialQuestion || askedFirst.current) return;
     askedFirst.current = true;
     window.history.replaceState(null, "", window.location.pathname);
-    void answer([{ role: "user", text: initialQuestion }], initialQuestion);
+    void answer([{ role: "user", text: initialQuestion }], { text: initialQuestion });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
   }, []);
 
@@ -227,12 +298,19 @@ export function SommelierChat({
 
       <div className="flex flex-col gap-6">
         {turns.length > 0 && (
-          <Button variant="ghost" size="sm" className="-mt-3 self-end" onClick={() => setTurns([])}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-mt-3 self-end"
+            onClick={startOver}
+            disabled={pending}
+            loading={reset.isPending}
+          >
             {t("newChat")}
           </Button>
         )}
-        {mode === "chat" && turns.length === 0 && <PurchaseCheckEntry />}
-        {empty && turns.length === 0 && (
+        {mode === "chat" && turns.length === 0 && !restoring && <PurchaseCheckEntry />}
+        {empty && turns.length === 0 && !restoring && (
           <EmptyState
             title={t("emptyTitle")}
             body={t("emptyBody")}
@@ -243,7 +321,7 @@ export function SommelierChat({
             }
           />
         )}
-        {turns.length === 0 && (
+        {turns.length === 0 && !restoring && (
           <section aria-labelledby="chips-title" data-testid="example-questions">
             <h2
               id="chips-title"
@@ -307,11 +385,20 @@ export function SommelierChat({
             >
               {t("taste.use")}
             </Chip>
+            {/* A way to the profile, so a button of its own; quieter than the taste toggle beside it. Its touch
+                area reaches beyond the pill to 44px high. */}
             <Link
               href="/taste-profile"
-              className="text-small font-medium text-accent-fg underline-offset-4 hover:underline"
+              data-testid="taste-profile"
+              className={buttonStyles({
+                variant: "secondary",
+                size: "sm",
+                className:
+                  "gap-1 pr-3 after:absolute after:inset-x-0 after:-inset-y-1 after:rounded-full",
+              })}
             >
               {t("taste.profile")}
+              <ChevronRightIcon size={16} className="text-ink-3" />
             </Link>
           </div>
         )}
@@ -348,7 +435,16 @@ export function SommelierChat({
             {turns.map((turn, i) => (
               <li key={i}>
                 {turn.role === "user" && <UserBubble text={turn.text} />}
-                {turn.role === "sommelier" && <Answer answer={turn.answer} />}
+                {turn.role === "sommelier" && (
+                  <Answer
+                    answer={turn.answer}
+                    feedback={
+                      kept && turn.id ? (
+                        <AnswerFeedback messageId={turn.id} rating={turn.rating ?? null} />
+                      ) : null
+                    }
+                  />
+                )}
                 {turn.role === "error" && (
                   <div
                     role="alert"
@@ -357,14 +453,14 @@ export function SommelierChat({
                     <p className="text-body text-ink">
                       {t("failed")} {turn.message}
                     </p>
-                    <Button className="mt-3" size="sm" onClick={() => void send(turn.retry)}>
+                    <Button className="mt-3" size="sm" onClick={() => retry(turn)}>
                       {t("retry")}
                     </Button>
                   </div>
                 )}
               </li>
             ))}
-            {ask.isPending && (
+            {pending && (
               <li role="status">
                 <span className="inline-flex items-center gap-2.5 rounded-full bg-surface py-2 pl-4 pr-5 text-small text-ink-2 ring-1 ring-hairline">
                   <span aria-hidden="true" className="flex items-center gap-1">
@@ -401,8 +497,8 @@ export function SommelierChat({
               type="submit"
               aria-label={t("send")}
               className="size-11 shrink-0 px-0"
-              loading={ask.isPending}
-              disabled={draft.trim() === ""}
+              loading={pending}
+              disabled={draft.trim() === "" || restoring}
             >
               <SendIcon />
             </Button>
@@ -479,7 +575,7 @@ function UserBubble({ text }: { text: string }) {
  * An answer arrives in its parts, one after the other: the sommelier's words, then the bottles it points at,
  * then what to buy. Each part is shown as soon as it is there (nothing is held back to look like typing).
  */
-function Answer({ answer }: { answer: SommelierAnswer }) {
+function Answer({ answer, feedback }: { answer: SommelierAnswer; feedback?: ReactNode }) {
   const t = useTranslations("sommelier");
   let i = 0;
   return (
@@ -523,10 +619,86 @@ function Answer({ answer }: { answer: SommelierAnswer }) {
           <BuyList items={answer.buy} />
         </div>
       )}
-      <p className="px-1 text-caption text-ink-3">
-        {answer.source === "ai" ? t("aiNote") : answer.reason ? t(`reason.${answer.reason}`) : ""}
-      </p>
+      <div className="flex items-center justify-between gap-3 px-1">
+        <p className="text-caption text-ink-3">
+          {answer.source === "ai" ? t("aiNote") : answer.reason ? t(`reason.${answer.reason}`) : ""}
+        </p>
+        {feedback}
+      </div>
     </div>
+  );
+}
+
+/**
+ * Was this answer useful? Two quiet thumbs under a kept answer: one tap chooses, a tap on the chosen one takes it
+ * back, a tap on the other changes it. No questions asked. The choice shows at once and is kept with the answer.
+ */
+function AnswerFeedback({
+  messageId,
+  rating,
+}: {
+  messageId: string;
+  rating: SommelierRating | null;
+}) {
+  const t = useTranslations("sommelier");
+  const toast = useToast();
+  const rate = useRateAnswer(messageId, () => toast.show(t("feedback.failed"), { tone: "error" }));
+  const choose = (value: SommelierRating) =>
+    rate.mutate({ messageId, rating: rating === value ? null : value });
+  return (
+    <div
+      role="group"
+      aria-label={t("feedback.label")}
+      data-testid="answer-feedback"
+      className="-my-2 -mr-2 flex shrink-0 items-center"
+    >
+      <RateButton
+        icon={ThumbsUp}
+        label={t("feedback.positive")}
+        pressed={rating === "positive"}
+        onClick={() => choose("positive")}
+      />
+      <RateButton
+        icon={ThumbsDown}
+        label={t("feedback.negative")}
+        pressed={rating === "negative"}
+        onClick={() => choose("negative")}
+      />
+    </div>
+  );
+}
+
+function RateButton({
+  icon: Icon,
+  label,
+  pressed,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  pressed: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={cn(
+        "grid size-10 place-items-center rounded-full transition-[color,background-color,transform] duration-150 ease-cellr hover:bg-raised active:scale-90",
+        pressed ? "text-accent-fg" : "text-ink-3 hover:text-ink-2",
+      )}
+    >
+      <Icon
+        size={16}
+        strokeWidth={1.75}
+        aria-hidden="true"
+        fill={pressed ? "currentColor" : "none"}
+        fillOpacity={pressed ? 0.2 : undefined}
+      />
+    </button>
   );
 }
 

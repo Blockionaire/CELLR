@@ -49,6 +49,9 @@ import { createWineSourcesRepository, createWineSourcesService } from "@/server/
 import { createScanRepository } from "@/server/scans/repository";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
+import { createSommelierChatService } from "@/server/sommelier/conversation";
+import { createSommelierConversationRepository } from "@/server/sommelier/repository";
+import { recordSommelierExchange } from "@/server/privileged/sommelier-conversations";
 import { createPurchaseCheckRepository } from "@/server/purchase-check/repository";
 import { createPurchaseCheckService } from "@/server/purchase-check/service";
 import { createStatsService } from "@/server/stats/service";
@@ -136,6 +139,20 @@ export function servicesFor(ctx: RequestContext) {
     search: createCatalogSearchRepository(ctx.db).search,
   });
   const avatars = createAvatarService(createAvatarRepository(ctx.db), ctx.userId);
+  const sommelier = createSommelierService({
+    cellar: () => cellar.inventory(),
+    // Read only: the same household-scoped (RLS) reads the cellar screens use.
+    storage: () => cellar.storage(),
+    racks: () => cellar.racks(),
+    tonight: (request, personal) => cellar.tonight(request, personal),
+    taste: () => taste.profile(),
+    llm: getLlmProvider(),
+    spend: () => limiter.enforce(LIMITS.chat),
+    householdId: async () => (await household()).id,
+    locale: async () => (await households.me()).locale,
+    recordUsage: ({ householdId, task, status, usage }) =>
+      recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
+  });
   return {
     avatars,
     library,
@@ -266,19 +283,15 @@ export function servicesFor(ctx: RequestContext) {
       env: getPushEnv(),
       wines: () => cellar.noticeWines(),
     }),
-    sommelier: createSommelierService({
-      cellar: () => cellar.inventory(),
-      // Read only: the same household-scoped (RLS) reads the cellar screens use.
-      storage: () => cellar.storage(),
-      racks: () => cellar.racks(),
-      tonight: (request, personal) => cellar.tonight(request, personal),
-      taste: () => taste.profile(),
-      llm: getLlmProvider(),
-      spend: () => limiter.enforce(LIMITS.chat),
+    sommelier,
+    // The general sommelier's kept conversation and the ratings of its answers (migration 0046).
+    sommelierChat: createSommelierChatService({
+      ask: (request, observe) => sommelier.ask(request, observe),
+      repo: createSommelierConversationRepository(ctx.db),
+      // always for this request's verified user, never a client-supplied id
+      record: (entry) => recordSommelierExchange({ ...entry, userId: ctx.userId }),
+      userId: ctx.userId,
       householdId: async () => (await household()).id,
-      locale: async () => (await households.me()).locale,
-      recordUsage: ({ householdId, task, status, usage }) =>
-        recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
     }),
     // Koopcheck: read only. Its photo is never kept (no bottle image, no catalogue signal), nothing is written.
     purchaseCheck: createPurchaseCheckService({

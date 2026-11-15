@@ -255,6 +255,19 @@ describe("asking the sommelier", () => {
     expect(state.spent).toBe(1);
   });
 
+  it("says which model wrote an AI answer, and names none for a plain one", async () => {
+    const heard: string[] = [];
+    const observe = { model: (id: string) => heard.push(id) };
+    await setup().service.ask(ask("What now?"), observe);
+    expect(heard).toEqual(["chat-model"]);
+    for (const options of [{ answer: "timeout" as const }, { noAi: true }]) {
+      heard.length = 0;
+      const answer = await setup(options).service.ask(ask("What goes with steak?"), observe);
+      expect(answer.source).toBe("basic");
+      expect(heard).toEqual([]);
+    }
+  });
+
   it("falls back to the pairing engine, with a dish it understood, whenever the AI cannot answer", async () => {
     for (const kind of ["unavailable", "timeout", "invalid", "rate_limited", "refused"] as const) {
       const { service, state } = setup({ answer: kind });

@@ -10,6 +10,8 @@ here.
 > - §3 and §4 were written on 2026-11-02 for **36** migrations (`0001`-`0036`). The repository has moved on:
 >   `main` had **42** migration files before sprint 1B (`…000037` with PR #65, `…000038`-`…000042` with PR #68), and
 >   sprint 1B adds `…000043`-`…000045`.
+> - Added 2026-11-15: the Sommelier V1 sprint adds `…000046` (kept conversations and answer ratings; additive, see
+>   `docs/sprints/sommelier-v1/README.md`). Everything below applies to it as well.
 > - **Whether `0037`-`0042` have been applied in production is not established anywhere in this repository**, and
 >   neither is whether the bootstrap below was ever carried out. The inventory in §3 is from before all of them.
 > - The command in §4 step 3 records as applied **every file that is in `supabase/migrations` at the moment it
