@@ -1,6 +1,7 @@
 import "server-only";
 import type {
   OccupiedSpot,
+  SmartCellarCapabilities,
   SmartPlacementView,
   StorageAppearance,
   StorageKind,
@@ -29,6 +30,8 @@ export interface StoredPlaceRow {
   occupied: number;
 }
 
+export type SchemaStatus = SmartCellarCapabilities["schema"];
+
 /** What save_storage_layout (migration 0045) answers. Anything else it does is an error. */
 export type SaveLayoutOutcome =
   "saved" | "not_found" | "in_use" | "semantics_change" | "invalid_zones" | "depth_not_enabled";
@@ -52,8 +55,11 @@ export interface LayoutWrite {
  * A database without migrations 0043-0045 is answered with a "not set up here" error, never by guessing.
  */
 export interface SmartCellarRepository {
-  /** True when the Smart Cellar columns and the zones table are there. Any other failure is thrown, not taken as "no". */
-  schemaReady(): Promise<boolean>;
+  /**
+   * Whether the database has what the API reads with (0043, 0044) and what it writes with (0045), each on its own.
+   * Never by calling a function that writes. Any failure that is not "this is not there" is thrown, not taken as "no".
+   */
+  schemaStatus(): Promise<SchemaStatus>;
   listPlaces(householdId: string): Promise<StoredPlaceRow[]>;
   getPlace(householdId: string, id: string): Promise<StoredPlaceRow | null>;
   /** The bottles in the cellar on a spot of this place, with their whole spot. */

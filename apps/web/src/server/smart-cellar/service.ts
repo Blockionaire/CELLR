@@ -137,7 +137,7 @@ export function createSmartCellarService({ repo, household, access }: SmartCella
         reads: true,
         writes: access.writes,
         depthPlacement: DEPTH_PLACEMENT_ENABLED,
-        schema: (await repo.schemaReady()) ? "ready" : "missing",
+        schema: await repo.schemaStatus(),
         catalogVersion: STORAGE_CATALOG_VERSION,
         appearanceVersion: STORAGE_APPEARANCE_VERSION,
         exportVersions: EXPORT_VERSIONS,

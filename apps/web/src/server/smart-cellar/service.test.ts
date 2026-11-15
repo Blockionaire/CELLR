@@ -50,12 +50,13 @@ function fakeRepo(
     spots?: OccupiedSpot[];
     placements?: SmartPlacementView[];
     outcome?: SaveLayoutOutcome;
-    schema?: boolean;
+    schema?: Awaited<ReturnType<SmartCellarRepository["schemaStatus"]>>;
   } = {},
 ) {
   const writes: Array<{ id: string; layout: LayoutWrite }> = [];
   const repo: SmartCellarRepository = {
-    schemaReady: async () => options.schema ?? true,
+    schemaStatus: async () =>
+      options.schema ?? { reads: "ready" as const, writes: "ready" as const },
     listPlaces: async (h) => (h === HOUSEHOLD.id ? places : []),
     getPlace: async (h, id) =>
       h === HOUSEHOLD.id ? (places.find((p) => p.id === id) ?? null) : null,
@@ -344,15 +345,21 @@ describe("a database without the Smart Cellar step", () => {
   });
 
   it("the capabilities say so, and reading says so", async () => {
-    const { repo } = fakeRepo([], { schema: false });
-    expect((await service(repo).capabilities()).schema).toBe("missing");
+    for (const schema of [
+      { reads: "missing", writes: "missing" },
+      { reads: "ready", writes: "missing" },
+      { reads: "ready", writes: "unverified" },
+    ] as const) {
+      const { repo } = fakeRepo([], { schema });
+      expect((await service(repo).capabilities()).schema).toEqual(schema);
+    }
     const ready = fakeRepo([]);
     expect(await service(ready.repo).capabilities()).toMatchObject({
       version: 1,
       reads: true,
       writes: true,
       depthPlacement: false,
-      schema: "ready",
+      schema: { reads: "ready", writes: "ready" },
       exportVersions: [1, 2],
     });
   });

@@ -132,8 +132,15 @@ export interface SmartCellarCapabilities {
   writes: boolean;
   /** More than one bottle per cell: always false (see DEPTH_PLACEMENT_ENABLED). */
   depthPlacement: false;
-  /** Whether the database has the Smart Cellar columns and functions (migrations 0043-0045). */
-  schema: "ready" | "missing";
+  /**
+   * What the database has, for reading and for writing apart:
+   * - `reads`: the Smart Cellar columns and the zones table (migrations 0043, 0044), checked with zero-row reads.
+   * - `writes`: save_storage_layout with its parameters (0045). "ready" only where PostgREST describes it to this
+   *   caller; "missing" where it describes itself without it; "unverified" where it does not describe itself to this
+   *   caller (hosted Supabase, 2026). It is never found out by calling it: that function writes. A save on a database
+   *   without it is refused before anything runs, and nothing changes.
+   */
+  schema: { reads: "ready" | "missing"; writes: "ready" | "missing" | "unverified" };
   catalogVersion: number;
   appearanceVersion: number;
   exportVersions: readonly number[];

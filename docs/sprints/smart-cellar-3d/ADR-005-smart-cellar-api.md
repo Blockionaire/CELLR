@@ -19,14 +19,14 @@ and response shape (pinned by browser tests). No existing response gained or los
 existing building blocks only: `authed` (session or bearer, origin check), `readJson` with a domain schema,
 `uuidParam`, a service from `servicesFor(ctx)`, a repository running AS the user, `DomainError` → HTTP status.
 
-| Method and path                                | Answers                                                                                                                                                                                |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/v1/smart-cellar`                     | `SmartCellarCapabilities`: `{ version: 1, reads, writes, depthPlacement: false, schema: "ready" \| "missing", catalogVersion, appearanceVersion, exportVersions: [1, 2] }`             |
-| `GET /api/v1/smart-cellar/storage`             | `SmartStorageUnitView[]`, every place of the active household                                                                                                                          |
-| `GET /api/v1/smart-cellar/storage/:id`         | `SmartStorageUnitView`                                                                                                                                                                 |
-| `GET /api/v1/smart-cellar/storage/:id/bottles` | `{ unit: SmartStorageUnitView, placements: SmartPlacementView[] }`                                                                                                                     |
-| `PUT /api/v1/smart-cellar/storage/:id/layout`  | body `StorageConfig` = `{ structure: { template, rows, cols, cellCapacity, zones }, appearance: { v: 1, material, color, lighting, door } }`; answers the saved `SmartStorageUnitView` |
-| `GET /api/v1/export?version=2`                 | `CellrExportV2`. Without `version` (or `version=1`): version 1, unchanged                                                                                                              |
+| Method and path                                | Answers                                                                                                                                                                                                                             |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/smart-cellar`                     | `SmartCellarCapabilities`: `{ version: 1, reads, writes, depthPlacement: false, schema: { reads: "ready" \| "missing", writes: "ready" \| "missing" \| "unverified" }, catalogVersion, appearanceVersion, exportVersions: [1, 2] }` |
+| `GET /api/v1/smart-cellar/storage`             | `SmartStorageUnitView[]`, every place of the active household                                                                                                                                                                       |
+| `GET /api/v1/smart-cellar/storage/:id`         | `SmartStorageUnitView`                                                                                                                                                                                                              |
+| `GET /api/v1/smart-cellar/storage/:id/bottles` | `{ unit: SmartStorageUnitView, placements: SmartPlacementView[] }`                                                                                                                                                                  |
+| `PUT /api/v1/smart-cellar/storage/:id/layout`  | body `StorageConfig` = `{ structure: { template, rows, cols, cellCapacity, zones }, appearance: { v: 1, material, color, lighting, door } }`; answers the saved `SmartStorageUnitView`                                              |
+| `GET /api/v1/export?version=2`                 | `CellrExportV2`. Without `version` (or `version=1`): version 1, unchanged                                                                                                                                                           |
 
 `SmartStorageUnitView` (packages/domain/src/smart-cellar.ts): `id, label, kind, templateId` (as stored; an
 unknown id is returned as it is), `layoutTemplateId` (the template the place is drawn with: its own, or the kind's
@@ -93,12 +93,29 @@ columns switches nothing on.
 A closed API answers 404 before it looks at the request (a PUT with a garbage body is still 404 when closed, 403
 when reads are open and writes are not).
 
-### 6. Knowing whether the database has the step, narrowly
+### 6. Knowing whether the database has the step: reading and writing apart, never by calling
 
-`GET /api/v1/smart-cellar` reports `schema: "ready" | "missing"` from three `limit(0)` probes. Only "no such column"
-(42703, PGRST204), "no such table" (42P01, PGRST205, PGRST200) and "no such function" (PGRST202) mean missing. A
-permission error, a timeout or any other failure is thrown as what it is, never read as "missing". Any Smart Cellar
-read or write that meets those codes answers 404 "The Smart Cellar isn't set up on this server yet."
+`GET /api/v1/smart-cellar` reports `schema: { reads, writes }` (corrected in the final review: a single "ready" from
+column probes alone would call a database with 0043-0044 but without 0045 ready to write).
+
+- **reads** (0043, 0044): three `limit(0)` selects of the new columns and the zones table. Only "no such column"
+  (42703, PGRST204) and "no such table" (42P01, PGRST205, PGRST200) mean missing.
+- **writes** (0045, `save_storage_layout`): never found out by calling it (it writes; even a GET is executed by
+  PostgREST, in a read-only transaction: tried and ruled out). Instead, PostgREST's description of itself (its OpenAPI
+  document at the data API's root), asked as the caller: "ready" only when it lists the function with every parameter
+  of 0045 (PostgREST 12 lists them under GET and POST, 16 only in the POST body; both are read), "missing" when it
+  describes itself without it, "unverified" when it does not describe itself to this caller (401, 403, 404, PGRST126,
+  not a description). **Hosted Supabase stopped describing the data API to publishable-key requests in 2026**, so
+  there the answer is "unverified", never "ready" without evidence; the owner's migration inventory is the authority
+  for writes in production (report, §11). If reads are missing, writes are missing (0045 comes after both).
+- A permission error, an expired session, a timeout or a server error is thrown as what it is, never read as
+  "missing" or "unverified".
+- A save on a database without the function meets PGRST202, which PostgREST raises before anything runs; it is
+  answered 404 "The Smart Cellar isn't set up on this server yet.", and nothing has changed.
+
+Every read that can return more than one page (places, zone rows, occupancy, placements) goes through `allRows`
+with a total order (places: sort_order, created_at, id; zones: location_id, zone_index), because the data API cuts
+every answer at 1000 rows without saying so (corrected in the final review for places and zones).
 
 ### 7. The old edit of a place keeps a templated place consistent
 

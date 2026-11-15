@@ -26,6 +26,10 @@ import {
  */
 test.skip(({ isMobile }) => isMobile, "HTTP only: the desktop project");
 test.setTimeout(120_000);
+// One test hides save_storage_layout from PostgREST for a moment (a database without migration 0045). This file is
+// the only one that calls that function, so running its tests one after the other is all the isolation it needs.
+// (Do not run this file twice at once, e.g. --repeat-each with several workers: two copies would hide it together.)
+test.describe.configure({ mode: "serial" });
 
 const CLOSED = APP_URL;
 const READS = FEATURES_URL;
@@ -186,7 +190,7 @@ test.describe("the switch", () => {
       reads: true,
       writes: false,
       depthPlacement: false,
-      schema: "ready",
+      schema: { reads: "ready", writes: "ready" },
       exportVersions: [1, 2],
     });
     expect((await me.as(READS, "get", `/smart-cellar/storage/${rack}`)).status).toBe(200);
@@ -681,6 +685,146 @@ test.describe("writing a layout", () => {
     expect(Date.now() - started).toBeGreaterThan(500);
     await held;
     expect((await stored(place)).grid_rows).toBe(6);
+  });
+});
+
+test.describe("what the database has: reading and writing apart", () => {
+  const capabilities = async (as: Awaited<ReturnType<typeof household>>["as"]) =>
+    (await as<{ schema: { reads: string; writes: string } }>(OPEN, "get", "/smart-cellar")).body
+      .schema;
+  const SIGNATURE =
+    "public.save_storage_layout(uuid, uuid, public.location_kind, text, text, smallint, smallint, smallint, jsonb, jsonb)";
+
+  test("the complete database: reads ready, writes ready", async ({ request }) => {
+    const me = await household(request, "complete");
+    expect(await capabilities(me.as)).toEqual({ reads: "ready", writes: "ready" });
+  });
+
+  test("0043 and 0044 without 0045: reads ready, writes missing; reading works, a save is refused and changes nothing", async ({
+    request,
+  }) => {
+    const me = await household(request, "partial");
+    const place = await me.place("Fridge", "fridge", 8, 4);
+    await me.bottles(place, 2);
+    const hidden = `save_storage_layout_hidden_${stamp().replace(/[^a-z0-9]/g, "")}`;
+    const reload = () => sql("notify pgrst, 'reload schema'");
+    // the function 0045 made, gone from PostgREST's view: as on a database where 0045 never ran
+    await sql(`alter function ${SIGNATURE} rename to ${hidden}`);
+    try {
+      await reload();
+      await expect
+        .poll(() => capabilities(me.as), { timeout: 20_000 })
+        .toEqual({
+          reads: "ready",
+          writes: "missing",
+        });
+      // reading is untouched
+      const unit = await me.as<Record<string, unknown>>(
+        OPEN,
+        "get",
+        `/smart-cellar/storage/${place}`,
+      );
+      expect(unit.status).toBe(200);
+      expect(unit.body).toMatchObject({ templateId: null, occupied: 2 });
+      expect((await me.as(OPEN, "get", `/smart-cellar/storage/${place}/bottles`)).status).toBe(200);
+      expect((await me.as(OPEN, "get", "/export?version=2")).status).toBe(200);
+      // a save is refused, plainly, and nothing changes
+      const before = await stored(place);
+      const save = await me.as<{ error: { code: string; message: string } }>(
+        OPEN,
+        "put",
+        `/smart-cellar/storage/${place}/layout`,
+        COOLER_8,
+      );
+      expect(save.status).toBe(404);
+      expect(save.body.error.message).toMatch(/isn't set up/);
+      expect(await stored(place)).toEqual(before);
+      // the old API is the old API
+      expect(
+        (await me.as(OPEN, "patch", `/storage/${place}`, { label: "Still a fridge" })).status,
+      ).toBe(200);
+    } finally {
+      // put it back, whatever happened above (and only if it is the one this test hid)
+      await sql(`do $$ begin
+        if exists (select 1 from pg_proc where proname = '${hidden}') then
+          alter function public.${hidden}(uuid, uuid, public.location_kind, text, text, smallint, smallint, smallint, jsonb, jsonb)
+            rename to save_storage_layout;
+        end if; end $$`);
+      await reload();
+    }
+    await expect
+      .poll(() => capabilities(me.as), { timeout: 20_000 })
+      .toEqual({
+        reads: "ready",
+        writes: "ready",
+      });
+    expect(
+      (await me.as(OPEN, "put", `/smart-cellar/storage/${place}/layout`, COOLER_8)).status,
+    ).toBe(200);
+  });
+});
+
+test.describe("every place and every zone, past the data API's 1000 rows an answer", () => {
+  test("1,002 places and 1,002 zone rows: the API and export version 2 give all of them, and only the household's", async ({
+    request,
+  }) => {
+    test.setTimeout(180_000);
+    const me = await household(request, "many");
+    const first = await me.place("First", "rack", 2, 2);
+    const other = await household(request, "neighbour");
+    const theirs = await other.place("Theirs", "fridge", 8, 4);
+    expect(
+      (await other.as(OPEN, "put", `/smart-cellar/storage/${theirs}/layout`, COOLER_8)).status,
+    ).toBe(200);
+    // 1,001 more places in one go, 501 of them dual-zone coolers with two zones each (1,002 zone rows): what only
+    // a very large cellar has, written as the database owner in one transaction (the zone split checked at commit)
+    await sql(`begin;
+      insert into public.cellar_locations (cellar_id, household_id, label, kind, grid_rows, grid_cols, template, slot_semantics, sort_order)
+        select l.cellar_id, l.household_id, 'Place ' || lpad(n::text, 4, '0'),
+               case when n <= 501 then 'fridge'::public.location_kind else 'rack'::public.location_kind end,
+               case when n <= 501 then 8 else 3 end, 4,
+               case when n <= 501 then 'cooler_dual' end, case when n <= 501 then 'depth' end, n % 3
+          from public.cellar_locations l, generate_series(1, 1001) n
+         where l.id = '${first}';
+      insert into public.cellar_location_zones (location_id, household_id, zone_index, from_row, to_row, purpose, target_temp_c)
+        select l.id, l.household_id, z, case when z = 1 then 1 else 5 end, case when z = 1 then 4 else 8 end,
+               case when z = 1 then 'storage' else 'serving' end, case when z = 1 then 12 else 7.5 end
+          from public.cellar_locations l, generate_series(1, 2) z
+         where l.household_id = '${me.householdId}' and l.template = 'cooler_dual';
+      commit;`);
+    const expected = (
+      await sql<{ id: string }>(
+        "select id from public.cellar_locations where household_id = $1 order by sort_order, created_at, id",
+        [me.householdId],
+      )
+    ).map((r) => r.id);
+    expect(expected).toHaveLength(1002);
+    const [{ zones: zoneRows }] = (await sql<{ zones: number }>(
+      "select count(*)::int as zones from public.cellar_location_zones where household_id = $1",
+      [me.householdId],
+    )) as [{ zones: number }];
+    expect(zoneRows).toBe(1002);
+
+    const units = await me.as<
+      Array<{ id: string; zones: unknown[]; templateId: string | null; fallbacks: string[] }>
+    >(OPEN, "get", "/smart-cellar/storage");
+    expect(units.status).toBe(200);
+    expect(units.body.map((u) => u.id)).toEqual(expected);
+    expect(units.body.flatMap((u) => u.zones)).toHaveLength(1002);
+    const coolers = units.body.filter((u) => u.templateId === "cooler_dual");
+    expect(coolers).toHaveLength(501);
+    expect(coolers.every((u) => u.zones.length === 2 && u.fallbacks.length === 0)).toBe(true);
+    expect(units.body.map((u) => u.id)).not.toContain(theirs);
+
+    const exported = await me.as<{ places: Array<{ name: string; zones: unknown[] }> }>(
+      OPEN,
+      "get",
+      "/export?version=2",
+    );
+    expect(exported.status).toBe(200);
+    expect(exported.body.places).toHaveLength(1002);
+    expect(exported.body.places.flatMap((p) => p.zones)).toHaveLength(1002);
+    expect(exported.body.places.map((p) => p.name)).not.toContain("Theirs");
   });
 });
 
