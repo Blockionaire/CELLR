@@ -523,7 +523,15 @@
       "consentRequired": "Vink het vakje aan zodat CELLR je foto mag gebruiken.",
       "photosUnavailable": "Foto's versturen kan nu even niet.",
       "bottlePhotoSmall": "Die foto is te klein om mee te werken. Probeer een scherpere van de hele fles.",
-      "alreadyContributed": "Je hebt al foto's van deze wijn gestuurd. Dankjewel!"
+      "alreadyContributed": "Je hebt al foto's van deze wijn gestuurd. Dankjewel!",
+      "placeNewerVersion": "Deze plek is ingericht in een nieuwere versie van CELLR. Werk de app bij om de maat of het soort te wijzigen.",
+      "placeKindFixed": "Deze plek is ingericht als een bepaald soort opslag, en het soort hoort daarbij.",
+      "placeSizeNotTemplate": "Die maat past niet bij hoe deze plek is ingericht.",
+      "placeChangedMeanwhile": "Iemand anders heeft deze plek net gewijzigd. Probeer het opnieuw.",
+      "placeBusy": "Iemand anders was deze plek aan het wijzigen. Probeer het opnieuw.",
+      "depthOff": "Meer dan één fles per positie staat nog niet aan.",
+      "layoutWritesOff": "Een indeling wijzigen staat hier nog niet aan.",
+      "exportVersionUnavailable": "Die exportversie is niet beschikbaar."
     }
   },
   "offline": {

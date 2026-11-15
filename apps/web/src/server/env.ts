@@ -1,6 +1,7 @@
 import "server-only";
 import { parseAdminAllowlist, parseFeatures, type FeatureFlags } from "@cellr/domain";
 import { cellarGalleryOpenIn } from "@/lib/cellar-gallery-gate";
+import { smartCellarAccessIn, type SmartCellarAccess } from "@/lib/smart-cellar-gate";
 import { getPublicEnv, isDevelopment, type PublicEnv } from "@/lib/public-env";
 
 /** Server-side view of the environment. Validated lazily, so `next build` works without secrets. */
@@ -22,6 +23,14 @@ export function isDesignGalleryEnabled(): boolean {
  */
 export function isCellarGalleryEnabled(): boolean {
   return cellarGalleryOpenIn(process.env);
+}
+
+/**
+ * Whether the Smart Cellar API reads and writes here (CELLR_SMART_CELLAR: off | read | write). Writes are never open
+ * on production, whatever is set. The rule and its reasons: lib/smart-cellar-gate.ts.
+ */
+export function getSmartCellarAccess(): SmartCellarAccess {
+  return smartCellarAccessIn(process.env);
 }
 
 export interface AiEnv {

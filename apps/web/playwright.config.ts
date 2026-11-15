@@ -106,7 +106,8 @@ export default defineConfig({
       url: `http://localhost:${FEATURES_PORT}/manifest.webmanifest`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
-      env: { ...APP_ENV, CELLR_FEATURES: "all" },
+      // The Smart Cellar API (sprint 1C) asks to write here, and must only READ: an unmarked production build.
+      env: { ...APP_ENV, CELLR_FEATURES: "all", CELLR_SMART_CELLAR: "write" },
     },
     {
       command: `pnpm exec next start -p ${PREVIEW_PORT}`,
@@ -114,7 +115,14 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
       // what Vercel sets on a preview deployment (DESIGN_GALLERY=1 is already in APP_ENV)
-      env: { ...APP_ENV, VERCEL: "1", VERCEL_ENV: "preview", VERCEL_TARGET_ENV: "preview" },
+      // ...and the Smart Cellar API reads and writes here (a preview is where writes may be opened, sprint 1C)
+      env: {
+        ...APP_ENV,
+        VERCEL: "1",
+        VERCEL_ENV: "preview",
+        VERCEL_TARGET_ENV: "preview",
+        CELLR_SMART_CELLAR: "write",
+      },
     },
   ],
 });

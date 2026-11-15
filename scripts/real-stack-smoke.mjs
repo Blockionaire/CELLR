@@ -463,6 +463,73 @@ check(
 );
 sql("update private.cellar_settings set depth_placement = false");
 
+// ---- The Smart Cellar API's schema check (sprint 1C), against the real gateway and PostgREST ----------------------
+// What the app asks, as a member, to tell whether the database can be read and written in the new terms: zero-row
+// reads of the new columns and table, and the data API's description of itself (never a call of the function that
+// writes). Where the gateway does not describe the API to a member (hosted Supabase since 2026), the app says
+// "unverified" and never "ready"; either answer is accepted here, and which one this stack gave is printed.
+for (const [table, columns] of [
+  ["cellar_locations", "template,cell_capacity,slot_semantics,appearance"],
+  ["bottles", "loc_index"],
+  ["cellar_location_zones", "id"],
+]) {
+  const probe = await asUser(one, `/rest/v1/${table}?select=${columns}&limit=0`);
+  check(
+    `schema check: ${table} (${columns}) can be read with zero rows`,
+    probe.ok,
+    String(probe.status),
+  );
+}
+const described = await asUser(one, "/rest/v1/", {
+  headers: { accept: "application/openapi+json" },
+});
+const description = await json(described);
+const LAYOUT_PARAMS = [
+  "p_household",
+  "p_location",
+  "p_kind",
+  "p_template",
+  "p_slot_semantics",
+  "p_rows",
+  "p_cols",
+  "p_cell_capacity",
+  "p_appearance",
+  "p_zones",
+];
+if (described.ok && description?.paths) {
+  const fn = description.paths["/rpc/save_storage_layout"];
+  // PostgREST 12 lists a function's parameters under GET too; 16 only in the body of POST (a volatile function)
+  const names = new Set([
+    ...(fn?.get?.parameters ?? []).map((p) => p.name),
+    ...(fn?.post?.parameters ?? []).flatMap((p) => Object.keys(p?.schema?.properties ?? {})),
+  ]);
+  check(
+    "schema check: described to a member, save_storage_layout is there with every parameter of 0045 (writes: ready)",
+    LAYOUT_PARAMS.every((name) => names.has(name)),
+    JSON.stringify([...names]),
+  );
+} else {
+  check(
+    "schema check: the gateway does not describe the data API to a member (writes: unverified, never ready)",
+    [401, 403, 404].includes(described.status) || description?.code === "PGRST126",
+    `${described.status} ${JSON.stringify(description).slice(0, 200)}`,
+  );
+}
+console.log(`INFO  the data API's description, asked by a member: HTTP ${described.status}`);
+// What a save on a database without 0045 meets: PostgREST refuses a function it cannot match before anything runs.
+const unmatched = await json(
+  await asUser(one, "/rest/v1/rpc/save_storage_layout", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ cellr_smoke_unmatched: true }),
+  }),
+);
+check(
+  "a function call PostgREST cannot match is refused as PGRST202 (the app says 'isn't set up', nothing runs)",
+  unmatched?.code === "PGRST202",
+  JSON.stringify(unmatched).slice(0, 200),
+);
+
 // Account deletion: what the app's "delete my account" does with the service role.
 const del = await admin(`/auth/v1/admin/users/${two.id}`, { method: "DELETE" });
 check("the Auth admin API deletes a user", del.ok, String(del.status));

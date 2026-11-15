@@ -57,9 +57,11 @@ import { createPurchaseCheckService } from "@/server/purchase-check/service";
 import { createStatsService } from "@/server/stats/service";
 import { createInsightsRepository } from "@/server/insights/repository";
 import { createInsightsService } from "@/server/insights/service";
-import { getFeatures, getPushEnv } from "@/server/env";
+import { getFeatures, getPushEnv, getSmartCellarAccess } from "@/server/env";
 import { createPushRepository } from "@/server/push/repository";
 import { createPushService } from "@/server/push/service";
+import { createSmartCellarRepository } from "@/server/smart-cellar/repository";
+import { createSmartCellarService, toUnitView } from "@/server/smart-cellar/service";
 import { createTasteRepository } from "@/server/taste/repository";
 import { createTasteService } from "@/server/taste/service";
 import { createWishlistRepository } from "@/server/wishlist/repository";
@@ -97,6 +99,13 @@ export function servicesFor(ctx: RequestContext) {
     // `insights` is built further down; it is only asked when a suggestion is made, never here.
     reservations: () => insights.reservations(),
     drinkWindows: () => insights.windows(),
+  });
+  const smartCellarAccess = getSmartCellarAccess();
+  const smartCellarRepo = createSmartCellarRepository(ctx.db);
+  const smartCellar = createSmartCellarService({
+    repo: smartCellarRepo,
+    household,
+    access: smartCellarAccess,
   });
   const households = createHouseholdService(createHouseholdRepository(ctx.db), {
     userId: ctx.userId,
@@ -223,6 +232,8 @@ export function servicesFor(ctx: RequestContext) {
       repo: createFeedbackRepository(ctx.db),
       spend: () => limiter.enforce(LIMITS.feedback),
     }),
+    // The Smart Cellar API (sprint 1C): closed unless CELLR_SMART_CELLAR opens it, and never writing on production.
+    smartCellar,
     export: createExportService({
       repo: createExportRepository(ctx.db),
       household,
@@ -236,6 +247,10 @@ export function servicesFor(ctx: RequestContext) {
           .map((w) => ({ producer: w.producer, wine: w.name }));
       },
       wishlist: () => wishlist.list(),
+      // export version 2 (sprint 1C): only where the Smart Cellar API reads
+      smartPlaces: smartCellarAccess.reads
+        ? async (householdId) => (await smartCellarRepo.listPlaces(householdId)).map(toUnitView)
+        : null,
     }),
     stats: createStatsService({
       household,
