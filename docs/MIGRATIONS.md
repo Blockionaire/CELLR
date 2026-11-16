@@ -1,7 +1,7 @@
 # Database migrations: rules, deployment and recovery
 
 This is the one place that says how the database changes. `SETUP.md`, `BETA-OPERATIONS.md` and the checklists point
-here.
+here. Backups (database and Storage files) and restores are in `BACKUP-RECOVERY.md`.
 
 > ## ⛔ STOP: the bootstrap procedure in §4 is OUTDATED. Do not run its commands.
 >
@@ -152,7 +152,8 @@ end to end on a throwaway database built the way production was (`bash scripts/m
 Do it only with the owner's go-ahead, in one sitting, at a quiet moment.
 
 1. **Backup.** Confirm a recent backup in Supabase → Database → Backups. Optionally keep a schema-only dump too:
-   `pnpm exec supabase db dump --linked -f prebootstrap-schema.sql` (read-only).
+   `pnpm exec supabase db dump --linked -f prebootstrap-schema.sql` (read-only). A schema-only dump is a reference,
+   not a backup, and neither contains the Storage files: see `BACKUP-RECOVERY.md` §6 and §9.
 2. **Preflight (read-only).** Each of these must hold, or stop:
 
    ```bash

@@ -100,3 +100,10 @@ is in docs/CATALOG.md, "Scan readings"). During the beta, review `/admin/catalog
 - **conflicts:** correct, merge or reject.
 
 The admin never sees which household confirmed what. Nothing is published without your approval.
+
+## 8. Backups
+
+Supabase keeps daily database backups for 7 days (Pro); they do **not** contain the photos in Storage. Before a risky
+change (a migration, the history bootstrap, a bulk admin action) and at least weekly during the beta, the owner runs
+the Storage backup and checks it: `docs/BACKUP-RECOVERY.md` §9 (GO/NO-GO list, commands for Windows). Restores are
+tested into an isolated project only, never into production (§5, §7).

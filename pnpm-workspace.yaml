@@ -3,3 +3,4 @@ packages:
   - packages/*
   - scripts/scan-eval
   - scripts/catalog-tools
+  - scripts/storage-backup

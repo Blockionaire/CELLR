@@ -22,3 +22,16 @@ eval/scan/report.json
 
 # On-device OCR files, copied from node_modules by apps/web/scripts/ocr-assets.mjs
 apps/web/public/ocr/
+
+# Backups hold private photos, personal data and hashed passwords: never in Git (docs/BACKUP-RECOVERY.md).
+# The backup tool also refuses a destination inside this repository unless it is ignored here.
+backups/
+restore-reports/
+*.tar.age
+*.tar.age.sha256
+db-dumps/
+platform-objects.sql
+
+# Supabase CLI local state (`supabase link` writes the project ref and pooler URL here)
+supabase/.temp/
+supabase/.branches/
