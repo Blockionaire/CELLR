@@ -75,7 +75,9 @@ echo "42 migration files; 0001-0042 byte-identical to HEAD ($(git rev-parse --sh
 echo "the six release files have the runbook's sha256"
 
 cd "$REL"
-start_temp_cluster "${PORT:-54961}" >/dev/null
+# A port below Linux's ephemeral range (32768-60999): one there can be held at random as the source port of any client
+# connection, and the server then cannot bind it ("could not create any TCP/IP sockets").
+start_temp_cluster "${PORT:-25461}" >/dev/null
 P=("${PSQL[@]}" -X -q -v ON_ERROR_STOP=1)
 
 step "1. a database built as production was (0001-0036 by hand; 0037-0046 never run)"
