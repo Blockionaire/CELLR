@@ -21,7 +21,6 @@ const ChatMessageSchema = z.object({
 });
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
-/** The recent conversation, oldest first, ending with what the person just asked. Nothing is stored on the server. */
 /** If something has to be bought: how much it may cost, per bottle. */
 export const BUDGETS = ["value", "mid", "premium", "splurge"] as const;
 export type Budget = (typeof BUDGETS)[number];
@@ -35,12 +34,22 @@ export const BUDGET_EUROS: Record<Budget, readonly [number, number | null]> = {
 
 export const AskSommelierSchema = z
   .object({
+    /**
+     * The recent conversation, oldest first, ending with what the person just asked. It is what the model hears:
+     * the screen sends it, also when the conversation is kept (see sommelier-conversation.ts).
+     */
     messages: z.array(ChatMessageSchema).min(1).max(12),
     /** "tonight": pairing a dish or an evening, judged honestly, with what to buy when nothing fits. */
     mode: z.enum(["chat", "tonight"]).default("chat"),
     budget: z.enum(BUDGETS).nullable().default(null),
     /** Use the person's own taste profile for this question (on by default; off asks for general advice). */
     personal: z.boolean().default(true),
+    /**
+     * The id the screen gave this question, in the general chat: the question and its answer are then kept in the
+     * person's conversation, and the same id sent again gets the kept answer back instead of a second one.
+     * Left out (or for Tonight), nothing is kept.
+     */
+    questionId: z.uuid().optional(),
   })
   .refine((v) => v.messages.at(-1)?.role === "user", "Ask a question.");
 /** What a caller sends; mode and budget may be left out (a plain chat, no budget). */

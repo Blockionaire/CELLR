@@ -11,8 +11,11 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function SommelierPage() {
   const ctx = await getPageContext();
   if (!ctx) return null; // the (app) layout has already redirected signed-out visitors
-  const home = await servicesFor(ctx)
-    .cellar.home()
-    .catch(() => null);
-  return <SommelierScreen hasBottles={(home?.bottleCount ?? 0) > 0} />;
+  const services = servicesFor(ctx);
+  // The kept conversation comes along, so it is on screen at once; if it cannot be read here, the screen asks.
+  const [home, conversation] = await Promise.all([
+    services.cellar.home().catch(() => null),
+    services.sommelierChat.current().catch(() => undefined),
+  ]);
+  return <SommelierScreen hasBottles={(home?.bottleCount ?? 0) > 0} conversation={conversation} />;
 }

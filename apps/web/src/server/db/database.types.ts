@@ -2056,6 +2056,134 @@ export type Database = {
           },
         ];
       };
+      sommelier_conversations: {
+        Row: {
+          created_at: string;
+          household_id: string;
+          id: string;
+          last_activity_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          household_id: string;
+          id?: string;
+          last_activity_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          household_id?: string;
+          id?: string;
+          last_activity_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sommelier_conversations_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      sommelier_feedback: {
+        Row: {
+          answer_source: string | null;
+          conversation_id: string;
+          created_at: string;
+          message_id: string;
+          model: string | null;
+          question_kind: string | null;
+          rating: string;
+          updated_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          answer_source?: string | null;
+          conversation_id: string;
+          created_at?: string;
+          message_id: string;
+          model?: string | null;
+          question_kind?: string | null;
+          rating: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          answer_source?: string | null;
+          conversation_id?: string;
+          created_at?: string;
+          message_id?: string;
+          model?: string | null;
+          question_kind?: string | null;
+          rating?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      sommelier_messages: {
+        Row: {
+          answer: Json | null;
+          content: string | null;
+          conversation_id: string;
+          created_at: string;
+          id: string;
+          model: string | null;
+          question_kind: string | null;
+          reply_to: string | null;
+          role: string;
+          seq: number;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          answer?: Json | null;
+          content?: string | null;
+          conversation_id: string;
+          created_at?: string;
+          id: string;
+          model?: string | null;
+          question_kind?: string | null;
+          reply_to?: string | null;
+          role: string;
+          seq?: never;
+          user_id: string;
+        };
+        Update: {
+          answer?: Json | null;
+          content?: string | null;
+          conversation_id?: string;
+          created_at?: string;
+          id?: string;
+          model?: string | null;
+          question_kind?: string | null;
+          reply_to?: string | null;
+          role?: string;
+          seq?: never;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sommelier_messages_conversation_id_user_id_fkey";
+            columns: ["conversation_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "sommelier_conversations";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "sommelier_messages_reply_to_fkey";
+            columns: ["reply_to"];
+            isOneToOne: true;
+            referencedRelation: "sommelier_messages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       taste_preferences: {
         Row: {
           acidity: number | null;
@@ -3285,6 +3413,23 @@ export type Database = {
           model: string;
           output: Json;
         }[];
+      };
+      sommelier_purge_expired: { Args: Record<PropertyKey, never>; Returns: number };
+      sommelier_record_exchange: {
+        Args: {
+          p_answer: Json;
+          p_household_id: string;
+          p_model: string;
+          p_question: string;
+          p_question_id: string;
+          p_question_kind: string;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      sommelier_set_feedback: {
+        Args: { p_message_id: string; p_rating?: string };
+        Returns: string;
       };
       submit_bottle_photo: {
         Args: {
