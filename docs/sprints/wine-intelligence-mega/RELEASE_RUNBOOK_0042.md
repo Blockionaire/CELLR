@@ -96,7 +96,15 @@ empty.
 - the failing file is rolled back entirely and not recorded;
 - the files after it are not attempted.
 
-**The app on `main` with the database at exactly 0042** (local stack, desktop): <!-- E2E_AT_0042 -->
+**The app on `main` with the database at exactly 0042** (local stack, desktop, switches off, `--retries=0`): the
+app's build at `21186f6`, with a database built from 0001–0042 only. 0043–0046 were left out of the stack for the run;
+nothing was committed that way.
+
+- **Result:** **130 passed, 0 failed, 0 skipped** in 5.4 min.
+- **Specs:** `smoke`, `acceptance`, `cellar`, `flows`, `detail`, `scan`, `scan-api`, `purchase-intel`, `wine-search`,
+  `sources`, `admin-sources`, `catalog`, `catalog-learning`, `sommelier`, `tonight` and `wishlist`.
+- **What that covers:** sign-in to the end, adding and editing wines and bottles (0037's triggers), scanning, Koopcheck,
+  catalogue search and its API, sources and admin sources, the sommelier without 0046, Tonight, and the wishlist.
 
 ## 3. Roles, window and prerequisites
 
