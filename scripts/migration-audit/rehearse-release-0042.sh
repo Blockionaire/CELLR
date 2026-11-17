@@ -33,7 +33,7 @@ listed() {
   cli migration list | python3 -c '
 import json, sys
 t = sys.stdin.read()
-m = json.loads(t[t.index("{"):])["migrations"]
+m = json.JSONDecoder().raw_decode(t[t.index("{\"migrations\""):])[0]["migrations"]  # ignores lines the CLI adds after it
 applied = sum(1 for x in m if x.get("remote"))
 print(f"migration list: {len(m)} local files, {applied} recorded as applied")'
 }

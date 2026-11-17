@@ -106,24 +106,81 @@ nothing was committed that way.
 - **What that covers:** sign-in to the end, adding and editing wines and bottles (0037's triggers), scanning, Koopcheck,
   catalogue search and its API, sources and admin sources, the sommelier without 0046, Tonight, and the wishlist.
 
+**This runbook's commands, as written, in a Codespace-like setup** (2026-11-17). The setup:
+
+- Ubuntu 24.04, the base of the default Codespaces image;
+- a non-root user `codespace`, with the clone at `/workspaces/CELLR`;
+- `pnpm install --frozen-lockfile`;
+- PostgreSQL from Ubuntu's own `postgresql-16` package (16.15-0ubuntu0.24.04.1).
+
+Every `bash` block from the Codespace setup through V6 was taken from this file and run in order, in one bash session.
+The one substitution was the URL of a production-like throwaway database for `read -rs`. All 29 blocks ran:
+
+- P2 found `MAIN=/workspaces/CELLR REL=/workspaces/cellr-release-0042`;
+- P3: 42 files, identical to `main`, six times `OK`;
+- the optional rehearsal ran to its `RESULT` line as non-root;
+- the dry run listed the six files and the push applied them;
+- V1 showed 42 on both sides; V3 was all `ok`;
+- V4 showed 0043–0046 as local only;
+- V6 removed the worktree.
+
+Differences that come only from the throwaway database:
+
+- P4 says `STOP` (its URL is not production's) and reports server 16;
+- pg_cron is `skip`;
+- `compare.sh` with `production-accepted.txt` reports the four paste deviations as "now matches", because the throwaway
+  was not pasted the way production was. With a throwaway accept file it says `RESULT: equivalent`. On production the
+  13 deviations were checked at their pinned hashes (above).
+
+Not tested here:
+
+- the Codespace itself, with Node 24 and `corepack`;
+- the network path from a Codespace to the session pooler.
+
 ## 3. Roles, window and prerequisites
 
 - **Who:** the owner runs every command, on their own machine. No coding agent writes to production.
 - **When:** one sitting of about 45 minutes, at a quiet moment. The push itself takes seconds. During the window there
   are no merges to `main`, no Vercel deploys and no other database work.
+- **Where:** in a **GitHub Codespace** of this repository (the owner's setup: the repository is at
+  `/workspaces/CELLR`), or on any Linux or macOS machine with the tools below. The paths are never typed: P2 takes them
+  from the clone you are in. **Run every command in one `bash` terminal**: `export`ed variables live only there. If the
+  prompt is zsh, type `bash` first.
 - **Tools:**
-  - `git`, `pnpm` and `psql` (Postgres client 16 or newer);
-  - Postgres 16 server binaries for the comparison tool (`PGBIN`, default `/usr/lib/postgresql/16/bin`; with Homebrew,
-    for example `export PGBIN=/opt/homebrew/opt/postgresql@16/bin`);
-  - Python 3.
-- **Two checkouts:**
-  - **`$MAIN`:** a clone of the repository on `main` that contains this runbook, with `pnpm install` done. That is
-    `main` after this PR is merged, or the PR branch before. It holds the check files and the pinned Supabase CLI
-    (2.120.0).
-  - **`$REL`:** the release checkout of `248206a`, created in P2. **Every `db push` of this release runs from `$REL`,
-    never from `$MAIN`.**
-- **The connection string:** Supabase → Connect → **Session pooler** (port 5432; not the transaction pooler). The user
-  name contains the project ref, `postgres.vvelgyhbjfmjvxkzekyz`. The password must be percent-encoded.
+  - `git`, `pnpm` (the version pinned in `package.json`, 10.28.0) and Python 3;
+  - `psql`, Postgres client 16 or newer. Against the server's 17 it warns "some psql features might not work", which is
+    harmless here;
+  - Postgres 16 server binaries for the comparison tool and the rehearsal (`PGBIN`, default `/usr/lib/postgresql/16/bin`;
+    with Homebrew, for example `export PGBIN=/opt/homebrew/opt/postgresql@16/bin`).
+- **Two checkouts, both found by P2:**
+  - **`$MAIN`:** the clone you work in, at `main` with this runbook (after this PR is merged), or at the PR branch
+    before. In a Codespace it is `/workspaces/CELLR`. It holds the check files and, after `pnpm install`, the pinned
+    Supabase CLI (2.120.0).
+  - **`$REL`:** the release checkout of `248206a`, created in P2 next to it. In a Codespace it is
+    `/workspaces/cellr-release-0042`. **Every `db push` of this release runs from `$REL`, never from `$MAIN`.**
+- **The connection string:** Supabase → Connect → **Session pooler** (port 5432; not the transaction pooler, and not
+  the direct connection, which is IPv6-only and does not work from a Codespace). The user name contains the project
+  ref, `postgres.vvelgyhbjfmjvxkzekyz`. The password must be percent-encoded. Never write it into a file under
+  `/workspaces`, which is kept with the Codespace and is a git checkout.
+
+**Setting up a Codespace (once per Codespace).** The default image (Ubuntu 24.04) has `git`, Node.js and Python, but no
+PostgreSQL. Ubuntu's own `postgresql-16` package provides `psql` and the server binaries at the default `PGBIN`:
+
+```bash
+sudo apt-get update && sudo apt-get install -y postgresql-16 postgresql-client-16
+```
+
+```bash
+cd /workspaces/CELLR && corepack enable && pnpm install --frozen-lockfile
+```
+
+(If `corepack` is not available, use `npm install -g pnpm@10.28.0`.) Then check the tools:
+
+```bash
+cd /workspaces/CELLR && pnpm exec supabase --version && psql --version && ls /usr/lib/postgresql/16/bin/initdb
+```
+
+This must print `2.120.0`, `psql (PostgreSQL) 16.…` and the path of `initdb`.
 
 ## 4. Preflight (read-only). Every check must pass, or stop: §6
 
@@ -137,15 +194,27 @@ An extra logical dump of your own is optional. If you want one, use `docs/sprint
 which is three `db dump` commands. It puts production data (accounts, cellars) on your machine, so keep it encrypted
 and out of git and chats.
 
-**P2. The release checkout.**
+**P2. The release checkout.** From inside your clone (in a Codespace: `cd /workspaces/CELLR`), let git name the paths:
 
 ```bash
-export MAIN=~/CELLR REL=~/cellr-release-0042
+export MAIN="$(git rev-parse --show-toplevel)" REL="$(dirname "$(git rev-parse --show-toplevel)")/cellr-release-0042" && echo "MAIN=$MAIN REL=$REL"
 ```
 
+In a Codespace this prints `MAIN=/workspaces/CELLR REL=/workspaces/cellr-release-0042`.
+
 ```bash
-git -C "$MAIN" fetch origin main
+test -f "$MAIN/scripts/migration-audit/release-0042-preflight.sql" && test ! -e "$REL" && echo "ready"
 ```
+
+This must print `ready`. If it does not, either `$MAIN` is not at a commit with this runbook (check out `main` or the
+PR branch), or `$REL` is left from an earlier attempt (remove it as in V6).
+
+```bash
+git -C "$MAIN" fetch origin main && git -C "$MAIN" cat-file -e '248206af159b9b0f8ff8ec7faee557441e3d193f^{commit}' && echo "release commit present"
+```
+
+This must print `release commit present`. If it reports a bad object instead (a shallow clone), run
+`git -C "$MAIN" fetch --unshallow origin` and repeat.
 
 ```bash
 git -C "$MAIN" worktree add --detach "$REL" 248206af159b9b0f8ff8ec7faee557441e3d193f
@@ -177,10 +246,11 @@ These must print `42` and `20261119000042_hardening_search_scope_link_review.sql
 git -C "$MAIN" diff --quiet 248206af159b9b0f8ff8ec7faee557441e3d193f origin/main -- $(cd "$REL" && ls supabase/migrations/*.sql) && echo "0001-0042 identical to main"
 ```
 
-This must print `0001-0042 identical to main`. Then check the hashes of the six files (Linux: `sha256sum --check`):
+This must print `0001-0042 identical to main`. Then check the hashes of the six files (on macOS:
+`shasum -a 256 --check` instead of `sha256sum --check`):
 
 ```bash
-cd "$REL/supabase/migrations" && shasum -a 256 --check <<'EOF'
+cd "$REL/supabase/migrations" && sha256sum --check <<'EOF'
 b0f62cafbbc96e07e497fac81db08852e09ff643423b06200449f8e4f8944e70  20261114000037_catalog_search.sql
 e9e5510262d7f8c23dbd865e6afe35faf160e966791362a5db7e98ed2866cf34  20261115000038_wi01_provider_lifecycle.sql
 16b219745311defc643f56b569d4069b3e62a2fa37eb9429b5d9c110112115d8  20261116000039_wi04_profile_research_claim.sql
@@ -353,10 +423,10 @@ release.**
 **V6. Close.**
 
 ```bash
-git -C "$MAIN" worktree remove "$REL"
+rm "$REL/node_modules" && git -C "$MAIN" worktree remove "$REL" && unset DATABASE_URL
 ```
 
-Then unset `DATABASE_URL`, and record the release in a docs PR:
+Then record the release in a docs PR:
 
 - `MIGRATIONS.md` §3, with 0037–0042 applied on date X;
 - `EPIC.md`'s resume block.
