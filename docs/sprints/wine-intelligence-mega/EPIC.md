@@ -20,10 +20,12 @@ LAST GREEN CHECKS: format, lint, typecheck, unit (web 793 / domain 643 / scan-ev
                    the app on a database without migrations 0037-0042: 212 passed, 0 failed (local)
 VERDICT: merge = conditional GO; wine_search, sources_panel, purchase_intel = conditional GO after the migrations,
          in that order; scan_resolver = NO-GO until real labels and a real iPhone; no external source may be shown
-PENDING BLOCKERS: PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED · REAL_LABEL_VALIDATION_PENDING ·
+UPDATE 2026-11-17: production history holds 0001-0036 (bootstrap done; read-only check); 0037-0042 not applied yet.
+                  Their release, alone (main also holds 0043-0046, incl. 0046): RELEASE_RUNBOOK_0042.md
+PENDING BLOCKERS: PRODUCTION_MIGRATION_RELEASE_0037_0042 (owner) · REAL_LABEL_VALIDATION_PENDING ·
                   LWIN rights blocked · X-Wines rights unverified (pilot only)
-NEXT SAFE ACTION: none for the agent. Owner: review PR #68; decide on the merge (progress/WI-08-hardening.md §7.1);
-                  look at the e2e run the merge starts on main; RELEASE_CHECKLIST.md Part A and B before any switch
+NEXT SAFE ACTION: none for the agent. Owner (PR #68 is merged): the database release by RELEASE_RUNBOOK_0042.md
+                  (0037-0042 only, CI exceptions in CI_EXCEPTIONS_0042.md); then RELEASE_CHECKLIST.md Part C
 TO REPRODUCE CI LOCALLY: CI runs Playwright's headless shell, not the full Chrome: set PLAYWRIGHT_CHROMIUM_PATH to
                   the headless shell; features on: E2E_BASE_URL=http://localhost:3101 (playwright.config.ts)
 DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the reviews of WI-02 to WI-06; the analysis
