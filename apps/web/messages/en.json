@@ -800,6 +800,43 @@
     "lostBody": "Your phone needed the graphics memory for something else. Your bottles are all where they were.",
     "lostRetry": "Show 3D again"
   },
+  "smart3d": {
+    "hint": "Drag to turn · pinch or scroll to zoom · tap a bottle to take it out",
+    "where": {
+      "spot": "{unit} · Shelf {row} · Position {col}",
+      "front": "{unit} · Shelf {row} · Position {col}, at the front",
+      "behind": "{unit} · Shelf {row} · Position {col}, place {index} from the front",
+      "compartment": "{unit} · Compartment on shelf {row}, position {col}. Where it lies in the compartment isn't recorded.",
+      "unknown": "{unit} · Shelf {row} · Position {col}. CELLR doesn't know how this place is arranged."
+    },
+    "how": {
+      "clear_path": "Taken out of its place.",
+      "behind_bottle": "Shown without drawing it out: another bottle lies in front of it.",
+      "behind_door": "Shown without drawing it out: the door in front of it stays closed.",
+      "blocked": "Shown without drawing it out: its shelf holds it in.",
+      "pile": "Lifted out of the picture of its pile. Where it lies in the pile isn't recorded.",
+      "unknown_arrangement": "Shown, not taken from a spot: CELLR doesn't know how this place is arranged."
+    },
+    "facts": {
+      "kind": "Kind",
+      "origin": "From",
+      "vintage": "Vintage",
+      "appellation": "Appellation",
+      "inCellar": "In your cellar",
+      "inCellarCount": "{count, plural, one {# bottle of this vintage} other {# bottles of this vintage}}"
+    },
+    "subtitle": "{producer} · {year}",
+    "wineDetails": "Wine details",
+    "notKnown": "CELLR doesn't know how this place is arranged, so it shows its positions and how full they are, not a piece of furniture.",
+    "stranded": "{count, plural, one {# bottle is stored on a spot this place no longer has. It hasn't been moved.} other {# bottles are stored on spots this place no longer has. They haven't been moved.}}",
+    "strandedList": "Bottles on a spot this place no longer has",
+    "strandedBottle": "{wine}, shelf {row}, position {col}, place {index}",
+    "loadFailedTitle": "The new 3D view couldn't load",
+    "loadFailedBody": "{reason} The classic 3D view is shown below meanwhile.",
+    "unitFailedTitle": "This place couldn't be loaded",
+    "refreshFailed": "Couldn't refresh just now. What you see is what was last known.",
+    "empty": "No bottles in this place yet."
+  },
   "showcase": {
     "label": "{wine} {year}",
     "putBack": "Put it back",

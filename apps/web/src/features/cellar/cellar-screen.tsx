@@ -28,6 +28,8 @@ import { Segmented } from "@/ui/segmented";
 import { ActiveFilters, FilterButton, FilterSheet } from "./cellar-filters";
 import { useCellar } from "./hooks";
 import { CELLAR_VIEW_COOKIE, type CellarViewMode } from "./view-mode";
+import dynamic from "next/dynamic";
+import { Skeleton } from "@/ui/skeleton";
 import { Cellar3DView } from "./cellar-3d-view";
 import { RacksView } from "./racks-view";
 import { WineCard, WineRow } from "./wine-card";
@@ -124,6 +126,16 @@ const MoreIcon = (p: IconProps) => (
   </PillIcon>
 );
 
+/**
+ * The 3D cellar with the new storage view for places that have a template (Smart Cellar 3D, sprint 2B.3). Its code
+ * is only downloaded where the server said the new renderer may be used AND the 3D view is opened: everywhere else
+ * nothing of it is fetched.
+ */
+const SmartCellar3D = dynamic(() => import("./smart-cellar-3d"), {
+  ssr: false,
+  loading: () => <Skeleton className="h-[26rem]" />,
+});
+
 /** Above this many wines a change of filter simply redraws: animating hundreds of cards would stutter. */
 const ANIMATE_UP_TO = 60;
 
@@ -138,9 +150,15 @@ const rememberView = (view: CellarViewMode) => {
 export function CellarScreen({
   initial,
   initialView,
+  smart3d = false,
 }: {
   initial: CellarView;
   initialView: CellarViewMode;
+  /**
+   * Whether the 3D view may use the new storage renderer for places with a template. Decided on the server
+   * (lib/smart-cellar-renderer-gate.ts) and never on production; off unless the page says otherwise.
+   */
+  smart3d?: boolean;
 }) {
   const t = useTranslations("cellar");
   const tTypes = useTranslations("wineTypes");
@@ -152,6 +170,10 @@ export function CellarScreen({
     memory.view = next;
     memory.scrollY = 0;
     setViewState(next);
+  };
+  const showRacks = () => {
+    setView("racks");
+    rememberView("racks");
   };
   // Back to where you were: remember the scroll as you go, put it back when the cellar returns. Content is there
   // on the first frame (cached data), and a page too short to reach it simply stops at its end.
@@ -406,12 +428,11 @@ export function CellarScreen({
       )}
 
       {view === "3d" ? (
-        <Cellar3DView
-          onShowRacks={() => {
-            setView("racks");
-            rememberView("racks");
-          }}
-        />
+        smart3d ? (
+          <SmartCellar3D onShowRacks={showRacks} />
+        ) : (
+          <Cellar3DView onShowRacks={showRacks} />
+        )
       ) : view === "racks" ? (
         <RacksView />
       ) : items.length === 0 ? (

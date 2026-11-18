@@ -1,6 +1,7 @@
 import "server-only";
 import {
   DomainError,
+  type ImageRef,
   type OccupiedSpot,
   type SmartPlacementView,
   type StorageKind,
@@ -9,6 +10,7 @@ import {
 import type { Db } from "@/server/db/clients";
 import { isMissingTable, mapDbError, missingColumn } from "@/server/db/errors";
 import { allRows } from "@/server/db/paging";
+import { IMAGE_REF_COLUMNS, toImageRef } from "@/server/cellar/repository";
 import type {
   LayoutWrite,
   SaveLayoutOutcome,
@@ -21,7 +23,9 @@ const PLACE_COLUMNS =
   "id, label, kind, grid_rows, grid_cols, template, cell_capacity, slot_semantics, appearance";
 const ZONE_COLUMNS = "location_id, zone_index, from_row, to_row, purpose, target_temp_c";
 const PLACEMENT_COLUMNS =
-  "id, location_id, loc_row, loc_col, loc_index, vintage_id, wine_vintages!inner(year, wine_id, wines!inner(name, wine_type, producers!inner(name)))";
+  "id, location_id, loc_row, loc_col, loc_index, vintage_id, front_image_id, wine_vintages!inner(year, wine_id, wines!inner(name, wine_type, region, country_code, producers!inner(name)))";
+/** Label photos are asked for by id, this many at a time (an address has a limit to its length). */
+const IMAGE_CHUNK = 150;
 
 /**
  * A database without the Smart Cellar step (migrations 0043-0045): the columns, the zones table or the function are
@@ -112,10 +116,17 @@ type PlacementRecord = {
   loc_col: number | null;
   loc_index: number;
   vintage_id: string;
+  front_image_id?: string | null;
   wine_vintages: {
     year: number | null;
     wine_id: string;
-    wines: { name: string; wine_type: string; producers: { name: string } };
+    wines: {
+      name: string;
+      wine_type: string;
+      region?: string | null;
+      country_code?: string | null;
+      producers: { name: string };
+    };
   };
 };
 
@@ -123,7 +134,10 @@ type PlacementRecord = {
  * Pure: a bottle row in the domain's words, its spot WHOLE. The index is the database's (never null there: every
  * bottle from before depth is at its default, 1) and is never reduced. A row without a full spot is not a placement.
  */
-export function toPlacement(r: PlacementRecord): SmartPlacementView | null {
+export function toPlacement(
+  r: PlacementRecord,
+  images: ReadonlyMap<string, ImageRef> = new Map(),
+): SmartPlacementView | null {
   if (r.location_id === null || r.loc_row === null || r.loc_col === null) return null;
   return {
     bottleId: r.id,
@@ -137,6 +151,10 @@ export function toPlacement(r: PlacementRecord): SmartPlacementView | null {
     wineName: r.wine_vintages.wines.name,
     year: r.wine_vintages.year,
     type: r.wine_vintages.wines.wine_type as WineType,
+    region: r.wine_vintages.wines.region ?? null,
+    countryCode: r.wine_vintages.wines.country_code ?? null,
+    // a photo that is named but cannot be read (deleted, or not this household's) is no photo: never a broken one
+    image: r.front_image_id ? (images.get(r.front_image_id) ?? null) : null,
   };
 }
 
@@ -367,8 +385,22 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
           .range(from, to),
       );
       if (error) throw mapSmartCellarError(error);
+      // The label photos of exactly these bottles (ids only, of this household), a chunk at a time.
+      const wanted = [
+        ...new Set(data.flatMap((r) => (r.front_image_id ? [r.front_image_id] : []))),
+      ];
+      const images = new Map<string, ImageRef>();
+      for (let at = 0; at < wanted.length; at += IMAGE_CHUNK) {
+        const found = await db
+          .from("bottle_images")
+          .select(IMAGE_REF_COLUMNS)
+          .eq("household_id", householdId)
+          .in("id", wanted.slice(at, at + IMAGE_CHUNK));
+        if (found.error) throw mapSmartCellarError(found.error);
+        for (const image of found.data ?? []) images.set(image.id, toImageRef(image));
+      }
       return data.flatMap((r) => {
-        const placement = toPlacement(r);
+        const placement = toPlacement(r, images);
         return placement ? [placement] : [];
       });
     },

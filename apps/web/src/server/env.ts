@@ -2,6 +2,7 @@ import "server-only";
 import { parseAdminAllowlist, parseFeatures, type FeatureFlags } from "@cellr/domain";
 import { cellarGalleryOpenIn } from "@/lib/cellar-gallery-gate";
 import { smartCellarAccessIn, type SmartCellarAccess } from "@/lib/smart-cellar-gate";
+import { smartCellarRendererOpenIn } from "@/lib/smart-cellar-renderer-gate";
 import { getPublicEnv, isDevelopment, type PublicEnv } from "@/lib/public-env";
 
 /** Server-side view of the environment. Validated lazily, so `next build` works without secrets. */
@@ -31,6 +32,15 @@ export function isCellarGalleryEnabled(): boolean {
  */
 export function getSmartCellarAccess(): SmartCellarAccess {
   return smartCellarAccessIn(process.env);
+}
+
+/**
+ * Whether the cellar's 3D view may use the new storage renderer for places with a template (CELLR_SMART_CELLAR_3D=1,
+ * in `next dev` and on Vercel previews only; never on production, never where the deployment cannot be told). The
+ * rule and its reasons: lib/smart-cellar-renderer-gate.ts.
+ */
+export function isSmartCellarRendererEnabled(): boolean {
+  return smartCellarRendererOpenIn(process.env, getSmartCellarAccess());
 }
 
 export interface AiEnv {

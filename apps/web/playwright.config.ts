@@ -107,7 +107,13 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
       // The Smart Cellar API (sprint 1C) asks to write here, and must only READ: an unmarked production build.
-      env: { ...APP_ENV, CELLR_FEATURES: "all", CELLR_SMART_CELLAR: "write" },
+      // ...and the same for the product's new 3D renderer (sprint 2B.3): asked for here, and it must stay CLOSED.
+      env: {
+        ...APP_ENV,
+        CELLR_FEATURES: "all",
+        CELLR_SMART_CELLAR: "write",
+        CELLR_SMART_CELLAR_3D: "1",
+      },
     },
     {
       command: `pnpm exec next start -p ${PREVIEW_PORT}`,
@@ -122,6 +128,8 @@ export default defineConfig({
         VERCEL_ENV: "preview",
         VERCEL_TARGET_ENV: "preview",
         CELLR_SMART_CELLAR: "write",
+        // the cellar's 3D view uses the new renderer for places with a template here (sprint 2B.3)
+        CELLR_SMART_CELLAR_3D: "1",
       },
     },
   ],

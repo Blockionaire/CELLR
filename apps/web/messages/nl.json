@@ -800,6 +800,43 @@
     "lostBody": "Je telefoon had het grafische geheugen even nodig. Je flessen staan allemaal waar ze stonden.",
     "lostRetry": "3D opnieuw tonen"
   },
+  "smart3d": {
+    "hint": "Sleep om te draaien · knijp of scrol om te zoomen · tik op een fles om hem eruit te nemen",
+    "where": {
+      "spot": "{unit} · Plank {row} · Positie {col}",
+      "front": "{unit} · Plank {row} · Positie {col}, vooraan",
+      "behind": "{unit} · Plank {row} · Positie {col}, plek {index} van voren",
+      "compartment": "{unit} · Vak op plank {row}, positie {col}. Waar hij in het vak ligt, wordt niet bijgehouden.",
+      "unknown": "{unit} · Plank {row} · Positie {col}. CELLR weet niet hoe deze plek is ingedeeld."
+    },
+    "how": {
+      "clear_path": "Uit zijn plek genomen.",
+      "behind_bottle": "Getoond zonder hem eruit te trekken: er ligt een andere fles voor.",
+      "behind_door": "Getoond zonder hem eruit te trekken: de deur ervoor blijft dicht.",
+      "blocked": "Getoond zonder hem eruit te trekken: de plank houdt hem tegen.",
+      "pile": "Uit het beeld van zijn stapel getild. Waar hij in de stapel ligt, wordt niet bijgehouden.",
+      "unknown_arrangement": "Getoond, niet van een plek genomen: CELLR weet niet hoe deze plek is ingedeeld."
+    },
+    "facts": {
+      "kind": "Soort",
+      "origin": "Herkomst",
+      "vintage": "Jaargang",
+      "appellation": "Appellatie",
+      "inCellar": "In je kelder",
+      "inCellarCount": "{count, plural, one {# fles van deze jaargang} other {# flessen van deze jaargang}}"
+    },
+    "subtitle": "{producer} · {year}",
+    "wineDetails": "Wijndetails",
+    "notKnown": "CELLR weet niet hoe deze plek is ingedeeld en toont daarom de posities en hoe vol ze zijn, geen meubel.",
+    "stranded": "{count, plural, one {# fles ligt op een plek die deze opslag niet meer heeft. Hij is niet verplaatst.} other {# flessen liggen op plekken die deze opslag niet meer heeft. Ze zijn niet verplaatst.}}",
+    "strandedList": "Flessen op een plek die deze opslag niet meer heeft",
+    "strandedBottle": "{wine}, plank {row}, positie {col}, plek {index}",
+    "loadFailedTitle": "De nieuwe 3D-weergave kon niet laden",
+    "loadFailedBody": "{reason} Intussen zie je hieronder de klassieke 3D-weergave.",
+    "unitFailedTitle": "Deze plek kon niet worden geladen",
+    "refreshFailed": "Verversen lukte nu niet. Je ziet wat het laatst bekend was.",
+    "empty": "Nog geen flessen op deze plek."
+  },
   "showcase": {
     "label": "{wine} {year}",
     "putBack": "Terugleggen",

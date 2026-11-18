@@ -1,4 +1,5 @@
 import type { StorageKind, WineType } from "./cellar";
+import type { ImageRef } from "./image";
 import type { StorageFallback, ResolvedStorage } from "./storage-compat";
 import type { StorageAppearance, StorageConfig, StorageZone } from "./storage-config";
 import {
@@ -115,6 +116,14 @@ export interface SmartPlacementView {
   wineName: string;
   year: number | null;
   type: WineType;
+  /** Where the wine is from, as the wine's own record says (null: not said). */
+  region: string | null;
+  countryCode: string | null;
+  /**
+   * The bottle's own label photo, when the household took one (served by /api/v1/images/:id to members only).
+   * Null: no photo; the label is then drawn from the names above, never invented.
+   */
+  image: ImageRef | null;
 }
 
 /** A place and every bottle on a spot in it. */

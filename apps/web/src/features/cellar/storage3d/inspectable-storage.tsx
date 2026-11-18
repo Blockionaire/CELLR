@@ -50,6 +50,11 @@ export interface InspectionDetails {
   facts: ReadonlyArray<readonly [name: string, value: string]>;
   /** Where the bottle is kept, in words that claim no more than is known. */
   where: string;
+  /**
+   * What can be done from here, above "put it back": real links and buttons of the screen that mounts the view
+   * (the way to the wine's own page). Nothing is drawn when there is none.
+   */
+  actions?: ReactNode;
 }
 
 /** The words of the panel. English here; a product screen passes its own. */
@@ -400,11 +405,19 @@ function InspectionPanel({
             {d.where}
           </Line>
           <Line className="text-caption text-ink-3">{labels.turn}</Line>
+          {d.actions && (
+            <div className="mt-auto flex flex-col gap-2" data-testid="inspection-actions">
+              {d.actions}
+            </div>
+          )}
           <button
             type="button"
             onClick={onClose}
             data-testid="inspection-back"
-            className="mt-auto inline-flex h-12 items-center justify-center rounded-full bg-raised px-6 text-body font-medium text-ink transition-[transform,background-color] duration-150 ease-cellr hover:brightness-[1.04] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-fg"
+            className={cn(
+              "inline-flex h-12 shrink-0 items-center justify-center rounded-full bg-raised px-6 text-body font-medium text-ink transition-[transform,background-color] duration-150 ease-cellr hover:brightness-[1.04] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-fg",
+              !d.actions && "mt-auto",
+            )}
           >
             {labels.close}
           </button>

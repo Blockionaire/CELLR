@@ -300,6 +300,25 @@ describe("reading: rows of the database", () => {
       year: 2015,
       type: "red",
     });
+    // where the wine is from and the bottle's own label photo travel with it; a photo that cannot be read is none
+    const photographed = {
+      ...base,
+      loc_index: 1,
+      front_image_id: "img-1",
+      wine_vintages: { ...wine, wines: { ...wine.wines, region: "Bordeaux", country_code: "FR" } },
+    };
+    const ref = { id: "img-1", blurColor: "#553322", width: 900, height: 1200, texture: true };
+    expect(toPlacement(photographed, new Map([["img-1", ref]]))).toMatchObject({
+      region: "Bordeaux",
+      countryCode: "FR",
+      image: ref,
+    });
+    expect(toPlacement(photographed, new Map())?.image).toBeNull();
+    expect(toPlacement({ ...base, loc_index: 1 })).toMatchObject({
+      region: null,
+      countryCode: null,
+      image: null,
+    });
     // no place: not a placement (the database keeps location, row and column together)
     expect(
       toPlacement({ ...base, location_id: null, loc_row: null, loc_col: null, loc_index: 1 }),
