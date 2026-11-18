@@ -4,13 +4,13 @@
 
 ## Summary
 
-|                             | Result                                                                                                                                                                            |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| IMPLEMENTED                 | Storage backup / verify / restore / archive tool (`scripts/storage-backup`); database restore helpers and rehearsal (`scripts/db-backup`); CI job; documentation                  |
-| TESTED                      | 73 automated tests (mock Storage API), 10/10 deliberate defects caught by them; 18/18 checks against real Supabase Storage; 6/6 checks of the database dump-and-restore rehearsal |
-| PRODUCTION BACKUP           | **Not performed.** No production file was downloaded. Waits for the owner's GO (`BACKUP-RECOVERY.md` §9)                                                                          |
-| RESTORE VERIFIED            | **Yes on local Supabase stacks with synthetic data** (Storage and database). **Not** against a hosted project; never against production                                           |
-| BLOCKERS for production use | None in the code. Owner actions: a dedicated secret key, an approved destination, the GO list. Windows run not yet done (see "Not validated")                                     |
+|                             | Result                                                                                                                                                                                                      |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IMPLEMENTED                 | Storage backup / verify / restore / archive tool (`scripts/storage-backup`); database restore helpers and rehearsal (`scripts/db-backup`); CI job; documentation                                            |
+| TESTED                      | 75 automated tests (mock Storage API), 10/10 deliberate defects caught by them; 19/19 checks against real Supabase Storage; 7/7 checks of the database dump-and-restore rehearsal (incl. migration history) |
+| PRODUCTION BACKUP           | **Not performed.** No production file was downloaded. Waits for the owner's GO (`BACKUP-RECOVERY.md` §9)                                                                                                    |
+| RESTORE VERIFIED            | **Yes on local Supabase stacks with synthetic data** (Storage and database). **Not** against a hosted project; never against production                                                                     |
+| BLOCKERS for production use | None in the code. Owner actions: a dedicated secret key, an approved destination, the GO list. Windows run not yet done (see "Not validated")                                                               |
 
 ## Environment
 
@@ -49,7 +49,7 @@ These observations shaped the code and the mock; each is a test:
 | `x-upsert: true` on such a row writes the file and it is readable afterwards                                                    | `--fill-missing` works after a database restore                                                      |
 | Duplicate upload: 400 with `"statusCode":"409"`                                                                                 | Never overwritten; compared instead                                                                  |
 
-## Automated tests (`pnpm --filter @cellr/storage-backup test`): 73 passed
+## Automated tests (`pnpm --filter @cellr/storage-backup test`): 75 passed (73 on 2026-11-16, 2 regression tests added 2026-11-18)
 
 Required scenarios (sprint brief §8) and where they are covered:
 
@@ -79,7 +79,7 @@ and the CLI's exit codes with a check that no key appears in any output or writt
 SHA-256 in verify, path collisions, restore overwrite rule, production guard, publishable key, disk re-read). The suite
 failed for each one. Three of them were not caught at first; tests were added until they were.
 
-## Against real Supabase Storage (`pnpm --filter @cellr/storage-backup real-stack`): 18/18
+## Against real Supabase Storage (`pnpm --filter @cellr/storage-backup real-stack`): 19/19 (18 on 2026-11-16)
 
 Two local stacks, synthetic files (22 seeded, plus earlier probe files: 33 and 55 objects in the two runs, up to a
 3.5 MB file), run twice: with an existing target stack, and with the target created by the script (the CI path).
@@ -91,7 +91,7 @@ not overwritten (exit 1) · `--overwrite` · row without a file detected and lef
 writes it, read back · production refused before any key is read (exit 4) · restore into the source refused (exit 4) ·
 encrypted archive decrypts to the full backup.
 
-## Database dump and restore rehearsal (`bash scripts/db-backup/rehearse-restore.sh`): 6/6
+## Database dump and restore rehearsal (`bash scripts/db-backup/rehearse-restore.sh`): 7/7 (6 on 2026-11-16)
 
 Local source stack (all 45 migrations, seed, two synthetic Auth users and households, 55 files) → the official
 three-part `supabase db dump` → a second, **empty** local stack → restore → proof.
@@ -108,6 +108,47 @@ With the fix: logical restore in one transaction without errors · fingerprint *
 privileges, policies and triggers included; the two accepted deviations) · row counts equal in **all 99 tables**
 (cron run history excepted) · Storage files restored on top with `--fill-missing`: 55/55 filled and read back.
 Without `pre-restore.sql` the same comparison failed (380 differing lines), so the check does detect the flaw.
+
+## Follow-up 2026-11-18: CI run 43957996427 and the fix
+
+The first CI run of the new job failed one of the 18 checks: _different content at the target is not overwritten
+(exit 1)_. The check got exit **4**, not 1.
+
+**What did not fail:** the overwrite protection. The conflicting file was never written (the restore only reads an
+object it classifies as a conflict), and the next check (`--overwrite`) passed.
+
+**Cause: a defect in the restore, exposed by timing.** `runRestore` did its work first and created its report folder
+only at the end, named `<backup>--<target>--<UTC time to the second>`, with an exclusive `mkdir`. On GitHub's runner
+a restore of 22 objects takes ~0.6 s, so the "second restore" check and the conflict restore finished in the same
+second (log: 21:16:19.2 and 21:16:19.8). The second `mkdir` hit the first run's folder, `createNewDir` refused it
+with a `SafetyError`, and the CLI exited 4 **after** the restore had run, without its report. Locally one restore of
+56–100 objects takes ~2 s, so the names never met; that is why the local runs passed.
+
+Not a race between processes, not a wrong expectation: exit 1 is right. Two weaknesses of the test made it harder to
+read: it took "the newest" report by sorting names, and it printed no detail on failure.
+
+**Reproduced** with a fixed clock against the mock (the second restore threw _already exists_), and against real
+local Storage by taking the report names of the next seconds (exit 4, file kept, no report).
+
+**Fix (`360af2b`):**
+
+- the report folder is created right after the safety checks, **before** the target is read or written; a folder that
+  cannot be created stops the run with zero writes (before the fix: 7 writes, then the failure);
+- `createUniqueDir`: `<name>`, then `<name>-2`, `-3`, ... with exclusive `mkdir`: every run has its own folder, no
+  earlier folder is reused or written into;
+- two regression tests (same-second restores keep their own reports and verdicts; an uncreatable report folder means
+  no writes). Both fail on the old code and pass on the new; the second was also run as a non-root user, as in CI;
+- the round trip reads the report of **its own** run (the path on the `RESULT` line), looks objects up by bucket
+  **and** key (the same key exists in several buckets), asserts exit 1 + kept content + `skipped-conflict`, asserts
+  the backed-up content after `--overwrite`, has a new check with the report name already taken, and prints the exit
+  code and the `RESULT`/`ERROR` lines on failure;
+- the second local stacks move to ports below Linux's ephemeral range (26xxx), as `main` did for its test clusters
+  (`CI_EXCEPTIONS_0042.md`).
+
+**Also on 2026-11-18,** after the release of 0037–0042 (production now has a migration history: 42 versions,
+read-only check), the database rehearsal dumps and restores `supabase_migrations` too and checks that the restored
+history equals the source (45 versions locally). `docs/sprints/sommelier-v1/RELEASE.md` §0a/§5 now point at the
+proven restore instead of the plain three-file `psql` restore.
 
 ## Not validated (and why)
 

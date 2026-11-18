@@ -36,10 +36,14 @@ dump="$work/dump"; mkdir -p "$dump"
 "$SUPABASE" db dump --db-url "$SRC_DB" -f "$dump/roles.sql" --role-only >/dev/null 2>&1
 "$SUPABASE" db dump --db-url "$SRC_DB" -f "$dump/schema.sql" >/dev/null 2>&1
 "$SUPABASE" db dump --db-url "$SRC_DB" -f "$dump/data.sql" --use-copy --data-only -x "storage.buckets_vectors" -x "storage.vector_indexes" >/dev/null 2>&1
+# The migration history (production has one since the 0037-0042 release): without it, a restored project would make
+# `db push` try every migration again. Official "Preserving migration history" commands.
+"$SUPABASE" db dump --db-url "$SRC_DB" -f "$dump/history_schema.sql" --schema supabase_migrations >/dev/null 2>&1
+"$SUPABASE" db dump --db-url "$SRC_DB" -f "$dump/history_data.sql" --use-copy --data-only --schema supabase_migrations >/dev/null 2>&1
 PGOPTIONS="-c default_transaction_read_only=on" psql "$SRC_DB" -X -A -t -v ON_ERROR_STOP=1 \
   -f "$ROOT/scripts/db-backup/export-platform-objects.sql" > "$dump/platform-objects.sql"
-check "$([ -s "$dump/data.sql" ] && [ -s "$dump/schema.sql" ] && [ -s "$dump/platform-objects.sql" ] && echo 0 || echo 1)" \
-  "dump written: roles, schema, data, platform objects ($(wc -l < "$dump/platform-objects.sql") statements)"
+check "$([ -s "$dump/data.sql" ] && [ -s "$dump/schema.sql" ] && [ -s "$dump/platform-objects.sql" ] && [ -s "$dump/history_data.sql" ] && echo 0 || echo 1)" \
+  "dump written: roles, schema, data, platform objects ($(wc -l < "$dump/platform-objects.sql") statements), migration history"
 
 # ---- 3. An empty second stack, restored as §6.6 says ---------------------------------------------------------------
 mkdir -p "$target_dir"
@@ -54,6 +58,7 @@ psql --single-transaction --variable ON_ERROR_STOP=1 \
   --file "$dump/roles.sql" --file "$dump/schema.sql" \
   --command 'SET session_replication_role = replica' --file "$dump/data.sql" \
   --command 'SET session_replication_role = origin' --file "$dump/platform-objects.sql" \
+  --file "$dump/history_schema.sql" --file "$dump/history_data.sql" \
   --dbname "$DST_DB" > "$work/restore.log" 2>&1
 check $? "logical restore into the empty stack (one transaction, stop on the first error)"
 
@@ -74,6 +79,12 @@ psql "$SRC_DB" -X -A -t -c "$COUNTS" > "$work/counts-SRC"
 psql "$DST_DB" -X -A -t -c "$COUNTS" > "$work/counts-DST"
 diff "$work/counts-SRC" "$work/counts-DST" > "$work/counts.diff"
 check $? "row counts equal in all $(wc -l < "$work/counts-SRC") tables (cron run history excepted)"
+
+HISTORY="select coalesce(string_agg(version, ',' order by version), '') from supabase_migrations.schema_migrations"
+src_history="$(psql "$SRC_DB" -X -A -t -c "$HISTORY")"
+dst_history="$(psql "$DST_DB" -X -A -t -c "$HISTORY")"
+check "$([ -n "$src_history" ] && [ "$src_history" = "$dst_history" ] && echo 0 || echo 1)" \
+  "migration history restored: $(echo "$dst_history" | tr ',' '\n' | grep -c .) versions, identical to the source"
 
 # ---- 5. Files on top: the rows came back with the database, the bytes come from the Storage backup -----------------
 set +e

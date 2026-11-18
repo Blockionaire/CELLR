@@ -8,7 +8,7 @@ point here for backups.
 >
 > |                           |                                                                                                                                                                                                                                  |
 > | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-> | Storage backup tool       | **Implemented and tested** (`scripts/storage-backup`, 73 automated tests, 18-check round trip against real Supabase Storage)                                                                                                     |
+> | Storage backup tool       | **Implemented and tested** (`scripts/storage-backup`, 75 automated tests, 19-check round trip against real Supabase Storage)                                                                                                     |
 > | Production Storage backup | **NOT performed.** Waits for the owner's GO (§9)                                                                                                                                                                                 |
 > | Restore verified          | **Yes, on two local Supabase stacks with synthetic files.** Not yet against a hosted test project, never against production                                                                                                      |
 > | Database                  | Supabase Pro daily physical backups (dashboard). Logical dump + restore: procedure **proven on local stacks** (§6.6, it found and fixed a privilege-widening flaw in the official procedure); **not yet run** against production |
@@ -274,7 +274,10 @@ The restore first re-verifies the whole backup (it refuses a damaged one), creat
 settings (public flag, size limit, MIME types), uploads each object with its content type and cache control using
 `x-upsert: false`, and then **reads every object back** and compares its SHA-256 with the manifest, and checks that the
 target's metadata row (size, type, MD5 ETag) describes the restored file. Rows at the target that the backup cannot
-explain (a row without a file) are reported. A report goes to `<backup root>/restore-reports/` (outside the backup).
+explain (a row without a file) are reported. Every run gets its **own** report folder in
+`<backup root>/restore-reports/` (outside the backup), created before anything is read from or written to the target;
+a second run in the same second gets `-2` added, never an earlier run's folder. A run that cannot create its report
+folder stops before writing anything. The `RESULT` line names the folder.
 
 Existing objects at the target:
 
@@ -322,12 +325,12 @@ Write the time of the newest backup in the run log (§9): it is the database hal
 
 ### 6.3 What a database backup includes and excludes
 
-| Included                                                                                                                                                                                                  | Not included                                                                                                                                                |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Every schema: `public`, `private`, `auth` (users, identities, hashed passwords, MFA factors), `storage` (buckets and object **rows**), `cron` (the `catalog-scan-reads-purge` job), `extensions`, `vault` | Storage **files**                                                                                                                                           |
-| Roles and grants, RLS policies, functions, triggers (also on `auth.users`), the `ensure_rls` platform event trigger                                                                                       | Custom role passwords                                                                                                                                       |
-|                                                                                                                                                                                                           | Project settings: API keys, JWT secret / signing keys, Auth providers and redirect URLs, SMTP, custom domain, network restrictions                          |
-|                                                                                                                                                                                                           | Edge Functions, Vercel deployments and environment variables (`OPENAI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CELLR_ADMIN_USER_IDS`, `CELLR_FEATURES`, ...) |
+| Included                                                                                                                                                                                                                                                 | Not included                                                                                                                                                |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every schema: `public`, `private`, `auth` (users, identities, hashed passwords, MFA factors), `storage` (buckets and object **rows**), `cron` (the `catalog-scan-reads-purge` job), `supabase_migrations` (the migration history), `extensions`, `vault` | Storage **files**                                                                                                                                           |
+| Roles and grants, RLS policies, functions, triggers (also on `auth.users`), the `ensure_rls` platform event trigger                                                                                                                                      | Custom role passwords                                                                                                                                       |
+|                                                                                                                                                                                                                                                          | Project settings: API keys, JWT secret / signing keys, Auth providers and redirect URLs, SMTP, custom domain, network restrictions                          |
+|                                                                                                                                                                                                                                                          | Edge Functions, Vercel deployments and environment variables (`OPENAI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CELLR_ADMIN_USER_IDS`, `CELLR_FEATURES`, ...) |
 
 ### 6.4 Optional: a supplementary logical dump
 
@@ -368,30 +371,42 @@ a read-only session) and save its `statement` column as `platform-objects.sql`:
 psql "$CELLR_DB_URL" -X -q -A -t -v ON_ERROR_STOP=1 -c "set default_transaction_read_only = on" -f scripts/db-backup/export-platform-objects.sql > platform-objects.sql
 ```
 
+And the **migration history**. Production has one since the release of 0037–0042 (42 versions, 0001–0042, read on
+2026-11-18). Without it a restored project looks as if no migration ever ran, and the next `db push` would try all of
+them again (`MIGRATIONS.md` §1–§2). The official "Preserving migration history" commands:
+
+```bash
+pnpm exec supabase db dump --db-url "$CELLR_DB_URL" -f history_schema.sql --schema supabase_migrations
+```
+
+```bash
+pnpm exec supabase db dump --db-url "$CELLR_DB_URL" -f history_data.sql --use-copy --data-only --schema supabase_migrations
+```
+
 Then, in the dated folder, `sha256sum *.sql > SHA256SUMS` (PowerShell: `Get-FileHash *.sql`), and encrypt the folder
-with `tar` + `age` as in §4.5. **All four files together** are the backup:
+with `tar` + `age` as in §4.5. **All six files together** are the backup:
 
 - `schema.sql` alone is **not a backup**: it has no rows. A schema-only dump (as in `MIGRATIONS.md` §4 step 1) is a
   reference for comparing structure, nothing more.
 - `data.sql` alone cannot be restored without the schema and roles.
 - Without `platform-objects.sql` a restored project has **no photo access** (no storage policies) and new sign-ups
   get **no profile**, and the purge job is gone.
-- Production has **no migration history** (`supabase_migrations.schema_migrations` does not exist, `MIGRATIONS.md`
-  §3), so there is nothing to dump there. Do not create one as part of a backup.
+- Without the two history files the restored project's `migration list` is empty while its schema is at 0042: a
+  `db push` would then try 0001 again. With them, `migration list` shows exactly what production had.
 
 ### 6.5 Parts that need special attention when restoring a database
 
-| Part                                    | Why                                                                                                                              | What to do                                                                                                                       |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Auth                                    | Users and hashed passwords are in `auth` and come back; sessions do not survive a move to a **new** project (different JWT keys) | People sign in again. Re-enter Auth settings (redirect URLs, SMTP, providers) in the new project                                 |
-| Roles                                   | `roles.sql` holds custom roles; platform roles exist already                                                                     | Errors on `supabase_admin` ownership or `cli_login_postgres` grants: follow the troubleshooting notes on the Supabase page above |
-| `private` schema                        | Holds the sign-up allowlist and settings; not exposed through the API                                                            | Included in `schema.sql`/`data.sql`; verify with the fingerprint (`scripts/migration-audit`)                                     |
-| Storage metadata                        | Rows come back with the database, files do not                                                                                   | Restore the files afterwards (§7, `--fill-missing`)                                                                              |
-| Migration history                       | Production has none                                                                                                              | After a restore into a new project, follow `MIGRATIONS.md` §5; never `db push` to catch up                                       |
-| `pg_cron` job                           | `catalog-scan-reads-purge`; **not** in the CLI dump                                                                              | Re-created by `platform-objects.sql`; check `select jobname from cron.job`                                                       |
-| Storage policies, `auth.users` triggers | **Not** in the CLI dump (Supabase-managed schemas)                                                                               | `platform-objects.sql` (§6.4), run last                                                                                          |
-| Privileges                              | A new project's default privileges would widen them                                                                              | `pre-restore.sql` first, then the fingerprint comparison (§6.6)                                                                  |
-| Triggers during load                    | `data.sql` must load without firing triggers                                                                                     | The official restore sets `session_replication_role = replica` (below)                                                           |
+| Part                                    | Why                                                                                                                              | What to do                                                                                                                           |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Auth                                    | Users and hashed passwords are in `auth` and come back; sessions do not survive a move to a **new** project (different JWT keys) | People sign in again. Re-enter Auth settings (redirect URLs, SMTP, providers) in the new project                                     |
+| Roles                                   | `roles.sql` holds custom roles; platform roles exist already                                                                     | Errors on `supabase_admin` ownership or `cli_login_postgres` grants: follow the troubleshooting notes on the Supabase page above     |
+| `private` schema                        | Holds the sign-up allowlist and settings; not exposed through the API                                                            | Included in `schema.sql`/`data.sql`; verify with the fingerprint (`scripts/migration-audit`)                                         |
+| Storage metadata                        | Rows come back with the database, files do not                                                                                   | Restore the files afterwards (§7, `--fill-missing`)                                                                                  |
+| Migration history                       | In `supabase_migrations`, **not** in the three-file dump; production has 42 versions since the 0037–0042 release                 | `history_schema.sql` + `history_data.sql` (§6.4), run last; then `migration list` must equal the source. Never `db push` to catch up |
+| `pg_cron` job                           | `catalog-scan-reads-purge`; **not** in the CLI dump                                                                              | Re-created by `platform-objects.sql`; check `select jobname from cron.job`                                                           |
+| Storage policies, `auth.users` triggers | **Not** in the CLI dump (Supabase-managed schemas)                                                                               | `platform-objects.sql` (§6.4), run last                                                                                              |
+| Privileges                              | A new project's default privileges would widen them                                                                              | `pre-restore.sql` first, then the fingerprint comparison (§6.6)                                                                      |
+| Triggers during load                    | `data.sql` must load without firing triggers                                                                                     | The official restore sets `session_replication_role = replica` (below)                                                               |
 
 ### 6.6 Restoring a logical dump, and testing that it restores
 
@@ -407,10 +422,11 @@ at the **end** of `schema.sql`, after the objects were already created with the 
 The restore that is proven equivalent, into an **empty** project or local stack only:
 
 ```bash
-psql --single-transaction --variable ON_ERROR_STOP=1 --file scripts/db-backup/pre-restore.sql --file roles.sql --file schema.sql --command 'SET session_replication_role = replica' --file data.sql --command 'SET session_replication_role = origin' --file platform-objects.sql --dbname "$TARGET_DB_URL"
+psql --single-transaction --variable ON_ERROR_STOP=1 --file scripts/db-backup/pre-restore.sql --file roles.sql --file schema.sql --command 'SET session_replication_role = replica' --file data.sql --command 'SET session_replication_role = origin' --file platform-objects.sql --file history_schema.sql --file history_data.sql --dbname "$TARGET_DB_URL"
 ```
 
-`pre-restore.sql` is migration 0001's four default-privilege statements, run first. Afterwards **always** prove the
+`pre-restore.sql` is migration 0001's four default-privilege statements, run first. The history files are run last;
+they create `supabase_migrations` only if it does not exist (an empty project has none). Afterwards **always** prove the
 result before using it: fingerprint the source and the restore (`scripts/migration-audit/fingerprint.sql`, read-only on
 both) and compare them:
 
@@ -420,7 +436,8 @@ bash scripts/migration-audit/compare.sh --reference source-fingerprint.txt --tar
 
 It must print `RESULT: equivalent`. The two accepted deviations are cosmetic and explained in `restore-accepted.txt`
 (Postgres re-parses one CHECK with flattened parentheses; the CLI strips three comment lines from one function body).
-Also compare row counts per table (counts only), and check the cron job exists (`select jobname from cron.job`).
+Also compare row counts per table (counts only), check the cron job exists (`select jobname from cron.job`), and
+that `select version from supabase_migrations.schema_migrations order by 1` is the same list as the source.
 
 **Rehearsal, local and free** (Docker; synthetic data; never production):
 
@@ -428,10 +445,11 @@ Also compare row counts per table (counts only), and check the cron job exists (
 bash scripts/db-backup/rehearse-restore.sh
 ```
 
-It backs up the repository's local stack (Storage tool + the four-file dump), starts a second, empty local stack,
-restores into it as above, compares the fingerprints and the row count of every table, then restores the Storage files
-on top with `--fill-missing` and reads them back. On 2026-11-16: all checks passed (466 object groups equivalent, 99
-tables with equal counts, 55 files filled and verified). CI runs it on every pull request (§8).
+It backs up the repository's local stack (Storage tool + the six-file dump), starts a second, empty local stack,
+restores into it as above, compares the fingerprints, the row count of every table and the migration history, then
+restores the Storage files on top with `--fill-missing` and reads them back. On 2026-11-18: 7/7 checks passed (466
+object groups equivalent, 99 tables with equal counts, 45 history versions identical, every file filled and verified).
+CI runs it on every pull request (§8).
 
 A rehearsal **with a copy of production data** (to measure duration and catch data-specific issues) needs the
 production dump on the owner's machine and an empty target there; same commands, the target a local stack, then
@@ -475,11 +493,11 @@ dry run, no overwrite, and review. Until then the safe route is §7 into a new p
 
 ## 8. Tests
 
-| What                                                                                                                                                                                                                   | Command                                          | Where it runs                                     |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------- |
-| 73 unit and integration tests against an in-process mock of the Storage API                                                                                                                                            | `pnpm --filter @cellr/storage-backup test`       | `pnpm test`, CI on every pull request             |
-| Storage round trip against two real local Supabase stacks: backup → verify (+ database count, live drift) → restore → independent read-back → conflict → row without a file → refusals → encrypted archive (18 checks) | `pnpm --filter @cellr/storage-backup real-stack` | CI job _Backup & recovery_, on every pull request |
-| Database logical dump → restore into an empty stack → fingerprint and row-count equivalence → Storage files on top (6 checks)                                                                                          | `bash scripts/db-backup/rehearse-restore.sh`     | Same CI job                                       |
+| What                                                                                                                                                                                                                                                                                                                   | Command                                          | Where it runs                                     |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------- |
+| 75 unit and integration tests against an in-process mock of the Storage API                                                                                                                                                                                                                                            | `pnpm --filter @cellr/storage-backup test`       | `pnpm test`, CI on every pull request             |
+| Storage round trip against two real local Supabase stacks: backup → verify (+ database count, live drift) → restore → independent read-back → conflict (exit 1, content kept) → conflict with the report name taken → `--overwrite` (content replaced) → row without a file → refusals → encrypted archive (19 checks) | `pnpm --filter @cellr/storage-backup real-stack` | CI job _Backup & recovery_, on every pull request |
+| Database logical dump → restore into an empty stack → fingerprint, row-count and migration-history equivalence → Storage files on top (7 checks)                                                                                                                                                                       | `bash scripts/db-backup/rehearse-restore.sh`     | Same CI job                                       |
 
 All with synthetic data only. The mock's behaviour (errors as HTTP 400 with the status in the body, `id: null`
 folders, MD5 ETags, `x-upsert`, the 500 for a row without a file) was taken from the real Storage server, not from
