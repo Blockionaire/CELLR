@@ -16,7 +16,7 @@ cleanup() { stop_temp_cluster; rm -f "$OUT"; }
 trap cleanup EXIT
 
 if [ "$MODE" = temp ]; then
-  start_temp_cluster 54999
+  start_temp_cluster 25499
   MODE=shim
 else
   : "${DATABASE_URL:?DATABASE_URL is required for DB_TEST_MODE=$MODE}"

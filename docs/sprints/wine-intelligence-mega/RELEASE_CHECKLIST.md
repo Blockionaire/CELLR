@@ -1,6 +1,19 @@
 # WI-001 — Release checklist (owner only)
 
-**State: `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED` — the migrations of this epic are BLOCKED until Part A is done.**
+> **State 2026-11-17: Part A is DONE. Part B is REPLACED by
+> [`RELEASE_RUNBOOK_0042.md`](RELEASE_RUNBOOK_0042.md). Part C is unchanged.** Checked read-only on 2026-11-17:
+>
+> - **History (A5):** production's history holds exactly 0001–0036. 0037 was not run, so A4 held.
+> - **Schema:** the repository at 0036 plus the accepted deviations.
+> - **Plan and backups:** Supabase organisation on **Pro**, with daily physical backups (A1: confirm a completed backup
+>   from the last 24 hours).
+>
+> **Do not run Part B as written.** `main` now also holds 0043–0045 (Smart Cellar 3D) and **0046** (Sommelier V1,
+> merged with PR #75). From `main`, B2/B3 would apply 0037–**0046**. This epic's migrations go out on their own from a
+> checkout of `248206a` (exactly 0001–0042), with `--skip-vault`, by the runbook. Its post-checks cover B4–B7. The CI
+> state that release relies on is in [`CI_EXCEPTIONS_0042.md`](CI_EXCEPTIONS_0042.md).
+>
+> _Before 2026-11-17 the state was `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED`; the text below is kept as written then._
 
 **Merging is deploying.** Vercel builds production from `main` (`docs/BETA-OPERATIONS.md` §5), so the merge in B1
 puts this epic's app code on production before its migrations. That is the order this checklist assumes, and

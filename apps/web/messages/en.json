@@ -272,6 +272,13 @@
     "you": "You",
     "sommelier": "Sommelier",
     "newChat": "New conversation",
+    "newChatFailed": "A new conversation could not be started. Try again.",
+    "feedback": {
+      "label": "Was this answer useful?",
+      "positive": "Useful",
+      "negative": "Not useful",
+      "failed": "Your rating could not be saved. Try again."
+    },
     "tryThese": "Try asking",
     "moreIdeas": "More ideas ({count})",
     "moreIdeasTitle": "More ideas",

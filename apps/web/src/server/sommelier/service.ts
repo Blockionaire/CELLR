@@ -154,7 +154,14 @@ export function createSommelierService(deps: SommelierDeps) {
   }
 
   return {
-    async ask(request: AskSommelier): Promise<SommelierAnswer> {
+    /**
+     * `observe.model` hears which model wrote the answer, for an answer that is the AI's (never for a plain one):
+     * the kept conversation notes it with the answer. It changes nothing about how the question is answered.
+     */
+    async ask(
+      request: AskSommelier,
+      observe?: { model?: (id: string) => void },
+    ): Promise<SommelierAnswer> {
       const question = request.messages.at(-1)!.text;
       const { items } = await deps.cellar();
       const tonight = request.mode === "tonight";
@@ -253,6 +260,7 @@ export function createSommelierService(deps: SommelierDeps) {
 
       const checked = checkSommelierAnswer(result.value, digest);
       if (!checked) return fallback();
+      observe?.model?.(result.usage.servedModel ?? result.usage.model);
       // For a question about the cellar the wines it named get their cards (and links) whatever the model pointed
       // at, as long as there are few enough to be the answer; more means the model asks which one is meant.
       const named =

@@ -48,6 +48,10 @@ just before "Add" was dropped), all fixed (`progress/WI-08-hardening.md` §8).
 | `20261118000041_wi06_admin_sources.sql`                 | four admin functions (service role)                                                                                            |
 | `20261119000042_hardening_search_scope_link_review.sql` | search leaves hidden sources out before taking candidates; an approved link is reviewed again when its record changes identity |
 
+> _Update 2026-11-17: the history now holds 0001–0036 (verified read-only), so the block below is lifted. The
+> migrations of this epic go out on their own by [`RELEASE_RUNBOOK_0042.md`](RELEASE_RUNBOOK_0042.md), because `main`
+> also holds 0043–0046 now._
+
 `pnpm migrations:check`: no file on `main` was changed. **Deployment is blocked** by
 `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED`: production has no migration history, and `20261114000037` (merged before
 this epic) is, according to the 004A report, not applied there either. The owner-only procedure is

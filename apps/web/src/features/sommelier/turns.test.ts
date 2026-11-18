@@ -1,0 +1,77 @@
+import { describe, expect, it } from "vitest";
+import type { SommelierAnswer } from "@cellr/domain";
+import { chatExpired, chatStateFrom, newQuestionId, ratingIn, spoken, withRating } from "./turns";
+
+const answer = (text: string | null): SommelierAnswer => ({
+  source: text === null ? "basic" : "ai",
+  text,
+  basic: text === null ? "soon" : null,
+  bottles: [],
+  reason: null,
+});
+
+describe("the kept chat on screen", () => {
+  const state = chatStateFrom({
+    conversation: {
+      id: "c1",
+      lastActivityAt: "2026-11-10T12:00:00.000Z",
+      messages: [
+        { id: "q1", role: "user", text: "What now?" },
+        { id: "a1", role: "assistant", answer: answer("Open the Barolo."), rating: "positive" },
+        { id: "q2", role: "user", text: "And then?" },
+        { id: "a2", role: "assistant", answer: answer(null), rating: null },
+      ],
+    },
+  });
+
+  it("comes back as the same turns, with their ids and ratings", () => {
+    expect(state.turns.map((t) => [t.role, "id" in t ? t.id : null])).toEqual([
+      ["user", "q1"],
+      ["sommelier", "a1"],
+      ["user", "q2"],
+      ["sommelier", "a2"],
+    ]);
+    expect(ratingIn(state, "a1")).toBe("positive");
+    expect(ratingIn(state, "a2")).toBeNull();
+    expect(chatStateFrom({ conversation: null })).toEqual({ turns: [], lastAskedAt: null });
+  });
+
+  it("is let go 7 days after its last question, also when the screen stayed open that long", () => {
+    const asked = Date.parse("2026-11-10T12:00:00.000Z");
+    expect(state.lastAskedAt).toBe(asked);
+    const day = 86_400_000;
+    expect(chatExpired(state, asked + 7 * day - 1)).toBe(false);
+    expect(chatExpired(state, asked + 7 * day + 1)).toBe(true);
+    // nothing kept (or not yet): nothing to let go
+    expect(chatExpired({ turns: [], lastAskedAt: null }, asked + 30 * day)).toBe(false);
+    expect(chatExpired(undefined, asked)).toBe(false);
+    // a rating keeps when the last question was asked
+    expect(withRating(state, "a1", null).lastAskedAt).toBe(asked);
+  });
+
+  it("is what the model hears next: the words, a plain answer in its own sentence", () => {
+    expect(state.turns.map((t) => spoken(t, () => "These are ready."))).toEqual([
+      { role: "user", text: "What now?" },
+      { role: "assistant", text: "Open the Barolo." },
+      { role: "user", text: "And then?" },
+      { role: "assistant", text: "These are ready." },
+    ]);
+    expect(spoken({ role: "error", message: "x", retry: "y" }, () => "")).toBeNull();
+  });
+
+  it("a rating changes one answer only, and can be taken back", () => {
+    const changed = withRating(state, "a2", "negative");
+    expect(ratingIn(changed, "a2")).toBe("negative");
+    expect(ratingIn(changed, "a1")).toBe("positive");
+    expect(ratingIn(withRating(changed, "a1", null), "a1")).toBeNull();
+    // the questions are untouched
+    expect(changed.turns[0]).toBe(state.turns[0]);
+  });
+
+  it("gives every question a fresh uuid", () => {
+    const ids = new Set(Array.from({ length: 50 }, newQuestionId));
+    expect(ids.size).toBe(50);
+    for (const id of ids)
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
+});

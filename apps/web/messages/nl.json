@@ -272,6 +272,13 @@
     "you": "Jij",
     "sommelier": "Sommelier",
     "newChat": "Nieuw gesprek",
+    "newChatFailed": "Een nieuw gesprek starten lukte niet. Probeer het opnieuw.",
+    "feedback": {
+      "label": "Was dit antwoord nuttig?",
+      "positive": "Nuttig",
+      "negative": "Niet nuttig",
+      "failed": "Je beoordeling kon niet worden bewaard. Probeer het opnieuw."
+    },
     "tryThese": "Probeer eens",
     "moreIdeas": "Meer ideeën ({count})",
     "moreIdeasTitle": "Meer ideeën",

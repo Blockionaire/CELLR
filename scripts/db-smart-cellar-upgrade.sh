@@ -28,7 +28,7 @@ su() { psql "$PGURL" -X -qtA -v ON_ERROR_STOP=1 -c "$1"; }
 apply() { "${PSQL[@]}" -X -q -v ON_ERROR_STOP=1 -f "$1" >/dev/null 2>"$WORK/apply.err"; }
 as1() { psql "$PGURL" -X -qtA -c "begin; select test.as_user(1); $1; commit;" 2>&1 | grep -v '^$' || true; }
 
-start_temp_cluster 54992
+start_temp_cluster 25492
 apply "$ROOT/supabase/tests/shim.sql"
 for f in "$ROOT"/supabase/migrations/*.sql; do
   [ "$(basename "$f" | cut -c1-14)" -lt 20261120000043 ] || continue
