@@ -1,0 +1,5 @@
+# Fingerprint differences between a database and its logical-dump restore that are understood and harmless.
+# Format as in scripts/migration-audit/production-accepted.txt: <kind>|<group>|<restored hash>|<reason>.
+# Used by rehearse-restore.sh. A listed hash that changes fails again, so a new difference is never hidden.
+constraint|public.cellar_location_zones|7b6a2421ad7f|Postgres re-parses the dumped CHECK and flattens "(a AND b) AND c" to "a AND b AND c": same rule
+function|public.admin_wine_master_search|66473ba0455a|the Supabase CLI strips lines starting with "--" from the dump, also the three comment lines at the top of this body: same code

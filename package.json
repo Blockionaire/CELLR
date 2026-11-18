@@ -30,7 +30,8 @@
     "db:test:placement": "bash scripts/db-placement-concurrency.sh",
     "db:test:upgrade": "bash scripts/db-smart-cellar-upgrade.sh",
     "migrations:check": "bash scripts/check-migration-immutability.sh origin/main",
-    "migrations:check:test": "bash scripts/check-migration-immutability.test.sh"
+    "migrations:check:test": "bash scripts/check-migration-immutability.test.sh",
+    "storage-backup": "pnpm --filter @cellr/storage-backup run --silent cli"
   },
   "devDependencies": {
     "pg": "8.23.1",

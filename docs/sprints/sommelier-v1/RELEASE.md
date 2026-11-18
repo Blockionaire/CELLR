@@ -145,6 +145,10 @@ pnpm exec supabase db dump --db-url "$DATABASE_URL" -f data.sql --use-copy --dat
 Check that `data.sql` contains `COPY public.wines` and `COPY auth.users`, and that its size is plausible (a few MB at
 most). Storage files (label photos, avatars) are not in a database dump. This release does not touch them.
 
+These three files alone cannot be restored into a new project safely: CELLR's storage policies, `auth.users` triggers,
+cron job and migration history are not in them. For a dump that can be restored, also take
+`platform-objects.sql` and the two history files as in `docs/BACKUP-RECOVERY.md` §6.4.
+
 **0b. The files that will run are the tested ones.** `db push` runs what is on disk:
 
 ```bash
@@ -264,8 +268,10 @@ It must print nothing.
 **Restoring data** (only if a migration damaged existing rows, which none of 0037–0046 is written to do): with the
 dump from step 0a, either load the affected tables' `COPY` blocks from `data.sql` back into production (with
 `SET session_replication_role = replica`), or restore everything into a new project
-(`psql --single-transaction -f roles.sql -f schema.sql -c 'SET session_replication_role = replica' -f data.sql`) and
-point Vercel at it. Both are owner actions with downtime. Decide per incident.
+**exactly as `docs/BACKUP-RECOVERY.md` §6.6** (`pre-restore.sql` first, platform objects and migration history last,
+then the fingerprint comparison) and point Vercel at it. Not the plain three-file `psql` restore: in the rehearsal of
+2026-11-16 it gave `anon` and `authenticated` rights on admin functions and tables that production does not grant, and
+it left out the storage policies, the `auth.users` triggers and the cron job. Both are owner actions with downtime. Decide per incident.
 
 1. **After step 2 or 3, before step 4:** only the history changed. Revert exactly what step 2 recorded (the same
    36 versions, `--status reverted`) and the database is as it was. Rehearsed on 2026-11-02 for this exact list.
