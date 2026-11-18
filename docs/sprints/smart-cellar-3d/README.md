@@ -201,5 +201,7 @@ Nothing under `supabase/migrations` or `supabase/gated-migrations` changed. No p
 16. The Smart Cellar API never writes on production by configuration alone (`lib/smart-cellar-gate.ts`): opening
     it is a reviewed code change after an owner decision. Every write of a layout is one `save_storage_layout` call;
     no route writes zone rows directly. Reading goes through `resolveStorage` and never writes back.
-17. No migration is run against production from here. `docs/MIGRATIONS.md` describes 36 migrations and `main` has
-    more: see the 1B report, §8, before anything is pushed.
+17. No migration is run against production from here. Since 2026-11-18 production holds 0043–0045 (all 46
+    migrations, `docs/MIGRATIONS.md`). Depth placement is off there (`depth_placement = false` in
+    `private.cellar_settings`), and `bottles_slot_unique` is kept. Switching depth on is a new migration; the index
+    drop is the gated file (`supabase/gated-migrations/`). Each needs its own owner decision.

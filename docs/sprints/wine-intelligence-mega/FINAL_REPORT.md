@@ -51,6 +51,10 @@ just before "Add" was dropped), all fixed (`progress/WI-08-hardening.md` §8).
 > _Update 2026-11-17: the history now holds 0001–0036 (verified read-only), so the block below is lifted. The
 > migrations of this epic go out on their own by [`RELEASE_RUNBOOK_0042.md`](RELEASE_RUNBOOK_0042.md), because `main`
 > also holds 0043–0046 now._
+>
+> _Update 2026-11-18: released. 0037–0042 went out alone by that runbook, 0043–0046 after it; production holds
+> 0001–0046 and equals the repository (`docs/MIGRATIONS.md`). The releases switched no feature on; that is
+> `RELEASE_CHECKLIST.md` Part C._
 
 `pnpm migrations:check`: no file on `main` was changed. **Deployment is blocked** by
 `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED`: production has no migration history, and `20261114000037` (merged before
@@ -211,7 +215,7 @@ existing tasks when it cannot be checked (verified in code, unchanged).
 | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Recognition of **real** label photographs                 | `REAL_LABEL_VALIDATION_PENDING`: 0 consented photos exist                                                                                                       |
 | A physical iPhone, a mobile network, VoiceOver, a tablet  | not run (`UX_ACCEPTANCE.md` §4)                                                                                                                                 |
-| Production migration history                              | `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED`: owner only                                                                                                           |
+| Production migration history                              | ~~`PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED`~~ closed: history since 2026-11-17, production at 0046 since 2026-11-18 (`docs/MIGRATIONS.md`)                      |
 | Any real external source shown to people                  | none; credits were exercised with CELLR's own test sources                                                                                                      |
 | Real LWIN layout                                          | unknown; the adapter is marked unverified and refuses any other file                                                                                            |
 | Optional AI explanation of a verdict                      | not built (ADR-003, decision 10)                                                                                                                                |

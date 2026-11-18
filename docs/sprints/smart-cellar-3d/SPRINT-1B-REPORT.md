@@ -227,6 +227,10 @@ All on throwaway databases.
 
 ## 8. Production: what is not known, and what must not be assumed
 
+> _2026-11-18: settled. The history was bootstrapped on 2026-11-17 and production now holds 0001–0046, verified
+> read-only (`docs/MIGRATIONS.md`). Depth placement is off and the gated file has not run. This section is kept as it
+> was written._
+
 **`docs/MIGRATIONS.md` describes 36 migrations. `main` had 42 before this sprint and has 46 with it.**
 
 - `MIGRATIONS.md` §3 and §4 (verified read-only on 2026-11-02) say production was built by pasting migrations

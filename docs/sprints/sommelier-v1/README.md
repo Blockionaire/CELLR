@@ -13,9 +13,12 @@ pairing chat (`/tonight`, the same component in `mode="tonight"`) is deliberatel
 thumbs.
 
 **Release order: migration `20261123000046_sommelier_conversations.sql` first, then the app** (see
-[`MIGRATIONS.md`](../../MIGRATIONS.md); its STOP notice applies). Until the migration has run, the app keeps working
-as before: the chat lives in memory (now also across screens), nothing is kept on the server, and no thumbs are
-shown.
+[`MIGRATIONS.md`](../../MIGRATIONS.md)). Until the migration has run, the app keeps working as before: the chat lives
+in memory (now also across screens), nothing is kept on the server, and no thumbs are shown.
+
+> **2026-11-18: released.** The app was merged first (PR #75, 2026-11-17); 0046 is applied in production since
+> 2026-11-18, with 0043–0045 (`RELEASE.md`, closing notice). The purge job is active and its first run succeeded. The
+> owner still has to confirm the smoke test after the release (`RELEASE.md` step 7).
 
 ## 1. Architecture
 
@@ -173,10 +176,10 @@ Nothing reads feedback automatically; it changes no answer and trains nothing (V
 
 ## 7. Risks and open points
 
-- **Production migration state is unverified** (MIGRATIONS.md STOP notice). 0046 is additive and self-contained, but
-  must go through the documented inventory/decision before any `db push`.
-- **pg_cron**: verify the job after deploying (§2). Without it, retention still holds logically (RLS), physically on
-  the next question.
+- ~~**Production migration state is unverified**~~ Closed on 2026-11-18: 0046 is applied, and production equals the
+  repository at 0046 (`MIGRATIONS.md` §3).
+- **pg_cron**: verified on 2026-11-18. `sommelier-conversations-purge` is active (hourly at :41), and its first run
+  succeeded. Without it, retention would still hold logically (RLS), and physically on the next question.
 - **Stale bottle cards**: a restored answer shows the bottles as they were when answered (count, place). The card
   opens the live wine page; a wine that is gone shows "not found". Acceptable for a 7-day window.
 - **Multiple devices**: each device shows what it loaded; a question from another device appears after a reload.

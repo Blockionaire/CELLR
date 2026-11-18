@@ -14,6 +14,16 @@ point here for backups.
 > | Database                  | Supabase Pro daily physical backups (dashboard). Logical dump + restore: procedure **proven on local stacks** (§6.6, it found and fixed a privilege-widening flaw in the official procedure); **not yet run** against production |
 >
 > Test evidence: [`docs/sprints/backup-recovery/TEST-REPORT.md`](sprints/backup-recovery/TEST-REPORT.md).
+>
+> **Update 2026-11-18** (the table above is as of 2026-11-16):
+>
+> - **Production Storage backup: still NOT performed.** The owner plans the first run for **Saturday 21 November
+>   2026**, by §9. Until it has run and verified, the photos in Storage have no backup.
+> - **Database:** production now holds all 46 migrations (0001–0046), with a migration history of 46 versions
+>   (`MIGRATIONS.md`). No logical dump of production is documented here; whether one was taken around the releases
+>   is the owner's record. The daily physical backups remain the database backup.
+> - Since 0046 production has a second pg_cron job, `sommelier-conversations-purge`. `export-platform-objects.sql`
+>   exports every named job, so a logical dump taken now includes both (§6.4).
 
 ## 1. What has to survive, and what covers it
 
@@ -325,12 +335,12 @@ Write the time of the newest backup in the run log (§9): it is the database hal
 
 ### 6.3 What a database backup includes and excludes
 
-| Included                                                                                                                                                                                                                                                 | Not included                                                                                                                                                |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Every schema: `public`, `private`, `auth` (users, identities, hashed passwords, MFA factors), `storage` (buckets and object **rows**), `cron` (the `catalog-scan-reads-purge` job), `supabase_migrations` (the migration history), `extensions`, `vault` | Storage **files**                                                                                                                                           |
-| Roles and grants, RLS policies, functions, triggers (also on `auth.users`), the `ensure_rls` platform event trigger                                                                                                                                      | Custom role passwords                                                                                                                                       |
-|                                                                                                                                                                                                                                                          | Project settings: API keys, JWT secret / signing keys, Auth providers and redirect URLs, SMTP, custom domain, network restrictions                          |
-|                                                                                                                                                                                                                                                          | Edge Functions, Vercel deployments and environment variables (`OPENAI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CELLR_ADMIN_USER_IDS`, `CELLR_FEATURES`, ...) |
+| Included                                                                                                                                                                                                                                                                                                   | Not included                                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every schema: `public`, `private`, `auth` (users, identities, hashed passwords, MFA factors), `storage` (buckets and object **rows**), `cron` (the jobs `catalog-scan-reads-purge` and, since 0046, `sommelier-conversations-purge`), `supabase_migrations` (the migration history), `extensions`, `vault` | Storage **files**                                                                                                                                           |
+| Roles and grants, RLS policies, functions, triggers (also on `auth.users`), the `ensure_rls` platform event trigger                                                                                                                                                                                        | Custom role passwords                                                                                                                                       |
+|                                                                                                                                                                                                                                                                                                            | Project settings: API keys, JWT secret / signing keys, Auth providers and redirect URLs, SMTP, custom domain, network restrictions                          |
+|                                                                                                                                                                                                                                                                                                            | Edge Functions, Vercel deployments and environment variables (`OPENAI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CELLR_ADMIN_USER_IDS`, `CELLR_FEATURES`, ...) |
 
 ### 6.4 Optional: a supplementary logical dump
 
@@ -363,7 +373,8 @@ pnpm exec supabase db dump --db-url "$CELLR_DB_URL" -f data.sql --use-copy --dat
 
 A fourth file is needed for CELLR, because `supabase db dump` leaves out the Supabase-managed schemas and CELLR has
 objects inside them (found in the restore rehearsal, §6.6): the row-level security policies on `storage.objects`, the
-triggers on `auth.users` (profile creation, sign-up allowlist) and the pg_cron job `catalog-scan-reads-purge`. Run
+triggers on `auth.users` (profile creation, sign-up allowlist) and the pg_cron jobs (`catalog-scan-reads-purge`;
+since 0046 also `sommelier-conversations-purge`; the export takes every named job). Run
 `scripts/db-backup/export-platform-objects.sql` — read-only, catalogue tables only — in the SQL Editor (or with psql in
 a read-only session) and save its `statement` column as `platform-objects.sql`:
 
@@ -371,9 +382,10 @@ a read-only session) and save its `statement` column as `platform-objects.sql`:
 psql "$CELLR_DB_URL" -X -q -A -t -v ON_ERROR_STOP=1 -c "set default_transaction_read_only = on" -f scripts/db-backup/export-platform-objects.sql > platform-objects.sql
 ```
 
-And the **migration history**. Production has one since the release of 0037–0042 (42 versions, 0001–0042, read on
-2026-11-18). Without it a restored project looks as if no migration ever ran, and the next `db push` would try all of
-them again (`MIGRATIONS.md` §1–§2). The official "Preserving migration history" commands:
+And the **migration history**. Production has one: 0001–0036 since the bootstrap (2026-11-17), 42 versions after the
+release of 0037–0042, and **46 versions (0001–0046) since 2026-11-18**. Without it a restored project looks as if no
+migration ever ran, and the next `db push` would try all of them again (`MIGRATIONS.md` §1–§2). The official
+"Preserving migration history" commands:
 
 ```bash
 pnpm exec supabase db dump --db-url "$CELLR_DB_URL" -f history_schema.sql --schema supabase_migrations
@@ -390,8 +402,8 @@ with `tar` + `age` as in §4.5. **All six files together** are the backup:
   reference for comparing structure, nothing more.
 - `data.sql` alone cannot be restored without the schema and roles.
 - Without `platform-objects.sql` a restored project has **no photo access** (no storage policies) and new sign-ups
-  get **no profile**, and the purge job is gone.
-- Without the two history files the restored project's `migration list` is empty while its schema is at 0042: a
+  get **no profile**, and the purge jobs are gone.
+- Without the two history files the restored project's `migration list` is empty while its schema is at 0046: a
   `db push` would then try 0001 again. With them, `migration list` shows exactly what production had.
 
 ### 6.5 Parts that need special attention when restoring a database
@@ -402,8 +414,8 @@ with `tar` + `age` as in §4.5. **All six files together** are the backup:
 | Roles                                   | `roles.sql` holds custom roles; platform roles exist already                                                                     | Errors on `supabase_admin` ownership or `cli_login_postgres` grants: follow the troubleshooting notes on the Supabase page above     |
 | `private` schema                        | Holds the sign-up allowlist and settings; not exposed through the API                                                            | Included in `schema.sql`/`data.sql`; verify with the fingerprint (`scripts/migration-audit`)                                         |
 | Storage metadata                        | Rows come back with the database, files do not                                                                                   | Restore the files afterwards (§7, `--fill-missing`)                                                                                  |
-| Migration history                       | In `supabase_migrations`, **not** in the three-file dump; production has 42 versions since the 0037–0042 release                 | `history_schema.sql` + `history_data.sql` (§6.4), run last; then `migration list` must equal the source. Never `db push` to catch up |
-| `pg_cron` job                           | `catalog-scan-reads-purge`; **not** in the CLI dump                                                                              | Re-created by `platform-objects.sql`; check `select jobname from cron.job`                                                           |
+| Migration history                       | In `supabase_migrations`, **not** in the three-file dump; production has 46 versions (0001–0046) since 2026-11-18                | `history_schema.sql` + `history_data.sql` (§6.4), run last; then `migration list` must equal the source. Never `db push` to catch up |
+| `pg_cron` jobs                          | `catalog-scan-reads-purge` and `sommelier-conversations-purge` (0046); **not** in the CLI dump                                   | Re-created by `platform-objects.sql`; check `select jobname, active from cron.job`: both, active                                     |
 | Storage policies, `auth.users` triggers | **Not** in the CLI dump (Supabase-managed schemas)                                                                               | `platform-objects.sql` (§6.4), run last                                                                                              |
 | Privileges                              | A new project's default privileges would widen them                                                                              | `pre-restore.sql` first, then the fingerprint comparison (§6.6)                                                                      |
 | Triggers during load                    | `data.sql` must load without firing triggers                                                                                     | The official restore sets `session_replication_role = replica` (below)                                                               |
@@ -507,7 +519,7 @@ assumptions. Details, and what is **not** validated:
 ## 9. Production run: checklist and GO / NO-GO
 
 Nothing in this list has been executed against production by the coding agent. Every step is the owner's, on the
-owner's machine.
+owner's machine. **State on 2026-11-18:** not run yet; the owner plans the first run for Saturday 21 November 2026.
 
 **GO only when every line holds:**
 

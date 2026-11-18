@@ -1,5 +1,32 @@
 # Sommelier V1 — release procedure (database first, then the app)
 
+> **Closed on 2026-11-18: 0043–0046 are applied. Do not run §4 again.** New migrations follow `docs/MIGRATIONS.md` §2.
+>
+> The release did not run as §4 describes. 0037–0042 went first, alone
+> ([`RELEASE_RUNBOOK_0042.md`](../wine-intelligence-mega/RELEASE_RUNBOOK_0042.md)); this release then pushed 0043–0046,
+> on 2026-11-18 at about 20:15 UTC (when 0043 wrote `private.cellar_settings`). Checked read-only on 2026-11-18
+> (Supabase MCP, `SELECT` only):
+>
+> | Step                       | State                                                                                                                                                                                                                                                                                 |
+> | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | 0a backup                  | Daily physical backups on Pro. Whether a backup from the last 24 hours was confirmed, and whether an extra dump was taken, is the owner's record                                                                                                                                      |
+> | 0b the files               | **Holds:** `0046` on `main` has sha256 `9e85e2e0…c69898` (as in step 0b), and `git diff 14efa58 origin/main -- supabase/migrations` is empty                                                                                                                                          |
+> | 1–3 link, preflight        | Step 2 was done on 2026-11-17 (the bootstrap). Steps 1 and 3 as written ("46 local, 0 remote", a dry run of ten) no longer applied after 0037–0042; the dry run before this push is the owner's record                                                                                |
+> | 4 apply (A3)               | **Done** by the owner: 0043–0046 only                                                                                                                                                                                                                                                 |
+> | 5 verify                   | **Holds:** 46 versions recorded, the same names as the files; "Remote database is up to date" (the owner's CLI run); the comparison at 0046 is equivalent (`MIGRATIONS.md` §3); `cron.job` has both jobs active; `sommelier-conversations-purge` first ran at 20:41 UTC and succeeded |
+> | 6, 6b smoke before merging | Not applicable: PR #75 was merged on 2026-11-17, before the database (the update below)                                                                                                                                                                                               |
+> | 7 after the merge          | **Open: to be confirmed by the owner** (ask, reload, rate, "New conversation"; Vercel → Logs without `sommelier_exchange_not_kept`). Read-only: a kept conversation with 4 messages and 1 rating exists since 20:18 UTC. So the path works, but that is not the smoke test            |
+> | 8 docs PR (A6)             | The docs PR of 2026-11-18 (`MIGRATIONS.md` notice and §3)                                                                                                                                                                                                                             |
+>
+> 0043–0045 make nothing visible: the Smart Cellar 3D columns, zones and functions are there. Depth placement is off
+> (`private.cellar_settings.depth_placement = false`) and the old index `bottles_slot_unique` is kept. Dropping it is
+> the gated file, only with separate approval (`supabase/gated-migrations/README.md`).
+>
+> §5 item 1 (revert the 36 recorded versions) no longer applies and must not be run: it would now break a history
+> of 46. After the release, §5 items 3–4 hold: no database rollback; the app by Instant Rollback.
+>
+> The notices and text below are kept as they were written (2026-11-15 and 2026-11-17).
+
 > **Update 2026-11-17: this procedure is overtaken by events. Do not run §4 as written.** Checked read-only on
 > 2026-11-17:
 >
@@ -290,10 +317,10 @@ it left out the storage policies, the `auth.users` triggers and the cron job. Bo
 | A0  | Step 0a: optional extra dump (reads production; production data on your machine)     | data handling    | owner (password) |
 | A1  | ~~Release 0037–0045 together with 0046 (§2)~~ superseded: split release (2026-11-17) | decision         | owner            |
 | A2  | Step 2: `migration repair` (36 rows): **done** (verified 2026-11-17)                 | production write | owner (password) |
-| A3  | Step 4: `db push` (applies 0037–0046)                                                | production write | owner (password) |
+| A3  | Step 4: `db push`: **done** 2026-11-18, as 0043–0046 only (0037–0042 went first)     | production write | owner (password) |
 | A4  | Step 7: merge PR #75 (triggers the production deploy): **done** 2026-11-17           | deploy           | owner            |
 | A5  | Optional: give this tooling read access to the Vercel team `jp-builds` to verify §3  | access           | owner            |
-| A6  | Step 8: the `MIGRATIONS.md` update                                                   | docs PR review   | owner            |
+| A6  | Step 8: the `MIGRATIONS.md` update: the docs PR of 2026-11-18                        | docs PR review   | owner            |
 
 Everything else in this document is read-only.
 
