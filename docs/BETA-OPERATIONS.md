@@ -65,9 +65,13 @@ consider rolling back.
 - **Database migrations first**, with the one workflow in `docs/MIGRATIONS.md` §2 (Supabase CLI: `migration list`,
   `db push --dry-run`, `db push`, then the read-only `compare.sh` check), before (or right after) merging the code that
   uses them. CELLR keeps working without the newest step (the affected feature says so or is hidden), so the order is
-  forgiving. Never paste a migration into the SQL Editor, and never run `db push` on a database without migration
-  history: production has none until the owner's bootstrap (`docs/MIGRATIONS.md` §4). A migration on `main` is never
-  edited; CI refuses it.
+  forgiving. Never paste a migration into the SQL Editor, and never run `db push` on a database without a checked
+  migration history (`docs/MIGRATIONS.md` §5). Production has one: since 2026-11-18 it holds all 46 migrations
+  (0001–0046), and nothing is pending. Every new database change is a new, forward-only migration. A migration on
+  `main` is never edited; CI refuses it.
+- **A migration does not switch a feature on.** `CELLR_FEATURES` (Wine Intelligence), `CELLR_SMART_CELLAR` and 3D
+  depth placement (`private.cellar_settings`, off) are separate owner decisions. What is open after 0046:
+  `docs/MIGRATIONS.md`, the notice at the top.
 - **Rollback** of the app: Vercel → Deployments → the previous production deployment → _Instant Rollback_
   (or _Promote to Production_). This does not touch the database.
 - **Migrations are not rolled back** in a hurry. They are additive; leave a new table in place and roll back
@@ -104,6 +108,10 @@ The admin never sees which household confirmed what. Nothing is published withou
 ## 8. Backups
 
 Supabase keeps daily database backups for 7 days (Pro); they do **not** contain the photos in Storage. Before a risky
-change (a migration, the history bootstrap, a bulk admin action) and at least weekly during the beta, the owner runs
-the Storage backup and checks it: `docs/BACKUP-RECOVERY.md` §9 (GO/NO-GO list, commands for Windows). Restores are
-tested into an isolated project only, never into production (§5, §7).
+change (a migration, a bulk admin action) and at least weekly during the beta, the owner runs the Storage backup and
+checks it: `docs/BACKUP-RECOVERY.md` §9 (GO/NO-GO list, commands for Windows). Restores are tested into an isolated
+project only, never into production (§5, §7).
+
+**State on 2026-11-18:** the first production Storage backup has **not** been run. It is planned for **Saturday
+21 November 2026**. Until it has run and verified, the photos have no backup at all. The releases of 0037–0046 went out
+before it; migrations do not touch Storage files.
