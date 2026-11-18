@@ -9,7 +9,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -132,7 +132,7 @@ async function startTarget(): Promise<{ dir: string; stop: () => void }> {
   toml = toml.replace(/^project_id = .*$/m, 'project_id = "cellr-restore-target"');
   toml = toml.replace(
     /(port\s*=\s*)(54\d{3})\b/g,
-    (_m, p: string, n: string) => `${p}${Number(n) + 1000}`,
+    (_m, p: string, n: string) => `${p}${Number(n) - 28000}`, // 54321 -> 26321: below the ephemeral range
   );
   toml = toml.replace(/(inspector_port\s*=\s*)8083\b/, "$18093");
   await writeFile(file, toml);
@@ -284,21 +284,73 @@ async function main() {
       );
     check("bucket names and settings are identical at the target", settings(sb) === settings(tb));
     const again = await cli(["restore", dir, ...dstArgs, "--execute"], dstEnv);
+    const againReport = await reportOf(again.out);
     check(
       "a second restore changes nothing (resume-safe)",
-      again.code === 0 && /already-identical/.test(await lastReport(out)),
+      again.code === 0 &&
+        againReport.items.every((i) => i.outcome === "already-identical") &&
+        againReport.items.length === manifest.objects.length,
+      summary(again),
     );
 
     // ---- existing content at the target is never overwritten without --overwrite ------------------------------------
-    await dst.upload("bottle-images", `${run}/plain.jpg`, jpeg(4242), "image/jpeg", true);
+    // The invariant: exit 1, the target keeps ITS content, and this run's own report says the object was skipped.
+    const plainKey = `${run}/plain.jpg`;
+    const backedUp = ours.find((o) => o.bucket === "bottle-images" && o.key === plainKey)?.sha256;
+    await dst.upload("bottle-images", plainKey, jpeg(4242), "image/jpeg", true);
     const conflict = await cli(["restore", dir, ...dstArgs, "--execute"], dstEnv);
-    const kept = await dst.download("bottle-images", `${run}/plain.jpg`);
+    const kept = await dst.download("bottle-images", plainKey);
+    const conflictReport = await reportOf(conflict.out);
     check(
       "different content at the target is not overwritten (exit 1)",
-      conflict.code === 1 && !!kept && sha256(kept) === sha256(jpeg(4242)),
+      conflict.code === 1 &&
+        !!kept &&
+        sha256(kept) === sha256(jpeg(4242)) &&
+        outcomeOf(conflictReport, "bottle-images", plainKey) === "skipped-conflict",
+      `${summary(conflict)}; kept=${kept ? sha256(kept) === sha256(jpeg(4242)) : "unreadable"}; outcome=${outcomeOf(conflictReport, "bottle-images", plainKey)}`,
     );
+    // Regression for CI run 43957996427: a restore whose report name is already taken (a run earlier in the same
+    // second) must still give its own verdict and its own report, never exit 4 after having done its work.
+    const now = Date.now();
+    const taken: string[] = [];
+    for (let d = 0; d < 10; d++) {
+      const name = path.join(
+        out,
+        "restore-reports",
+        `${id}--localtargetstack0001--${new Date(now + d * 1000)
+          .toISOString()
+          .replace(/\.\d{3}Z$/, "Z")
+          .replace(/:/g, "-")}`,
+      );
+      if (!existsSync(name)) {
+        await mkdir(name, { recursive: true });
+        taken.push(name);
+      }
+    }
+    const collided = await cli(["restore", dir, ...dstArgs, "--execute"], dstEnv);
+    const collidedReport = await reportOf(collided.out);
+    const stillKept = await dst.download("bottle-images", plainKey);
+    check(
+      "a restore whose report name is taken still reports its own conflict (exit 1, own report)",
+      collided.code === 1 &&
+        outcomeOf(collidedReport, "bottle-images", plainKey) === "skipped-conflict" &&
+        !taken.includes(collidedReport.dir) &&
+        !!stillKept &&
+        sha256(stillKept) === sha256(jpeg(4242)),
+      summary(collided),
+    );
+    for (const t of taken) await rm(t, { recursive: true, force: true });
     const forced = await cli(["restore", dir, ...dstArgs, "--execute", "--overwrite"], dstEnv);
-    check("--overwrite restores it (exit 0)", forced.code === 0);
+    const replaced = await dst.download("bottle-images", plainKey);
+    const forcedReport = await reportOf(forced.out);
+    check(
+      "--overwrite replaces it with the backed-up content (exit 0)",
+      forced.code === 0 &&
+        !!replaced &&
+        sha256(replaced) === backedUp &&
+        outcomeOf(forcedReport, "bottle-images", plainKey) === "overwritten",
+      `${summary(forced)}; outcome=${outcomeOf(forcedReport, "bottle-images", plainKey)}`,
+    );
 
     // ---- a database row without its file (what restoring the database into a new project leaves) --------------------
     psql(
@@ -311,7 +363,9 @@ async function main() {
       "a row without a file is detected and not touched by default (exit 1)",
       missing === null &&
         notFilled.code === 1 &&
-        /skipped-metadata-only/.test(await lastReport(out)),
+        outcomeOf(await reportOf(notFilled.out), "bottle-images", `${run}/sp ace.jpg`) ===
+          "skipped-metadata-only",
+      summary(notFilled),
     );
     const filled = await cli(["restore", dir, ...dstArgs, "--execute", "--fill-missing"], dstEnv);
     const after = await dst.download("bottle-images", `${run}/sp ace.jpg`);
@@ -319,7 +373,8 @@ async function main() {
       "--fill-missing writes the file, verified by reading it back",
       filled.code === 0 &&
         !!after &&
-        sha256(after) === ours.find((o) => o.key === `${run}/sp ace.jpg`)?.sha256,
+        sha256(after) ===
+          ours.find((o) => o.bucket === "bottle-images" && o.key === `${run}/sp ace.jpg`)?.sha256,
     );
 
     // ---- safety ------------------------------------------------------------------------------------------------------
@@ -365,11 +420,38 @@ async function main() {
   process.exit(failed.length ? 1 : 0);
 }
 
-async function lastReport(out: string): Promise<string> {
-  const root = path.join(out, "restore-reports");
-  const dirs = (await readdir(root)).sort();
-  return readFile(path.join(root, dirs[dirs.length - 1] as string, "restore-report.json"), "utf8");
+interface RunReport {
+  dir: string;
+  items: { bucket: string; key: string; outcome: string }[];
 }
+
+/** The report of exactly this run: its folder is printed on the RESULT line ("report: <folder>"). */
+async function reportOf(output: string): Promise<RunReport> {
+  const m = /report: (.+)$/m.exec(output);
+  if (!m) return { dir: "", items: [] };
+  const dir = (m[1] as string).trim();
+  try {
+    const json = JSON.parse(
+      await readFile(path.join(dir, "restore-report.json"), "utf8"),
+    ) as RunReport;
+    return { dir, items: json.items };
+  } catch {
+    return { dir, items: [] };
+  }
+}
+
+/** The same key exists in several buckets: always look an object up by bucket AND key. */
+const outcomeOf = (r: RunReport, bucket: string, key: string) =>
+  r.items.find((i) => i.bucket === bucket && i.key === key)?.outcome ?? "none";
+
+/** For a failing check: the exit code and the lines that say why. */
+const summary = (r: { code: number; out: string }) =>
+  `exit ${r.code}: ${r.out
+    .split("\n")
+    .filter((l) => /^(RESULT|ERROR)/.test(l))
+    .slice(0, 3)
+    .join(" | ")
+    .slice(0, 300)}`;
 
 main().catch((e: unknown) => {
   console.error(`FAIL  ${(e as Error).message}`);

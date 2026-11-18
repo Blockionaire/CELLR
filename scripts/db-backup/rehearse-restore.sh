@@ -44,7 +44,7 @@ check "$([ -s "$dump/data.sql" ] && [ -s "$dump/schema.sql" ] && [ -s "$dump/pla
 # ---- 3. An empty second stack, restored as §6.6 says ---------------------------------------------------------------
 mkdir -p "$target_dir"
 (cd "$target_dir" && "$SUPABASE" init --force >/dev/null 2>&1)
-sed -i -E 's/^project_id = .*/project_id = "cellr-dr-rehearsal"/; s/(port[[:space:]]*=[[:space:]]*)54([0-9]{3})\b/\155\2/; s/(inspector_port[[:space:]]*=[[:space:]]*)8083/\18093/' "$target_dir/supabase/config.toml"
+sed -i -E 's/^project_id = .*/project_id = "cellr-dr-rehearsal"/; s/(port[[:space:]]*=[[:space:]]*)54([0-9]{3})\b/\126\2/; s/(inspector_port[[:space:]]*=[[:space:]]*)8083/\18093/' "$target_dir/supabase/config.toml"
 (cd "$target_dir" && "$SUPABASE" start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor >/dev/null)
 DST_DB="$(env_of "$target_dir" DB_URL)"; DST_API="$(env_of "$target_dir" API_URL)"; DST_KEY="$(env_of "$target_dir" SECRET_KEY)"
 local_only "$DST_DB"; [ "$DST_DB" != "$SRC_DB" ] || { echo "source and target are the same database" >&2; exit 2; }

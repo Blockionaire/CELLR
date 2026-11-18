@@ -26,6 +26,26 @@ export async function createNewDir(dir: string): Promise<void> {
   }
 }
 
+/**
+ * Creates a new folder named `base`, or `base-2`, `base-3`, ... when that name is taken: for reports, where every run
+ * needs a folder of its own and two runs in the same second must not collide. An existing folder is never reused or
+ * written into (exclusive mkdir), so nothing earlier is overwritten.
+ */
+export async function createUniqueDir(base: string, attempts = 100): Promise<string> {
+  await ensurePrivateDir(path.dirname(base));
+  for (let i = 1; i <= attempts; i++) {
+    const dir = i === 1 ? base : `${base}-${i}`;
+    try {
+      await mkdir(dir, { mode: 0o700 });
+      return dir;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST")
+        throw new LocalIOError(`cannot create ${dir}: ${(e as NodeJS.ErrnoException).code}`);
+    }
+  }
+  throw new SafetyError(`no free folder name next to ${base} after ${attempts} attempts`);
+}
+
 /** Writes a new file atomically (temporary name, then rename) with owner-only permissions. Refuses to replace one. */
 export async function writeNewFile(file: string, content: string | Uint8Array): Promise<void> {
   if (existsSync(file)) throw new SafetyError(`${file} already exists; it is not overwritten`);

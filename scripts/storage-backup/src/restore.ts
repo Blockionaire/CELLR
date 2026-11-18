@@ -13,7 +13,7 @@ import {
   RetryableError,
   SafetyError,
 } from "./errors";
-import { createNewDir, writeNewFile } from "./fsutil";
+import { createUniqueDir, writeNewFile } from "./fsutil";
 import { RunAbortedError } from "./http";
 import { formatBytes, type Logger } from "./log";
 import type { Manifest, ManifestObject } from "./manifest";
@@ -146,6 +146,16 @@ export async function runRestore(options: RestoreOptions): Promise<RestoreResult
         "Use --allow-unverified-backup only in an emergency, to restore what is intact",
     );
   const brokenFiles = new Set(check.broken);
+
+  // The report folder is made now, before the target is read or written: a run that cannot record what it did must
+  // not start, and every run gets a folder of its own (two runs in the same second used to collide on the name, after
+  // the restore had already run: CI run 43957996427).
+  const reportDir = await createUniqueDir(
+    path.join(
+      path.resolve(options.reportRoot),
+      `${manifest.backupId}--${options.target.projectRef}--${formatBackupId(now())}${options.execute ? "" : "--dry-run"}`,
+    ),
+  );
 
   const wanted = options.buckets?.length ? new Set(options.buckets) : undefined;
   if (wanted)
@@ -341,11 +351,6 @@ export async function runRestore(options: RestoreOptions): Promise<RestoreResult
       `restored from a backup that does not fully verify: ${check.problems.length} problem(s)`,
     );
 
-  const reportDir = path.join(
-    path.resolve(options.reportRoot),
-    `${manifest.backupId}--${options.target.projectRef}--${formatBackupId(now())}${options.execute ? "" : "--dry-run"}`,
-  );
-  await createNewDir(reportDir);
   const report = {
     backupId: manifest.backupId,
     source: manifest.source,

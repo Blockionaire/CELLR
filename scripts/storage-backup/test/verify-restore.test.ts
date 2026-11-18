@@ -252,6 +252,54 @@ describe("restore", () => {
     expect(target.get("bottle-images", "household-1/a.jpg")?.bytes).toEqual(bytes(1));
   });
 
+  // CI run 43957996427: two restores finished within the same second. The report folder was named to the second and
+  // created only AFTER the restore, so the second run's conflict report was lost and it exited 4 ("refused") instead
+  // of 1 ("conflict, not overwritten"). Every run now gets its own report folder, made before anything is written.
+  it("two restores in the same second: each keeps its own report and its own verdict (CI 43957996427)", async () => {
+    const sameSecond = () => new Date(Date.UTC(2026, 10, 17, 9, 0, 0));
+    const first = await restore({ execute: true, now: sameSecond });
+    expect(first.exitCode).toBe(0);
+    target.put("bottle-images", "household-1/a.jpg", bytes(99));
+    const conflict = await restore({ execute: true, now: sameSecond });
+    expect(conflict.exitCode).toBe(1);
+    expect(conflict.items.find((i) => i.key === "household-1/a.jpg")?.outcome).toBe(
+      "skipped-conflict",
+    );
+    expect(target.get("bottle-images", "household-1/a.jpg")?.bytes).toEqual(bytes(99));
+    expect(conflict.reportDir).not.toBe(first.reportDir);
+    const report = JSON.parse(
+      await readFile(path.join(conflict.reportDir, "restore-report.json"), "utf8"),
+    ) as {
+      totals: Record<string, number>;
+    };
+    expect(report.totals["skipped-conflict"]).toBe(1);
+    // the first report is untouched
+    const firstReport = JSON.parse(
+      await readFile(path.join(first.reportDir, "restore-report.json"), "utf8"),
+    ) as {
+      totals: Record<string, number>;
+    };
+    expect(firstReport.totals.restored).toBe(4);
+    const forced = await restore({ execute: true, onExisting: "overwrite", now: sameSecond });
+    expect(forced.exitCode).toBe(0);
+    expect(target.get("bottle-images", "household-1/a.jpg")?.bytes).toEqual(bytes(1));
+    expect(new Set([first.reportDir, conflict.reportDir, forced.reportDir]).size).toBe(3);
+  });
+
+  it("a report folder that cannot be created stops the restore before anything is written", async () => {
+    const { chmod } = await import("node:fs/promises");
+    if (process.platform === "win32" || process.getuid?.() === 0) return; // root ignores directory permissions
+    await chmod(reportRoot, 0o500);
+    try {
+      await expect(restore({ execute: true })).rejects.toThrow();
+      expect(
+        target.requests.filter((q) => q.method === "POST" && !q.path.includes("/list/")),
+      ).toHaveLength(0);
+    } finally {
+      await chmod(reportRoot, 0o700);
+    }
+  });
+
   it("fills a database row that has no file only with --fill-missing", async () => {
     target.put("bottle-images", "household-1/a.jpg", bytes(1), { metadataOnly: true });
     const skipped = await restore({ execute: true });
