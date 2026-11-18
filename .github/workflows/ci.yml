@@ -163,10 +163,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      # The gate's own tests, also against real registry reports: another high advisory, and picomatch 4.0.7 through
-      # any other path than the excepted one, must fail it.
+      # The gate's own tests: deterministic, on fixed reports (one of them a real, recorded pnpm audit report), so this
+      # step never turns red because the registry published or withdrew an advisory today (GHSA-fc5q-39xc-vjpf was
+      # withdrawn on 2026-11-18). The live registry is asked by the next step, the real audit, which blocks every high
+      # or critical advisory without an exception.
       - name: The audit gate's own tests
-        run: bash scripts/audit/check-audit.test.sh --registry
+        run: bash scripts/audit/check-audit.test.sh
       # `pnpm audit --prod` in full, then the gate: every high or critical advisory fails, except what a scoped,
       # expiring entry in scripts/audit/audit-exceptions.json covers completely (docs/sprints/wine-intelligence-mega/
       # CI_EXCEPTIONS_0042.md, E1).

@@ -17,17 +17,28 @@ narrow:
 There is **no** `ignoreGhsas` (it would hide the advisory on every path), no `test.skip` and no `test.fixme`. E2 and E3
 stay red until they are fixed.
 
+> **2026-11-18, evening: E1 removed.** GitHub withdrew GHSA-fc5q-39xc-vjpf at 15:38 UTC (OSV records `withdrawn:
+2026-11-18T15:38:56Z`; the npm registry no longer reports any advisory for picomatch 4.0.7, checked on its bulk
+> advisory endpoint). The gate said so itself ("no longer needed"), and its registry self-test, which relied on that
+> advisory, started failing on every branch. `scripts/audit/audit-exceptions.json` is now empty: **every** high or
+> critical advisory fails the job again, with no exception at all. What did not change: CVE-2026-112366 (VulnCheck) is
+> still listed at NVD ("Awaiting Analysis", high), and picomatch 4.0.7 is still in the tree through the path below; the
+> reachability analysis in E1 stands. If npm reports the advisory again, the job fails and a new owner decision is
+> needed. The gate's tests no longer depend on any live advisory: CI runs them on fixed fixtures only, one of them a
+> real `pnpm audit` report recorded on 2026-11-18. Residual risk and CELLR's actual use of picomatch 4.0.7: E1,
+> "Status after the withdrawal".
+
 Written 2026-11-17 from CI run [44170769177](https://github.com/Blockionaire/CELLR/actions/runs/44170769177) (`main`
 at `21186f6`, the PR #75 merge). Updated 2026-11-18.
 
 ## Scope: what is covered, exactly
 
-| ID  | Job                       | Covered failure                                                                                                                                                             |
-| --- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E1  | Dependency audit          | **GHSA-fc5q-39xc-vjpf only**, picomatch 4.0.7 via `apps__web>next-intl>@parcel/watcher>picomatch`. Since 2026-11-18 accepted by the gate until 2026-12-18; the job is green |
-| E2  | End to end · shard 4 of 8 | `storage-gallery.spec.ts:351` [phone] and `storage-premium.spec.ts:80` [phone] failing; `storage-gallery.spec.ts:123` and `:228` [phone] flaky                              |
-| E3  | End to end · shard 8 of 8 | `storage-showcase.spec.ts:82` [desktop] failing (timeout)                                                                                                                   |
-| —   | End to end · whole app    | The aggregate job, red because of E2 and E3                                                                                                                                 |
+| ID  | Job                       | Covered failure                                                                                                                                                                           |
+| --- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E1  | Dependency audit          | **Removed on 2026-11-18** (advisory withdrawn by GitHub, see above). Was: GHSA-fc5q-39xc-vjpf only, picomatch 4.0.7 via `apps__web>next-intl>@parcel/watcher>picomatch`, until 2026-12-18 |
+| E2  | End to end · shard 4 of 8 | `storage-gallery.spec.ts:351` [phone] and `storage-premium.spec.ts:80` [phone] failing; `storage-gallery.spec.ts:123` and `:228` [phone] flaky                                            |
+| E3  | End to end · shard 8 of 8 | `storage-showcase.spec.ts:82` [desktop] failing (timeout)                                                                                                                                 |
+| —   | End to end · whole app    | The aggregate job, red because of E2 and E3                                                                                                                                               |
 
 **Not covered, so any of these is a NO-GO** (runbook §8 G8):
 
@@ -84,6 +95,28 @@ version` gives `4.0.7`, the newest release. So no upgrade fixes it today.
 **Conclusion:** the vulnerable code is not executed by production request handling. The theoretical exposure is a
 developer machine running `next dev` with message extraction configured, which CELLR does not do.
 
+### Status after the withdrawal (2026-11-18, re-verified)
+
+| Question                         | Answer, with the source                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The advisory GHSA-fc5q-39xc-vjpf | **Withdrawn by GitHub** on 2026-11-18 at 15:38:56 UTC (OSV: `withdrawn`, title "Withdrawn Advisory: …"). The npm registry's bulk advisory endpoint returns nothing for picomatch 4.0.7, so `pnpm audit` no longer reports it. The withdrawal note points to picomatch PR #235; its own wording ("withdrawn because it is a security issue") contradicts GitHub's usual "not a security issue", so nothing here relies on its reason |
+| The CVE, CVE-2026-112366         | **Not withdrawn.** NVD lists it as "Awaiting Analysis", high (CVSS 3.1 and 4.0 by VulnCheck, the CNA), last modified 2026-10-19. The claim that picomatch ≤4.0.7 can be made to backtrack exponentially by a crafted extglob (`+(*)`, `+(*a)`) still stands; only GitHub's record of it, and with it npm's, is gone                                                                                                                 |
+| Where picomatch 4.0.7 is         | Production graph: only `next-intl@4.14.9 → @parcel/watcher@2.6.0 → picomatch@4.0.7`. Development and test tooling: `vite`, `vitest`, `tinyglobby`, `fdir`                                                                                                                                                                                                                                                                           |
+| What runs it                     | `@parcel/watcher/wrapper.js` calls `picomatch.makeRe` only on the `ignore` globs of a subscription. `next-intl/plugin` loads `@parcel/watcher` whenever `next.config.ts` is evaluated (`next dev`, `next build`), but subscribes only in development **and** only with message extraction configured (`CatalogManager` → `SourceFileWatcher`). CELLR calls `createNextIntlPlugin("./src/i18n/request.ts")` without it               |
+| What is deployed                 | A `pnpm build` on 2026-11-18: none of the 129 `.nft.json` traces lists `@parcel/watcher` or `picomatch@4.0.7`, so neither ships with the server functions. Next's own vendored copy (`next/dist/compiled/picomatch`) is in `next-server.js.nft.json`, used only by `match-remote-pattern` / `match-local-pattern` for `images` patterns; CELLR's `next.config.ts` has no `images` patterns                                          |
+| Dev and test tooling             | vite, vitest and tinyglobby compile globs written in the repository (test includes, configuration), never input from people                                                                                                                                                                                                                                                                                                         |
+
+**Residual risk: low.** The ReDoS needs an attacker-chosen glob to be compiled. No code path in CELLR compiles a glob
+that comes from a request, and the vulnerable copy is not deployed. It would change if CELLR (a) enabled next-intl
+message extraction (a development feature, still with repository-controlled globs), (b) added code that matches
+user-supplied globs with picomatch, micromatch or tinyglobby, or (c) ran `next start` on its own server with
+extraction configured. Re-check with `pnpm why picomatch`, `grep -n createNextIntlPlugin apps/web/next.config.ts`, and
+the traces of a `pnpm build` (`grep -l picomatch@4 apps/web/.next/**/*.nft.json`).
+
+**What the gate does now:** there is no exception. If npm reports the advisory again, the Dependency audit fails at
+once and needs a new owner decision (F1). An upgrade past picomatch 4.0.7 is still the fix when one is released,
+because the CVE itself stands.
+
 **Effect on 0037–0042:** none. The migrations are SQL, applied by the Supabase CLI from the owner's machine. The app
 is not rebuilt or redeployed by this release, and the package is not part of any database path.
 
@@ -121,16 +154,31 @@ JSON). It fails on:
 
 Low and moderate advisories are listed, as before with `--audit-level high`.
 
-**Tests:** `scripts/audit/check-audit.test.sh --registry` runs in the job before the gate. It has 18 cases:
+**Tests:** `scripts/audit/check-audit.test.sh` runs in the job before the gate. Since 2026-11-18 (evening) every case CI
+runs is **deterministic**: no network, no registry, fixed dates (checked by running it with networking disabled). 23
+cases:
 
-- 16 on reports shaped like `pnpm audit --json`;
-- 2 against the real registry:
-  - a project with `lodash@4.17.20` (real high advisories GHSA-35jh-r3h4-6jhm and GHSA-r5fr-rjxr-66jc) **must fail** the
-    gate;
-  - a project that depends on `picomatch@4.0.7` directly (another path) **must fail** it.
+- 18 on reports shaped like `pnpm audit --json`: the 16 rules, with the test's own exceptions file (the picomatch entry
+  as it was), so they test the gate whatever the repository's file holds; and 2 on the repository's own file (it is
+  valid, and with it a high advisory fails);
+- 5 on a **real** `pnpm audit --prod --json` report, recorded on 2026-11-18 with pnpm 10.28.0 and kept in
+  `scripts/audit/fixtures/` (`lodash@4.17.20`: high GHSA-35jh-r3h4-6jhm and GHSA-r5fr-rjxr-66jc, 2 moderate):
+  - with the repository's exceptions it **fails**, naming both high advisories;
+  - exceptions for them that name another path **do not** cover the direct dependency (`.>lodash`);
+  - the same exceptions naming `.>lodash` cover it (the control), and the moderate ones are still reported.
 
-On the repository the gate reports 4 advisories. 1 high is accepted with its owner and expiry; 2 moderate and 1 low are
-reported. It passes.
+`--registry` (by hand, not in CI) adds 2 live cases: lodash 4.17.20 still fails the gate on today's registry, and the
+registry reports the same advisories as the recording (if not, re-record: `scripts/audit/fixtures/README.md`).
+
+Before that, CI ran the live cases, one of them on `picomatch@4.0.7` as a direct dependency; it failed on every branch
+once GitHub withdrew the advisory, because there was nothing left to report. The real audit of the repository is not a
+test and still asks the live registry on every run.
+
+Mutation check: with the path rule removed from the gate, the synthetic and the recorded path cases fail; with high no
+longer blocking, 13 cases fail, the recorded ones included.
+
+On the repository the gate reports 3 advisories, 2 moderate and 1 low, none of them blocking. It passes with no
+exceptions.
 
 **The same audit, below the threshold** (these do not fail the job, but are recorded here):
 
@@ -240,13 +288,14 @@ not create any TCP/IP sockets`, then `pg_ctl: could not start server`.
 | The audit exception is renewed out of habit                                         | low        | The gate fails by itself after 2026-12-18; renewing needs an owner decision and a fresh reachability check |
 | The intermittent 3D failures hide a **new** failure in shards 4 or 8                | medium     | Compare the failing list of each run with the table above; anything else is a NO-GO (scope)                |
 | The 3D slowness is real on low-end phones                                           | low–medium | F4, before the Smart Cellar 3D release; not relevant to 0037–0042                                          |
-| picomatch stays unpatched past the expiry                                           | low        | F1: the job fails on 2026-12-19, then upgrade or decide again; exposure is dev-time only                   |
+| The withdrawn picomatch advisory is published again                                 | low        | The job fails at once (no exception left); then F1: upgrade or decide again. Exposure is dev-time only     |
 | Next 16.4.1's two moderate advisories become relevant (if `'use cache'` is adopted) | low        | F2                                                                                                         |
 
 ## Follow-up actions (separate PRs; none is part of this release)
 
-- **F1.** Watch GHSA-fc5q-39xc-vjpf, before 2026-12-18. When picomatch, @parcel/watcher or next-intl ships a fix,
-  upgrade in a tested PR and delete the entry in `scripts/audit/audit-exceptions.json`. Owner: Blockionaire.
+- **F1.** The exception is gone (advisory withdrawn on 2026-11-18). Still upgrade picomatch, @parcel/watcher or
+  next-intl in a tested PR when a release past picomatch 4.0.7 appears, since the CVE itself is not rejected. Owner:
+  Blockionaire.
 - **F2.** Upgrade Next.js to 16.4.6 or later in its own PR, with a full end-to-end run.
 - **F3.** Shard 8 capacity (#77): it runs close to the 30-minute job limit.
 - **F4.** For the Smart Cellar 3D session: add `storage-premium.spec.ts:80` and `storage-gallery.spec.ts:123/228` to
