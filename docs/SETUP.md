@@ -35,8 +35,9 @@ recovery.
 - **A new, empty project:** `docs/MIGRATIONS.md` §6. In short: `supabase link`, check with `db push --dry-run`,
   then `db push --include-seed`.
 - **A project whose tables already exist** (for example, built by pasting files into the SQL Editor, as the
-  production project was): do **not** run `db push` there. It would try to run every migration again. Follow
-  `docs/MIGRATIONS.md` §5 (and §4 for production).
+  production project was up to 0036): do **not** run `db push` there. It would try to run every migration again.
+  Follow `docs/MIGRATIONS.md` §5. Production itself has a checked history since 2026-11-17 and holds all migrations
+  since 2026-11-18: it takes new migrations through §2 only (§4, its bootstrap, is done and never runs again).
 
 Do not paste migrations into the SQL Editor: nothing would record that they ran, and a later `db push` would run
 them again.

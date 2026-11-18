@@ -15,8 +15,10 @@ sprint writes, migrates or deploys.
 - No physical phone was available. Every number below comes from software rendering in a container. The manual
   device procedure is in §10 and has to be run before any activation.
 - No separate preview database exists. Everything was validated on the local stack (real Postgres 16 with the
-  repository's migrations, real PostgREST 12). A Vercel preview currently talks to whatever database its
-  environment names; if that database lacks migrations 0043–0045 the preview shows the existing view (tested, §8).
+  repository's migrations, real PostgREST 12). A Vercel preview talks to whatever database its environment names.
+  While this sprint ran, `main` recorded that production holds 0043–0045 since 2026-11-18 (`docs/MIGRATIONS.md`);
+  the code still assumes nothing and asks at run time. A database without them gives the existing view (tested for
+  real, §8).
 - The new view's panel is read-only: "Wine details" and "Put it back". "Open this bottle" and "Move" are not in
   it yet (ADR-006 §6). Places from before templates are unaffected: they keep the existing panel.
 
@@ -362,18 +364,26 @@ For a fridge use `cooler_single` / `cooler_dual` (a dual cooler also needs its t
 
 ### On a Vercel preview: setting up (once)
 
-1. A preview database that has migrations 0043–0045 (not production; see §12). Without them the preview shows the
-   existing view only, which is correct but tests nothing new.
+1. **Which database the preview uses.** `docs/SETUP.md` gives Production and Preview the same Supabase project, so
+   a preview today reads and writes **production data**. With that in mind:
+   - `CELLR_SMART_CELLAR=read` and `CELLR_SMART_CELLAR_3D=1` on Preview are safe there: this sprint only reads.
+     Production holds 0043–0045 (`docs/MIGRATIONS.md`, 2026-11-18), so the new screen will open; but no place
+     has a template, so every place is drawn by the existing view. That checks the fallback, not the new view.
+   - **Do not set `CELLR_SMART_CELLAR=write` on Preview while previews share the production database.** The
+     API's write gate goes by the deployment (a preview), not by the database behind it: a layout saved from
+     such a preview is a write to production. That is the owner's decision, not a test step.
+   - To see the new view on a device, use a database that is not production (a Supabase branch or a second
+     project with the repository's migrations), and point the Preview environment at it.
 2. On Vercel, environment **Preview** only: `CELLR_SMART_CELLAR=read` and `CELLR_SMART_CELLAR_3D=1`. Redeploy the
    branch preview. Do not add either to Production (it would change nothing there, by design, but it does not
    belong there).
 3. Preview of this branch: `https://cellr-git-claude-adoring-cori-jn7num-jp-builds.vercel.app/cellar`
-4. A place only has a template if someone gave it one. Until the Rack Builder exists that is done on the preview
-   database by its owner, for a test household, for example:
+4. A place only has a template if someone gave it one. Until the Rack Builder exists that is done **on the
+   non-production preview database** by its owner, for a test household, for example:
    `update public.cellar_locations set template = 'rack_classic', slot_semantics = 'depth' where id = '<place>';`
-   (or `PUT /api/v1/smart-cellar/storage/:id/layout` with `CELLR_SMART_CELLAR=write`, which only works on a
-   preview). Prepare one household with: a templated rack of about 40 bottles, a templated rack of about 200, a
-   `cooler_dual` fridge, and one place left as it was (legacy). Give two wines a label photo in the app.
+   (or `PUT /api/v1/smart-cellar/storage/:id/layout` with `CELLR_SMART_CELLAR=write` there). Prepare one
+   household with: a templated rack of about 40 bottles, a templated rack of about 200, a `cooler_dual` fridge,
+   and one place left as it was (legacy). Give two wines a label photo in the app.
 5. Readout on the device: connect it to a computer (Safari → Develop → the device, or `chrome://inspect`), and in
    the console: `sessionStorage.setItem("cellr:3d-debug","1"); location.reload()`. Then
    `document.querySelector("canvas[data-engine]").dataset` shows `quality`, `calls`, `triangles`, `geometries`,
@@ -408,9 +418,12 @@ inspection; every row above as expected. 60 frames a second is the aim and is **
 
 - **No physical device.** Touch, frame rate, heat, memory pressure and context loss on real iOS and Android are
   untested. Software rendering hides and exaggerates in ways a GPU does not.
-- **No preview database.** A Vercel preview uses the database its environment names. Nothing in this sprint needs
-  or performs a write there, and a database without 0043–0045 gives the existing view; but the new view can only
-  be looked at on a preview whose database has those migrations and a place with a template.
+- **No preview database, and previews share production's.** `docs/SETUP.md` gives Preview the production Supabase
+  project. This sprint only reads, so opening the renderer on a preview writes nothing; but the Smart Cellar
+  API's `write` level is allowed on any preview (sprint 1C: it goes by the deployment, not by the database), and
+  on a shared database that is a production write. Keep `CELLR_SMART_CELLAR` at `read` on Preview until previews
+  have a database of their own. Worth closing in code too (the write gate could also require a database that is
+  not production's); not done here: it is the API's gate, outside this sprint's scope.
 - **Missing schema, in the normal suite, is route-mocked** (the shared test database has every migration). The
   real case is `e2e/smart-cellar-3d-old-db.spec.ts` against a stack started with
   `STACK_MIGRATIONS_BEFORE=20261120000043`: run by hand in this sprint (passed, desktop and phone), not part of
@@ -436,16 +449,17 @@ inspection; every row above as expected. 60 frames a second is the aim and is **
 
 1. **Owner decision** to open the renderer, and a **reviewed code change** to `smart-cellar-renderer-gate.ts`
    (and to nothing else): a variable cannot open it there.
-2. **Migrations 0043–0045 in production**, confirmed by the owner's migration inventory (handled separately; not
-   assumed here). Until then production would show the existing view even with the gate open.
+2. **Migrations 0043–0045 in production.** Recorded as applied and verified on 2026-11-18 (`docs/MIGRATIONS.md`,
+   merged to `main` while this sprint ran; not checked from here). The app does not rely on that: it asks the
+   database at run time and falls back to the existing view.
 3. **`CELLR_SMART_CELLAR=read`** in production (reads only; writes cannot open there).
 4. **Device validation** by §10 on physical iPhone and Android, with the numbers written down.
 5. **"Open this bottle" and "Move" in the new panel**, or a decision that the link to the wine's page is enough
    for the first release. "Move" needs the movement work (a move must name an index).
 6. **A way for a place to get a template** (the Rack Builder, sprint 3). Without it no production place has one
    and the new view never appears, gate or no gate.
-7. A preview database of its own (Supabase branch or a second project), so previews stop depending on what
-   production has.
+7. **A preview database of its own** (Supabase branch or a second project). Today a preview uses production's
+   (§10, §11): fine for reading, not for trying layouts.
 8. A decision on the Next.js security advisory the build tool reports (§11), independent of this sprint.
 
 ## 13. What did not change

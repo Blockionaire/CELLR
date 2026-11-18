@@ -1,9 +1,40 @@
 # Runbook: the isolated Wine Intelligence database release (migrations 0037–0042 only)
 
-**Status 2026-11-17: prepared and rehearsed. Nothing in this runbook has been run against production**, apart from the
-read-only checks in §2. Every step that writes is the owner's, with the owner's credentials (§8). `docs/MIGRATIONS.md`
-stays the rulebook; this runbook applies it to one release. Where they disagree, `MIGRATIONS.md` wins and this file
-must be corrected.
+> **Closed on 2026-11-18: this release has run. Do not run this runbook again.** Its preflight expects the history
+> 0001–0036 and would stop, rightly. New migrations follow `docs/MIGRATIONS.md` §2.
+>
+> Checked read-only on 2026-11-18 (Supabase MCP, `SELECT` only):
+>
+> - **0037–0042 are recorded**, each under its file name. A read-only check earlier on 2026-11-18 found exactly 42
+>   versions; 0043–0046 followed later that day as a separate release
+>   ([`sommelier-v1/RELEASE.md`](../sommelier-v1/RELEASE.md)). Production now holds 0001–0046.
+> - The six files on `main` still have the sha256 of §1, and 0001–0042 of `248206a` are byte-identical to `main`.
+> - The schema equals the repository at 0046: 473 object groups identical, the 13 accepted deviations at their pinned
+>   hashes (`MIGRATIONS.md` §3).
+> - 0037's search index covers 43 of 43 wines (0 aliases). No provider is registered, so no external source is shown
+>   (B6 of `RELEASE_CHECKLIST.md`), and `private.catalog_environment()` is `production` (B5).
+>
+> | Step                         | State                                                                                                                                                                             |
+> | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | A1 decision, R1–R2 push (A3) | **Done** by the owner, between the check of 2026-11-17 and the one of 2026-11-18. The time and the CLI output are the owner's record; they are not in this repository             |
+> | V1 history                   | **Holds** (above)                                                                                                                                                                 |
+> | V2–V4                        | **Superseded.** They check that nothing of 0043–0046 exists, which stopped being true with the second release. The comparison at 0046 (equivalent) replaces V2 and V3             |
+> | V5 smoke (the app)           | **Open: to be confirmed by the owner.** No result is recorded in this repository                                                                                                  |
+> | V6 docs PR (A5)              | `MIGRATIONS.md` §3 and `EPIC.md`: the docs PR of 2026-11-18                                                                                                                       |
+> | Feature switches             | **Not touched by the release.** Switching Wine Intelligence on is `RELEASE_CHECKLIST.md` Part C: one switch at a time, each an owner decision. `CELLR_FEATURES` was not read here |
+>
+> §7 was the incident plan for this release's window. From now on use `MIGRATIONS.md` and `BACKUP-RECOVERY.md`. Two
+> things in §7 no longer hold:
+>
+> - a fix-forward migration now gets a version **after `20261123000046`**, not one between 0042 and 0043 (§7.4);
+> - a restore of a daily backup brings the history back as it was at that backup, not to 0001–0036 (§7.5).
+>
+> Everything below is kept as it was written before the release (2026-11-17), its evidence and test results included.
+
+**Status 2026-11-17 (before the release): prepared and rehearsed. Nothing in this runbook has been run against
+production**, apart from the read-only checks in §2. Every step that writes is the owner's, with the owner's credentials
+(§8). `docs/MIGRATIONS.md` stays the rulebook; this runbook applies it to one release. Where they disagree,
+`MIGRATIONS.md` wins and this file must be corrected.
 
 **Recommendation: CONDITIONAL GO.** The release may go ahead when every preflight check in §4 passes, and only from
 the isolated checkout of §3. The CI exceptions it relies on, with their scope and evidence, are in

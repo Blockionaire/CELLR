@@ -1,5 +1,12 @@
 # WI-001 — Release checklist (owner only)
 
+> **State 2026-11-18: Parts A and B are done; Part C is separate.** 0037–0042 were released by
+> [`RELEASE_RUNBOOK_0042.md`](RELEASE_RUNBOOK_0042.md) (closed), and 0043–0046 separately after them. Production holds
+> 0001–0046 and equals the repository (read-only, `docs/MIGRATIONS.md` §3). B5 and B6 hold: the catalogue environment
+> is `production`, and no provider is shown (none is registered). B7's app check is the runbook's V5 smoke, which the
+> owner still has to confirm. **No migration switches a feature on.** Part C stays one switch at a time, each an
+> owner decision; C4 (`scan_resolver`) stays NO-GO. `CELLR_FEATURES` in Vercel was not read for this check.
+
 > **State 2026-11-17: Part A is DONE. Part B is REPLACED by
 > [`RELEASE_RUNBOOK_0042.md`](RELEASE_RUNBOOK_0042.md). Part C is unchanged.** Checked read-only on 2026-11-17:
 >

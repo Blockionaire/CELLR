@@ -235,6 +235,8 @@ In this order, each a separate decision of the owner; none was done here:
    the stop notice): schema inventory and migration-history inventory first, then a written decision, then a push.
    The app does not need them to keep working: the old API checks a template only where the column exists, and the
    new API stays closed (and, if opened early, answers "isn't set up here").
+   _2026-11-18: done. 0043–0045 are applied in production and verified read-only (`docs/MIGRATIONS.md`). The steps
+   below stay separate owner decisions; none of them is recorded here as done._
 2. **Reads.** `CELLR_SMART_CELLAR=read` on Preview first; check `GET /api/v1/smart-cellar` says
    `schema.reads: "ready"`; then, if wanted, on Production. On hosted Supabase `schema.writes` says "unverified"
    (the data API no longer describes itself to the app's key, 2026): whether 0045 is there is what step 1 established,

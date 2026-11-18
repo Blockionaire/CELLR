@@ -3,34 +3,65 @@
 This is the one place that says how the database changes. `SETUP.md`, `BETA-OPERATIONS.md` and the checklists point
 here. Backups (database and Storage files) and restores are in `BACKUP-RECOVERY.md`.
 
-> ## Current state (2026-11-17): history 0001–0036 recorded; 0037–0046 not applied; next is 0037–0042 only
+> ## Current state (2026-11-18): all 46 migrations applied and recorded (0001–0046)
 >
-> **Verified read-only on 2026-11-17** (Supabase MCP, `SELECT` only; evidence in
-> `docs/sprints/wine-intelligence-mega/RELEASE_RUNBOOK_0042.md` §2):
+> **Verified read-only on 2026-11-18** (Supabase MCP, `SELECT` only; nothing was written):
 >
-> - **Plan and backups:** the Supabase organisation is on **Pro**. Production has **daily physical backups**, the last 7
->   days restorable, in Supabase → Database → Backups. PITR is not enabled (on Pro it is a paid add-on). A restore
->   brings the whole project back to the backup's moment (`RELEASE_RUNBOOK_0042.md` §7.5).
-> - **History:** `supabase_migrations.schema_migrations` exists and holds **exactly 0001–0036** (36 versions). The
->   owner recorded it between 2026-11-15 (no history yet) and 2026-11-17. **The bootstrap of §4 is done; never run it
->   again.**
-> - **Schema:** the repository at 0036 plus the 13 accepted deviations (`production-accepted.txt`, all at their pinned
->   hashes). **None of 0037–0046 is applied.**
-> - **`main` holds 46 migrations.** `0046` (Sommelier V1) was merged with PR #75 on 2026-11-17. `supabase db push` from
->   `main` would therefore apply **all ten**, 0037–0046.
+> - **History:** `supabase_migrations.schema_migrations` holds **exactly the 46 files of `supabase/migrations`**,
+>   `20261010000001` … `20261123000046`, under the same names. Nothing after 0046 is recorded. The owner's
+>   `supabase migration list` / `db push --dry-run` reports "Remote database is up to date".
+> - **Schema:** production equals the repository at 0046, object by object: 473 object groups identical, and the 13
+>   accepted deviations of `production-accepted.txt` at their pinned hashes (the file did not change). `compare.sh`:
+>   `RESULT: equivalent` (§3).
+> - **Two separate releases** took production from 0036 to 0046:
+>   1. **0037–0042** (Wine Intelligence), by
+>      [`RELEASE_RUNBOOK_0042.md`](sprints/wine-intelligence-mega/RELEASE_RUNBOOK_0042.md). It ran after the check of
+>      2026-11-17 (history 0001–0036) and before the read-only check of 2026-11-18 that found 42 versions.
+>   2. **0043–0046** (Smart Cellar 3D sprint 1B, Sommelier V1), by
+>      [`sommelier-v1/RELEASE.md`](sprints/sommelier-v1/RELEASE.md). It ran on 2026-11-18 at about 20:15 UTC: that is
+>      when 0043 wrote `private.cellar_settings`.
+> - **Plan and backups:** the organisation is on **Pro**, with **daily physical backups** for 7 days (Supabase →
+>   Database → Backups). PITR is not enabled. A restore brings the whole project back to the backup's moment.
 >
-> **The next release is 0037–0042 only** (Wine Intelligence), from a checkout of commit `248206a` that holds exactly
-> 0001–0042, by [`RELEASE_RUNBOOK_0042.md`](sprints/wine-intelligence-mega/RELEASE_RUNBOOK_0042.md). **0043–0046,
-> 0046 included, are not part of it.** They are a later, separate release with their own runbook.
+> **From now on every database change is a new migration, forward-only, through §2.** Nothing is pending: a dry run
+> from `main` must say "Remote database is up to date" until a new migration is merged.
 >
-> Until that release has run: **no `db push` from `main`, no `migration repair`, no SQL Editor paste.** `db push
---dry-run` is safe to look at.
+> - A new migration's version must be later than `20261123000046`. The CLI refuses an older one, and `--include-all`
+>   is forbidden.
+> - The bootstrap (§4) and the split-release checkouts (`248206a`) are history; never use them again.
+>
+> **Still open after 0046** (none of it blocks the database; each item is a separate decision):
+>
+> | Item                        | State on 2026-11-18                                                                                                                                                                                                                                                                                                             |
+> | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | Storage files backup        | **Not done yet.** The first production Storage backup is planned for **Saturday 21 November 2026**, by [`BACKUP-RECOVERY.md`](BACKUP-RECOVERY.md) §9. Until then the photos are covered by nothing: database backups hold their rows, not the files                                                                             |
+> | 3D depth placement          | **Off:** `private.cellar_settings.depth_placement = false` (0043's default). Switching it on takes a new migration, the gated index drop below, and the screens for it, each by owner decision (`smart-cellar-3d/SPRINT-1B-REPORT.md` §9 item 7)                                                                                |
+> | Old unique index on bottles | **Kept:** `public.bottles_slot_unique` still exists, next to 0043's `bottles_slot_index_unique`. Dropping it is `supabase/gated-migrations/smart_cellar_drop_legacy_slot_index.sql`: only with the owner's separate, explicit approval, as its own PR (the README there). Never by hand                                         |
+> | Feature switches            | **The migrations switched nothing on.** Wine Intelligence stays behind `CELLR_FEATURES`; Smart Cellar API writes stay closed on Production by code (`CELLR_SMART_CELLAR`, `lib/smart-cellar-gate.ts`); no external source is shown (`search_scope` off, 0 providers). What 0037–0042 and 0046 make live without a switch: below |
+> | Production smoke test       | **To be confirmed by the owner:** the smoke tests of both runbooks (`RELEASE_RUNBOOK_0042.md` V5, `sommelier-v1/RELEASE.md` step 7). Read-only, one kept Sommelier conversation with a rating exists since 20:18 UTC; that shows the path works, it is not the smoke test                                                       |
+> | End-to-end failures         | Tracked separately, not caused by these releases: issue #78 (OCR vintage, `sprint-s.spec.ts:104`), issue #79 (`storage-showcase` timeout, storage-gallery flake), issue #77 (shard 8 capacity), issue #76 (simultaneous duplicate question ids)                                                                                 |
+>
+> Live without any switch since the releases:
+>
+> - from 0037–0042: Admin → External sources, the research claim for shared wine profiles, the catalogue search API
+>   (signed in, rate-limited, under RLS, no external records), and the search index that follows `wines`, `producers`
+>   and `wine_aliases` (`RELEASE_RUNBOOK_0042.md` §1);
+> - from 0046: the Sommelier keeps conversations for 7 days and takes ratings. The pg_cron job
+>   `sommelier-conversations-purge` (hourly at :41) runs next to `catalog-scan-reads-purge` (every 15 minutes); both
+>   are active, and the new job's first run (2026-11-18 20:41 UTC) succeeded;
+> - from 0043–0045: nothing visible. The Smart Cellar columns, zones and functions are there; the new 3D view is in
+>   no product screen yet.
 >
 > `supabase/gated-migrations/` holds SQL that is deliberately **not** a migration: it drops an index and is not
 > authorised. `db push` cannot run it. Do not run it by hand; see the README in that folder.
 >
-> _History of this notice: the STOP notice of 2026-11-14 said §3–§4 were outdated and that production's history and
-> state were unknown. The audit of 2026-11-15 and the check of 2026-11-17 above settled both._
+> _History of this notice:_
+>
+> - _2026-11-14: a STOP notice said §3–§4 were outdated and that production's history and state were unknown. The
+>   audit of 2026-11-15 settled both._
+> - _2026-11-17: the history held exactly 0001–0036 (bootstrap done) and 0037–0046 were not applied. The next release
+>   was to be 0037–0042 alone, from a checkout of `248206a`, with no `db push` from `main` until then._
+> - _2026-11-18: both releases done; this notice._
 
 ## 1. Rules
 
@@ -47,12 +78,14 @@ here. Backups (database and Storage files) and restores are in `BACKUP-RECOVERY.
 ## 2. Deploying a migration (the one workflow)
 
 Prerequisite: the production database has a migration history (`supabase_migrations.schema_migrations`) **that has
-been checked against the schema**. Since 2026-11-17 it has: exactly 0001–0036, checked (see the notice at the top).
-Without a correct history `db push` would try to run every migration again, from the first; see §5.
+been checked against the schema**. Production has it: since 2026-11-18 exactly 0001–0046, checked object by object
+(see the notice at the top). Without a correct history `db push` would try to run every migration again, from the
+first; see §5.
 
 **Only migrations the release has decided on may be pending in the checkout you push from.** `db push` runs every
 pending file in order and cannot stop after a given version. A partial release runs from a checkout holding only the
-files up to its last migration, as in `RELEASE_RUNBOOK_0042.md`.
+files up to its last migration, as `RELEASE_RUNBOOK_0042.md` did for 0037–0042 (2026-11-17/18). With nothing
+pending on production, a release from `main` lists exactly the migrations merged since the last one.
 
 On a laptop with the repository at the merged `main`, and the database password at hand:
 
@@ -94,12 +127,19 @@ while its database step is missing.
 Never use `db push --include-all` (it would run migrations older than the newest recorded one) or `migration repair`
 outside §4 and §5.
 
-## 3. Production inventory (verified read-only, 2026-11-02; re-verified 2026-11-17)
+## 3. Production inventory (verified read-only, 2026-11-02; re-verified 2026-11-17 and 2026-11-18)
 
-Production (project `vvelgyhbjfmjvxkzekyz`) was built by pasting every migration into the SQL Editor. On 2026-11-02 it
-had **no migration history**; since 2026-11-17 it holds 0001–0036 (§4 done). **Re-verified on 2026-11-17:** all 380
-object groups outside the accepted deviations are identical to the repository at 0036, and the 13 deviations are at
-their pinned hashes. 0037–0046: not applied. Its schema was compared with the repository object by object, read-only. The comparison covers:
+Production (project `vvelgyhbjfmjvxkzekyz`, Postgres 17.11) was built up to 0036 by pasting every migration into the
+SQL Editor. 0037–0046 were the first migrations it got through `db push`. Its schema was compared with the repository
+object by object, read-only, each time:
+
+| Date       | History                     | Compared with        | Result                                                            |
+| ---------- | --------------------------- | -------------------- | ----------------------------------------------------------------- |
+| 2026-11-02 | none                        | the repository, 0036 | 380 object groups identical, 13 explained deviations, no drift    |
+| 2026-11-17 | 0001–0036 (bootstrap, §4)   | the repository, 0036 | the same 380 identical, the 13 deviations at their pinned hashes  |
+| 2026-11-18 | **0001–0046**, the 46 files | the repository, 0046 | **473 identical, the same 13 at their pinned hashes: equivalent** |
+
+The comparison covers:
 
 - tables, columns, defaults, identity, RLS flags and grants, column grants;
 - constraints, indexes and triggers (also on `auth.users`);
@@ -107,41 +147,50 @@ their pinned hashes. 0037–0046: not applied. Its schema was compared with the 
 - RLS policies (also on `storage.objects`), storage buckets, enum types, extensions, default privileges and the pg_cron
   job.
 
-Tools: `scripts/migration-audit/` (fingerprint, comparison, per-migration inventory). The fingerprint is
-`production-fingerprint-2026-11-02.txt` and its accepted deviations are in `production-accepted.txt`.
+Tools: `scripts/migration-audit/` (fingerprint, comparison, per-migration inventory). The fingerprint of 2026-11-02 is
+`production-fingerprint-2026-11-02.txt`; the accepted deviations are in `production-accepted.txt`. On 2026-11-18
+`fingerprint.sql` was run through the Supabase MCP (one `SELECT`) and its 486 lines compared with
+`compare.sh --target-file`, which builds the reference from the 46 migrations.
 
-**Result: 380 object groups identical to the repository, 13 explained deviations, no drift.**
+**Result on 2026-11-18: 473 object groups identical to the repository at 0046, 13 explained deviations, no drift.**
+None of the 13 belongs to 0037–0046.
 
-| Migration                 | Production                                                                                                                                                                     |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `0001` foundation         | applied (only host-level differences: default privileges, `extensions` schema grants)                                                                                          |
-| `0002`–`0012`             | applied, every object identical                                                                                                                                                |
-| `0013` push reminders     | **never run**; its objects were created by repair `0036` and are identical (tables, policies, grants)                                                                          |
-| `0014`–`0019`             | applied, every object identical                                                                                                                                                |
-| `0020` beta feedback      | applied; `admin_beta_feedback` was reformatted on paste (same code, checked token by token)                                                                                    |
-| `0021` recognition cache  | applied; `admin_recognition_cache` and `recall_confirmed_scan` were reformatted on paste (same code)                                                                           |
-| `0022`–`0023`             | applied, every object identical                                                                                                                                                |
-| `0024` catalogue learning | applied; the pg_cron job `catalog-scan-reads-purge` (every 15 minutes) is present and active                                                                                   |
-| `0025`–`0027`             | applied, every object identical                                                                                                                                                |
-| `0028` bottle library     | its **first** version was run, then repair `0032`. Final state identical, except one leftover unused overload `admin_wine_visuals(text, text, int)` (0032 keeps it on purpose) |
-| `0029`–`0031`, `0033`     | applied, every object identical                                                                                                                                                |
-| `0032` repair             | applied; its definitions match                                                                                                                                                 |
-| `0034` admin workflow     | its **earlier** version was run, then repair `0035`. Final state identical                                                                                                     |
-| `0035`, `0036` repairs    | applied; their definitions match                                                                                                                                               |
+| Migration                 | Production                                                                                                                                                                         |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0001` foundation         | applied (only host-level differences: default privileges, `extensions` schema grants)                                                                                              |
+| `0002`–`0012`             | applied, every object identical                                                                                                                                                    |
+| `0013` push reminders     | **never run**; its objects were created by repair `0036` and are identical (tables, policies, grants)                                                                              |
+| `0014`–`0019`             | applied, every object identical                                                                                                                                                    |
+| `0020` beta feedback      | applied; `admin_beta_feedback` was reformatted on paste (same code, checked token by token)                                                                                        |
+| `0021` recognition cache  | applied; `admin_recognition_cache` and `recall_confirmed_scan` were reformatted on paste (same code)                                                                               |
+| `0022`–`0023`             | applied, every object identical                                                                                                                                                    |
+| `0024` catalogue learning | applied; the pg_cron job `catalog-scan-reads-purge` (every 15 minutes) is present and active                                                                                       |
+| `0025`–`0027`             | applied, every object identical                                                                                                                                                    |
+| `0028` bottle library     | its **first** version was run, then repair `0032`. Final state identical, except one leftover unused overload `admin_wine_visuals(text, text, int)` (0032 keeps it on purpose)     |
+| `0029`–`0031`, `0033`     | applied, every object identical                                                                                                                                                    |
+| `0032` repair             | applied; its definitions match                                                                                                                                                     |
+| `0034` admin workflow     | its **earlier** version was run, then repair `0035`. Final state identical                                                                                                         |
+| `0035`, `0036` repairs    | applied; their definitions match                                                                                                                                                   |
+| `0037`–`0042`             | applied by `db push`, the first release with a history (Wine Intelligence, `RELEASE_RUNBOOK_0042.md`); every object identical                                                      |
+| `0043`–`0045`             | applied by `db push` on 2026-11-18 (Smart Cellar 3D 1B); every object identical. Depth placement off; `bottles_slot_unique` kept (gated drop not run)                              |
+| `0046` sommelier          | applied by `db push` on 2026-11-18 together with 0043–0045; every object identical; the pg_cron job `sommelier-conversations-purge` (hourly at :41) is active; first run succeeded |
 
 Deviations that are not migrations' doing:
 
-- 143 of 149 function bodies are stored with CRLF line ends (pasting); the code is the same.
+- On 2026-11-02, 143 of 149 function bodies were stored with CRLF line ends (pasting); the code is the same.
+  Functions that 0037–0046 created or replaced came through `db push` and have none: on 2026-11-18, 141 of 192.
 - Hosted Supabase platform objects: the `ensure_rls` event trigger and its function `public.rls_auto_enable`, `anon`
   USAGE on the `extensions` schema, explicit default privileges, and pg_cron installed in `pg_catalog`.
 
 ## 4. Bootstrapping production's migration history (DONE: 0001–0036 recorded, verified 2026-11-17)
 
-> **⛔ DONE. DO NOT RUN THE COMMANDS IN THIS SECTION AGAIN.** Production's history holds exactly 0001–0036 (see the
-> notice at the top). This section is kept as the record of what was rehearsed and of the order of the steps (backup,
-> read-only preflight, record, verify, rollback). Its step 3 and step 5 commands take their list of versions from the
-> files in `supabase/migrations`, which today are 46. Run now, they would record 0037–0046 as applied without running
-> them, or revert all of the history.
+> **⛔ DONE. DO NOT RUN THE COMMANDS IN THIS SECTION AGAIN.** The bootstrap recorded 0001–0036 (verified 2026-11-17);
+> 0037–0046 were then applied properly by `db push`, so production's history holds 0001–0046 (see the notice at the
+> top). This section is kept as the record of what was rehearsed and of the order of the steps (backup, read-only
+> preflight, record, verify, rollback). Its step 3 and step 5 commands take their list of versions from the files in
+> `supabase/migrations`. Run now, step 3 would record every migration merged after 0046 as applied without running it,
+> and step 5 would revert **all 46** history rows (and any later one), after which `db push` would try to run
+> everything again from 0001.
 
 Recording the 36 migrations as applied **changes only the history table**, never the schema or data. It was rehearsed
 end to end on a throwaway database built the way production was (`bash scripts/migration-audit/rehearse-bootstrap.sh`):

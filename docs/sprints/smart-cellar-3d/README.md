@@ -227,5 +227,7 @@ Nothing under `supabase/` changed. No write was added. The existing 3D view stay
     it never opens on production by configuration. A place from before templates is always drawn by the existing
     view; nothing gives it a template by reading it. With the gate closed the screen asks for nothing new and
     downloads none of the new view's code (a browser test holds each of these).
-18. No migration is run against production from here. `docs/MIGRATIONS.md` describes 36 migrations and `main` has
-    more: see the 1B report, §8, before anything is pushed.
+18. No migration is run against production from here. Since 2026-11-18 production holds 0043–0045 (all 46
+    migrations, `docs/MIGRATIONS.md`). Depth placement is off there (`depth_placement = false` in
+    `private.cellar_settings`), and `bottles_slot_unique` is kept. Switching depth on is a new migration; the index
+    drop is the gated file (`supabase/gated-migrations/`). Each needs its own owner decision.

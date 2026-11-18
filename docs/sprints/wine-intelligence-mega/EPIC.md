@@ -11,7 +11,7 @@ LAST VERIFIED CHECKPOINT: WI-08 (hardening of PR #68) + the first CI runs on Git
 BRANCH / SHA: claude/wine-intelligence-mega-sprint-agnxu9 (base: main @ 770aaab); see `git log --oneline`
 STATUS: WI-00 to WI-07 as below; WI-08: 1 P1 and 9 P2 fixed; e2e on GitHub green with the switches off and on
 CHANGED FILES / PR: draft PR https://github.com/Blockionaire/CELLR/pull/68 (not merged; merging deploys the app)
-CURRENT FEATURE FLAGS: CELLR_FEATURES unset everywhere (all four features off)
+CURRENT FEATURE FLAGS: CELLR_FEATURES unset everywhere (all four features off) (2026-11-14; not re-read since)
 LAST GREEN CHECKS: format, lint, typecheck, unit (web 793 / domain 643 / scan-eval 83 / catalog-tools 86),
                    db:test 1327, db:test:budget, db:test:imports, db:test:claims, db:types:check, migrations:check
                    (5 new files), build;
@@ -21,11 +21,13 @@ LAST GREEN CHECKS: format, lint, typecheck, unit (web 793 / domain 643 / scan-ev
 VERDICT: merge = conditional GO; wine_search, sources_panel, purchase_intel = conditional GO after the migrations,
          in that order; scan_resolver = NO-GO until real labels and a real iPhone; no external source may be shown
 UPDATE 2026-11-17: production history holds 0001-0036 (bootstrap done; read-only check); 0037-0042 not applied yet.
-                  Their release, alone (main also holds 0043-0046, incl. 0046): RELEASE_RUNBOOK_0042.md
-PENDING BLOCKERS: PRODUCTION_MIGRATION_RELEASE_0037_0042 (owner) · REAL_LABEL_VALIDATION_PENDING ·
+UPDATE 2026-11-18: 0037-0042 released alone (RELEASE_RUNBOOK_0042.md, closed); 0043-0046 released after it.
+                  Production: history 0001-0046, schema equivalent to main (read-only; docs/MIGRATIONS.md §3).
+                  No feature switch was changed by the releases.
+PENDING BLOCKERS: RELEASE_SMOKE_0042_V5 (owner to confirm) · REAL_LABEL_VALIDATION_PENDING ·
                   LWIN rights blocked · X-Wines rights unverified (pilot only)
-NEXT SAFE ACTION: none for the agent. Owner (PR #68 is merged): the database release by RELEASE_RUNBOOK_0042.md
-                  (0037-0042 only, CI exceptions in CI_EXCEPTIONS_0042.md); then RELEASE_CHECKLIST.md Part C
+NEXT SAFE ACTION: none for the agent. Owner: confirm the app smoke of RELEASE_RUNBOOK_0042.md V5; then, when decided,
+                  RELEASE_CHECKLIST.md Part C (one switch at a time)
 TO REPRODUCE CI LOCALLY: CI runs Playwright's headless shell, not the full Chrome: set PLAYWRIGHT_CHROMIUM_PATH to
                   the headless shell; features on: E2E_BASE_URL=http://localhost:3101 (playwright.config.ts)
 DO NOT REPEAT: the baseline audit; the 004A schema review (ADR-001); the reviews of WI-02 to WI-06; the analysis
@@ -107,7 +109,7 @@ the provider's rights status and search scope in the database, changed only by `
 
 | Gate                                       | State                                                                                  | Blocks                                                                          |
 | ------------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED`  | **OPEN** (owner action, never done here)                                               | any production migration of this epic; any deployment                           |
+| `PRODUCTION_MIGRATION_BOOTSTRAP_REQUIRED`  | **CLOSED**: bootstrap 2026-11-17; 0037–0042 released; production at 0046 (2026-11-18)  | any production migration of this epic; any deployment                           |
 | X-Wines commercial rights                  | **unverified** (pilot only)                                                            | X-Wines records in people's search                                              |
 | LWIN rights                                | **blocked** pending Liv-ex in writing                                                  | any LWIN import, real-file adapter verification                                 |
 | `REAL_LABEL_VALIDATION_PENDING`            | **OPEN** (0 consented real photos)                                                     | any recognition-accuracy claim; "field validated" status                        |
@@ -143,7 +145,7 @@ The brief's R-01 to R-21 apply as written (`MASTER_BRIEF.md` §11). Baseline fin
 
 | ID   | Finding at baseline                                                                                                                                                                                                                                                                                                                                       | Handling                                                                                                                              |
 | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| R-17 | Confirmed from `docs/MIGRATIONS.md` §3–§4: production has no migration history. §4 also says "36 migrations", but `main` now has 37 (`…0037_catalog_search.sql` merged in PR #65 and, per the 004A report, never deployed).                                                                                                                               | `RELEASE_CHECKLIST.md`: bootstrap the 36, then apply 0037 and this epic's migrations through §2. Deployment blocked until then.       |
+| R-17 | Confirmed from `docs/MIGRATIONS.md` §3–§4: production has no migration history. §4 also says "36 migrations", but `main` now has 37 (`…0037_catalog_search.sql` merged in PR #65 and, per the 004A report, never deployed).                                                                                                                               | `RELEASE_CHECKLIST.md`: bootstrap the 36, then 0037 and this epic's migrations by §2. **Closed:** production at 0046 (2026-11-18).    |
 | R-18 | Confirmed in code: `withBudget` lets a call through when the hold cannot be checked, and holds nothing when no budget is set.                                                                                                                                                                                                                             | `SECURITY_AND_PRIVACY.md` §4; new paid paths fail closed (WI-04).                                                                     |
 | R-19 | Confirmed: 0 consented real label photos; OCR and iPhone timings are documented as unmeasured.                                                                                                                                                                                                                                                            | `REAL_LABEL_VALIDATION_PENDING`; protocol in WI-03.                                                                                   |
 | R-21 | Docs were stale, code is right: non-admin gets 404, anonymous 307.                                                                                                                                                                                                                                                                                        | `sprint-u.md` corrected; closed.                                                                                                      |
