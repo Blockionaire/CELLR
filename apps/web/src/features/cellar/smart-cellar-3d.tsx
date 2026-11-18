@@ -505,7 +505,8 @@ function SmartUnitStage({
             className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4 transition-opacity duration-500"
             style={{ opacity: touched || open || lost ? 0 : 1 }}
           >
-            <span className="max-w-full rounded-full bg-surface/70 px-4 py-1.5 text-center text-caption text-ink-2 ring-1 ring-hairline backdrop-blur-md">
+            {/* no blur behind it: a blurred layer over the picture has to be drawn again with every frame */}
+            <span className="max-w-full rounded-full bg-surface/90 px-4 py-1.5 text-center text-caption text-ink-2 ring-1 ring-hairline">
               {data.placements.length === 0 ? t("empty") : t("hint")}
             </span>
           </p>
