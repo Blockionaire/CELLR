@@ -16,7 +16,7 @@ while [ $# -gt 0 ]; do
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
-start_temp_cluster "${PORT:-54950}" >/dev/null
+start_temp_cluster "${PORT:-25450}" >/dev/null
 P=("${PSQL[@]}" -X -q -v ON_ERROR_STOP=1)
 "${P[@]}" -f "$ROOT/supabase/tests/shim.sql" >/dev/null 2>&1
 for f in "$ROOT"/supabase/migrations/*.sql; do

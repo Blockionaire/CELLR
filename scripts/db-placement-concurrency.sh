@@ -70,7 +70,7 @@ outside() {   # bottles in the cellar that are not on a spot of their place
 }
 
 # ---- 0. Control: the schema before 0043 -------------------------------------------------------------------------
-start_temp_cluster 54993
+start_temp_cluster 25493
 "${PSQL[@]}" -X -q -v ON_ERROR_STOP=1 -f "$ROOT/supabase/tests/shim.sql"
 for f in "$ROOT"/supabase/migrations/*.sql; do
   [ "$(basename "$f" | cut -c1-14)" -lt 20261120000043 ] || continue
@@ -90,7 +90,7 @@ fi
 stop_temp_cluster
 
 # ---- The schema with 0043-0045, as deployed: the old index in force ------------------------------------------------
-start_temp_cluster 54994
+start_temp_cluster 25494
 apply_schema "$ROOT" >/dev/null 2>&1
 su "update private.cellar_settings set depth_placement = true" >/dev/null     # as once the owner switches depth on
 setup

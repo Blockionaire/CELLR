@@ -122,6 +122,47 @@ requests. The 3D PRs #70–#74 were merged without an end-to-end run, and `main`
 **No 3D test or 3D code was changed for this release.** Any change to these specs belongs to the existing Smart Cellar
 3D development session.
 
+## Fixed in this PR (not an exception): the database job's throwaway Postgres could not start
+
+The job "Database · migrations + permission suite (Postgres 16)" failed this way twice: on `main` in run 43854571181
+(2026-11-16), and on this PR in run 44183381921 (2026-11-17, green on its single re-run). Both times:
+
+- the permission suite (1591/1591) and the concurrency step had passed;
+- `scripts/db-smart-cellar-upgrade.sh` then failed 0.65 s into its step with `pg_ctl: could not start server`;
+- the step started 0.2 s after the concurrency step had ended.
+
+**Cause (reproduced 2026-11-18):**
+
+- Every psql connection over TCP leaves, on its client side, a TIME_WAIT socket on its ephemeral source port for 60 s.
+  `scripts/db-placement-concurrency.sh` leaves 666 of them, spread over Linux's whole ephemeral range (32768–60999).
+- The test clusters listened on fixed ports **inside** that range (54992–54999). A new server on a port held by such a
+  TIME_WAIT socket fails with `could not bind IPv4 address "127.0.0.1": Address already in use`, then `FATAL: could
+not create any TCP/IP sockets`, then `pg_ctl: could not start server`.
+- 300 psql connections, then a cluster on one of their source ports, gave exactly that, every time it was tried.
+- With 666 ports held for 60 s, the upgrade step's 54992 is taken in a few percent of runs. That fits two failures in a
+  few dozen runs, always in the same place, and gone on a re-run.
+
+**Ruled out:**
+
+- **Earlier clusters not cleaned up:** each step stops its clusters. 0.2 s after the concurrency step, no loopback
+  socket other than TIME_WAIT is left.
+- **The same port used by two steps:** every step had its own port.
+- **initdb:** it succeeded.
+- **Memory and `/dev/shm`:** about 16 GB available and `/dev/shm` empty, in the reproduction.
+
+**The fix:**
+
+- The fixed ports of everything CI or the runbook starts move below 32768: `db-test.sh` 25499, `db-types.sh` 25498,
+  `db-placement-concurrency.sh` 25493/25494, `db-smart-cellar-upgrade.sh` 25492, `reference.sh` 25450, the default of
+  `scripts/lib/temp-cluster.sh` 25499, and `rehearse-release-0042.sh` 25461. Linux never gives a connection a source
+  port there. In the reproduction, none of the 666 TIME_WAIT sockets was below 32768.
+- When a server still does not start, `temp-cluster.sh` now prints the end of its log, every TCP socket on that port
+  and the memory, so a recurrence names its own cause in the CI log. It still fails the step; nothing is retried or
+  hidden.
+- **Left as they were (not started by CI or the runbook):** `local-stack/up.sh` (the end-to-end stack, 54997),
+  `db-budget/claim/import-concurrency.sh`, `inventory.sh`, `rehearse-bootstrap.sh`, `rehearse-release-0046.sh` and
+  `catalog-tools/pilot.sh`. They are a follow-up (F6).
+
 ## Why none of this affects migrations 0037–0042
 
 - **The paths are separate.** 0037–0042 create catalogue and Wine Intelligence objects, plus three triggers on
@@ -162,3 +203,5 @@ requests. The 3D PRs #70–#74 were merged without an end-to-end run, and `main`
   #79. Make the 3D phone specs deterministic under software rendering, and check the real-device performance question.
 - **F5.** Consider running at least the 3D shards on pull requests that touch `apps/web/src/features/cellar/storage3d` (or the
   whole end-to-end suite on PRs), so `main` does not turn red only after a merge.
+- **F6.** Move the remaining fixed test ports in the ephemeral range below 32768 too (the list in "Fixed in this PR").
+  `local-stack/up.sh` is used by the end-to-end stack and `catalog-tools`, so change it with those.
