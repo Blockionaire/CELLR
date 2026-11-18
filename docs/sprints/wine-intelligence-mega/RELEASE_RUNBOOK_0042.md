@@ -184,8 +184,9 @@ This must print `2.120.0`, `psql (PostgreSQL) 16.…` and the path of `initdb`.
 
 ## 4. Preflight (read-only). Every check must pass, or stop: §6
 
-**P0. Go-ahead.** The owner has decided GO (§8 A1), knows the CI exceptions ([`CI_EXCEPTIONS_0042.md`](CI_EXCEPTIONS_0042.md))
-and holds the window.
+**P0. Go-ahead.** The owner has decided GO (§8 A1), knows the CI exceptions ([`CI_EXCEPTIONS_0042.md`](CI_EXCEPTIONS_0042.md)):
+the picomatch audit exception (E1) expires on **2026-12-18**, and a release after that date first needs it resolved
+or renewed by the owner. The owner holds the window.
 
 **P1. Backup.** In Supabase → Database → **Backups** (Scheduled), a completed daily backup from the last 24 hours is
 listed. The Pro plan keeps the last 7 days. Restoring one restores the **whole** project to that moment (§7.5).
@@ -522,16 +523,16 @@ again: the history should be back to 0001–0036.
 
 **GO only if all of these hold:**
 
-| #   | Criterion                                                                                                       | Where  |
-| --- | --------------------------------------------------------------------------------------------------------------- | ------ |
-| G1  | A completed daily backup from the last 24 hours is listed                                                       | P1     |
-| G2  | `$REL` is `248206a`, holds exactly 42 files, 0001–0042 identical to `main`, the six sha256 match                | P2, P3 |
-| G3  | The connection is project `vvelgyhbjfmjvxkzekyz`                                                                | P4     |
-| G4  | The preflight SQL is all `ok`                                                                                   | P5     |
-| G5  | `compare.sh` against the repository at 0036: `RESULT: equivalent`                                               | P6     |
-| G6  | The dry run from `$REL` lists exactly the six files of §1                                                       | P7, R1 |
-| G7  | `CELLR_FEATURES` is unset or empty; no deploy or other database work in progress                                | P8     |
-| G8  | `main`'s CI fails only on the items in `CI_EXCEPTIONS_0042.md`, within their scope; every database job is green | CI     |
+| #   | Criterion                                                                                                                                                                                                                                                                                  | Where  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| G1  | A completed daily backup from the last 24 hours is listed                                                                                                                                                                                                                                  | P1     |
+| G2  | `$REL` is `248206a`, holds exactly 42 files, 0001–0042 identical to `main`, the six sha256 match                                                                                                                                                                                           | P2, P3 |
+| G3  | The connection is project `vvelgyhbjfmjvxkzekyz`                                                                                                                                                                                                                                           | P4     |
+| G4  | The preflight SQL is all `ok`                                                                                                                                                                                                                                                              | P5     |
+| G5  | `compare.sh` against the repository at 0036: `RESULT: equivalent`                                                                                                                                                                                                                          | P6     |
+| G6  | The dry run from `$REL` lists exactly the six files of §1                                                                                                                                                                                                                                  | P7, R1 |
+| G7  | `CELLR_FEATURES` is unset or empty; no deploy or other database work in progress                                                                                                                                                                                                           | P8     |
+| G8  | CI is green on every required job, with "Dependency audit" passing through the gate. The only accepted advisory is GHSA-fc5q-39xc-vjpf, on its one path, and its exception has not expired (until 2026-12-18). The only end-to-end failures on `main` are E2/E3 of `CI_EXCEPTIONS_0042.md` | CI     |
 
 **NO-GO if any of these holds:**
 

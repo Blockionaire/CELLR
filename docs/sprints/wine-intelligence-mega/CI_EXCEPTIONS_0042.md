@@ -3,25 +3,31 @@
 **What this is:** a documented, scoped acceptance of known CI failures on `main`, **for one decision only**: applying
 the database migrations 0037–0042 to production, following [`RELEASE_RUNBOOK_0042.md`](RELEASE_RUNBOOK_0042.md).
 
-**What this is not:** a suppression. Nothing is ignored, skipped or switched off:
+**Since 2026-11-18, E1 is a temporary CI exception** (owner's request, because "Dependency audit" is a required check).
+It is one entry in `scripts/audit/audit-exceptions.json`, read by the gate `scripts/audit/check-audit.mjs`, and it is
+narrow:
 
-- no `ignoreGhsas` or other audit configuration;
-- no `test.skip` or `test.fixme`;
-- no change to `ci.yml`.
+- **What it covers:** one advisory (GHSA-fc5q-39xc-vjpf), one package and version (picomatch 4.0.7), and one dependency
+  path;
+- **Who and how long:** an owner, and an expiry 30 days out;
+- **What the audit still does:** it runs in full, its report stays in the job log and the job summary, and every other
+  high or critical advisory still fails the job. So does this advisory through any other path or version, and so does
+  the exception itself once it has expired.
 
-CI stays red until the causes are fixed. The security baseline is unchanged.
+There is **no** `ignoreGhsas` (it would hide the advisory on every path), no `test.skip` and no `test.fixme`. E2 and E3
+stay red until they are fixed.
 
 Written 2026-11-17 from CI run [44170769177](https://github.com/Blockionaire/CELLR/actions/runs/44170769177) (`main`
-at `21186f6`, the PR #75 merge).
+at `21186f6`, the PR #75 merge). Updated 2026-11-18.
 
 ## Scope: what is covered, exactly
 
-| ID  | Job                       | Covered failure                                                                                                                                      |
-| --- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E1  | Dependency audit          | `pnpm audit --prod --audit-level high` failing on **GHSA-fc5q-39xc-vjpf only** (picomatch 4.0.7 via `apps__web>next-intl>@parcel/watcher>picomatch`) |
-| E2  | End to end · shard 4 of 8 | `storage-gallery.spec.ts:351` [phone] and `storage-premium.spec.ts:80` [phone] failing; `storage-gallery.spec.ts:123` and `:228` [phone] flaky       |
-| E3  | End to end · shard 8 of 8 | `storage-showcase.spec.ts:82` [desktop] failing (timeout)                                                                                            |
-| —   | End to end · whole app    | The aggregate job, red because of E2 and E3                                                                                                          |
+| ID  | Job                       | Covered failure                                                                                                                                                             |
+| --- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E1  | Dependency audit          | **GHSA-fc5q-39xc-vjpf only**, picomatch 4.0.7 via `apps__web>next-intl>@parcel/watcher>picomatch`. Since 2026-11-18 accepted by the gate until 2026-12-18; the job is green |
+| E2  | End to end · shard 4 of 8 | `storage-gallery.spec.ts:351` [phone] and `storage-premium.spec.ts:80` [phone] failing; `storage-gallery.spec.ts:123` and `:228` [phone] flaky                              |
+| E3  | End to end · shard 8 of 8 | `storage-showcase.spec.ts:82` [desktop] failing (timeout)                                                                                                                   |
+| —   | End to end · whole app    | The aggregate job, red because of E2 and E3                                                                                                                                 |
 
 **Not covered, so any of these is a NO-GO** (runbook §8 G8):
 
@@ -80,6 +86,51 @@ developer machine running `next dev` with message extraction configured, which C
 
 **Effect on 0037–0042:** none. The migrations are SQL, applied by the Supabase CLI from the owner's machine. The app
 is not rebuilt or redeployed by this release, and the package is not part of any database path.
+
+**Can it be removed from the production graph? No** (tested 2026-11-18, in throwaway worktrees):
+
+| Option                                                                        | Result                                                                                                                                                                             |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A patched picomatch                                                           | None: 4.0.7 is the newest release, and the advisory names no patched version                                                                                                       |
+| A newer next-intl or @parcel/watcher                                          | None helps: next-intl 4.15.1 (newest) still needs `@parcel/watcher ^2.4.1`, and @parcel/watcher 2.6.0 (newest) still needs `picomatch ^4.0.4`                                      |
+| Remove @parcel/watcher (`pnpm.overrides`: `"next-intl>@parcel/watcher": "-"`) | **Breaks the app.** `next-intl/plugin` requires it as it loads, so `next build` fails with `Cannot find module '@parcel/watcher'`                                                  |
+| Remove only picomatch (`"@parcel/watcher>picomatch": "-"`)                    | **Cosmetic, so rejected.** The audit turns green, but the watcher still loads the very same `picomatch@4.0.7` through pnpm's hoisted copy. That would hide the code, not remove it |
+| Replace next-intl                                                             | Out of proportion for code that never runs in production                                                                                                                           |
+
+**The temporary CI exception** (`scripts/audit/audit-exceptions.json`):
+
+| Field             | Value                                                                                                                                                                                                                        |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Advisory          | GHSA-fc5q-39xc-vjpf (high): picomatch ReDoS through single-branch repeated extglobs                                                                                                                                          |
+| Package, versions | `picomatch`, `4.0.7` only                                                                                                                                                                                                    |
+| Dependency path   | `apps__web>next-intl>@parcel/watcher>picomatch` only                                                                                                                                                                         |
+| Owner             | Blockionaire (repository owner)                                                                                                                                                                                              |
+| Added, expires    | 2026-11-18, **2026-12-18** (the gate refuses an exception longer than 30 days)                                                                                                                                               |
+| Why               | Not reachable from production requests (the five points above); no patched version; removal breaks the build or only hides the code                                                                                          |
+| Removed when      | A picomatch release above 4.0.7 fixes the advisory, or @parcel/watcher / next-intl stop using a vulnerable picomatch: upgrade, then delete the entry. The gate also prints a warning once the advisory is no longer reported |
+| On expiry         | The job fails again. Renewing needs an explicit owner decision, a new reachability check and a new date at most 30 days ahead                                                                                                |
+
+**What the gate checks** (`scripts/audit/check-audit.sh` runs `pnpm audit --prod` in full, then `check-audit.mjs` on its
+JSON). It fails on:
+
+- every high or critical advisory without an exception;
+- the excepted advisory through **any other path**, at **any other version** or on **another package**;
+- an expired exception, or an invalid one: a missing owner or reason, no versions or paths (so no wildcards), or more
+  than 30 days long;
+- an audit that produced no report, for example when the registry cannot be reached.
+
+Low and moderate advisories are listed, as before with `--audit-level high`.
+
+**Tests:** `scripts/audit/check-audit.test.sh --registry` runs in the job before the gate. It has 18 cases:
+
+- 16 on reports shaped like `pnpm audit --json`;
+- 2 against the real registry:
+  - a project with `lodash@4.17.20` (real high advisories GHSA-35jh-r3h4-6jhm and GHSA-r5fr-rjxr-66jc) **must fail** the
+    gate;
+  - a project that depends on `picomatch@4.0.7` directly (another path) **must fail** it.
+
+On the repository the gate reports 4 advisories. 1 high is accepted with its owner and expiry; 2 moderate and 1 low are
+reported. It passes.
 
 **The same audit, below the threshold** (these do not fail the job, but are recorded here):
 
@@ -184,19 +235,18 @@ not create any TCP/IP sockets`, then `pg_ctl: could not start server`.
 
 ## Remaining risks
 
-| Risk                                                                                | Size       | Mitigation                                                                                       |
-| ----------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------ |
-| A red audit job hides a **new** high advisory                                       | medium     | Read the audit output of every run until E1 is resolved: anything besides the four listed is new |
-| The intermittent 3D failures hide a **new** failure in shards 4 or 8                | medium     | Compare the failing list of each run with the table above; anything else is a NO-GO (scope)      |
-| The 3D slowness is real on low-end phones                                           | low–medium | F4, before the Smart Cellar 3D release; not relevant to 0037–0042                                |
-| picomatch stays unpatched for long                                                  | low        | F1; exposure is dev-time only                                                                    |
-| Next 16.4.1's two moderate advisories become relevant (if `'use cache'` is adopted) | low        | F2                                                                                               |
+| Risk                                                                                | Size       | Mitigation                                                                                                 |
+| ----------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------- |
+| The audit exception is renewed out of habit                                         | low        | The gate fails by itself after 2026-12-18; renewing needs an owner decision and a fresh reachability check |
+| The intermittent 3D failures hide a **new** failure in shards 4 or 8                | medium     | Compare the failing list of each run with the table above; anything else is a NO-GO (scope)                |
+| The 3D slowness is real on low-end phones                                           | low–medium | F4, before the Smart Cellar 3D release; not relevant to 0037–0042                                          |
+| picomatch stays unpatched past the expiry                                           | low        | F1: the job fails on 2026-12-19, then upgrade or decide again; exposure is dev-time only                   |
+| Next 16.4.1's two moderate advisories become relevant (if `'use cache'` is adopted) | low        | F2                                                                                                         |
 
 ## Follow-up actions (separate PRs; none is part of this release)
 
-- **F1.** Watch GHSA-fc5q-39xc-vjpf. When picomatch, @parcel/watcher or next-intl ships a fix, upgrade in a tested PR
-  (an override or a next-intl bump). Until then, do not add an audit exception without an explicit owner decision with
-  an expiry date.
+- **F1.** Watch GHSA-fc5q-39xc-vjpf, before 2026-12-18. When picomatch, @parcel/watcher or next-intl ships a fix,
+  upgrade in a tested PR and delete the entry in `scripts/audit/audit-exceptions.json`. Owner: Blockionaire.
 - **F2.** Upgrade Next.js to 16.4.6 or later in its own PR, with a full end-to-end run.
 - **F3.** Shard 8 capacity (#77): it runs close to the 30-minute job limit.
 - **F4.** For the Smart Cellar 3D session: add `storage-premium.spec.ts:80` and `storage-gallery.spec.ts:123/228` to

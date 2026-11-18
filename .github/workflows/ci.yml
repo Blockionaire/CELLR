@@ -163,7 +163,15 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm audit --prod --audit-level high
+      # The gate's own tests, also against real registry reports: another high advisory, and picomatch 4.0.7 through
+      # any other path than the excepted one, must fail it.
+      - name: The audit gate's own tests
+        run: bash scripts/audit/check-audit.test.sh --registry
+      # `pnpm audit --prod` in full, then the gate: every high or critical advisory fails, except what a scoped,
+      # expiring entry in scripts/audit/audit-exceptions.json covers completely (docs/sprints/wine-intelligence-mega/
+      # CI_EXCEPTIONS_0042.md, E1).
+      - name: pnpm audit --prod, high and critical gate
+        run: bash scripts/audit/check-audit.sh
 
   supabase-stack:
     # The same permission suite against the REAL Supabase stack (GoTrue, Storage, Realtime, …).
