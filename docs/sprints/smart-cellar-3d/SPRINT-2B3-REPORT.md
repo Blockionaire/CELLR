@@ -240,7 +240,18 @@ The five failures, none in the new suite:
 | `racks.spec.ts:371` (desktop light and dark, phone dark) | the racks' contrast audit; flaky on `main` (about half its runs)                                                                                                                                                                    |
 | `cellar3d.spec.ts:293` (desktop)                         | timed out once (5 s) in the 50-minute run with all workers busy; 4 of 4 when run on its own. A matter of load on this machine, not of the change: on that server the gate is off and the screen mounts the existing view as before. |
 
-The rest of the browser suites (other features) were not run locally; CI runs all of them on the pull request.
+**Every other browser suite** (the rest of the app, desktop and phone) was then run locally as well, because CI
+runs the browser suites on `main`, nightly and on demand, not on pull requests: 564 tests, 519 passed, 43 skipped,
+2 failed.
+
+| Test                             | What it is                                                                                                                                                                                                        |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `filters.spec.ts:254` (desktop)  | ran into its 30 s limit once with all workers busy; 3 of 3 on its own                                                                                                                                             |
+| `insights.spec.ts:113` (desktop) | its axe audit sometimes finds the page without a `<title>` at that moment. Flaky on `main` too: 1 of 8 runs failed there with the same finding (checked on a build of `main`). A page this change does not touch. |
+
+So across the whole browser suite (1,026 tests on two projects): no failure that this change causes. What CI does
+run on the pull request (format, lint, types, unit tests, both database suites, migration integrity, dependency
+audit, secret scan, the backup round trip) is green.
 
 ## 9. Performance: the product against the gallery
 
