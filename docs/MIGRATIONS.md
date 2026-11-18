@@ -3,44 +3,34 @@
 This is the one place that says how the database changes. `SETUP.md`, `BETA-OPERATIONS.md` and the checklists point
 here.
 
-> ## ⛔ STOP: the bootstrap procedure in §4 is OUTDATED. Do not run its commands.
+> ## Current state (2026-11-17): history 0001–0036 recorded; 0037–0046 not applied; next is 0037–0042 only
 >
-> **Added 2026-11-14 (Smart Cellar 3D, sprint 1B). Nobody connected to production to write this.**
+> **Verified read-only on 2026-11-17** (Supabase MCP, `SELECT` only; evidence in
+> `docs/sprints/wine-intelligence-mega/RELEASE_RUNBOOK_0042.md` §2):
 >
-> - §3 and §4 were written on 2026-11-02 for **36** migrations (`0001`-`0036`). The repository has moved on:
->   `main` had **42** migration files before sprint 1B (`…000037` with PR #65, `…000038`-`…000042` with PR #68), and
->   sprint 1B adds `…000043`-`…000045`.
-> - **Read-only audit, 2026-11-15:** production holds 0001–0036 (with the 13 accepted deviations), **none of
->   0037–0045** (not even partly) and no migration history. The release of 0037–0046, step by step and rehearsed, is in
->   `docs/sprints/sommelier-v1/RELEASE.md`. This notice stays until the owner has carried it out.
-> - Added 2026-11-15: the Sommelier V1 sprint adds `…000046` (kept conversations and answer ratings; additive, see
->   `docs/sprints/sommelier-v1/README.md`). Everything below applies to it as well.
-> - **Whether `0037`-`0042` have been applied in production is not established anywhere in this repository**, and
->   neither is whether the bootstrap below was ever carried out. The inventory in §3 is from before all of them.
-> - The command in §4 step 3 records as applied **every file that is in `supabase/migrations` at the moment it
->   is run**. Run today it would mark `0037` and everything after it as applied **without running them**: their
->   tables and functions would be missing, and the history would say they are there. The matching rollback command
->   in step 5 has the same flaw the other way round.
-> - **There is no corrected command here, on purpose.** Which versions may be recorded depends on what production
->   actually holds, and that has not been looked at. A command written without that knowledge would be a guess.
+> - **Plan and backups:** the Supabase organisation is on **Pro**. Production has **daily physical backups**, the last 7
+>   days restorable, in Supabase → Database → Backups. PITR is not enabled (on Pro it is a paid add-on). A restore
+>   brings the whole project back to the backup's moment (`RELEASE_RUNBOOK_0042.md` §7.5).
+> - **History:** `supabase_migrations.schema_migrations` exists and holds **exactly 0001–0036** (36 versions). The
+>   owner recorded it between 2026-11-15 (no history yet) and 2026-11-17. **The bootstrap of §4 is done; never run it
+>   again.**
+> - **Schema:** the repository at 0036 plus the 13 accepted deviations (`production-accepted.txt`, all at their pinned
+>   hashes). **None of 0037–0046 is applied.**
+> - **`main` holds 46 migrations.** `0046` (Sommelier V1) was merged with PR #75 on 2026-11-17. `supabase db push` from
+>   `main` would therefore apply **all ten**, 0037–0046.
 >
-> **Before any `migration repair` or any `db push` against production, this must happen first, read-only:**
+> **The next release is 0037–0042 only** (Wine Intelligence), from a checkout of commit `248206a` that holds exactly
+> 0001–0042, by [`RELEASE_RUNBOOK_0042.md`](sprints/wine-intelligence-mega/RELEASE_RUNBOOK_0042.md). **0043–0046,
+> 0046 included, are not part of it.** They are a later, separate release with their own runbook.
 >
-> 1. **A schema inventory.** Compare production with the repository object by object
->    (`bash scripts/migration-audit/compare.sh --target "$DATABASE_URL"`, in a session forced read-only; or
->    `scripts/migration-audit/fingerprint.sql` in the SQL Editor and `compare.sh --target-file`). Attribute every
->    difference to its migration with `bash scripts/migration-audit/inventory.sh`. The result is a list, per
->    migration from `0037` on, of "all its objects are there and identical", "some are", or "none are".
-> 2. **A migration-history inventory.** Does `supabase_migrations.schema_migrations` exist, and which versions does
->    it hold (`pnpm exec supabase migration list --linked`, which only reads)?
-> 3. **A written decision by the owner**, from those two lists, of exactly which versions are recorded as applied and
->    which are still to be run, following §5 migration by migration. Only then a repair, and only then a push.
+> Until that release has run: **no `db push` from `main`, no `migration repair`, no SQL Editor paste.** `db push
+--dry-run` is safe to look at.
 >
-> Until that is done: **no `migration repair`, no `db push`, no SQL Editor paste.** `db push --dry-run` is safe to
-> look at and must list exactly what the decision says is still to be run, nothing else.
+> `supabase/gated-migrations/` holds SQL that is deliberately **not** a migration: it drops an index and is not
+> authorised. `db push` cannot run it. Do not run it by hand; see the README in that folder.
 >
-> Also: `supabase/gated-migrations/` holds SQL that is deliberately **not** a migration (it drops an index and is not
-> authorised). `db push` cannot run it. Do not run it by hand. See the README in that folder.
+> _History of this notice: the STOP notice of 2026-11-14 said §3–§4 were outdated and that production's history and
+> state were unknown. The audit of 2026-11-15 and the check of 2026-11-17 above settled both._
 
 ## 1. Rules
 
@@ -57,8 +47,12 @@ here.
 ## 2. Deploying a migration (the one workflow)
 
 Prerequisite: the production database has a migration history (`supabase_migrations.schema_migrations`) **that has
-been checked against the schema** (see the STOP notice at the top). On 2026-11-02 it had none: without a correct
-history `db push` would try to run every migration again, from the first. Do not run it; see §5.
+been checked against the schema**. Since 2026-11-17 it has: exactly 0001–0036, checked (see the notice at the top).
+Without a correct history `db push` would try to run every migration again, from the first; see §5.
+
+**Only migrations the release has decided on may be pending in the checkout you push from.** `db push` runs every
+pending file in order and cannot stop after a given version. A partial release runs from a checkout holding only the
+files up to its last migration, as in `RELEASE_RUNBOOK_0042.md`.
 
 On a laptop with the repository at the merged `main`, and the database password at hand:
 
@@ -73,14 +67,17 @@ pnpm exec supabase migration list --linked
 Every version must show on both sides (local = remote) except the new migration(s) of this release.
 
 ```bash
-pnpm exec supabase db push --linked --dry-run
+pnpm exec supabase db push --linked --dry-run --skip-vault
 ```
 
 It must list exactly the new migration(s) and nothing else. Anything else listed: **stop**, see §5.
 
 ```bash
-pnpm exec supabase db push --linked
+pnpm exec supabase db push --linked --skip-vault
 ```
+
+`--skip-vault`: without it the CLI first writes the Vault secrets of `supabase/config.toml` (there are none). A
+migration release writes nothing but its migrations.
 
 Then check: `migration list` shows every version on both sides, and the schema matches the repository:
 
@@ -97,10 +94,12 @@ while its database step is missing.
 Never use `db push --include-all` (it would run migrations older than the newest recorded one) or `migration repair`
 outside §4 and §5.
 
-## 3. Production inventory (verified read-only, 2026-11-02)
+## 3. Production inventory (verified read-only, 2026-11-02; re-verified 2026-11-17)
 
-Production (project `vvelgyhbjfmjvxkzekyz`) was built by pasting every migration into the SQL Editor; it has **no
-migration history**. Its schema was compared with the repository object by object, read-only. The comparison covers:
+Production (project `vvelgyhbjfmjvxkzekyz`) was built by pasting every migration into the SQL Editor. On 2026-11-02 it
+had **no migration history**; since 2026-11-17 it holds 0001–0036 (§4 done). **Re-verified on 2026-11-17:** all 380
+object groups outside the accepted deviations are identical to the repository at 0036, and the 13 deviations are at
+their pinned hashes. 0037–0046: not applied. Its schema was compared with the repository object by object, read-only. The comparison covers:
 
 - tables, columns, defaults, identity, RLS flags and grants, column grants;
 - constraints, indexes and triggers (also on `auth.users`);
@@ -136,14 +135,13 @@ Deviations that are not migrations' doing:
 - Hosted Supabase platform objects: the `ensure_rls` event trigger and its function `public.rls_auto_enable`, `anon`
   USAGE on the `extensions` schema, explicit default privileges, and pg_cron installed in `pg_catalog`.
 
-## 4. Bootstrapping production's migration history (owner action, not yet done)
+## 4. Bootstrapping production's migration history (DONE: 0001–0036 recorded, verified 2026-11-17)
 
-> **⛔ OUTDATED: DO NOT RUN THE COMMANDS IN THIS SECTION AS WRITTEN.** See the STOP notice at the top of this
-> document. This section describes the bootstrap as it was rehearsed for 36 migrations on 2026-11-02. It is kept as
-> the record of what was rehearsed and of the order of the steps (backup, read-only preflight, record, verify,
-> rollback). Its step 3 and step 5 commands take their list of versions from the files in `supabase/migrations`,
-> which are no longer the 36 this section is about. The read-only steps (1, 2 and the `compare.sh` check) are still
-> right and are where to start.
+> **⛔ DONE. DO NOT RUN THE COMMANDS IN THIS SECTION AGAIN.** Production's history holds exactly 0001–0036 (see the
+> notice at the top). This section is kept as the record of what was rehearsed and of the order of the steps (backup,
+> read-only preflight, record, verify, rollback). Its step 3 and step 5 commands take their list of versions from the
+> files in `supabase/migrations`, which today are 46. Run now, they would record 0037–0046 as applied without running
+> them, or revert all of the history.
 
 Recording the 36 migrations as applied **changes only the history table**, never the schema or data. It was rehearsed
 end to end on a throwaway database built the way production was (`bash scripts/migration-audit/rehearse-bootstrap.sh`):

@@ -1,5 +1,20 @@
 # Sommelier V1 — release procedure (database first, then the app)
 
+> **Update 2026-11-17: this procedure is overtaken by events. Do not run §4 as written.** Checked read-only on
+> 2026-11-17:
+>
+> - **PR #75 was merged** on 2026-11-17 at 20:34 UTC, before the database steps. A merge to `main` deploys
+>   production (`BETA-OPERATIONS.md` §5; the deployment itself was not visible to this tooling, see §3). As §3
+>   expected, the app copes with 0046 missing: nothing is kept and nothing errors.
+> - **Step 2 is done.** The history holds exactly 0001–0036.
+> - **The database release is now split.** First 0037–0042 only (Wine Intelligence), from a checkout of `248206a`, by
+>   [`RELEASE_RUNBOOK_0042.md`](../wine-intelligence-mega/RELEASE_RUNBOOK_0042.md). **0043–0046, 0046 included, are
+>   not part of that release.** They follow later with their own runbook, which can reuse §4 steps 5–8 and §5 here
+>   (the cron check, the smoke tests and the rollback notes for 0046).
+> - **Backups (§4 step 0a is corrected):** the organisation is now on **Pro**, with daily physical backups.
+>
+> Steps 1–4 below expect "46 local, 0 remote" and a dry run of ten files. Neither is true any more.
+
 **Status 2026-11-15: prepared and rehearsed. Nothing has been run against production except read-only queries.**
 Every write step below needs the owner's go-ahead (§6). `docs/MIGRATIONS.md` stays the rulebook; this document applies
 it to this release.
@@ -45,6 +60,10 @@ exactly in its pre-0037 state. Production is the repository at 0036 plus the kno
 (hourly at :41).
 
 ## 2. Why 0037–0045 go out together with 0046
+
+> _Superseded 2026-11-17: the owner chose a split release. 0037–0042 go first and alone
+> ([`RELEASE_RUNBOOK_0042.md`](../wine-intelligence-mega/RELEASE_RUNBOOK_0042.md)). The reasoning below, that `db push`
+> runs every pending file in order, is exactly why that release runs from a checkout holding only 0001–0042._
 
 - `supabase db push` runs every migration missing from the history, **in order**. It cannot run 0046 without 0037–0045
   before it, and `MIGRATIONS.md` forbids running SQL by hand. So the sanctioned way to ship 0046 ships 0037–0046.
@@ -99,12 +118,17 @@ head). `db push` reads the migration files from disk, and once 0046 has run in p
 
 **0. Before you start.** Get the go-ahead (§6). No other merges to `main` during the window.
 
-**0a. A backup of your own: required.** The Supabase organisation is on the **Free** plan, which has **no**
-automatic daily backups and no PITR (checked 2026-11-15: plan `free`; Supabase docs: daily backups are for Pro, Team
-and Enterprise, and Free projects should export with `supabase db dump`). So there is nothing to restore from unless
-you make it. The three-file dump from the Supabase guide reads production and writes the files on **your** machine.
-Keep them encrypted and out of git and chats: `data.sql` holds people's accounts and cellars. It needs Docker, the
-connection string (Supabase → Connect → Session pooler) and the database password.
+**0a. Backup.** _Corrected 2026-11-17:_ the Supabase organisation is now on the **Pro** plan (checked read-only:
+plan `pro`). Production has **daily physical backups**, the last 7 days, in Supabase → Database → Backups. PITR is not
+enabled. Before a release, confirm that a completed backup from the last 24 hours is listed. A restore brings the
+whole project back to that moment.
+
+(On 2026-11-15 the plan was `free`, without automatic backups, and this step required a dump of your own.)
+
+A logical dump of your own is now **optional**, as an extra copy. The three-file dump from the Supabase guide reads
+production and writes the files on **your** machine. Keep them encrypted and out of git and chats: `data.sql` holds
+people's accounts and cellars. It needs Docker, the connection string (Supabase → Connect → Session pooler) and the
+database password.
 
 ```bash
 pnpm exec supabase db dump --db-url "$DATABASE_URL" -f roles.sql --role-only
@@ -255,15 +279,15 @@ point Vercel at it. Both are owner actions with downtime. Decide per incident.
 
 ## 6. What needs the owner's approval
 
-| #   | Action                                                                              | Kind             | Who              |
-| --- | ----------------------------------------------------------------------------------- | ---------------- | ---------------- |
-| A0  | Step 0a: make the backup dump (reads production; production data on your machine)   | data handling    | owner (password) |
-| A1  | Decide to release 0037–0045 together with 0046 (§2)                                 | decision         | owner            |
-| A2  | Step 2: `migration repair` (creates the history schema and writes 36 rows)          | production write | owner (password) |
-| A3  | Step 4: `db push` (applies 0037–0046)                                               | production write | owner (password) |
-| A4  | Step 7: merge PR #75 (triggers the production deploy)                               | deploy           | owner            |
-| A5  | Optional: give this tooling read access to the Vercel team `jp-builds` to verify §3 | access           | owner            |
-| A6  | Step 8: the `MIGRATIONS.md` update                                                  | docs PR review   | owner            |
+| #   | Action                                                                               | Kind             | Who              |
+| --- | ------------------------------------------------------------------------------------ | ---------------- | ---------------- |
+| A0  | Step 0a: optional extra dump (reads production; production data on your machine)     | data handling    | owner (password) |
+| A1  | ~~Release 0037–0045 together with 0046 (§2)~~ superseded: split release (2026-11-17) | decision         | owner            |
+| A2  | Step 2: `migration repair` (36 rows): **done** (verified 2026-11-17)                 | production write | owner (password) |
+| A3  | Step 4: `db push` (applies 0037–0046)                                                | production write | owner (password) |
+| A4  | Step 7: merge PR #75 (triggers the production deploy): **done** 2026-11-17           | deploy           | owner            |
+| A5  | Optional: give this tooling read access to the Vercel team `jp-builds` to verify §3  | access           | owner            |
+| A6  | Step 8: the `MIGRATIONS.md` update                                                   | docs PR review   | owner            |
 
 Everything else in this document is read-only.
 
