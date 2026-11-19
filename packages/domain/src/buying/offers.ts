@@ -70,7 +70,7 @@ export type OfferDefect = (typeof OFFER_DEFECTS)[number];
 export interface OfferPolicy {
   /** How old an observation may be, in hours. Stock in a store changes faster than a web listing. */
   maxAgeHours: { online: number; local: number };
-  /** Hosts the provider is allowed to link to (its merchants). Empty: any https host. */
+  /** Hosts the provider is allowed to link to (its merchants). Empty: none, so nothing is shown. */
   allowedHosts: readonly string[];
 }
 export const DEFAULT_OFFER_POLICY: OfferPolicy = {
@@ -79,6 +79,9 @@ export const DEFAULT_OFFER_POLICY: OfferPolicy = {
 };
 
 export const STANDARD_BOTTLE_ML = 750;
+/** No bottle a sommelier is asked about costs more; a larger number is bad data. */
+const MAX_OFFER_CENTS = 10_000_000;
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})$/;
 
 /** Everything wrong with an offer for this query. Empty: it may be shown. */
 export function checkOffer(
@@ -90,14 +93,26 @@ export function checkOffer(
   const defects: OfferDefect[] = [];
   const add = (d: OfferDefect) => void defects.push(d);
 
+  // Every word asked for must be on the offer, and at least one of them in the wine's own name: a producer
+  // called "Chablis Frères" selling a Mâcon is not a Chablis. A query for nothing matches nothing.
   const label = ` ${normalizeText(`${offer.producer} ${offer.name}`)} `;
+  const name = ` ${normalizeText(offer.name)} `;
   const wanted = normalizeText(query.text).split(" ").filter(Boolean);
-  if (label.trim() === "" || wanted.some((w) => !label.includes(` ${w} `)))
+  if (
+    wanted.length === 0 ||
+    wanted.some((w) => !label.includes(` ${w} `)) ||
+    !wanted.some((w) => name.includes(` ${w} `))
+  )
     add("identity-mismatch");
   if (query.year !== null && offer.year !== query.year) add("wrong-vintage");
   if (offer.sizeMl !== query.sizeMl) add("wrong-size");
 
-  if (offer.priceCents === null || !Number.isInteger(offer.priceCents) || offer.priceCents <= 0)
+  if (
+    offer.priceCents === null ||
+    !Number.isInteger(offer.priceCents) ||
+    offer.priceCents <= 0 ||
+    offer.priceCents > MAX_OFFER_CENTS
+  )
     add("no-price");
   else if (offer.currency !== query.currency) add("wrong-currency");
   else if (query.maxCents !== null && offer.priceCents > query.maxCents) add("over-budget");
@@ -111,22 +126,32 @@ export function checkOffer(
     url = null;
   }
   if (!url || url.hostname === "") add("no-url");
-  else if (url.protocol !== "https:" || url.username !== "" || url.password !== "")
-    add("insecure-url");
   else if (
-    policy.allowedHosts.length > 0 &&
-    !policy.allowedHosts.some((h) => url.hostname === h || url.hostname.endsWith(`.${h}`))
+    url.protocol !== "https:" ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.port !== ""
   )
-    add("foreign-url");
+    add("insecure-url");
+  else {
+    // Only the provider's own merchants, compared as hosts are: lower case, no trailing dot. No list: no host.
+    const host = url.hostname.toLowerCase().replace(/\.$/, "");
+    const allowed = policy.allowedHosts.map((h) => h.trim().toLowerCase().replace(/\.$/, ""));
+    if (!allowed.some((h) => h !== "" && (host === h || host.endsWith(`.${h}`))))
+      add("foreign-url");
+  }
 
-  const seen = Date.parse(offer.observedAt);
+  // A timestamp with its zone, as ISO 8601 writes it: anything else could mean another moment.
+  const seen = ISO_INSTANT.test(offer.observedAt) ? Date.parse(offer.observedAt) : Number.NaN;
   const ageHours = (now.getTime() - seen) / 3_600_000;
   // No timestamp, one from the future, or one that is too old: the price and the stock are not known now.
   if (!Number.isFinite(seen) || ageHours < -0.1 || ageHours > policy.maxAgeHours[offer.kind])
     add("stale");
   if (offer.inStock === false) add("out-of-stock");
 
-  if (offer.kind === "local" && offer.store?.verified !== true) add("unverified-store");
+  // "In a store nearby" is a claim about a shelf: the store itself must have confirmed it, and the stock.
+  if (offer.kind === "local" && (offer.store?.verified !== true || offer.inStock !== true))
+    add("unverified-store");
   if (query.channel === "online" && offer.kind !== "online") add("wrong-channel");
   if (query.channel === "pickup" && offer.kind !== "local") add("wrong-channel");
   return defects;

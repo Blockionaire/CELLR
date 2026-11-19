@@ -2,6 +2,7 @@ import "server-only";
 import {
   aboutWine,
   advance,
+  isSmallTalk,
   nextQuestion,
   normalizeText,
   readState,
@@ -84,12 +85,16 @@ export interface PlanRequest {
   personal: boolean;
   /** "en" or "nl": the language the labels of what to buy are written in. */
   locale: string;
+  /** The cellar, when the caller has read it already in this request (it is not read twice). */
+  cellar?: CellarView;
 }
 
 export interface Planned {
   plan: SommelierPlan;
-  /** The cards of the plan's picks, in the plan's order. */
+  /** The cards of the plan's picks, in the plan's order: the bottles offered, and no others. */
   bottles: SommelierBottle[];
+  /** The cards of the wines the plan mentions without offering them (set aside, the closest). */
+  otherBottles: SommelierBottle[];
   /** The person's taste changed which bottle comes first. */
   personal: boolean;
 }
@@ -173,6 +178,7 @@ const emptyPlan = (state: ConversationState): SommelierPlan => ({
   dishConfidence: null,
   outcome: null,
   confidence: null,
+  considered: 0,
   picks: [],
   closest: null,
   setAside: [],
@@ -196,6 +202,8 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
     readsDish(question: string): boolean {
       return parseFood(question.slice(0, 800), FOOD).main !== null;
     },
+    /** Whether buying advice is the engines' (then the model's own is dropped). */
+    buying: deps.buying,
     /**
      * The plan for a question, or null when the question is not one the engines answer (a general question about
      * wine with no dish and nothing to buy): the caller then answers it the way it did before.
@@ -230,16 +238,17 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
       if (!food && !buying) {
         // No dish and nothing to buy. A question about wine goes to the general sommelier; anything else gets
         // one question back, no bottles and no model.
-        if (aboutWine(question) || named.length > 0) return null;
+        if (aboutWine(question) || named.length > 0 || isSmallTalk(question)) return null;
         const ask = nextQuestion(state, { dishKnown: false, ownedSuits: false, onTopic: true });
         return {
           plan: { ...emptyPlan(withAsked({ ...state, offered: [] }, ask)), ask },
           bottles: [],
+          otherBottles: [],
           personal: false,
         };
       }
 
-      const { items } = await deps.cellar();
+      const { items } = request.cellar ?? (await deps.cellar());
       const profiles =
         items.length === 0
           ? new Map<string, InsightOutput>()
@@ -276,7 +285,18 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         dishConfidence: food?.confidence ?? null,
       };
       let bottles: SommelierBottle[] = [];
+      let otherBottles: SommelierBottle[] = [];
       let personal = false;
+      // Wines of theirs the question names ("Which Barolo with the steak?", "Chablis or Barolo with the lamb?"):
+      // the question is about those, so those are judged, not the cellar at large.
+      const about =
+        named.length === 0 ? [] : read.filter((r) => named.some((k) => r.reading.keys.includes(k)));
+      const pool = about.length > 0 ? about : read;
+      plan = {
+        ...plan,
+        considered: pool.length,
+        kind: !buying && about.length >= 2 ? "compare" : plan.kind,
+      };
       let ownedSuits = false;
 
       if (food) {
@@ -286,11 +306,20 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
           tier: r.reading.tier,
           taste: withTaste ? tasteScore({ ...r.reading, type: r.item.type }, taste) : 0,
         });
-        const open = read.filter((r) => blockedBy(r, state) === null);
-        const decision = decidePairing(
-          food,
-          open.map((r) => candidate(r, true)),
-        );
+        const decide = (from: readonly Read[]) =>
+          decidePairing(
+            food,
+            from.filter((r) => blockedBy(r, state) === null).map((r) => candidate(r, true)),
+          );
+        // The wines they asked about first; when none of those suits, the rest of the cellar after all.
+        let scope = pool;
+        let decision = decide(scope);
+        if (about.length > 0 && decision.outcome === "none") {
+          scope = read;
+          decision = decide(scope);
+          plan = { ...plan, considered: read.length, kind: buying ? "buying" : "pairing" };
+        }
+        const open = scope.filter((r) => blockedBy(r, state) === null);
         if (taste && decision.picks.length > 1) {
           const plain = decidePairing(
             food,
@@ -301,7 +330,7 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         // Wines that would have been offered, had they been free, ready and not turned down: said, not hidden.
         const rank = { good: 0, acceptable: 1, neutral: 2, poor: 3 } as const;
         const bar = decision.outcome === "good" ? 0 : 1;
-        const setAside = read
+        const setAside = scope
           .flatMap((r) => {
             const reason = blockedBy(r, state);
             if (reason === null) return [];
@@ -320,8 +349,8 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
           closest: decision.closest ? toPick(decision.closest) : null,
           setAside: setAside.map((s) => ({ vintageId: s.r.item.vintageId, reason: s.reason })),
         };
-        bottles = [
-          ...decision.picks.map((p) => p.item.item),
+        bottles = decision.picks.map((p) => toSommelierBottle(p.item.item));
+        otherBottles = [
           ...(decision.closest ? [decision.closest.item.item] : []),
           ...setAside.map((s) => s.r.item),
         ].map(toSommelierBottle);
@@ -354,7 +383,10 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         let offers: PlanOffer[] = [];
         let offersDropped: OfferDefect[] = [];
         if (deps.offers && suggestions.length > 0) {
-          const year = /\b(19[5-9]\d|20[0-4]\d)\b/.exec(question);
+          // A vintage is a year that has been: "to drink before 2030" names none.
+          const year = [...question.matchAll(/\b(19[5-9]\d|20\d{2})\b/g)]
+            .map((m) => Number(m[1]))
+            .find((y) => y <= deps.now().getFullYear());
           // A wine they named is looked for by that name; otherwise the styles that suit, best first.
           const texts =
             wines.length > 0
@@ -374,7 +406,7 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
             for (const text of texts.slice(0, OFFER_STYLES)) {
               const query = {
                 text,
-                year: year ? Number(year[1]) : null,
+                year: year ?? null,
                 sizeMl: STANDARD_BOTTLE_ML,
                 maxCents:
                   state.budgetMaxEuros === null ? null : Math.round(state.budgetMaxEuros * 100),
@@ -420,10 +452,16 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
       }
 
       const ask = deps.buying
-        ? nextQuestion(state, { dishKnown: food !== null, ownedSuits, onTopic: true })
+        ? nextQuestion(state, {
+            dishKnown: food !== null,
+            ownedSuits,
+            onTopic: true,
+            // Where to buy and the location are only asked when a source could use the answer.
+            canSearch: deps.offers !== null,
+          })
         : null;
       state = withAsked({ ...state, offered: plan.picks.map((p) => p.vintageId).slice(0, 6) }, ask);
-      return { plan: { ...plan, ask, state }, bottles, personal };
+      return { plan: { ...plan, ask, state }, bottles, otherBottles, personal };
     },
   };
 }

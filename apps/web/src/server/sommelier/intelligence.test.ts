@@ -167,7 +167,7 @@ describe("what to open with a dish", () => {
     expect(offered).not.toContain(wines[3]!.vintageId);
     expect(planned.plan.picks.every((p) => p.level === "good")).toBe(true);
     // The cards are the plan's wines, in the plan's order.
-    expect(planned.bottles.map((b) => b.vintageId).slice(0, offered.length)).toEqual(offered);
+    expect(planned.bottles.map((b) => b.vintageId)).toEqual(offered);
     expect(SommelierPlanSchema.safeParse(planned.plan).success).toBe(true);
   });
 
@@ -251,6 +251,59 @@ describe("what the inventory says about a bottle", () => {
   });
 });
 
+describe("what an older screen would draw", () => {
+  it("only offered bottles are in `bottles`: set-aside and closest wines travel apart", async () => {
+    const kept = { ...chablis(), reserved: { count: 2, title: "Anniversary", on: null } };
+    const young = { ...muscadet(), drink: { ...muscadet().drink, phase: "young" as const } };
+    const planned = (await setup({ items: [kept, young, pauillac()] }).ask(
+      "Raw oysters tonight. What should I open?",
+    ))!;
+    expect(planned.plan.outcome).toBe("none");
+    expect(planned.bottles).toEqual([]);
+    expect(new Set(planned.otherBottles.map((b) => b.vintageId))).toEqual(
+      new Set([kept.vintageId, young.vintageId]),
+    );
+  });
+});
+
+describe("wines the question names", () => {
+  it("judges the wines asked about, not the cellar at large", async () => {
+    const wines = [pauillac(), barolo(), chablis()];
+    const { ask } = setup({ items: wines });
+    const which = (await ask("Which Barolo should I open with the grilled ribeye?"))!;
+    expect(which.plan.picks.map((p) => p.vintageId)).toEqual([wines[1]!.vintageId]);
+    const either = (await ask("Chablis or Barolo with the grilled ribeye?"))!;
+    expect(either.plan.kind).toBe("compare");
+    expect(either.plan.picks.map((p) => p.vintageId)).toEqual([wines[1]!.vintageId]);
+    expect(either.plan.considered).toBe(2);
+  });
+  it("falls back to the rest of the cellar when none of the named wines suits", async () => {
+    const wines = [barolo(), chablis()];
+    const planned = (await setup({ items: wines }).ask("Can I open my Barolo with raw oysters?"))!;
+    expect(planned.plan.outcome).toBe("good");
+    expect(planned.plan.picks.map((p) => p.vintageId)).toEqual([wines[1]!.vintageId]);
+  });
+});
+
+describe("a wish for a colour", () => {
+  it("is not carried to the next dish, and a colour in the name of food is not one", async () => {
+    const wines = [pauillac(), chablis()];
+    const { ask } = setup({ items: wines });
+    const fish = (await ask("What goes with white fish?"))!;
+    expect(fish.plan.state.wineType).toBeNull();
+    const lamb = (await ask("And with roast lamb?", { state: fish.plan.state }))!;
+    expect(lamb.plan.picks.map((p) => p.vintageId)).toContain(wines[0]!.vintageId);
+  });
+  it("says how many wines it had to choose from when a wish leaves none that suits", async () => {
+    const { ask } = setup({ items: [pauillac(), chablis()] });
+    const planned = (await ask("Which white wine goes with grilled ribeye?"))!;
+    expect(planned.plan.state.wineType).toBe("white");
+    expect(planned.plan.outcome).toBe("none");
+    // One white was considered: the cellar is not empty, and the screen must not say it is.
+    expect(planned.plan.considered).toBe(1);
+  });
+});
+
 describe("how well a wine is known", () => {
   it("states the tier of the evidence, and is only as sure as it", async () => {
     const exact = chablis();
@@ -293,7 +346,13 @@ describe("how well a wine is known", () => {
 
 describe("the conversation", () => {
   it("the owner's example: either, the budget, where from, the location", async () => {
-    const { ask } = setup({ items: [pauillac(), barolo()] });
+    // With a retailer source connected: where to buy and the location can change the answer, so they are asked.
+    const source: OfferProvider = {
+      id: "test",
+      allowedHosts: ["example.nl"],
+      search: async () => [],
+    };
+    const { ask } = setup({ items: [pauillac(), barolo()], offers: source });
     const one = (await ask(
       "What should I drink with sea bass from my cellar, or should I buy something?",
     ))!;
@@ -319,8 +378,20 @@ describe("the conversation", () => {
     const four = (await ask("Yes, that's fine", { state: three.plan.state }))!;
     expect(four.plan.state.locationConsent).toBe(true);
     expect(four.plan.ask).toBeNull();
-    // Still no shop was checked: there is no source.
-    expect(four.plan.offerCheck).toBe("no-provider");
+    expect(four.plan.offerCheck).toBe("nothing-verified");
+  });
+
+  it("without a retailer source it asks the budget and then nothing: no answer could use more", async () => {
+    const { ask } = setup({ items: [pauillac(), barolo()] });
+    const one = (await ask(
+      "What should I drink with sea bass from my cellar, or should I buy something?",
+    ))!;
+    expect(one.plan.ask).toBe("budget");
+    const two = (await ask("€25.", { state: one.plan.state }))!;
+    expect(two.plan.ask).toBeNull();
+    const three = (await ask("Collect today, preferably nearby.", { state: two.plan.state }))!;
+    expect(three.plan.ask).toBeNull();
+    expect(three.plan.offerCheck).toBe("no-provider");
   });
 
   it("does not ask to buy when something owned suits", async () => {
@@ -410,8 +481,18 @@ describe("questions the engines do not answer", () => {
 
   it("leaves a general question about wine to the general sommelier", async () => {
     const { ask } = setup({ items: [chablis()] });
-    expect(await ask("Tell me something about Barolo")).toBeNull();
-    expect(await ask("Which wine should I open tonight?")).toBeNull();
+    for (const question of [
+      "Tell me something about Barolo",
+      "Which wine should I open tonight?",
+      "Which bottles are in the fridge?",
+      "Which of my wines are the most valuable?",
+      "What temperature should I serve my reds at?",
+      "Tell me about decanting",
+      "What should I serve at my birthday party?",
+      "Thanks!",
+      "Dank je wel",
+    ])
+      expect(await ask(question), question).toBeNull();
   });
 });
 
@@ -522,7 +603,9 @@ describe("real bottles in real shops", () => {
     }).ask(pickup))!;
     expect(unverified.plan.offers).toEqual([]);
     const verified = (await setup({
-      offers: source([offer({ kind: "local", store: { name: "Winkel Centrum", verified: true } })]),
+      offers: source([
+        offer({ kind: "local", store: { name: "Winkel Centrum", verified: true }, inStock: true }),
+      ]),
     }).ask(pickup))!;
     expect(verified.plan.offers[0]).toMatchObject({
       level: "local-availability",

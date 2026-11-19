@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aboutWine, askedFor, offersChoice } from "./sommelier-route";
+import { aboutWine, askedFor, isSmallTalk, offersChoice } from "./sommelier-route";
 
 describe("what a question's wording asks for", () => {
   it.each([
@@ -37,5 +37,23 @@ describe("what a question's wording asks for", () => {
     expect(aboutWine("What's the weather like tomorrow?")).toBe(false);
     expect(aboutWine("Hoe laat gaat de supermarkt dicht?")).toBe(false);
     expect(aboutWine("asdf qwerty")).toBe(false);
+  });
+});
+
+describe("small talk and questions with a subject", () => {
+  it.each(["Thanks!", "ok", "Dank je wel", "Prima", "hello"])("%s is small talk", (text) => {
+    expect(isSmallTalk(text)).toBe(true);
+  });
+  it("a question is not small talk", () => {
+    expect(isSmallTalk("Thanks, and what goes with lamb?")).toBe(false);
+  });
+  it.each([
+    "Which bottles are in the fridge?",
+    "Which of my wines are the most valuable?",
+    "What temperature should I serve my reds at?",
+    "Tell me about decanting",
+    "What should I serve at my birthday party?",
+  ])("%s is about wine", (text) => {
+    expect(aboutWine(text)).toBe(true);
   });
 });

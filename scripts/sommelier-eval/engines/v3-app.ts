@@ -107,7 +107,8 @@ function providerOf(world: World | undefined): {
           kind: o.kind,
           store:
             o.kind === "local" ? { name: o.merchant, verified: o.storeVerified === true } : null,
-          inStock: null,
+          // In the scenarios a verified store is one that itself confirmed it has the bottle.
+          inStock: o.kind === "local" && o.storeVerified === true ? true : null,
         }));
       },
     },

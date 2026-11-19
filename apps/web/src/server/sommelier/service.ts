@@ -52,6 +52,8 @@ export interface SommelierDeps {
    * to pair, something to buy); everything else is answered as before. Absent: nothing changes.
    */
   intelligence?: SommelierIntelligence | null;
+  /** Counts an answer of the engines against its own, generous limit; throws RATE_LIMITED when it is gone. */
+  spendEngine?: () => Promise<void>;
   /** Null = no AI configured. */
   llm: LlmProvider | null;
   /** Spends from the chat budget; throws RATE_LIMITED when it is gone. */
@@ -188,6 +190,8 @@ export function createSommelierService(deps: SommelierDeps) {
         deps.intelligence !== undefined &&
         deps.intelligence !== null &&
         cellarQuestionKind(question) === "selection" &&
+        // "...for the oysters", "...bij de vis": the dish is what the wine is for, not part of a producer's name.
+        /\b(for|with|voor|bij|met)\b/i.test(question) &&
         deps.intelligence.readsDish(question);
       const facts =
         !tonight && isCellarQuestion(question) && !pairingInDisguise
@@ -210,6 +214,8 @@ export function createSommelierService(deps: SommelierDeps) {
       // The engines first, for what they decide themselves: no model is asked and nothing is spent. A question
       // of fact never goes to them; a failure of theirs is not the person's problem (the old path answers).
       if (deps.intelligence && !facts) {
+        // Free of model cost, not free of limits: a script must not turn the engines into a CPU tap.
+        await deps.spendEngine?.();
         const planned = await deps.intelligence
           .plan({
             question,
@@ -218,6 +224,7 @@ export function createSommelierService(deps: SommelierDeps) {
               request.budgetEuros ?? (request.budget ? BUDGET_EUROS[request.budget][1] : null),
             personal: request.personal !== false && !explore,
             locale: await deps.locale().catch(() => "en"),
+            cellar: { items, bottleCount: items.reduce((sum, i) => sum + i.count, 0) },
           })
           .catch(() => null);
         if (planned)
@@ -226,6 +233,7 @@ export function createSommelierService(deps: SommelierDeps) {
             text: null,
             basic: planned.plan.picks.length > 0 ? "pairing" : "nothing",
             bottles: planned.bottles,
+            ...(planned.otherBottles.length > 0 ? { otherBottles: planned.otherBottles } : {}),
             reason: null,
             personal: planned.personal,
             plan: planned.plan,
@@ -313,7 +321,7 @@ export function createSommelierService(deps: SommelierDeps) {
         bottles: checked.bottles.length > 0 ? checked.bottles : (named ?? []),
         // With the engines on, a verdict and buying advice only ever come from them: the model's own are dropped.
         verdict: facts || deps.intelligence ? null : checked.verdict,
-        buy: facts || deps.intelligence ? [] : checked.buy,
+        buy: facts || deps.intelligence?.buying ? [] : checked.buy,
         reason: null,
         // Only when a taste was shown and the model says it shaped the answer.
         personal: personal !== null && checked.usedTaste,

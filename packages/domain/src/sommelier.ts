@@ -141,6 +141,11 @@ export interface SommelierAnswer {
    * what to buy as a style, the question asked back. Absent from every answer V1 gives.
    */
   plan?: SommelierPlan | null;
+  /**
+   * Bottles the plan mentions without offering them (set aside, or the closest when nothing suits). Apart from
+   * `bottles` on purpose: a screen that knows no plans draws `bottles` as suggestions, and these are not.
+   */
+  otherBottles?: SommelierBottle[];
 }
 
 export const toSommelierBottle = (item: CellarItem): SommelierBottle => ({

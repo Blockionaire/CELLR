@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import type { PlanPick, SommelierBottle, SommelierPlan } from "@cellr/domain";
-import { Chip } from "@/ui/chip";
 
 /** The quick answers offered with a question back, by question. The words are in the messages. */
 const QUICK = {
@@ -45,12 +44,15 @@ export function PlanView({
     return bottle ? [{ pick: p, bottle }] : [];
   });
   const closest = plan.closest ? bottleOf.get(plan.closest.vintageId) : undefined;
+  // One thing is said once: a question back is the whole message when nothing else was decided.
   const headline =
     plan.kind === "clarify"
-      ? t("plan.outcome.clarify")
+      ? plan.ask === "dish"
+        ? null
+        : t("plan.outcome.clarify")
       : plan.outcome === null
         ? null
-        : plan.outcome === "none" && bottles.length === 0 && plan.setAside.length === 0
+        : plan.outcome === "none" && plan.considered === 0
           ? t("plan.outcome.noneEmpty")
           : t(`plan.outcome.${plan.outcome}`);
   const quick = plan.ask ? QUICK[plan.ask] : [];
@@ -176,9 +178,9 @@ export function PlanView({
           )}
           {plan.offers.length > 0 && (
             <ul className="mt-2 flex flex-col gap-2">
-              {plan.offers.map((o) => (
+              {plan.offers.map((o, n) => (
                 <li
-                  key={o.url}
+                  key={`${n}-${o.url}`}
                   data-testid="plan-offer"
                   className="rounded-card bg-surface p-3 ring-1 ring-hairline"
                 >
@@ -199,14 +201,17 @@ export function PlanView({
                     {t("plan.offer.at", { merchant: o.store ?? o.merchant })} ·{" "}
                     {t("plan.offer.seen", { when: format.relativeTime(new Date(o.observedAt)) })}
                   </p>
-                  <a
-                    href={o.url}
-                    target="_blank"
-                    rel="noopener noreferrer nofollow"
-                    className="mt-1 inline-block text-small font-medium text-accent-fg underline underline-offset-2"
-                  >
-                    {t("plan.offer.open")}
-                  </a>
+                  {/* Only ever a shop's own https page; anything else is not a link. */}
+                  {o.url.startsWith("https://") && (
+                    <a
+                      href={o.url}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="mt-1 inline-block text-small font-medium text-accent-fg underline underline-offset-2"
+                    >
+                      {t("plan.offer.open")}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
@@ -223,10 +228,16 @@ export function PlanView({
         >
           {quick.map((option) => {
             const label = t(`plan.quick.${option}`);
+            // An action, not a toggle: a plain button, so it is not announced as "pressed".
             return (
-              <Chip key={option} onClick={() => onReply(label)}>
+              <button
+                key={option}
+                type="button"
+                onClick={() => onReply(label)}
+                className="h-9 shrink-0 rounded-full border border-hairline bg-surface px-4 text-small font-medium text-ink-2 transition-colors duration-150 ease-cellr hover:text-ink active:scale-[0.97]"
+              >
                 {label}
-              </Chip>
+              </button>
             );
           })}
         </div>

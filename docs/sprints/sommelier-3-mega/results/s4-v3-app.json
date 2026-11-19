@@ -1,7 +1,7 @@
 {
   "engine": "v3-app",
   "scenarios": 246,
-  "passed": 134,
+  "passed": 131,
   "supported": 213,
   "byCategory": {
     "pairing-simple": {
@@ -12,17 +12,17 @@
     "pairing-hard": {
       "scenarios": 57,
       "supported": 57,
-      "passed": 25
+      "passed": 26
     },
     "pairing-misleading": {
       "scenarios": 16,
       "supported": 16,
-      "passed": 6
+      "passed": 5
     },
     "no-suitable-wine": {
       "scenarios": 18,
       "supported": 18,
-      "passed": 11
+      "passed": 9
     },
     "empty-cellar": {
       "scenarios": 6,
@@ -52,7 +52,7 @@
     "follow-up": {
       "scenarios": 16,
       "supported": 16,
-      "passed": 11
+      "passed": 10
     },
     "multi-person": {
       "scenarios": 14,
@@ -83,19 +83,19 @@
   "measures": {
     "grounded": [213, 213],
     "food": [182, 197],
-    "verdict": [141, 159],
+    "verdict": [140, 159],
     "first": [116, 159],
-    "no-poor-bottle": [103, 141],
+    "no-poor-bottle": [102, 141],
     "no-bottles": [19, 21],
     "honest-none": [16, 18],
-    "buy": [152, 158],
+    "buy": [151, 158],
     "confidence": [15, 15],
     "never": [10, 10],
     "flag": [1, 1],
     "facts": [4, 4],
     "tier": [27, 27],
     "state": [68, 68],
-    "asks": [11, 11],
+    "asks": [8, 11],
     "not-ask": [14, 14],
     "offers": [13, 14],
     "injection": [3, 3]
@@ -457,9 +457,9 @@
     },
     {
       "id": "ph-028",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["verdict", "first"]
+      "failed": []
     },
     {
       "id": "ph-029",
@@ -667,9 +667,9 @@
     },
     {
       "id": "pm-006",
-      "pass": true,
+      "pass": false,
       "supported": true,
-      "failed": []
+      "failed": ["first", "no-poor-bottle"]
     },
     {
       "id": "pm-007",
@@ -739,9 +739,9 @@
     },
     {
       "id": "ns-002",
-      "pass": true,
+      "pass": false,
       "supported": true,
-      "failed": []
+      "failed": ["verdict", "buy:given"]
     },
     {
       "id": "ns-003",
@@ -787,9 +787,9 @@
     },
     {
       "id": "ns-010",
-      "pass": true,
+      "pass": false,
       "supported": true,
-      "failed": []
+      "failed": ["verdict"]
     },
     {
       "id": "ns-011",
@@ -1143,13 +1143,13 @@
       "id": "fu-02",
       "pass": false,
       "supported": true,
-      "failed": ["food"]
+      "failed": ["food", "asks"]
     },
     {
       "id": "fu-03",
       "pass": false,
       "supported": true,
-      "failed": ["food"]
+      "failed": ["food", "asks"]
     },
     {
       "id": "fu-04",
@@ -1201,9 +1201,9 @@
     },
     {
       "id": "fu-12",
-      "pass": true,
+      "pass": false,
       "supported": true,
-      "failed": []
+      "failed": ["asks"]
     },
     {
       "id": "fu-13",

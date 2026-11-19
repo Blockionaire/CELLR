@@ -17,7 +17,8 @@ const talk = (...turns: Array<string | [string, Partial<TurnInput>]>) =>
     (s, t) => (typeof t === "string" ? say(s, t) : say(s, t[0], t[1])),
     EMPTY_STATE,
   );
-const situation = { dishKnown: true, ownedSuits: false, onTopic: true };
+// A retailer source is connected in these conversations, unless a test says otherwise.
+const situation = { dishKnown: true, ownedSuits: false, onTopic: true, canSearch: true };
 
 describe("reading a price", () => {
   it.each([
@@ -268,5 +269,77 @@ describe("a state sent back by a screen", () => {
       { ...EMPTY_STATE, dish: "x".repeat(500) },
     ])
       expect(readState(bad)).toEqual(EMPTY_STATE);
+  });
+});
+
+describe("what is not asked without a retailer source", () => {
+  it("neither where to buy nor the location: the answers could change nothing", () => {
+    const none = { dishKnown: true, ownedSuits: false, onTopic: true, canSearch: false };
+    let s = say(EMPTY_STATE, "What should I buy for sea bass?", { dish: "sea bass" });
+    expect(nextQuestion(s, none)).toBe("budget");
+    s = say(withAsked(s, "budget"), "€25.");
+    expect(nextQuestion(s, none)).toBeNull();
+    s = say(s, "I'll pick it up in a shop nearby");
+    expect(s.channel).toBe("pickup");
+    expect(nextQuestion(s, none)).toBeNull();
+  });
+});
+
+describe("numbers and words that are not what they look like", () => {
+  it.each([
+    "max 2 flessen",
+    "under 18 years",
+    "no more than 3 bottles",
+    "within 2 days",
+    "for about 8 people",
+    "drinkbaar tot 2030",
+    "a 2015 Barolo",
+    "13,5% alcohol",
+    "between 10 and 20 guests",
+    "serve at 16 degrees",
+  ])("%s is not a budget", (text) => {
+    expect(readMoney(text)).toEqual({ max: null, min: null, open: false });
+  });
+  it("a year typed after the budget question is not a price; a price with a currency still is", () => {
+    expect(readMoney("2015", true).max).toBeNull();
+    expect(readMoney("€2015").max).toBe(2015);
+    expect(readMoney("max 50").max).toBe(50);
+    expect(readMoney("€ 12,50 per fles").max).toBe(12.5);
+  });
+  it.each([
+    "In what order should I serve these wines?",
+    "Find me something in my cellar for lamb",
+    "Ik zoek iets voor bij de vis",
+    "Pick up the kids, then dinner. What goes with lamb?",
+  ])("%s is not a wish to buy", (text) => {
+    const s = say(EMPTY_STATE, text, { dish: "lamb" });
+    expect(s.intent === "buy" || s.intent === "gift").toBe(false);
+    expect(s.channel).toBeNull();
+  });
+  it("a colour in the name of food is not a wish for that colour", () => {
+    for (const [text, dish] of [
+      ["salmon with red cabbage", "salmon with red cabbage"],
+      ["What goes with white fish?", "white fish"],
+      ["kip met witte wijnsaus", "kip met witte wijnsaus"],
+      ["white chocolate mousse", "white chocolate mousse"],
+      ["rode kool met hachee", "rode kool met hachee"],
+    ] as const)
+      expect(say(EMPTY_STATE, text, { dish }).wineType, text).toBeNull();
+    expect(say(EMPTY_STATE, "Which red wine goes with salmon?", { dish: "salmon" }).wineType).toBe(
+      "red",
+    );
+  });
+  it("a colour wish belongs to its dish: a new dish starts without it", () => {
+    const s = talk(
+      ["What goes with roast chicken?", { dish: "roast chicken" }],
+      "Liever wit eigenlijk.",
+      ["And with lamb chops?", { dish: "lamb chops" }],
+    );
+    expect(s).toMatchObject({ dish: "lamb chops", wineType: null });
+  });
+  it("counts guests only as a whole number of people", () => {
+    expect(say(EMPTY_STATE, "for 1000 guests").guests).toBeNull();
+    expect(say(EMPTY_STATE, "2015 people").guests).toBeNull();
+    expect(say(EMPTY_STATE, "we are 12 people").guests).toBe(12);
   });
 });

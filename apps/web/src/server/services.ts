@@ -165,6 +165,7 @@ export function servicesFor(ctx: RequestContext) {
     : null;
   const sommelier = createSommelierService({
     intelligence,
+    spendEngine: () => limiter.enforce(LIMITS.sommelierEngine),
     cellar: () => cellar.inventory(),
     // Read only: the same household-scoped (RLS) reads the cellar screens use.
     storage: () => cellar.storage(),

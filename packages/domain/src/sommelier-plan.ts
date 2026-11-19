@@ -135,7 +135,12 @@ export const PlanOfferSchema = z.object({
   currency: z.string().regex(/^[A-Z]{3}$/),
   merchant: z.string().max(120),
   store: z.string().max(120).nullable(),
-  url: z.string().url().max(500),
+  /** The bottle's own page at the merchant: https only, whatever a stored plan claims. */
+  url: z
+    .string()
+    .url()
+    .max(500)
+    .refine((u) => u.startsWith("https://"), "https only"),
   observedAt: z.string().max(40),
 });
 export type PlanOffer = z.infer<typeof PlanOfferSchema>;
@@ -170,6 +175,8 @@ export const SommelierPlanSchema = z.object({
   outcome: z.enum(PAIRING_OUTCOMES).nullable(),
   /** How sure the engine is, in words; never a percentage. */
   confidence: z.enum(CONFIDENCE_LEVELS).nullable(),
+  /** How many of the household's wines were considered (after a wish for a colour). 0: nothing to choose from. */
+  considered: z.number().int().min(0),
   /** The owned wines offered, best first. The cards in the answer are these, in this order. */
   picks: z.array(PlanPickSchema).max(6),
   /**

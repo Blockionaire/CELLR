@@ -219,9 +219,10 @@ export function SommelierChat({
     sending.current = true;
     try {
       // What the conversation has established so far, as the last answer's plan returned it (Sommelier 3.0).
-      const lastPlan = history
-        .map((x) => (x.role === "sommelier" ? x.answer.plan : null))
-        .findLast((p) => p != null);
+      // Only when the sommelier's latest answer was a plan: a state from before an ordinary answer or an error
+      // is stale, and is not sent.
+      const latest = history.findLast((x) => x.role === "sommelier");
+      const lastPlan = latest?.role === "sommelier" ? latest.answer.plan : null;
       const { saved, ...reply } = await ask.mutateAsync({
         messages,
         ...(lastPlan ? { state: lastPlan.state } : {}),
@@ -624,7 +625,7 @@ function Answer({
         )}
         <PlanView
           plan={answer.plan}
-          bottles={answer.bottles}
+          bottles={[...answer.bottles, ...(answer.otherBottles ?? [])]}
           card={(bottle, first) => <BottleCard bottle={bottle} first={first} />}
           onReply={onReply}
         />

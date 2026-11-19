@@ -103,9 +103,8 @@ const BUY = [
   "buy",
   "buying",
   "purchase",
-  "order",
-  "ordered",
-  "pick up",
+  "order online",
+  "to order",
   "shop for",
   "get a bottle",
   "kopen",
@@ -118,10 +117,7 @@ const BUY = [
   "haal",
   "ophalen",
   "inslaan",
-  "find me",
-  "zoek een",
-  "ik zoek",
-  "where can i",
+  "where can i buy",
   "waar kan ik",
 ];
 const NOT_BUY = [
@@ -187,9 +183,11 @@ const ONLINE = [
   "thuisbezorgd",
 ];
 const PICKUP = [
-  "collect",
-  "pick up",
+  "collect today",
+  "collect it",
+  "pick up today",
   "pick it up",
+  "pick up a bottle",
   "pickup",
   "in store",
   "in a store",
@@ -208,15 +206,56 @@ const PICKUP = [
   "supermarkt",
 ];
 
-const TYPE_WORDS: ReadonlyArray<readonly [WineType, readonly string[]]> = [
+/**
+ * A wish for a kind of wine. A colour word is only a wish when it is said as one ("a red", "red wine", "liever
+ * wit"): "red cabbage", "white chocolate" and "witte wijnsaus" are food. A bare colour word counts only in a
+ * turn that names no dish ("Something lighter please, a white").
+ */
+const TYPE_WISHES: ReadonlyArray<readonly [WineType, readonly string[]]> = [
   ["sparkling", ["sparkling", "bubbles", "bubbly", "fizz", "mousserend", "mousserende", "bubbels"]],
-  ["rose", ["rose", "rosé"]],
+  ["rose", ["a rose", "rose wine", "een rose", "rose wijn", "liever rose"]],
   ["dessert", ["dessert wine", "sweet wine", "dessertwijn", "zoete wijn"]],
-  ["fortified", ["fortified"]],
+  ["fortified", ["fortified wine", "versterkte wijn"]],
   ["orange", ["orange wine", "oranje wijn"]],
-  ["white", ["white", "a white", "wit", "witte", "witte wijn"]],
-  ["red", ["red", "a red", "rood", "rode", "rode wijn"]],
+  [
+    "white",
+    [
+      "a white",
+      "white wine",
+      "white wines",
+      "een witte",
+      "witte wijn",
+      "witte wijnen",
+      "liever wit",
+      "iets wits",
+      "welke witte",
+      "which white",
+    ],
+  ],
+  [
+    "red",
+    [
+      "a red",
+      "red wine",
+      "red wines",
+      "een rode",
+      "rode wijn",
+      "rode wijnen",
+      "liever rood",
+      "iets roods",
+      "welke rode",
+      "which red",
+    ],
+  ],
 ];
+const BARE_TYPES: ReadonlyArray<readonly [WineType, readonly string[]]> = [
+  ["rose", ["rose"]],
+  ["white", ["white", "wit", "witte"]],
+  ["red", ["red", "rood", "rode"]],
+];
+
+/** After a number these say what it counts, and it is not money. */
+const UNITS = String.raw`(?:flessen|fles|bottles?|years?|jaar|jaren|days?|dagen|people|persons?|guests?|gasten|personen|mensen|man|%|procent|percent|graden|degrees|°|uur|hours?|minutes?|minuten|glazen|glasses|courses|gangen|of us)`;
 
 const NO_LIMIT = [
   "money is no object",
@@ -279,7 +318,11 @@ export interface MoneyReading {
  * a little room), "between 20 and 30". A bare number is only money when the budget was just asked (`bare`).
  */
 export function readMoney(text: string, bare = false): MoneyReading {
-  const t = ` ${text.toLowerCase().replace(/\s+/g, " ")} `;
+  // Numbers that count something else are taken out first: "max 2 flessen", "under 18 years", "13,5%",
+  // "for 8 people". So is a year that stands without a currency ("drinkbaar tot 2030", "a 2015 Barolo").
+  const t = ` ${text.toLowerCase().replace(/\s+/g, " ")} `
+    .replace(new RegExp(String.raw`\d+(?:[.,]\d+)?\s*${UNITS}(?![a-z])`, "g"), " ")
+    .replace(new RegExp(String.raw`(?<!${EURO}\s?)\b(?:19|20)\d{2}\b(?!\s?${EURO})`, "g"), " ");
   const none: MoneyReading = { max: null, min: null, open: false };
   if (has(` ${normalizeText(text)} `, NO_LIMIT)) return { ...none, open: true };
 
@@ -313,7 +356,8 @@ export function readMoney(text: string, bare = false): MoneyReading {
       if (lone) result.max = amount(lone[1]!);
     }
   }
-  if (result.max !== null && result.max < 1) result.max = null;
+  // More than any bottle someone asks a sommelier about: a misreading, not a budget.
+  if (result.max !== null && (result.max < 1 || result.max > 20_000)) result.max = null;
   if (result.min !== null && (result.min < 1 || (result.max !== null && result.min > result.max)))
     result.min = null;
   return result;
@@ -392,15 +436,22 @@ export function advance(previous: ConversationState, turn: TurnInput): Conversat
   )
     next.intent = "buy";
 
-  // --- what kind of wine ---
-  for (const [type, words] of TYPE_WORDS)
-    if (has(text, words.map(normalizeText))) {
-      next.wineType = type;
-      break;
-    }
-
   // --- the dish ---
+  const dishChanged = Boolean(turn.dish) && turn.dish!.slice(0, 120) !== previous.dish;
   if (turn.dish) next.dish = turn.dish.slice(0, 120);
+
+  // --- what kind of wine ---
+  // A wish belongs to the dish it was made for: a new dish starts without it, unless the wish is repeated.
+  if (dishChanged) next.wineType = null;
+  // When two colours are named ("I only have heavy reds. Which white should I buy?"), the last one is the wish.
+  const lastSaid = (list: typeof TYPE_WISHES) =>
+    list
+      .flatMap(([type, words]) =>
+        words.map((w) => ({ type, at: text.lastIndexOf(` ${w} `) })).filter((x) => x.at >= 0),
+      )
+      .sort((a, b) => b.at - a.at)[0]?.type;
+  const wished = lastSaid(TYPE_WISHES) ?? (turn.dish ? undefined : lastSaid(BARE_TYPES));
+  if (wished) next.wineType = wished;
 
   // --- a gift ---
   if (gift || next.intent === "gift") {
@@ -413,10 +464,10 @@ export function advance(previous: ConversationState, turn: TurnInput): Conversat
   }
 
   // --- guests ---
-  const guests = /(\d{1,3})\s*(?:guests|people|persons|of us|gasten|personen|mensen|man)\b/.exec(
+  const guests = /\b(\d{1,4})\s*(?:guests|people|persons|of us|gasten|personen|mensen|man)\b/.exec(
     turn.text.toLowerCase(),
   );
-  if (guests) next.guests = Math.max(1, Math.min(500, Number(guests[1])));
+  if (guests && Number(guests[1]) >= 1 && Number(guests[1]) <= 500) next.guests = Number(guests[1]);
 
   // --- yes or no to the location question ---
   if (lastAsked === "location-consent" && next.locationConsent === null) {
@@ -445,6 +496,11 @@ export function nextQuestion(
     ownedSuits: boolean;
     /** Whether the question was about wine or food at all. */
     onTopic: boolean;
+    /**
+     * Whether a retailer source is connected. Without one, where someone wants to buy and whether their location
+     * may be used change nothing in the answer, so neither is asked.
+     */
+    canSearch?: boolean;
   },
 ): AskCode | null {
   if (!situation.onTopic) return null;
@@ -465,6 +521,7 @@ export function nextQuestion(
   if (state.budgetMaxEuros === null && !state.budgetOpen) return asked("budget") ? null : "budget";
   if (state.intent === "gift" && state.recipientLikes.length === 0 && !asked("recipient-taste"))
     return "recipient-taste";
+  if (situation.canSearch !== true) return null;
   if (state.intent !== "gift" && state.channel === null) return asked("channel") ? null : "channel";
   if (state.channel === "pickup" && state.locationConsent === null)
     return asked("location-consent") ? null : "location-consent";

@@ -114,40 +114,86 @@ export function askedFor(question: string): AskedFor | null {
 export const offersChoice = (question: string): boolean =>
   / (or|of|versus|vs) /.test(` ${normalizeText(question)} `);
 
-/** Words that show a question is about wine or a meal at all, when no dish and no wine was recognised. */
-const TOPIC = [
+/**
+ * Words (and beginnings of words) that show a question is about wine, a cellar or a meal, when no dish and no
+ * wine was recognised in it. Such a question is for the general sommelier.
+ */
+const TOPIC_STEMS = [
   "wine",
   "wijn",
   "bottle",
   "fles",
-  "flessen",
   "cellar",
   "kelder",
+  "fridge",
+  "koelkast",
+  "rack",
   "drink",
-  "drinken",
   "pour",
   "schenk",
-  "schenken",
   "open",
-  "openen",
+  "serv",
+  "decant",
+  "karaf",
+  "temperatu",
+  "chill",
+  "koel",
   "dinner",
   "diner",
+  "lunch",
   "eten",
   "eat",
+  "cook",
+  "kook",
   "pairing",
   "sommelier",
   "glass",
   "glas",
+  "glaz",
+  "vintage",
+  "jaargang",
+  "grape",
+  "druif",
+  "druiv",
+  "region",
+  "streek",
+  "tannin",
+  "champagne",
+  "bubbl",
+  "bubbel",
+  "valuable",
+  "waard",
+  "worth",
+  "birthday",
+  "verjaardag",
+  "party",
+  "feest",
+  "guests",
+  "gasten",
+  "taste",
+  "smaak",
+];
+const TOPIC_WORDS = [
   "red",
+  "reds",
   "white",
+  "whites",
   "rood",
   "wit",
   "rose",
-  "champagne",
-  "bubbles",
-  "bubbels",
+  "buy",
+  "bought",
+  "kopen",
+  "gekocht",
 ];
+/** A word or two of politeness: not a question to answer with a question. */
+const SMALL_TALK =
+  /^(thanks?( you)?( very much)?|thx|ok(ay)?|great|perfect|nice|hi|hello|hey|bye|cheers|dank( je| u)?( wel)?|bedankt|top|prima|hoi|hallo|doei|proost)[ .!]*$/;
+
 export const aboutWine = (question: string): boolean => {
-  const text = ` ${normalizeText(question)} `;
-  return TOPIC.some((w) => text.includes(` ${w} `));
+  const tokens = normalizeText(question).split(" ");
+  return tokens.some(
+    (t) => TOPIC_WORDS.includes(t) || TOPIC_STEMS.some((stem) => t.startsWith(stem)),
+  );
 };
+export const isSmallTalk = (question: string): boolean => SMALL_TALK.test(normalizeText(question));

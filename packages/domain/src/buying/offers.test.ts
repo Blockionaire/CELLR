@@ -27,8 +27,9 @@ const query = (q: Partial<OfferQuery> = {}): OfferQuery => ({
   channel: null,
   ...q,
 });
+const POLICY = { maxAgeHours: { online: 24, local: 6 }, allowedHosts: ["example.nl"] };
 const defects = (o: Partial<RetailOffer>, q: Partial<OfferQuery> = {}) =>
-  checkOffer(offer(o), query(q), NOW);
+  checkOffer(offer(o), query(q), NOW, POLICY);
 
 describe("an offer is shown only when every check passes", () => {
   it("passes a sound online offer", () => {
@@ -70,7 +71,7 @@ describe("an offer is shown only when every check passes", () => {
     ["a local listing with no store", { kind: "local" as const }, {}, "unverified-store"],
     [
       "a store offer when online was asked",
-      { kind: "local" as const, store: { name: "W", verified: true } },
+      { kind: "local" as const, store: { name: "W", verified: true }, inStock: true },
       { channel: "online" as const },
       "wrong-channel",
     ],
@@ -79,7 +80,11 @@ describe("an offer is shown only when every check passes", () => {
     expect(defects(o, q)).toContain(defect);
   });
   it("store stock goes stale sooner than a web listing", () => {
-    const local = { kind: "local" as const, store: { name: "Winkel", verified: true } };
+    const local = {
+      kind: "local" as const,
+      store: { name: "Winkel", verified: true },
+      inStock: true,
+    };
     expect(defects({ ...local, observedAt: hoursAgo(5) })).toEqual([]);
     expect(defects({ ...local, observedAt: hoursAgo(8) })).toContain("stale");
     expect(defects({ observedAt: hoursAgo(8) })).toEqual([]);
@@ -93,6 +98,40 @@ describe("an offer is shown only when every check passes", () => {
     expect(
       checkOffer(offer({ url: "https://example.nl.evil.test/x" }), query(), NOW, policy),
     ).toContain("foreign-url");
+  });
+  it("shows nothing when the provider names no merchants' hosts", () => {
+    expect(checkOffer(offer(), query(), NOW)).toContain("foreign-url");
+    expect(checkOffer(offer(), query(), NOW, { ...POLICY, allowedHosts: [""] })).toContain(
+      "foreign-url",
+    );
+  });
+  it.each([
+    ["a port", { url: "https://www.example.nl:8443/wijn" }, "insecure-url"],
+    ["a look-alike host", { url: "https://www.exarnple.nl/wijn" }, "foreign-url"],
+    ["a time without its zone", { observedAt: "2026-11-19T16:00:00" }, "stale"],
+    ["a time that is not ISO", { observedAt: "Nov 19, 2026 16:00 UTC" }, "stale"],
+    ["an absurd price", { priceCents: 1e15 }, "no-price"],
+    [
+      "a wine whose producer, not its name, matches",
+      { producer: "Chablis Frères", name: "Mâcon" },
+      "identity-mismatch",
+    ],
+    [
+      "a store listing with no word on stock",
+      { kind: "local" as const, store: { name: "W", verified: true } },
+      "unverified-store",
+    ],
+  ])("rejects %s", (_name, o, defect) => {
+    expect(defects(o)).toContain(defect);
+  });
+  it("matches hosts as hosts are: case and a trailing dot do not matter", () => {
+    const policy = { ...POLICY, allowedHosts: ["Example.NL."] };
+    expect(checkOffer(offer({ url: "https://WWW.EXAMPLE.NL/wijn" }), query(), NOW, policy)).toEqual(
+      [],
+    );
+  });
+  it("a query for nothing matches nothing", () => {
+    expect(defects({}, { text: "  " })).toContain("identity-mismatch");
   });
   it("a hole in the data is a defect, never a guess", () => {
     // A zero year, an empty name: nothing is filled in on the offer's behalf.
@@ -111,12 +150,14 @@ describe("selecting offers", () => {
           id: "store",
           kind: "local",
           store: { name: "Winkel", verified: true },
+          inStock: true,
           priceCents: 2100,
         }),
         offer({ id: "half", sizeMl: 375, priceCents: 1200 }),
       ],
       query(),
       NOW,
+      POLICY,
     );
     expect(shown.map((s) => [s.offer.id, s.level])).toEqual([
       ["cheap", "online-offer"],
@@ -129,7 +170,7 @@ describe("selecting offers", () => {
     ]);
   });
   it("shows nothing when nothing is sound", () => {
-    expect(selectOffers([offer({ priceCents: null })], query(), NOW).shown).toEqual([]);
-    expect(selectOffers([], query(), NOW).shown).toEqual([]);
+    expect(selectOffers([offer({ priceCents: null })], query(), NOW, POLICY).shown).toEqual([]);
+    expect(selectOffers([], query(), NOW, POLICY).shown).toEqual([]);
   });
 });

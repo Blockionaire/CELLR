@@ -72,6 +72,7 @@ function setup(engine: "on" | "off" | "broken", items: CellarItem[] = [item({})]
   });
   const broken: SommelierIntelligence = {
     readsDish: () => true,
+    buying: true,
     plan: async () => {
       throw new Error("engine failed");
     },
