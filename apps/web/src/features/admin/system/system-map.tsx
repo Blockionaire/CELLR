@@ -628,7 +628,8 @@ const MapContent = memo(function MapContent({
               <g
                 transform={
                   overview
-                    ? `translate(${risk ? b.w - 66 : b.w - 26} 26)`
+                    ? // on the node's corner, half outside it: the large badge never covers the name
+                      `translate(${b.w - 4} 4)`
                     : `translate(${risk ? b.w - 40 : b.w - 18} 18)`
                 }
                 data-testid="health-badge"
