@@ -57,9 +57,14 @@ for a test deployment to write to the production database?
    environment variable cannot take a host off it). Anything else — unparseable, undeclared, production — keeps
    writes closed. Enforced inside the API's gate, so the route refuses (403) whatever the browser does.
 7. **Stale drafts are detected; races are not claimed away.** A place carries a `revision` (its `updated_at`). The
-   builder sends it as `If-Match`; the server refuses a save whose revision is no longer current (409). Between that
-   check and the RPC another save can still land: the RPC is last-write-wins under the place's row lock. Closing that
-   needs the revision compared inside the transaction: a migration, proposed separately (report §11), not applied.
+   builder sends it as `If-Match` with a layout save, and the server refuses a save whose revision is no longer
+   current (409). A rename from the builder is sent the same way to the existing `PATCH /api/v1/storage/:id`,
+   which then renames in one conditional UPDATE (`… AND updated_at = <revision>`): atomic, 409 when stale, and
+   unchanged for clients without the header (review correction). After a save the next revision comes from the
+   server's own answers, never from a refresh, and only a later revision of the place counts as news. For layout
+   saves, another save can still land between the server's check and the RPC (last write wins under the row
+   lock). Closing that needs the revision compared inside the transaction: a migration, proposed separately
+   (report §11), not applied.
 8. **Making a place is two calls, said so.** `POST /storage` makes a basic place; `PUT …/layout` gives it its
    design. If the second fails the builder says that a basic place exists, keeps its id (and moves the address to
    it, so a reload does not make another), and offers "Try again" against that id. Nothing is deleted to hide an

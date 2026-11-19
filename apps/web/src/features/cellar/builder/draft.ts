@@ -426,6 +426,33 @@ export function strandedBy<T extends OccupiedSpot>(
   );
 }
 
+// ---- Revisions ----------------------------------------------------------------------------------------------------
+
+/**
+ * Whether `candidate` is a later version of a place than `known`. Revisions are the place's updated_at as the server
+ * sends it: when both read as times, later means later (an answer that left before a save and arrives after it is
+ * OLDER, and must not undo what the save established). Anything else: different means newer, the cautious reading.
+ */
+export function isNewerRevision(candidate: string, known: string | null): boolean {
+  if (known === null) return true;
+  if (candidate === known) return false;
+  const a = Date.parse(candidate);
+  const b = Date.parse(known);
+  return Number.isFinite(a) && Number.isFinite(b) ? a > b : true;
+}
+
+/**
+ * Whether a place as the server answered after a layout save is what this draft saved (template, size, bottles per
+ * spot, look, zones; the name is saved apart). When it is not, someone else's write landed in between and the
+ * revision in that answer is theirs, not this save's.
+ */
+export function savedAsDrafted(draft: BuilderDraft, saved: SmartStorageUnitView): boolean {
+  const after = draftFromUnit(saved);
+  return (
+    changesBetween({ ...draft, name: after.name }, { ...after, templateChosen: true }).length === 0
+  );
+}
+
 // ---- Remembered drafts ----------------------------------------------------------------------------------------------
 
 /**

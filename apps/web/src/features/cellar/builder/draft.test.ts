@@ -391,3 +391,31 @@ describe("a remembered draft", () => {
       expect(parseDraft(bad), JSON.stringify(bad)).toBeNull();
   });
 });
+
+describe("revisions (review corrections)", () => {
+  it("a later time is newer; the same or an earlier one is not (an old answer never undoes a save)", async () => {
+    const { isNewerRevision } = await import("./draft");
+    const t1 = "2026-11-19T10:00:00.100000+00:00";
+    const t2 = "2026-11-19T10:00:00.200000+00:00";
+    expect(isNewerRevision(t2, t1)).toBe(true);
+    expect(isNewerRevision(t1, t2)).toBe(false);
+    expect(isNewerRevision(t1, t1)).toBe(false);
+    expect(isNewerRevision(t1, null)).toBe(true);
+    // not times: different is taken as newer (cautious)
+    expect(isNewerRevision("r2", "r1")).toBe(true);
+  });
+
+  it("an answer after a save is the save's only when it shows what was saved", async () => {
+    const { savedAsDrafted } = await import("./draft");
+    const draft = chooseTemplate(draftFromUnit(unit()), "rack_classic", "edit").draft;
+    const view = unit({
+      legacy: false,
+      templateId: "rack_classic",
+      appearance: draft.appearance,
+      label: "Another name",
+    });
+    expect(savedAsDrafted(draft, view)).toBe(true);
+    expect(savedAsDrafted(setColor(draft, "oak"), view)).toBe(false);
+    expect(savedAsDrafted(draft, { ...view, rows: 6 })).toBe(false);
+  });
+});

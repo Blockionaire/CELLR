@@ -532,6 +532,7 @@
       "depthOff": "Meer dan één fles per positie staat nog niet aan.",
       "layoutWritesOff": "Een indeling wijzigen staat hier nog niet aan.",
       "layoutStale": "Deze plek is gewijzigd sinds je hem opende. Laad hem opnieuw om de nieuwste versie te zien.",
+      "renameOnly": "Alleen een nieuwe naam kan tegen een versie van een plek worden opgeslagen.",
       "exportVersionUnavailable": "Die exportversie is niet beschikbaar."
     }
   },
@@ -2283,6 +2284,7 @@
     "retryName": "Probeer de naam opnieuw",
     "stale": "Iemand heeft deze plek gewijzigd sinds je hem opende. Er is niets opgeslagen.",
     "loadLatest": "Laad de nieuwste versie",
+    "reloadFailed": "De nieuwste versie kon niet worden geladen: {reason} Je wijzigingen staan er nog.",
     "saveFailed": "Er is niets opgeslagen: {reason}",
     "entryNew": "Ontwerp een plek in 3D",
     "entryEdit": "Ontwerp in 3D",

@@ -532,6 +532,7 @@
       "depthOff": "More than one bottle per position isn't switched on yet.",
       "layoutWritesOff": "Changing a layout isn't switched on here yet.",
       "layoutStale": "This place was changed since you opened it. Reload it to see the latest version.",
+      "renameOnly": "Only a new name can be saved against a version of a place.",
       "exportVersionUnavailable": "That export version isn't available."
     }
   },
@@ -2283,6 +2284,7 @@
     "retryName": "Try the name again",
     "stale": "Someone changed this place since you opened it. Nothing was saved.",
     "loadLatest": "Load the latest version",
+    "reloadFailed": "The latest version couldn't be loaded: {reason} Your changes are still here.",
     "saveFailed": "Nothing was saved: {reason}",
     "entryNew": "Design a place in 3D",
     "entryEdit": "Design in 3D",

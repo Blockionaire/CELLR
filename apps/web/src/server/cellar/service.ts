@@ -6,6 +6,7 @@ import {
   summarizeJournal,
   type JournalView,
   DomainError,
+  STALE_LAYOUT_MESSAGE,
   assessDrink,
   drinkStatusOf,
   drinkUrgency,
@@ -512,6 +513,23 @@ export function createCellarService(
       const updated = await repo.updateStorage(householdId, id, patch);
       if (!updated) throw new DomainError("NOT_FOUND", "We couldn't find that place.");
       return toStorageView(updated);
+    },
+
+    /**
+     * Renames a place only while it is the version the caller saw (sprint 3: the Rack Builder sends the revision
+     * its draft started from). Atomic: one UPDATE conditioned on the revision. Refused with 409 when the place has
+     * changed since; nothing is overwritten. Answers the place and its new revision.
+     */
+    async renameStorageIfCurrent(
+      id: string,
+      label: string,
+      expectedRevision: string,
+    ): Promise<StorageUnitView & { revision: string }> {
+      const { id: householdId } = await household();
+      const done = await repo.renameIfCurrent(householdId, id, label, expectedRevision);
+      if (done === null) throw new DomainError("NOT_FOUND", "We couldn't find that place.");
+      if (done === "stale") throw new DomainError("CONFLICT", STALE_LAYOUT_MESSAGE);
+      return { ...toStorageView(done.row), revision: done.revision };
     },
 
     /** Deletes an empty place. Only the household's owner may; a place with bottles in it stays. */

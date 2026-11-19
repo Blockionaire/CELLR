@@ -70,7 +70,15 @@ export const api = {
   /** Sends files (a photo); everything else goes as JSON. */
   upload: <T>(path: string, form: FormData, method: "POST" | "PUT" = "POST") =>
     request<T>(method, path, form),
-  patch: <T>(path: string, body: unknown) => request<T>("PATCH", path, body),
+  /** `ifMatch`: as for put (a rename the server applies only to the version it names). */
+  patch: <T>(path: string, body: unknown, options?: { ifMatch?: string | undefined }) =>
+    request<T>(
+      "PATCH",
+      path,
+      body,
+      undefined,
+      options?.ifMatch ? { "if-match": `"${options.ifMatch}"` } : undefined,
+    ),
   /** `ifMatch`: the revision the change was made against; the server refuses it when that is no longer current. */
   put: <T>(path: string, body: unknown, options?: { ifMatch?: string | undefined }) =>
     request<T>(

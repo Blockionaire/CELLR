@@ -225,6 +225,9 @@ export const templateSavable = (id: StorageTemplateId): boolean =>
 /** What the Smart Cellar API answers on a database without its step (migrations 0043-0045). */
 export const SMART_CELLAR_NOT_SET_UP = "The Smart Cellar isn't set up on this server yet.";
 
+/** What a conditional edit of a place (If-Match) answers when it asks for more than a new name. */
+export const CONDITIONAL_RENAME_ONLY = "Only a new name can be saved against a version of a place.";
+
 /** What a layout save answers when the place changed since the person opened it (If-Match did not match). */
 export const STALE_LAYOUT_MESSAGE =
   "This place was changed since you opened it. Reload it to see the latest version.";

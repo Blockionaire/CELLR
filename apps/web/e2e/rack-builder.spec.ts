@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect as baseExpect, test, type Page } from "@playwright/test";
 import {
   APP_URL,
   FEATURES_URL,
@@ -22,6 +22,12 @@ import {
  * and the builder's preview-only mode is shown here by what the server says (capabilities: writes false).
  */
 test.setTimeout(150_000);
+/**
+ * Every assertion here may wait up to 15 s (not 5): the builder's page loads its data and draws its first picture
+ * with a software renderer on the test machine, which on a cold server or a loaded one can take more than 5 s.
+ * Nothing is weakened: what is expected is the same, only how long it may take to appear.
+ */
+const expect = baseExpect.configure({ timeout: 15_000 });
 
 type Call = Awaited<ReturnType<typeof apiClient>>["call"];
 const RED = { producer: "Château Margaux", name: "Pavillon Rouge", type: "red", countryCode: "FR" };
@@ -326,8 +332,9 @@ test.describe("gate open (an internal preview on a test database)", () => {
     // the draft was kept: still the metal rack
     await expect(stage(page)).toHaveAttribute("data-template", "rack_metal");
     // a reload keeps the place and the draft (nothing is made again)
+    // after a reload the builder loads again (a picture drawn in software): give it the time
     await page.reload();
-    await expect(page.getByTestId("builder-partial-create")).toBeVisible();
+    await expect(page.getByTestId("builder-partial-create")).toBeVisible({ timeout: 30_000 });
     await saveButton(page).click();
     await page.getByTestId("builder-confirm-save").click();
     await expect(page.getByTestId("builder-saved")).toBeVisible({ timeout: 30_000 });
@@ -512,6 +519,213 @@ test.describe("gate open (an internal preview on a test database)", () => {
     await expect(builder(page)).toHaveAttribute("data-dirty", "false");
   });
 
+  test("loading the latest version fails: nothing is lost, it is said, and it can be tried again (review correction)", async ({
+    page,
+    request,
+  }) => {
+    await debugOn(page);
+    const { email } = await arrive(page, "breload");
+    const { call } = await apiClient(request, email);
+    const rack = await addPlace(call, "Shared rack", "rack", 4, 6);
+    const layout = (color: string) => ({
+      structure: { template: "rack_classic", rows: 4, cols: 6, cellCapacity: 1, zones: [] },
+      appearance: { v: 1, material: "wood", color, lighting: "none", door: "none" },
+    });
+    await call("put", `/smart-cellar/storage/${rack}/layout`, layout("walnut"), 200);
+    await page.goto(`/cellar/builder/${rack}`);
+    await drawn(page);
+    await page
+      .getByRole("radiogroup", { name: "Colour" })
+      .getByRole("radio", { name: "Ebony" })
+      .click();
+    await step(page, "rows", "up", 1);
+    await call("put", `/smart-cellar/storage/${rack}/layout`, layout("pine"), 200);
+    await saveButton(page).click();
+    // a change of size asks first
+    await page.getByTestId("builder-confirm-save").click();
+    const failed = page.getByTestId("builder-save-failed");
+    await expect(failed).toHaveAttribute("data-stale", "true");
+
+    // the server cannot be reached: the cached place (walnut) must not be taken for the latest one
+    const bottles = `**/api/v1/smart-cellar/storage/${rack}/bottles`;
+    await page.route(bottles, (route) => route.abort("internetdisconnected"));
+    await failed.getByRole("button", { name: "Load the latest version" }).click();
+    const reloadFailed = page.getByTestId("builder-reload-failed");
+    await expect(reloadFailed).toContainText("The latest version couldn't be loaded");
+    await expect(reloadFailed).toContainText("Your changes are still here");
+    await expect(page.getByTestId("builder-color")).toHaveAttribute("data-value", "ebony");
+    expect(await value(page, "rows")).toBe(5);
+    await expect(builder(page)).toHaveAttribute("data-dirty", "true");
+    // the draft is still in the browser's memory, and undo still has its history
+    expect(
+      await page.evaluate(() =>
+        Object.keys(window.sessionStorage).some((k) => k.startsWith("cellr:builder:v1:")),
+      ),
+    ).toBe(true);
+    await expect(page.getByTestId("builder-undo")).toBeEnabled();
+
+    // signed out meanwhile (401): said as well, still nothing lost
+    await page.unroute(bottles);
+    await page.route(bottles, (route) =>
+      route.fulfill({
+        status: 401,
+        json: {
+          error: { code: "UNAUTHORIZED", message: "Please sign in again.", retryable: false },
+        },
+      }),
+    );
+    await reloadFailed.getByRole("button", { name: "Try again" }).click();
+    await expect(page.getByTestId("builder-reload-failed")).toBeVisible();
+    await expect(page.getByTestId("builder-color")).toHaveAttribute("data-value", "ebony");
+
+    // back: trying again loads what the server has now
+    await page.unroute(bottles);
+    await page
+      .getByTestId("builder-reload-failed")
+      .getByRole("button", { name: "Try again" })
+      .click();
+    await expect(page.getByTestId("builder-color")).toHaveAttribute("data-value", "pine");
+    await expect(builder(page)).toHaveAttribute("data-dirty", "false");
+    await expect(page.getByTestId("builder-reload-failed")).toHaveCount(0);
+  });
+
+  test("after a save, a refresh that fails changes nothing: the next save stands on the save's own revision (review correction)", async ({
+    page,
+    request,
+  }) => {
+    await debugOn(page);
+    const { email } = await arrive(page, "bpostsave");
+    const { call } = await apiClient(request, email);
+    const rack = await addPlace(call, "Hall rack", "rack", 4, 6);
+    await page.goto(`/cellar/builder/${rack}`);
+    await drawn(page);
+    await page.getByTestId("template-rack_classic").click();
+    // from here on every refresh of this place fails
+    await page.route(`**/api/v1/smart-cellar/storage/${rack}/bottles`, (route) =>
+      route.abort("internetdisconnected"),
+    );
+    await saveButton(page).click();
+    await page.getByTestId("builder-confirm-save").click();
+    await expect(page.getByTestId("builder-saved")).toBeVisible({ timeout: 30_000 });
+    // again: a look, then a look and a name (layout save, then a conditional rename), with no refresh at all
+    await page
+      .getByRole("radiogroup", { name: "Colour" })
+      .getByRole("radio", { name: "Oak" })
+      .click();
+    await saveButton(page).click();
+    await expect(page.getByTestId("builder-saved")).toBeVisible({ timeout: 30_000 });
+    await page
+      .getByRole("radiogroup", { name: "Colour" })
+      .getByRole("radio", { name: "Pine" })
+      .click();
+    await page.getByTestId("builder-name").fill("Hall rack, pine");
+    await saveButton(page).click();
+    await expect(page.getByTestId("builder-saved")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("builder-save-failed")).toHaveCount(0);
+    await expect(page.getByTestId("builder-changed-elsewhere")).toHaveCount(0);
+    const row = await placeRow(rack);
+    expect(row).toMatchObject({ label: "Hall rack, pine", template: "rack_classic" });
+    expect(row.appearance).toMatchObject({ color: "pine" });
+  });
+
+  test("a rename made against a stale version is refused, and theirs is kept (review correction)", async ({
+    page,
+    request,
+  }) => {
+    await debugOn(page);
+    const { email } = await arrive(page, "brename");
+    const { call } = await apiClient(request, email);
+    const rack = await addPlace(call, "Old name", "rack", 4, 6);
+    await call(
+      "put",
+      `/smart-cellar/storage/${rack}/layout`,
+      {
+        structure: { template: "rack_classic", rows: 4, cols: 6, cellCapacity: 1, zones: [] },
+        appearance: { v: 1, material: "wood", color: "walnut", lighting: "none", door: "none" },
+      },
+      200,
+    );
+    await page.goto(`/cellar/builder/${rack}`);
+    await drawn(page);
+    await page.getByTestId("builder-name").fill("My new name");
+    // someone else renames it meanwhile, through the existing edit (no revision: as every client of today)
+    await call("patch", `/storage/${rack}`, { label: "Their name" }, 200);
+    await saveButton(page).click();
+    const failed = page.getByTestId("builder-save-failed");
+    await expect(failed).toHaveAttribute("data-stale", "true");
+    expect((await placeRow(rack)).label).toBe("Their name");
+    await failed.getByRole("button", { name: "Load the latest version" }).click();
+    await expect(page.getByTestId("builder-name")).toHaveValue("Their name");
+    // and now, against the current version, it is taken
+    await page.getByTestId("builder-name").fill("My new name");
+    await saveButton(page).click();
+    await expect(page.getByTestId("builder-saved")).toBeVisible({ timeout: 30_000 });
+    expect((await placeRow(rack)).label).toBe("My new name");
+  });
+
+  test("PATCH /storage/:id: as before without If-Match; a rename with it is applied only to the version named (review correction)", async ({
+    page,
+    request,
+    browser,
+  }) => {
+    const { email } = await arrive(page, "bpatch");
+    const { token, call } = await apiClient(request, email);
+    const rack = await addPlace(call, "Rack", "rack", 3, 4);
+    const patch = (data: object, ifMatch?: string) =>
+      request.patch(`/api/v1/storage/${rack}`, {
+        headers: { ...bearer(token), ...(ifMatch === undefined ? {} : { "if-match": ifMatch }) },
+        data,
+      });
+    // existing clients: rename and resize, no revision involved, the answer as before
+    const legacy = await patch({ label: "Rack A", rows: 4 });
+    expect(legacy.status()).toBe(200);
+    const legacyBody = (await legacy.json()) as Record<string, unknown>;
+    expect(legacyBody).toMatchObject({ label: "Rack A", rows: 4, cols: 4 });
+    expect(legacyBody).not.toHaveProperty("revision");
+
+    const revisionOf = async () =>
+      (
+        (await call("get", `/smart-cellar/storage/${rack}`, undefined, 200)).body as {
+          revision: string;
+        }
+      ).revision;
+    const before = await revisionOf();
+    // a stale revision: 409, nothing changes
+    const stale = await patch({ label: "Rack B" }, `"2000-01-01T00:00:00+00:00"`);
+    expect(stale.status()).toBe(409);
+    expect((await placeRow(rack)).label).toBe("Rack A");
+    // not a time at all: names no version of this place, 409 as well
+    expect((await patch({ label: "Rack B" }, `"not-a-revision"`)).status()).toBe(409);
+    // more than a rename against a version: refused, unchanged
+    const shaping = await patch({ label: "Rack B", rows: 5 }, `"${before}"`);
+    expect(shaping.status()).toBe(422);
+    expect(await placeRow(rack)).toMatchObject({ label: "Rack A", grid_rows: 4 });
+    // a header that names no single revision is refused, never read as "no condition"
+    expect((await patch({ label: "Rack B" }, "*")).status()).toBe(422);
+    // the current revision: renamed, and the new revision comes back
+    const ok = await patch({ label: "Rack B" }, `"${before}"`);
+    expect(ok.status()).toBe(200);
+    const body = (await ok.json()) as { label: string; revision: string };
+    expect(body.label).toBe("Rack B");
+    expect(body.revision).not.toBe(before);
+    expect(body.revision).toBe(await revisionOf());
+    // the same revision again: it is no longer current
+    expect((await patch({ label: "Rack C" }, `"${before}"`)).status()).toBe(409);
+    expect((await placeRow(rack)).label).toBe("Rack B");
+
+    // another household, with the right revision: not found, unchanged
+    const other = await browser.newPage({ baseURL: PREVIEW_URL });
+    const { email: otherEmail } = await arrive(other, "bpatch2");
+    await other.close();
+    const { token: otherToken } = await apiClient(request, otherEmail);
+    const foreign = await request.patch(`/api/v1/storage/${rack}`, {
+      headers: { ...bearer(otherToken), "if-match": `"${body.revision}"` },
+      data: { label: "Mine now" },
+    });
+    expect(foreign.status()).toBe(404);
+    expect((await placeRow(rack)).label).toBe("Rack B");
+  });
+
   test("the API refuses a stale revision, and takes the current one (If-Match)", async ({
     page,
     request,
@@ -635,8 +849,9 @@ test.describe("gate open (an internal preview on a test database)", () => {
     expect(await value(page, "rows")).toBe(8);
     await expect(builder(page)).toHaveAttribute("data-dirty", "true");
     // a reload (or the browser's back and forward) finds the draft as it was
+    // after a reload the builder loads again (a picture drawn in software): give it the time
     await page.reload();
-    await expect(page.getByTestId("builder-restored")).toBeVisible();
+    await expect(page.getByTestId("builder-restored")).toBeVisible({ timeout: 30_000 });
     await expect(builder(page)).toHaveAttribute("data-template", "wall_pegs");
     expect(await value(page, "rows")).toBe(8);
     // undo, step by step
@@ -654,6 +869,8 @@ test.describe("gate open (an internal preview on a test database)", () => {
     await expect(builder(page)).toHaveAttribute("data-template", "rack_classic");
     await expect(builder(page)).toHaveAttribute("data-dirty", "false");
     await page.reload();
+    // once loaded again, there is nothing to restore
+    await expect(builder(page)).toHaveAttribute("data-mode", "new", { timeout: 30_000 });
     await expect(page.getByTestId("builder-restored")).toHaveCount(0);
   });
 

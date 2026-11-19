@@ -224,6 +224,17 @@ export interface CellarRepository {
   createStorage(householdId: string, input: CreateStorage): Promise<StorageRow>;
   /** Null = no such place in this household. */
   updateStorage(householdId: string, id: string, patch: UpdateStorage): Promise<StorageRow | null>;
+  /**
+   * Renames a place only while it is still at `expectedRevision` (its updated_at): one UPDATE whose WHERE carries the
+   * revision, so the check and the write cannot be separated by another write. "stale": the place exists and has
+   * changed since; null: no such place in this household.
+   */
+  renameIfCurrent(
+    householdId: string,
+    id: string,
+    label: string,
+    expectedRevision: string,
+  ): Promise<{ row: StorageRow; revision: string } | "stale" | null>;
   /** False = nothing was deleted (not the owner, or already gone). */
   deleteStorage(householdId: string, id: string): Promise<boolean>;
 

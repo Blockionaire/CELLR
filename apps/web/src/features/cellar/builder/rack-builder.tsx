@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import {
   useDeferredValue,
@@ -34,7 +35,13 @@ import { Sheet } from "@/ui/sheet";
 import { Skeleton } from "@/ui/skeleton";
 import { useReducedMotion, useWebGL } from "../cellar-3d-view";
 import { useRefreshCellar } from "../hooks";
-import { useSmartCapabilities, useSmartPlacements, useSmartUnits } from "../smart-cellar-hooks";
+import {
+  readPlacementsFresh,
+  smartPlacementsKey,
+  useSmartCapabilities,
+  useSmartPlacements,
+  useSmartUnits,
+} from "../smart-cellar-hooks";
 import { resolvedFromView, storedBottlesFrom } from "../storage3d/from-api";
 import { LayoutMap } from "../storage3d/layout-map";
 import { buildModel } from "../storage3d/model";
@@ -54,8 +61,10 @@ import {
   dimensionRange,
   draftFromTemplate,
   draftFromUnit,
+  isNewerRevision,
   parseDraft,
   resolvedOfDraft,
+  savedAsDrafted,
   setColor,
   setDimension,
   setDoor,
@@ -138,6 +147,7 @@ export function RackBuilder({ placeId, access, justSaved = false }: RackBuilderP
   const caps = useSmartCapabilities(true);
   const place = useSmartPlacements(placeId);
   const units = useSmartUnits(placeId === null);
+  const queryClient = useQueryClient();
 
   const failure = caps.error ?? (placeId ? place.error : null);
   if (failure) {
@@ -217,7 +227,7 @@ export function RackBuilder({ placeId, access, justSaved = false }: RackBuilderP
       canSave={canSave}
       saveBlock={saveBlock}
       justSaved={justSaved}
-      reload={async () => (await place.refetch()).data?.unit ?? null}
+      reload={async () => (await readPlacementsFresh(queryClient, placeId!)).unit}
     />
   );
 }
@@ -251,8 +261,11 @@ function BuilderEditor({
   justSaved,
   reload,
 }: {
-  /** Reads the place again from the server (the latest version, not what is cached). */
-  reload: () => Promise<SmartStorageUnitView | null>;
+  /**
+   * Reads the place again from the server, now. Throws when that fails (no connection, signed out, an error): a
+   * failure is never answered with the cached place.
+   */
+  reload: () => Promise<SmartStorageUnitView>;
   unit: SmartStorageUnitView | null;
   placements: readonly SmartPlacementView[];
   takenNames: ReadonlySet<string>;
@@ -266,6 +279,7 @@ function BuilderEditor({
   const te = useTranslations();
   const router = useRouter();
   const refresh = useRefreshCellar();
+  const queryClient = useQueryClient();
   const webgl = useWebGL();
   const reduced = useReducedMotion();
   const debug = useDebug();
@@ -309,9 +323,12 @@ function BuilderEditor({
   // new version as it is. Edits in progress: keep them, and say that saving them is refused until reloaded.
   const [seenRevision, setSeenRevision] = useState(unit?.revision ?? null);
   const [changedElsewhere, setChangedElsewhere] = useState(false);
-  if (unit && unit.revision !== seenRevision) {
+  /** Starting again from the latest version: on its way, or failed (said, with a way to try again; nothing lost). */
+  const [reloading, setReloading] = useState<null | "busy" | { failed: string }>(null);
+  // only a LATER version is news: an answer that left before this screen's own save and arrives after it is older
+  if (unit && isNewerRevision(unit.revision, seenRevision)) {
     setSeenRevision(unit.revision);
-    if (unit.revision !== baseline.revision) {
+    if (isNewerRevision(unit.revision, baseline.revision)) {
       if (!dirty) {
         const fresh = draftFromUnit(unit);
         setBaseline({ draft: fresh, revision: unit.revision });
@@ -451,49 +468,67 @@ function BuilderEditor({
       router.replace(`/cellar/builder/${made.id}?saved=1`);
       return;
     }
-    let saved: SmartStorageUnitView | null = null;
+    // An answer to a refresh that left before this save must not land after it (it would be older than the save).
+    await queryClient.cancelQueries({ queryKey: smartPlacementsKey(unit.id), exact: true });
+    // The revision this save stands on, carried from one answer of the server to the next: never guessed, and
+    // never taken from a refresh (which can fail, or be older).
+    let revision = baseline.revision;
+    let theirsLanded = false;
     if (layoutChanged) {
       try {
-        saved = await api.put<SmartStorageUnitView>(
+        const saved = await api.put<SmartStorageUnitView>(
           `/smart-cellar/storage/${unit.id}/layout`,
           config,
-          partialCreate ? {} : { ifMatch: baseline.revision ?? undefined },
+          partialCreate ? {} : { ifMatch: revision ?? undefined },
         );
+        revision = saved.revision;
+        // the server reads the place back after saving: if that is not what was saved, someone else's write landed
+        // in between, and the revision is theirs
+        theirsLanded = !savedAsDrafted(draft, saved);
       } catch (e) {
         const stale = e instanceof ApiError && e.serverMessage === STALE_LAYOUT_MESSAGE;
         setPhase({ kind: "failed", message: reason(e), stale });
         return;
       }
     }
-    if (label !== (saved?.label ?? unit.label)) {
+    if (label !== unit.label && !theirsLanded) {
       try {
-        await api.patch(`/storage/${unit.id}`, { label });
+        // a rename made against the version this draft (or the save just made) stands on: refused when stale
+        const renamed = await api.patch<{ revision: string }>(
+          `/storage/${unit.id}`,
+          { label },
+          { ifMatch: revision ?? undefined },
+        );
+        revision = renamed.revision;
       } catch (e) {
+        const stale = e instanceof ApiError && e.serverMessage === STALE_LAYOUT_MESSAGE;
         if (layoutChanged) {
-          await settleOn({ ...draft, name: unit.label });
-          setPhase({ kind: "nameFailed", message: reason(e) });
-        } else setPhase({ kind: "failed", message: reason(e), stale: false });
-        await refresh();
+          settleOn({ ...draft, name: unit.label }, revision);
+          setPhase({ kind: "nameFailed", message: stale ? t("stale") : reason(e) });
+        } else setPhase({ kind: "failed", message: reason(e), stale });
+        await refresh().catch(() => undefined);
         return;
       }
     }
     setPartialCreate(null);
-    await settleOn(draft);
+    if (theirsLanded) {
+      // saved, but not the last word: say so, and keep the draft until the latest version is loaded
+      settleOn(draft, revision);
+      setChangedElsewhere(true);
+      setPhase({ kind: "idle" });
+    } else {
+      settleOn(draft, revision);
+      setPhase({ kind: "saved" });
+    }
     forgetDraft(memoryKey);
-    setPhase({ kind: "saved" });
-    await refresh();
+    // the rest of the app sees the change; if this refresh fails, the revision above still stands (it came from
+    // the save's own answers)
+    await refresh().catch(() => undefined);
   }
-  /**
-   * After a save: what was saved is the new starting point, at the revision the server has NOW (a rename moves it
-   * again), so the next edit is compared with the right version and is never taken for someone else's change.
-   */
-  async function settleOn(next: BuilderDraft) {
-    const latest = await reload().catch(() => null);
-    setBaseline((b) => ({
-      draft: { ...next, templateChosen: true },
-      revision: latest?.revision ?? b.revision,
-    }));
-    if (latest) setSeenRevision(latest.revision);
+  /** After a save: what was saved is the new starting point, at the revision the server answered with. */
+  function settleOn(next: BuilderDraft, revision: string | null) {
+    setBaseline({ draft: { ...next, templateChosen: true }, revision });
+    if (revision) setSeenRevision(revision);
     setHistory([]);
   }
   const requestSave = () => {
@@ -502,21 +537,32 @@ function BuilderEditor({
       setPhase({ kind: "confirm", changes });
     else void save();
   };
-  /** Drops the draft and starts again from the place as the server has it NOW (asked again, not from the cache). */
+  /**
+   * Starts again from the place as the server has it NOW. Nothing is dropped until that read has succeeded: a
+   * failure (no connection, signed out, an error) is said with a way to try again, and the draft, its history and
+   * the browser's memory of it stay exactly as they were.
+   */
   const loadLatest = async () => {
-    setChangedElsewhere(false);
+    if (!unit) return;
+    setReloading("busy");
+    let latest: SmartStorageUnitView;
+    try {
+      latest = await reload();
+    } catch (e) {
+      setReloading({ failed: reason(e) });
+      return;
+    }
+    const fresh = draftFromUnit(latest);
     forgetDraft(memoryKey);
+    setBaseline({ draft: fresh, revision: latest.revision });
+    setSeenRevision(latest.revision);
+    setDraft(fresh);
     setHistory([]);
     setNotes([]);
     setRestored(false);
+    setChangedElsewhere(false);
     setPhase({ kind: "idle" });
-    const latest = (await reload()) ?? unit;
-    if (latest) {
-      const fresh = draftFromUnit(latest);
-      setBaseline({ draft: fresh, revision: latest.revision });
-      setSeenRevision(latest.revision);
-      setDraft(fresh);
-    }
+    setReloading(null);
   };
 
   // ---- labels ----
@@ -614,7 +660,12 @@ function BuilderEditor({
           data-testid="builder-changed-elsewhere"
         >
           <span>{t("stale")}</span>
-          <Button variant="secondary" size="sm" onClick={() => void loadLatest()}>
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={reloading === "busy"}
+            onClick={() => void loadLatest()}
+          >
             {t("loadLatest")}
           </Button>
         </div>
@@ -1008,10 +1059,27 @@ function BuilderEditor({
             >
               <span>{phase.stale ? t("stale") : t("saveFailed", { reason: phase.message })}</span>
               {phase.stale && (
-                <Button variant="secondary" size="sm" onClick={() => void loadLatest()}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={reloading === "busy"}
+                  onClick={() => void loadLatest()}
+                >
                   {t("loadLatest")}
                 </Button>
               )}
+            </div>
+          )}
+          {reloading !== null && reloading !== "busy" && (
+            <div
+              role="alert"
+              className="order-3 flex basis-full flex-wrap items-center justify-between gap-2 text-small text-danger"
+              data-testid="builder-reload-failed"
+            >
+              <span>{t("reloadFailed", { reason: reloading.failed })}</span>
+              <Button variant="secondary" size="sm" onClick={() => void loadLatest()}>
+                {t("retry")}
+              </Button>
             </div>
           )}
           {phase.kind === "nameFailed" && (
