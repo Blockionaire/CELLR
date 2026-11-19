@@ -1,4 +1,7 @@
+import { z } from "zod";
+import { normalizeText, WINE_TYPES } from "./cellar";
 import type { TasteSignals } from "./pairing-engine/taste";
+import { WINE_FOCUS } from "./taste";
 
 /**
  * THE SOCIAL SOMMELIER'S RULES. A person can name friends in a question ("@anna is coming, what do I open?").
@@ -61,3 +64,65 @@ export interface MentionOutcome {
 }
 
 export const aliasFor = (index: number) => `friend-${index + 1}`;
+
+/** Whether the asker lets their own taste be used by their friends' sommelier. */
+export const SaveSommelierSharingSchema = z.object({ tasteForFriends: z.boolean() });
+export type SaveSommelierSharing = z.infer<typeof SaveSommelierSharingSchema>;
+export interface SommelierSharingView {
+  tasteForFriends: boolean;
+}
+
+const SCALES = ["body", "tannin", "sweetness", "acidity"] as const;
+
+/** The scales of an object that are numbers from 1 to 5; everything else in it is ignored. */
+function scalesOf(value: unknown): TasteSignals["said"] {
+  if (typeof value !== "object" || value === null) return {};
+  const out: TasteSignals["said"] = {};
+  for (const key of SCALES) {
+    const v = (value as Record<string, unknown>)[key];
+    if (typeof v === "number" && Number.isFinite(v) && v >= 1 && v <= 5) out[key] = v;
+  }
+  return out;
+}
+const strings = (value: unknown, max: number): string[] =>
+  Array.isArray(value)
+    ? value.filter((v): v is string => typeof v === "string" && v.length <= max).slice(0, 8)
+    : [];
+
+/**
+ * A friend's taste as the database returned it, made into the closed signals the engine orders by. Everything
+ * is checked again here, whatever the database promised, and field by field: a colour must be a colour, a scale
+ * a number from 1 to 5, and a region counts only when it is a wine key the engine knows (so no free text travels
+ * on). Anything else is dropped, including every field this function does not name. Null when nothing usable is
+ * left.
+ */
+export function friendTasteSignals(
+  raw: unknown,
+  knownKeys: ReadonlySet<string>,
+): TasteSignals | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const t = raw as Record<string, unknown>;
+  const focus = (WINE_FOCUS as readonly unknown[]).includes(t.focus)
+    ? (t.focus as TasteSignals["focus"])
+    : null;
+  const styles = strings(t.styles, 20).filter((s): s is (typeof WINE_TYPES)[number] =>
+    (WINE_TYPES as readonly string[]).includes(s),
+  );
+  const likes = [...new Set(strings(t.regions, 60).map(normalizeText))].filter((k) =>
+    knownKeys.has(k),
+  );
+  const signals: TasteSignals = {
+    focus,
+    said: scalesOf(t.said),
+    trends: scalesOf(t.trends),
+    styles: [...new Set(styles)],
+    likes,
+  };
+  const anything =
+    signals.focus !== null ||
+    signals.styles.length > 0 ||
+    likes.length > 0 ||
+    Object.keys(signals.said).length > 0 ||
+    Object.keys(signals.trends).length > 0;
+  return anything ? signals : null;
+}

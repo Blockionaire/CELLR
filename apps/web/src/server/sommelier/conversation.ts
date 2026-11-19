@@ -7,6 +7,7 @@ import {
   type SommelierConversationView,
   type SommelierRating,
   type SommelierReply,
+  findMentions,
 } from "@cellr/domain";
 import type { ExchangeEntry, RecordedExchange, SommelierConversationRepository } from "./types";
 
@@ -54,6 +55,11 @@ export function createSommelierChatService(deps: SommelierChatDeps) {
       let model: string | null = null;
       const answer = await deps.ask(request, { model: (id) => (model = id) });
       const question = request.messages.at(-1)!.text;
+      // A question that names a friend is answered and then forgotten: neither the question (it holds their
+      // name) nor the answer (it was shaped by what they allowed at that moment) is kept. So when a friend
+      // withdraws their consent, or the friendship ends, there is nothing stored to take back.
+      if (findMentions(question).length > 0 || (answer.plan?.friends.length ?? 0) > 0)
+        return { ...answer, saved: null };
       const saved = await deps
         .record({
           householdId,

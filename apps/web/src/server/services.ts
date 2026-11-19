@@ -20,7 +20,8 @@ import { createImageService } from "@/server/images/service";
 import { createExportRepository } from "@/server/export/repository";
 import { createExportService } from "@/server/export/service";
 import { createFriendsRepository } from "@/server/friends/repository";
-import { createFriendsService } from "@/server/friends/service";
+import { createFriendsService, readSommelierContext } from "@/server/friends/service";
+import { ALL_WINE_KEYS } from "@cellr/domain/intelligence";
 import { getTranslations } from "next-intl/server";
 import { sendFriendNotice } from "@/server/privileged/friend-notices";
 import { createAvatarRepository, createAvatarService } from "@/server/households/avatar";
@@ -160,6 +161,14 @@ export function servicesFor(ctx: RequestContext) {
         taste: () => taste.profile(),
         offers: null,
         buying: features.sommelier_buying,
+        // The social sommelier: only with its own switch. The names are matched and judged by the database
+        // for this person in this request (createFriendsService → sommelier_friend_context).
+        ...(features.sommelier_social
+          ? {
+              friends: (handles: readonly string[]) =>
+                readSommelierContext(createFriendsRepository(ctx.db), handles, ALL_WINE_KEYS),
+            }
+          : {}),
         now: () => new Date(),
       })
     : null;
