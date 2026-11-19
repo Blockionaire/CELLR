@@ -143,3 +143,57 @@ export function getAdminAllowlist(): ReadonlySet<string> {
 export function getFeatures(): FeatureFlags {
   return parseFeatures(process.env.CELLR_FEATURES);
 }
+
+/**
+ * Optional settings of the health monitor (System Intelligence sprint 2, docs/sprints/system-health/OPERATIONS.md).
+ * Every one may be unset: what it switches on then shows `unknown` (not configured), never healthy, and nothing
+ * else changes. Server only; none of these values is ever shown or logged.
+ */
+export interface HealthEnv {
+  /** Bearer token for GET /api/health/ready (an external uptime check). Null = that endpoint answers 404. */
+  readyToken: string | null;
+  /**
+   * An https URL the monitor calls after every recorded round: a dead man's switch at an external uptime provider,
+   * which alerts when the calls stop. Null = no call.
+   */
+  pingUrl: string | null;
+  /** CI status of the main branch from GitHub Actions: "owner/repo" and a read-only token. Null = not configured. */
+  github: { repo: string; token: string } | null;
+  /** The newest production deployment from Vercel: project id, team id and a read token. Null = not configured. */
+  vercel: { projectId: string; teamId: string | null; token: string } | null;
+}
+
+export function getHealthEnv(): HealthEnv {
+  const clean = (v: string | undefined) => v?.trim() || null;
+  const httpsUrl = (v: string | null) => {
+    if (!v) return null;
+    try {
+      const u = new URL(v);
+      return u.protocol === "https:" && !u.username && !u.password ? u.toString() : null;
+    } catch {
+      return null;
+    }
+  };
+  const repo = clean(process.env.CELLR_HEALTH_GITHUB_REPO);
+  const githubToken = clean(process.env.CELLR_HEALTH_GITHUB_TOKEN);
+  const projectId = clean(process.env.CELLR_HEALTH_VERCEL_PROJECT_ID);
+  const vercelToken = clean(process.env.CELLR_HEALTH_VERCEL_TOKEN);
+  const readyToken = clean(process.env.CELLR_HEALTH_READY_TOKEN);
+  return {
+    // a short token would be guessable: refuse it rather than guard the endpoint weakly
+    readyToken: readyToken && readyToken.length >= 24 ? readyToken : null,
+    pingUrl: httpsUrl(clean(process.env.CELLR_HEALTH_PING_URL)),
+    github:
+      repo && githubToken && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)
+        ? { repo, token: githubToken }
+        : null,
+    vercel:
+      projectId && vercelToken && /^[A-Za-z0-9_-]+$/.test(projectId)
+        ? {
+            projectId,
+            teamId: clean(process.env.CELLR_HEALTH_VERCEL_TEAM_ID),
+            token: vercelToken,
+          }
+        : null,
+  };
+}

@@ -155,7 +155,7 @@ const components = [
         severity: "medium",
         title: "A failed reminder run raises no alert",
         detail:
-          "The run logs errors, but nothing watches whether it ran or succeeded. Sprint 2 (heartbeat, job health) and sprint 3 (alerting) close this.",
+          "The run logs errors, but nothing watches whether it ran or succeeded: the Vercel cron's runs are not visible to the app, so the sprint 2 monitor has no check for it. Sprint 3 (alerting, external checks) is where this closes.",
       },
     ],
   },
@@ -999,22 +999,23 @@ const components = [
     name: "Postgres pg_cron",
     layer: "platform",
     status: "implemented",
-    summary: "Purges: scan reads (15 min), conversations (hourly)",
+    summary: "Purges: scan reads, conversations, health history",
     responsibility: "Scheduled database jobs defined in migrations.",
     inputs: [],
     outputs: ["Deleted expired rows"],
     sources: [
       M + "20261101000024_catalog_learning.sql",
       M + "20261123000046_sommelier_conversations.sql",
+      M + "20261124000047_system_health.sql",
     ],
-    cronJobs: ["catalog-scan-reads-purge", "sommelier-conversations-purge"],
+    cronJobs: ["catalog-scan-reads-purge", "health-samples-purge", "sommelier-conversations-purge"],
     risks: [
       {
         id: "R-JOB-1",
         severity: "low",
-        title: "Job runs are not watched",
+        title: "Job runs are watched, not alerted",
         detail:
-          "cron.job_run_details is not read by anything; a failing purge goes unnoticed (sprint 2).",
+          "Since sprint 2 the health monitor reads cron.job_run_details and shows a failed or overdue job on System › Health; nothing alerts anyone about it yet (sprint 3).",
       },
     ],
   },
@@ -1070,7 +1071,7 @@ const components = [
         severity: "medium",
         title: "Hosting configuration is not verifiable here",
         detail:
-          "Environment variables, protection, regions and the cron's real runs live in Vercel. Sprint 2 adds a deployment status and an external heartbeat.",
+          "Environment variables, protection, regions and the cron's real runs live in Vercel. Sprint 2 added a deployment-status check (it needs a Vercel read token) and the external heartbeat (it needs its secrets).",
       },
     ],
   },
@@ -1119,16 +1120,63 @@ const components = [
 
   // Planned
   {
-    id: "plan-health-monitor",
+    id: "health-monitor",
     name: "Live monitoring engine",
-    layer: "planned",
-    status: "planned",
-    summary: "Sprint 2: healthchecks, history, heartbeat",
+    layer: "core",
+    status: "implemented",
+    summary: "Probes, rounds, history; unknown when unmeasured",
     responsibility:
-      "Measures database, API, auth, Storage, jobs and AI health per component; missing measurements show as unknown, never healthy.",
-    inputs: ["Healthchecks", "AI usage", "CI and deployment status"],
-    outputs: ["Health per component id (separate overlay)"],
-    sources: [],
+      "Runs bounded server-side checks (database, Auth, Storage, pg_cron, AI traffic, CI and deployment when configured), stores codes and numbers per round, and judges them: missing, stale or failed is never healthy. Feeds System › Health and the health overlay on this map.",
+    inputs: ["Heartbeat with CRON_SECRET", "ai_usage", "pg_cron run history"],
+    outputs: ["Health per probe and per component id", "Public liveness, token-guarded readiness"],
+    sources: [
+      W + "server/health/",
+      W + "server/privileged/health.ts",
+      W + "app/api/health/",
+      W + "app/api/cron/health/",
+      D + "system-health.ts",
+      M + "20261124000047_system_health.sql",
+      ".github/workflows/health-heartbeat.yml",
+    ],
+    routes: ["/api/cron/health", "/api/health", "/api/health/ready"],
+    gates: [
+      {
+        name: "CELLR_HEALTH_READY_TOKEN",
+        kind: "env",
+        note: "Opens /api/health/ready to an uptime provider; 404 without it.",
+      },
+      {
+        name: "CELLR_HEALTH_PING_URL",
+        kind: "env",
+        note: "Dead man's switch: called after every recorded round.",
+      },
+      {
+        name: "CELLR_HEALTH_GITHUB_TOKEN",
+        kind: "env",
+        note: "CI status of main; unknown without it.",
+      },
+      {
+        name: "CELLR_HEALTH_VERCEL_TOKEN",
+        kind: "env",
+        note: "Production deployment status; unknown without it.",
+      },
+    ],
+    risks: [
+      {
+        id: "R-MON-1",
+        severity: "medium",
+        title: "No alert channel of its own yet",
+        detail:
+          "A full outage is noticed outside CELLR only by the heartbeat workflow failing (GitHub's own e-mail to its owner) until an uptime provider and alerting are set up in sprint 3.",
+      },
+      {
+        id: "R-MON-2",
+        severity: "low",
+        title: "Checks measure aspects, not features",
+        detail:
+          "Infrastructure, jobs and AI traffic are measured; whether a person can complete a flow (sign in, scan, save a bottle) is not. Each check states what it does not prove.",
+      },
+    ],
   },
   {
     id: "plan-incident-engine",
@@ -2243,6 +2291,99 @@ const edges: SystemEdge[] = [
     web("server/purchase-check/repository.ts", '.from("shared_wine_profiles")'),
   ),
 
+  // System Intelligence sprint 2: the live monitoring engine
+  edge(
+    "github-actions",
+    "health-monitor",
+    "ops",
+    "heartbeat: one round every 10 minutes (once its secrets are set)",
+    ev(".github/workflows/health-heartbeat.yml", "/api/cron/health"),
+  ),
+  edge(
+    "health-monitor",
+    "privileged-ops",
+    "request",
+    "service-role probe client with a hard timeout",
+    web("server/privileged/client.ts", "export function createProbeClient"),
+  ),
+  edge(
+    "health-monitor",
+    "supabase-postgres",
+    "data-write",
+    "records each round and its samples (codes and numbers only)",
+    web("server/privileged/health.ts", '"health_record_round"'),
+  ),
+  edge(
+    "health-monitor",
+    "supabase-postgres",
+    "data-read",
+    "read probe, latest state and history",
+    web("server/privileged/health.ts", '"health_ping"'),
+  ),
+  edge(
+    "health-monitor",
+    "supabase-auth",
+    "external-call",
+    "GET /auth/v1/health",
+    web("server/health/probes.ts", "/auth/v1/health"),
+  ),
+  edge(
+    "health-monitor",
+    "supabase-storage",
+    "request",
+    "lists buckets, checks every expected one exists",
+    web("server/privileged/health.ts", "db.storage.listBuckets()"),
+  ),
+  edge(
+    "health-monitor",
+    "pg-cron",
+    "data-read",
+    "reads pg_cron's own run history",
+    ev(M + "20261124000047_system_health.sql", "cron.job_run_details d"),
+  ),
+  edge(
+    "health-monitor",
+    "data-ops",
+    "data-read",
+    "AI calls per task of the last hour (counts only)",
+    ev(M + "20261124000047_system_health.sql", "from public.ai_usage u"),
+  ),
+  edge(
+    "health-monitor",
+    "github-actions",
+    "external-call",
+    "CI status of main (only with a read token)",
+    web("server/health/probes.ts", "https://api.github.com/repos/"),
+  ),
+  edge(
+    "health-monitor",
+    "vercel",
+    "external-call",
+    "newest production deployment (only with a read token)",
+    web("server/health/probes.ts", "https://api.vercel.com/v6/deployments"),
+  ),
+  edge(
+    "admin-service",
+    "health-monitor",
+    "request",
+    "System › Health, the map's overlay, Measure now",
+    web("server/admin/service.ts", "export async function adminHealthOverlay"),
+  ),
+  edge(
+    "pg-cron",
+    "health-monitor",
+    "ops",
+    "keeps 14 days of health history",
+    ev(M + "20261124000047_system_health.sql", "'health-samples-purge', '23 4 * * *'"),
+  ),
+  edge(
+    "github-actions",
+    "health-monitor",
+    "verifies",
+    "health RPCs in the permission suite",
+    ev(".github/workflows/ci.yml", "bash scripts/db-test.sh"),
+  ),
+
   // Planned
   planned("data-sommelier", "plan-quality-engine", "ratings into evaluation"),
   planned("plan-quality-engine", "svc-sommelier", "better prompts / model choice"),
@@ -2250,12 +2391,12 @@ const edges: SystemEdge[] = [
   planned("plan-bottle-art", "data-media", "draft artwork for review"),
   planned("svc-cellar", "plan-food-engine", "dish and outcome of Tonight"),
   planned("plan-food-engine", "domain-rules", "outcome-informed pairing"),
-  planned("plan-health-monitor", "supabase-postgres", "database health"),
-  planned("plan-health-monitor", "api-v1", "route health"),
-  planned("plan-health-monitor", "data-ops", "AI usage, errors, cost"),
-  planned("plan-health-monitor", "vercel", "deployment status, heartbeat"),
-  planned("admin-portal", "plan-health-monitor", "health overlay on this map"),
-  planned("plan-health-monitor", "plan-incident-engine", "measurements"),
+  planned("health-monitor", "plan-incident-engine", "measurements and history"),
+  planned(
+    "plan-incident-engine",
+    "health-monitor",
+    "external uptime checks (readiness, dead man's switch)",
+  ),
   planned("plan-incident-engine", "architecture-registry", "impact via the dependency graph"),
 ];
 
@@ -2344,7 +2485,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.1.0",
+  version: "1.2.0",
   reviewedOn: "2026-11-19",
   repository: "Blockionaire/CELLR",
   components,

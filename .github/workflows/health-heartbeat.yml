@@ -1,0 +1,82 @@
+name: Health heartbeat
+
+# System Intelligence sprint 2 (docs/sprints/system-health/ADR-002-live-monitoring.md, OPERATIONS.md).
+#
+# Every 10 minutes, from outside CELLR:
+#   1. Is the app alive? GET /api/health (public, no detail).
+#   2. Run one round of health checks: GET /api/cron/health with the cron secret. The app measures and stores; this
+#      job only learns whether the round was recorded and how many infrastructure checks failed (never which).
+# A failed run is the alert: GitHub e-mails the workflow's owner about failed scheduled runs. That works when CELLR
+# itself is down, which is exactly when nothing inside CELLR can tell anyone. (An uptime provider with its own alert
+# channel follows in sprint 3; this stays as the heartbeat.)
+#
+# INACTIVE UNTIL SWITCHED ON. It runs only when the repository VARIABLE `HEALTH_HEARTBEAT` is `on`, and then needs the
+# repository SECRETS `HEALTH_BASE_URL` (the production https address, no trailing slash) and `HEALTH_CRON_SECRET`
+# (the same value as the app's CRON_SECRET). Until the variable is set every run is skipped and nothing is called.
+#
+# No third-party actions, no checkout, no token permissions: curl and jq on the runner, and nothing from the
+# answer is printed but a status code and two numbers.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: health-heartbeat
+  cancel-in-progress: false
+
+jobs:
+  heartbeat:
+    name: Heartbeat · liveness and one round of checks
+    if: vars.HEALTH_HEARTBEAT == 'on'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    env:
+      BASE: ${{ secrets.HEALTH_BASE_URL }}
+      SECRET: ${{ secrets.HEALTH_CRON_SECRET }}
+    steps:
+      - name: Configuration is complete
+        run: |
+          if [ -z "$BASE" ] || [ -z "$SECRET" ]; then
+            echo "::error::HEALTH_HEARTBEAT is on, but the secrets HEALTH_BASE_URL and HEALTH_CRON_SECRET are not both set"
+            exit 1
+          fi
+          case "$BASE" in
+            https://*) ;;
+            *) echo "::error::HEALTH_BASE_URL must start with https://"; exit 1 ;;
+          esac
+
+      - name: The app answers (GET /api/health)
+        run: |
+          code=$(curl -sS --max-time 15 --retry 2 --retry-delay 10 --retry-all-errors \
+            -o /dev/null -w '%{http_code}' "${BASE%/}/api/health" || echo 000)
+          echo "liveness: HTTP $code"
+          if [ "$code" != 200 ]; then
+            echo "::error::CELLR did not answer its liveness check (HTTP $code): the app may be down"
+            exit 1
+          fi
+
+      - name: One round of health checks (GET /api/cron/health)
+        run: |
+          code=$(curl -sS --max-time 40 -o round.json -w '%{http_code}' \
+            -H "Authorization: Bearer $SECRET" "${BASE%/}/api/cron/health" || echo 000)
+          recorded=$(jq -r '.recorded // false' round.json 2>/dev/null || echo false)
+          reason=$(jq -r '.reason // ""' round.json 2>/dev/null | tr -cd 'a-z_' || true)
+          failed=$(jq -r '.failedInfrastructure // 0' round.json 2>/dev/null | tr -cd '0-9' || true)
+          rm -f round.json
+          echo "round: HTTP $code, recorded=$recorded${reason:+, reason=$reason}, failed infrastructure checks=${failed:-0}"
+          if [ "$code" = 401 ]; then
+            echo "::error::The app refused the heartbeat: HEALTH_CRON_SECRET does not match the app's CRON_SECRET"
+            exit 1
+          fi
+          if [ "$code" != 200 ]; then
+            echo "::error::No round could be recorded (HTTP $code${reason:+, $reason}): the database may be down; see Admin › System › Health"
+            exit 1
+          fi
+          if [ "${failed:-0}" -gt 0 ]; then
+            echo "::error::$failed infrastructure check(s) failed (database, Auth or Storage): see Admin › System › Health"
+            exit 1
+          fi

@@ -10,6 +10,9 @@
 //   FAKE      Web Push (push-receiver.mjs, https): read back what was pushed via /__test/push/calls
 //   FAKE      Storage: the real `storage.objects` policies from our migrations decide who may read, write
 //             and delete (each call runs in a transaction AS the caller), the bytes live in memory
+//   FAKE      Outages, for the health probes (System Intelligence sprint 2): POST /__test/outage makes Auth,
+//             Storage or the REST API answer an error, or answer slowly, to requests marked as a probe
+//             (x-cellr-probe: 1) only, so the rest of the suite keeps a working backend; DELETE clears it
 // It is a test fixture, not a security boundary: it binds to localhost and exposes /__test/* helpers.
 import crypto from "node:crypto";
 import http from "node:http";
@@ -134,6 +137,11 @@ export async function startMockSupabase({
   async function handleAuth(req, res, url) {
     const path = url.pathname.replace(/^\/auth\/v1/, "");
     if (req.method === "GET" && path === "/.well-known/jwks.json") return json(res, 200, keys.jwks);
+    // GoTrue's own health endpoint, as Supabase serves it behind the gateway (an apikey is required there)
+    if (req.method === "GET" && path === "/health") {
+      if (!req.headers.apikey) return json(res, 401, { message: "No API key found in request" });
+      return json(res, 200, { version: "local-stack", name: "GoTrue", description: "mock" });
+    }
 
     if (req.method === "POST" && path === "/otp") {
       const body = await readJson(req);
@@ -319,6 +327,14 @@ export async function startMockSupabase({
     const caller = callerOf(req);
     if (!caller) return storageError(res, 400, "InvalidJWT", "Invalid Compact JWS");
     const path = decodeURIComponent(url.pathname.replace(/^\/storage\/v1/, ""));
+
+    // GET /bucket: the buckets (service role only, as on Supabase)
+    if (req.method === "GET" && path === "/bucket") {
+      if (caller.role !== "service_role")
+        return storageError(res, 403, "Unauthorized", "Only the service role lists buckets");
+      const { rows } = await db.query("select id, name, public from storage.buckets order by id");
+      return json(res, 200, rows);
+    }
 
     // POST /object/{bucket}/{path}: upload (raw body, as supabase-js sends a Buffer)
     let m = /^\/object\/([^/]+)\/(.+)$/.exec(path);
@@ -608,9 +624,36 @@ export async function startMockSupabase({
     return json(res, 404, { error: { message: "not found" } });
   }
 
+  // ---- Outages for the health probes: { "auth" | "storage" | "rest" → { status, delayMs } } ------------------------
+  const outages = new Map();
+  const outageTarget = (p) =>
+    p.startsWith("/auth/v1")
+      ? "auth"
+      : p.startsWith("/storage/v1")
+        ? "storage"
+        : p.startsWith("/rest/v1")
+          ? "rest"
+          : null;
+
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, base);
     try {
+      if (url.pathname === "/__test/outage" && req.method === "POST") {
+        const { target, status = null, delayMs = 0 } = await readJson(req);
+        if (!["auth", "storage", "rest"].includes(target))
+          return json(res, 400, { message: "target: auth | storage | rest" });
+        outages.set(target, { status, delayMs: Math.min(Number(delayMs) || 0, 15_000) });
+        return json(res, 200, {});
+      }
+      if (url.pathname === "/__test/outage" && req.method === "DELETE") {
+        outages.clear();
+        return json(res, 200, {});
+      }
+      const outage = req.headers["x-cellr-probe"] ? outages.get(outageTarget(url.pathname)) : null;
+      if (outage) {
+        if (outage.delayMs) await new Promise((r) => setTimeout(r, outage.delayMs));
+        if (outage.status) return json(res, outage.status, { message: "simulated outage" });
+      }
       if (url.pathname === "/__health") {
         const r = await fetch(`${postgrestUrl}/`).catch(() => null);
         return json(res, r?.ok ? 200 : 503, { ok: Boolean(r?.ok) });
