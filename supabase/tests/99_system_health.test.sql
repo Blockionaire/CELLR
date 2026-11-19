@@ -3,7 +3,7 @@
 begin;
 do $$
 declare
-  r1 bigint; r2 bigint; r3 bigint; latest jsonb; hist jsonb; cj jsonb; ai jsonb; n int;
+  r1 bigint; r2 bigint; r3 bigint; latest jsonb; hist jsonb; cj jsonb; ai jsonb; n int; has_cron boolean;
   ok_sample jsonb := '[{"probe":"db.query","status":"healthy","reason":"ok","latencyMs":12,"detail":{"rows":1,"inRecovery":false}}]';
 begin
   perform test.mk_users(1);
@@ -121,7 +121,14 @@ begin
   perform test.rec('ping answers', public.health_ping() ? 'inRecovery');
 
   cj := public.health_cron_jobs();
-  if to_regclass('cron.job') is null then
+  -- whether pg_cron is here, asked as the database owner (the service role has no access to the cron schema: the
+  -- function reads it as its owner, which is the point)
+  perform test.su();
+  has_cron := to_regclass('cron.job') is not null;
+  perform test.as_service();
+  perform test.rec('the service role itself cannot read pg_cron''s tables, only through the function',
+    not has_cron or test.error_of('select count(*) from cron.job') like '42501:%');
+  if not has_cron then
     perform test.rec('cron jobs: without pg_cron the answer says so instead of failing',
       cj = '{"available": false, "jobs": []}'::jsonb);
   else
