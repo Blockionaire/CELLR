@@ -1,0 +1,41 @@
+{
+  "ok": true,
+  "expect": "staging",
+  "checks": [
+    {
+      "name": "identity",
+      "ok": true,
+      "detail": "environment=staging project_ref=localrehearsal004b"
+    },
+    {
+      "name": "schema: required objects (no migration history here)",
+      "ok": true,
+      "detail": "all present; repository has 46 migrations"
+    },
+    {
+      "name": "gates: people cannot run pilot, rights or import functions",
+      "ok": true,
+      "detail": "none reachable"
+    },
+    {
+      "name": "gates: only the owner can mark the database",
+      "ok": true,
+      "detail": "service_role may write: false; authenticated may read: false"
+    },
+    {
+      "name": "gates: the pilot-scope trigger is enabled",
+      "ok": true,
+      "detail": "on"
+    },
+    {
+      "name": "rls: on for every catalogue table",
+      "ok": true,
+      "detail": "7 tables"
+    },
+    {
+      "name": "providers: none public without verified commercial rights",
+      "ok": true,
+      "detail": "fixture: verified/off/0 records; lwin: unverified/off/0 records; lwin_fixture: verified/off/10 records; xwines: unverified/pilot/100646 records"
+    }
+  ]
+}
