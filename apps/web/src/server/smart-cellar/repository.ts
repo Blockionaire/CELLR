@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  SMART_CELLAR_NOT_SET_UP,
   DomainError,
   type ImageRef,
   type OccupiedSpot,
@@ -20,7 +21,7 @@ import type {
 } from "./types";
 
 const PLACE_COLUMNS =
-  "id, label, kind, grid_rows, grid_cols, template, cell_capacity, slot_semantics, appearance";
+  "id, label, kind, grid_rows, grid_cols, template, cell_capacity, slot_semantics, appearance, updated_at";
 const ZONE_COLUMNS = "location_id, zone_index, from_row, to_row, purpose, target_temp_c";
 const PLACEMENT_COLUMNS =
   "id, location_id, loc_row, loc_col, loc_index, vintage_id, front_image_id, wine_vintages!inner(year, wine_id, wines!inner(name, wine_type, region, country_code, producers!inner(name)))";
@@ -36,7 +37,7 @@ const IMAGE_CHUNK = 150;
 export const isSchemaMissing = (error: { code?: string | undefined }): boolean =>
   missingColumn(error) || isMissingTable(error) || error.code === "PGRST202";
 
-export const NOT_SET_UP = "The Smart Cellar isn't set up on this server yet.";
+export const NOT_SET_UP = SMART_CELLAR_NOT_SET_UP;
 
 /** Errors of the Smart Cellar API's own calls. */
 export function mapSmartCellarError(error: {
@@ -64,6 +65,7 @@ type PlaceRecord = {
   cell_capacity: number;
   slot_semantics: string | null;
   appearance: unknown;
+  updated_at: string;
 };
 type ZoneRecord = {
   location_id: string;
@@ -97,6 +99,7 @@ export function toStoredPlace(
     cellCapacity: r.cell_capacity,
     semantics: r.slot_semantics,
     appearance: r.appearance,
+    revision: r.updated_at,
     zones: [...zones]
       .sort((a, b) => a.zone_index - b.zone_index)
       .map((z) => ({

@@ -113,6 +113,8 @@ export default defineConfig({
         CELLR_FEATURES: "all",
         CELLR_SMART_CELLAR: "write",
         CELLR_SMART_CELLAR_3D: "1",
+        // asked for on a production build: the Rack Builder must stay closed here (sprint 3)
+        CELLR_SMART_CELLAR_BUILDER: "1",
       },
     },
     {
@@ -130,6 +132,8 @@ export default defineConfig({
         CELLR_SMART_CELLAR: "write",
         // the cellar's 3D view uses the new renderer for places with a template here (sprint 2B.3)
         CELLR_SMART_CELLAR_3D: "1",
+        // the Rack Builder is open here, and saves: the database is the local stack (sprint 3)
+        CELLR_SMART_CELLAR_BUILDER: "1",
       },
     },
   ],

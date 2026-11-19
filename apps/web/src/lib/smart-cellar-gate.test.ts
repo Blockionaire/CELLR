@@ -10,6 +10,9 @@ const VERCEL_PREVIEW = {
 };
 const UNMARKED_PRODUCTION = { NODE_ENV: "production" };
 const NEXT_DEV = { NODE_ENV: "development" };
+/** The local stack: a database this machine runs, which writes may reach (smart-cellar-write-target.ts). */
+const LOCAL_DB = { NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321" };
+const PRODUCTION_DB = { NEXT_PUBLIC_SUPABASE_URL: "https://vvelgyhbjfmjvxkzekyz.supabase.co" };
 
 describe("the Smart Cellar API switch", () => {
   it("is closed when nothing is set, everywhere", () => {
@@ -33,15 +36,41 @@ describe("the Smart Cellar API switch", () => {
       });
   });
 
-  it("write opens writing in next dev and on a Vercel preview", () => {
+  it("write opens writing in next dev and on a Vercel preview, on a database known not to be production", () => {
     for (const env of [
       NEXT_DEV,
       VERCEL_PREVIEW,
       { ...VERCEL_PREVIEW, VERCEL_TARGET_ENV: undefined },
     ])
-      expect(smartCellarAccessIn({ ...env, CELLR_SMART_CELLAR: "write" })).toEqual({
+      expect(smartCellarAccessIn({ ...env, ...LOCAL_DB, CELLR_SMART_CELLAR: "write" })).toEqual({
         reads: true,
         writes: true,
+      });
+  });
+
+  it("write on a preview that points at the production database reads, and never writes (sprint 3)", () => {
+    for (const env of [NEXT_DEV, VERCEL_PREVIEW])
+      for (const extra of [
+        {},
+        // declaring production as the test database opens nothing: the list of production hosts is code
+        { CELLR_SMART_CELLAR_WRITE_DATABASE: "vvelgyhbjfmjvxkzekyz.supabase.co" },
+      ])
+        expect(
+          smartCellarAccessIn({ ...env, ...PRODUCTION_DB, ...extra, CELLR_SMART_CELLAR: "write" }),
+        ).toEqual({ reads: true, writes: false });
+  });
+
+  it("write with no database configured, or one nobody declared, does not write (fails closed)", () => {
+    for (const db of [
+      {},
+      { NEXT_PUBLIC_SUPABASE_URL: "not a url" },
+      { NEXT_PUBLIC_SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co" },
+    ])
+      expect(
+        smartCellarAccessIn({ ...VERCEL_PREVIEW, ...db, CELLR_SMART_CELLAR: "write" }),
+      ).toEqual({
+        reads: true,
+        writes: false,
       });
   });
 
@@ -59,7 +88,7 @@ describe("the Smart Cellar API switch", () => {
       {},
     ])
       expect(
-        smartCellarAccessIn({ ...env, CELLR_SMART_CELLAR: "write" }),
+        smartCellarAccessIn({ ...env, ...LOCAL_DB, CELLR_SMART_CELLAR: "write" }),
         JSON.stringify(env),
       ).toEqual({
         reads: true,

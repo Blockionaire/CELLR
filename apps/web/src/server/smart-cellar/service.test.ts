@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  STALE_LAYOUT_MESSAGE,
   STORAGE_TEMPLATES,
   STORAGE_TEMPLATE_IDS,
   defaultAppearance,
@@ -40,6 +41,7 @@ const place = (over: Partial<StoredPlaceRow> = {}): StoredPlaceRow => ({
   appearance: null,
   zones: [],
   occupied: 0,
+  revision: "2026-11-19 08:00:00+00",
   ...over,
 });
 
@@ -240,6 +242,7 @@ describe("reading: rows of the database", () => {
         cell_capacity: 1,
         slot_semantics: "depth",
         appearance: { v: 1 },
+        updated_at: "2026-11-19 08:00:00+00",
       },
       [
         {
@@ -459,6 +462,24 @@ describe("saving a layout", () => {
     );
     expect(e.code).toBe("CONFLICT");
     expect(writes).toEqual([]);
+  });
+
+  it("a draft made against an older revision is refused, and nothing is written (sprint 3)", async () => {
+    const { repo, writes } = fakeRepo([place({ revision: "r2" })]);
+    const e = await fails(service(repo).saveLayout("p-1", config("rack_classic"), "r1"));
+    expect(e.code).toBe("CONFLICT");
+    expect(e.message).toBe(STALE_LAYOUT_MESSAGE);
+    expect(writes).toEqual([]);
+    // the current revision, or none at all (an older client): saved
+    await service(repo).saveLayout("p-1", config("rack_classic"), "r2");
+    await service(repo).saveLayout("p-1", config("rack_classic"), null);
+    expect(writes).toHaveLength(2);
+  });
+
+  it("the place's revision is part of what is read", () => {
+    expect(toUnitView(place({ revision: "2026-11-19 09:00:00+00" })).revision).toBe(
+      "2026-11-19 09:00:00+00",
+    );
   });
 
   it("what the database refuses is passed on as the same refusals", async () => {

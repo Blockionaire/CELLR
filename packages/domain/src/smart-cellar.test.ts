@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { STORAGE_KINDS } from "./cellar";
 import {
   DEPTH_PLACEMENT_ENABLED,
+  cellCapacitySavable,
+  templateSavable,
   indexMeaningOf,
   layoutChangeProblem,
   legacyEditProblem,
@@ -236,5 +238,19 @@ describe("edits through the old API on a place with a template", () => {
         id,
       ).toBeNull();
     }
+  });
+});
+
+describe("what can be saved in this version (sprint 3)", () => {
+  it("one bottle per cell, while depth is off; never more", () => {
+    expect(DEPTH_PLACEMENT_ENABLED).toBe(false);
+    expect(cellCapacitySavable(1)).toBe(true);
+    for (const n of [2, 3, 8, 16]) expect(cellCapacitySavable(n)).toBe(false);
+  });
+
+  it("a template that starts at two bottles per cell is preview only; the rest can be saved", () => {
+    const previewOnly = STORAGE_TEMPLATE_IDS.filter((id) => !templateSavable(id));
+    expect(previewOnly).toEqual(["rack_double_depth", "cube_modular", "diamond_bins"]);
+    for (const id of previewOnly) expect(STORAGE_TEMPLATES[id].cellCapacity.min).toBeGreaterThan(1);
   });
 });
