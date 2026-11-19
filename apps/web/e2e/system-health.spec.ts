@@ -95,11 +95,14 @@ test.describe("measuring, outages and stale data", () => {
   // one browser at a time changes the shared health state; the phone has its own read-only test below
   test.skip(({ isMobile }) => isMobile, "desktop only: these tests change shared state");
 
-  test.beforeAll(async ({ request }) => {
+  // hooks run in every project, also where the tests are skipped: only the desktop run may touch the shared state
+  test.beforeAll(async ({ request }, testInfo) => {
+    if (testInfo.project.name !== "desktop") return;
     await clearOutages(request);
     await sql("delete from private.health_rounds");
   });
-  test.afterAll(async ({ request }) => {
+  test.afterAll(async ({ request }, testInfo) => {
+    if (testInfo.project.name !== "desktop") return;
     await clearOutages(request);
   });
 
@@ -127,10 +130,12 @@ test.describe("measuring, outages and stale data", () => {
       failedInfrastructure: 0,
     });
     // a second one right away is refused: rounds are bounded, whoever asks
+    // ...and its answer carries the findings of the round that did run, so a skip can never hide a failure
     expect(await (await round(request)).json()).toEqual({
       ok: true,
       recorded: false,
       reason: "too_soon",
+      failedInfrastructure: 0,
     });
 
     const { page, close } = await asAdmin(browser);

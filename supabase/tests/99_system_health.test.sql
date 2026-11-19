@@ -34,6 +34,8 @@ begin
   perform test.rec('the service role starts a round', r1 is not null);
   perform test.rec('a second round within the gap is refused quietly (null): rounds cannot come faster than that',
     public.health_begin_round('manual', 60) is null);
+  perform test.rec('asking for no gap does not get one: never less than a minute, whoever calls',
+    public.health_begin_round('manual', 0) is null);
   perform test.rec('an unknown trigger or a silly gap is refused',
     test.denied('select public.health_begin_round(''cron'', 60)')
     and test.denied('select public.health_begin_round(''manual'', -1)')
@@ -45,6 +47,12 @@ begin
   perform test.rec('nor text in a detail', test.denied(format(
     'select public.health_record_round(%s, ''ok'', %L::jsonb)', r1,
     '[{"probe":"db.query","status":"failed","reason":"x","latencyMs":1,"detail":{"error":"password authentication failed"}}]')));
+  perform test.rec('nor a detail that is not an object', test.denied(format(
+    'select public.health_record_round(%s, ''ok'', %L::jsonb)', r1,
+    '[{"probe":"db.query","status":"failed","reason":"x","latencyMs":1,"detail":[1,2]}]')));
+  perform test.rec('nor a reason shaped like an address or a host', test.denied(format(
+    'select public.health_record_round(%s, ''ok'', %L::jsonb)', r1,
+    '[{"probe":"db.query","status":"failed","reason":"db.internal.example","latencyMs":1,"detail":{}}]')));
   perform test.rec('nor a nested detail', test.denied(format(
     'select public.health_record_round(%s, ''ok'', %L::jsonb)', r1,
     '[{"probe":"db.query","status":"failed","reason":"x","latencyMs":1,"detail":{"a":{"b":1}}}]')));

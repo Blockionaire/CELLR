@@ -162,6 +162,34 @@ describe("roll-up: the worst wins, and a gap is never hidden", () => {
 });
 
 describe("the monitor's own state", () => {
+  it("failing: the newest round started over a minute ago and was never recorded", () => {
+    const open: HealthRound = {
+      id: 2,
+      trigger: "heartbeat",
+      startedAt: ago(120),
+      finishedAt: null,
+      outcome: null,
+    };
+    expect(monitorState([open, round(1, 700)], NOW).state).toBe("failing");
+    // a round still within its first minute is just running
+    expect(monitorState([{ ...open, startedAt: ago(20) }, round(1, 700)], NOW).state).toBe(
+      "running",
+    );
+  });
+  it("the monitor's own check follows its state: late is degraded, failing is failed", () => {
+    const p: ProbeDefinition = { ...probe("monitor.round", ["health-monitor"]), kind: "monitor" };
+    const late = summarizeHealth(
+      [p],
+      {
+        rounds: [round(1, HEALTH_INTERVAL_SEC * 2)],
+        samples: [sample("monitor.round", "healthy", HEALTH_INTERVAL_SEC * 2)],
+      },
+      ["health-monitor"],
+      NOW,
+    );
+    expect(late.probes[0]).toMatchObject({ status: "degraded", reason: "late" });
+  });
+
   it("never: no round has finished (a started one does not count)", () => {
     expect(monitorState([], NOW).state).toBe("never");
     expect(monitorState([round(1, null)], NOW).state).toBe("never");
@@ -264,7 +292,10 @@ describe("classifiers", () => {
   it("CI and deployments", () => {
     expect(classifyCiRun({ status: "completed", conclusion: "success" }).status).toBe("healthy");
     expect(classifyCiRun({ status: "completed", conclusion: "failure" }).reason).toBe("ci_failing");
-    expect(classifyCiRun({ status: "in_progress", conclusion: null }).reason).toBe("running");
+    expect(classifyCiRun({ status: "in_progress", conclusion: null })).toEqual({
+      status: "unknown",
+      reason: "running",
+    });
     expect(classifyCiRun({ status: "completed", conclusion: "Weird Thing!" }).reason).toBe(
       "ci_other",
     );
@@ -274,6 +305,7 @@ describe("classifiers", () => {
       reason: "last_deploy_failed",
     });
     expect(classifyDeployment("SOMETHING").status).toBe("unknown");
+    expect(classifyDeployment("BUILDING").status).toBe("unknown");
   });
 });
 

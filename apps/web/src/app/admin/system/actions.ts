@@ -16,20 +16,11 @@ async function admin() {
   return session;
 }
 
-const MESSAGE = {
-  recorded: "Measured: the results below are new.",
-  skipped: "Not measured: a round ran less than a minute ago. The results below are from it.",
-  not_configured: "Not measured: the service role is not configured on this server.",
-  not_installed: "Not measured: the health database step (migration 0047) is not applied here.",
-  database_unreachable:
-    "Not measured: the database did not take the round. That is itself a failure to look into.",
-  record_failed: "Not measured: the results could not be stored.",
-} as const;
-
 export async function measureNowAction() {
   const session = await admin();
   const result = await systemHealth.measureNow(session);
   revalidatePath("/admin/system/health");
   revalidatePath("/admin/system");
-  redirect(`/admin/system/health?msg=${encodeURIComponent(MESSAGE[result.kind])}`);
+  // only the result's kind travels in the URL; the page turns it into words (no free text from a link is shown)
+  redirect(`/admin/system/health?result=${result.kind}`);
 }

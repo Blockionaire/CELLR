@@ -21,7 +21,7 @@ import {
   getAdminSession,
 } from "@/server/admin/service";
 import { cn } from "@/ui/cn";
-import { Notice, PageTitle, Pill, Section, failed, link, quiet, type Tone } from "../../_ui";
+import { Notice, PageTitle, Pill, Section, link, quiet, type Tone } from "../../_ui";
 import { measureNowAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -52,10 +52,34 @@ const UNAVAILABLE = {
 const MONITOR_TEXT = {
   running: "Running: rounds arrive on schedule.",
   late: "Late: the last round is older than one interval.",
+  failing:
+    "Failing: the newest round could not be recorded. The results below are older than they look; the database may refuse writes.",
   stopped:
     "Stopped: no round in the last 30 minutes. Every check below reads unknown until rounds come again.",
   never: "Never ran: no round has been recorded here yet.",
 } as const;
+
+/** What "Measure now" did, by the result's kind (the only thing the URL carries). Unknown kinds show nothing. */
+const RESULT = {
+  recorded: { tone: "ok", text: "Measured: the results below are new." },
+  skipped: {
+    tone: "warn",
+    text: "Not measured: a round ran less than a minute ago. The results below are from it.",
+  },
+  not_configured: {
+    tone: "warn",
+    text: "Not measured: the service role is not configured on this server.",
+  },
+  not_installed: {
+    tone: "warn",
+    text: "Not measured: the health database step (migration 0047) is not applied here.",
+  },
+  database_unreachable: {
+    tone: "danger",
+    text: "Not measured: the database did not take the round. That is itself a failure to look into.",
+  },
+  record_failed: { tone: "danger", text: "Not measured: the results could not be stored." },
+} as const satisfies Record<string, { tone: Tone; text: string }>;
 
 const KIND_ORDER: readonly ProbeKind[] = [
   "monitor",
@@ -84,7 +108,10 @@ export default async function AdminSystemHealthPage({
   const session = await getAdminSession();
   if (!session) notFound();
   const params = await searchParams;
-  const message = typeof params.msg === "string" ? params.msg.slice(0, 300) : null;
+  const result =
+    typeof params.result === "string" && Object.hasOwn(RESULT, params.result)
+      ? RESULT[params.result as keyof typeof RESULT]
+      : null;
   const [view, config] = [await adminHealth(session), adminHealthConfig(session)];
   const names = new Map(adminArchitecture(session).registry.components.map((c) => [c.id, c.name]));
 
@@ -101,9 +128,9 @@ export default async function AdminSystemHealthPage({
           </button>
         </form>
       </PageTitle>
-      {message && (
-        <Notice tone={failed(message) ? "warn" : "ok"} testId="health-message">
-          {message}
+      {result && (
+        <Notice tone={result.tone} testId="health-message">
+          {result.text}
         </Notice>
       )}
 

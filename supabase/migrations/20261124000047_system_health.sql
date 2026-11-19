@@ -13,7 +13,7 @@
 -- can read neither table (00_hygiene and 99_system_health tests). The admin dashboard reads it on the server after
 -- the admin check.
 --
--- Cost: one round every 10 minutes writes ~15 small rows; the daily retention job keeps 14 days (~30k rows).
+-- Cost: one round every 10 minutes writes 18 small rows; the daily retention job keeps 14 days (~36k rows).
 --
 -- Rollback (only if this was applied and must go; drops the health history and nothing else):
 --   select cron.unschedule('health-samples-purge');
@@ -28,13 +28,15 @@
 -- A detail is a flat object of at most 24 short keys with number, boolean or null values: no text can get in.
 create function private.health_detail_ok(d jsonb) returns boolean
   language sql immutable set search_path = '' as $$
-  select jsonb_typeof(d) = 'object'
-     and pg_column_size(d) <= 2048
-     and (select count(*) from jsonb_object_keys(d)) <= 24
-     and not exists (
-       select 1 from jsonb_each(d) e
-        where e.key !~ '^[a-zA-Z0-9_]{1,40}$'
-           or jsonb_typeof(e.value) not in ('number', 'boolean', 'null'))
+  -- CASE: the object checks run only on an object (SQL does not promise the order of AND)
+  select case when d is null or jsonb_typeof(d) <> 'object' then false else
+    pg_column_size(d) <= 2048
+    and (select count(*) from jsonb_object_keys(d)) <= 24
+    and not exists (
+      select 1 from jsonb_each(d) e
+       where e.key !~ '^[a-zA-Z0-9_]{1,40}$'
+          or jsonb_typeof(e.value) not in ('number', 'boolean', 'null'))
+  end
 $$;
 revoke all on function private.health_detail_ok(jsonb) from public, anon, authenticated;
 
@@ -54,7 +56,7 @@ create table private.health_samples (
   round_id    bigint not null references private.health_rounds on delete cascade,
   probe       text not null check (probe ~ '^[a-z0-9_.-]{1,48}$'),
   status      text not null check (status in ('healthy', 'degraded', 'failed', 'unknown')),
-  reason      text not null check (reason ~ '^[a-z0-9_:.-]{1,64}$'),
+  reason      text not null check (reason ~ '^[a-z0-9_]{1,64}$'),  -- a code: not even a host or address fits
   latency_ms  int check (latency_ms between 0 and 600000),
   detail      jsonb not null default '{}' check (private.health_detail_ok(detail)),
   measured_at timestamptz not null default now(),
@@ -70,9 +72,9 @@ revoke all on private.health_rounds, private.health_samples from public, anon, a
 
 -- ---- 2. Writing a round ---------------------------------------------------------------------------------------
 
--- Starts a round, or answers null when one started less than p_min_gap_seconds ago (also when two calls arrive at
--- once): whoever calls, rounds cannot come faster than that, so their cost stays bounded. The insert itself is the
--- round's proof that the database takes writes.
+-- Starts a round, or answers null when one started less than p_min_gap_seconds ago — and never less than 60 seconds,
+-- whatever the caller asks (also when two calls arrive at once): rounds cannot come faster than one a minute, so
+-- their cost stays bounded. The insert itself is the round's proof that the database takes writes.
 create function public.health_begin_round(p_trigger text, p_min_gap_seconds int default 60)
   returns bigint language plpgsql volatile security definer set search_path = '' as $$
 declare
@@ -84,7 +86,7 @@ begin
   end if;
   perform pg_advisory_xact_lock(hashtext('cellr.health_round'));
   if exists (select 1 from private.health_rounds
-              where started_at > now() - make_interval(secs => p_min_gap_seconds)) then
+              where started_at > now() - make_interval(secs => greatest(p_min_gap_seconds, 60))) then
     return null;
   end if;
   insert into private.health_rounds (trigger) values (p_trigger) returning id into new_id;
@@ -119,7 +121,8 @@ end $$;
 
 -- ---- 3. Reading -----------------------------------------------------------------------------------------------
 
--- The last five rounds and the newest sample of each probe (of the last 7 days: an older one is long stale).
+-- The last five rounds, the newest finished round (also when five newer ones never finished), and the newest sample
+-- of each probe (of the last 7 days: an older one is long stale).
 create function public.health_latest() returns jsonb
   language sql stable security definer set search_path = '' as $$
   select jsonb_build_object(
@@ -127,7 +130,10 @@ create function public.health_latest() returns jsonb
       select jsonb_agg(jsonb_build_object('id', r.id, 'trigger', r.trigger, 'startedAt', r.started_at,
                                           'finishedAt', r.finished_at, 'outcome', r.outcome)
                        order by r.started_at desc)
-        from (select * from private.health_rounds order by started_at desc limit 5) r), '[]'::jsonb),
+        from ((select * from private.health_rounds order by started_at desc limit 5)
+              union
+              (select * from private.health_rounds where finished_at is not null
+                order by started_at desc limit 1)) r), '[]'::jsonb),
     'samples', coalesce((
       select jsonb_agg(jsonb_build_object('probe', s.probe, 'status', s.status, 'reason', s.reason,
                                           'latencyMs', s.latency_ms, 'detail', s.detail,

@@ -53,7 +53,8 @@ describe("System › Health display rules", () => {
     expect(age(30)).toBe("30 s ago");
     expect(age(600)).toBe("10 min ago");
     expect(age(7200)).toBe("2 h ago");
-    expect(age(-5)).toBe("in the future");
+    expect(age(-5)).toBe("just now");
+    expect(age(-600)).toBe("in the future");
     expect(reasonText("last_run_failed")).toBe("last run failed");
   });
 });

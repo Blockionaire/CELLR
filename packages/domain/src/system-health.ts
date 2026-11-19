@@ -58,8 +58,11 @@ export const HEALTH_HISTORY_HOURS = 24;
 /** How long samples are kept (the retention job in 20261124000047). */
 export const HEALTH_RETENTION_DAYS = 14;
 
-/** The only words a probe may store as its reason: a machine code, never an error message or a value. */
-export const HEALTH_REASON = /^[a-z0-9_:.-]{1,64}$/;
+/**
+ * The only words a probe may store as its reason: a machine code, never an error message or a value. No dots, colons
+ * or dashes, so not even a host name or an address fits.
+ */
+export const HEALTH_REASON = /^[a-z0-9_]{1,64}$/;
 export const PROBE_ID = /^[a-z0-9_.-]{1,48}$/;
 
 export type ProbeKind = "monitor" | "infrastructure" | "job" | "traffic" | "delivery";
@@ -212,7 +215,7 @@ export interface ComponentHealth {
   readonly probes: readonly ProbeHealth[];
 }
 
-export type MonitorState = "running" | "late" | "stopped" | "never";
+export type MonitorState = "running" | "late" | "failing" | "stopped" | "never";
 
 /** The whole board at `now`. */
 export interface HealthOverview {
@@ -230,20 +233,42 @@ export interface HealthOverview {
 
 export type HealthCounts = Readonly<Record<HealthStatus, number>>;
 
+/** A round that started this long ago and is still not recorded failed to record. */
+export const HEALTH_ROUND_OPEN_SEC = 60;
+
 /**
- * The monitor itself: `running` while finished rounds keep coming, `late` after one missed interval and a bit,
- * `stopped` when the newest finished round is older than the stale limit (every sample is then unknown), `never`
- * when no round has finished. A round that started but never finished does not count as running.
+ * The monitor itself:
+ *  - `running` while finished rounds keep coming;
+ *  - `failing` when the newest round started more than a minute ago and was never recorded (its results could not be
+ *    written: the samples on show are older than they look);
+ *  - `late` after one missed interval and a bit;
+ *  - `stopped` when the newest finished round is older than the stale limit (every sample is then unknown);
+ *  - `never` when no round has finished.
  */
 export function monitorState(rounds: readonly HealthRound[], now: Date): HealthOverview["monitor"] {
+  const byStart = [...rounds].sort(
+    (a, b) => (parseTime(b.startedAt) ?? 0) - (parseTime(a.startedAt) ?? 0),
+  );
   const finished = rounds
     .filter((r) => r.finishedAt && parseTime(r.finishedAt) !== null)
     .sort((a, b) => parseTime(b.finishedAt)! - parseTime(a.finishedAt)!);
   const last = finished[0] ?? null;
-  if (!last) return { state: "never", lastRound: rounds[0] ?? null, ageSec: null };
+  if (!last) return { state: "never", lastRound: byStart[0] ?? null, ageSec: null };
   const ageSec = Math.round((now.getTime() - parseTime(last.finishedAt)!) / 1000);
+  const newest = byStart[0]!;
+  const newestStarted = parseTime(newest.startedAt) ?? 0;
+  const openTooLong =
+    !newest.finishedAt &&
+    newestStarted > parseTime(last.startedAt)! &&
+    (now.getTime() - newestStarted) / 1000 > HEALTH_ROUND_OPEN_SEC;
   const state: MonitorState =
-    ageSec > HEALTH_STALE_SEC ? "stopped" : ageSec > HEALTH_INTERVAL_SEC * 1.5 ? "late" : "running";
+    ageSec > HEALTH_STALE_SEC
+      ? "stopped"
+      : openTooLong
+        ? "failing"
+        : ageSec > HEALTH_INTERVAL_SEC * 1.5
+          ? "late"
+          : "running";
   return { state, lastRound: last, ageSec };
 }
 
@@ -259,7 +284,16 @@ export function summarizeHealth(
     if (!prev || (parseTime(s.measuredAt) ?? 0) > (parseTime(prev.measuredAt) ?? 0))
       newest.set(s.probe, s);
   }
-  const judged = probes.map((p) => evaluateProbe(p, newest.get(p.id), now));
+  const monitor = monitorState(latest.rounds, now);
+  // the monitor's own check agrees with its state: late is degraded, failing to record is failed
+  const judged = probes.map((p) => {
+    const j = evaluateProbe(p, newest.get(p.id), now);
+    if (p.kind !== "monitor" || j.status === "unknown") return j;
+    if (monitor.state === "failing")
+      return { ...j, status: "failed" as const, reason: "rounds_not_recorded" };
+    if (monitor.state === "late") return { ...j, status: "degraded" as const, reason: "late" };
+    return j;
+  });
   const components = new Map<string, ComponentHealth>();
   for (const id of componentIds) {
     const mine = judged.filter((j) => j.probe.components.includes(id));
@@ -272,7 +306,7 @@ export function summarizeHealth(
   for (const j of judged) counts[j.status] += 1;
   return {
     now: now.toISOString(),
-    monitor: monitorState(latest.rounds, now),
+    monitor,
     overall: worstStatus(judged.map((j) => j.status)),
     probes: judged,
     components,
@@ -431,7 +465,8 @@ export function classifyCiRun(run: { status: string; conclusion: string | null }
   status: HealthStatus;
   reason: string;
 } {
-  if (run.status !== "completed") return { status: "healthy", reason: "running" };
+  // the run in progress proves nothing yet (callers ask for the newest completed run)
+  if (run.status !== "completed") return { status: "unknown", reason: "running" };
   switch (run.conclusion) {
     case "success":
       return { status: "healthy", reason: "ok" };
@@ -459,7 +494,8 @@ export function classifyDeployment(state: string): { status: HealthStatus; reaso
     case "BUILDING":
     case "QUEUED":
     case "INITIALIZING":
-      return { status: "healthy", reason: "deploying" };
+      // a deployment underway proves nothing yet (the probe asks for the newest finished one)
+      return { status: "unknown", reason: "deploying" };
     case "ERROR":
     case "CANCELED":
       return { status: "degraded", reason: "last_deploy_failed" };

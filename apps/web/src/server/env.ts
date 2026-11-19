@@ -184,14 +184,19 @@ export function getHealthEnv(): HealthEnv {
     readyToken: readyToken && readyToken.length >= 24 ? readyToken : null,
     pingUrl: httpsUrl(clean(process.env.CELLR_HEALTH_PING_URL)),
     github:
-      repo && githubToken && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)
+      repo &&
+      githubToken &&
+      /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo) &&
+      !repo.split("/").some((part) => part === "." || part === "..")
         ? { repo, token: githubToken }
         : null,
     vercel:
       projectId && vercelToken && /^[A-Za-z0-9_-]+$/.test(projectId)
         ? {
             projectId,
-            teamId: clean(process.env.CELLR_HEALTH_VERCEL_TEAM_ID),
+            teamId: /^[A-Za-z0-9_-]+$/.test(clean(process.env.CELLR_HEALTH_VERCEL_TEAM_ID) ?? "")
+              ? clean(process.env.CELLR_HEALTH_VERCEL_TEAM_ID)
+              : null,
             token: vercelToken,
           }
         : null,

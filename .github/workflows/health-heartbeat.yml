@@ -14,8 +14,10 @@ name: Health heartbeat
 # repository SECRETS `HEALTH_BASE_URL` (the production https address, no trailing slash) and `HEALTH_CRON_SECRET`
 # (the same value as the app's CRON_SECRET). Until the variable is set every run is skipped and nothing is called.
 #
-# No third-party actions, no checkout, no token permissions: curl and jq on the runner, and nothing from the
-# answer is printed but a status code and two numbers.
+# No third-party actions, no checkout, no token permissions: curl and jq on the runner. The run's log is public (the
+# repository is), so it prints pass or fail and nothing else: no status code, reason or count. Pass/fail itself is
+# visible to anyone who opens the Actions tab; the owner decides whether that is acceptable before switching it on
+# (OPERATIONS.md §3), or runs this workflow from a private repository instead.
 
 on:
   schedule:
@@ -49,34 +51,30 @@ jobs:
             *) echo "::error::HEALTH_BASE_URL must start with https://"; exit 1 ;;
           esac
 
+      # THE LOG IS PUBLIC (a public repository): it says pass or fail and nothing else. No status code, reason or
+      # count is printed, so the run history shows no more than whether CELLR answered; the details are on
+      # Admin › System › Health. Every value taken from an answer is reduced to digits or a fixed word first.
       - name: The app answers (GET /api/health)
         run: |
           code=$(curl -sS --max-time 15 --retry 2 --retry-delay 10 --retry-all-errors \
-            -o /dev/null -w '%{http_code}' "${BASE%/}/api/health" || echo 000)
-          echo "liveness: HTTP $code"
+            -o /dev/null -w '%{http_code}' "${BASE%/}/api/health" 2>/dev/null || echo 000)
           if [ "$code" != 200 ]; then
-            echo "::error::CELLR did not answer its liveness check (HTTP $code): the app may be down"
+            echo "::error::Heartbeat failed. Details: Admin › System › Health, or check the app yourself (OPERATIONS.md §3)."
             exit 1
           fi
+          echo "ok"
 
       - name: One round of health checks (GET /api/cron/health)
         run: |
           code=$(curl -sS --max-time 40 -o round.json -w '%{http_code}' \
-            -H "Authorization: Bearer $SECRET" "${BASE%/}/api/cron/health" || echo 000)
-          recorded=$(jq -r '.recorded // false' round.json 2>/dev/null || echo false)
-          reason=$(jq -r '.reason // ""' round.json 2>/dev/null | tr -cd 'a-z_' || true)
-          failed=$(jq -r '.failedInfrastructure // 0' round.json 2>/dev/null | tr -cd '0-9' || true)
+            -H "Authorization: Bearer $SECRET" "${BASE%/}/api/cron/health" 2>/dev/null || echo 000)
+          code=$(printf '%s' "$code" | tr -cd '0-9')
+          failed=$(jq -r 'if (.failedInfrastructure | type) == "number" then .failedInfrastructure else 0 end' \
+            round.json 2>/dev/null | tr -cd '0-9' || true)
           rm -f round.json
-          echo "round: HTTP $code, recorded=$recorded${reason:+, reason=$reason}, failed infrastructure checks=${failed:-0}"
-          if [ "$code" = 401 ]; then
-            echo "::error::The app refused the heartbeat: HEALTH_CRON_SECRET does not match the app's CRON_SECRET"
+          # 200 = a round was recorded, or one ran less than a minute ago (its findings count here too)
+          if [ "$code" != 200 ] || [ "${failed:-0}" -gt 0 ]; then
+            echo "::error::Heartbeat failed. Details: Admin › System › Health, or check the app yourself (OPERATIONS.md §3)."
             exit 1
           fi
-          if [ "$code" != 200 ]; then
-            echo "::error::No round could be recorded (HTTP $code${reason:+, $reason}): the database may be down; see Admin › System › Health"
-            exit 1
-          fi
-          if [ "${failed:-0}" -gt 0 ]; then
-            echo "::error::$failed infrastructure check(s) failed (database, Auth or Storage): see Admin › System › Health"
-            exit 1
-          fi
+          echo "ok"

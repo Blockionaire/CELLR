@@ -270,11 +270,15 @@ export type AdminHealthView =
 
 export async function adminHealth(
   session: AdminSession,
-  { timeoutMs = 4_000, now = new Date() }: { timeoutMs?: number; now?: Date } = {},
+  {
+    timeoutMs = 4_000,
+    now = new Date(),
+    history = true,
+  }: { timeoutMs?: number; now?: Date; history?: boolean } = {},
 ): Promise<AdminHealthView> {
   assertAdmin(session);
   try {
-    const data = await withTimeout(readHealth(session, timeoutMs), timeoutMs + 250);
+    const data = await withTimeout(readHealth(session, timeoutMs, { history }), timeoutMs + 250);
     if (data === null) return { state: "unavailable", reason: "not_configured" };
     if (data === "missing") return { state: "unavailable", reason: "not_installed" };
     const ids = architectureView().registry.components.map((c) => c.id);
@@ -304,7 +308,8 @@ export async function adminHealth(
  */
 export async function adminHealthOverlay(session: AdminSession): Promise<HealthOverlay> {
   assertAdmin(session);
-  const view = await adminHealth(session, { timeoutMs: 1_500 });
+  // the newest state only (no history): the map waits for as little as possible
+  const view = await adminHealth(session, { timeoutMs: 1_500, history: false });
   if (view.state === "unavailable") return view;
   return {
     state: "available",

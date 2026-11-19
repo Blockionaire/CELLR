@@ -3,6 +3,7 @@ import {
   HEALTH_MIN_ROUND_GAP_SEC,
   HEALTH_PROBE_TIMEOUT_MS,
   assertMeasurement,
+  summarizeHealth,
   type HealthTrigger,
   type Measurement,
   type RoundOutcome,
@@ -30,7 +31,11 @@ export type RoundResult =
       /** Failed database, auth and storage checks: what makes the heartbeat raise its alarm. */
       readonly failedInfrastructure: number;
     }
-  | { readonly kind: "skipped" }
+  | {
+      readonly kind: "skipped";
+      /** Failed infrastructure checks of the round that ran instead (null: it could not be read). */
+      readonly failedInfrastructure: number | null;
+    }
   | { readonly kind: "not_configured" }
   | { readonly kind: "not_installed" }
   | { readonly kind: "database_unreachable"; readonly reason: string }
@@ -82,7 +87,22 @@ export async function runHealthRound(
     logWarn("health_round_unrecorded", { stage: "begin", reason });
     return { kind: "database_unreachable", reason };
   }
-  if (round === null) return { kind: "skipped" };
+  if (round === null) {
+    // Another round ran less than a minute ago (an admin's, or a duplicate call). Its findings stand for this one,
+    // so the heartbeat still alarms on them: a skipped round never reads as "all fine".
+    try {
+      const latest = await withTimeout(d.port.latest(), d.timeoutMs);
+      const fresh = summarizeHealth(PROBES, latest, [], d.now());
+      return {
+        kind: "skipped",
+        failedInfrastructure: fresh.probes.filter(
+          (p) => INFRASTRUCTURE.has(p.probe.id) && p.status === "failed",
+        ).length,
+      };
+    } catch {
+      return { kind: "skipped", failedInfrastructure: null };
+    }
+  }
   const writeLatencyMs = performance.now() - started;
 
   // 2. every probe at once

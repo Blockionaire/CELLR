@@ -119,7 +119,20 @@ untouched; CI's migration-integrity job enforces that.
 6. **The heartbeat workflow:** added in the PR. It only works once `CRON_SECRET` and the target URL are set as
    repository secrets (decision D3).
 
-## 5. Decisions needed from the owner
+## 5. Decisions (taken by the owner on 2026-11-19)
+
+> D1: GitHub Actions heartbeat every 10 minutes. D2: build the CI and deployment checks extensibly and require no new
+> tokens now (unknown while not configured). D3: build the heartbeat workflow, but activate it only once its secrets
+> and the production URL are set safely. D4: develop and test the migration locally and in CI, and do **not** apply
+> it to production. Further requirements of the same message are covered in ADR-002: never healthy when
+> missing/stale/failed, outage detection independent of CELLR, isolation, no details in public, hard time-outs and
+> bounded cost, and checks that prove only what they measure.
+>
+> One change from the plan below: Health is its own page, **System › Health** (`/admin/system/health`), not a tab
+> of the Architecture Control Center. A separate route keeps the monitor's reads out of the map's page entirely,
+> except the bounded overlay, which is the isolation the owner asked for.
+
+### The options as planned
 
 | #   | Decision                                                                                                                   | Default if not decided                                                       |
 | --- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |

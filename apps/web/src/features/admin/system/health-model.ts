@@ -46,7 +46,8 @@ export function historyStrip(
   for (const s of samples) {
     if (s.probe !== probe) continue;
     const t = Date.parse(s.measuredAt);
-    if (!Number.isFinite(t) || t < start || t > now.getTime()) continue;
+    // a sample a little ahead of this clock (another server's) belongs in the newest slot, not nowhere
+    if (!Number.isFinite(t) || t < start || t > now.getTime() + 300_000) continue;
     buckets[Math.min(slots - 1, Math.floor((t - start) / size))]!.push(s.status);
   }
   return buckets.map((b, i) => ({
@@ -74,7 +75,8 @@ export function headline(counts: HealthCounts): { status: HealthStatus; text: st
 /** "3 min ago", "2 h ago", "4 d ago"; "—" without a time. */
 export function age(sec: number | null): string {
   if (sec === null) return "—";
-  if (sec < 0) return "in the future";
+  if (sec < -300) return "in the future";
+  if (sec < 5) return "just now";
   if (sec < 90) return `${sec} s ago`;
   if (sec < 5400) return `${Math.round(sec / 60)} min ago`;
   if (sec < 172_800) return `${Math.round(sec / 3600)} h ago`;

@@ -134,6 +134,7 @@ export function healthPort(timeoutMs: number): HealthPort | null {
 export async function readHealth(
   session: AdminSession,
   timeoutMs: number,
+  { history = true }: { history?: boolean } = {},
 ): Promise<{ latest: HealthLatest; history: HealthHistorySample[] } | "missing" | null> {
   assertAdmin(session);
   const port = healthPort(timeoutMs);
@@ -142,7 +143,9 @@ export async function readHealth(
   try {
     const [latest, hist] = await Promise.all([
       port.latest(),
-      db.rpc("health_history", { p_hours: HEALTH_HISTORY_HOURS }),
+      history
+        ? db.rpc("health_history", { p_hours: HEALTH_HISTORY_HOURS })
+        : Promise.resolve({ data: [], error: null }),
     ]);
     if (hist.error) {
       if (notInstalled(hist.error)) return "missing";

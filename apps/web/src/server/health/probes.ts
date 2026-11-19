@@ -220,7 +220,8 @@ async function ciStatus(d: ProbeDeps): Promise<Measurement[]> {
   const r = await timed(
     () =>
       d.fetch(
-        `https://api.github.com/repos/${gh.repo}/actions/runs?branch=main&per_page=1&exclude_pull_requests=true`,
+        // the CI workflow only (not this monitor's own heartbeat), and its newest FINISHED run on main
+        `https://api.github.com/repos/${gh.repo}/actions/workflows/ci.yml/runs?branch=main&status=completed&per_page=1&exclude_pull_requests=true`,
         {
           headers: {
             Authorization: `Bearer ${gh.token}`,
@@ -230,6 +231,8 @@ async function ciStatus(d: ProbeDeps): Promise<Measurement[]> {
           },
           signal: AbortSignal.timeout(d.timeoutMs),
           cache: "no-store",
+          // a token is attached: never follow it anywhere else
+          redirect: "error",
         },
       ),
     d.timeoutMs,
@@ -256,7 +259,13 @@ async function ciStatus(d: ProbeDeps): Promise<Measurement[]> {
 async function deployStatus(d: ProbeDeps): Promise<Measurement[]> {
   const v = d.health.vercel;
   if (!v) return [m("delivery.deploy", "unknown", "not_configured", null)];
-  const q = new URLSearchParams({ projectId: v.projectId, target: "production", limit: "1" });
+  // the newest FINISHED production deployment: one still building proves nothing yet
+  const q = new URLSearchParams({
+    projectId: v.projectId,
+    target: "production",
+    state: "READY,ERROR,CANCELED",
+    limit: "1",
+  });
   if (v.teamId) q.set("teamId", v.teamId);
   const r = await timed(
     () =>
@@ -264,6 +273,8 @@ async function deployStatus(d: ProbeDeps): Promise<Measurement[]> {
         headers: { Authorization: `Bearer ${v.token}`, "User-Agent": "cellr-health-monitor" },
         signal: AbortSignal.timeout(d.timeoutMs),
         cache: "no-store",
+        // a token is attached: never follow it anywhere else
+        redirect: "error",
       }),
     d.timeoutMs,
   );

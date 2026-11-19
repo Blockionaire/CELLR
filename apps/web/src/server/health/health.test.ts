@@ -206,12 +206,17 @@ describe("the probes", () => {
     expect(got.get("delivery.deploy")).toMatchObject({ status: "healthy", reason: "ok" });
     expect(
       calls.some((u) =>
-        u.startsWith("https://api.github.com/repos/acme/app/actions/runs?branch=main"),
+        u.startsWith(
+          "https://api.github.com/repos/acme/app/actions/workflows/ci.yml/runs?branch=main&status=completed",
+        ),
       ),
     ).toBe(true);
-    expect(calls.some((u) => u.includes("projectId=prj_1") && u.includes("teamId=team_1"))).toBe(
-      true,
-    );
+    expect(
+      calls.some(
+        (u) =>
+          u.includes("projectId=prj_1") && u.includes("teamId=team_1") && u.includes("state=READY"),
+      ),
+    ).toBe(true);
     expect(JSON.stringify([...got.values()])).not.toMatch(/tok-/);
   });
 
@@ -281,7 +286,10 @@ describe("a round", () => {
 
   it("is skipped when one ran less than a minute ago (bounded cost)", async () => {
     const port = fakePort({ begin: vi.fn(async () => null) });
-    expect(await runHealthRound("heartbeat", roundDeps({ port }))).toEqual({ kind: "skipped" });
+    expect(await runHealthRound("heartbeat", roundDeps({ port }))).toEqual({
+      kind: "skipped",
+      failedInfrastructure: 0,
+    });
     expect(port.ping).not.toHaveBeenCalled();
     expect(port.record).not.toHaveBeenCalled();
   });
@@ -366,11 +374,16 @@ describe("the endpoints", () => {
 
   it("the probe round needs CRON_SECRET; a wrong one is refused in constant time", async () => {
     expect((await handleHealthCron(get("/api/cron/health"))).status).toBe(503);
-    process.env.CRON_SECRET = "s3cret-value";
+    process.env.CRON_SECRET = "short-secret";
+    // a secret too short to guard anything counts as not set
+    expect((await handleHealthCron(get("/api/cron/health", "Bearer short-secret"))).status).toBe(
+      503,
+    );
+    process.env.CRON_SECRET = "s3cret-value-long-enough";
     expect((await handleHealthCron(get("/api/cron/health"))).status).toBe(401);
     expect((await handleHealthCron(get("/api/cron/health", "Bearer wrong"))).status).toBe(401);
     // the right secret, no service role here: nothing can be recorded, and the answer says only that
-    const res = await handleHealthCron(get("/api/cron/health", "Bearer s3cret-value"));
+    const res = await handleHealthCron(get("/api/cron/health", "Bearer s3cret-value-long-enough"));
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ ok: false, recorded: false, reason: "not_configured" });
   });
@@ -386,5 +399,48 @@ describe("the endpoints", () => {
     );
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ status: "unknown", monitor: "not_configured" });
+  });
+});
+
+describe("a skipped round never hides a failure", () => {
+  it("reports what the round that ran instead found", async () => {
+    const port = fakePort({
+      begin: vi.fn(async () => null),
+      latest: async () => ({
+        rounds: [
+          { id: 7, trigger: "manual", startedAt: ago(30), finishedAt: ago(29), outcome: "ok" },
+        ],
+        samples: [
+          {
+            probe: "db.read",
+            status: "failed",
+            reason: "timeout",
+            latencyMs: 3000,
+            detail: {},
+            measuredAt: ago(29),
+          },
+          {
+            probe: "auth.api",
+            status: "failed",
+            reason: "http_503",
+            latencyMs: 5,
+            detail: {},
+            measuredAt: ago(29),
+          },
+          {
+            probe: "storage.api",
+            status: "healthy",
+            reason: "ok",
+            latencyMs: 5,
+            detail: {},
+            measuredAt: ago(29),
+          },
+        ],
+      }),
+    });
+    expect(await runHealthRound("heartbeat", roundDeps({ port }))).toEqual({
+      kind: "skipped",
+      failedInfrastructure: 2,
+    });
   });
 });
