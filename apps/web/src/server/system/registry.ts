@@ -46,6 +46,7 @@ const components = [
       W + "app/(app)/",
       W + "app/(onboarding)/",
       W + "app/(public)/",
+      W + "app/design/",
       W + "features/",
       W + "lib/api.ts",
     ],
@@ -54,6 +55,11 @@ const components = [
         name: "wine_search",
         kind: "feature",
         note: "The database-backed wine autocomplete is shown only when this switch is on.",
+      },
+      {
+        name: "CELLR_SMART_CELLAR_3D",
+        kind: "env",
+        note: "The cellar's 3D view uses the new storage renderer only when this is on.",
       },
     ],
   },
@@ -206,10 +212,7 @@ const components = [
       "/api/v1/smart-cellar/storage/[id]/bottles",
       "/api/v1/smart-cellar/storage/[id]/layout",
     ],
-    gates: [
-      { name: "CELLR_SMART_CELLAR", kind: "env", note: "off | read | write" },
-      { name: "CELLR_SMART_CELLAR_3D", kind: "env", note: "the new 3D storage renderer" },
-    ],
+    gates: [{ name: "CELLR_SMART_CELLAR", kind: "env", note: "off | read | write" }],
   },
   {
     id: "svc-households",
@@ -467,7 +470,7 @@ const components = [
     status: "implemented",
     summary: "In the shop: is this wine for me? Read only",
     responsibility:
-      "Recognises a bottle in a shop and compares it with the cellar and the taste profile. Its photo is never kept and it writes nothing.",
+      "Recognises a bottle in a shop and compares it with the cellar and the taste profile. Its photo is never kept and it writes no cellar data; only its AI usage is recorded.",
     inputs: ["Shop photo or chosen wine", "Cellar, taste, insights"],
     outputs: ["Fit and comparison"],
     sources: [W + "server/purchase-check/"],
@@ -537,13 +540,18 @@ const components = [
     id: "svc-push",
     name: "Push & reminders",
     layer: "service",
-    status: "implemented",
+    status: "gated",
     summary: "Push subscriptions, drink-window notices",
     responsibility:
       "Registers a device for Web Push and sends drink-window reminders; switched off when the VAPID keys are not configured.",
     inputs: ["Push subscription", "Wines with windows"],
     outputs: ["Web Push messages", "drink_notices"],
-    sources: [W + "server/push/"],
+    sources: [
+      W + "server/push/service.ts",
+      W + "server/push/repository.ts",
+      W + "server/push/send.ts",
+      W + "server/push/types.ts",
+    ],
     routes: ["/api/v1/push"],
     gates: [
       { name: "VAPID_PUBLIC_KEY", kind: "env", note: "with VAPID_PRIVATE_KEY: no keys, no push" },
@@ -1234,10 +1242,10 @@ const edges: SystemEdge[] = [
     web("proxy.ts", "getClaims"),
   ),
   edge(
-    "proxy",
     "admin-portal",
+    "proxy",
     "control",
-    "404 for non-admins",
+    "guarded by the proxy: 404 for non-admins",
     web("proxy.ts", "refuseAdmin(pathname, userId, getAdminAllowlist())"),
   ),
   edge(
@@ -1284,13 +1292,7 @@ const edges: SystemEdge[] = [
     "user-scoped client: RLS applies",
     web("server/db/clients.ts", "createServerClient"),
   ),
-  edge(
-    "cron-endpoint",
-    "svc-push",
-    "request",
-    "daily reminder run",
-    web("app/api/cron/drink-reminders/route.ts", "handleReminderCron"),
-  ),
+
   edge(
     "cron-endpoint",
     "privileged-ops",
@@ -1394,7 +1396,7 @@ const edges: SystemEdge[] = [
     "domain-rules",
     "request",
     "Tonight ranking",
-    web("server/cellar/service.ts", "buildTonight("),
+    web("server/cellar/service.ts", "rankWithTaste(candidates, request, now, taste)"),
   ),
   wired(
     "svc-cellar",
@@ -1519,14 +1521,14 @@ const edges: SystemEdge[] = [
     "ai-gateway",
     "request",
     "label extraction (vision)",
-    web("server/scans/service.ts", 'from "@/server/ai"'),
+    web("server/scans/service.ts", "deps.llm.generateObject("),
   ),
   edge(
     "svc-scans",
     "svc-images",
     "request",
     "keeps the label photo",
-    web("server/scans/service.ts", "@/server/images/service"),
+    web("server/scans/service.ts", "deps.images.save("),
   ),
   edge(
     "svc-scans",
@@ -1577,15 +1579,11 @@ const edges: SystemEdge[] = [
     "svc-catalog-resolver",
     "data-catalog",
     "data-read",
-    "catalogue search",
-    web("server/catalog/resolver.ts", "./search-repository"),
+    "own wines and catalogue search",
+    web(SERVICES, "search: createCatalogSearchRepository(ctx.db).search"),
+    web(SERVICES, "ownWines: (householdId) => cellars.listOwnWines(householdId)"),
   ),
-  wired(
-    "svc-catalog-resolver",
-    "svc-cellar",
-    "own wines",
-    "ownWines: (householdId) => cellars.listOwnWines(householdId)",
-  ),
+
   edge(
     "svc-catalog-search",
     "data-catalog",
@@ -1741,14 +1739,14 @@ const edges: SystemEdge[] = [
     "ai-gateway",
     "request",
     "shop label extraction",
-    web("server/purchase-check/service.ts", 'from "@/server/ai"'),
+    web("server/purchase-check/service.ts", "deps.llm.generateObject("),
   ),
   edge(
     "svc-purchase-check",
     "svc-images",
     "request",
     "reads the photo (never kept)",
-    web("server/purchase-check/service.ts", "@/server/images/service"),
+    web("server/purchase-check/service.ts", "deps.images.prepare("),
   ),
   edge(
     "svc-purchase-check",
@@ -1820,13 +1818,7 @@ const edges: SystemEdge[] = [
     "send a notification",
     web("server/push/send.ts", "webpush.sendNotification"),
   ),
-  edge(
-    "svc-push",
-    "runtime-config",
-    "control",
-    "VAPID keys",
-    web("server/push/service.ts", "@/server/env"),
-  ),
+  edge("svc-push", "runtime-config", "control", "VAPID keys", web(SERVICES, "env: getPushEnv()")),
   wired("svc-push", "svc-cellar", "wines with drink windows", "wines: () => cellar.noticeWines()"),
   edge(
     "svc-export",
@@ -2073,17 +2065,17 @@ const edges: SystemEdge[] = [
     ev("apps/web/vercel.json", '"/api/cron/drink-reminders"'),
   ),
   edge(
-    "data-learning",
     "pg-cron",
+    "data-learning",
     "ops",
-    "scan reads purged every 15 min",
+    "purges scan reads every 15 min",
     ev(M + "20261101000024_catalog_learning.sql", "catalog-scan-reads-purge"),
   ),
   edge(
-    "data-sommelier",
     "pg-cron",
+    "data-sommelier",
     "ops",
-    "old conversations purged hourly",
+    "purges old conversations hourly",
     ev(M + "20261123000046_sommelier_conversations.sql", "sommelier-conversations-purge"),
   ),
   edge(
@@ -2122,6 +2114,91 @@ const edges: SystemEdge[] = [
     ev("scripts/storage-backup/README.md", "Storage"),
   ),
 
+  // Added after the independent review (2026-11-19)
+  edge(
+    "admin-portal",
+    "vercel",
+    "ops",
+    "served by Vercel",
+    ev("apps/web/vercel.json", '"framework": "nextjs"'),
+  ),
+  edge(
+    "api-v1",
+    "vercel",
+    "ops",
+    "runs on Vercel (fra1)",
+    ev("apps/web/vercel.json", '"regions": ["fra1"]'),
+  ),
+  edge(
+    "svc-purchase-check",
+    "privileged-ops",
+    "request",
+    "records AI usage",
+    web("server/purchase-check/service.ts", "recordUsage"),
+  ),
+  edge(
+    "svc-purchase-check",
+    "rate-limiter",
+    "request",
+    "scan limit",
+    web("server/purchase-check/service.ts", "spendScan"),
+  ),
+  edge(
+    "svc-purchase-check",
+    "data-intelligence",
+    "data-read",
+    "vintage insights for the fit",
+    web(
+      SERVICES,
+      "insights: (householdId, vintageIds) => tasteRepo.listInsights(householdId, vintageIds)",
+    ),
+  ),
+  wired(
+    "svc-households",
+    "privileged-ops",
+    "purge bottle art after a household is deleted",
+    "afterDelete: purgeBottleArtFiles",
+  ),
+  edge(
+    "svc-friends",
+    "data-identity",
+    "data-write",
+    "the person's handle",
+    web("server/friends/repository.ts", '.from("profiles").update({ handle })'),
+  ),
+  wired(
+    "svc-insights",
+    "svc-households",
+    "the person's language",
+    "locale: async () => (await households.me()).locale",
+  ),
+  wired(
+    "svc-sommelier",
+    "svc-households",
+    "the person's language",
+    "locale: async () => (await households.me()).locale",
+  ),
+  wired(
+    "svc-purchase-check",
+    "svc-households",
+    "the person's language (purchase_intel)",
+    "locale: async () => (await households.me()).locale",
+  ),
+  edge(
+    "svc-scans",
+    "data-cellar",
+    "data-read",
+    "recall: the bottles that use a photo",
+    ev(M + "20261029000021_recognition_cache.sql", "join public.bottles b"),
+  ),
+  edge(
+    "privileged-ops",
+    "data-cellar",
+    "data-read",
+    "reminders: inventory as service role",
+    web("server/privileged/drink-reminders.ts", "createCellarRepository"),
+  ),
+
   // Feedback: data that comes back and changes later behaviour
   edge(
     "data-media",
@@ -2142,7 +2219,7 @@ const edges: SystemEdge[] = [
     "admin-service",
     "feedback",
     "candidates and signals to review",
-    web("server/privileged/catalog-admin.ts", "admin_catalog_candidates"),
+    web("server/admin/service.ts", "readCandidates(session)"),
   ),
   edge(
     "data-intelligence",
@@ -2233,7 +2310,7 @@ const flows: SystemFlow[] = [
       step("data-sommelier", "plan-quality-engine", "planned"),
       step("plan-quality-engine", "svc-sommelier", "planned"),
     ],
-    gap: "sommelier_feedback is written and never read back (R-SOM-1).",
+    gap: "Ratings are shown back in the conversation, but nothing feeds them into evaluation, prompts or a model (R-SOM-1).",
   },
   {
     id: "wine-knowledge",
@@ -2267,7 +2344,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.0.0",
+  version: "1.1.0",
   reviewedOn: "2026-11-19",
   repository: "Blockionaire/CELLR",
   components,

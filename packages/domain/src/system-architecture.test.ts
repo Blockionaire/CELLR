@@ -236,6 +236,10 @@ describe("tracing the graph", () => {
     expect(shortestPath(index, "db", "ui")).toBeNull();
     expect(shortestPath(index, "future", "svc")).toBeNull();
     expect(shortestPath(index, "svc", "svc")).toEqual([]);
+    // feedback is not a "uses" relation: db → svc is not a path by default, but can be asked for
+    expect(shortestPath(index, "db", "svc")).toBeNull();
+    expect(shortestPath(index, "db", "svc", new Set(["feedback"]))).toEqual(["db->svc:feedback"]);
+    expect(shortestPath(index, "ui", "db", new Set(["request"]))).toBeNull();
   });
 
   it("edge ids are stable", () => {

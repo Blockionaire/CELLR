@@ -167,7 +167,7 @@ function Details({
             onChange={(v) => onDepth(v === "all" ? Infinity : Number(v))}
           />
           {emphasis.reason === "trace" && (
-            <p className="text-caption text-ink-2" data-testid="trace-summary">
+            <p className="text-caption text-ink-2" data-testid="trace-summary" role="status">
               {emphasis.nodes!.size - 1} components and {emphasis.edges!.size} edges in this trace.
             </p>
           )}

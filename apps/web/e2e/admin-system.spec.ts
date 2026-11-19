@@ -154,6 +154,12 @@ test.describe("the Architecture Control Center, as an admin", () => {
     // the other views
     await page.getByRole("tab", { name: "Register" }).click();
     await expect(page.getByTestId("register-table").locator("tbody tr")).toHaveCount(total);
+    // opening a component from another view centres the map on it (the map mounts after the request)
+    await page.getByTestId("register-table").getByRole("button", { name: "Koopcheck" }).click();
+    await expect(page.getByRole("tab", { name: "Map" })).toHaveAttribute("aria-selected", "true");
+    await expect(node(page, "svc-purchase-check")).toBeInViewport({ ratio: 0.9 });
+    await expect(detail(page).getByRole("heading", { name: "Koopcheck" })).toBeVisible();
+    await page.getByRole("tab", { name: "Register" }).click();
     await page.getByRole("tab", { name: "Flows" }).click();
     await expect(page.getByTestId("flows").locator("li h3")).not.toHaveCount(0);
     await page.getByRole("button", { name: "Show on the map" }).first().click();

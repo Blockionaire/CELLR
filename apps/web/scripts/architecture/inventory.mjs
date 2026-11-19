@@ -11,6 +11,13 @@ import prettier from "prettier";
 const ROOT = path.resolve(import.meta.dirname, "../../../..");
 const OUT = path.join(ROOT, "apps/web/src/server/system/inventory.generated.json");
 // Node >= 22.18 strips TypeScript types itself; the builder imports node built-ins and types only.
+const [major, minor] = process.versions.node.split(".").map(Number);
+if (major < 22 || (major === 22 && minor < 18)) {
+  console.error(
+    `architecture:inventory needs Node 22.18 or newer (type stripping); this is ${process.version}`,
+  );
+  process.exit(2);
+}
 const { buildInventory } = await import("./inventory-builder.ts");
 
 const config = JSON.parse(readFileSync(path.join(ROOT, ".prettierrc.json"), "utf8"));

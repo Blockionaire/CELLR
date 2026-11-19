@@ -170,7 +170,13 @@ export function FlowsView({
             <p className="mt-1 text-small text-ink-2">{f.summary}</p>
             <ol className="mt-3 space-y-1">
               {f.steps.map((s, i) => {
-                const e = edges.get(s)!;
+                const e = edges.get(s);
+                if (!e)
+                  return (
+                    <li key={s} className="text-caption text-danger">
+                      unknown step {s}
+                    </li>
+                  );
                 return (
                   <li key={s} className="flex items-center gap-2 text-caption text-ink-2">
                     <span className="w-4 text-right tnum text-ink-3">{i + 1}</span>

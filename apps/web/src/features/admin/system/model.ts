@@ -2,6 +2,7 @@ import {
   COMPONENT_STATUSES,
   EDGE_KINDS,
   SYSTEM_LAYERS,
+  PATH_KINDS,
   edgeId,
   searchComponents,
   shortestPath,
@@ -89,7 +90,8 @@ export function emphasis(
   const base = { visible, visibleEdges, matches, distance: new Map<string, number>() };
 
   if (focus.selected && focus.pathTo && focus.selected !== focus.pathTo) {
-    const path = shortestPath(index, focus.selected, focus.pathTo) ?? [];
+    const kinds = new Set([...PATH_KINDS].filter((k) => filters.kinds.has(k)));
+    const path = shortestPath(index, focus.selected, focus.pathTo, kinds) ?? [];
     const ends = new Set([focus.selected, focus.pathTo]);
     for (const s of path) {
       const e = reg.edges.find((x) => edgeId(x) === s);

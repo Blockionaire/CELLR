@@ -115,7 +115,8 @@ export function SystemMap({
   };
 
   // Move the view when asked: adjusted while rendering, on a new request only.
-  const [seenFocus, setSeenFocus] = useState(focusRequest.seq);
+  // -1: a request made while the map was not mounted (another tab) still applies when it mounts
+  const [seenFocus, setSeenFocus] = useState(-1);
   if (focusRequest.seq !== seenFocus && size.w) {
     setSeenFocus(focusRequest.seq);
     const [only] = focusRequest.ids;
@@ -143,6 +144,20 @@ export function SystemMap({
     setAnimate(smooth);
     setT((cur) => ({ ...cur, x: cur.x + dx, y: cur.y + dy }));
   };
+
+  // A pointer released outside the map (before it became a drag, so not captured) must not linger as a "finger".
+  useEffect(() => {
+    const drop = (e: PointerEvent) => {
+      pointers.current.delete(e.pointerId);
+      if (pointers.current.size < 2) gesture.current.dist = null;
+    };
+    window.addEventListener("pointerup", drop);
+    window.addEventListener("pointercancel", drop);
+    return () => {
+      window.removeEventListener("pointerup", drop);
+      window.removeEventListener("pointercancel", drop);
+    };
+  }, []);
 
   // Scrolling pans; ctrl/⌘ + scroll (and a trackpad pinch, which arrives as one) zooms. Not passive: the page must
   // not scroll underneath.

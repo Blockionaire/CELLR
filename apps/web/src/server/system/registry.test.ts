@@ -73,6 +73,16 @@ describe("the architecture register against the repository", () => {
     expect(committed.serverModules.filter((m) => !covered(m))).toEqual([]);
   });
 
+  it("every route group and folder of the app belongs to a component", () => {
+    const sources = REG.components.flatMap((c) => c.sources);
+    const app = "apps/web/src/app";
+    const dirs = readdirSync(path.join(ROOT, app), { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => `${app}/${d.name}/`);
+    const covered = (d: string) => sources.some((s) => s.startsWith(d) || d.startsWith(s));
+    expect(dirs.filter((d) => !covered(d))).toEqual([]);
+  });
+
   it("every env gate is a setting server/env.ts reads", () => {
     const env = text("apps/web/src/server/env.ts");
     const gates = REG.components.flatMap((c) => (c.gates ?? []).filter((g) => g.kind === "env"));

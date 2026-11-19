@@ -9,6 +9,7 @@ import {
   SYSTEM_LAYERS,
   SYSTEM_LAYER_LABEL,
   indexGraph,
+  searchComponents,
   type ArchitectureView,
   type ComponentStatus,
   type EdgeKind,
@@ -75,7 +76,13 @@ export function ArchitectureControlCenter({ view }: { view: ArchitectureView }) 
   const searchRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Read the view from the URL once, then keep the URL in step with it.
+  // Read the view from the URL (on load, and when the hash changes by hand), then keep the URL in step with it.
+  const [hashSeq, setHashSeq] = useState(0);
+  useEffect(() => {
+    const onHash = () => setHashSeq((n) => n + 1);
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
   useEffect(() => {
     const s = readHash(window.location.hash, known, flowIds);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the URL hash exists only in the browser, after hydration
@@ -90,7 +97,7 @@ export function ArchitectureControlCenter({ view }: { view: ArchitectureView }) 
       setFocusRequest((f) => ({ seq: f.seq + 1, ids: flowNodes(steps) }));
     }
     setHydrated(true);
-  }, [known, flowIds, reg]);
+  }, [known, flowIds, reg, hashSeq]);
   useEffect(() => {
     if (!hydrated) return;
     const hash = writeHash({ tab, selected, direction, depth, flow });
@@ -150,8 +157,9 @@ export function ArchitectureControlCenter({ view }: { view: ArchitectureView }) 
   };
   const onSearchKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") setQuery("");
-    if (e.key === "Enter" && emph.matches?.size) {
-      const first = reg.components.find((c) => emph.matches!.has(c.id));
+    const now = searchComponents(reg.components, query);
+    if (e.key === "Enter" && now?.size) {
+      const first = reg.components.find((c) => now.has(c.id));
       if (first) {
         setTab("map");
         select(first.id, true);
@@ -224,8 +232,26 @@ export function ArchitectureControlCenter({ view }: { view: ArchitectureView }) 
               type="button"
               id={`system-tab-${t}`}
               aria-selected={tab === t}
-              aria-controls={`system-panel-${t}`}
+              aria-controls={tab === t ? `system-panel-${t}` : undefined}
+              tabIndex={tab === t ? 0 : -1}
               onClick={() => setTab(t)}
+              onKeyDown={(e) => {
+                const i = TABS.indexOf(t);
+                const next =
+                  e.key === "ArrowRight"
+                    ? TABS[(i + 1) % TABS.length]
+                    : e.key === "ArrowLeft"
+                      ? TABS[(i - 1 + TABS.length) % TABS.length]
+                      : e.key === "Home"
+                        ? TABS[0]
+                        : e.key === "End"
+                          ? TABS[TABS.length - 1]
+                          : undefined;
+                if (!next) return;
+                e.preventDefault();
+                setTab(next);
+                document.getElementById(`system-tab-${next}`)?.focus();
+              }}
               className={cn(
                 "whitespace-nowrap rounded-full px-4 py-1.5 text-small font-medium transition-colors",
                 tab === t ? "bg-surface text-ink shadow-raised" : "text-ink-2 hover:text-ink",
@@ -310,7 +336,6 @@ export function ArchitectureControlCenter({ view }: { view: ArchitectureView }) 
             <div
               ref={panelRef}
               className="scroll-mt-4 rounded-[18px] border border-hairline bg-surface p-4 lg:h-[calc(100dvh-400px)] lg:min-h-[520px] lg:overflow-y-auto"
-              aria-live="polite"
             >
               <DetailPanel
                 view={view}

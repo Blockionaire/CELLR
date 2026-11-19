@@ -417,8 +417,18 @@ export function impactOf(
     .sort((a, b) => a.distance - b.distance || a.id.localeCompare(b.id));
 }
 
-/** The shortest directed path from → to, as edge ids; null when there is none. Planned edges are not followed. */
-export function shortestPath(index: GraphIndex, from: string, to: string): string[] | null {
+/** What a path follows by default: real "uses" relations, not feedback, CI checks or proposals. */
+export const PATH_KINDS: ReadonlySet<EdgeKind> = new Set(
+  EDGE_KINDS.filter((k) => k !== "planned" && k !== "feedback" && k !== "verifies"),
+);
+
+/** The shortest directed path from → to over edges of the given kinds, as edge ids; null when there is none. */
+export function shortestPath(
+  index: GraphIndex,
+  from: string,
+  to: string,
+  kinds: ReadonlySet<EdgeKind> = PATH_KINDS,
+): string[] | null {
   if (from === to) return [];
   const via = new Map<string, SystemEdge>();
   const seen = new Set([from]);
@@ -427,7 +437,7 @@ export function shortestPath(index: GraphIndex, from: string, to: string): strin
     const next: string[] = [];
     for (const id of frontier)
       for (const e of index.out.get(id) ?? []) {
-        if (e.kind === "planned" || seen.has(e.to)) continue;
+        if (!kinds.has(e.kind) || e.kind === "planned" || seen.has(e.to)) continue;
         seen.add(e.to);
         via.set(e.to, e);
         if (e.to === to) {
