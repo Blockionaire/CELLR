@@ -83,6 +83,22 @@ export function readingOf(e: Covered["expect"], kind: Reading): LabelFacts {
   };
 }
 
+/** One wine's identity as a key: producer, name and colour, normalised. */
+export const identityKey = (e: { producer: string; wine: string; type: string | null }) =>
+  `${normalizeText(e.producer)}|${normalizeText(e.wine)}|${e.type ?? ""}`;
+
+/**
+ * Whether an automatic identity is wrong: right only when it is the canonical wine seeded for exactly this identity
+ * (another query for the same wine — a typo, a near twin — rightly finds the same curated wine).
+ */
+export function wrongIdentity(
+  exactWine: string | null,
+  expect: { producer: string; wine: string; type: string | null },
+  seedsByIdentity: ReadonlyMap<string, string>,
+): boolean {
+  return exactWine !== null && seedsByIdentity.get(identityKey(expect)) !== exactWine;
+}
+
 const wineOfRow = (r: CatalogSearchRow): WineSummary | null =>
   r.result_kind === "wine" &&
   r.wine_id &&
@@ -119,6 +135,7 @@ async function main() {
     );
     // pilot seeds: a few covered wines as canonical CELLR wines (owner SQL in a pilot database only)
     const seeded = new Map<string, string>(); // benchmark id → canonical wine id
+    const seedsByIdentity = new Map<string, string>(); // identity → canonical wine id
     if (seeds > 0) {
       const env = (
         await client.query<{ id: { environment: string } }>(
@@ -160,6 +177,7 @@ async function main() {
           [producerId, r.name, r.type ?? e.expect.type, r.country],
         );
         seeded.set(e.id, w.rows[0]!.id);
+        seedsByIdentity.set(identityKey(e.expect), w.rows[0]!.id);
       }
       await client.query("set role service_role");
     }
@@ -227,7 +245,7 @@ async function main() {
           outcome.status === "exact_candidate" ? outcome.candidates[0]!.wine.id : null;
         const isSeed = seeded.has(e.id);
         // the safety rules, checked on every reading
-        if (exactWine && !(isSeed && exactWine === seeded.get(e.id)))
+        if (wrongIdentity(exactWine, e.expect, seedsByIdentity))
           broken.push(`${e.id}/${kind}: automatic identity ${exactWine}`);
         if (records.some((s) => s.hit.type && facts.type && s.hit.type !== facts.type))
           broken.push(`${e.id}/${kind}: a record of the other colour`);
@@ -245,7 +263,7 @@ async function main() {
             (s) => `${s.hit.producer} — ${s.hit.name} [${s.reasons.join(",")}]`,
           ),
           ms: Math.round(ms * 10) / 10,
-          seeded: isSeed,
+          seeded: isSeed || seedsByIdentity.has(identityKey(e.expect)),
         });
       }
     }
