@@ -169,10 +169,11 @@ benchmark through the AI path needs an adapter that passes a real provider inste
 
 ## 7. Results of later phases against this baseline
 
-| Phase | Engine                      | Passed (of 246) | Dish understood | Outcome | First bottle | No poor bottle | Says none when none |
-| ----- | --------------------------- | --------------: | --------------: | ------: | -----------: | -------------: | ------------------: |
-| S0    | V1 without AI               |              13 |             58% |     67% |          32% |             8% |                 14% |
-| S2    | Sommelier 3.0 engines alone |              79 |             95% |     90% |          68% |            73% |                 86% |
+| Phase | Engine                          | Passed (of 246) | Dish understood | Outcome | First bottle | No poor bottle | Says none when none |
+| ----- | ------------------------------- | --------------: | --------------: | ------: | -----------: | -------------: | ------------------: |
+| S0    | V1 without AI                   |              13 |             58% |     67% |          32% |             8% |                 14% |
+| S2    | Sommelier 3.0 engines alone     |              79 |             95% |     90% |          68% |            73% |                 86% |
+| S3–S4 | Sommelier 3.0 in the app, no AI |             131 |             92% |     88% |          73% |            72% |                 89% |
 
 Two thresholds of §4 are missed in S2 (first bottle, no poor bottle); `progress/S2.md` says what the misses are and
 `RISK_REGISTER.md` R-11 what follows from it. The thresholds are not changed.
