@@ -531,6 +531,7 @@
       "placeBusy": "Iemand anders was deze plek aan het wijzigen. Probeer het opnieuw.",
       "depthOff": "Meer dan één fles per positie staat nog niet aan.",
       "layoutWritesOff": "Een indeling wijzigen staat hier nog niet aan.",
+      "layoutStale": "Deze plek is gewijzigd sinds je hem opende. Laad hem opnieuw om de nieuwste versie te zien.",
       "exportVersionUnavailable": "Die exportversie is niet beschikbaar."
     }
   },
@@ -2123,5 +2124,262 @@
     },
     "yoursPrivate": "Door jullie vastgelegd. Het staat niet in de gedeelde CELLR-catalogus; vrienden zien alleen wat je in Profiel met hen deelt.",
     "catalogTitle": "Bron van de wijngegevens"
+  },
+  "builder": {
+    "titleNew": "Ontwerp een nieuwe plek",
+    "titleEdit": "Ontwerp “{name}”",
+    "intro": "Kies wat het is, bepaal maat en uitstraling, en zie het meteen veranderen.",
+    "back": "Terug naar de kelder",
+    "previewOnlyMode": "Alleen voorbeeld: opslaan staat hier uit.",
+    "previewOnlyWhy": {
+      "setting": "Deze omgeving slaat geen indelingen op. Je kunt ontwerpen en kijken; er wordt niets bewaard.",
+      "deployment": "Indelingen worden alleen in ontwikkel- en testomgevingen opgeslagen. Je kunt ontwerpen en kijken; er wordt niets bewaard.",
+      "database": "Deze omgeving is verbonden met een database die geen testdatabase is, dus de builder slaat hier niets op. Je kunt ontwerpen en kijken; er wordt niets bewaard.",
+      "schema": "Deze database heeft nog niet wat de builder nodig heeft om op te slaan. Je kunt ontwerpen en kijken; er wordt niets bewaard."
+    },
+    "notSetUp": "De slimme kelder is op deze server nog niet ingericht, dus de builder kan hier geen plek openen.",
+    "notFound": "We konden die plek niet vinden.",
+    "loadFailed": "Deze plek kon niet worden geladen.",
+    "retry": "Opnieuw proberen",
+    "sections": {
+      "template": "Wat is het?",
+      "name": "Naam",
+      "size": "Afmetingen",
+      "look": "Uitstraling",
+      "zones": "Temperatuurzones",
+      "summary": "Overzicht"
+    },
+    "groups": {
+      "racks": "Rekken",
+      "bins": "Vakken en kubussen",
+      "shelving": "Schappen en kasten",
+      "wall": "Aan de muur",
+      "coolers": "Klimaatkasten",
+      "other": "Overig"
+    },
+    "card": {
+      "capacity": "{count, plural, one {# fles} other {# flessen}} standaard",
+      "perSpot": "Eén fles per plek",
+      "deep": "{min}–{max} flessen diep",
+      "bins": "Vakken van {count}",
+      "zones": "{count, plural, one {# temperatuurzone} other {tot # temperatuurzones}}",
+      "door": "Deur",
+      "previewOnly": "Alleen voorbeeld",
+      "previewOnlyHint": "Heeft meer dan één fles per plek nodig, en dat kan CELLR nog niet opslaan.",
+      "selected": "Gekozen"
+    },
+    "nameLabel": "Naam",
+    "namePlaceholder": "Bijvoorbeeld: Keukenrek",
+    "nameProblem": "Geef het een naam van maximaal 40 tekens.",
+    "rows": "Planken",
+    "cols": "Plekken per plank",
+    "colsBins": "Vakken per rij",
+    "rowsBins": "Rijen vakken",
+    "rowsWall": "Rijen",
+    "colsWall": "Flessen per rij",
+    "colsRails": "Rails",
+    "rowsRails": "Flessen per rail",
+    "cellCapacity": "Flessen per plek",
+    "cellCapacityBins": "Flessen per vak",
+    "cellCapacityPreview": "Meer dan één per plek is voorlopig alleen een voorbeeld.",
+    "useOne": "Gebruik één per plek",
+    "fewer": "Minder {what}",
+    "more": "Meer {what}",
+    "capacity": "{count, plural, one {# fles} other {# flessen}}",
+    "occupied": "{count} erin",
+    "free": "{count} vrij",
+    "delta": "{delta, plural, =0 {gelijk aan nu} other {{signed} vergeleken met nu}}",
+    "material": "Materiaal",
+    "color": "Kleur",
+    "lighting": "Licht",
+    "door": "Deur",
+    "onlyOne": "{what}: {value} (de enige mogelijkheid voor dit soort plek)",
+    "reconciled": {
+      "color": "De kleur is aangepast naar een kleur die bij dit materiaal hoort.",
+      "material": "Het materiaal is aangepast naar een materiaal dat bij dit soort plek hoort.",
+      "lighting": "Het licht is aangepast naar wat dit soort plek heeft.",
+      "door": "De deur is aangepast naar wat dit soort plek heeft.",
+      "zones": "De temperatuurzones zijn aangepast aan het nieuwe aantal planken.",
+      "size": "De afmetingen zijn binnen de grenzen van dit soort plek gebracht."
+    },
+    "zones": {
+      "count": "Zones",
+      "none": "Geen",
+      "intro": "Zones verdelen de planken van boven naar beneden. Een temperatuur hier is wat je de kast instelt, geen meting.",
+      "split": "Planken in de bovenste zone",
+      "zone": "Zone {n}",
+      "shelves": "{count, plural, one {plank {from}} other {planken {from}–{to}}}",
+      "purpose": "Voor",
+      "storage": "Bewaren",
+      "serving": "Serveren",
+      "setTemp": "Ingestelde temperatuur",
+      "notSet": "Niet ingesteld",
+      "setTo": "Ingesteld op {value} °C",
+      "setting": "een instelling, geen meting"
+    },
+    "preview": {
+      "label": "Live 3D-voorbeeld van {name}",
+      "loading": "Voorbeeld wordt voorbereid…",
+      "updating": "Bijwerken…",
+      "hint": "Sleep om te draaien · knijp of scrol om te zoomen",
+      "noWebgl": "Dit apparaat kan het 3D-voorbeeld niet tonen. Hier is de platte indeling van dezelfde plek.",
+      "lost": "Het 3D-voorbeeld is gepauzeerd.",
+      "restart": "Toon 3D opnieuw",
+      "chosen": "{wine} · plank {row}, plek {col}",
+      "realBottles": "{count, plural, one {Je fles staat} other {Je # flessen staan}} waar {count, plural, one {hij staat} other {ze staan}}. Er verschuift niets tot je opslaat, en opslaan verplaatst nooit een fles.",
+      "neutral": "CELLR weet niet hoe deze plek is ingedeeld. Kies wat het is om hem te zien.",
+      "suggested": "Deze plek heeft nog geen ontwerp. “{template}” is een suggestie op basis van het soort plek: er verandert niets tot je kiest en opslaat."
+    },
+    "blockers": {
+      "title": "{count, plural, one {Een fles zou zijn plek verliezen} other {# flessen zouden hun plek verliezen}}",
+      "body": "Verplaats {count, plural, one {hem} other {ze}} eerst, of houd de plek groot genoeg. Zo kan het niet worden opgeslagen.",
+      "item": "{wine} · plank {row}, plek {col}"
+    },
+    "problems": {
+      "no_template": "Kies wat deze plek is.",
+      "name": "Geef het een naam van maximaal 40 tekens.",
+      "preview_only": "Meer dan één fles per plek kan nog niet worden opgeslagen: dit ontwerp is een voorbeeld.",
+      "preview_only_template": "Dit soort plek heeft meer dan één fles per plek nodig, en dat kan nog niet worden opgeslagen: het is een voorbeeld.",
+      "invalid": "Sommige keuzes passen niet bij dit soort plek.",
+      "in_use": "Flessen zouden hun plek verliezen.",
+      "semantics_change": "Er liggen flessen in die in dit ontwerp iets anders zouden betekenen. Haal ze er eerst uit.",
+      "depth_not_enabled": "Meer dan één fles per plek kan nog niet worden opgeslagen."
+    },
+    "unsaved": "Niet-opgeslagen wijzigingen",
+    "saved": "Opgeslagen",
+    "noChanges": "Geen wijzigingen",
+    "restored": "Je niet-opgeslagen wijzigingen zijn bewaard.",
+    "discardRestored": "Begin bij wat is opgeslagen",
+    "undo": "Ongedaan maken",
+    "reset": "Wijzigingen terugzetten",
+    "restoreDefaults": "Standaard van dit type",
+    "save": "Opslaan",
+    "create": "Plek aanmaken",
+    "saving": "Opslaan…",
+    "confirmTitle": "Deze wijzigingen opslaan?",
+    "confirmBody": "Dit verandert hoe “{name}” is ingericht. Flessen blijven precies waar ze staan.",
+    "confirmChanges": {
+      "template": "Soort: {from} → {to}",
+      "size": "Afmetingen: {fromRows} × {fromCols} → {toRows} × {toCols}",
+      "cellCapacity": "Flessen per plek: {from} → {to}",
+      "look": "Uitstraling",
+      "zones": "Temperatuurzones",
+      "name": "Naam: {from} → {to}"
+    },
+    "confirmSave": "Opslaan",
+    "cancel": "Annuleren",
+    "discardTitle": "Je wijzigingen weggooien?",
+    "discardBody": "Wat je sinds de laatste keer opslaan hebt veranderd, gaat verloren.",
+    "discard": "Weggooien",
+    "keepEditing": "Verder bewerken",
+    "savedTitle": "“{name}” is opgeslagen.",
+    "savedBody": "Hij staat nu in je kelder.",
+    "seeInCellar": "Bekijk in de kelder",
+    "keepDesigning": "Verder ontwerpen",
+    "partialCreate": "Er is een eenvoudige plek “{name}” gemaakt, maar het ontwerp is niet opgeslagen: {reason}",
+    "partialCreateHelp": "Probeer het opnieuw om hem dit ontwerp te geven. Er wordt niets dubbel aangemaakt.",
+    "keepBasic": "Houd de eenvoudige plek",
+    "partialName": "Het ontwerp is opgeslagen, maar de nieuwe naam niet: {reason}",
+    "retryName": "Probeer de naam opnieuw",
+    "stale": "Iemand heeft deze plek gewijzigd sinds je hem opende. Er is niets opgeslagen.",
+    "loadLatest": "Laad de nieuwste versie",
+    "saveFailed": "Er is niets opgeslagen: {reason}",
+    "entryNew": "Ontwerp een plek in 3D",
+    "entryEdit": "Ontwerp in 3D",
+    "previewOnlyBadge": "Alleen voorbeeld",
+    "status": {
+      "ready": "Klaar om op te slaan",
+      "blocked": "Nog niet klaar om op te slaan",
+      "preview": "Alleen voorbeeld"
+    }
+  },
+  "storageTemplates": {
+    "rack_classic": {
+      "name": "Klassiek houten rek",
+      "description": "Houten rek, één fles per plek. De vertrouwde manier om wijn te bewaren."
+    },
+    "rack_double_depth": {
+      "name": "Rek met dubbele diepte",
+      "description": "Twee of drie flessen diep per plek. Meer wijn op dezelfde breedte."
+    },
+    "rack_metal": {
+      "name": "Metalen rek",
+      "description": "Slank stalen frame, flessen liggend."
+    },
+    "shelving_open": {
+      "name": "Open schappen",
+      "description": "Open planken met flessen naast elkaar."
+    },
+    "cabinet_closed": {
+      "name": "Wijnkast",
+      "description": "Planken achter een dichte of glazen deur."
+    },
+    "cube_modular": {
+      "name": "Modulaire vakken",
+      "description": "Vierkante vakken, elk met een kleine stapel."
+    },
+    "diamond_bins": {
+      "name": "Ruitvakken",
+      "description": "Diagonale vakken waarin flessen gestapeld liggen."
+    },
+    "crate_storage": {
+      "name": "Houten kisten",
+      "description": "Gestapelde kisten als vakken."
+    },
+    "wall_pegs": {
+      "name": "Wandpinnen",
+      "description": "Pinnen aan de muur, één fles per pin, etiket naar je toe."
+    },
+    "wall_rails": {
+      "name": "Wandrails",
+      "description": "Rails aan de muur, flessen met de hals vooruit, etiket naar je toe."
+    },
+    "cooler_single": {
+      "name": "Wijnklimaatkast",
+      "description": "Een klimaatkast met één temperatuurzone."
+    },
+    "cooler_dual": {
+      "name": "Klimaatkast met twee zones",
+      "description": "Twee temperatuurzones: één om te serveren, één om te bewaren."
+    },
+    "cooler_undercounter": {
+      "name": "Inbouwklimaatkast",
+      "description": "Een compacte klimaatkast die onder een werkblad past."
+    },
+    "rack_generic": {
+      "name": "Andere opslag",
+      "description": "Een neutraal raster voor al het andere."
+    }
+  },
+  "storageLook": {
+    "material": {
+      "wood": "Hout",
+      "metal": "Metaal",
+      "lacquer": "Lak"
+    },
+    "color": {
+      "oak": "Eiken",
+      "walnut": "Notenhout",
+      "mahogany": "Mahonie",
+      "ebony": "Ebben",
+      "pine": "Grenen",
+      "black": "Zwart",
+      "graphite": "Grafiet",
+      "stainless": "Rvs",
+      "brass": "Messing",
+      "white": "Wit",
+      "sage": "Saliegroen",
+      "navy": "Marineblauw"
+    },
+    "lighting": {
+      "none": "Geen licht",
+      "warm": "Warm licht",
+      "cool": "Koel licht"
+    },
+    "door": {
+      "none": "Geen deur",
+      "glass": "Glazen deur",
+      "solid": "Dichte deur"
+    }
   }
 }

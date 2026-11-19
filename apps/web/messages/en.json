@@ -531,6 +531,7 @@
       "placeBusy": "Someone else was changing this place. Try again.",
       "depthOff": "More than one bottle per position isn't switched on yet.",
       "layoutWritesOff": "Changing a layout isn't switched on here yet.",
+      "layoutStale": "This place was changed since you opened it. Reload it to see the latest version.",
       "exportVersionUnavailable": "That export version isn't available."
     }
   },
@@ -2123,5 +2124,262 @@
     },
     "yoursPrivate": "Recorded by your household. It is not part of the shared CELLR catalogue; friends see only what you share with them in Profile.",
     "catalogTitle": "Source of the wine details"
+  },
+  "builder": {
+    "titleNew": "Design a new place",
+    "titleEdit": "Design “{name}”",
+    "intro": "Choose what it is, set its size and look, and see it change as you go.",
+    "back": "Back to the cellar",
+    "previewOnlyMode": "Preview only: saving is switched off here.",
+    "previewOnlyWhy": {
+      "setting": "This deployment does not save layouts. You can design and look; nothing is stored.",
+      "deployment": "Layouts are only saved in development and test deployments. You can design and look; nothing is stored.",
+      "database": "This deployment is connected to a database that is not a test database, so the builder does not save here. You can design and look; nothing is stored.",
+      "schema": "This database does not have what the builder saves with yet. You can design and look; nothing is stored."
+    },
+    "notSetUp": "The Smart Cellar isn't set up on this server yet, so the builder can't open a place here.",
+    "notFound": "We couldn't find that place.",
+    "loadFailed": "This place couldn't be loaded.",
+    "retry": "Try again",
+    "sections": {
+      "template": "What is it?",
+      "name": "Name",
+      "size": "Size",
+      "look": "Look",
+      "zones": "Temperature zones",
+      "summary": "Summary"
+    },
+    "groups": {
+      "racks": "Racks",
+      "bins": "Bins and cubes",
+      "shelving": "Shelves and cabinets",
+      "wall": "On the wall",
+      "coolers": "Coolers",
+      "other": "Other"
+    },
+    "card": {
+      "capacity": "{count, plural, one {# bottle} other {# bottles}} as it comes",
+      "perSpot": "One bottle per spot",
+      "deep": "{min}–{max} bottles deep",
+      "bins": "Compartments of {count}",
+      "zones": "{count, plural, one {# temperature zone} other {up to # temperature zones}}",
+      "door": "Door",
+      "previewOnly": "Preview only",
+      "previewOnlyHint": "Needs more than one bottle per spot, which CELLR can't store yet.",
+      "selected": "Selected"
+    },
+    "nameLabel": "Name",
+    "namePlaceholder": "For example: Kitchen rack",
+    "nameProblem": "Give it a name of up to 40 characters.",
+    "rows": "Shelves",
+    "cols": "Spots per shelf",
+    "colsBins": "Compartments per row",
+    "rowsBins": "Rows of compartments",
+    "rowsWall": "Rows",
+    "colsWall": "Bottles per row",
+    "colsRails": "Rails",
+    "rowsRails": "Bottles per rail",
+    "cellCapacity": "Bottles per spot",
+    "cellCapacityBins": "Bottles per compartment",
+    "cellCapacityPreview": "More than one per spot is preview only for now.",
+    "useOne": "Use one per spot",
+    "fewer": "Fewer {what}",
+    "more": "More {what}",
+    "capacity": "{count, plural, one {# bottle} other {# bottles}}",
+    "occupied": "{count} in it",
+    "free": "{count} free",
+    "delta": "{delta, plural, =0 {same as now} other {{signed} compared with now}}",
+    "material": "Material",
+    "color": "Colour",
+    "lighting": "Light",
+    "door": "Door",
+    "onlyOne": "{what}: {value} (the only option for this kind of place)",
+    "reconciled": {
+      "color": "The colour changed to one this material comes in.",
+      "material": "The material changed to one this kind of place comes in.",
+      "lighting": "The light changed to one this kind of place has.",
+      "door": "The door changed to one this kind of place has.",
+      "zones": "The temperature zones were adjusted to the new number of shelves.",
+      "size": "The size was brought within what this kind of place allows."
+    },
+    "zones": {
+      "count": "Zones",
+      "none": "None",
+      "intro": "Zones divide the shelves top to bottom. A temperature here is what you set the cooler to, not a measurement.",
+      "split": "Shelves in the top zone",
+      "zone": "Zone {n}",
+      "shelves": "{count, plural, one {shelf {from}} other {shelves {from}–{to}}}",
+      "purpose": "For",
+      "storage": "Keeping",
+      "serving": "Serving",
+      "setTemp": "Set temperature",
+      "notSet": "Not set",
+      "setTo": "Set to {value} °C",
+      "setting": "a setting, not a reading"
+    },
+    "preview": {
+      "label": "Live 3D preview of {name}",
+      "loading": "Preparing the preview…",
+      "updating": "Updating…",
+      "hint": "Drag to turn · pinch or scroll to zoom",
+      "noWebgl": "This device can't show the 3D preview. Here is the flat plan of the same place.",
+      "lost": "The 3D preview has paused.",
+      "restart": "Show 3D again",
+      "chosen": "{wine} · shelf {row}, spot {col}",
+      "realBottles": "Your {count, plural, one {bottle is} other {# bottles are}} shown where {count, plural, one {it is} other {they are}}. Nothing moves until you save, and saving never moves a bottle.",
+      "neutral": "CELLR doesn't know how this place is arranged. Choose what it is to see it.",
+      "suggested": "This place has no design yet. “{template}” is a suggestion from its kind: nothing changes until you choose and save."
+    },
+    "blockers": {
+      "title": "{count, plural, one {A bottle would lose its spot} other {# bottles would lose their spot}}",
+      "body": "Move {count, plural, one {it} other {them}} first, or keep the place large enough. Saving is not possible like this.",
+      "item": "{wine} · shelf {row}, spot {col}"
+    },
+    "problems": {
+      "no_template": "Choose what this place is.",
+      "name": "Give it a name of up to 40 characters.",
+      "preview_only": "More than one bottle per spot can't be stored yet: this design is a preview.",
+      "preview_only_template": "This kind of place needs more than one bottle per spot, which can't be stored yet: it is a preview.",
+      "invalid": "Some choices don't fit this kind of place.",
+      "in_use": "Bottles would lose their spot.",
+      "semantics_change": "There are bottles in it that would mean something else in this design. Move them out first.",
+      "depth_not_enabled": "More than one bottle per spot can't be stored yet."
+    },
+    "unsaved": "Unsaved changes",
+    "saved": "Saved",
+    "noChanges": "No changes",
+    "restored": "Your unsaved changes were kept.",
+    "discardRestored": "Start from what is saved",
+    "undo": "Undo",
+    "reset": "Reset changes",
+    "restoreDefaults": "Template defaults",
+    "save": "Save",
+    "create": "Create place",
+    "saving": "Saving…",
+    "confirmTitle": "Save these changes?",
+    "confirmBody": "This changes how “{name}” is set up. Bottles stay exactly where they are.",
+    "confirmChanges": {
+      "template": "Kind: {from} → {to}",
+      "size": "Size: {fromRows} × {fromCols} → {toRows} × {toCols}",
+      "cellCapacity": "Bottles per spot: {from} → {to}",
+      "look": "Look",
+      "zones": "Temperature zones",
+      "name": "Name: {from} → {to}"
+    },
+    "confirmSave": "Save",
+    "cancel": "Cancel",
+    "discardTitle": "Discard your changes?",
+    "discardBody": "What you changed since the last save will be lost.",
+    "discard": "Discard",
+    "keepEditing": "Keep editing",
+    "savedTitle": "“{name}” is saved.",
+    "savedBody": "It is in your cellar now.",
+    "seeInCellar": "See it in the cellar",
+    "keepDesigning": "Keep designing",
+    "partialCreate": "A basic place “{name}” was made, but its design was not saved: {reason}",
+    "partialCreateHelp": "Try again to give it this design. Nothing will be made twice.",
+    "keepBasic": "Keep the basic place",
+    "partialName": "The design was saved, but the new name was not: {reason}",
+    "retryName": "Try the name again",
+    "stale": "Someone changed this place since you opened it. Nothing was saved.",
+    "loadLatest": "Load the latest version",
+    "saveFailed": "Nothing was saved: {reason}",
+    "entryNew": "Design a place in 3D",
+    "entryEdit": "Design in 3D",
+    "previewOnlyBadge": "Preview only",
+    "status": {
+      "ready": "Ready to save",
+      "blocked": "Not ready to save",
+      "preview": "Preview only"
+    }
+  },
+  "storageTemplates": {
+    "rack_classic": {
+      "name": "Classic wooden rack",
+      "description": "Wooden rack, one bottle per spot. The everyday way to keep wine."
+    },
+    "rack_double_depth": {
+      "name": "Double-depth rack",
+      "description": "Two or three bottles deep per spot. More wine in the same width."
+    },
+    "rack_metal": {
+      "name": "Metal rack",
+      "description": "Slim steel frame, bottles on their side."
+    },
+    "shelving_open": {
+      "name": "Open shelving",
+      "description": "Open shelves with bottles lying side by side."
+    },
+    "cabinet_closed": {
+      "name": "Wine cabinet",
+      "description": "Shelves behind a solid or glass door."
+    },
+    "cube_modular": {
+      "name": "Modular cubes",
+      "description": "Square compartments, each holding a small pile."
+    },
+    "diamond_bins": {
+      "name": "Diamond bins",
+      "description": "Diagonal bins that hold bottles in a pile."
+    },
+    "crate_storage": {
+      "name": "Wooden crates",
+      "description": "Crates stacked as compartments."
+    },
+    "wall_pegs": {
+      "name": "Wall pegs",
+      "description": "Pegs on a wall, one bottle each, label facing you."
+    },
+    "wall_rails": {
+      "name": "Wall rails",
+      "description": "Rails on a wall, bottles neck-first, label facing you."
+    },
+    "cooler_single": {
+      "name": "Wine cooler",
+      "description": "A climate cabinet with one temperature zone."
+    },
+    "cooler_dual": {
+      "name": "Dual-zone cooler",
+      "description": "Two temperature zones: one for serving, one for keeping."
+    },
+    "cooler_undercounter": {
+      "name": "Undercounter cooler",
+      "description": "A compact cooler that fits under a worktop."
+    },
+    "rack_generic": {
+      "name": "Other storage",
+      "description": "A neutral grid for anything else."
+    }
+  },
+  "storageLook": {
+    "material": {
+      "wood": "Wood",
+      "metal": "Metal",
+      "lacquer": "Lacquer"
+    },
+    "color": {
+      "oak": "Oak",
+      "walnut": "Walnut",
+      "mahogany": "Mahogany",
+      "ebony": "Ebony",
+      "pine": "Pine",
+      "black": "Black",
+      "graphite": "Graphite",
+      "stainless": "Stainless steel",
+      "brass": "Brass",
+      "white": "White",
+      "sage": "Sage",
+      "navy": "Navy"
+    },
+    "lighting": {
+      "none": "No light",
+      "warm": "Warm light",
+      "cool": "Cool light"
+    },
+    "door": {
+      "none": "No door",
+      "glass": "Glass door",
+      "solid": "Solid door"
+    }
   }
 }

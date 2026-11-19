@@ -151,6 +151,7 @@ export function CellarScreen({
   initial,
   initialView,
   smart3d = false,
+  builder = false,
 }: {
   initial: CellarView;
   initialView: CellarViewMode;
@@ -159,6 +160,11 @@ export function CellarScreen({
    * (lib/smart-cellar-renderer-gate.ts) and never on production; off unless the page says otherwise.
    */
   smart3d?: boolean;
+  /**
+   * Whether the Rack Builder may be offered (the server's decision: lib/smart-cellar-builder-gate.ts). Only adds
+   * links to it; with it false the racks view is exactly what it was.
+   */
+  builder?: boolean;
 }) {
   const t = useTranslations("cellar");
   const tTypes = useTranslations("wineTypes");
@@ -434,7 +440,7 @@ export function CellarScreen({
           <Cellar3DView onShowRacks={showRacks} />
         )
       ) : view === "racks" ? (
-        <RacksView />
+        <RacksView builder={builder} />
       ) : items.length === 0 ? (
         <EmptyState
           illustration={false}

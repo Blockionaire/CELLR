@@ -28,6 +28,8 @@ export interface StoredPlaceRow {
   zones: Array<Pick<StorageZone, "fromRow" | "toRow" | "purpose" | "targetTempC">>;
   /** Bottles in the cellar in this place. */
   occupied: number;
+  /** cellar_locations.updated_at, as text: changes whenever the row does (a trigger sets it). */
+  revision: string;
 }
 
 export type SchemaStatus = SmartCellarCapabilities["schema"];

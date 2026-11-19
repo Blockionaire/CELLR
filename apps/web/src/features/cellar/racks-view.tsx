@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useState, type Ref } from "react";
 import { formatVintage, type PlacedBottle, type RackUnit } from "@cellr/domain";
 import { BottleGlyph } from "@/ui/bottle-glyph";
-import { Button } from "@/ui/button";
+import { Button, buttonStyles } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { cn } from "@/ui/cn";
 import { EmptyState } from "@/ui/empty-state";
@@ -106,7 +107,8 @@ function SlotPreview({ unit }: { unit: RackUnit }) {
  */
 const places: { open: Set<string> | null } = { open: null };
 
-export function RacksView() {
+export function RacksView({ builder = false }: { builder?: boolean } = {}) {
+  const tb = useTranslations("builder");
   const t = useTranslations("racks");
   const tv = useTranslations("vintage");
   const tKinds = useTranslations("storageKinds");
@@ -231,10 +233,13 @@ export function RacksView() {
           title={t("emptyTitle")}
           body={t("emptyBody")}
           action={
-            <Button size="lg" onClick={() => setNewPlace(true)}>
-              <PlusIcon size={20} />
-              {t("newPlace")}
-            </Button>
+            <div className="flex flex-col items-center gap-3">
+              <Button size="lg" onClick={() => setNewPlace(true)}>
+                <PlusIcon size={20} />
+                {t("newPlace")}
+              </Button>
+              {builder && <BuilderLink href="/cellar/builder" label={tb("entryNew")} />}
+            </div>
           }
         />
         <NewPlaceSheet
@@ -417,6 +422,7 @@ export function RacksView() {
         <PlusIcon size={20} />
         {t("newPlace")}
       </button>
+      {builder && <BuilderLink href="/cellar/builder" label={tb("entryNew")} />}
 
       {lifted && (
         <DragGhost
@@ -464,7 +470,7 @@ export function RacksView() {
         }}
         onPlace={(b) => placeAt && void moveTo(b, placeAt.unit, placeAt.row, placeAt.col)}
       />
-      <ManagePlaceSheet unit={managed} onClose={() => setManageId(null)} />
+      <ManagePlaceSheet unit={managed} onClose={() => setManageId(null)} builder={builder} />
       <NewPlaceSheet
         open={newPlace}
         onClose={() => setNewPlace(false)}
@@ -520,5 +526,18 @@ function DragGhost({
         </span>
       </div>
     </div>
+  );
+}
+
+/** The way into the Rack Builder: only rendered where the server opened it (sprint 3). A plain link, nothing loaded. */
+function BuilderLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      data-testid="builder-entry"
+      className={buttonStyles({ variant: "secondary", size: "lg", block: true })}
+    >
+      {label}
+    </Link>
   );
 }

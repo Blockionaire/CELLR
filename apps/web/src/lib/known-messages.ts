@@ -88,6 +88,7 @@ export const KNOWN_MESSAGES = {
   "Someone else was changing this place. Try again.": "placeBusy",
   "More than one bottle per position isn't switched on yet.": "depthOff",
   "Changing a layout isn't switched on here yet.": "layoutWritesOff",
+  "This place was changed since you opened it. Reload it to see the latest version.": "layoutStale",
   "That export version isn't available.": "exportVersionUnavailable",
 } as const;
 

@@ -1,3 +1,5 @@
+import { writeTargetIn } from "./smart-cellar-write-target";
+
 /**
  * Whether the Smart Cellar API (/api/v1/smart-cellar, export version 2) answers in this deployment, and whether it
  * may write (sprint 1C). The database having the Smart Cellar columns switches NOTHING on: only this does.
@@ -36,10 +38,19 @@ export function writesMayOpenIn(env: SmartCellarEnv): boolean {
   return vercelEnv === "preview" && (target === undefined || target === "preview");
 }
 
-/** The rule, on an environment handed to it. The app asks through `getSmartCellarAccess()` in src/server/env.ts. */
+/**
+ * The rule, on an environment handed to it. The app asks through `getSmartCellarAccess()` in src/server/env.ts.
+ * "write" opens writes only where BOTH hold: the deployment may write (above), and the database it writes to is
+ * known not to be production (smart-cellar-write-target.ts, sprint 3). A preview pointed at the production database
+ * can read, never write, whatever is set.
+ */
 export function smartCellarAccessIn(env: SmartCellarEnv): SmartCellarAccess {
   const mode = (env.CELLR_SMART_CELLAR ?? "").trim().toLowerCase();
   if (mode === "read") return Object.freeze({ reads: true, writes: false });
-  if (mode === "write") return Object.freeze({ reads: true, writes: writesMayOpenIn(env) });
+  if (mode === "write")
+    return Object.freeze({
+      reads: true,
+      writes: writesMayOpenIn(env) && writeTargetIn(env).verified,
+    });
   return SMART_CELLAR_CLOSED;
 }
