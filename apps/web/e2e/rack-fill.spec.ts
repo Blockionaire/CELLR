@@ -60,11 +60,16 @@ test("racks of 3, 5, 8 and 12 columns use the popup's width evenly, or scroll wh
 
   for (const cols of [3, 5, 8, 12]) {
     await page.goto(`/cellar/${vintages[cols]}`);
-    await expect(async () => {
-      await page.getByTestId("where-trigger").click();
-      await expect(page.getByTestId("where-unit")).toBeVisible({ timeout: 1_500 });
-    }).toPass({ timeout: 20_000 });
+    // One tap, then wait. Not a tap-until-it-shows loop: the sheet opens at once but draws the rack only once
+    // /racks has answered (seconds on a busy machine), and the sheet is a modal <dialog> that covers the trigger,
+    // so a second tap can never land: Playwright waits on it ("<dialog> intercepts pointer events") until the
+    // retry budget is gone, while the rack is already on screen. A tap before hydration is not lost (React
+    // replays it), so it never needed repeating.
+    await page.getByTestId("where-trigger").click();
+    await expect(page.getByTestId("where-sheet")).toBeVisible();
     const unit = page.getByTestId("where-unit");
+    // the racks are read over the network when the sheet opens: as long as the old loop's whole budget
+    await expect(unit).toBeVisible({ timeout: 20_000 });
     const grid = unit.getByRole("group", { name: `Rack ${cols}` });
     await expect(grid).toBeVisible();
 
