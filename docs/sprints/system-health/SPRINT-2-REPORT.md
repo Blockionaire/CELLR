@@ -129,8 +129,7 @@ Kept as designed:
 
 ## 7. Final CI status and e2e classification
 
-**Required PR checks: green on every head since `2fd6b07`.** That covers `2fd6b07`, `4df9fa2` (run 44563289948) and
-`f680648` (run 44568899333), and the final commit. All seven required jobs pass:
+**Required PR checks on the final head `c255e05` (run 44605846091): all seven green.** They are:
 
 - format/lint/types/unit;
 - Postgres permission suite;
@@ -139,6 +138,13 @@ Kept as designed:
 - migration integrity;
 - dependency audit;
 - secret scan.
+
+Earlier heads:
+
+- `4df9fa2` (run 44563289948) and `f680648` (run 44568899333) were green.
+- On `a97c689` the secret scan flagged a dummy test value as a generic API key. That was a false positive: the
+  value was a made-up string in a unit test. `c255e05` replaced it with low-entropy dummies and recorded that one
+  finding in `.gitleaksignore`, as the repository does for such cases.
 
 The PR is mergeable (`clean`) against `main` at 07bc80c.
 
