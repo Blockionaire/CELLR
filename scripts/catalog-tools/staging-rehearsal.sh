@@ -138,7 +138,7 @@ SEEN=$("${PSQL[@]}" -X -At -c "select set_config('request.jwt.claim.sub', '$USER
   select count(*) filter (where source = 'provider') from public.catalog_search('$HOUSEHOLD', 'muga reserva', null, null, null, 20);" | tail -1)
 PILOT=$("${PSQL[@]}" -X -At -c "set role service_role; select count(*) filter (where source = 'provider') from public.catalog_search_pilot('$HOUSEHOLD', 'muga reserva', null, null, null, 20);" | tail -1)
 PROV=$("${PSQL[@]}" -X -At -c "select set_config('request.jwt.claim.sub', '$USER_ID', false); set role authenticated;
-  select (select r.record_id from public.catalog_search_pilot('$HOUSEHOLD', 'muga', null, null, null, 1) r) is null" 2>&1 | tail -1)
+  select (select r.record_id from public.catalog_search_pilot('$HOUSEHOLD', 'muga', null, null, null, 1) r) is null" 2>&1 | tail -1 || true)
 echo "  'muga reserva': people's search $SEEN provider rows, pilot search $PILOT; a signed-in person calling the pilot search: $PROV" | tee "$OUT/pilot-separation.txt"
 [ "$SEEN" = 0 ] && [ "$PILOT" -gt 0 ] && grep -q "permission denied" <<<"$PROV" || { echo "  ERROR: pilot separation failed" >&2; exit 1; }
 "${PSQL[@]}" -X -At -c "select 'CELLR wines written by imports: ' || count(*) from public.wines where origin = 'licensed_import';
