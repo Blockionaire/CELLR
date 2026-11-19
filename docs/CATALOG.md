@@ -468,3 +468,15 @@ database its owner marked `pilot` or `staging`. Provider rights change only thro
 
 No provider is cleared for production: LWIN is blocked and X-Wines is pilot-only. Design, evidence, licensing
 assessment, coverage and performance: [`docs/sprints/sprint-004a/REPORT.md`](sprints/sprint-004a/REPORT.md).
+
+### Sprint 004B additions
+
+- **LWIN rows at any documented level** (7, 11, 16 or 18 digits) are read as their LWIN-7 wine; rows of one wine are
+  folded (vintages and bottle sizes united), and two rows naming different wines under one LWIN-7 make the file fatal.
+  The real LWIN layout is still unverified and LWIN stays blocked.
+- **A wine nobody in CELLR has added:** the scan resolver also ranks the provider records people's search already
+  returned (`suggestRecordsForReading`), apart from its CELLR candidates and only where no CELLR wine is the exact
+  match. A record is never an identity and never makes a scan "found". Public sources only: none today.
+- **Tools:** `quality.ts` (data-quality report), `staging-check.ts` (read-only target check), `recognition.ts`
+  (scan-chain evaluation on pilot data), `staging-rehearsal.sh` (the whole route on a throwaway Postgres 17).
+  Report: [`docs/sprints/sprint-004b/REPORT.md`](sprints/sprint-004b/REPORT.md).

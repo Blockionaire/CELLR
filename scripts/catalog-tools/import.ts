@@ -178,6 +178,8 @@ async function main() {
       problems,
       finish,
       seconds: Math.round((performance.now() - started) / 100) / 10,
+      // the import tool's own peak memory (resident set), from the operating system
+      peak_rss_mb: Math.round(process.resourceUsage().maxRSS / 1024),
     };
     console.log(JSON.stringify(report, null, 2));
     if (typeof args.out === "string")
