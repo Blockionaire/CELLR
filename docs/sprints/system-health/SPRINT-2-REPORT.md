@@ -123,8 +123,16 @@ Kept as designed:
    - `insights.spec.ts:113` (axe document-title);
    - `racks.spec.ts:371` (axe colour contrast in the racks dialogs, about half of local runs on `main` too).
 
-   A tracking issue for the second is recommended. The new spec is not 3D and adds about 45 s, but it moves shard
-   boundaries, so more 3D work lands in shard 4. That adds to the case for #77 option 2 (a separate 3D job).
+   A tracking issue for the second is recommended.
+
+6. **This PR makes shard 4 heavier (#77).** The new spec is not 3D and adds about 45 s, but its 13 tests move the
+   count-based shard boundaries, so 3D phone tests (`storage-premium.spec.ts:80`, `storage-gallery.spec.ts:351`)
+   now land in shard 4 with other load. There they timed out twice in a row on CI (software WebGL stuck in
+   "extracting"), while they pass 4/4 locally on this branch.
+
+   After the merge, expect shard 4 to show those 3D timeouts until #77 is resolved. Option 2, a separate job for
+   the 3D specs, also ends this sensitivity to boundaries. The other session's CI proposal for storage-showcase is
+   waiting on that same choice by the owner.
 
 ## 7. Migrations and configuration
 
