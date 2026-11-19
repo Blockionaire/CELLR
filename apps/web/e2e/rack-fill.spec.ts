@@ -60,9 +60,13 @@ test("racks of 3, 5, 8 and 12 columns use the popup's width evenly, or scroll wh
 
   for (const cols of [3, 5, 8, 12]) {
     await page.goto(`/cellar/${vintages[cols]}`);
+    // Tap again only while the sheet is not open: a tap before the page is interactive is lost, but once the sheet is
+    // open it covers the trigger, so a second tap could never land, and a sheet that is merely still loading its racks
+    // must be waited for, not tapped at again.
     await expect(async () => {
-      await page.getByTestId("where-trigger").click();
-      await expect(page.getByTestId("where-unit")).toBeVisible({ timeout: 1_500 });
+      if (!(await page.getByRole("dialog").isVisible()))
+        await page.getByTestId("where-trigger").click({ timeout: 2_000 });
+      await expect(page.getByTestId("where-unit")).toBeVisible({ timeout: 5_000 });
     }).toPass({ timeout: 20_000 });
     const unit = page.getByTestId("where-unit");
     const grid = unit.getByRole("group", { name: `Rack ${cols}` });
