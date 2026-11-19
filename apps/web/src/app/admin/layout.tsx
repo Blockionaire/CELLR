@@ -44,6 +44,7 @@ const NAV: AdminNavGroup[] = [
       { href: "/admin/feedback", label: "Beta feedback" },
     ],
   },
+  { label: "System", items: [{ href: "/admin/system", label: "Architecture" }] },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -122,6 +122,26 @@
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --nav-height: 64px;
 }
+/* Admin › Architecture Control Center: one hue per map layer and per edge kind, in both skins. Decorative: every
+   layer and kind is also named in words (labels, legend), never told by colour alone. Lines ≥ 3:1 on the canvas. */
+:root {
+  --sys-client: light-dark(#a0466a, #d892b0);
+  --sys-edge: light-dark(#2f6a9a, #84b7e3);
+  --sys-service: light-dark(#2f7a5c, #7fcaa7);
+  --sys-core: light-dark(#6b4fa0, #b7a1ea);
+  --sys-data: light-dark(#8a6a2a, #d6b47a);
+  --sys-platform: light-dark(#4f5d70, #a7b4c6);
+  --sys-planned: light-dark(#7a7272, #a39a9a);
+  --sys-k-request: light-dark(#5a6b85, #96a7c2);
+  --sys-k-data-read: light-dark(#2a7aa2, #72c0e2);
+  --sys-k-data-write: light-dark(#a8661f, #eab47c);
+  --sys-k-external-call: light-dark(#7a4fb0, #bda1ea);
+  --sys-k-feedback: light-dark(#257c5c, #74d7b5);
+  --sys-k-control: light-dark(#a3405b, #e48ea6);
+  --sys-k-ops: light-dark(#66707e, #a2acba);
+  --sys-k-verifies: light-dark(#4d7d86, #8cc3cc);
+  --sys-k-planned: light-dark(#a57a1c, #e3bb6f);
+}
 :root[data-theme="dark"] {
   color-scheme: dark;
 }

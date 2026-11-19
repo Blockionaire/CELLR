@@ -2,7 +2,7 @@
   "name": "cellr",
   "private": true,
   "version": "0.0.0",
-  "description": "CELLR \u2014 your personal intelligent wine cellar",
+  "description": "CELLR — your personal intelligent wine cellar",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=22.12"
@@ -19,6 +19,7 @@
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm db:test",
     "db:types": "bash scripts/db-types.sh",
     "db:types:check": "bash scripts/db-types.sh --check",
+    "architecture:inventory": "node apps/web/scripts/architecture/inventory.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "splash": "node scripts/generate-splash.mjs",
     "offline-page": "node scripts/generate-offline.mjs",
