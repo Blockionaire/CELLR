@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type QueryClient } from "@tanstack/react-query";
 import type {
   SmartCellarCapabilities,
   SmartStoragePlacementsView,
@@ -54,9 +54,32 @@ export const useSmartUnits = (enabled: boolean) =>
 export const useSmartPlacements = (unitId: string | null) =>
   useQuery({
     queryKey: smartPlacementsKey(unitId ?? "none"),
-    queryFn: () => api.get<SmartStoragePlacementsView>(`/smart-cellar/storage/${unitId}/bottles`),
+    queryFn: () => fetchPlacements(unitId!),
     enabled: unitId !== null,
     // The place on screen is checked again whenever it is come back to (the tab, the place, the view): someone
     // else in the household may have taken a bottle out of it. What is cached is shown meanwhile.
     staleTime: 0,
   });
+
+/** One place and its bottles, from the server. */
+export const fetchPlacements = (unitId: string) =>
+  api.get<SmartStoragePlacementsView>(`/smart-cellar/storage/${unitId}/bottles`);
+
+/**
+ * One place, read from the server NOW (Rack Builder, sprint 3): for decisions that must not rest on what is cached,
+ * such as "start again from the latest version". Unlike a query's refetch, it never answers with cached data: a
+ * failure (no connection, signed out, a server error) is thrown, and the cache is left as it was. A refresh of the
+ * same place already on its way is cancelled first, so an older answer cannot land on top of this one. The fresh
+ * answer is put into the cache, so the rest of the screen sees it too.
+ */
+export async function readPlacementsFresh(
+  queryClient: QueryClient,
+  unitId: string,
+  fetcher: (unitId: string) => Promise<SmartStoragePlacementsView> = fetchPlacements,
+): Promise<SmartStoragePlacementsView> {
+  const key = smartPlacementsKey(unitId);
+  await queryClient.cancelQueries({ queryKey: key, exact: true });
+  const fresh = await fetcher(unitId);
+  queryClient.setQueryData(key, fresh);
+  return fresh;
+}

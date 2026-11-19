@@ -5,6 +5,7 @@ import {
   EXPORT_VERSIONS,
   SMART_CELLAR_API_VERSION,
   STORAGE_APPEARANCE_VERSION,
+  STALE_LAYOUT_MESSAGE,
   STORAGE_CATALOG_VERSION,
   STORAGE_TEMPLATES,
   indexMeaningOf,
@@ -64,6 +65,7 @@ export function toUnitView(row: StoredPlaceRow): SmartStorageUnitView {
     legacy: r.legacy,
     arrangementKnown: r.arrangementKnown,
     fallbacks: r.fallbacks,
+    revision: row.revision,
   };
 }
 
@@ -174,11 +176,22 @@ export function createSmartCellarService({ repo, household, access }: SmartCella
      * placed between the check and the save is still caught there, and nothing is changed).
      * Two saves of one place at once are taken one after the other by the database; the later one is the result,
      * whole. There is no partial layout at any moment.
+     *
+     * `expectedRevision` (sprint 3): the revision the person's draft started from. When given and no longer the
+     * place's, nothing is saved (409). This narrows lost updates; it does NOT close them: a save that lands between
+     * this check and the database call still wins (last write wins under the row lock). Closing that needs the
+     * revision compared inside the transaction, which is a migration (SPRINT-3-REPORT §11), not done here.
      */
-    async saveLayout(id: string, config: StorageConfig): Promise<SmartStorageUnitView> {
+    async saveLayout(
+      id: string,
+      config: StorageConfig,
+      expectedRevision?: string | null,
+    ): Promise<SmartStorageUnitView> {
       requireWrites();
       const { id: householdId } = await household();
       const current = await place(householdId, id);
+      if (expectedRevision && expectedRevision !== current.revision)
+        throw new DomainError("CONFLICT", STALE_LAYOUT_MESSAGE);
       const template = STORAGE_TEMPLATES[config.structure.template];
       const problem = layoutChangeProblem(
         {

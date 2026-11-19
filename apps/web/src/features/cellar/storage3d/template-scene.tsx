@@ -259,9 +259,18 @@ function Rig({
   const { camera, gl, size, invalidate } = useThree();
   const controls = useRef<OrbitControls | null>(null);
   const aspect = size.width / Math.max(1, size.height);
-  const framing = useMemo(() => frameFor(model.bounds, aspect), [model.bounds, aspect]);
+  // The box by its numbers, not by its object: a new model of the same size (another colour, a light switched on in
+  // the Rack Builder) keeps the camera where the person left it; only a change of size frames the place again.
+  const boxKey = [...model.bounds.min, ...model.bounds.max].map((n) => n.toFixed(4)).join(",");
+  const bounds = useMemo(() => {
+    const n = boxKey.split(",").map(Number);
+    const min: [number, number, number] = [n[0]!, n[1]!, n[2]!];
+    const max: [number, number, number] = [n[3]!, n[4]!, n[5]!];
+    return { min, max };
+  }, [boxKey]);
+  const framing = useMemo(() => frameFor(bounds, aspect), [bounds, aspect]);
   // the camera is placed once per place; a resize only changes how far it may go
-  const placedFor = useRef<RenderModel["bounds"] | null>(null);
+  const placedFor = useRef<string | null>(null);
 
   useLayoutEffect(() => {
     const c = new OrbitControls(camera, gl.domElement);
@@ -306,8 +315,8 @@ function Rig({
     if (!c) return;
     c.minDistance = framing.distance * 0.25;
     c.maxDistance = framing.distance * 1.8;
-    if (placedFor.current !== model.bounds) {
-      placedFor.current = model.bounds;
+    if (placedFor.current !== boxKey) {
+      placedFor.current = boxKey;
       const [tx, ty, tz] = framing.target;
       c.target.set(tx, ty, tz);
       camera.position.set(
@@ -319,7 +328,7 @@ function Rig({
     }
     c.update();
     invalidate();
-  }, [framing, model.bounds, camera, invalidate]);
+  }, [framing, boxKey, camera, invalidate]);
 
   // while a bottle is out the controls do not listen: turning the bottle does not turn the place
   useLayoutEffect(() => {

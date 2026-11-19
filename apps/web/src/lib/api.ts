@@ -25,6 +25,7 @@ async function request<T>(
   path: string,
   body?: unknown,
   signal?: AbortSignal,
+  headers?: Record<string, string>,
 ): Promise<T> {
   let response: Response;
   try {
@@ -32,9 +33,12 @@ async function request<T>(
     if (signal) init.signal = signal;
     if (body instanceof FormData) {
       init.body = body; // the browser adds the multipart boundary itself
+      if (headers) init.headers = headers;
     } else if (body !== undefined) {
-      init.headers = { "content-type": "application/json" };
+      init.headers = { ...headers, "content-type": "application/json" };
       init.body = JSON.stringify(body);
+    } else if (headers) {
+      init.headers = headers;
     }
     response = await fetch(`/api/v1${path}`, init);
   } catch (error) {
@@ -66,8 +70,24 @@ export const api = {
   /** Sends files (a photo); everything else goes as JSON. */
   upload: <T>(path: string, form: FormData, method: "POST" | "PUT" = "POST") =>
     request<T>(method, path, form),
-  patch: <T>(path: string, body: unknown) => request<T>("PATCH", path, body),
-  put: <T>(path: string, body: unknown) => request<T>("PUT", path, body),
+  /** `ifMatch`: as for put (a rename the server applies only to the version it names). */
+  patch: <T>(path: string, body: unknown, options?: { ifMatch?: string | undefined }) =>
+    request<T>(
+      "PATCH",
+      path,
+      body,
+      undefined,
+      options?.ifMatch ? { "if-match": `"${options.ifMatch}"` } : undefined,
+    ),
+  /** `ifMatch`: the revision the change was made against; the server refuses it when that is no longer current. */
+  put: <T>(path: string, body: unknown, options?: { ifMatch?: string | undefined }) =>
+    request<T>(
+      "PUT",
+      path,
+      body,
+      undefined,
+      options?.ifMatch ? { "if-match": `"${options.ifMatch}"` } : undefined,
+    ),
   delete: <T = void>(path: string) => request<T>("DELETE", path),
 };
 

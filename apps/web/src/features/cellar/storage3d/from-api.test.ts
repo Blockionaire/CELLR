@@ -27,6 +27,7 @@ const unit = (over: Partial<SmartStorageUnitView> = {}): SmartStorageUnitView =>
   capacity: 24,
   occupied: 0,
   free: 24,
+  revision: "r1",
   legacy: true,
   arrangementKnown: true,
   fallbacks: [],

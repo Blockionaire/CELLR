@@ -149,6 +149,9 @@ function fakeRepo(
     async updateStorage() {
       return null;
     },
+    async renameIfCurrent() {
+      return null;
+    },
     async deleteStorage(_h, id) {
       state.deletedStorage.push(id);
       return true;

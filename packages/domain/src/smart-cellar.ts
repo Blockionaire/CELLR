@@ -98,6 +98,11 @@ export interface SmartStorageUnitView {
   arrangementKnown: boolean;
   /** What was not usable as stored. Empty when everything was. */
   fallbacks: StorageFallback[];
+  /**
+   * Which version of the place this is (opaque; changes whenever the place does: its layout, look, zones or name).
+   * A layout save may send it back (If-Match) to be refused when someone changed the place in the meantime.
+   */
+  revision: string;
 }
 
 /**
@@ -200,6 +205,32 @@ export function layoutChangeProblem(
     return "semantics_change";
   return null;
 }
+
+// ---- What can be saved today ------------------------------------------------------------------------------------------
+
+/**
+ * Whether a configuration with this many bottles per cell can be SAVED in this version: one per cell, unless depth
+ * placement is switched on. Anything more can be designed and looked at (a preview), never stored.
+ */
+export const cellCapacitySavable = (cellCapacity: number): boolean =>
+  cellCapacity <= 1 || DEPTH_PLACEMENT_ENABLED;
+
+/**
+ * Whether a template can be saved at all in this version: it must come in a size of one bottle per cell. A template
+ * that starts at two (a double-depth rack, bins) is preview only: it is never quietly saved as something it is not.
+ */
+export const templateSavable = (id: StorageTemplateId): boolean =>
+  cellCapacitySavable(STORAGE_TEMPLATES[id].cellCapacity.min);
+
+/** What the Smart Cellar API answers on a database without its step (migrations 0043-0045). */
+export const SMART_CELLAR_NOT_SET_UP = "The Smart Cellar isn't set up on this server yet.";
+
+/** What a conditional edit of a place (If-Match) answers when it asks for more than a new name. */
+export const CONDITIONAL_RENAME_ONLY = "Only a new name can be saved against a version of a place.";
+
+/** What a layout save answers when the place changed since the person opened it (If-Match did not match). */
+export const STALE_LAYOUT_MESSAGE =
+  "This place was changed since you opened it. Reload it to see the latest version.";
 
 // ---- Edits through the old API -----------------------------------------------------------------------------------------
 

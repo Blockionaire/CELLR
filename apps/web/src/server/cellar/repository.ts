@@ -654,6 +654,39 @@ export function createCellarRepository(db: Db): CellarRepository {
       return toStorage(data, used.get(id) ?? 0);
     },
 
+    async renameIfCurrent(householdId, id, label, expectedRevision) {
+      // One statement: Postgres takes the row lock and evaluates `updated_at = expected` again after any write that
+      // got there first, so a rename never lands on a version the caller did not see. A rename touches no template,
+      // size or kind (legacyEditProblem allows it on every place); row-level security keeps it in the household.
+      const { data, error } = await db
+        .from("cellar_locations")
+        .update({ label })
+        .eq("household_id", householdId)
+        .eq("id", id)
+        .eq("updated_at", expectedRevision)
+        .select(`${STORAGE_COLUMNS}, updated_at`)
+        .maybeSingle();
+      if (error) {
+        if (isUniqueViolation(error))
+          throw new DomainError("CONFLICT", "You already have a place with that name.");
+        // a revision that is not a timestamp at all names no version of this place
+        if (error.code === "22007" || error.code === "22008") return "stale";
+        throw mapDbError(error);
+      }
+      if (!data) {
+        const still = await db
+          .from("cellar_locations")
+          .select("id")
+          .eq("household_id", householdId)
+          .eq("id", id)
+          .maybeSingle();
+        if (still.error) throw mapDbError(still.error);
+        return still.data ? "stale" : null;
+      }
+      const used = await usedByLocation(householdId);
+      return { row: toStorage(data, used.get(id) ?? 0), revision: data.updated_at };
+    },
+
     async deleteStorage(householdId, id) {
       const { data, error } = await db
         .from("cellar_locations")

@@ -252,11 +252,15 @@ export function PlaceHereSheet({
 export function ManagePlaceSheet({
   unit,
   onClose,
+  builder = false,
 }: {
   unit: RackUnit | null;
   onClose: () => void;
+  /** The Rack Builder may be offered (the server's decision): a link to design this place in 3D. */
+  builder?: boolean;
 }) {
   const t = useTranslations("racks");
+  const tb = useTranslations("builder");
   return (
     <Sheet
       open={unit !== null}
@@ -264,6 +268,15 @@ export function ManagePlaceSheet({
       title={t("manageTitle")}
       description={unit?.label}
     >
+      {unit && builder && (
+        <Link
+          href={`/cellar/builder/${unit.id}`}
+          data-testid="builder-entry-edit"
+          className={cn(buttonStyles({ variant: "secondary", size: "lg", block: true }), "mb-6")}
+        >
+          {tb("entryEdit")}
+        </Link>
+      )}
       {/* Remounted for each place, so the fields start from what is saved. */}
       {unit && <ManageForm key={unit.id} unit={unit} onClose={onClose} />}
     </Sheet>
