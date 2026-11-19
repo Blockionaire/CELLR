@@ -48,7 +48,9 @@ test("a signed-in person who is not an admin gets a real 404 and nothing of the 
   }
 });
 
-test("a signed-out visitor is sent to sign-in and sees nothing of the register", async ({ browser }) => {
+test("a signed-out visitor is sent to sign-in and sees nothing of the register", async ({
+  browser,
+}) => {
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto("/admin/system");
