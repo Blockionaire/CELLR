@@ -29,6 +29,8 @@ export interface RecommendInput {
   >;
   /** Wine keys the person likes (from their taste), strongest first; empty when unknown. */
   likes?: readonly string[];
+  /** Wines the person named in the question ("an Albariño for the salmon"): they come first, if they suit. */
+  asked?: readonly string[];
   /** Wine types the cellar already holds, to suggest something it lacks when there is no dish. */
   ownedTypes?: readonly string[];
   limit?: number;
@@ -73,18 +75,25 @@ export function recommendStyles(input: RecommendInput, k: WineKnowledge): StyleS
   };
   // With a floor ("at least €30"), styles that start near it come first; without, nothing changes.
   const floorFit = (s: BuyStyle) => (min === null ? 0 : s.fromEuros >= min * 0.6 ? 1 : 0);
+  const asked = input.asked ?? [];
   const liked = [...(state.intent === "gift" ? state.recipientLikes : []), ...(input.likes ?? [])];
 
   if (food && food.main !== null) {
     const judged = within
       .map((s) => ({ s, a: assessPairing(food, { ...reading(s, k), type: s.wine.type }) }))
       .filter((x) => x.a.level !== "poor");
-    const best = judged.some((x) => x.a.level === "good")
-      ? judged.filter((x) => x.a.level === "good")
-      : judged;
+    // The best level the budget reaches: good styles, else ones that will do, else the ones nothing speaks
+    // against. Someone who asks what to buy gets an answer; a style that clashes is never one.
+    const top =
+      (["good", "acceptable", "neutral"] as const)
+        .map((level) => judged.filter((x) => x.a.level === level))
+        .find((group) => group.length > 0) ?? [];
+    // A style they asked for by name is advised when it does not clash, also beside better-suited ones.
+    const best = [...judged.filter((x) => answersTo(x.s, asked) && !top.includes(x)), ...top];
     return best
       .sort(
         (x, y) =>
+          Number(answersTo(y.s, asked)) - Number(answersTo(x.s, asked)) ||
           floorFit(y.s) - floorFit(x.s) ||
           y.a.score +
             (answersTo(y.s, liked) ? 4 : 0) +

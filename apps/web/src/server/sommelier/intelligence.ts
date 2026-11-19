@@ -22,6 +22,7 @@ import {
   type PlanOffer,
   type PlanPick,
   type PlanStyle,
+  type ShownOffer,
   type SommelierBottle,
   type SommelierPlan,
   type TasteProfileView,
@@ -32,10 +33,11 @@ import {
   assessPairing,
   decidePairing,
   hasTaste,
-  mentionedWineKeys,
+  mentionedWines,
   parseFood,
   readWine,
   recommendStyles,
+  searchTextOf,
   tasteScore,
   type FoodProfile,
   type PairingCandidate,
@@ -122,6 +124,9 @@ export function tasteSignals(view: TasteProfileView | null): TasteSignals | null
   return hasTaste(signals) ? signals : null;
 }
 
+/** How many styles a retailer source is asked about for one question. */
+const OFFER_STYLES = 6;
+
 interface Read {
   item: CellarItem;
   reading: WineReading;
@@ -142,6 +147,7 @@ function notesOf(r: Read): PickNote[] {
   if ((r.item.reserved?.count ?? 0) > 0 && r.free > 0) notes.push("partly-reserved");
   if (r.item.drink.phase === "developing") notes.push("young");
   if (r.item.drink.phase === "past") notes.push("past");
+  else if (r.item.drink.uncertain && (r.item.drink.yearsLeft ?? 0) < 0) notes.push("may-be-past");
   if (r.reading.colourOnly) notes.push("little-known");
   else if (r.reading.fromName) notes.push("by-name");
   else if (r.reading.tier === "estimate") notes.push("estimate");
@@ -150,7 +156,10 @@ function notesOf(r: Read): PickNote[] {
 
 const toPick = (pick: PairingPick<Read>, extra: PickNote[] = []): PlanPick => ({
   vintageId: pick.item.item.vintageId,
-  level: pick.assessment.level === "good" ? "good" : "acceptable",
+  level:
+    pick.assessment.level === "good" || pick.assessment.level === "acceptable"
+      ? pick.assessment.level
+      : "neutral",
   tier: pick.tier,
   pros: pick.assessment.pros.slice(0, 4),
   cons: pick.assessment.cons.slice(0, 3),
@@ -183,6 +192,10 @@ const emptyPlan = (state: ConversationState): SommelierPlan => ({
 
 export function createSommelierIntelligence(deps: IntelligenceDeps) {
   return {
+    /** Whether a question names a dish the food engine understands (no I/O). */
+    readsDish(question: string): boolean {
+      return parseFood(question.slice(0, 800), FOOD).main !== null;
+    },
     /**
      * The plan for a question, or null when the question is not one the engines answer (a general question about
      * wine with no dish and nothing to buy): the caller then answers it the way it did before.
@@ -191,7 +204,8 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
       const previous = readState(request.state);
       const question = request.question.slice(0, 800);
       const said = parseFood(question, FOOD);
-      const named = mentionedWineKeys(question, WINE_KNOWLEDGE);
+      const wines = mentionedWines(question, WINE_KNOWLEDGE);
+      const named = wines.map((w) => w.id);
       let state = advance(previous, {
         text: question,
         budgetEuros: request.budgetEuros,
@@ -285,7 +299,7 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
           personal = plain.picks[0]?.item.item.vintageId !== decision.picks[0]!.item.item.vintageId;
         }
         // Wines that would have been offered, had they been free, ready and not turned down: said, not hidden.
-        const rank = { good: 0, acceptable: 1, poor: 2 } as const;
+        const rank = { good: 0, acceptable: 1, neutral: 2, poor: 3 } as const;
         const bar = decision.outcome === "good" ? 0 : 1;
         const setAside = read
           .flatMap((r) => {
@@ -315,13 +329,14 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
 
       // What to buy: when buying is what they want, or when nothing they own suits (unless they said "only mine").
       const adviseBuying =
-        deps.buying && (buying || (food !== null && !ownedSuits && state.intent !== "open"));
+        deps.buying && !state.ownOnly && (buying || (food !== null && !ownedSuits));
       if (adviseBuying) {
         const suggestions = recommendStyles(
           {
             food,
             state,
             likes: taste?.likes ?? [],
+            asked: named,
             ownedTypes: [...new Set(items.map((i) => i.type))],
           },
           WINE_KNOWLEDGE,
@@ -342,17 +357,21 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
           const year = /\b(19[5-9]\d|20[0-4]\d)\b/.exec(question);
           // A wine they named is looked for by that name; otherwise the styles that suit, best first.
           const texts =
-            named.length > 0
-              ? [named[0]!]
-              : suggestions.map((s) => s.style.wine.appellation ?? s.style.wine.name ?? s.style.id);
+            wines.length > 0
+              ? [...new Set(wines.map((w) => w.name))].slice(0, 2)
+              : // Every style that suits is asked for, not only the three that are named in the advice.
+                recommendStyles(
+                  { food, state, likes: taste?.likes ?? [], ownedTypes: [], limit: OFFER_STYLES },
+                  WINE_KNOWLEDGE,
+                ).map((s) => searchTextOf(s.style));
           try {
             const now = deps.now();
             const policy = {
               maxAgeHours: { online: 24, local: 6 },
               allowedHosts: deps.offers.allowedHosts,
             };
-            const found = [];
-            for (const text of texts.slice(0, 3)) {
+            const found: ShownOffer[] = [];
+            for (const text of texts.slice(0, OFFER_STYLES)) {
               const query = {
                 text,
                 year: year ? Number(year[1]) : null,
@@ -366,7 +385,10 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
               found.push(...result.shown);
               offersDropped.push(...result.rejected.flatMap((r) => r.defects));
             }
-            offers = found.slice(0, 3).map(({ offer, level }) => ({
+            const unique = found.filter(
+              (f, i) => found.findIndex((g) => g.offer.id === f.offer.id) === i,
+            );
+            offers = unique.slice(0, 3).map(({ offer, level }) => ({
               level,
               producer: offer.producer,
               name: offer.name,

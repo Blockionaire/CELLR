@@ -1,4 +1,4 @@
-import type { WineType } from "../cellar";
+import { normalizeText, type WineType } from "../cellar";
 import type { WineInput } from "../pairing-engine/wine";
 
 /**
@@ -115,6 +115,10 @@ export const BUY_STYLES: readonly BuyStyle[] = [
   style("px", "Pedro Ximénez sherry", "Pedro Ximénez sherry", "fortified", "Pedro Ximénez", "Jerez", "Andalucía", "ES", 14),
   style("banyuls", "Banyuls or Maury (sweet red)", "Banyuls of Maury (zoete rode)", "fortified", "Banyuls", "Banyuls", "Roussillon", "FR", 15),
 ];
+
+/** What a shop is asked for when looking for a style: its name without the part in brackets ("muscadet"). */
+export const searchTextOf = (style: BuyStyle): string =>
+  normalizeText(style.label.en.replace(/\(.*?\)/g, " "));
 
 export const buyStyleById = (id: string): BuyStyle | undefined =>
   BUY_STYLES.find((s) => s.id === id);

@@ -3,6 +3,7 @@ import {
   cellarDigest,
   cellarFacts,
   cellarFactsText,
+  cellarQuestionKind,
   isCellarQuestion,
   type CellarFacts,
   type RackView,
@@ -181,8 +182,15 @@ export function createSommelierService(deps: SommelierDeps) {
       };
       // A question about the cellar itself is answered from counted facts: the places and spots are only read
       // for such a question, never for wine advice.
+      // "Which wine do I have for the oysters?" asks what to open, not for an inventory: with the engines on, a
+      // "which" question that names a dish is theirs. "How many" and "where" stay questions of fact.
+      const pairingInDisguise =
+        deps.intelligence !== undefined &&
+        deps.intelligence !== null &&
+        cellarQuestionKind(question) === "selection" &&
+        deps.intelligence.readsDish(question);
       const facts =
-        !tonight && isCellarQuestion(question)
+        !tonight && isCellarQuestion(question) && !pairingInDisguise
           ? cellarFacts(items, ...(await Promise.all([deps.storage(), deps.racks()])), question)
           : null;
       // The person's taste: only for advice (never for a question of fact, an empty cellar, or when they asked

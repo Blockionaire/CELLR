@@ -47,6 +47,8 @@ export const ConversationStateSchema = z.object({
   dish: z.string().max(120).nullable(),
   budgetMaxEuros: z.number().min(1).max(100_000).nullable(),
   budgetMinEuros: z.number().min(1).max(100_000).nullable(),
+  /** They said they do not want to buy ("just from my cellar"): no buying advice, whatever suits or not. */
+  ownOnly: z.boolean(),
   /** They said price does not matter: the budget is not asked for. */
   budgetOpen: z.boolean(),
   channel: z.enum(BUY_CHANNELS).nullable(),
@@ -73,6 +75,7 @@ export const EMPTY_STATE: ConversationState = Object.freeze({
   dish: null,
   budgetMaxEuros: null,
   budgetMinEuros: null,
+  ownOnly: false,
   budgetOpen: false,
   channel: null,
   wineType: null,
@@ -130,6 +133,10 @@ const NOT_BUY = [
   "niets kopen",
   "niks kopen",
   "wil niet kopen",
+  "just from my cellar",
+  "only from my cellar",
+  "alleen uit mijn kelder",
+  "alleen uit de kelder",
   "hoef niets te kopen",
 ];
 const OWN = [
@@ -294,7 +301,8 @@ export function readMoney(text: string, bare = false): MoneyReading {
     !(upper && upper.index <= lower.index && lower.index < upper.index + upper[0].length)
   )
     result.min = amount(lower[1]!);
-  if (about && result.max === null) result.max = Math.round(amount(about[1]!) * 1.15);
+  // "Around 40" is said as a ceiling: nobody who says it means 46.
+  if (about && result.max === null) result.max = amount(about[1]!);
   if (result.max === null && result.min === null) {
     const marked =
       new RegExp(String.raw`${EURO}\s*${MONEY}`).exec(t) ??
@@ -332,9 +340,14 @@ export function advance(previous: ConversationState, turn: TurnInput): Conversat
   // --- intent ---
   const gift = has(text, GIFT);
   if (has(text, EITHER)) next.intent = "either";
-  else if (has(text, NOT_BUY)) next.intent = "open";
-  else if (gift) next.intent = "gift";
+  else if (has(text, NOT_BUY)) {
+    next.intent = "open";
+    next.ownOnly = true;
+  } else if (gift) next.intent = "gift";
   else if (has(text, BUY)) next.intent = "buy";
+  // Asking to buy after all takes "only mine" back.
+  if (next.intent === "buy" || next.intent === "gift" || next.intent === "either")
+    next.ownOnly = false;
   else if (has(text, OWN))
     next.intent =
       previous.intent === "buy" || previous.intent === "gift" ? previous.intent : "open";
@@ -370,7 +383,13 @@ export function advance(previous: ConversationState, turn: TurnInput): Conversat
   else if (online && pickup)
     next.channel =
       text.lastIndexOf(" online ") > text.lastIndexOf(" ophalen ") ? "online" : "pickup";
-  if (next.channel !== previous.channel && (next.intent === null || next.intent === "either"))
+  // Saying where to buy is a wish to buy, when the conversation is about a dish or about buying already: a shop
+  // word on its own ("when does the supermarket close?") is not.
+  if (
+    next.channel !== previous.channel &&
+    (next.intent === null || next.intent === "either") &&
+    (previous.dish !== null || previous.intent !== null || Boolean(turn.dish) || money.max !== null)
+  )
     next.intent = "buy";
 
   // --- what kind of wine ---

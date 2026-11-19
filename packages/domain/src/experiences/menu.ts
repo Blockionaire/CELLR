@@ -128,7 +128,7 @@ export function compareForDish<T>(
     assessment: assessPairing(food, second.wine),
     tier: second.tier,
   };
-  const rank = { good: 0, acceptable: 1, poor: 2 } as const;
+  const rank = { good: 0, acceptable: 1, neutral: 2, poor: 3 } as const;
   const byLevel = rank[a.assessment.level] - rank[b.assessment.level];
   const margin = a.assessment.score - b.assessment.score;
   const better =

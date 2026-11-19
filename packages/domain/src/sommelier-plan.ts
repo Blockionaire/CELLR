@@ -55,6 +55,8 @@ export const PICK_NOTES = [
   "by-name",
   /** Nothing but its colour is known. */
   "little-known",
+  /** By the estimate of its window it is past its best, but too little is known of it to say so for sure. */
+  "may-be-past",
   /** The asker's taste put it before others that suit as well. */
   "your-taste",
   /** The taste of the table (the asker and the friends named) put it before others. */
@@ -86,7 +88,8 @@ const cons = z.array(z.enum(PAIRING_CONS)).max(6);
 
 export const PlanPickSchema = z.object({
   vintageId: uuid,
-  level: z.enum(["good", "acceptable"]),
+  /** "neutral" only ever for the closest wine when nothing suits; an offered wine is good or acceptable. */
+  level: z.enum(["good", "acceptable", "neutral"]),
   tier: z.enum(EVIDENCE_TIERS),
   pros,
   cons,

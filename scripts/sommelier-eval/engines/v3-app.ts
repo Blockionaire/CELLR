@@ -89,7 +89,7 @@ function providerOf(world: World | undefined): {
     offers,
     provider: {
       id: "benchmark",
-      allowedHosts: ["example.nl"],
+      allowedHosts: ["example.nl", "example.com"],
       async search(): Promise<RetailOffer[]> {
         if (p.status === "down") throw new Error("provider down");
         // Everything it has, sound or not: choosing is the engine's job.
@@ -196,6 +196,8 @@ export const v3App: Engine = {
       for (const note of pick.notes) {
         if (note === "partly-reserved") flags.add("reserved");
         if (note === "young" || note === "past") flags.add(note);
+        // A warning that the wine may be over its best is the app's honest form of "past" when it cannot be sure.
+        if (note === "may-be-past") flags.add("past");
         if (note === "estimate" || note === "by-name") flags.add("estimate");
         if (note === "little-known") flags.add("unknown-data");
       }

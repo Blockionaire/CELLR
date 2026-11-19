@@ -42,7 +42,7 @@ describe("reading a price", () => {
     expect(readMoney("between €20 and €30")).toEqual({ min: 20, max: 30, open: false });
     expect(readMoney("tussen de 15 en 25 euro")).toEqual({ min: 15, max: 25, open: false });
     expect(readMoney("at least €30")).toEqual({ min: 30, max: null, open: false });
-    expect(readMoney("around €40").max).toBe(46);
+    expect(readMoney("around €40").max).toBe(40);
   });
   it("knows when price does not matter", () => {
     expect(readMoney("Money is no object.")).toEqual({ max: null, min: null, open: true });
@@ -172,7 +172,7 @@ describe("what a conversation establishes", () => {
       intent: "gift",
       recipient: "father",
       recipientLikes: ["bordeaux"],
-      budgetMaxEuros: 46,
+      budgetMaxEuros: 40,
     });
     expect(nextQuestion(s, { ...situation, dishKnown: false })).toBeNull();
     const vague = say(EMPTY_STATE, "I need a gift for a colleague");
@@ -195,6 +195,17 @@ describe("what a conversation establishes", () => {
     const id = "00000000-0000-4000-8000-000000000001";
     const s = say(EMPTY_STATE, "Not that one, give me another.", { lastOffered: [id] });
     expect(s.rejected).toEqual([id]);
+  });
+  it("a shop word alone is not a wish to buy", () => {
+    expect(say(EMPTY_STATE, "Hoe laat gaat de supermarkt dicht?").intent).toBeNull();
+    expect(say(EMPTY_STATE, "Is there a shop nearby?").intent).toBeNull();
+    // In a conversation about a dish it is.
+    expect(
+      talk(
+        ["What goes with oysters?", { dish: "oysters" }],
+        "I'll get something from a shop nearby",
+      ).intent,
+    ).toBe("buy");
   });
   it("guests", () => {
     expect(say(EMPTY_STATE, "8 guests, roast lamb. Do I have enough bottles?").guests).toBe(8);
