@@ -28,6 +28,7 @@ import {
   unitSize,
   type ShowcaseLayout,
 } from "./layout";
+import { dampingFor, GLIDE_PER_60HZ_FRAME } from "./damping";
 import { contactShadowTexture, lookMaterials } from "./materials";
 import { rackMatrix } from "./pose";
 import { Showcase, type Studio } from "./showcase";
@@ -613,7 +614,8 @@ function Rig({
     const c = new OrbitControls(camera, gl.domElement);
     c.target.set(0, 0, 0);
     c.enableDamping = !reducedMotion;
-    c.dampingFactor = 0.09;
+    // (set again on every frame from how long it took: see dampingFor)
+    c.dampingFactor = GLIDE_PER_60HZ_FRAME;
     // Zoom goes towards where you point (so the top and the bottom of a tall rack can both be reached), and
     // two fingers (or the right mouse button) slide the view; it never leaves the rack, see below.
     c.zoomToCursor = true;
@@ -700,7 +702,7 @@ function Rig({
     [store, fit],
   );
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     fit(state);
     const c = controls.current;
     if (!c) return;
@@ -708,6 +710,8 @@ function Rig({
     // home to must be seen from exactly the same place.
     if (heldNow.current) return;
     keepOnRack(c, width, height);
+    // the glide after a drag lasts a time, not a number of frames: a slow device draws a few frames, not seventy
+    c.dampingFactor = dampingFor(delta, GLIDE_PER_60HZ_FRAME);
     c.update();
   });
   return null;

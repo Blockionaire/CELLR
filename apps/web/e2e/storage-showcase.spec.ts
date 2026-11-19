@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PREVIEW_URL, audit } from "./helpers";
 import {
+  atRest,
   bottleIds,
   canvasOf,
   handOff,
@@ -97,7 +98,7 @@ test.describe("out, looked at, back", () => {
       await page.mouse.down();
       await page.mouse.move(canvas.x + 200, canvas.y + 60, { steps: 4 });
       await page.mouse.up();
-      await page.waitForTimeout(800);
+      await atRest(page);
       const ids = await bottleIds(page);
       await takeOut(page, ids[0]!, false);
       boxes.push((await canvasOf(page).getAttribute("data-showcase-box"))!);

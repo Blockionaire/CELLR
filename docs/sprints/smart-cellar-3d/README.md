@@ -49,6 +49,8 @@ off and leaves every existing place and bottle as it is.
   when something fails.
 - [`SPRINT-2B3-REPORT.md`](./SPRINT-2B3-REPORT.md): what sprint 2B.3 built, the pictures, the measurements against
   the gallery, how to try a preview, the device protocol, and what production activation still needs.
+- [`FIX-CAMERA-GLIDE.md`](./FIX-CAMERA-GLIDE.md): why a turned view kept drawing for seventy frames (CI shard 8
+  timeouts under software WebGL), and the glide that now lasts a time instead.
 - [`experiments/index-named-trigger.sql`](./experiments/index-named-trigger.sql): the design that was tested and NOT
   built, and why.
 

@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import type { BottleShape } from "@/ui/bottle-glyph";
+import { dampingFor, GLIDE_PER_60HZ_FRAME } from "../three/damping";
 import { FOIL, FOV, GLASS } from "../three/layout";
 import {
   QUALITY,
@@ -266,7 +267,8 @@ function Rig({
   useLayoutEffect(() => {
     const c = new OrbitControls(camera, gl.domElement);
     c.enableDamping = !reducedMotion;
-    c.dampingFactor = 0.09;
+    // (set again on every frame from how long it took: see dampingFor)
+    c.dampingFactor = GLIDE_PER_60HZ_FRAME;
     c.zoomToCursor = true;
     c.enablePan = true;
     c.screenSpacePanning = true;
@@ -327,9 +329,11 @@ function Rig({
     if (c) c.enabled = !locked;
   }, [locked, camera, gl, reducedMotion]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const c = controls.current;
     if (!c || locked) return;
+    // the glide after a drag lasts a time, not a number of frames: a slow device draws a few frames, not seventy
+    c.dampingFactor = dampingFor(delta, GLIDE_PER_60HZ_FRAME);
     // the point looked at stays on the place, however the view is slid
     const [tx, ty] = framing.target;
     const x = Math.min(tx + framing.reach.x, Math.max(tx - framing.reach.x, c.target.x));

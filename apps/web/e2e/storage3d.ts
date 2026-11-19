@@ -15,6 +15,24 @@ export const stillOf = (page: Page) => page.getByTestId("storage-still");
 export const num = async (page: Page, name: string) =>
   Number((await canvasOf(page).getAttribute(`data-${name}`)) ?? NaN);
 
+/**
+ * Waits until the view has stopped drawing: after a turn, when its glide has come to rest. It draws only when
+ * something changes, so its frame count standing still for a while means the camera stands still too (a bottle
+ * read from the camera before then would be tapped where it no longer is). The glide lasts about a second at any
+ * frame rate (src/features/cellar/three/damping.ts).
+ */
+export async function atRest(page: Page, quietMs = 1_500) {
+  const until = Date.now() + 30_000;
+  let before = await num(page, "frames");
+  for (;;) {
+    await page.waitForTimeout(quietMs);
+    const now = await num(page, "frames");
+    if (now === before) return;
+    expect(Date.now(), "the view comes to rest after a turn").toBeLessThan(until);
+    before = now;
+  }
+}
+
 /** Opens a picture of the gallery and waits until the 3D view has drawn it and warmed its shaders up. */
 export async function show(page: Page, query: string, opts: { prewarmed?: boolean } = {}) {
   await page.goto(`/design/cellar-3d?${query}`);
