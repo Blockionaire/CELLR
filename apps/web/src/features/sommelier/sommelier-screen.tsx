@@ -35,6 +35,7 @@ import { Button, buttonStyles } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { EmptyState } from "@/ui/empty-state";
 import { plainSentence } from "./plain-sentence";
+import { PlanView } from "./plan-view";
 import { cn } from "@/ui/cn";
 import { ChevronRightIcon, ScanIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
@@ -217,8 +218,13 @@ export function SommelierChat({
       .slice(-10);
     sending.current = true;
     try {
+      // What the conversation has established so far, as the last answer's plan returned it (Sommelier 3.0).
+      const lastPlan = history
+        .map((x) => (x.role === "sommelier" ? x.answer.plan : null))
+        .findLast((p) => p != null);
       const { saved, ...reply } = await ask.mutateAsync({
         messages,
+        ...(lastPlan ? { state: lastPlan.state } : {}),
         mode,
         budget: mode === "tonight" ? budget : null,
         personal,
@@ -457,6 +463,8 @@ export function SommelierChat({
                 {turn.role === "sommelier" && (
                   <Answer
                     answer={turn.answer}
+                    // A quick answer belongs to the last question asked back, not to an older one.
+                    onReply={turn === turns.at(-1) ? (text) => void send(text) : undefined}
                     feedback={
                       kept && turn.id ? (
                         <AnswerFeedback messageId={turn.id} rating={turn.rating ?? null} />
@@ -594,9 +602,35 @@ function UserBubble({ text }: { text: string }) {
  * An answer arrives in its parts, one after the other: the sommelier's words, then the bottles it points at,
  * then what to buy. Each part is shown as soon as it is there (nothing is held back to look like typing).
  */
-function Answer({ answer, feedback }: { answer: SommelierAnswer; feedback?: ReactNode }) {
+function Answer({
+  answer,
+  feedback,
+  onReply,
+}: {
+  answer: SommelierAnswer;
+  feedback?: ReactNode;
+  onReply?: ((text: string) => void) | undefined;
+}) {
   const t = useTranslations("sommelier");
   let i = 0;
+  // Sommelier 3.0: the engines' plan is drawn as it is; nothing below it is a model's wording.
+  if (answer.plan)
+    return (
+      <div className="flex flex-col gap-3">
+        {answer.personal && (
+          <p className="px-1 text-caption font-medium text-accent-fg" data-testid="personal">
+            {t("taste.used")}
+          </p>
+        )}
+        <PlanView
+          plan={answer.plan}
+          bottles={answer.bottles}
+          card={(bottle, first) => <BottleCard bottle={bottle} first={first} />}
+          onReply={onReply}
+        />
+        <div className="flex items-center justify-end gap-3 px-1">{feedback}</div>
+      </div>
+    );
   return (
     <div className="flex flex-col gap-3">
       <div

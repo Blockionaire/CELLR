@@ -390,8 +390,41 @@ const components = [
       "Answers questions with the language model over facts read from the cellar, storage, Tonight and the taste profile; recommendations come from bottles that exist.",
     inputs: ["Question", "Cellar, storage, Tonight, taste profile"],
     outputs: ["Structured answer", "AI usage records"],
-    sources: [W + "server/sommelier/service.ts", W + "server/ai/prompts/sommelier.ts"],
+    sources: [
+      W + "server/sommelier/service.ts",
+      W + "server/sommelier/intelligence.ts",
+      W + "server/ai/prompts/sommelier.ts",
+    ],
+    gates: [
+      {
+        name: "sommelier_engine",
+        kind: "feature",
+        note: "Sommelier 3.0: pairing questions are answered by the food and pairing engines (a plan, no model). Never turned on by `all`: it must be named.",
+      },
+      {
+        name: "sommelier_buying",
+        kind: "feature",
+        note: "Buying advice as wine styles and the conversation that leads to it. Needs sommelier_engine. No retailer source is connected.",
+      },
+      {
+        name: "sommelier_social",
+        kind: "feature",
+        note: "Friends named in a question, with their own consent. Needs sommelier_engine. Not wired yet.",
+      },
+      {
+        name: "sommelier_experiences",
+        kind: "feature",
+        note: "Menus, wine-to-food, comparing, serving, quantities. Needs sommelier_engine. Not wired yet.",
+      },
+    ],
     risks: [
+      {
+        id: "R-SOM-3",
+        severity: "medium",
+        title: "The engines' knowledge is not reviewed by a professional",
+        detail:
+          "Food and wine style knowledge and the benchmark's labels are AI-written (reviewed: false). The switches stay off until a wine professional has reviewed them or the owner accepts them as drafts (docs/sprints/sommelier-3-mega/RISK_REGISTER.md R-01, R-11).",
+      },
       {
         id: "R-SOM-2",
         severity: "medium",
@@ -2344,7 +2377,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.1.0",
+  version: "1.2.0",
   reviewedOn: "2026-11-19",
   repository: "Blockionaire/CELLR",
   components,

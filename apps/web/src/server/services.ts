@@ -155,7 +155,8 @@ export function servicesFor(ctx: RequestContext) {
   const intelligence = features.sommelier_engine
     ? createSommelierIntelligence({
         cellar: () => cellar.inventory(),
-        profiles: async (vintageIds) => tasteRepo.listInsights((await household()).id, [...vintageIds]),
+        profiles: async (vintageIds) =>
+          tasteRepo.listInsights((await household()).id, [...vintageIds]),
         taste: () => taste.profile(),
         offers: null,
         buying: features.sommelier_buying,

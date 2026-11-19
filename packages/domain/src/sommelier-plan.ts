@@ -19,6 +19,21 @@ import { MENTION_STATUSES } from "./social";
  */
 export const SOMMELIER_PLAN_VERSION = 1;
 
+// The codes a plan is made of, for the screens that word them (the engines themselves stay server-side).
+export {
+  PAIRING_CONS,
+  PAIRING_PROS,
+  type PairingCon,
+  type PairingPro,
+} from "./pairing-engine/assess";
+export {
+  CONFIDENCE_LEVELS as PAIRING_CONFIDENCE_LEVELS,
+  PAIRING_OUTCOMES,
+  type Confidence as PairingConfidence,
+  type PairingOutcome,
+} from "./pairing-engine/decide";
+export { EVIDENCE_TIERS, type EvidenceTier } from "./pairing-engine/wine";
+
 export const PLAN_KINDS = [
   /** What to open with a dish. */
   "pairing",
