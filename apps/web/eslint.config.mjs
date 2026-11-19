@@ -37,6 +37,16 @@ const NO_UI_LAYERS = {
   message: "Server code must not depend on UI layers.",
 };
 
+/**
+ * The engines' knowledge (dishes, ingredients, appellations, grapes) is large and is the product's own work: it
+ * stays on the server. Only server code may import this entry; screens get answers through /api/v1.
+ */
+const NO_INTELLIGENCE = {
+  group: ["@cellr/domain/intelligence", "@cellr/domain/intelligence/*"],
+  message:
+    "The engines and their knowledge are server-only. Call a service (server) or /api/v1 (screens).",
+};
+
 const TESTS = ["**/*.test.ts", "**/*.test.tsx", "src/test/**"];
 const DATA_ACCESS = [
   "src/server/**/repository.ts",
@@ -70,6 +80,7 @@ export default defineConfig([
               group: ["@/server/*", "server-only"],
               message: "Client code calls /api/v1, never server modules.",
             },
+            NO_INTELLIGENCE,
           ],
         },
       ],
@@ -79,7 +90,12 @@ export default defineConfig([
   {
     files: ["src/app/**", "src/proxy.ts"],
     ignores: [...TESTS, "src/proxy.ts"],
-    rules: { "no-restricted-imports": ["error", { patterns: [SUPABASE, NO_SERVER_INTERNALS] }] },
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [SUPABASE, NO_SERVER_INTERNALS, NO_INTELLIGENCE] },
+      ],
+    },
   },
   // Services and other server code: no Supabase, no UI.
   {

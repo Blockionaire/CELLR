@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Pure, framework-free business logic and contracts. No I/O, no React, no Next. Reusable by a native client.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./intelligence": "./src/intelligence.ts"
   },
   "scripts": {
     "lint": "eslint .",
