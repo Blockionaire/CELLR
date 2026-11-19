@@ -8,12 +8,14 @@ import type { WineReading } from "./wine";
  * can carry the wine's tannin, whether the wine is sweet enough for a dessert, what chili does to alcohol and
  * tannin. Every rule adds a note, so the explanation is the calculation, not a story told afterwards.
  *
- * A wine starts as "acceptable": nothing is wrong with it. Things that go right lift it to "good"; things that
- * go wrong take it down to "poor"; a hard clash makes it poor whatever else is true. The number is only there to
- * put wines in order. It is never shown and it is not a percentage of anything.
+ * A wine starts as "neutral": nothing is wrong with it, and nothing speaks for it. Reasons for it lift it to
+ * "acceptable" (it will do, and here is why) and to "good"; things that go wrong take it down to "poor"; a hard
+ * clash makes it poor whatever else is true. Only good and acceptable wines are ever offered; a neutral wine is
+ * at most named as the closest there is. The number is only there to put wines in order. It is never shown and
+ * it is not a percentage of anything.
  */
 
-export const PAIRING_LEVELS = ["good", "acceptable", "poor"] as const;
+export const PAIRING_LEVELS = ["good", "acceptable", "neutral", "poor"] as const;
 export type PairingLevel = (typeof PAIRING_LEVELS)[number];
 
 /** Why a wine suits a dish. The screens turn the codes into sentences. */
@@ -32,6 +34,7 @@ export const PAIRING_PROS = [
   "oak-meets-richness",
   "fruit-meets-char",
   "red-for-red-wine-sauce",
+  "fresh-with-seafood",
 ] as const;
 export type PairingPro = (typeof PAIRING_PROS)[number];
 
@@ -82,6 +85,13 @@ export interface Assessment {
 export const NEUTRAL = 60;
 export const GOOD_FROM = 72;
 export const ACCEPTABLE_FROM = 68;
+/** Below this too much is against a wine to call it neutral. */
+export const NEUTRAL_FROM = 55;
+/**
+ * A pairing a dish is known for has stood the test of the table: where the rules object to it on a soft point
+ * (Gewurztraminer's low acidity with Munster), the objection counts for this much of what it otherwise would.
+ */
+const CLASSIC_DAMPING = 0.5;
 
 /** How much tannin a dish can carry before the wine tastes hard, by what it is built on (0–5). */
 const TANNIN_CAPACITY: Record<FoodMain, number> = {
@@ -160,6 +170,11 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
     else if (answers(food.classics)) pro("affinity", 3);
   }
 
+  // A dish known for a sweet or fortified wine (foie gras with Sauternes, Stilton with port) says so by naming
+  // that kind of wine among its classics.
+  const knownForSweet =
+    classic ||
+    ((wine.type === "dessert" || wine.type === "fortified") && food.classics.includes(wine.type));
   const blue = tag("blue-cheese");
   const saltyCheese = !blue && main === "cheese" && f.salt >= 2;
   // A glazed main course (teriyaki, Peking duck) is sweet and still a main course: only a dessert, or something
@@ -194,7 +209,7 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
     // --- sweetness in the glass, with a savoury dish ---
     if (w.sweetness >= 3.5) {
       if (blue) pro("sweet-with-salt", 12);
-      else if (classic) pro("sweet-with-salt", 2);
+      else if (knownForSweet) pro("sweet-with-salt", 2);
       // A hard, salty cheese takes a mellow fortified wine; other sweet wines are too much for it.
       else if (saltyCheese && wine.type === "fortified" && w.tannin < 3) pro("sweet-with-salt", 3);
       else if (saltyCheese || f.heat >= 2 || f.sweet >= 1.5 || tag("sweet-glaze"))
@@ -217,10 +232,13 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
     const firmForMeat = richMeat && w.tannin >= 3 && f.heat < 2;
     let diff = w.body - f.weight;
     if (w.fizz && diff > 0) diff = Math.max(0, diff - 0.5);
-    if (diff > 1) con("too-heavy", (diff - 1) * 14);
+    // A light wine cannot bury a dish: with the lightest food a lean white is simply the lightest there is.
+    const light = w.body <= 2.5;
+    if (diff > (light ? 1.5 : 1)) con("too-heavy", (diff - (light ? 1.5 : 1)) * 14);
     // A firm red beside rich meat is carried by its tannin more than by its body.
     else if (diff < -1) con("too-light", (-diff - 1) * (firmForMeat ? 5 : 9));
-    else if (Math.abs(diff) <= 0.75) pro("weight-matches", 5);
+    else if (Math.abs(diff) <= 0.75 || (light && f.weight <= 2 && diff > 0))
+      pro("weight-matches", 5);
 
     // --- tannin ---
     const redSauce = tag("red-wine-sauce");
@@ -272,7 +290,8 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
       need = Math.max(need, 4);
     if (tag("vinegar")) need = Math.max(need, 4.3);
     if (need > 0) {
-      const short = need - w.acidity;
+      // Bubbles scrub the palate as acidity does.
+      const short = need - (w.acidity + (w.fizz ? 0.5 : 0));
       if (short > 0.25) con("needs-more-acidity", short * 9);
       // Credit only where the dish really asks for it and the wine is really fresh.
       else if (
@@ -281,6 +300,18 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
       )
         pro(f.fat >= 2 || tag("fried") ? "acidity-cuts-richness" : "acidity-meets-acidity", 6);
     }
+
+    // --- fish and shellfish ---
+    // The oldest rule there is: a fresh, unoaked white (or bubbles) with fish from the sea.
+    if (
+      (main === "white-fish" || main === "shellfish") &&
+      !redSauce &&
+      (wine.type === "white" || wine.type === "sparkling") &&
+      w.acidity >= 4 &&
+      w.oak <= 1 &&
+      w.sweetness < 1.5
+    )
+      pro("fresh-with-seafood", 6);
 
     // --- bubbles ---
     if (
@@ -344,12 +375,13 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
   pros.sort((a, b) => b[1] - a[1]);
   cons.sort((a, b) => b[1] - a[1]);
   const clash = cons.find(([note]) => HARD.has(note))?.[0] ?? null;
+  const soft = classic ? CLASSIC_DAMPING : 1;
   const raw =
     NEUTRAL +
     pros.reduce((sum, [, p]) => sum + p, 0) -
-    cons.reduce((sum, [note, p]) => sum + (HARD.has(note) ? 0 : p), 0);
+    cons.reduce((sum, [note, p]) => sum + (HARD.has(note) ? 0 : p * soft), 0);
   let score = Math.max(0, Math.min(100, Math.round(raw)));
-  if (clash) score = Math.min(score, ACCEPTABLE_FROM - 15);
+  if (clash) score = Math.min(score, NEUTRAL_FROM - 15);
   // A wine known by its colour alone may do; it cannot be vouched for.
   if (wine.colourOnly) score = Math.min(score, GOOD_FROM - 1);
 
@@ -358,7 +390,13 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
   const substantive = pros.some(([note]) => note !== "weight-matches");
   return {
     level:
-      score >= GOOD_FROM ? "good" : score >= ACCEPTABLE_FROM && substantive ? "acceptable" : "poor",
+      score >= GOOD_FROM
+        ? "good"
+        : score >= ACCEPTABLE_FROM && substantive
+          ? "acceptable"
+          : score >= NEUTRAL_FROM && !clash
+            ? "neutral"
+            : "poor",
     score,
     pros: [...new Set(pros.map(([note]) => note))],
     cons: [...new Set(cons.map(([note]) => note))],

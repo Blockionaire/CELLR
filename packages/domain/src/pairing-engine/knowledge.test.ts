@@ -650,21 +650,64 @@ describe("readWine with the knowledge: evidence tiers", () => {
     expect(r.structure.sweetness).toBeLessThan(1);
   });
 
-  it("a producer-level profile on a wine with a recorded region is appellation-tier", () => {
+  it("what a profile says about its own evidence never raises the tier, and never overrules a rule", () => {
     const r = read({
       type: "white",
       region: "Loire",
       countryCode: "FR",
       profile: {
-        structure: { body: 3, tannin: null, sweetness: null, acidity: null },
+        structure: { body: 5, tannin: null, sweetness: null, acidity: null },
         grapes: ["Chenin Blanc"],
         exact: false,
         evidence: "producer",
       },
     });
-    expect(r.tier).toBe("appellation");
-    expect(r.structure.body).toBe(3);
+    // Only a region is recorded: an estimate, whatever the profile claims to rest on.
+    expect(r.tier).toBe("estimate");
+    expect(r.structure.body).toBeLessThan(4);
     expect(r.rules).toEqual(["loire", "chenin blanc"]);
+  });
+
+  it("a weak profile cannot turn a Sauternes dry", () => {
+    const r = read({
+      type: "dessert",
+      appellation: "Sauternes",
+      region: "Bordeaux",
+      countryCode: "FR",
+      profile: {
+        structure: { body: null, tannin: null, sweetness: 1, acidity: null },
+        grapes: [],
+        exact: false,
+        evidence: "style_estimate",
+      },
+    });
+    expect(r.tier).toBe("appellation");
+    expect(r.structure.sweetness).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("an exact profile that states one number is not knowledge of the whole wine", () => {
+    const profile = (structure: {
+      body: number;
+      tannin: number | null;
+      sweetness: number | null;
+      acidity: number | null;
+    }) =>
+      read({
+        type: "red",
+        appellation: "Barolo",
+        countryCode: "IT",
+        profile: { structure, grapes: [], exact: true, evidence: "exact_wine" },
+      });
+    const one = profile({ body: 4, tannin: null, sweetness: null, acidity: null });
+    expect(one.tier).toBe("appellation");
+    expect(one.structure.body).toBe(4);
+    expect(profile({ body: 4, tannin: 5, sweetness: 1, acidity: 4 }).tier).toBe("exact");
+  });
+
+  it("reads a country code however it is spelled", () => {
+    const r = read({ type: "white", appellation: "Sancerre", countryCode: "fr" });
+    expect(r.colourOnly).toBe(false);
+    expect(r.tier).toBe("appellation");
   });
 });
 

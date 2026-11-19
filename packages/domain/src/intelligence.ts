@@ -6,7 +6,11 @@
  *
  * apps/web forbids this import to client code (ESLint) and apps/web/src/test/domain-entries.test.ts proves the main entry cannot reach
  * the knowledge by accident.
+ *
+ * `server-only` makes a build fail when this file ends up in a browser bundle, whatever path the import took.
  */
+import "server-only";
+
 export * from "./food/types";
 export * from "./food/compose";
 export * from "./food/parse";
@@ -14,4 +18,5 @@ export * from "./food/knowledge";
 export * from "./pairing-engine/wine";
 export * from "./pairing-engine/assess";
 export * from "./pairing-engine/decide";
+export * from "./pairing-engine/taste";
 export * from "./pairing-engine/knowledge";

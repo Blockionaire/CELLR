@@ -486,3 +486,53 @@ describe("reading a sentence, not a menu card", () => {
     expect(read("\u0000‮<script>alert(1)</script> zalm").main).toBe("oily-fish");
   });
 });
+
+describe("a negation reaches the next thing named, and no further", () => {
+  const read = (text: string) => parseFood(text, FOOD);
+  it.each([
+    ["I'm not sure what to cook, maybe steak", "red-meat"],
+    ["No idea yet, probably roast chicken", "poultry"],
+    ["Hold on, we're having lamb", "red-meat"],
+    ["Not too heavy please, we have sea bass", "white-fish"],
+    ["no meat, vegetarian lasagne", "pasta-grain"],
+    ["geen haast, we eten mosselen", "shellfish"],
+    ["niet te zwaar, kip met rijst", "poultry"],
+    ["I don't eat pork, we're having chicken", "poultry"],
+    ["Toch maar geen zalm, we eten stoofvlees.", "red-meat"],
+    ["steak without the béarnaise", "red-meat"],
+  ] as const)("%s", (text, main) => {
+    expect(read(text).main).toBe(main);
+  });
+  it("drops what is negated", () => {
+    expect(read("steak without the béarnaise").parts.sauces).toEqual([]);
+    expect(read("I don't eat pork, we're having chicken").parts.ingredients).not.toContain("pork");
+    expect(read("pasta zonder room, met tomaat").tags).not.toContain("cream");
+  });
+});
+
+describe("the parser's own limits", () => {
+  it("reads a bounded stretch of a long text, quickly", () => {
+    const started = performance.now();
+    const p = parseFood(`roast chicken ${"saus".repeat(5000)} ${"kaas ".repeat(20000)}`, FOOD);
+    expect(p.main).toBe("poultry");
+    expect(performance.now() - started).toBeLessThan(250);
+  });
+  it("does not take apart a word no compound could be", () => {
+    const started = performance.now();
+    expect(parseFood("saus".repeat(150), FOOD).source).toBe("none");
+    expect(parseFood("kaas".repeat(150), FOOD).source).toBe("none");
+    expect(performance.now() - started).toBeLessThan(100);
+  });
+  it("reads at most eight courses of a bounded menu", () => {
+    const started = performance.now();
+    const courses = parseCourses(
+      Array.from({ length: 4000 }, () => "roast lamb").join("; then "),
+      FOOD,
+    );
+    expect(courses.length).toBeLessThanOrEqual(8);
+    expect(performance.now() - started).toBeLessThan(250);
+  });
+  it("is not made longer by characters that grow when normalised", () => {
+    expect(() => parseFood("ﬃ".repeat(4000) + " zalm", FOOD)).not.toThrow();
+  });
+});

@@ -80,7 +80,28 @@ const STOP = new Set(
 );
 
 /** Words after which the next thing named is NOT on the plate. */
-const NEGATION = new Set(["without", "zonder", "no", "geen", "not", "niet", "minus", "hold"]);
+const NEGATION = new Set([
+  "without",
+  "zonder",
+  "no",
+  "geen",
+  "not",
+  "niet",
+  "minus",
+  "never",
+  "nooit",
+]);
+/**
+ * A negation reaches the next thing named, across at most this many other words ("no red meat", "zonder de
+ * saus"), and never past a comma or a full stop. "Not sure what to cook, maybe steak" still means steak.
+ */
+const NEGATION_REACH = 2;
+/** Marks where a clause ended, so that nothing is read across it. Not a word any phrase contains. */
+const BREAK = "|";
+/** The parser reads this much of a text, measured after it was normalised. */
+const MAX_TEXT = 600;
+/** Longer "words" than this are not food words, and are not taken apart. */
+const MAX_COMPOUND = 40;
 
 /** Endings a word may carry beyond its dictionary form (Dutch and English plurals and inflections). */
 const ENDINGS = ["", "s", "es", "en", "e", "n", "jes", "je", "tjes", "tje", "etjes", "etje", "'s"];
@@ -140,7 +161,7 @@ const GLUE = new Set([
 
 /** Splits a compound into known words (fewest pieces), or null when it cannot be split completely. */
 function decompound(word: string, lex: Lexicon): string[] | null {
-  if (word.length < 7) return null;
+  if (word.length < 7 || word.length > MAX_COMPOUND) return null;
   const best: Array<string[] | null> = Array.from({ length: word.length + 1 }, () => null);
   best[0] = [];
   for (let end = 3; end <= word.length; end++) {
@@ -174,6 +195,8 @@ interface Found {
   entry: Entry;
   /** Position of the first token, to keep the order things were said in. */
   at: number;
+  /** How many tokens it covers. */
+  length: number;
   negated: boolean;
   /** Directly followed by "with": what comes before is what the dish is, what comes after goes with it. */
   headed: boolean;
@@ -200,17 +223,29 @@ const MAIN_RANK: Record<FoodMain, number> = {
 
 const STARCH_OR_SNACK: ReadonlySet<FoodMain> = new Set<FoodMain>(["pasta-grain", "snack"]);
 
-function scan(text: string, lex: Lexicon): { found: Found[]; unknown: string[] } {
-  const raw = normalizeText(text).split(" ").filter(Boolean);
+function scan(
+  text: string,
+  lex: Lexicon,
+): { found: Found[]; unknown: string[]; said: string | null } {
+  // Clause by clause, so that punctuation survives normalising as a break: "n't" is "not".
+  const clauses = text
+    .slice(0, MAX_TEXT * 4)
+    .replace(/n['’]t\b/gi, " not")
+    .split(/[,.;:!?()\n]+/)
+    .map((clause) => normalizeText(clause))
+    .filter(Boolean);
+  const raw = clauses.join(` ${BREAK} `).slice(0, MAX_TEXT).split(" ").filter(Boolean);
   // Compounds first: "citroenbotersaus" becomes "citroen botersaus" when both are known.
   const tokens: string[] = [];
   for (const word of raw) {
-    if (lex.phrases.has(word) || STOP.has(word) || lookupWord(word, lex)) tokens.push(word);
+    if (word === BREAK || lex.phrases.has(word) || STOP.has(word) || lookupWord(word, lex))
+      tokens.push(word);
     else tokens.push(...(decompound(word, lex) ?? [word]));
   }
   const found: Found[] = [];
   const unknown: string[] = [];
-  let negate = false;
+  // How many more words a negation still reaches; 0 when none is open.
+  let negate = 0;
   for (let i = 0; i < tokens.length;) {
     let matched: { entries: Entry[]; length: number } | null = null;
     for (let n = Math.min(lex.longest, tokens.length - i); n >= 1 && !matched; n--) {
@@ -234,25 +269,39 @@ function scan(text: string, lex: Lexicon): { found: Found[]; unknown: string[] }
       found.push({
         entry: matched.entries[0]!,
         at: i,
-        negated: negate,
+        length: matched.length,
+        negated: negate > 0,
         headed: next === "with" || next === "met",
       });
-      negate = false;
+      negate = 0;
       i += matched.length;
     } else {
-      if (NEGATION.has(token)) negate = true;
-      else if (!STOP.has(token) && !GLUE.has(token) && token.length > 2 && !/^\d+$/.test(token)) {
-        unknown.push(token);
+      if (token === BREAK) negate = 0;
+      else if (NEGATION.has(token)) negate = NEGATION_REACH + 1;
+      else {
+        negate = Math.max(0, negate - 1);
+        if (!STOP.has(token) && !GLUE.has(token) && token.length > 2 && !/^\d+$/.test(token))
+          unknown.push(token);
       }
       i += 1;
     }
   }
-  return { found: found.filter((f) => !f.negated), unknown };
+  const kept = found.filter((f) => !f.negated);
+  // The dish in the person's own words: from the first thing recognised to the last.
+  const said =
+    kept.length === 0
+      ? null
+      : tokens
+          .slice(kept[0]!.at, kept.at(-1)!.at + kept.at(-1)!.length)
+          .filter((t) => t !== BREAK)
+          .join(" ");
+  return { found: kept, unknown, said };
 }
 
 const EMPTY: FoodProfile = {
   source: "none",
   dishId: null,
+  said: null,
   label: { en: "", nl: "" },
   main: null,
   structure: composeStructure({ main: null }).structure,
@@ -269,7 +318,7 @@ const uniq = <T extends { id: string }>(list: T[]) =>
 /** What a text says is on the plate. `source: "none"` when no food was recognised in it. */
 export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
   const lex = lexiconOf(k);
-  const { found, unknown } = scan(text.slice(0, 600), lex);
+  const { found, unknown, said } = scan(text, lex);
   const of = <K extends Entry["kind"]>(kind: K) =>
     found
       .filter((f) => f.entry.kind === kind)
@@ -282,6 +331,7 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
   const ingredients = uniq(of("ingredient"));
   if (dishes.length + sauces.length + techniques.length + ingredients.length === 0)
     return { ...EMPTY, unknown };
+  const saidAs = said === null ? null : said.slice(0, 120);
 
   const dish = dishes[0] ?? null;
   let parts: DishParts;
@@ -366,10 +416,12 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
     source: dish ? "dish" : "composed",
     dishId: dish?.id ?? null,
     label: { en: name("en"), nl: name("nl") },
+    said: saidAs,
     main,
     structure,
     tags,
-    classics: [...(dish?.classics ?? [])],
+    // A dish names its own classics; a plate composed around an ingredient has that ingredient's.
+    classics: [...(dish ? (dish.classics ?? []) : (parts.main?.classics ?? []))],
     parts: {
       ingredients: uniq([...(parts.main ? [parts.main] : []), ...(parts.extras ?? [])]).map(
         (i) => i.id,
@@ -389,12 +441,15 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
 
 /** Every dish a text names, in the order said: for a menu ("oysters to start, then roast lamb"). */
 export function parseCourses(text: string, k: FoodKnowledge): FoodProfile[] {
-  const pieces = text
+  // A menu has a handful of courses: the same bound as a single dish on the text, and no more than eight pieces.
+  const bounded = text.slice(0, MAX_TEXT * 4);
+  const pieces = bounded
     .split(
       /[;\n]|\b(?:then|followed by|after that|afterwards|to start|as a starter|for dessert|for the main|and for|daarna|vervolgens|gevolgd door|vooraf|als voorgerecht|als hoofdgerecht|als toetje|als dessert|toe)\b|,(?=\s*(?:then|and then|daarna|en dan))/gi,
     )
     .map((p) => p.trim())
-    .filter((p) => p.length > 2);
+    .filter((p) => p.length > 2)
+    .slice(0, 8);
   const courses = pieces.map((p) => parseFood(p, k)).filter((p) => p.source !== "none");
-  return courses.length > 0 ? courses : [parseFood(text, k)].filter((p) => p.source !== "none");
+  return courses.length > 0 ? courses : [parseFood(bounded, k)].filter((p) => p.source !== "none");
 }

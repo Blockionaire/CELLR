@@ -6,8 +6,9 @@
  *   pnpm --filter @cellr/sommelier-eval run matrix --dish raw-oysters   one dish, wine by wine, with the reasons
  *   pnpm --filter @cellr/sommelier-eval run matrix --worst 40      the worst disagreements of the development half
  *
- * The dishes are split in two halves by position. Rules are developed looking at the DEVELOPMENT half only; the
- * HOLDOUT half is read as a summary, to see whether the rules generalise or were fitted to the labels.
+ * The dishes are split in two halves by position. Rules are developed looking at the DEVELOPMENT half only; of
+ * the HOLDOUT half this tool prints the summary and nothing else, so its disagreements cannot be tuned away.
+ * `--lang nl` reads the Dutch names of the dishes instead of the English ones.
  */
 import { parseArgs } from "node:util";
 import {
@@ -26,12 +27,13 @@ const { values: args } = parseArgs({
     dish: { type: "string" },
     worst: { type: "string" },
     lang: { type: "string", default: "en" },
-    holdout: { type: "boolean", default: false },
   },
 });
 
 const LEVELS = ["good", "acceptable", "poor"] as const;
 type Level = (typeof LEVELS)[number];
+// The engine's "neutral" (nothing against it, nothing for it, never offered) is compared as "poor": the labels
+// know only what a sommelier would pour.
 const label = (card: DishCard, key: string): Level =>
   card.good.includes(key) ? "good" : card.ok.includes(key) ? "acceptable" : "poor";
 
@@ -66,7 +68,7 @@ function cells(card: DishCard): Cell[] {
       dish: card.id,
       wine: key,
       label: label(card, key),
-      engine: a.level,
+      engine: a.level === "neutral" ? "poor" : a.level,
       score: a.score,
       notes: `+${a.pros.join(",")} -${a.cons.join(",")}`,
     };
@@ -130,9 +132,9 @@ if (args.dish) {
   const devCells = summary("DEVELOPMENT half", dev);
   summary("HOLDOUT half", holdout);
   if (args.worst) {
-    const pool = args.holdout ? holdout.flatMap(cells) : devCells;
+    const pool = devCells;
     const gap = (c: Cell) => Math.abs(LEVELS.indexOf(c.label) - LEVELS.indexOf(c.engine));
-    console.log(`\nWorst disagreements (${args.holdout ? "holdout" : "development"} half):`);
+    console.log("\nWorst disagreements (development half):");
     for (const c of pool
       .filter((c) => gap(c) > 0)
       .sort((a, b) => gap(b) - gap(a))

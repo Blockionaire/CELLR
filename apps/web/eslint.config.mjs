@@ -42,7 +42,13 @@ const NO_UI_LAYERS = {
  * stays on the server. Only server code may import this entry; screens get answers through /api/v1.
  */
 const NO_INTELLIGENCE = {
-  group: ["@cellr/domain/intelligence", "@cellr/domain/intelligence/*"],
+  // The entry by its name, and the package's files by any relative path that reaches them.
+  group: [
+    "@cellr/domain/intelligence",
+    "@cellr/domain/intelligence/*",
+    "**/packages/domain/**",
+    "**/domain/src/**",
+  ],
   message:
     "The engines and their knowledge are server-only. Call a service (server) or /api/v1 (screens).",
 };
@@ -68,7 +74,7 @@ export default defineConfig([
 
   // Client-side layers never touch the server or Supabase.
   {
-    files: ["src/ui/**", "src/features/**", "src/lib/**"],
+    files: ["src/ui/**", "src/features/**", "src/lib/**", "src/i18n/**"],
     ignores: TESTS,
     rules: {
       "no-restricted-imports": [

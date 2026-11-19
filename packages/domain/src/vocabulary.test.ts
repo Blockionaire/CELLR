@@ -8,11 +8,11 @@ import { ALL_WINE_KEYS } from "./pairing-engine/knowledge";
  * wines must be names a wine can answer to. A key nobody answers to is a classic that silently never counts.
  */
 describe("dishes and wines speak the same language", () => {
-  it("every classic of every dish is a key some wine answers to", () => {
+  it("every classic of every dish and ingredient is a key some wine answers to", () => {
     const unknown = new Set<string>();
-    for (const dish of FOOD.dishes)
-      for (const key of dish.classics ?? [])
-        if (!ALL_WINE_KEYS.has(key)) unknown.add(`${dish.id}: ${key}`);
+    for (const entry of [...FOOD.dishes, ...FOOD.ingredients])
+      for (const key of entry.classics ?? [])
+        if (!ALL_WINE_KEYS.has(key)) unknown.add(`${entry.id}: ${key}`);
     expect([...unknown]).toEqual([]);
   });
   it("every affinity the pairing engine knows names a key some wine answers to", () => {

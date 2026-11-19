@@ -148,6 +148,11 @@ export interface Ingredient extends Named {
   /** What it brings. Missing axes are 0, except weight and intensity, which default to 2. */
   s: Partial<FoodStructure>;
   tags?: readonly FoodTag[];
+  /**
+   * Wines this ingredient is known for, however it is cooked (duck and Pinot Noir, oysters and Muscadet), as keys
+   * the pairing engine understands. Used when a dish is composed around it; a dish template names its own.
+   */
+  classics?: readonly string[];
 }
 
 export interface Technique extends Named {
@@ -201,6 +206,11 @@ export interface FoodProfile {
   dishId: string | null;
   /** A short name for the dish, in English and Dutch, built from what was recognised. */
   label: { en: string; nl: string };
+  /**
+   * The dish in the words it was said in (lower case, without accents), from the first thing recognised to the
+   * last: "zeebaars met citroenboter". Null for a profile that was not read from text.
+   */
+  said: string | null;
   main: FoodMain | null;
   structure: FoodStructure;
   tags: FoodTag[];

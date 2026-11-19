@@ -47,6 +47,9 @@ const onScale = (reading: Pick<WineReading, "structure">, scale: TasteScale): nu
   return 1 + (s.sweetness * 4) / 5;
 };
 
+const onProfileScale = (n: number | undefined): n is number =>
+  typeof n === "number" && Number.isFinite(n) && n >= 1 && n <= 5;
+
 export function tasteScore(
   wine: Pick<WineReading, "structure" | "keys"> & { type: WineType },
   taste: TasteSignals | null,
@@ -74,11 +77,12 @@ export function tasteScore(
     const said = taste.said[scale];
     const trend = taste.trends[scale];
     const value = onScale(wine, scale);
-    if (said !== undefined) {
+    // Only a number on the profile's own scale counts; anything else is as good as not said.
+    if (onProfileScale(said)) {
       distance += 2 * Math.abs(value - said);
       weight += 2;
     }
-    if (trend !== undefined) {
+    if (onProfileScale(trend)) {
       distance += Math.abs(value - trend);
       weight += 1;
     }

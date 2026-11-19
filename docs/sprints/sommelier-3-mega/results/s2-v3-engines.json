@@ -1,18 +1,18 @@
 {
   "engine": "v3-engines",
   "scenarios": 246,
-  "passed": 71,
+  "passed": 79,
   "supported": 150,
   "byCategory": {
     "pairing-simple": {
       "scenarios": 32,
       "supported": 32,
-      "passed": 16
+      "passed": 19
     },
     "pairing-hard": {
       "scenarios": 57,
       "supported": 57,
-      "passed": 22
+      "passed": 24
     },
     "pairing-misleading": {
       "scenarios": 16,
@@ -37,7 +37,7 @@
     "inventory": {
       "scenarios": 9,
       "supported": 6,
-      "passed": 0
+      "passed": 2
     },
     "evidence": {
       "scenarios": 10,
@@ -72,7 +72,7 @@
     "robustness": {
       "scenarios": 12,
       "supported": 8,
-      "passed": 6
+      "passed": 7
     },
     "experience": {
       "scenarios": 8,
@@ -83,13 +83,13 @@
   "measures": {
     "grounded": [150, 150],
     "food": [137, 144],
-    "verdict": [120, 144],
-    "first": [88, 144],
-    "no-poor-bottle": [99, 137],
-    "no-bottles": [10, 10],
-    "honest-none": [7, 7],
+    "verdict": [129, 144],
+    "first": [98, 144],
+    "no-poor-bottle": [100, 137],
+    "no-bottles": [9, 10],
+    "honest-none": [6, 7],
     "confidence": [15, 15],
-    "never": [6, 8],
+    "never": [5, 8],
     "flag": [0, 1],
     "tier": [27, 27],
     "injection": [3, 3],
@@ -128,9 +128,9 @@
     },
     {
       "id": "ps-006",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["verdict", "first", "no-poor-bottle"]
+      "failed": []
     },
     {
       "id": "ps-007",
@@ -146,9 +146,9 @@
     },
     {
       "id": "ps-009",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["verdict", "first"]
+      "failed": []
     },
     {
       "id": "ps-010",
@@ -200,15 +200,15 @@
     },
     {
       "id": "ps-018",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["verdict", "first", "no-poor-bottle"]
+      "failed": []
     },
     {
       "id": "ps-019",
       "pass": false,
       "supported": true,
-      "failed": ["verdict", "first", "no-poor-bottle"]
+      "failed": ["first"]
     },
     {
       "id": "ps-020",
@@ -314,9 +314,9 @@
     },
     {
       "id": "ph-005",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["no-poor-bottle"]
+      "failed": []
     },
     {
       "id": "ph-006",
@@ -328,7 +328,7 @@
       "id": "ph-007",
       "pass": false,
       "supported": true,
-      "failed": ["verdict", "first"]
+      "failed": ["verdict"]
     },
     {
       "id": "ph-008",
@@ -340,37 +340,37 @@
       "id": "ph-009",
       "pass": false,
       "supported": true,
-      "failed": ["verdict", "first"]
+      "failed": ["first", "no-poor-bottle"]
     },
     {
       "id": "ph-010",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ph-011",
       "pass": true,
       "supported": true,
       "failed": []
     },
     {
-      "id": "ph-011",
-      "pass": false,
-      "supported": true,
-      "failed": ["verdict"]
-    },
-    {
       "id": "ph-012",
       "pass": false,
       "supported": true,
-      "failed": ["verdict", "no-poor-bottle"]
+      "failed": ["no-poor-bottle"]
     },
     {
       "id": "ph-013",
       "pass": false,
       "supported": true,
-      "failed": ["verdict", "first"]
+      "failed": ["first"]
     },
     {
       "id": "ph-014",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["first"]
+      "failed": []
     },
     {
       "id": "ph-015",
@@ -386,21 +386,21 @@
     },
     {
       "id": "ph-017",
-      "pass": false,
-      "supported": true,
-      "failed": ["first"]
-    },
-    {
-      "id": "ph-018",
       "pass": true,
       "supported": true,
       "failed": []
     },
     {
+      "id": "ph-018",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
       "id": "ph-019",
       "pass": false,
       "supported": true,
-      "failed": ["verdict"]
+      "failed": ["verdict", "no-poor-bottle"]
     },
     {
       "id": "ph-020",
@@ -440,9 +440,9 @@
     },
     {
       "id": "ph-026",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["first", "no-poor-bottle"]
+      "failed": []
     },
     {
       "id": "ph-027",
@@ -506,9 +506,9 @@
     },
     {
       "id": "ph-037",
-      "pass": true,
+      "pass": false,
       "supported": true,
-      "failed": []
+      "failed": ["first", "no-poor-bottle"]
     },
     {
       "id": "ph-038",
@@ -638,9 +638,9 @@
     },
     {
       "id": "pm-002",
-      "pass": true,
+      "pass": false,
       "supported": true,
-      "failed": []
+      "failed": ["verdict", "first", "no-bottles"]
     },
     {
       "id": "pm-003",
@@ -676,7 +676,7 @@
       "id": "pm-008",
       "pass": false,
       "supported": true,
-      "failed": ["first"]
+      "failed": ["first", "no-poor-bottle"]
     },
     {
       "id": "pm-009",
@@ -686,9 +686,9 @@
     },
     {
       "id": "pm-010",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["verdict", "first", "no-poor-bottle"]
+      "failed": []
     },
     {
       "id": "pm-011",
@@ -700,7 +700,7 @@
       "id": "pm-012",
       "pass": false,
       "supported": true,
-      "failed": ["verdict", "first"]
+      "failed": ["verdict"]
     },
     {
       "id": "pm-013",
@@ -826,7 +826,7 @@
       "id": "ns-017",
       "pass": false,
       "supported": false,
-      "failed": ["capability", "verdict", "first", "buy:given"]
+      "failed": ["capability", "buy:given"]
     },
     {
       "id": "ns-018",
@@ -878,9 +878,9 @@
     },
     {
       "id": "mm-002",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["first"]
+      "failed": []
     },
     {
       "id": "mm-003",
@@ -920,9 +920,9 @@
     },
     {
       "id": "mm-009",
-      "pass": true,
+      "pass": false,
       "supported": true,
-      "failed": []
+      "failed": ["verdict"]
     },
     {
       "id": "mm-010",
@@ -938,21 +938,21 @@
     },
     {
       "id": "inv-002",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["first"]
+      "failed": []
     },
     {
       "id": "inv-003",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["first"]
+      "failed": []
     },
     {
       "id": "inv-004",
       "pass": false,
       "supported": true,
-      "failed": ["verdict", "first"]
+      "failed": ["first", "never"]
     },
     {
       "id": "inv-005",
@@ -1142,14 +1142,7 @@
       "id": "bu-13",
       "pass": false,
       "supported": false,
-      "failed": [
-        "capability",
-        "food",
-        "buy:given",
-        "buy:style",
-        "state:intent",
-        "state:budgetMaxEuros"
-      ]
+      "failed": ["capability", "buy:given", "buy:style", "state:intent", "state:budgetMaxEuros"]
     },
     {
       "id": "bu-14",
@@ -1373,7 +1366,7 @@
       "id": "mp-12",
       "pass": false,
       "supported": false,
-      "failed": ["capability", "food", "verdict", "first", "friends:resolved", "friends:taste"]
+      "failed": ["capability", "food", "friends:resolved", "friends:taste"]
     },
     {
       "id": "mp-13",
@@ -1430,7 +1423,7 @@
       "id": "rs-06",
       "pass": false,
       "supported": false,
-      "failed": ["capability", "verdict", "first"]
+      "failed": ["capability"]
     },
     {
       "id": "rs-07",
@@ -1578,9 +1571,9 @@
     },
     {
       "id": "rb-07",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["verdict", "first"]
+      "failed": []
     },
     {
       "id": "rb-08",

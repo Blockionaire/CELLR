@@ -153,6 +153,7 @@ export function composeDish(dish: DishTemplate, k: FoodKnowledge): FoodProfile {
     source: "dish",
     dishId: dish.id,
     label: { en: dish.en[0]!, nl: dish.nl[0] ?? dish.en[0]! },
+    said: null,
     main: dish.mainAs ?? parts.main?.main ?? null,
     structure,
     tags,

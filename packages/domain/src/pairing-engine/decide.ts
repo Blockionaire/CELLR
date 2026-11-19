@@ -46,12 +46,9 @@ export interface PairingDecision<T> {
   all: PairingPick<T>[];
 }
 
-const LEVEL_ORDER: Record<PairingLevel, number> = { good: 0, acceptable: 1, poor: 2 };
+const LEVEL_ORDER: Record<PairingLevel, number> = { good: 0, acceptable: 1, neutral: 2, poor: 3 };
 /** How much taste can move a wine among others of its level, in points of the ordering score. */
 export const TASTE_WEIGHT = 6;
-
-/** Below this a wine is not even "closest": too much is against it. */
-export const CLOSEST_FROM = 55;
 
 const TIER_CONFIDENCE: Record<EvidenceTier, Confidence> = {
   exact: "high",
@@ -67,6 +64,9 @@ export function decidePairing<T>(
   candidates: readonly PairingCandidate<T>[],
   limit = 3,
 ): PairingDecision<T> {
+  // A dish that was not understood cannot be paired: the caller asks what is being eaten instead.
+  if (food.main === null)
+    return { outcome: "none", picks: [], confidence: "low", closest: null, all: [] };
   const all = candidates
     .map((c, n) => ({
       pick: { item: c.item, assessment: assessPairing(food, c.wine), tier: c.tier },
@@ -88,7 +88,9 @@ export function decidePairing<T>(
   // Only wines of the best level there is: next to a good match an "it will do" is not a recommendation.
   const best = all[0]?.assessment.level ?? "poor";
   const picks =
-    best === "poor" ? [] : all.filter((p) => p.assessment.level === best).slice(0, limit);
+    best === "good" || best === "acceptable"
+      ? all.filter((p) => p.assessment.level === best).slice(0, limit)
+      : [];
   const first = picks[0];
   const outcome: PairingOutcome = !first
     ? "none"
@@ -96,13 +98,13 @@ export function decidePairing<T>(
       ? "good"
       : "acceptable";
 
-  // "Nothing suits" is only as sure as the least-known wine that was turned down.
-  const wines: Confidence = first
-    ? TIER_CONFIDENCE[first.tier]
-    : all.reduce<Confidence>((c, p) => least(c, TIER_CONFIDENCE[p.tier]), "high");
+  // As sure as the least-known wine it puts forward; "nothing suits" is as sure as the least-known wine that
+  // was turned down.
+  const wines = (first ? picks : all).reduce<Confidence>(
+    (c, p) => least(c, TIER_CONFIDENCE[p.tier]),
+    "high",
+  );
   const closest =
-    outcome === "none"
-      ? (all.find((p) => p.assessment.clash === null && p.assessment.score >= CLOSEST_FROM) ?? null)
-      : null;
+    outcome === "none" ? (all.find((p) => p.assessment.level === "neutral") ?? null) : null;
   return { outcome, picks, confidence: least(food.confidence, wines), closest, all };
 }

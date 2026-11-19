@@ -16,6 +16,7 @@ function dish(
     source: "dish",
     dishId: null,
     label: { en: "test", nl: "test" },
+    said: null,
     main,
     structure: {
       weight: 2,
@@ -278,7 +279,8 @@ describe("what it takes to be offered", () => {
     const a = assessPairing(dish("poultry", { weight: 3, intensity: 2.5 }), plain);
     expect(a.cons).toEqual([]);
     expect(a.clash).toBeNull();
-    expect(a.level).toBe("poor");
+    // Not poor, which would be a lie about the wine; neutral, which is never offered.
+    expect(a.level).toBe("neutral");
   });
   it("a dish that only names a colour gives that colour a little, never what a named classic gives", () => {
     const burger = (classics: string[]) => dish("red-meat", { weight: 3.5, fat: 2 }, [], classics);

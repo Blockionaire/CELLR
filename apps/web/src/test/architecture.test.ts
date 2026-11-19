@@ -77,8 +77,17 @@ describe("layer boundaries are enforced", () => {
   });
   it("only server code may import the engines and their knowledge", async () => {
     const code = `import { FOOD } from "@cellr/domain/intelligence";\nexport const f = FOOD;`;
-    for (const file of ["src/ui/x.tsx", "src/features/x.ts", "src/lib/x.ts", "src/app/x/page.tsx"])
+    for (const file of [
+      "src/ui/x.tsx",
+      "src/features/x.ts",
+      "src/lib/x.ts",
+      "src/i18n/x.ts",
+      "src/app/x/page.tsx",
+    ])
       expect(await violations(file, code), file).toContain("no-restricted-imports");
+    // ...nor by a relative path around the package's own entry.
+    const around = `import { FOOD } from "../../../../packages/domain/src/intelligence";\nexport const f = FOOD;`;
+    expect(await violations("src/features/x.ts", around)).toContain("no-restricted-imports");
     expect(await violations("src/server/sommelier/x.ts", code)).not.toContain(
       "no-restricted-imports",
     );

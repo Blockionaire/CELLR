@@ -179,6 +179,9 @@ const LIMITS: Record<(typeof AXES)[number], readonly [number, number]> = {
 };
 const clamp = (n: number, [lo, hi]: readonly [number, number]) => Math.min(hi, Math.max(lo, n));
 
+/** How many of the four scales a profile must state before a reading counts as knowledge of the exact wine. */
+export const EXACT_MIN_AXES = 3;
+
 /** A profile states sweetness as 1 (dry) to 5 (sweet); the engine counts from 0 (bone dry). */
 const PROFILE_SWEETNESS = [0, 0.5, 2, 3, 4, 5] as const;
 /** A profile states tannin as 1 (low) to 5; a white with "1" has none to speak of. */
@@ -242,6 +245,25 @@ function find(
   return best;
 }
 
+/**
+ * The wines a text names: ids of every appellation, region and grape rule it mentions, the longest names first
+ * ("a Rioja Reserva for my father who loves Bordeaux" → rioja reserva, bordeaux). For reading what someone asks
+ * for; it says nothing about any bottle.
+ */
+export function mentionedWineKeys(text: string, k: WineKnowledge, limit = 6): string[] {
+  const haystack = words(text.slice(0, 800));
+  if (haystack === "") return [];
+  const hits = new Map<string, number>();
+  for (const rule of k.rules)
+    for (const name of rule.names)
+      if (name.length >= 4 && haystack.includes(` ${name} `))
+        hits.set(rule.id, Math.max(hits.get(rule.id) ?? 0, name.length));
+  return [...hits.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([id]) => id);
+}
+
 /** Sparkling, sweet and fortified wines are named by what they are, not by the grape they are made of. */
 const NOT_BY_GRAPE: ReadonlySet<WineType> = new Set<WineType>([
   "sparkling",
@@ -286,7 +308,12 @@ function keysOf(type: WineType, applied: readonly WineStyleRule[], index: Index)
  * - "estimate": only its region, country or grape is known;
  * - "unknown": no origin is recorded. Its name may still shape the guess (`fromName`), but the tier stays here.
  */
-export function readWine(wine: WineInput, k: WineKnowledge): WineReading {
+export function readWine(input: WineInput, k: WineKnowledge): WineReading {
+  // Country codes are compared as written in the knowledge (upper case), however the caller spells them.
+  const wine: WineInput = {
+    ...input,
+    countryCode: input.countryCode?.trim().toUpperCase() || null,
+  };
   const index = indexOf(k);
   const recorded = words(`${wine.appellation ?? ""} ${wine.region ?? ""}`);
   const name = words(wine.name);
@@ -333,16 +360,20 @@ export function readWine(wine: WineInput, k: WineKnowledge): WineReading {
     if (rule.s.fizz !== undefined) structure.fizz = rule.s.fizz;
   }
 
+  // A researched profile. Only facts about the exact wine may overrule what its appellation says, and a reading
+  // is only "exact" when the profile states most of the structure: one stated number beside three defaults is
+  // not knowledge of the wine. What a profile says about its own evidence never raises the tier; only what is
+  // recorded about the wine does. A weaker profile is used where nothing else is known, as the estimate it is.
   const stated = profile?.structure ?? null;
-  const profiled = stated !== null && Object.values(stated).some((v) => v !== null);
+  const axes = stated === null ? 0 : Object.values(stated).filter((v) => v !== null).length;
+  const exact = profile?.exact === true && axes > 0;
+  const profiled = stated !== null && axes > 0 && (exact || applied.length === 0);
   if (stated && profiled) {
     if (stated.body !== null) structure.body = stated.body;
     if (stated.acidity !== null) structure.acidity = stated.acidity;
     if (stated.sweetness !== null) structure.sweetness = PROFILE_SWEETNESS[stated.sweetness] ?? 0;
     if (stated.tannin !== null) structure.tannin = PROFILE_TANNIN[stated.tannin] ?? 0;
-    if (profile!.exact) tier = "exact";
-    else if (profile!.evidence === "producer" || profile!.evidence === "appellation_rules")
-      tier = tier === "unknown" ? "estimate" : "appellation";
+    if (exact && axes >= EXACT_MIN_AXES) tier = "exact";
   }
   for (const axis of AXES) structure[axis] = clamp(structure[axis], LIMITS[axis]);
 
