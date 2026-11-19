@@ -1,5 +1,6 @@
 import "server-only";
 import type {
+  SmartSpot,
   OccupiedSpot,
   SmartCellarCapabilities,
   SmartPlacementView,
@@ -38,6 +39,34 @@ export type SchemaStatus = SmartCellarCapabilities["schema"];
 export type SaveLayoutOutcome =
   "saved" | "not_found" | "in_use" | "semantics_change" | "invalid_zones" | "depth_not_enabled";
 
+/** A bottle in a place, with its whole spot (for checking a placement before the database is asked). */
+export interface OccupantRow {
+  bottleId: string;
+  row: number;
+  col: number;
+  index: number;
+}
+
+/** What one conditional move answers. */
+export type MoveOutcome =
+  | { kind: "moved"; to: SmartSpot | null }
+  /** The bottle already stands on the target and no longer on the source: a repeat of a move that happened. */
+  | { kind: "already_there" }
+  /** The bottle is not where the caller saw it. Nothing changed. */
+  | { kind: "stale"; now: SmartSpot | null }
+  /** Another bottle holds the target (the unique index). Nothing changed. */
+  | { kind: "taken" }
+  /** Not a spot of that place (the database's bounds check). Nothing changed. */
+  | { kind: "out_of_bounds" }
+  /** A bottle behind another one would be carried to another cell with its index: refused (0043). */
+  | { kind: "ambiguous" }
+  /** No longer in the cellar. */
+  | { kind: "gone" }
+  | { kind: "not_found" };
+
+/** What swap_bottles_v2 (migration 0045) answers. */
+export type SwapOutcome = "swapped" | "stale" | "gone" | "invalid" | "not_found";
+
 /** The whole layout save_storage_layout replaces, in one transaction. */
 export interface LayoutWrite {
   kind: StorageKind;
@@ -70,4 +99,23 @@ export interface SmartCellarRepository {
   occupiedSpots(householdId: string, locationId: string): Promise<OccupiedSpot[]>;
   /** One call of save_storage_layout: all of it or none of it. */
   saveLayout(householdId: string, id: string, layout: LayoutWrite): Promise<SaveLayoutOutcome>;
+  /** The bottles in the cellar in this place, each with its whole spot and its id. */
+  occupants(householdId: string, locationId: string): Promise<OccupantRow[]>;
+  /**
+   * Moves ONE bottle from the spot the caller saw it on to `to`, in ONE conditional UPDATE: it applies only while the
+   * bottle is in the cellar on exactly `from` (null: without a place). Atomic by itself; the unique indexes decide a
+   * taken target and the 0043 trigger the bounds.
+   */
+  moveBottle(
+    householdId: string,
+    bottleId: string,
+    from: SmartSpot | null,
+    to: SmartSpot | null,
+  ): Promise<MoveOutcome>;
+  /** One call of swap_bottles_v2 (0045): both bottles on the spots the caller saw, both moved at once, or nothing. */
+  swapBottles(
+    householdId: string,
+    a: { bottleId: string; spot: SmartSpot },
+    b: { bottleId: string; spot: SmartSpot },
+  ): Promise<SwapOutcome>;
 }
