@@ -223,6 +223,19 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
     readsDish(question: string): boolean {
       return parseFood(question.slice(0, 800), FOOD).main !== null;
     },
+    /**
+     * Whether a question asks if there is enough for a number of guests at a dish ("8 guests, roast lamb: do I
+     * have enough bottles?"). It reads like a count of the cellar, and is not one: the engines answer it.
+     */
+    asksEnoughFor(question: string): boolean {
+      const text = question.slice(0, 800);
+      return (
+        deps.experiences === true &&
+        askedFor(text) === "quantity" &&
+        /\b\d{1,3}\s*(?:guests|people|persons|of us|gasten|personen|mensen|man)\b/i.test(text) &&
+        parseFood(text, FOOD).main !== null
+      );
+    },
     /** Whether buying advice is the engines' (then the model's own is dropped). */
     buying: deps.buying,
     /** Whether friends named in a question are looked up (then no name may ever reach a model). */

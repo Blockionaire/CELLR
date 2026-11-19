@@ -49,7 +49,11 @@ const MODEL: RawSommelier = {
   used_taste: false,
 };
 
-function setup(engine: "on" | "off" | "broken", items: CellarItem[] = [item({})]) {
+function setup(
+  engine: "on" | "off" | "broken",
+  items: CellarItem[] = [item({})],
+  experiences = false,
+) {
   const state = { modelCalls: 0, spent: 0 };
   const cellar = async () => ({ items, bottleCount: items.reduce((s, i) => s + i.count, 0) });
   const llm = {
@@ -68,10 +72,12 @@ function setup(engine: "on" | "off" | "broken", items: CellarItem[] = [item({})]
     taste: async () => null,
     offers: null,
     buying: true,
+    experiences,
     now: () => new Date("2026-11-19T18:00:00Z"),
   });
   const broken: SommelierIntelligence = {
     readsDish: () => true,
+    asksEnoughFor: () => false,
     buying: true,
     social: false,
     plan: async () => {
@@ -130,6 +136,24 @@ describe("the sommelier with the engines switched on", () => {
     // The old path, unchanged: the counted facts go to the model to be worded (or are shown plainly without one).
     expect(answer.plan ?? null).toBeNull();
     expect(state).toEqual({ modelCalls: 1, spent: 1 });
+  });
+
+  it("takes 'do I have enough bottles for 8 guests at roast lamb' for a judgement, not a count", async () => {
+    const lamb = [
+      item({ wineName: "Pauillac", type: "red", appellation: "Pauillac", region: "Bordeaux" }),
+    ];
+    const question = "8 guests, roast lamb. Do I have enough bottles?";
+    const on = await setup("on", lamb, true).ask(question);
+    expect(on.plan?.kind).toBe("quantity");
+    expect(on.plan?.quantity).toMatchObject({ guests: 8, needed: 4 });
+    // Without the experiences it is what it was: a question about the cellar, answered from counted facts.
+    const off = await setup("on", lamb, false).ask(question);
+    expect(off.plan).toBeUndefined();
+    // A count stays a count, whatever is switched on.
+    const count = await setup("on", lamb, true).ask("How many bottles do I have?");
+    expect(count.plan).toBeUndefined();
+    const guestsOnly = await setup("on", lamb, true).ask("Do I have enough bottles for 8 guests?");
+    expect(guestsOnly.plan?.kind).not.toBe("quantity");
   });
 
   it("takes 'which wine do I have for the oysters' for what it is: a pairing", async () => {
