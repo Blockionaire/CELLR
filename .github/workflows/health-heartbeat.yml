@@ -2,26 +2,26 @@ name: Health heartbeat
 
 # System Intelligence sprint 2 (docs/sprints/system-health/ADR-002-live-monitoring.md, OPERATIONS.md).
 #
-# Every 10 minutes, from outside CELLR:
+# From outside CELLR (by hand here; on a schedule only from a private repository, see `on:` below):
 #   1. Is the app alive? GET /api/health (public, no detail).
-#   2. Run one round of health checks: GET /api/cron/health with the cron secret. The app measures and stores; this
+#   2. Run one round of health checks: GET /api/cron/health with the round secret. The app measures and stores; this
 #      job only learns whether the round was recorded and how many infrastructure checks failed (never which).
-# A failed run is the alert: GitHub e-mails the workflow's owner about failed scheduled runs. That works when CELLR
-# itself is down, which is exactly when nothing inside CELLR can tell anyone. (An uptime provider with its own alert
-# channel follows in sprint 3; this stays as the heartbeat.)
+# The primary trigger and alert are an external uptime provider (OPERATIONS.md §3). This workflow is the manual check
+# of that setup, and the template for a scheduled heartbeat in a private repository.
 #
 # INACTIVE UNTIL SWITCHED ON. It runs only when the repository VARIABLE `HEALTH_HEARTBEAT` is `on`, and then needs the
 # repository SECRETS `HEALTH_BASE_URL` (the production https address, no trailing slash) and `HEALTH_CRON_SECRET`
-# (the same value as the app's CRON_SECRET). Until the variable is set every run is skipped and nothing is called.
+# (the app's CELLR_HEALTH_ROUND_SECRET, or its CRON_SECRET when that is not set). Until the variable is set every
+# run is skipped and nothing is called.
 #
-# No third-party actions, no checkout, no token permissions: curl and jq on the runner. The run's log is public (the
-# repository is), so it prints pass or fail and nothing else: no status code, reason or count. Pass/fail itself is
-# visible to anyone who opens the Actions tab; the owner decides whether that is acceptable before switching it on
-# (OPERATIONS.md §3), or runs this workflow from a private repository instead.
+# No third-party actions, no checkout, no token permissions: curl and jq on the runner. A run's log is public here,
+# so it prints pass or fail and nothing else: no status code, reason or count.
 
 on:
-  schedule:
-    - cron: "*/10 * * * *"
+  # No schedule in this (public) repository, by the owner's choice: a scheduled run's pass/fail history would show
+  # anyone when CELLR had trouble. Rounds are triggered by an external uptime provider instead (OPERATIONS.md §3).
+  # Run by hand to check the setup; to schedule it, copy this file into a PRIVATE repository and add
+  #   schedule: [{ cron: "*/10 * * * *" }]
   workflow_dispatch:
 
 permissions: {}

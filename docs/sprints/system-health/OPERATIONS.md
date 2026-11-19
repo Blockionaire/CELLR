@@ -6,13 +6,12 @@ production or credentials is **the owner's**, by decision. Nothing here has been
 The order is free. Each step is optional and independent, and without it the matching checks read `unknown`, never
 healthy:
 
-| Step | What                                                              | Production change?                              | Without it                                                  |
-| ---- | ----------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------- |
-| 1    | Merge the PR (code deploys via Vercel)                            | app code only                                   | nothing new exists                                          |
-| 2    | Apply migration 0047 (D4)                                         | **database: 2 tables, 8 functions, 1 cron job** | Health says "not installed"; map unchanged                  |
-| 3    | Switch the heartbeat on (D3)                                      | GitHub settings                                 | no rounds: the monitor "never ran"; Measure now still works |
-| 4    | Read tokens for CI and deployment status (D2)                     | Vercel env vars                                 | `delivery.*` read unknown (not configured)                  |
-| 5    | Uptime provider: readiness token and dead man's switch (sprint 3) | Vercel env vars + provider account              | nothing outside GitHub notices a full outage                |
+| Step | What                                                                   | Production change?                              | Without it                                                                                        |
+| ---- | ---------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 1    | Merge the PR (code deploys via Vercel)                                 | app code only                                   | nothing new exists                                                                                |
+| 2    | Apply migration 0047 (D4)                                              | **database: 2 tables, 8 functions, 1 cron job** | Health says "not installed"; map unchanged                                                        |
+| 3    | External monitoring: round trigger, readiness check, dead man's switch | Vercel env vars + provider account              | no rounds (the monitor "never ran"; Measure now still works) and nobody outside notices an outage |
+| 4    | Read tokens for CI and deployment status (D2)                          | Vercel env vars                                 | `delivery.*` read unknown (not configured)                                                        |
 
 ## 1. Merge and deploy the app
 
@@ -88,64 +87,72 @@ drop function private.health_detail_ok(jsonb);
 
 The app keeps working after a rollback: it falls back to "not installed".
 
-## 3. Switch the heartbeat on (owner's decision D3; not done)
+## 3. External monitoring (recommended; replaces a public GitHub heartbeat)
 
-The workflow `.github/workflows/health-heartbeat.yml` runs every 10 minutes, but only when it is switched on. In
-GitHub → the repository → Settings → Secrets and variables → Actions:
+**Owner's preference (2026-11-19): operational status must not be public through GitHub Actions.** The repository is
+public, so a scheduled workflow's run history would show anyone when CELLR had trouble. So:
 
-| Kind     | Name                 | Value                                                                                             |
-| -------- | -------------------- | ------------------------------------------------------------------------------------------------- |
-| Secret   | `HEALTH_BASE_URL`    | the production address, `https://…`, no trailing slash                                            |
-| Secret   | `HEALTH_CRON_SECRET` | **the same value** as the app's `CRON_SECRET` in Vercel (Production)                              |
-| Variable | `HEALTH_HEARTBEAT`   | `on` (set last: from then on the schedule calls the app; delete or set to anything else to pause) |
+- `.github/workflows/health-heartbeat.yml` has **no schedule**: it runs only by hand, to check the setup. To schedule
+  it after all, copy it into a **private** repository. A private repository's Actions minutes count against the
+  plan: about 4,300 runs a month at one minute each, which exceeds the free 2,000.
+- **One external uptime provider does all three jobs below, privately.** Any provider with HTTP checks that send a
+  header, and with heartbeat (cron) monitors, will do. Examples:
+  - **Better Stack Uptime**: EU data region, status pages, phone/SMS/Slack alerts;
+  - **Healthchecks.io**: heartbeats; open source, can be self-hosted;
+  - **Checkly**: checks as code;
+  - **UptimeRobot**: paid tiers for custom headers.
 
-Before switching on:
+  Prefer an EU-hosted provider (Better Stack is the most complete single choice) and keep its status page private.
 
-- **`CRON_SECRET` must be set in Vercel → Settings → Environment Variables (Production), at least 16
-  characters.** The drink-reminder cron already needs it. A shorter or missing one makes the probe round answer 503
-  `not_configured` (the drink reminders are not affected by this rule). Generate one with `openssl rand -base64 32`.
-- **Deployment Protection:** the production domain must be reachable without Vercel Authentication (it normally is).
-  A protected preview URL will not work.
-- **Who is alerted:** GitHub e-mails failed scheduled runs to the user who last changed the workflow's schedule.
-  Check that user's notification settings (GitHub → Settings → Notifications → Actions: "Send notifications for
-  failed workflows only").
+| Monitor                    | Calls                                                                                                      | Every                   | Alerts when                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------- |
+| **A. Round trigger**       | `GET https://<production>/api/cron/health` with header `Authorization: Bearer <CELLR_HEALTH_ROUND_SECRET>` | 10 min                  | not 200: the app is down, or the database took no round (503)                            |
+| **B. Readiness**           | `GET https://<production>/api/health/ready` with header `Authorization: Bearer <CELLR_HEALTH_READY_TOKEN>` | 1–3 min                 | not 200: monitor not running on time, or an infrastructure check failed or is unmeasured |
+| **C. Dead man's switch**   | the provider's heartbeat URL, called **by CELLR** after every recorded round (`CELLR_HEALTH_PING_URL`)     | period 10 min, grace 20 | no ping: rounds stopped for any reason (A not firing, app or database down)              |
+| (optional) **D. Liveness** | `GET https://<production>/api/health`, no header                                                           | 1 min                   | not 200: the app does not answer                                                         |
 
-Verify:
+Steps (all in Vercel → Settings → Environment Variables, **Production**, then redeploy):
 
-1. Actions → Health heartbeat → Run workflow (manual). Both steps are green. The log shows
-   `liveness: HTTP 200` and `round: HTTP 200, recorded=true, failed infrastructure checks=0`.
-2. Admin → System → Health shows "Monitor: Running" and a last round of a few seconds ago (heartbeat).
-3. After 20–30 minutes, the history strips show a mark for every 10 minutes.
+1. Generate two secrets:
 
-What the heartbeat reports, and how. **The run's log is public** (the repository is public), so a run says only
-"ok" or "Heartbeat failed": no status code, reason or count. The details are on Admin › System › Health.
+   ```bash
+   openssl rand -base64 32
+   ```
 
-- **The step "The app answers" failed:** the app is down or unreachable (DNS, Vercel, deployment). Check it yourself:
-  `curl -i https://<production>/api/health`.
-- **The step "One round of health checks" failed:**
-  - the database did not take the round;
-  - or an infrastructure check (database, Auth, Storage) failed;
-  - or the secret does not match;
-  - or migration 0047 / the service role / `CRON_SECRET` (at least 16 characters) is missing.
+   Run it twice:
+   - `CELLR_HEALTH_ROUND_SECRET`: at least 16 characters. It is the round trigger's own secret, so the provider
+     cannot also start the drink-reminder cron. Without it the round falls back to `CRON_SECRET`.
+   - `CELLR_HEALTH_READY_TOKEN`: at least 24 characters.
 
-  System › Health shows which: the monitor's state, the failed check, or the configuration cards.
+2. Create heartbeat monitor C at the provider and set its URL as `CELLR_HEALTH_PING_URL`: `https://` only, no
+   credentials in it.
+3. Redeploy production so the variables apply.
+4. Create monitors A and B (and D) at the provider with those headers. Route alerts to e-mail and phone.
+5. Verify:
+   - **Admin → System → Health:** within 10–20 minutes the monitor reads "Running", with the last round seconds ago.
+     The cards show "Round trigger: its own CELLR_HEALTH_ROUND_SECRET", "Dead man's switch: Configured" and
+     "Readiness check: Configured".
+   - **Readiness with the token** (`curl -i -H "Authorization: Bearer $TOKEN" https://<production>/api/health/ready`)
+     answers `200 {"status":"ok"|"degraded","monitor":"running"}`.
+   - **The provider** shows A, B and D green, and C receiving pings.
+   - **One alert test:** pause monitor A for 30 minutes. C must alert (no pings) and B must turn to 503 (monitor
+     late, then stopped). Resume A.
 
-The run does **not** fail on AI, jobs or delivery problems. Those are on the page, and alerting on them is sprint 3.
-A round that an admin started less than a minute earlier counts too: the heartbeat then reports that round's failed
-checks, so pressing Measure now can never hide a failure from it.
+What each failure means:
 
-**Owner decision before switching on: is a public pass/fail history acceptable?** Anyone can open the Actions tab
-and see when heartbeat runs failed, which is roughly when CELLR or its infrastructure had trouble. Nothing more is
-visible: no reason, no component, no count. A full outage is visible from outside anyway, but a database or Auth
-failure behind a working front end is not otherwise public. If that is not acceptable, run the same workflow file
-from a **private** repository (same secrets and variable), or skip it and rely on the uptime provider of step 5.
+| Failing      | Means                                                                                                    |
+| ------------ | -------------------------------------------------------------------------------------------------------- |
+| D (and A, B) | the app is down or unreachable (DNS, Vercel, deployment)                                                 |
+| A with 401   | the provider's header does not match `CELLR_HEALTH_ROUND_SECRET` (or `CRON_SECRET`)                      |
+| A with 503   | no round could be recorded: database down or refusing writes, migration 0047 missing, or no service role |
+| B only       | an infrastructure check failed or has no current measurement; details on System › Health                 |
+| C only       | rounds stopped while the app answers: A is paused or misconfigured                                       |
 
-**Limits of this alert channel** (why sprint 3 adds a provider):
+**Deployment Protection:** the production domain must be reachable without Vercel Authentication. It normally is.
 
-- GitHub may start scheduled runs late (minutes, sometimes more).
-- It **disables scheduled workflows of a public repository after 60 days without activity**. Re-enable it in the
-  Actions tab.
-- The e-mail goes to one person.
+**Manual check from GitHub:** set the repository secrets `HEALTH_BASE_URL` and `HEALTH_CRON_SECRET` (= the round
+secret) and the variable `HEALTH_HEARTBEAT=on`, then Actions → Health heartbeat → Run workflow. The log says only
+`ok` or `Heartbeat failed`.
 
 ## 4. CI and deployment status (owner's decision D2: optional, no tokens now)
 
@@ -161,26 +168,6 @@ Each check is measured only with its read token. Without one the check reads `un
 
 The tokens are read on the server only. They never appear in samples, logs, responses or the page (tested). They
 cost one API call each per round (about 144 a day). Redeploy after setting them.
-
-## 5. Uptime provider (sprint 3; prepared now)
-
-| Variable (Vercel, Production) | Value                                                                                                                         |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `CELLR_HEALTH_READY_TOKEN`    | a random token of **at least 24 characters**. The provider calls `GET /api/health/ready` with `Authorization: Bearer <token>` |
-| `CELLR_HEALTH_PING_URL`       | the provider's heartbeat URL (`https://` only, no credentials in it). Called after every recorded round                       |
-
-Generate a token:
-
-```bash
-openssl rand -base64 32
-```
-
-What the provider should watch:
-
-- an **HTTP check** on `/api/health` (public) for "the app answers", and on `/api/health/ready` with the token for
-  "the monitor runs and infrastructure is not failing". The latter answers 503 otherwise.
-- a **heartbeat check** on the ping URL with a period of 10 minutes and a grace of 20. It alerts when rounds stop for
-  any reason.
 
 ## Checking it locally
 
@@ -212,7 +199,7 @@ pnpm --filter @cellr/web exec playwright test e2e/system-health.spec.ts e2e/admi
 | You see                                           | Check                                                                                                                                         |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Health "not installed"                            | migration 0047 is not applied (step 2)                                                                                                        |
-| Monitor "never ran" / "stopped"                   | heartbeat off or failing (step 3; the Actions tab); press Measure now to see whether a round can be recorded at all                           |
+| Monitor "never ran" / "stopped"                   | nothing triggers rounds (monitor A, step 3); press Measure now to see whether a round can be recorded at all                                  |
 | `cron.*` unknown, "not available"                 | pg_cron is missing on this database (normal on local plain Postgres; on Supabase it is installed)                                             |
 | `ai.*` unknown, "no traffic"                      | nobody used that AI feature in the last hour. Silence is not health                                                                           |
 | `cron.<job>` failed, "overdue"                    | the job did not run for three of its intervals: `select * from cron.job_run_details order by start_time desc limit 20;`                       |

@@ -1,8 +1,9 @@
 # System Intelligence — Sprint 2 report: Live Monitoring Engine
 
 - Branch `claude/festive-cannon-joten0`, PR #88, based on `main` at 07bc80c.
-- **Status: implemented and tested. Not deployed, not operationally verified** (by decision D3/D4: no migration
-  in production and no heartbeat switched on).
+- **Final status (2026-11-19):** implemented, tested and reviewed; required CI green; PR mergeable. **Not
+  deployed, not operationally verified** (by decision D3/D4): no migration in production and no external
+  monitoring switched on.
 
 ## 1. What was built, and where
 
@@ -90,16 +91,16 @@ What the e2e spec proves against real services:
 Two independent reviews (security, correctness) read the diff. Every finding is fixed (commit `f95827f`) and the
 checks re-ran green.
 
-| Severity | Finding                                                                                                                                               | Fix                                                                                                                              |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| High     | The CI probe read the newest run of any workflow on main, usually the heartbeat itself in progress, which counted as healthy                          | Reads the newest **finished** `ci.yml` run. A run in progress is `unknown`; a deployment in progress too                         |
-| Medium   | Readiness said `ok` while an infrastructure check was unmeasured                                                                                      | 200 only when the monitor runs on time and every infrastructure check is measured and not failed                                 |
-| Medium   | A database refusing writes left the old healthy results on show for up to 30 min                                                                      | New monitor state `failing` (newest round not recorded); the monitor's own check follows late/failing; readiness 503 from "late" |
-| Medium   | e2e hooks of the serial group also ran in the phone project and could reset state mid-test                                                            | Hooks act only in the desktop project                                                                                            |
-| Medium   | The heartbeat's log published production health on a public repository                                                                                | It prints `ok` / `Heartbeat failed` only. Public pass/fail stays: **owner decision before switching on** (§8)                    |
-| Low      | A skipped round (Measure now just before) could hide a failure from the heartbeat                                                                     | A skipped round answers with the findings of the round that ran instead                                                          |
-| Low      | The gap could be lowered by a caller; `CRON_SECRET` had no minimum; provider calls followed redirects; one jq value unsanitised; free text in `?msg=` | 60 s floor in SQL; `CRON_SECRET` ≥ 16 for the round; `redirect: "error"`; every value sanitised; a result kind instead of text   |
-| Info     | Reasons allowed host-like codes; the secret comparison leaked length; the history query slowed the overlay; 5 unrecorded rounds hid the last good one | Reasons without dots/colons/dashes; SHA-256 digests compared; overlay reads latest only; newest finished round always returned   |
+| Severity | Finding                                                                                                                                               | Fix                                                                                                                                                                 |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| High     | The CI probe read the newest run of any workflow on main, usually the heartbeat itself in progress, which counted as healthy                          | Reads the newest **finished** `ci.yml` run. A run in progress is `unknown`; a deployment in progress too                                                            |
+| Medium   | Readiness said `ok` while an infrastructure check was unmeasured                                                                                      | 200 only when the monitor runs on time and every infrastructure check is measured and not failed                                                                    |
+| Medium   | A database refusing writes left the old healthy results on show for up to 30 min                                                                      | New monitor state `failing` (newest round not recorded); the monitor's own check follows late/failing; readiness 503 from "late"                                    |
+| Medium   | e2e hooks of the serial group also ran in the phone project and could reset state mid-test                                                            | Hooks act only in the desktop project                                                                                                                               |
+| Medium   | The heartbeat's log published production health on a public repository                                                                                | It prints `ok` / `Heartbeat failed` only, and has **no schedule** in this public repository (owner's preference); rounds come from a private external provider (§9) |
+| Low      | A skipped round (Measure now just before) could hide a failure from the heartbeat                                                                     | A skipped round answers with the findings of the round that ran instead                                                                                             |
+| Low      | The gap could be lowered by a caller; `CRON_SECRET` had no minimum; provider calls followed redirects; one jq value unsanitised; free text in `?msg=` | 60 s floor in SQL; `CRON_SECRET` ≥ 16 for the round; `redirect: "error"`; every value sanitised; a result kind instead of text                                      |
+| Info     | Reasons allowed host-like codes; the secret comparison leaked length; the history query slowed the overlay; 5 unrecorded rounds hid the last good one | Reasons without dots/colons/dashes; SHA-256 digests compared; overlay reads latest only; newest finished round always returned                                      |
 
 Kept as designed:
 
@@ -110,71 +111,90 @@ Kept as designed:
 
 ## 6. Open limitations and risks
 
-1. **No alert channel of its own yet (R-MON-1).** Until sprint 3 adds an uptime provider, a full outage is noticed
-   outside CELLR only by the heartbeat workflow failing (GitHub's e-mail to one person). GitHub may delay scheduled
-   runs, and it disables them after 60 days without repository activity.
+1. **No outside alerting until external monitoring is set up (R-MON-1).** The owner prefers no operational status
+   in public GitHub Actions, so the heartbeat workflow has no schedule. Until the uptime provider of OPERATIONS.md
+   §3 is set up, nothing outside CELLR notices a full outage. The endpoints, the dead man's switch and the round's own
+   secret all exist.
 2. **Aspects, not features (R-MON-2).** No end-to-end flow (sign in, scan, save) is measured, and neither are
    per-route API error rates or the Vercel drink-reminder cron. Each is stated on the page.
 3. **AI health needs traffic.** At quiet times the AI checks read `unknown (no traffic)`. That is honest, but the
-   headline will usually show "No failure measured · N checks without a current measurement" rather than "All pass".
-4. **When the database refuses writes,** nothing can be recorded. The page shows the last results, with the monitor
-   turning late (15 min) and then stopped (30 min). The heartbeat fails at once.
-5. **The full e2e suite** still has the known flakes (#77, #78, #79) and two without an issue yet:
-   - `insights.spec.ts:113` (axe document-title);
-   - `racks.spec.ts:371` (axe colour contrast in the racks dialogs, about half of local runs on `main` too).
+   headline will usually say "No failure measured · N checks without a current measurement" rather than "All pass".
+4. **When the database refuses writes,** nothing can be recorded. The monitor turns `failing` or late. Readiness
+   answers 503 from "late" on, and monitor A (the round trigger) gets 503 at once.
+5. **E2e capacity (#77).** This PR's 13 tests move the count-based shard boundaries, so 3D phone tests now land in
+   shard 4. They time out there on CI (software WebGL) and pass locally. Expect shard 4 to show them on `main` until
+   #77 is resolved; option 2 (a separate 3D job) ends it.
+6. **Flakes without an issue:** `racks.spec.ts:371` (axe contrast; about half of local runs on `main` too) and
+   `insights.spec.ts:113` (axe document-title). A tracking issue is recommended.
 
-   A tracking issue for the second is recommended.
+## 7. Final CI status and e2e classification
 
-6. **This PR makes shard 4 heavier (#77).** The new spec is not 3D and adds about 45 s, but its 13 tests move the
-   count-based shard boundaries, so 3D phone tests (`storage-premium.spec.ts:80`, `storage-gallery.spec.ts:351`)
-   now land in shard 4 with other load. There they timed out twice in a row on CI (software WebGL stuck in
-   "extracting"), while they pass 4/4 locally on this branch.
+**Required PR checks: green on every head since `2fd6b07`.** That covers `2fd6b07`, `4df9fa2` (run 44563289948) and
+`f680648` (run 44568899333), and the final commit. All seven required jobs pass:
 
-   After the merge, expect shard 4 to show those 3D timeouts until #77 is resolved. Option 2, a separate job for
-   the 3D specs, also ends this sensitivity to boundaries. The other session's CI proposal for storage-showcase is
-   waiting on that same choice by the owner.
+- format/lint/types/unit;
+- Postgres permission suite;
+- real Supabase stack with pg_cron;
+- backup and recovery;
+- migration integrity;
+- dependency audit;
+- secret scan.
 
-## 7. Migrations and configuration
+The PR is mergeable (`clean`) against `main` at 07bc80c.
+
+**Full e2e, manual dispatch on `f95827f`, run 44558396651, two attempts.** Later commits change docs, one SQL test,
+the badge position, the round secret and the workflow trigger. Those were checked with unit tests and the
+`system-health` spec locally (15/15); no full re-run was needed. Shards 1, 2, 3, 5 and 7 are green, and shard 6 is
+green on the re-run. Both new specs pass. Every remaining red test, classified:
+
+| Test (shard)                                                               | Class                                  | Evidence                                                                                                                                                                  |
+| -------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `racks.spec.ts:371` (6)                                                    | **proven existing flake**              | flaky on `main` (run 44532312963); green on the re-run; locally 4/10 failing with `main`'s CSS vs 6/10 with this branch's                                                 |
+| `storage-showcase.spec.ts:82` (8)                                          | **proven existing failure**            | red on `main` since run 44385777061 (#79)                                                                                                                                 |
+| shard 8 hitting the 30-min job limit (8, re-run)                           | **proven existing capacity**           | #77; seen on PR #85's runs too                                                                                                                                            |
+| `storage-gallery.spec.ts:351` (4)                                          | **proven existing flake**              | listed in #79 as flaky on `main`                                                                                                                                          |
+| `storage-premium.spec.ts:80`, `storage-gallery.spec.ts:123/228` (4, phone) | **existing 3D family, new to shard 4** | the same software-WebGL timeouts (#79); this PR touches no 3D code; both failing tests pass 4/4 locally on this branch. Cause of the move: shard boundaries (#77, risk 5) |
+| `Database · real Supabase stack` (re-run of the old head)                  | **fixed on later heads**               | the old SQL test on `f95827f`; green since `2fd6b07`                                                                                                                      |
+
+**No new regression was found.** Nothing red touches code this PR changes. The one effect of the PR is the shard
+move, which is a capacity problem, not a defect.
+
+## 8. Migrations and configuration
 
 - **One new migration, `20261124000047_system_health.sql`: not applied (D4).** Plan, verification and rollback:
-  [OPERATIONS.md §2](OPERATIONS.md#2-apply-migration-0047-owners-decision-d4-not-done), following
-  `docs/MIGRATIONS.md` §2.
-- It is safe to merge before applying: the app shows "not installed", and that is tested.
+  [OPERATIONS.md §2](OPERATIONS.md), by `docs/MIGRATIONS.md` §2. It is safe to merge before applying it: the app
+  shows "not installed", and that is tested.
 - No other migration branch is open; checked on 2026-11-19.
 - **New optional server settings** (all may stay unset):
+  - `CELLR_HEALTH_ROUND_SECRET` (≥ 16 chars; falls back to `CRON_SECRET`);
   - `CELLR_HEALTH_READY_TOKEN` (≥ 24 chars);
   - `CELLR_HEALTH_PING_URL` (https);
   - `CELLR_HEALTH_GITHUB_REPO` + `_TOKEN`;
   - `CELLR_HEALTH_VERCEL_PROJECT_ID` + `_TEAM_ID` + `_TOKEN`.
-- **Existing:** `CRON_SECRET` (now ≥ 16 chars for the probe round).
-- **GitHub (heartbeat):** variable `HEALTH_HEARTBEAT=on`, secrets `HEALTH_BASE_URL`, `HEALTH_CRON_SECRET`.
+- **GitHub:** nothing needs setting. The workflow runs only by hand, and only with the variable `HEALTH_HEARTBEAT=on`
+  and the secrets `HEALTH_BASE_URL` and `HEALTH_CRON_SECRET`.
 
-## 8. Actions that need the owner (none were taken)
+## 9. Actions that need the owner (none were taken)
 
 1. Approve and merge PR #88.
 2. Apply migration 0047 to production (OPERATIONS.md §2).
-3. Decide on the heartbeat's public pass/fail history; then set the GitHub variable and secrets (§3).
-   Alternatively, run the workflow from a private repository.
+3. Set up external monitoring (OPERATIONS.md §3):
+   - the round secret, the ready token and the ping URL in Vercel;
+   - monitors A, B, C (and D) at a private, preferably EU-hosted uptime provider;
+   - verify, including one alert test.
 4. Optionally, read tokens for CI and deployment (§4).
-5. Sprint 3: choose an uptime provider, then set `CELLR_HEALTH_READY_TOKEN` and `CELLR_HEALTH_PING_URL` (§5).
-
-## 9. Pull request
-
-PR #88, against `main`. Everything is in one PR.
+5. Decide #77 (a separate 3D e2e job), and create a tracking issue for `racks.spec.ts:371`.
 
 ## 10. Verdict
 
-**GO for merging,** after the full e2e run on CI shows nothing beyond the known flakes. The code has no effect in
-production until the owner applies migration 0047, and none on users at all.
-
-**GO for applying migration 0047,** at the owner's choice. It is additive, tested on plain Postgres and on the real
-Supabase stack in CI, and has a rollback.
-
-**NO-GO for calling monitoring "operational"** until three things are done:
-
-- the heartbeat is switched on and observed for a day;
-- System › Health in production shows rounds every 10 minutes;
-- for the outage alerting the epic asks for, an uptime provider is set up (sprint 3).
+- **Merging PR #88: GO.** All required checks are green and the PR is mergeable. Every review finding is in the code
+  (24 checked). No e2e regression was found; every red e2e test is classified above. Merging changes nothing for
+  users. Without migration 0047 the admin sees "not installed".
+- **Production migration 0047: GO, after the merge, at the owner's moment.** It is additive (new objects only) and
+  tested on plain Postgres and the real Supabase stack with pg_cron. It is bounded (one round a minute, about 36k
+  rows at most) and has a rollback. Daily backups (Pro) cover it. Prerequisite: the dry run lists exactly 0047.
+- **Monitoring "operational": NO-GO until §9.3 is done** and production shows rounds every 10 minutes for a day,
+  with one alert test passed.
 
 ## Screenshots (local stack, from the e2e run)
 

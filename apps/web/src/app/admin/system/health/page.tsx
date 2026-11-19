@@ -155,10 +155,10 @@ export default async function AdminSystemHealthPage({
       >
         <ul className="grid gap-2 text-small sm:grid-cols-2" data-testid="health-config">
           <ConfigItem
-            on={config.cronSecret}
-            title="Heartbeat endpoint (called by GitHub Actions every 10 min)"
-            yes="This server accepts the heartbeat (CRON_SECRET is set). Whether the workflow is switched on and reaches it shows only as the monitor's state above; a failed heartbeat run notifies by GitHub's own e-mail."
-            no="CRON_SECRET is not set: the heartbeat cannot start rounds."
+            on={config.roundTrigger}
+            title="Round trigger (/api/cron/health, every 10 min from outside)"
+            yes={`This server accepts the trigger (${config.dedicatedRoundSecret ? "its own CELLR_HEALTH_ROUND_SECRET" : "the shared CRON_SECRET; a separate CELLR_HEALTH_ROUND_SECRET is recommended"}). Whether something calls it on time shows only as the monitor's state above.`}
+            no="Neither CELLR_HEALTH_ROUND_SECRET nor a CRON_SECRET of 16+ characters is set: nothing can start rounds but Measure now."
           />
           <ConfigItem
             on={config.pingUrl}

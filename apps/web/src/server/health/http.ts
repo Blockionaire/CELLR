@@ -18,7 +18,7 @@ import { runHealthRound, type RoundResult } from "./round";
  *                           for the whole system from the stored measurements (no probe runs). 200 only while the
  *                           monitor runs on time and every infrastructure check is measured and not failed; 503
  *                           otherwise. 404 while no token is configured.
- *   GET /api/cron/health    runs one round, with CRON_SECRET (the heartbeat). Says whether it was recorded and how
+ *   GET /api/cron/health    runs one round, with CELLR_HEALTH_ROUND_SECRET (or CRON_SECRET when that is not set). Says whether it was recorded and how
  *                           many infrastructure checks failed; 503 when nothing could be recorded.
  *
  * None of them ever returns a component's name, a reason, an error message or a configuration value.
@@ -50,8 +50,11 @@ const ROUND_HTTP: Record<RoundResult["kind"], number> = {
 };
 
 export async function handleHealthCron(request: Request): Promise<Response> {
-  const configured = getCronSecret();
-  const secret = configured && configured.length >= MIN_CRON_SECRET_LENGTH ? configured : null;
+  // its own secret when one is set (the caller then cannot start other cron work); otherwise CRON_SECRET
+  const shared = getCronSecret();
+  const secret =
+    getHealthEnv().roundSecret ??
+    (shared && shared.length >= MIN_CRON_SECRET_LENGTH ? shared : null);
   if (!secret) return jsonResponse({ ok: false, reason: "not_configured" }, 503);
   if (!bearerMatches(request, secret)) return jsonResponse({ ok: false }, 401);
   const result = await runHealthRound("heartbeat");

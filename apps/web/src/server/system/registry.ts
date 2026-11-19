@@ -1127,7 +1127,7 @@ const components = [
     summary: "Probes, rounds, history; unknown when unmeasured",
     responsibility:
       "Runs bounded server-side checks (database, Auth, Storage, pg_cron, AI traffic, CI and deployment when configured), stores codes and numbers per round, and judges them: missing, stale or failed is never healthy. Feeds System › Health and the health overlay on this map.",
-    inputs: ["Heartbeat with CRON_SECRET", "ai_usage", "pg_cron run history"],
+    inputs: ["Round trigger with its secret", "ai_usage", "pg_cron run history"],
     outputs: ["Health per probe and per component id", "Public liveness, token-guarded readiness"],
     sources: [
       W + "server/health/",
@@ -1140,6 +1140,11 @@ const components = [
     ],
     routes: ["/api/cron/health", "/api/health", "/api/health/ready"],
     gates: [
+      {
+        name: "CELLR_HEALTH_ROUND_SECRET",
+        kind: "env",
+        note: "Starts a probe round; CRON_SECRET when unset.",
+      },
       {
         name: "CELLR_HEALTH_READY_TOKEN",
         kind: "env",
@@ -1167,7 +1172,7 @@ const components = [
         severity: "medium",
         title: "No alert channel of its own yet",
         detail:
-          "A full outage is noticed outside CELLR only by the heartbeat workflow failing (GitHub's own e-mail to its owner) until an uptime provider and alerting are set up in sprint 3.",
+          "Nothing outside CELLR notices a full outage until an external uptime provider (readiness check, dead man's switch, round trigger) is set up. The endpoints for it exist; choosing and configuring the provider is the owner's step.",
       },
       {
         id: "R-MON-2",
@@ -2296,7 +2301,7 @@ const edges: SystemEdge[] = [
     "github-actions",
     "health-monitor",
     "ops",
-    "heartbeat: one round every 10 minutes (once its secrets are set)",
+    "optional heartbeat, run by hand (scheduling it belongs in a private repository)",
     ev(".github/workflows/health-heartbeat.yml", "/api/cron/health"),
   ),
   edge(

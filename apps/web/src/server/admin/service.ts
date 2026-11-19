@@ -329,7 +329,8 @@ export function adminHealthConfig(session: AdminSession) {
   assertAdmin(session);
   const h = getHealthEnv();
   return {
-    cronSecret: getCronSecret() !== null,
+    roundTrigger: h.roundSecret !== null || (getCronSecret()?.length ?? 0) >= 16,
+    dedicatedRoundSecret: h.roundSecret !== null,
     readyToken: h.readyToken !== null,
     pingUrl: h.pingUrl !== null,
     github: h.github !== null,

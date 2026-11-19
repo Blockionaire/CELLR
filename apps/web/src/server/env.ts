@@ -153,6 +153,12 @@ export interface HealthEnv {
   /** Bearer token for GET /api/health/ready (an external uptime check). Null = that endpoint answers 404. */
   readyToken: string | null;
   /**
+   * The secret that starts a probe round (GET /api/cron/health), held by whatever triggers rounds (an external
+   * uptime provider). Its own secret, so that caller cannot also start the drink-reminder cron; null = the round
+   * falls back to CRON_SECRET. At least 16 characters.
+   */
+  roundSecret: string | null;
+  /**
    * An https URL the monitor calls after every recorded round: a dead man's switch at an external uptime provider,
    * which alerts when the calls stop. Null = no call.
    */
@@ -179,9 +185,11 @@ export function getHealthEnv(): HealthEnv {
   const projectId = clean(process.env.CELLR_HEALTH_VERCEL_PROJECT_ID);
   const vercelToken = clean(process.env.CELLR_HEALTH_VERCEL_TOKEN);
   const readyToken = clean(process.env.CELLR_HEALTH_READY_TOKEN);
+  const roundSecret = clean(process.env.CELLR_HEALTH_ROUND_SECRET);
   return {
     // a short token would be guessable: refuse it rather than guard the endpoint weakly
     readyToken: readyToken && readyToken.length >= 24 ? readyToken : null,
+    roundSecret: roundSecret && roundSecret.length >= 16 ? roundSecret : null,
     pingUrl: httpsUrl(clean(process.env.CELLR_HEALTH_PING_URL)),
     github:
       repo &&

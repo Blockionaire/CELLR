@@ -7,8 +7,8 @@
 
 ## Decision in one paragraph
 
-A **round** of server-side **probes** runs at most once a minute, started by an **external heartbeat** (a GitHub
-Actions workflow every 10 minutes) or by an admin. Each probe stores a **status, a reason code and a few numbers**
+A **round** of server-side **probes** runs at most once a minute, started by an **external trigger** (an uptime
+provider every 10 minutes, with its own secret) or by an admin. Each probe stores a **status, a reason code and a few numbers**
 (never text) in two private tables (migration 0047). The admin's **System › Health** page and the architecture map's
 **health overlay** judge the newest samples _at read time_. A sample that is missing, older than three intervals or
 from the future is `unknown`, and a failed one is `failed`. **Nothing is ever healthy by default.** The monitor is
@@ -78,13 +78,13 @@ counted as CI.
 
 ## Who sees what
 
-| Surface                      | Who                                               | Shows                                                                                                                                                                    |
-| ---------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET /api/health`            | anyone                                            | `{"status":"ok"}` while the app runs. Nothing else (no DB, no version)                                                                                                   |
-| `GET /api/health/ready`      | holder of `CELLR_HEALTH_READY_TOKEN` (≥ 24 chars) | one word + monitor state; 200 only while the monitor runs on time and every infrastructure check is measured and not failed, otherwise 503; **404 when no token is set** |
-| `GET /api/cron/health`       | holder of `CRON_SECRET` (≥ 16 chars)              | recorded or not, outcome, and the **number** of failed infrastructure checks (when skipped: those of the round that ran instead)                                         |
-| System › Health, the overlay | admins (proxy 404 + page check + `assertAdmin`)   | everything stored: statuses, reasons, numbers, what each check proves                                                                                                    |
-| The repository (public)      | anyone                                            | what is measured (catalogue, thresholds), never a measurement                                                                                                            |
+| Surface                      | Who                                                                    | Shows                                                                                                                                                                    |
+| ---------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /api/health`            | anyone                                                                 | `{"status":"ok"}` while the app runs. Nothing else (no DB, no version)                                                                                                   |
+| `GET /api/health/ready`      | holder of `CELLR_HEALTH_READY_TOKEN` (≥ 24 chars)                      | one word + monitor state; 200 only while the monitor runs on time and every infrastructure check is measured and not failed, otherwise 503; **404 when no token is set** |
+| `GET /api/cron/health`       | holder of `CELLR_HEALTH_ROUND_SECRET`, else `CRON_SECRET` (≥ 16 chars) | recorded or not, outcome, and the **number** of failed infrastructure checks (when skipped: those of the round that ran instead)                                         |
+| System › Health, the overlay | admins (proxy 404 + page check + `assertAdmin`)                        | everything stored: statuses, reasons, numbers, what each check proves                                                                                                    |
+| The repository (public)      | anyone                                                                 | what is measured (catalogue, thresholds), never a measurement                                                                                                            |
 
 ## Isolation from the map and from CELLR
 
@@ -102,32 +102,33 @@ rendered in under 8 s, and monitoring not installed shows the map with a notice.
 ## Noticing a full outage outside CELLR (requirement 2)
 
 A heartbeat and an alert are different things. Everything inside CELLR (this page, the overlay, the database) goes
-down with CELLR, so the outage must be **detected and reported by something that does not run on CELLR**. Three
-layers, from what exists now to what sprint 3 adds:
+down with CELLR, so the outage must be **detected and reported by something that does not run on CELLR**.
 
-| Layer                                 | Detects                                                                                   | Reports via                                                                                          | State after sprint 2                                           |
-| ------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| 1. Heartbeat workflow (GitHub)        | App down (liveness fails), database down (round 503), Auth/Storage/DB failing (count > 0) | the workflow fails, and **GitHub e-mails the workflow's owner** (its public log says only ok/failed) | **built, inactive** until variable + secrets are set (D3)      |
-| 2. Uptime provider, HTTP check        | App or infrastructure down, from the internet: `GET /api/health/ready` with its token     | the provider's own alerting (mail/SMS/Slack)                                                         | endpoint **built**; provider is chosen in sprint 3             |
-| 3. Uptime provider, dead man's switch | Rounds stop for any reason (heartbeat disabled, GitHub outage, app or DB down)            | the provider alerts when the pings stop                                                              | ping **built** (`CELLR_HEALTH_PING_URL`); provider in sprint 3 |
+**The owner's choice (2026-11-19): no operational status in public GitHub Actions.** The design is one external,
+private uptime provider doing three jobs (OPERATIONS.md §3):
 
-Why layer 1 alone is not enough:
+| Monitor at the provider                        | Detects                                                                     | State after sprint 2                                   |
+| ---------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------ |
+| A. Round trigger (every 10 min)                | app down, or the database takes no round (503); also _starts_ the rounds    | endpoint built, own secret `CELLR_HEALTH_ROUND_SECRET` |
+| B. Readiness (`/api/health/ready`)             | monitor late or stopped, an infrastructure check failed or unmeasured (503) | endpoint built (token)                                 |
+| C. Dead man's switch (`CELLR_HEALTH_PING_URL`) | rounds stopped for any reason: A not firing, app or database down           | ping built                                             |
 
-- GitHub can delay scheduled runs, and it **disables scheduled workflows of a public repository after 60 days without
-  activity**.
-- GitHub's failure mail goes to one person.
-- A broken workflow and a healthy app look the same from inside.
+The provider alerts through its own channels, independent of CELLR, Vercel and GitHub. Choosing and configuring it
+is the owner's step; no code change is needed.
 
-Layer 3 closes that: a provider that hears nothing alerts. Layer 2 checks from many places, independently of
-GitHub. **Sprint 3 must pick the provider** (any with HTTP checks with a header and heartbeat URLs works, such as
-Better Stack, Healthchecks.io, UptimeRobot or Checkly) **and wire alerting to it**. No code change is needed: the
-endpoints and the ping exist.
+The GitHub workflow `health-heartbeat.yml` is kept **without a schedule**: a manual check of the setup, and a
+template for a scheduled heartbeat in a private repository. In the public repository its run history would show
+when CELLR had trouble, and GitHub disables public schedules after 60 days without activity.
 
 ## Alternatives considered
 
-- **Vercel cron as the trigger.** It runs inside the platform it should watch, it is limited to daily runs on the
-  Hobby plan, and it is not external. Rejected for D1. It can be added later as a second trigger: the gap rule makes
-  double triggering harmless.
+- **Vercel cron as the trigger.** It runs inside the platform it should watch and is limited to daily runs on the
+  Hobby plan. On Pro it would be a fine _trigger_ (the dead man's switch still catches a stopped cron), with
+  detection staying external. It can be added at any time as a second trigger: the gap rule makes double triggering
+  harmless.
+- **A scheduled GitHub Actions heartbeat in this repository (the original D1).** It works, but its pass/fail history
+  is public, which conflicts with the owner's preference. It is kept as a manual check and a template for a private
+  repository.
 - **pg_cron + pg_net calling the app.** pg_net is not installed, it would need a secret in the database, and it runs
   inside the database it watches. Rejected.
 - **Storing error messages for debugging.** It would put host names, SQL fragments or tokens in the database and on
@@ -141,7 +142,7 @@ endpoints and the ping exist.
 
 - Migration 0047 must be applied before anything is measured in production (D4: not yet). Until then System › Health
   says "not installed", the overlay line says so, and the map is unchanged. That state is tested.
-- Turning the heartbeat on is three settings in GitHub (OPERATIONS.md §3). Turning on CI and deploy checks is two
-  read tokens. Each is optional and independent.
+- Switching on external monitoring is three server settings and one provider account (OPERATIONS.md §3). Turning on
+  CI and deploy checks is two read tokens. Each is optional and independent.
 - Sprint 3 (incidents) reads `health_latest` / `health_history`. The model keeps every round, so incidents can be
   derived and deduplicated from history without changing the probes.

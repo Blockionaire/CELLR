@@ -10,7 +10,13 @@ vi.mock("server-only", () => ({}));
 
 const NOW = new Date("2026-11-20T12:00:00.000Z");
 const ago = (sec: number) => new Date(NOW.getTime() - sec * 1000).toISOString();
-const NO_ENV: HealthEnv = { readyToken: null, pingUrl: null, github: null, vercel: null };
+const NO_ENV: HealthEnv = {
+  readyToken: null,
+  roundSecret: null,
+  pingUrl: null,
+  github: null,
+  vercel: null,
+};
 const never = () => new Promise<never>(() => {});
 
 function fakePort(over: Partial<HealthPort> = {}): HealthPort {
@@ -357,6 +363,7 @@ describe("the endpoints", () => {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_localstack_0000000000";
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     delete process.env.CRON_SECRET;
+    delete process.env.CELLR_HEALTH_ROUND_SECRET;
     delete process.env.CELLR_HEALTH_READY_TOKEN;
   });
   afterEach(() => {
@@ -386,6 +393,23 @@ describe("the endpoints", () => {
     const res = await handleHealthCron(get("/api/cron/health", "Bearer s3cret-value-long-enough"));
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ ok: false, recorded: false, reason: "not_configured" });
+  });
+
+  it("a dedicated round secret is preferred: the shared CRON_SECRET then no longer starts a round", async () => {
+    process.env.CRON_SECRET = "shared-cron-secret-0001";
+    process.env.CELLR_HEALTH_ROUND_SECRET = "dedicated-round-secret-01";
+    expect(
+      (await handleHealthCron(get("/api/cron/health", "Bearer shared-cron-secret-0001"))).status,
+    ).toBe(401);
+    // the right one passes the check (and then finds no service role here)
+    expect(
+      (await handleHealthCron(get("/api/cron/health", "Bearer dedicated-round-secret-01"))).status,
+    ).toBe(503);
+    // a short dedicated secret does not count: CRON_SECRET is used again
+    process.env.CELLR_HEALTH_ROUND_SECRET = "short";
+    expect(
+      (await handleHealthCron(get("/api/cron/health", "Bearer shared-cron-secret-0001"))).status,
+    ).toBe(503);
   });
 
   it("readiness is not there without a token (404), and a short token does not count", async () => {
