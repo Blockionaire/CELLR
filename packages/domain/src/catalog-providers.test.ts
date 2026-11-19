@@ -108,9 +108,13 @@ describe("fromLwinRow", () => {
       },
     });
   });
-  it("skips deleted codes and anything that is not an LWIN-7", () => {
+  it("skips deleted codes and codes of an undocumented length; an LWIN-11 is read as its wine (Sprint 004B)", () => {
     expect(fromLwinRow({ ...base, STATUS: "Deleted" }).ok).toBe(false);
-    expect(fromLwinRow({ ...base, LWIN: "10123612015" }).ok).toBe(false);
+    expect(fromLwinRow({ ...base, LWIN: "101236120" }).ok).toBe(false);
+    expect(fromLwinRow({ ...base, LWIN: "10123612015" })).toMatchObject({
+      ok: true,
+      record: { external_id: "1012361", vintages: [2015] },
+    });
   });
   it("champagne is sparkling; an unknown colour is left empty", () => {
     expect(fromLwinRow({ ...base, TYPE: "Champagne", COLOUR: "White" })).toMatchObject({
@@ -330,8 +334,8 @@ describe("the LWIN adapter's own rules (assumed layout)", () => {
       "lwin_fixture",
     );
     expect(good.fatal).toEqual([]);
-    const pinned = ADAPTERS.lwin_fixture.fixtureSha256;
-    expect(pinned).toMatch(/^[0-9a-f]{64}$/);
+    const pinned = ADAPTERS.lwin_fixture.fixtureSha256s[0]!;
+    expect(ADAPTERS.lwin_fixture.fixtureSha256s.every((h) => /^[0-9a-f]{64}$/.test(h))).toBe(true);
     expect(importBlocker("lwin_fixture", good, pinned)).toBeNull();
     // any other file under the fixture provider — a real LWIN file, say — is refused
     expect(importBlocker("lwin_fixture", good, "a".repeat(64))).toMatch(/never verified/);
@@ -339,7 +343,85 @@ describe("the LWIN adapter's own rules (assumed layout)", () => {
     expect(importBlocker("lwin", good, pinned)).toMatch(
       /never verified against a real Liv-ex LWIN file/,
     );
-    expect("fixtureSha256" in ADAPTERS.lwin).toBe(false);
+    expect("fixtureSha256s" in ADAPTERS.lwin).toBe(false);
+    for (const h of ADAPTERS.lwin_fixture.fixtureSha256s)
+      expect(importBlocker("lwin", good, h)).toMatch(/never verified/);
+  });
+});
+
+describe("LWIN codes at every documented level (Sprint 004B)", () => {
+  const H =
+    "LWIN,STATUS,PRODUCER_TITLE,PRODUCER_NAME,WINE,COUNTRY,REGION,SUB_REGION,COLOUR,TYPE,DESIGNATION,CLASSIFICATION";
+  const line = (
+    code: string,
+    over: Partial<Record<"name" | "colour" | "classification", string>> = {},
+  ) =>
+    `${code},Live,Domaine,Fictif,${over.name ?? "Cuvée"},France,Bourgogne,,${over.colour ?? "Red"},Wine,AOC,${over.classification ?? ""}`;
+  const file = (...rows: string[]) => `${H}\n${rows.join("\n")}\n`;
+
+  it("reads an LWIN-11 row as its wine with that vintage", () => {
+    const [r] = inspectProviderFile(file(line("91000012015")), "lwin_fixture").records;
+    expect(r).toMatchObject({ external_id: "9100001", vintages: [2015] });
+    expect(r!.modifications).toContain("LWIN-11 read as its LWIN-7 wine");
+  });
+  it("folds the wine's rows at 7, 11, 16 and 18 digits into one record: vintages and bottle sizes united", () => {
+    const i = inspectProviderFile(
+      file(
+        line("9100001"),
+        line("91000012016"),
+        line("91000012015"),
+        line("9100001201601500"),
+        line("910000120161200750"),
+      ),
+      "lwin_fixture",
+    );
+    expect(i.fatal).toEqual([]);
+    expect(i.records).toHaveLength(1);
+    expect(i.foldedRows).toBe(4);
+    expect(i.records[0]).toMatchObject({ external_id: "9100001", vintages: [2015, 2016] });
+    expect(i.records[0]!.details).toMatchObject({ lwin7: "9100001", bottle_ml: [750, 1500] });
+  });
+  it("a classification on one row only is kept; two different ones are a conflict", () => {
+    const ok = inspectProviderFile(
+      file(line("91000012015", { classification: "1er" }), line("91000012016")),
+      "lwin_fixture",
+    );
+    expect(ok.records[0]!.details.classification).toBe("1er");
+    const bad = inspectProviderFile(
+      file(
+        line("91000012015", { classification: "1er" }),
+        line("91000012016", { classification: "Grand" }),
+      ),
+      "lwin_fixture",
+    );
+    expect(bad.fatal.join()).toMatch(/one id, one wine/);
+  });
+  it("another wine under the same LWIN-7 is fatal: CELLR never picks one of two identities", () => {
+    for (const other of [{ name: "Autre Cuvée" }, { colour: "White" }]) {
+      const i = inspectProviderFile(
+        file(line("91000012015"), line("91000012016", other)),
+        "lwin_fixture",
+      );
+      expect(i.fatal.join()).toMatch(/disagree on (name|wine_type)/);
+      expect(importBlocker("lwin_fixture", i, ADAPTERS.lwin_fixture.fixtureSha256s[0]!)).toMatch(
+        /one id, one wine/,
+      );
+    }
+  });
+  it("the vintage placeholder 1000 is reported, never read as non-vintage", () => {
+    const [r] = inspectProviderFile(file(line("91000031000")), "lwin_fixture").records;
+    expect(r).toMatchObject({ vintages: [], non_vintage: false });
+    expect(r!.details.vintage_placeholder).toBe(true);
+  });
+  it("codes of other lengths or with an impossible vintage are refused", () => {
+    for (const code of ["910000", "910000120", "91000011700", "910000120160004"])
+      expect(fromLwinRow({ LWIN: code, STATUS: "Live", PRODUCER_NAME: "X", WINE: "Y" })).toEqual({
+        ok: false,
+        reason: "LWIN",
+      });
+  });
+  it("X-Wines still treats a repeated id as fatal (no fold for it)", () => {
+    expect("fold" in ADAPTERS.xwines).toBe(false);
   });
 });
 

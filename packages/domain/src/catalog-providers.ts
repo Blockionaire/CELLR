@@ -1,4 +1,5 @@
 import type { WineType } from "./cellar";
+import { parseLwin } from "./catalog-identity";
 
 /**
  * EXTERNAL WINE DATA PROVIDERS (Sprint 004A). Every provider's file is turned into the same record shape before it
@@ -20,7 +21,7 @@ export interface ProviderRecord {
   vintages: number[];
   non_vintage: boolean;
   /** Identity extras only (grapes, alcohol, the provider's own codes). */
-  details: Record<string, string | number | boolean | string[]>;
+  details: Record<string, string | number | boolean | string[] | number[]>;
   /** The provider's own page for this record, when it has one (https only). */
   source_url: string | null;
   /**
@@ -379,10 +380,17 @@ export function countryCodeOf(name: string | undefined): string | null {
   return COUNTRY_CODES[(name ?? "").trim().toLowerCase()] ?? null;
 }
 
-/** One row of the LWIN database file (wine level: LWIN-7). Deleted or combined codes are not imported. */
+/**
+ * One row of the LWIN database file. Liv-ex documents 7-, 11-, 16- and 18-digit codes (the wine; plus the vintage;
+ * plus the bottle size; plus the pack). CELLR's record is the WINE, so every row is keyed on its LWIN-7: an LWIN-11 row
+ * adds its vintage, an LWIN-16/18 row also its bottle size (kept as a detail; bottles carry their own size in CELLR).
+ * Rows of one LWIN-7 are folded into one record by `foldLwinRecords`. The vintage placeholder (`1000`) is reported,
+ * never read as "non-vintage" (its meaning is unconfirmed). Deleted or combined codes are not imported.
+ */
 export function fromLwinRow(row: Record<string, string>): AdapterResult {
-  const id = (row.LWIN ?? "").trim();
-  if (!/^\d{7}$/.test(id) || /^0+$/.test(id)) return { ok: false, reason: "LWIN" };
+  const code = parseLwin((row.LWIN ?? "").trim());
+  if (!code) return { ok: false, reason: "LWIN" };
+  const id = code.lwin7;
   if ((row.STATUS ?? "").trim().toLowerCase() !== "live") return { ok: false, reason: "STATUS" };
   // each part is cleaned on its own, so a placeholder ("NULL") in one never becomes part of a name ("Chateau NULL"),
   // and a title alone ("Chateau") is not a producer
@@ -417,6 +425,10 @@ export function fromLwinRow(row: Record<string, string>): AdapterResult {
   const details: ProviderRecord["details"] = { lwin7: id };
   const classification = clean(row.CLASSIFICATION, 120);
   if (classification) details.classification = classification;
+  if (code.bottleMl !== null) details.bottle_ml = [code.bottleMl];
+  if (code.vintagePlaceholder) details.vintage_placeholder = true;
+  const modifications = ["producer title and name joined", ...(type ? [] : ["type not mapped"])];
+  if (code.level > 7) modifications.push(`LWIN-${code.level} read as its LWIN-7 wine`);
   return {
     ok: true,
     record: {
@@ -427,12 +439,53 @@ export function fromLwinRow(row: Record<string, string>): AdapterResult {
       country_code: countryCodeOf(row.COUNTRY),
       region: clean(row.SUB_REGION, 120) ?? clean(row.REGION, 120),
       appellation: clean(row.DESIGNATION, 160),
-      vintages: [],
+      vintages: code.vintage !== null ? [code.vintage] : [],
       non_vintage: false,
       details,
       source_url: null,
-      modifications: ["producer title and name joined", ...(type ? [] : ["type not mapped"])],
+      modifications,
     },
+  };
+}
+
+/** The identity fields that must agree before two rows of one LWIN-7 may be folded into one record. */
+const LWIN_IDENTITY = [
+  "producer",
+  "name",
+  "wine_type",
+  "country_code",
+  "region",
+  "appellation",
+] as const;
+
+/**
+ * Two rows of the same LWIN-7 (the wine at another vintage or bottle size) as one record: vintages and bottle sizes
+ * are united, everything that says WHICH wine it is must be equal. A row that names another wine under the same
+ * LWIN-7 is a conflict, returned as text: the file is then not imported (CELLR never picks one of two identities).
+ */
+export function foldLwinRecords(a: ProviderRecord, b: ProviderRecord): ProviderRecord | string {
+  for (const k of LWIN_IDENTITY)
+    if ((a[k] ?? null) !== (b[k] ?? null))
+      return `LWIN ${a.external_id}: two rows disagree on ${k}`;
+  const ca = a.details.classification ?? null;
+  const cb = b.details.classification ?? null;
+  if (ca !== null && cb !== null && ca !== cb)
+    return `LWIN ${a.external_id}: two rows disagree on classification`;
+  const nums = (v: unknown): number[] => (Array.isArray(v) ? v.map(Number) : []);
+  const bottles = [...new Set([...nums(a.details.bottle_ml), ...nums(b.details.bottle_ml)])].sort(
+    (x, y) => x - y,
+  );
+  const details: ProviderRecord["details"] = { ...a.details, ...b.details, lwin7: a.external_id };
+  if (ca ?? cb) details.classification = (ca ?? cb) as string;
+  if (bottles.length > 0) details.bottle_ml = bottles;
+  else delete details.bottle_ml;
+  if (a.details.vintage_placeholder || b.details.vintage_placeholder)
+    details.vintage_placeholder = true;
+  return {
+    ...a,
+    vintages: [...new Set([...a.vintages, ...b.vintages])].sort((x, y) => x - y),
+    details,
+    modifications: [...new Set([...a.modifications, ...b.modifications])].slice(0, 12),
   };
 }
 
@@ -447,10 +500,15 @@ export interface ProviderAdapter {
   columns: readonly string[];
   map: (row: Record<string, string>) => AdapterResult;
   /**
-   * For an adapter whose layout is not verified: the SHA-256 of the one file it may read, CELLR's own fixture. Any
-   * other file is refused, whatever provider it is offered for.
+   * For an adapter whose layout is not verified: the SHA-256s of the only files it may read, CELLR's own fixtures.
+   * Any other file is refused, whatever provider it is offered for.
    */
-  fixtureSha256?: string;
+  fixtureSha256s?: readonly string[];
+  /**
+   * Rows that share an external id are one record at several levels (LWIN-7/11/16/18): folded by this function, or
+   * a conflict (text). Without it, a repeated id is fatal.
+   */
+  fold?: (a: ProviderRecord, b: ProviderRecord) => ProviderRecord | string;
 }
 
 export const ADAPTERS = {
@@ -465,6 +523,7 @@ export const ADAPTERS = {
     layoutVerified: false,
     columns: LWIN_COLUMNS,
     map: fromLwinRow,
+    fold: foldLwinRecords,
   },
   // the fixture uses the X-Wines layout, so the adapter path is the same one a real file takes
   fixture: {
@@ -479,8 +538,12 @@ export const ADAPTERS = {
     layoutVerified: false,
     columns: LWIN_COLUMNS,
     map: fromLwinRow,
-    // eval/catalog/fixture-lwin-layout.csv (pinned by scripts/catalog-tools/eval.test.ts)
-    fixtureSha256: "160b1934a2bbb2a98aa58a68dd637a0bb2a699d949eadbf35910fc4264369505",
+    fold: foldLwinRecords,
+    // eval/catalog/fixture-lwin-layout.csv and fixture-lwin-levels.csv (pinned by scripts/catalog-tools/eval.test.ts)
+    fixtureSha256s: [
+      "160b1934a2bbb2a98aa58a68dd637a0bb2a699d949eadbf35910fc4264369505",
+      "026377aa508a7aece1e9789e9b9616002130a41ad5cc312f205d7627988ecb8d",
+    ],
   },
 } as const satisfies Record<ProviderId, ProviderAdapter>;
 
@@ -498,6 +561,10 @@ export interface FileInspection {
   /** External ids that occur more than once (the first 20) and how many rows that concerns. */
   duplicateIds: string[];
   duplicateRows: number;
+  /** Rows folded into an earlier row of the same id (an adapter with `fold`: other vintages or bottle sizes). */
+  foldedRows: number;
+  /** Rows of one id that name another wine (the first 20). Fatal: CELLR never picks one of two identities. */
+  foldConflicts: string[];
   /** Provider type values CELLR has no type for, with their counts (left empty, never guessed). */
   unmappedTypes: Record<string, number>;
   /** Rows with a vintage CELLR dropped as implausible. */
@@ -538,6 +605,8 @@ export function inspectProviderFile(text: string, providerId: ProviderId): FileI
     skipped: {},
     duplicateIds: [],
     duplicateRows: 0,
+    foldedRows: 0,
+    foldConflicts: [],
     unmappedTypes: {},
     implausibleVintageRows: 0,
     encodingRows: 0,
@@ -570,6 +639,8 @@ export function inspectProviderFile(text: string, providerId: ProviderId): FileI
   }
   let replaced = 0;
   const seen = new Map<string, number>();
+  const at = new Map<string, number>();
+  let conflicts = 0;
   for (const row of rows) {
     const values = Object.values(row);
     if (values.some((v) => REPLACEMENT.test(v))) replaced++;
@@ -581,6 +652,18 @@ export function inspectProviderFile(text: string, providerId: ProviderId): FileI
     }
     const n = (seen.get(r.record.external_id) ?? 0) + 1;
     seen.set(r.record.external_id, n);
+    if (n > 1 && adapter.fold) {
+      const i = at.get(r.record.external_id)!;
+      const folded = adapter.fold(out.records[i]!, r.record);
+      if (typeof folded === "string") {
+        conflicts++;
+        if (out.foldConflicts.length < 20) out.foldConflicts.push(folded);
+      } else {
+        out.records[i] = folded;
+        out.foldedRows++;
+      }
+      continue;
+    }
     if (n > 1) {
       out.duplicateRows++;
       if (n === 2 && out.duplicateIds.length < 20) out.duplicateIds.push(r.record.external_id);
@@ -592,8 +675,13 @@ export function inspectProviderFile(text: string, providerId: ProviderId): FileI
     }
     if (r.record.modifications.includes("implausible vintages dropped"))
       out.implausibleVintageRows++;
+    at.set(r.record.external_id, out.records.length);
     out.records.push(r.record);
   }
+  if (conflicts > 0)
+    out.fatal.push(
+      `${conflicts} row(s) name another wine under an id already used (${out.foldConflicts.slice(0, 3).join("; ")}): one id, one wine`,
+    );
   if (out.duplicateRows > 0)
     out.fatal.push(
       `${out.duplicateRows} row(s) repeat an external id (${out.duplicateIds.slice(0, 5).join(", ")}…): ids must be unique`,
@@ -638,7 +726,7 @@ export function importBlocker(
 ): string | null {
   if (inspection.fatal.length > 0) return inspection.fatal[0]!;
   const adapter: ProviderAdapter = ADAPTERS[providerId];
-  if (!adapter.layoutVerified && (!adapter.fixtureSha256 || adapter.fixtureSha256 !== fileSha256))
+  if (!adapter.layoutVerified && !(adapter.fixtureSha256s ?? []).includes(fileSha256))
     return `the ${inspection.schema} layout was never verified against a real ${PROVIDERS[providerId].name} file: a real import stays blocked until it is`;
   return null;
 }

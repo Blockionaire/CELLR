@@ -165,6 +165,7 @@ async function main() {
       layout_verified: inspection.layoutVerified,
       adapter_records: records.length,
       adapter_skipped: skipped,
+      folded_rows: inspection.foldedRows,
       unmapped_types: inspection.unmappedTypes,
       implausible_vintage_rows: inspection.implausibleVintageRows,
       warnings: [
