@@ -154,6 +154,11 @@ export interface Technique extends Named {
   /** What cooking it this way adds to (or takes from) the main ingredient. */
   delta: Partial<FoodStructure>;
   tags?: readonly FoodTag[];
+  /**
+   * True for a word that says how the dish tastes rather than how it was cooked ("spicy", "mild", "creamy"). It
+   * applies on top of any dish, also one that has its own technique.
+   */
+  modifier?: boolean;
 }
 
 export interface Sauce extends Named {
@@ -161,6 +166,11 @@ export interface Sauce extends Named {
   tags?: readonly FoodTag[];
   /** How much the sauce, rather than what is under it, decides the wine: 1 a little, 2 as much, 3 more. */
   dominance: 1 | 2 | 3;
+  /**
+   * What it is usually served on, for when someone names only the sauce ("we're having a korma", "carbonara").
+   * The reading is then an assumption and is never more than "medium" sure.
+   */
+  usual?: FoodMain;
 }
 
 /** A dish people name as one thing ("coq au vin", "stamppot boerenkool"), described by its parts. */

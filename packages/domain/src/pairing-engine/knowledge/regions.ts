@@ -23,11 +23,14 @@ function region(
 
 // ---- France ----
 const LOIRE = ["loire", "val de loire", "loire valley"];
-region("FR", "loire", "white", LOIRE, { body: 2.3, acidity: 4.3, intensity: 3, oak: 0.3, alcohol: 2 }, [
-  "sauvignon blanc",
-  "chenin blanc",
-  "crisp white",
-]);
+region(
+  "FR",
+  "loire",
+  "white",
+  LOIRE,
+  { body: 2.3, acidity: 4.3, intensity: 3, oak: 0.3, alcohol: 2 },
+  ["sauvignon blanc", "chenin blanc", "crisp white"],
+);
 region(
   "FR",
   "loire",
@@ -37,11 +40,17 @@ region(
   ["cabernet franc", "light red"],
 );
 // Loire rosé runs from dry Sancerre to the sweetish Rosé d'Anjou; a touch of sugar on average.
-region("FR", "loire", "rose", LOIRE, { body: 1.8, tannin: 0.3, acidity: 3.9, sweetness: 1 }, ["dry rose"]);
-region("FR", "loire", "sparkling", LOIRE, { body: 2, acidity: 4.5, sweetness: 0.8, intensity: 2.8 }, [
-  "chenin blanc",
-  "traditional method sparkling",
+region("FR", "loire", "rose", LOIRE, { body: 1.8, tannin: 0.3, acidity: 3.9, sweetness: 1 }, [
+  "dry rose",
 ]);
+region(
+  "FR",
+  "loire",
+  "sparkling",
+  LOIRE,
+  { body: 2, acidity: 4.5, sweetness: 0.8, intensity: 2.8 },
+  ["chenin blanc", "traditional method sparkling"],
+);
 const BURGUNDY = ["burgundy", "bourgogne"];
 region(
   "FR",
@@ -51,9 +60,14 @@ region(
   { body: 3, tannin: 2.6, acidity: 3.9, intensity: 3.4, oak: 1.1, alcohol: 2.3 },
   ["pinot noir", "medium red"],
 );
-region("FR", "burgundy", "white", BURGUNDY, { body: 3, acidity: 3.9, intensity: 3, oak: 1, alcohol: 2.3 }, [
-  "chardonnay",
-]);
+region(
+  "FR",
+  "burgundy",
+  "white",
+  BURGUNDY,
+  { body: 3, acidity: 3.9, intensity: 3, oak: 1, alcohol: 2.3 },
+  ["chardonnay"],
+);
 region(
   "FR",
   "bordeaux",
@@ -62,10 +76,14 @@ region(
   { body: 3.9, tannin: 3.9, acidity: 3.6, intensity: 3.5, oak: 1.6, alcohol: 2.5 },
   ["cabernet sauvignon", "merlot", "full red"],
 );
-region("FR", "bordeaux", "white", ["bordeaux", "bordelais"], { body: 2.6, acidity: 3.9, intensity: 3.2, oak: 0.7 }, [
-  "sauvignon blanc",
-  "semillon",
-]);
+region(
+  "FR",
+  "bordeaux",
+  "white",
+  ["bordeaux", "bordelais"],
+  { body: 2.6, acidity: 3.9, intensity: 3.2, oak: 0.7 },
+  ["sauvignon blanc", "semillon"],
+);
 region(
   "FR",
   "bordeaux",
@@ -83,15 +101,22 @@ region(
   { body: 4, tannin: 3.2, acidity: 3.1, intensity: 3.8, oak: 0.7, alcohol: 2.8 },
   ["grenache", "syrah", "full red"],
 );
-region("FR", "rhone", "white", RHONE, { body: 3.7, acidity: 2.8, intensity: 3.4, oak: 0.4, alcohol: 2.7 }, [
-  "grenache blanc",
-  "viognier",
-  "rich white",
-]);
-region("FR", "rhone", "rose", RHONE, { body: 2.5, tannin: 0.8, acidity: 3.3, intensity: 2.6, alcohol: 2.5 }, [
-  "grenache",
-  "dry rose",
-]);
+region(
+  "FR",
+  "rhone",
+  "white",
+  RHONE,
+  { body: 3.7, acidity: 2.8, intensity: 3.4, oak: 0.4, alcohol: 2.7 },
+  ["grenache blanc", "viognier", "rich white"],
+);
+region(
+  "FR",
+  "rhone",
+  "rose",
+  RHONE,
+  { body: 2.5, tannin: 0.8, acidity: 3.3, intensity: 2.6, alcohol: 2.5 },
+  ["grenache", "dry rose"],
+);
 const LANGUEDOC = ["languedoc", "languedoc roussillon", "roussillon", "pays d oc", "sud de france"];
 region(
   "FR",
@@ -101,10 +126,22 @@ region(
   { body: 3.9, tannin: 3.2, acidity: 3.1, intensity: 3.6, oak: 0.7, alcohol: 2.8 },
   ["grenache", "syrah", "carignan", "full red"],
 );
-region("FR", "languedoc", "white", LANGUEDOC, { body: 2.8, acidity: 3.3, intensity: 2.8, alcohol: 2.3 }, []);
-region("FR", "languedoc", "rose", LANGUEDOC, { body: 2, tannin: 0.4, acidity: 3.5, intensity: 2.2 }, [
-  "dry rose",
-]);
+region(
+  "FR",
+  "languedoc",
+  "white",
+  LANGUEDOC,
+  { body: 2.8, acidity: 3.3, intensity: 2.8, alcohol: 2.3 },
+  ["grenache blanc"],
+);
+region(
+  "FR",
+  "languedoc",
+  "rose",
+  LANGUEDOC,
+  { body: 2, tannin: 0.4, acidity: 3.5, intensity: 2.2 },
+  ["dry rose"],
+);
 region(
   "FR",
   "provence",
@@ -146,13 +183,22 @@ region(
   { body: 2.5, acidity: 4.6, sweetness: 0.8, intensity: 3, oak: 0.2, alcohol: 2, fizz: true },
   ["chardonnay", "pinot noir", "traditional method sparkling"],
 );
-region("FR", "jura", "white", ["jura"], { body: 3.2, acidity: 4.1, intensity: 3.8, oak: 0.3, alcohol: 2.3 }, [
-  "savagnin",
-  "chardonnay",
-]);
-region("FR", "jura", "red", ["jura"], { body: 2.2, tannin: 1.8, acidity: 3.8, intensity: 3, oak: 0.4 }, [
-  "light red",
-]);
+region(
+  "FR",
+  "jura",
+  "white",
+  ["jura"],
+  { body: 3.2, acidity: 4.1, intensity: 3.8, oak: 0.3, alcohol: 2.3 },
+  ["savagnin", "chardonnay"],
+);
+region(
+  "FR",
+  "jura",
+  "red",
+  ["jura"],
+  { body: 2.2, tannin: 1.8, acidity: 3.8, intensity: 3, oak: 0.4 },
+  ["light red"],
+);
 region(
   "FR",
   "savoie",
@@ -179,10 +225,14 @@ region(
   { body: 3.5, tannin: 3.6, acidity: 4.3, intensity: 3.8, oak: 0.8, alcohol: 2.6 },
   ["nebbiolo", "barbera", "medium red"],
 );
-region("IT", "piedmont", "white", ["piedmont", "piemonte"], { body: 2.3, acidity: 3.8, intensity: 2.5 }, [
-  "cortese",
-  "arneis",
-]);
+region(
+  "IT",
+  "piedmont",
+  "white",
+  ["piedmont", "piemonte"],
+  { body: 2.3, acidity: 3.8, intensity: 2.5 },
+  ["cortese", "arneis"],
+);
 region(
   "IT",
   "tuscany",
@@ -191,10 +241,14 @@ region(
   { body: 3.6, tannin: 3.6, acidity: 4.1, intensity: 3.5, oak: 1.2, alcohol: 2.6 },
   ["sangiovese", "medium red"],
 );
-region("IT", "tuscany", "white", ["tuscany", "toscana"], { body: 2.4, acidity: 3.6, intensity: 2.4 }, [
-  "vermentino",
-  "trebbiano",
-]);
+region(
+  "IT",
+  "tuscany",
+  "white",
+  ["tuscany", "toscana"],
+  { body: 2.4, acidity: 3.6, intensity: 2.4 },
+  ["vermentino", "trebbiano"],
+);
 region(
   "IT",
   "veneto",
@@ -203,17 +257,21 @@ region(
   { body: 2.9, tannin: 2.4, acidity: 3.8, intensity: 3, oak: 0.5, alcohol: 2.3 },
   ["corvina", "medium red"],
 );
-region("IT", "veneto", "white", ["veneto"], { body: 2.1, acidity: 3.6, intensity: 2.1, oak: 0, alcohol: 2 }, [
-  "garganega",
-  "pinot gris",
-]);
+region(
+  "IT",
+  "veneto",
+  "white",
+  ["veneto"],
+  { body: 2.1, acidity: 3.6, intensity: 2.1, oak: 0, alcohol: 2 },
+  ["garganega", "pinot gris"],
+);
 region(
   "IT",
   "friuli",
   "white",
   ["friuli", "friuli venezia giulia"],
   { body: 2.8, acidity: 3.8, intensity: 3, oak: 0.3, alcohol: 2.3 },
-  [],
+  ["pinot gris", "ribolla gialla", "crisp white"],
 );
 // Friuli and the Slovenian border are where modern skin-contact white began.
 region(
@@ -232,7 +290,14 @@ region(
   { body: 3.9, tannin: 3, acidity: 3.4, intensity: 3.6, alcohol: 2.8 },
   ["nero d avola", "full red"],
 );
-region("IT", "sicily", "white", ["sicily", "sicilia"], { body: 2.7, acidity: 3.3, intensity: 2.7, alcohol: 2.3 }, []);
+region(
+  "IT",
+  "sicily",
+  "white",
+  ["sicily", "sicilia"],
+  { body: 2.7, acidity: 3.3, intensity: 2.7, alcohol: 2.3 },
+  ["crisp white"],
+);
 region(
   "IT",
   "puglia",
@@ -283,9 +348,14 @@ region(
   { body: 3.5, tannin: 3.3, acidity: 3.6, intensity: 3.4, oak: 1.9, alcohol: 2.5 },
   ["tempranillo", "medium red"],
 );
-region("ES", "rioja", "white", ["rioja", "la rioja"], { body: 2.7, acidity: 3.5, intensity: 2.5, oak: 0.9 }, [
-  "viura",
-]);
+region(
+  "ES",
+  "rioja",
+  "white",
+  ["rioja", "la rioja"],
+  { body: 2.7, acidity: 3.5, intensity: 2.5, oak: 0.9 },
+  ["viura"],
+);
 region(
   "ES",
   "ribera del duero",
@@ -327,9 +397,14 @@ region(
   ["tempranillo", "grenache"],
 );
 // Sherry country makes every style from bone dry to syrup; the sherry appellation rules decide.
-region("ES", "jerez", "fortified", ["jerez", "andalucia", "andalusia", "sanlucar de barrameda"], { tannin: 0 }, [
-  "palomino",
-]);
+region(
+  "ES",
+  "jerez",
+  "fortified",
+  ["jerez", "andalucia", "andalusia", "sanlucar de barrameda"],
+  { tannin: 0 },
+  ["palomino"],
+);
 
 // ---- Portugal ----
 region(
@@ -549,10 +624,14 @@ region(
   { body: 2.8, tannin: 2.3, acidity: 3.9, intensity: 3.4, oak: 1.1, alcohol: 2.3 },
   ["pinot noir", "light red"],
 );
-region("US", "oregon", "white", ["oregon"], { body: 2.9, acidity: 3.9, intensity: 3, oak: 0.8, alcohol: 2.3 }, [
-  "chardonnay",
-  "pinot gris",
-]);
+region(
+  "US",
+  "oregon",
+  "white",
+  ["oregon"],
+  { body: 2.9, acidity: 3.9, intensity: 3, oak: 0.8, alcohol: 2.3 },
+  ["chardonnay", "pinot gris"],
+);
 region(
   "US",
   "washington",

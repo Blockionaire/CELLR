@@ -336,13 +336,21 @@ grape(
   { body: 2.8, acidity: 4.4, sweetness: 1, intensity: 3.5, oak: 0.4, alcohol: 2.2 },
   ["crisp white"],
 );
-// Pinot grigio is light and neutral, pinot gris (Alsace, Baden) fuller; the place decides which.
+// One grape, two styles, and the spelling on the label says which. "Pinot gris" (Alsace, Baden, Oregon, New
+// Zealand) is full, soft and often a little off-dry; "pinot grigio" is light, dry and neutral.
 grape(
   "pinot gris",
   "white",
-  ["pinot gris", "pinot grigio", "grauburgunder", "grauer burgunder", "rulandske sede", "szurkebarat"],
-  { body: 2.6, acidity: 3.3, sweetness: 0.6, intensity: 2.6, oak: 0.2, alcohol: 2.2 },
-  [],
+  ["pinot gris", "grauburgunder", "grauer burgunder", "rulandske sede", "szurkebarat"],
+  { body: 3.4, acidity: 3, sweetness: 1.3, intensity: 3.4, oak: 0.2, alcohol: 2.5 },
+  ["aromatic white", "rich white"],
+);
+grape(
+  "pinot grigio",
+  "white",
+  ["pinot grigio"],
+  { body: 2.2, acidity: 3.5, sweetness: 0.4, intensity: 2.2, oak: 0, alcohol: 2 },
+  ["pinot gris", "crisp white"],
 );
 grape(
   "gewurztraminer",
@@ -446,7 +454,14 @@ grape(
 grape(
   "muscat",
   "white",
-  ["muscat", "moscato", "moscatel", "muskateller", "gelber muskateller", "muscat blanc a petits grains"],
+  [
+    "muscat",
+    "moscato",
+    "moscatel",
+    "muskateller",
+    "gelber muskateller",
+    "muscat blanc a petits grains",
+  ],
   { body: 2.4, acidity: 3, sweetness: 1, intensity: 5, oak: 0, alcohol: 2 },
   ["aromatic white"],
 );
@@ -478,15 +493,27 @@ grape(
   { body: 2, acidity: 4, intensity: 2.2, oak: 0, alcohol: 2 },
   ["crisp white"],
 );
-grape("arneis", "white", ["arneis"], { body: 2.7, acidity: 3.2, intensity: 3, oak: 0, alcohol: 2.2 }, [
-  "aromatic white",
-]);
-grape("fiano", "white", ["fiano"], { body: 3.2, acidity: 3.7, intensity: 3.5, oak: 0.3, alcohol: 2.4 }, [
-  "rich white",
-]);
-grape("greco", "white", ["greco", "greco bianco"], { body: 2.9, acidity: 4, intensity: 3.2, alcohol: 2.4 }, [
-  "crisp white",
-]);
+grape(
+  "arneis",
+  "white",
+  ["arneis"],
+  { body: 2.7, acidity: 3.2, intensity: 3, oak: 0, alcohol: 2.2 },
+  ["aromatic white"],
+);
+grape(
+  "fiano",
+  "white",
+  ["fiano"],
+  { body: 3.2, acidity: 3.7, intensity: 3.5, oak: 0.3, alcohol: 2.4 },
+  ["rich white"],
+);
+grape(
+  "greco",
+  "white",
+  ["greco", "greco bianco"],
+  { body: 2.9, acidity: 4, intensity: 3.2, alcohol: 2.4 },
+  ["crisp white"],
+);
 grape(
   "pinot blanc",
   "white",
@@ -501,9 +528,13 @@ grape(
   { body: 2.4, acidity: 3.7, intensity: 2, oak: 0, alcohol: 2.1 },
   ["crisp white"],
 );
-grape("aligote", "white", ["aligote"], { body: 2, acidity: 4.4, intensity: 2, oak: 0, alcohol: 1.9 }, [
-  "crisp white",
-]);
+grape(
+  "aligote",
+  "white",
+  ["aligote"],
+  { body: 2, acidity: 4.4, intensity: 2, oak: 0, alcohol: 1.9 },
+  ["crisp white"],
+);
 grape(
   "picpoul",
   "white",

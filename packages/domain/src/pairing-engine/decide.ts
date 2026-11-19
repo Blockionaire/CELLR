@@ -37,6 +37,11 @@ export interface PairingDecision<T> {
   picks: PairingPick<T>[];
   /** How sure the engine is of this answer, in words. Follows from how well the dish and the wines are known. */
   confidence: Confidence;
+  /**
+   * When nothing suits: the wine that comes closest without clashing, if there is one. It is not a
+   * recommendation and an answer must not present it as one ("nothing here really suits; this would not clash").
+   */
+  closest: PairingPick<T> | null;
   /** Every candidate with its assessment, best first: for "why not this one?" and for tests. */
   all: PairingPick<T>[];
 }
@@ -44,6 +49,9 @@ export interface PairingDecision<T> {
 const LEVEL_ORDER: Record<PairingLevel, number> = { good: 0, acceptable: 1, poor: 2 };
 /** How much taste can move a wine among others of its level, in points of the ordering score. */
 export const TASTE_WEIGHT = 6;
+
+/** Below this a wine is not even "closest": too much is against it. */
+export const CLOSEST_FROM = 55;
 
 const TIER_CONFIDENCE: Record<EvidenceTier, Confidence> = {
   exact: "high",
@@ -69,11 +77,18 @@ export function decidePairing<T>(
       (a, b) =>
         LEVEL_ORDER[a.pick.assessment.level] - LEVEL_ORDER[b.pick.assessment.level] ||
         b.pick.assessment.score + b.order - (a.pick.assessment.score + a.order) ||
+        // Between equals: the wine the dish is known for, then the one with the least against it.
+        Number(b.pick.assessment.pros.includes("classic")) -
+          Number(a.pick.assessment.pros.includes("classic")) ||
+        a.pick.assessment.cons.length - b.pick.assessment.cons.length ||
         a.n - b.n,
     )
     .map((x) => x.pick);
 
-  const picks = all.filter((p) => p.assessment.level !== "poor").slice(0, limit);
+  // Only wines of the best level there is: next to a good match an "it will do" is not a recommendation.
+  const best = all[0]?.assessment.level ?? "poor";
+  const picks =
+    best === "poor" ? [] : all.filter((p) => p.assessment.level === best).slice(0, limit);
   const first = picks[0];
   const outcome: PairingOutcome = !first
     ? "none"
@@ -85,5 +100,9 @@ export function decidePairing<T>(
   const wines: Confidence = first
     ? TIER_CONFIDENCE[first.tier]
     : all.reduce<Confidence>((c, p) => least(c, TIER_CONFIDENCE[p.tier]), "high");
-  return { outcome, picks, confidence: least(food.confidence, wines), all };
+  const closest =
+    outcome === "none"
+      ? (all.find((p) => p.assessment.clash === null && p.assessment.score >= CLOSEST_FROM) ?? null)
+      : null;
+  return { outcome, picks, confidence: least(food.confidence, wines), closest, all };
 }

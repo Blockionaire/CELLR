@@ -10,6 +10,10 @@ import type { Technique } from "../types";
 
 // prettier-ignore
 export const TECHNIQUES: readonly Technique[] = [
+  // ---- How it tastes, said on top of whatever the dish is ----
+  { id: "spicy", en: ["spicy", "very spicy", "extra spicy", "hot and spicy", "fiery", "extra hot"], nl: ["pittig", "pittige", "heel pittig", "extra pittig", "scherp", "scherpe", "heet", "hete", "spicy"], delta: { heat: 1.5, intensity: 0.5 }, modifier: true },
+  { id: "mild", en: ["mild", "not spicy", "not too spicy"], nl: ["mild", "milde", "niet pittig", "niet te pittig", "niet scherp"], delta: { heat: -1 }, modifier: true },
+  { id: "creamy", en: ["creamy", "in cream"], nl: ["romig", "romige", "in room"], delta: { fat: 1, weight: 0.5 }, tags: ["cream"], modifier: true },
   { id: "raw", en: ["raw", "uncooked", "crudo", "carpaccio-style", "served raw"], nl: ["rauw", "rauwe", "ongekookt"], delta: { weight: -0.5, intensity: -0.3 } },
   { id: "cured", en: ["cured", "marinated", "salt-cured", "dry-cured", "brined", "salted", "salt cured", "dry aged", "dry-aged"], nl: ["gemarineerd", "gemarineerde", "gezouten", "gepekeld", "gepekelde", "gecured", "dry aged", "droog gerijpt"], delta: { salt: 1 }, tags: ["cured"] },
   { id: "citrus-cured", en: ["ceviche-style", "citrus-cured", "citrus cured", "lime-cured", "lime cured", "tiradito"], nl: ["in citrus gegaard", "gegaard in limoen", "citrus-gegaard", "in limoensap gegaard"], delta: { acid: 2 }, tags: ["citrus"] },

@@ -10,7 +10,13 @@
  * HOLDOUT half is read as a summary, to see whether the rules generalise or were fitted to the labels.
  */
 import { parseArgs } from "node:util";
-import { FOOD, WINE_KNOWLEDGE, assessPairing, parseFood, readWine } from "@cellr/domain/intelligence";
+import {
+  FOOD,
+  WINE_KNOWLEDGE,
+  assessPairing,
+  parseFood,
+  readWine,
+} from "@cellr/domain/intelligence";
 import { DISHES } from "./dishes";
 import type { DishCard } from "./types";
 import { WINES } from "./wines";
@@ -31,7 +37,13 @@ const label = (card: DishCard, key: string): Level =>
 
 const wines = WINES.map((w) => {
   const reading = readWine(
-    { type: w.type, name: w.name, region: w.region, appellation: w.appellation, countryCode: w.countryCode },
+    {
+      type: w.type,
+      name: w.name,
+      region: w.region,
+      appellation: w.appellation,
+      countryCode: w.countryCode,
+    },
     WINE_KNOWLEDGE,
   );
   return { key: w.key, wine: { ...reading, type: w.type } };
@@ -63,12 +75,16 @@ function cells(card: DishCard): Cell[] {
 
 function summary(name: string, cards: readonly DishCard[]) {
   const all = cards.flatMap(cells);
-  const unread = cards.filter((c) => parseFood(args.lang === "nl" ? c.nl : c.en, FOOD).main === null);
+  const unread = cards.filter(
+    (c) => parseFood(args.lang === "nl" ? c.nl : c.en, FOOD).main === null,
+  );
   const count = (l: Level, e: Level) => all.filter((c) => c.label === l && c.engine === e).length;
   console.log(`\n${name}: ${cards.length} dishes (${unread.length} not read), ${all.length} pairs`);
   console.log("label \\ engine      good  acceptable  poor");
   for (const l of LEVELS)
-    console.log(`${l.padEnd(18)} ${LEVELS.map((e) => String(count(l, e)).padStart(5)).join("      ")}`);
+    console.log(
+      `${l.padEnd(18)} ${LEVELS.map((e) => String(count(l, e)).padStart(5)).join("      ")}`,
+    );
   const exact = all.filter((c) => c.label === c.engine).length;
   const grave = count("poor", "good") + count("good", "poor");
   console.log(
@@ -98,7 +114,14 @@ if (args.dish) {
   if (!card) throw new Error(`unknown dish ${args.dish}`);
   const food = parseFood(args.lang === "nl" ? card.nl : card.en, FOOD);
   console.log(card.en, "|", card.nl, "\nreference:", card.why);
-  console.log(JSON.stringify({ main: food.main, ...food.structure, tags: food.tags, classics: food.classics }));
+  console.log(
+    JSON.stringify({
+      main: food.main,
+      ...food.structure,
+      tags: food.tags,
+      classics: food.classics,
+    }),
+  );
   for (const c of cells(card).sort((a, b) => b.score - a.score))
     console.log(
       `${c.label === c.engine ? " " : "!"} ${c.wine.padEnd(18)} label ${c.label.padEnd(10)} engine ${c.engine.padEnd(10)} ${String(c.score).padStart(3)}  ${c.notes}`,

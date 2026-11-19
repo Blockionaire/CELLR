@@ -57,7 +57,10 @@ function lexiconOf(k: FoodKnowledge): Lexicon {
 
 /** Words that say nothing about the dish: the question around it, in English and Dutch. */
 const STOP = new Set(
-  `a an the and or of in on at to for from by with without as is are was be been it its this that these those i me
+  `before after starter starters main course courses aperitif aperitief delivery order ordering thing even
+  red white rose rood rode wit witte dessertwijn oma opa grandma homemade zelfgemaakt bestellen besteld aankan
+  new year eve christmas kerst oud nieuw verjaardag birthday
+  a an the and or of in on at to for from by with without as is are was be been it its this that these those i me
   my we us our you your he she they them what which who how when where why do does did can could should would will
   shall may might must have has had having not no yes just also very really some any all both more most much many
   few little bit lot lots good best better great nice perfect right ideal well wine wines bottle bottles glass drink
@@ -80,7 +83,7 @@ const STOP = new Set(
 const NEGATION = new Set(["without", "zonder", "no", "geen", "not", "niet", "minus", "hold"]);
 
 /** Endings a word may carry beyond its dictionary form (Dutch and English plurals and inflections). */
-const ENDINGS = ["", "s", "es", "en", "e", "n", "jes", "je", "tjes", "tje", "'s"];
+const ENDINGS = ["", "s", "es", "en", "e", "n", "jes", "je", "tjes", "tje", "etjes", "etje", "'s"];
 
 function lookupWord(word: string, lex: Lexicon): string | null {
   for (const ending of ENDINGS) {
@@ -97,7 +100,27 @@ function lookupWord(word: string, lex: Lexicon): string | null {
       if (doubled !== stem && lex.phrases.has(doubled)) return doubled;
     }
   }
+  // People say what they are doing ("we're grilling", "we grillen", "I'll roast"), the knowledge says what was
+  // done ("grilled", "gegrild", "roasted").
+  for (const form of verbForms(word)) if (lex.phrases.has(form)) return form;
   return null;
+}
+
+function verbForms(word: string): string[] {
+  const forms: string[] = [];
+  const undouble = (stem: string) =>
+    stem.length > 3 && stem.at(-1) === stem.at(-2) ? stem.slice(0, -1) : stem;
+  if (word.length >= 6 && word.endsWith("ing")) {
+    const stem = word.slice(0, -3);
+    forms.push(`${stem}ed`, `${undouble(stem)}ed`, `${stem}d`);
+  } else if (word.length >= 4 && !word.endsWith("ed")) {
+    forms.push(`${word}ed`, `${word}d`);
+  }
+  if (word.length >= 5 && word.endsWith("en")) {
+    const stem = undouble(word.slice(0, -2));
+    forms.push(`ge${word}`, `ge${stem}d`, `ge${stem}t`);
+  }
+  return forms.filter((f) => f.length >= 5);
 }
 
 /** Pieces a Dutch compound may contain that are not food words themselves. */
@@ -152,6 +175,8 @@ interface Found {
   /** Position of the first token, to keep the order things were said in. */
   at: number;
   negated: boolean;
+  /** Directly followed by "with": what comes before is what the dish is, what comes after goes with it. */
+  headed: boolean;
 }
 
 /** Which main ingredient a plate is "about" when several could be: flesh before cheese and eggs before vegetables. */
@@ -172,6 +197,8 @@ const MAIN_RANK: Record<FoodMain, number> = {
   vegetable: 1,
   snack: 1,
 };
+
+const STARCH_OR_SNACK: ReadonlySet<FoodMain> = new Set<FoodMain>(["pasta-grain", "snack"]);
 
 function scan(text: string, lex: Lexicon): { found: Found[]; unknown: string[] } {
   const raw = normalizeText(text).split(" ").filter(Boolean);
@@ -203,7 +230,13 @@ function scan(text: string, lex: Lexicon): { found: Found[]; unknown: string[] }
     }
     const token = tokens[i]!;
     if (matched) {
-      found.push({ entry: matched.entries[0]!, at: i, negated: negate });
+      const next = tokens[i + matched.length];
+      found.push({
+        entry: matched.entries[0]!,
+        at: i,
+        negated: negate,
+        headed: next === "with" || next === "met",
+      });
       negate = false;
       i += matched.length;
     } else {
@@ -243,7 +276,9 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
       .map((f) => f.entry.item as Extract<Entry, { kind: K }>["item"]);
   const dishes = of("dish");
   const sauces = uniq(of("sauce")).sort((a, b) => b.dominance - a.dominance);
-  const techniques = uniq(of("technique"));
+  const allTechniques = uniq(of("technique"));
+  const techniques = allTechniques.filter((t) => !t.modifier);
+  const modifiers = allTechniques.filter((t) => t.modifier);
   const ingredients = uniq(of("ingredient"));
   if (dishes.length + sauces.length + techniques.length + ingredients.length === 0)
     return { ...EMPTY, unknown };
@@ -251,6 +286,7 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
   const dish = dishes[0] ?? null;
   let parts: DishParts;
   let main: FoodMain | null;
+  let assumed = false;
   if (dish) {
     const own = templateParts(dish, k);
     const named = new Set([dish.main, ...(dish.with ?? [])]);
@@ -259,7 +295,7 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
       extras: [...(own.extras ?? []), ...ingredients.filter((i) => !named.has(i.id))],
       // What the person adds to a known dish ("steak with béarnaise") is said on top of what the dish has.
       moreSauces: sauces.filter((s) => s.id !== dish.sauce),
-      moreTechniques: own.technique ? [] : techniques.slice(0, 1),
+      moreTechniques: [...(own.technique ? [] : techniques.slice(0, 1)), ...modifiers],
     };
     main = dish.mainAs ?? own.main?.main ?? null;
   } else {
@@ -267,15 +303,29 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
       .filter((i) => i.main !== undefined)
       .map((i, order) => ({ i, order }))
       .sort((a, b) => MAIN_RANK[b.i.main!] - MAIN_RANK[a.i.main!] || a.order - b.order);
-    const chosen = mains[0]?.i ?? null;
+    // "Asparagus with ham and egg" is an asparagus dish: what is named before "with" is what the plate is about,
+    // unless that is only the starch under it ("rice with chicken", "fries with stew").
+    const head = found.find(
+      (f) => f.entry.kind === "ingredient" && f.entry.item.main !== undefined,
+    );
+    const headed =
+      head?.headed &&
+      head.entry.kind === "ingredient" &&
+      !STARCH_OR_SNACK.has(head.entry.item.main!)
+        ? head.entry.item
+        : null;
+    const chosen = headed ?? mains[0]?.i ?? null;
     parts = {
       main: chosen,
       technique: techniques[0] ?? null,
       sauce: sauces[0] ?? null,
       extras: ingredients.filter((i) => i.id !== chosen?.id),
       moreSauces: sauces.slice(1),
+      moreTechniques: modifiers,
     };
-    main = chosen?.main ?? null;
+    // Only a sauce was named ("a korma", "carbonara"): what it is usually served on is assumed.
+    main = chosen?.main ?? sauces[0]?.usual ?? null;
+    assumed = chosen === null && main !== null;
   }
   const { structure, tags } = composeStructure(parts);
   const recognisedParts =
@@ -289,11 +339,15 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
       : "medium"
     : main === null
       ? "low"
-      : recognisedParts >= 1 && unknown.length === 0
-        ? "high"
-        : unknown.length <= 2
+      : assumed
+        ? unknown.length <= 2
           ? "medium"
-          : "low";
+          : "low"
+        : recognisedParts >= 1 && unknown.length === 0
+          ? "high"
+          : unknown.length <= 2
+            ? "medium"
+            : "low";
   const name = (lang: "en" | "nl") => {
     if (dish) return (lang === "nl" ? dish.nl[0] : dish.en[0]) ?? dish.en[0]!;
     const word = (x: { en: readonly string[]; nl: readonly string[] } | null | undefined) =>

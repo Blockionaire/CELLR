@@ -46,7 +46,12 @@ export function wineInput(f: FixtureWine) {
     appellation: f.stripped ? null : f.wine.appellation,
     countryCode: f.stripped ? null : f.wine.countryCode,
     profile: f.profiled
-      ? { structure: f.wine.structure, grapes: f.wine.grapes, exact: true, evidence: "exact_wine" as const }
+      ? {
+          structure: f.wine.structure,
+          grapes: f.wine.grapes,
+          exact: true,
+          evidence: "exact_wine" as const,
+        }
       : null,
   };
 }

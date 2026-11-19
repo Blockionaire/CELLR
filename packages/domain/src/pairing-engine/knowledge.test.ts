@@ -89,7 +89,8 @@ describe("wine knowledge: integrity", () => {
 
   it("keeps the keys a closed vocabulary: rule ids, colours and style keys", () => {
     const vocabulary = new Set<string>([...RULES.map((r) => r.id), ...STYLE_KEYS, ...WINE_TYPES]);
-    for (const r of RULES) for (const k of r.keys) expect(vocabulary.has(k), `${r.id}: ${k}`).toBe(true);
+    for (const r of RULES)
+      for (const k of r.keys) expect(vocabulary.has(k), `${r.id}: ${k}`).toBe(true);
     for (const k of ALL_WINE_KEYS) expect(vocabulary.has(k), k).toBe(true);
     for (const k of vocabulary) expect(ALL_WINE_KEYS.has(k), k).toBe(true);
   });
@@ -100,8 +101,20 @@ describe("wine knowledge: integrity", () => {
   });
 
   it("names no rule with a bare common word", () => {
-    const banned = ["pouilly", "saint", "st", "villages", "reserva", "cru", "rouge", "blanc", "bianco", "rosso"];
-    for (const r of RULES) for (const n of r.names) expect(banned, `${r.id}: ${n}`).not.toContain(n);
+    const banned = [
+      "pouilly",
+      "saint",
+      "st",
+      "villages",
+      "reserva",
+      "cru",
+      "rouge",
+      "blanc",
+      "bianco",
+      "rosso",
+    ];
+    for (const r of RULES)
+      for (const n of r.names) expect(banned, `${r.id}: ${n}`).not.toContain(n);
   });
 
   it("lets every name, alone, select its own rule (no name is shadowed or claimed twice)", () => {
@@ -110,7 +123,13 @@ describe("wine knowledge: integrity", () => {
       for (const r of knowledge.rules) {
         for (const n of r.names) {
           const reading = readWine(
-            { type: r.type, name: n, region: null, appellation: null, countryCode: r.country ?? null },
+            {
+              type: r.type,
+              name: n,
+              region: null,
+              appellation: null,
+              countryCode: r.country ?? null,
+            },
             knowledge,
           );
           expect(reading.rules, `${kind} ${r.type} "${n}"`).toEqual([r.id]);
@@ -158,7 +177,12 @@ const CASES: Case[] = [
   },
   {
     label: "Mosel Riesling Spätlese trocken is dry",
-    wine: { type: "white", appellation: "Mosel", name: "Riesling Spätlese trocken", countryCode: "DE" },
+    wine: {
+      type: "white",
+      appellation: "Mosel",
+      name: "Riesling Spätlese trocken",
+      countryCode: "DE",
+    },
     expect: { sweetness: atMost(0.5), alcohol: atLeast(2), rule: "trocken" },
   },
   {
@@ -178,7 +202,12 @@ const CASES: Case[] = [
   },
   {
     label: "Fino",
-    wine: { type: "fortified", appellation: "Jerez-Xérès-Sherry", name: "Tio Pepe Fino", countryCode: "ES" },
+    wine: {
+      type: "fortified",
+      appellation: "Jerez-Xérès-Sherry",
+      name: "Tio Pepe Fino",
+      countryCode: "ES",
+    },
     expect: { sweetness: [0, 0], alcohol: [4, 4], body: atMost(2.5), rule: "fino" },
   },
   {
@@ -203,17 +232,37 @@ const CASES: Case[] = [
   },
   {
     label: "Vintage port",
-    wine: { type: "fortified", appellation: "Porto", name: "Taylor's Vintage Port 2011", countryCode: "PT" },
+    wine: {
+      type: "fortified",
+      appellation: "Porto",
+      name: "Taylor's Vintage Port 2011",
+      countryCode: "PT",
+    },
     expect: { sweetness: atLeast(4), tannin: atLeast(3), alcohol: [4, 4], rule: "vintage port" },
   },
   {
     label: "20 year old tawny",
-    wine: { type: "fortified", appellation: "Porto", name: "Graham's 20 Year Old Tawny", countryCode: "PT" },
-    expect: { tannin: atMost(1.5), oak: atLeast(1.2), sweetness: atLeast(3.5), rule: "aged tawny 20" },
+    wine: {
+      type: "fortified",
+      appellation: "Porto",
+      name: "Graham's 20 Year Old Tawny",
+      countryCode: "PT",
+    },
+    expect: {
+      tannin: atMost(1.5),
+      oak: atLeast(1.2),
+      sweetness: atLeast(3.5),
+      rule: "aged tawny 20",
+    },
   },
   {
     label: "Madeira Malmsey",
-    wine: { type: "fortified", appellation: "Madeira", name: "Blandy's 10 Year Old Malmsey", countryCode: "PT" },
+    wine: {
+      type: "fortified",
+      appellation: "Madeira",
+      name: "Blandy's 10 Year Old Malmsey",
+      countryCode: "PT",
+    },
     expect: { acidity: atLeast(4.5), sweetness: atLeast(4), rule: "malmsey" },
   },
   {
@@ -223,7 +272,12 @@ const CASES: Case[] = [
   },
   {
     label: "Napa Cabernet",
-    wine: { type: "red", appellation: "Napa Valley", name: "Cabernet Sauvignon", countryCode: "US" },
+    wine: {
+      type: "red",
+      appellation: "Napa Valley",
+      name: "Cabernet Sauvignon",
+      countryCode: "US",
+    },
     expect: { body: atLeast(4.5), tannin: atLeast(4), alcohol: [3, 3] },
   },
   {
@@ -248,7 +302,12 @@ const CASES: Case[] = [
   },
   {
     label: "Champagne Blanc de Blancs",
-    wine: { type: "sparkling", appellation: "Champagne", name: "Blanc de Blancs Brut", countryCode: "FR" },
+    wine: {
+      type: "sparkling",
+      appellation: "Champagne",
+      name: "Blanc de Blancs Brut",
+      countryCode: "FR",
+    },
     expect: { fizz: true, acidity: atLeast(4.7), rule: "blanc de blancs" },
   },
   {
@@ -308,7 +367,12 @@ const CASES: Case[] = [
   },
   {
     label: "Rioja Reserva",
-    wine: { type: "red", appellation: "Rioja", name: "Marqués de Murrieta Rioja Reserva", countryCode: "ES" },
+    wine: {
+      type: "red",
+      appellation: "Rioja",
+      name: "Marqués de Murrieta Rioja Reserva",
+      countryCode: "ES",
+    },
     expect: { oak: atLeast(2), rule: "rioja reserva" },
   },
   {
@@ -343,12 +407,22 @@ const CASES: Case[] = [
   },
   {
     label: "Grüner Veltliner Wachau Smaragd",
-    wine: { type: "white", appellation: "Wachau", name: "Grüner Veltliner Smaragd", countryCode: "AT" },
+    wine: {
+      type: "white",
+      appellation: "Wachau",
+      name: "Grüner Veltliner Smaragd",
+      countryCode: "AT",
+    },
     expect: { body: atLeast(3.5), alcohol: atLeast(2.5), sweetness: atMost(0.5), rule: "smaragd" },
   },
   {
     label: "Grüner Veltliner Wachau Federspiel",
-    wine: { type: "white", appellation: "Wachau", name: "Grüner Veltliner Federspiel", countryCode: "AT" },
+    wine: {
+      type: "white",
+      appellation: "Wachau",
+      name: "Grüner Veltliner Federspiel",
+      countryCode: "AT",
+    },
     expect: { body: [2, 3], acidity: atLeast(4) },
   },
   {
@@ -458,7 +532,8 @@ describe("readWine with the knowledge: coarse outcomes", () => {
 
   const s = (wine: Case["wine"]) => read(wine).structure;
   it("orders the lighter and fuller wines of one place", () => {
-    const fr = (type: WineInput["type"], appellation: string) => s({ type, appellation, countryCode: "FR" });
+    const fr = (type: WineInput["type"], appellation: string) =>
+      s({ type, appellation, countryCode: "FR" });
     const itx = (appellation: string) => s({ type: "red", appellation, countryCode: "IT" });
     expect(fr("white", "Petit Chablis").body).toBeLessThan(fr("white", "Chablis").body);
     expect(fr("white", "Chablis").body).toBeLessThan(fr("white", "Chablis Grand Cru").body);
@@ -472,10 +547,12 @@ describe("readWine with the knowledge: coarse outcomes", () => {
     expect(itx("Valpolicella Ripasso").body).toBeLessThan(itx("Amarone della Valpolicella").body);
     expect(itx("Rosso di Montalcino").tannin).toBeLessThan(itx("Brunello di Montalcino").tannin);
     expect(itx("Langhe Nebbiolo").tannin).toBeLessThan(itx("Barolo").tannin);
-    const wachau = (name: string) => s({ type: "white", appellation: "Wachau", name, countryCode: "AT" });
+    const wachau = (name: string) =>
+      s({ type: "white", appellation: "Wachau", name, countryCode: "AT" });
     expect(wachau("Steinfeder").body).toBeLessThan(wachau("Federspiel").body);
     expect(wachau("Federspiel").body).toBeLessThan(wachau("Smaragd").body);
-    const de = (name: string) => s({ type: "white", appellation: "Mosel", name, countryCode: "DE" });
+    const de = (name: string) =>
+      s({ type: "white", appellation: "Mosel", name, countryCode: "DE" });
     expect(de("Riesling trocken").sweetness).toBeLessThan(de("Riesling Kabinett").sweetness);
     expect(de("Riesling Kabinett").sweetness).toBeLessThan(de("Riesling Spätlese").sweetness);
     expect(de("Riesling Spätlese").sweetness).toBeLessThan(de("Riesling Auslese").sweetness);
@@ -483,12 +560,22 @@ describe("readWine with the knowledge: coarse outcomes", () => {
 
   it("leaves an orange wine alone when only white rules would match", () => {
     const plain = read({ type: "orange" });
-    const r = read({ type: "orange", appellation: "Chablis", name: "Chardonnay", countryCode: "FR" });
+    const r = read({
+      type: "orange",
+      appellation: "Chablis",
+      name: "Chardonnay",
+      countryCode: "FR",
+    });
     expect(r.rules).toEqual([]);
     expect(r.colourOnly).toBe(true);
     expect(r.structure).toEqual(plain.structure);
     expect(r.structure.tannin).toBeGreaterThan(1);
-    const ribolla = read({ type: "orange", region: "Friuli", name: "Ribolla Gialla", countryCode: "IT" });
+    const ribolla = read({
+      type: "orange",
+      region: "Friuli",
+      name: "Ribolla Gialla",
+      countryCode: "IT",
+    });
     expect(ribolla.rules).toContain("ribolla gialla");
     expect(ribolla.structure.tannin).toBeGreaterThanOrEqual(2);
     expect(ribolla.keys).toContain("orange");
@@ -496,9 +583,13 @@ describe("readWine with the knowledge: coarse outcomes", () => {
 
   it("gives the classics vocabulary: colour, grape, region and style", () => {
     const r = read({ type: "white", appellation: "Sancerre", countryCode: "FR" });
-    expect(r.keys).toEqual(expect.arrayContaining(["white", "sancerre", "sauvignon blanc", "loire", "crisp white"]));
+    expect(r.keys).toEqual(
+      expect.arrayContaining(["white", "sancerre", "sauvignon blanc", "loire", "crisp white"]),
+    );
     const b = read({ type: "red", appellation: "Barolo", countryCode: "IT" });
-    expect(b.keys).toEqual(expect.arrayContaining(["red", "barolo", "nebbiolo", "piedmont", "tannic red"]));
+    expect(b.keys).toEqual(
+      expect.arrayContaining(["red", "barolo", "nebbiolo", "piedmont", "tannic red"]),
+    );
   });
 });
 
@@ -546,7 +637,12 @@ describe("readWine with the knowledge: evidence tiers", () => {
   });
 
   it("an exact profile wins with its own numbers", () => {
-    const r = read({ type: "red", appellation: "Barolo", countryCode: "IT", profile: exactProfile });
+    const r = read({
+      type: "red",
+      appellation: "Barolo",
+      countryCode: "IT",
+      profile: exactProfile,
+    });
     expect(r.tier).toBe("exact");
     expect(r.structure.body).toBe(5);
     expect(r.structure.acidity).toBe(2);
@@ -574,11 +670,13 @@ describe("readWine with the knowledge: evidence tiers", () => {
 
 describe("readWine with the knowledge: names that collide", () => {
   const rulesOf = (wine: Case["wine"]) => read(wine).rules;
-  const ruleOfKind = (wine: Case["wine"], kind: WineStyleRule["kind"]) => {
-    const r = read(wine);
-    const ids = new Set(RULES.filter((x) => x.kind === kind && x.type === wine.type).map((x) => x.id));
-    return r.rules.filter((id) => ids.has(id));
-  };
+  /** The rules of one kind that apply, read with only that kind's rules. */
+  const ruleOfKind = (wine: Case["wine"], kind: WineStyleRule["kind"]) =>
+    readWine(
+      { name: null, region: null, appellation: null, countryCode: null, ...wine },
+      { rules: RULES.filter((r) => r.kind === kind) },
+    ).rules;
+  const appellationOf = (wine: Case["wine"]) => ruleOfKind(wine, "appellation");
 
   it("Barbera d'Asti is not Moscato or Asti", () => {
     const r = read({ type: "red", appellation: "Barbera d'Asti Superiore", countryCode: "IT" });
@@ -588,16 +686,21 @@ describe("readWine with the knowledge: names that collide", () => {
     expect(r.structure.sweetness).toBeLessThanOrEqual(0.5);
     expect(r.structure.fizz).toBe(false);
     // Even a bottle filed as sparkling under that name does not become a sweet Asti.
-    expect(rulesOf({ type: "sparkling", appellation: "Barbera d'Asti", countryCode: "IT" })).not.toContain("asti");
+    expect(
+      rulesOf({ type: "sparkling", appellation: "Barbera d'Asti", countryCode: "IT" }),
+    ).not.toContain("asti");
   });
 
   it("Petit Chablis is not Chablis", () => {
-    expect(ruleOfKind({ type: "white", appellation: "Petit Chablis", countryCode: "FR" }, "appellation")).toEqual([
-      "petit chablis",
-    ]);
-    expect(ruleOfKind({ type: "white", appellation: "Chablis 1er Cru", countryCode: "FR" }, "appellation")).toEqual([
-      "chablis premier cru",
-    ]);
+    expect(
+      ruleOfKind({ type: "white", appellation: "Petit Chablis", countryCode: "FR" }, "appellation"),
+    ).toEqual(["petit chablis"]);
+    expect(
+      ruleOfKind(
+        { type: "white", appellation: "Chablis 1er Cru", countryCode: "FR" },
+        "appellation",
+      ),
+    ).toEqual(["chablis premier cru"]);
   });
 
   it("Pouilly-Fumé is not Pouilly-Fuissé", () => {
@@ -612,26 +715,28 @@ describe("readWine with the knowledge: names that collide", () => {
   });
 
   it("Rosso di Montalcino is not Brunello", () => {
-    expect(rulesOf({ type: "red", appellation: "Rosso di Montalcino", countryCode: "IT" })).toEqual([
-      "rosso di montalcino",
-    ]);
-    expect(rulesOf({ type: "red", appellation: "Brunello di Montalcino", countryCode: "IT" })).toEqual([
-      "brunello di montalcino",
-    ]);
+    expect(rulesOf({ type: "red", appellation: "Rosso di Montalcino", countryCode: "IT" })).toEqual(
+      ["rosso di montalcino"],
+    );
+    expect(
+      rulesOf({ type: "red", appellation: "Brunello di Montalcino", countryCode: "IT" }),
+    ).toEqual(["brunello di montalcino"]);
   });
 
   it("Vino Nobile di Montepulciano is sangiovese, Montepulciano d'Abruzzo is montepulciano", () => {
     const nobile = read({ type: "red", name: "Vino Nobile di Montepulciano", countryCode: "IT" });
     expect(nobile.rules).toEqual(["sangiovese", "vino nobile di montepulciano"]);
     const abruzzo = read({ type: "red", name: "Montepulciano d'Abruzzo", countryCode: "IT" });
-    expect(abruzzo.rules).toEqual(["montepulciano", "montepulciano d abruzzo"]);
+    expect(abruzzo.rules).toEqual(["abruzzo", "montepulciano", "montepulciano d abruzzo"]);
   });
 
   it("Côtes du Rhône Villages is not plain Côtes du Rhône", () => {
-    expect(rulesOf({ type: "red", appellation: "Côtes du Rhône Villages", countryCode: "FR" })).toEqual([
-      "cotes du rhone villages",
-    ]);
-    expect(rulesOf({ type: "red", appellation: "Côtes du Rhône", countryCode: "FR" })).toEqual(["cotes du rhone"]);
+    expect(
+      appellationOf({ type: "red", appellation: "Côtes du Rhône Villages", countryCode: "FR" }),
+    ).toEqual(["cotes du rhone villages"]);
+    expect(
+      appellationOf({ type: "red", appellation: "Côtes du Rhône", countryCode: "FR" }),
+    ).toEqual(["cotes du rhone"]);
   });
 
   it("a white Rioja gets the white rule and a red Sancerre the red one", () => {
@@ -645,17 +750,25 @@ describe("readWine with the knowledge: names that collide", () => {
   });
 
   it("a French name on a wine from elsewhere does not get the French rule", () => {
-    expect(rulesOf({ type: "red", name: "Hermitage", countryCode: "ES" })).not.toContain("hermitage");
-    expect(rulesOf({ type: "red", name: "Hermitage", countryCode: "AU" })).not.toContain("hermitage");
-    expect(rulesOf({ type: "red", name: "Hermitage", countryCode: "FR" })).toContain("hermitage");
-    expect(rulesOf({ type: "sparkling", name: "California Champagne", countryCode: "US" })).not.toContain(
-      "champagne",
+    expect(rulesOf({ type: "red", name: "Hermitage", countryCode: "ES" })).not.toContain(
+      "hermitage",
     );
+    expect(rulesOf({ type: "red", name: "Hermitage", countryCode: "AU" })).not.toContain(
+      "hermitage",
+    );
+    expect(rulesOf({ type: "red", name: "Hermitage", countryCode: "FR" })).toContain("hermitage");
+    expect(
+      rulesOf({ type: "sparkling", name: "California Champagne", countryCode: "US" }),
+    ).not.toContain("champagne");
   });
 
   it("a name word from another country does not refine a recorded appellation", () => {
     // "Concha y Toro" is a Chilean producer, not the Spanish appellation Toro.
-    const r = read({ type: "red", region: "Maipo", name: "Concha y Toro Marqués de Casa Concha Cabernet Sauvignon" });
+    const r = read({
+      type: "red",
+      region: "Maipo",
+      name: "Concha y Toro Marqués de Casa Concha Cabernet Sauvignon",
+    });
     expect(r.rules).toContain("maipo");
     expect(r.rules).not.toContain("toro");
   });
@@ -680,7 +793,8 @@ describe("readWine with the knowledge: names that collide", () => {
   });
 
   it("the longer grape name wins", () => {
-    const grape = (name: string, type: WineInput["type"] = "red") => ruleOfKind({ type, name }, "grape");
+    const grape = (name: string, type: WineInput["type"] = "red") =>
+      ruleOfKind({ type, name }, "grape");
     expect(grape("Cabernet Franc")).toEqual(["cabernet franc"]);
     expect(grape("Cabernet")).toEqual(["cabernet sauvignon"]);
     expect(grape("Grenache Blanc", "white")).toEqual(["grenache blanc"]);
@@ -688,8 +802,23 @@ describe("readWine with the knowledge: names that collide", () => {
   });
 
   it("a less specific name does not undo a recorded appellation", () => {
-    const r = read({ type: "red", appellation: "Valpolicella Ripasso", name: "Valpolicella Classico Superiore", countryCode: "IT" });
-    expect(ruleOfKind({ type: "red", appellation: "Valpolicella Ripasso", name: "Valpolicella", countryCode: "IT" }, "appellation")).toEqual(["valpolicella ripasso"]);
+    const r = read({
+      type: "red",
+      appellation: "Valpolicella Ripasso",
+      name: "Valpolicella Classico Superiore",
+      countryCode: "IT",
+    });
+    expect(
+      ruleOfKind(
+        {
+          type: "red",
+          appellation: "Valpolicella Ripasso",
+          name: "Valpolicella",
+          countryCode: "IT",
+        },
+        "appellation",
+      ),
+    ).toEqual(["valpolicella ripasso"]);
     expect(r.structure.body).toBeGreaterThanOrEqual(3.5);
   });
 

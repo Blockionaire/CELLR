@@ -88,7 +88,7 @@ const pinot = wine("red", { body: 2.5, tannin: 2, acidity: 4, intensity: 3 }, [
   "burgundy",
   "light red",
 ]);
-const chianti = wine("red", { body: 3, tannin: 3.5, acidity: 4.3 }, [
+const chianti = wine("red", { body: 3.5, tannin: 3.5, acidity: 4.3 }, [
   "sangiovese",
   "tuscany",
   "medium red",
@@ -134,7 +134,7 @@ const seaBass = dish("white-fish", { weight: 2.5, intensity: 2, fat: 2, acid: 2 
   "butter",
   "citrus",
 ]);
-const ribeye = dish("red-meat", { weight: 5, intensity: 4, fat: 3, umami: 2, smoke: 1 }, [
+const ribeye = dish("red-meat", { weight: 4.5, intensity: 4, fat: 3, umami: 2, smoke: 1 }, [
   "charred",
 ]);
 const greenCurry = dish(
@@ -157,11 +157,12 @@ const margherita = dish("pasta-grain", { weight: 3, intensity: 3, fat: 2, acid: 
 ]);
 const friedFish = dish("white-fish", { weight: 3, intensity: 2, fat: 2.5, salt: 2 }, ["fried"]);
 const asparagus = dish("vegetable", { weight: 2, intensity: 2, bitter: 1 }, ["asparagus"]);
-const coqAuVin = dish("poultry", { weight: 4, intensity: 4, fat: 2, umami: 2 }, [
-  "braised",
-  "red-wine-sauce",
-  "earthy",
-]);
+const coqAuVin = dish(
+  "poultry",
+  { weight: 4, intensity: 4, fat: 2, umami: 2 },
+  ["braised", "red-wine-sauce", "earthy"],
+  ["burgundy"],
+);
 
 const level = (food: FoodProfile, w: AssessedWine) => assessPairing(food, w).level;
 
@@ -172,10 +173,13 @@ describe("hard clashes", () => {
     expect(a.clash).toBe("tannin-with-fish");
     expect(level(oysters, chianti)).toBe("poor");
   });
-  it("keeps a firm red away from delicate fish, and from oily fish sooner", () => {
+  it("keeps a firm red away from fish: delicate fish sooner than oily fish", () => {
     expect(assessPairing(seaBass, pauillac).clash).toBe("tannin-with-fish");
     const mackerel = dish("oily-fish", { weight: 3, fat: 2 }, ["fish-oil"]);
-    expect(assessPairing(mackerel, wine("red", { tannin: 3 })).clash).toBe("tannin-with-fish");
+    expect(assessPairing(mackerel, wine("red", { tannin: 3.6 })).clash).toBe("tannin-with-fish");
+    // Delicate white fish gives way sooner than meaty, oily fish.
+    const sole = dish("white-fish", { weight: 2, fat: 1 });
+    expect(assessPairing(sole, wine("red", { tannin: 3.1 })).clash).toBe("tannin-with-fish");
     expect(assessPairing(mackerel, pinot).clash).toBeNull();
   });
   it("keeps tannin away from chili heat", () => {
@@ -258,8 +262,50 @@ describe("what lifts a wine", () => {
     expect(assessPairing(coqAuVin, chablis).cons).toContain("white-for-red-wine-sauce");
   });
   it("dry sherry with salty snacks", () => {
-    const olives = dish("snack", { weight: 2, intensity: 3, salt: 3, fat: 1 }, ["cured"]);
+    const olives = dish(
+      "snack",
+      { weight: 2, intensity: 3, salt: 3, fat: 1 },
+      ["cured"],
+      ["dry sherry"],
+    );
     expect(level(olives, fino)).toBe("good");
+  });
+});
+
+describe("what it takes to be offered", () => {
+  it("a wine with nothing for it and nothing against it is not a recommendation", () => {
+    const plain = wine("white", { body: 2.5, acidity: 3.4, intensity: 2.5 });
+    const a = assessPairing(dish("poultry", { weight: 3, intensity: 2.5 }), plain);
+    expect(a.cons).toEqual([]);
+    expect(a.clash).toBeNull();
+    expect(a.level).toBe("poor");
+  });
+  it("a dish that only names a colour gives that colour a little, never what a named classic gives", () => {
+    const burger = (classics: string[]) => dish("red-meat", { weight: 3.5, fat: 2 }, [], classics);
+    const red = wine("red", { body: 3.5, tannin: 3 }, ["malbec"]);
+    const byColour = assessPairing(burger(["red"]), red);
+    const byName = assessPairing(burger(["malbec"]), red);
+    expect(byColour.pros).not.toContain("classic");
+    expect(byName.pros).toContain("classic");
+    expect(byName.score).toBeGreaterThan(byColour.score);
+  });
+  it("a glazed main course is still a main course", () => {
+    const teriyaki = dish("oily-fish", { weight: 3, fat: 2.5, sweet: 2, salt: 2, umami: 2 }, [
+      "sweet-glaze",
+      "soy",
+    ]);
+    expect(assessPairing(teriyaki, pinot).clash).toBeNull();
+    expect(assessPairing(teriyaki, sauternes).level).toBe("poor");
+  });
+  it("a hard, salty cheese is not blue cheese: sweet white is too much, a mellow fortified wine will do", () => {
+    const gouda = dish("cheese", { weight: 3.5, intensity: 4, fat: 2.5, salt: 2, umami: 2.5 });
+    expect(assessPairing(gouda, sauternes).cons).toContain("too-sweet");
+    const tawny = wine(
+      "fortified",
+      { body: 4, tannin: 1, sweetness: 4, alcohol: 4, intensity: 4.5 },
+      ["tawny port"],
+    );
+    expect(assessPairing(gouda, tawny).cons).not.toContain("too-sweet");
   });
 });
 
@@ -300,6 +346,22 @@ describe("the decision", () => {
     ]);
     expect(d.outcome).toBe("acceptable");
     expect(d.picks.map((p) => p.item)).toEqual(["chianti"]);
+  });
+  it("names the closest wine when nothing suits, and none when everything clashes", () => {
+    const plain = wine("white", { body: 1, acidity: 3, intensity: 2 });
+    const nothing = decidePairing(oysters, [
+      candidate("plain", plain),
+      candidate("pauillac", pauillac),
+    ]);
+    expect(nothing.outcome).toBe("none");
+    expect(nothing.picks).toEqual([]);
+    expect(nothing.closest?.item).toBe("plain");
+    const clashes = decidePairing(oysters, [
+      candidate("pauillac", pauillac),
+      candidate("port", vintagePort),
+    ]);
+    expect(clashes.closest).toBeNull();
+    expect(decidePairing(oysters, [candidate("chablis", chablis)]).closest).toBeNull();
   });
   it("says none when nothing suits, and for an empty cellar", () => {
     expect(

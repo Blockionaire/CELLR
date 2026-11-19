@@ -48,6 +48,12 @@ const base = (s: Partial<FoodStructure>): FoodStructure => ({
 /** Two sources of the same flavour: the stronger one counts, the weaker adds a little. */
 const join = (a: number, b: number) => Math.max(a, b) + 0.25 * Math.min(a, b);
 
+/**
+ * What lies beside the main ingredient counts for less than it would on its own: shaved parmesan on a carpaccio
+ * does not make the dish as fat as the cheese, a spoon of kimchi does not make the barbecue sour.
+ */
+const EXTRA_STRENGTH = 0.7;
+
 /** How much of a sauce's weight the dish takes on, by how much the sauce dominates. */
 const SAUCE_PULL = { 1: 0.35, 2: 0.55, 3: 0.75 } as const;
 const SAUCE_FLAVOUR = { 1: 0.75, 2: 1, 3: 1 } as const;
@@ -83,7 +89,7 @@ export function composeStructure(parts: DishParts): { structure: FoodStructure; 
   }
 
   for (const extra of parts.extras ?? []) {
-    for (const axis of FLAVOURS) s[axis] = join(s[axis], extra.s[axis] ?? 0);
+    for (const axis of FLAVOURS) s[axis] = join(s[axis], (extra.s[axis] ?? 0) * EXTRA_STRENGTH);
     // A rich side makes the plate a little heavier; a light one does not make it lighter.
     s.weight += Math.max(0, (extra.s.weight ?? 2) - s.weight) * 0.3;
     s.intensity = Math.max(s.intensity, (extra.s.intensity ?? 2) - 0.5);

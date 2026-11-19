@@ -195,13 +195,22 @@ interface Index {
   appellation: WineStyleRule[];
   region: WineStyleRule[];
   grape: WineStyleRule[];
+  grapeIds: ReadonlySet<string>;
+  regionIds: ReadonlySet<string>;
 }
 const INDEX = new WeakMap<WineKnowledge, Index>();
 function indexOf(k: WineKnowledge): Index {
   let index = INDEX.get(k);
   if (!index) {
     const of = (kind: WineStyleRule["kind"]) => k.rules.filter((r) => r.kind === kind);
-    index = { appellation: of("appellation"), region: of("region"), grape: of("grape") };
+    const grape = of("grape");
+    index = {
+      appellation: of("appellation"),
+      region: of("region"),
+      grape,
+      grapeIds: new Set(grape.map((r) => r.id)),
+      regionIds: new Set(of("region").map((r) => r.id)),
+    };
     INDEX.set(k, index);
   }
   return index;
@@ -231,6 +240,41 @@ function find(
     }
   }
   return best;
+}
+
+/** Sparkling, sweet and fortified wines are named by what they are, not by the grape they are made of. */
+const NOT_BY_GRAPE: ReadonlySet<WineType> = new Set<WineType>([
+  "sparkling",
+  "dessert",
+  "fortified",
+]);
+
+/**
+ * What a wine answers to in a dish's list of classics: its colour, the rules that matched and what those stand
+ * for. A Champagne is made of chardonnay and a Sauternes comes from Bordeaux, but "classic with chardonnay" and
+ * "classic with Bordeaux" mean the still, dry wines. So a sparkling, sweet or fortified wine does not answer to
+ * the grapes and the wider region behind its place; what its own label names (its appellation, a grape) stays.
+ */
+function keysOf(type: WineType, applied: readonly WineStyleRule[], index: Index): string[] {
+  const special = NOT_BY_GRAPE.has(type);
+  const named = applied.some((r) => r.kind === "grape");
+  const keys = new Set<string>([type]);
+  for (const rule of applied) {
+    if (!(special && rule.kind === "region")) keys.add(rule.id);
+    for (const key of rule.keys) {
+      // The grapes of a place: a region grows too many to answer to all of them, and a grape named on the
+      // label settles which one this wine is.
+      if (
+        index.grapeIds.has(key) &&
+        rule.kind !== "grape" &&
+        (special || named || rule.kind === "region")
+      )
+        continue;
+      if (special && rule.kind !== "grape" && index.regionIds.has(key)) continue;
+      keys.add(key);
+    }
+  }
+  return [...keys];
 }
 
 /**
@@ -264,14 +308,20 @@ export function readWine(wine: WineInput, k: WineKnowledge): WineReading {
   // "Kabinett" on a recorded Mosel, a "Fino" on a recorded Jerez, a "Gran Reserva" on a recorded Rioja) is more
   // specific about the bottle, so it applies on top, unless it belongs to another country than the recorded one
   // (the "Toro" in "Concha y Toro" says nothing about a Maipo wine). It does not raise the tier.
-  const appellation = find(index.appellation, recorded, wine);
+  // The appellation field is asked first and alone: with "Pauillac" there and "Bordeaux" as the region, the
+  // wine is a Pauillac, not a generic Bordeaux. Only when it says nothing is the region read as an appellation.
+  const appellation =
+    find(index.appellation, words(wine.appellation), wine) ??
+    find(index.appellation, words(wine.region), wine);
   const appellationByName = find(index.appellation, name, wine);
   if (appellation) applied.push(appellation);
   const refines =
     appellationByName !== null &&
     appellationByName !== appellation &&
     !mentions(recorded, appellationByName) &&
-    (!appellation?.country || !appellationByName.country || appellation.country === appellationByName.country);
+    (!appellation?.country ||
+      !appellationByName.country ||
+      appellation.country === appellationByName.country);
   if (refines) applied.push(appellationByName);
   if (appellation) tier = "appellation";
   if (!appellation && !region && (appellationByName || regionByName || (grape && grapeText === "")))
@@ -301,7 +351,7 @@ export function readWine(wine: WineInput, k: WineKnowledge): WineReading {
     tier,
     fromName,
     colourOnly: applied.length === 0 && !profiled,
-    keys: [...new Set([wine.type, ...applied.flatMap((r) => [r.id, ...r.keys])])],
+    keys: keysOf(wine.type, applied, index),
     rules: applied.map((r) => r.id),
   };
 }

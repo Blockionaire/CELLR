@@ -22,7 +22,15 @@ const at =
   (country: string | undefined) =>
   (id: string, type: Types, names: readonly string[], s: S, keys: readonly string[]) => {
     for (const t of typeof type === "string" ? [type] : type)
-      rules.push({ id, kind: "appellation", names, type: t, ...(country ? { country } : {}), s, keys });
+      rules.push({
+        id,
+        kind: "appellation",
+        names,
+        type: t,
+        ...(country ? { country } : {}),
+        s,
+        keys,
+      });
   };
 
 const fr = at("FR");
@@ -49,16 +57,20 @@ const any = at(undefined);
 
 // ---- Chablis and the Mâconnais ----
 // Chablis is chardonnay grown cool and mostly kept out of new oak: lean, mineral, high acid.
-fr("chablis", "white", ["chablis"], { body: 2.2, acidity: 4.5, intensity: 2.8, oak: 0.3, alcohol: 2.1 }, [
-  "chardonnay",
-  "burgundy",
-  "crisp white",
-]);
-fr("petit chablis", "white", ["petit chablis"], { body: 1.8, acidity: 4.6, intensity: 2.3, oak: 0, alcohol: 1.8 }, [
-  "chardonnay",
-  "burgundy",
-  "crisp white",
-]);
+fr(
+  "chablis",
+  "white",
+  ["chablis"],
+  { body: 2.2, acidity: 4.5, intensity: 2.8, oak: 0.3, alcohol: 2.1 },
+  ["chardonnay", "burgundy", "crisp white"],
+);
+fr(
+  "petit chablis",
+  "white",
+  ["petit chablis"],
+  { body: 1.8, acidity: 4.6, intensity: 2.3, oak: 0, alcohol: 1.8 },
+  ["chardonnay", "burgundy", "crisp white"],
+);
 fr(
   "chablis premier cru",
   "white",
@@ -69,7 +81,16 @@ fr(
 fr(
   "chablis grand cru",
   "white",
-  ["chablis grand cru", "les clos", "vaudesir", "valmur", "les preuses", "grenouilles", "bougros", "blanchot"],
+  [
+    "chablis grand cru",
+    "les clos",
+    "vaudesir",
+    "valmur",
+    "les preuses",
+    "grenouilles",
+    "bougros",
+    "blanchot",
+  ],
   { body: 3.2, acidity: 4.4, intensity: 3.8, oak: 0.9, alcohol: 2.3 },
   ["chardonnay", "burgundy", "chablis", "crisp white"],
 );
@@ -99,7 +120,13 @@ fr(
 fr(
   "bourgogne",
   "white",
-  ["bourgogne", "bourgogne blanc", "bourgogne chardonnay", "bourgogne cote d or", "coteaux bourguignons"],
+  [
+    "bourgogne",
+    "bourgogne blanc",
+    "bourgogne chardonnay",
+    "bourgogne cote d or",
+    "coteaux bourguignons",
+  ],
   { body: 2.7, acidity: 3.9, intensity: 2.7, oak: 0.7, alcohol: 2.2 },
   ["chardonnay", "burgundy"],
 );
@@ -151,11 +178,13 @@ fr(
   { body: 2.7, acidity: 3.9, intensity: 2.8, oak: 0.7, alcohol: 2.2 },
   ["chardonnay", "burgundy"],
 );
-fr("givry", "red", ["givry"], { body: 2.8, tannin: 2.5, acidity: 3.9, intensity: 3.1, oak: 0.8, alcohol: 2.2 }, [
-  "pinot noir",
-  "burgundy",
-  "light red",
-]);
+fr(
+  "givry",
+  "red",
+  ["givry"],
+  { body: 2.8, tannin: 2.5, acidity: 3.9, intensity: 3.1, oak: 0.8, alcohol: 2.2 },
+  ["pinot noir", "burgundy", "light red"],
+);
 
 // ---- Côte de Beaune ----
 fr(
@@ -205,7 +234,15 @@ fr(
 fr(
   "cote de beaune white villages",
   "white",
-  ["saint aubin", "st aubin", "saint romain", "auxey duresses", "pernand vergelesses", "ladoix", "monthelie"],
+  [
+    "saint aubin",
+    "st aubin",
+    "saint romain",
+    "auxey duresses",
+    "pernand vergelesses",
+    "ladoix",
+    "monthelie",
+  ],
   { body: 2.9, acidity: 4, intensity: 3, oak: 1, alcohol: 2.2 },
   ["chardonnay", "burgundy"],
 );
@@ -233,16 +270,20 @@ fr(
   { body: 2.8, tannin: 2.6, acidity: 3.9, intensity: 3.2, oak: 0.9, alcohol: 2.2 },
   ["pinot noir", "burgundy", "light red"],
 );
-fr("pommard", "red", ["pommard"], { body: 3.6, tannin: 3.5, acidity: 3.8, intensity: 3.8, oak: 1.4, alcohol: 2.4 }, [
-  "pinot noir",
-  "burgundy",
-  "medium red",
-]);
-fr("volnay", "red", ["volnay"], { body: 2.9, tannin: 2.4, acidity: 4, intensity: 3.7, oak: 1.2, alcohol: 2.3 }, [
-  "pinot noir",
-  "burgundy",
-  "light red",
-]);
+fr(
+  "pommard",
+  "red",
+  ["pommard"],
+  { body: 3.6, tannin: 3.5, acidity: 3.8, intensity: 3.8, oak: 1.4, alcohol: 2.4 },
+  ["pinot noir", "burgundy", "medium red"],
+);
+fr(
+  "volnay",
+  "red",
+  ["volnay"],
+  { body: 2.9, tannin: 2.4, acidity: 4, intensity: 3.7, oak: 1.2, alcohol: 2.3 },
+  ["pinot noir", "burgundy", "light red"],
+);
 fr(
   "corton",
   "red",
@@ -358,12 +399,24 @@ const CRU = (body: number, tannin: number, intensity: number, oak = 0.2): S => (
   alcohol: 2.1,
 });
 fr("morgon", "red", ["morgon"], CRU(3, 2.2, 3.5, 0.3), ["gamay", "beaujolais", "light red"]);
-fr("moulin a vent", "red", ["moulin a vent"], CRU(3.2, 2.5, 3.6, 0.6), ["gamay", "beaujolais", "medium red"]);
+fr("moulin a vent", "red", ["moulin a vent"], CRU(3.2, 2.5, 3.6, 0.6), [
+  "gamay",
+  "beaujolais",
+  "medium red",
+]);
 fr("fleurie", "red", ["fleurie"], CRU(2.4, 1.6, 3.4), ["gamay", "beaujolais", "light red"]);
 fr("brouilly", "red", ["brouilly"], CRU(2.4, 1.6, 3.2), ["gamay", "beaujolais", "light red"]);
-fr("cote de brouilly", "red", ["cote de brouilly"], CRU(2.7, 1.9, 3.4), ["gamay", "beaujolais", "light red"]);
+fr("cote de brouilly", "red", ["cote de brouilly"], CRU(2.7, 1.9, 3.4), [
+  "gamay",
+  "beaujolais",
+  "light red",
+]);
 fr("chiroubles", "red", ["chiroubles"], CRU(2.1, 1.3, 3.2), ["gamay", "beaujolais", "light red"]);
-fr("saint amour", "red", ["saint amour", "st amour"], CRU(2.4, 1.6, 3.3), ["gamay", "beaujolais", "light red"]);
+fr("saint amour", "red", ["saint amour", "st amour"], CRU(2.4, 1.6, 3.3), [
+  "gamay",
+  "beaujolais",
+  "light red",
+]);
 fr("julienas", "red", ["julienas"], CRU(2.7, 2, 3.4), ["gamay", "beaujolais", "light red"]);
 fr("chenas", "red", ["chenas"], CRU(3, 2.3, 3.4, 0.4), ["gamay", "beaujolais", "medium red"]);
 fr("regnie", "red", ["regnie"], CRU(2.4, 1.6, 3.2), ["gamay", "beaujolais", "light red"]);
@@ -527,8 +580,14 @@ fr(
 
 // ---- Alsace ----
 // Alsace allows many grapes, so these rules leave aroma, acidity and sweetness to the grape and the region.
-fr("alsace", "white", ["alsace", "vin d alsace"], { oak: 0.1, alcohol: 2.4 }, ["alsace", "aromatic white"]);
-fr("alsace grand cru", "white", ["alsace grand cru"], { oak: 0.1, alcohol: 2.6 }, ["alsace", "aromatic white"]);
+fr("alsace", "white", ["alsace", "vin d alsace"], { oak: 0.1, alcohol: 2.4 }, [
+  "alsace",
+  "aromatic white",
+]);
+fr("alsace grand cru", "white", ["alsace grand cru"], { oak: 0.1, alcohol: 2.6 }, [
+  "alsace",
+  "aromatic white",
+]);
 fr(
   "vendanges tardives",
   ["white", "dessert"],
@@ -569,7 +628,13 @@ fr(
 fr(
   "cremant",
   "sparkling",
-  ["cremant", "cremant de limoux", "blanquette de limoux", "cremant du jura", "cremant de bordeaux"],
+  [
+    "cremant",
+    "cremant de limoux",
+    "blanquette de limoux",
+    "cremant du jura",
+    "cremant de bordeaux",
+  ],
   { body: 2.1, acidity: 4.3, sweetness: 0.8, intensity: 2.6, oak: 0, alcohol: 2, fizz: true },
   ["chardonnay", "traditional method sparkling"],
 );
@@ -1162,6 +1227,29 @@ it(
   { body: 3.3, tannin: 2, acidity: 4.4, intensity: 3.6, oak: 0.8, alcohol: 2.7 },
   ["barbera", "piedmont", "medium red"],
 );
+// A Barbera filed as sparkling is a dry frizzante red, never a sweet Asti.
+it(
+  "barbera d asti",
+  "sparkling",
+  [
+    "barbera d asti",
+    "barbera d alba",
+    "barbera del monferrato",
+    "barbera vivace",
+    "barbera frizzante",
+  ],
+  {
+    body: 2.8,
+    tannin: 1.6,
+    acidity: 4.3,
+    sweetness: 0.6,
+    intensity: 3.3,
+    oak: 0,
+    alcohol: 2.2,
+    fizz: true,
+  },
+  ["barbera", "piedmont", "tank method sparkling"],
+);
 it(
   "barbera d alba",
   "red",
@@ -1172,7 +1260,13 @@ it(
 it(
   "dolcetto",
   "red",
-  ["dolcetto d alba", "dolcetto di dogliani", "dogliani", "dolcetto d ovada", "dolcetto di diano d alba"],
+  [
+    "dolcetto d alba",
+    "dolcetto di dogliani",
+    "dogliani",
+    "dolcetto d ovada",
+    "dolcetto di diano d alba",
+  ],
   { body: 3, tannin: 3, acidity: 3.1, intensity: 3.2, oak: 0, alcohol: 2.3 },
   ["dolcetto", "piedmont", "medium red"],
 );
@@ -1202,14 +1296,23 @@ it(
   "moscato d asti",
   ["sparkling", "white", "dessert"],
   ["moscato d asti"],
-  { body: 1.6, acidity: 3, sweetness: 3.5, intensity: 4.5, oak: 0, alcohol: 1, fizz: true },
-  ["muscat", "piedmont", "tank method sparkling"],
+  { body: 1.6, acidity: 3, sweetness: 4, intensity: 4.5, oak: 0, alcohol: 1, fizz: true },
+  ["muscat", "piedmont", "tank method sparkling", "sweet white"],
 );
 it(
   "brachetto d acqui",
   ["sparkling", "red"],
   ["brachetto d acqui", "brachetto"],
-  { body: 1.8, tannin: 0.8, acidity: 3.2, sweetness: 3.5, intensity: 4.2, oak: 0, alcohol: 1, fizz: true },
+  {
+    body: 1.8,
+    tannin: 0.8,
+    acidity: 3.2,
+    sweetness: 3.5,
+    intensity: 4.2,
+    oak: 0,
+    alcohol: 1,
+    fizz: true,
+  },
   ["piedmont", "sweet red", "tank method sparkling"],
 );
 
@@ -1217,7 +1320,13 @@ it(
 it(
   "chianti",
   "red",
-  ["chianti", "chianti superiore", "chianti rufina", "chianti colli senesi", "chianti colli fiorentini"],
+  [
+    "chianti",
+    "chianti superiore",
+    "chianti rufina",
+    "chianti colli senesi",
+    "chianti colli fiorentini",
+  ],
   { body: 3, tannin: 3.4, acidity: 4.2, intensity: 3.2, oak: 0.6, alcohol: 2.3 },
   ["sangiovese", "tuscany", "medium red"],
 );
@@ -1323,15 +1432,38 @@ it(
 it(
   "lambrusco",
   ["red", "sparkling"],
-  ["lambrusco", "lambrusco grasparossa", "lambrusco grasparossa di castelvetro", "lambrusco salamino"],
-  { body: 2.6, tannin: 1.9, acidity: 4, sweetness: 1.2, intensity: 3.5, oak: 0, alcohol: 1.6, fizz: true },
+  [
+    "lambrusco",
+    "lambrusco grasparossa",
+    "lambrusco grasparossa di castelvetro",
+    "lambrusco salamino",
+  ],
+  {
+    body: 2.6,
+    tannin: 1.9,
+    acidity: 4,
+    sweetness: 1.2,
+    intensity: 3.5,
+    oak: 0,
+    alcohol: 1.6,
+    fizz: true,
+  },
   ["tank method sparkling"],
 );
 it(
   "lambrusco di sorbara",
   ["red", "sparkling"],
   ["lambrusco di sorbara"],
-  { body: 1.8, tannin: 1, acidity: 4.5, sweetness: 0.6, intensity: 3, oak: 0, alcohol: 1.5, fizz: true },
+  {
+    body: 1.8,
+    tannin: 1,
+    acidity: 4.5,
+    sweetness: 0.6,
+    intensity: 3,
+    oak: 0,
+    alcohol: 1.5,
+    fizz: true,
+  },
   ["lambrusco", "tank method sparkling"],
 );
 
@@ -1339,7 +1471,12 @@ it(
 it(
   "valpolicella",
   "red",
-  ["valpolicella", "valpolicella classico", "valpolicella superiore", "valpolicella classico superiore"],
+  [
+    "valpolicella",
+    "valpolicella classico",
+    "valpolicella superiore",
+    "valpolicella classico superiore",
+  ],
   { body: 2.5, tannin: 2, acidity: 3.9, intensity: 2.9, oak: 0.3, alcohol: 2.1 },
   ["corvina", "veneto", "light red"],
 );
@@ -1440,7 +1577,13 @@ it(
 it(
   "friuli whites",
   "white",
-  ["collio", "collio goriziano", "friuli colli orientali", "colli orientali del friuli", "friuli isonzo"],
+  [
+    "collio",
+    "collio goriziano",
+    "friuli colli orientali",
+    "colli orientali del friuli",
+    "friuli isonzo",
+  ],
   { body: 3, acidity: 3.7, intensity: 3.3, oak: 0.4, alcohol: 2.3 },
   ["friuli", "crisp white"],
 );
@@ -1836,7 +1979,13 @@ pt(
 pt(
   "vintage port",
   "fortified",
-  ["vintage port", "vintage porto", "porto vintage", "single quinta vintage", "quinta vintage port"],
+  [
+    "vintage port",
+    "vintage porto",
+    "porto vintage",
+    "single quinta vintage",
+    "quinta vintage port",
+  ],
   { body: 5, tannin: 4, acidity: 3.3, sweetness: 4.3, intensity: 5, oak: 0.3, alcohol: 4 },
   ["touriga nacional", "douro", "port"],
 );
@@ -2254,7 +2403,13 @@ us(
 us(
   "santa barbara",
   "red",
-  ["santa rita hills", "sta rita hills", "santa barbara county", "santa maria valley", "santa lucia highlands"],
+  [
+    "santa rita hills",
+    "sta rita hills",
+    "santa barbara county",
+    "santa maria valley",
+    "santa lucia highlands",
+  ],
   { body: 3.1, tannin: 2.3, acidity: 3.8, intensity: 3.9, oak: 1.3, alcohol: 2.7 },
   ["pinot noir", "california", "medium red"],
 );
@@ -2283,7 +2438,14 @@ us(
 us(
   "columbia valley",
   "red",
-  ["columbia valley", "walla walla", "walla walla valley", "red mountain", "yakima valley", "horse heaven hills"],
+  [
+    "columbia valley",
+    "walla walla",
+    "walla walla valley",
+    "red mountain",
+    "yakima valley",
+    "horse heaven hills",
+  ],
   { body: 4.2, tannin: 3.9, acidity: 3.5, intensity: 4, oak: 1.9, alcohol: 2.9 },
   ["cabernet sauvignon", "merlot", "syrah", "washington", "full red"],
 );
@@ -2307,7 +2469,16 @@ ar(
 ar(
   "uco valley",
   "red",
-  ["uco valley", "valle de uco", "tupungato", "tunuyan", "gualtallary", "paraje altamira", "altamira", "vista flores"],
+  [
+    "uco valley",
+    "valle de uco",
+    "tupungato",
+    "tunuyan",
+    "gualtallary",
+    "paraje altamira",
+    "altamira",
+    "vista flores",
+  ],
   { body: 4.1, tannin: 3.8, acidity: 3.6, intensity: 4.2, oak: 1.6, alcohol: 2.8 },
   ["malbec", "mendoza", "full red"],
 );
@@ -2342,21 +2513,44 @@ cl(
 cl(
   "colchagua",
   "red",
-  ["colchagua", "colchagua valley", "valle de colchagua", "apalta", "rapel", "rapel valley", "cachapoal"],
+  [
+    "colchagua",
+    "colchagua valley",
+    "valle de colchagua",
+    "apalta",
+    "rapel",
+    "rapel valley",
+    "cachapoal",
+  ],
   { body: 4.4, tannin: 3.6, acidity: 3.2, intensity: 4.2, oak: 1.8, alcohol: 3 },
   ["carmenere", "cabernet sauvignon", "syrah", "chile", "full red"],
 );
 cl(
   "casablanca",
   "white",
-  ["casablanca", "casablanca valley", "valle de casablanca", "san antonio", "leyda", "leyda valley", "limari"],
+  [
+    "casablanca",
+    "casablanca valley",
+    "valle de casablanca",
+    "san antonio",
+    "leyda",
+    "leyda valley",
+    "limari",
+  ],
   { body: 2.4, acidity: 4.2, intensity: 3.8, oak: 0.3, alcohol: 2.2 },
   ["sauvignon blanc", "chardonnay", "chile", "crisp white"],
 );
 cl(
   "casablanca",
   "red",
-  ["casablanca", "casablanca valley", "valle de casablanca", "san antonio", "leyda", "leyda valley"],
+  [
+    "casablanca",
+    "casablanca valley",
+    "valle de casablanca",
+    "san antonio",
+    "leyda",
+    "leyda valley",
+  ],
   { body: 2.8, tannin: 2.3, acidity: 3.8, intensity: 3.5, oak: 1, alcohol: 2.4 },
   ["pinot noir", "chile", "light red"],
 );
@@ -2652,7 +2846,9 @@ any(
   { sweetness: 0.2 },
   ["traditional method sparkling"],
 );
-any("demi sec", "sparkling", ["demi sec", "doux", "dolce"], { sweetness: 3 }, ["traditional method sparkling"]);
+any("demi sec", "sparkling", ["demi sec", "doux", "dolce"], { sweetness: 3 }, [
+  "traditional method sparkling",
+]);
 any("extra dry", "sparkling", ["extra dry", "extra sec", "extra seco"], { sweetness: 1.6 }, [
   "tank method sparkling",
 ]);
