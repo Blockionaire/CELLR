@@ -8,7 +8,8 @@
     "start": "tsx --conditions=react-server run.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "matrix": "tsx --conditions=react-server matrix.ts"
   },
   "dependencies": {
     "@cellr/domain": "workspace:*",

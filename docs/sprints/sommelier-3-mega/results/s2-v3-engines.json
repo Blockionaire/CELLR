@@ -1,0 +1,1664 @@
+{
+  "engine": "v3-engines",
+  "scenarios": 246,
+  "passed": 71,
+  "supported": 150,
+  "byCategory": {
+    "pairing-simple": {
+      "scenarios": 32,
+      "supported": 32,
+      "passed": 16
+    },
+    "pairing-hard": {
+      "scenarios": 57,
+      "supported": 57,
+      "passed": 22
+    },
+    "pairing-misleading": {
+      "scenarios": 16,
+      "supported": 16,
+      "passed": 4
+    },
+    "no-suitable-wine": {
+      "scenarios": 18,
+      "supported": 9,
+      "passed": 5
+    },
+    "empty-cellar": {
+      "scenarios": 6,
+      "supported": 2,
+      "passed": 2
+    },
+    "missing-metadata": {
+      "scenarios": 10,
+      "supported": 10,
+      "passed": 8
+    },
+    "inventory": {
+      "scenarios": 9,
+      "supported": 6,
+      "passed": 0
+    },
+    "evidence": {
+      "scenarios": 10,
+      "supported": 10,
+      "passed": 8
+    },
+    "budget": {
+      "scenarios": 14,
+      "supported": 0,
+      "passed": 0
+    },
+    "follow-up": {
+      "scenarios": 16,
+      "supported": 0,
+      "passed": 0
+    },
+    "multi-person": {
+      "scenarios": 14,
+      "supported": 0,
+      "passed": 0
+    },
+    "revoked-sharing": {
+      "scenarios": 10,
+      "supported": 0,
+      "passed": 0
+    },
+    "retail": {
+      "scenarios": 14,
+      "supported": 0,
+      "passed": 0
+    },
+    "robustness": {
+      "scenarios": 12,
+      "supported": 8,
+      "passed": 6
+    },
+    "experience": {
+      "scenarios": 8,
+      "supported": 0,
+      "passed": 0
+    }
+  },
+  "measures": {
+    "grounded": [150, 150],
+    "food": [137, 144],
+    "verdict": [120, 144],
+    "first": [88, 144],
+    "no-poor-bottle": [99, 137],
+    "no-bottles": [10, 10],
+    "honest-none": [7, 7],
+    "confidence": [15, 15],
+    "never": [6, 8],
+    "flag": [0, 1],
+    "tier": [27, 27],
+    "injection": [3, 3],
+    "buy": [2, 2]
+  },
+  "results": [
+    {
+      "id": "ps-001",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-002",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-003",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ps-004",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-005",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ps-006",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ps-007",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-008",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
+      "id": "ps-009",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ps-010",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-011",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-012",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-013",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ps-014",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ps-015",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ps-016",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ps-017",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-018",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ps-019",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ps-020",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-021",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
+      "id": "ps-022",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-023",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-024",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ps-025",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-026",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-027",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ps-028",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-029",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-030",
+      "pass": false,
+      "supported": true,
+      "failed": ["food"]
+    },
+    {
+      "id": "ps-031",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ps-032",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
+      "id": "ph-001",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-002",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-003",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-004",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ph-005",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
+      "id": "ph-006",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-007",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ph-008",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-009",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ph-010",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-011",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict"]
+    },
+    {
+      "id": "ph-012",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "no-poor-bottle"]
+    },
+    {
+      "id": "ph-013",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ph-014",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ph-015",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-016",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-017",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ph-018",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-019",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict"]
+    },
+    {
+      "id": "ph-020",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-021",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ph-022",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ph-023",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ph-024",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ph-025",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-026",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ph-027",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ph-028",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-029",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-030",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-031",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
+      "id": "ph-032",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-033",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
+      "id": "ph-034",
+      "pass": false,
+      "supported": true,
+      "failed": ["food"]
+    },
+    {
+      "id": "ph-035",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ph-036",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-037",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-038",
+      "pass": false,
+      "supported": true,
+      "failed": ["food", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ph-039",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ph-040",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ph-041",
+      "pass": false,
+      "supported": true,
+      "failed": ["food", "verdict", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ph-042",
+      "pass": false,
+      "supported": true,
+      "failed": ["food", "verdict", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ph-043",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ph-044",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-045",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
+      "id": "ph-046",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ph-047",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ph-048",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
+      "id": "ph-049",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-050",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ph-051",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-052",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-053",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ph-054",
+      "pass": false,
+      "supported": true,
+      "failed": ["food", "first"]
+    },
+    {
+      "id": "ph-055",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ph-056",
+      "pass": false,
+      "supported": true,
+      "failed": ["food"]
+    },
+    {
+      "id": "ph-057",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "pm-001",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
+      "id": "pm-002",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "pm-003",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "pm-004",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "pm-005",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "pm-006",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "pm-007",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "pm-008",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "pm-009",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "pm-010",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "pm-011",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
+      "id": "pm-012",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "pm-013",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "pm-014",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
+      "id": "pm-015",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
+      "id": "pm-016",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ns-001",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given"]
+    },
+    {
+      "id": "ns-002",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given"]
+    },
+    {
+      "id": "ns-003",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given"]
+    },
+    {
+      "id": "ns-004",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given"]
+    },
+    {
+      "id": "ns-005",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given"]
+    },
+    {
+      "id": "ns-006",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given"]
+    },
+    {
+      "id": "ns-007",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ns-008",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ns-009",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ns-010",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ns-011",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ns-012",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "verdict", "first", "no-bottles", "buy:given"]
+    },
+    {
+      "id": "ns-013",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "verdict", "buy:given"]
+    },
+    {
+      "id": "ns-014",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ns-015",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ns-016",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ns-017",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "verdict", "first", "buy:given"]
+    },
+    {
+      "id": "ns-018",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ec-001",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given"]
+    },
+    {
+      "id": "ec-002",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given"]
+    },
+    {
+      "id": "ec-003",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given"]
+    },
+    {
+      "id": "ec-004",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given"]
+    },
+    {
+      "id": "ec-005",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ec-006",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "mm-001",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "mm-002",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "mm-003",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "mm-004",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "mm-005",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "mm-006",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "mm-007",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "mm-008",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "mm-009",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "mm-010",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "inv-001",
+      "pass": false,
+      "supported": true,
+      "failed": ["never"]
+    },
+    {
+      "id": "inv-002",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "inv-003",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "inv-004",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "inv-005",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle", "never"]
+    },
+    {
+      "id": "inv-006",
+      "pass": false,
+      "supported": true,
+      "failed": ["flag:past"]
+    },
+    {
+      "id": "inv-007",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "facts:bottles", "facts:wines"]
+    },
+    {
+      "id": "inv-008",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "facts:matchedBottles"]
+    },
+    {
+      "id": "inv-009",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "facts:matchedBottles"]
+    },
+    {
+      "id": "ev-01",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ev-02",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ev-03",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ev-04",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ev-05",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ev-06",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ev-07",
+      "pass": false,
+      "supported": true,
+      "failed": ["no-poor-bottle"]
+    },
+    {
+      "id": "ev-08",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ev-09",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict"]
+    },
+    {
+      "id": "ev-10",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "bu-01",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "buy:style", "state:intent", "state:budgetMaxEuros"]
+    },
+    {
+      "id": "bu-02",
+      "pass": false,
+      "supported": false,
+      "failed": [
+        "capability",
+        "food",
+        "buy:given",
+        "buy:style",
+        "state:intent",
+        "state:budgetMaxEuros",
+        "state:dish"
+      ]
+    },
+    {
+      "id": "bu-03",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "state:budgetMaxEuros"]
+    },
+    {
+      "id": "bu-04",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "buy:style", "state:intent"]
+    },
+    {
+      "id": "bu-05",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "buy:style", "state:intent", "state:budgetMaxEuros"]
+    },
+    {
+      "id": "bu-06",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "buy:style", "state:intent", "state:budgetMaxEuros"]
+    },
+    {
+      "id": "bu-07",
+      "pass": false,
+      "supported": false,
+      "failed": [
+        "capability",
+        "buy:given",
+        "buy:style",
+        "state:intent",
+        "state:budgetMaxEuros",
+        "state:wineType"
+      ]
+    },
+    {
+      "id": "bu-08",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "buy:style", "state:intent", "state:budgetMaxEuros"]
+    },
+    {
+      "id": "bu-09",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "buy:style", "state:intent", "state:budgetMaxEuros"]
+    },
+    {
+      "id": "bu-10",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "buy:style", "state:intent", "state:budgetMaxEuros"]
+    },
+    {
+      "id": "bu-11",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "buy:style", "state:intent", "state:budgetMaxEuros"]
+    },
+    {
+      "id": "bu-12",
+      "pass": false,
+      "supported": false,
+      "failed": [
+        "capability",
+        "buy:given",
+        "buy:style",
+        "state:intent",
+        "state:budgetMaxEuros",
+        "state:dish"
+      ]
+    },
+    {
+      "id": "bu-13",
+      "pass": false,
+      "supported": false,
+      "failed": [
+        "capability",
+        "food",
+        "buy:given",
+        "buy:style",
+        "state:intent",
+        "state:budgetMaxEuros"
+      ]
+    },
+    {
+      "id": "bu-14",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "buy:style", "state:intent", "state:budgetMaxEuros"]
+    },
+    {
+      "id": "fu-01",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "state:intent", "state:dish", "asks"]
+    },
+    {
+      "id": "fu-02",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "state:budgetMaxEuros", "state:dish", "asks"]
+    },
+    {
+      "id": "fu-03",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "buy:given", "state:channel", "state:budgetMaxEuros", "asks"]
+    },
+    {
+      "id": "fu-04",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "buy:given", "state:budgetMaxEuros", "state:dish"]
+    },
+    {
+      "id": "fu-05",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "buy:style", "state:dish", "state:budgetMaxEuros"]
+    },
+    {
+      "id": "fu-06",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "state:wineType", "state:dish"]
+    },
+    {
+      "id": "fu-07",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "state:wineType", "state:dish"]
+    },
+    {
+      "id": "fu-08",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "verdict", "first", "state:dish"]
+    },
+    {
+      "id": "fu-09",
+      "pass": false,
+      "supported": false,
+      "failed": [
+        "capability",
+        "food",
+        "buy:given",
+        "state:budgetMaxEuros",
+        "state:channel",
+        "state:dish"
+      ]
+    },
+    {
+      "id": "fu-10",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "verdict", "first", "state:intent", "state:dish"]
+    },
+    {
+      "id": "fu-11",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "state:intent", "state:budgetMaxEuros"]
+    },
+    {
+      "id": "fu-12",
+      "pass": false,
+      "supported": false,
+      "failed": [
+        "capability",
+        "food",
+        "buy:given",
+        "buy:style",
+        "state:intent",
+        "state:budgetMaxEuros",
+        "state:channel",
+        "state:dish",
+        "asks"
+      ]
+    },
+    {
+      "id": "fu-13",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "state:budgetMaxEuros", "state:channel", "state:dish"]
+    },
+    {
+      "id": "fu-14",
+      "pass": false,
+      "supported": false,
+      "failed": [
+        "capability",
+        "food",
+        "buy:given",
+        "buy:style",
+        "state:intent",
+        "state:dish",
+        "state:budgetMaxEuros"
+      ]
+    },
+    {
+      "id": "fu-15",
+      "pass": false,
+      "supported": false,
+      "failed": [
+        "capability",
+        "food",
+        "buy:given",
+        "buy:style",
+        "state:budgetMaxEuros",
+        "state:channel",
+        "state:dish"
+      ]
+    },
+    {
+      "id": "fu-16",
+      "pass": false,
+      "supported": false,
+      "failed": [
+        "capability",
+        "food",
+        "buy:given",
+        "buy:style",
+        "state:budgetMaxEuros",
+        "state:dish"
+      ]
+    },
+    {
+      "id": "mp-01",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "friends:resolved", "friends:taste"]
+    },
+    {
+      "id": "mp-02",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "friends:resolved", "friends:taste"]
+    },
+    {
+      "id": "mp-03",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "friends:resolved", "friends:taste", "friends:cellar"]
+    },
+    {
+      "id": "mp-04",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "friends:resolved", "friends:taste"]
+    },
+    {
+      "id": "mp-05",
+      "pass": false,
+      "supported": false,
+      "failed": [
+        "capability",
+        "buy:given",
+        "buy:style",
+        "state:intent",
+        "state:recipient",
+        "state:budgetMaxEuros",
+        "friends:resolved",
+        "friends:taste",
+        "friends:cellar"
+      ]
+    },
+    {
+      "id": "mp-06",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "friends:resolved", "friends:taste"]
+    },
+    {
+      "id": "mp-07",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability"]
+    },
+    {
+      "id": "mp-08",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability"]
+    },
+    {
+      "id": "mp-09",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability"]
+    },
+    {
+      "id": "mp-10",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "no-poor-bottle", "friends:resolved", "friends:taste"]
+    },
+    {
+      "id": "mp-11",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "friends:resolved"]
+    },
+    {
+      "id": "mp-12",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "verdict", "first", "friends:resolved", "friends:taste"]
+    },
+    {
+      "id": "mp-13",
+      "pass": false,
+      "supported": false,
+      "failed": [
+        "capability",
+        "buy:given",
+        "buy:style",
+        "state:intent",
+        "state:recipient",
+        "state:budgetMaxEuros",
+        "friends:resolved",
+        "friends:taste"
+      ]
+    },
+    {
+      "id": "mp-14",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "no-poor-bottle", "friends:resolved", "friends:taste"]
+    },
+    {
+      "id": "rs-01",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food"]
+    },
+    {
+      "id": "rs-02",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "friends:resolved"]
+    },
+    {
+      "id": "rs-03",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "friends:resolved", "friends:taste"]
+    },
+    {
+      "id": "rs-04",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "friends:resolved"]
+    },
+    {
+      "id": "rs-05",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "friends:resolved", "friends:taste"]
+    },
+    {
+      "id": "rs-06",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "verdict", "first"]
+    },
+    {
+      "id": "rs-07",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "first", "friends:resolved"]
+    },
+    {
+      "id": "rs-08",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability"]
+    },
+    {
+      "id": "rs-09",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "friends:resolved"]
+    },
+    {
+      "id": "rs-10",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "friends:resolved", "friends:taste"]
+    },
+    {
+      "id": "rt-01",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "buy:given", "buy:style"]
+    },
+    {
+      "id": "rt-02",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "buy:given", "offers"]
+    },
+    {
+      "id": "rt-03",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "offers"]
+    },
+    {
+      "id": "rt-04",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "offers"]
+    },
+    {
+      "id": "rt-05",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "offers"]
+    },
+    {
+      "id": "rt-06",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "offers"]
+    },
+    {
+      "id": "rt-07",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "offers"]
+    },
+    {
+      "id": "rt-08",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "offers"]
+    },
+    {
+      "id": "rt-09",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "food", "buy:given", "offers"]
+    },
+    {
+      "id": "rt-10",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "offers"]
+    },
+    {
+      "id": "rt-11",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "buy:style"]
+    },
+    {
+      "id": "rt-12",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "state:channel"]
+    },
+    {
+      "id": "rt-13",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "state:channel", "offers"]
+    },
+    {
+      "id": "rt-14",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "buy:given", "offers"]
+    },
+    {
+      "id": "rb-01",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "rb-02",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "rb-03",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "asks"]
+    },
+    {
+      "id": "rb-04",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "asks"]
+    },
+    {
+      "id": "rb-05",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "rb-06",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "rb-07",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "rb-08",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability", "asks"]
+    },
+    {
+      "id": "rb-09",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "rb-10",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability"]
+    },
+    {
+      "id": "rb-11",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "rb-12",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ex-01",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability"]
+    },
+    {
+      "id": "ex-02",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability"]
+    },
+    {
+      "id": "ex-03",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability"]
+    },
+    {
+      "id": "ex-04",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability"]
+    },
+    {
+      "id": "ex-05",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability"]
+    },
+    {
+      "id": "ex-06",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability"]
+    },
+    {
+      "id": "ex-07",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability"]
+    },
+    {
+      "id": "ex-08",
+      "pass": false,
+      "supported": false,
+      "failed": ["capability"]
+    }
+  ]
+}
