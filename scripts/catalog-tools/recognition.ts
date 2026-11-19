@@ -13,8 +13,8 @@
  *   clean        producer, wine name, colour and country as printed
  *   misread      the same in capitals, accents lost, one letter dropped from the longest word (an OCR slip)
  *   producer     only the producer could be read (no wine name)
- * With --canonical n, the first n covered wines are first added as CANONICAL CELLR wines (in this throwaway pilot
- * database only, by the database owner, marked as pilot seeds): then the CELLR wine must be the exact candidate and the
+ * With --canonical n, the first n covered wines are first added as CANONICAL CELLR wines (in a throwaway pilot
+ * database, or a LOCAL staging rehearsal with --local-seeds; by the database owner; never in a remote database): then the CELLR wine must be the exact candidate and the
  * scan must offer no record for it. The tool asserts the safety rules and exits non-zero when one is broken.
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -125,8 +125,13 @@ async function main() {
           "select public.catalog_target_identity() as id",
         )
       ).rows[0]!.id.environment;
-      if (env !== "pilot")
-        throw new Error("canonical seeds are only written in a database marked pilot");
+      const host = new URL(str(args, "db")).hostname;
+      const local = ["127.0.0.1", "localhost", "::1"].includes(host);
+      // seeds are test wines: in a pilot database, or a LOCAL staging rehearsal with --local-seeds; never remotely
+      if (!(env === "pilot" || (env === "staging" && local && args["local-seeds"] === true)))
+        throw new Error(
+          "canonical seeds are only written in a pilot database, or a local staging rehearsal (--local-seeds)",
+        );
       await client.query("reset role");
       for (const e of covered.slice(0, seeds)) {
         // the identity as the producer writes it (what a curated CELLR wine holds), not the provider's spelling
