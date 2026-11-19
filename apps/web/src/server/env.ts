@@ -1,5 +1,6 @@
 import "server-only";
 import { parseAdminAllowlist, parseFeatures, type FeatureFlags } from "@cellr/domain";
+import { builderAccessIn, type BuilderAccess } from "@/lib/smart-cellar-builder-gate";
 import { cellarGalleryOpenIn } from "@/lib/cellar-gallery-gate";
 import { smartCellarAccessIn, type SmartCellarAccess } from "@/lib/smart-cellar-gate";
 import { smartCellarRendererOpenIn } from "@/lib/smart-cellar-renderer-gate";
@@ -41,6 +42,15 @@ export function getSmartCellarAccess(): SmartCellarAccess {
  */
 export function isSmartCellarRendererEnabled(): boolean {
   return smartCellarRendererOpenIn(process.env, getSmartCellarAccess());
+}
+
+/**
+ * Whether the Rack Builder may be shown here (CELLR_SMART_CELLAR_BUILDER=1, `next dev` and Vercel previews only),
+ * and whether it may save (the API's write level, which also needs a database known not to be production). The
+ * rule and its reasons: lib/smart-cellar-builder-gate.ts.
+ */
+export function getBuilderAccess(): BuilderAccess {
+  return builderAccessIn(process.env, getSmartCellarAccess());
 }
 
 export interface AiEnv {

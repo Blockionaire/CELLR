@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DomainError, type BottleView, type WineDetail } from "@cellr/domain";
+import { DomainError, STALE_LAYOUT_MESSAGE, type BottleView, type WineDetail } from "@cellr/domain";
 import { buildRacks, createCellarService, toStorageView } from "./service";
 import type {
   BottlePatch,
@@ -139,6 +139,9 @@ function fake(
       return FRIDGE;
     },
     async updateStorage() {
+      return null;
+    },
+    async renameIfCurrent() {
       return null;
     },
     async deleteStorage() {
@@ -613,6 +616,31 @@ describe("managing places", () => {
       capacity: 6,
     });
     await expect(fake([]).service.updateStorage("nope", { label: "x" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("a rename made against a version: renamed with the new revision, refused when stale, not found when gone (sprint 3)", async () => {
+    const calls: Array<[string, string, string]> = [];
+    const ok = fake([], {
+      overrides: {
+        renameIfCurrent: async (_h: string, id: string, label: string, revision: string) => {
+          calls.push([id, label, revision]);
+          return { row: { ...FRIDGE, label }, revision: "r2" };
+        },
+      },
+    });
+    expect(await ok.service.renameStorageIfCurrent("u1", "Cave", "r1")).toMatchObject({
+      label: "Cave",
+      revision: "r2",
+    });
+    expect(calls).toEqual([["u1", "Cave", "r1"]]);
+    const stale = fake([], { overrides: { renameIfCurrent: async () => "stale" as const } });
+    await expect(stale.service.renameStorageIfCurrent("u1", "Cave", "r0")).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: STALE_LAYOUT_MESSAGE,
+    });
+    await expect(fake([]).service.renameStorageIfCurrent("nope", "x", "r1")).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
   });

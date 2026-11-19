@@ -185,6 +185,7 @@ describe("export version 2 (sprint 1C), next to an unchanged version 1", () => {
     zones: [],
     capacity: 12,
     occupied: 1,
+    revision: "r1",
     free: 11,
     legacy: true,
     arrangementKnown: true,
