@@ -31,6 +31,7 @@ const reads = {
   adminWineMaster: vi.fn(),
   adminWineMasterRecord: vi.fn(),
   adminUploadCatalogLabel: vi.fn(),
+  adminArchitecture: vi.fn(),
 };
 const sources = {
   overview: vi.fn(),
@@ -72,6 +73,7 @@ describe("admin pages without an admin session", () => {
     ["wine visual", () => import("./wines/[id]/page"), { ...params, ...search }],
     ["corrections", () => import("./catalog/corrections/page"), search],
     ["external sources", () => import("./sources/page"), search],
+    ["system architecture", () => import("./system/page"), {}],
     [
       "correction",
       () => import("./catalog/corrections/[wineId]/page"),
@@ -112,7 +114,7 @@ const files = (dir: string): string[] =>
 describe("the admin boundary", () => {
   it("every admin page checks the session itself", () => {
     const pages = files(path.join(SRC, "app/admin")).filter((f) => /(page|layout)\.tsx$/.test(f));
-    expect(pages.length).toBe(16);
+    expect(pages.length).toBe(17);
     for (const p of pages)
       expect(readFileSync(p, "utf8")).toMatch(
         /if \(!(session|\(await getAdminSession\(\)\))\) notFound\(\)/,

@@ -99,6 +99,7 @@ import {
   updateWineDetails,
 } from "@/server/privileged/wine-master";
 import { DEPENDENCY_SOURCE, MissingDependencyError } from "@/server/privileged/db-errors";
+import { architectureView } from "@/server/system/service";
 import { assertAdmin, verifyAdmin, type AdminSession } from "./access";
 
 /**
@@ -223,6 +224,15 @@ export async function adminFeedback(
   const data = await readFeedback(session, category, page, FEEDBACK_PAGE_SIZE);
   if (typeof data !== "object" || data === null) return data;
   return { ...data, page, pages: Math.max(1, Math.ceil(data.total / FEEDBACK_PAGE_SIZE)) };
+}
+
+/**
+ * The Architecture Control Center (/admin/system): the register, the repository facts and their validation. Static
+ * data, behind the admin session like every other admin read (not a secret: the repository is public).
+ */
+export function adminArchitecture(session: AdminSession) {
+  assertAdmin(session);
+  return architectureView();
 }
 
 /** The catalogue review list: candidates (counts only), the learning switch, and the catalogue's size. */
