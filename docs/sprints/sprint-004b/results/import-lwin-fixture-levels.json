@@ -7,7 +7,7 @@
   "retrieved_at": "2026-11-13",
   "license": "CC0-1.0",
   "rights_status": "verified",
-  "run": "43ff843f-ba4a-473b-ad46-de20fbba86a5",
+  "run": "787f4f4a-3e9b-4096-b119-0dd236cdc267",
   "rows": 11,
   "schema": "lwin-assumed-layout-v0",
   "layout_verified": false,
@@ -32,10 +32,10 @@
   "problems": [],
   "finish": {
     "j": {
-      "run": "43ff843f-ba4a-473b-ad46-de20fbba86a5",
+      "run": "787f4f4a-3e9b-4096-b119-0dd236cdc267",
       "withdrawn": 0
     }
   },
   "seconds": 0,
-  "peak_rss_mb": 112
+  "peak_rss_mb": 108
 }
