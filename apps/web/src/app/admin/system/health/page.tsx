@@ -129,8 +129,8 @@ export default async function AdminSystemHealthPage({
         <ul className="grid gap-2 text-small sm:grid-cols-2" data-testid="health-config">
           <ConfigItem
             on={config.cronSecret}
-            title="Heartbeat (GitHub Actions, every 10 min)"
-            yes="This server accepts the heartbeat (CRON_SECRET is set). Whether it arrives shows as the monitor's state above; a failed heartbeat run notifies by GitHub's own e-mail."
+            title="Heartbeat endpoint (called by GitHub Actions every 10 min)"
+            yes="This server accepts the heartbeat (CRON_SECRET is set). Whether the workflow is switched on and reaches it shows only as the monitor's state above; a failed heartbeat run notifies by GitHub's own e-mail."
             no="CRON_SECRET is not set: the heartbeat cannot start rounds."
           />
           <ConfigItem
@@ -298,13 +298,15 @@ function ProbeRow({
         <Status status={p.status} />
         <span className="font-semibold text-ink">{p.probe.label}</span>
         <span className="text-caption text-ink-2">{reasonText(p.reason)}</span>
-        <span className="ml-auto text-caption text-ink-2 tnum">
-          {p.latencyMs !== null && `${p.latencyMs} ms · `}
-          {p.measuredAt ? `measured ${age(p.ageSec)}` : "never measured"}
-          {p.status === "unknown" && p.lastStatus && p.reason === "stale"
-            ? ` · last said ${HEALTH_STATUS_LABEL[p.lastStatus].toLowerCase()}`
-            : ""}
-        </span>
+        {p.measuredAt && (
+          <span className="ml-auto text-caption text-ink-2 tnum">
+            {p.latencyMs !== null && `${p.latencyMs} ms · `}
+            measured {age(p.ageSec)}
+            {p.status === "unknown" && p.lastStatus && p.reason === "stale"
+              ? ` · last said ${HEALTH_STATUS_LABEL[p.lastStatus].toLowerCase()}`
+              : ""}
+          </span>
+        )}
       </div>
       <div
         className="mt-2 flex h-3 gap-px"

@@ -626,17 +626,22 @@ const MapContent = memo(function MapContent({
             )}
             {h && (
               <g
-                transform={`translate(${risk ? b.w - 40 : b.w - 18} 18)`}
+                transform={
+                  overview
+                    ? `translate(${risk ? b.w - 66 : b.w - 26} 26)`
+                    : `translate(${risk ? b.w - 40 : b.w - 18} 18)`
+                }
                 data-testid="health-badge"
               >
                 <circle
-                  r={overview ? 11 : 8}
-                  style={{ fill: HEALTH_COLOR[h], stroke: "var(--surface)", strokeWidth: 1.5 }}
+                  // zoomed out the badge must still read as a mark: large enough at a third of full size
+                  r={overview ? 19 : 8}
+                  style={{ fill: HEALTH_COLOR[h], stroke: "var(--surface)", strokeWidth: 2 }}
                 />
                 <text
-                  y={overview ? 4.5 : 3.5}
+                  y={overview ? 8 : 3.5}
                   textAnchor="middle"
-                  className={overview ? "text-[14px] font-bold" : "text-[11px] font-bold"}
+                  className={overview ? "text-[23px] font-bold" : "text-[11px] font-bold"}
                   style={{ fill: "var(--surface)" }}
                 >
                   {HEALTH_GLYPH[h]}

@@ -67,7 +67,7 @@ export type ProbeKind = "monitor" | "infrastructure" | "job" | "traffic" | "deli
 export const PROBE_KIND_LABEL: Readonly<Record<ProbeKind, string>> = {
   monitor: "Monitor",
   infrastructure: "Infrastructure",
-  job: "Scheduled job",
+  job: "Scheduled jobs",
   traffic: "Live traffic",
   delivery: "Build & deploy",
 };
