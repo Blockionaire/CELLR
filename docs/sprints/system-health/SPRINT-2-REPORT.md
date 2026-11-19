@@ -54,14 +54,15 @@ Probes (18):
 
 ## 4. Tests and results (local, on this branch)
 
-| Check                                                                                                          | Result                                                    |
-| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `pnpm check` (format, lint, types, all unit tests, database suite)                                             | green: domain 966, web 1318, database **1627** (0 failed) |
-| `pnpm db:types:check`, `architecture:inventory --check`                                                        | up to date                                                |
-| `pnpm build`                                                                                                   | green (new routes listed)                                 |
-| e2e `system-health.spec.ts` + `admin-system.spec.ts`                                                           | **21 passed**, 0 failed (desktop + phone)                 |
-| e2e admin-related specs (admin-http, admin-sources, feedback, reminders, sources, admin-system, system-health) | **53 passed**, 0 failed                                   |
-| Full CI with e2e on the branch (manual dispatch)                                                               | see PR #88 (result added there)                           |
+| Check                                                                                                          | Result                                                                                                                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm check` (format, lint, types, all unit tests, database suite)                                             | green: domain 966, web 1318, database **1627** (0 failed)                                                                                                                                                                                                                 |
+| `pnpm db:types:check`, `architecture:inventory --check`                                                        | up to date                                                                                                                                                                                                                                                                |
+| `pnpm build`                                                                                                   | green (new routes listed)                                                                                                                                                                                                                                                 |
+| e2e `system-health.spec.ts` + `admin-system.spec.ts`                                                           | **21 passed**, 0 failed (desktop + phone)                                                                                                                                                                                                                                 |
+| e2e admin-related specs (admin-http, admin-sources, feedback, reminders, sources, admin-system, system-health) | **53 passed**, 0 failed                                                                                                                                                                                                                                                   |
+| PR checks on head `2fd6b07` (run 44559077901)                                                                  | **all green**, incl. the real Supabase stack with pg_cron (it caught a test that read `cron` as `service_role`; fixed)                                                                                                                                                    |
+| Full e2e on CI, manual dispatch on `f95827f` (run 44558396651)                                                 | shards 1, 2, 3, 5, 7 green, including both new specs. Shards 4, 6, 8 red only on tests this PR does not touch: 3D storage specs (#79/#77) and `racks.spec.ts:371` (contrast flake, 4/10 locally with `main`'s CSS vs 6/10 with this branch's); evidence in the PR comment |
 
 What the e2e spec proves against real services:
 
@@ -118,8 +119,12 @@ Kept as designed:
    headline will usually show "No failure measured · N checks without a current measurement" rather than "All pass".
 4. **When the database refuses writes,** nothing can be recorded. The page shows the last results, with the monitor
    turning late (15 min) and then stopped (30 min). The heartbeat fails at once.
-5. **The full e2e suite** still has the known flakes (#77, #78, #79, and `insights:113` / `racks:371`). The new spec
-   is not 3D and adds about 45 s.
+5. **The full e2e suite** still has the known flakes (#77, #78, #79) and two without an issue yet:
+   - `insights.spec.ts:113` (axe document-title);
+   - `racks.spec.ts:371` (axe colour contrast in the racks dialogs, about half of local runs on `main` too).
+
+   A tracking issue for the second is recommended. The new spec is not 3D and adds about 45 s, but it moves shard
+   boundaries, so more 3D work lands in shard 4. That adds to the case for #77 option 2 (a separate 3D job).
 
 ## 7. Migrations and configuration
 
