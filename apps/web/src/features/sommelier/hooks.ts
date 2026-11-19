@@ -26,6 +26,8 @@ const askKey = (mode: "chat" | "tonight") => ["sommelier", "ask", mode] as const
  * Asks the sommelier about the cellar. The screen sends the recent conversation; in the general chat a question
  * id goes with it, so the server keeps the question and its answer (and sends a question it has seen back as kept).
  */
+import { answerMetrics } from "./plan-metrics";
+
 export function useAskSommelier(mode: "chat" | "tonight") {
   return useMutation({
     mutationKey: askKey(mode),
@@ -37,7 +39,7 @@ export function useAskSommelier(mode: "chat" | "tonight") {
     onSuccess: (answer, input) =>
       track(
         input.mode === "tonight" ? "tonight_recommendation_generated" : "sommelier_question_asked",
-        { source: answer.source },
+        answerMetrics(answer),
       ),
   });
 }
