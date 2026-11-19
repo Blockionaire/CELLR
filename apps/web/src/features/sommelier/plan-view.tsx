@@ -28,6 +28,7 @@ export function PlanView({
   bottles,
   card,
   onReply,
+  afterPick,
 }: {
   plan: SommelierPlan;
   bottles: readonly SommelierBottle[];
@@ -35,6 +36,8 @@ export function PlanView({
   card: (bottle: SommelierBottle, first: boolean) => ReactNode;
   /** Sends a quick answer as the person's next message; absent for an answer that is no longer the last. */
   onReply?: ((text: string) => void) | undefined;
+  /** Drawn under a bottle that was offered as a match (what the person says came of it); absent: nothing. */
+  afterPick?: ((vintageId: string) => ReactNode) | undefined;
 }) {
   const t = useTranslations("sommelier");
   const format = useFormatter();
@@ -238,6 +241,7 @@ export function PlanView({
             <li key={pick.vintageId} className="flex flex-col gap-1.5">
               {card(bottle, n === 0)}
               <Reasons pick={pick} />
+              {afterPick?.(pick.vintageId)}
             </li>
           ))}
         </ul>

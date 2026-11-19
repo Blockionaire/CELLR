@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { SommelierAnswer } from "@cellr/domain";
 import { AskSommelierSchema } from "@cellr/domain";
-import { chatExpired, chatStateFrom, newQuestionId, ratingIn, spoken, withRating } from "./turns";
+import {
+  chatExpired,
+  chatStateFrom,
+  newQuestionId,
+  outcomeIn,
+  ratingIn,
+  spoken,
+  withOutcome,
+  withRating,
+  type ChatState,
+} from "./turns";
 
 const answer = (text: string | null): SommelierAnswer => ({
   source: text === null ? "basic" : "ai",
@@ -90,5 +100,67 @@ describe("the kept chat on screen", () => {
     expect(ids.size).toBe(50);
     for (const id of ids)
       expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
+});
+
+describe("what came of a bottle, on screen", () => {
+  const state: ChatState = {
+    lastAskedAt: 1,
+    turns: [
+      { role: "user", id: "q1", text: "Lamb?" },
+      {
+        role: "sommelier",
+        id: "a1",
+        rating: "positive",
+        answer: { source: "basic", text: null, basic: "pairing", bottles: [], reason: null },
+      },
+    ],
+  };
+
+  it("is kept per bottle of an answer, changed in place, and taken back", () => {
+    expect(outcomeIn(state, "a1", "v1")).toBeNull();
+    const opened = withOutcome(state, "a1", "v1", {
+      vintageId: "v1",
+      withDish: null,
+      enjoyed: null,
+    });
+    const both = withOutcome(opened, "a1", "v2", {
+      vintageId: "v2",
+      withDish: false,
+      enjoyed: null,
+    });
+    const said = withOutcome(both, "a1", "v1", {
+      vintageId: "v1",
+      withDish: true,
+      enjoyed: "mixed",
+    });
+    expect(outcomeIn(said, "a1", "v1")).toEqual({
+      vintageId: "v1",
+      withDish: true,
+      enjoyed: "mixed",
+    });
+    expect(outcomeIn(said, "a1", "v2")).toEqual({
+      vintageId: "v2",
+      withDish: false,
+      enjoyed: null,
+    });
+    const back = withOutcome(said, "a1", "v1", null);
+    expect(outcomeIn(back, "a1", "v1")).toBeNull();
+    expect(outcomeIn(back, "a1", "v2")).not.toBeNull();
+  });
+
+  it("never touches the rating of the answer, and a rating never touches it", () => {
+    const said = withOutcome(state, "a1", "v1", { vintageId: "v1", withDish: true, enjoyed: "no" });
+    expect(ratingIn(said, "a1")).toBe("positive");
+    const rated = withRating(said, "a1", null);
+    expect(outcomeIn(rated, "a1", "v1")).toEqual({
+      vintageId: "v1",
+      withDish: true,
+      enjoyed: "no",
+    });
+    // An answer that is not there changes nothing.
+    expect(
+      withOutcome(state, "nope", "v1", { vintageId: "v1", withDish: null, enjoyed: null }),
+    ).toEqual(state);
   });
 });

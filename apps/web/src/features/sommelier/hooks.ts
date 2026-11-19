@@ -10,13 +10,23 @@ import {
 import type {
   AskSommelier,
   RateSommelierAnswer,
+  SetSommelierOutcome,
   SommelierConversationView,
+  SommelierOutcome,
   SommelierRating,
   SommelierReply,
 } from "@cellr/domain";
 import { track } from "@/lib/analytics";
 import { api } from "@/lib/api";
-import { chatStateFrom, EMPTY_CHAT, ratingIn, withRating, type ChatState } from "./turns";
+import {
+  chatStateFrom,
+  EMPTY_CHAT,
+  outcomeIn,
+  ratingIn,
+  withOutcome,
+  withRating,
+  type ChatState,
+} from "./turns";
 
 /** The general chat, as the screen holds it: kept in the query cache, so it is there again after any other screen. */
 export const CHAT_KEY = ["sommelier", "conversation"] as const;
@@ -99,6 +109,51 @@ export function useRateAnswer(messageId: string, onFailed: () => void) {
     },
     onError: (_error, input, context) => {
       updateChat(client, (state) => withRating(state, input.messageId, context?.before ?? null));
+      onFailed();
+    },
+  });
+}
+
+/**
+ * Says what came of one bottle of one answer (or takes it back). Shown at once; the requests for one bottle go one
+ * after the other, so the last tap is what stays. A failure puts back what was said before. Its own event, with
+ * the three signals as they now stand and nothing about the wine, the dish or the answer's words.
+ */
+export function useSetOutcome(messageId: string, onFailed: () => void) {
+  const client = useQueryClient();
+  return useMutation({
+    scope: { id: `sommelier-outcome:${messageId}` },
+    meta: { refresh: false },
+    mutationFn: (input: SetSommelierOutcome) =>
+      api.put<{ outcome: SommelierOutcome | null }>("/sommelier/outcomes", input),
+    onMutate: (input) => {
+      const before = outcomeIn(
+        client.getQueryData<ChatState>(CHAT_KEY),
+        input.messageId,
+        input.vintageId,
+      );
+      updateChat(client, (state) =>
+        withOutcome(
+          state,
+          input.messageId,
+          input.vintageId,
+          input.opened
+            ? { vintageId: input.vintageId, withDish: input.withDish, enjoyed: input.enjoyed }
+            : null,
+        ),
+      );
+      return { before };
+    },
+    onSuccess: (_result, input) =>
+      track("sommelier_outcome_said", {
+        opened: input.opened,
+        with_dish: input.withDish === null ? "not-said" : input.withDish ? "yes" : "no",
+        enjoyed: input.enjoyed ?? "not-said",
+      }),
+    onError: (_error, input, context) => {
+      updateChat(client, (state) =>
+        withOutcome(state, input.messageId, input.vintageId, context?.before ?? null),
+      );
       onFailed();
     },
   });

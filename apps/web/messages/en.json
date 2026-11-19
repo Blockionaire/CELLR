@@ -538,6 +538,22 @@
         "need": "For {guests, plural, one {# guest} other {# guests}} you need about {needed, plural, one {# bottle} other {# bottles}} (half a bottle each).",
         "enough": "You have {available, plural, one {# bottle} other {# bottles}} that suit: enough.",
         "short": "You have {available, plural, one {# bottle} other {# bottles}} that suit: {short} short."
+      },
+      "said": {
+        "label": "What came of this bottle",
+        "open": "I opened it",
+        "undoHint": "Tap again if you did not.",
+        "withDishQ": "With the dish?",
+        "yes": "Yes",
+        "no": "No",
+        "enjoyedQ": "How did the two go together?",
+        "enjoyed": {
+          "yes": "Well",
+          "mixed": "So-so",
+          "no": "Not well"
+        },
+        "noted": "Noted. This is about the wine with the dish, not about my answer.",
+        "failed": "That could not be saved. Try again."
       }
     },
     "mentions": {

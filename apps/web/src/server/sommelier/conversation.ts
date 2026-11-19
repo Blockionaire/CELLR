@@ -3,6 +3,8 @@ import {
   sommelierQuestionKind,
   type AskSommelier,
   type RateSommelierAnswer,
+  type SetSommelierOutcome,
+  type SommelierOutcome,
   type SommelierAnswer,
   type SommelierConversationView,
   type SommelierRating,
@@ -89,6 +91,14 @@ export function createSommelierChatService(deps: SommelierChatDeps) {
 
     async rate(input: RateSommelierAnswer): Promise<{ rating: SommelierRating | null }> {
       return { rating: await deps.repo.rate(input.messageId, input.rating) };
+    },
+
+    /**
+     * What came of a bottle an answer offered: opened, had with the dish, how the two went together. Its own
+     * record, never a rating of the answer and never derived from one.
+     */
+    async outcome(input: SetSommelierOutcome): Promise<{ outcome: SommelierOutcome | null }> {
+      return { outcome: await deps.repo.setOutcome(input) };
     },
   };
 }

@@ -57,6 +57,7 @@
       "name": "sommelier_messages",
       "references": ["sommelier_conversations", "sommelier_messages"]
     },
+    { "name": "sommelier_outcomes", "references": ["households"] },
     { "name": "sommelier_sharing", "references": [] },
     { "name": "taste_preferences", "references": [] },
     { "name": "tastings", "references": ["bottles", "households", "profiles", "wine_vintages"] },
@@ -113,6 +114,7 @@
     "admin_remove_catalog_label",
     "admin_review_bottle_photo",
     "admin_shared_profiles",
+    "admin_sommelier_report",
     "admin_unpublish_bottle_art",
     "admin_unpublish_catalog_label",
     "admin_user_directory",
@@ -189,6 +191,7 @@
     "sommelier_purge_expired",
     "sommelier_record_exchange",
     "sommelier_set_feedback",
+    "sommelier_set_outcome",
     "submit_bottle_photo",
     "submit_bottle_photos",
     "swap_bottles",
@@ -196,7 +199,7 @@
     "wine_bottle_art_for",
     "wine_source_notices"
   ],
-  "migrations": { "count": 47, "latest": "20261125000048_social_sommelier.sql" },
+  "migrations": { "count": 48, "latest": "20261126000049_sommelier_learning.sql" },
   "buckets": [
     "bottle-art",
     "bottle-images",
@@ -277,6 +280,7 @@
     { "path": "/api/v1/sommelier", "methods": ["POST"] },
     { "path": "/api/v1/sommelier/conversation", "methods": ["DELETE", "GET"] },
     { "path": "/api/v1/sommelier/feedback", "methods": ["PUT"] },
+    { "path": "/api/v1/sommelier/outcomes", "methods": ["PUT"] },
     { "path": "/api/v1/sommelier/purchase-check/compare", "methods": ["POST"] },
     { "path": "/api/v1/sommelier/purchase-check/recognize", "methods": ["POST"] },
     { "path": "/api/v1/stats", "methods": ["GET"] },
@@ -345,6 +349,7 @@
     "sommelier_buying",
     "sommelier_engine",
     "sommelier_experiences",
+    "sommelier_learning",
     "sommelier_social",
     "sources_panel",
     "wine_search"

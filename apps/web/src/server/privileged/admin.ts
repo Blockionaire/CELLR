@@ -10,6 +10,7 @@ import {
   AdminCatalogSchema,
   AdminUserRowSchema,
   AdminUserSummarySchema,
+  AdminSommelierReportSchema,
   type AdminActivityDay,
   type AdminAiCosts,
   type AdminBudgetStatus,
@@ -22,6 +23,7 @@ import {
   type AdminRange,
   type AdminUserRow,
   type AdminUserSummary,
+  type AdminSommelierReport,
 } from "@cellr/domain";
 import { assertAdmin, type AdminSession } from "@/server/admin/access";
 import { createServiceClient } from "./client";
@@ -49,7 +51,8 @@ async function call<T>(
     | "admin_recognition_cache"
     | "admin_recognition_paths"
     | "admin_shared_profiles"
-    | "admin_catalog",
+    | "admin_catalog"
+    | "admin_sommelier_report",
   args: Record<string, unknown>,
   parse: (data: unknown) => T,
 ): Read<T> {
@@ -180,5 +183,19 @@ export function readCatalog(session: AdminSession, from: Date, to: Date): Read<A
     "admin_catalog",
     { p_from: from.toISOString(), p_to: to.toISOString() },
     (d) => AdminCatalogSchema.parse(d),
+  );
+}
+
+/** The sommelier's report (migration 0049): "missing" until that step is taken. */
+export function readSommelierReport(
+  session: AdminSession,
+  from: Date,
+  to: Date,
+): Read<AdminSommelierReport> {
+  return call(
+    session,
+    "admin_sommelier_report",
+    { p_from: from.toISOString(), p_to: to.toISOString() },
+    (d) => AdminSommelierReportSchema.parse(d),
   );
 }

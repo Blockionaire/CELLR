@@ -16,6 +16,7 @@ export const ANALYTICS_EVENTS = [
   "bottle_opened",
   "rating_created",
   "sommelier_question_asked",
+  "sommelier_outcome_said",
   "tonight_recommendation_generated",
   "3d_cellar_opened",
   "3d_bottle_selected",

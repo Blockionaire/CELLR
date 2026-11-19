@@ -1,8 +1,11 @@
 import "server-only";
 import {
   isStoredAnswer,
+  PAIRING_ENJOYED,
   SOMMELIER_RATINGS,
+  type PairingEnjoyed,
   type SavedSommelierMessage,
+  type SommelierOutcome,
   type SommelierRating,
 } from "@cellr/domain";
 import type { Db } from "@/server/db/clients";
@@ -12,7 +15,28 @@ import type { SommelierConversationRepository } from "./types";
 const isRating = (value: unknown): value is SommelierRating =>
   (SOMMELIER_RATINGS as readonly unknown[]).includes(value);
 
-export function createSommelierConversationRepository(db: Db): SommelierConversationRepository {
+const isEnjoyed = (value: unknown): value is PairingEnjoyed =>
+  (PAIRING_ENJOYED as readonly unknown[]).includes(value);
+
+/** One outcome as the screen holds it; anything that is not one of ours is read as "not said". */
+const toOutcome = (row: {
+  vintage_id: string;
+  with_dish: boolean | null;
+  enjoyed: string | null;
+}): SommelierOutcome => ({
+  vintageId: row.vintage_id,
+  withDish: row.with_dish,
+  enjoyed: row.with_dish === true && isEnjoyed(row.enjoyed) ? row.enjoyed : null,
+});
+
+/**
+ * `outcomes`: the `sommelier_learning` feature is on. Without it nothing about outcomes is read (no query, and no
+ * dependence on the 0049 database step).
+ */
+export function createSommelierConversationRepository(
+  db: Db,
+  options: { outcomes?: boolean } = {},
+): SommelierConversationRepository {
   return {
     async current(householdId) {
       // Row-level security: only the person's own, still alive, in a household they belong to.
@@ -39,6 +63,19 @@ export function createSommelierConversationRepository(db: Db): SommelierConversa
       if (messages.error) throw mapDbError(messages.error);
       if (ratings.error) throw mapDbError(ratings.error);
       const rated = new Map(ratings.data.map((r) => [r.message_id, r.rating]));
+      // What came of the bottles these answers offered: the person's own (row-level security), and only for the
+      // answers of this conversation. Before the 0049 database step there are none.
+      const answerIds = messages.data.filter((m) => m.role === "assistant").map((m) => m.id);
+      const said = new Map<string, SommelierOutcome[]>();
+      if (options.outcomes && answerIds.length > 0) {
+        const outcomes = await db
+          .from("sommelier_outcomes")
+          .select("message_id, vintage_id, with_dish, enjoyed")
+          .in("message_id", answerIds);
+        if (outcomes.error && !isMissingTable(outcomes.error)) throw mapDbError(outcomes.error);
+        for (const row of outcomes.data ?? [])
+          said.set(row.message_id, [...(said.get(row.message_id) ?? []), toOutcome(row)]);
+      }
 
       // Each question with its answer, in order. A question whose answer cannot be drawn is left out with it.
       const answers = new Map(
@@ -56,6 +93,7 @@ export function createSommelierConversationRepository(db: Db): SommelierConversa
           role: "assistant",
           answer: a.answer,
           rating: isRating(rating) ? rating : null,
+          ...(options.outcomes ? { outcomes: said.get(a.id) ?? [] } : {}),
         });
       }
       return { id: conversation.id, lastActivityAt: conversation.last_activity_at, messages: out };
@@ -98,6 +136,28 @@ export function createSommelierConversationRepository(db: Db): SommelierConversa
       });
       if (error) throw mapDbError(error);
       return isRating(data) ? data : null;
+    },
+
+    async setOutcome(input) {
+      // What the answer was (its kind, outcome and confidence) is read from the kept answer by the database
+      // function, as is whether it offered this bottle: nothing of that is taken from the client.
+      const { data, error } = await db.rpc("sommelier_set_outcome", {
+        p_message_id: input.messageId,
+        p_vintage_id: input.vintageId,
+        p_opened: input.opened,
+        ...(input.withDish === null ? {} : { p_with_dish: input.withDish }),
+        ...(input.enjoyed === null ? {} : { p_enjoyed: input.enjoyed }),
+      });
+      if (error) throw mapDbError(error);
+      if (typeof data !== "object" || data === null || Array.isArray(data)) return null;
+      const row = data as Record<string, unknown>;
+      return typeof row.vintageId === "string"
+        ? toOutcome({
+            vintage_id: row.vintageId,
+            with_dish: typeof row.withDish === "boolean" ? row.withDish : null,
+            enjoyed: typeof row.enjoyed === "string" ? row.enjoyed : null,
+          })
+        : null;
     },
   };
 }

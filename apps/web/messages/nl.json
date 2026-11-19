@@ -538,6 +538,22 @@
         "need": "Voor {guests, plural, one {# gast} other {# gasten}} heb je ongeveer {needed, plural, one {# fles} other {# flessen}} nodig (een halve fles per persoon).",
         "enough": "Je hebt {available, plural, one {# fles} other {# flessen}} die passen: genoeg.",
         "short": "Je hebt {available, plural, one {# fles} other {# flessen}} die passen: {short} te weinig."
+      },
+      "said": {
+        "label": "Wat er van deze fles is geworden",
+        "open": "Ik heb hem geopend",
+        "undoHint": "Tik nog eens als dat niet zo is.",
+        "withDishQ": "Bij het gerecht?",
+        "yes": "Ja",
+        "no": "Nee",
+        "enjoyedQ": "Hoe gingen de twee samen?",
+        "enjoyed": {
+          "yes": "Goed",
+          "mixed": "Matig",
+          "no": "Niet goed"
+        },
+        "noted": "Genoteerd. Dit gaat over de wijn bij het gerecht, niet over mijn antwoord.",
+        "failed": "Dat kon niet worden opgeslagen. Probeer het opnieuw."
       }
     },
     "mentions": {

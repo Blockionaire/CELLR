@@ -23,6 +23,7 @@ export default async function SommelierPage() {
       hasBottles={(home?.bottleCount ?? 0) > 0}
       conversation={conversation}
       social={getFeatures().sommelier_social}
+      learning={getFeatures().sommelier_learning}
     />
   );
 }

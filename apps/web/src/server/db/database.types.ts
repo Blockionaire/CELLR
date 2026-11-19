@@ -2096,6 +2096,9 @@ export type Database = {
           created_at: string;
           message_id: string;
           model: string | null;
+          plan_confidence: string | null;
+          plan_kind: string | null;
+          plan_outcome: string | null;
           question_kind: string | null;
           rating: string;
           updated_at: string;
@@ -2108,6 +2111,9 @@ export type Database = {
           created_at?: string;
           message_id: string;
           model?: string | null;
+          plan_confidence?: string | null;
+          plan_kind?: string | null;
+          plan_outcome?: string | null;
           question_kind?: string | null;
           rating: string;
           updated_at?: string;
@@ -2119,6 +2125,9 @@ export type Database = {
           created_at?: string;
           message_id?: string;
           model?: string | null;
+          plan_confidence?: string | null;
+          plan_kind?: string | null;
+          plan_outcome?: string | null;
           question_kind?: string | null;
           rating?: string;
           updated_at?: string;
@@ -2180,6 +2189,60 @@ export type Database = {
             columns: ["reply_to"];
             isOneToOne: true;
             referencedRelation: "sommelier_messages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      sommelier_outcomes: {
+        Row: {
+          created_at: string;
+          enjoyed: string | null;
+          household_id: string;
+          message_id: string;
+          opened: boolean;
+          plan_confidence: string | null;
+          plan_kind: string | null;
+          plan_outcome: string | null;
+          updated_at: string;
+          user_id: string;
+          vintage_id: string;
+          with_dish: boolean | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          enjoyed?: string | null;
+          household_id: string;
+          message_id: string;
+          opened?: boolean;
+          plan_confidence?: string | null;
+          plan_kind?: string | null;
+          plan_outcome?: string | null;
+          updated_at?: string;
+          user_id: string;
+          vintage_id: string;
+          with_dish?: boolean | null;
+        };
+        Update: {
+          created_at?: string;
+          enjoyed?: string | null;
+          household_id?: string;
+          message_id?: string;
+          opened?: boolean;
+          plan_confidence?: string | null;
+          plan_kind?: string | null;
+          plan_outcome?: string | null;
+          updated_at?: string;
+          user_id?: string;
+          vintage_id?: string;
+          with_dish?: boolean | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sommelier_outcomes_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
             referencedColumns: ["id"];
           },
         ];
@@ -2992,6 +3055,7 @@ export type Database = {
         Args: { p_from: string; p_now?: string; p_to: string };
         Returns: Json;
       };
+      admin_sommelier_report: { Args: { p_from: string; p_to: string }; Returns: Json };
       admin_unpublish_bottle_art: { Args: { p_art: string }; Returns: boolean };
       admin_unpublish_catalog_label: {
         Args: { p_actor: string; p_label: string };
@@ -3457,6 +3521,16 @@ export type Database = {
       sommelier_set_feedback: {
         Args: { p_message_id: string; p_rating?: string };
         Returns: string;
+      };
+      sommelier_set_outcome: {
+        Args: {
+          p_enjoyed?: string;
+          p_message_id: string;
+          p_opened: boolean;
+          p_vintage_id: string;
+          p_with_dish?: boolean;
+        };
+        Returns: Json;
       };
       submit_bottle_photo: {
         Args: {

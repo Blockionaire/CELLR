@@ -1,7 +1,9 @@
 import "server-only";
 import type {
   SavedSommelierConversation,
+  SetSommelierOutcome,
   SommelierAnswer,
+  SommelierOutcome,
   SommelierQuestionKind,
   SommelierRating,
 } from "@cellr/domain";
@@ -42,4 +44,9 @@ export interface SommelierConversationRepository {
   clear(userId: string): Promise<void>;
   /** Rates one of their answers (null takes the rating back); the rating as it now stands. */
   rate(messageId: string, rating: SommelierRating | null): Promise<SommelierRating | null>;
+  /**
+   * Says what came of one bottle one of their answers offered, or takes it back; what now stands (null: nothing).
+   * The database checks that the answer is theirs and alive and that it offered this bottle.
+   */
+  setOutcome(input: SetSommelierOutcome): Promise<SommelierOutcome | null>;
 }

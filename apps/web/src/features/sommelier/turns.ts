@@ -3,6 +3,7 @@ import {
   SOMMELIER_CONVERSATION_DAYS,
   type SommelierAnswer,
   type SommelierConversationView,
+  type SommelierOutcome,
   type SommelierRating,
 } from "@cellr/domain";
 
@@ -17,6 +18,8 @@ export type Turn =
       answer: SommelierAnswer;
       id?: string | undefined;
       rating?: SommelierRating | null;
+      /** What the person said came of the bottles it offered; absent when outcomes are not kept for it. */
+      outcomes?: SommelierOutcome[] | undefined;
     }
   | { role: "error"; message: string; retry: string; questionId?: string | undefined };
 
@@ -42,7 +45,13 @@ export const chatStateFrom = (view: SommelierConversationView): ChatState => ({
   turns: (view.conversation?.messages ?? []).map((m): Turn =>
     m.role === "user"
       ? { role: "user", id: m.id, text: m.text }
-      : { role: "sommelier", id: m.id, answer: m.answer, rating: m.rating },
+      : {
+          role: "sommelier",
+          id: m.id,
+          answer: m.answer,
+          rating: m.rating,
+          ...(m.outcomes ? { outcomes: m.outcomes } : {}),
+        },
   ),
 });
 
@@ -74,6 +83,36 @@ export const withRating = (
 export const ratingIn = (state: ChatState | undefined, messageId: string) => {
   const turn = state?.turns.find((t) => t.role === "sommelier" && t.id === messageId);
   return turn?.role === "sommelier" ? (turn.rating ?? null) : null;
+};
+
+/** What is said about one bottle of one answer, changed (null takes it back). The rating is left as it is. */
+export const withOutcome = (
+  state: ChatState,
+  messageId: string,
+  vintageId: string,
+  outcome: SommelierOutcome | null,
+): ChatState => ({
+  ...state,
+  turns: state.turns.map((t) =>
+    t.role === "sommelier" && t.id === messageId
+      ? {
+          ...t,
+          outcomes: [
+            ...(t.outcomes ?? []).filter((o) => o.vintageId !== vintageId),
+            ...(outcome ? [outcome] : []),
+          ],
+        }
+      : t,
+  ),
+});
+
+export const outcomeIn = (state: ChatState | undefined, messageId: string, vintageId: string) => {
+  const turn = state?.turns.find((t) => t.role === "sommelier" && t.id === messageId);
+  return (
+    (turn?.role === "sommelier" ? turn.outcomes : undefined)?.find(
+      (o) => o.vintageId === vintageId,
+    ) ?? null
+  );
 };
 
 /** A new random id (RFC 4122 v4) for a question, also where `crypto.randomUUID` is missing (older Safari). */

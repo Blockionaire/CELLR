@@ -329,7 +329,9 @@ export function servicesFor(ctx: RequestContext) {
     // The general sommelier's kept conversation and the ratings of its answers (migration 0046).
     sommelierChat: createSommelierChatService({
       ask: (request, observe) => sommelier.ask(request, observe),
-      repo: createSommelierConversationRepository(ctx.db),
+      repo: createSommelierConversationRepository(ctx.db, {
+        outcomes: features.sommelier_learning,
+      }),
       // always for this request's verified user, never a client-supplied id
       record: (entry) => recordSommelierExchange({ ...entry, userId: ctx.userId }),
       userId: ctx.userId,
