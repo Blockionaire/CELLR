@@ -3,12 +3,12 @@
 An admin-only control center under `/admin/system` that shows how CELLR is built, how healthy it is, and what
 breaks when something fails. Four sprints, each its own pull request to `main`.
 
-| Sprint | Scope                                                                 | Status                                    |
-| ------ | --------------------------------------------------------------------- | ----------------------------------------- |
-| 1      | Architecture Control Center: register, map, tracing, automated checks | implemented, tested; in review (PR)       |
-| 2      | Live monitoring engine: healthchecks, history, heartbeat              | not started (waits for sprint 1 to merge) |
-| 3      | Incident & intelligence engine: detection, dedup, alerting, impact    | not started                               |
-| 4      | Hardening & release candidate                                         | not started                               |
+| Sprint | Scope                                                                 | Status                                       |
+| ------ | --------------------------------------------------------------------- | -------------------------------------------- |
+| 1      | Architecture Control Center: register, map, tracing, automated checks | tested, preview-deployed; GO, awaiting merge |
+| 2      | Live monitoring engine: healthchecks, history, heartbeat              | not started (waits for sprint 1 to merge)    |
+| 3      | Incident & intelligence engine: detection, dedup, alerting, impact    | not started                                  |
+| 4      | Hardening & release candidate                                         | not started                                  |
 
 Status words used in every report: **implemented** (code on the branch) · **tested** (automated tests pass) ·
 **deployed** (running on a hosted environment) · **operationally verified** (observed working there).

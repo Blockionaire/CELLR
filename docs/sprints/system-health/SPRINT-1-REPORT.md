@@ -3,8 +3,8 @@
 Date: 2026-11-19 · Branch: `claude/festive-cannon-joten0` · Plan: [SPRINT-1-PLAN.md](SPRINT-1-PLAN.md) · Decisions:
 [ADR-001](ADR-001-architecture-registry.md) · Maintenance: [REGISTRY-GUIDE.md](REGISTRY-GUIDE.md)
 
-**Status: implemented and tested. Not deployed, not operationally verified.** Recommendation: **CONDITIONAL GO**. The
-conditions are under §10.
+**Status: implemented, tested, and deployed to a Vercel preview. Not yet operationally verified in production.**
+Recommendation: **GO** (§10). See "Final status" for the evidence.
 
 ## 1. What was built, and where
 
@@ -137,7 +137,9 @@ Not changed, by choice:
 
 ## 6. Open limitations and risks
 
-- **Next.js advisory.** During this sprint, `next build` three times stopped after a successful compile with "Your version of Next.js is affected by a known security vulnerability" (16.4.1). It passed when rerun. This can also hit CI. The upgrade is a dependency change outside this sprint and needs your approval.
+- **Next.js advisory.** Being fixed separately in PR #86, so it is not a blocker for this PR (see "Final status" below).
+  - The advisories are GHSA-mfr8-8qww-v76h and GHSA-vc7v-qv4w-wrv8, both moderate, against 16.4.1. They concern `'use cache'` / `unstable_cache`, which CELLR does not use.
+  - The local build stop did not occur in CI.
 - **The register is curated.** CI proves every claim it makes and every inventory item it must own. It cannot prove a relation it does not list (R-REG-1), for example dependencies that live only in SQL triggers.
 - **The map shows structure, not health.** Nothing here says whether a component is up. That is sprint 2.
 - **Desktop overview zoom is about 32% on a 1600 px screen.** Names stay legible through overview mode, and search, the register and auto-fit cover detailed navigation.
@@ -149,20 +151,40 @@ None. No migration, no environment variable, no change to production, Supabase o
 ## 8. Actions that need explicit approval
 
 1. Merge the pull request (and with it, deployment through the normal Vercel flow).
-2. Decide on the public repository (§5): accept the register as public information (the current state), or keep risk notes out of the repository, or make the repository private.
-3. Optionally, the Next.js security upgrade (§6), as its own change.
+2. ~~Decide on the public repository~~. Decided on 2026-11-19: the cleaned register is accepted as public for now. Sensitive production observations and concrete security findings stay out of the repository.
+3. Merge the Next.js security upgrade, PR #86, as its own change. It is best merged before this PR. After that, this PR needs `main` merged in (lockfile).
 
-## 9. Pull request
+## 9. Pull requests
 
-See the PR from `claude/festive-cannon-joten0` to `main`.
+- [Blockionaire/CELLR#85](https://github.com/Blockionaire/CELLR/pull/85): this sprint.
+- [Blockionaire/CELLR#86](https://github.com/Blockionaire/CELLR/pull/86): Next.js 16.4.1 → 16.4.6, separate and urgent.
 
-## 10. Verdict: CONDITIONAL GO
+## 10. Verdict: GO
 
-Ready for review. Conditions:
+This sprint is ready to merge. Condition (a) is met: the public register is accepted. Condition (b) is met: see the final status below. Condition (c) cannot be done before merge: after deployment, open `/admin/system` once as an admin. That look is the "operationally verified" step no automated check here can make.
 
-- (a) you accept §8.2, that the register is public information;
-- (b) CI is green on the PR, keeping §6's Next.js advisory in mind;
-- (c) after deployment, a one-time manual look at `/admin/system` as an admin. That look is the "operationally verified" step this report cannot make.
+## Final status (2026-11-19, after PR review)
+
+| Check                                                       | Status                                                                                                                                                                                      |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PR CI on head `23c84e3`                                     | ✅ all 8 jobs (run 44495663220)                                                                                                                                                             |
+| Full e2e, shards 1–7 (`workflow_dispatch`, run 44502366355) | ✅ all green, including `admin-system.spec.ts`                                                                                                                                              |
+| Full e2e, shard 8                                           | ✅ 125 passed. One failure, `storage-showcase.spec.ts:82` (3D timeout), is already red on `main` (run 44385777061, 2026-11-18) and is not touched by this PR. A follow-up task is proposed. |
+| Review comments on the PR                                   | none                                                                                                                                                                                        |
+| Vercel preview deployment of `23c84e3`                      | ✅ "Deployment has completed" (GitHub status). Protected by Vercel Authentication.                                                                                                          |
+| `/admin/system` viewed as an admin on a deployment          | ⏳ only the owner can sign in as admin; this is condition (c)                                                                                                                               |
+| Vercel build and runtime logs                               | not read: the Vercel connector needs approval for the `jp-builds` team                                                                                                                      |
+
+**Implemented, tested, deployed to a preview. Not yet operationally verified in production.**
+
+Remaining risks, in priority order:
+
+1. **The full e2e suite is not green on `main` itself.** The cause is `storage-showcase` timeouts and shard 8 sitting close to its 30-minute limit. This is pre-existing and handled as a follow-up task, not in this sprint.
+2. **Next.js 16.4.1 stays in production until PR #86 is merged.** The exposure is moderate and not known to be exploitable here.
+3. **Two e2e tests are unstable on `main`:**
+   - OCR `sprint-s.spec.ts:104` fails in about 1 of 3 runs on both versions. A follow-up task is proposed.
+   - `rack-fill` had a test bug, fixed in PR #86.
+4. **The open risks in the register** (Review tab): the privileged-boundary review, unproven restore, and switches whose production values are unknown. These belong to sprints 2–4.
 
 ## Screenshots
 
