@@ -274,6 +274,8 @@ export interface CellarItem {
   type: WineType;
   year: number | null;
   region: string | null;
+  /** The appellation, where the catalogue records one. */
+  appellation?: string | null;
   countryCode: string | null;
   /** Bottles of this vintage currently in the cellar. */
   count: number;
