@@ -58,4 +58,23 @@ No timeout was raised and nothing was skipped.
   at most four frames to rest at 0.4 s a frame).
 - Locally, 4 cores, headless shell, two workers, the gallery, premium and showcase specs (desktop): all pass; the
   failing test takes 1.0 min (on CI before: over 2.0 min, timed out on both tries).
-- CI: the whole suite by hand (workflow_dispatch, features off), shard 8 green twice in a row; see the commit.
+- CI, the whole suite by hand (workflow_dispatch, features off):
+  - run 44515104310: shard 8 **green**, 17.8 min of tests (23.2 min before the fix); the test 1.2 min.
+  - run 44518254813: shard 8's tests all passed (124 of 136, none failed) when the job hit its 30-minute limit:
+    `playwright install --with-deps` took 11.5 min of it (32 MB of fonts at 52 kB/s). Its re-run failed in that
+    same step, before any test, on `503 Service Unavailable` from security.ubuntu.com.
+
+## Still open: the setup, not the tests
+
+The same 32 MB of apt packages took from 3 s to 10 min on the runners of one run, on four of its eight shards; that
+day's nightly run on `main` (without this fix) lost shard 8 to the job limit the same way. With 18 min of tests a
+shard has 12 min left for setup, and that is not always enough.
+
+More shards do little: Playwright splits by count, in order, and the heavy 3D specs sit together. Measured
+per-test times of a whole run, split as Playwright does, give the slowest shard 18.9 min (8 shards), 17.9 (9),
+17.0 (10), 15.9 (11). Heaviest tests: `cellar3d-precision.spec.ts:252` 4.7 min, `storage-showcase.spec.ts:673`
+4.3 min, `cellar3d-precision.spec.ts:157` 3.4 min (desktop).
+
+Options, for a decision: make the install independent of the Ubuntu mirrors (e.g. cache the `.deb`s of
+`playwright install-deps`, or run the job in the Playwright image of the same version), or keep the 30-minute
+guard on the test step and give the job room for setup (`timeout-minutes` on the step, more on the job).
