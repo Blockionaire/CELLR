@@ -3,6 +3,8 @@ import {
   cellarDigest,
   cellarFacts,
   cellarFactsText,
+  hasAnyMention,
+  withoutAnyMention,
   cellarQuestionKind,
   isCellarQuestion,
   type CellarFacts,
@@ -172,7 +174,16 @@ export function createSommelierService(deps: SommelierDeps) {
       request: AskSommelier,
       observe?: { model?: (id: string) => void },
     ): Promise<SommelierAnswer> {
-      const question = request.messages.at(-1)!.text;
+      // With the social sommelier on, a friend's name is personal data that never leaves for a model: not in this
+      // question, not in an earlier turn the screen sends along. A question that names someone is answered by
+      // the engines or by the counted facts, or not at all; every other question is sent without the names.
+      const social = deps.intelligence?.social === true;
+      const asked = request.messages.at(-1)!.text;
+      const namesSomeone = social && hasAnyMention(asked);
+      const question = social ? withoutAnyMention(asked) : asked;
+      const history = social
+        ? request.messages.map((m) => ({ ...m, text: withoutAnyMention(m.text) || "…" }))
+        : request.messages;
       const { items } = await deps.cellar();
       const tonight = request.mode === "tonight";
       const nothing: SommelierAnswer = {
@@ -218,7 +229,8 @@ export function createSommelierService(deps: SommelierDeps) {
         await deps.spendEngine?.();
         const planned = await deps.intelligence
           .plan({
-            question,
+            // The engines read the names themselves (and only they do): they get the question as it was asked.
+            question: asked,
             state: request.state,
             budgetEuros:
               request.budgetEuros ?? (request.budget ? BUDGET_EUROS[request.budget][1] : null),
@@ -239,6 +251,8 @@ export function createSommelierService(deps: SommelierDeps) {
             plan: planned.plan,
           };
       }
+      // A question that names a friend ends here: the engines could not answer it, and no model may see it.
+      if (namesSomeone) return facts ? plainFacts(facts, null) : nothing;
       // An empty cellar has nothing for the model to word: the counted facts say it all (and cost nothing).
       if (items.length === 0 && facts) return plainFacts(facts, null);
       // Nothing to talk about yet: no point paying for an answer that can only say so. (For tonight there is:
@@ -273,7 +287,7 @@ export function createSommelierService(deps: SommelierDeps) {
         task: "sommelier_chat",
         model: "chat",
         system: SOMMELIER_SYSTEM,
-        user: sommelierUserMessage(digest.text, shown, digest.total, request.messages, {
+        user: sommelierUserMessage(digest.text, shown, digest.total, history, {
           mode: request.mode ?? "chat",
           budget: request.budget ?? null,
           locale,

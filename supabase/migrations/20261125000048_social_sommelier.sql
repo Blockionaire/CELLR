@@ -52,7 +52,11 @@ grant all on public.sommelier_sharing to service_role;
 create function private.sommelier_taste_signals(p_user uuid) returns jsonb
   language sql stable security definer set search_path = '' as $$
   with points as (
-    select w.id as wine_id, w.wine_type::text as type, nullif(btrim(w.region), '') as region,
+    -- A region counts only for a wine of the reviewed catalogue: a household can write anything in the region
+    -- of a wine it added itself, and that text would travel to another person.
+    select w.id as wine_id, w.wine_type::text as type,
+           case when w.status = 'canonical' and btrim(w.region) ~ '^[[:alpha:]][[:alpha:] .''-]{1,59}$'
+                then btrim(w.region) end as region,
            avg(t.score)::numeric as score
       from public.tastings t
       join public.wine_vintages v on v.id = t.vintage_id
@@ -88,10 +92,10 @@ create function private.sommelier_taste_signals(p_user uuid) returns jsonb
                                   group by region having count(*) >= 3 and avg(score) >= 7
                                   order by avg(score) desc, count(*) desc, region limit 2) x), '[]'::jsonb),
     'trends', jsonb_strip_nulls(jsonb_build_object(
-      'body',      (select round(avg(body), 1)      from loved where body is not null      having count(*) >= 3),
-      'tannin',    (select round(avg(tannin), 1)    from loved where tannin is not null    having count(*) >= 3),
-      'sweetness', (select round(avg(sweetness), 1) from loved where sweetness is not null having count(*) >= 3),
-      'acidity',   (select round(avg(acidity), 1)   from loved where acidity is not null   having count(*) >= 3)))
+      'body',      (select least(5, greatest(1, round(avg(body), 1)))      from loved where body is not null      having count(*) >= 3),
+      'tannin',    (select least(5, greatest(1, round(avg(tannin), 1)))    from loved where tannin is not null    having count(*) >= 3),
+      'sweetness', (select least(5, greatest(1, round(avg(sweetness), 1))) from loved where sweetness is not null having count(*) >= 3),
+      'acidity',   (select least(5, greatest(1, round(avg(acidity), 1)))   from loved where acidity is not null   having count(*) >= 3)))
   );
 $$;
 revoke all on function private.sommelier_taste_signals(uuid) from public, anon, authenticated;
@@ -103,9 +107,11 @@ revoke all on function private.sommelier_taste_signals(uuid) from public, anon, 
 --   'unavailable'  anyone else: a stranger, a pending request in either direction, someone I removed, myself, or a
 --                  name that does not exist. These are never told apart.
 -- At most five names per call. The taste is only present for 'included'.
+-- Each call counts against the caller's own limit (600 an hour): the app asks once per question, and nobody
+-- gets to probe names faster than that, whichever way they call it.
 create function public.sommelier_friend_context(p_handles text[])
   returns table (handle text, status text, taste jsonb)
-  language plpgsql stable security definer set search_path = '' as $$
+  language plpgsql volatile security definer set search_path = '' as $$
 declare
   me uuid := auth.uid();
 begin
@@ -114,6 +120,9 @@ begin
   end if;
   if p_handles is null or cardinality(p_handles) > 5 then
     raise exception 'At most five names.' using errcode = '22023';
+  end if;
+  if not private.consume_rate_limit(me, 'sommelier_friends', 600, interval '1 hour') then
+    raise exception 'Too many questions about friends; try again later.' using errcode = '53400';
   end if;
   return query
   with asked as (

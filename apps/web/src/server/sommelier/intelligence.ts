@@ -215,6 +215,8 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
     },
     /** Whether buying advice is the engines' (then the model's own is dropped). */
     buying: deps.buying,
+    /** Whether friends named in a question are looked up (then no name may ever reach a model). */
+    social: deps.friends !== undefined,
     /**
      * The plan for a question, or null when the question is not one the engines answer (a general question about
      * wine with no dish and nothing to buy): the caller then answers it the way it did before.

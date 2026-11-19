@@ -1689,8 +1689,8 @@
     "someone": "Someone",
     "sommelierSharing": {
       "title": "Friends' sommelier",
-      "body": "When a friend names you in a question to their sommelier (\"@you is coming, what do I open?\"), it may take your taste into account: the kinds and regions your ratings favour and what you said you like.",
-      "never": "Never your bottles, your ratings, your notes or your name. Nothing is kept: turn this off and it stops at the next question."
+      "body": "When a friend names you in a question to their sommelier (\"@you is coming, what do I open?\"), it may take your taste into account: the kinds and regions your ratings favour, how the wines you rate highly tend to feel (body, tannin, sweetness, acidity) and what you said you like. Your friend can see whether you allow this.",
+      "never": "Never your bottles, your ratings, your notes or your name. Questions that name you are not kept, and no AI model sees them. Turn this off and it stops at the next question."
     }
   },
   "pin": {

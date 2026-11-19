@@ -10,16 +10,23 @@ import { WINE_FOCUS } from "./taste";
  * "resolved" list, an earlier answer) is believed.
  */
 
+/** The little words that tie a name to a sentence. */
+const TIE = "(?:for|with|and|to|voor|met|en|bij|aan|van)";
+
 /** At most this many friends in one question: a table, not a crowd; it also bounds the lookups per question. */
 export const MAX_MENTIONS = 5;
 
 /** "@name", not part of an e-mail address, and not the first 20 characters of something longer. */
-const MENTION = /(^|[^a-z0-9_.@])@([a-z0-9][a-z0-9_.]{2,19})(?![a-z0-9_])/gi;
+const MENTION = /(^|[^a-z0-9_.@])@([a-z0-9][a-z0-9_.]{2,19})(?![a-z0-9_]|\.[a-z0-9_])/gi;
+
+/** Full-width "＠" is "@"; invisible characters inside a name are not part of it. */
+const tidy = (text: string) =>
+  text.normalize("NFKC").replace(/[\u200b-\u200d\u2060\ufeff\u00ad]/g, "");
 
 /** The account names mentioned in a text, lower case, in order, each once. Never more than MAX_MENTIONS. */
 export function findMentions(text: string): string[] {
   const found: string[] = [];
-  for (const match of text.matchAll(MENTION)) {
+  for (const match of tidy(text).matchAll(MENTION)) {
     // A name cannot end in a dot: "@anna." at the end of a sentence is "anna".
     const handle = match[2]!.toLowerCase().replace(/\.+$/, "");
     if (handle.length >= 3 && !handle.includes("..") && !found.includes(handle)) found.push(handle);
@@ -30,10 +37,25 @@ export function findMentions(text: string): string[] {
 
 /** The text with its mentions taken out, so a friend called "@pasta.lover" is not read as a dish. */
 export const withoutMentions = (text: string): string =>
-  text
+  tidy(text)
     .replace(MENTION, (_all, before: string) => before)
     .replace(/\s{2,}/g, " ")
     .trim();
+
+/**
+ * A text with everything that looks like a name taken out, whether or not it is a valid account name ("@@anna",
+ * "x.@anna", "@аnna" in another alphabet). For text that is about to leave the server for a model: stricter than
+ * `withoutMentions`, which only removes what would be looked up.
+ */
+export const withoutAnyMention = (text: string): string =>
+  tidy(text)
+    // With the little word that tied the name to the sentence ("for @anna", "met @bram"), so that what is left
+    // still reads as the question it was.
+    .replace(new RegExp(String.raw`(?:\b${TIE}\s+)?@[^\s,;:!?()]*`, "gi"), " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+/** Whether a text holds anything that looks like a name. */
+export const hasAnyMention = (text: string): boolean => tidy(text).includes("@");
 
 /**
  * What became of a mention. "unavailable" covers everyone who is not an accepted friend: a stranger, a pending
