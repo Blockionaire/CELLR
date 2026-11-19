@@ -396,20 +396,19 @@ describe("the endpoints", () => {
   });
 
   it("a dedicated round secret is preferred: the shared CRON_SECRET then no longer starts a round", async () => {
-    process.env.CRON_SECRET = "shared-cron-secret-0001";
-    process.env.CELLR_HEALTH_ROUND_SECRET = "dedicated-round-secret-01";
-    expect(
-      (await handleHealthCron(get("/api/cron/health", "Bearer shared-cron-secret-0001"))).status,
-    ).toBe(401);
+    // obvious dummies (low entropy), so no secret scanner mistakes them for keys
+    const shared = "s".repeat(20);
+    const dedicated = "d".repeat(20);
+    process.env.CRON_SECRET = shared;
+    process.env.CELLR_HEALTH_ROUND_SECRET = dedicated;
+    expect((await handleHealthCron(get("/api/cron/health", `Bearer ${shared}`))).status).toBe(401);
     // the right one passes the check (and then finds no service role here)
-    expect(
-      (await handleHealthCron(get("/api/cron/health", "Bearer dedicated-round-secret-01"))).status,
-    ).toBe(503);
+    expect((await handleHealthCron(get("/api/cron/health", `Bearer ${dedicated}`))).status).toBe(
+      503,
+    );
     // a short dedicated secret does not count: CRON_SECRET is used again
-    process.env.CELLR_HEALTH_ROUND_SECRET = "short";
-    expect(
-      (await handleHealthCron(get("/api/cron/health", "Bearer shared-cron-secret-0001"))).status,
-    ).toBe(503);
+    process.env.CELLR_HEALTH_ROUND_SECRET = "d".repeat(5);
+    expect((await handleHealthCron(get("/api/cron/health", `Bearer ${shared}`))).status).toBe(503);
   });
 
   it("readiness is not there without a token (404), and a short token does not count", async () => {
