@@ -11,6 +11,8 @@ import {
   type RecommendationsView,
   type SaveSharing,
   type SharingView,
+  type SaveSommelierSharing,
+  type SommelierSharingView,
 } from "@cellr/domain";
 import { api, errorMessage } from "@/lib/api";
 import { useToast } from "@/ui/toast";
@@ -172,5 +174,32 @@ export function useRecommendationAction() {
         errorMessage(e, (k) => te(k), ERROR_MESSAGES),
         { tone: "error" },
       ),
+  });
+}
+
+export const sommelierSharingKey = ["sharing", "sommelier"] as const;
+
+/** Whether my friends' sommelier may use my taste (Sommelier 3.0; its own consent, off until I turn it on). */
+export function useSommelierSharing(initialData: SommelierSharingView | null) {
+  return useQuery({
+    queryKey: sommelierSharingKey,
+    queryFn: () => api.get<SommelierSharingView>("/sharing/sommelier"),
+    ...(initialData ? { initialData } : {}),
+  });
+}
+
+export function useSaveSommelierSharing() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const tc = useTranslations("common");
+  return useMutation({
+    mutationFn: (input: SaveSommelierSharing) =>
+      api.put<SommelierSharingView>("/sharing/sommelier", input),
+    onSuccess: (view) => {
+      queryClient.setQueryData(sommelierSharingKey, view);
+      toast.show(tc("saved"));
+    },
+    // Nothing changed on the server: the switch goes back to what is saved.
+    onError: () => void queryClient.invalidateQueries({ queryKey: sommelierSharingKey }),
   });
 }

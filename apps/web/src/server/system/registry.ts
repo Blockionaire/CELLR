@@ -554,6 +554,14 @@ const components = [
       "/api/v1/recommendations/[id]/save",
       "/api/v1/recommendations/seen",
       "/api/v1/sharing",
+      "/api/v1/sharing/sommelier",
+    ],
+    gates: [
+      {
+        name: "sommelier_social",
+        kind: "feature",
+        note: "The consent for friends' sommeliers and its route exist only with this switch (never turned on by `all`).",
+      },
     ],
   },
   {
@@ -936,6 +944,7 @@ const components = [
       "friendships",
       "sharing_picks",
       "sharing_settings",
+      "sommelier_sharing",
       "wine_recommendations",
     ],
   },
@@ -1819,6 +1828,7 @@ const edges: SystemEdge[] = [
     "requests, sharing, recommendations",
     web("server/friends/repository.ts", '.rpc("send_friend_request"'),
     web("server/friends/repository.ts", '.from("sharing_settings")'),
+    web("server/friends/repository.ts", '.from("sommelier_sharing")'),
   ),
   edge(
     "svc-friends",
@@ -2377,7 +2387,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.2.0",
+  version: "1.3.0",
   reviewedOn: "2026-11-19",
   repository: "Blockionaire/CELLR",
   components,

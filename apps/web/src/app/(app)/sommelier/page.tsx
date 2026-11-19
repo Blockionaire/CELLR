@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { SommelierScreen } from "@/features/sommelier/sommelier-screen";
 import { getPageContext } from "@/server/context";
+import { getFeatures } from "@/server/env";
 import { servicesFor } from "@/server/services";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,5 +18,11 @@ export default async function SommelierPage() {
     services.cellar.home().catch(() => null),
     services.sommelierChat.current().catch(() => undefined),
   ]);
-  return <SommelierScreen hasBottles={(home?.bottleCount ?? 0) > 0} conversation={conversation} />;
+  return (
+    <SommelierScreen
+      hasBottles={(home?.bottleCount ?? 0) > 0}
+      conversation={conversation}
+      social={getFeatures().sommelier_social}
+    />
+  );
 }

@@ -467,7 +467,15 @@
           "c": "Bubbles"
         }
       },
-      "quickLabel": "Answer"
+      "quickLabel": "Answer",
+      "friend": {
+        "included": "their taste was taken into account",
+        "no-taste": "has not allowed their taste to be used by your sommelier",
+        "unavailable": "not one of your friends, so nothing of theirs was used"
+      }
+    },
+    "mentions": {
+      "label": "Your friends"
     }
   },
   "profile": {
@@ -1678,7 +1686,12 @@
     "activityCount": "{count, plural, one {# thing waiting} other {# things waiting}}",
     "activityInvite": "{name} wants to be friends",
     "activityRecommendation": "{name} recommends {wine}",
-    "someone": "Someone"
+    "someone": "Someone",
+    "sommelierSharing": {
+      "title": "Friends' sommelier",
+      "body": "When a friend names you in a question to their sommelier (\"@you is coming, what do I open?\"), it may take your taste into account: the kinds and regions your ratings favour and what you said you like.",
+      "never": "Never your bottles, your ratings, your notes or your name. Nothing is kept: turn this off and it stops at the next question."
+    }
   },
   "pin": {
     "usePin": "Sign in with my PIN",

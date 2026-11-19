@@ -11,6 +11,7 @@ import {
   type FriendsView,
   type RecommendationsView,
   type SharingView,
+  type SommelierSharingView,
 } from "@cellr/domain";
 import { ConfirmSheet } from "@/features/account/confirm-sheet";
 import { Button, buttonStyles } from "@/ui/button";
@@ -30,6 +31,7 @@ import {
 import { Card, personName, PersonRow } from "./person";
 import { RecommendationsCard } from "./recommendations-card";
 import { SharingCard } from "./sharing-card";
+import { SommelierSharingCard } from "./sommelier-sharing-card";
 
 /** "ABCD2345" → "ABCD 2345": easier to read out loud. */
 export const spacedCode = (code: string) => `${code.slice(0, 4)} ${code.slice(4)}`;
@@ -39,10 +41,13 @@ export function FriendsScreen({
   initial,
   initialSharing,
   initialRecommendations,
+  initialSommelierSharing,
 }: {
   initial: FriendsView;
   initialSharing: SharingView | null;
   initialRecommendations: RecommendationsView;
+  /** My consent for friends' sommeliers; undefined while the social sommelier is switched off. */
+  initialSommelierSharing?: SommelierSharingView | null | undefined;
 }) {
   const t = useTranslations("friends");
   const data = useFriends(initial).data ?? initial;
@@ -66,6 +71,9 @@ export function FriendsScreen({
         <FriendsCard friends={data.friends} />
         {data.outgoing.length > 0 && <OutgoingCard requests={data.outgoing} />}
         <SharingCard initial={initialSharing} friends={data.friends} />
+        {initialSommelierSharing !== undefined && (
+          <SommelierSharingCard initial={initialSommelierSharing} />
+        )}
       </div>
     </>
   );
