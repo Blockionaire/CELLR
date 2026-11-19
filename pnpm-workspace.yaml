@@ -2,5 +2,6 @@ packages:
   - apps/*
   - packages/*
   - scripts/scan-eval
+  - scripts/sommelier-eval
   - scripts/catalog-tools
   - scripts/storage-backup

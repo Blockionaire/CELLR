@@ -1,4 +1,5 @@
 import {
+  CHAT_MESSAGE_MAX,
   SOMMELIER_CONVERSATION_DAYS,
   type SommelierAnswer,
   type SommelierConversationView,
@@ -50,7 +51,12 @@ export const spoken = (turn: Turn, basic: (a: SommelierAnswer) => string) =>
   turn.role === "user"
     ? { role: "user" as const, text: turn.text }
     : turn.role === "sommelier"
-      ? { role: "assistant" as const, text: turn.answer.text ?? basic(turn.answer) }
+      ? {
+          role: "assistant" as const,
+          // An answer may be longer than one turn of history may be (900 against 800 characters): sent whole, it
+          // made every later question fail validation for as long as it stayed in the window.
+          text: (turn.answer.text ?? basic(turn.answer)).slice(0, CHAT_MESSAGE_MAX),
+        }
       : null;
 
 /** The person's rating of one answer, changed (null takes it back). */
