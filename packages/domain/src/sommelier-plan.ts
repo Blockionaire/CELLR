@@ -7,6 +7,7 @@ import { PAIRING_CONS, PAIRING_PROS } from "./pairing-engine/assess";
 import { CONFIDENCE_LEVELS, PAIRING_OUTCOMES } from "./pairing-engine/decide";
 import { EVIDENCE_TIERS } from "./pairing-engine/wine";
 import { MENTION_STATUSES } from "./social";
+import { DRINK_PHASES } from "./drink-window";
 
 /**
  * THE SOMMELIER'S PLAN: what the engines decided, before any sentence is written. It is the whole answer in a
@@ -33,6 +34,7 @@ export {
   type PairingOutcome,
 } from "./pairing-engine/decide";
 export { EVIDENCE_TIERS, type EvidenceTier } from "./pairing-engine/wine";
+export { DECANT_KINDS, GLASSES, type DecantKind, type Glass } from "./experiences/serving";
 
 export const PLAN_KINDS = [
   /** What to open with a dish. */
@@ -200,6 +202,19 @@ export const SommelierPlanSchema = z.object({
     .max(8),
   avoid: cons,
   serving: z.array(PlanServingSchema).max(3),
+  /** How long a bottle can be kept: the drinking window the app already shows for it, and how sure that is. */
+  keeping: z
+    .array(
+      z.object({
+        vintageId: uuid,
+        from: z.number().int().nullable(),
+        until: z.number().int().nullable(),
+        phase: z.enum(DRINK_PHASES),
+        /** False when the window is the style table's guess, not known for this wine. */
+        reliable: z.boolean(),
+      }),
+    )
+    .max(3),
   /** Guests and bottles: needed, and how many of the offered wines are there. */
   quantity: z
     .object({

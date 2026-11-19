@@ -2,6 +2,7 @@ import "server-only";
 import {
   aboutWine,
   advance,
+  askedFor,
   isSmallTalk,
   findMentions,
   withoutMentions,
@@ -35,7 +36,13 @@ import {
   FOOD,
   WINE_KNOWLEDGE,
   assessPairing,
+  bottlesFor,
   decidePairing,
+  dishesFor,
+  enoughFor,
+  parseCourses,
+  planMenu,
+  servingAdvice,
   groupTasteScore,
   hasTaste,
   mentionedWines,
@@ -76,6 +83,8 @@ export interface IntelligenceDeps {
   /** A retailer source, when one is connected. The app has none: buying advice is then a style. */
   offers: OfferProvider | null;
   buying: boolean;
+  /** Menus, wine-to-food, serving, keeping and quantities (its own switch). */
+  experiences?: boolean;
   /**
    * The friends named in a question, as the database judges them for the asker in this request (accepted
    * friendship, taste shared, sommelier consent). Absent: the social sommelier is off and a name is only text.
@@ -201,6 +210,7 @@ const emptyPlan = (state: ConversationState): SommelierPlan => ({
   dishIdeas: [],
   avoid: [],
   serving: [],
+  keeping: [],
   quantity: null,
   ask: null,
   state,
@@ -248,6 +258,47 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
       )
         state = { ...state, intent: previous.intent === "open" ? "open" : null };
 
+      // Everything that is read about the household for one question, read once.
+      let gathered: Promise<{
+        items: CellarItem[];
+        profiles: ReadonlyMap<string, InsightOutput>;
+        taste: TasteSignals | null;
+        read: Read[];
+      }> | null = null;
+      const gather = () =>
+        (gathered ??= (async () => {
+          const { items } = request.cellar ?? (await deps.cellar());
+          const profiles =
+            items.length === 0
+              ? new Map<string, InsightOutput>()
+              : await deps
+                  .profiles(items.map((i) => i.vintageId))
+                  .catch(() => new Map<string, InsightOutput>());
+          const taste =
+            request.personal && items.length > 0
+              ? tasteSignals(await deps.taste().catch(() => null))
+              : null;
+
+          const read: Read[] = items
+            .filter((item) => state.wineType === null || item.type === state.wineType)
+            .map((item) => ({
+              item,
+              reading: readWine(
+                {
+                  type: item.type,
+                  name: item.wineName,
+                  region: item.region,
+                  appellation: item.appellation ?? null,
+                  countryCode: item.countryCode,
+                  profile: profileFacts(profiles.get(item.vintageId)),
+                },
+                WINE_KNOWLEDGE,
+              ),
+              free: item.count - Math.min(item.count, item.reserved?.count ?? 0),
+            }));
+          return { items, profiles, taste, read };
+        })());
+
       // The dish of this turn, or the one the conversation is about.
       const food: FoodProfile | null =
         said.main !== null
@@ -256,6 +307,165 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
             ? ((d) => (d.main === null ? null : d))(parseFood(state.dish, FOOD))
             : null;
       const buying = state.intent === "buy" || state.intent === "gift";
+
+      /**
+       * The premium experiences: how to serve or keep a bottle, what to cook with it, a wine for every course,
+       * whether there are enough bottles for the guests. All built on the same engines and the same inventory;
+       * each answers only when the question is that kind and names what it needs, and otherwise leaves the
+       * question to the rest of this function.
+       */
+      const planExperience = async (): Promise<Planned | null> => {
+        const kind = askedFor(question);
+        const courses = kind === null && !buying ? parseCourses(question, FOOD) : [];
+        if (kind === null && courses.length < 2) return null;
+        const { profiles, taste, read } = await gather();
+        const owned =
+          named.length === 0
+            ? []
+            : read.filter((r) => named.some((k) => r.reading.keys.includes(k)));
+        const base = { ...emptyPlan(state), friends, considered: read.length };
+        const done = (plan: SommelierPlan, bottles: Read[], other: Read[]): Planned => ({
+          plan: {
+            ...plan,
+            state: { ...state, offered: plan.picks.map((p) => p.vintageId).slice(0, 6) },
+          },
+          bottles: bottles.map((r) => toSommelierBottle(r.item)),
+          otherBottles: other.map((r) => toSommelierBottle(r.item)),
+          personal: false,
+        });
+        const candidate = (r: Read): PairingCandidate<Read> => ({
+          item: r,
+          wine: { ...r.reading, type: r.item.type },
+          tier: r.reading.tier,
+          taste: groupTasteScore(
+            [...(taste ? [taste] : []), ...friendTastes].map((t) =>
+              tasteScore({ ...r.reading, type: r.item.type }, t),
+            ),
+          ),
+        });
+        const open = read.filter((r) => blockedBy(r, state) === null);
+
+        if (kind === "serving" && owned.length > 0) {
+          const year = deps.now().getFullYear();
+          const shown = owned.slice(0, 3);
+          return done(
+            {
+              ...base,
+              kind: "serving",
+              serving: shown.map((r) => {
+                const profile = profiles.get(r.item.vintageId);
+                return {
+                  vintageId: r.item.vintageId,
+                  ...servingAdvice(
+                    {
+                      type: r.item.type,
+                      structure: r.reading.structure,
+                      tier: r.reading.tier,
+                      year: r.item.year,
+                      // The wine's own profile wins over the rule only when it is fact about this exact wine.
+                      profile:
+                        profile && profileFacts(profile)?.exact
+                          ? { serving: profile.serving, decantMinutes: profile.decantMinutes }
+                          : null,
+                    },
+                    year,
+                  ),
+                };
+              }),
+            },
+            [],
+            shown,
+          );
+        }
+        if (kind === "keeping" && owned.length > 0) {
+          const shown = owned.slice(0, 3);
+          return done(
+            {
+              ...base,
+              kind: "keeping",
+              keeping: shown.map((r) => ({
+                vintageId: r.item.vintageId,
+                from: r.item.drink.from ?? null,
+                until: r.item.drink.until ?? null,
+                phase: r.item.drink.phase,
+                reliable: r.item.drink.reliable === true,
+              })),
+            },
+            [],
+            shown,
+          );
+        }
+        if (kind === "wine-to-food" && owned.length > 0) {
+          const wine = owned[0]!;
+          const lang = request.locale === "nl" ? "nl" : "en";
+          const { ideas, avoid } = dishesFor({ ...wine.reading, type: wine.item.type }, FOOD);
+          return done(
+            {
+              ...base,
+              kind: "wine-to-food",
+              dishIdeas: ideas.map((i) => ({
+                dishId: i.dish.dishId ?? "",
+                label: i.dish.label[lang],
+                pros: i.assessment.pros.slice(0, 3),
+              })),
+              avoid,
+            },
+            [],
+            [wine],
+          );
+        }
+        if (kind === "quantity" && state.guests !== null && food) {
+          const decision = decidePairing(food, open.map(candidate), open.length);
+          const picks = decision.picks.slice(0, 3);
+          const needed = bottlesFor(state.guests).bottles;
+          // Every bottle of every wine that suits counts, not only the three that are shown.
+          const available = decision.picks.reduce((sum, p) => sum + p.item.free, 0);
+          return done(
+            {
+              ...base,
+              kind: "quantity",
+              dish: food.said ?? state.dish,
+              dishConfidence: food.confidence,
+              outcome: decision.outcome,
+              confidence: decision.confidence,
+              picks: picks.map((p) => toPick(p)),
+              quantity: {
+                guests: state.guests,
+                needed,
+                available,
+                ...{ short: enoughFor(needed, available).short },
+              },
+            },
+            picks.map((p) => p.item),
+            [],
+          );
+        }
+        if (courses.length >= 2) {
+          const menu = planMenu(courses.slice(0, 6), open.map(candidate), (r) => r.item.vintageId);
+          const poured = menu.flatMap((c) => (c.pick ? [c.pick.item] : []));
+          return done(
+            {
+              ...base,
+              kind: "menu",
+              courses: menu.map((c) => ({
+                dish: c.food.said ?? c.food.label.en,
+                outcome: c.decision.outcome,
+                pick: c.pick ? toPick(c.pick) : null,
+                shared: c.shared,
+              })),
+            },
+            poured.filter(
+              (r, i) => poured.findIndex((x) => x.item.vintageId === r.item.vintageId) === i,
+            ),
+            [],
+          );
+        }
+        return null;
+      };
+      if (deps.experiences) {
+        const experience = await planExperience();
+        if (experience) return experience;
+      }
 
       if (!food && !buying) {
         // No dish and nothing to buy. A question about wine goes to the general sommelier; anything else gets
@@ -274,35 +484,7 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         };
       }
 
-      const { items } = request.cellar ?? (await deps.cellar());
-      const profiles =
-        items.length === 0
-          ? new Map<string, InsightOutput>()
-          : await deps
-              .profiles(items.map((i) => i.vintageId))
-              .catch(() => new Map<string, InsightOutput>());
-      const taste =
-        request.personal && items.length > 0
-          ? tasteSignals(await deps.taste().catch(() => null))
-          : null;
-
-      const read: Read[] = items
-        .filter((item) => state.wineType === null || item.type === state.wineType)
-        .map((item) => ({
-          item,
-          reading: readWine(
-            {
-              type: item.type,
-              name: item.wineName,
-              region: item.region,
-              appellation: item.appellation ?? null,
-              countryCode: item.countryCode,
-              profile: profileFacts(profiles.get(item.vintageId)),
-            },
-            WINE_KNOWLEDGE,
-          ),
-          free: item.count - Math.min(item.count, item.reserved?.count ?? 0),
-        }));
+      const { items, taste, read } = await gather();
 
       let plan: SommelierPlan = {
         ...emptyPlan(state),

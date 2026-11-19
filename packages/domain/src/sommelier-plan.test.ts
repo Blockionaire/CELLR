@@ -22,6 +22,7 @@ const plan = (over: Partial<SommelierPlan> = {}): SommelierPlan => ({
   dishIdeas: [],
   avoid: [],
   serving: [],
+  keeping: [],
   quantity: null,
   ask: null,
   state: EMPTY_STATE,

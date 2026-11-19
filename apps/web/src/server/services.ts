@@ -161,6 +161,7 @@ export function servicesFor(ctx: RequestContext) {
         taste: () => taste.profile(),
         offers: null,
         buying: features.sommelier_buying,
+        experiences: features.sommelier_experiences,
         // The social sommelier: only with its own switch. The names are matched and judged by the database
         // for this person in this request (createFriendsService → sommelier_friend_context).
         ...(features.sommelier_social

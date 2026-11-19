@@ -472,6 +472,62 @@
         "included": "met diens smaak is rekening gehouden",
         "no-taste": "staat niet toe dat jouw sommelier diens smaak gebruikt",
         "unavailable": "geen vriend van je, dus er is niets van diegene gebruikt"
+      },
+      "kind": {
+        "serving": "Zo serveer je hem:",
+        "keeping": "Zo lang kun je hem bewaren:",
+        "wine-to-food": "Wat je erbij kunt koken:",
+        "menu": "Een wijn bij elke gang:",
+        "quantity": "Flessen voor je gasten:"
+      },
+      "serve": {
+        "temp": "Serveer op {min}–{max} °C.",
+        "fridge": "Vanaf kamertemperatuur is dat ongeveer {minutes} minuten in de koelkast.",
+        "noFridge": "Koelen hoeft niet: een koele kamer is goed.",
+        "basisProfile": "Op basis van wat er over precies deze wijn bekend is.",
+        "basisStyle": "Een vuistregel voor wijnen zoals deze, geen feit over deze fles.",
+        "decant": {
+          "no": "Decanteren is niet nodig.",
+          "air": "Decanteer hem ongeveer {minutes} minuten voor het serveren: lucht maakt hem zachter.",
+          "sediment": "Niet beluchten. Zet hem een dag rechtop en schenk hem vlak voor het serveren voorzichtig van zijn depot.",
+          "optional": "Even in een karaf ({minutes} minuten) kan geen kwaad, maar hoeft niet."
+        },
+        "glass": {
+          "flute-or-tulip": "Een tulpglas of wittewijnglas; een flûte kan ook.",
+          "white": "Een wittewijnglas.",
+          "large-white": "Een groot wittewijnglas.",
+          "red": "Een rodewijnglas.",
+          "large-red": "Een groot rodewijnglas.",
+          "small": "Een klein glas."
+        }
+      },
+      "keep": {
+        "window": "Op zijn best tussen {from} en {until}.",
+        "unknown": "Er is te weinig bekend om een drinkvenster te geven.",
+        "estimate": "Dit is een schatting voor wijnen zoals deze, geen feit over deze fles. Bewaar hem liggend, donker en koel.",
+        "known": "Bewaar hem liggend, donker en koel.",
+        "phase": {
+          "young": "Hij is nog te jong.",
+          "developing": "Hij komt open; hij wordt nog beter.",
+          "peak": "Hij is nu op zijn best.",
+          "ready": "Hij is op dronk.",
+          "past": "Hij is over zijn venster: drink hem snel.",
+          "unknown": "Hoe ver hij is, valt niet te zeggen."
+        }
+      },
+      "food": {
+        "ideas": "Gerechten die erbij passen",
+        "avoid": "Liever niet bij"
+      },
+      "menu": {
+        "course": "Bij {dish}",
+        "nothing": "Niets in je kelder past bij deze gang.",
+        "shared": "Dezelfde wijn als bij een andere gang: niets anders past zo goed."
+      },
+      "quantity": {
+        "need": "Voor {guests, plural, one {# gast} other {# gasten}} heb je ongeveer {needed, plural, one {# fles} other {# flessen}} nodig (een halve fles per persoon).",
+        "enough": "Je hebt {available, plural, one {# fles} other {# flessen}} die passen: genoeg.",
+        "short": "Je hebt {available, plural, one {# fles} other {# flessen}} die passen: {short} te weinig."
       }
     },
     "mentions": {

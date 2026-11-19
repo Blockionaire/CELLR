@@ -472,6 +472,62 @@
         "included": "their taste was taken into account",
         "no-taste": "has not allowed their taste to be used by your sommelier",
         "unavailable": "not one of your friends, so nothing of theirs was used"
+      },
+      "kind": {
+        "serving": "How to serve it:",
+        "keeping": "How long it keeps:",
+        "wine-to-food": "What to cook with it:",
+        "menu": "A wine for each course:",
+        "quantity": "Bottles for your guests:"
+      },
+      "serve": {
+        "temp": "Serve at {min}–{max} °C.",
+        "fridge": "From room temperature that is about {minutes} minutes in the fridge.",
+        "noFridge": "No need to chill it: a cool room is right.",
+        "basisProfile": "From what is known about this exact wine.",
+        "basisStyle": "A rule of thumb for wines like this, not a fact about this bottle.",
+        "decant": {
+          "no": "No need to decant.",
+          "air": "Decant it about {minutes} minutes before serving: air softens it.",
+          "sediment": "Do not air it. Stand it upright for a day and pour it gently off its sediment just before serving.",
+          "optional": "A short time in a carafe ({minutes} minutes) will not hurt, but is not needed."
+        },
+        "glass": {
+          "flute-or-tulip": "A tulip glass, or a white-wine glass; a flute will do.",
+          "white": "A white-wine glass.",
+          "large-white": "A large white-wine glass.",
+          "red": "A red-wine glass.",
+          "large-red": "A large red-wine glass.",
+          "small": "A small glass."
+        }
+      },
+      "keep": {
+        "window": "Best between {from} and {until}.",
+        "unknown": "Too little is known to give a drinking window.",
+        "estimate": "This is an estimate for wines like it, not a fact about this bottle. Keep it lying down, dark and cool.",
+        "known": "Keep it lying down, dark and cool.",
+        "phase": {
+          "young": "It is still too young.",
+          "developing": "It is opening up; it will get better.",
+          "peak": "It is at its best now.",
+          "ready": "It is ready to drink.",
+          "past": "It is past its window: drink it soon.",
+          "unknown": "How far along it is cannot be said."
+        }
+      },
+      "food": {
+        "ideas": "Dishes that suit it",
+        "avoid": "Better not with"
+      },
+      "menu": {
+        "course": "With {dish}",
+        "nothing": "Nothing in your cellar suits this course.",
+        "shared": "The same wine as another course: nothing else suits as well."
+      },
+      "quantity": {
+        "need": "For {guests, plural, one {# guest} other {# guests}} you need about {needed, plural, one {# bottle} other {# bottles}} (half a bottle each).",
+        "enough": "You have {available, plural, one {# bottle} other {# bottles}} that suit: enough.",
+        "short": "You have {available, plural, one {# bottle} other {# bottles}} that suit: {short} short."
       }
     },
     "mentions": {

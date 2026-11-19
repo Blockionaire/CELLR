@@ -50,11 +50,17 @@ export function PlanView({
       ? plan.ask === "dish"
         ? null
         : t("plan.outcome.clarify")
-      : plan.outcome === null
-        ? null
-        : plan.outcome === "none" && plan.considered === 0
-          ? t("plan.outcome.noneEmpty")
-          : t(`plan.outcome.${plan.outcome}`);
+      : plan.kind === "serving" ||
+          plan.kind === "keeping" ||
+          plan.kind === "wine-to-food" ||
+          plan.kind === "menu" ||
+          plan.kind === "quantity"
+        ? t(`plan.kind.${plan.kind}`)
+        : plan.outcome === null
+          ? null
+          : plan.outcome === "none" && plan.considered === 0
+            ? t("plan.outcome.noneEmpty")
+            : t(`plan.outcome.${plan.outcome}`);
   const quick = plan.ask ? QUICK[plan.ask] : [];
 
   return (
@@ -105,7 +111,118 @@ export function PlanView({
         </ul>
       )}
 
-      {offered.length > 0 && (
+      {plan.quantity && (
+        <p className="px-1 text-small text-ink-2" data-testid="plan-quantity">
+          {t("plan.quantity.need", { guests: plan.quantity.guests, needed: plan.quantity.needed })}{" "}
+          {plan.quantity.short > 0
+            ? t("plan.quantity.short", {
+                available: plan.quantity.available,
+                short: plan.quantity.short,
+              })
+            : t("plan.quantity.enough", { available: plan.quantity.available })}
+        </p>
+      )}
+
+      {plan.courses.length > 0 && (
+        <ol className="flex flex-col gap-3" data-testid="plan-courses">
+          {plan.courses.map((course, n) => {
+            const bottle = course.pick ? bottleOf.get(course.pick.vintageId) : undefined;
+            return (
+              <li key={n} className="flex flex-col gap-1.5">
+                <p className="px-1 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+                  {t("plan.menu.course", { dish: course.dish })}
+                </p>
+                {course.pick && bottle ? (
+                  <>
+                    {card(bottle, false)}
+                    <Reasons pick={course.pick} />
+                    {course.shared && (
+                      <p className="px-1 text-small text-ink-3">{t("plan.menu.shared")}</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="px-1 text-small text-ink-2">{t("plan.menu.nothing")}</p>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+
+      {plan.serving.map((s) => {
+        const bottle = bottleOf.get(s.vintageId);
+        return bottle ? (
+          <section key={s.vintageId} className="flex flex-col gap-1.5" data-testid="plan-serving">
+            {card(bottle, false)}
+            <div className="px-1 text-small text-ink-2">
+              <p>
+                {t("plan.serve.temp", { min: s.tempC.min, max: s.tempC.max })}{" "}
+                {s.fridgeMinutes > 0
+                  ? t("plan.serve.fridge", { minutes: s.fridgeMinutes })
+                  : t("plan.serve.noFridge")}
+              </p>
+              <p>{t(`plan.serve.decant.${s.decant.kind}`, { minutes: s.decant.minutes })}</p>
+              <p>{t(`plan.serve.glass.${s.glass}`)}</p>
+              <p className="text-ink-3">
+                {t(s.basis === "profile" ? "plan.serve.basisProfile" : "plan.serve.basisStyle")}
+              </p>
+            </div>
+          </section>
+        ) : null;
+      })}
+
+      {plan.keeping.map((k) => {
+        const bottle = bottleOf.get(k.vintageId);
+        return bottle ? (
+          <section key={k.vintageId} className="flex flex-col gap-1.5" data-testid="plan-keeping">
+            {card(bottle, false)}
+            <div className="px-1 text-small text-ink-2">
+              <p>
+                {k.from !== null && k.until !== null
+                  ? t("plan.keep.window", { from: k.from, until: k.until })
+                  : t("plan.keep.unknown")}{" "}
+                {t(`plan.keep.phase.${k.phase}`)}
+              </p>
+              <p className="text-ink-3">
+                {t(k.reliable ? "plan.keep.known" : "plan.keep.estimate")}
+              </p>
+            </div>
+          </section>
+        ) : null;
+      })}
+
+      {plan.kind === "wine-to-food" && (
+        <section className="flex flex-col gap-2" data-testid="plan-ideas">
+          {bottles[0] && card(bottles[0], false)}
+          {plan.dishIdeas.length > 0 && (
+            <div className="rounded-card bg-surface p-4 ring-1 ring-hairline">
+              <h3 className="text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+                {t("plan.food.ideas")}
+              </h3>
+              <ul className="mt-2 flex flex-col divide-y divide-hairline">
+                {plan.dishIdeas.map((d) => (
+                  <li key={d.dishId} className="py-2 first:pt-0 last:pb-0">
+                    <span className="block font-display text-title text-ink">{d.label}</span>
+                    {d.pros.length > 0 && (
+                      <span className="block text-small text-ink-2">
+                        {d.pros.map((p) => t(`plan.pro.${p}`)).join("; ")}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {plan.avoid.length > 0 && (
+            <p className="px-1 text-small text-ink-2">
+              <span className="font-medium text-ink">{t("plan.food.avoid")}: </span>
+              {plan.avoid.map((c) => t(`plan.con.${c}`)).join("; ")}.
+            </p>
+          )}
+        </section>
+      )}
+
+      {offered.length > 0 && plan.courses.length === 0 && (
         <ul className="flex flex-col gap-2.5" data-testid="plan-picks">
           {offered.map(({ pick, bottle }, n) => (
             <li key={pick.vintageId} className="flex flex-col gap-1.5">
