@@ -1,0 +1,4 @@
+after the kill: records under the killed run=31000, edited regions so far=1550, open runs=1, active=100646
+  re-run: {"inserted":0,"updated":3458,"unchanged":97188,"seconds":42.2}
+after the re-run: edited regions=5033 (expected 5033), active=100646, open runs=0, abandoned runs=1, duplicate ids=0
+  original restored: {"inserted":0,"updated":5033,"unchanged":95613}
