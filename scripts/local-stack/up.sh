@@ -28,7 +28,21 @@ WATCHDOG_PID=$!
 
 bash "$ROOT/scripts/local-stack/fetch-postgrest.sh"
 start_temp_cluster 54997
-apply_schema "$ROOT"
+# STACK_MIGRATIONS_BEFORE=<version>: a database that stopped before that migration (e.g. 20261120000043 for one
+# without the Smart Cellar steps), to see how the app behaves on a database that is behind. Unset: all of them.
+SCHEMA_ROOT="$ROOT"
+if [ -n "${STACK_MIGRATIONS_BEFORE:-}" ]; then
+  SCHEMA_ROOT="$(mktemp -d)"
+  mkdir -p "$SCHEMA_ROOT/supabase/tests" "$SCHEMA_ROOT/supabase/migrations" "$SCHEMA_ROOT/supabase/seed"
+  cp "$ROOT/supabase/tests/shim.sql" "$SCHEMA_ROOT/supabase/tests/"
+  cp "$ROOT"/supabase/seed/*.sql "$SCHEMA_ROOT/supabase/seed/"
+  for f in "$ROOT"/supabase/migrations/*.sql; do
+    v="$(basename "$f")"
+    if [[ "${v%%_*}" < "$STACK_MIGRATIONS_BEFORE" ]]; then cp "$f" "$SCHEMA_ROOT/supabase/migrations/"; fi
+  done
+  echo "local stack: migrations before $STACK_MIGRATIONS_BEFORE only ($(ls "$SCHEMA_ROOT/supabase/migrations" | wc -l) files)"
+fi
+apply_schema "$SCHEMA_ROOT"
 "${PSQL[@]}" -X -q -v ON_ERROR_STOP=1 -f "$ROOT/scripts/local-stack/postgrest-setup.sql"
 
 export PGURL="$PGURL"

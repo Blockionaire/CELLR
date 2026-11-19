@@ -111,8 +111,8 @@ export const toBottle = (r: {
   openedAt: r.opened_at,
 });
 
-const IMAGE_REF_COLUMNS = "id, blur_color, width, height, texture_path";
-const toImageRef = (r: {
+export const IMAGE_REF_COLUMNS = "id, blur_color, width, height, texture_path";
+export const toImageRef = (r: {
   id: string;
   blur_color: string | null;
   width: number | null;

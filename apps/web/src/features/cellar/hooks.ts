@@ -32,6 +32,7 @@ import { api, errorMessage } from "@/lib/api";
 import { flattenLabel } from "@/lib/label-flatten";
 import { photoForm, UnreadablePhotoError, type PreparedPhoto } from "@/lib/photo";
 import { useToast } from "@/ui/toast";
+import { smartStorageKey } from "./smart-cellar-hooks";
 
 export const cellarKey = ["cellar"] as const;
 export const winesKey = ["wines"] as const;
@@ -69,6 +70,7 @@ export function useCreateStorage() {
       Promise.all([
         queryClient.invalidateQueries({ queryKey: storageKey }),
         queryClient.invalidateQueries({ queryKey: racksKey }),
+        queryClient.invalidateQueries({ queryKey: smartStorageKey }),
       ]),
   });
 }
@@ -132,6 +134,7 @@ export function useAddBottles() {
         queryClient.invalidateQueries({ queryKey: storageKey }),
         queryClient.invalidateQueries({ queryKey: winesKey }),
         queryClient.invalidateQueries({ queryKey: racksKey }),
+        queryClient.invalidateQueries({ queryKey: smartStorageKey }),
         queryClient.invalidateQueries({ queryKey: ["vintage"] }),
       ]);
       // Every wine gets its AI profile (style, grapes, alcohol, value…) the moment it is added, without a tap.
@@ -384,6 +387,7 @@ export function useRefreshCellar() {
       queryClient.invalidateQueries({ queryKey: cellarKey }),
       queryClient.invalidateQueries({ queryKey: ["vintage"] }),
       queryClient.invalidateQueries({ queryKey: racksKey }),
+      queryClient.invalidateQueries({ queryKey: smartStorageKey }),
       queryClient.invalidateQueries({ queryKey: storageKey }),
     ]);
 }
@@ -430,6 +434,7 @@ export function useUpdateWine() {
         queryClient.invalidateQueries({ queryKey: ["vintage"] }),
         queryClient.invalidateQueries({ queryKey: winesKey }),
         queryClient.invalidateQueries({ queryKey: racksKey }),
+        queryClient.invalidateQueries({ queryKey: smartStorageKey }),
       ]),
   });
 }

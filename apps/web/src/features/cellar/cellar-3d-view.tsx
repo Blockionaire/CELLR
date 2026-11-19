@@ -51,7 +51,7 @@ function detectWebGL(): boolean {
   return webglSupport;
 }
 const noSubscription = () => () => {};
-const useWebGL = () => useSyncExternalStore(noSubscription, detectWebGL, () => true);
+export const useWebGL = () => useSyncExternalStore(noSubscription, detectWebGL, () => true);
 
 function useMedia(query: string, server: boolean): boolean {
   return useSyncExternalStore(
@@ -64,7 +64,7 @@ function useMedia(query: string, server: boolean): boolean {
     () => server,
   );
 }
-const useReducedMotion = () => useMedia("(prefers-reduced-motion: reduce)", false);
+export const useReducedMotion = () => useMedia("(prefers-reduced-motion: reduce)", false);
 /** Wide screens show the bottle beside its details; narrow ones (a phone) show it above them. */
 const useShowcaseLayout = (): ShowcaseLayout =>
   useMedia(`(min-width: ${SIDE_BY_SIDE_MIN_WIDTH}px)`, true) ? "side" : "top";
@@ -152,7 +152,18 @@ function RackStill({
  * open beside it. A keyboard / screen-reader list of the same bottles sits alongside, since a canvas
  * cannot be read aloud.
  */
-export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
+export function Cellar3DView({
+  onShowRacks,
+  only,
+}: {
+  onShowRacks: () => void;
+  /**
+   * Show this one place, and leave choosing a place to whoever mounts the view (the Smart Cellar 3D view of sprint
+   * 2B.3 uses the existing view for places from before templates, under its own row of places). Left out, as on
+   * every screen until now: the view chooses and shows its own row.
+   */
+  only?: string | undefined;
+}) {
   const t = useTranslations("cellar3d");
   const tKinds = useTranslations("storageKinds");
   const tr = useTranslations("racks");
@@ -176,8 +187,12 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
   const [touched, setTouched] = useState(false);
   // iOS takes the graphics memory back from a page now and then; `attempt` draws the scene again from scratch.
   const [lost, setLost] = useState(false);
-  // Counted once each time the 3D cellar is opened (this view mounting), never per frame or per bottle.
-  useEffect(() => track("3d_cellar_opened"), []);
+  // Counted once each time the 3D cellar is opened (this view mounting), never per frame or per bottle. Mounted for
+  // one place by another view (`only`), that view has counted the opening already.
+  const counts = useRef(only === undefined);
+  useEffect(() => {
+    if (counts.current) track("3d_cellar_opened");
+  }, []);
   const [attempt, setAttempt] = useState(0);
   // A still of the rack stands behind the bottle on display (see Freezer in the scene).
   const [backdrop, setBackdrop] = useState<Backdrop | null>(null);
@@ -190,8 +205,21 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
     backdropRef.current = backdrop;
   }, [backdrop]);
 
+  // Another place was chosen from outside: exactly what choosing it here does (below).
+  const [shownOnly, setShownOnly] = useState(only);
+  if (only !== shownOnly) {
+    setShownOnly(only);
+    setPickedId(null);
+    setBackdrop(null);
+    setReady(false);
+  }
+
   const data = racks.data;
-  const unit = data?.units.find((u) => u.id === unitId) ?? data?.units[0] ?? null;
+  const unit =
+    only !== undefined
+      ? // never another place than the one asked for
+        (data?.units.find((u) => u.id === only) ?? null)
+      : (data?.units.find((u) => u.id === unitId) ?? data?.units[0] ?? null);
   const picked: PlacedBottle | null = unit?.bottles.find((b) => b.bottleId === pickedId) ?? null;
   if (picked && picked !== lastBottle) setLastBottle(picked);
   const detail = useVintageDetail(picked?.vintageId ?? lastBottle?.vintageId ?? null).data;
@@ -302,7 +330,7 @@ export function Cellar3DView({ onShowRacks }: { onShowRacks: () => void }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {data.units.length > 1 && (
+      {only === undefined && data.units.length > 1 && (
         <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 md:mx-0 md:px-0">
           {data.units.map((u) => (
             <Chip

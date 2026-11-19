@@ -28,6 +28,7 @@ function fakeDataApi(
     rpc: 0,
     describe: [] as Array<{ url: string; accept: string | null; authorization: string | null }>,
     ranges: [] as Array<{ table: string; from: number; to: number }>,
+    ins: [] as Array<{ table: string; column: string; count: number }>,
   };
   const db = {
     rpc: () => {
@@ -84,6 +85,11 @@ function fakeDataApi(
         },
         eq(column: string, value: unknown) {
           filters.push((r) => r[column] === value);
+          return builder;
+        },
+        in(column: string, values: unknown[]) {
+          calls.ins.push({ table, column, count: values.length });
+          filters.push((r) => values.includes(r[column]));
           return builder;
         },
         not(column: string) {
@@ -460,5 +466,101 @@ describe("every place and every zone, however many (the data API cuts each answe
       { table: "cellar_location_zones", from: 0, to: 999 },
     ]);
     expect(await repo.getPlace(HOUSEHOLD, "x-00001")).toBeNull(); // another household's
+  });
+});
+
+describe("the bottles of a place, with their label photos", () => {
+  const wine = (name: string) => ({
+    year: 2019,
+    wine_id: `w-${name}`,
+    wines: {
+      name,
+      wine_type: "red",
+      region: "Rioja",
+      country_code: "ES",
+      producers: { name: "Bodega" },
+    },
+  });
+  /** `count` bottles of one place, every second one with a photo of its own; and a photo of another household. */
+  function place(count: number) {
+    const bottles: Row[] = [];
+    const images: Row[] = [];
+    for (let i = 0; i < count; i++) {
+      const photo = i % 2 === 0 ? `img-${i}` : null;
+      bottles.push({
+        id: `b-${String(i).padStart(4, "0")}`,
+        household_id: "h-1",
+        location_id: "p-1",
+        status: "in_cellar",
+        loc_row: Math.floor(i / 30) + 1,
+        loc_col: (i % 30) + 1,
+        loc_index: 1,
+        vintage_id: `v-${i}`,
+        front_image_id: photo,
+        wine_vintages: wine(`Wine ${i}`),
+      });
+      if (photo)
+        images.push({
+          id: photo,
+          household_id: "h-1",
+          blur_color: "#402010",
+          width: 900,
+          height: 1200,
+          texture_path: i % 4 === 0 ? "t.jpg" : null,
+        });
+    }
+    // a bottle that names a photo of ANOTHER household (it cannot be read: no photo, never theirs)
+    bottles.push({
+      id: "b-foreign",
+      household_id: "h-1",
+      location_id: "p-1",
+      status: "in_cellar",
+      loc_row: 30,
+      loc_col: 30,
+      loc_index: 1,
+      vintage_id: "v-x",
+      front_image_id: "img-theirs",
+      wine_vintages: wine("Foreign photo"),
+    });
+    images.push({
+      id: "img-theirs",
+      household_id: "h-2",
+      blur_color: null,
+      width: 1,
+      height: 1,
+      texture_path: null,
+    });
+    return { bottles, bottle_images: images };
+  }
+
+  it("every bottle keeps its spot and gets its own photo; only this household's photos, asked for by id", async () => {
+    const { repo, calls } = fakeDataApi(place(400));
+    const placements = await repo.placements("h-1", "p-1");
+    expect(placements).toHaveLength(401);
+    expect(placements[0]).toMatchObject({
+      bottleId: "b-0000",
+      row: 1,
+      col: 1,
+      index: 1,
+      region: "Rioja",
+      countryCode: "ES",
+      image: { id: "img-0", blurColor: "#402010", width: 900, height: 1200, texture: true },
+    });
+    expect(placements[1]?.image).toBeNull();
+    expect(placements.filter((p) => p.image !== null)).toHaveLength(200);
+    expect(placements.find((p) => p.bottleId === "b-foreign")?.image).toBeNull();
+    // 201 ids (200 of its own and the foreign one), in chunks of at most 150
+    expect(calls.ins.filter((c) => c.table === "bottle_images").map((c) => c.count)).toEqual([
+      150, 51,
+    ]);
+    expect(calls.rpc).toBe(0);
+  });
+
+  it("a place without a single photo asks for none", async () => {
+    const tables = place(10);
+    for (const b of tables.bottles) b.front_image_id = null;
+    const { repo, calls } = fakeDataApi(tables);
+    expect((await repo.placements("h-1", "p-1")).every((p) => p.image === null)).toBe(true);
+    expect(calls.ins).toEqual([]);
   });
 });

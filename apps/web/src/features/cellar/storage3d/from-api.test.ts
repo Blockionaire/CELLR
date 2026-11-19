@@ -45,6 +45,9 @@ const placement = (row: number, col: number, index: number): SmartPlacementView 
   wineName: "W",
   year: 2015,
   type: "red",
+  region: "Bordeaux",
+  countryCode: "FR",
+  image: null,
 });
 
 describe("from the API to the new view", () => {
