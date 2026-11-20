@@ -76,7 +76,9 @@ review's findings and what was done about each, limitations.
 
 ## Next action
 
-Nothing for the agent without the owner. The owner's decisions, in order, are in `RELEASE_PLAN.md`; the first
-one that unblocks more work is S10 as advised in `progress/S9.md` §10 (a model reads the dish the parser cannot).
+Nothing for the agent without the owner. The owner's decisions, in order, are in `RELEASE_PLAN.md`; the one that
+unblocks the S10 verdict is the approval of the paid run in `HYBRID_EVALUATION.md` §6. Then: the human holdout
+and the expert review (people).
 A session that resumes: read the pull requests' review comments and CI, fix what is asked on the branch it
-belongs to, rebase the branches above it, and update the phase's `progress` file.
+belongs to, merge it into each branch above it (D-28: never rebase or force-push a branch with an open pull
+request), and update the phase's `progress` file.
