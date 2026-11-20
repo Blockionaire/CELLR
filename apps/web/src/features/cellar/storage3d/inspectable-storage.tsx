@@ -100,6 +100,8 @@ export interface InspectableStorageProps {
   debug?: boolean | undefined;
   labels?: InspectionLabels | undefined;
   className?: string | undefined;
+  /** A spot a bottle is about to be put on: marked in the picture (sprint 4). */
+  target?: { row: number; col: number; index: number } | null | undefined;
 }
 
 export interface InspectableStorageHandle {
@@ -124,6 +126,7 @@ export default function InspectableStorage({
   debug = false,
   labels = INSPECTION_LABELS_EN,
   className,
+  target = null,
   handleRef,
 }: InspectableStorageProps & {
   handleRef?: React.RefObject<InspectableStorageHandle | null> | undefined;
@@ -235,6 +238,15 @@ export default function InspectableStorage({
     if (state.phase === "idle" && before !== "idle") {
       const back = opener.current;
       opener.current = null;
+      // ...unless the person has gone on meanwhile (a button in the panel opened something else that took the focus):
+      // the focus is not pulled back from where they are now
+      const active = document.activeElement;
+      const withUs =
+        !active ||
+        active === document.body ||
+        panel.current?.contains(active) === true ||
+        stage.current?.contains(active) === true;
+      if (!withUs) return;
       if (back instanceof HTMLElement && back.isConnected && back !== document.body)
         back.focus({ preventScroll: true });
       else stage.current?.focus({ preventScroll: true });
@@ -297,6 +309,7 @@ export default function InspectableStorage({
         onReady={onReady}
         onLost={lost}
         debug={debug}
+        target={target}
         inspection={{
           state,
           label: details?.label ?? null,
