@@ -421,6 +421,8 @@ test.describe("scan → an external record → a wine of your own, with where it
     const size = uniqueSize();
     await program(size, label({ producer: ext.producer, wine_name: ext.name }));
     await page.goto("/scan");
+    // the app switches itself to the profile's language with a reload: wait for it before anything is sent
+    await expect(page.getByRole("heading", { level: 1, name: "Scan een etiket" })).toBeVisible();
     await takePhoto(page, await makeJpeg(page, size));
     await expect(page.getByRole("heading", { name: "Een nieuwe wijn" })).toBeVisible();
     const suggestions = page.getByTestId("record-suggestions");
