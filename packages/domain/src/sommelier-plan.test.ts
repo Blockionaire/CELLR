@@ -24,6 +24,8 @@ const plan = (over: Partial<SommelierPlan> = {}): SommelierPlan => ({
   serving: [],
   keeping: [],
   quantity: null,
+  coursesCut: false,
+  dishIdeasTier: null,
   ask: null,
   state: EMPTY_STATE,
   friends: [],
@@ -80,5 +82,63 @@ describe("a plan that was kept, or sent by anyone", () => {
       "//evil.test",
     ])
       expect(readPlan(plan({ offers: [offer(url)] })), url).toBeNull();
+  });
+
+  it("still reads a plan kept before the premium experiences existed", () => {
+    // What S3 to S5 stored: none of the fields the experiences added.
+    const {
+      courses,
+      coursesCut,
+      dishIdeas,
+      dishIdeasTier,
+      avoid,
+      serving,
+      keeping,
+      quantity,
+      ...old
+    } = plan();
+    void [courses, coursesCut, dishIdeas, dishIdeasTier, avoid, serving, keeping, quantity];
+    const read = readPlan(old);
+    expect(read).not.toBeNull();
+    expect(read).toMatchObject({ courses: [], serving: [], keeping: [], quantity: null });
+    expect(
+      isStoredAnswer({
+        source: "basic",
+        text: null,
+        basic: "nothing",
+        bottles: [],
+        reason: null,
+        plan: old,
+      }),
+    ).toBe(true);
+  });
+
+  it("refuses experience values no engine would produce", () => {
+    const id = "6f1c2b0a-1111-4111-8111-111111111111";
+    const serving = (tempC: { min: number; max: number }) => ({
+      vintageId: id,
+      tempC,
+      fridgeMinutes: 0,
+      decant: { kind: "no" as const, minutes: 0 },
+      glass: "red" as const,
+      basis: "style" as const,
+      tier: "estimate" as const,
+    });
+    expect(readPlan(plan({ serving: [serving({ min: 16, max: 18 })] }))).not.toBeNull();
+    expect(readPlan(plan({ serving: [serving({ min: 1e9, max: -40 })] }))).toBeNull();
+    expect(readPlan(plan({ serving: [serving({ min: 18, max: 16 })] }))).toBeNull();
+    const quantity = { guests: 8, needed: 4, available: 2, short: 2 };
+    expect(readPlan(plan({ quantity }))).not.toBeNull();
+    expect(readPlan(plan({ quantity: { ...quantity, guests: -3 } }))).toBeNull();
+    expect(readPlan(plan({ quantity: { ...quantity, short: -1 } }))).toBeNull();
+    const keeping = {
+      vintageId: id,
+      from: 2024,
+      until: 2032,
+      phase: "peak" as const,
+      basis: "style" as const,
+    };
+    expect(readPlan(plan({ keeping: [keeping] }))).not.toBeNull();
+    expect(readPlan(plan({ keeping: [{ ...keeping, from: 2040 }] }))).toBeNull();
   });
 });

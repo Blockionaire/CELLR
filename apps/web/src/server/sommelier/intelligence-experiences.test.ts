@@ -179,8 +179,77 @@ describe("how long a bottle keeps", () => {
     const planned = (await setup([mine])("How long can I keep my Barolo?"))!;
     expect(planned.plan.kind).toBe("keeping");
     expect(planned.plan.keeping).toEqual([
-      { vintageId: mine.vintageId, from: 2022, until: 2031, phase: "peak", reliable: false },
+      { vintageId: mine.vintageId, from: 2022, until: 2031, phase: "peak", basis: "style" },
     ]);
+  });
+
+  it("says what the window rests on: the person's own, the wine's profile, or the style's guess", async () => {
+    const own = { ...barolo(2017), drink: { ...barolo().drink, source: "own" as const } };
+    const ai = {
+      ...barolo(2016),
+      drink: { ...barolo().drink, source: "ai" as const, reliable: true },
+    };
+    expect((await setup([own])("How long can I keep my Barolo?"))!.plan.keeping[0]!.basis).toBe(
+      "own",
+    );
+    // A profile's window is an estimate from what is known, never "known" outright.
+    expect((await setup([ai])("How long can I keep my Barolo?"))!.plan.keeping[0]!.basis).toBe(
+      "profile",
+    );
+  });
+
+  it("leaves an opened bottle alone: how long that lasts is days, not its drinking window", async () => {
+    const ask = setup([barolo(2017), chablis()]);
+    expect(await ask("How long can I keep my Barolo once it is opened?")).toBeNull();
+    expect(await ask("How long can I keep an open bottle of Chablis in the fridge?")).toBeNull();
+    expect(await ask("Hoe lang kan ik een geopende fles Barolo bewaren?")).toBeNull();
+  });
+});
+
+describe("a dish and a question about what to pour is a pairing, whatever else is mentioned", () => {
+  const cellar = () => [barolo(2018), chablis(), pauillac()];
+  it("a bottle to keep, or one not to decant, does not take the question over", async () => {
+    const ask = setup(cellar());
+    const keep = (await ask("Ik wil mijn Barolo nog bewaren. Wat schenk ik bij de lasagne?"))!;
+    expect(keep.plan.kind).toBe("pairing");
+    expect(keep.plan.keeping).toEqual([]);
+    const decant = (await ask("I do not want to decant my Barolo. Which wine with the steak?"))!;
+    expect(decant.plan.kind).toBe("pairing");
+    expect(decant.plan.serving).toEqual([]);
+  });
+
+  it("'what suits my lasagne: the Barolo or the Chablis' is about the lasagne, not dishes for a wine", async () => {
+    const planned = (await setup(cellar())("Wat past bij mijn lasagne: de Barolo of de Chablis?"))!;
+    expect(planned.plan.kind).not.toBe("wine-to-food");
+    expect(planned.plan.dishIdeas).toEqual([]);
+    expect(planned.plan.dish).toMatch(/lasagne/i);
+  });
+
+  it("two wines and a dish is a choice between them, also when decanting is asked in passing", async () => {
+    const planned = (await setup(cellar())(
+      "Barolo or Pauillac with the lamb, and should I decant it?",
+    ))!;
+    expect(planned.plan.serving).toEqual([]);
+    expect(planned.plan.dish).toMatch(/lamb/i);
+  });
+
+  it("serving stays serving when a dish is only the occasion", async () => {
+    const planned = (await setup(cellar())(
+      "How cold should I serve my Chablis with the oysters?",
+    ))!;
+    expect(planned.plan.kind).toBe("serving");
+  });
+});
+
+describe("a wish for a colour does not hide a bottle asked about by name", () => {
+  it("'which red with the lamb', then 'how do I serve my Chablis': the Chablis", async () => {
+    const white = chablis();
+    const ask = setup([pauillac(), white]);
+    const first = (await ask("Which red with the roast lamb?"))!;
+    expect(first.plan.state.wineType).toBe("red");
+    const second = (await ask("At what temperature should I serve my Chablis?", first.plan.state))!;
+    expect(second.plan.kind).toBe("serving");
+    expect(second.plan.serving.map((s) => s.vintageId)).toEqual([white.vintageId]);
   });
 });
 
@@ -197,6 +266,8 @@ describe("what to cook with a bottle", () => {
     expect(planned.plan.avoid).toEqual(expect.arrayContaining(["tannin-with-fish"]));
     const ideas = planned.plan.dishIdeas.map((d) => d.dishId).join(" ");
     expect(ideas).not.toMatch(/oyster|sushi|ceviche|sole/);
+    // What the ideas rest on is said: this Barolo is known by its appellation, not as this exact wine.
+    expect(planned.plan.dishIdeasTier).toBe("appellation");
   });
 });
 
@@ -221,6 +292,81 @@ describe("a wine for every course", () => {
     ]);
   });
 
+  it("pours a wine twice only when no other way gives every course as good a match", async () => {
+    const sancerre = wine({
+      wineName: "Sancerre",
+      type: "white",
+      appellation: "Sancerre",
+      region: "Loire",
+      countryCode: "FR",
+    });
+    const meursault = wine({
+      wineName: "Meursault",
+      type: "white",
+      appellation: "Meursault",
+      region: "Burgundy",
+      countryCode: "FR",
+    });
+    const planned = (await setup([chablis(), sancerre, meursault])(
+      "Oysters to start, then roast chicken, then salmon. Which wine with each course?",
+    ))!;
+    const poured = planned.plan.courses.map((c) => c.pick?.vintageId ?? null);
+    expect(poured.every((id) => id !== null)).toBe(true);
+    // Three courses, three whites that suit: none is poured twice.
+    expect(new Set(poured).size).toBe(3);
+    expect(planned.plan.courses.some((c) => c.shared)).toBe(false);
+  });
+
+  it("flags a wine that had to be poured twice", async () => {
+    const planned = (await setup([pauillac()])("Roast lamb to start, then beef stew."))!;
+    expect(planned.plan.courses.map((c) => c.shared)).toEqual([true, true]);
+  });
+
+  it("does not make a menu out of a sauce, a verb, or yesterday's dinner", async () => {
+    const ask = setup([chablis(), pauillac()]);
+    // "then I add a cream sauce" is part of the chicken, not a course without a wine.
+    expect((await ask("Roast chicken, then I add a cream sauce. What wine?"))?.plan.kind).not.toBe(
+      "menu",
+    );
+    // Dutch "toe" in "voeg ... toe" is a verb, not dessert.
+    expect((await ask("Ik voeg kaas toe aan de pasta. Welke wijn?"))?.plan.kind).not.toBe("menu");
+    // A semicolon alone does not make courses.
+    expect((await ask("I had oysters yesterday; tonight roast lamb"))?.plan.kind).not.toBe("menu");
+  });
+
+  it("says so when a course could not be read, instead of dropping it or calling it unsuited", async () => {
+    const planned = (await setup([chablis(), pauillac()])(
+      "Oysters to start, then qwertzu, then roast lamb",
+    ))!;
+    expect(planned.plan.kind).toBe("menu");
+    expect(planned.plan.courses.map((c) => [c.dish, c.unread])).toEqual([
+      ["oysters", false],
+      ["qwertzu", true],
+      ["roast lamb", false],
+    ]);
+    expect(planned.plan.courses[1]!.pick).toBeNull();
+  });
+
+  it("reads a plain list as a menu when the person says it is one", async () => {
+    const white = chablis();
+    const red = pauillac();
+    const planned = (await setup([white, red, tawny()])(
+      "Oysters, roast lamb and chocolate fondant. Which wine with each course?",
+    ))!;
+    expect(planned.plan.kind).toBe("menu");
+    expect(planned.plan.courses).toHaveLength(3);
+    expect(planned.plan.courses[0]!.pick?.vintageId).toBe(white.vintageId);
+    expect(planned.plan.courses[1]!.pick?.vintageId).toBe(red.vintageId);
+  });
+
+  it("answers a Dutch menu in the person's own words", async () => {
+    const planned = (await setup([chablis(), pauillac()])(
+      "Vooraf oesters, daarna lamsbout. Welke wijn per gang?",
+    ))!;
+    expect(planned.plan.kind).toBe("menu");
+    expect(planned.plan.courses.map((c) => c.dish)).toEqual(["oesters", "lamsbout"]);
+  });
+
   it("says for which course nothing suits instead of pouring something anyway", async () => {
     const planned = (await setup([pauillac()])("Oysters to start, then roast lamb."))!;
     expect(planned.plan.courses.map((c) => c.outcome)).toEqual(["none", "good"]);
@@ -238,9 +384,52 @@ describe("enough bottles for the guests", () => {
     expect(planned.plan.kind).toBe("quantity");
     expect(planned.plan.quantity).toEqual({ guests: 8, needed: 4, available: 3, short: 1 });
     // The reserved bottle is not counted, and the white is not counted for lamb.
-    expect(planned.plan.picks.map((p) => p.vintageId)).not.toContain(
-      planned.plan.picks.find((p) => p.level === "neutral")?.vintageId,
+    const white = planned.plan.picks.find(
+      (p) => p.vintageId !== a.vintageId && p.vintageId !== b.vintageId,
     );
+    expect(white).toBeUndefined();
+    expect(planned.plan.picks.map((p) => p.vintageId).sort()).toEqual(
+      [a.vintageId, b.vintageId].sort(),
+    );
+  });
+});
+
+describe("what is a question of fact stays one", () => {
+  const facts = (question: string) =>
+    createSommelierIntelligence({
+      cellar: async () => ({ items: [], bottleCount: 0 }),
+      profiles: async () => new Map(),
+      taste: async () => null,
+      offers: null,
+      buying: true,
+      experiences: true,
+      now: () => NOW,
+    }).asksEnoughFor(question);
+
+  it("guests and a dish with 'enough' or 'need' is the engines'", () => {
+    expect(facts("8 guests, roast lamb. Do I have enough bottles?")).toBe(true);
+    expect(facts("How many bottles do I need for 8 guests with roast lamb?")).toBe(true);
+    expect(facts("8 gasten, lamsbout. Heb ik genoeg wijn?")).toBe(true);
+  });
+
+  it("a count or a place is not, whatever else the question says", () => {
+    expect(facts("I have 8 guests and roast lamb. How many bottles of the Barolo do I have?")).toBe(
+      false,
+    );
+    expect(
+      facts("Where is my Barolo? 8 guests are coming for roast lamb and I want enough wine."),
+    ).toBe(false);
+    expect(facts("Waar ligt mijn Barolo? 8 gasten, ik wil genoeg wijn bij de lamsbout")).toBe(
+      false,
+    );
+    expect(facts("How many bottles do I have?")).toBe(false);
+    expect(facts("Do I have enough bottles for 8 guests?")).toBe(false);
+  });
+
+  it("a number that is not a number of guests does not make it one", () => {
+    expect(facts("600 guests, roast lamb. Do I have enough bottles?")).toBe(false);
+    expect(facts("0 guests, roast lamb. Do I have enough bottles?")).toBe(false);
+    expect(facts("Roast lamb for 2019. Do I have enough bottles?")).toBe(false);
   });
 });
 

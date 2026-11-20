@@ -199,7 +199,9 @@ test.describe("sommelier 3.0, switched on by name", () => {
     await expect(serving).toContainText(/Serve at \d+–\d+ °C\./);
     await expect(serving).toContainText("A white-wine glass.");
     // A rule of thumb is called a rule of thumb.
-    await expect(serving).toContainText(/rule of thumb|known about this exact wine/);
+    await expect(serving).toContainText(
+      "A rule of thumb for wines like this, not a fact about this bottle.",
+    );
     await expect(serving.getByRole("link", { name: /Chablis/ })).toBeVisible();
 
     await ask(page, "Oysters to start, then roast lamb, and for dessert chocolate fondant");
@@ -231,7 +233,7 @@ test.describe("sommelier 3.0, switched on by name", () => {
     await fitsTheScreen(page);
   });
 
-  test("a bottle that is not in the cellar is not served up as if it were", async ({
+  test("keeping is answered for the owned bottle; a bottle that is not in the cellar is not served up as if it were", async ({
     page,
     request,
   }) => {
@@ -243,7 +245,29 @@ test.describe("sommelier 3.0, switched on by name", () => {
     const keeping = (await planNo(page, 1)).getByTestId("plan-keeping");
     await expect(keeping.getByRole("link", { name: /Pauillac/ })).toBeVisible();
     await expect(keeping).toContainText(/Best between \d{4} and \d{4}\.|Too little is known/);
+    // What the window rests on is said: here the table for its style, not a fact about the bottle.
+    await expect(keeping).toContainText("This is an estimate for wines like it");
     expect(await audit(page)).toEqual([]);
+
+    // No Chablis in this cellar: the engines do not answer as if there were one. The question goes to the
+    // general sommelier (the test's model), and no serving card for a bottle appears.
+    const res = await fetch(`${STACK}/__test/openai`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        match: "serve my essai Chablis",
+        content: { answer: "I do not see a Chablis in your cellar.", bottle_refs: [] },
+      }),
+    });
+    expect(res.ok).toBe(true);
+    await ask(page, "At what temperature should I serve my essai Chablis?");
+    await expect(
+      page
+        .getByRole("log", { name: "Conversation" })
+        .getByText("I do not see a Chablis in your cellar."),
+    ).toBeVisible();
+    await expect(page.getByTestId("plan-serving")).toHaveCount(0);
+    await expect(page.getByTestId("plan")).toHaveCount(1);
   });
 
   test("friends: sharing taste with a friend's sommelier is off until you turn it on, and a stranger's name uses nothing", async ({

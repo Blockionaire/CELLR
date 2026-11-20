@@ -28,9 +28,9 @@ export interface CoursePlan<T> {
 }
 
 /**
- * One wine per course. Each course gets its best wine; where two courses want the same bottle, the course with
- * fewer good choices keeps it and the other takes its next wine of the same level, if it has one. A wine is
- * poured twice only when the alternative would be a worse match.
+ * One wine per course. Each course may take any wine of its best level; among all such ways the one that pours
+ * the fewest wines twice is chosen, and among those the one closest to each course's own first choice. So a wine
+ * is poured twice only when every other way would give some course a worse match.
  */
 export function planMenu<T>(
   courses: readonly FoodProfile[],
@@ -38,28 +38,48 @@ export function planMenu<T>(
   keyOf: (item: T) => string,
 ): CoursePlan<T>[] {
   const decisions = courses.map((food) => decidePairing(food, candidates, candidates.length));
-  const chosen: Array<PairingPick<T> | null> = decisions.map(() => null);
-  const taken = new Map<string, number>();
-  // Courses with the fewest wines that suit choose first.
-  const order = decisions
-    .map((d, i) => ({ i, options: d.picks.length }))
-    .sort((a, b) => a.options - b.options || a.i - b.i);
-  for (const { i } of order) {
-    const picks = decisions[i]!.picks;
-    const best = picks[0];
-    if (!best) continue;
-    const free = picks.find(
-      (p) => p.assessment.level === best.assessment.level && !taken.has(keyOf(p.item)),
-    );
-    const pick = free ?? best;
-    chosen[i] = pick;
-    taken.set(keyOf(pick.item), (taken.get(keyOf(pick.item)) ?? 0) + 1);
-  }
+  // Per course: the wines that suit it as well as its best one does (never a worse level to avoid a repeat).
+  const options = decisions.map((d) => {
+    const best = d.picks[0];
+    return best ? d.picks.filter((p) => p.assessment.level === best.assessment.level) : [];
+  });
+  // Few courses and few wines of the best level each: every way is tried, with a cap so no menu can cost much.
+  let budget = 20_000;
+  let bestCost = Infinity;
+  let bestChoice: number[] = options.map(() => 0);
+  const choice: number[] = options.map(() => 0);
+  const used = new Map<string, number>();
+  const search = (i: number, repeats: number, rank: number) => {
+    if (budget-- <= 0) return;
+    // A repeat weighs more than any sum of ranks can.
+    const cost = repeats * 1_000 + rank;
+    if (cost >= bestCost) return;
+    if (i === options.length) {
+      bestCost = cost;
+      bestChoice = [...choice];
+      return;
+    }
+    const picks = options[i]!;
+    if (picks.length === 0) return search(i + 1, repeats, rank);
+    for (let n = 0; n < picks.length; n++) {
+      const key = keyOf(picks[n]!.item);
+      const before = used.get(key) ?? 0;
+      used.set(key, before + 1);
+      choice[i] = n;
+      search(i + 1, repeats + (before > 0 ? 1 : 0), rank + n);
+      used.set(key, before);
+    }
+  };
+  search(0, 0, 0);
+  const chosen = options.map((picks, i) => picks[bestChoice[i]!] ?? null);
+  const poured = new Map<string, number>();
+  for (const pick of chosen)
+    if (pick) poured.set(keyOf(pick.item), (poured.get(keyOf(pick.item)) ?? 0) + 1);
   return courses.map((food, i) => ({
     food,
     decision: { ...decisions[i]!, picks: decisions[i]!.picks.slice(0, 3) },
     pick: chosen[i]!,
-    shared: chosen[i] !== null && (taken.get(keyOf(chosen[i]!.item)) ?? 0) > 1,
+    shared: chosen[i] !== null && (poured.get(keyOf(chosen[i]!.item)) ?? 0) > 1,
   }));
 }
 

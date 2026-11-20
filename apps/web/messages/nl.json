@@ -504,8 +504,6 @@
       "keep": {
         "window": "Op zijn best tussen {from} en {until}.",
         "unknown": "Er is te weinig bekend om een drinkvenster te geven.",
-        "estimate": "Dit is een schatting voor wijnen zoals deze, geen feit over deze fles. Bewaar hem liggend, donker en koel.",
-        "known": "Bewaar hem liggend, donker en koel.",
         "phase": {
           "young": "Hij is nog te jong.",
           "developing": "Hij komt open; hij wordt nog beter.",
@@ -513,16 +511,28 @@
           "ready": "Hij is op dronk.",
           "past": "Hij is over zijn venster: drink hem snel.",
           "unknown": "Hoe ver hij is, valt niet te zeggen."
+        },
+        "basis": {
+          "own": "Het drinkvenster dat je zelf hebt ingesteld. Bewaar hem liggend, donker en koel.",
+          "profile": "Uit het profiel van deze wijn: een schatting op basis van wat erover bekend is, geen belofte. Bewaar hem liggend, donker en koel.",
+          "style": "Dit is een schatting voor wijnen zoals deze, geen feit over deze fles. Bewaar hem liggend, donker en koel."
         }
       },
       "food": {
         "ideas": "Gerechten die erbij passen",
-        "avoid": "Liever niet bij"
+        "avoid": "Liever niet bij",
+        "basis": {
+          "appellation": "Beoordeeld op hoe zijn appellatie meestal is, niet op precies deze fles.",
+          "estimate": "Beoordeeld op streek en druif, niet op precies deze wijn.",
+          "unknown": "Over deze wijn is weinig bekend; zie dit als suggesties."
+        }
       },
       "menu": {
         "course": "Bij {dish}",
         "nothing": "Niets in je kelder past bij deze gang.",
-        "shared": "Dezelfde wijn als bij een andere gang: niets anders past zo goed."
+        "shared": "Dezelfde wijn als bij een andere gang: niets anders past zo goed.",
+        "unread": "Deze gang kon ik niet thuisbrengen, dus ik heb er geen wijn bij gekozen.",
+        "cut": "Ik heb alleen de eerste acht gangen ingedeeld."
       },
       "quantity": {
         "need": "Voor {guests, plural, one {# gast} other {# gasten}} heb je ongeveer {needed, plural, one {# fles} other {# flessen}} nodig (een halve fles per persoon).",

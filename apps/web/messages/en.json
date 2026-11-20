@@ -504,8 +504,6 @@
       "keep": {
         "window": "Best between {from} and {until}.",
         "unknown": "Too little is known to give a drinking window.",
-        "estimate": "This is an estimate for wines like it, not a fact about this bottle. Keep it lying down, dark and cool.",
-        "known": "Keep it lying down, dark and cool.",
         "phase": {
           "young": "It is still too young.",
           "developing": "It is opening up; it will get better.",
@@ -513,16 +511,28 @@
           "ready": "It is ready to drink.",
           "past": "It is past its window: drink it soon.",
           "unknown": "How far along it is cannot be said."
+        },
+        "basis": {
+          "own": "The window you set for it yourself. Keep it lying down, dark and cool.",
+          "profile": "From this wine's profile: an estimate from what is known about it, not a promise. Keep it lying down, dark and cool.",
+          "style": "This is an estimate for wines like it, not a fact about this bottle. Keep it lying down, dark and cool."
         }
       },
       "food": {
         "ideas": "Dishes that suit it",
-        "avoid": "Better not with"
+        "avoid": "Better not with",
+        "basis": {
+          "appellation": "Judged by what its appellation is usually like, not by this exact bottle.",
+          "estimate": "Judged by its region and grape, not by this exact wine.",
+          "unknown": "Little is known about this wine, so take these as suggestions."
+        }
       },
       "menu": {
         "course": "With {dish}",
         "nothing": "Nothing in your cellar suits this course.",
-        "shared": "The same wine as another course: nothing else suits as well."
+        "shared": "The same wine as another course: nothing else suits as well.",
+        "unread": "I could not make out this course, so I chose no wine for it.",
+        "cut": "I planned the first eight courses only."
       },
       "quantity": {
         "need": "For {guests, plural, one {# guest} other {# guests}} you need about {needed, plural, one {# bottle} other {# bottles}} (half a bottle each).",

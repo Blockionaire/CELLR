@@ -3,6 +3,9 @@ import {
   aboutWine,
   advance,
   askedFor,
+  asksPairing,
+  asksWhichOf,
+  cellarQuestionKind,
   isSmallTalk,
   findMentions,
   withoutMentions,
@@ -40,7 +43,7 @@ import {
   decidePairing,
   dishesFor,
   enoughFor,
-  parseCourses,
+  parseMenu,
   planMenu,
   servingAdvice,
   groupTasteScore,
@@ -212,6 +215,8 @@ const emptyPlan = (state: ConversationState): SommelierPlan => ({
   serving: [],
   keeping: [],
   quantity: null,
+  coursesCut: false,
+  dishIdeasTier: null,
   ask: null,
   state,
   friends: [],
@@ -229,10 +234,17 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
      */
     asksEnoughFor(question: string): boolean {
       const text = question.slice(0, 800);
+      const guests =
+        /\b(\d{1,4})\s*(?:guests|people|persons|of us|gasten|personen|mensen|man)\b/i.exec(text);
       return (
         deps.experiences === true &&
         askedFor(text) === "quantity" &&
-        /\b\d{1,3}\s*(?:guests|people|persons|of us|gasten|personen|mensen|man)\b/i.test(text) &&
+        // "Where is my Barolo? ...I want enough wine" asks where: that stays a question of fact.
+        cellarQuestionKind(text) !== "location" &&
+        // The same bounds as the conversation's state: a number it would not keep is not a number of guests.
+        guests !== null &&
+        Number(guests[1]) >= 1 &&
+        Number(guests[1]) <= 500 &&
         parseFood(text, FOOD).main !== null
       );
     },
@@ -277,6 +289,8 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         profiles: ReadonlyMap<string, InsightOutput>;
         taste: TasteSignals | null;
         read: Read[];
+        /** Every wine, whatever colour was wished for: a bottle asked about by name is not hidden by that wish. */
+        all: Read[];
       }> | null = null;
       const gather = () =>
         (gathered ??= (async () => {
@@ -292,24 +306,23 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
               ? tasteSignals(await deps.taste().catch(() => null))
               : null;
 
-          const read: Read[] = items
-            .filter((item) => state.wineType === null || item.type === state.wineType)
-            .map((item) => ({
-              item,
-              reading: readWine(
-                {
-                  type: item.type,
-                  name: item.wineName,
-                  region: item.region,
-                  appellation: item.appellation ?? null,
-                  countryCode: item.countryCode,
-                  profile: profileFacts(profiles.get(item.vintageId)),
-                },
-                WINE_KNOWLEDGE,
-              ),
-              free: item.count - Math.min(item.count, item.reserved?.count ?? 0),
-            }));
-          return { items, profiles, taste, read };
+          const all: Read[] = items.map((item) => ({
+            item,
+            reading: readWine(
+              {
+                type: item.type,
+                name: item.wineName,
+                region: item.region,
+                appellation: item.appellation ?? null,
+                countryCode: item.countryCode,
+                profile: profileFacts(profiles.get(item.vintageId)),
+              },
+              WINE_KNOWLEDGE,
+            ),
+            free: item.count - Math.min(item.count, item.reserved?.count ?? 0),
+          }));
+          const read = all.filter((r) => state.wineType === null || r.item.type === state.wineType);
+          return { items, profiles, taste, read, all };
         })());
 
       // The dish of this turn, or the one the conversation is about.
@@ -329,13 +342,27 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
        */
       const planExperience = async (): Promise<Planned | null> => {
         const kind = askedFor(question);
-        const courses = kind === null && !buying ? parseCourses(question, FOOD) : [];
-        if (kind === null && courses.length < 2) return null;
-        const { profiles, taste, read } = await gather();
+        const menu = kind === null && !buying ? parseMenu(question, FOOD) : null;
+        if (kind === null && menu === null) return null;
+        const { profiles, taste, read, all } = await gather();
+        // A bottle asked about by name is looked for among all the wines: an earlier wish for a colour ("which
+        // red with the lamb?") does not hide the Chablis that is asked about now.
         const owned =
           named.length === 0
             ? []
-            : read.filter((r) => named.some((k) => r.reading.keys.includes(k)));
+            : all.filter((r) => named.some((k) => r.reading.keys.includes(k)));
+        // A dish in this question and a question about what to pour with it is a pairing, whatever else is
+        // mentioned (a bottle to keep, one not to decant): the pairing below answers it, named wines first.
+        const dishSaid = said.main !== null;
+        if (
+          kind !== null &&
+          kind !== "quantity" &&
+          dishSaid &&
+          (kind === "wine-to-food" ||
+            asksPairing(question) ||
+            (owned.length >= 2 && asksWhichOf(question)))
+        )
+          return null;
         const base = { ...emptyPlan(state), friends, considered: read.length };
         const done = (plan: SommelierPlan, bottles: Read[], other: Read[]): Planned => ({
           plan: {
@@ -401,7 +428,12 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
                 from: r.item.drink.from ?? null,
                 until: r.item.drink.until ?? null,
                 phase: r.item.drink.phase,
-                reliable: r.item.drink.reliable === true,
+                basis:
+                  r.item.drink.source === "own"
+                    ? ("own" as const)
+                    : r.item.drink.source === "ai"
+                      ? ("profile" as const)
+                      : ("style" as const),
               })),
             },
             [],
@@ -421,6 +453,7 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
                 label: i.dish.label[lang],
                 pros: i.assessment.pros.slice(0, 3),
               })),
+              dishIdeasTier: wine.reading.tier,
               avoid,
             },
             [],
@@ -453,19 +486,36 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
             [],
           );
         }
-        if (courses.length >= 2) {
-          const menu = planMenu(courses.slice(0, 6), open.map(candidate), (r) => r.item.vintageId);
-          const poured = menu.flatMap((c) => (c.pick ? [c.pick.item] : []));
+        if (menu) {
+          const lang = request.locale === "nl" ? "nl" : "en";
+          const readable = menu.courses.flatMap((c) => (c.food ? [c.food] : []));
+          const planned = planMenu(readable, open.map(candidate), (r) => r.item.vintageId);
+          const poured = planned.flatMap((c) => (c.pick ? [c.pick.item] : []));
+          let n = 0;
           return done(
             {
               ...base,
               kind: "menu",
-              courses: menu.map((c) => ({
-                dish: c.food.said ?? c.food.label.en,
-                outcome: c.decision.outcome,
-                pick: c.pick ? toPick(c.pick) : null,
-                shared: c.shared,
-              })),
+              courses: menu.courses.map((course) => {
+                // A course that could not be read is said, and gets no wine: that is not "nothing suits".
+                if (!course.food)
+                  return {
+                    dish: course.said.slice(0, 120),
+                    outcome: "none" as const,
+                    pick: null,
+                    shared: false,
+                    unread: true,
+                  };
+                const c = planned[n++]!;
+                return {
+                  dish: (c.food.said ?? c.food.label[lang]).slice(0, 120),
+                  outcome: c.decision.outcome,
+                  pick: c.pick ? toPick(c.pick) : null,
+                  shared: c.shared,
+                  unread: false,
+                };
+              }),
+              coursesCut: menu.cut,
             },
             poured.filter(
               (r, i) => poured.findIndex((x) => x.item.vintageId === r.item.vintageId) === i,

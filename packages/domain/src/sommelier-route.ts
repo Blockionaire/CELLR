@@ -12,14 +12,15 @@ const PHRASES: ReadonlyArray<readonly [AskedFor, readonly string[]]> = [
   [
     "quantity",
     [
+      // "How many bottles do I have" is a count of the cellar, not this: see `NEEDS` below for "how many ... need".
       "enough bottles",
       "enough wine",
-      "how many bottles",
-      "how much wine",
+      "enough of",
       "genoeg flessen",
       "genoeg wijn",
-      "hoeveel flessen",
-      "hoeveel wijn",
+      "voldoende flessen",
+      "voldoende wijn",
+      "kom ik uit",
     ],
   ],
   [
@@ -102,11 +103,25 @@ const PHRASES: ReadonlyArray<readonly [AskedFor, readonly string[]]> = [
   ],
 ];
 
+/** "How many bottles do I need", "hoeveel wijn heb ik nodig": an amount that is needed, not one that is owned. */
+const NEEDS = /\b(?:how many|how much|hoeveel)\b.{0,60}\b(?:need|needed|nodig)\b/;
+/**
+ * A bottle that is already open: how long it lasts then is days, and has nothing to do with its drinking window.
+ * Such a question is not answered as "keeping".
+ */
+const ALREADY_OPEN =
+  /\b(?:opened|once open|after opening|open bottle|open fles|geopend|geopende|aangebroken|na openen|na het openen)\b/;
+
 /** The kind a question's wording points to, or null when the wording does not say. */
 export function askedFor(question: string): AskedFor | null {
   const text = ` ${normalizeText(question)} `;
-  for (const [kind, phrases] of PHRASES)
-    if (phrases.some((p) => text.includes(` ${p} `))) return kind;
+  for (const [kind, phrases] of PHRASES) {
+    const said =
+      phrases.some((p) => text.includes(` ${p} `)) || (kind === "quantity" && NEEDS.test(text));
+    if (!said) continue;
+    if (kind === "keeping" && ALREADY_OPEN.test(text)) return null;
+    return kind;
+  }
   return null;
 }
 
@@ -197,3 +212,19 @@ export const aboutWine = (question: string): boolean => {
   );
 };
 export const isSmallTalk = (question: string): boolean => SMALL_TALK.test(normalizeText(question));
+
+/**
+ * Whether the wording asks which wine to pour with something ("which wine with the steak", "wat schenk ik bij de
+ * lasagne"). With a dish in the same question that makes it a pairing, whatever else the question mentions: a
+ * bottle the person wants to keep, or one they do not want to decant.
+ */
+const PAIRING_ASK =
+  /\b(?:which|what|welke|welk|wat)\b.{0,24}\b(?:wine|wines|bottle|red|white|wijn|wijnen|fles|rode|witte)\b.{0,40}\b(?:with|for|bij|voor|met)\b|\bwhat (?:should|shall|do|can|could) (?:i|we) (?:open|pour|serve|drink)\b|\bwat (?:schenk|drink|open|serveer) (?:ik|we)\b|\bwat (?:zal|kan|moet) ik (?:schenken|drinken|openen|opentrekken)\b|\b(?:goes|go|pairs?) with\b|\bwat past bij\b|\bwat drinken we\b/;
+export function asksPairing(question: string): boolean {
+  return PAIRING_ASK.test(normalizeText(question));
+}
+
+/** "the Barolo or the Chablis": a choice between wines is being asked for. */
+export function asksWhichOf(question: string): boolean {
+  return /\b(?:or|of)\b/.test(normalizeText(question));
+}

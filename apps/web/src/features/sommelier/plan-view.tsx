@@ -141,12 +141,19 @@ export function PlanView({
                     )}
                   </>
                 ) : (
-                  <p className="px-1 text-small text-ink-2">{t("plan.menu.nothing")}</p>
+                  <p className="px-1 text-small text-ink-2">
+                    {t(course.unread ? "plan.menu.unread" : "plan.menu.nothing")}
+                  </p>
                 )}
               </li>
             );
           })}
         </ol>
+      )}
+      {plan.coursesCut && (
+        <p className="px-1 text-small text-ink-3" data-testid="plan-courses-cut">
+          {t("plan.menu.cut")}
+        </p>
       )}
 
       {plan.serving.map((s) => {
@@ -183,9 +190,7 @@ export function PlanView({
                   : t("plan.keep.unknown")}{" "}
                 {t(`plan.keep.phase.${k.phase}`)}
               </p>
-              <p className="text-ink-3">
-                {t(k.reliable ? "plan.keep.known" : "plan.keep.estimate")}
-              </p>
+              <p className="text-ink-3">{t(`plan.keep.basis.${k.basis}`)}</p>
             </div>
           </section>
         ) : null;
@@ -212,6 +217,11 @@ export function PlanView({
                 ))}
               </ul>
             </div>
+          )}
+          {plan.dishIdeas.length > 0 && plan.dishIdeasTier && plan.dishIdeasTier !== "exact" && (
+            <p className="px-1 text-small text-ink-3" data-testid="plan-ideas-basis">
+              {t(`plan.food.basis.${plan.dishIdeasTier}`)}
+            </p>
           )}
           {plan.avoid.length > 0 && (
             <p className="px-1 text-small text-ink-2">
