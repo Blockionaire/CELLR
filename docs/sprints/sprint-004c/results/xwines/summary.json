@@ -1,0 +1,361 @@
+{
+ "note": "Aggregates only. The per-query and per-reading files hold names from the X-Wines dataset and are kept out of the repository (Sprint 004C rule: no real external datasets in GitHub). Reproduce with scripts/catalog-tools/staging-rehearsal.sh.",
+ "benchmark": {
+  "provider_records": 100646,
+  "entries": 247,
+  "coverage": {
+   "exact": 89,
+   "ambiguous": 1,
+   "partial": 61,
+   "producer-only": 22,
+   "missing": 16
+  },
+  "coverage_sprint_004a_set": {
+   "exact": 56,
+   "ambiguous": 1,
+   "partial": 38,
+   "producer-only": 17,
+   "missing": 15
+  },
+  "search": {
+   "sprint_004a_set": {
+    "queries": 127,
+    "with_covered_record": 95,
+    "top1": 77,
+    "top3": 84,
+    "top8": 92,
+    "not_found": 3,
+    "not_found_ids": [
+     "b071",
+     "b083",
+     "b121"
+    ],
+    "not_first_ids": [
+     "b007",
+     "b009",
+     "b017",
+     "b021",
+     "b026",
+     "b047",
+     "b058",
+     "b061",
+     "b103",
+     "b105",
+     "b107",
+     "b116",
+     "b118",
+     "b122",
+     "b127"
+    ]
+   },
+   "all_positive": {
+    "queries": 189,
+    "with_covered_record": 151,
+    "top1": 129,
+    "top3": 139,
+    "top8": 147,
+    "not_found": 4,
+    "not_found_ids": [
+     "b071",
+     "b083",
+     "b121",
+     "b151"
+    ],
+    "not_first_ids": [
+     "b007",
+     "b009",
+     "b017",
+     "b021",
+     "b026",
+     "b047",
+     "b058",
+     "b061",
+     "b103",
+     "b105",
+     "b107",
+     "b116",
+     "b118",
+     "b122",
+     "b127",
+     "b134",
+     "b143",
+     "b156"
+    ]
+   },
+   "new_positive": {
+    "queries": 62,
+    "with_covered_record": 56,
+    "top1": 52,
+    "top3": 55,
+    "top8": 55,
+    "not_found": 1,
+    "not_found_ids": [
+     "b151"
+    ],
+    "not_first_ids": [
+     "b134",
+     "b143",
+     "b156"
+    ]
+   },
+   "perturbation": {
+    "queries": 32,
+    "with_covered_record": 20,
+    "top1": 16,
+    "top3": 16,
+    "top8": 17,
+    "not_found": 3,
+    "not_found_ids": [
+     "b219",
+     "b220",
+     "b221"
+    ],
+    "not_first_ids": [
+     "b218"
+    ]
+   },
+   "near_twins": {
+    "queries": 10,
+    "sibling_offered_first": []
+   },
+   "filter": {
+    "queries": 6,
+    "rows_contradicting_the_filter": 0
+   },
+   "generic": [
+    {
+     "query": "chateau",
+     "rows": 8,
+     "ms": 29.4
+    },
+    {
+     "query": "domaine",
+     "rows": 8,
+     "ms": 19.4
+    },
+    {
+     "query": "bodega",
+     "rows": 8,
+     "ms": 13.2
+    },
+    {
+     "query": "reserva",
+     "rows": 8,
+     "ms": 17.9
+    }
+   ],
+   "adversarial": {
+    "queries": 16,
+    "not_a_search": 5,
+    "errors": [],
+    "over_the_limit": 0
+   },
+   "provider_marked_verified": 0,
+   "errors": 0,
+   "queries_with_duplicate_rows": 0,
+   "empty_results": 8
+  }
+ },
+ "recognition": {
+  "covered_wines": 101,
+  "by_reading": {
+   "clean": {
+    "readings": 90,
+    "suggestion_1st": 85,
+    "suggestion_top3": 86,
+    "no_suggestion": 0,
+    "statuses": {
+     "exact_candidate": 0,
+     "ambiguous": 0,
+     "not_found": 90
+    }
+   },
+   "misread": {
+    "readings": 90,
+    "suggestion_1st": 50,
+    "suggestion_top3": 51,
+    "no_suggestion": 39,
+    "statuses": {
+     "exact_candidate": 0,
+     "ambiguous": 0,
+     "not_found": 90
+    }
+   },
+   "producer": {
+    "readings": 90,
+    "suggestion_1st": 24,
+    "suggestion_top3": 44,
+    "no_suggestion": 6,
+    "statuses": {
+     "exact_candidate": 0,
+     "ambiguous": 0,
+     "not_found": 90
+    }
+   }
+  },
+  "canonical_seeds": {
+   "wines": 5,
+   "clean_exact_canonical": 11,
+   "misread_exact_canonical": 0
+  },
+  "wrong_automatic_identities": 0,
+  "safety_violations": []
+ },
+ "quality": {
+  "rows": 100646,
+  "records": 100646,
+  "skipped": {},
+  "fatal": 0,
+  "duplicate_external_ids": 0,
+  "encoding_suspect_rows": 0,
+  "implausible_vintage_rows": 0,
+  "unmapped_types": {},
+  "empty_fields": {
+   "WineID": 0,
+   "WineName": 0,
+   "Type": 0,
+   "Elaborate": 0,
+   "Grapes": 0,
+   "Harmonize": 0,
+   "ABV": 0,
+   "Body": 0,
+   "Acidity": 0,
+   "Code": 0,
+   "Country": 0,
+   "RegionID": 0,
+   "RegionName": 0,
+   "WineryID": 0,
+   "WineryName": 0,
+   "Website": 17867,
+   "Vintages": 0
+  },
+  "unique": {
+   "producers_as_written": 30190,
+   "producers_normalised": 30161,
+   "wine_names_normalised": 59712,
+   "identities": 100481,
+   "countries": 62,
+   "regions": 2159,
+   "grapes": 777
+  },
+  "types": {
+   "red": 56162,
+   "white": 29196,
+   "sparkling": 7366,
+   "rose": 4401,
+   "dessert": 2409,
+   "fortified": 1112
+  },
+  "vintages": {
+   "listed_total": 2149993,
+   "records_without_any": 97,
+   "records_marked_nv": 6504,
+   "records_nv_only": 97,
+   "earliest": 1950,
+   "latest": 2022
+  },
+  "same_name_other_colour": 6,
+  "groups_counted": {
+   "producer_spelling_variants": {
+    "groups": 28,
+    "examples": 10
+   },
+   "producers_differing_only_by_estate_words": {
+    "groups": 500,
+    "examples": 10
+   },
+   "identical_identities": {
+    "groups": 155,
+    "records_in_them": 320,
+    "examples": 8
+   },
+   "near_identical_names_of_one_producer": {
+    "pairs": 2,
+    "examples": 15
+   }
+  },
+  "database": {
+   "provider": {
+    "id": "xwines",
+    "license": "CC0-1.0",
+    "rights_status": "unverified",
+    "search_scope": "pilot",
+    "may_store": true,
+    "may_display": true,
+    "commercial_use": false
+   },
+   "records_by_status": [
+    {
+     "status": "active",
+     "n": 100646
+    }
+   ],
+   "duplicate_provider_ids": {
+    "n": 0
+   },
+   "runs": [
+    {
+     "dataset_version": "X-Wines 1.0 (2023-01)",
+     "pilot": true,
+     "rights_status": "unverified",
+     "license": "CC0-1.0",
+     "started_at": "2026-11-20T14:09:28.555Z",
+     "finished_at": "2026-11-20T14:10:31.489Z",
+     "abandoned": null,
+     "reason": null
+    },
+    {
+     "dataset_version": "X-Wines 1.0 (2023-01)",
+     "pilot": true,
+     "rights_status": "unverified",
+     "license": "CC0-1.0",
+     "started_at": "2026-11-20T14:10:38.818Z",
+     "finished_at": "2026-11-20T14:11:54.319Z",
+     "abandoned": null,
+     "reason": null
+    },
+    {
+     "dataset_version": "rehearsal-v2",
+     "pilot": true,
+     "rights_status": "unverified",
+     "license": "CC0-1.0",
+     "started_at": "2026-11-20T14:12:02.311Z",
+     "finished_at": "2026-11-20T14:12:29.961Z",
+     "abandoned": "true",
+     "reason": "superseded by run 9282fa92-fd86-4e2e-9af0-6ffbd9100d91"
+    },
+    {
+     "dataset_version": "rehearsal-v2",
+     "pilot": true,
+     "rights_status": "unverified",
+     "license": "CC0-1.0",
+     "started_at": "2026-11-20T14:12:29.961Z",
+     "finished_at": "2026-11-20T14:13:38.265Z",
+     "abandoned": null,
+     "reason": null
+    },
+    {
+     "dataset_version": "X-Wines 1.0 (2023-01)",
+     "pilot": true,
+     "rights_status": "unverified",
+     "license": "CC0-1.0",
+     "started_at": "2026-11-20T14:13:45.071Z",
+     "finished_at": "2026-11-20T14:14:55.363Z",
+     "abandoned": null,
+     "reason": null
+    }
+   ],
+   "links": [],
+   "same_identity_as_cellr_wines": [],
+   "same_identity_in_other_providers": [],
+   "cellr_wines_written_by_imports": {
+    "n": 0
+   },
+   "canonical_wines": {
+    "n": 0
+   }
+  },
+  "seconds": 22.6,
+  "peak_rss_mb": 1371
+ }
+}
