@@ -51,3 +51,31 @@ first. With the switch off a name is the person's own text, as it always was.
 household can type anything as the region of its own wine); numbers are clamped in SQL; the function counts each
 call against the caller's own limit, since it can be called directly with a person's own token and not only by
 the app.
+
+## D-23 — An outcome is its own record, and the database decides what it is about
+
+**Decided in S7.** What came of a bottle (opened, with the dish, how the two went) is stored apart from the thumb
+on the answer, and neither is ever computed from the other. The database function, not the client, decides
+whether the answer offered the bottle and copies what the answer was. **Rejected:** a `pairing_success` flag on
+the feedback row (one click that means two things); deriving "opened" from the cellar's drink action (it would
+claim a pairing the person never said they had); storing the dish (with a small household it says what they ate).
+
+## D-24 — No cache across questions
+
+**Decided in S7.** The engines keep what they read for one question only. Measured p95 of their own work: 4.4 ms.
+A cache keyed by household would need its key to be right in every code path for ever, and would save nothing
+that is felt. The safety property (nothing of one question or household in another's answer) is tested as it
+stands. **Revisit** when a profile read or a provider call makes a question slow; then cache the pure reading of
+a wine by its own fields, never anything keyed by who asks.
+
+## D-25 — The duplicate model call (#76) stays open
+
+**Decided in S7.** The fix needs a claims table, a new client-visible status and a cleanup path. The issue's own
+condition for doing that is evidence of double sends in production, which this work did not read. The engines
+take most questions away from the model altogether, which shrinks the exposure. The query that decides it is in
+`COST_REPORT.md`.
+
+## D-26 — Outcomes are reported, not fed back automatically
+
+**Decided in S7.** No rule, order or prompt changes from outcomes or thumbs without a person looking. Self-reports
+from a few households are a signal to look at a pairing rule, not a measurement of it.

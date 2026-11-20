@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import { apiClient, arrive, audit, SOMMELIER_URL, sql, STACK } from "./helpers";
+import { expect, test, type Browser, type Page } from "@playwright/test";
+import { apiClient, arrive, audit, bearer, signIn, SOMMELIER_URL, sql, STACK } from "./helpers";
 
 /**
  * Sommelier 3.0 in a browser, on the server where its switches are NAMED (playwright.config.ts). The engines decide
@@ -341,6 +341,120 @@ test.describe("sommelier 3.0, switched on by name", () => {
   });
 });
 
+test.describe("what came of a bottle (sommelier_learning)", () => {
+  test.use({ baseURL: SOMMELIER_URL });
+
+  test("opened, with the dish, how it went: three things said apart, kept, and never a thumb", async ({
+    page,
+    request,
+  }) => {
+    const { email } = await arrive(page, "s3out");
+    const { call, token } = await apiClient(request, email);
+    await furnish(call, [PAUILLAC, CHABLIS]);
+    await page.goto("/sommelier");
+    await ask(page, "What should I open with roast lamb?");
+    const plan = await planNo(page, 1);
+    const said = plan.getByTestId("pick-outcome");
+    await expect(said).toHaveCount(1);
+    const outcomes = () =>
+      sql<{
+        with_dish: boolean | null;
+        enjoyed: string | null;
+        plan_kind: string;
+        plan_outcome: string;
+      }>(
+        `select o.with_dish, o.enjoyed, o.plan_kind, o.plan_outcome from public.sommelier_outcomes o
+           join auth.users u on u.id = o.user_id where u.email = $1`,
+        [email],
+      );
+    const thumbs = () =>
+      sql<{ n: string }>(
+        `select count(*)::text as n from public.sommelier_feedback f
+           join auth.users u on u.id = f.user_id where u.email = $1`,
+        [email],
+      );
+
+    // Nothing is asked about the dish before the bottle was opened.
+    await expect(said.getByText("With the dish?")).toHaveCount(0);
+    await said.getByRole("button", { name: "I opened it" }).click();
+    await expect(said.getByRole("button", { name: "I opened it" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect
+      .poll(outcomes)
+      .toEqual([{ with_dish: null, enjoyed: null, plan_kind: "pairing", plan_outcome: "good" }]);
+    // How it went is only asked of someone who had the two together.
+    await expect(said.getByText("How did the two go together?")).toHaveCount(0);
+    const withDish = said.getByRole("group", { name: "With the dish?" });
+    await withDish.getByRole("button", { name: "Yes" }).focus();
+    await page.keyboard.press("Enter");
+    const went = said.getByRole("group", { name: "How did the two go together?" });
+    await went.getByRole("button", { name: "So-so" }).click();
+    await expect(went.getByRole("button", { name: "So-so" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(said).toContainText("This is about the wine with the dish, not about my answer.");
+    await expect
+      .poll(outcomes)
+      .toEqual([{ with_dish: true, enjoyed: "mixed", plan_kind: "pairing", plan_outcome: "good" }]);
+    // Saying all this rated nothing.
+    expect(await thumbs()).toEqual([{ n: "0" }]);
+    await page.screenshot({ path: shot(`sommelier3-outcome-${project()}`), fullPage: true });
+    expect(await audit(page)).toEqual([]);
+    await fitsTheScreen(page);
+
+    // A thumb is its own record, and changes nothing about the bottle.
+    await page.getByRole("button", { name: "Useful", exact: true }).click();
+    await expect.poll(thumbs).toEqual([{ n: "1" }]);
+    expect(await outcomes()).toEqual([
+      { with_dish: true, enjoyed: "mixed", plan_kind: "pairing", plan_outcome: "good" },
+    ]);
+
+    // Kept with the conversation.
+    await page.reload();
+    const again = (await planNo(page, 1)).getByTestId("pick-outcome");
+    await expect(
+      again
+        .getByRole("group", { name: "How did the two go together?" })
+        .getByRole("button", { name: "So-so" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    // "Not with the dish" takes back how it went: nothing is claimed about a pairing that was not had.
+    await again
+      .getByRole("group", { name: "With the dish?" })
+      .getByRole("button", { name: "No" })
+      .click();
+    await expect
+      .poll(outcomes)
+      .toEqual([{ with_dish: false, enjoyed: null, plan_kind: "pairing", plan_outcome: "good" }]);
+    await expect(again.getByText("How did the two go together?")).toHaveCount(0);
+    // And "I did not open it" takes everything back.
+    await again.getByRole("button", { name: "I opened it" }).click();
+    await expect.poll(outcomes).toEqual([]);
+
+    // A bottle the answer never offered cannot get an outcome, whatever a client sends.
+    const offered = await sql<{ id: string; answer: { bottles: Array<{ vintageId: string }> } }>(
+      `select m.id, m.answer from public.sommelier_messages m join auth.users u on u.id = m.user_id
+        where u.email = $1 and m.role = 'assistant'`,
+      [email],
+    );
+    const cellar = (
+      await call<{ items: Array<{ vintageId: string; wineName: string }> }>("get", "/cellar")
+    ).body;
+    const chablis = cellar.items.find((i) => i.wineName === "Chablis")!.vintageId;
+    expect(offered[0]!.answer.bottles.map((b) => b.vintageId)).not.toContain(chablis);
+    // (asked as an app would, with a token, of the server where the switch is on)
+    const refused = await request.put(`${SOMMELIER_URL}/api/v1/sommelier/outcomes`, {
+      headers: bearer(token),
+      data: { messageId: offered[0]!.id, vintageId: chablis, opened: true },
+    });
+    expect(refused.status()).toBe(404);
+    expect(await outcomes()).toEqual([]);
+  });
+});
+
 test.describe("sommelier 3.0, not switched on", () => {
   // The default server: what Production and Preview are until someone names the switches.
   test("nothing of it shows, and its API is not there", async ({ page, request }) => {
@@ -358,5 +472,63 @@ test.describe("sommelier 3.0, not switched on", () => {
     // An answer came (the old sommelier's), and it is not a plan.
     await expect(page.getByTestId("answer-feedback")).toHaveCount(1);
     await expect(page.getByTestId("plan")).toHaveCount(0);
+    await expect(page.getByTestId("pick-outcome")).toHaveCount(0);
+    await call(
+      "put",
+      "/sommelier/outcomes",
+      {
+        messageId: "6f1c2b0a-1111-4111-8111-111111111111",
+        vintageId: "6f1c2b0a-2222-4222-8222-222222222222",
+        opened: true,
+      },
+      404,
+    );
+  });
+});
+
+// The admin of the local stack (playwright.config.ts: CELLR_ADMIN_USER_IDS).
+const ADMIN_ID = "00000000-0000-4000-8000-00000000ad01";
+const ADMIN_EMAIL = "feedback-admin@cellr.invalid";
+async function asAdmin(browser: Browser) {
+  await sql("insert into auth.users (id, email) values ($1, $2) on conflict do nothing", [
+    ADMIN_ID,
+    ADMIN_EMAIL,
+  ]);
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  await signIn(page, ADMIN_EMAIL);
+  return { page, close: () => context.close() };
+}
+
+test.describe("the sommelier's report (/admin/sommelier)", () => {
+  test("is a real 404 for someone who is not an admin", async ({ page }) => {
+    await arrive(page, "s3notadmin");
+    const load = await page.goto("/admin/sommelier");
+    expect(load?.status()).toBe(404);
+    await expect(page.getByText("What came of offered bottles")).toHaveCount(0);
+  });
+
+  test("shows an admin counts only, with thumbs and outcomes apart", async ({ browser }) => {
+    test.skip(
+      test.info().project.name !== "desktop",
+      "the admin is a desk tool; one run is enough",
+    );
+    const { page, close } = await asAdmin(browser);
+    try {
+      await page.goto("/admin/sommelier");
+      await expect(page.getByRole("heading", { level: 1, name: "Sommelier" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Ratings of answers" })).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "What came of offered bottles" }),
+      ).toBeVisible();
+      await expect(page.getByText("Model cost per question")).toBeVisible();
+      // No address of a person and no id of anything is on the page.
+      const text = await page.locator("#admin-main").innerText();
+      expect(text).not.toMatch(/@cellr\.invalid|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/);
+      await page.screenshot({ path: shot("admin-sommelier"), fullPage: true });
+      expect(await audit(page)).toEqual([]);
+    } finally {
+      await close();
+    }
   });
 });

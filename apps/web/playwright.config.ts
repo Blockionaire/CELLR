@@ -147,7 +147,8 @@ export default defineConfig({
       timeout: 60_000,
       env: {
         ...APP_ENV,
-        CELLR_FEATURES: "sommelier_engine,sommelier_buying,sommelier_social,sommelier_experiences",
+        CELLR_FEATURES:
+          "sommelier_engine,sommelier_buying,sommelier_social,sommelier_experiences,sommelier_learning",
       },
     },
   ],

@@ -439,24 +439,36 @@ const components = [
     name: "Sommelier conversations",
     layer: "service",
     status: "implemented",
-    summary: "Kept conversation, ratings of answers",
+    summary: "Kept conversation, ratings of answers, what came of offered bottles",
     responsibility:
-      "Keeps the general sommelier's conversation per person and household and records thumbs up/down on answers.",
-    inputs: ["Question", "Rating"],
-    outputs: ["Messages and feedback rows"],
+      "Keeps the general sommelier's conversation per person and household, records thumbs up/down on answers and, apart from those, what a person says came of a bottle an answer offered (opened, had with the dish, how the two went together).",
+    inputs: ["Question", "Rating", "Outcome of a bottle"],
+    outputs: ["Messages, feedback rows and outcome rows"],
     sources: [
       W + "server/sommelier/conversation.ts",
       W + "server/sommelier/repository.ts",
       W + "server/sommelier/types.ts",
     ],
-    routes: ["/api/v1/sommelier", "/api/v1/sommelier/conversation", "/api/v1/sommelier/feedback"],
+    routes: [
+      "/api/v1/sommelier",
+      "/api/v1/sommelier/conversation",
+      "/api/v1/sommelier/feedback",
+      "/api/v1/sommelier/outcomes",
+    ],
+    gates: [
+      {
+        name: "sommelier_learning",
+        kind: "feature",
+        note: "Saying what came of a bottle, and its route, exist only with this switch (never turned on by `all`).",
+      },
+    ],
     risks: [
       {
         id: "R-SOM-1",
         severity: "medium",
-        title: "Ratings are stored, never used",
+        title: "Ratings and outcomes are reported, not yet fed back",
         detail:
-          "sommelier_feedback is written; no code reads it back into evaluation, prompts or a model (architecture review P0: build a real quality loop).",
+          "sommelier_feedback and sommelier_outcomes are counted in the admin's report (/admin/sommelier, migration 0049). No code feeds them back into the engines' knowledge, a prompt or a model: that takes enough outcomes to mean something and a person to judge them (docs/sprints/sommelier-3-mega/progress/S7.md).",
       },
     ],
   },
@@ -953,13 +965,21 @@ const components = [
     name: "Sommelier history",
     layer: "data",
     status: "implemented",
-    summary: "Conversations, messages, ratings (purged hourly)",
+    summary: "Conversations, messages, ratings, outcomes (conversations purged hourly)",
     responsibility:
-      "The kept sommelier conversations and ratings; old conversations are purged by pg_cron.",
+      "The kept sommelier conversations, the ratings of answers and what came of offered bottles; old conversations are purged by pg_cron, ratings and outcomes stay until the account goes.",
     inputs: [],
     outputs: [],
-    sources: [M + "20261123000046_sommelier_conversations.sql"],
-    tables: ["sommelier_conversations", "sommelier_feedback", "sommelier_messages"],
+    sources: [
+      M + "20261123000046_sommelier_conversations.sql",
+      M + "20261126000049_sommelier_learning.sql",
+    ],
+    tables: [
+      "sommelier_conversations",
+      "sommelier_feedback",
+      "sommelier_messages",
+      "sommelier_outcomes",
+    ],
   },
   {
     id: "data-ops",
@@ -1704,6 +1724,7 @@ const edges: SystemEdge[] = [
     "data-write",
     "conversation reads, ratings",
     web("server/sommelier/repository.ts", '.rpc("sommelier_set_feedback"'),
+    web("server/sommelier/repository.ts", '.rpc("sommelier_set_outcome"'),
     web("server/sommelier/repository.ts", '.from("sommelier_messages")'),
   ),
   wired(
@@ -2387,7 +2408,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.3.0",
+  version: "1.4.0",
   reviewedOn: "2026-11-19",
   repository: "Blockionaire/CELLR",
   components,

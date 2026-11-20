@@ -147,3 +147,24 @@ Read-only, for allowlisted admins (`CELLR_ADMIN_USER_IDS`). It shows the figures
 - **Platform budget**: recorded usage (cost, or hold when unknown) plus outstanding holds, against
   `AI_BUDGET_DAILY_USD` / `AI_BUDGET_MONTHLY_USD`. A hold is deleted when its usage is recorded, so nothing is
   counted twice (apart from the instant between the two writes). It is an application guard, not a provider cap.
+
+## The sommelier (`/admin/sommelier`, migration 0049)
+
+Counted by `public.admin_sommelier_report(from, to)` (service role only). Counts by code: no person, household,
+wine or word.
+
+| Number                  | Definition                                                                                                                                                |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Questions               | `sommelier_question_asked` events. A browser with do-not-track sends none, so this undercounts.                                                           |
+| By the engines          | Of those, the ones whose answer was a plan of the Sommelier 3.0 engines (`engine = v3`): no model was called for them.                                    |
+| Model cost per question | Known cost of `sommelier_chat` calls ÷ all questions (the engines' free ones included). Calls of unknown cost are counted apart, never as free.           |
+| Thumbs up               | Positive ratings ÷ rated answers. **Says the answer was useful. Says nothing about the wine with the dish.**                                              |
+| Bottles opened          | Rows in `sommelier_outcomes`: a person said they opened a bottle an answer offered.                                                                       |
+| With the dish           | Of those, said to have been had with the dish the answer was about.                                                                                       |
+| Went well together      | `enjoyed = yes` ÷ those who had the wine with the dish **and** said how it went. Self-reported and sparse: a signal to look, not a measure of the engine. |
+
+A rating and an outcome are separate records. Neither is derived from the other, anywhere.
+
+Product events of the sommelier carry codes and counts only: `engine`, `source`, `kind`, `outcome`, `confidence`,
+`picks`, `set_aside`, `styles`, `asked`, `friends` (a number). `sommelier_outcome_said` carries `opened`,
+`with_dish` and `enjoyed`. Never the question, the dish, a wine, a price or a name.
