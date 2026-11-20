@@ -302,6 +302,18 @@ pnpm e2e                        # the full browser test suite against that stack
 
 The sign-in code in local mode is not emailed: `curl "http://localhost:54321/__test/otp?email=you@example.com"`.
 
+**The Smart Cellar 3D demonstration** (an isolated, disposable database with a demo cellar; production build, preview
+gates, interactive on :3200 and read-only on :3201):
+
+```bash
+bash scripts/demo/up.sh       # sign in at http://localhost:3200 as owner@demo.cellr.test, code 246810
+bash scripts/demo/down.sh     # stop; the database is gone
+```
+
+`DEMO_FIXED_OTP` (set by `up.sh`, default `246810`) makes the local fake Auth accept that code for
+`@demo.cellr.test` addresses only; it is never used outside the local stack. Details, phone access and the device
+checklist: `docs/sprints/smart-cellar-3d/SPRINT-6-ACCEPTANCE.md`.
+
 ## 8. If something goes wrong
 
 | Symptom                                                 | Likely cause                                                                     |

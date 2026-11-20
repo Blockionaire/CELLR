@@ -160,7 +160,16 @@ export async function startMockSupabase({
           return goTrueError(res, 500, "unexpected_failure", "Database error saving new user");
         }
       }
-      const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+      // The demonstration environment (scripts/demo, Smart Cellar 3D sprint 6) may fix the code for its own synthetic
+      // addresses only, so the person reviewing the demo can sign in without reading this fixture's helpers. Never for
+      // any other address, and only when the demo start script asks for it (this fixture binds to localhost anyway).
+      const fixed =
+        process.env.DEMO_FIXED_OTP &&
+        /^\d{6}$/.test(process.env.DEMO_FIXED_OTP) &&
+        email.endsWith("@demo.cellr.test")
+          ? process.env.DEMO_FIXED_OTP
+          : null;
+      const code = fixed ?? String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
       codes.set(email, { code, expires: Date.now() + 15 * 60_000 });
       return json(res, 200, {});
     }
