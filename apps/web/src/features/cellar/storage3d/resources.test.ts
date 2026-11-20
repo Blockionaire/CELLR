@@ -53,7 +53,7 @@ function everything(
     ...Object.values(kit.label),
     ...Object.values(kit.cap),
     ...[kit.shadow, kit.token, kit.dot, kit.ring],
-    ...[kit.glass, kit.paper, kit.foil, kit.shade, kit.counter, kit.marker],
+    ...[kit.glass, kit.paper, kit.foil, kit.shade, kit.counter, kit.marker, kit.target],
     // the shadow a bottle throws on a wall (sprint 2B.2): there where shadows are drawn
     ...(kit.wallShadow && kit.wallShade ? [kit.wallShadow, kit.wallShade] : []),
   ];
