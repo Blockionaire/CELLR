@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   STALE_LAYOUT_MESSAGE,
+  SMART_CELLAR_NOT_SET_UP,
+  type AdviceOccupant,
   type SmartSpot,
   STORAGE_TEMPLATES,
   STORAGE_TEMPLATE_IDS,
@@ -19,8 +21,10 @@ import {
   toStoredPlace,
   zonesForRpc,
 } from "./repository";
+import { PLACEMENT_CLOSED } from "@/lib/smart-cellar-placement-gate";
 import { createSmartCellarService, toUnitView } from "./service";
 import type {
+  AdviceBottleRow,
   MoveOutcome,
   OccupantRow,
   SwapOutcome,
@@ -62,6 +66,8 @@ function fakeRepo(
     swap?: SwapOutcome;
     /** What the bottle read answers (undefined: no such bottle for this household). */
     now?: { inCellar: boolean; spot: SmartSpot | null };
+    adviceBottle?: AdviceBottleRow;
+    adviceOccupants?: AdviceOccupant[];
   } = {},
 ) {
   const writes: Array<{ id: string; layout: LayoutWrite }> = [];
@@ -77,6 +83,9 @@ function fakeRepo(
     occupiedSpots: async () => options.spots ?? [],
     occupants: async () => options.occupants ?? [],
     bottleSpot: async (h) => (h === HOUSEHOLD.id ? (options.now ?? null) : null),
+    adviceBottle: async (h, id) =>
+      h === HOUSEHOLD.id && options.adviceBottle?.bottleId === id ? options.adviceBottle : null,
+    adviceOccupants: async (h) => (h === HOUSEHOLD.id ? (options.adviceOccupants ?? []) : []),
     moveBottle: async (_h, bottleId, from, to) => {
       moves.push({ bottleId, from, to });
       return options.move ?? { kind: "moved", to };
@@ -793,5 +802,100 @@ describe("moving and swapping bottles", () => {
         ).code,
       ).toBe(code);
     }
+  });
+});
+
+describe("placement advice (sprint 5)", () => {
+  const PLACE_ON = { open: true, canWrite: true, depth: false };
+  const BOTTLE: AdviceBottleRow = {
+    bottleId: "b",
+    inCellar: true,
+    spot: null,
+    vintageId: "v1",
+    wineId: "w1",
+    producerId: "p1",
+    type: "red",
+    year: 2015,
+  };
+  const svc = (
+    repo: SmartCellarRepository,
+    { placement = PLACE_ON, access = OPEN, advice = true } = {},
+  ) =>
+    createSmartCellarService({
+      repo,
+      household: async () => HOUSEHOLD,
+      access,
+      placement,
+      advice,
+    });
+
+  it("closed unless both the advice gate and placement are open: not found, nothing read", async () => {
+    const { repo } = fakeRepo([place()], { adviceBottle: BOTTLE });
+    expect((await fails(svc(repo, { advice: false }).advise("b", "store"))).code).toBe("NOT_FOUND");
+    expect(
+      (await fails(svc(repo, { placement: PLACEMENT_CLOSED }).advise("b", "store"))).code,
+    ).toBe("NOT_FOUND");
+  });
+
+  it("advises from the repository's facts only, and says whether placing is possible here", async () => {
+    const { repo } = fakeRepo([place()], {
+      adviceBottle: BOTTLE,
+      adviceOccupants: [
+        {
+          bottleId: "twin",
+          locationId: "p-1",
+          row: 2,
+          col: 2,
+          index: 1,
+          vintageId: "v1",
+          wineId: "w1",
+          producerId: "p1",
+          type: "red",
+        },
+      ],
+    });
+    const view = await svc(repo).advise("b", "store");
+    expect(view.status).toBe("ok");
+    expect(view.canPlace).toBe(true);
+    expect(view.recommendations[0]!.reasons).toContainEqual({
+      code: "group",
+      tier: "vintage",
+      proximity: "neighbour",
+      count: 1,
+    });
+    // a vintage wine has an estimated window: mentioned, never used
+    expect(view.caveats).toContainEqual({ code: "estimated_window_not_used" });
+    // read-only placement: advice still reads, acting on it is not possible here
+    const readOnly = await svc(repo, {
+      placement: { open: true, canWrite: false, depth: false },
+    }).advise("b", "store");
+    expect(readOnly.canPlace).toBe(false);
+    const apiReadOnly = await svc(repo, { access: { reads: true, writes: false } }).advise(
+      "b",
+      "serve",
+    );
+    expect(apiReadOnly.canPlace).toBe(false);
+  });
+
+  it("a database without the Smart Cellar step: said as 'not set up', never as an empty cellar or a closed gate", async () => {
+    const { repo } = fakeRepo([place()], { adviceBottle: BOTTLE });
+    const missing = {
+      ...repo,
+      listPlaces: async () => {
+        throw mapSmartCellarError({ code: "42703", message: 'column "template" does not exist' });
+      },
+    };
+    const e = await fails(svc(missing).advise("b", "store"));
+    expect(e.code).toBe("NOT_FOUND");
+    expect(e.message).toBe(SMART_CELLAR_NOT_SET_UP);
+    // a closed gate says nothing of the kind
+    expect((await fails(svc(repo, { advice: false }).advise("b", "store"))).message).not.toBe(
+      SMART_CELLAR_NOT_SET_UP,
+    );
+  });
+
+  it("another household's bottle, or none: not found", async () => {
+    const { repo } = fakeRepo([place()], { adviceBottle: BOTTLE });
+    expect((await fails(svc(repo).advise("someone-else", "store"))).code).toBe("NOT_FOUND");
   });
 });

@@ -4,7 +4,12 @@ import { getTranslations } from "next-intl/server";
 import { CellarScreen } from "@/features/cellar/cellar-screen";
 import { CELLAR_VIEW_COOKIE, parseViewMode } from "@/features/cellar/view-mode";
 import { getPageContext } from "@/server/context";
-import { getBuilderAccess, getPlacementAccess, isSmartCellarRendererEnabled } from "@/server/env";
+import {
+  getBuilderAccess,
+  getPlacementAccess,
+  isAdviceOpen,
+  isSmartCellarRendererEnabled,
+} from "@/server/env";
 import { servicesFor } from "@/server/services";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -23,7 +28,10 @@ export default async function CellarPage() {
       initialView={view}
       smart3d={isSmartCellarRendererEnabled()}
       builder={getBuilderAccess().open}
-      placement={(({ open, canWrite }) => ({ open, canWrite }))(getPlacementAccess())}
+      placement={{
+        ...(({ open, canWrite }) => ({ open, canWrite }))(getPlacementAccess()),
+        advice: isAdviceOpen(),
+      }}
     />
   );
 }

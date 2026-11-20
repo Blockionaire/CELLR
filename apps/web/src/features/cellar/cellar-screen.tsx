@@ -170,7 +170,7 @@ export function CellarScreen({
    * Whether bottles may be placed, moved and swapped in the new 3D view, and whether that writes here (the server's
    * decision: lib/smart-cellar-placement-gate.ts). Shown only where the new view is (smart3d).
    */
-  placement?: { open: boolean; canWrite: boolean };
+  placement?: { open: boolean; canWrite: boolean; advice?: boolean };
 }) {
   const t = useTranslations("cellar");
   const tTypes = useTranslations("wineTypes");
