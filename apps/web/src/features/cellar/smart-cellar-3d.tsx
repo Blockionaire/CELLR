@@ -15,6 +15,7 @@ import {
 import {
   ERROR_MESSAGES,
   formatVintage,
+  zoneOfRow,
   type SmartPlacementView,
   type SmartStorageUnitView,
 } from "@cellr/domain";
@@ -23,9 +24,17 @@ import { errorMessage } from "@/lib/api";
 import { Button, buttonStyles } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { Skeleton } from "@/ui/skeleton";
+import { useToast } from "@/ui/toast";
 import { EmptyState } from "@/ui/empty-state";
 import { Cellar3DView, useReducedMotion, useWebGL } from "./cellar-3d-view";
-import { useVintageDetail } from "./hooks";
+import { useRacks, useVintageDetail } from "./hooks";
+import {
+  PlacementPanel,
+  type MovableBottle,
+  type PlacementDone,
+} from "./placement/placement-panel";
+import { useSmartMove, useSmartSwap } from "./placement/placement-hooks";
+import { ZoneLegend, tempText } from "./placement/zone-legend";
 import { imageUrl } from "./label-image";
 import { useSmartCapabilities, useSmartPlacements, useSmartUnits } from "./smart-cellar-hooks";
 import { resolvedFromView, storedBottlesFrom } from "./storage3d/from-api";
@@ -34,6 +43,7 @@ import type {
   InspectionDetails,
   InspectionLabels,
 } from "./storage3d/inspectable-storage";
+import { LayoutMap } from "./storage3d/layout-map";
 import { buildModel, placeBottles, type PlacedBottle } from "./storage3d/model";
 import { labelSpecOf, selectedIn, whereOf } from "./storage3d/product-details";
 import type { ShowcaseState } from "./storage3d/showcase-machine";
@@ -97,9 +107,41 @@ const useDebugReadout = () =>
  *     existing view is shown under it so the cellar stays usable.
  * Only one 3D scene exists at any time. Nothing here writes: looking at a bottle never changes where it is.
  */
-export default function SmartCellar3D({ onShowRacks }: { onShowRacks: () => void }) {
+/** Whether bottles may be placed here (the server's decision, lib/smart-cellar-placement-gate.ts; sprint 4). */
+export interface PlacementSwitch {
+  open: boolean;
+  canWrite: boolean;
+  /** Placement advice (sprint 5, lib/smart-cellar-advice-gate.ts): read-only, only where placement is open. */
+  advice?: boolean;
+}
+
+export default function SmartCellar3D({
+  onShowRacks,
+  placement = { open: false, canWrite: false },
+  builderOpen = false,
+}: {
+  onShowRacks: () => void;
+  placement?: PlacementSwitch;
+  /** The Rack Builder may be opened (for "Edit zones"). */
+  builderOpen?: boolean;
+}) {
   const t = useTranslations("smart3d");
+  const tp = useTranslations("placement");
   const te = useTranslations();
+  const toast = useToast();
+  const move = useSmartMove();
+  const swap = useSmartSwap();
+  // Placing: the bottle being moved (or null: a spot first), and the spot ringed in the picture. Only on screen;
+  // nothing moves until the server says so.
+  const [placing, setPlacing] = useState<{ bottle: MovableBottle | null } | null>(null);
+  const [target, setTarget] = useState<{
+    unitId: string;
+    row: number;
+    col: number;
+    index: number;
+  } | null>(null);
+  // Bottles without a place, from the racks the app already reads (asked for only where placement is shown).
+  const racks = useRacks(placement.open);
   const capabilities = useSmartCapabilities(true);
   const units = useSmartUnits(true);
   const [unitId, setUnitIdState] = useState<string | null>(() => memory.unitId);
@@ -173,11 +215,83 @@ export default function SmartCellar3D({ onShowRacks }: { onShowRacks: () => void
     setSelection(null);
   };
 
+  const unplaced: MovableBottle[] = (racks.data?.unplaced ?? []).map((b) => ({
+    bottleId: b.bottleId,
+    name: `${b.producer} ${b.wineName} ${formatVintage(b.year)}`,
+    from: null,
+  }));
+  const startPlacing = (bottle: MovableBottle | null) => {
+    setPlacing({ bottle });
+    if (bottle?.from && bottle.from.locationId !== unit.id) choose(bottle.from.locationId);
+  };
+  const undoFailed = (e: unknown) =>
+    toast.show(
+      errorMessage(e, (key) => te(key), ERROR_MESSAGES),
+      { tone: "error" },
+    );
+  /** The panel is gone: focus goes back to where placing starts, not to the top of the page. */
+  const backToStart = () =>
+    requestAnimationFrame(() =>
+      document.querySelector<HTMLElement>('[data-testid="placement-start"]')?.focus(),
+    );
+  const done = (result: PlacementDone) => {
+    setPlacing(null);
+    setTarget(null);
+    backToStart();
+    const undoable = result.undoable !== false;
+    // where a moved bottle is now, in one sentence ("has no place now" for a take-off)
+    const movedText = (r: Extract<PlacementDone, { kind: "moved" }>) =>
+      r.result.to === null
+        ? tp("takenOff", { wine: r.bottle.name })
+        : tp("moved", { wine: r.bottle.name, where: r.where });
+    if (result.kind === "moved" && result.result.outcome === "already_there") {
+      // nothing was changed by this request (a repeat, or someone had put it there): nothing to undo
+      toast.show(
+        result.result.to === null
+          ? tp("alreadyOff", { wine: result.bottle.name })
+          : tp("alreadyThere", { wine: result.bottle.name, where: result.where }),
+      );
+    } else if (result.kind === "moved" && !undoable) {
+      toast.show(movedText(result));
+    } else if (result.kind === "swapped" && !undoable) {
+      toast.show(tp("swapped", { a: result.bottle.name, b: result.other.name }));
+    } else if (result.kind === "moved") {
+      const { from, to } = result.result;
+      toast.show(movedText(result), {
+        action: {
+          label: tp("undo"),
+          // back to where it was, only while it is still where this move put it
+          onClick: () =>
+            void move
+              .mutateAsync({ bottleId: result.bottle.bottleId, move: { from: to, to: from } })
+              .then(() => toast.show(tp("undone")))
+              .catch(undoFailed),
+        },
+      });
+    } else {
+      const { self, other } = result.result;
+      toast.show(tp("swapped", { a: result.bottle.name, b: result.other.name }), {
+        action: {
+          label: tp("undo"),
+          onClick: () =>
+            void swap
+              .mutateAsync({
+                bottleId: self.bottleId,
+                swap: { with: other.bottleId, expected: { self: self.spot, other: other.spot } },
+              })
+              .then(() => toast.show(tp("undone")))
+              .catch(undoFailed),
+        },
+      });
+    }
+  };
+
   return (
     <div
       className="flex flex-col gap-4"
       data-testid="smart-3d"
       data-mode="ready"
+      data-placing={placing ? "true" : "false"}
       data-unit={unit.id}
       data-unit-renderer={unit.legacy ? "legacy" : "smart"}
     >
@@ -203,25 +317,100 @@ export default function SmartCellar3D({ onShowRacks }: { onShowRacks: () => void
           selection={selection}
           onSelect={setSelection}
           onShowRacks={onShowRacks}
+          builderOpen={builderOpen}
+          zones={placement.open}
+          target={target && target.unitId === unit.id ? target : null}
+          onMove={placement.open && !placing ? (b) => startPlacing(b) : undefined}
         />
+      )}
+      {placement.open && !placing && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="placement-entry">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => startPlacing(null)}
+            data-testid="placement-start"
+          >
+            {tp("placeHere")}
+          </Button>
+        </div>
+      )}
+      {placing && (
+        <PlacementPanel
+          key={placing.bottle?.bottleId ?? "spot-first"}
+          bottle={placing.bottle}
+          units={units.data}
+          unitId={unit.id}
+          onUnit={choose}
+          unplaced={unplaced}
+          onTarget={setTarget}
+          onDone={done}
+          onCancel={() => {
+            setPlacing(null);
+            setTarget(null);
+            backToStart();
+          }}
+          canWrite={placement.canWrite}
+          advice={placement.advice === true}
+          builderHref={builderOpen ? "/cellar/builder" : null}
+        />
+      )}
+      {placement.open && !placing && unplaced.length > 0 && (
+        <section className="flex flex-col gap-2" data-testid="placement-unplaced">
+          <h2 className="text-small font-medium text-ink">
+            {tp("unplacedTitle", { count: unplaced.length })}
+          </h2>
+          <ul className="flex flex-col gap-1">
+            {unplaced.slice(0, 20).map((b) => (
+              <li
+                key={b.bottleId}
+                className="flex items-center justify-between gap-3 text-small text-ink"
+              >
+                <span className="min-w-0 truncate">{b.name}</span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => startPlacing(b)}
+                  data-bottle={b.bottleId}
+                >
+                  {tp("place")}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );
 }
 
 /** One place with a template, in the new view, with what its bottles really are. */
+const NO_ZONES: SmartStorageUnitView["zones"] = [];
+
 function SmartUnitStage({
   listed,
   selection,
   onSelect,
   onShowRacks,
+  builderOpen,
+  zones,
+  target,
+  onMove,
 }: {
   /** The place as the list of places has it: shown until its bottles are in. */
   listed: SmartStorageUnitView;
   selection: Selection | null;
   onSelect: (selection: Selection | null) => void;
   onShowRacks: () => void;
+  builderOpen: boolean;
+  /** Temperature zones in daily use (sprint 4, behind the placement gate): the legend and a bottle's zone. */
+  zones: boolean;
+  /** A spot a bottle is about to be put on: ringed in the picture. */
+  target: { row: number; col: number; index: number } | null;
+  /** Placement is on here: a bottle can be moved (from its panel, or from the flat picture). */
+  onMove: ((bottle: MovableBottle) => void) | undefined;
 }) {
+  const tp = useTranslations("placement");
   const t = useTranslations("smart3d");
   const t3 = useTranslations("cellar3d");
   const te = useTranslations();
@@ -279,6 +468,7 @@ function SmartUnitStage({
   const unitLabel = unit.label;
   const unitMeaning = unit.indexMeaning;
   const unitKnown = unit.arrangementKnown;
+  const unitZones = zones ? unit.zones : NO_ZONES;
   const detailsOf = useCallback(
     (placed: PlacedBottle): InspectionDetails | null => {
       const p = byId.get(placed.id);
@@ -301,6 +491,25 @@ function SmartUnitStage({
               ] as const,
             ]
           : []),
+        // the zone of its shelf, when the place has zones: what it is for and what it is SET to (never a reading)
+        ...(unitZones.length > 0
+          ? (() => {
+              const zone = zoneOfRow(unitZones, p.row);
+              return zone
+                ? [
+                    [
+                      t("facts.zone"),
+                      zone.targetTempC === null
+                        ? tp(`zone.${zone.purpose}`)
+                        : tp("zoneSet", {
+                            zone: tp(`zone.${zone.purpose}`),
+                            temp: tempText(locale, zone.targetTempC),
+                          }),
+                    ] as const,
+                  ]
+                : [];
+            })()
+          : []),
       ];
       return {
         label: labelSpecOf(p, from, imageUrl, mine?.backImage ?? null),
@@ -314,17 +523,49 @@ function SmartUnitStage({
           index: where.index,
         }),
         actions: (
-          <Link
-            href={`/cellar/${p.vintageId}`}
-            data-testid="smart-3d-wine-link"
-            className={buttonStyles({ variant: "primary", block: true })}
-          >
-            {t("wineDetails")}
-          </Link>
+          <div className="flex flex-col gap-2">
+            <Link
+              href={`/cellar/${p.vintageId}`}
+              data-testid="smart-3d-wine-link"
+              className={buttonStyles({ variant: "primary", block: true })}
+            >
+              {t("wineDetails")}
+            </Link>
+            {onMove && (
+              <Button
+                variant="secondary"
+                block
+                data-testid="smart-3d-move"
+                onClick={() => {
+                  handle.current?.dismiss();
+                  onMove({
+                    bottleId: p.bottleId,
+                    name: name(p),
+                    from: { locationId: p.locationId, row: p.row, col: p.col, index: p.index },
+                  });
+                }}
+              >
+                {tp("moveAction")}
+              </Button>
+            )}
+          </div>
         ),
       };
     },
-    [byId, locale, outDetail, unitLabel, unitMeaning, unitKnown, t, tTypes],
+    [
+      byId,
+      locale,
+      outDetail,
+      unitLabel,
+      unitMeaning,
+      unitKnown,
+      unitZones,
+      onMove,
+      name,
+      t,
+      tp,
+      tTypes,
+    ],
   );
 
   const labels: InspectionLabels = useMemo(
@@ -371,18 +612,73 @@ function SmartUnitStage({
     </p>
   );
 
-  if (!webgl)
+  if (!webgl) {
+    // No 3D on this device. With placement on, the flat picture of the same place stands in, with the same
+    // choices (a bottle chosen here can be moved); without it, the existing message and the racks, as before.
+    if (!onMove || !data || !model)
+      return (
+        <EmptyState
+          title={t3("noWebglTitle")}
+          body={t3("noWebglBody")}
+          action={
+            <Button size="lg" onClick={onShowRacks}>
+              {t3("showRacks")}
+            </Button>
+          }
+        />
+      );
+    const flatSelected = selectedIn(selection, unit.id, data.placements);
+    const chosen = flatSelected ? (byId.get(flatSelected) ?? null) : null;
     return (
-      <EmptyState
-        title={t3("noWebglTitle")}
-        body={t3("noWebglBody")}
-        action={
-          <Button size="lg" onClick={onShowRacks}>
-            {t3("showRacks")}
-          </Button>
-        }
-      />
+      <>
+        {meta}
+        {zones && <ZoneLegend unit={unit} occupants={data.placements} builderOpen={builderOpen} />}
+        <div data-testid="smart-3d-flat" className="rounded-card bg-raised p-3">
+          <LayoutMap
+            resolved={resolvedFromView(unit)}
+            bottles={data.placements.map((p) => ({
+              id: p.bottleId,
+              row: p.row,
+              col: p.col,
+              index: p.index,
+              type: p.type,
+              name: name(p),
+            }))}
+            selectedId={flatSelected}
+            onSelect={select}
+            label={unit.label}
+          />
+        </div>
+        {chosen && (
+          <div
+            className="flex flex-wrap items-center justify-between gap-2 rounded-card bg-surface p-3 ring-1 ring-hairline"
+            data-testid="smart-3d-flat-chosen"
+          >
+            <span className="text-small text-ink">{name(chosen)}</span>
+            <Button
+              size="sm"
+              variant="secondary"
+              data-testid="smart-3d-move"
+              onClick={() =>
+                onMove({
+                  bottleId: chosen.bottleId,
+                  name: name(chosen),
+                  from: {
+                    locationId: chosen.locationId,
+                    row: chosen.row,
+                    col: chosen.col,
+                    index: chosen.index,
+                  },
+                })
+              }
+            >
+              {tp("moveAction")}
+            </Button>
+          </div>
+        )}
+      </>
     );
+  }
 
   if (!data || !model) {
     if (query.isError && !query.isFetching)
@@ -426,6 +722,7 @@ function SmartUnitStage({
   return (
     <>
       {meta}
+      {zones && <ZoneLegend unit={unit} occupants={data.placements} builderOpen={builderOpen} />}
       {!unit.arrangementKnown && (
         <p className="text-small text-ink-2" data-testid="smart-3d-not-known">
           {t("notKnown")}
@@ -476,6 +773,7 @@ function SmartUnitStage({
                 setOutId(null);
               }}
               debug={debug}
+              target={target}
             />
           )}
           {lost && (

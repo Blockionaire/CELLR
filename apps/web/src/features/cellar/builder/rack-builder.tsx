@@ -139,9 +139,16 @@ export interface RackBuilderProps {
   access: BuilderAccess;
   /** Arrived here right after a successful save (the address said so). */
   justSaved?: boolean;
+  /** Open at this section (from the cellar's "Edit zones", sprint 4). */
+  section?: "zones" | null;
 }
 
-export function RackBuilder({ placeId, access, justSaved = false }: RackBuilderProps) {
+export function RackBuilder({
+  placeId,
+  access,
+  justSaved = false,
+  section = null,
+}: RackBuilderProps) {
   const t = useTranslations("builder");
   const te = useTranslations();
   const caps = useSmartCapabilities(true);
@@ -227,6 +234,7 @@ export function RackBuilder({ placeId, access, justSaved = false }: RackBuilderP
       canSave={canSave}
       saveBlock={saveBlock}
       justSaved={justSaved}
+      section={section}
       reload={async () => (await readPlacementsFresh(queryClient, placeId!)).unit}
     />
   );
@@ -260,7 +268,9 @@ function BuilderEditor({
   saveBlock,
   justSaved,
   reload,
+  section,
 }: {
+  section: "zones" | null;
   /**
    * Reads the place again from the server, now. Throws when that fails (no connection, signed out, an error): a
    * failure is never answered with the cached place.
@@ -338,6 +348,12 @@ function BuilderEditor({
       } else if (phase.kind !== "saving") setChangedElsewhere(true);
     }
   }
+
+  // opened at a section (the cellar's "Edit zones"): that section is brought into view once
+  useEffect(() => {
+    if (section === "zones")
+      document.getElementById("builder-zones")?.scrollIntoView({ block: "start" });
+  }, [section]);
 
   // ---- memory, and leaving with unsaved changes ----
   useEffect(() => {

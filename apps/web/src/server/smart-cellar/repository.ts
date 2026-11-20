@@ -1,5 +1,7 @@
 import "server-only";
 import {
+  sameSpot,
+  type SmartSpot,
   SMART_CELLAR_NOT_SET_UP,
   DomainError,
   type ImageRef,
@@ -301,6 +303,29 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
     return data;
   }
 
+  /** Where one bottle is now, as the person (RLS): the fallback of a move, and GET /smart-cellar/bottles/:id. */
+  const readBottleSpot: SmartCellarRepository["bottleSpot"] = async (householdId, bottleId) => {
+    const { data, error } = await db
+      .from("bottles")
+      .select("status, location_id, loc_row, loc_col, loc_index")
+      .eq("id", bottleId)
+      .eq("household_id", householdId)
+      .maybeSingle();
+    if (error) throw mapSmartCellarError(error);
+    if (!data) return null;
+    const inCellar = data.status === "in_cellar";
+    const spot: SmartSpot | null =
+      inCellar && data.location_id !== null && data.loc_row !== null && data.loc_col !== null
+        ? {
+            locationId: data.location_id,
+            row: data.loc_row,
+            col: data.loc_col,
+            index: data.loc_index,
+          }
+        : null;
+    return { inCellar, spot };
+  };
+
   return {
     async schemaStatus() {
       // Reading (0043, 0044): the columns and the zones table, asked for with zero rows.
@@ -425,6 +450,158 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
           ? [{ row: r.loc_row, col: r.loc_col, index: r.loc_index }]
           : [],
       );
+    },
+
+    async occupants(householdId, locationId) {
+      const { data, error } = await allRows((from, to) =>
+        db
+          .from("bottles")
+          .select("id, loc_row, loc_col, loc_index")
+          .eq("household_id", householdId)
+          .eq("location_id", locationId)
+          .eq("status", "in_cellar")
+          .order("id")
+          .range(from, to),
+      );
+      if (error) throw mapSmartCellarError(error);
+      return data.flatMap((r) =>
+        r.loc_row !== null && r.loc_col !== null
+          ? [{ bottleId: r.id, row: r.loc_row, col: r.loc_col, index: r.loc_index }]
+          : [],
+      );
+    },
+
+    async moveBottle(householdId, bottleId, from, to) {
+      let write = db
+        .from("bottles")
+        .update({
+          location_id: to?.locationId ?? null,
+          loc_row: to?.row ?? null,
+          loc_col: to?.col ?? null,
+          loc_index: to?.index ?? 1,
+        })
+        .eq("id", bottleId)
+        .eq("household_id", householdId)
+        .eq("status", "in_cellar");
+      // the whole spot the caller saw, every field: the update applies only while the bottle is still there
+      write = from
+        ? write
+            .eq("location_id", from.locationId)
+            .eq("loc_row", from.row)
+            .eq("loc_col", from.col)
+            .eq("loc_index", from.index)
+        : write.is("location_id", null);
+      const { data, error } = await write.select("id").maybeSingle();
+      if (error) {
+        if (error.code === "23505") return { kind: "taken" };
+        if (error.message === "slot_out_of_bounds") return { kind: "out_of_bounds" };
+        if (error.message === "slot_index_ambiguous") return { kind: "ambiguous" };
+        throw mapSmartCellarError(error);
+      }
+      // a "move" onto the spot it was seen on (and still is): applied as a no-op, answered as such
+      if (data) return sameSpot(from, to) ? { kind: "already_there" } : { kind: "moved", to };
+      // Nothing matched. Read where the bottle is now (as the person: another household's bottle is not found).
+      const now = await readBottleSpot(householdId, bottleId);
+      if (!now) return { kind: "not_found" };
+      if (!now.inCellar) return { kind: "gone" };
+      if (sameSpot(now.spot, to)) return { kind: "already_there" };
+      return { kind: "stale", now: now.spot };
+    },
+
+    async adviceBottle(householdId, bottleId) {
+      const { data, error } = await db
+        .from("bottles")
+        .select(
+          // left joins: a catalogue row this person can't read (RLS) leaves its fields empty, never drops the bottle
+          "id, status, location_id, loc_row, loc_col, loc_index, vintage_id, wine_vintages(year, wine_id, wines(wine_type, producer_id))",
+        )
+        .eq("id", bottleId)
+        .eq("household_id", householdId)
+        .maybeSingle();
+      if (error) throw mapSmartCellarError(error);
+      if (!data) return null;
+      const vintage = data.wine_vintages;
+      const wine = vintage?.wines ?? null;
+      const inCellar = data.status === "in_cellar";
+      return {
+        bottleId: data.id,
+        inCellar,
+        spot:
+          inCellar && data.location_id !== null && data.loc_row !== null && data.loc_col !== null
+            ? {
+                locationId: data.location_id,
+                row: data.loc_row,
+                col: data.loc_col,
+                index: data.loc_index,
+              }
+            : null,
+        vintageId: data.vintage_id,
+        wineId: vintage?.wine_id ?? null,
+        producerId: wine?.producer_id ?? null,
+        type: wine?.wine_type ?? null,
+        year: vintage?.year ?? null,
+      };
+    },
+
+    async adviceOccupants(householdId) {
+      // the whole household in one paged read, in a stable order (never one request per place or spot). Left joins,
+      // so occupancy is exactly the move API's (repo.occupants: the bottles table alone): a bottle whose catalogue
+      // rows this person can't read (RLS) still occupies its spot, it just has no grouping ids.
+      const { data, error } = await allRows((from, to) =>
+        db
+          .from("bottles")
+          .select(
+            "id, location_id, loc_row, loc_col, loc_index, vintage_id, wine_vintages(wine_id, wines(wine_type, producer_id))",
+          )
+          .eq("household_id", householdId)
+          .eq("status", "in_cellar")
+          .not("location_id", "is", null)
+          .order("id")
+          .range(from, to),
+      );
+      if (error) throw mapSmartCellarError(error);
+      return data.flatMap((r) =>
+        r.location_id !== null && r.loc_row !== null && r.loc_col !== null
+          ? [
+              {
+                bottleId: r.id,
+                locationId: r.location_id,
+                row: r.loc_row,
+                col: r.loc_col,
+                index: r.loc_index,
+                vintageId: r.vintage_id,
+                wineId: r.wine_vintages?.wine_id ?? null,
+                producerId: r.wine_vintages?.wines?.producer_id ?? null,
+                type: r.wine_vintages?.wines?.wine_type ?? null,
+              },
+            ]
+          : [],
+      );
+    },
+
+    bottleSpot: readBottleSpot,
+
+    async swapBottles(householdId, a, b) {
+      const { data, error } = await db.rpc("swap_bottles_v2", {
+        p_household: householdId,
+        p_a: a.bottleId,
+        p_a_location: a.spot.locationId,
+        p_a_row: a.spot.row,
+        p_a_col: a.spot.col,
+        p_a_index: a.spot.index,
+        p_b: b.bottleId,
+        p_b_location: b.spot.locationId,
+        p_b_row: b.spot.row,
+        p_b_col: b.spot.col,
+        p_b_index: b.spot.index,
+      });
+      if (error) {
+        if (error.code === "23505") return "stale";
+        throw mapSmartCellarError(error);
+      }
+      return data === "swapped" || data === "stale" || data === "gone" || data === "invalid"
+        ? data
+        : "not_found";
     },
 
     async saveLayout(householdId, id, layout) {

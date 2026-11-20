@@ -919,8 +919,20 @@ test.describe("gate ON (an internal preview)", () => {
     await openSmart(page);
     await expect(stage(page)).toHaveAttribute("data-template", "cooler_dual");
     await drawn(page);
-    // a temperature is a setting someone typed in: the 3D view shows none of them as a reading
-    await expect(view(page)).not.toContainText("°");
+    // a temperature is a setting someone typed in: the 3D view shows none of them as a reading. Since sprint 4 (on
+    // this preview the placement gate is open) the zone legend shows each zone's SET temperature, said as a setting;
+    // nowhere else is there a temperature
+    const legend = page.getByTestId("zone-legend");
+    await expect(legend).toContainText("set to 12.0 °C");
+    await expect(legend).toContainText("set to 7.5 °C");
+    await expect(legend).toContainText("Set temperatures are settings, not readings.");
+    expect(
+      await view(page).evaluate((el) => {
+        const copy = el.cloneNode(true) as HTMLElement;
+        copy.querySelectorAll('[data-testid="zone-legend"]').forEach((n) => n.remove());
+        return copy.textContent ?? "";
+      }),
+    ).not.toContain("°");
     const placements = await placementsOf(call, cooler);
     await tapBottle(page, placements[0]!.bottleId, hasTouch);
     await phase(page, "inspecting");

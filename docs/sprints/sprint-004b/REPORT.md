@@ -56,8 +56,8 @@ Source: the authors' Drive folder linked from their repository; `XWines_Full_100
 | Types                                                                                              | red 56,162 · white 29,196 · sparkling 7,366 · rosé 4,401 · dessert 2,409 · fortified 1,112 (Dessert/Port mapped)                  |
 | Vintages listed                                                                                    | 2,149,993 (1950–2022); records marked N.V. 6,504; **N.V. only 97**; no vintage at all 0 beyond those 97                           |
 | Empty fields                                                                                       | only `Website` (17,867); identity fields never empty                                                                              |
-| Producer written more than one way                                                                 | 28 groups ("Château Bel-Air" / "Chateau Bel-Air" / "Château Bel Air")                                                             |
-| Producers differing only by estate words                                                           | 500 groups ("Aurora" / "Cantine Aurora" / "Aurora Cellars"): **not merged**, they may be different estates                        |
+| Producer written more than one way                                                                 | 28 groups (accents, hyphens or spaces differ)                                                                                     |
+| Producers differing only by estate words                                                           | 500 groups (the same name with and without an estate word): **not merged**, they may be different estates                         |
 | Identical identities under different ids                                                           | 155 groups, 320 records (reported as `possible_duplicates`, never merged)                                                         |
 | Same name, other colour, one producer                                                              | 6                                                                                                                                 |
 | Near-identical names of one producer                                                               | 59 variant + 9 uncertain pairs (e.g. word order)                                                                                  |
@@ -88,8 +88,8 @@ candidates (`resolution.records`), from public sources only (filtered again, fai
 | Seeded canonical wines: clean reading → that CELLR wine       | 11 readings (5 seeds + 6 other queries for them)                                         |
 | Search per reading (pilot path)                               | p50 20 ms, p95 56 ms                                                                     |
 
-Fail cases, explained: Santa Rita "120 Cabernet Sauvignon" and Trapiche Malbec (the provider names them
-"120 Reservado …" / "Pure Malbec"; shown as producer-only alternatives); a misread **producer** often finds nothing
+Fail cases, explained: two benchmark wines whose names the provider writes differently (a range name added, or a
+different label name; shown as producer-only alternatives); a misread **producer** often finds nothing
 because the fuzzy threshold (0.6, chosen in 004A against false matches) rejects it — the person then types, as today.
 Synthetic misreadings are not real OCR; real label photos are still `REAL_LABEL_VALIDATION_PENDING`.
 
