@@ -186,6 +186,25 @@ Remaining risks, in priority order:
    - `rack-fill` had a test bug, fixed in PR #86.
 4. **The open risks in the register** (Review tab): the privileged-boundary review, unproven restore, and switches whose production values are unknown. These belong to sprints 2–4.
 
+## Release (2026-11-19)
+
+| Step                          | Result                                                                                                                                                                                                         |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PR #86 (Next.js 16.4.6)       | Synced with `main` (incl. #87); `rack-fill` fix taken from the smart-cellar session (bab5a92), own variant reverted. Required checks green on 5a42f11. Merged as c62af1a                                       |
+| PR #85 (sprint 1)             | Updated with the new `main` (3e381e6: 16.4.6 + lockfile). Required checks green; local e2e 108 passed. Merged as 07bc80c                                                                                       |
+| Full CI on `main` (07bc80c)   | Run 44532312963: all non-e2e jobs green; e2e shards 1, 2, 4, 5, 7 green; `admin-system.spec.ts` green. Shards 3 and 6 failed on two flakes (below) and were green on re-run; shard 8 has the known #79 failure |
+| `/admin/system` access        | Verified by e2e on CI and locally: non-admin gets a real 404 with nothing of the register (HTML and RSC); signed-out visitor is sent to sign-in; admin sees the full control center                            |
+| `/admin/system` in production | **Not operationally verified.** The Vercel connector has no access to the team, and the admin view needs the owner's own sign-in                                                                               |
+
+Flakes seen on `main` after the release, none reproducible locally (4/4 green each) and green on re-run:
+
+- `insights.spec.ts:113` [desktop]: axe `document-title` (no `<title>` at the moment of the audit). New; watch it. If it
+  repeats, check whether metadata streaming in Next 16.4.x leaves the title out after a client-side update.
+- `smart-cellar-3d.spec.ts:466` [phone]: the 3D stage not found after changing place. Same family as #79 (software WebGL).
+- `racks.spec.ts:371`: axe colour contrast, flaky (passed on retry).
+
+Tracked elsewhere: #77 (shard 8 capacity), #78 (OCR), #79 (3D timeouts). Evidence from today was added to each.
+
 ## Screenshots
 
 |                                         |                                                                  |

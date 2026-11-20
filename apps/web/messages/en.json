@@ -661,6 +661,13 @@
       "layoutWritesOff": "Changing a layout isn't switched on here yet.",
       "layoutStale": "This place was changed since you opened it. Reload it to see the latest version.",
       "renameOnly": "Only a new name can be saved against a version of a place.",
+      "placementStale": "That bottle was moved by someone else. Nothing was changed.",
+      "placementUnknown": "CELLR doesn't know how that place is arranged, so it can't put a bottle there.",
+      "placementBehind": "Another bottle is in front of that spot.",
+      "compartmentFull": "That compartment is full.",
+      "placementAmbiguous": "This bottle lies behind another one. It can be moved once moving at depth is switched on.",
+      "placementClosed": "Moving bottles here isn't switched on yet.",
+      "sameCompartment": "Two bottles in one compartment can't trade places: a compartment has no order.",
       "exportVersionUnavailable": "That export version isn't available."
     }
   },
@@ -953,7 +960,8 @@
       "vintage": "Vintage",
       "appellation": "Appellation",
       "inCellar": "In your cellar",
-      "inCellarCount": "{count, plural, one {# bottle of this vintage} other {# bottles of this vintage}}"
+      "inCellarCount": "{count, plural, one {# bottle of this vintage} other {# bottles of this vintage}}",
+      "zone": "Zone"
     },
     "subtitle": "{producer} · {year}",
     "wineDetails": "Wine details",
@@ -2511,5 +2519,86 @@
       "glass": "Glass door",
       "solid": "Solid door"
     }
+  },
+  "placement": {
+    "spot": {
+      "free": "Shelf {row}, spot {col}: free",
+      "taken": "Shelf {row}, spot {col}: {wine}",
+      "takenSwap": "Shelf {row}, spot {col}: {wine}. Choose to swap",
+      "current": "Shelf {row}, spot {col}: this bottle, now",
+      "behind": "Shelf {row}, spot {col}: behind another bottle, not reachable",
+      "depthOff": "Shelf {row}, spot {col}: more than one bottle per spot isn't switched on yet",
+      "unknown": "Shelf {row}, spot {col}: arrangement not known",
+      "compartment": "Compartment {row}·{col}: {used} of {capacity} bottles",
+      "compartmentFull": "Compartment {row}·{col}: full, {used} of {capacity} bottles",
+      "deep": {
+        "free": "Shelf {row}, spot {col}, place {index} from the front: free",
+        "taken": "Shelf {row}, spot {col}, place {index} from the front: {wine}",
+        "takenSwap": "Shelf {row}, spot {col}, place {index} from the front: {wine}. Choose to swap",
+        "current": "Shelf {row}, spot {col}, place {index} from the front: this bottle, now",
+        "behind": "Shelf {row}, spot {col}, place {index} from the front: behind another bottle, not reachable",
+        "depthOff": "Shelf {row}, spot {col}, place {index} from the front: more than one bottle per spot isn't switched on yet",
+        "unknown": "Shelf {row}, spot {col}, place {index} from the front: arrangement not known"
+      },
+      "compartmentDepthOff": "Compartment {row}·{col}: {used} of {capacity} bottles, can't take another yet (depth placement isn't switched on)"
+    },
+    "zone": {
+      "serving": "Serving zone",
+      "storage": "Keeping zone"
+    },
+    "legend": {
+      "free": "Free",
+      "taken": "Taken",
+      "current": "This bottle",
+      "unavailable": "Not available"
+    },
+    "where": {
+      "spot": "{unit} · shelf {row} · spot {col}",
+      "deep": "{unit} · shelf {row} · spot {col} · place {index} from the front",
+      "compartment": "{unit} · compartment {row}·{col}",
+      "none": "no place",
+      "elsewhere": "another place"
+    },
+    "zoneSet": "{zone} (set to {temp} °C)",
+    "titleMove": "Move {wine}",
+    "titlePlace": "Place a bottle",
+    "now": "Now: {where}",
+    "places": "Places",
+    "unknownPlace": "CELLR doesn't know how this place is arranged, so it doesn't offer its spots.",
+    "pickerLabel": "Spots in {unit}",
+    "zonesNote": "Coloured shelf numbers show the temperature zones. A temperature is what the cooler is set to, not a reading.",
+    "willMove": "It goes to {where}.",
+    "willSwap": "It swaps places with {wine} at {where}.",
+    "whichBottle": "Which bottle goes there?",
+    "noneUnplaced": "Every bottle already has a place.",
+    "readOnly": "Moving bottles isn't switched on here: you can look, not move.",
+    "uncertain": "We couldn't reach CELLR to check whether the bottle moved. Nothing is shown as moved. Try again in a moment.",
+    "notMoved": "The bottle didn't move: {reason}",
+    "confirmMove": "Move here",
+    "confirmPlace": "Place here",
+    "confirmSwap": "Swap",
+    "takeOff": "Take it off its place",
+    "cancel": "Cancel",
+    "moveAction": "Move",
+    "placeHere": "Place a bottle",
+    "unplacedTitle": "{count, plural, one {# bottle without a place} other {# bottles without a place}}",
+    "place": "Place",
+    "moved": "{wine} is now at {where}.",
+    "swapped": "{a} and {b} swapped places.",
+    "undo": "Undo",
+    "undone": "Moved back.",
+    "zonesTitle": "Temperature zones",
+    "zoneLine": "Zone {n} · {purpose} · {count, plural, one {shelf {from}} other {shelves {from}–{to}}}",
+    "setTo": "set to {temp} °C",
+    "notSet": "no temperature set",
+    "bottlesInZone": "{count, plural, =0 {no bottles} one {# bottle} other {# bottles}}",
+    "editZones": "Edit zones",
+    "settingNote": "Set temperatures are settings, not readings.",
+    "alreadyThere": "{wine} was already at {where}. Nothing was changed.",
+    "movedMeanwhile": "This bottle is now at {where}: it was moved meanwhile. Nothing is shown as done; choose again if it should go elsewhere.",
+    "takenOffMeanwhile": "This bottle has no place now: it was taken off meanwhile. Nothing is shown as done; choose again if it should go elsewhere.",
+    "goneMeanwhile": "This bottle is no longer in the cellar.",
+    "takenOff": "{wine} has no place now.",
+    "alreadyOff": "{wine} already had no place. Nothing was changed."
   }
 }

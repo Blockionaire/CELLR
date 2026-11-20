@@ -1,11 +1,14 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { Activity, Search, X } from "lucide-react";
+import Link from "next/link";
 import {
   COMPONENT_STATUSES,
   COMPONENT_STATUS_LABEL,
   EDGE_KINDS,
   EDGE_KIND_LABEL,
+  HEALTH_STATUSES,
+  HEALTH_STATUS_LABEL,
   SYSTEM_LAYERS,
   SYSTEM_LAYER_LABEL,
   indexGraph,
@@ -13,6 +16,8 @@ import {
   type ArchitectureView,
   type ComponentStatus,
   type EdgeKind,
+  type HealthOverlay,
+  type HealthStatus,
   type SystemLayer,
   type TraceDirection,
 } from "@cellr/domain";
@@ -29,6 +34,7 @@ import {
   type Tab,
   TABS,
 } from "./model";
+import { HEALTH_COLOR, HEALTH_GLYPH } from "./health-model";
 import { LAYER_COLOR, SystemMap } from "./system-map";
 import { ChecksView, DataView, FlowsView, RegisterView, ReviewView } from "./views";
 
@@ -36,6 +42,9 @@ import { ChecksView, DataView, FlowsView, RegisterView, ReviewView } from "./vie
  * The Architecture Control Center (/admin/system, System Intelligence sprint 1). Everything it shows comes from the
  * server-rendered `view` (the register, the repository inventory and their validation); it fetches nothing, so it
  * keeps working when any other system is down. State lives in the URL hash, so a view can be shared.
+ *
+ * Health (sprint 2) is an optional overlay, also server-rendered: `health` is one status per measured component,
+ * or why there is none. Unavailable health changes nothing on the map but one line saying so.
  */
 const TAB_LABEL: Record<Tab, string> = {
   map: "Map",
@@ -51,8 +60,29 @@ const flowNodes = (steps: readonly string[]) => [
   ...new Set(steps.flatMap((s) => s.replace(/:[^:]+$/, "").split("->"))),
 ];
 
-export function ArchitectureControlCenter({ view }: { view: ArchitectureView }) {
+const UNAVAILABLE_TEXT: Record<Extract<HealthOverlay, { state: "unavailable" }>["reason"], string> =
+  {
+    not_installed: "the health database step (migration 0047) is not applied here",
+    not_configured: "the service role is not configured on this server",
+    error: "the measurements could not be read",
+    timeout: "the measurements did not arrive in time",
+  };
+
+export function ArchitectureControlCenter({
+  view,
+  health = null,
+}: {
+  view: ArchitectureView;
+  health?: HealthOverlay | null;
+}) {
   const reg = view.registry;
+  const [showHealth, setShowHealth] = useState(true);
+  const marks = useMemo(() => {
+    if (!health || health.state !== "available" || !showHealth) return null;
+    const m = new Map<string, HealthStatus | null>();
+    for (const c of reg.components) m.set(c.id, health.components[c.id]?.status ?? null);
+    return m as ReadonlyMap<string, HealthStatus>;
+  }, [health, showHealth, reg]);
   const index = useMemo(() => indexGraph(reg.edges), [reg]);
   const layout = useMemo(() => layoutMap(reg.components, reg.edges), [reg]);
   const known = useMemo(() => new Set(reg.components.map((c) => c.id)), [reg]);
@@ -307,6 +337,7 @@ export function ArchitectureControlCenter({ view }: { view: ArchitectureView }) 
             onStatus={(s) => setFilters((f) => ({ ...f, statuses: toggle(f.statuses, s) }))}
             onReset={() => setFilters(ALL_FILTERS)}
           />
+          <HealthLine health={health} on={showHealth} onToggle={() => setShowHealth((v) => !v)} />
           {activeFlow && (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] border border-hairline bg-surface px-4 py-2 text-small">
               <span>
@@ -330,6 +361,7 @@ export function ArchitectureControlCenter({ view }: { view: ArchitectureView }) 
               emphasis={emph}
               selected={selected}
               focusRequest={focusRequest}
+              health={marks}
               onSelect={(id) => select(id)}
               className="h-[64dvh] min-h-[380px] lg:h-[calc(100dvh-400px)] lg:min-h-[520px]"
             />
@@ -337,6 +369,12 @@ export function ArchitectureControlCenter({ view }: { view: ArchitectureView }) 
               ref={panelRef}
               className="scroll-mt-4 rounded-[18px] border border-hairline bg-surface p-4 lg:h-[calc(100dvh-400px)] lg:min-h-[520px] lg:overflow-y-auto"
             >
+              {component && health?.state === "available" && (
+                <ComponentHealthLine
+                  status={health.components[component.id]?.status ?? null}
+                  reason={health.components[component.id]?.reason ?? null}
+                />
+              )}
               <DetailPanel
                 view={view}
                 index={index}
@@ -372,6 +410,127 @@ export function ArchitectureControlCenter({ view }: { view: ArchitectureView }) 
         </div>
       )}
     </div>
+  );
+}
+
+/** One line above the map: the overlay's switch and legend, or why there is no health to show. */
+function HealthLine({
+  health,
+  on,
+  onToggle,
+}: {
+  health: HealthOverlay | null;
+  on: boolean;
+  onToggle: () => void;
+}) {
+  if (!health) return null;
+  if (health.state === "unavailable")
+    return (
+      <p
+        className="flex flex-wrap items-center gap-2 rounded-[14px] border border-hairline bg-surface px-4 py-2 text-small text-ink-2"
+        data-testid="health-line"
+        data-state="unavailable"
+      >
+        <Activity size={15} aria-hidden="true" />
+        Health is not shown: {UNAVAILABLE_TEXT[health.reason]}. The map is unaffected.{" "}
+        <Link
+          href="/admin/system/health"
+          prefetch={false}
+          className="font-medium text-accent-fg underline-offset-4 hover:underline"
+        >
+          Health
+        </Link>
+      </p>
+    );
+  const measured = Object.keys(health.components).length;
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[14px] border border-hairline bg-surface px-4 py-2 text-caption"
+      data-testid="health-line"
+      data-state="available"
+    >
+      <button
+        type="button"
+        aria-pressed={on}
+        onClick={onToggle}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-medium ring-1",
+          on ? "bg-raised text-ink ring-ink-3/60" : "text-ink-2 ring-hairline",
+        )}
+      >
+        <Activity size={14} aria-hidden="true" />
+        Health overlay
+      </button>
+      <span className="text-ink-2">
+        {measured} components measured
+        {health.monitor !== "running" && (
+          <span className="font-medium text-peak-ink"> · monitor {health.monitor}</span>
+        )}
+      </span>
+      {on && (
+        <span className="flex flex-wrap items-center gap-3 text-ink-2" aria-label="Health legend">
+          {HEALTH_STATUSES.map((s) => (
+            <span key={s} className="inline-flex items-center gap-1">
+              <HealthDot status={s} />
+              {HEALTH_STATUS_LABEL[s]}
+            </span>
+          ))}
+          <span>· no badge: not measured</span>
+        </span>
+      )}
+      <Link
+        href="/admin/system/health"
+        prefetch={false}
+        className="ml-auto font-medium text-accent-fg underline-offset-4 hover:underline"
+      >
+        Health details
+      </Link>
+    </div>
+  );
+}
+
+export function HealthDot({ status }: { status: HealthStatus }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-grid h-4 w-4 place-items-center rounded-full text-[10px] font-bold leading-none text-surface"
+      style={{ background: HEALTH_COLOR[status] }}
+    >
+      {HEALTH_GLYPH[status]}
+    </span>
+  );
+}
+
+function ComponentHealthLine({
+  status,
+  reason,
+}: {
+  status: HealthStatus | null;
+  reason: string | null;
+}) {
+  return (
+    <p
+      className="mb-3 flex flex-wrap items-center gap-2 rounded-[12px] bg-raised px-3 py-2 text-caption text-ink-2"
+      data-testid="component-health"
+    >
+      {status ? (
+        <>
+          <HealthDot status={status} />
+          <span className="font-semibold text-ink">{HEALTH_STATUS_LABEL[status]}</span>
+          <span>({reason?.replaceAll("_", " ")})</span>
+          <span>· only what its checks measure</span>
+        </>
+      ) : (
+        <span>No health check measures this component.</span>
+      )}
+      <Link
+        href="/admin/system/health"
+        prefetch={false}
+        className="font-medium text-accent-fg underline-offset-4 hover:underline"
+      >
+        Checks
+      </Link>
+    </p>
   );
 }
 
