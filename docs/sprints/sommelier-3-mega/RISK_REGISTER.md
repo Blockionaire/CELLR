@@ -118,3 +118,37 @@ Run on 2026-11-20 (`AI_COMPARISON.md` §8–§9). The risk it stood for has beco
 better than today's sommelier with AI, and on unseen dishes the model offers far fewer poor bottles and better
 first bottles. Turning the engine on for everyone today would, on unfamiliar dishes, replace better advice with
 worse advice that is cheaper and faster. That is the first reason for the NO-GO in `RELEASE_PLAN.md` §7.
+
+## R-18 — A model's reading of a dish (S10)
+
+**What.** With `sommelier_dish_ai` on, a model describes dishes the parser could not place, and the engines pair
+on that description.
+**Why it matters.** A wrong reading gives a wrong pairing; a model's reading could also carry text the person
+wrote to a provider.
+**Handled.** The model sees the dish phrase only (no names, numbers, prices or words about the people, the
+occasion or the budget) and never a question that names a friend; it answers in closed lists and fixed scales,
+checked by code; it never names a wine; its reading is never "sure", so the answer never sounds certain; any
+failure is the parser's reading. Budget mode closed, its own rate limit, usage recorded.
+**Residual.** A word the lists do not know as "not food" (a health word, say) can be in the phrase and is sent;
+the whole question is sent today by V1. 2–5% of questions are misread by the parser with confidence and never
+reach the model. The value of C is not measured yet (paid run).
+
+## R-19 — Shared dish readings (S10)
+
+**What.** A reading may be given to the next person who asks about the same dish phrase.
+**Handled.** `DISH_CACHE.md`: the value has no text and is a function of the phrase alone; the key is a hash of
+every version and the phrase; TTLs; in memory only, no table.
+**Residual.** Timing tells that someone asked about the same phrase before. A store shared by every instance needs
+an HMAC key and a migration (designed, not built).
+
+## R-20 — A model's second opinion (S10, experiment)
+
+**What.** With `sommelier_second_opinion` on, a model may reorder or leave out the engine's picks in a close call.
+**Handled.** It sees styles only; its answer is checked against the refs it was given; it can only take away.
+**Residual.** It could leave out a good bottle or say "none" where something suits; whether it helps at all is
+what the paid run measures. Not to be switched on before that.
+
+## R-15, update (S10)
+
+The S10 upper bound shows that on unseen dishes a perfect dish reading does not raise "first bottle right". The
+gap to V1 with AI is in the pairing judgement; widening the dish knowledge alone will not close it.
