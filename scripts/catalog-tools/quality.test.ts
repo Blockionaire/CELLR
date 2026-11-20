@@ -49,6 +49,7 @@ describe("how one source's records relate to another's (Sprint 004C: LWIN ↔ X-
   it("by CELLR's identity rules: the same wine, a spelling, a slipped letter, and nothing to compare", () => {
     expect(out.counts).toEqual({ same: 3, variant: 1, uncertain: 1, different_cuvee: 0, none: 2 });
     expect(out.ambiguous).toBe(0);
+    expect(out.truncated).toBe(0);
     // accents and the estate statement "Grand Vin" are not a different wine; a letter off is for a person
     expect(out.examples.same.map((e) => e.left.split(":")[0])).toEqual([
       "9200001",
@@ -69,6 +70,15 @@ describe("how one source's records relate to another's (Sprint 004C: LWIN ↔ X-
       )
       .map((r) => r.external_id);
     expect(unmatched).toEqual(["9200006", "9200007"]);
+  });
+
+  it("a producer word shared by more than 500 records of the other source is reported as truncated", () => {
+    const many = Array.from({ length: 501 }, (_, i) => ({
+      ...xw[0]!,
+      external_id: `m${i}`,
+      name: `Cuvée ${i}`,
+    }));
+    expect(crossSourceMatches(lwin.slice(0, 1), many).truncated).toBe(1);
   });
 
   it("two records of one wine in the other source are counted as ambiguous, never picked between", () => {

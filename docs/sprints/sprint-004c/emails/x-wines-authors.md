@@ -25,8 +25,8 @@ Before we consider any use in the app, I want to understand where the data comes
 
 What we would use, if we use it at all:
 
-- **Identity fields only:** wine name, winery, type, country, region, grapes and listed vintages. We would never use ratings, users or label images.
-- **Shown as a suggestion, never as fact.** When a user scans a label of a wine our own catalogue does not know, the app may say "Could be this wine", name X-Wines and your article, and mark the entry as not verified by us. The user checks and corrects the details before anything is saved.
+- **Identity and a few descriptive fields only:** wine name, winery, type, country, region, grapes, listed vintages, alcohol percentage and the blend/varietal indication. We would never use ratings, users or label images.
+- **Shown as a suggestion, never as fact.** When a user scans a label of a wine our own catalogue does not know, the app may say "Could be this wine". Right there it shows a credit citing your article, the CC0 dedication with a link, that the entry is not verified by us, and that you are not affiliated with CELLR and do not endorse it. The user checks and corrects the details before anything is saved.
 - **The source stays traceable.** Every entry keeps the X-Wines id and dataset version, and we can withdraw an entry or the whole source at once.
 
 My questions:

@@ -1,6 +1,6 @@
 # E-mail to Liv-ex about LWIN: final, ready to send (Sprint 004C)
 
-**NOT SENT.** Only the owner sends this, after reading it. Nothing in it claims a permission CELLR has. It replaces the draft in `docs/sprints/wine-intelligence-mega/emails/liv-ex-lwin.md`. The questions match `SOURCE_RIGHTS_REGISTER.md` L1–L8, and questions 8–10 match the real-file checklist in `docs/sprints/sprint-004c/LWIN.md` §5.
+**NOT SENT.** Only the owner sends this, after reading it. Nothing in it claims a permission CELLR has. It replaces the draft in `docs/sprints/wine-intelligence-mega/emails/liv-ex-lwin.md`. Questions 1–7 and 11 cover `SOURCE_RIGHTS_REGISTER.md` L1–L8 (11 is L6, database rights), and questions 8–10 match the real-file checklist in `docs/sprints/sprint-004c/LWIN.md` §5.
 
 **Voor verzending (eigenaar):**
 
@@ -24,7 +24,7 @@ I would like to use the LWIN database as a reference catalogue of wine identitie
 
 **What we would not use:** prices, bids, offers, trades, indices or scores; your matching tool; any market-data API.
 
-**How it would be shown:** as a suggestion. When a user scans a label our own catalogue does not know, the app may say "Could be this wine". It credits LWIN and Liv-ex and states that the entry is not verified by us and that Liv-ex does not endorse CELLR. The user confirms or corrects the details before anything is saved.
+**How it would be shown:** as a suggestion. When a user scans a label our own catalogue does not know, the app may say "Could be this wine". Right there, it shows the attribution you require, the licence with a link, whether we changed the entry, that we have not verified it, and that Liv-ex is not affiliated with CELLR and does not endorse it. The user confirms or corrects the details before anything is saved. The wine's page keeps the same credit afterwards.
 
 Questions:
 
@@ -38,6 +38,7 @@ Questions:
 8. Is there documentation of the file's columns, its encoding and its separator?
 9. Could you confirm how the longer codes are built? Our understanding is: LWIN-11 is LWIN-7 plus a four-digit vintage, with `1000` for a wine without a single vintage; LWIN-16 is LWIN-11 plus a five-digit bottle size in millilitres (`00750`); LWIN-18 is LWIN-11 plus a two-digit pack size and then the bottle size. Is that right?
 10. How are deleted, merged or replaced codes marked in the file, and does a merged code point to the code that replaces it?
+11. Does the licence also cover any database rights in LWIN (the EU and UK sui generis database right), so that storing and showing the whole file, or substantial parts of it, is covered too?
 
 If any of these uses is not permitted under the open licence, I would appreciate knowing whether a separate agreement is possible, and on what terms.
 

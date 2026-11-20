@@ -215,6 +215,9 @@ const blockKeys = (producer: string) =>
       .map((x) => x.slice(0, 5)),
   );
 
+/** At most this many records of the other source are compared per producer word (a 100k file stays seconds). */
+const BLOCK_CAP = 500;
+
 export function crossSourceMatches(
   left: readonly ProviderRecord[],
   right: readonly ProviderRecord[],
@@ -233,6 +236,8 @@ export function crossSourceMatches(
   };
   let ambiguous = 0;
   let compared = 0;
+  // records whose producer block was cut at BLOCK_CAP: their best match may lie beyond it (reported, never hidden)
+  let truncated = 0;
   const examples: Record<CrossRelation, Array<{ left: string; right: string }>> = {
     same: [],
     variant: [],
@@ -243,8 +248,13 @@ export function crossSourceMatches(
     `${r.external_id}: ${r.producer} — ${r.name} (${r.wine_type ?? "?"})`;
   for (const l of left) {
     const candidates = new Set<number>();
-    for (const w of blockKeys(l.producer))
-      for (const i of (block.get(w) ?? []).slice(0, 500)) candidates.add(i);
+    let cut = false;
+    for (const w of blockKeys(l.producer)) {
+      const ids = block.get(w) ?? [];
+      if (ids.length > BLOCK_CAP) cut = true;
+      for (const i of ids.slice(0, BLOCK_CAP)) candidates.add(i);
+    }
+    if (cut) truncated += 1;
     let best: { rank: number; at: number } | null = null;
     let same = 0;
     for (const i of candidates) {
@@ -269,7 +279,15 @@ export function crossSourceMatches(
     if (examples[rel].length < samples)
       examples[rel].push({ left: label(l), right: label(right[best.at]!) });
   }
-  return { left: left.length, right: right.length, compared, counts, ambiguous, examples };
+  return {
+    left: left.length,
+    right: right.length,
+    compared,
+    counts,
+    ambiguous,
+    truncated,
+    examples,
+  };
 }
 
 async function dbQuality(url: string, args: Record<string, string | true>, providerId: string) {

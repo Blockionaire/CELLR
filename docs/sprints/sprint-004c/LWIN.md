@@ -70,7 +70,7 @@ Do these in order. Stop at the first "no".
    - [ ] whether the file holds levels other than LWIN-7 at all.
 5. [ ] **Status values**: the exact spelling of live and deleted (`Live`/`Deleted`?), and whether there are others (e.g. combined or merged codes, and where those point).
 6. [ ] **Colour/type vocabulary**: list every distinct `COLOUR` and `TYPE`, and map each one deliberately. Unmapped values must stay `null` and be noted, never guessed.
-7. [ ] **Countries**: every distinct `COUNTRY` is in `LWIN_COUNTRIES`, or deliberately left unmapped.
+7. [ ] **Countries**: every distinct `COUNTRY` is in the adapter's country map (`COUNTRY_CODES` in `packages/domain/src/catalog-providers.ts`), or deliberately left unmapped.
 8. [ ] Run `quality.ts --file <real> --provider lwin` locally, plus `--against` the X-Wines file. Read:
    - [ ] conflicts and duplicates (0 fatal is required);
    - [ ] skipped rows by reason;

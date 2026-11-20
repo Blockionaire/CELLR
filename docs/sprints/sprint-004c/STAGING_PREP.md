@@ -136,4 +136,4 @@ Also:
 ## 8. What staging will and will not prove
 
 - **It will prove:** Supabase's own roles and grants, PostgREST, the app against the database over the network, and real latency.
-- **It will not change the rights.** X-Wines stays `unverified` (pilot) and LWIN stays `blocked` in staging too. Nothing is shown to people until the rights are cleared in writing and production activation is approved separately (`ACTIVATION_PLAN.md`).
+- **It will not change the rights.** X-Wines stays `unverified` (pilot), and LWIN stays unverified, off and unstored in staging too (its static assessment remains `blocked`). Nothing is shown to people until the rights are cleared in writing and production activation is approved separately (`ACTIVATION_PLAN.md`).
