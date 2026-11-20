@@ -5,13 +5,13 @@
 **Voor verzending (eigenaar):**
 
 1. Vul `[Naam]` en `[e-mailadres]` in.
-2. Controleer het adres op <https://www.liv-ex.com/lwin/>. Het rechtenregister noemt `data@liv-ex.com`; stuur alleen daarheen als de LWIN-pagina dat adres (nog) noemt.
+2. **Route (gecontroleerd 2026-11-20):** Liv-ex publiceert géén e-mailadres voor LWIN of datalicenties. `data@liv-ex.com` staat op geen van de pagina's (LWIN, licentie, Contact & FAQs); gebruik het dus niet. Stuur de tekst via het contactformulier op <https://www.liv-ex.com/contact-faqs/>. Kies als onderwerp "LWIN licence: use in a consumer app" en plak de tekst hieronder. Is het formulier te kort, stuur dan de inleiding met de vragen 1–3 en 11, en vraag om een e-mailadres voor de rest. Telefonisch kan ook: Londen, +44 20 7062 8788. Bewaar een kopie van wat je verstuurt.
 3. Download niets vóór het antwoord.
 4. Leg datum en antwoord vast in `SOURCE_RIGHTS_REGISTER.md` §2.
 
 ---
 
-**To:** [the LWIN / data contact on liv-ex.com/lwin]
+**To:** Liv-ex, via the contact form at <https://www.liv-ex.com/contact-faqs/> (no LWIN e-mail address is published)
 **Subject:** LWIN database: licence scope for use in a consumer wine-cellar app
 
 Dear Liv-ex team,

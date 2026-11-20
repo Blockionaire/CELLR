@@ -5,17 +5,17 @@
 **Voor verzending (eigenaar):**
 
 1. Vul `[Naam]` en `[e-mailadres]` in. Die staan bewust niet in de repository.
-2. Neem het adres over uit de correspondentieregel van het artikel (<https://doi.org/10.3390/bdcc7010020>, "Correspondence:"). Een adres uit een ander document of uit dit repo hoort niet in het To-veld.
-3. CC aan het tweede auteursadres uit het artikel is optioneel.
+2. **Adres (gecontroleerd 2026-11-20):** de README van de dataset (<https://github.com/rogerioxavier/X-Wines>, blok "Contact:") noemt Prof. Rogério Xavier de Azambuja, `rogerio.xavier@farroupilha.ifrs.edu.br` (daar geschreven met `[at]`). De artikelpagina van MDPI was niet automatisch leesbaar (HTTP 403). Kijk daarom vóór verzending even naar de regel "Correspondence:" op <https://doi.org/10.3390/bdcc7010020>. Noemt die een ander adres, gebruik dan dat adres en zet dit adres in CC.
+3. CC aan de co-auteurs (A. Jorge Morais, Vítor Filipe) is optioneel; hun adressen staan in het artikel.
 4. Verstuur vanaf het zakelijke adres van JP Digital Ventures.
 5. Leg datum en antwoord vast in `SOURCE_RIGHTS_REGISTER.md` §1.
 
 ---
 
-**To:** [corresponding author, from the article]
+**To:** Prof. Rogério Xavier de Azambuja <rogerio.xavier@farroupilha.ifrs.edu.br>
 **Subject:** X-Wines dataset: the origin of the wine data, before any use in a product
 
-Dear Dr. de Azambuja, dear co-authors,
+Dear Prof. de Azambuja, dear co-authors,
 
 I am the founder of JP Digital Ventures, a small company in the Netherlands. We build CELLR, a wine-cellar app in which private wine drinkers record the bottles they own. CELLR is a commercial product.
 
