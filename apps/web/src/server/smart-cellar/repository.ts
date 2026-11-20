@@ -303,6 +303,29 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
     return data;
   }
 
+  /** Where one bottle is now, as the person (RLS): the fallback of a move, and GET /smart-cellar/bottles/:id. */
+  const readBottleSpot: SmartCellarRepository["bottleSpot"] = async (householdId, bottleId) => {
+    const { data, error } = await db
+      .from("bottles")
+      .select("status, location_id, loc_row, loc_col, loc_index")
+      .eq("id", bottleId)
+      .eq("household_id", householdId)
+      .maybeSingle();
+    if (error) throw mapSmartCellarError(error);
+    if (!data) return null;
+    const inCellar = data.status === "in_cellar";
+    const spot: SmartSpot | null =
+      inCellar && data.location_id !== null && data.loc_row !== null && data.loc_col !== null
+        ? {
+            locationId: data.location_id,
+            row: data.loc_row,
+            col: data.loc_col,
+            index: data.loc_index,
+          }
+        : null;
+    return { inCellar, spot };
+  };
+
   return {
     async schemaStatus() {
       // Reading (0043, 0044): the columns and the zones table, asked for with zero rows.
@@ -478,27 +501,14 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
       // a "move" onto the spot it was seen on (and still is): applied as a no-op, answered as such
       if (data) return sameSpot(from, to) ? { kind: "already_there" } : { kind: "moved", to };
       // Nothing matched. Read where the bottle is now (as the person: another household's bottle is not found).
-      const now = await db
-        .from("bottles")
-        .select("status, location_id, loc_row, loc_col, loc_index")
-        .eq("id", bottleId)
-        .eq("household_id", householdId)
-        .maybeSingle();
-      if (now.error) throw mapSmartCellarError(now.error);
-      if (!now.data) return { kind: "not_found" };
-      if (now.data.status !== "in_cellar") return { kind: "gone" };
-      const spot: SmartSpot | null =
-        now.data.location_id !== null && now.data.loc_row !== null && now.data.loc_col !== null
-          ? {
-              locationId: now.data.location_id,
-              row: now.data.loc_row,
-              col: now.data.loc_col,
-              index: now.data.loc_index,
-            }
-          : null;
-      if (sameSpot(spot, to)) return { kind: "already_there" };
-      return { kind: "stale", now: spot };
+      const now = await readBottleSpot(householdId, bottleId);
+      if (!now) return { kind: "not_found" };
+      if (!now.inCellar) return { kind: "gone" };
+      if (sameSpot(now.spot, to)) return { kind: "already_there" };
+      return { kind: "stale", now: now.spot };
     },
+
+    bottleSpot: readBottleSpot,
 
     async swapBottles(householdId, a, b) {
       const { data, error } = await db.rpc("swap_bottles_v2", {

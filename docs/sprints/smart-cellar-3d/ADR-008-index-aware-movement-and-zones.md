@@ -47,7 +47,9 @@ AND household_id AND status = 'in_cellar' AND <the whole observed source>`. Atom
 8. **Undo is a conditional move back** (or the reverse swap) from the confirmed full spots: it fails, and says so,
    when someone has moved the bottle since. An uncertain outcome (network) is followed by a fresh read before
    anything else is offered. No Undo is offered where this screen can't know its own request did the change: an
-   `already_there` answer, or an outcome established only by that fresh read.
+   `already_there` answer, or an outcome established only by that fresh read. The fresh read is of the bottle itself
+   (`GET /smart-cellar/bottles/:id`, from the database, never the cache): a bottle missing from the places looked
+   at is never taken as "not moved", and a confirmed unplaced bottle is told apart from one moved elsewhere.
 9. **Zones are read, not written, in daily use.** The place's zones (from the API) are shown on the stage (a legend), in the
    picker (tinted shelf numbers), on the target sentence and in a bottle's details ("set to 12 °C", never a reading). Editing opens
    the Rack Builder at its zones section; its one atomic layout save stays the only writer.

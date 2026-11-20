@@ -2466,6 +2466,11 @@
     "bottlesInZone": "{count, plural, =0 {no bottles} one {# bottle} other {# bottles}}",
     "editZones": "Edit zones",
     "settingNote": "Set temperatures are settings, not readings.",
-    "alreadyThere": "{wine} was already at {where}. Nothing was changed."
+    "alreadyThere": "{wine} was already at {where}. Nothing was changed.",
+    "movedMeanwhile": "This bottle is now at {where}: it was moved meanwhile. Nothing is shown as done; choose again if it should go elsewhere.",
+    "takenOffMeanwhile": "This bottle has no place now: it was taken off meanwhile. Nothing is shown as done; choose again if it should go elsewhere.",
+    "goneMeanwhile": "This bottle is no longer in the cellar.",
+    "takenOff": "{wine} has no place now.",
+    "alreadyOff": "{wine} already had no place. Nothing was changed."
   }
 }

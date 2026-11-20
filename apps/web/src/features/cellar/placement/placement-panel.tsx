@@ -18,7 +18,8 @@ import { Chip } from "@/ui/chip";
 import { Skeleton } from "@/ui/skeleton";
 import { useSmartPlacements } from "../smart-cellar-hooks";
 import { resolvedFromView } from "../storage3d/from-api";
-import { uncertain, useSmartMove, useSmartSwap, useWhereIsBottle } from "./placement-hooks";
+import { readBottleNow, uncertain, useSmartMove, useSmartSwap } from "./placement-hooks";
+import { judgeMove, judgeSwap, type Verdict } from "./reconcile";
 import { SpotPicker, type PickerChoice } from "./spot-picker";
 import { tempText } from "./zone-legend";
 
@@ -92,7 +93,6 @@ export function PlacementPanel({
   const te = useTranslations();
   const move = useSmartMove();
   const swap = useSmartSwap();
-  const whereIs = useWhereIsBottle();
   const query = useSmartPlacements(unitId);
   const unit = query.data?.unit ?? units.find((u) => u.id === unitId) ?? null;
   const placements = query.data?.placements;
@@ -193,65 +193,9 @@ export function PlacementPanel({
         onDone({ kind: "moved", bottle: who, result, where: targetText ?? "" });
       }
     } catch (e) {
-      if (uncertain(e) && choice.kind === "swap" && who.from) {
-        // the answer was lost: a swap is reported only if BOTH bottles are now on each other's spot
-        const from = who.from;
-        const places = [unit.id, from.locationId];
-        const [self, other] = await Promise.all([
-          whereIs(who.bottleId, places),
-          whereIs(choice.bottleId, places),
-        ]);
-        const on = (w: typeof self, spot: SmartSpot) =>
-          w.kind === "at" &&
-          w.spot.locationId === spot.locationId &&
-          w.spot.row === spot.row &&
-          w.spot.col === spot.col &&
-          w.spot.index === spot.index;
-        if (on(self, to) && on(other, from)) {
-          onDone({
-            kind: "swapped",
-            bottle: who,
-            other: { bottleId: choice.bottleId, name: names.get(choice.bottleId) ?? "", from: to },
-            result: {
-              self: { bottleId: who.bottleId, spot: to },
-              other: { bottleId: choice.bottleId, spot: from },
-            },
-            undoable: false,
-          });
-          return;
-        }
-        setProblem(
-          self.kind === "unknown" || other.kind === "unknown"
-            ? t("uncertain")
-            : t("notMoved", { reason: errorMessage(e, (k) => te(k), ERROR_MESSAGES) }),
-        );
-      } else if (uncertain(e) && choice.kind === "move") {
-        // the answer was lost: look before saying anything, and never claim a move that did not happen
-        const now = await whereIs(who.bottleId, [unit.id, who.from?.locationId ?? null]);
-        // a compartment's counter is the server's choice; anywhere else the whole spot must be the one asked for
-        const counters = resolved !== null && placementMeaning(resolved) === "ordinal";
-        if (
-          now.kind === "at" &&
-          now.spot.locationId === to.locationId &&
-          now.spot.row === to.row &&
-          now.spot.col === to.col &&
-          (counters || now.spot.index === to.index)
-        ) {
-          onDone({
-            kind: "moved",
-            bottle: who,
-            result: { bottleId: who.bottleId, outcome: "moved", from: who.from, to: now.spot },
-            where: targetText ?? "",
-            undoable: false,
-          });
-          return;
-        }
-        setProblem(
-          now.kind === "unknown"
-            ? t("uncertain")
-            : t("notMoved", { reason: errorMessage(e, (k) => te(k), ERROR_MESSAGES) }),
-        );
-      } else {
+      if (uncertain(e))
+        await afterLostAnswer(e, to, choice.kind === "swap" ? choice.bottleId : null);
+      else {
         setProblem(errorMessage(e, (k) => te(k), ERROR_MESSAGES));
         if (e instanceof ApiError && e.code === "CONFLICT") await catchUp();
       }
@@ -260,18 +204,96 @@ export function PlacementPanel({
     }
   }
 
+  /** Where a spot is, in words; null is "no place". */
+  const spotText = (spot: SmartSpot | null) => {
+    if (!spot) return t("where.none");
+    const u = units.find((x) => x.id === spot.locationId);
+    return u ? describe(u, spot.row, spot.col, spot.index) : t("where.elsewhere");
+  };
+
   /**
-   * After a conflict (moved by someone else, a spot just taken): where the bottle is now, read fresh, becomes its
-   * source, and the choice is cleared, so a second try is not stale again and nothing taken stays chosen.
+   * The answer to a move, swap or take-off was lost (network, 5xx): the request may or may not have applied. One
+   * fresh read per bottle, from the database (never the cache), decides what is said; see `reconcile.ts`.
+   *   done       reported, WITHOUT Undo: it can't be told that this request did it.
+   *   unchanged  "didn't move": the choice stays, and trying again is safe (the source is still the one seen).
+   *   elsewhere  someone moved it: said with where it is now, which becomes the source; the choice is cleared.
+   *   gone       no longer in the cellar.
+   *   unknown    the read failed too: the outcome is unknown, and said so. The choice stays: trying again is safe,
+   *              because the server moves a bottle only from the spot it was seen on (a repeat of a move that did
+   *              apply answers "already there").
+   */
+  async function afterLostAnswer(error: unknown, to: SmartSpot | null, swapWith: string | null) {
+    if (!who) return;
+    const from = who.from;
+    let verdict: Verdict;
+    if (swapWith && from && to) {
+      const [self, other] = await Promise.all([
+        readBottleNow(who.bottleId),
+        readBottleNow(swapWith),
+      ]);
+      verdict = judgeSwap(self, other, from, to);
+      if (verdict.kind === "done") {
+        onDone({
+          kind: "swapped",
+          bottle: who,
+          other: { bottleId: swapWith, name: names.get(swapWith) ?? "", from: to },
+          result: {
+            self: { bottleId: who.bottleId, spot: to },
+            other: { bottleId: swapWith, spot: from },
+          },
+          undoable: false,
+        });
+        return;
+      }
+    } else {
+      // a compartment's counter is the server's choice; anywhere else the whole spot must be the one asked for
+      const counters =
+        to !== null &&
+        to.locationId === unit?.id &&
+        resolved !== null &&
+        placementMeaning(resolved) === "ordinal";
+      verdict = judgeMove(await readBottleNow(who.bottleId), from, to, { counters });
+      if (verdict.kind === "done") {
+        onDone({
+          kind: "moved",
+          bottle: who,
+          result: { bottleId: who.bottleId, outcome: "moved", from, to: verdict.now },
+          where: spotText(verdict.now),
+          undoable: false,
+        });
+        return;
+      }
+    }
+    switch (verdict.kind) {
+      case "unchanged":
+        setProblem(t("notMoved", { reason: errorMessage(error, (k) => te(k), ERROR_MESSAGES) }));
+        return;
+      case "elsewhere":
+        setProblem(
+          verdict.now
+            ? t("movedMeanwhile", { where: spotText(verdict.now) })
+            : t("takenOffMeanwhile"),
+        );
+        setWho({ ...who, from: verdict.now });
+        setChoice(null);
+        return;
+      case "gone":
+        setProblem(t("goneMeanwhile"));
+        return;
+      default:
+        setProblem(t("uncertain"));
+    }
+  }
+
+  /**
+   * After a conflict (moved by someone else, a spot just taken): where the bottle is now, read from the database,
+   * becomes its source, and the choice is cleared, so a second try is not stale again and nothing taken stays chosen.
    */
   async function catchUp() {
     if (!who) return;
     setChoice(null);
-    const now = await whereIs(
-      who.bottleId,
-      units.map((u) => u.id),
-    );
-    if (now.kind === "at") setWho({ ...who, from: now.spot });
+    const now = await readBottleNow(who.bottleId);
+    if (now.ok && now.bottle.inCellar) setWho({ ...who, from: now.bottle.spot });
   }
 
   async function takeOff() {
@@ -285,7 +307,11 @@ export function PlacementPanel({
       });
       onDone({ kind: "moved", bottle: who, result, where: t("where.none") });
     } catch (e) {
-      setProblem(errorMessage(e, (k) => te(k), ERROR_MESSAGES));
+      if (uncertain(e)) await afterLostAnswer(e, null, null);
+      else {
+        setProblem(errorMessage(e, (k) => te(k), ERROR_MESSAGES));
+        if (e instanceof ApiError && e.code === "CONFLICT") await catchUp();
+      }
     } finally {
       setBusy(false);
     }

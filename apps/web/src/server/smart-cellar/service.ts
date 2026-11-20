@@ -18,6 +18,7 @@ import {
   type SmartMoveResult,
   type SmartSwap,
   type SmartSwapResult,
+  type SmartBottleSpot,
   layoutChangeProblem,
   resolveStorage,
   type LayoutChangeProblem,
@@ -242,6 +243,20 @@ export function createSmartCellarService({
      * this check and the database call still wins (last write wins under the row lock). Closing that needs the
      * revision compared inside the transaction, which is a migration (SPRINT-3-REPORT §11), not done here.
      */
+    /**
+     * Where one bottle is now, read from the database as the person (no cache anywhere): what a client asks after a
+     * move, swap or take-off whose answer it did not get. Open wherever placement is open, also read-only; another
+     * household's bottle, or none, is "not found".
+     */
+    async bottleSpot(bottleId: string): Promise<SmartBottleSpot> {
+      requireReads();
+      if (!placement.open) throw new DomainError("NOT_FOUND");
+      const { id: householdId } = await household();
+      const now = await repo.bottleSpot(householdId, bottleId);
+      if (!now) throw new DomainError("NOT_FOUND", PLACEMENT_MESSAGES.notFound);
+      return { bottleId, inCellar: now.inCellar, spot: now.spot };
+    },
+
     /** Refuses before the body is read where placement does not write here (as guardWrites does for layouts). */
     guardPlacement(): void {
       requirePlacementWrites();

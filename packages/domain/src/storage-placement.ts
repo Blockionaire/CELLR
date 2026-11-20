@@ -71,6 +71,17 @@ export interface SmartSwapResult {
   other: { bottleId: string; spot: SmartSpot };
 }
 
+/**
+ * Where ONE bottle is now, read from the database (GET /smart-cellar/bottles/:id): whether it is still in the cellar,
+ * and its whole spot, or null when it has no place. What a client checks after an outcome it could not see.
+ */
+export interface SmartBottleSpot {
+  bottleId: string;
+  inCellar: boolean;
+  /** The bottle's spot; null when it is in the cellar without a place, or no longer in the cellar. */
+  spot: SmartSpot | null;
+}
+
 export const sameSpot = (a: SmartSpot | null, b: SmartSpot | null): boolean =>
   a === null || b === null
     ? a === b

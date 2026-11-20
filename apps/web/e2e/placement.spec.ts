@@ -96,6 +96,7 @@ async function household(
     loose: loose.bottleIds,
   };
 }
+const readPath = (bottleId: string) => `/api/v1/smart-cellar/bottles/${bottleId}`;
 const movePath = (bottleId: string) => `/api/v1/smart-cellar/bottles/${bottleId}/move`;
 const swapPath = (bottleId: string) => `/api/v1/smart-cellar/bottles/${bottleId}/swap`;
 const post = (request: APIRequestContext, token: string | null, path: string, data: object) =>
@@ -114,6 +115,9 @@ test.describe("gate closed (the default)", () => {
       to: spot(rack, 3, 3),
     });
     expect(res.status()).toBe(404);
+    expect((await request.get(readPath(placed[0]!), { headers: bearer(token) })).status()).toBe(
+      404,
+    );
     expect((await spotOf(placed[0]!)).loc_row).toBe(1);
   });
 });
@@ -135,6 +139,9 @@ test.describe("gate asked for on a production build: stays CLOSED", () => {
       const res = await post(request, token, path, data);
       expect(res.status(), path).toBe(404);
     }
+    expect((await request.get(readPath(placed[0]!), { headers: bearer(token) })).status()).toBe(
+      404,
+    );
     expect(await spotOf(placed[0]!)).toMatchObject({ loc_row: 1, loc_col: 1 });
   });
 });
@@ -422,6 +429,42 @@ test.describe("the API (preview, real database)", () => {
     expect(householdId).not.toBe(theirs.householdId);
   });
 
+  test("where a bottle is now (the read after a lost answer): from the database, its whole spot or none; another household's is not found", async ({
+    page,
+    request,
+    browser,
+  }) => {
+    const { token, rack, placed, loose } = await household(page, request, "pread");
+    const read = async (id: string, t: string | null = token) =>
+      request.get(readPath(id), { headers: t ? bearer(t) : { origin: PREVIEW_URL } });
+    expect(await (await read(placed[0]!)).json()).toEqual({
+      bottleId: placed[0],
+      inCellar: true,
+      spot: spot(rack, 1, 1),
+    });
+    // no place: in the cellar, spot null (distinct from "moved elsewhere")
+    expect(await (await read(loose[0]!)).json()).toEqual({
+      bottleId: loose[0],
+      inCellar: true,
+      spot: null,
+    });
+    // moved by a direct write a moment ago: the read sees it at once (no cache in between)
+    await sql("update public.bottles set loc_row = 3, loc_col = 4 where id = $1", [placed[0]!]);
+    expect((await (await read(placed[0]!)).json()).spot).toEqual(spot(rack, 3, 4));
+    // opened: no longer in the cellar
+    await sql(
+      "update public.bottles set status = 'opened', location_id = null, loc_row = null, loc_col = null where id = $1",
+      [placed[1]!],
+    );
+    expect(await (await read(placed[1]!)).json()).toMatchObject({ inCellar: false, spot: null });
+    expect((await read(placed[0]!, null)).status()).toBe(401);
+    const otherPage = await browser.newPage({ baseURL: PREVIEW_URL });
+    const theirs = await household(otherPage, request, "pread2");
+    await otherPage.close();
+    expect((await read(theirs.placed[0]!)).status()).toBe(404);
+    expect((await read("00000000-0000-4000-8000-000000000000")).status()).toBe(404);
+  });
+
   test("the existing ways of moving are unchanged: PATCH /bottles move, the racks view", async ({
     page,
     request,
@@ -628,6 +671,8 @@ test.describe("the new cellar (preview)", () => {
     });
     await page.getByTestId("placement-confirm").click();
     await expect(page.getByText(/is now at Oak rack · shelf 3 · spot 1/)).toBeVisible();
+    // established by reading afterwards: not attributable to this request, so no Undo
+    await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
     expect(await spotOf(placed[0]!)).toMatchObject({ loc_row: 3, loc_col: 1 });
   });
 
@@ -647,8 +692,187 @@ test.describe("the new cellar (preview)", () => {
     await picker(page).locator('[data-spot="1:2:1"]').click();
     await page.getByTestId("placement-confirm").click();
     await expect(page.getByText(/swapped places/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
     expect(await spotOf(placed[0]!)).toMatchObject({ loc_row: 1, loc_col: 2 });
     expect(await spotOf(placed[1]!)).toMatchObject({ loc_row: 1, loc_col: 1 });
+  });
+
+  // ---- answers lost on the way back: the database's word decides, never a guess (final review) -------------------
+  const ROUTE = "**/api/v1/smart-cellar/bottles/*/move";
+  const READ = "**/api/v1/smart-cellar/bottles/*";
+  const noUndo = (page: Page) => expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
+
+  test("taking off: a request that never arrives is said as not moved; one whose answer is lost is said as done, without Undo", async ({
+    page,
+    request,
+  }) => {
+    await debugOn(page);
+    const { placed } = await household(page, request, "puioffnet");
+    await open3D(page);
+    await drawn(page);
+    // 1. never reaches the server: the read finds it still on its spot
+    await page.route(ROUTE, (route) => route.abort("internetdisconnected"));
+    await moveFromInspection(page, 1, 1);
+    await page.getByTestId("placement-take-off").click();
+    await expect(page.getByTestId("placement-problem")).toContainText("The bottle didn't move");
+    await expect(page.getByText(/has no place now/)).toHaveCount(0);
+    expect(await spotOf(placed[0]!)).toMatchObject({ loc_row: 1, loc_col: 1 });
+    await page.unroute(ROUTE);
+    // 2. applied, answer lost: the read finds it without a place
+    await page.route(ROUTE, async (route) => {
+      await route.fetch();
+      await route.abort("internetdisconnected");
+    });
+    await page.getByTestId("placement-take-off").click();
+    await expect(
+      page.getByText("Château Margaux Pavillon Rouge 2015 has no place now."),
+    ).toBeVisible();
+    await noUndo(page);
+    expect(await spotOf(placed[0]!)).toMatchObject({ location_id: null, loc_row: null });
+  });
+
+  test("moved to a third place by someone else while the answer was lost: said with where it is, nothing claimed, the new source", async ({
+    page,
+    request,
+  }) => {
+    await debugOn(page);
+    const { token, rack, placed } = await household(page, request, "puithird");
+    await open3D(page);
+    await drawn(page);
+    await page.route(ROUTE, async (route) => {
+      // another member moves it to a third spot first; this request then finds it stale, and its answer is lost
+      await post(request, token, movePath(placed[0]!), {
+        from: spot(rack, 1, 1),
+        to: spot(rack, 2, 4),
+      });
+      await route.fetch();
+      await route.abort("internetdisconnected");
+    });
+    await moveFromInspection(page, 1, 1);
+    await picker(page).locator('[data-spot="3:1:1"]').click();
+    await page.getByTestId("placement-confirm").click();
+    await expect(page.getByTestId("placement-problem")).toContainText(
+      "This bottle is now at Oak rack · shelf 2 · spot 4: it was moved meanwhile.",
+    );
+    await expect(page.getByText(/is now at Oak rack · shelf 3/)).toHaveCount(0);
+    await expect(page.getByTestId("placement-from")).toContainText("shelf 2 · spot 4");
+    await expect(panel(page)).toHaveAttribute("data-choice", "");
+    await noUndo(page);
+    expect(await spotOf(placed[0]!)).toMatchObject({ loc_row: 2, loc_col: 4 });
+  });
+
+  test("taken off by someone else while the answer was lost: confirmed without a place, not 'moved elsewhere' and not 'didn't move'", async ({
+    page,
+    request,
+  }) => {
+    await debugOn(page);
+    const { token, rack, placed } = await household(page, request, "puiunplaced");
+    await open3D(page);
+    await drawn(page);
+    await page.route(ROUTE, async (route) => {
+      await post(request, token, movePath(placed[0]!), { from: spot(rack, 1, 1), to: null });
+      await route.fetch();
+      await route.abort("internetdisconnected");
+    });
+    await moveFromInspection(page, 1, 1);
+    await picker(page).locator('[data-spot="3:1:1"]').click();
+    await page.getByTestId("placement-confirm").click();
+    await expect(page.getByTestId("placement-problem")).toContainText(
+      "This bottle has no place now: it was taken off meanwhile.",
+    );
+    await expect(page.getByTestId("placement-problem")).not.toContainText("didn't move");
+    await expect(page.getByTestId("placement-from")).toContainText("no place");
+    await noUndo(page);
+    expect(await spotOf(placed[0]!)).toMatchObject({ location_id: null });
+  });
+
+  test("the check fails too: the outcome is said to be unknown; trying again is safe and moves nothing twice", async ({
+    page,
+    request,
+  }) => {
+    await debugOn(page);
+    const { placed, rack } = await household(page, request, "puiunknown");
+    const before = await sql<{ n: number }>(
+      "select count(*)::int as n from public.bottles where household_id = (select household_id from public.bottles where id = $1)",
+      [placed[0]!],
+    );
+    await open3D(page);
+    await drawn(page);
+    // the move applies, its answer is lost, and so is the read that would have told
+    await page.route(ROUTE, async (route) => {
+      await route.fetch();
+      await route.abort("internetdisconnected");
+    });
+    await page.route(READ, (route) =>
+      route.request().method() === "GET" ? route.abort("internetdisconnected") : route.fallback(),
+    );
+    await moveFromInspection(page, 1, 1);
+    await picker(page).locator('[data-spot="3:1:1"]').click();
+    await page.getByTestId("placement-confirm").click();
+    await expect(page.getByTestId("placement-problem")).toContainText(
+      "We couldn't reach CELLR to check whether the bottle moved.",
+    );
+    await expect(page.getByText(/is now at/)).toHaveCount(0);
+    await noUndo(page);
+    // the choice stays, to try again
+    await expect(panel(page)).toHaveAttribute("data-choice", "move:3:1:1");
+    expect(await spotOf(placed[0]!)).toMatchObject({ location_id: rack, loc_row: 3, loc_col: 1 });
+    // the network is back: the same request again is answered "already there", changes nothing, offers no Undo
+    await page.unroute(ROUTE);
+    await page.unroute(READ);
+    await page.getByTestId("placement-confirm").click();
+    await expect(
+      page.getByText(
+        "Château Margaux Pavillon Rouge 2015 was already at Oak rack · shelf 3 · spot 1. Nothing was changed.",
+      ),
+    ).toBeVisible();
+    await noUndo(page);
+    expect(await spotOf(placed[0]!)).toMatchObject({ location_id: rack, loc_row: 3, loc_col: 1 });
+    expect(
+      await sql(
+        "select count(*)::int as n from public.bottles where location_id = $1 and loc_row = 3 and loc_col = 1",
+        [rack],
+      ),
+    ).toEqual([{ n: 1 }]);
+    expect(
+      await sql<{ n: number }>(
+        "select count(*)::int as n from public.bottles where household_id = (select household_id from public.bottles where id = $1)",
+        [placed[0]!],
+      ),
+    ).toEqual(before);
+  });
+
+  test("taking off, the check fails too: unknown; trying again answers 'already had no place' and changes nothing", async ({
+    page,
+    request,
+  }) => {
+    await debugOn(page);
+    const { placed } = await household(page, request, "puioffunknown");
+    await open3D(page);
+    await drawn(page);
+    await page.route(ROUTE, async (route) => {
+      await route.fetch();
+      await route.abort("internetdisconnected");
+    });
+    await page.route(READ, (route) =>
+      route.request().method() === "GET" ? route.abort("internetdisconnected") : route.fallback(),
+    );
+    await moveFromInspection(page, 1, 1);
+    await page.getByTestId("placement-take-off").click();
+    await expect(page.getByTestId("placement-problem")).toContainText(
+      "We couldn't reach CELLR to check whether the bottle moved.",
+    );
+    await noUndo(page);
+    await page.unroute(ROUTE);
+    await page.unroute(READ);
+    await page.getByTestId("placement-take-off").click();
+    await expect(
+      page.getByText(
+        "Château Margaux Pavillon Rouge 2015 already had no place. Nothing was changed.",
+      ),
+    ).toBeVisible();
+    await noUndo(page);
+    expect(await spotOf(placed[0]!)).toMatchObject({ location_id: null, status: "in_cellar" });
   });
 
   test("temperature zones in daily use: on the stage, in a bottle's details, a setting never a reading; none where there are none", async ({

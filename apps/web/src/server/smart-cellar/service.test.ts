@@ -60,6 +60,8 @@ function fakeRepo(
     occupants?: OccupantRow[];
     move?: MoveOutcome;
     swap?: SwapOutcome;
+    /** What the bottle read answers (undefined: no such bottle for this household). */
+    now?: { inCellar: boolean; spot: SmartSpot | null };
   } = {},
 ) {
   const writes: Array<{ id: string; layout: LayoutWrite }> = [];
@@ -74,6 +76,7 @@ function fakeRepo(
     placements: async () => options.placements ?? [],
     occupiedSpots: async () => options.spots ?? [],
     occupants: async () => options.occupants ?? [],
+    bottleSpot: async (h) => (h === HOUSEHOLD.id ? (options.now ?? null) : null),
     moveBottle: async (_h, bottleId, from, to) => {
       moves.push({ bottleId, from, to });
       return options.move ?? { kind: "moved", to };
@@ -709,6 +712,38 @@ describe("moving and swapping bottles", () => {
     ).toBeNull();
     await placementService(repo).moveBottle("b", { from: spot(P, 1, 1), to: spot("p-2", 3, 3) });
     expect(moves.map((m) => m.to?.locationId ?? null)).toEqual([null, "p-2"]);
+  });
+
+  it("where a bottle is now: read as it is (placed, without a place, gone); closed and unknown are not found", async () => {
+    const spotted = fakeRepo([place()], { now: { inCellar: true, spot: spot(P, 2, 3) } });
+    expect(await placementService(spotted.repo).bottleSpot("b")).toEqual({
+      bottleId: "b",
+      inCellar: true,
+      spot: spot(P, 2, 3),
+    });
+    const loose = fakeRepo([place()], { now: { inCellar: true, spot: null } });
+    expect((await placementService(loose.repo).bottleSpot("b")).spot).toBeNull();
+    const gone = fakeRepo([place()], { now: { inCellar: false, spot: null } });
+    expect((await placementService(gone.repo).bottleSpot("b")).inCellar).toBe(false);
+    // read-only placement still reads; a closed gate, or no such bottle here, is "not found"
+    expect(
+      (
+        await placementService(spotted.repo, {
+          open: true,
+          canWrite: false,
+          depth: false,
+        }).bottleSpot("b")
+      ).spot,
+    ).toEqual(spot(P, 2, 3));
+    const closed = createSmartCellarService({
+      repo: spotted.repo,
+      household: async () => HOUSEHOLD,
+      access: OPEN,
+    });
+    expect((await fails(closed.bottleSpot("b"))).code).toBe("NOT_FOUND");
+    expect((await fails(placementService(fakeRepo([place()]).repo).bottleSpot("x"))).code).toBe(
+      "NOT_FOUND",
+    );
   });
 
   it("swaps: full spots both ways; refused for the same bottle, inside one compartment, unknown places and depth", async () => {

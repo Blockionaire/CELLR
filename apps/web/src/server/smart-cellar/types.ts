@@ -112,6 +112,14 @@ export interface SmartCellarRepository {
     from: SmartSpot | null,
     to: SmartSpot | null,
   ): Promise<MoveOutcome>;
+  /**
+   * Where one bottle of this household is now (as the person: another household's bottle is not found, null).
+   * `spot` is null for a bottle without a place, and for one no longer in the cellar.
+   */
+  bottleSpot(
+    householdId: string,
+    bottleId: string,
+  ): Promise<{ inCellar: boolean; spot: SmartSpot | null } | null>;
   /** One call of swap_bottles_v2 (0045): both bottles on the spots the caller saw, both moved at once, or nothing. */
   swapBottles(
     householdId: string,

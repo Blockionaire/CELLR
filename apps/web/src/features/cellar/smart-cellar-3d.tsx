@@ -237,16 +237,25 @@ export default function SmartCellar3D({
     setTarget(null);
     backToStart();
     const undoable = result.undoable !== false;
+    // where a moved bottle is now, in one sentence ("has no place now" for a take-off)
+    const movedText = (r: Extract<PlacementDone, { kind: "moved" }>) =>
+      r.result.to === null
+        ? tp("takenOff", { wine: r.bottle.name })
+        : tp("moved", { wine: r.bottle.name, where: r.where });
     if (result.kind === "moved" && result.result.outcome === "already_there") {
       // nothing was changed by this request (a repeat, or someone had put it there): nothing to undo
-      toast.show(tp("alreadyThere", { wine: result.bottle.name, where: result.where }));
+      toast.show(
+        result.result.to === null
+          ? tp("alreadyOff", { wine: result.bottle.name })
+          : tp("alreadyThere", { wine: result.bottle.name, where: result.where }),
+      );
     } else if (result.kind === "moved" && !undoable) {
-      toast.show(tp("moved", { wine: result.bottle.name, where: result.where }));
+      toast.show(movedText(result));
     } else if (result.kind === "swapped" && !undoable) {
       toast.show(tp("swapped", { a: result.bottle.name, b: result.other.name }));
     } else if (result.kind === "moved") {
       const { from, to } = result.result;
-      toast.show(tp("moved", { wine: result.bottle.name, where: result.where }), {
+      toast.show(movedText(result), {
         action: {
           label: tp("undo"),
           // back to where it was, only while it is still where this move put it

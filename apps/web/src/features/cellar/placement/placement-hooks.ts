@@ -1,16 +1,16 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import type {
+  SmartBottleSpot,
   SmartMove,
   SmartMoveResult,
-  SmartSpot,
   SmartSwap,
   SmartSwapResult,
 } from "@cellr/domain";
 import { ApiError, api } from "@/lib/api";
 import { useRefreshCellar } from "../hooks";
-import { readPlacementsFresh } from "../smart-cellar-hooks";
+import type { BottleRead } from "./reconcile";
 
 /**
  * Placing, moving and swapping bottles through the Smart Cellar API (sprint 4). Every call sends the whole spot the
@@ -41,29 +41,17 @@ export const uncertain = (error: unknown): boolean =>
   error instanceof ApiError && (error.code === "NETWORK" || error.code === "INTERNAL");
 
 /**
- * Where a bottle is NOW, read fresh from the server, looked for in the places named (the source and the target of
- * a move whose answer was lost). "unplaced" means: in none of them and the source was "no place"; "elsewhere": in
- * none of them otherwise; "unknown": the read itself failed. Never answered from the cache.
+ * Where ONE bottle is now, read from the database (GET /smart-cellar/bottles/:id: as the person, row-level security,
+ * every API answer `no-store`). Deliberately NOT a query: nothing is kept, so a cached answer can never stand in as
+ * proof that a bottle moved. A failed read is `{ ok: false }`, and the caller says the outcome is unknown.
  */
-export function useWhereIsBottle() {
-  const queryClient = useQueryClient();
-  return async (
-    bottleId: string,
-    places: ReadonlyArray<string | null>,
-  ): Promise<{ kind: "at"; spot: SmartSpot } | { kind: "elsewhere" | "unknown" }> => {
-    try {
-      for (const id of new Set(places.filter((p): p is string => p !== null))) {
-        const fresh = await readPlacementsFresh(queryClient, id);
-        const p = fresh.placements.find((x) => x.bottleId === bottleId);
-        if (p)
-          return {
-            kind: "at",
-            spot: { locationId: p.locationId, row: p.row, col: p.col, index: p.index },
-          };
-      }
-      return { kind: "elsewhere" };
-    } catch {
-      return { kind: "unknown" };
-    }
-  };
+export async function readBottleNow(bottleId: string): Promise<BottleRead> {
+  try {
+    return {
+      ok: true,
+      bottle: await api.get<SmartBottleSpot>(`/smart-cellar/bottles/${bottleId}`),
+    };
+  } catch {
+    return { ok: false };
+  }
 }

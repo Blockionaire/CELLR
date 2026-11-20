@@ -2466,6 +2466,11 @@
     "bottlesInZone": "{count, plural, =0 {geen flessen} one {# fles} other {# flessen}}",
     "editZones": "Zones bewerken",
     "settingNote": "Ingestelde temperaturen zijn instellingen, geen metingen.",
-    "alreadyThere": "{wine} stond al op {where}. Er is niets veranderd."
+    "alreadyThere": "{wine} stond al op {where}. Er is niets veranderd.",
+    "movedMeanwhile": "Deze fles staat nu op {where}: hij is intussen verplaatst. Er wordt niets als gedaan getoond; kies opnieuw als hij ergens anders heen moet.",
+    "takenOffMeanwhile": "Deze fles heeft nu geen plek: hij is intussen van zijn plek gehaald. Er wordt niets als gedaan getoond; kies opnieuw als hij ergens anders heen moet.",
+    "goneMeanwhile": "Deze fles is niet meer in de kelder.",
+    "takenOff": "{wine} heeft nu geen plek.",
+    "alreadyOff": "{wine} had al geen plek. Er is niets veranderd."
   }
 }
