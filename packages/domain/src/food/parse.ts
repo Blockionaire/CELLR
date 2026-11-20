@@ -2,6 +2,9 @@ import { normalizeText } from "../cellar";
 import { composeStructure, templateParts, type DishParts, type FoodKnowledge } from "./compose";
 import type { DishTemplate, FoodMain, FoodProfile, Ingredient, Sauce, Technique } from "./types";
 
+/** What a plate is built on when the base itself says little about the wine: it is known for what is on it. */
+const PLAIN_BASES: ReadonlySet<string> = new Set(["pasta-grain", "snack"]);
+
 /**
  * READING A DISH. The text a person typed ("pan-seared sea bass with lemon butter sauce", "gebakken zeebaars met
  * citroenbotersaus") is matched against the knowledge: first whole dishes, then sauces, techniques and
@@ -425,13 +428,16 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
     structure,
     tags,
     // A dish names its own classics; a plate composed around an ingredient has that ingredient's. A plain base
-    // (pasta, rice, potato) has none of its own and is known for what is on it: truffle on pasta is truffle's.
+    // (pasta, rice, bread, potato) has none of its own and is known for what is on it: truffle on pasta is
+    // truffle's. Only a plain base: chicken with a little chocolate is not a dish known for port.
     classics: [
       ...(dish
         ? (dish.classics ?? [])
         : parts.main?.classics?.length
           ? parts.main.classics
-          : new Set((parts.extras ?? []).flatMap((x) => x.classics ?? []))),
+          : parts.main && (PLAIN_BASES.has(parts.main.main ?? "") || parts.main.id === "potato")
+            ? new Set((parts.extras ?? []).flatMap((x) => x.classics ?? []))
+            : []),
     ],
     parts: {
       ingredients: uniq([...(parts.main ? [parts.main] : []), ...(parts.extras ?? [])]).map(

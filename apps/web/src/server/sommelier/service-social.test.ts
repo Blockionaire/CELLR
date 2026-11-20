@@ -163,6 +163,10 @@ describe("a name in an earlier turn is not sent along", () => {
     expect(prompts).toHaveLength(1);
     expect(seenByModel(prompts)).not.toMatch(/anna|@/);
     expect(seenByModel(prompts)).toContain("Barolo in general");
+    // Not the question that was about a friend either, nor the answer to it: with the name gone it is still
+    // a question about them.
+    expect(seenByModel(prompts)).not.toContain("steak tonight");
+    expect(seenByModel(prompts)).not.toContain("Open this for");
   });
 
   it("takes out anything that looks like a name, valid or not", async () => {

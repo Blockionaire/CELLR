@@ -4,7 +4,7 @@
  * so that a failure can be put in a class: the dish was misread, a wine was ranked wrongly, a wine the label
  * calls poor was offered (or one it calls good was held back), "nothing suits" was missed or forced.
  *
- *   pnpm --filter @cellr/sommelier-eval run analyze --json out.json [--set holdout]
+ *   pnpm --filter @cellr/sommelier-eval run analyze --json out.json [--set holdout-dev]
  *
  * A tool for reading failures, not a gate. It never changes a label.
  */
@@ -19,7 +19,7 @@ import {
 } from "@cellr/domain/intelligence";
 import { ENGINES } from "./engines";
 import { buildFixture } from "./fixtures";
-import { BLIND_SETS, cardsOf, scenariosOf } from "./sets";
+import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { expectedVerdictOf, scoreScenario } from "./score";
 import type { DishCard } from "./types";
 
@@ -30,7 +30,7 @@ const { values: args } = parseArgs({
     json: { type: "string" },
   },
 });
-if (BLIND_SETS.has(args.set!)) {
+if (holdsBlind(args.set!)) {
   console.error(
     `"${args.set}" is a blind set: it is measured (run.ts), never read failure by failure.`,
   );

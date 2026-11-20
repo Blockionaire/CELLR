@@ -149,9 +149,9 @@ export function PlanView({
               )}
               {plan.friendCellar.picks.length > 0 && (
                 <ul className="flex flex-col gap-2.5">
-                  {plan.friendCellar.picks.map((p) => (
+                  {plan.friendCellar.picks.map((p, i) => (
                     <li
-                      key={`${p.producer}|${p.name}|${p.year ?? "nv"}`}
+                      key={`${i}|${p.producer}|${p.name}|${p.year ?? "nv"}`}
                       className="rounded-card bg-surface p-4 ring-1 ring-hairline"
                       data-testid="plan-friend-pick"
                     >

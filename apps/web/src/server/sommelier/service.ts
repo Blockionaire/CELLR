@@ -181,8 +181,20 @@ export function createSommelierService(deps: SommelierDeps) {
       const asked = request.messages.at(-1)!.text;
       const namesSomeone = social && hasAnyMention(asked);
       const question = social ? withoutAnyMention(asked) : asked;
+      // An earlier question that named someone, and the answer to it, are left out of what a model hears
+      // altogether: the question was about a friend, also with the name taken out of it.
       const history = social
-        ? request.messages.map((m) => ({ ...m, text: withoutAnyMention(m.text) || "…" }))
+        ? request.messages
+            .filter(
+              (m, i, all) =>
+                !(m.role === "user" && hasAnyMention(m.text)) &&
+                !(
+                  m.role === "assistant" &&
+                  all[i - 1]?.role === "user" &&
+                  hasAnyMention(all[i - 1]!.text)
+                ),
+            )
+            .map((m) => ({ ...m, text: withoutAnyMention(m.text) || "…" }))
         : request.messages;
       const { items } = await deps.cellar();
       const tonight = request.mode === "tonight";

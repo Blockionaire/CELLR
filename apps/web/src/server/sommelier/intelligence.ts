@@ -4,6 +4,7 @@ import {
   advance,
   asksFriendCellar,
   asksOwnCellar,
+  leansOnBefore,
   asksNotAlreadyOwned,
   NO_FRIEND_CELLAR,
   type FriendCellar,
@@ -299,12 +300,18 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
       const friends = table.map(({ handle, status }) => ({ handle, status }));
       // A friend's cellar is looked at only when the question is about what that one friend owns ("what does he
       // own that suits…", "a present she does not have yet"), and only for a name the database called a friend.
-      // A follow-up keeps that, until it turns to the asker's own wines ("and what do I have myself?").
+      // A follow-up keeps that only while it leans on that question ("and with the oysters?", "does he have
+      // something lighter?") and does not turn to the asker's own wines; a question that stands on its own is
+      // answered from the asker's cellar again. A present stays a present while the conversation is about one.
       const aboutTheirs =
         asksFriendCellar(asked) ||
-        (before !== null && asksFriendCellar(before) && !asksOwnCellar(asked));
+        (before !== null &&
+          asksFriendCellar(before) &&
+          leansOnBefore(asked) &&
+          !asksOwnCellar(asked));
       const notOwned =
-        asksNotAlreadyOwned(asked) || (before !== null && asksNotAlreadyOwned(before));
+        asksNotAlreadyOwned(asked) ||
+        (before !== null && previous.intent === "gift" && asksNotAlreadyOwned(before));
       const cellarOf =
         deps.friendCellar &&
         mentions.length === 1 &&
@@ -837,7 +844,14 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
               ? [...new Set(wines.map((w) => w.name))].slice(0, 2)
               : // Every style that suits is asked for, not only the three that are named in the advice.
                 recommendStyles(
-                  { food, state, likes: taste?.likes ?? [], ownedTypes: [], limit: OFFER_STYLES },
+                  {
+                    food,
+                    state,
+                    // (A present is looked for by the receiver's taste, not the giver's: as in the advice.)
+                    likes: state.intent === "gift" ? [] : (taste?.likes ?? []),
+                    ownedTypes: [],
+                    limit: OFFER_STYLES,
+                  },
                   WINE_KNOWLEDGE,
                 ).map((s) => searchTextOf(s.style));
           try {

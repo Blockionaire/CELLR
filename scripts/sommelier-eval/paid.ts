@@ -29,7 +29,7 @@ export interface Meter {
   inputTokens: number;
   outputTokens: number;
   usdMicro: number;
-  /** Calls whose cost the provider did not report (a timeout, an error): unknown, not zero. */
+  /** Calls whose cost the provider did not report (a timeout, an error): counted at a high estimate. */
   unknownCost: number;
   /** The models the provider said answered, when it said so. */
   servedModels: Set<string>;
@@ -50,7 +50,10 @@ export class BudgetReached extends Error {
   }
 }
 
-/** A provider that counts what is spent and refuses the next call once the limit is reached. */
+/**
+ * A provider that counts what is spent and refuses the next call once the limit is reached. The limit is checked
+ * before each call, so the run can pass it by at most the one call that crossed it.
+ */
 export function metered(inner: LlmProvider, meter: Meter, maxUsdMicro: number): LlmProvider {
   return {
     async generateObject<T>(request: GenerateObjectRequest<T>): Promise<AiResult<T>> {
@@ -60,8 +63,18 @@ export function metered(inner: LlmProvider, meter: Meter, maxUsdMicro: number): 
       meter.inputTokens += result.usage.tokensIn;
       meter.outputTokens += result.usage.tokensOut;
       const cost = costOf(result.usage).usdMicro;
-      if (cost === null) meter.unknownCost += 1;
-      else meter.usdMicro += cost;
+      if (cost === null) {
+        // The provider did not say what this call used (a timeout, an error) or the model has no price here.
+        // It still counts against the limit, at the app's own high estimate: unknown is never free.
+        meter.unknownCost += 1;
+        meter.usdMicro += estimateCost({
+          model: result.usage.servedModel ?? result.usage.model,
+          promptChars: request.system.length + request.user.length,
+          images: 0,
+          maxOutputTokens: request.maxOutputTokens,
+          webSearch: false,
+        });
+      } else meter.usdMicro += cost;
       if (result.usage.servedModel) meter.servedModels.add(result.usage.servedModel);
       return result;
     },

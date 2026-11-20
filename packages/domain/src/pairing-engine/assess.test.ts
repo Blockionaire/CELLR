@@ -463,3 +463,28 @@ describe("the decision", () => {
     ).toBe("low");
   });
 });
+
+describe("a kind of wine among a dish's classics (S9 review)", () => {
+  // Fish and chips is known for "a sparkling wine". That means a dry one.
+  const fishAndChips = dish(
+    "white-fish",
+    { weight: 3, intensity: 2.5, fat: 3, salt: 2 },
+    ["fried"],
+    ["sparkling", "crisp white"],
+  );
+  const asti = wine("sparkling", { body: 2, acidity: 3.5, sweetness: 4.5 }, ["asti", "moscato"]);
+
+  it("a sweet sparkling wine is still a sweet wine with a savoury dish", () => {
+    const a = assessPairing(fishAndChips, asti);
+    expect(a.clash).toBe("sweet-with-savoury");
+    expect(a.level).toBe("poor");
+  });
+  it("the dry sparkling wine the dish is known for is not held back by it", () => {
+    expect(assessPairing(fishAndChips, champagne).clash).toBeNull();
+    expect(level(fishAndChips, champagne)).not.toBe("poor");
+  });
+  it("a dish that names the sweet wine itself keeps it (foie gras and Sauternes)", () => {
+    const foieGras = dish("poultry", { weight: 4, intensity: 3.5, fat: 3 }, [], ["sauternes"]);
+    expect(assessPairing(foieGras, sauternes).clash).toBeNull();
+  });
+});

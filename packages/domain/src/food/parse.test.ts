@@ -536,3 +536,27 @@ describe("the parser's own limits", () => {
     expect(() => parseFood("ﬃ".repeat(4000) + " zalm", FOOD)).not.toThrow();
   });
 });
+
+describe("whose classics a composed plate has (S9 review)", () => {
+  const truffle = FOOD.ingredients.find((i) => i.id === "truffle" || i.en.includes("truffle"));
+
+  it("a plain base is known for what is on it", () => {
+    expect(truffle?.classics?.length ?? 0).toBeGreaterThan(0);
+    const read = parseFood("buttered rice with truffle", FOOD);
+    expect(read.source).toBe("composed");
+    expect(read.main).toBe("pasta-grain");
+    expect(read.classics.some((c) => truffle!.classics!.includes(c))).toBe(true);
+  });
+  it("meat, poultry and fish are not known for the wine of what lies beside them", () => {
+    for (const text of [
+      "grilled pork loin with old gouda",
+      "chicken breast with dark chocolate",
+      "minced beef with foie gras",
+    ]) {
+      const read = parseFood(text, FOOD);
+      expect(read.source, text).toBe("composed");
+      for (const sweet of ["port", "tawny port", "sauternes", "fortified", "dessert"])
+        expect(read.classics, text).not.toContain(sweet);
+    }
+  });
+});

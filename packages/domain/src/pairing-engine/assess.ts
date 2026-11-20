@@ -216,8 +216,10 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
 
   // A dish known for a sweet or fortified wine (foie gras with Sauternes, Stilton with port) says so by naming
   // that kind of wine among its classics.
+  // (Named as a grape, place or appellation: "a sparkling wine" among the classics of fish and chips does not
+  // make a sweet sparkling wine the wine it is known for.)
   const knownForSweet =
-    classic ||
+    classicByName ||
     ((wine.type === "dessert" || wine.type === "fortified") && food.classics.includes(wine.type));
   const blue = tag("blue-cheese");
   const saltyCheese = !blue && main === "cheese" && f.salt >= 2;

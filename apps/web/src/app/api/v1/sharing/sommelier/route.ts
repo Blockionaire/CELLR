@@ -13,7 +13,7 @@ export const GET = authed(async ({ ctx }) => {
   return servicesFor(ctx).friends.sommelierSharing();
 });
 
-/** PUT { tasteForFriends } → change it. Takes effect at the next question anyone asks; nothing is cached. */
+/** PUT { tasteForFriends?, cellarForFriends? } (at least one) → change it. Takes effect at the next question anyone asks; nothing is cached. */
 export const PUT = authed(async ({ request, ctx }) => {
   if (!getFeatures().sommelier_social) throw new DomainError("NOT_FOUND");
   return servicesFor(ctx).friends.saveSommelierSharing(

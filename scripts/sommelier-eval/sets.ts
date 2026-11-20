@@ -14,14 +14,16 @@ const SETS: Record<string, { scenarios: readonly Scenario[]; dishes: readonly Di
   /**
    * Written in S9 by an agent that saw the benchmark's contract and the 30 wines and nothing of the engines,
    * their results or their documents: 44 dishes that are not in "main", every one labelled against all 30
-   * wines, and 88 pairing scenarios. Measured before and after the S9 changes; no rule was developed on it.
+   * wines, and 88 pairing scenarios. Measured as a whole before and after the S9 changes. It contains the blind
+   * half below, so it is only ever reported in totals.
    */
   holdout: { scenarios: HOLDOUT_SCENARIOS, dishes: HOLDOUT_DISHES },
   /**
-   * The holdout split in two by the order of its dishes, after its first measurement showed how little of the
-   * development set's gain carried over. "holdout-dev": the first 22 dishes; its failures may be read, to learn
-   * what kind of thing the engines miss. "holdout-test": the other 22; only ever measured, and never read
-   * scenario by scenario (analyze.ts refuses to list it).
+   * The holdout split in two by the order of its dishes, after its first measurement (in totals) showed how
+   * little of the development set's gain carried over. "holdout-dev": the first 22 dishes; its failures were
+   * read, and rules of S9 answer to some of them (so it is no longer unseen). "holdout-test": the other 22; only
+   * ever measured in totals. No tool lists it scenario by scenario, no recorded result names its scenarios, and
+   * its test compares totals only.
    */
   "holdout-dev": half(0),
   "holdout-test": half(1),
@@ -34,6 +36,13 @@ function half(which: 0 | 1) {
 }
 /** Sets whose failures are not to be read one by one: they are the blind measure. */
 export const BLIND_SETS: ReadonlySet<string> = new Set(["holdout-test"]);
+/** Whether a set is blind or holds a blind set's scenarios ("holdout" holds "holdout-test"): totals only. */
+export function holdsBlind(name: string): boolean {
+  const blind = new Set(
+    [...BLIND_SETS].flatMap((b) => (SETS[b]?.scenarios ?? []).map((x) => x.id)),
+  );
+  return scenariosOf(name).some((x) => blind.has(x.id));
+}
 
 export const SET_NAMES = () => Object.keys(SETS);
 export function registerSet(

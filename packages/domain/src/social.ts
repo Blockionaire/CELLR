@@ -183,11 +183,27 @@ export const asksFriendCellar = (question: string): boolean =>
     tidy(question),
   );
 
-/** "…that he does not already own", "die hij nog niet heeft": what they have is to be left out. */
+/**
+ * "…that he does not already own", "die hij nog niet heeft": what THEY have is to be left out. About someone else
+ * only: "I do not have any Champagne" says nothing about a friend's cellar, and must not have it read.
+ */
 export const asksNotAlreadyOwned = (question: string): boolean =>
-  /\b(?:(?:does not|doesn t|doesn't|don t|don't|do not|not) (?:already |yet )?(?:own|have)|not already in|nog niet (?:heeft|hebben|in)|niet al (?:heeft|hebben|in)|nog niet (?:zelf )?(?:bezit|heeft liggen))\b/i.test(
+  /\b(?:(?:does not|doesn t|doesn't|has not|hasn t|hasn't) (?:already |yet |got )?(?:own|have|got)|(?:they|who) (?:don t|don't|do not) (?:already |yet )?(?:own|have)|not already (?:in (?:his|her|their)|owned)|nog niet (?:zelf )?(?:heeft|bezit)|niet al (?:heeft|bezit)|(?:zij|ze) (?:nog niet|niet al) hebben|(?:nog niet|niet al) in (?:zijn|haar|hun))\b/i.test(
     tidy(question),
   );
+
+/**
+ * "And with the oysters?", "what about the fish?", "does she have something lighter?": a follow-up that leans on
+ * the question before it, or speaks of the friend. "What goes with oysters tonight?" stands on its own.
+ */
+export const leansOnBefore = (question: string): boolean => {
+  const text = tidy(question).trim();
+  return (
+    /^(?:and|or|but|what about|how about|en|of|maar|wat dacht je van|hoe zit het met)\b/i.test(
+      text,
+    ) || /\b(?:he|she|they|him|them|his|hers|her|their|theirs|hij|zij|hem|haar|hun)\b/i.test(text)
+  );
+};
 
 /** "…and what do I have myself?", "uit mijn eigen kelder": a follow-up that turns back to the asker's own wines. */
 export const asksOwnCellar = (question: string): boolean =>

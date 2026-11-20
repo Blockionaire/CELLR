@@ -20,7 +20,7 @@ import { ENGINES } from "./engines";
 import { v1Ai, type V1AiRun } from "./engines/v1-ai";
 import { BudgetReached } from "./paid";
 import { formatFailures, formatSummary } from "./report";
-import { cardsOf, scenariosOf } from "./sets";
+import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { scoreScenario, summarize, type ScenarioResult } from "./score";
 import type { EvalAnswer } from "./types";
 
@@ -57,6 +57,14 @@ const engine = paid?.engine ?? ENGINES.find((e) => e.name === args.engine);
 if (!engine) {
   console.error(
     `unknown engine "${args.engine}"; known: ${ENGINES.map((e) => e.name).join(", ")}, v1-ai`,
+  );
+  process.exit(2);
+}
+// A blind set is reported in totals only: nothing here names one of its scenarios.
+const blind = holdsBlind(args.set!);
+if (blind && (args.failures || args.only)) {
+  console.error(
+    `"${args.set}" holds the blind scenarios: it is measured in totals only (no --failures, no --only).`,
   );
   process.exit(2);
 }
@@ -129,12 +137,16 @@ if (args.json) {
     supported: summary.supported,
     byCategory: summary.byCategory,
     measures: summary.measures,
-    results: results.map((r) => ({
-      id: r.id,
-      pass: r.pass,
-      supported: r.supported,
-      failed: r.checks.filter((c) => !c.pass).map((c) => c.name),
-    })),
+    ...(blind
+      ? {}
+      : {
+          results: results.map((r) => ({
+            id: r.id,
+            pass: r.pass,
+            supported: r.supported,
+            failed: r.checks.filter((c) => !c.pass).map((c) => c.name),
+          })),
+        }),
   };
   await writeFile(args.json, JSON.stringify(stable, null, 2) + "\n");
 }

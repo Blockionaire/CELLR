@@ -1,4 +1,5 @@
 import { createOpenAiProvider } from "@/server/ai/openai";
+import { priceOf } from "@/server/ai/pricing";
 import type { LlmProvider } from "@/server/ai/types";
 import { getAiEnv } from "@/server/env";
 import {
@@ -42,6 +43,11 @@ export function v1Ai(options: {
   if (!options.estimate && !paidAllowed(env))
     throw new Error(
       `v1-ai calls a paid model. Run it with --estimate (nothing is sent), or, with the owner's approval, with ${PAID_ENV}=${PAID_PHRASE} and OPENAI_API_KEY set.`,
+    );
+  // A model the app has no price for cannot be held to a spending limit: its calls would count as nothing.
+  if (!options.estimate && priceOf(ai.adviceModel) === null)
+    throw new Error(
+      `v1-ai has no price for the model "${ai.adviceModel}" (apps/web/src/server/ai/pricing.ts), so it cannot keep to --max-usd. Add the price first, or run with --estimate.`,
     );
   const llm: LlmProvider = options.estimate
     ? estimating(ai, meter)

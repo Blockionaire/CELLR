@@ -409,6 +409,30 @@ describe("a friend stays in the conversation", () => {
     expect(next!.plan.friends).toEqual([{ handle: "thomas", status: "included" }]);
   });
 
+  it("a question that stands on its own is answered from my cellar again, not from theirs", async () => {
+    const mineForOysters = [
+      mine("Muscadet", "white", "Muscadet"),
+      mine("Chablis", "white", "Chablis"),
+    ];
+    const { ask, looked } = setup(THOMAS, { own: mineForOysters });
+    const first = await ask(BRINGING);
+    expect(first!.plan.friendCellar?.status).toBe("used");
+    const next = await ask("What goes with oysters tonight?", first!.plan.state, [BRINGING]);
+    expect(looked).toEqual(["thomas"]);
+    expect(next!.plan.friendCellar).toBeNull();
+    expect(next!.bottles.length).toBeGreaterThan(0);
+    expect(next!.bottles.every((b) => b.producer === "Domaine Mien")).toBe(true);
+  });
+
+  it('"I do not have any…" is about my cellar: theirs is not read and nothing of it is said', async () => {
+    const { ask, looked } = setup(THOMAS);
+    const plan = await ask(
+      "@thomas is coming for oysters on Saturday. I do not have any Champagne, what should I buy?",
+    );
+    expect(looked).toEqual([]);
+    expect(plan!.plan.friendCellar).toBeNull();
+  });
+
   it("a follow-up about another dish still looks at what they own", async () => {
     const { ask, looked } = setup(THOMAS);
     const first = await ask(BRINGING);

@@ -124,17 +124,42 @@ describe("a run for real", () => {
     expect(state.calls).toBe(1);
   });
 
-  it("a call whose cost was not reported is unknown, never free", async () => {
+  const silent: LlmProvider = {
+    generateObject: async () => ({
+      ok: false,
+      kind: "timeout",
+      usage: { model: "gpt-6-luna", tokensIn: 0, tokensOut: 0, latencyMs: 1 },
+    }),
+  };
+
+  it("a call whose cost was not reported is unknown, never free: it counts at a high estimate", async () => {
     const meter = newMeter();
-    const silent: LlmProvider = {
-      generateObject: async () => ({
-        ok: false,
-        kind: "timeout",
-        usage: { model: "gpt-6-luna", tokensIn: 0, tokensOut: 0, latencyMs: 1 },
-      }),
-    };
     await metered(silent, meter, 1_000_000).generateObject(REQUEST);
-    expect(meter).toMatchObject({ calls: 1, usdMicro: 0, unknownCost: 1 });
+    expect(meter).toMatchObject({ calls: 1, unknownCost: 1 });
+    expect(meter.usdMicro).toBeGreaterThan(0);
+  });
+
+  it("the limit also stops a run whose calls never report a cost", async () => {
+    const meter = newMeter();
+    const limited = metered(silent, meter, 10);
+    await limited.generateObject(REQUEST);
+    await expect(limited.generateObject(REQUEST)).rejects.toBeInstanceOf(BudgetReached);
+    expect(meter.calls).toBe(1);
+  });
+
+  it("refuses a model the app has no price for: its spend could not be limited", () => {
+    const before = process.env.AI_MODEL_ADVICE;
+    process.env.AI_MODEL_ADVICE = "a-model-with-no-price";
+    try {
+      expect(() =>
+        v1Ai({ estimate: false, maxUsd: 2, env: { [PAID_ENV]: PAID_PHRASE, OPENAI_API_KEY: "k" } }),
+      ).toThrow(/no price/);
+      // An estimate sends nothing, so it may still run (priced as the dearest model known).
+      expect(v1Ai({ estimate: true, maxUsd: 2, env: {} }).mode).toBe("estimate");
+    } finally {
+      if (before === undefined) delete process.env.AI_MODEL_ADVICE;
+      else process.env.AI_MODEL_ADVICE = before;
+    }
   });
 
   it("asks the model once per turn, never for a scenario V1 cannot attempt, and reads its verdict", async () => {

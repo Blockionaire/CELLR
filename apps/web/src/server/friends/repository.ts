@@ -138,10 +138,13 @@ export function createFriendsRepository(db: Db): FriendsRepository {
           tasteForFriends: both.data?.taste_for_friends === true,
           cellarForFriends: both.data?.cellar_for_friends === true,
         };
-      if (notReady(both.error)) return null;
       // The table is there and the newer column is not (the 0050 step is not taken): the taste consent works
-      // as before, and the cellar one is reported as not available.
-      if (!missingColumn(both.error)) throw mapDbError(both.error);
+      // as before, and the cellar one is reported as not available. Asked before "not ready", which also
+      // counts a missing column: the first question must not be read as "no friends' sommelier at all".
+      if (!missingColumn(both.error)) {
+        if (notReady(both.error)) return null;
+        throw mapDbError(both.error);
+      }
       const { data, error } = await db
         .from("sommelier_sharing")
         .select("taste_for_friends")

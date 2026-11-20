@@ -178,7 +178,7 @@ owner's approval. Design, cost and how to approve: [`AI_COMPARISON.md`](AI_COMPA
 The nine scenarios S6 adds to the passes are eight experience scenarios and one robustness scenario. The
 experience scenarios are checked only for inventing nothing (§2, limits); the pairing measures did not move. The
 app's engines cannot attempt the 24 scenarios with friends (the benchmark has no friends database;
-`progress/S5.md` says how that is tested instead). The run at the end of S8 (`results/s8-v3-app.json`) is the
+`progress/S5.md` says how that is tested instead). The run at the end of S8 (then `results/s8-v3-app.json`; replaced in S9 by `results/s9-v3-app.json`) is the
 same as S6's scenario for scenario, and a test now fails when it changes.
 
 **Against the thresholds of §4, at the final state: four are missed, four are met.**

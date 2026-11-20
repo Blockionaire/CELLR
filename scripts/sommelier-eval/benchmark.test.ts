@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DISHES } from "./dishes";
 import { ENGINES } from "./engines";
 import { SCENARIOS } from "./scenarios";
-import { cardsOf, scenariosOf } from "./sets";
+import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { expectedVerdictOf, scoreScenario, summarize } from "./score";
 import { CAPABILITIES, CATEGORIES, type EvalAnswer, type Scenario } from "./types";
 import { CELLARS, WINE_KEYS } from "./wines";
@@ -166,7 +166,40 @@ describe("Sommelier 3.0 in the app", () => {
   pinned("main", "s9-v3-app.json", 170);
   // The blind set of S9: its halves are pinned so that neither can drift, and never to be tuned to.
   pinned("holdout-dev", "s9-holdout-dev.json", 19);
-  pinned("holdout-test", "s9-holdout-test.json", 20);
+  // The blind half is compared in totals only: a failure here names no scenario, so fixing it cannot be tuning.
+  it('gives the recorded totals on "holdout-test" (blind): 19 scenarios', async () => {
+    const recorded = JSON.parse(
+      readFileSync(
+        new URL(
+          "../../docs/sprints/sommelier-3-mega/results/s9-holdout-test.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ) as { passed: number; measures: Record<string, [number, number]>; results?: unknown };
+    expect(recorded.results).toBeUndefined();
+    const engine = ENGINES.find((e) => e.name === "v3-app")!;
+    const cardOf = cardsOf("holdout-test");
+    const results = [];
+    const answers = [];
+    for (const s of scenariosOf("holdout-test")) {
+      const { answer, ms } = await engine.run(s);
+      answers.push(answer);
+      results.push(scoreScenario(s, s.dish ? (cardOf.get(s.dish) ?? null) : null, answer, ms));
+    }
+    const now = summarize("v3-app", results, answers);
+    expect(now.passed).toBe(19);
+    expect(now.passed).toBe(recorded.passed);
+    expect(now.measures).toEqual(recorded.measures);
+    expect(answers.reduce((n, a) => n + a.invented, 0)).toBe(0);
+  });
+
+  it("no tool lists the blind scenarios one by one", () => {
+    expect(holdsBlind("holdout-test")).toBe(true);
+    expect(holdsBlind("holdout")).toBe(true);
+    expect(holdsBlind("holdout-dev")).toBe(false);
+    expect(holdsBlind("main")).toBe(false);
+  });
 });
 
 describe("the holdout set's own data", () => {
