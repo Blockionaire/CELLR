@@ -189,6 +189,12 @@ export const asksNotAlreadyOwned = (question: string): boolean =>
     tidy(question),
   );
 
+/** "…and what do I have myself?", "uit mijn eigen kelder": a follow-up that turns back to the asker's own wines. */
+export const asksOwnCellar = (question: string): boolean =>
+  /\b(?:my (?:own )?(?:cellar|bottles|wines|collection)|(?:do|can|could|should) i (?:have|own|open)|i (?:have|own)|myself|of mine|mijn (?:eigen )?(?:kelder|wijnkelder|flessen|wijnen|collectie)|heb ik|ik (?:zelf )?heb|zelf)\b/i.test(
+    tidy(question),
+  );
+
 const SCALES = ["body", "tannin", "sweetness", "acidity"] as const;
 
 /** The scales of an object that are numbers from 1 to 5; everything else in it is ignored. */

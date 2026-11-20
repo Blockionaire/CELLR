@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { groupTasteScore, NO_TASTE, tasteScore, type TasteSignals } from "./pairing-engine/taste";
 import type { WineStructure } from "./pairing-engine/wine";
 import {
+  asksOwnCellar,
   findMentions,
   hasAnyMention,
   MAX_MENTIONS,
@@ -128,4 +129,18 @@ describe("names that are almost names", () => {
     );
     expect(withoutAnyMention("lamb for ＠Bram")).toBe("lamb");
   });
+});
+
+describe("a follow-up that turns to the asker's own wines", () => {
+  it.each([
+    "And what do I have myself for the lamb?",
+    "What about my own cellar?",
+    "Can I open something of mine?",
+    "En wat heb ik zelf liggen?",
+    "En uit mijn eigen kelder?",
+  ])("%s", (question) => expect(asksOwnCellar(question)).toBe(true));
+  it.each(["And with oysters?", "Up to 50 euros", "En bij de vis?", "Something lighter?"])(
+    "not: %s",
+    (question) => expect(asksOwnCellar(question)).toBe(false),
+  );
 });

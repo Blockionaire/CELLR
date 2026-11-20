@@ -97,8 +97,15 @@ function setup(
         }),
     now: () => new Date("2026-11-20T18:00:00Z"),
   });
-  const ask = (question: string, state?: unknown) =>
-    intelligence.plan({ question, state, budgetEuros: null, personal: true, locale: "en" });
+  const ask = (question: string, state?: unknown, earlier?: string[]) =>
+    intelligence.plan({
+      question,
+      state,
+      budgetEuros: null,
+      personal: true,
+      locale: "en",
+      ...(earlier ? { earlier } : {}),
+    });
   return { ask, looked, own };
 }
 
@@ -293,5 +300,91 @@ describe("the reader is never trusted for more than wines", () => {
     }))!;
     expect(performance.now() - started).toBeLessThan(1500);
     expect(planned.plan.friendCellar!.picks.length).toBeLessThanOrEqual(3);
+  });
+});
+
+describe("a friend stays in the conversation", () => {
+  const VISIT = "@thomas is coming over, we are having roast lamb. What do we open?";
+  const own = () => [
+    mine("Pauillac", "red", "Pauillac"),
+    mine("Chablis", "white", "Chablis"),
+    mine("Sancerre", "white", "Sancerre"),
+  ];
+
+  it("a follow-up that names nobody is still about the friend the conversation named", async () => {
+    const { ask } = setup(null, { own: own() });
+    const first = await ask(VISIT);
+    expect(first!.plan.friends).toEqual([{ handle: "thomas", status: "included" }]);
+    const next = await ask("And with grilled sea bass?", first!.plan.state, [VISIT]);
+    expect(next!.plan.friends).toEqual([{ handle: "thomas", status: "included" }]);
+    // The name is carried by the asker's own words only: never in the state that travels with the conversation.
+    expect(JSON.stringify(next!.plan.state)).not.toContain("thomas");
+  });
+
+  it("asks the database again in the follow-up: consent withdrawn between two turns ends it", async () => {
+    const before = setup(null, { own: own() });
+    const first = await before.ask(VISIT);
+    const after = setup(null, { own: own(), status: "not-shared" });
+    const next = await after.ask("And with grilled sea bass?", first!.plan.state, [VISIT]);
+    expect(next!.plan.friends).toEqual([{ handle: "thomas", status: "not-shared" }]);
+  });
+
+  it("a new conversation carries nobody, whatever earlier questions the screen sends along", async () => {
+    const { ask } = setup(null, { own: own() });
+    const plan = await ask("What do I open with grilled sea bass?", undefined, [VISIT]);
+    expect(plan!.plan.friends).toEqual([]);
+  });
+
+  it("naming someone else replaces who the conversation is about", async () => {
+    const { ask } = setup(null, { own: own() });
+    const first = await ask(VISIT);
+    const next = await ask("And if @lisa joins, with grilled sea bass?", first!.plan.state, [
+      VISIT,
+    ]);
+    expect(next!.plan.friends).toEqual([{ handle: "lisa", status: "unavailable" }]);
+  });
+
+  it("the last friend named is the one carried, not an older one", async () => {
+    const { ask } = setup(null, { own: own() });
+    const first = await ask(VISIT);
+    const next = await ask("And with grilled sea bass?", first!.plan.state, [
+      "@lisa likes white. What do I open with oysters?",
+      VISIT,
+    ]);
+    expect(next!.plan.friends.map((f) => f.handle)).toEqual(["thomas"]);
+  });
+
+  it("a present keeps leaving out what they own when the follow-up only gives the budget", async () => {
+    const { ask, looked } = setup(THOMAS, {
+      taste: { focus: "red", styles: ["red"], likes: ["bordeaux"], said: {}, trends: {} },
+    });
+    const GIFT = "I want to buy @thomas a present that he does not already own.";
+    const first = await ask(GIFT);
+    const next = await ask("Up to 50 euros", first!.plan.state, [GIFT]);
+    expect(looked).toEqual(["thomas", "thomas"]);
+    expect(next!.plan.friends).toEqual([{ handle: "thomas", status: "included" }]);
+    const styles = next!.plan.buy?.suggestions.map((s) => s.style) ?? [];
+    expect(styles).not.toContain("pauillac");
+  });
+
+  it("their cellar is left alone once the follow-up turns to my own wines", async () => {
+    const { ask, looked } = setup(THOMAS, { own: own() });
+    const first = await ask(BRINGING);
+    expect(first!.plan.friendCellar?.status).toBe("used");
+    const next = await ask("And what do I have myself for the lamb?", first!.plan.state, [
+      BRINGING,
+    ]);
+    expect(looked).toEqual(["thomas"]);
+    expect(next!.plan.friendCellar).toBeNull();
+    expect(next!.plan.friends).toEqual([{ handle: "thomas", status: "included" }]);
+  });
+
+  it("a follow-up about another dish still looks at what they own", async () => {
+    const { ask, looked } = setup(THOMAS);
+    const first = await ask(BRINGING);
+    const next = await ask("And with oysters?", first!.plan.state, [BRINGING]);
+    expect(looked).toEqual(["thomas", "thomas"]);
+    expect(next!.plan.friendCellar?.status).toBe("used");
+    expect(next!.plan.friendCellar?.picks.map((p) => p.name)).toContain("Muscadet");
   });
 });

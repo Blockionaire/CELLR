@@ -470,12 +470,25 @@ test.describe("a friend's cellar in my sommelier's answer", () => {
     );
     expect(kept).toEqual([{ n: "0" }]);
 
-    // 6. He withdraws: at my very next question his cellar is gone again.
+    // 6. A follow-up that names nobody is still about him: his bottle again, and still nothing kept.
+    await ask(page, "And with a rare steak?");
+    await planNo(page, 4);
+    await expect(lastCellar().getByTestId("plan-friend-pick")).toContainText("Pauillac");
+    await expect(page.getByTestId("plan").last()).toContainText(`@${name}`);
+    expect(
+      await sql<{ n: string }>(
+        `select count(*)::text as n from public.sommelier_messages m join auth.users u on u.id = m.user_id
+          where u.email = $1`,
+        [meAccount.email],
+      ),
+    ).toEqual([{ n: "0" }]);
+
+    // 7. He withdraws: at my very next question his cellar is gone again, follow-up or not.
     await consent.focus();
     await other.keyboard.press("Space");
     await expect(consent).toHaveAttribute("aria-checked", "false");
-    await ask(page, question);
-    await planNo(page, 4);
+    await ask(page, "And with roast lamb again?");
+    await planNo(page, 5);
     await expect(lastCellar()).toContainText("I cannot see what");
     await expect(page.getByTestId("plan").last().getByTestId("plan-friend-pick")).toHaveCount(0);
     await theirContext.close();

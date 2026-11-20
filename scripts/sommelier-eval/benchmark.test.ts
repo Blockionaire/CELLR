@@ -163,7 +163,7 @@ describe("Sommelier 3.0 in the app", () => {
       expect(now).toBe(recorded.passed);
       expect(now).toBe(passed);
     });
-  pinned("main", "s9-v3-app.json", 169);
+  pinned("main", "s9-v3-app.json", 170);
   // The blind set of S9: its halves are pinned so that neither can drift, and never to be tuned to.
   pinned("holdout-dev", "s9-holdout-dev.json", 19);
   pinned("holdout-test", "s9-holdout-test.json", 20);

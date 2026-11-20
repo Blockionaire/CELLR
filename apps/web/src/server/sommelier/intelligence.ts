@@ -3,6 +3,7 @@ import {
   aboutWine,
   advance,
   asksFriendCellar,
+  asksOwnCellar,
   asksNotAlreadyOwned,
   NO_FRIEND_CELLAR,
   type FriendCellar,
@@ -119,6 +120,11 @@ export interface PlanRequest {
   locale: string;
   /** The cellar, when the caller has read it already in this request (it is not read twice). */
   cellar?: CellarView;
+  /**
+   * What the person asked earlier in this conversation, oldest first, as the screen sent it along. Untrusted, and
+   * read for one thing only: whom the conversation is about, when the question itself names nobody.
+   */
+  earlier?: string[];
 }
 
 export interface Planned {
@@ -270,8 +276,21 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
       const previous = readState(request.state);
       // Names of people are taken out before anything reads the question: "@pasta.lover" is not a dish, and a
       // name never reaches the food engine, the state or a log.
-      const mentions = deps.friends ? findMentions(request.question.slice(0, 800)) : [];
-      const question = withoutMentions(request.question.slice(0, 800));
+      const asked = request.question.slice(0, 800);
+      const namedNow = deps.friends ? findMentions(asked) : [];
+      // A follow-up ("€50", "and with the fish?") is still about the people the conversation named: the last
+      // earlier question that named someone says who. Only the name is carried, as the asker wrote it; who
+      // that is and what they allow is asked again below, so consent withdrawn between two turns ends it.
+      const continues =
+        previous.intent !== null || previous.dish !== null || previous.asked.length > 0;
+      const before =
+        deps.friends && namedNow.length === 0 && continues
+          ? ((request.earlier ?? [])
+              .map((q) => q.slice(0, 800))
+              .findLast((q) => findMentions(q).length > 0) ?? null)
+          : null;
+      const mentions = before ? findMentions(before) : namedNow;
+      const question = withoutMentions(asked);
       // Who they are, and what each allows, is the database's answer in this request: never the screen's.
       const table = mentions.length > 0 && deps.friends ? await deps.friends(mentions) : [];
       const friendTastes = table.flatMap((f) =>
@@ -280,9 +299,12 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
       const friends = table.map(({ handle, status }) => ({ handle, status }));
       // A friend's cellar is looked at only when the question is about what that one friend owns ("what does he
       // own that suits…", "a present she does not have yet"), and only for a name the database called a friend.
-      const asked = request.question.slice(0, 800);
-      const aboutTheirs = asksFriendCellar(asked);
-      const notOwned = asksNotAlreadyOwned(asked);
+      // A follow-up keeps that, until it turns to the asker's own wines ("and what do I have myself?").
+      const aboutTheirs =
+        asksFriendCellar(asked) ||
+        (before !== null && asksFriendCellar(before) && !asksOwnCellar(asked));
+      const notOwned =
+        asksNotAlreadyOwned(asked) || (before !== null && asksNotAlreadyOwned(before));
       const cellarOf =
         deps.friendCellar &&
         mentions.length === 1 &&

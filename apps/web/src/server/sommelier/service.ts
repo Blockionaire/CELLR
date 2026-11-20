@@ -247,6 +247,13 @@ export function createSommelierService(deps: SommelierDeps) {
           .plan({
             // The engines read the names themselves (and only they do): they get the question as it was asked.
             question: asked,
+            // Their earlier questions, for whom the conversation is about; no answer of ours is sent along.
+            earlier: social
+              ? request.messages
+                  .slice(0, -1)
+                  .filter((m) => m.role === "user")
+                  .map((m) => m.text)
+              : [],
             state: request.state,
             budgetEuros:
               request.budgetEuros ?? (request.budget ? BUDGET_EUROS[request.budget][1] : null),
