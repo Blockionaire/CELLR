@@ -3,22 +3,28 @@
 import { Focus, Maximize2, Minus, Plus } from "lucide-react";
 import {
   EDGE_KINDS,
+  HEALTH_STATUS_LABEL,
   edgeId,
   type ComponentRisk,
+  type HealthStatus,
   type EdgeKind,
   type SystemComponent,
   type SystemEdge,
 } from "@cellr/domain";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { cn } from "@/ui/cn";
+import { HEALTH_COLOR, HEALTH_GLYPH } from "./health-model";
 import { boundsOf, clampScale, fitTransform, wrapName, type MapLayout } from "./layout";
 import type { MapEmphasis } from "./model";
 
 /**
  * The architecture map: an SVG drawing of the register, laid out by layoutMap. Pan by dragging or scrolling, zoom
  * with ctrl/⌘ + scroll, a pinch, the buttons or + / − / 0 on the keyboard. Every component is a button (Tab, Enter).
- * It draws structure only; it needs no live data and works with none.
+ * It draws structure; health is an optional overlay (a badge per measured component), and without it — or with it
+ * unavailable — the drawing is exactly the same.
  */
+
+export type HealthMarks = ReadonlyMap<string, HealthStatus>;
 export interface Transform {
   readonly k: number;
   readonly x: number;
@@ -57,6 +63,8 @@ interface MapProps {
    * flow).
    */
   focusRequest: { readonly seq: number; readonly ids: readonly string[] };
+  /** Health per component id; null = no overlay (not shown, or not available). */
+  health?: HealthMarks | null;
   onSelect: (id: string | null) => void;
   className?: string;
 }
@@ -68,6 +76,7 @@ export function SystemMap({
   emphasis,
   selected,
   focusRequest,
+  health = null,
   onSelect,
   className,
 }: MapProps) {
@@ -311,6 +320,7 @@ export function SystemMap({
             onReveal={reveal}
             overview={overview}
             labelScale={labelScale}
+            health={health}
           />
         </g>
       </svg>
@@ -378,6 +388,7 @@ const MapContent = memo(function MapContent({
   onReveal,
   overview,
   labelScale,
+  health,
 }: {
   layout: MapLayout;
   components: readonly SystemComponent[];
@@ -388,6 +399,7 @@ const MapContent = memo(function MapContent({
   onReveal: (id: string) => void;
   overview: boolean;
   labelScale: number;
+  health: HealthMarks | null;
 }) {
   const uid = useId().replace(/:/g, "");
   const byId = useMemo(() => new Map(edges.map((e) => [edgeId(e), e])), [edges]);
@@ -514,14 +526,20 @@ const MapContent = memo(function MapContent({
         const d = degree.get(c.id) ?? { in: 0, out: 0 };
         const distance = emphasis.reason === "trace" ? emphasis.distance.get(c.id) : undefined;
         const tag = STATUS_TAG[c.status];
+        const h = health ? (health.get(c.id) ?? null) : undefined;
+        const healthText =
+          h === undefined
+            ? ""
+            : ` Health: ${h ? HEALTH_STATUS_LABEL[h].toLowerCase() : "not measured"}.`;
         return (
           <g
             key={c.id}
             data-node={c.id}
+            data-health={h === undefined ? undefined : (h ?? "none")}
             role="button"
             tabIndex={0}
             aria-pressed={on}
-            aria-label={`${c.name}. ${c.summary}.${tag ? ` ${tag.toLowerCase()}.` : ""}${c.risks?.length ? ` ${c.risks.length} known risk${c.risks.length > 1 ? "s" : ""}.` : ""}`}
+            aria-label={`${c.name}. ${c.summary}.${tag ? ` ${tag.toLowerCase()}.` : ""}${c.risks?.length ? ` ${c.risks.length} known risk${c.risks.length > 1 ? "s" : ""}.` : ""}${healthText}`}
             transform={`translate(${b.x} ${b.y})`}
             className="cursor-pointer outline-none [&:focus-visible>rect:first-child]:stroke-[var(--accent-fg)] [&:focus-visible>rect:first-child]:[stroke-width:3]"
             style={{ opacity: dim ? 0.2 : 1, transition: "opacity 200ms" }}
@@ -603,6 +621,31 @@ const MapContent = memo(function MapContent({
                   style={{ fill: "var(--surface)" }}
                 >
                   {c.risks!.length}
+                </text>
+              </g>
+            )}
+            {h && (
+              <g
+                transform={
+                  overview
+                    ? // on the node's corner, half outside it: the large badge never covers the name
+                      `translate(${b.w - 4} 4)`
+                    : `translate(${risk ? b.w - 40 : b.w - 18} 18)`
+                }
+                data-testid="health-badge"
+              >
+                <circle
+                  // zoomed out the badge must still read as a mark: large enough at a third of full size
+                  r={overview ? 19 : 8}
+                  style={{ fill: HEALTH_COLOR[h], stroke: "var(--surface)", strokeWidth: 2 }}
+                />
+                <text
+                  y={overview ? 8 : 3.5}
+                  textAnchor="middle"
+                  className={overview ? "text-[23px] font-bold" : "text-[11px] font-bold"}
+                  style={{ fill: "var(--surface)" }}
+                >
+                  {HEALTH_GLYPH[h]}
                 </text>
               </g>
             )}

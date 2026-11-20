@@ -3400,6 +3400,20 @@ export type Database = {
         }[];
       };
       friend_taste: { Args: { p_friend: string }; Returns: Json };
+      health_ai_window: { Args: { p_from: string; p_to: string }; Returns: Json };
+      health_begin_round: {
+        Args: { p_min_gap_seconds?: number; p_trigger: string };
+        Returns: number;
+      };
+      health_cron_jobs: { Args: Record<PropertyKey, never>; Returns: Json };
+      health_history: { Args: { p_hours: number }; Returns: Json };
+      health_latest: { Args: Record<PropertyKey, never>; Returns: Json };
+      health_ping: { Args: Record<PropertyKey, never>; Returns: Json };
+      health_purge: { Args: { p_keep_days?: number }; Returns: number };
+      health_record_round: {
+        Args: { p_outcome: string; p_round: number; p_samples: Json };
+        Returns: number;
+      };
       join_household: { Args: { p_code: string }; Returns: string };
       merge_wines: { Args: { p_source: string; p_target: string }; Returns: number };
       my_friends: {

@@ -751,6 +751,13 @@
       "layoutWritesOff": "Een indeling wijzigen staat hier nog niet aan.",
       "layoutStale": "Deze plek is gewijzigd sinds je hem opende. Laad hem opnieuw om de nieuwste versie te zien.",
       "renameOnly": "Alleen een nieuwe naam kan tegen een versie van een plek worden opgeslagen.",
+      "placementStale": "Die fles is door iemand anders verplaatst. Er is niets veranderd.",
+      "placementUnknown": "CELLR weet niet hoe die plek is ingedeeld, dus kan er geen fles neerzetten.",
+      "placementBehind": "Er ligt een andere fles voor die plek.",
+      "compartmentFull": "Dat vak is vol.",
+      "placementAmbiguous": "Deze fles ligt achter een andere. Hij kan worden verplaatst zodra verplaatsen in de diepte aan staat.",
+      "placementClosed": "Flessen verplaatsen staat hier nog niet aan.",
+      "sameCompartment": "Twee flessen in één vak kunnen niet van plaats wisselen: een vak heeft geen volgorde.",
       "exportVersionUnavailable": "Die exportversie is niet beschikbaar."
     }
   },
@@ -1043,7 +1050,8 @@
       "vintage": "Jaargang",
       "appellation": "Appellatie",
       "inCellar": "In je kelder",
-      "inCellarCount": "{count, plural, one {# fles van deze jaargang} other {# flessen van deze jaargang}}"
+      "inCellarCount": "{count, plural, one {# fles van deze jaargang} other {# flessen van deze jaargang}}",
+      "zone": "Zone"
     },
     "subtitle": "{producer} · {year}",
     "wineDetails": "Wijndetails",
@@ -2606,5 +2614,86 @@
       "glass": "Glazen deur",
       "solid": "Dichte deur"
     }
+  },
+  "placement": {
+    "spot": {
+      "free": "Plank {row}, plek {col}: vrij",
+      "taken": "Plank {row}, plek {col}: {wine}",
+      "takenSwap": "Plank {row}, plek {col}: {wine}. Kies om te wisselen",
+      "current": "Plank {row}, plek {col}: deze fles, nu",
+      "behind": "Plank {row}, plek {col}: achter een andere fles, niet bereikbaar",
+      "depthOff": "Plank {row}, plek {col}: meer dan één fles per plek staat nog niet aan",
+      "unknown": "Plank {row}, plek {col}: indeling niet bekend",
+      "compartment": "Vak {row}·{col}: {used} van {capacity} flessen",
+      "compartmentFull": "Vak {row}·{col}: vol, {used} van {capacity} flessen",
+      "deep": {
+        "free": "Plank {row}, plek {col}, plaats {index} van voren: vrij",
+        "taken": "Plank {row}, plek {col}, plaats {index} van voren: {wine}",
+        "takenSwap": "Plank {row}, plek {col}, plaats {index} van voren: {wine}. Kies om te wisselen",
+        "current": "Plank {row}, plek {col}, plaats {index} van voren: deze fles, nu",
+        "behind": "Plank {row}, plek {col}, plaats {index} van voren: achter een andere fles, niet bereikbaar",
+        "depthOff": "Plank {row}, plek {col}, plaats {index} van voren: meer dan één fles per plek staat nog niet aan",
+        "unknown": "Plank {row}, plek {col}, plaats {index} van voren: indeling niet bekend"
+      },
+      "compartmentDepthOff": "Vak {row}·{col}: {used} van {capacity} flessen, kan er nog geen bij (plaatsen op diepte staat nog uit)"
+    },
+    "zone": {
+      "serving": "Serveerzone",
+      "storage": "Bewaarzone"
+    },
+    "legend": {
+      "free": "Vrij",
+      "taken": "Bezet",
+      "current": "Deze fles",
+      "unavailable": "Niet beschikbaar"
+    },
+    "where": {
+      "spot": "{unit} · plank {row} · plek {col}",
+      "deep": "{unit} · plank {row} · plek {col} · plaats {index} van voren",
+      "compartment": "{unit} · vak {row}·{col}",
+      "none": "geen plek",
+      "elsewhere": "een andere plek"
+    },
+    "zoneSet": "{zone} (ingesteld op {temp} °C)",
+    "titleMove": "Verplaats {wine}",
+    "titlePlace": "Zet een fles neer",
+    "now": "Nu: {where}",
+    "places": "Plekken",
+    "unknownPlace": "CELLR weet niet hoe deze plek is ingedeeld, dus biedt hij de plekken niet aan.",
+    "pickerLabel": "Plekken in {unit}",
+    "zonesNote": "Gekleurde planknummers tonen de temperatuurzones. Een temperatuur is wat de kast is ingesteld, geen meting.",
+    "willMove": "Hij gaat naar {where}.",
+    "willSwap": "Hij wisselt van plaats met {wine} op {where}.",
+    "whichBottle": "Welke fles gaat daarheen?",
+    "noneUnplaced": "Elke fles heeft al een plek.",
+    "readOnly": "Flessen verplaatsen staat hier niet aan: je kunt kijken, niet verplaatsen.",
+    "uncertain": "We konden CELLR niet bereiken om te controleren of de fles is verplaatst. Er wordt niets als verplaatst getoond. Probeer het zo opnieuw.",
+    "notMoved": "De fles is niet verplaatst: {reason}",
+    "confirmMove": "Hierheen verplaatsen",
+    "confirmPlace": "Hier neerzetten",
+    "confirmSwap": "Wisselen",
+    "takeOff": "Van zijn plek halen",
+    "cancel": "Annuleren",
+    "moveAction": "Verplaatsen",
+    "placeHere": "Zet een fles neer",
+    "unplacedTitle": "{count, plural, one {# fles zonder plek} other {# flessen zonder plek}}",
+    "place": "Neerzetten",
+    "moved": "{wine} staat nu op {where}.",
+    "swapped": "{a} en {b} zijn van plaats gewisseld.",
+    "undo": "Ongedaan maken",
+    "undone": "Teruggezet.",
+    "zonesTitle": "Temperatuurzones",
+    "zoneLine": "Zone {n} · {purpose} · {count, plural, one {plank {from}} other {planken {from}–{to}}}",
+    "setTo": "ingesteld op {temp} °C",
+    "notSet": "geen temperatuur ingesteld",
+    "bottlesInZone": "{count, plural, =0 {geen flessen} one {# fles} other {# flessen}}",
+    "editZones": "Zones bewerken",
+    "settingNote": "Ingestelde temperaturen zijn instellingen, geen metingen.",
+    "alreadyThere": "{wine} stond al op {where}. Er is niets veranderd.",
+    "movedMeanwhile": "Deze fles staat nu op {where}: hij is intussen verplaatst. Er wordt niets als gedaan getoond; kies opnieuw als hij ergens anders heen moet.",
+    "takenOffMeanwhile": "Deze fles heeft nu geen plek: hij is intussen van zijn plek gehaald. Er wordt niets als gedaan getoond; kies opnieuw als hij ergens anders heen moet.",
+    "goneMeanwhile": "Deze fles is niet meer in de kelder.",
+    "takenOff": "{wine} heeft nu geen plek.",
+    "alreadyOff": "{wine} had al geen plek. Er is niets veranderd."
   }
 }
