@@ -41,7 +41,7 @@ WORKTREES:      /home/user/CELLR (S7 branch), /home/user/CELLR-s3 (S10 branch). 
 | S7      | `claude/sommelier-3-s7-learning`     | `claude/sommelier-3-s6-experiences`  | [#97](https://github.com/Blockionaire/CELLR/pull/97)   |
 | S8      | `claude/sommelier-3-s8-release`      | `claude/sommelier-3-s7-learning`     | [#98](https://github.com/Blockionaire/CELLR/pull/98)   |
 | S9      | `claude/sommelier-3-s9-quality`      | `claude/sommelier-3-s8-release`      | [#100](https://github.com/Blockionaire/CELLR/pull/100) |
-| S10     | `claude/sommelier-3-s10-hybrid`      | `claude/sommelier-3-s9-quality`      | S10_PR_LINK                                            |
+| S10     | `claude/sommelier-3-s10-hybrid`      | `claude/sommelier-3-s9-quality`      | [#104](https://github.com/Blockionaire/CELLR/pull/104) |
 
 `claude/sommelier-3-s1-food` holds early work-in-progress checkpoints only. It is not a pull request branch and
 can be deleted once the stack is merged.

@@ -22,7 +22,7 @@ that carries a migration (#94, #97, #100) is merged.
 
 ## 1. Merge (switches off)
 
-Order: #90 → #91 → #93 → #94 → #95 → #97 → #98 → #100 → the S10 pull request. Each is safe alone: new behaviour is
+Order: #90 → #91 → #93 → #94 → #95 → #97 → #98 → #100 → #104. Each is safe alone: new behaviour is
 behind switches that are off. When a base branch is merged and deleted, GitHub retargets the next pull request to
 `main`. Every branch of the stack contains `main` as of `6ab4350` and merges without conflict (checked in S9);
 #95, #97 and #98 are drafts and must be marked ready first.
