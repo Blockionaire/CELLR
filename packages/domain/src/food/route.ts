@@ -1,3 +1,5 @@
+import type { FoodKnowledge } from "./compose";
+import { parseFood } from "./parse";
 import type { FoodProfile } from "./types";
 
 /**
@@ -66,54 +68,151 @@ export function routeDishReading(food: FoodProfile): DishRoute {
   return { read: false, reason: null, unread };
 }
 
-/** Asking words that carry nothing of a dish; joining words ("with", "met", "and") are kept: they say what goes with what. */
+/** Asking words that carry nothing of a dish. */
 const ASKING = new Set(
   (
     "what which wat welke how hoe do does did should could would can kan kun kunnen ik i we me my mijn our onze " +
-    "ons you je jij u is are was zijn ben the a an de het een for voor to naar of van that dat die this deze dit " +
-    "any some wel even ever is't isn't it's its it er there's whats what's"
+    "ons you je jij u is are was zijn ben the a an de het een for voor to naar that dat die this deze dit " +
+    "any some wel even ever is't isn't it's its it er there's whats what's tell vertel about over know weet " +
+    "please graag want wil willen like need nodig also ook just gewoon still nog then dan so dus but maar not niet no geen " +
+    "cheaper goedkoper goedkopers instead anders else different lighter lichter lichters heavier zwaarder keep bewaren " +
+    "ready klaar find vind zoek gift cadeau cadeautje present boss baas colleague collega neighbour"
   ).split(" "),
 );
+
+/** Words that join parts of a dish: kept inside a phrase, dropped at its ends. */
+const JOIN = new Set(
+  "with met and en bij along alongside or of plus in op uit van on from a la al au aux".split(" "),
+);
+
+/**
+ * Words about a person rather than a dish: health, grief, identity numbers, secrets. Never sent, whatever else
+ * is in the phrase. A list cannot be complete; the phrase is also bounded to the words next to the food.
+ */
+const PERSONAL = new Set(
+  (
+    "diabetic diabetes diabetisch suikerziekte suikerpatient pregnant pregnancy zwanger zwangerschap cancer kanker " +
+    "chemo tumour tumor allergic allergy allergie allergisch intolerant intolerance intolerantie coeliac celiac " +
+    "coeliakie sick ill ziek illness ziekte hospital ziekenhuis died dead death overleden dood rouw funeral " +
+    "begrafenis depressed depression depressie sad verdrietig medication medicine medicijnen medicatie pills pillen " +
+    "alcoholic alcoholist addiction verslaving therapy therapie divorce scheiding ex wife husband vrouw man " +
+    "password wachtwoord iban bsn pin pincode account rekening address adres phone telefoon email mail call bel"
+  ).split(" "),
+);
+
+const NUMBER_WORD =
+  /^(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|nul|twee|drie|vier|vijf|zes|zeven|acht|negen|tien|elf|twaalf|dertien|veertien|vijftien|zestien|zeventien|achttien|negentien|twintig|dertig|veertig|vijftig|zestig|zeventig|tachtig|negentig|honderd|duizend|miljoen)$|^(?:een|twee|drie|vier|vijf|zes|zeven|acht|negen)en(?:twintig|dertig|veertig|vijftig|zestig|zeventig|tachtig|negentig)$|^(?:twee|drie|vier|vijf|zes|zeven|acht|negen)?(?:honderd|duizend)\p{L}*$/u;
+const isNumberWord = (w: string) => w.split("-").every((part) => NUMBER_WORD.test(part));
 
 /** The longest dish phrase a model is asked about, in words and characters. */
 export const DISH_PHRASE_MAX_WORDS = 12;
 const DISH_PHRASE_MAX_CHARS = 120;
+/** How far from the recognised food an unread word may stand and still be part of the dish. */
+const NEAR = 2;
+
+/** Whether the question is about which wine to pour at all ("what wine?", "welke fles?", "wat schenk ik"). */
+export const asksForWine = (text: string): boolean =>
+  /\b(?:wine|wines|wijn|wijnen|wijntje|bottle|bottles|fles|flessen|pour|schenk|schenken|serve|serveer|open|openen|openmaken|drink|drinken|pair|pairing|goes|past|bubbels)\b/i.test(
+    text.normalize("NFKC"),
+  );
+
+const fold = (w: string) => w.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
 /**
- * THE DISH, AND NOTHING ELSE. What a model is asked to read, and what a shared reading is stored under: the
- * question lower case, without names of people (@mentions), numbers, prices, punctuation, and without the words
- * around the dish (the occasion, the people, the budget, the asking). "Zuurkool met casselerrib vanavond, welke
- * wijn? Max 20 euro" becomes "zuurkool met casselerrib". Null when nothing is left. The model sees exactly this
- * phrase, so a reading is a function of the phrase alone and may be shared between people who type it.
+ * THE DISH, AND NOTHING ELSE. What a model is asked to read, and what a shared reading is stored under.
+ *
+ * Built from the words the parser recognises as food, and the unread words right next to them (at most two
+ * on either side: "zuurkool met *casselerrib*"), never from the rest of the question. With no food recognised at
+ * all, only the words at the very start of the question or right after "with", "met", "bij", "eat", "eten"
+ * ("we eten *casselerrib*"). In every case dropped: anything with an "@" in it (a mention, an e-mail), web
+ * addresses, numbers and number words, names (a word written with a capital inside a sentence that is not a food
+ * word), words about health, grief or identity, and the words about the occasion, the people, the budget and the
+ * asking. Lower case, accents folded, at most 12 words. Null when nothing is left.
+ *
+ * The model sees exactly this phrase, so a reading is a function of the phrase alone and may be shared between
+ * people who type it.
  */
-export function dishPhrase(text: string): string | null {
-  const words = text
+export function dishPhrase(text: string, k: FoodKnowledge): string | null {
+  const cleaned = text
     .normalize("NFKC")
-    .toLowerCase()
-    .replace(/[\u200b-\u200d\u2060\ufeff\u00ad]/g, "")
-    .replace(/[@＠][\p{L}\p{N}._-]*/gu, " ")
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/[^\p{L}\s'-]/gu, " ")
-    .split(/\s+/)
-    .map((w) => w.replace(/^['-]+|['-]+$/g, ""))
-    .filter((w) => w.length > 0 && !FRAMING.has(w) && !ASKING.has(w));
-  // A joining word at either end joins nothing: "with roast chicken" is "roast chicken".
-  const JOIN = new Set([
-    "with",
-    "met",
-    "and",
-    "en",
-    "bij",
-    "along",
-    "alongside",
-    "or",
-    "of",
-    "plus",
-  ]);
-  while (words.length > 0 && JOIN.has(words[0]!)) words.shift();
-  while (words.length > 0 && JOIN.has(words.at(-1)!)) words.pop();
-  const phrase = words
+    .replace(/[\u200b-\u200f\u2060-\u206f\ufeff\u00ad]/g, "")
+    // Every token that holds an "@" anywhere, whole, and the word after "@ ": a mention, "anna@", an e-mail.
+    .replace(/\S*[@＠﹫]\s*\S*/gu, " ")
+    .replace(/\b(?:https?:\/\/|www\.)\S*/giu, " ")
+    .replace(/\S+\.(?:com|nl|org|net|be|de|eu|io|uk|fr|info|app|dev)\b\S*/giu, " ")
+    .replace(/\S*\d\S*/gu, " ");
+  type Tok = { word: string; capital: boolean; start: boolean };
+  const toks: Tok[] = [];
+  let sentenceStart = true;
+  for (const m of cleaned.matchAll(/[\p{L}'’-]+|[.!?;:]/gu)) {
+    const raw = m[0];
+    if (/^[.!?;:]$/.test(raw)) {
+      sentenceStart = true;
+      continue;
+    }
+    const word = fold(raw)
+      .replace(/^['’-]+|['’-]+$/g, "")
+      .replace(/’/g, "'");
+    if (word.length === 0) continue;
+    toks.push({ word, capital: /^\p{Lu}/u.test(raw), start: sentenceStart });
+    sentenceStart = false;
+  }
+  const isFood = (w: string) => {
+    if (JOIN.has(w) || FRAMING.has(w) || ASKING.has(w)) return false;
+    const p = parseFood(w, k);
+    return (
+      p.main !== null ||
+      p.dishId !== null ||
+      p.parts.ingredients.length + p.parts.sauces.length + p.parts.techniques.length > 0
+    );
+  };
+  const food = toks.map((t) => isFood(t.word));
+  const allowed = (t: Tok, i: number) =>
+    food[i] ||
+    (!FRAMING.has(t.word) &&
+      !ASKING.has(t.word) &&
+      !PERSONAL.has(t.word) &&
+      !isNumberWord(t.word) &&
+      // A capital inside a sentence on a word that is not food: most often a name.
+      !(t.capital && !t.start) &&
+      t.word.length > 1);
+  const first = food.indexOf(true);
+  const last = food.lastIndexOf(true);
+  let picked: string[] = [];
+  if (first >= 0) {
+    for (let i = Math.max(0, first - NEAR); i <= Math.min(toks.length - 1, last + NEAR); i += 1) {
+      const t = toks[i]!;
+      // Inside the span every allowed word counts; outside it, only an unbroken run of allowed words next to it.
+      if (JOIN.has(t.word) || allowed(t, i)) picked.push(t.word);
+      else if (i < first) picked = [];
+      else if (i > last) break;
+    }
+  } else {
+    // No food recognised: the words that open the question, or the ones after a word that introduces a dish.
+    const CUE = new Set([
+      "with",
+      "met",
+      "bij",
+      "eat",
+      "eating",
+      "eten",
+      "eet",
+      "serving",
+      "cooking",
+      "kook",
+      "maak",
+    ]);
+    const cue = toks.findIndex((t) => CUE.has(t.word));
+    const from = cue >= 0 ? cue + 1 : 0;
+    for (let i = from; i < toks.length && picked.length < 4; i += 1) {
+      const t = toks[i]!;
+      if (!allowed(t, i) && !JOIN.has(t.word)) break;
+      picked.push(t.word);
+    }
+  }
+  while (picked.length > 0 && JOIN.has(picked[0]!)) picked.shift();
+  while (picked.length > 0 && JOIN.has(picked.at(-1)!)) picked.pop();
+  const phrase = picked
     .slice(0, DISH_PHRASE_MAX_WORDS)
     .join(" ")
     .slice(0, DISH_PHRASE_MAX_CHARS)

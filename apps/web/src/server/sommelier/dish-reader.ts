@@ -20,7 +20,7 @@ import { dishCacheKey, type DishReadingCache } from "./dish-cache";
  */
 export interface DishReaderDeps {
   llm: LlmProvider;
-  /** The model the provider will be asked with, for the cache key (a new model is a new key). */
+  /** The model the provider will be asked with, and how (its reasoning effort), for the cache key. */
   model: string;
   /** Spends from the person's own limit for model calls; throws RATE_LIMITED when it is gone. */
   spend: () => Promise<void>;
@@ -49,13 +49,18 @@ const STATUS: Record<
 };
 
 export function createDishReader(deps: DishReaderDeps) {
-  return async (phrase: string): Promise<DishReading | null> => {
+  return async (
+    phrase: string,
+    options: { cacheOnly?: boolean } = {},
+  ): Promise<DishReading | null> => {
     const key = dishCacheKey(phrase, deps.model, DISH_READING_PROMPT_VERSION);
     const kept = deps.cache?.get(key) ?? null;
     if (kept) {
       deps.observe?.("cache");
       return kept;
     }
+    // A follow-up's dish: only what was read before, never a new call.
+    if (options.cacheOnly) return null;
     try {
       await deps.spend();
     } catch (error) {
@@ -74,7 +79,8 @@ export function createDishReader(deps: DishReaderDeps) {
       jsonSchema: dishReadingSchema(),
       parse: parseDishReading,
       maxOutputTokens: 400,
-      timeoutMs: 15_000,
+      // Short: the engines wait at most 10 s for a reading, then go on with the parser's.
+      timeoutMs: 8_000,
       temperature: 0,
     });
     await deps

@@ -23,7 +23,8 @@ import { makeV3App } from "./v3-app";
  * THE HYBRID VARIANTS OF S10, on exactly the scenarios and the scorer of the other engines.
  *
  * - `v3-oracle` (free): the dish reader is the reference card itself, for the dishes the router sends to a
- *   reader. An upper bound: what the engines would give if every routed dish were read perfectly. It reads the
+ *   reader. NOT an upper bound: the card has a class and scales only (no ingredients, sauces or tags), so the
+ *   engines keep the parser's own parts; it shows what a right class and right scales alone would change. It reads the
  *   card's class and scales only, never its wine labels.
  * - `v3-hybrid` (C, paid): the app's own dish reader with the app's model; the engines decide.
  * - `v3-hybrid-review` (D, paid, an experiment): C, and the app's second opinion on close calls.
@@ -59,7 +60,7 @@ const oracleReaderFor = (scenario: Scenario) => {
 export const v3Oracle: Engine = makeV3App({
   name: "v3-oracle",
   describes:
-    "Sommelier 3.0 with a perfect dish reader for the dishes the router sends on (the reference card's class and scales): an upper bound, not a product",
+    "Sommelier 3.0 with the reference card's class and scales handed in for the dishes the router sends on (not an upper bound: no ingredients or tags)",
   readerFor: oracleReaderFor,
 });
 

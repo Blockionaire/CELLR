@@ -8,7 +8,8 @@ import type { DishCard, EvalAnswer, Scenario, Verdict } from "./types";
  *
  * - what is offered at place 1, 2 and 3, by the reference card's label (good, ok, poor);
  * - the share of all offered bottles that are poor, so offering more is not punished per scenario;
- * - a useful answer: something to open whose first bottle is at least "ok" and none of whose bottles is poor, or
+ * - a useful answer: something to open none of whose bottles is poor (this favours offering fewer bottles: read
+ *   it beside the good bottles offered, which favour offering more), or
  *   nothing at all when nothing suits;
  * - how many bottles are offered;
  * - the dish read right (where the engine says what it read).
@@ -57,10 +58,7 @@ export function qualityRow(
   const labels = answer.bottles.map((k) => labelOf(card, k));
   const expected = result.expectedVerdict;
   const anySuits = cellarKeys.some((k) => labelOf(card, k) !== "poor");
-  const useful =
-    labels.length === 0
-      ? expected === "none" || !anySuits
-      : labels[0] !== "poor" && !labels.includes("poor");
+  const useful = labels.length === 0 ? expected === "none" || !anySuits : !labels.includes("poor");
   const food = result.checks.find((c) => c.name === "food");
   return {
     id: scenario.id,
@@ -144,8 +142,15 @@ export function pairedBootstrap(
   rounds = 4000,
 ): { diff: number; low: number; high: number; pNotBetter: number } {
   if (a.length !== b.length || a.length === 0) throw new Error("paired samples of equal length");
-  let seed = 20261120;
-  const rand = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31;
+  // A 32-bit xorshift generator: exact in integer arithmetic, a period far beyond the draws made here.
+  let seed = 20261120 >>> 0;
+  const rand = () => {
+    seed ^= seed << 13;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    seed >>>= 0;
+    return seed / 2 ** 32;
+  };
   const n = a.length;
   const mean = (xs: readonly number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
   const d = a.map((x, i) => x - b[i]!);

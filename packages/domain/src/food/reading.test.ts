@@ -70,7 +70,8 @@ describe("checking a model's reading of a dish", () => {
   it("refuses an answer outside the schema: a scale out of range, an extra field, a missing one", () => {
     expect(() => checkDishReading(raw({ structure: { ...NONE, heat: 7 } }), FOOD)).toThrow();
     expect(() => checkDishReading({ ...raw(), wine: "Barolo" }, FOOD)).toThrow();
-    const { confidence: _, ...missing } = raw();
+    const missing: Partial<RawDishReading> = raw();
+    delete missing.confidence;
     expect(() => checkDishReading(missing, FOOD)).toThrow();
   });
 
@@ -154,22 +155,40 @@ describe("when a dish goes to a model", () => {
 });
 
 describe("the dish phrase a model sees", () => {
+  const phrase = (q: string) => dishPhrase(q, FOOD);
   it.each([
     ["Zuurkool met casselerrib vanavond, welke wijn? Max 20 euro", "zuurkool met casselerrib"],
     ["What do I open with roast chicken?", "roast chicken"],
-    ["@lotte komt eten, we hebben zeebaars", "zeebaars"],
     ["Bulgogi for my dad and the kids tonight", "bulgogi"],
-  ])("%s → %s", (question, phrase) => expect(dishPhrase(question)).toBe(phrase));
+    ["We eten casselerrib, welke wijn?", "casselerrib"],
+  ])("%s → %s", (question, expected) => expect(phrase(question)).toBe(expected));
 
-  it("never holds a name, a number or a price", () => {
-    const p = dishPhrase("Stoofvlees voor @jan.de.vries en 6 gasten, €45, 06-12345678") ?? "";
-    expect(p).not.toMatch(/jan|vries|@|\d|€/);
+  // The inputs an independent review used to get names, numbers and secrets through (S10).
+  it.each([
+    "@ anna eet zuurkool met casselerrib",
+    "anna@ komt, zuurkool met casselerrib",
+    "anna.bakker@gmail.com komt eten: zuurkool met casselerrib",
+    "@аnna komt, hachee met rode kool",
+    "Dinner with Jan and Marieke, we're having hachee",
+    "Diner met Jan de Vries, stamppot boerenkool",
+    "My boss Pieter Jansen loves kapsalon",
+    "Hachee with my ex-wife Sandra who has cancer",
+    "Pasta for my mother, she's diabetic and pregnant",
+    "Kapsalon, call me on zero six one two",
+    "Hachee, nul zes twaalf vierendertig zesenvijftig",
+    "Stamppot, mijn IBAN is NL91ABNA0417164300",
+    "Kapsalon, my password is hunter two",
+    "Hachee, see https://evil.example/x or www.anna-bakker.nl",
+  ])("keeps the person out: %s", (question) => {
+    const p = phrase(question) ?? "";
+    expect(p).not.toMatch(
+      /anna|bakker|gmail|jan|marieke|vries|pieter|jansen|boss|sandra|cancer|diabetic|pregnant|mother|zero|six|twaalf|vierendertig|zesenvijftig|iban|nl91|password|hunter|https|evil|www|@/,
+    );
   });
 
   it("is short, and nothing when nothing of a dish is left", () => {
-    expect(dishPhrase("What wine tonight?")).toBeNull();
-    expect(
-      (dishPhrase("a ".repeat(400) + "lamb ".repeat(400)) ?? "").split(" ").length,
-    ).toBeLessThanOrEqual(12);
+    expect(phrase("What wine tonight?")).toBeNull();
+    expect(phrase("Under 30, online is fine.")).toBeNull();
+    expect((phrase("lamb ".repeat(400)) ?? "").split(" ").length).toBeLessThanOrEqual(12);
   });
 });

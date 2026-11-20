@@ -112,6 +112,14 @@ for (const scenario of scenarios) {
     );
     break;
   }
+  // A model variant inside the app swallows the refusal (it goes on without the model): the meter says so.
+  if (paid?.meter.stopped) {
+    stoppedAt = scenario.id;
+    console.error(
+      `Stopped at ${scenario.id}: the spending limit was reached. That scenario and the rest are not counted.`,
+    );
+    break;
+  }
   answers.push(run.answer);
   const card = scenario.dish ? (cards.get(scenario.dish) ?? null) : null;
   const scored = scoreScenario(scenario, card, run.answer, run.ms);
@@ -145,7 +153,7 @@ console.log(formatSummary(summary, engine.describes));
 console.log(`\n${formatQuality(quality)}`);
 if (paid && !("engine" in paid))
   console.log(
-    `Dish readings: by the model ${paid.readings.model}, from the shared store ${paid.readings.cache}, failed ${paid.readings.failed}.`,
+    `Dish readings: by the model ${paid.readings.model}, from the shared store ${paid.readings.cache}, failed ${paid.readings.failed}, refused by the person's limit ${paid.readings.limited}.`,
   );
 console.log(
   `\nLatency of the engine's own work per question (this machine, this run): p50 ${summary.latencyMs.p50.toFixed(2)} ms, p95 ${summary.latencyMs.p95.toFixed(2)} ms, max ${summary.latencyMs.max.toFixed(2)} ms.`,

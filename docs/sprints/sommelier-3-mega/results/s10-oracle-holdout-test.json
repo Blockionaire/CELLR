@@ -1,7 +1,7 @@
 {
   "engine": "v3-oracle",
   "scenarios": 43,
-  "passed": 26,
+  "passed": 23,
   "supported": 43,
   "byCategory": {
     "pairing-simple": {
@@ -12,12 +12,12 @@
     "pairing-hard": {
       "scenarios": 16,
       "supported": 16,
-      "passed": 8
+      "passed": 6
     },
     "pairing-misleading": {
       "scenarios": 6,
       "supported": 6,
-      "passed": 2
+      "passed": 1
     },
     "no-suitable-wine": {
       "scenarios": 9,
@@ -37,12 +37,12 @@
   },
   "measures": {
     "grounded": [43, 43],
-    "food": [41, 43],
-    "verdict": [32, 43],
-    "first": [27, 43],
+    "food": [37, 43],
+    "verdict": [33, 43],
+    "first": [28, 43],
     "no-poor-bottle": [31, 34],
-    "no-bottles": [7, 9],
-    "honest-none": [7, 9],
+    "no-bottles": [8, 9],
+    "honest-none": [8, 9],
     "confidence": [1, 1],
     "never": [1, 1]
   },
@@ -53,28 +53,28 @@
         "place": 1,
         "good": 19,
         "ok": 6,
-        "poor": 5
+        "poor": 4
       },
       {
         "place": 2,
-        "good": 9,
-        "ok": 5,
+        "good": 10,
+        "ok": 4,
         "poor": 0
       },
       {
         "place": 3,
-        "good": 5,
-        "ok": 2,
+        "good": 4,
+        "ok": 3,
         "poor": 1
       }
     ],
-    "offeredBottles": 52,
-    "poorBottles": 6,
+    "offeredBottles": 51,
+    "poorBottles": 5,
     "goodBottles": 33,
-    "useful": 32,
+    "useful": 33,
     "answeredWhenPossible": [28, 34],
-    "honestNone": [7, 9],
-    "counts": [13, 16, 6, 8],
-    "dishRead": [41, 43]
+    "honestNone": [8, 9],
+    "counts": [14, 15, 6, 8],
+    "dishRead": [37, 43]
   }
 }

@@ -1,7 +1,7 @@
 {
   "engine": "v3-oracle",
   "scenarios": 246,
-  "passed": 174,
+  "passed": 179,
   "supported": 246,
   "byCategory": {
     "pairing-simple": {
@@ -17,7 +17,7 @@
     "pairing-misleading": {
       "scenarios": 16,
       "supported": 16,
-      "passed": 11
+      "passed": 13
     },
     "no-suitable-wine": {
       "scenarios": 18,
@@ -52,7 +52,7 @@
     "follow-up": {
       "scenarios": 16,
       "supported": 16,
-      "passed": 10
+      "passed": 12
     },
     "multi-person": {
       "scenarios": 14,
@@ -72,7 +72,7 @@
     "robustness": {
       "scenarios": 12,
       "supported": 12,
-      "passed": 11
+      "passed": 12
     },
     "experience": {
       "scenarios": 8,
@@ -82,19 +82,19 @@
   },
   "measures": {
     "grounded": [246, 246],
-    "food": [211, 217],
-    "verdict": [149, 168],
-    "first": [137, 168],
-    "no-poor-bottle": [127, 150],
+    "food": [210, 217],
+    "verdict": [150, 168],
+    "first": [139, 168],
+    "no-poor-bottle": [128, 150],
     "no-bottles": [21, 22],
     "honest-none": [17, 18],
-    "buy": [158, 166],
+    "buy": [159, 166],
     "confidence": [15, 15],
     "never": [15, 15],
     "flag": [1, 1],
     "facts": [4, 4],
     "tier": [27, 27],
-    "state": [69, 74],
+    "state": [72, 74],
     "asks": [8, 11],
     "not-ask": [14, 14],
     "friends": [97, 102],
@@ -106,31 +106,31 @@
     "byPlace": [
       {
         "place": 1,
-        "good": 111,
-        "ok": 31,
-        "poor": 5
+        "good": 113,
+        "ok": 28,
+        "poor": 6
       },
       {
         "place": 2,
-        "good": 60,
+        "good": 61,
         "ok": 24,
         "poor": 15
       },
       {
         "place": 3,
-        "good": 34,
-        "ok": 26,
-        "poor": 7
+        "good": 33,
+        "ok": 27,
+        "poor": 4
       }
     ],
-    "offeredBottles": 313,
-    "poorBottles": 27,
-    "goodBottles": 205,
-    "useful": 140,
+    "offeredBottles": 311,
+    "poorBottles": 25,
+    "goodBottles": 207,
+    "useful": 141,
     "answeredWhenPossible": [146, 150],
     "honestNone": [17, 18],
-    "counts": [21, 48, 32, 67],
-    "dishRead": [162, 168]
+    "counts": [21, 47, 36, 64],
+    "dishRead": [161, 168]
   },
   "results": [
     {
@@ -147,9 +147,9 @@
     },
     {
       "id": "ps-003",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["first"]
+      "failed": []
     },
     {
       "id": "ps-004",
@@ -195,9 +195,9 @@
     },
     {
       "id": "ps-011",
-      "pass": true,
+      "pass": false,
       "supported": true,
-      "failed": []
+      "failed": ["first"]
     },
     {
       "id": "ps-012",
@@ -437,7 +437,7 @@
       "id": "ph-019",
       "pass": false,
       "supported": true,
-      "failed": ["verdict", "no-poor-bottle"]
+      "failed": ["verdict"]
     },
     {
       "id": "ph-020",
@@ -471,9 +471,9 @@
     },
     {
       "id": "ph-025",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["no-poor-bottle"]
+      "failed": []
     },
     {
       "id": "ph-026",
@@ -581,7 +581,7 @@
       "id": "ph-043",
       "pass": false,
       "supported": true,
-      "failed": ["no-poor-bottle"]
+      "failed": ["first", "no-poor-bottle"]
     },
     {
       "id": "ph-044",
@@ -609,9 +609,9 @@
     },
     {
       "id": "ph-048",
-      "pass": true,
+      "pass": false,
       "supported": true,
-      "failed": []
+      "failed": ["no-poor-bottle"]
     },
     {
       "id": "ph-049",
@@ -647,7 +647,7 @@
       "id": "ph-054",
       "pass": false,
       "supported": true,
-      "failed": ["first", "no-poor-bottle"]
+      "failed": ["food", "no-poor-bottle"]
     },
     {
       "id": "ph-055",
@@ -705,9 +705,9 @@
     },
     {
       "id": "pm-007",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["verdict"]
+      "failed": []
     },
     {
       "id": "pm-008",
@@ -717,9 +717,9 @@
     },
     {
       "id": "pm-009",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["first"]
+      "failed": []
     },
     {
       "id": "pm-010",
@@ -1197,9 +1197,9 @@
     },
     {
       "id": "fu-06",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["state:dish"]
+      "failed": []
     },
     {
       "id": "fu-07",
@@ -1235,7 +1235,7 @@
       "id": "fu-12",
       "pass": false,
       "supported": true,
-      "failed": ["state:dish", "asks"]
+      "failed": ["asks"]
     },
     {
       "id": "fu-13",
@@ -1245,9 +1245,9 @@
     },
     {
       "id": "fu-14",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["buy:style", "state:dish"]
+      "failed": []
     },
     {
       "id": "fu-15",
@@ -1521,9 +1521,9 @@
     },
     {
       "id": "rb-06",
-      "pass": false,
+      "pass": true,
       "supported": true,
-      "failed": ["first"]
+      "failed": []
     },
     {
       "id": "rb-07",
@@ -1613,7 +1613,7 @@
   "labels": {
     "ps-001": ["good", "good", "good"],
     "ps-002": ["good", "good", "ok"],
-    "ps-003": ["ok", "ok", "good"],
+    "ps-003": ["good", "ok", "ok"],
     "ps-004": ["good", "good", "good"],
     "ps-005": ["ok"],
     "ps-006": ["good"],
@@ -1621,12 +1621,12 @@
     "ps-008": ["good", "poor"],
     "ps-009": ["good", "good"],
     "ps-010": ["good", "good", "ok"],
-    "ps-011": ["good", "ok", "ok"],
+    "ps-011": ["ok", "good", "good"],
     "ps-012": ["good", "ok"],
     "ps-013": ["ok"],
     "ps-014": ["good"],
     "ps-015": ["ok", "good", "ok"],
-    "ps-016": ["ok", "poor", "poor"],
+    "ps-016": ["poor"],
     "ps-017": ["good", "good", "good"],
     "ps-018": ["good", "good", "ok"],
     "ps-019": ["good", "ok"],
@@ -1661,13 +1661,13 @@
     "ph-016": ["good"],
     "ph-017": ["good", "good", "good"],
     "ph-018": ["good", "good"],
-    "ph-019": ["ok", "poor", "ok"],
+    "ph-019": ["ok", "ok"],
     "ph-020": ["ok", "good", "good"],
     "ph-021": ["good", "good"],
     "ph-022": ["ok"],
     "ph-023": ["good"],
     "ph-024": ["good", "poor", "ok"],
-    "ph-025": ["good", "good", "poor"],
+    "ph-025": ["good", "good", "ok"],
     "ph-026": ["good", "poor"],
     "ph-027": ["ok", "ok", "ok"],
     "ph-028": ["good"],
@@ -1685,18 +1685,18 @@
     "ph-040": ["poor"],
     "ph-041": ["good", "poor"],
     "ph-042": ["good"],
-    "ph-043": ["good", "poor", "ok"],
+    "ph-043": ["poor", "ok"],
     "ph-044": ["good", "good", "good"],
     "ph-045": ["good", "good", "ok"],
     "ph-046": ["ok", "good", "good"],
     "ph-047": ["good", "good", "ok"],
-    "ph-048": ["good"],
-    "ph-049": ["good", "good", "poor"],
+    "ph-048": ["good", "poor"],
+    "ph-049": ["good", "poor", "ok"],
     "ph-050": ["good", "good", "ok"],
     "ph-051": ["good", "good"],
     "ph-052": ["good", "poor"],
     "ph-053": ["ok"],
-    "ph-054": ["poor", "ok", "ok"],
+    "ph-054": ["good", "poor", "ok"],
     "ph-055": ["good", "good"],
     "ph-056": ["good", "ok", "ok"],
     "ph-057": ["ok", "poor"],
@@ -1705,10 +1705,10 @@
     "pm-003": ["good"],
     "pm-004": ["good"],
     "pm-005": ["ok", "good", "good"],
-    "pm-006": ["good"],
+    "pm-006": ["good", "good"],
     "pm-007": ["good"],
     "pm-008": ["good", "ok"],
-    "pm-009": ["ok"],
+    "pm-009": ["good"],
     "pm-010": ["good"],
     "pm-011": ["good", "good"],
     "pm-012": [],
@@ -1775,7 +1775,7 @@
     "rs-06": ["good", "ok", "good"],
     "rs-07": ["good", "ok", "ok"],
     "rs-09": ["good", "good"],
-    "rb-06": ["ok", "ok", "good"],
+    "rb-06": ["good", "ok", "ok"],
     "rb-07": ["good", "ok", "good"],
     "rb-09": ["good", "good", "good"],
     "rb-11": []

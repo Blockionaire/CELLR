@@ -195,7 +195,7 @@ export function servicesFor(ctx: RequestContext) {
           ? {
               readDish: createDishReader({
                 llm: dishLlm,
-                model: getAiEnv().adviceModel,
+                model: `${getAiEnv().adviceModel}|${getAiEnv().reasoningEffort}`,
                 spend: () => limiter.enforce(LIMITS.dishReading),
                 householdId: async () => (await household()).id,
                 recordUsage: ({ householdId, task, status, usage }) =>

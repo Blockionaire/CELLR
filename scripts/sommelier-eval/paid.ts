@@ -33,6 +33,11 @@ export interface Meter {
   unknownCost: number;
   /** The models the provider said answered, when it said so. */
   servedModels: Set<string>;
+  /**
+   * The limit was reached. Set before the refusal is thrown, because a caller inside the app (the engines) turns
+   * every failure of a model into "go on without it": the runner reads this flag to stop and say so.
+   */
+  stopped: boolean;
 }
 export const newMeter = (): Meter => ({
   calls: 0,
@@ -41,6 +46,7 @@ export const newMeter = (): Meter => ({
   usdMicro: 0,
   unknownCost: 0,
   servedModels: new Set(),
+  stopped: false,
 });
 
 export class BudgetReached extends Error {
@@ -57,7 +63,10 @@ export class BudgetReached extends Error {
 export function metered(inner: LlmProvider, meter: Meter, maxUsdMicro: number): LlmProvider {
   return {
     async generateObject<T>(request: GenerateObjectRequest<T>): Promise<AiResult<T>> {
-      if (meter.usdMicro >= maxUsdMicro) throw new BudgetReached(meter.usdMicro);
+      if (meter.usdMicro >= maxUsdMicro) {
+        meter.stopped = true;
+        throw new BudgetReached(meter.usdMicro);
+      }
       const result = await inner.generateObject(request);
       meter.calls += 1;
       meter.inputTokens += result.usage.tokensIn;
@@ -69,7 +78,8 @@ export function metered(inner: LlmProvider, meter: Meter, maxUsdMicro: number): 
         meter.unknownCost += 1;
         meter.usdMicro += estimateCost({
           model: result.usage.servedModel ?? result.usage.model,
-          promptChars: request.system.length + request.user.length,
+          promptChars:
+            request.system.length + request.user.length + JSON.stringify(request.jsonSchema).length,
           images: 0,
           maxOutputTokens: request.maxOutputTokens,
           webSearch: false,

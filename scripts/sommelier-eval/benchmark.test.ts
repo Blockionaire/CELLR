@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { DISHES } from "./dishes";
 import { ENGINES } from "./engines";
 import { SCENARIOS } from "./scenarios";
+import { buildFixture } from "./fixtures";
+import { qualityRow, qualityTotals, type QualityRow } from "./quality";
 import { checkHumanDishes, HUMAN_HOLDOUT_FILE, HUMAN_HOLDOUT_MIN_DISHES } from "./human-holdout";
 import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { expectedVerdictOf, scoreScenario, summarize } from "./score";
@@ -132,6 +134,8 @@ describe("the V1 baseline", () => {
   });
 });
 
+const cellarKeys = (s: Scenario) => buildFixture(s).wines.map((w) => w.key);
+
 describe("Sommelier 3.0 in the app", () => {
   // Only V1's baseline used to be pinned, so a change to the engines could move the results the documents quote
   // without any test noticing. A change that moves a result now has to record a new run
@@ -143,7 +147,11 @@ describe("Sommelier 3.0 in the app", () => {
           new URL(`../../docs/sprints/sommelier-3-mega/results/${file}`, import.meta.url),
           "utf8",
         ),
-      ) as { passed: number; results: Array<{ id: string; supported: boolean; failed: string[] }> };
+      ) as {
+        passed: number;
+        results: Array<{ id: string; supported: boolean; failed: string[] }>;
+        labels?: Record<string, string[]>;
+      };
       const before = new Map(recorded.results.map((r) => [r.id, r]));
       const engine = ENGINES.find((e) => e.name === "v3-app")!;
       const cardOf = cardsOf(set);
@@ -155,11 +163,14 @@ describe("Sommelier 3.0 in the app", () => {
         if (!supported) continue;
         const { answer, ms } = await engine.run(s);
         expect(answer.invented, s.id).toBe(0);
-        const failed = scoreScenario(s, s.dish ? (cardOf.get(s.dish) ?? null) : null, answer, ms)
-          .checks.filter((c) => !c.pass)
-          .map((c) => c.name);
+        const card = s.dish ? (cardOf.get(s.dish) ?? null) : null;
+        const scored = scoreScenario(s, card, answer, ms);
+        const failed = scored.checks.filter((c) => !c.pass).map((c) => c.name);
         expect(failed, s.id).toEqual(was?.failed);
         if (failed.length === 0) now += 1;
+        // The bottles themselves, by the card's labels: the per-bottle claims of S10 cannot drift either.
+        const row = qualityRow(s, card, answer, scored, cellarKeys(s));
+        if (row) expect(row.labels, s.id).toEqual(recorded.labels?.[s.id]);
       }
       expect(now).toBe(recorded.passed);
       expect(now).toBe(passed);
@@ -177,21 +188,38 @@ describe("Sommelier 3.0 in the app", () => {
         ),
         "utf8",
       ),
-    ) as { passed: number; measures: Record<string, [number, number]>; results?: unknown };
+    ) as {
+      passed: number;
+      measures: Record<string, [number, number]>;
+      results?: unknown;
+      quality: unknown;
+    };
     expect(recorded.results).toBeUndefined();
     const engine = ENGINES.find((e) => e.name === "v3-app")!;
     const cardOf = cardsOf("holdout-test");
     const results = [];
     const answers = [];
-    for (const s of scenariosOf("holdout-test")) {
+    const rows: QualityRow[] = [];
+    const scenarios = scenariosOf("holdout-test");
+    for (const s of scenarios) {
       const { answer, ms } = await engine.run(s);
       answers.push(answer);
-      results.push(scoreScenario(s, s.dish ? (cardOf.get(s.dish) ?? null) : null, answer, ms));
+      const card = s.dish ? (cardOf.get(s.dish) ?? null) : null;
+      const scored = scoreScenario(s, card, answer, ms);
+      results.push(scored);
+      const row = qualityRow(s, card, answer, scored, cellarKeys(s));
+      if (row) rows.push(row);
     }
     const now = summarize("v3-app", results, answers);
     expect(now.passed).toBe(20);
     expect(now.passed).toBe(recorded.passed);
     expect(now.measures).toEqual(recorded.measures);
+    const quality = qualityTotals(
+      rows,
+      (id) => cellarKeys(scenarios.find((x) => x.id === id)!),
+      (id) => cardOf.get(scenarios.find((x) => x.id === id)!.dish!) ?? null,
+    );
+    expect(quality).toEqual(recorded.quality);
     expect(answers.reduce((n, a) => n + a.invented, 0)).toBe(0);
   });
 

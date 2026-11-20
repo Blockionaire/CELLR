@@ -66,8 +66,9 @@ const PORK: DishReading = {
   dropped: 0,
 };
 
-function setup(reading: DishReading | null | "throws" = PORK, social = false) {
+function setupRaw(reading: DishReading | null | "throws" = PORK, social = false) {
   const asked: string[] = [];
+  const lookups: Array<{ phrase: string; cacheOnly: boolean }> = [];
   const seen: Array<{ main: string | null; readBy: string | undefined }> = [];
   const intelligence = createSommelierIntelligence({
     cellar: async () => ({ items: CELLAR, bottleCount: 6 }),
@@ -81,7 +82,11 @@ function setup(reading: DishReading | null | "throws" = PORK, social = false) {
             handles.map((handle) => ({ handle, status: "included" as const, taste: null })),
         }
       : {}),
-    readDish: async (phrase) => {
+    readDish: async (phrase, options) => {
+      lookups.push({ phrase, cacheOnly: options?.cacheOnly === true });
+      // A lookup among earlier readings: the store has what was read before.
+      if (options?.cacheOnly)
+        return asked.includes(phrase) && reading !== "throws" ? reading : null;
       asked.push(phrase);
       if (reading === "throws") throw new Error("down");
       return reading;
@@ -89,9 +94,13 @@ function setup(reading: DishReading | null | "throws" = PORK, social = false) {
     observe: ({ food }) => seen.push({ main: food?.main ?? null, readBy: food?.readBy }),
     now: () => new Date("2026-11-20T18:00:00Z"),
   });
+  return { intelligence, asked, seen, lookups };
+}
+function setup(reading: DishReading | null | "throws" = PORK, social = false) {
+  const raw = setupRaw(reading, social);
   const ask = (question: string, state?: unknown) =>
-    intelligence.plan({ question, state, budgetEuros: null, personal: true, locale: "en" });
-  return { ask, asked, seen };
+    raw.intelligence.plan({ question, state, budgetEuros: null, personal: true, locale: "en" });
+  return { ...raw, ask };
 }
 
 describe("when the model is asked", () => {
@@ -123,6 +132,58 @@ describe("when the model is asked", () => {
     const planned = await ask("Zuurkool met casselerrib, welke wijn?");
     expect(planned!.plan.dishConfidence).not.toBe("high");
     expect(planned!.plan.confidence).not.toBe("high");
+  });
+});
+
+describe("what never goes to a model (S10 review)", () => {
+  it.each([
+    "@ anna eet zuurkool met casselerrib, welke wijn?",
+    "anna@ komt, zuurkool met casselerrib, welke wijn?",
+    "anna.bakker@gmail.com komt eten: zuurkool met casselerrib, welke wijn?",
+    "@аnna komt, zuurkool met casselerrib, welke wijn?",
+  ])("a question with any '@' in it, social on or off: %s", async (question) => {
+    for (const social of [false, true]) {
+      const { ask, asked } = setup(PORK, social);
+      await ask(question);
+      expect(asked, String(social)).toEqual([]);
+    }
+  });
+
+  it("a conversation that named someone earlier, even when this question does not", async () => {
+    const { intelligence, asked } = setupRaw();
+    await intelligence.plan({
+      question: "En met zuurkool en casselerrib dan?",
+      state: undefined,
+      budgetEuros: null,
+      personal: true,
+      locale: "en",
+      earlier: ["@anna komt eten, wat drinken we?"],
+    });
+    expect(asked).toEqual([]);
+  });
+
+  it("a follow-up's dish is looked up among earlier readings, never sent again", async () => {
+    const { ask, asked, lookups } = setup();
+    const first = await ask("Zuurkool met casselerrib, welke wijn?");
+    expect(asked).toEqual(["zuurkool met casselerrib"]);
+    const next = await ask("En iets goedkopers?", first!.plan.state);
+    expect(asked).toEqual(["zuurkool met casselerrib"]);
+    expect(lookups).toContainEqual({ phrase: "zuurkool met casselerrib", cacheOnly: true });
+    // The same dish as the first turn: the stored reading of the phrase that was read.
+    expect(next!.plan.dish).toBe("zuurkool met casselerrib");
+  });
+
+  it.each([
+    "Is my Barolo 2016 ready to drink?",
+    "Tell me about Riesling",
+    "What should I cook with my Barolo?",
+    "Oysters to start, then roast lamb, then cheese: which wines?",
+    "I feel sad today, my mother died",
+    "asdf qwerty",
+  ])("a question that is not about a dish to pair: %s", async (question) => {
+    const { ask, asked } = setup();
+    await ask(question);
+    expect(asked).toEqual([]);
   });
 });
 
@@ -190,6 +251,16 @@ describe("the dish reader", () => {
     expect(d.recordUsage).toHaveBeenCalledWith(
       expect.objectContaining({ task: "dish_reading", status: "ok" }),
     );
+  });
+
+  it("a follow-up's lookup never calls the model", async () => {
+    request.mockClear();
+    const read = createDishReader(deps(provider({ ok: true, value: PORK, usage })));
+    expect(await read("bulgogi", { cacheOnly: true })).toBeNull();
+    expect(request).not.toHaveBeenCalled();
+    expect(await read("bulgogi")).toEqual(PORK);
+    expect(await read("bulgogi", { cacheOnly: true })).toEqual(PORK);
+    expect(request).toHaveBeenCalledTimes(1);
   });
 
   it("a failure is null, recorded, and not kept", async () => {

@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import {
   DISH_READING_VERSION,
   FOOD,
+  FOOD_MAINS,
+  FOOD_TAGS,
   RawDishReadingSchema,
   type DishReading,
 } from "@cellr/domain/intelligence";
@@ -42,6 +44,9 @@ const knowledgeVersion = () =>
         ...FOOD.ingredients.map((x) => `i:${x.id}`),
         ...FOOD.techniques.map((x) => `t:${x.id}`),
         ...FOOD.sauces.map((x) => `s:${x.id}`),
+        // The closed lists of the reading itself: a new class or tag changes what a reading can say.
+        ...FOOD_MAINS.map((x) => `m:${x}`),
+        ...FOOD_TAGS.map((x) => `g:${x}`),
       ]
         .sort()
         .join(","),

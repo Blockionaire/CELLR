@@ -1,7 +1,7 @@
 /**
  * HOW MANY BOTTLES TO OFFER (S10). For every pairing scenario of a readable set, the engine's picks with their
  * scores, against the reference card's labels: how often a pick at place 2 or 3 is poor, by how far its score is
- * below the first. This is what the conservative selection (`decidePairing`, `TRIM_BELOW_FIRST`) was set from.
+ * below the first. This is what the conservative selection (`conservativePicks`) was set from.
  *
  *   pnpm --filter @cellr/sommelier-eval run selection-study [--set main|holdout-dev]
  *

@@ -145,6 +145,9 @@ export function mergeDishReading(
 ): FoodProfile {
   if (!reading.recognised)
     return parsed.main === null ? parsed : { ...parsed, confidence: "low", readBy: "parser" };
+  // The model agrees with a dish the parser recognised by name: the parser's reading stands as it was (the
+  // template's classics and structure), now confirmed.
+  if (parsed.dishId !== null && parsed.main === reading.main) return { ...parsed, readBy: "model" };
   const parsedMain = parsed.parts.ingredients[0] ?? null;
   const mainId = reading.mainIngredient ?? parsedMain;
   const main = find(k.ingredients, mainId) as Ingredient | null;
@@ -177,23 +180,25 @@ export function mergeDishReading(
     structure[axis] = v;
   const word = (x: { en: readonly string[]; nl: readonly string[] } | null, lang: "en" | "nl") =>
     x ? ((lang === "nl" ? x.nl[0] : x.en[0]) ?? x.en[0] ?? "") : "";
+  // Named after what the model says it is built on, when that is not what the parser thought.
+  const rebuilt = reading.mainIngredient !== null && reading.mainIngredient !== parsedMain;
   const label = (lang: "en" | "nl") =>
-    parsed.main !== null
+    parsed.main !== null && !rebuilt
       ? parsed.label[lang]
       : [word(techniques[0] ?? null, lang), word(main, lang)].filter(Boolean).join(" ") ||
-        (said ?? "");
+        (said ?? parsed.label[lang]);
   return {
     source: parsed.source === "dish" ? "dish" : "composed",
     dishId: parsed.dishId,
     label: { en: label("en"), nl: label("nl") },
-    said: parsed.said ?? said,
+    // The phrase the model read: kept in the conversation's state, so a follow-up finds the same reading.
+    said: said ?? parsed.said,
     main: reading.main,
     structure,
     tags: composed.tags,
-    classics:
-      parsed.dishId !== null && parsed.main === reading.main
-        ? parsed.classics
-        : composedClassics(main, extras),
+    // A dish recognised by name keeps its own classics whatever the model says it is built on: they belong to
+    // the dish that was named.
+    classics: parsed.dishId !== null ? parsed.classics : composedClassics(main, extras),
     parts: {
       ingredients: [...(main ? [main.id] : []), ...extras.map((x) => x.id)],
       techniques: techniques.map((x) => x.id),
@@ -232,9 +237,9 @@ export function dishReadingJsonSchema(k: FoodKnowledge): Record<string, unknown>
       recognised: { type: "boolean" },
       main: { type: "string", enum: [...FOOD_MAINS, "unknown"] },
       main_ingredient: { anyOf: [idOf(k.ingredients), { type: "null" }] },
-      ingredients: { type: "array", items: idOf(k.ingredients) },
-      techniques: { type: "array", items: idOf(k.techniques) },
-      sauces: { type: "array", items: idOf(k.sauces) },
+      ingredients: { type: "array", items: idOf(k.ingredients), maxItems: 8 },
+      techniques: { type: "array", items: idOf(k.techniques), maxItems: 3 },
+      sauces: { type: "array", items: idOf(k.sauces), maxItems: 3 },
       structure: {
         type: "object",
         additionalProperties: false,
@@ -265,7 +270,7 @@ export function dishReadingJsonSchema(k: FoodKnowledge): Record<string, unknown>
           smoke: axis(0, 3),
         },
       },
-      tags: { type: "array", items: { type: "string", enum: [...FOOD_TAGS] } },
+      tags: { type: "array", items: { type: "string", enum: [...FOOD_TAGS] }, maxItems: 10 },
       confidence: { type: "string", enum: ["high", "medium", "low"] },
     },
   };

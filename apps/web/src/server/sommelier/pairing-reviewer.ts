@@ -56,7 +56,7 @@ export function createPairingReviewer(deps: PairingReviewerDeps) {
       jsonSchema: schema,
       parse,
       maxOutputTokens: 200,
-      timeoutMs: 15_000,
+      timeoutMs: 8_000,
       temperature: 0,
     });
     await deps

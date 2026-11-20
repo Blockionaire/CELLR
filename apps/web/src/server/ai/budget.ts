@@ -61,7 +61,9 @@ export function withBudget(
       const { model, maxOutputTokens } = planOf(request as GenerateObjectRequest<unknown>);
       const estimate = estimateCost({
         model,
-        promptChars: request.system.length + request.user.length,
+        // The schema is sent with every call and is input too (for the dish reading, most of it).
+        promptChars:
+          request.system.length + request.user.length + JSON.stringify(request.jsonSchema).length,
         images: request.images?.length ?? 0,
         maxOutputTokens,
         webSearch: request.webSearch === true,
