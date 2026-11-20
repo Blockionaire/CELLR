@@ -324,9 +324,21 @@ describe("a friend stays in the conversation", () => {
   it("asks the database again in the follow-up: consent withdrawn between two turns ends it", async () => {
     const before = setup(null, { own: own() });
     const first = await before.ask(VISIT);
-    const after = setup(null, { own: own(), status: "not-shared" });
+    // Between the two questions the friend switched their consent off: the database now says so.
+    const after = setup(null, { own: own(), status: "no-taste" });
     const next = await after.ask("And with grilled sea bass?", first!.plan.state, [VISIT]);
-    expect(next!.plan.friends).toEqual([{ handle: "thomas", status: "not-shared" }]);
+    expect(next!.plan.friends).toEqual([{ handle: "thomas", status: "no-taste" }]);
+  });
+
+  it("a friendship ended between two turns: the follow-up says the name is nobody's", async () => {
+    const before = setup(null, { own: own() });
+    const first = await before.ask(VISIT);
+    const after = setup(THOMAS, { own: own(), status: "unavailable" });
+    const next = await after.ask("And what does he own for the fish?", first!.plan.state, [VISIT]);
+    expect(next!.plan.friends).toEqual([{ handle: "thomas", status: "unavailable" }]);
+    // A name the database does not call a friend: their cellar is not even asked for.
+    expect(after.looked).toEqual([]);
+    expect(next!.plan.friendCellar).toBeNull();
   });
 
   it("a new conversation carries nobody, whatever earlier questions the screen sends along", async () => {
@@ -355,16 +367,34 @@ describe("a friend stays in the conversation", () => {
   });
 
   it("a present keeps leaving out what they own when the follow-up only gives the budget", async () => {
-    const { ask, looked } = setup(THOMAS, {
-      taste: { focus: "red", styles: ["red"], likes: ["bordeaux"], said: {}, trends: {} },
-    });
+    const likes: TasteSignals = {
+      focus: "red",
+      styles: ["red"],
+      likes: ["bordeaux"],
+      said: {},
+      trends: {},
+    };
     const GIFT = "I want to buy @thomas a present that he does not already own.";
+    // What would be advised first if he shared nothing...
+    const nothing = setup({ status: "included", wines: [] }, { taste: likes });
+    const open = await nothing.ask(GIFT);
+    const wanted = (await nothing.ask("Up to 50 euros", open!.plan.state, [GIFT]))!.plan.styles[0]!;
+    // ...is left out, in the follow-up too, once that very wine is among what he shares.
+    const has = {
+      ...theirs("x", "red", "x", "Bordeaux"),
+      name: wanted.label,
+      appellation: wanted.label.replace(/ \(.*$/, ""),
+    };
+    const { ask, looked } = setup({ status: "included", wines: [has] }, { taste: likes });
     const first = await ask(GIFT);
-    const next = await ask("Up to 50 euros", first!.plan.state, [GIFT]);
+    const next = (await ask("Up to 50 euros", first!.plan.state, [GIFT]))!;
     expect(looked).toEqual(["thomas", "thomas"]);
-    expect(next!.plan.friends).toEqual([{ handle: "thomas", status: "included" }]);
-    const styles = next!.plan.buy?.suggestions.map((s) => s.style) ?? [];
-    expect(styles).not.toContain("pauillac");
+    expect(next.plan.friends).toEqual([{ handle: "thomas", status: "included" }]);
+    expect(next.plan.kind).toBe("buying");
+    expect(next.plan.styles.length).toBeGreaterThan(0);
+    expect(next.plan.styles.map((s) => s.styleId)).not.toContain(wanted.styleId);
+    expect(next.plan.friendCellar).toMatchObject({ status: "used" });
+    expect(next.plan.friendCellar!.leftOut).toContain(wanted.label);
   });
 
   it("their cellar is left alone once the follow-up turns to my own wines", async () => {
