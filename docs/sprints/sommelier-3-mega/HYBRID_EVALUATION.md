@@ -6,8 +6,8 @@
 S10, 2026-11-20. The question the owner set: **does a hybrid sommelier give better and safer advice than V1 with
 AI on dishes it has not seen?** If that cannot be shown, Sommelier 3.0 is not to be switched on.
 
-This page holds the design, everything measured without a paid call, and the paid run that still needs the
-owner's approval (§6). The paid run was made after that approval; its results are in §7.
+This page holds the design, everything measured without a paid call (§3), the run as approved (§6), its results
+(§7) and the recommendation that follows (§8). The paid run was made after that approval; its results are in §7.
 
 ## 1. The four variants, on the same scenarios
 
@@ -73,12 +73,12 @@ bottles offered (14 poor, 37 good) to 50 (7 poor, 32 good): 7 poor bottles fewer
    64% → 62%, blind 63% → 65%) while "dish read right" rises to 86–93%. The gap to A on the first bottle is 10 to
    21 points.
 2. It does **not** show that a better reading cannot help: a model's reading also gives the ingredients, sauces and
-   tags (which carry the dish's classics), and that is untested until the paid run of C. It does show that the
+   tags (which carry the dish's classics), and §7 measures that: C adds little over B on unseen dishes. It does show that the
    class and the weight of a dish, the part the food check measures, are not where most of the gap is.
 3. So **C is not expected to close the gap to A by itself**. Its certain value is safety: a misread dish no longer
    gets a confident answer.
 4. **D is the variant that could**: a model's judgement on the engine's own candidates, where the engine is least
-   sure. Whether it does, and whether it stays as safe as the engine (it cannot add a wine), needs the paid run.
+   sure. Whether it does, and whether it stays as safe as the engine (it cannot add a wine), is measured in §7: it reorders well, and it cannot repair candidate errors.
 
 ## 4. Cost and time (estimated, nothing sent)
 

@@ -132,7 +132,7 @@ failure is the parser's reading. Budget mode closed, its own rate limit, usage r
 **Residual.** The phrase is built from the food and its neighbours, without names, numbers or personal words
 (tested on every input an independent review tried); a name written in lower case right next to the food word can
 still pass. V1 sends the whole question today. 2–5% of questions are misread by the parser with confidence and never
-reach the model. The value of C is not measured yet (paid run).
+reach the model. Measured: C adds little over B on unseen dishes (`HYBRID_EVALUATION.md` §7).
 
 ## R-19 — Shared dish readings (S10)
 
@@ -147,7 +147,8 @@ an HMAC key and a migration (designed, not built).
 **What.** With `sommelier_second_opinion` on, a model may reorder or leave out the engine's picks in a close call.
 **Handled.** It sees styles only; its answer is checked against the refs it was given; it can only take away.
 **Residual.** It could leave out a good bottle or say "none" where something suits; whether it helps at all is
-what the paid run measures. Not to be switched on before that.
+what the paid run measured: it improves the order a little and does not make answers safer (`HYBRID_EVALUATION.md`
+§7). Not to be switched on.
 
 ## R-15, update (S10)
 
