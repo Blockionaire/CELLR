@@ -304,6 +304,14 @@ describe("explanations come only from facts", () => {
       },
     );
     expect(advise().caveats.map((c) => c.code)).not.toContain("estimated_window_not_used");
+    // an AI window is an estimate too; an own window is not, and no source at all says nothing
+    expect(advise({ bottle: { ...BOTTLE, drinkWindowSource: "ai" } }).caveats).toContainEqual({
+      code: "estimated_window_not_used",
+    });
+    for (const source of ["own", null] as const)
+      expect(
+        advise({ bottle: { ...BOTTLE, drinkWindowSource: source } }).caveats.map((c) => c.code),
+      ).not.toContain("estimated_window_not_used");
     expect(advise({ bottle: { ...BOTTLE, year: null } }).caveats).toContainEqual({
       code: "vintage_unknown",
     });

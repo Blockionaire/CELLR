@@ -2534,6 +2534,8 @@
     "announce": "{count, plural, =0 {Geen opties} one {# optie} other {# opties}} voor deze fles.",
     "notInCellar": "Deze fles is niet meer in de kelder.",
     "stayNothingBetter": "Geen vrije plaats is duidelijk beter dan waar hij nu staat. Verplaatsen kan nog steeds.",
-    "excludedBehind": "{count, plural, one {# plaats achter een fles vooraan wordt niet aangeboden} other {# plaatsen achter een fles vooraan worden niet aangeboden}}."
+    "excludedBehind": "{count, plural, one {# plaats achter een fles vooraan wordt niet aangeboden} other {# plaatsen achter een fles vooraan worden niet aangeboden}}.",
+    "stale": "Dit advies kon niet worden ververst en is mogelijk verouderd. „Hier plaatsen” staat uit tot het weer klopt; zelf hieronder een plaats kiezen werkt nog.",
+    "updating": "Het advies wordt bijgewerkt…"
   }
 }

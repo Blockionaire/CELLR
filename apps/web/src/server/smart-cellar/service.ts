@@ -266,9 +266,10 @@ export function createSmartCellarService({
         repo.adviceOccupants(householdId),
       ]);
       if (!bottle) throw new DomainError("NOT_FOUND", PLACEMENT_MESSAGES.notFound);
-      // CELLR's drinking window for a vintage wine is an estimate (the table, or an AI estimate): never used to rank,
-      // only mentioned (ADR-009 §1). Non-vintage wines have none.
-      const windowSource = bottle.year === null ? null : ("estimate" as const);
+      // No drinking-window source is passed: whether CELLR has a window for this bottle, and where it came from (the
+      // table, which also weighs the purchase price, or a stored AI insight), is decided by the cellar's own reads,
+      // which advice doesn't make. A known year proves neither. With nothing authoritative, the engine's
+      // `estimated_window_not_used` caveat is simply not emitted (ADR-009 §1); ranking never used a window anyway.
       const result = adviseStorage({
         bottle: {
           bottleId: bottle.bottleId,
@@ -279,7 +280,6 @@ export function createSmartCellarService({
           type: bottle.type,
           year: bottle.year,
           current: bottle.spot,
-          drinkWindowSource: windowSource,
         },
         places: places.map((p) => ({ id: p.id, label: p.label, resolved: resolvePlace(p) })),
         occupants,

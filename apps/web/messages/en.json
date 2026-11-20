@@ -2534,6 +2534,8 @@
     "announce": "{count, plural, =0 {No options} one {# option} other {# options}} for this bottle.",
     "notInCellar": "This bottle is no longer in the cellar.",
     "stayNothingBetter": "No free spot is clearly better than where it is now. You can still move it.",
-    "excludedBehind": "{count, plural, one {# spot behind a bottle at the front isn't offered} other {# spots behind a bottle at the front aren't offered}}."
+    "excludedBehind": "{count, plural, one {# spot behind a bottle at the front isn't offered} other {# spots behind a bottle at the front aren't offered}}.",
+    "stale": "This advice couldn't be refreshed, so it may be out of date. “Place here” is off until it is; choosing a spot yourself below still works.",
+    "updating": "Updating the advice…"
   }
 }

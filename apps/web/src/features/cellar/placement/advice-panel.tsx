@@ -60,6 +60,23 @@ export function AdvicePanel({
   const te = useTranslations();
   const query = useAdvice(bottleId, intent, true);
   const data = query.data;
+  /**
+   * How current the cards on screen are. React Query keeps the last answer when a refresh fails (and while one is on
+   * its way), so data alone proves nothing:
+   *   fresh     the last request for this advice answered, and none is on its way: the only state that may act
+   *   updating  an answer is on its way; the cards are the previous one
+   *   stale     the last refresh failed (network, a lost household, a refused bottle): the cards are an older answer
+   * "Place here" works only when fresh. "Show" (which only selects a spot) and the picker stay usable throughout; the
+   * picker's own confirm is checked by the server as always.
+   */
+  const freshness: "none" | "fresh" | "updating" | "stale" = !data
+    ? "none"
+    : query.isError
+      ? "stale"
+      : query.isFetching
+        ? "updating"
+        : "fresh";
+  const actionable = freshness === "fresh";
   const sayReason = useReasonText();
   const sayCaveat = useCaveatText();
 
@@ -135,8 +152,8 @@ export function AdvicePanel({
           {canPlace && (
             <Button
               size="sm"
-              onClick={() => onPlace(s.spot)}
-              disabled={busy}
+              onClick={() => actionable && onPlace(s.spot)}
+              disabled={busy || !actionable}
               data-testid="advice-place"
             >
               {t("placeHere")}
@@ -154,6 +171,7 @@ export function AdvicePanel({
       data-testid="advice-panel"
       data-intent={intent}
       data-status={data?.status ?? (query.isError ? "failed" : "loading")}
+      data-fresh={freshness}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 id="advice-title" className="font-display text-body font-medium text-ink">
@@ -176,11 +194,15 @@ export function AdvicePanel({
       <p className="sr-only" aria-live="polite" data-testid="advice-announce">
         {query.isPending
           ? t("loading")
-          : query.isError
-            ? t("failed")
-            : data
-              ? t("announce", { count: data.recommendations.length })
-              : ""}
+          : freshness === "stale"
+            ? t("stale")
+            : query.isError
+              ? t("failed")
+              : freshness === "updating"
+                ? t("updating")
+                : data
+                  ? t("announce", { count: data.recommendations.length })
+                  : ""}
       </p>
       <div className="flex flex-col gap-3">
         {query.isPending && (
@@ -189,7 +211,26 @@ export function AdvicePanel({
             <Skeleton className="h-24" />
           </div>
         )}
-        {query.isError && !query.isFetching && (
+        {freshness === "stale" && (
+          <div
+            role="alert"
+            className="flex flex-col items-start gap-2 rounded-card bg-raised p-3 ring-1 ring-hairline"
+            data-testid="advice-stale"
+          >
+            <p className="text-small text-ink">
+              {t("stale")} {errorMessage(query.error, (k) => te(k), ERROR_MESSAGES)}
+            </p>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void query.refetch()}
+              disabled={query.isFetching}
+            >
+              {t("retry")}
+            </Button>
+          </div>
+        )}
+        {!data && query.isError && !query.isFetching && (
           <div
             role="alert"
             className="flex flex-wrap items-center gap-2"
@@ -239,7 +280,11 @@ export function AdvicePanel({
           </div>
         )}
         {data && data.status === "ok" && (
-          <>
+          <div
+            className={cn("flex flex-col gap-3", !actionable && "opacity-60")}
+            aria-busy={freshness === "updating"}
+            data-testid="advice-results"
+          >
             {data.stay && (
               <p
                 className="rounded-card bg-[#e9dccb] px-3 py-2 text-small text-[#2a2420]"
@@ -274,7 +319,7 @@ export function AdvicePanel({
                 })}
               </ul>
             )}
-          </>
+          </div>
         )}
       </div>
       <p className="text-caption text-ink-2">{canPlace ? t("advisory") : t("readOnly")}</p>

@@ -518,6 +518,89 @@ test.describe("advice in the new cellar (preview)", () => {
     expect((await spotOf(loose[1]!)).location_id).toBeNull();
   });
 
+  test("a refresh that fails: the old advice is marked out of date and can't be placed from; retry recovers", async ({
+    page,
+    request,
+  }) => {
+    await debugOn(page);
+    const { cooler, loose } = await household(page, request, "auistale2");
+    await openLoose(page);
+    await expect(advice(page)).toHaveAttribute("data-fresh", "fresh");
+    await expect(option(page, 1).getByTestId("advice-place")).toBeEnabled();
+    // the network goes; asking for the other intent fails, and going back shows the cached answer while it is
+    // asked for again: never actionable on the strength of the cache
+    await page.route("**/recommendations?intent=*", (route) => route.abort("internetdisconnected"));
+    await advice(page)
+      .getByTestId("advice-intent")
+      .getByRole("button", { name: "Serve soon" })
+      .click();
+    await expect(page.getByTestId("advice-failed")).toBeVisible({ timeout: 30_000 });
+    await advice(page).getByTestId("advice-intent").getByRole("button", { name: "Keep" }).click();
+    // the cached cards are back at once, but not as current advice
+    await expect(options(page)).toHaveCount(3);
+    await expect(advice(page)).not.toHaveAttribute("data-fresh", "fresh");
+    await expect(option(page, 1).getByTestId("advice-place")).toBeDisabled();
+    // the refresh fails: out of date, said, Place here stays off; Show and the picker still work
+    await expect(advice(page)).toHaveAttribute("data-fresh", "stale", { timeout: 30_000 });
+    await expect(page.getByTestId("advice-stale")).toContainText("may be out of date");
+    for (const button of await options(page).getByTestId("advice-place").all())
+      await expect(button).toBeDisabled();
+    await option(page, 1).getByTestId("advice-show").click();
+    await expect(panel(page)).toHaveAttribute("data-choice", "move:3:1:1");
+    expect(await placedOne(loose, cooler, 3, 1)).toEqual([]);
+    // the network is back: Try again, and the advice is current again
+    await page.unroute("**/recommendations?intent=*");
+    await page.getByTestId("advice-stale").getByRole("button", { name: "Try again" }).click();
+    await expect(advice(page)).toHaveAttribute("data-fresh", "fresh");
+    await expect(page.getByTestId("advice-stale")).toHaveCount(0);
+    await option(page, 1).getByTestId("advice-place").click();
+    await expect(page.getByText(/is now at Wine cooler · shelf 3 · spot 1/)).toBeVisible();
+    expect(await placedOne(loose, cooler, 3, 1)).toHaveLength(1);
+  });
+
+  test("the household changes elsewhere: the next refresh is refused, the cached advice goes out of date, not actionable", async ({
+    page,
+    request,
+    browser,
+  }) => {
+    await debugOn(page);
+    const mine = await household(page, request, "auiswitch");
+    // the same person is also a member of another household
+    const otherContext = await browser.newContext(test.info().project.use as BrowserContextOptions);
+    const other = await household(await otherContext.newPage(), request, "auiswitch2");
+    await otherContext.close();
+    const invite = (
+      await other.call<{ code: string }>(
+        "post",
+        `/households/${other.householdId}/invites`,
+        {},
+        201,
+      )
+    ).body;
+    expect(
+      (await api(request, mine.token, "post", "/households/join", { code: invite.code })).status(),
+    ).toBe(200);
+    await api(request, mine.token, "put", "/households/active", { householdId: mine.householdId });
+    await openLoose(page);
+    await expect(advice(page)).toHaveAttribute("data-fresh", "fresh");
+    // switched in another tab: this one still holds the old answer
+    await api(request, mine.token, "put", "/households/active", { householdId: other.householdId });
+    await advice(page)
+      .getByTestId("advice-intent")
+      .getByRole("button", { name: "Serve soon" })
+      .click();
+    await expect(page.getByTestId("advice-failed")).toContainText("We couldn't find that bottle.");
+    await advice(page).getByTestId("advice-intent").getByRole("button", { name: "Keep" }).click();
+    await expect(advice(page)).toHaveAttribute("data-fresh", "stale", { timeout: 30_000 });
+    await expect(page.getByTestId("advice-stale")).toContainText("We couldn't find that bottle.");
+    for (const button of await options(page).getByTestId("advice-place").all())
+      await expect(button).toBeDisabled();
+    // back in the household: Try again recovers
+    await api(request, mine.token, "put", "/households/active", { householdId: mine.householdId });
+    await page.getByTestId("advice-stale").getByRole("button", { name: "Try again" }).click();
+    await expect(advice(page)).toHaveAttribute("data-fresh", "fresh");
+  });
+
   test("nothing free for it: said, without inventing a place", async ({ page, request }) => {
     const { email } = await arrive(page, "auinone");
     const { call, token } = await apiClient(request, email);

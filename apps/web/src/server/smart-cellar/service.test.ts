@@ -863,8 +863,8 @@ describe("placement advice (sprint 5)", () => {
       proximity: "neighbour",
       count: 1,
     });
-    // a vintage wine has an estimated window: mentioned, never used
-    expect(view.caveats).toContainEqual({ code: "estimated_window_not_used" });
+    // a known year doesn't prove a drinking window or its source: no window caveat from the API
+    expect(view.caveats.map((c) => c.code)).not.toContain("estimated_window_not_used");
     // read-only placement: advice still reads, acting on it is not possible here
     const readOnly = await svc(repo, {
       placement: { open: true, canWrite: false, depth: false },
@@ -892,6 +892,26 @@ describe("placement advice (sprint 5)", () => {
     expect((await fails(svc(repo, { advice: false }).advise("b", "store"))).message).not.toBe(
       SMART_CELLAR_NOT_SET_UP,
     );
+  });
+
+  it("no drinking-window provenance is ever invented: vintage, non-vintage or incomplete catalogue rows", async () => {
+    for (const bottle of [
+      BOTTLE,
+      { ...BOTTLE, year: null },
+      { ...BOTTLE, wineId: null, producerId: null, type: null, year: null },
+    ]) {
+      const { repo } = fakeRepo([place()], { adviceBottle: bottle });
+      const view = await svc(repo).advise("b", "store");
+      expect(
+        view.caveats.map((c) => c.code),
+        JSON.stringify(bottle),
+      ).not.toContain("estimated_window_not_used");
+    }
+    // the unknown year is still said where it is a fact
+    const { repo } = fakeRepo([place()], { adviceBottle: { ...BOTTLE, year: null } });
+    expect((await svc(repo).advise("b", "store")).caveats).toContainEqual({
+      code: "vintage_unknown",
+    });
   });
 
   it("another household's bottle, or none: not found", async () => {
