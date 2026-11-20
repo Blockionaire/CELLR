@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smart Cellar 3D, sprint 4: MUTATION CHECKS for the app's placement protections. Each protection is removed from the
+# Smart Cellar 3D, sprints 4 and 5: MUTATION CHECKS for the app's placement and advice protections. Each protection is removed from the
 # source, one at a time, and the unit tests that guard it are run: they must FAIL (the mutant is "killed"). The source
 # is restored after every mutant, whatever happens (and on exit). A mutant that survives means a protection nobody
 # tests: the script then exits non-zero.
@@ -16,15 +16,18 @@ cd "$(dirname "$0")/.."
 GATE=apps/web/src/lib/smart-cellar-placement-gate.ts
 SERVICE=apps/web/src/server/smart-cellar/service.ts
 DOMAIN=packages/domain/src/storage-placement.ts
-WEB_TESTS=(src/lib/smart-cellar-placement-gate.test.ts src/server/smart-cellar/service.test.ts)
-DOMAIN_TESTS=(src/storage-placement.test.ts)
+ADVICE=packages/domain/src/storage-advice.ts
+ADVICE_GATE=apps/web/src/lib/smart-cellar-advice-gate.ts
+WEB_TESTS=(src/lib/smart-cellar-placement-gate.test.ts src/lib/smart-cellar-advice-gate.test.ts src/server/smart-cellar/service.test.ts)
+DOMAIN_TESTS=(src/storage-placement.test.ts src/storage-advice.test.ts)
 
 backup=$(mktemp -d)
-for f in "$GATE" "$SERVICE" "$DOMAIN"; do mkdir -p "$backup/$(dirname "$f")" && cp "$f" "$backup/$f"; done
-restore() { for f in "$GATE" "$SERVICE" "$DOMAIN"; do cp "$backup/$f" "$f"; done; }
+for f in "$GATE" "$SERVICE" "$DOMAIN" "$ADVICE" "$ADVICE_GATE"; do mkdir -p "$backup/$(dirname "$f")" && cp "$f" "$backup/$f"; done
+restore() { for f in "$GATE" "$SERVICE" "$DOMAIN" "$ADVICE" "$ADVICE_GATE"; do cp "$backup/$f" "$f"; done; }
 trap 'restore; rm -rf "$backup"' EXIT
 
 # name ~ file ~ python regex ~ replacement ~ which tests [~ all: every occurrence]
+# Several edits in one mutant: patterns and replacements separated by "|||" (one protection made of two checks).
 MUTANTS=(
   "gate opens outside internal previews~$GATE~\\|\\| !internalPreviewIn\\(env\\) ~~web"
   "gate opens without the read API~$GATE~\\|\\| !api\\.reads~~web"
@@ -35,6 +38,18 @@ MUTANTS=(
   "domain fills a compartment past counter 1~$DOMAIN~if \\(next && next\\.index > 1 && !depthEnabled\\) return \"depth_not_enabled\";~~domain"
   "domain lets a taken spot through~$DOMAIN~if \\(here\\) return \"occupied\";~~domain"
   "domain swaps inside one compartment~$DOMAIN~return \"same_compartment\";~return null;~domain"
+  "advice gate opens outside internal previews~$ADVICE_GATE~ && internalPreviewIn\\(env\\)~~web"
+  "advice gate opens without placement~$ADVICE_GATE~ && placement\\.open~~web"
+  "service advises with the advice gate closed~$SERVICE~if \\(!placement\\.open \\|\\| !advice\\)~if (false)~web"
+  "advice offers taken and depth-off spots (both checks)~$ADVICE~if \\(s\\.state === \"free\"\\) return \\[s\\.address\\];|||placementProblem\\(place\\.resolved, occupants, address, options\\) === null~if (s.state !== \"current\") return [s.address];|||true~domain"
+  "advice ignores the depth switch~$ADVICE~const options = \\{ movingId: bottle\\.bottleId, depthEnabled \\};~const options = { movingId: bottle.bottleId, depthEnabled: true };~domain"
+  "advice claims a purpose match without one~$ADVICE~if \\(zone\\.purpose === wanted\\)~if (true)~domain"
+  "advice describes a target that isn't set~$ADVICE~if \\(zone\\.targetTempC !== null\\)~if (true)~domain"
+  "advice groups without matching bottles~$ADVICE~if \\(index\\.total\\[tier\\] === 0\\) continue;~~domain"
+  "advice mentions a window that doesn't exist~$ADVICE~if \\(bottle\\.drinkWindowSource === \"estimate\" \\|\\| bottle\\.drinkWindowSource === \"ai\"\\)~if (true)~domain"
+  "advice never advises a move~$ADVICE~best\\.score <= here\\.score \\+ ADVICE_WEIGHTS\\.moveMargin~true~domain"
+  "advice calls a poor current spot suitable~$ADVICE~stay\\.suitability !== \"limited\" &&~true ||~domain"
+  "advice counts depth-limited compartments as full~$ADVICE~cell\\.free > 0~false~domain"
   "domain swaps past index 1~$DOMAIN~if \\(\\(a\\.spot\\.index > 1 \\|\\| b\\.spot\\.index > 1\\) && !depthEnabled\\) return \"depth_not_enabled\";~~domain"
 )
 
@@ -53,10 +68,11 @@ for m in "${MUTANTS[@]}"; do
 import re, sys
 path, pattern, replacement, scope = sys.argv[1:5]
 src = open(path).read()
-out, n = re.subn(pattern, replacement, src, count=0 if scope == "all" else 1)
-if n < 1:
-    sys.exit(1)
-open(path, "w").write(out)
+for p, r in zip(pattern.split("|||"), replacement.split("|||") + [""] * 8):
+    src, n = re.subn(p, lambda _m, r=r: r, src, count=0 if scope == "all" else 1)
+    if n < 1:
+        sys.exit(1)
+open(path, "w").write(src)
 PY
   if [ "$which" = web ]; then
     (cd apps/web && pnpm exec vitest run "${WEB_TESTS[@]}" >/dev/null 2>&1)

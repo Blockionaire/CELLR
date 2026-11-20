@@ -1,4 +1,5 @@
 import "server-only";
+import { adviceOpenIn } from "@/lib/smart-cellar-advice-gate";
 import { parseAdminAllowlist, parseFeatures, type FeatureFlags } from "@cellr/domain";
 import { builderAccessIn, type BuilderAccess } from "@/lib/smart-cellar-builder-gate";
 import { placementAccessIn, type PlacementAccess } from "@/lib/smart-cellar-placement-gate";
@@ -61,6 +62,14 @@ export function getBuilderAccess(): BuilderAccess {
  */
 export function getPlacementAccess(): PlacementAccess {
   return placementAccessIn(process.env, getSmartCellarAccess());
+}
+
+/**
+ * Whether placement advice may be given: CELLR_SMART_CELLAR_ADVICE (lib/smart-cellar-advice-gate.ts, sprint 5).
+ * Read-only, never more than the placement gate.
+ */
+export function isAdviceOpen(): boolean {
+  return adviceOpenIn(process.env, getPlacementAccess());
 }
 
 export interface AiEnv {
