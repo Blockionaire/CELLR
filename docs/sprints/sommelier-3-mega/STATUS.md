@@ -18,9 +18,10 @@ MAIN:           6ab4350 (#88 system monitoring and #92 3D sprint 4 merged). main
 SWITCHES:       sommelier_engine, sommelier_buying, sommelier_social, sommelier_experiences, sommelier_learning.
                 None is turned on by `all`; each must be named in CELLR_FEATURES; the last four need the first.
                 Nothing is on anywhere.
-AI KEY:         none available to the agent. V1's AI path is NOT measured (RISK R-04). No model call was made.
-                The comparison is designed and its harness built (AI_COMPARISON.md); it waits for the owner's
-                approval (about $1).
+AI:             The comparison with V1's AI was run on 2026-11-20 with the owner's approval ($0.10 of $2;
+                gpt-6-luna, reasoning none, as Production). Result: 3.0 is NOT shown to be better; the model
+                generalises better to unseen dishes (AI_COMPARISON.md §8–§9). The key lives in the cloud
+                environment's secret store (api.openai.com), never in the repository.
 RETAILER:       no source. Live offers are built, validated and off (`offers: null`); buying advice is styles.
 QUALITY:        main set 170 / 246; blind holdout 19 / 43; unseen dishes understood 72% (progress/S9.md §2).
 PRODUCTION:     not touched. No merge, deploy, db push, setting or production write by the agent.
@@ -63,12 +64,12 @@ review's findings and what was done about each, limitations.
 - **S8**: final review, classification of what is open, `FINAL_REPORT.md`, `RELEASE_PLAN.md`.
 - **S9**: the 106 failures sorted and a blind second opinion on the disagreements; engine recalibrated (main set
   140 → 170; unseen dishes 34 → 38 of 88); a blind holdout; a friend's cellar and presents not already owned
-  (migration 0050, draft); friends kept across follow-ups; the harness for the comparison with V1's AI (not run);
+  (migration 0050, draft); friends kept across follow-ups; the comparison with V1's AI (run: 3.0 not shown to be better);
   the brief against what exists; GO / NO-GO.
 
 ## Next action
 
 Nothing for the agent without the owner. The owner's decisions, in order, are in `RELEASE_PLAN.md`; the first
-one that unblocks more work is the approval in `AI_COMPARISON.md` §6.
+one that unblocks more work is S10 as advised in `progress/S9.md` §10 (a model reads the dish the parser cannot).
 A session that resumes: read the pull requests' review comments and CI, fix what is asked on the branch it
 belongs to, rebase the branches above it, and update the phase's `progress` file.

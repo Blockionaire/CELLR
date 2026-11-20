@@ -111,3 +111,10 @@ records 0001–0047 (checked read-only, 2026-11-20) and `main` is level with it.
 work's own: once #94, #97 or #100 is merged, a `db push` from `main` applies 0048, 0049 or 0050.
 **Handled.** Said at the top of `RELEASE_PLAN.md` and in `docs/MIGRATIONS.md`.
 **Residual.** Someone who merges the stack and runs a routine `db push` releases up to three migrations at once.
+
+## R-04, closed in S9 — V1's AI path is measured
+
+Run on 2026-11-20 (`AI_COMPARISON.md` §8–§9). The risk it stood for has become a finding: 3.0 is not shown to be
+better than today's sommelier with AI, and on unseen dishes the model offers far fewer poor bottles and better
+first bottles. Turning the engine on for everyone today would, on unfamiliar dishes, replace better advice with
+worse advice that is cheaper and faster. That is the first reason for the NO-GO in `RELEASE_PLAN.md` §7.
