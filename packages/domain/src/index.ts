@@ -50,3 +50,4 @@ export * from "./storage-compat";
 export * from "./smart-cellar";
 export * from "./export-v2";
 export * from "./system-architecture";
+export * from "./system-health";
