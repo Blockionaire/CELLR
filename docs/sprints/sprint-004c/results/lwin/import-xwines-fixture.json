@@ -19,9 +19,7 @@
   "folded_rows": 0,
   "unmapped_types": {},
   "implausible_vintage_rows": 0,
-  "warnings": [
-    "2 row(s) skipped"
-  ],
+  "warnings": ["2 row(s) skipped"],
   "inserted": 5,
   "updated": 0,
   "unchanged": 0,
