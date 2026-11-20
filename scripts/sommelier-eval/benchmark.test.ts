@@ -1,8 +1,9 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DISHES } from "./dishes";
 import { ENGINES } from "./engines";
 import { SCENARIOS } from "./scenarios";
+import { checkHumanDishes, HUMAN_HOLDOUT_FILE, HUMAN_HOLDOUT_MIN_DISHES } from "./human-holdout";
 import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { expectedVerdictOf, scoreScenario, summarize } from "./score";
 import { CAPABILITIES, CATEGORIES, type EvalAnswer, type Scenario } from "./types";
@@ -229,5 +230,35 @@ describe("the holdout set's own data", () => {
     const test = scenariosOf("holdout-test").map((s) => s.id);
     expect(dev.length + test.length).toBe(88);
     expect(dev.filter((id) => test.includes(id))).toEqual([]);
+  });
+});
+
+describe("the human holdout (S10)", () => {
+  it("is blind, and empty until people have written it", () => {
+    expect(holdsBlind("human")).toBe(true);
+    if (!existsSync(HUMAN_HOLDOUT_FILE)) expect(scenariosOf("human")).toEqual([]);
+    else {
+      const dishes = cardsOf("human");
+      expect(dishes.size).toBeGreaterThanOrEqual(HUMAN_HOLDOUT_MIN_DISHES);
+      const known = new Set([...DISHES.map((d) => d.en.toLowerCase())]);
+      for (const d of dishes.values()) expect(known.has(d.en.toLowerCase()), d.id).toBe(false);
+    }
+  });
+  it("refuses a file that is not what the README asks for", () => {
+    expect(() => checkHumanDishes([{ id: "x" }])).toThrow(/id must look like/);
+    expect(() =>
+      checkHumanDishes([
+        {
+          id: "hh-test-dish",
+          en: "Test dish",
+          nl: "Testgerecht",
+          question_en: "What with the test dish?",
+          question_nl: "Wat bij het testgerecht?",
+          truth: { main: "pork", weight: 9, fat: 1, acid: 1, sweet: 0, heat: 0, umami: 1 },
+          good: ["not-a-wine"],
+          by: "JP",
+        },
+      ]),
+    ).toThrow(/weight must be 1–5[\s\S]*not a benchmark wine/);
   });
 });
