@@ -141,6 +141,11 @@
   --sys-k-ops: light-dark(#66707e, #a2acba);
   --sys-k-verifies: light-dark(#4d7d86, #8cc3cc);
   --sys-k-planned: light-dark(#a57a1c, #e3bb6f);
+  /* health overlay (System Intelligence sprint 2): every one ≥ 3:1 against --surface in both themes */
+  --sys-h-healthy: light-dark(#2b7a4b, #6fd19b);
+  --sys-h-degraded: light-dark(#9a5b00, #f1b55c);
+  --sys-h-failed: light-dark(#b3261e, #ff8a80);
+  --sys-h-unknown: light-dark(#5f6670, #aab1bb);
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
