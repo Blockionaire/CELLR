@@ -1,6 +1,8 @@
 import "server-only";
+import { adviceOpenIn } from "@/lib/smart-cellar-advice-gate";
 import { parseAdminAllowlist, parseFeatures, type FeatureFlags } from "@cellr/domain";
 import { builderAccessIn, type BuilderAccess } from "@/lib/smart-cellar-builder-gate";
+import { placementAccessIn, type PlacementAccess } from "@/lib/smart-cellar-placement-gate";
 import { cellarGalleryOpenIn } from "@/lib/cellar-gallery-gate";
 import { smartCellarAccessIn, type SmartCellarAccess } from "@/lib/smart-cellar-gate";
 import { smartCellarRendererOpenIn } from "@/lib/smart-cellar-renderer-gate";
@@ -51,6 +53,23 @@ export function isSmartCellarRendererEnabled(): boolean {
  */
 export function getBuilderAccess(): BuilderAccess {
   return builderAccessIn(process.env, getSmartCellarAccess());
+}
+
+/**
+ * Whether bottles may be placed, moved and swapped through the new cellar view (CELLR_SMART_CELLAR_PLACEMENT=1, dev
+ * and previews only), whether that may write (the API's write level, a test database only) and whether depth may
+ * be written (never in this version). The rule and its reasons: lib/smart-cellar-placement-gate.ts.
+ */
+export function getPlacementAccess(): PlacementAccess {
+  return placementAccessIn(process.env, getSmartCellarAccess());
+}
+
+/**
+ * Whether placement advice may be given: CELLR_SMART_CELLAR_ADVICE (lib/smart-cellar-advice-gate.ts, sprint 5).
+ * Read-only, never more than the placement gate.
+ */
+export function isAdviceOpen(): boolean {
+  return adviceOpenIn(process.env, getPlacementAccess());
 }
 
 export interface AiEnv {

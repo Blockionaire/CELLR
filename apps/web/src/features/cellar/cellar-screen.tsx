@@ -152,6 +152,7 @@ export function CellarScreen({
   initialView,
   smart3d = false,
   builder = false,
+  placement = { open: false, canWrite: false },
 }: {
   initial: CellarView;
   initialView: CellarViewMode;
@@ -165,6 +166,11 @@ export function CellarScreen({
    * links to it; with it false the racks view is exactly what it was.
    */
   builder?: boolean;
+  /**
+   * Whether bottles may be placed, moved and swapped in the new 3D view, and whether that writes here (the server's
+   * decision: lib/smart-cellar-placement-gate.ts). Shown only where the new view is (smart3d).
+   */
+  placement?: { open: boolean; canWrite: boolean; advice?: boolean };
 }) {
   const t = useTranslations("cellar");
   const tTypes = useTranslations("wineTypes");
@@ -435,7 +441,7 @@ export function CellarScreen({
 
       {view === "3d" ? (
         smart3d ? (
-          <SmartCellar3D onShowRacks={showRacks} />
+          <SmartCellar3D onShowRacks={showRacks} placement={placement} builderOpen={builder} />
         ) : (
           <Cellar3DView onShowRacks={showRacks} />
         )

@@ -203,16 +203,37 @@ const components = [
     responsibility:
       "The structured storage model (templates, cell placement, temperature zones) behind its own routes. Closed unless CELLR_SMART_CELLAR opens it; writes are never opened on an unmarked production build.",
     inputs: ["Household scope", "Storage config"],
-    outputs: ["Storage unit views", "Layout writes (save_storage_layout)"],
+    outputs: [
+      "Storage unit views",
+      "Layout writes (save_storage_layout)",
+      "Bottle moves (one conditional update) and swaps (swap_bottles_v2)",
+      "Placement advice (read-only, recomputed per request, never stored)",
+    ],
     sources: [W + "server/smart-cellar/"],
     routes: [
       "/api/v1/smart-cellar",
+      "/api/v1/smart-cellar/bottles/[id]",
+      "/api/v1/smart-cellar/bottles/[id]/move",
+      "/api/v1/smart-cellar/bottles/[id]/recommendations",
+      "/api/v1/smart-cellar/bottles/[id]/swap",
       "/api/v1/smart-cellar/storage",
       "/api/v1/smart-cellar/storage/[id]",
       "/api/v1/smart-cellar/storage/[id]/bottles",
       "/api/v1/smart-cellar/storage/[id]/layout",
     ],
-    gates: [{ name: "CELLR_SMART_CELLAR", kind: "env", note: "off | read | write" }],
+    gates: [
+      { name: "CELLR_SMART_CELLAR", kind: "env", note: "off | read | write" },
+      {
+        name: "CELLR_SMART_CELLAR_PLACEMENT",
+        kind: "env",
+        note: "1: moving and swapping bottles; internal previews only, writes need the API's write level",
+      },
+      {
+        name: "CELLR_SMART_CELLAR_ADVICE",
+        kind: "env",
+        note: "1: read-only placement advice; internal previews only, needs the placement gate, grants no write",
+      },
+    ],
   },
   {
     id: "svc-households",
