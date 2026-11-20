@@ -14,7 +14,7 @@ import {
  * is, if any. It takes the facts and a BOUNDED set of candidates the server looked up (the household's own wines,
  * the catalogue wines of that producer, the best search hits), and says: exactly this one, one of these, or none.
  *
- * It decides nothing new. The decision is `matchLabel`'s, with its rules unchanged: a catalogue wine is "the one"
+ * It decides nothing new. The decision is `matchLabel`'s (through `matchLabelSafely`, Sprint 004C): a catalogue wine is "the one"
  * only on an exact identity (the producer, the name or a verified alias, no contradicting colour or country), the
  * household's own wine is never passed over, and a similar name is only ever offered. What this adds is the WHY for
  * each candidate, so a review screen can show what tells them apart instead of a bare guess — and two numbers that
@@ -122,13 +122,40 @@ function explain(
 export const scanOutcomeOf = (status: ResolveStatus): Exclude<ScanOutcome, "unread"> =>
   status === "exact_candidate" ? "found" : status === "ambiguous" ? "choose" : "new";
 
+/** What was read that says this is NOT that wine, even when the names are close. */
+const CONTRADICTIONS: ReadonlySet<ResolveReason> = new Set([
+  "other_bottling",
+  "type_differs",
+  "country_differs",
+]);
+
+/**
+ * `matchLabel`, with one rule more (review of Sprint 004C): the household's own wine is "found" only when nothing that
+ * was read contradicts it. A "Reserva" label of the household's plain wine, or the white of its red, scored high
+ * enough to be "found", one tap from filing bottles under the wrong wine; it is now offered as a choice instead, next
+ * to "none of these: a new wine" (and a source's record of exactly that wine may be suggested there). A catalogue wine
+ * was already "found" only on an exact identity.
+ */
+export function matchLabelSafely(
+  facts: LabelFacts,
+  wines: readonly WineSummary[],
+): ReturnType<typeof matchLabel> {
+  const result = matchLabel(facts, wines);
+  if (result.outcome !== "found") return result;
+  const top = result.matches[0]!;
+  if (top.wine.catalog) return result;
+  return explain(facts, top.wine).reasons.some((r) => CONTRADICTIONS.has(r))
+    ? { outcome: "choose", matches: result.matches }
+    : result;
+}
+
 /**
  * Resolves the facts against the candidates. `candidates` may hold a wine more than once (it came from several
  * lookups): it is considered once. The order of `candidates` never changes the answer.
  */
 export function resolveWine(facts: LabelFacts, candidates: readonly WineSummary[]): ResolveOutcome {
   const unique = [...new Map(candidates.map((w) => [w.id, w])).values()];
-  const { outcome, matches } = matchLabel(facts, unique);
+  const { outcome, matches } = matchLabelSafely(facts, unique);
   const status: ResolveStatus =
     outcome === "found" ? "exact_candidate" : outcome === "choose" ? "ambiguous" : "not_found";
   return {

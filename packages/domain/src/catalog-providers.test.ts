@@ -380,6 +380,23 @@ describe("LWIN codes at every documented level (Sprint 004B)", () => {
     expect(i.foldedRows).toBe(4);
     expect(i.records[0]).toMatchObject({ external_id: "9100001", vintages: [2015, 2016] });
     expect(i.records[0]!.details).toMatchObject({ lwin7: "9100001", bottle_ml: [750, 1500] });
+    // the LWIN-18 row's pack (12 × 75 cl) is kept as a trade detail, apart from the bottle sizes (Sprint 004C)
+    expect(i.records[0]!.details.pack_size).toEqual([12]);
+  });
+  it("pack sizes of several LWIN-18 rows are united and sorted; rows without a pack add none (Sprint 004C)", () => {
+    const i = inspectProviderFile(
+      file(line("910000120161200750"), line("910000120160600750"), line("9100001201601500")),
+      "lwin_fixture",
+    );
+    expect(i.records[0]!.details).toMatchObject({ bottle_ml: [750, 1500], pack_size: [6, 12] });
+    const none = inspectProviderFile(file(line("9100001201601500")), "lwin_fixture");
+    expect(none.records[0]!.details).not.toHaveProperty("pack_size");
+    // the same rows in another order make the same record
+    const reversed = inspectProviderFile(
+      file(line("9100001201601500"), line("910000120160600750"), line("910000120161200750")),
+      "lwin_fixture",
+    );
+    expect(reversed.records[0]).toEqual(i.records[0]);
   });
   it("a classification on one row only is kept; two different ones are a conflict", () => {
     const ok = inspectProviderFile(

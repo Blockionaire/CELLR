@@ -259,6 +259,22 @@
       "producer_only": "Dezelfde producent; er is geen wijnnaam gelezen",
       "type_differs": "Een andere kleur dan gelezen",
       "country_differs": "Een ander land dan gelezen"
+    },
+    "records": {
+      "title": "Mogelijk deze wijn",
+      "body": "Niet in je kelder of in de CELLR-catalogus, wel in een externe wijnbron. Kies hem om het formulier in te vullen; je controleert alles voordat je toevoegt.",
+      "use": "Gebruik deze gegevens",
+      "credit": "Bron: {provider} · licentie {license}{modified, select, yes { · bewerkt door CELLR} other {}} · niet geverifieerd door CELLR",
+      "reason": {
+        "same_name": "Zelfde naam als op het etiket",
+        "name_variant": "Bijna dezelfde naam",
+        "similar_name": "Lijkt op de naam",
+        "other_bottling": "Mogelijk een andere cuvée",
+        "producer_only": "Alleen de producent komt overeen",
+        "vintage_listed": "Bron kent deze jaargang",
+        "vintage_not_listed": "Bron noemt deze jaargang niet"
+      },
+      "licenseLink": "Licentie: {license}"
     }
   },
   "sommelier": {
@@ -2132,7 +2148,10 @@
       "own_value": "een eigen waarde"
     },
     "yoursPrivate": "Door jullie vastgelegd. Het staat niet in de gedeelde CELLR-catalogus; vrienden zien alleen wat je in Profiel met hen deelt.",
-    "catalogTitle": "Bron van de wijngegevens"
+    "catalogTitle": "Bron van de wijngegevens",
+    "derivedFrom": "De gegevens zijn bij het toevoegen overgenomen uit deze bron; jullie hebben ze bevestigd.",
+    "derivedFromChanged": "De gegevens zijn bij het toevoegen uit deze bron ingevuld; jullie hebben een deel aangepast en de rest bevestigd.",
+    "derivedLead": "Ingevuld uit {provider}"
   },
   "builder": {
     "titleNew": "Ontwerp een nieuwe plek",
