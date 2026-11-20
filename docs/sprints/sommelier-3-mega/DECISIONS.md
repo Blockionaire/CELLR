@@ -26,8 +26,8 @@ the one it replaces.
 
 ## D-19 — The sommelier switches are never turned on by `all`
 
-**Decided in S3.** `CELLR_FEATURES=all` turns on every switch except the four of the sommelier; each of those must be
-named, and three of them do nothing without `sommelier_engine`. **Why:** a deployment set to `all` for an earlier
+**Decided in S3.** `CELLR_FEATURES=all` turns on every switch except the five of the sommelier (the fifth, `sommelier_learning`, came in
+S7); each of those must be named, and four of them do nothing without `sommelier_engine`. **Why:** a deployment set to `all` for an earlier
 epic must not start a later one by accident (R-02). **Rejected:** trusting that no deployment uses `all`.
 
 ## D-20 — A question that names a friend is not kept at all (replaces the "redacted skeleton" of D-13)
@@ -79,3 +79,15 @@ take most questions away from the model altogether, which shrinks the exposure. 
 
 **Decided in S7.** No rule, order or prompt changes from outcomes or thumbs without a person looking. Self-reports
 from a few households are a signal to look at a pairing rule, not a measurement of it.
+
+## D-27 — Correction to D-17: no model wording or interpretation was built
+
+**Recorded in S8, after the final review.** D-17 says two AI tasks (`sommelier_wording`, `food_interpretation`)
+are added. They were not: the plan is drawn by fixed sentences and the food engine has no model. No such task is
+in the task list or the budget. The other half of D-17 holds and is now also true with buying advice off: while
+the engine is on, V1's model-made verdict and buy list are dropped from every answer.
+
+## D-28 — A lower pull request that changes is merged upward, not rebased
+
+**Recorded in S8.** The final review's fixes belong to S3 and S5. They were committed there and merged into each
+branch above (S5, S6, S7, S8), so no pushed branch with an open pull request was rewritten.

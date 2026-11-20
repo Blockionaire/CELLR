@@ -12,7 +12,14 @@
 -- Nothing a person typed is stored here: no question, no dish, no note. What the answer was is copied as codes
 -- (kind, outcome, confidence) from the kept answer by the database itself, never taken from the client.
 --
--- DRAFT: not applied anywhere. Renumber at merge time if another migration lands first (docs/MIGRATIONS.md).
+-- NOT APPLIED ANYWHERE. RELEASE ORDER (docs/sprints/sommelier-3-mega/RELEASE_PLAN.md):
+--   * Pull request #88 holds migration 20261124000047. It must be merged and applied BEFORE this file and 0048
+--     are applied: the CLI refuses a version older than the newest one recorded. If #88 will not be merged first,
+--     rename this file and 0048 to later versions IN THEIR PULL REQUESTS, before they are merged: once a
+--     migration is on `main`, CI forbids renaming it.
+--   * Once applied, `sommelier_set_outcome` can be called by any signed-in person through the API, whatever the
+--     app's switches say (it only ever writes that person's own outcome for a bottle their own kept plan
+--     offered, and no plan is kept while `sommelier_engine` is off). Applying is the owner's decision.
 
 -- ---- 1. A rating knows what kind of answer it rated ----------------------------------------------------------------
 alter table public.sommelier_feedback

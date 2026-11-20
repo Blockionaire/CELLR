@@ -409,12 +409,12 @@ const components = [
       {
         name: "sommelier_social",
         kind: "feature",
-        note: "Friends named in a question, with their own consent. Needs sommelier_engine. Not wired yet.",
+        note: "Friends named in a question, with their own consent (migration 0048). Needs sommelier_engine.",
       },
       {
         name: "sommelier_experiences",
         kind: "feature",
-        note: "Menus, wine-to-food, comparing, serving, quantities. Needs sommelier_engine. Not wired yet.",
+        note: "Menus, wine-to-food, comparing, serving, keeping, quantities. Needs sommelier_engine.",
       },
     ],
     risks: [
@@ -2408,7 +2408,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.4.0",
+  version: "1.4.1",
   reviewedOn: "2026-11-19",
   repository: "Blockionaire/CELLR",
   components,

@@ -142,10 +142,13 @@ New entries of `CELLR_FEATURES`, all off unless named (fail closed, as today):
 | `sommelier_social`      | `@friend` mentions and group advice (needs `sommelier_engine` and the S5 migration)        | S5    |
 | `sommelier_experiences` | Wine-to-food, compare, serving, menus (needs `sommelier_engine`)                           | S6    |
 
-Without `sommelier_engine` the other three do nothing. Tested combinations: all off, engine only, all on.
+| `sommelier_learning` | Saying what came of a bottle an answer offered (needs `sommelier_engine` and the S7 migration) | S7 |
 
-`all` also switches these on. Production and Preview have `CELLR_FEATURES` unset according to the repository's
-documents; the owner confirms that before any of this is merged (R-02).
+Without `sommelier_engine` the other four do nothing (tested for each alone).
+
+**`all` does not switch these on** (D-19, decided in S3 after this section was first written): each must be
+named. The owner still confirms what `CELLR_FEATURES` holds in Production and Preview before a switch is named
+there (R-02).
 
 ## 7. Cost and routing
 

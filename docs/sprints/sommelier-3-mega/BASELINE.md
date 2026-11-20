@@ -176,12 +176,27 @@ benchmark through the AI path needs an adapter that passes a real provider inste
 | S3–S4 | Sommelier 3.0 in the app, no AI |             131 |             92% |     88% |          73% |            72% |                 89% |
 | S6–S7 | The same, with the experiences  |             140 |             92% |     88% |          73% |            72% |                 89% |
 
-The nine scenarios S6 adds to the passes are the experience scenarios, which are checked only for inventing
-nothing (§2, limits); the pairing measures did not move. The app's engines cannot attempt the 24 scenarios with
-friends (the benchmark has no friends database; `progress/S5.md` says how that is tested instead).
+The nine scenarios S6 adds to the passes are eight experience scenarios and one robustness scenario. The
+experience scenarios are checked only for inventing nothing (§2, limits); the pairing measures did not move. The
+app's engines cannot attempt the 24 scenarios with friends (the benchmark has no friends database;
+`progress/S5.md` says how that is tested instead). The run at the end of S8 (`results/s8-v3-app.json`) is the
+same as S6's scenario for scenario, and a test now fails when it changes.
 
-Two thresholds of §4 are missed in S2 (first bottle, no poor bottle); `progress/S2.md` says what the misses are and
-`RISK_REGISTER.md` R-11 what follows from it. The thresholds are not changed.
+**Against the thresholds of §4, at the final state: four are missed, four are met.**
+
+| Measure                            | Gate          | Final, in the app | Met |
+| ---------------------------------- | ------------- | ----------------- | --- |
+| The dish was understood            | at least 90%  | 92% (184/199)     | yes |
+| The outcome matches the reference  | at least 85%  | 88% (140/159)     | yes |
+| The first bottle is labelled right | at least 80%  | 73% (116/159)     | no  |
+| No offered bottle is a poor match  | at least 90%  | 72% (102/141)     | no  |
+| Says "nothing" when nothing suits  | at least 90%  | 89% (16/18)       | no  |
+| No invented wine                   | 100%          | 100% (222/222)    | yes |
+| Pairing scenarios passed           | at least 70%  | 54% (80/148)      | no  |
+| p95 latency of the engine's work   | at most 50 ms | 4.4 ms            | yes |
+
+`progress/S2.md` and `progress/S3.md` say what the misses are and `RISK_REGISTER.md` R-11 what follows from them.
+The thresholds are not changed.
 
 ## Label corrections
 
