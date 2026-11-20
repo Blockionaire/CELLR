@@ -117,6 +117,19 @@ describe("suggestRecordsForReading", () => {
     ]);
     expect(out.map((s) => s.hit.producer)).toEqual(["Castello Banfi"]);
   });
+  it("without a wine name, a producer one letter off is not 'only the producer matches' (Sprint 004C)", () => {
+    const out = suggestRecordsForReading({ ...facts, producer: "Bodegas Montecillo", name: null }, [
+      rec("Bodegas Montecilla", "Reserva"),
+      rec("BODEGAS MONTECILLO", "Gran Reserva"),
+    ]);
+    expect(out.map((s) => s.hit.producer)).toEqual(["BODEGAS MONTECILLO"]);
+    // with the wine name read, the same slip is still offered, as a similar name for the person to weigh
+    const named = suggestRecordsForReading(
+      { ...facts, producer: "Bodegas Montecillo", name: "Reserva" },
+      [rec("Bodegas Montecilla", "Reserva")],
+    );
+    expect(named.map((s) => s.relation)).toEqual(["uncertain"]);
+  });
   it("nothing read, nothing offered; never more than asked", () => {
     expect(
       suggestRecordsForReading({ ...facts, producer: null, name: null }, [

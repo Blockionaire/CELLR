@@ -62,6 +62,9 @@ const REASON: Partial<Record<IdentityRelation, RecordReason>> = {
   different_wine: "producer_only",
 };
 
+/** With no wine name read, the producer relations that still say "this producer". */
+const PRODUCER_ONLY: ReadonlySet<IdentityRelation> = new Set(["same", "variant"]);
+
 /**
  * The provider records among `hits` that may be the wine on this label, best first, at most `most`. A record whose
  * colour or country contradicts what was read is left out (a red label never suggests a white wine); a misread
@@ -80,17 +83,23 @@ export function suggestRecordsForReading(
     if (facts.type && hit.type && facts.type !== hit.type) return;
     if (facts.countryCode && hit.countryCode && facts.countryCode !== hit.countryCode) return;
     // the label's producer (or its only big name) against the record. Without a wine name on the label the producer
-    // must still be the record's: compared with the record's own name on both sides, so only the producer can differ
-    // (review of Sprint 004B: "Castello Banfi" must never be offered another Castello's wine)
+    // must be the record's: compared with the record's own name on both sides, so only the producer can differ
+    // (review of Sprint 004B: "Castello Banfi" must never be offered another Castello's wine). Sprint 004C: and the
+    // same producer, or a spelling of it — not one letter off ("uncertain"), which would make "only the producer
+    // matches" untrue; a name on the label is what lets a person weigh a slipped letter.
     const relation = facts.name
       ? identityRelation(
           { producer, name: facts.name, type: facts.type, countryCode: facts.countryCode },
           { producer: hit.producer, name: hit.name, type: hit.type, countryCode: hit.countryCode },
         ).relation
-      : identityRelation({ producer, name: hit.name }, { producer: hit.producer, name: hit.name })
-            .relation === "different_producer"
-        ? "different_producer"
-        : "different_wine";
+      : PRODUCER_ONLY.has(
+            identityRelation(
+              { producer, name: hit.name },
+              { producer: hit.producer, name: hit.name },
+            ).relation,
+          )
+        ? "different_wine"
+        : "different_producer";
     const rank = ORDER[relation];
     if (rank === undefined) return;
     const reasons: RecordReason[] = [REASON[relation]!];
