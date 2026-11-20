@@ -2,14 +2,16 @@
  * Data-quality report of a provider file and of what an import made of it (Sprint 004B).
  *
  *   pnpm --filter @cellr/catalog-tools exec tsx quality.ts --file <provider file> --provider xwines
- *     [--db <url>] [--out <dir>]
+ *     [--db <url>] [--against <other file> --against-provider <id>] [--out <dir>]
  *
  * File level (the same adapter and inspection the import uses): rows, mapped records, skipped rows, duplicate ids,
  * empty fields per column, types, countries, regions, grapes, vintages and non-vintage, spelling variants of one
  * producer, producers that differ only by estate words, non-Latin scripts and accents, identical identities and
  * near-identical names of one producer. Database level (with --db; read-only, service role, pilot/staging only):
  * records by status, run history, links, overlap with CELLR wines (canonical and households' own, counted, never
- * named per household) and between providers. Nothing is written.
+ * named per household) and between providers. With --against <file> --against-provider <id> (Sprint 004C): how
+ * this file's records relate to another source's file by CELLR's identity rules (`crossSourceMatches`). Nothing is
+ * written.
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import {
@@ -193,6 +195,83 @@ export function fileQuality(text: string, providerId: ProviderId) {
   };
 }
 
+/** How records of one source relate to another's, best relation per record (Sprint 004C: LWIN ↔ X-Wines). */
+const CROSS_ORDER = ["same", "variant", "uncertain", "different_cuvee"] as const;
+type CrossRelation = (typeof CROSS_ORDER)[number];
+
+/**
+ * For each record of `left`, the closest record of `right` by CELLR's own identity rules (`identityRelation`, the same
+ * comparison the import's suggested links and the scan use: no second matching engine). Compared only within a
+ * producer-word block, so a 100k file stays a matter of seconds. A report, never a link: nothing is written, and two
+ * sources agreeing is not a verification — an admin still decides each link to a CELLR wine.
+ * `ambiguous`: more than one record of `right` is the same wine (one of the two sources holds a duplicate).
+ */
+/** Producer words cut to five letters: a block for comparing, so "Inventada" and "Inventadas" still meet. */
+const blockKeys = (producer: string) =>
+  new Set(
+    core(producer)
+      .split(" ")
+      .filter((x) => x.length >= 3)
+      .map((x) => x.slice(0, 5)),
+  );
+
+export function crossSourceMatches(
+  left: readonly ProviderRecord[],
+  right: readonly ProviderRecord[],
+  samples = 15,
+) {
+  const block = new Map<string, number[]>();
+  right.forEach((r, i) => {
+    for (const w of blockKeys(r.producer)) block.set(w, [...(block.get(w) ?? []), i]);
+  });
+  const counts: Record<CrossRelation | "none", number> = {
+    same: 0,
+    variant: 0,
+    uncertain: 0,
+    different_cuvee: 0,
+    none: 0,
+  };
+  let ambiguous = 0;
+  let compared = 0;
+  const examples: Record<CrossRelation, Array<{ left: string; right: string }>> = {
+    same: [],
+    variant: [],
+    uncertain: [],
+    different_cuvee: [],
+  };
+  const label = (r: ProviderRecord) =>
+    `${r.external_id}: ${r.producer} — ${r.name} (${r.wine_type ?? "?"})`;
+  for (const l of left) {
+    const candidates = new Set<number>();
+    for (const w of blockKeys(l.producer))
+      for (const i of (block.get(w) ?? []).slice(0, 500)) candidates.add(i);
+    let best: { rank: number; at: number } | null = null;
+    let same = 0;
+    for (const i of candidates) {
+      const r = right[i]!;
+      compared += 1;
+      const rel = identityRelation(
+        { producer: l.producer, name: l.name, type: l.wine_type, countryCode: l.country_code },
+        { producer: r.producer, name: r.name, type: r.wine_type, countryCode: r.country_code },
+      ).relation as string;
+      const rank = (CROSS_ORDER as readonly string[]).indexOf(rel);
+      if (rank < 0) continue;
+      if (rank === 0) same += 1;
+      if (!best || rank < best.rank) best = { rank, at: i };
+    }
+    if (same > 1) ambiguous += 1;
+    if (!best) {
+      counts.none += 1;
+      continue;
+    }
+    const rel = CROSS_ORDER[best.rank]!;
+    counts[rel] += 1;
+    if (examples[rel].length < samples)
+      examples[rel].push({ left: label(l), right: label(right[best.at]!) });
+  }
+  return { left: left.length, right: right.length, compared, counts, ambiguous, examples };
+}
+
 async function dbQuality(url: string, args: Record<string, string | true>, providerId: string) {
   const client = await connectToTarget(url, args);
   const q = async (sql: string, values: unknown[] = []) => (await client.query(sql, values)).rows;
@@ -261,9 +340,24 @@ async function main() {
   if (text === null) throw new Error("not UTF-8");
   const t0 = performance.now();
   const file = fileQuality(text, providerId);
+  // --against <file> --against-provider <id>: how this file's records relate to another source's (read-only)
+  let cross: (ReturnType<typeof crossSourceMatches> & { against: string }) | null = null;
+  if (typeof args.against === "string") {
+    const other = decodeUtf8(readFileSync(args.against));
+    if (other === null) throw new Error("--against: not UTF-8");
+    const againstId = str(args, "against-provider") as ProviderId;
+    cross = {
+      against: againstId,
+      ...crossSourceMatches(
+        inspectProviderFile(text, providerId).records,
+        inspectProviderFile(other, againstId).records,
+      ),
+    };
+  }
   const report = {
     provider: providerId,
     file,
+    cross_source: cross,
     database: typeof args.db === "string" ? await dbQuality(args.db, args, providerId) : null,
     seconds: Math.round((performance.now() - t0) / 100) / 10,
     peak_rss_mb: Math.round(process.resourceUsage().maxRSS / 1024),

@@ -1,0 +1,182 @@
+{
+ "provider": "lwin_fixture",
+ "file": {
+  "rows": 9,
+  "records": 7,
+  "skipped": {},
+  "fatal": [],
+  "warnings": [
+   "the lwin-assumed-layout-v0 layout is an assumption, not verified against the provider's real file"
+  ],
+  "duplicate_external_ids": 0,
+  "folded_rows": 2,
+  "encoding_suspect_rows": 0,
+  "implausible_vintage_rows": 0,
+  "unmapped_types": {},
+  "empty_fields": {
+   "LWIN": 0,
+   "STATUS": 0,
+   "PRODUCER_TITLE": 0,
+   "PRODUCER_NAME": 0,
+   "WINE": 0,
+   "COUNTRY": 0,
+   "REGION": 0,
+   "SUB_REGION": 9,
+   "COLOUR": 0,
+   "TYPE": 0,
+   "DESIGNATION": 0,
+   "CLASSIFICATION": 9
+  },
+  "unique": {
+   "producers_as_written": 5,
+   "producers_normalised": 5,
+   "wine_names_normalised": 7,
+   "identities": 7,
+   "countries": 2,
+   "regions": 4,
+   "grapes": 0
+  },
+  "types": {
+   "red": 3,
+   "fortified": 1,
+   "rose": 1,
+   "sparkling": 1,
+   "white": 1
+  },
+  "countries_top": {
+   "FR": 6,
+   "PT": 1
+  },
+  "grapes_top": {},
+  "vintages": {
+   "listed_total": 1,
+   "records_without_any": 6,
+   "records_marked_nv": 0,
+   "records_nv_only": 0,
+   "earliest": 2016,
+   "latest": 2016
+  },
+  "scripts": {
+   "latin-accented": 6
+  },
+  "producer_spelling_variants": {
+   "groups": 0,
+   "examples": []
+  },
+  "producers_differing_only_by_estate_words": {
+   "groups": 0,
+   "examples": []
+  },
+  "identical_identities": {
+   "groups": 0,
+   "records_in_them": 0,
+   "examples": []
+  },
+  "same_name_other_colour": 0,
+  "near_identical_names_of_one_producer": {
+   "pairs": {},
+   "examples": []
+  }
+ },
+ "cross_source": {
+  "against": "fixture",
+  "left": 7,
+  "right": 5,
+  "compared": 16,
+  "counts": {
+   "same": 3,
+   "variant": 1,
+   "uncertain": 1,
+   "different_cuvee": 0,
+   "none": 2
+  },
+  "ambiguous": 0,
+  "examples": {
+   "same": [
+    {
+     "left": "9200001: Domaine Imaginaire — Cuvée Fictive Rouge (red)",
+     "right": "900001: Domaine Imaginaire — Cuvée Fictive Rouge (red)"
+    },
+    {
+     "left": "9200002: Domaine Imaginaire — Cuvee Fictive Reserve (red)",
+     "right": "900002: Domaine Imaginaire — Cuvée Fictive Réserve (red)"
+    },
+    {
+     "left": "9200003: Maison Inventée — Brut Fictif (sparkling)",
+     "right": "900003: Maison Inventée — Brut Fictif (sparkling)"
+    }
+   ],
+   "variant": [
+    {
+     "left": "9200004: Château Imaginé — Rosé Fictif Grand Vin (rose)",
+     "right": "900004: Château Imaginé — Rosé Fictif (rose)"
+    }
+   ],
+   "uncertain": [
+    {
+     "left": "9200005: Quinta Inventadas — Vino Fittizio (fortified)",
+     "right": "900005: Quinta Inventada — Vino Fittizio (fortified)"
+    }
+   ],
+   "different_cuvee": []
+  }
+ },
+ "database": {
+  "provider": {
+   "id": "lwin_fixture",
+   "license": "CC0-1.0",
+   "rights_status": "verified",
+   "search_scope": "off",
+   "may_store": true,
+   "may_display": true,
+   "commercial_use": true
+  },
+  "records_by_status": [
+   {
+    "status": "active",
+    "n": 7
+   }
+  ],
+  "duplicate_provider_ids": {
+   "n": 0
+  },
+  "runs": [
+   {
+    "dataset_version": "lwin-crossmatch-v1",
+    "pilot": false,
+    "rights_status": "verified",
+    "license": "CC0-1.0",
+    "started_at": "2026-11-20T08:21:47.797Z",
+    "finished_at": "2026-11-20T08:21:47.816Z",
+    "abandoned": null,
+    "reason": null
+   }
+  ],
+  "links": [
+   {
+    "state": "suggested",
+    "n": 1
+   }
+  ],
+  "same_identity_as_cellr_wines": [
+   {
+    "kind": "canonical",
+    "records": 1
+   }
+  ],
+  "same_identity_in_other_providers": [
+   {
+    "provider_id": "fixture",
+    "records": 3
+   }
+  ],
+  "cellr_wines_written_by_imports": {
+   "n": 0
+  },
+  "canonical_wines": {
+   "n": 1
+  }
+ },
+ "seconds": 0.1,
+ "peak_rss_mb": 109
+}

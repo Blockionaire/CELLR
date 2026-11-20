@@ -426,6 +426,9 @@ export function fromLwinRow(row: Record<string, string>): AdapterResult {
   const classification = clean(row.CLASSIFICATION, 120);
   if (classification) details.classification = classification;
   if (code.bottleMl !== null) details.bottle_ml = [code.bottleMl];
+  // LWIN-18: the pack the wine is traded in (6 × 75 cl…). A trade detail, not part of the wine's identity; kept so a
+  // source's codes can be traced, never shown as a fact about the bottle (Sprint 004C)
+  if (code.packSize !== null) details.pack_size = [code.packSize];
   if (code.vintagePlaceholder) details.vintage_placeholder = true;
   const modifications = ["producer title and name joined", ...(type ? [] : ["type not mapped"])];
   if (code.level > 7) modifications.push(`LWIN-${code.level} read as its LWIN-7 wine`);
@@ -482,6 +485,11 @@ export function foldLwinRecords(a: ProviderRecord, b: ProviderRecord): ProviderR
   if (ca ?? cb) details.classification = (ca ?? cb) as string;
   if (bottles.length > 0) details.bottle_ml = bottles;
   else delete details.bottle_ml;
+  const packs = [...new Set([...nums(a.details.pack_size), ...nums(b.details.pack_size)])].sort(
+    (x, y) => x - y,
+  );
+  if (packs.length > 0) details.pack_size = packs;
+  else delete details.pack_size;
   if (a.details.vintage_placeholder || b.details.vintage_placeholder)
     details.vintage_placeholder = true;
   return {
@@ -561,10 +569,13 @@ export const ADAPTERS = {
     fold: foldLwinRecords,
     rowKey: lwinRowKey,
     deletedWine: lwinDeletedWine,
-    // eval/catalog/fixture-lwin-layout.csv and fixture-lwin-levels.csv (pinned by scripts/catalog-tools/eval.test.ts)
+    // eval/catalog/fixture-lwin-layout.csv, fixture-lwin-levels.csv, and (Sprint 004C) fixture-lwin-crossmatch.csv and
+    // its update fixture-lwin-crossmatch-v2.csv (pinned by scripts/catalog-tools/eval.test.ts)
     fixtureSha256s: [
       "160b1934a2bbb2a98aa58a68dd637a0bb2a699d949eadbf35910fc4264369505",
       "026377aa508a7aece1e9789e9b9616002130a41ad5cc312f205d7627988ecb8d",
+      "6af49a6caaf5b00eb1d2ac49d1150337acf2329bc834a5a306ce8b8edc6d2a65",
+      "4ffc3a09032d5b5b4ecf0109d9e7f56d9f6164904422c3c9bdc654323f776de4",
     ],
   },
 } as const satisfies Record<ProviderId, ProviderAdapter>;
