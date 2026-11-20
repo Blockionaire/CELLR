@@ -161,6 +161,9 @@ describe("the dish phrase a model sees", () => {
     ["What do I open with roast chicken?", "roast chicken"],
     ["Bulgogi for my dad and the kids tonight", "bulgogi"],
     ["We eten casselerrib, welke wijn?", "casselerrib"],
+    ["Which wine with the bobotie?", "bobotie"],
+    ["Welke wijn bij de bobotie?", "bobotie"],
+    ["We're having bobotie, what wine?", "bobotie"],
   ])("%s → %s", (question, expected) => expect(phrase(question)).toBe(expected));
 
   // The inputs an independent review used to get names, numbers and secrets through (S10).

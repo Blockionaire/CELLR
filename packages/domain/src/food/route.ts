@@ -104,6 +104,14 @@ const NUMBER_WORD =
   /^(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|nul|twee|drie|vier|vijf|zes|zeven|acht|negen|tien|elf|twaalf|dertien|veertien|vijftien|zestien|zeventien|achttien|negentien|twintig|dertig|veertig|vijftig|zestig|zeventig|tachtig|negentig|honderd|duizend|miljoen)$|^(?:een|twee|drie|vier|vijf|zes|zeven|acht|negen)en(?:twintig|dertig|veertig|vijftig|zestig|zeventig|tachtig|negentig)$|^(?:twee|drie|vier|vijf|zes|zeven|acht|negen)?(?:honderd|duizend)\p{L}*$/u;
 const isNumberWord = (w: string) => w.split("-").every((part) => NUMBER_WORD.test(part));
 
+/** Little words that can stand between a cue and a dish, or open a question before it. */
+const LEAD = new Set(
+  (
+    "the a an de het een some wat our my mijn onze ons we we're were i i'm im we've it's its there's " +
+    "having have hebben eten eet eat eating tonight vanavond today vandaag"
+  ).split(" "),
+);
+
 /** The longest dish phrase a model is asked about, in words and characters. */
 export const DISH_PHRASE_MAX_WORDS = 12;
 const DISH_PHRASE_MAX_CHARS = 120;
@@ -203,7 +211,9 @@ export function dishPhrase(text: string, k: FoodKnowledge): string | null {
       "maak",
     ]);
     const cue = toks.findIndex((t) => CUE.has(t.word));
-    const from = cue >= 0 ? cue + 1 : 0;
+    let from = cue >= 0 ? cue + 1 : 0;
+    // Past the little words before the dish ("with the bobotie", "bij de bobotie", "we're having bobotie").
+    while (from < toks.length && LEAD.has(toks[from]!.word)) from += 1;
     for (let i = from; i < toks.length && picked.length < 4; i += 1) {
       const t = toks[i]!;
       if (!allowed(t, i) && !JOIN.has(t.word)) break;

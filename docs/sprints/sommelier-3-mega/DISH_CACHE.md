@@ -10,25 +10,34 @@ Code: `apps/web/src/server/sommelier/dish-cache.ts` (the store), `dish-reader.ts
 
 ## What the model sees, and what the key is made of
 
-Both are the **dish phrase** (`dishPhrase`): the question lower case, with every `@name` removed, every number,
-price and punctuation mark removed, accents folded, and the words around the dish dropped: the occasion
-("tonight", "birthday"), the people ("my in-laws", "the kids"), the budget ("under 30 euro"), the shop, the
-cellar, and the asking ("which wine should I open"). At most 12 words and 120 characters. "Zuurkool met
-casselerrib vanavond voor mijn schoonouders, max 20 euro?" becomes `zuurkool met casselerrib`.
+Both are the **dish phrase** (`dishPhrase`), built only from the words the food parser recognises as food and the
+unread words right next to them (at most two on either side): "Zuurkool met casselerrib vanavond voor mijn
+schoonouders, max 20 euro?" becomes `zuurkool met casselerrib`. With no food recognised at all, only the first
+words of the question or the words right after "with", "met", "bij", "eat", "eten" (at most four). Lower case,
+accents folded, at most 12 words.
+
+Dropped in every case, before anything else: every token with an "@" anywhere in it (a mention, "anna@", an e-mail
+address) and the word after a lone "@"; web addresses; anything with a digit; number words in English and Dutch
+(including Dutch compounds such as "vierendertig"); a word written with a capital inside a sentence that is not a
+food word (most often a name); words about health, grief, identity numbers and secrets (a fixed list: "diabetic",
+"zwanger", "cancer", "IBAN", "password", ...); and the words about the occasion, the people, the budget, the shop,
+the cellar and the asking.
+
+**When nothing is sent at all.** A conversation with any "@" in it, in this question or in an earlier one the screen
+sends along (the friends' consent says no model sees such a question, not even its dish). A follow-up: its dish is
+looked up among the readings already made and never sent again. A question with no food in it, unless it asks which
+wine to pour, opens a conversation, names no wine and is not a menu or one of the experiences.
 
 Because the model is shown exactly the phrase and nothing else (no question, no conversation, no cellar, no
 taste, no friend), the reading is a function of the phrase alone. Two people who type the same phrase would get
 the same reading from the model; giving the second one the first one's reading tells them nothing about the
 first.
 
-**Never in the phrase, so never sent and never kept:** names of people (mentions), numbers (ages, guests,
-prices, phone numbers), the conversation, anything about the cellar or a friend. A question that names a friend
-is not sent to the model at all, not even its dish (the friend's consent text promises that).
-
-**Can still be in the phrase:** a word the lists do not know as "not food", for example a health word
-("bulgogi for my **diabetic** dad" becomes `bulgogi diabetic`: "dad" is dropped, "diabetic" is not). Such a word
-is sent to the model, as the whole question is sent today by the V1 sommelier, and it is part of the key. It is
-not readable in the store (below), and the reading kept under it holds no text.
+**What a list cannot promise.** The lists and the "next to the food" rule keep the phrase to the dish in the cases
+an independent review tried (names with and without "@", e-mail and web addresses, phone and bank numbers in digits
+and in words, health and grief words, passwords; `food/reading.test.ts`). A personal word that is in none of the
+lists, written in lower case, right next to a food word, can still be sent; it is part of the key, which is stored
+only as a hash, and the reading kept under it holds no text. V1 with AI sends the whole question today.
 
 ## What is kept
 
@@ -40,7 +49,7 @@ mistake, a field added later) is not stored (tested).
 
 ## The key
 
-`sha256(JSON([reading schema version, prompt version, model id, hash of the knowledge's ids, phrase]))`. The
+`sha256(JSON([reading schema version, prompt version, model id and reasoning effort, hash of the knowledge's ids and of the closed lists of classes and tags, phrase]))`. The
 phrase is never stored as such, only inside this hash.
 
 - A new schema of the reading, a new prompt (`dish_reading@v1`), a new model, or a change to the food knowledge's
@@ -83,7 +92,8 @@ of this work.
    rarely, a word the lists do not drop, which stays in the key only, hashed).
 3. A cache hit tells the second person nothing they did not type themselves. The one thing it can reveal is
    timing (a hit answers faster), which says only that someone, somewhen, asked about the same dish phrase.
-4. Friends, cellars, taste, conversations and names never reach the reader, so they cannot reach the store.
+4. Friends, cellars, taste and conversations never reach the reader, and names are dropped by the rules above, so
+   they cannot reach the store; the residual case is said above.
 
 ## Tests
 

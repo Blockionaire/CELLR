@@ -223,6 +223,31 @@ describe("Sommelier 3.0 in the app", () => {
     expect(answers.reduce((n, a) => n + a.invented, 0)).toBe(0);
   });
 
+  // The class-and-scales check of HYBRID_EVALUATION.md §3: its recorded totals cannot drift unnoticed either.
+  it.each([
+    ["holdout-dev", "s10-oracle-holdout-dev.json"],
+    ["holdout-test", "s10-oracle-holdout-test.json"],
+  ])("the class-and-scales check gives its recorded totals on %s", async (set, file) => {
+    const recorded = JSON.parse(
+      readFileSync(
+        new URL(`../../docs/sprints/sommelier-3-mega/results/${file}`, import.meta.url),
+        "utf8",
+      ),
+    ) as { passed: number; measures: Record<string, [number, number]> };
+    const engine = ENGINES.find((e) => e.name === "v3-oracle")!;
+    const cardOf = cardsOf(set);
+    const results = [];
+    const answers = [];
+    for (const s of scenariosOf(set)) {
+      const { answer, ms } = await engine.run(s);
+      answers.push(answer);
+      results.push(scoreScenario(s, s.dish ? (cardOf.get(s.dish) ?? null) : null, answer, ms));
+    }
+    const now = summarize("v3-oracle", results, answers);
+    expect(now.passed).toBe(recorded.passed);
+    expect(now.measures).toEqual(recorded.measures);
+  });
+
   it("no tool lists the blind scenarios one by one", () => {
     expect(holdsBlind("holdout-test")).toBe(true);
     expect(holdsBlind("holdout")).toBe(true);

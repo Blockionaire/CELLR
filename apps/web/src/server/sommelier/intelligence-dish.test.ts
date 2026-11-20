@@ -84,9 +84,9 @@ function setupRaw(reading: DishReading | null | "throws" = PORK, social = false)
       : {}),
     readDish: async (phrase, options) => {
       lookups.push({ phrase, cacheOnly: options?.cacheOnly === true });
-      // A lookup among earlier readings: the store has what was read before.
-      if (options?.cacheOnly)
-        return asked.includes(phrase) && reading !== "throws" ? reading : null;
+      // `asked` plays the shared store: what was read before is not read again.
+      if (asked.includes(phrase)) return reading === "throws" ? null : reading;
+      if (options?.cacheOnly) return null;
       asked.push(phrase);
       if (reading === "throws") throw new Error("down");
       return reading;
@@ -162,15 +162,41 @@ describe("what never goes to a model (S10 review)", () => {
     expect(asked).toEqual([]);
   });
 
-  it("a follow-up's dish is looked up among earlier readings, never sent again", async () => {
+  it("a follow-up's dish is the stored reading of the phrase already read: nothing new is sent", async () => {
     const { ask, asked, lookups } = setup();
     const first = await ask("Zuurkool met casselerrib, welke wijn?");
     expect(asked).toEqual(["zuurkool met casselerrib"]);
     const next = await ask("En iets goedkopers?", first!.plan.state);
     expect(asked).toEqual(["zuurkool met casselerrib"]);
-    expect(lookups).toContainEqual({ phrase: "zuurkool met casselerrib", cacheOnly: true });
+    // The phrase a model already read, found in the store: nothing new is sent.
+    expect(lookups.at(-1)?.phrase).toBe("zuurkool met casselerrib");
     // The same dish as the first turn: the stored reading of the phrase that was read.
     expect(next!.plan.dish).toBe("zuurkool met casselerrib");
+  });
+
+  it("a follow-up whose stored reading is gone asks again only for a dish a model has already seen", async () => {
+    // Another server instance: nothing stored.
+    const { intelligence, asked, lookups } = setupRaw();
+    const plan = (question: string, state?: unknown) =>
+      intelligence.plan({ question, state, budgetEuros: null, personal: true, locale: "en" });
+    const first = await plan("Zuurkool met casselerrib, welke wijn?");
+    expect(first!.plan.state.dishReadByModel).toBe(true);
+    asked.length = 0;
+    const next = await plan("En iets goedkopers?", { ...first!.plan.state });
+    // The lookup may call again, for the phrase a model already read: the dish stays pork.
+    expect(lookups.at(-1)).toEqual({ phrase: "zuurkool met casselerrib", cacheOnly: false });
+    expect(next!.plan.dish).toBe("zuurkool met casselerrib");
+  });
+
+  it("a dish no model has seen (a question that named someone) is never sent by a follow-up", async () => {
+    const { intelligence, asked } = setupRaw();
+    const plan = (question: string, state?: unknown) =>
+      intelligence.plan({ question, state, budgetEuros: null, personal: true, locale: "en" });
+    const first = await plan("@anna komt, zuurkool met casselerrib, welke wijn?");
+    expect(first!.plan.state.dishReadByModel).toBe(false);
+    // Many turns later, the turn with the name is no longer sent along.
+    await plan("En iets goedkopers?", first!.plan.state);
+    expect(asked).toEqual([]);
   });
 
   it.each([

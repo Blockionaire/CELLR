@@ -151,3 +151,10 @@ which needs the dish reading. Not to be switched on unless the paid run shows it
 
 `HYBRID_EVALUATION.md` §6. If the best hybrid is not at least as good as V1 with AI on the first bottle and as safe
 on poor bottles and "nothing suits", on the unseen dishes, the advice is no activation.
+
+## D-39 — No model for a conversation with any "@" in it; a follow-up re-reads only what a model has seen (S10)
+
+Found by the independent security review: a malformed mention is still someone's name. The engines now ask no model
+anything about a conversation in which any turn the screen sends holds an "@". A follow-up's dish is the phrase a
+model already read (from the store, or read again), never a dish that came from a question naming someone; the
+conversation's state marks which is which (`dishReadByModel`).

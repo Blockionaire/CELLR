@@ -134,7 +134,9 @@ const find = <T extends { id: string }>(list: readonly T[], id: string | undefin
  * - The model decides what the dish is built on and its class: that is what the parser could not tell.
  * - The structure is composed from the parts by the knowledge, as for any dish; a scale the model states replaces
  *   the composed one (it read the dish as a whole: a sweet marinade, a long braise).
- * - A model reading is never "sure": at most "medium", so that an answer built on it never sounds certain.
+ * - A reading the model alone made is never "sure": at most "medium", so that an answer built on it never sounds
+ *   certain. When the model only confirms a dish the parser recognised by name, the parser's reading (and its
+ *   confidence) stands.
  * - A dish the model did not recognise leaves the parser's reading as it was, marked "low" when it was a guess.
  */
 export function mergeDishReading(

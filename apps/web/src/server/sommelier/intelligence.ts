@@ -411,7 +411,11 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         route ??= wanted;
         if (!wanted.read) return parsed;
         if (followUp) {
-          const kept = await within(deps.readDish(text, { cacheOnly: true }), READ_MS);
+          // The reading made for an earlier turn; asked again only for a dish a model has already seen.
+          const kept = await within(
+            deps.readDish(text, { cacheOnly: !previous.dishReadByModel }),
+            READ_MS,
+          );
           return kept ? mergeDishReading(parsed, kept, FOOD, text) : parsed;
         }
         if (parseMenu(text, FOOD) !== null) return parsed;
@@ -437,6 +441,11 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         dish: said.main === null ? null : said.said,
         wineKeys: named,
       });
+      // A new dish in this turn says whether a model has seen it; otherwise the conversation's dish keeps its mark.
+      state = {
+        ...state,
+        dishReadByModel: said.main !== null ? said.readBy === "model" : previous.dishReadByModel,
+      };
       if (
         !deps.buying &&
         (state.intent === "buy" || state.intent === "gift" || state.intent === "either")

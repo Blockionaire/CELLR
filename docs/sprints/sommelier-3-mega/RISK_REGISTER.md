@@ -129,8 +129,9 @@ wrote to a provider.
 occasion or the budget) and never a question that names a friend; it answers in closed lists and fixed scales,
 checked by code; it never names a wine; its reading is never "sure", so the answer never sounds certain; any
 failure is the parser's reading. Budget mode closed, its own rate limit, usage recorded.
-**Residual.** A word the lists do not know as "not food" (a health word, say) can be in the phrase and is sent;
-the whole question is sent today by V1. 2–5% of questions are misread by the parser with confidence and never
+**Residual.** The phrase is built from the food and its neighbours, without names, numbers or personal words
+(tested on every input an independent review tried); a name written in lower case right next to the food word can
+still pass. V1 sends the whole question today. 2–5% of questions are misread by the parser with confidence and never
 reach the model. The value of C is not measured yet (paid run).
 
 ## R-19 — Shared dish readings (S10)

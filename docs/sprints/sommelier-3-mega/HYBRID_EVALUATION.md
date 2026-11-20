@@ -8,13 +8,13 @@ owner's approval (§6). **No paid model call was made in S10.**
 
 ## 1. The four variants, on the same scenarios
 
-| Variant | What runs                                                                                                                    | Model calls                                         | Benchmark engine   |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------ |
-| A       | V1 with AI, as Production runs it (`gpt-6-luna`, reasoning none)                                                             | one per question                                    | `v1-ai`            |
-| B       | Sommelier 3.0, deterministic, with the S10 conservative selection                                                            | none                                                | `v3-app`           |
-| C       | B, and a model reads the dishes the router sends on; the engines still decide                                                | for routed dishes only (about 2 in 3 unseen dishes) | `v3-hybrid`        |
-| D       | C, and in a close call a model may reorder or leave out the engine's own picks (an experiment, not an approved architecture) | C, plus one per close call                          | `v3-hybrid-review` |
-| (bound) | B with a perfect reader for routed dishes: the reference card's class and scales. Not a product: an upper bound for C        | none                                                | `v3-oracle`        |
+| Variant | What runs                                                                                                                                                    | Model calls                                         | Benchmark engine   |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ------------------ |
+| A       | V1 with AI, as Production runs it (`gpt-6-luna`, reasoning none)                                                                                             | one per question                                    | `v1-ai`            |
+| B       | Sommelier 3.0, deterministic, with the S10 conservative selection                                                                                            | none                                                | `v3-app`           |
+| C       | B, and a model reads the dishes the router sends on; the engines still decide                                                                                | for routed dishes only (about 2 in 3 unseen dishes) | `v3-hybrid`        |
+| D       | C, and in a close call a model may reorder or leave out the engine's own picks (an experiment, not an approved architecture)                                 | C, plus one per close call                          | `v3-hybrid-review` |
+| (check) | B with the reference card's class and scales handed in for routed dishes. Not a product, and not an upper bound: the card has no ingredients, sauces or tags | none                                                | `v3-oracle`        |
 
 Same scorer (`score.ts`, unchanged), same labels, same cellars, same sets: `main` (developed against: flatters 3.0),
 `holdout-dev` (read during S9 and S10), `holdout-test` (blind: totals only). The human-written holdout does not
@@ -22,10 +22,11 @@ exist yet (§5).
 
 ## 2. What is measured
 
-Per variant and set: first bottle right; poor bottles offered (per scenario and **per bottle**, so offering fewer
-is not rewarded by itself); quality at place 1, 2 and 3; a **useful answer** (something to open whose first bottle
-is at least "ok" and none of whose bottles is poor, or nothing when nothing suits); "nothing suits" said honestly;
-the dish read right (B, C, D, bound; V1 states no dish); cost and time per answer; for the model variants, the
+Per variant and set: first bottle right; poor bottles offered, per scenario and **per bottle**, beside the **good
+bottles offered** (fewer bottles means fewer poor ones and fewer good ones: both are reported); quality at place
+1, 2 and 3; a **useful answer** (something to open none of whose bottles is poor, or nothing when nothing suits;
+this one favours offering fewer, so it is read beside the good bottles); "nothing suits" said honestly;
+the dish read right (B, C, D and the check; V1 states no dish); cost and time per answer; for the model variants, the
 spread over five runs and a paired bootstrap of the difference with A (`quality.ts`).
 
 ## 3. Measured without a paid call
@@ -42,34 +43,38 @@ holdout-dev, then applied unchanged to the blind half.)
 The confident-but-wrong readings are template mistakes (a known dish whose template is off, e.g. pho, Korean
 barbecue, salade niçoise). A router cannot see them; the knowledge has to be corrected.
 
-**The variants that cost nothing, against A as measured in S9** (A: mean of five runs; B and the bound: one run,
-they are deterministic):
+**The variants that cost nothing, against A as measured in S9** (A: mean of five runs; B and the check: one
+run, they are deterministic). The check hands the engines the reference card's class and scales for the dishes
+the router sends on; it is **not an upper bound** for C (the card has no ingredients, sauces or tags, and the
+engines keep the parser's own parts), as an independent review pointed out.
 
-| Measure                            | Set                      | A, V1 with AI | B, 3.0 (S10) | Bound: perfect dish reader |
-| ---------------------------------- | ------------------------ | ------------- | ------------ | -------------------------- |
-| First bottle right                 | main (124)               | 69%           | **78%**      | 76%                        |
-|                                    | holdout-dev (45)         | **85%**       | 64%          | 64%                        |
-|                                    | holdout-test, blind (43) | **73%**       | 63%          | 63%                        |
-| No poor bottle offered             | main (117)               | **93%**       | 82%          | 81%                        |
-|                                    | holdout-dev (40)         | **99%**       | 88%          | 82%                        |
-|                                    | holdout-test, blind (34) | **97%**       | 85%          | 91%                        |
-| Outcome matches the reference      | holdout-test, blind (43) | 71%           | 74%          | 74%                        |
-| "Nothing suits" when nothing suits | holdout-test, blind (9)  | 69%           | **89%**      | 78%                        |
-| Dish read right                    | holdout-test, blind (43) | —             | 72%          | 95%                        |
+| Measure                            | Set                      | A, V1 with AI | B, 3.0 (S10) | Check: right class and scales |
+| ---------------------------------- | ------------------------ | ------------- | ------------ | ----------------------------- |
+| First bottle right                 | main (168)               | —             | 140 (83%)    | 139 (83%)                     |
+|                                    | main, 124 A can attempt  | 69%           | **78%**      | —                             |
+|                                    | holdout-dev (45)         | **85%**       | 64%          | 62%                           |
+|                                    | holdout-test, blind (43) | **73%**       | 63%          | 65%                           |
+| No poor bottle offered             | main, 117 A can attempt  | **93%**       | 82%          | —                             |
+|                                    | holdout-dev (40)         | **99%**       | 88%          | 82%                           |
+|                                    | holdout-test, blind (34) | **97%**       | 85%          | 91%                           |
+| Outcome matches the reference      | holdout-test, blind (43) | 71%           | 74%          | 77%                           |
+| "Nothing suits" when nothing suits | holdout-test, blind (9)  | 69%           | **89%**      | 89%                           |
+| Dish read right                    | holdout-test, blind (43) | —             | 72%          | 86%                           |
 
-B's figures include the S10 conservative selection (`progress/S10.md` §4); without it B offered 14 poor bottles
-of 69 on the blind half, now 7 of 50.
+B's figures include the S10 conservative selection (`progress/S10.md` §4). On the blind half it took B from 69
+bottles offered (14 poor, 37 good) to 50 (7 poor, 32 good): 7 poor bottles fewer, and 5 good ones fewer too.
 
-**What this already shows.**
+**What this shows, and what it does not.**
 
-1. **Reading the dish right is not what B lacks most.** With a perfect reading of every dish the router sends on
-   (95% read right instead of 72%), the first bottle on unseen dishes does not improve at all (63% and 64%, the
-   same scenarios). The bound gives the class and the scales, not the ingredients and tags a model would give, so
-   C could still do a little better than the bound; but the gap to A (10 to 21 points on the first bottle) is in
-   the pairing judgement, not in the reading.
-2. So **C is not expected to beat A** on the first bottle or on poor bottles. Its value is safety: a misread dish
-   no longer gets a confident answer.
-3. **D is the variant that could**: a model's judgement on the engine's own candidates, where the engine is least
+1. **Handing the engines the right class and scales of a dish changes the first bottle very little** (holdout-dev
+   64% → 62%, blind 63% → 65%) while "dish read right" rises to 86–93%. The gap to A on the first bottle is 10 to
+   21 points.
+2. It does **not** show that a better reading cannot help: a model's reading also gives the ingredients, sauces and
+   tags (which carry the dish's classics), and that is untested until the paid run of C. It does show that the
+   class and the weight of a dish, the part the food check measures, are not where most of the gap is.
+3. So **C is not expected to close the gap to A by itself**. Its certain value is safety: a misread dish no longer
+   gets a confident answer.
+4. **D is the variant that could**: a model's judgement on the engine's own candidates, where the engine is least
    sure. Whether it does, and whether it stays as safe as the engine (it cannot add a wine), needs the paid run.
 
 ## 4. Cost and time (estimated, nothing sent)
@@ -83,8 +88,8 @@ estimate.
 | ------- | ----------------------------------- | --------------------------------- | -------------------------------- |
 | A       | 131 / 45 / 43                       | $0.33                             | 1.5–2.5 s (measured, S9)         |
 | B       | 0                                   | $0                                | under 5 ms                       |
-| C       | 118 / 30 / 31                       | $0.26                             | B, plus one call when routed     |
-| D       | 218 / 56 / 53                       | $0.31                             | C, plus one call in a close call |
+| C       | 88 / 30 / 31                        | $0.21                             | B, plus one call when routed     |
+| D       | 188 / 56 / 53                       | $0.27                             | C, plus one call in a close call |
 
 In the app, with the switch on: C's dish readings are shared through the cache (`DISH_CACHE.md`), so a dish costs
 once per server instance, not once per question.
