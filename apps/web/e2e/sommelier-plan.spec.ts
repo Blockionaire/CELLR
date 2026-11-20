@@ -289,7 +289,7 @@ test.describe("sommelier 3.0, switched on by name", () => {
     await furnish(call, [PAUILLAC]);
 
     await page.goto("/friends");
-    const consent = page.getByRole("switch", { name: "Friends' sommelier" });
+    const consent = page.getByRole("switch", { name: "Friends' sommelier", exact: true });
     await expect(consent).toHaveAttribute("aria-checked", "false");
     await expect(
       page.getByText(/Never your bottles, your ratings, your notes or your name/),
@@ -301,10 +301,9 @@ test.describe("sommelier 3.0, switched on by name", () => {
     await page.keyboard.press("Space");
     await expect(consent).toHaveAttribute("aria-checked", "true");
     await page.reload();
-    await expect(page.getByRole("switch", { name: "Friends' sommelier" })).toHaveAttribute(
-      "aria-checked",
-      "true",
-    );
+    await expect(
+      page.getByRole("switch", { name: "Friends' sommelier", exact: true }),
+    ).toHaveAttribute("aria-checked", "true");
     await page.screenshot({ path: shot(`sommelier3-sharing-${project()}`), fullPage: true });
 
     // Someone who is not a friend: said so, nothing of theirs used, and the turn is not kept.
@@ -348,6 +347,138 @@ test.describe("sommelier 3.0, switched on by name", () => {
     await page.screenshot({ path: shot(`sommelier3-nl-${project()}`), fullPage: true });
     expect(await audit(page)).toEqual([]);
     await fitsTheScreen(page);
+  });
+});
+
+test.describe("a friend's cellar in my sommelier's answer", () => {
+  test.use({ baseURL: SOMMELIER_URL });
+
+  test("theirs only with both of their settings on, shown as theirs, and gone the moment they withdraw", async ({
+    page,
+    browser,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    // Thomas: an account of his own, a cellar with a Pauillac and a Muscadet, and an account name.
+    const theirContext = await browser.newContext({ baseURL: SOMMELIER_URL });
+    const other = await theirContext.newPage();
+    const thomasAccount = await arrive(other, "s3fcthomas");
+    const thomas = await apiClient(request, thomasAccount.email);
+    await furnish(thomas.call, [PAUILLAC]);
+    const name = `tom${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.slice(
+      0,
+      18,
+    );
+    await thomas.call("put", "/me/handle", { handle: name }, 200);
+    const thomasId = (await thomas.call<{ userId: string }>("get", "/me", undefined, 200)).body
+      .userId;
+
+    // Me: a cellar with only a Chablis, and friends with Thomas.
+    const meAccount = await arrive(page, "s3fcme");
+    const me = await apiClient(request, meAccount.email);
+    await furnish(me.call, [CHABLIS]);
+    await me.call("post", "/friends", { userId: thomasId }, 200);
+    const incoming = (
+      await thomas.call<{ incoming: Array<{ friendshipId: string }> }>(
+        "get",
+        "/friends",
+        undefined,
+        200,
+      )
+    ).body.incoming;
+    await thomas.call(
+      "post",
+      `/friends/requests/${incoming[0]!.friendshipId}`,
+      { accept: true },
+      200,
+    );
+
+    const question = `@${name} is bringing a bottle. What does he own that suits both of us with roast lamb?`;
+    const lastCellar = () => page.getByTestId("plan").last().getByTestId("plan-friend-cellar");
+
+    // 1. By default nothing of his: neither setting is on. Nothing about what he owns is said.
+    await page.goto("/sommelier");
+    await ask(page, question);
+    await planNo(page, 1);
+    await expect(lastCellar()).toContainText(`I cannot see what @${name} has in their cellar`);
+    await expect(page.getByTestId("plan-friend-pick")).toHaveCount(0);
+    // (A Pauillac may be named as a style to buy for the lamb: that is the buying advice, not his cellar.)
+    await expect(page.getByRole("log", { name: "Conversation" })).not.toContainText(
+      "bottle, not yours",
+    );
+
+    // 2. He shows his cellar to friends: still not enough, a sommelier may not use it.
+    await thomas.call(
+      "put",
+      "/sharing",
+      {
+        modes: { ratings: "none", taste: "none", cellar: "friends" },
+        picks: { ratings: [], taste: [], cellar: [] },
+      },
+      200,
+    );
+    await ask(page, question);
+    await planNo(page, 2);
+    await expect(lastCellar()).toContainText("I cannot see what");
+    await expect(page.getByTestId("plan-friend-pick")).toHaveCount(0);
+
+    // 3. He turns the consent on himself, on his own screen, by keyboard. It is off until he does.
+    await other.goto("/friends");
+    const consent = other.getByRole("switch", { name: "Friends' sommelier: my cellar" });
+    await expect(consent).toHaveAttribute("aria-checked", "false");
+    await expect(other.getByText(/Never where a bottle lies, how many you have/)).toBeVisible();
+    expect(await audit(other)).toEqual([]);
+    await consent.focus();
+    await other.keyboard.press("Space");
+    await expect(consent).toHaveAttribute("aria-checked", "true");
+    // The taste consent is its own switch and did not move.
+    await expect(
+      other.getByRole("switch", { name: "Friends' sommelier", exact: true }),
+    ).toHaveAttribute("aria-checked", "false");
+    await other.screenshot({
+      path: shot(`sommelier3-cellar-consent-${project()}`),
+      fullPage: true,
+    });
+
+    // 4. Now his Pauillac is offered for the lamb: as HIS bottle, with reasons, and none of mine beside it.
+    await ask(page, question);
+    await planNo(page, 3);
+    const pick = lastCellar().getByTestId("plan-friend-pick");
+    await expect(pick).toHaveCount(1);
+    await expect(pick).toContainText("Pauillac");
+    await expect(pick).toContainText(`@${name}'s bottle, not yours`);
+    await expect(lastCellar()).toContainText(
+      `From the cellar @${name} shares with you, a good match:`,
+    );
+    // No card of my own cellar, and no link to a bottle page that is not mine.
+    await expect(
+      page
+        .getByTestId("plan")
+        .last()
+        .getByRole("link", { name: /Take this bottle/ }),
+    ).toHaveCount(0);
+    await page.screenshot({ path: shot(`sommelier3-friend-cellar-${project()}`), fullPage: true });
+    expect(await audit(page)).toEqual([]);
+    await fitsTheScreen(page);
+    expect(await modelCalls("is bringing a bottle")).toBe(0);
+
+    // 5. Never where his bottles lie, and nothing of it is kept: the question names him, so it is not stored.
+    const kept = await sql<{ n: string }>(
+      `select count(*)::text as n from public.sommelier_messages m join auth.users u on u.id = m.user_id
+        where u.email = $1`,
+      [meAccount.email],
+    );
+    expect(kept).toEqual([{ n: "0" }]);
+
+    // 6. He withdraws: at my very next question his cellar is gone again.
+    await consent.focus();
+    await other.keyboard.press("Space");
+    await expect(consent).toHaveAttribute("aria-checked", "false");
+    await ask(page, question);
+    await planNo(page, 4);
+    await expect(lastCellar()).toContainText("I cannot see what");
+    await expect(page.getByTestId("plan").last().getByTestId("plan-friend-pick")).toHaveCount(0);
+    await theirContext.close();
   });
 });
 
@@ -496,7 +627,9 @@ test.describe("sommelier 3.0, not switched on", () => {
     await call("put", "/sharing/sommelier", { tasteForFriends: true }, 404);
 
     await page.goto("/friends");
-    await expect(page.getByRole("switch", { name: "Friends' sommelier" })).toHaveCount(0);
+    await expect(page.getByRole("switch", { name: "Friends' sommelier", exact: true })).toHaveCount(
+      0,
+    );
 
     await page.goto("/sommelier");
     await ask(page, "At what temperature should I serve my Pauillac?");
