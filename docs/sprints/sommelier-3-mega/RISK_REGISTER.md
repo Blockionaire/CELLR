@@ -75,3 +75,38 @@ migration is itself a release step.
 owner decides, right before the switch that needs them.
 **Residual.** A person with their own token could set their consent before the screen for it exists. It would
 have no effect until a friend's sommelier asks, which needs the app's switch.
+
+## R-15 — The main benchmark flatters the engine (found in S9)
+
+**What.** The engine has been developed against the 246 scenarios of the main set since S1. On 88 new scenarios
+about dishes it had never seen, it understands 72% of the dishes (92% on the main set) and passes 44% (69%).
+The rise of "first bottle" on the main set in S9 (73% → 83%) did not appear on the new scenarios at all.
+**Why it matters.** Every number in `FINAL_REPORT.md` is from the main set. Read alone they overstate what a
+person with their own dinner will get.
+**Handled.** A holdout set, half of it blind, pinned in the tests (`progress/S9.md` §2.4); both sets are reported
+side by side from now on; S9 stopped tuning when further changes moved only the main set.
+**Residual.** The blind half is 43 scenarios by one author: a small sample, and blind only until someone tunes on
+it. A second holdout, written by a person, is needed before more tuning. The switch should not be on in
+Production while recognition of unseen dishes is at this level.
+
+## R-16 — A friend's cellar in someone else's answer (S9)
+
+**What.** With `sommelier_social` on and migration 0050 applied, a person's wines can appear in a friend's
+sommelier answer.
+**Why it matters.** It is the first time 3.0 shows one person's possessions to another. A wrong default or a
+missed check is a privacy breach, not a bad recommendation.
+**Handled.** Three conditions, all checked by the database in every request: accepted friendship, the cellar
+shown to that friend under the existing sharing rules, and a separate consent that is off by default. Wine
+identity only: no counts, places, ratings or notes. Nothing that names or uses a friend is kept or sent to a
+model. SQL tests for each condition, withdrawal, strangers, pending and ended friendships; a browser test with
+two accounts; an independent review (`progress/S9.md` §7).
+**Residual.** "Not among the wines they share" still tells the asker something about a friend who consented: that
+is the feature, and the consent text says so. The consent wording needs the owner's approval. The answer compares
+by style and appellation, so a wine the engine cannot place excludes nothing.
+
+## R-17 — `main` is ahead of Production by a migration that is not this work's (S9)
+
+**What.** Since #88 was merged, `main` holds migration 0047, unapplied. Any `db push` from `main` applies it,
+together with whatever of 0048–0050 has been merged by then.
+**Handled.** Said at the top of `RELEASE_PLAN.md` and in `docs/MIGRATIONS.md`.
+**Residual.** Someone who merges this stack and runs a routine `db push` releases four migrations at once.

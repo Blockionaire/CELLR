@@ -1,0 +1,677 @@
+{
+  "what": "The 82 scenarios of the main set that the S8 engine attempted and failed, each with one primary class (priority: recognition, forced-answer, poor-offered, missed-match, good-wine-underrated, ranking, other) and whether it passes at S9. The other 24 of the 106 were the social scenarios no engine attempted at S8.",
+  "byClass": {
+    "ranking": 12,
+    "poor-offered": 35,
+    "recognition": 15,
+    "other (buying/asking/offers)": 10,
+    "good-wine-underrated": 3,
+    "forced-answer": 2,
+    "missed-match": 5
+  },
+  "fixedAtS9": {
+    "ranking": 7,
+    "poor-offered": 11,
+    "good-wine-underrated": 1,
+    "forced-answer": 1,
+    "other (buying/asking/offers)": 2
+  },
+  "scenarios": [
+    {
+      "id": "ps-003",
+      "category": "pairing-simple",
+      "class": "ranking",
+      "allClasses": ["ranking"],
+      "failedAtS8": ["first"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ps-005",
+      "category": "pairing-simple",
+      "class": "poor-offered",
+      "allClasses": ["good-wine-underrated", "poor-offered"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ps-008",
+      "category": "pairing-simple",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ps-013",
+      "category": "pairing-simple",
+      "class": "poor-offered",
+      "allClasses": ["good-wine-underrated", "poor-offered"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ps-014",
+      "category": "pairing-simple",
+      "class": "ranking",
+      "allClasses": ["ranking"],
+      "failedAtS8": ["first"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ps-015",
+      "category": "pairing-simple",
+      "class": "ranking",
+      "allClasses": ["ranking"],
+      "failedAtS8": ["first"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ps-016",
+      "category": "pairing-simple",
+      "class": "poor-offered",
+      "allClasses": ["good-wine-underrated", "poor-offered"],
+      "failedAtS8": ["verdict", "first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ps-019",
+      "category": "pairing-simple",
+      "class": "ranking",
+      "allClasses": ["ranking"],
+      "failedAtS8": ["first"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ps-021",
+      "category": "pairing-simple",
+      "class": "ranking",
+      "allClasses": ["ranking"],
+      "failedAtS8": ["first"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ps-024",
+      "category": "pairing-simple",
+      "class": "ranking",
+      "allClasses": ["ranking"],
+      "failedAtS8": ["first"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ps-026",
+      "category": "pairing-simple",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ps-028",
+      "category": "pairing-simple",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered", "ranking"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ps-030",
+      "category": "pairing-simple",
+      "class": "recognition",
+      "allClasses": ["recognition"],
+      "failedAtS8": ["food"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ps-032",
+      "category": "pairing-simple",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ph-007",
+      "category": "pairing-hard",
+      "class": "other (buying/asking/offers)",
+      "allClasses": [],
+      "failedAtS8": ["verdict"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-009",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered", "ranking"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-010",
+      "category": "pairing-hard",
+      "class": "ranking",
+      "allClasses": ["ranking"],
+      "failedAtS8": ["first"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-012",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-018",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-019",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["verdict", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-022",
+      "category": "pairing-hard",
+      "class": "good-wine-underrated",
+      "allClasses": ["good-wine-underrated"],
+      "failedAtS8": ["first"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-023",
+      "category": "pairing-hard",
+      "class": "good-wine-underrated",
+      "allClasses": ["good-wine-underrated"],
+      "failedAtS8": ["first"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ph-024",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered", "ranking"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-026",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-027",
+      "category": "pairing-hard",
+      "class": "ranking",
+      "allClasses": ["ranking"],
+      "failedAtS8": ["first"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ph-033",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ph-034",
+      "category": "pairing-hard",
+      "class": "recognition",
+      "allClasses": ["recognition"],
+      "failedAtS8": ["food"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-035",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered", "ranking"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-037",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered", "ranking"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-038",
+      "category": "pairing-hard",
+      "class": "recognition",
+      "allClasses": ["poor-offered", "ranking", "recognition"],
+      "failedAtS8": ["food", "first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-039",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered", "ranking"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ph-040",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["verdict", "first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-041",
+      "category": "pairing-hard",
+      "class": "recognition",
+      "allClasses": ["poor-offered", "recognition"],
+      "failedAtS8": ["food", "verdict", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-042",
+      "category": "pairing-hard",
+      "class": "recognition",
+      "allClasses": ["good-wine-underrated", "poor-offered", "recognition"],
+      "failedAtS8": ["food", "verdict", "first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-043",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["good-wine-underrated", "poor-offered"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-045",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ph-046",
+      "category": "pairing-hard",
+      "class": "ranking",
+      "allClasses": ["ranking"],
+      "failedAtS8": ["first"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-047",
+      "category": "pairing-hard",
+      "class": "ranking",
+      "allClasses": ["ranking"],
+      "failedAtS8": ["first"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ph-048",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-049",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-050",
+      "category": "pairing-hard",
+      "class": "ranking",
+      "allClasses": ["ranking"],
+      "failedAtS8": ["first"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ph-053",
+      "category": "pairing-hard",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["verdict", "first", "no-poor-bottle"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ph-054",
+      "category": "pairing-hard",
+      "class": "recognition",
+      "allClasses": ["poor-offered", "recognition"],
+      "failedAtS8": ["food", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-056",
+      "category": "pairing-hard",
+      "class": "recognition",
+      "allClasses": ["recognition"],
+      "failedAtS8": ["food"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ph-057",
+      "category": "pairing-hard",
+      "class": "good-wine-underrated",
+      "allClasses": ["good-wine-underrated"],
+      "failedAtS8": ["first"],
+      "passesAtS9": false
+    },
+    {
+      "id": "pm-001",
+      "category": "pairing-misleading",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "pm-002",
+      "category": "pairing-misleading",
+      "class": "forced-answer",
+      "allClasses": ["forced-answer"],
+      "failedAtS8": ["verdict", "first", "no-bottles"],
+      "passesAtS9": true
+    },
+    {
+      "id": "pm-005",
+      "category": "pairing-misleading",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered", "ranking"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "pm-006",
+      "category": "pairing-misleading",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered", "ranking"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": true
+    },
+    {
+      "id": "pm-008",
+      "category": "pairing-misleading",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "pm-009",
+      "category": "pairing-misleading",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered", "ranking"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": true
+    },
+    {
+      "id": "pm-011",
+      "category": "pairing-misleading",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": true
+    },
+    {
+      "id": "pm-012",
+      "category": "pairing-misleading",
+      "class": "missed-match",
+      "allClasses": ["missed-match"],
+      "failedAtS8": ["verdict", "first"],
+      "passesAtS9": false
+    },
+    {
+      "id": "pm-013",
+      "category": "pairing-misleading",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered", "ranking"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "pm-015",
+      "category": "pairing-misleading",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": true
+    },
+    {
+      "id": "pm-016",
+      "category": "pairing-misleading",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered", "ranking"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ns-002",
+      "category": "no-suitable-wine",
+      "class": "other (buying/asking/offers)",
+      "allClasses": ["other:buy:given"],
+      "failedAtS8": ["verdict", "buy:given"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ns-010",
+      "category": "no-suitable-wine",
+      "class": "other (buying/asking/offers)",
+      "allClasses": [],
+      "failedAtS8": ["verdict"],
+      "passesAtS9": true
+    },
+    {
+      "id": "ns-012",
+      "category": "no-suitable-wine",
+      "class": "forced-answer",
+      "allClasses": ["forced-answer", "other:buy:given"],
+      "failedAtS8": ["verdict", "first", "no-bottles", "buy:given"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ns-013",
+      "category": "no-suitable-wine",
+      "class": "other (buying/asking/offers)",
+      "allClasses": ["other:buy:given"],
+      "failedAtS8": ["verdict", "buy:given"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ns-014",
+      "category": "no-suitable-wine",
+      "class": "missed-match",
+      "allClasses": ["missed-match"],
+      "failedAtS8": ["verdict", "first"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ns-015",
+      "category": "no-suitable-wine",
+      "class": "missed-match",
+      "allClasses": ["missed-match"],
+      "failedAtS8": ["verdict", "first"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ns-016",
+      "category": "no-suitable-wine",
+      "class": "missed-match",
+      "allClasses": ["missed-match"],
+      "failedAtS8": ["verdict", "first"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ns-017",
+      "category": "no-suitable-wine",
+      "class": "other (buying/asking/offers)",
+      "allClasses": ["other:buy:given"],
+      "failedAtS8": ["buy:given"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ns-018",
+      "category": "no-suitable-wine",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "mm-008",
+      "category": "missing-metadata",
+      "class": "missed-match",
+      "allClasses": ["missed-match"],
+      "failedAtS8": ["verdict", "first"],
+      "passesAtS9": false
+    },
+    {
+      "id": "mm-009",
+      "category": "missing-metadata",
+      "class": "other (buying/asking/offers)",
+      "allClasses": [],
+      "failedAtS8": ["verdict"],
+      "passesAtS9": false
+    },
+    {
+      "id": "inv-005",
+      "category": "inventory",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered", "ranking"],
+      "failedAtS8": ["first", "no-poor-bottle"],
+      "passesAtS9": false
+    },
+    {
+      "id": "ev-09",
+      "category": "evidence",
+      "class": "other (buying/asking/offers)",
+      "allClasses": [],
+      "failedAtS8": ["verdict"],
+      "passesAtS9": false
+    },
+    {
+      "id": "bu-01",
+      "category": "budget",
+      "class": "other (buying/asking/offers)",
+      "allClasses": ["other:buy:style"],
+      "failedAtS8": ["buy:style"],
+      "passesAtS9": false
+    },
+    {
+      "id": "bu-02",
+      "category": "budget",
+      "class": "recognition",
+      "allClasses": ["recognition"],
+      "failedAtS8": ["food"],
+      "passesAtS9": false
+    },
+    {
+      "id": "bu-12",
+      "category": "budget",
+      "class": "other (buying/asking/offers)",
+      "allClasses": ["other:buy:style"],
+      "failedAtS8": ["buy:style"],
+      "passesAtS9": false
+    },
+    {
+      "id": "fu-01",
+      "category": "follow-up",
+      "class": "recognition",
+      "allClasses": ["recognition"],
+      "failedAtS8": ["food"],
+      "passesAtS9": false
+    },
+    {
+      "id": "fu-02",
+      "category": "follow-up",
+      "class": "recognition",
+      "allClasses": ["other:asks", "recognition"],
+      "failedAtS8": ["food", "asks"],
+      "passesAtS9": false
+    },
+    {
+      "id": "fu-03",
+      "category": "follow-up",
+      "class": "recognition",
+      "allClasses": ["other:asks", "recognition"],
+      "failedAtS8": ["food", "asks"],
+      "passesAtS9": false
+    },
+    {
+      "id": "fu-08",
+      "category": "follow-up",
+      "class": "poor-offered",
+      "allClasses": ["poor-offered"],
+      "failedAtS8": ["no-poor-bottle"],
+      "passesAtS9": true
+    },
+    {
+      "id": "fu-12",
+      "category": "follow-up",
+      "class": "other (buying/asking/offers)",
+      "allClasses": ["other:asks"],
+      "failedAtS8": ["asks"],
+      "passesAtS9": false
+    },
+    {
+      "id": "fu-15",
+      "category": "follow-up",
+      "class": "recognition",
+      "allClasses": ["other:buy:style", "recognition"],
+      "failedAtS8": ["food", "buy:style"],
+      "passesAtS9": false
+    },
+    {
+      "id": "rt-01",
+      "category": "retail",
+      "class": "recognition",
+      "allClasses": ["recognition"],
+      "failedAtS8": ["food"],
+      "passesAtS9": false
+    },
+    {
+      "id": "rt-02",
+      "category": "retail",
+      "class": "recognition",
+      "allClasses": ["other:offers", "recognition"],
+      "failedAtS8": ["food", "offers"],
+      "passesAtS9": false
+    },
+    {
+      "id": "rt-09",
+      "category": "retail",
+      "class": "recognition",
+      "allClasses": ["recognition"],
+      "failedAtS8": ["food"],
+      "passesAtS9": false
+    },
+    {
+      "id": "rb-06",
+      "category": "robustness",
+      "class": "ranking",
+      "allClasses": ["ranking"],
+      "failedAtS8": ["first"],
+      "passesAtS9": true
+    }
+  ]
+}

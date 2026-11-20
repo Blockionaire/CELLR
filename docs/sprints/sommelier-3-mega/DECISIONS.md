@@ -91,3 +91,31 @@ the engine is on, V1's model-made verdict and buy list are dropped from every an
 
 **Recorded in S8.** The final review's fixes belong to S3 and S5. They were committed there and merged into each
 branch above (S5, S6, S7, S8), so no pushed branch with an open pull request was rewritten.
+
+## D-29 — A friend's cellar may be used, with a consent of its own (replaces part of D-15)
+
+**Recorded in S9.** D-15 said a friend's cellar is never used. The brief asks for it ("what does he own that
+suits both of us", "a present he does not already own"), so "never" left two requirements unbuilt. S9 builds
+them behind a second consent (`cellar_for_friends`, off by default), on top of the existing rule for who may see
+a cellar; neither alone is enough. Only the identity of the wines crosses over. The taste consent of D-15 is
+unchanged and independent.
+
+## D-30 — A friend's name is carried by the asker's own questions, never by the state
+
+**Recorded in S9.** A follow-up that names nobody is about the friend the conversation named. The name is read
+from the asker's earlier questions in the request, not written into the conversation state (which is echoed back
+by the screen and could be kept), and never read from an answer. The database is asked again each time. The
+benchmark expects the name in the state (`recipient`); that expectation is not met on purpose.
+
+## D-31 — A holdout set, and no label or scorer change in S9
+
+**Recorded in S9.** The main set's labels, fixtures, thresholds and scorer are unchanged, including one scorer
+defect that makes five scenarios impossible to pass (`progress/S9.md` §2.6): fixing it in the sprint that reports
+improved scores would look like, and partly be, moving the goalposts. New scenarios go in separate sets
+(`sets.ts`); the second half of the holdout stays blind (`analyze` refuses it).
+
+## D-32 — Paid model calls in the benchmark need the owner's phrase
+
+**Recorded in S9.** The harness for V1 with AI estimates by default and sends nothing. A real run needs
+`SOMMELIER_EVAL_PAID=owner-approved` and a key, skips what V1 cannot attempt, and stops at a spending limit. The
+agent sets neither value.
