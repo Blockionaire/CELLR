@@ -1,3 +1,4 @@
+import { appendFileSync } from "node:fs";
 import type { DishReading } from "@cellr/domain/intelligence";
 import { createOpenAiProvider } from "@/server/ai/openai";
 import { priceOf } from "@/server/ai/pricing";
@@ -78,6 +79,8 @@ export function hybrid(options: {
   maxUsd: number;
   env?: Record<string, string | undefined>;
   provider?: LlmProvider;
+  /** A local file to append every dish phrase looked up to (readable sets only). */
+  phraseLog?: string | null;
 }): HybridRun {
   const env = options.env ?? process.env;
   const ai = getAiEnv();
@@ -99,7 +102,9 @@ export function hybrid(options: {
       );
   const readings = { cache: 0, model: 0, failed: 0, limited: 0 };
   const cache = createMemoryDishCache();
-  const reader = createDishReader({
+  // For the privacy check of a paid run on a readable set only: every phrase sent, to a local file (never committed).
+  const phraseLog = options.phraseLog ?? null;
+  const inner = createDishReader({
     llm,
     model: ai.adviceModel,
     spend: async () => {},
@@ -108,6 +113,10 @@ export function hybrid(options: {
     cache,
     observe: (how) => (readings[how] += 1),
   });
+  const reader: typeof inner = async (phrase, opts) => {
+    if (phraseLog && !opts?.cacheOnly) appendFileSync(phraseLog, `${phrase}\n`);
+    return inner(phrase, opts);
+  };
   const reviewer = createPairingReviewer({
     llm,
     spend: async () => {},

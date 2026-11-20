@@ -42,6 +42,8 @@ const { values: args } = parseArgs({
     needs: { type: "string" },
     /** With `--engine v1-ai` for real: stop once this much was spent (US dollars). */
     "max-usd": { type: "string", default: "2" },
+    /** With a hybrid engine on a readable set: a local file the dish phrases sent are appended to. */
+    "phrase-log": { type: "string" },
   },
 });
 
@@ -57,7 +59,12 @@ if (PAID_ENGINES.has(args.engine!)) {
     paid =
       args.engine === "v1-ai"
         ? v1Ai({ estimate: args.estimate!, maxUsd })
-        : hybrid({ estimate: args.estimate!, maxUsd });
+        : hybrid({
+            estimate: args.estimate!,
+            maxUsd,
+            // Never for a set that holds blind scenarios.
+            phraseLog: args["phrase-log"] && !holdsBlind(args.set!) ? args["phrase-log"] : null,
+          });
   } catch (error) {
     console.error((error as Error).message);
     process.exit(2);

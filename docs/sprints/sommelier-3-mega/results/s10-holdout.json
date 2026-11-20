@@ -74,6 +74,7 @@
     "goodBottles": 77,
     "useful": 67,
     "answeredWhenPossible": [65, 74],
+    "goodMissed": [16, 64],
     "honestNone": [12, 14],
     "counts": [21, 34, 12, 21],
     "dishRead": [64, 88]

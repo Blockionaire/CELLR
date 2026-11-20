@@ -28,6 +28,11 @@ export interface QualityTotals {
   useful: number;
   /** Something offered where a reference wine at least "ok" was in the cellar. */
   answeredWhenPossible: [number, number];
+  /**
+   * Where the cellar held a wine the card labels good: [scenarios in which no offered bottle was good, such
+   * scenarios]. A second opinion that can only reorder or drop the engine's picks cannot repair these (S10).
+   */
+  goodMissed: [number, number];
   /** Nothing offered where the reference says nothing suits. */
   honestNone: [number, number];
   /** Scenarios by how many bottles were offered: 0, 1, 2, 3+. */
@@ -82,6 +87,7 @@ export function qualityTotals(
     goodBottles: 0,
     useful: 0,
     answeredWhenPossible: [0, 0],
+    goodMissed: [0, 0],
     honestNone: [0, 0],
     counts: [0, 0, 0, 0],
     dishRead: [0, 0],
@@ -98,6 +104,10 @@ export function qualityTotals(
       if (r.labels.length === 0) t.honestNone[0] += 1;
     } else {
       const card = cards(r.id);
+      if (card && cellarOf(r.id).some((k) => labelOf(card, k) === "good")) {
+        t.goodMissed[1] += 1;
+        if (!r.labels.includes("good")) t.goodMissed[0] += 1;
+      }
       if (card && cellarOf(r.id).some((k) => labelOf(card, k) !== "poor")) {
         t.answeredWhenPossible[1] += 1;
         if (r.labels.length > 0) t.answeredWhenPossible[0] += 1;
@@ -123,7 +133,7 @@ export function formatQuality(q: QualityTotals): string {
   return [
     `Quality per bottle (S10): ${q.scenarios} scenarios about a dish with a reference outcome.`,
     `- Useful answer: ${q.useful} (${pct(q.useful, q.scenarios)}). Bottles offered: ${q.offeredBottles}, of which poor ${q.poorBottles} (${pct(q.poorBottles, q.offeredBottles)}), good ${q.goodBottles} (${pct(q.goodBottles, q.offeredBottles)}).`,
-    `- Answered when something suited: ${q.answeredWhenPossible[0]} of ${q.answeredWhenPossible[1]}. Nothing offered when nothing suits: ${q.honestNone[0]} of ${q.honestNone[1]}.`,
+    `- Answered when something suited: ${q.answeredWhenPossible[0]} of ${q.answeredWhenPossible[1]}. Nothing offered when nothing suits: ${q.honestNone[0]} of ${q.honestNone[1]}. A good wine in the cellar, none offered: ${q.goodMissed[0]} of ${q.goodMissed[1]}.`,
     `- Scenarios by bottles offered: 0: ${q.counts[0]}, 1: ${q.counts[1]}, 2: ${q.counts[2]}, 3+: ${q.counts[3]}. Dish read right: ${q.dishRead[1] === 0 ? "not stated by this engine" : `${q.dishRead[0]} of ${q.dishRead[1]}`}.`,
     "",
     "| Place | Offered | Good | Ok | Poor |",
