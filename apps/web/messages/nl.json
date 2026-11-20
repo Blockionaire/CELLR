@@ -2124,7 +2124,8 @@
       "own_value": "een eigen waarde"
     },
     "yoursPrivate": "Door jullie vastgelegd. Het staat niet in de gedeelde CELLR-catalogus; vrienden zien alleen wat je in Profiel met hen deelt.",
-    "catalogTitle": "Bron van de wijngegevens"
+    "catalogTitle": "Bron van de wijngegevens",
+    "derivedFrom": "De gegevens zijn bij het toevoegen overgenomen uit deze bron; jullie hebben ze bevestigd."
   },
   "builder": {
     "titleNew": "Ontwerp een nieuwe plek",

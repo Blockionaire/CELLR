@@ -2124,7 +2124,8 @@
       "own_value": "your own value"
     },
     "yoursPrivate": "Recorded by your household. It is not part of the shared CELLR catalogue; friends see only what you share with them in Profile.",
-    "catalogTitle": "Source of the wine details"
+    "catalogTitle": "Source of the wine details",
+    "derivedFrom": "The details were taken from this source when the wine was added; your household confirmed them."
   },
   "builder": {
     "titleNew": "Design a new place",

@@ -476,6 +476,14 @@ export function createCellarService(
      * less certain (a similar name, two candidates, a different colour or country) makes a private wine as before.
      */
     async createWine(input: CreateWine): Promise<WineSummary> {
+      // R-27: a wine started from an external record keeps where its data came from (the household's own wine
+      // only; the database refuses a catalogue wine and a source that may not be shown). Best effort: the wine is the
+      // person's either way, and a failing or missing step never stops them adding it.
+      const remember = async (householdId: string, wine: WineSummary, recordId?: string) => {
+        if (recordId && !wine.catalog)
+          await repo.recordWineOrigin(householdId, wine.id, recordId).catch(() => null);
+        return wine;
+      };
       const { id } = await household();
       const same = await repo.findWinesByIdentity(id, input.producer, input.name, input.type);
       const existing = pickExistingWine(
@@ -483,7 +491,7 @@ export function createCellarService(
         same.filter((w) => !w.catalog),
         same.filter((w) => w.catalog),
       );
-      if (existing) return existing;
+      if (existing) return remember(id, existing, input.sourceRecordId);
       // The household already has this name from another country: the new wine must not land under that wine's
       // producer (it would be found again), so only a producer of the given country is reused, else a new one.
       const elsewhere = same.some(
@@ -495,7 +503,7 @@ export function createCellarService(
         input.countryCode ?? null,
         elsewhere,
       );
-      return repo.findOrCreateWine(id, producerId, input);
+      return remember(id, await repo.findOrCreateWine(id, producerId, input), input.sourceRecordId);
     },
 
     async storage(): Promise<StorageUnitView[]> {

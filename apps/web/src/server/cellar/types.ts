@@ -185,6 +185,8 @@ export interface CellarRepository {
     exactCountry?: boolean,
   ): Promise<string>;
   findOrCreateWine(householdId: string, producerId: string, input: NewWine): Promise<WineSummary>;
+  /** R-27: keep that this household's own wine was filled in from an external record. Null = not deployed. */
+  recordWineOrigin(householdId: string, wineId: string, recordId: string): Promise<string | null>;
   /** `year` null = non-vintage. Returns the vintage id. */
   findOrCreateVintage(wineId: string, year: number | null): Promise<string>;
   /**

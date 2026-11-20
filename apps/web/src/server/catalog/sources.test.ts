@@ -27,6 +27,7 @@ function service(over: Partial<WineSourcesRepository> = {}) {
       { name: "Producer website", url: "https://estate.example/cuvee", retrievedAt: "2026-10-01" },
     ]),
     notices: vi.fn(async () => [notice()]),
+    originNotices: vi.fn(async () => []),
     ...over,
   };
   return { repo, sources: createWineSourcesService({ repo, householdId: async () => "h1" }) };
@@ -43,11 +44,34 @@ describe("what a wine page may credit", () => {
     expect(repo.notices).toHaveBeenCalledWith("h1", "w1");
   });
 
-  it("a household's own wine: nothing is looked up and nothing is credited", async () => {
+  it("a household's own wine: no catalogue lookups; only the records it was filled in from (R-27)", async () => {
     const { repo, sources } = service({ wineKind: vi.fn(async () => "household" as const) });
-    expect(await sources.get("w1")).toEqual({ catalog: false, catalogSources: [], external: [] });
+    expect(await sources.get("w1")).toEqual({
+      catalog: false,
+      catalogSources: [],
+      external: [],
+      derivedFrom: [],
+    });
     expect(repo.catalogSources).not.toHaveBeenCalled();
     expect(repo.notices).not.toHaveBeenCalled();
+    expect(repo.originNotices).toHaveBeenCalledOnce();
+  });
+
+  it("R-27: a household wine filled in from a shown source credits it; a failing lookup credits nobody", async () => {
+    const credited = service({
+      wineKind: vi.fn(async () => "household" as const),
+      originNotices: vi.fn(async () => [notice(), { malformed: true }]),
+    });
+    const derived = (await credited.sources.get("w1")).derivedFrom ?? [];
+    expect(derived).toHaveLength(1); // the malformed row is dropped
+    expect(derived[0]).toMatchObject({ providerName: "Fixture Wines", scope: "public" });
+    const failing = service({
+      wineKind: vi.fn(async () => "household" as const),
+      originNotices: vi.fn(async () => {
+        throw new Error("down");
+      }),
+    });
+    expect((await failing.sources.get("w1")).derivedFrom).toEqual([]);
   });
 
   it("a wine the person cannot see does not exist", async () => {

@@ -183,6 +183,14 @@ export function SourceIdentity({ identity }: { identity: WineSourcesView["identi
       {identity.external.map((notice) => (
         <SourceCredit key={`${notice.providerId}:${notice.externalId}`} notice={notice} />
       ))}
+      {identity.derivedFrom.length > 0 && (
+        <div className="flex flex-col gap-2" data-testid="source-derived-from">
+          <p className="text-small text-ink-2">{t("derivedFrom")}</p>
+          {identity.derivedFrom.map((notice) => (
+            <SourceCredit key={`${notice.providerId}:${notice.externalId}`} notice={notice} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
