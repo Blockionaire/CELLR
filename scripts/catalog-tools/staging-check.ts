@@ -12,6 +12,8 @@
  *   gates       the pilot search, rights function, import functions and settings are not reachable by people or
  *               anonymous callers; the settings cannot be written by the service role; the pilot-scope trigger is on
  *   rls         row-level security is on for every catalogue table
+ *   origins     (Sprint 004C, R-27) wine_record_origins behind RLS, unreadable by anonymous callers, written only by
+ *               its functions
  *   providers   no provider is public without verified rights; what each provider is set to
  */
 import { readdirSync, writeFileSync } from "node:fs";
@@ -186,6 +188,29 @@ async function main() {
       "grants: people hold no privilege on any catalogue table",
       granted.length === 0,
       granted.join("; ") || "none",
+    );
+
+    // R-27 (Sprint 004C): where a household's wine came from is the household's own, behind RLS. Signed-in people may
+    // read their household's rows (the policy decides which); nobody but the definer functions writes them.
+    const origins = await one<{
+      present: boolean;
+      rls: boolean;
+      anon: boolean;
+      people_write: boolean;
+      functions: boolean;
+    }>(
+      `select to_regclass('public.wine_record_origins') is not null as present,
+              coalesce((select relrowsecurity from pg_class where oid = to_regclass('public.wine_record_origins')), false) as rls,
+              coalesce(has_table_privilege('anon', to_regclass('public.wine_record_origins'), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE'), false) as anon,
+              coalesce(has_table_privilege('authenticated', to_regclass('public.wine_record_origins'), 'INSERT,UPDATE,DELETE,TRUNCATE'), false) as people_write,
+              to_regprocedure('public.record_wine_origin(uuid, uuid, uuid)') is not null
+                and to_regprocedure('public.unlink_wine_origin(uuid, bigint)') is not null
+                and to_regprocedure('public.wine_origin_notices(uuid, uuid)') is not null as functions`,
+    );
+    add(
+      "R-27: wine origins behind RLS, no access for anon, no direct writes by people",
+      origins.present && origins.rls && !origins.anon && !origins.people_write && origins.functions,
+      JSON.stringify(origins),
     );
 
     // providers
