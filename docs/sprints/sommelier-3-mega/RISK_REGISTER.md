@@ -104,9 +104,10 @@ two accounts; an independent review (`progress/S9.md` §7).
 is the feature, and the consent text says so. The consent wording needs the owner's approval. The answer compares
 by style and appellation, so a wine the engine cannot place excludes nothing.
 
-## R-17 — `main` is ahead of Production by a migration that is not this work's (S9)
+## R-17 — A routine `db push` after merging this stack releases its migrations (S9)
 
-**What.** Since #88 was merged, `main` holds migration 0047, unapplied. Any `db push` from `main` applies it,
-together with whatever of 0048–0050 has been merged by then.
+**What.** When S9 was written `main` held migration 0047 unapplied. The owner has since applied it: Production
+records 0001–0047 (checked read-only, 2026-11-20) and `main` is level with it. The risk that remains is this
+work's own: once #94, #97 or #100 is merged, a `db push` from `main` applies 0048, 0049 or 0050.
 **Handled.** Said at the top of `RELEASE_PLAN.md` and in `docs/MIGRATIONS.md`.
-**Residual.** Someone who merges this stack and runs a routine `db push` releases four migrations at once.
+**Residual.** Someone who merges the stack and runs a routine `db push` releases up to three migrations at once.

@@ -7,6 +7,7 @@
  *   pnpm sommelier:eval --only pairing-hard     one category, or one scenario id
  *   pnpm sommelier:eval --set holdout            another scenario set (sets.ts)
  *   pnpm sommelier:eval --json out.json         write the per-scenario results (no timings: they vary per run)
+ *   pnpm sommelier:eval --needs pairing,facts   only the scenarios that need no more than these capabilities
  *   pnpm sommelier:eval --engine v1-ai --estimate   what running V1 WITH its AI would cost; nothing is sent
  *
  * Nothing here calls a model or a network: the engines are run with fixed cellars and a fixed day. The one
@@ -34,6 +35,8 @@ const { values: args } = parseArgs({
     set: { type: "string", default: "main" },
     /** With `--engine v1-ai`: build and count the prompts, send nothing. */
     estimate: { type: "boolean", default: false },
+    /** Only scenarios that need nothing beyond these capabilities ("pairing,facts": what V1 can attempt). */
+    needs: { type: "string" },
     /** With `--engine v1-ai` for real: stop once this much was spent (US dollars). */
     "max-usd": { type: "string", default: "2" },
   },
@@ -68,8 +71,11 @@ if (blind && (args.failures || args.only)) {
   );
   process.exit(2);
 }
+const within = args.needs ? new Set(args.needs.split(",")) : null;
 const scenarios = scenariosOf(args.set!).filter(
-  (s) => !args.only || s.category === args.only || s.id === args.only,
+  (s) =>
+    (!args.only || s.category === args.only || s.id === args.only) &&
+    (!within || s.needs.every((n) => within.has(n))),
 );
 const cards = cardsOf(args.set!);
 const results: ScenarioResult[] = [];

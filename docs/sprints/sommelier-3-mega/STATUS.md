@@ -12,8 +12,8 @@ the GO / NO-GO, is in [`RELEASE_PLAN.md`](RELEASE_PLAN.md).
 UPDATED:        2026-11-20 (S0–S9 written; everything is in open pull requests; nothing is merged or released)
 PHASE:          S9 — quality and product completion
 TRACKING ISSUE: #89
-MAIN:           6ab4350 (#88 system monitoring and #92 3D sprint 4 merged). main holds migration 20261124000047;
-                Production has 0001–0046 only (read-only check, 2026-11-20). A db push from main applies 0047.
+MAIN:           6ab4350 (#88 system monitoring and #92 3D sprint 4 merged). main holds migration 20261124000047,
+                and Production records 0001–0047 (read-only check, 2026-11-20, after the owner applied 0047).
                 This work's migrations: 0048, 0049, 0050; all unapplied, all later than 0047.
 SWITCHES:       sommelier_engine, sommelier_buying, sommelier_social, sommelier_experiences, sommelier_learning.
                 None is turned on by `all`; each must be named in CELLR_FEATURES; the last four need the first.

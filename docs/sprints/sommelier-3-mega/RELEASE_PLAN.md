@@ -6,18 +6,19 @@ did not merge, deploy, apply a migration or change a setting, and will not.
 **The verdict in two lines** (the reasons are in §7): merging the stack with every switch off is a **GO**;
 switching anything on for real users is a **NO-GO** for now.
 
-State of `main` and Production, checked read-only on 2026-11-20: pull requests #88 (system monitoring) and #92
-(3D sprint 4) are merged; `main` is at `6ab4350` and holds migration `20261124000047_system_health.sql`.
-Production has migrations 0001–0046 recorded and nothing later. **So `main` is one migration ahead of Production
-already, before any of this work: a `db push` from `main` applies 0047.**
+State of `main` and Production, checked read-only on 2026-11-20 (Supabase migration history, a second time after
+the owner applied 0047): pull requests #88 (system monitoring) and #92 (3D sprint 4) are merged; `main` is at
+`6ab4350` and holds migration `20261124000047_system_health.sql`. **Production records 0001–0047: `main` and
+Production are level again.** A `db push` from `main` has nothing to apply until a pull request of this stack
+that carries a migration (#94, #97, #100) is merged.
 
 ## 0. Before anything is merged
 
-| Check                                                                                | Why                                                                                                                                                                                                                                        |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `CELLR_FEATURES` in Production and Preview names none of the five sommelier switches | `all` turns none of them on (tested), so only a name can; make sure no name is there (R-02)                                                                                                                                                |
-| Migration `20261124000047` (#88, merged): applied first, or together?                | This work's 0048, 0049 and 0050 are later than it, so the order is right as it stands and nothing needs renaming. They can only be applied after or together with 0047: the CLI refuses a version older than the newest one applied (R-03) |
-| Read `FINAL_REPORT.md` §6                                                            | The few things that change with every switch off                                                                                                                                                                                           |
+| Check                                                                                | Why                                                                                                              |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `CELLR_FEATURES` in Production and Preview names none of the five sommelier switches | `all` turns none of them on (tested), so only a name can; make sure no name is there (R-02)                      |
+| Migration `20261124000047` (#88): applied in Production (checked 2026-11-20)         | This work's 0048, 0049 and 0050 are later than it, so the order is right as it stands and nothing needs renaming |
+| Read `FINAL_REPORT.md` §6                                                            | The few things that change with every switch off                                                                 |
 
 ## 1. Merge (switches off)
 
@@ -27,7 +28,7 @@ behind switches that are off. When a base branch is merged and deleted, GitHub r
 #95, #97 and #98 are drafts and must be marked ready first.
 
 From the moment #94 is on `main`, migration 0048 is in `supabase/migrations`; from #97, 0049; from the S9 pull
-request, 0050. **A `db push` from `main` after that applies them** (and 0047, if it is still unapplied). That is
+request, 0050. **A `db push` from `main` after that applies them.** That is
 a release step of its own (§2), not a side effect to let happen.
 
 CI runs the browser tests on pushes to `main` only: the first run of `sommelier-plan.spec.ts` in CI is after the
@@ -43,7 +44,7 @@ With the procedure of `docs/MIGRATIONS.md`, when the owner decides, each right b
 | `20261126000049_sommelier_learning.sql`           | `sommelier_learning`, the admin report, plan codes on ratings              | A signed-in person can record their own outcome for a bottle their own kept plan offered (no plan is kept while the engine is off). It also replaces `sommelier_set_feedback` (same checks and grants, plus the plan's codes)                                                                                              |
 | `20261127000050_sommelier_friend_cellar.sql` (S9) | a friend's cellar and "a present they do not own" under `sommelier_social` | A signed-in person can set a second consent of their own (off by default) and ask for the wines of an accepted friend. Wines come back only for a friend who shows their cellar to them **and** turned that consent on: producer, wine, vintage, colour, origin; never a count, a place, a rating or a note. It needs 0048 |
 
-Order: 0047 (not this work's), then 0048, 0049, 0050. 0050 alters the table 0048 creates. All three are additive. With a switch on and its migration missing, the app fails closed: no button, a 404, or the
+Order: 0048, 0049, 0050 (0047, not this work's, is applied). 0050 alters the table 0048 creates. All three are additive. With a switch on and its migration missing, the app fails closed: no button, a 404, or the
 answer "nothing", never a 500 (tested or reviewed for both).
 
 ## 3. Switches, in Preview first, one step at a time
@@ -95,7 +96,7 @@ and nothing reads their tables with the switches off.
 - No open P0 or P1 from the independent reviews. The last one (`progress/S9.md` §7) found four P1; all four
   are fixed and tested in the S9 branch.
 - Conditions, all the owner's: check that `CELLR_FEATURES` in Production and Preview names none of the five; merge
-  in the order of §1; treat every `db push` from `main` as a release of its own (0047 is already waiting there).
+  in the order of §1; treat every `db push` from `main` as a release of its own.
 
 What merging does change with everything off is listed in `FINAL_REPORT.md` §6 and is unchanged by S9.
 
