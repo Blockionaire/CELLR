@@ -230,6 +230,11 @@ export interface FoodProfile {
    * dish was guessed from little.
    */
   confidence: "high" | "medium" | "low";
+  /**
+   * Who read the dish: absent or "parser" for the food engine alone; "model" when a model described a dish the
+   * parser could not place (food/reading.ts). Such a reading is never "high".
+   */
+  readBy?: "parser" | "model";
 }
 
 /** The axes that stand out in a profile, strongest first: what an explanation should mention. */

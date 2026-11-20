@@ -23,6 +23,16 @@ export const FEATURES = [
   "sommelier_experiences",
   /** Sommelier 3.0: a person can say what came of a bottle (opened, with the dish, how it went). Needs the engine. */
   "sommelier_learning",
+  /**
+   * Sommelier 3.0 (S10): a model reads a dish the food engine could not place, as the engine's own dish profile
+   * (never advice). Costs a model call for those questions only. Needs the engine.
+   */
+  "sommelier_dish_ai",
+  /**
+   * Sommelier 3.0 (S10, an experiment): in a close call, a model may reorder or leave out the engine's own
+   * candidates, never add one. Needs the model's dish reading.
+   */
+  "sommelier_second_opinion",
 ] as const;
 export type Feature = (typeof FEATURES)[number];
 export type FeatureFlags = Readonly<Record<Feature, boolean>>;
@@ -37,6 +47,8 @@ export const NAMED_ONLY: ReadonlySet<Feature> = new Set<Feature>([
   "sommelier_social",
   "sommelier_experiences",
   "sommelier_learning",
+  "sommelier_dish_ai",
+  "sommelier_second_opinion",
 ]);
 /** Switches that do nothing without another one. */
 const REQUIRES: Partial<Record<Feature, Feature>> = {
@@ -44,6 +56,8 @@ const REQUIRES: Partial<Record<Feature, Feature>> = {
   sommelier_social: "sommelier_engine",
   sommelier_experiences: "sommelier_engine",
   sommelier_learning: "sommelier_engine",
+  sommelier_dish_ai: "sommelier_engine",
+  sommelier_second_opinion: "sommelier_dish_ai",
 };
 
 export const NO_FEATURES: FeatureFlags = Object.freeze(
@@ -66,9 +80,10 @@ export function parseFeatures(raw: string | null | undefined): FeatureFlags {
   );
   const all = names.has("all");
   const on = (f: Feature) => names.has(f) || (all && !NAMED_ONLY.has(f));
+  // Through the whole chain: a switch whose requirement is itself off for want of another one stays off too.
+  const resolved = (f: Feature): boolean =>
+    on(f) && (REQUIRES[f] === undefined || resolved(REQUIRES[f]));
   return Object.freeze(
-    Object.fromEntries(
-      FEATURES.map((f) => [f, on(f) && (REQUIRES[f] === undefined || on(REQUIRES[f]))]),
-    ) as Record<Feature, boolean>,
+    Object.fromEntries(FEATURES.map((f) => [f, resolved(f)])) as Record<Feature, boolean>,
   );
 }

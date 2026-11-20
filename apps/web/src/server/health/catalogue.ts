@@ -39,6 +39,8 @@ export const AI_TASKS = [
     components: ["svc-purchase-check"],
   },
   { task: "sommelier_chat", label: "Sommelier chat", components: ["svc-sommelier-chat"] },
+  { task: "dish_reading", label: "Sommelier dish reading", components: ["svc-sommelier-chat"] },
+  { task: "pairing_review", label: "Sommelier second opinion", components: ["svc-sommelier-chat"] },
   { task: "wine_insight", label: "Wine profiles", components: ["svc-insights"] },
   { task: "wine_valuation", label: "Valuations", components: ["svc-insights"] },
 ] as const;

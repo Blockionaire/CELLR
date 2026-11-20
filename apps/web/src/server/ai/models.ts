@@ -25,7 +25,7 @@ export interface CallPlan {
   temperature: number | undefined;
 }
 
-const ADVICE_TASKS = new Set(["sommelier_chat", "wine_insight"]);
+const ADVICE_TASKS = new Set(["sommelier_chat", "wine_insight", "dish_reading", "pairing_review"]);
 
 /**
  * The reasoning efforts each model accepts (of the ones CELLR uses), from OpenAI's model pages, checked

@@ -14,6 +14,8 @@ import "server-only";
 export * from "./food/types";
 export * from "./food/compose";
 export * from "./food/parse";
+export * from "./food/route";
+export * from "./food/reading";
 export * from "./food/knowledge";
 export * from "./pairing-engine/wine";
 export * from "./pairing-engine/assess";

@@ -56,6 +56,11 @@ import {
   hasTaste,
   mentionedWines,
   parseFood,
+  routeDishReading,
+  dishPhrase,
+  mergeDishReading,
+  type DishReading,
+  type DishRoute,
   readWine,
   recommendStyles,
   searchTextOf,
@@ -106,6 +111,14 @@ export interface IntelligenceDeps {
    * cellar shown to the asker, and the friend's own consent for a sommelier to use it). Absent: never looked at.
    */
   friendCellar?: (handle: string) => Promise<FriendCellar>;
+  /**
+   * A model's reading of a dish the parser shows it may have misread (S10, switch `sommelier_dish_ai`): given the
+   * dish phrase alone, it gives the engine's own dish profile, or null (then the parser's reading is used, as
+   * without the switch). Never called for a question that names a friend. Absent: never called.
+   */
+  readDish?: (phrase: string) => Promise<DishReading | null>;
+  /** Hears which reading of the dish the engines used (for the benchmark and metrics). Changes nothing. */
+  observe?: (seen: { food: FoodProfile | null; route: DishRoute | null }) => void;
   now: () => Date;
 }
 
@@ -345,7 +358,22 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         cellarOf && theirs && theirs.status !== "included"
           ? { handle: cellarOf, status: "not-shared", outcome: null, picks: [], leftOut: [] }
           : null;
-      const said = parseFood(question, FOOD);
+      /**
+       * The dish, read by the parser, and by a model where the parser shows it may have misread it. A question
+       * that names a friend is never sent to a model, not even its dish (the friend's consent says so).
+       */
+      let route: DishRoute | null = null;
+      const understand = async (parsed: FoodProfile, text: string): Promise<FoodProfile> => {
+        if (!deps.readDish || mentions.length > 0) return parsed;
+        const wanted = routeDishReading(parsed);
+        route ??= wanted;
+        if (!wanted.read) return parsed;
+        const phrase = dishPhrase(text);
+        if (!phrase) return parsed;
+        const reading = await deps.readDish(phrase).catch(() => null);
+        return reading ? mergeDishReading(parsed, reading, FOOD, phrase) : parsed;
+      };
+      const said = await understand(parseFood(question, FOOD), question);
       const wines = mentionedWines(question, WINE_KNOWLEDGE);
       const named = wines.map((w) => w.id);
       let state = advance(previous, {
@@ -407,8 +435,11 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         said.main !== null
           ? said
           : state.dish !== null
-            ? ((d) => (d.main === null ? null : d))(parseFood(state.dish, FOOD))
+            ? ((d) => (d.main === null ? null : d))(
+                await understand(parseFood(state.dish, FOOD), state.dish),
+              )
             : null;
+      deps.observe?.({ food, route });
       const buying = state.intent === "buy" || state.intent === "gift";
 
       /**

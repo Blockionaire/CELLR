@@ -53,6 +53,30 @@ describe("feature switches", () => {
     });
   });
 
+  it("the model's dish reading and its second opinion are named-only and need the whole chain (S10)", () => {
+    for (const raw of [
+      "all",
+      "sommelier_dish_ai",
+      "sommelier_second_opinion",
+      "all, sommelier_dish_ai",
+    ])
+      expect(parseFeatures(raw), raw).toMatchObject({
+        sommelier_dish_ai: false,
+        sommelier_second_opinion: false,
+      });
+    expect(parseFeatures("sommelier_engine, sommelier_dish_ai").sommelier_dish_ai).toBe(true);
+    // The second opinion needs the dish reading, which needs the engine: a gap anywhere keeps it off.
+    expect(
+      parseFeatures("sommelier_engine, sommelier_second_opinion").sommelier_second_opinion,
+    ).toBe(false);
+    expect(
+      parseFeatures("sommelier_dish_ai, sommelier_second_opinion").sommelier_second_opinion,
+    ).toBe(false);
+    expect(
+      parseFeatures("sommelier_engine, sommelier_dish_ai, sommelier_second_opinion"),
+    ).toMatchObject({ sommelier_dish_ai: true, sommelier_second_opinion: true });
+  });
+
   it("the answer cannot be changed by whoever receives it", () => {
     const flags = parseFeatures("wine_search") as Record<string, boolean>;
     expect(() => {

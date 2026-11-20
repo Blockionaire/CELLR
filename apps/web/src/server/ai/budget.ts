@@ -25,6 +25,10 @@ export const BUDGET_MODES: Record<AiTask, "open" | "closed"> = {
   wine_insight: "open",
   wine_valuation: "open",
   sommelier_chat: "open",
+  // New paid paths (S10): when the platform budget cannot be checked or none is configured, no call is made and
+  // the engines answer from the parser's reading alone.
+  dish_reading: "closed",
+  pairing_review: "closed",
 };
 // The type makes the decision unavoidable: a task added to `AiTask` does not compile until its mode is written
 // here. At run time anything not listed (a cast, a typo) is closed.
