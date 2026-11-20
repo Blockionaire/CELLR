@@ -92,12 +92,15 @@ async function scan(request: APIRequestContext, token: string, photo: Buffer): P
 
 /** A fictitious source with one red Rioja. `shown: false`: its records are stored, then the source is taken out of
  * people's search (scope "off", what X-Wines and LWIN are today; unverified sources cannot even be imported here). */
-async function seedSource(m: string, options: { shown?: boolean; type?: string } = {}) {
+async function seedSource(
+  m: string,
+  options: { shown?: boolean; type?: string; producer?: string; name?: string } = {},
+) {
   const shown = options.shown ?? true;
   const provider = `e2e_rec_${m}`.toLowerCase().slice(0, 30);
   const providerName = `Fictieve Bron ${m}`;
-  const producer = `Bodega Extern ${m}`;
-  const name = `Tinto Fixture ${m}`;
+  const producer = options.producer ?? `Bodega Extern ${m}`;
+  const name = options.name ?? `Tinto Fixture ${m}`;
   await sql("select public.catalog_provider_register($1::jsonb)", [
     JSON.stringify({ id: provider, name: providerName }),
   ]);
@@ -153,6 +156,26 @@ const disable = (provider: string) =>
     provider,
     "rights withdrawn (e2e)",
     "e2e",
+  ]);
+
+/** A new run of the source that no longer lists any record: what it listed before is withdrawn. */
+async function withdrawAll(provider: string) {
+  const [run] = await sql<{ id: string }>(
+    "select public.catalog_import_run_start($1, 'e2e-2', null, null, null, now()) as id",
+    [provider],
+  );
+  await sql("select public.catalog_import_run_finish($1, true, '{}'::jsonb)", [run!.id]);
+}
+
+const countOf = async (query: string, params: unknown[]) =>
+  (await sql<{ n: number }>(query, params))[0]!.n;
+const winesOf = (householdId: string) =>
+  countOf("select count(*)::int as n from public.wines where owner_household_id = $1", [
+    householdId,
+  ]);
+const originsOf = (householdId: string) =>
+  countOf("select count(*)::int as n from public.wine_record_origins where household_id = $1", [
+    householdId,
   ]);
 
 const takePhoto = async (p: Page, photo: Buffer) =>
@@ -380,5 +403,144 @@ test.describe("scan → an external record → a wine of your own, with where it
         unknown.body.id,
       ]),
     ).toEqual([{ n: 0 }]);
+  });
+  test("in Dutch, on a dropped connection and with an expired session: nothing half-made, nothing twice", async ({
+    page,
+  }) => {
+    const m = marker();
+    const ext = await seedSource(m);
+    const second = await seedSource(`${m}b`, {
+      producer: `Casa Segunda ${m}`,
+      name: `Garnacha Lenta ${m}`,
+    });
+    const { email, householdId } = await arrive(page, "rec-nl");
+    await sql(
+      "update public.profiles set locale = 'nl' where id = (select id from auth.users where email = $1)",
+      [email],
+    );
+    const size = uniqueSize();
+    await program(size, label({ producer: ext.producer, wine_name: ext.name }));
+    await page.goto("/scan");
+    await takePhoto(page, await makeJpeg(page, size));
+    await expect(page.getByRole("heading", { name: "Een nieuwe wijn" })).toBeVisible();
+    const suggestions = page.getByTestId("record-suggestions");
+    await expect(suggestions.getByRole("heading", { name: "Mogelijk deze wijn" })).toBeVisible();
+    await expect(page.getByTestId("record-suggestion-credit")).toHaveText(
+      `Bron: ${ext.providerName} · licentie CC0-1.0 · niet geverifieerd door CELLR`,
+    );
+    expect(await audit(page)).toEqual([]);
+    await page.screenshot({
+      path: `test-results/shots/004c-scan-record-nl-${test.info().project.name}.png`,
+      fullPage: true,
+    });
+    await page.getByRole("button", { name: "Gebruik deze gegevens" }).click();
+    await expect(page.getByTestId("new-wine-notice")).toContainText("niet heeft geverifieerd");
+
+    // the connection drops as the wine is saved: said so, nothing created, the form keeps what was there
+    let dropped = 0;
+    await page.route("**/api/v1/wines", (route) => {
+      if (route.request().method() === "POST" && dropped === 0) {
+        dropped += 1;
+        return route.abort("internetdisconnected");
+      }
+      return route.continue();
+    });
+    await page.getByRole("button", { name: "Verder" }).click();
+    await expect(
+      page.getByRole("alert").filter({ hasText: "We konden CELLR niet bereiken" }),
+    ).toBeVisible();
+    expect(dropped).toBe(1);
+    expect(await winesOf(householdId)).toBe(0);
+    await expect(page.getByLabel("Producent")).toHaveValue(ext.producer);
+
+    // tried again: one wine and one origin, however often it was tried
+    await page.getByRole("button", { name: "Verder" }).click();
+    await expect(page.getByRole("heading", { name: "Hoeveel, en waar?" })).toBeVisible();
+    expect(await winesOf(householdId)).toBe(1);
+    expect(await originsOf(householdId)).toBe(1);
+
+    // a second label, and the session runs out before it is confirmed: nothing is created behind the person's back
+    const again = uniqueSize();
+    await program(again, label({ producer: second.producer, wine_name: second.name }));
+    await page.goto("/scan");
+    await takePhoto(page, await makeJpeg(page, again));
+    // (the test marker the two wines share makes the one just added look alike: "is het een van deze?", where the
+    // record is offered beneath the household's own wine)
+    await expect(page.getByRole("heading", { name: "Is het een van deze?" })).toBeVisible();
+    await page
+      .locator(`[data-testid="record-suggestion"][data-record="${second.recordId}"]`)
+      .getByRole("button", { name: "Gebruik deze gegevens" })
+      .click();
+    await expect(page.getByTestId("new-wine-notice")).toContainText(second.providerName);
+    await expect(page.getByLabel("Producent")).toHaveValue(second.producer);
+    await page.context().clearCookies();
+    await page.getByRole("button", { name: "Verder" }).click();
+    await expect(page.getByRole("heading", { name: "Hoeveel, en waar?" })).toHaveCount(0);
+    expect(await winesOf(householdId)).toBe(1);
+    expect(await originsOf(householdId)).toBe(1);
+  });
+
+  test("readings that cannot be trusted, and a record withdrawn while it is on screen", async ({
+    page,
+  }) => {
+    const m = marker();
+    const ext = await seedSource(m);
+    const other = await seedSource(`${m}o`, {
+      producer: `Viña Lejana ${m}`,
+      name: `Crianza Distinta ${m}`,
+    });
+    const { householdId } = await arrive(page, "rec-edge");
+    const scanWith = async (over: Record<string, unknown>) => {
+      const size = uniqueSize();
+      await program(size, label(over));
+      await page.goto("/scan");
+      await takePhoto(page, await makeJpeg(page, size));
+    };
+
+    // not a wine label: nothing is suggested, the person fills it in
+    await scanWith({ is_wine_label: false, producer: ext.producer, wine_name: ext.name });
+    await expect(page.getByRole("heading", { name: "Fill it in yourself" })).toBeVisible();
+    await expect(page.getByTestId("record-suggestions")).toHaveCount(0);
+
+    // only the producer was read: that producer's record, never another producer's
+    await scanWith({ producer: other.producer, wine_name: null });
+    await expect(page.getByTestId("record-suggestions")).toBeVisible();
+    for (const id of await page
+      .getByTestId("record-suggestion")
+      .evaluateAll((els) => els.map((e) => e.getAttribute("data-record"))))
+      expect(id).toBe(other.recordId);
+
+    // a producer nobody knows: no suggestions at all, the form as read
+    await scanWith({ producer: `Onbekend Wijnhuis ${m}`, wine_name: `Nergens ${m}` });
+    await expect(page.getByRole("heading", { name: "A new wine" })).toBeVisible();
+    await expect(page.getByLabel("Wine name")).toHaveValue(`Nergens ${m}`);
+    await expect(page.getByTestId("record-suggestions")).toHaveCount(0);
+
+    // the record is on screen, then its source stops listing it: the wine can still be made, credited to no-one
+    await scanWith({ producer: ext.producer, wine_name: ext.name });
+    await expect(page.getByTestId("record-suggestion")).toHaveAttribute(
+      "data-record",
+      ext.recordId,
+    );
+    await withdrawAll(ext.provider);
+    await page.getByRole("button", { name: "Use these details" }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("heading", { name: "How many, and where?" })).toBeVisible();
+    expect(await winesOf(householdId)).toBe(1);
+    expect(await originsOf(householdId)).toBe(0);
+    await page.getByRole("button", { name: "Add 1 bottle" }).click();
+    await expect(page.getByText(new RegExp(`1 bottle of ${ext.producer}`))).toBeVisible();
+    const [vintage] = await sql<{ id: string }>(
+      `select v.id from public.wine_vintages v join public.wines w on w.id = v.wine_id
+        where w.owner_household_id = $1`,
+      [householdId],
+    );
+    await page.goto(`/cellar/${vintage!.id}`);
+    await openSources(page);
+    await expect(page.getByTestId("source-derived-from")).toHaveCount(0);
+    // and the next scan of that label no longer suggests it
+    await scanWith({ producer: ext.producer, wine_name: ext.name });
+    await expect(page.getByRole("heading", { name: "We found it" })).toBeVisible();
+    await expect(page.getByTestId("record-suggestions")).toHaveCount(0);
   });
 });
