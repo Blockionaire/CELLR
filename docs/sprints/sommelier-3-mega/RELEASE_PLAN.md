@@ -96,19 +96,20 @@ model and the only change in behaviour is inside `sommelier_engine` (off): the c
 fewer bottles and never changes the first one or the outcome. All suites pass (`progress/S10.md` §8); the
 independent reviews' P0 and P1 findings are fixed (§7 there).
 
-### Switching anything on for real users: **NO-GO**
+### Switching anything on for real users: **NO-GO**; V1 with AI stays the default
 
 The owner's rule for S10: activation only if the hybrid sommelier is shown to give better and safer advice than V1
-with AI on unseen dishes. That is **not shown**:
+with AI on unseen dishes. The paid comparison (`HYBRID_EVALUATION.md` §7, $0.26) shows it is not:
 
-- Without a paid call, B (3.0 as it is now) is behind A on unseen dishes on the first bottle (63–64% against
-  73–85%) and on poor bottles offered (85–88% without one, against 97–99%), and a perfect dish reader does not
-  close that gap (`HYBRID_EVALUATION.md` §3).
-- C and D are built and tested, but not measured: the paid run waits for approval (`HYBRID_EVALUATION.md` §6),
-  with its decision rule written down before it.
-- Even a favourable paid result would be provisional until the human holdout exists and the expert review is
-  done (both BLOCKED on people), and the S9 conditions (consent wording, the alcohol marketing and age check) still
-  stand.
+- On safety all three engine variants are behind V1 with AI: no poor bottle offered −12 points [−22, −4], useful
+  answers −16 [−27, −5].
+- On the first bottle B and C are behind (−15 [−28, −1]); D is closest (−10 [−23, +3]) and ahead nowhere.
+- The decision rule written before the run is not met by any variant.
+- Even a favourable result would have been provisional until the human holdout and the expert review exist (both
+  BLOCKED on people), and the S9 conditions (consent wording, the alcohol marketing and age check) still stand.
+
+None of the seven sommelier switches is to be named in Production or Preview. The next step is S11 (variant E: V1
+decides, the engine only vetoes; `HYBRID_EVALUATION.md` §8).
 
 ## 7a. GO / NO-GO (S9)
 

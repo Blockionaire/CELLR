@@ -1,10 +1,13 @@
 # The hybrid sommelier against V1 with AI (S10)
 
+> **Run on 2026-11-20 with the owner's approval ($0.26 of $2). Result: no hybrid variant is shown to be
+> better than, or as reliable as, V1 with AI on unseen dishes. V1 with AI stays the default (§7, §8).**
+
 S10, 2026-11-20. The question the owner set: **does a hybrid sommelier give better and safer advice than V1 with
 AI on dishes it has not seen?** If that cannot be shown, Sommelier 3.0 is not to be switched on.
 
 This page holds the design, everything measured without a paid call, and the paid run that still needs the
-owner's approval (§6). **No paid model call was made in S10.**
+owner's approval (§6). The paid run was made after that approval; its results are in §7.
 
 ## 1. The four variants, on the same scenarios
 
@@ -129,3 +132,120 @@ the blind half together, 88 scenarios), the best hybrid variant is at least as g
 better or equal on poor bottles offered and on "nothing suits", with the paired bootstrap's 95% interval of the
 first-bottle difference not below zero; and the blind half alone does not go the other way. Otherwise: no
 activation, as the owner asked.
+
+## 7. Results of the paid run (2026-11-20)
+
+**How it was run.** Approved by the owner: at most $2, and $1.37 for the planned runs. As fixed in §6: A three
+passes, C and D five passes, on main (the 133 scenarios A can attempt), holdout-dev and the blind half, each
+invocation with its own hard stop. Production's configuration (`gpt-6-luna`, reasoning none). The key was used from
+the environment's secret store; it was never in a file, a variable or a log. Only the synthetic benchmark was
+sent. Labels, scorer and sets were unchanged. **Spent: $0.26** (A $0.07, C $0.06, D $0.13); no stop was reached;
+2,687 model calls, 2 of them failed (D), none refused; every call reported its cost. Two measures were added before
+the run and committed first: "a good wine in the cellar, none offered", and a local log of the dish phrases sent
+on the readable sets. Results: `results/s10-paid-comparison.json` (aggregates only).
+
+### 7.1 Unseen dishes (holdout-dev and the blind half, 88 scenarios), against A
+
+Mean over runs; the interval is the 95% interval of the difference (Newcombe, unpaired, on the pooled counts).
+
+| Measure                                 | A, V1 with AI | B, 3.0 | C, + dish reading | D, + second opinion | Best hybrid − A      |
+| --------------------------------------- | ------------- | ------ | ----------------- | ------------------- | -------------------- |
+| First bottle right (88)                 | **78%**       | 64%    | 63%               | 69%                 | D: −10 [−23, +3]     |
+| No poor bottle offered (74)             | **99%**       | 86%    | 86%               | 86%                 | −12 [−22, −4]        |
+| Useful answer (88)                      | **92%**       | 76%    | 76%               | 76%                 | −16 [−27, −5]        |
+| "Nothing suits" when nothing suits (14) | 79%           | 86%    | 86%               | 86%                 | +7 [−22, +35]        |
+| Outcome matches the reference (88)      | 76%           | 76%    | 79%               | 78%                 | C: +2 [−10, +15]     |
+| Poor bottles, of all offered            | **5%**        | 11%    | 11%               | 12%                 | +6 [−3, +13] (worse) |
+| Good bottles, of all offered            | 64%           | 64%    | 65%               | 65%                 | +1 [−12, +15]        |
+| Bottles per answer                      | 0.90          | 1.37   | 1.35              | 1.28                |                      |
+
+Paired per scenario on holdout-dev (45; the blind half is never compared scenario by scenario), D − A: first bottle
+−16 points [−29, −4]; no poor bottle −15 [−25, −6]; first bottle labelled good −7 [−18, +3].
+
+### 7.2 By set, and by place
+
+| Set (scenarios)          | Measure                | A                | B         | C           | D           |
+| ------------------------ | ---------------------- | ---------------- | --------- | ----------- | ----------- |
+| main (133, developed on) | First bottle right     | 74% (72–77)      | 78%       | 83%         | 82% (82–83) |
+|                          | No poor bottle offered | **96%**          | 82%       | 85%         | 85%         |
+| holdout-dev (45)         | First bottle right     | **84%** (78–91)  | 64%       | 60% (58–60) | 68% (62–73) |
+|                          | No poor bottle offered | **99%**          | 88%       | 83%         | 82%         |
+| holdout-test, blind (43) | First bottle right     | **72%** (70–77)  | 63%       | 67% (65–70) | 70%         |
+|                          | No poor bottle offered | **99%**          | 85%       | 89%         | 91%         |
+| unseen (88)              | Place 1 good / poor    | 65% / **5%**     | 60% / 16% | 61% / 16%   | 68% / 14%   |
+| unseen (88)              | Place 2 poor           | — (A offers one) | 3%        | 4%          | 6%          |
+
+(min–max over runs in brackets where runs differ.) A offers about one bottle per answer; the engines one to two.
+On the main set, the one the engines were developed on, C and D are ahead of A on the first bottle; on unseen dishes
+they are not.
+
+### 7.3 Where the errors come from, and what D cannot repair
+
+On holdout-dev, of C's answers whose first bottle was not labelled good: in **56%** none of C's picks was good at
+all (the right wine was not among the candidates: a second opinion that can only reorder or drop cannot repair
+these), in 44% a good wine was among the picks but not first. D repaired most of the second kind (from 17% to 4% of
+answers) and none of the first (21% → 25%). Over all unseen scenarios in which the cellar held a wine labelled good,
+no good wine was offered at all in: A 25%, B 25%, C 21%, D 24%.
+
+So the errors that remain are mostly **candidate errors**: the engine's own scoring does not put the right wine
+among its picks for an unfamiliar dish. That is the pairing knowledge, not the reading of the dish and not the
+order of the picks.
+
+### 7.4 Cost, time and privacy in practice
+
+| Variant | Calls per answer (unseen) | Cost per answer | Time per answer (p50 / p95)                   | Dish readings                                  |
+| ------- | ------------------------- | --------------- | --------------------------------------------- | ---------------------------------------------- |
+| A       | 1                         | about $0.0001   | 1.6 s / 2.3 s                                 | —                                              |
+| B       | 0                         | $0              | < 5 ms                                        | —                                              |
+| C       | 0.67                      | about $0.00007  | 1.4 s / 1.8 s (no call when not routed: 3 ms) | 625 by the model, 165 from the store, 0 failed |
+| D       | 1.3                       | about $0.00012  | 2.0 s / 2.8 s                                 | 623, 165, 2 failed                             |
+
+All within the bounds set: every model wait under the 10 s cap (worst p95 2.9 s), cost per answer within the
+estimate (the estimate was 5–10 times high). **Privacy:** 1,270 phrases were sent on the readable sets, 95 different
+ones; none held a digit, an "@", or any of the names in the benchmark's social scenarios; no question naming a
+friend was sent. Five phrases held words around the dish that are not about it ("oven too hot and thinks simple
+because football in and nobody wants", "… a good", "… all"): nothing personal, but the "next to the food" window is
+wider than it needs to be.
+
+### 7.5 What this shows, and what it does not
+
+- **No hybrid variant is shown to be better than, or as reliable as, V1 with AI on unseen dishes.** On safety
+  (poor bottles offered, useful answers) all three engine variants are clearly behind (−12 and −16 points, both
+  intervals below zero). On the first bottle, B and C are behind (−15 [−28, −1]); D is closest (−10 [−23, +3]):
+  not shown worse on the pooled 88, but behind on the paired holdout-dev comparison (−16 [−29, −4]) and not ahead
+  anywhere.
+- **The decision rule of §6 is not met**, for any variant: the advice is no activation.
+- What the engines do better: "nothing suits" when nothing suits (86% against 79%; too few scenarios to call), the
+  dish read right, every answer grounded in the cellar, no cost and instant answers for B. On the main set, which
+  they were developed on, C and D beat A on the first bottle: that gain does not carry to unseen dishes.
+- C adds little over B on unseen dishes; D adds a few points on the first bottle (it reorders well) and nothing on
+  safety. Most remaining errors are candidate errors (§7.3), which neither can repair.
+- **Limits.** 88 unseen scenarios by one AI author; labels not reviewed by a wine professional; one model
+  configuration; A run three times. These numbers are provisional until the human holdout and the expert review
+  exist.
+
+## 8. The recommended production architecture, and the next step
+
+**Now: keep V1 with AI as the sommelier everyone gets.** It is the safest of the four on dishes nobody tuned for,
+and at about $0.0001 a question it is cheap. Sommelier 3.0's switches stay off.
+
+**Keep from 3.0 what is measurably better, behind V1, at no extra model cost:** a deterministic safety net on V1's
+answer. The engine already scores every wine of the cellar for the dish; it can (1) refuse to show a bottle V1
+picks that the engine judges a hard clash, and (2) say "nothing here really suits" when the engine finds nothing
+and V1 forces a bottle. That is variant **E**: V1 decides, the engine only vetoes. It costs no extra call, keeps
+V1's first-bottle quality, and adds the engine's one clear strength (honesty about "nothing suits"). It is not
+built and not measured: it is the proposed S11.
+
+**S11 (proposed), in order:**
+
+1. Build E behind a new named-only switch and measure it on the same sets with the same scorer: A against E, three
+   runs each, with A's existing results reused where possible. Expected cost under $0.15.
+2. Write the human holdout (100+ dishes, people) and get the expert review of the 30 pairs **before** any further
+   change is judged on quality. Every number here is provisional until then.
+3. Only then, if E helps: decide on activation for E. Do not activate B, C or D.
+4. For 3.0's own engine, the fix is the pairing knowledge for unfamiliar dishes (the candidate errors of §7.3),
+   reviewed by a wine professional, measured on the human holdout. Not more routing, not a larger dish list, and no
+   tuning on the blind half.
+
+What is built in S10 stays behind its switches and does not need to be removed: the dish reader and the second
+opinion are the tools E and later work can use.

@@ -158,3 +158,9 @@ Found by the independent security review: a malformed mention is still someone's
 anything about a conversation in which any turn the screen sends holds an "@". A follow-up's dish is the phrase a
 model already read (from the store, or read again), never a dish that came from a question naming someone; the
 conversation's state marks which is which (`dishReadByModel`).
+
+## D-40 — V1 with AI stays the default; S11 tests "V1 decides, the engine vetoes" (S10)
+
+The paid comparison did not meet the rule set before it (D-38). The engine is kept for what it measurably does
+better (honesty about "nothing suits", groundedness), as a guard on V1's answer rather than in its place. No tuning
+on the blind half after the run.

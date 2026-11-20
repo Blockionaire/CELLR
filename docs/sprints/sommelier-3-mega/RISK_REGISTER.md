@@ -153,3 +153,11 @@ what the paid run measures. Not to be switched on before that.
 
 The S10 upper bound shows that on unseen dishes a perfect dish reading does not raise "first bottle right". The
 gap to V1 with AI is in the pairing judgement; widening the dish knowledge alone will not close it.
+
+## R-21 — Sommelier 3.0 gives less safe advice than V1 with AI on unfamiliar dishes (S10, measured)
+
+**What.** The paid comparison: on unseen dishes the engine variants offer a poor bottle 12 points more often and
+give 16 points fewer useful answers than V1 with AI, and most of their remaining misses are candidate errors.
+**Handled.** No activation; V1 with AI stays the default (`RELEASE_PLAN.md` §7).
+**Residual.** None for users while the switches stay off. For the product: the engine's knowledge needs an expert's
+review and a human holdout before it can be trusted on food nobody tuned it for.

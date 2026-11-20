@@ -10,7 +10,7 @@ the GO / NO-GO, is in [`RELEASE_PLAN.md`](RELEASE_PLAN.md).
 
 ```text
 UPDATED:        2026-11-20 (S0–S10 written; everything is in open pull requests; nothing is merged or released)
-PHASE:          S10 — hybrid sommelier intelligence and generalisation (paid evaluation awaiting approval)
+PHASE:          S10 — done: no hybrid beats V1 with AI on unseen dishes; V1 stays the default; S11 proposed
 TRACKING ISSUE: #89
 MAIN:           6ab4350 (#88 system monitoring and #92 3D sprint 4 merged). main holds migration 20261124000047,
                 and Production records 0001–0047 (read-only check, 2026-11-20, after the owner applied 0047).
@@ -76,9 +76,8 @@ review's findings and what was done about each, limitations.
 
 ## Next action
 
-Nothing for the agent without the owner. The owner's decisions, in order, are in `RELEASE_PLAN.md`; the one that
-unblocks the S10 verdict is the approval of the paid run in `HYBRID_EVALUATION.md` §6. Then: the human holdout
-and the expert review (people).
+Nothing for the agent without the owner. The S10 verdict is in: V1 with AI stays the default
+(`HYBRID_EVALUATION.md` §7–§8). The owner decides on S11 (variant E), the human holdout and the expert review.
 A session that resumes: read the pull requests' review comments and CI, fix what is asked on the branch it
 belongs to, merge it into each branch above it (D-28: never rebase or force-push a branch with an open pull
 request), and update the phase's `progress` file.
