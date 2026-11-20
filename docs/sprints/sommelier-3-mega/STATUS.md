@@ -33,7 +33,7 @@ WORKTREES:      /home/user/CELLR (S7 branch), /home/user/CELLR-s3 (S8 branch). E
 | S5      | `claude/sommelier-3-s5-social`       | `claude/sommelier-3-s3-wine`         | [#94](https://github.com/Blockionaire/CELLR/pull/94) |
 | S6      | `claude/sommelier-3-s6-experiences`  | `claude/sommelier-3-s5-social`       | [#95](https://github.com/Blockionaire/CELLR/pull/95) |
 | S7      | `claude/sommelier-3-s7-learning`     | `claude/sommelier-3-s6-experiences`  | [#97](https://github.com/Blockionaire/CELLR/pull/97) |
-| S8      | `claude/sommelier-3-s8-release`      | `claude/sommelier-3-s7-learning`     | see the tracking issue                               |
+| S8      | `claude/sommelier-3-s8-release`      | `claude/sommelier-3-s7-learning`     | [#98](https://github.com/Blockionaire/CELLR/pull/98) |
 
 `claude/sommelier-3-s1-food` holds early work-in-progress checkpoints only. It is not a pull request branch and
 can be deleted once the stack is merged.

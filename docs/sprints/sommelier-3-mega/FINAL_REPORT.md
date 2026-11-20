@@ -28,7 +28,7 @@ anything in Sommelier 3.0**, and the answer is drawn from fixed sentences in Eng
 | S5    | Friends named in a question, with their own consent (off by default); migration 0048                 | [#94](https://github.com/Blockionaire/CELLR/pull/94) |
 | S6    | Serving, keeping, wine-to-food, menus, quantities; the plan in a real browser                        | [#95](https://github.com/Blockionaire/CELLR/pull/95) |
 | S7    | What came of a bottle, apart from the thumb; the admin's report; migration 0049                      | [#97](https://github.com/Blockionaire/CELLR/pull/97) |
-| S8    | Final review, corrections to the documents, this report, the release plan                            | see tracking issue #89                               |
+| S8    | Final review, corrections to the documents, this report, the release plan                            | [#98](https://github.com/Blockionaire/CELLR/pull/98) |
 
 Each depends on the one above it. Five switches, all off, none turned on by `CELLR_FEATURES=all`:
 `sommelier_engine`, and four that need it: `sommelier_buying`, `sommelier_social`, `sommelier_experiences`,
