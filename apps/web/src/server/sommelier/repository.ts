@@ -9,7 +9,8 @@ import {
   type SommelierRating,
 } from "@cellr/domain";
 import type { Db } from "@/server/db/clients";
-import { isMissingTable, mapDbError } from "@/server/db/errors";
+import { DomainError } from "@cellr/domain";
+import { isMissingFunction, isMissingTable, mapDbError } from "@/server/db/errors";
 import type { SommelierConversationRepository } from "./types";
 
 const isRating = (value: unknown): value is SommelierRating =>
@@ -67,12 +68,16 @@ export function createSommelierConversationRepository(
       // answers of this conversation. Before the 0049 database step there are none.
       const answerIds = messages.data.filter((m) => m.role === "assistant").map((m) => m.id);
       const said = new Map<string, SommelierOutcome[]>();
+      // Asked for, and the database knows them: only then does an answer carry outcomes (and the screen offer to
+      // say one). With the switch on before the 0049 step is taken, there is nothing to say anything to.
+      let known = options.outcomes === true;
       if (options.outcomes && answerIds.length > 0) {
         const outcomes = await db
           .from("sommelier_outcomes")
           .select("message_id, vintage_id, with_dish, enjoyed")
           .in("message_id", answerIds);
         if (outcomes.error && !isMissingTable(outcomes.error)) throw mapDbError(outcomes.error);
+        if (outcomes.error) known = false;
         for (const row of outcomes.data ?? [])
           said.set(row.message_id, [...(said.get(row.message_id) ?? []), toOutcome(row)]);
       }
@@ -93,7 +98,7 @@ export function createSommelierConversationRepository(
           role: "assistant",
           answer: a.answer,
           rating: isRating(rating) ? rating : null,
-          ...(options.outcomes ? { outcomes: said.get(a.id) ?? [] } : {}),
+          ...(known ? { outcomes: said.get(a.id) ?? [] } : {}),
         });
       }
       return { id: conversation.id, lastActivityAt: conversation.last_activity_at, messages: out };
@@ -148,6 +153,8 @@ export function createSommelierConversationRepository(
         ...(input.withDish === null ? {} : { p_with_dish: input.withDish }),
         ...(input.enjoyed === null ? {} : { p_enjoyed: input.enjoyed }),
       });
+      // The 0049 database step is not taken: there is nothing to say an outcome to (as with the switch off).
+      if (error && isMissingFunction(error)) throw new DomainError("NOT_FOUND");
       if (error) throw mapDbError(error);
       if (typeof data !== "object" || data === null || Array.isArray(data)) return null;
       const row = data as Record<string, unknown>;

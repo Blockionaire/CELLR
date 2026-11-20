@@ -153,15 +153,15 @@ Read-only, for allowlisted admins (`CELLR_ADMIN_USER_IDS`). It shows the figures
 Counted by `public.admin_sommelier_report(from, to)` (service role only). Counts by code: no person, household,
 wine or word.
 
-| Number                  | Definition                                                                                                                                                |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Questions               | `sommelier_question_asked` events. A browser with do-not-track sends none, so this undercounts.                                                           |
-| By the engines          | Of those, the ones whose answer was a plan of the Sommelier 3.0 engines (`engine = v3`): no model was called for them.                                    |
-| Model cost per question | Known cost of `sommelier_chat` calls ÷ all questions (the engines' free ones included). Calls of unknown cost are counted apart, never as free.           |
-| Thumbs up               | Positive ratings ÷ rated answers. **Says the answer was useful. Says nothing about the wine with the dish.**                                              |
-| Bottles opened          | Rows in `sommelier_outcomes`: a person said they opened a bottle an answer offered.                                                                       |
-| With the dish           | Of those, said to have been had with the dish the answer was about.                                                                                       |
-| Went well together      | `enjoyed = yes` ÷ those who had the wine with the dish **and** said how it went. Self-reported and sparse: a signal to look, not a measure of the engine. |
+| Number                  | Definition                                                                                                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Questions               | `sommelier_question_asked` and `tonight_recommendation_generated` events (both use the model task `sommelier_chat`). A browser with do-not-track sends none, so this is a floor. |
+| By the engines          | Of those, the ones whose answer was a plan of the Sommelier 3.0 engines (`engine = v3`): no model was called for them.                                                           |
+| Model cost per question | Known cost of `sommelier_chat` calls ÷ all questions (the engines' free ones included). Calls of unknown cost are counted apart, never as free.                                  |
+| Thumbs up               | Positive ratings ÷ rated answers. **Says the answer was useful. Says nothing about the wine with the dish.**                                                                     |
+| Bottles opened          | Rows in `sommelier_outcomes`: a person said they opened a bottle an answer offered.                                                                                              |
+| With the dish           | Of those, said to have been had with the dish the answer was about.                                                                                                              |
+| Went well together      | `enjoyed = yes` ÷ those who had the wine with the dish **and** said how it went. Self-reported and sparse: a signal to look, not a measure of the engine.                        |
 
 A rating and an outcome are separate records. Neither is derived from the other, anywhere.
 

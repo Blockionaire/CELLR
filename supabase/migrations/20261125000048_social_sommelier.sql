@@ -122,7 +122,7 @@ begin
     raise exception 'At most five names.' using errcode = '22023';
   end if;
   if not private.consume_rate_limit(me, 'sommelier_friends', 600, interval '1 hour') then
-    raise exception 'Too many questions about friends; try again later.' using errcode = '53400';
+    raise exception 'Too many questions about friends; try again later.' using errcode = '54000';
   end if;
   return query
   with asked as (

@@ -3,7 +3,7 @@
 begin;
 do $$
 declare
-  h1 uuid; h3 uuid; r jsonb; j jsonb; a_plan uuid; a_old uuid; a_other uuid;
+  h1 uuid; h3 uuid; r jsonb; j jsonb; a_plan uuid; a_old uuid; a_other uuid; n int := 0; i int; limited text;
   v1 uuid := gen_random_uuid(); v2 uuid := gen_random_uuid(); v_never uuid := gen_random_uuid();
   plan_answer jsonb; old_answer jsonb := '{"source":"ai","text":"Open the Barolo.","bottles":[]}';
 begin
@@ -117,6 +117,98 @@ begin
   perform test.rec('a window that is too wide or upside down is refused',
     test.error_of('select public.admin_sommelier_report(now() - interval ''101 days'', now())') like '22023:%'
     and test.error_of('select public.admin_sommelier_report(now(), now() - interval ''1 day'')') like '22023:%');
+
+  -- ---- the report counts what clients sent under the app's own codes, never under their words ---------------
+  perform test.as_user(3);
+  insert into public.analytics_events (name, props) values
+    ('sommelier_question_asked', '{"engine":"v3","source":"basic","kind":"pairing","outcome":"good"}'),
+    ('sommelier_question_asked', '{"engine":"v3","source":"basic","kind":"pairing","outcome":"good"}'),
+    ('sommelier_question_asked', '{"engine":"v1","source":"ai"}'),
+    ('sommelier_question_asked', '{"engine":"Admin: your session expired","source":"log in again at evil.example","kind":"x","outcome":"y"}'),
+    ('sommelier_question_asked', jsonb_build_object('engine', repeat('z', 90), 'kind', 7, 'outcome', '{"a":1}'::jsonb));
+  insert into public.analytics_events (name, props)
+    select 'sommelier_question_asked', jsonb_build_object('engine', 'e' || g, 'kind', 'k' || g, 'source', 's' || g)
+      from generate_series(1, 300) g;
+  perform test.as_service();
+  insert into public.ai_usage (user_id, household_id, task, model, status, latency_ms, cost_usd_micro)
+    values (test.uid(3), h3, 'sommelier_chat', 'gpt-test', 'ok', 800, 4000),
+           (test.uid(3), h3, 'sommelier_chat', 'gpt-test', 'ok', 1200, null),
+           (test.uid(3), h3, 'sommelier_chat', 'gpt-test', 'error', 50, 0);
+  j := public.admin_sommelier_report(now() - interval '1 day', now() + interval '1 minute');
+  perform test.rec('answers are counted by engine, kind and outcome', (
+    select bool_or(x ->> 'engine' = 'v3' and x ->> 'kind' = 'pairing' and x ->> 'outcome' = 'good' and (x ->> 'questions')::int = 2)
+       and bool_or(x ->> 'engine' = 'v1' and x ->> 'source' = 'ai' and x ->> 'kind' = '-' and (x ->> 'questions')::int = 1)
+      from jsonb_array_elements(j -> 'answers') x));
+  perform test.rec('what a client wrote into an event never reaches the report: no words, no long value, no flood of rows',
+    j::text not like '%evil%' and j::text not like '%expired%' and j::text not like '%zzzz%'
+    and jsonb_array_length(j -> 'answers') <= 6
+    and (select bool_or(x ->> 'engine' = 'other' and (x ->> 'questions')::int >= 300) from jsonb_array_elements(j -> 'answers') x)
+    and not exists (select 1 from jsonb_array_elements(j -> 'answers') x, jsonb_each_text(x) kv
+                     where kv.key in ('engine', 'source', 'kind', 'outcome') and length(kv.value) > 12));
+  perform test.rec('the model''s calls for the sommelier: counted, failures apart, unknown cost never as free',
+    (j #>> '{model,calls}')::int = 3 and (j #>> '{model,ok}')::int = 2 and (j #>> '{model,failed}')::int = 1
+    and (j #>> '{model,known_cost}')::int = 4000 and (j #>> '{model,unknown_calls}')::int = 1
+    and (j #>> '{model,avg_latency_ms}')::int = 1000);
+
+  -- ---- more of the rules, each on its own -------------------------------------------------------------------
+  perform test.su();
+  perform test.rec('the table itself refuses "how it went" without "with the dish" (whoever writes)',
+    test.denied('update public.sommelier_outcomes set with_dish = null, enjoyed = ''yes''')
+    and test.denied('update public.sommelier_outcomes set with_dish = false, enjoyed = ''no''')
+    and test.denied('update public.sommelier_outcomes set opened = false'));
+  perform test.rec('nobody but the signed-in may call it at all; the helper and the report are closed to them too',
+    not has_function_privilege('anon', 'public.sommelier_set_outcome(uuid, uuid, boolean, boolean, text)', 'execute')
+    and has_function_privilege('authenticated', 'public.sommelier_set_outcome(uuid, uuid, boolean, boolean, text)', 'execute')
+    and not has_function_privilege('authenticated', 'private.sommelier_plan_codes(jsonb)', 'execute')
+    and not has_function_privilege('authenticated', 'public.admin_sommelier_report(timestamptz, timestamptz)', 'execute')
+    and not has_function_privilege('anon', 'public.admin_sommelier_report(timestamptz, timestamptz)', 'execute'));
+  -- An answer whose "plan" is not a plan gets no outcome.
+  perform test.as_service();
+  r := public.sommelier_record_exchange(test.uid(3), h3, gen_random_uuid(), 'Hm?',
+    jsonb_build_object('source', 'basic', 'bottles', jsonb_build_array(jsonb_build_object('vintageId', v2)), 'plan', null), null, 'general');
+  perform test.as_user(3);
+  perform test.rec('an answer whose plan is null or not an object is not a plan',
+    test.error_of(format('select public.sommelier_set_outcome(%L, %L, true)', (r ->> 'messageId')::uuid, v2)) like 'P0002:%');
+  -- The limit is the server's own: 120 an hour, and the person cannot empty the bucket.
+  for i in 1..125 loop
+    begin
+      perform public.sommelier_set_outcome(a_other, v1, true);
+      n := i;
+    exception when others then
+      limited := sqlstate;
+      exit;
+    end;
+  end loop;
+  perform test.rec('saying it is limited per person (120 an hour), with the code the app reads as "too many"',
+    limited = '54000' and n between 100 and 120);
+  perform public.consume_rate_limit('sommelier_outcome', 10000, 1);
+  perform test.rec('and the limiter a client can call does not reset it',
+    test.error_of(format('select public.sommelier_set_outcome(%L, %L, true)', a_other, v1)) like '54000:%');
+  -- A conversation that expired, and a household the person left: nothing more can be said.
+  perform test.su();
+  update public.sommelier_conversations set last_activity_at = now() - interval '8 days' where user_id = test.uid(1);
+  perform test.as_user(1);
+  perform test.rec('an expired conversation takes no outcome, no take-back and no rating',
+    test.error_of(format('select public.sommelier_set_outcome(%L, %L, true)', a_plan, v2)) like 'P0002:%'
+    and test.error_of(format('select public.sommelier_set_outcome(%L, %L, false)', a_plan, v1)) like 'P0002:%'
+    and test.error_of(format('select public.sommelier_set_feedback(%L, ''negative'')', a_plan)) like 'P0002:%');
+  perform test.su();
+  update public.sommelier_conversations set last_activity_at = now() where user_id = test.uid(1);
+  update public.household_members set role = 'owner' where household_id = h1 and user_id = test.uid(2);
+  delete from public.household_members where household_id = h1 and user_id = test.uid(1);
+  perform test.as_user(1);
+  perform test.rec('after leaving the household: its outcomes are no longer read, and nothing can be added',
+    test.cannot_read('select 1 from public.sommelier_outcomes')
+    and test.error_of(format('select public.sommelier_set_outcome(%L, %L, true)', a_plan, v2)) like 'P0002:%');
+  perform test.su();
+  insert into public.household_members (household_id, user_id, role) values (h1, test.uid(1), 'member');
+
+  -- ---- a rating made before the codes existed gets them when it is changed -----------------------------------
+  update public.sommelier_feedback set plan_kind = null, plan_outcome = null, plan_confidence = null where message_id = a_plan;
+  perform test.as_user(1);
+  perform public.sommelier_set_feedback(a_plan, 'negative');
+  perform test.rec('a rating from before the codes gets them when it is changed',
+    (select plan_kind = 'pairing' and plan_outcome = 'good' and rating = 'negative' from public.sommelier_feedback where message_id = a_plan));
 
   -- ---- what stays and what goes ------------------------------------------------------------------------------
   perform test.su();

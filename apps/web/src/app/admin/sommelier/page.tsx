@@ -36,7 +36,7 @@ export default async function AdminSommelierPage({
     <>
       <PageTitle
         title="Sommelier"
-        note="Counts only: no person, household, wine or question. A thumb says the answer was useful; what came of a bottle (opened, had with the dish, how the two went together) is said apart and never derived from a thumb. Answers are counted from product events, which a browser with do-not-track does not send. UTC days."
+        note="Counts only: no person, household, wine or question. A thumb says the answer was useful; what came of a bottle (opened, had with the dish, how the two went together) is said apart and never derived from a thumb. Questions are the chat's and Tonight's, counted from product events, which a browser with do-not-track does not send: the count is a floor, and the cost per question is therefore an upper bound. UTC days."
       >
         <RangeTabs path="/admin/sommelier" current={days} />
       </PageTitle>

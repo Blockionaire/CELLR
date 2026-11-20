@@ -53,6 +53,7 @@ function setup(
   engine: "on" | "off" | "broken",
   items: CellarItem[] = [item({})],
   experiences = false,
+  buying = true,
 ) {
   const state = { modelCalls: 0, spent: 0 };
   const cellar = async () => ({ items, bottleCount: items.reduce((s, i) => s + i.count, 0) });
@@ -71,7 +72,7 @@ function setup(
     profiles: async () => new Map(),
     taste: async () => null,
     offers: null,
-    buying: true,
+    buying,
     experiences,
     now: () => new Date("2026-11-19T18:00:00Z"),
   });
@@ -172,6 +173,15 @@ describe("the sommelier with the engines switched on", () => {
     expect(answer.plan ?? null).toBeNull();
     expect(answer.verdict).toBeNull();
     expect(answer.buy).toEqual([]);
+  });
+
+  it("shows no model-made product or price with the engine on, also when buying advice is switched off", async () => {
+    // The engine alone is the first switch to be turned on: V1's buy list must not survive beside it.
+    const { ask, state } = setup("on", [item({})], false, false);
+    const answer = await ask("Tell me something about Chablis as a wine");
+    expect(state.modelCalls).toBe(1);
+    expect(answer.buy).toEqual([]);
+    expect(answer.verdict).toBeNull();
   });
 
   it("carries the conversation's state from one answer to the next question", async () => {

@@ -72,7 +72,9 @@ begin
             case when m.source in ('ai', 'basic') then m.source end,
             p.kind, p.outcome, p.confidence)
     on conflict (user_id, message_id) do update
-      set rating = excluded.rating, updated_at = now()
+      -- a rating made before this migration and changed after it gets its codes then
+      set rating = excluded.rating, plan_kind = excluded.plan_kind, plan_outcome = excluded.plan_outcome,
+          plan_confidence = excluded.plan_confidence, updated_at = now()
       where f.rating is distinct from excluded.rating;
   return p_rating;
 end $$;
@@ -136,8 +138,9 @@ begin
      or (not p_opened and (p_with_dish is not null or p_enjoyed is not null)) then
     raise exception 'invalid_arguments' using errcode = '22023';
   end if;
-  if not public.consume_rate_limit('sommelier_outcome', 120, 3600) then
-    raise exception 'rate_limited' using errcode = '53400';
+  -- The server's own limiter, not the one a client can call: a person cannot empty this bucket themselves.
+  if not private.consume_rate_limit(v_user, 'sommelier_outcome', 120, interval '1 hour') then
+    raise exception 'rate_limited' using errcode = '54000';
   end if;
 
   select c.household_id, a.answer into m
@@ -149,7 +152,8 @@ begin
     raise exception 'not_found' using errcode = 'P0002';
   end if;
   -- Only a bottle this answer offered (its cards), and only an answer that is a plan of the engines.
-  if m.answer -> 'plan' is null or jsonb_typeof(m.answer -> 'bottles') is distinct from 'array'
+  if jsonb_typeof(m.answer -> 'plan') is distinct from 'object'
+     or jsonb_typeof(m.answer -> 'bottles') is distinct from 'array'
      or not exists (select 1 from jsonb_array_elements(m.answer -> 'bottles') b
                      where b ->> 'vintageId' = p_vintage_id::text) then
     raise exception 'not_found' using errcode = 'P0002';
@@ -178,6 +182,9 @@ grant execute on function public.sommelier_set_outcome(uuid, uuid, boolean, bool
 -- ---- 3. The admin's report: counts only ------------------------------------------------------------------------------
 -- Ratings and outcomes by what the answer was, the model's calls for the sommelier, and how answers were given.
 -- Counts and sums: no person, no household, no wine, no words. Service role only, as every admin function.
+-- The events' props are written by clients (anyone signed in can insert an event with any text in it), so each
+-- is counted under one of the codes the app sends or under 'other' (private.wi_label, migration 0041): a person
+-- cannot put their own words on the admin's page, break it with a long value, or make it list thousands of rows.
 create function public.admin_sommelier_report(p_from timestamptz, p_to timestamptz)
   returns jsonb language plpgsql stable security definer set search_path = '' as $$
 begin
@@ -214,14 +221,19 @@ begin
                group by 1, 2, 3) t), '[]'::jsonb),
     'answers', coalesce((
       select jsonb_agg(to_jsonb(t) order by t.questions desc, t.engine, t.kind, t.outcome)
-        from (select coalesce(e.props ->> 'engine', 'unknown') as engine,
-                     coalesce(e.props ->> 'source', 'unknown') as source,
-                     coalesce(e.props ->> 'kind', '-') as kind,
-                     coalesce(e.props ->> 'outcome', '-') as outcome,
+        from (select private.wi_label(e.props -> 'engine', array['v1', 'v3'], 'unknown') as engine,
+                     private.wi_label(e.props -> 'source', array['ai', 'basic'], 'unknown') as source,
+                     private.wi_label(e.props -> 'kind',
+                       array['pairing', 'buying', 'menu', 'wine-to-food', 'compare', 'serving', 'keeping',
+                             'quantity', 'clarify'], '-') as kind,
+                     private.wi_label(e.props -> 'outcome',
+                       array['good', 'acceptable', 'none', 'none-given'], '-') as outcome,
                      count(*) as questions,
                      count(distinct e.user_id) as people
                 from public.analytics_events e
-               where e.name = 'sommelier_question_asked' and e.at >= p_from and e.at < p_to
+               -- the chat's questions and Tonight's: both are answered by the same engines and the same model task
+               where e.name in ('sommelier_question_asked', 'tonight_recommendation_generated')
+                 and e.at >= p_from and e.at < p_to and jsonb_typeof(e.props) = 'object'
                group by 1, 2, 3, 4) t), '[]'::jsonb),
     'model', (
       select jsonb_build_object(
