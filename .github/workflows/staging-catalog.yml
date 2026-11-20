@@ -34,19 +34,26 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     environment: cellr-staging
+    # no secret at job level: only the two steps below that need it ever see it (not install, not third-party actions)
     env:
       CELLR_ENVIRONMENT: cellr-staging
-      STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
       STAGING_PROJECT_REF: ${{ vars.STAGING_PROJECT_REF }}
       CONFIRM_REF: ${{ inputs.confirm_project_ref }}
+      MODE: ${{ inputs.mode }}
     steps:
       - name: Refuse anything but the configured staging project
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
         run: |
           set -euo pipefail
           [ -n "$STAGING_DB_URL" ] || { echo "no STAGING_DB_URL secret in the cellr-staging environment"; exit 1; }
           [ -n "$STAGING_PROJECT_REF" ] || { echo "no STAGING_PROJECT_REF variable in the cellr-staging environment"; exit 1; }
           [ "$CONFIRM_REF" = "$STAGING_PROJECT_REF" ] || { echo "the typed ref is not the configured staging project"; exit 1; }
           case "$STAGING_DB_URL$STAGING_PROJECT_REF" in *vvelgyhbjfmjvxkzekyz*) echo "production: refused"; exit 1;; esac
+          case "$MODE" in check|migrate|import|scan) ;; *) echo "unknown mode"; exit 1;; esac
+          # the password on its own is masked too, should a tool ever print it apart from the URL
+          PW=$(node -e 'try{process.stdout.write(decodeURIComponent(new URL(process.env.STAGING_DB_URL).password))}catch{}')
+          if [ -n "$PW" ]; then echo "::add-mask::$PW"; fi
           echo "::add-mask::$STAGING_DB_URL"
       - uses: actions/checkout@v4
         with: { persist-credentials: false }
@@ -65,7 +72,9 @@ jobs:
           echo "eac2d812b5eb94264f3c4ee1764ccdacf764cdf1c2599c26e3832ed91a4662cc  $RUNNER_TEMP/XWines_Full_100K_wines.csv" | sha256sum -c --quiet
           echo "file verified: $(wc -c < "$RUNNER_TEMP/XWines_Full_100K_wines.csv") bytes"
       - name: Run (${{ inputs.mode }})
-        run: bash scripts/catalog-tools/staging-pilot.sh "${{ inputs.mode }}" "$RUNNER_TEMP/out" "$RUNNER_TEMP/XWines_Full_100K_wines.csv"
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: bash scripts/catalog-tools/staging-pilot.sh "$MODE" "$RUNNER_TEMP/out" "$RUNNER_TEMP/XWines_Full_100K_wines.csv"
       - name: Remove the dataset from the runner
         if: always()
         run: rm -f "$RUNNER_TEMP/XWines_Full_100K_wines.csv"
