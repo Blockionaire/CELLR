@@ -259,6 +259,21 @@
       "producer_only": "The same producer; no wine name was read",
       "type_differs": "Another colour than was read",
       "country_differs": "Another country than was read"
+    },
+    "records": {
+      "title": "Could be this wine",
+      "body": "Not in your cellar or the CELLR catalogue, but in an external wine source. Choose it to fill in the form; you check everything before adding.",
+      "use": "Use these details",
+      "credit": "Source: {provider} · licence {license} · not verified by CELLR",
+      "reason": {
+        "same_name": "Same name as on the label",
+        "name_variant": "Nearly the same name",
+        "similar_name": "Similar name",
+        "other_bottling": "Possibly another cuvée",
+        "producer_only": "Only the producer matches",
+        "vintage_listed": "The source lists this vintage",
+        "vintage_not_listed": "The source does not list this vintage"
+      }
     }
   },
   "sommelier": {

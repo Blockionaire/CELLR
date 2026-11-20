@@ -30,6 +30,7 @@ import {
 } from "@/features/cellar/hooks";
 import { LabelImage } from "@/features/cellar/label-image";
 import { draftOfRecord, NewWineForm, type NewWineDraft } from "@/features/cellar/new-wine-form";
+import { RecordSuggestions } from "./record-suggestions";
 import { useOwnedCounts, WineChoice } from "@/features/cellar/wine-stage";
 import { placeLine } from "@/features/cellar/wine-visuals";
 import { ApiError, errorMessage } from "@/lib/api";
@@ -846,6 +847,13 @@ function Review({
               </li>
             ))}
           </ul>
+          <RecordSuggestions
+            records={result.resolution?.records}
+            onUse={(s) => {
+              setFromRecord({ draft: draftOfRecord(s.hit), provider: s.hit.provider?.name ?? "" });
+              setChosenNew(true);
+            }}
+          />
           <Button variant="secondary" size="lg" block onClick={() => setChosenNew(true)}>
             {t("noneOfThese")}
           </Button>
@@ -903,6 +911,15 @@ function Review({
                 <p className="mt-2 text-small text-ink">{t("typeUnclear")}</p>
               )}
             </div>
+          )}
+          {/* Sprint 004C: a wine nobody in CELLR has added yet may be known to a source shown to people. */}
+          {!fromRecord && outcome !== "unread" && (
+            <RecordSuggestions
+              records={result.resolution?.records}
+              onUse={(s) =>
+                setFromRecord({ draft: draftOfRecord(s.hit), provider: s.hit.provider?.name ?? "" })
+              }
+            />
           )}
           {(wines.length > 0 || catalogSearch) && (
             <Button variant="secondary" size="lg" block onClick={() => setSearching(true)}>
