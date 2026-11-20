@@ -80,24 +80,53 @@ export function useNewConversation() {
 }
 
 /**
- * Rates one answer. The screen shows the choice at once; the requests for one answer go one after the other
- * (scope), so the last tap is the one that stays. A failure puts the earlier rating back.
+ * What the server last confirmed as the rating of an answer, and how many requests about it are still on their
+ * way. The screen shows a tap at once; when the last request for that answer is done, it shows what the server
+ * holds, whichever of the taps failed. (Putting back "what was on screen before this tap" is not enough: with two
+ * quick taps, the second one's "before" is the first one's unconfirmed guess.)
  */
-export function useRateAnswer(messageId: string, onFailed: () => void) {
-  const client = useQueryClient();
-  return useMutation({
+const settledRatings = new Map<string, { confirmed: SommelierRating | null; pending: number }>();
+
+/** The options of `useRateAnswer`, apart from React: so the order of taps and failures can be tested as it is. */
+export function rateMutation(client: QueryClient, messageId: string, onFailed: () => void) {
+  return {
     scope: { id: `sommelier-feedback:${messageId}` },
     meta: { refresh: false },
     mutationFn: (input: RateSommelierAnswer) =>
       api.put<{ rating: SommelierRating | null }>("/sommelier/feedback", input),
-    onMutate: (input) => {
-      const before = ratingIn(client.getQueryData<ChatState>(CHAT_KEY), input.messageId);
+    onMutate: (input: RateSommelierAnswer) => {
+      const entry = settledRatings.get(input.messageId);
+      if (!entry || entry.pending === 0)
+        // Nothing on its way: what is on screen is what the server holds.
+        settledRatings.set(input.messageId, {
+          confirmed: ratingIn(client.getQueryData<ChatState>(CHAT_KEY), input.messageId),
+          pending: 1,
+        });
+      else entry.pending += 1;
       updateChat(client, (state) => withRating(state, input.messageId, input.rating));
-      return { before };
     },
-    onError: (_error, input, context) => {
-      updateChat(client, (state) => withRating(state, input.messageId, context?.before ?? null));
-      onFailed();
+    onSuccess: (result: { rating: SommelierRating | null }, input: RateSommelierAnswer) => {
+      const entry = settledRatings.get(input.messageId);
+      if (entry) entry.confirmed = result.rating;
     },
-  });
+    onError: () => onFailed(),
+    onSettled: (_result: unknown, _error: unknown, input: RateSommelierAnswer) => {
+      const entry = settledRatings.get(input.messageId);
+      if (!entry) return;
+      entry.pending -= 1;
+      if (entry.pending > 0) return;
+      settledRatings.delete(input.messageId);
+      // The last one is done: the screen shows what the server holds.
+      updateChat(client, (state) => withRating(state, input.messageId, entry.confirmed));
+    },
+  };
+}
+
+/**
+ * Rates one answer. The screen shows the choice at once; the requests for one answer go one after the other
+ * (scope), so the last tap is the one that stays; when they are done the screen shows what the server holds.
+ */
+export function useRateAnswer(messageId: string, onFailed: () => void) {
+  const client = useQueryClient();
+  return useMutation(rateMutation(client, messageId, onFailed));
 }
