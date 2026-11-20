@@ -1,6 +1,15 @@
 -- =====================================================================
 -- 0048 The social sommelier: a friend's taste in my sommelier's answers, only when that friend allows it
 -- =====================================================================
+-- NOT APPLIED ANYWHERE. RELEASE ORDER (docs/sprints/sommelier-3-mega/RELEASE_PLAN.md):
+--   * Pull request #88 holds migration 20261124000047. It must be merged and applied BEFORE this file is applied:
+--     the CLI refuses a version older than the newest one recorded. If #88 will not be merged first, rename this
+--     file to a later version IN ITS PULL REQUEST, before it is merged: once on `main`, CI forbids a rename.
+--   * Once applied, its functions can be called by any signed-in person through the API, whatever the app's
+--     switches say. What that allows: turning one's OWN consent on or off, and asking about one's own accepted
+--     friends, which returns taste signals only for a friend who turned their consent on (off for everyone by
+--     default). Applying is the owner's decision.
+--
 -- ADDITIVE: one new table, two new functions. Nothing that exists changes; no existing sharing setting is read as
 -- consent for this.
 --
