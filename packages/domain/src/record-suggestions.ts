@@ -79,13 +79,18 @@ export function suggestRecordsForReading(
     if (hit.kind !== "record" || !hit.provider || !hit.recordId) return;
     if (facts.type && hit.type && facts.type !== hit.type) return;
     if (facts.countryCode && hit.countryCode && facts.countryCode !== hit.countryCode) return;
-    // the label's producer (or its only big name) against the record; a label without a wine name is "producer only"
+    // the label's producer (or its only big name) against the record. Without a wine name on the label the producer
+    // must still be the record's: compared with the record's own name on both sides, so only the producer can differ
+    // (review of Sprint 004B: "Castello Banfi" must never be offered another Castello's wine)
     const relation = facts.name
       ? identityRelation(
           { producer, name: facts.name, type: facts.type, countryCode: facts.countryCode },
           { producer: hit.producer, name: hit.name, type: hit.type, countryCode: hit.countryCode },
         ).relation
-      : "different_wine";
+      : identityRelation({ producer, name: hit.name }, { producer: hit.producer, name: hit.name })
+            .relation === "different_producer"
+        ? "different_producer"
+        : "different_wine";
     const rank = ORDER[relation];
     if (rank === undefined) return;
     const reasons: RecordReason[] = [REASON[relation]!];

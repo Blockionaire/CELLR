@@ -107,6 +107,16 @@ describe("suggestRecordsForReading", () => {
     ]);
     expect(out[0]!.reasons[0]).toBe("producer_only");
   });
+  it("without a wine name, another producer's record is still never offered (review of 004B)", () => {
+    const banfi = { ...facts, producer: "Castello Banfi", name: null, countryCode: "IT" };
+    const out = suggestRecordsForReading(banfi, [
+      rec("Via al Castello", "Barolo", { countryCode: "IT" }),
+      rec("Castello di Selvole", "Barullo", { countryCode: "IT" }),
+      rec("Gaja", "Barolo", { countryCode: "IT" }),
+      rec("Castello Banfi", "Brunello di Montalcino", { countryCode: "IT" }),
+    ]);
+    expect(out.map((s) => s.hit.producer)).toEqual(["Castello Banfi"]);
+  });
   it("nothing read, nothing offered; never more than asked", () => {
     expect(
       suggestRecordsForReading({ ...facts, producer: null, name: null }, [

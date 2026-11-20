@@ -429,6 +429,9 @@ export function fromLwinRow(row: Record<string, string>): AdapterResult {
   if (code.vintagePlaceholder) details.vintage_placeholder = true;
   const modifications = ["producer title and name joined", ...(type ? [] : ["type not mapped"])];
   if (code.level > 7) modifications.push(`LWIN-${code.level} read as its LWIN-7 wine`);
+  // a vintage after next year cannot have been made (the same rule as for X-Wines and for a read label)
+  const plausible = code.vintage !== null && code.vintage <= new Date().getUTCFullYear() + 1;
+  if (code.vintage !== null && !plausible) modifications.push("implausible vintages dropped");
   return {
     ok: true,
     record: {
@@ -439,7 +442,7 @@ export function fromLwinRow(row: Record<string, string>): AdapterResult {
       country_code: countryCodeOf(row.COUNTRY),
       region: clean(row.SUB_REGION, 120) ?? clean(row.REGION, 120),
       appellation: clean(row.DESIGNATION, 160),
-      vintages: code.vintage !== null ? [code.vintage] : [],
+      vintages: plausible ? [code.vintage!] : [],
       non_vintage: false,
       details,
       source_url: null,
@@ -485,7 +488,8 @@ export function foldLwinRecords(a: ProviderRecord, b: ProviderRecord): ProviderR
     ...a,
     vintages: [...new Set([...a.vintages, ...b.vintages])].sort((x, y) => x - y),
     details,
-    modifications: [...new Set([...a.modifications, ...b.modifications])].slice(0, 12),
+    // sorted, so the same rows in another order give the same record (and the same content hash)
+    modifications: [...new Set([...a.modifications, ...b.modifications])].sort().slice(0, 12),
   };
 }
 
@@ -509,7 +513,21 @@ export interface ProviderAdapter {
    * a conflict (text). Without it, a repeated id is fatal.
    */
   fold?: (a: ProviderRecord, b: ProviderRecord) => ProviderRecord | string;
+  /** With `fold`: the row's own full code. The same full code twice is a repeated row (fatal), never folded. */
+  rowKey?: (row: Record<string, string>) => string | null;
+  /** With `fold`: the wine id when this row withdraws the WHOLE wine (a deleted LWIN-7): its other rows are skipped too. */
+  deletedWine?: (row: Record<string, string>) => string | null;
 }
+
+/** The full LWIN code of a row, as written. */
+const lwinRowKey = (row: Record<string, string>) => (row.LWIN ?? "").trim() || null;
+/** An LWIN-7 row that is not live withdraws the wine at every vintage and bottle size. */
+const lwinDeletedWine = (row: Record<string, string>) => {
+  const code = parseLwin((row.LWIN ?? "").trim());
+  return code && code.level === 7 && (row.STATUS ?? "").trim().toLowerCase() !== "live"
+    ? code.lwin7
+    : null;
+};
 
 export const ADAPTERS = {
   xwines: {
@@ -524,6 +542,8 @@ export const ADAPTERS = {
     columns: LWIN_COLUMNS,
     map: fromLwinRow,
     fold: foldLwinRecords,
+    rowKey: lwinRowKey,
+    deletedWine: lwinDeletedWine,
   },
   // the fixture uses the X-Wines layout, so the adapter path is the same one a real file takes
   fixture: {
@@ -539,6 +559,8 @@ export const ADAPTERS = {
     columns: LWIN_COLUMNS,
     map: fromLwinRow,
     fold: foldLwinRecords,
+    rowKey: lwinRowKey,
+    deletedWine: lwinDeletedWine,
     // eval/catalog/fixture-lwin-layout.csv and fixture-lwin-levels.csv (pinned by scripts/catalog-tools/eval.test.ts)
     fixtureSha256s: [
       "160b1934a2bbb2a98aa58a68dd637a0bb2a699d949eadbf35910fc4264369505",
@@ -640,7 +662,15 @@ export function inspectProviderFile(text: string, providerId: ProviderId): FileI
   let replaced = 0;
   const seen = new Map<string, number>();
   const at = new Map<string, number>();
+  const keys = new Set<string>();
   let conflicts = 0;
+  // a wine withdrawn as a whole (a deleted LWIN-7) is not brought back by its vintage or bottle rows
+  const deleted = new Set<string>();
+  if (adapter.deletedWine)
+    for (const row of rows) {
+      const w = adapter.deletedWine(row);
+      if (w) deleted.add(w);
+    }
   for (const row of rows) {
     const values = Object.values(row);
     if (values.some((v) => REPLACEMENT.test(v))) replaced++;
@@ -649,6 +679,20 @@ export function inspectProviderFile(text: string, providerId: ProviderId): FileI
     if (!r.ok) {
       out.skipped[r.reason] = (out.skipped[r.reason] ?? 0) + 1;
       continue;
+    }
+    if (deleted.has(r.record.external_id)) {
+      out.skipped["STATUS (wine deleted)"] = (out.skipped["STATUS (wine deleted)"] ?? 0) + 1;
+      continue;
+    }
+    const key = adapter.rowKey?.(row) ?? null;
+    if (key !== null) {
+      if (keys.has(key)) {
+        out.duplicateRows++;
+        if (out.duplicateIds.length < 20 && !out.duplicateIds.includes(key))
+          out.duplicateIds.push(key);
+        continue; // the same full code twice is a repeated row, not another vintage or bottle size
+      }
+      keys.add(key);
     }
     const n = (seen.get(r.record.external_id) ?? 0) + 1;
     seen.set(r.record.external_id, n);

@@ -420,6 +420,39 @@ describe("LWIN codes at every documented level (Sprint 004B)", () => {
         reason: "LWIN",
       });
   });
+  it("a deleted LWIN-7 withdraws the wine: its live vintage or bottle rows are not imported (review of 004B)", () => {
+    const deleted = line("9100001").replace(",Live,", ",Deleted,");
+    for (const rows of [
+      [deleted, line("91000012015")],
+      [line("91000012015"), deleted],
+    ]) {
+      const i = inspectProviderFile(file(...rows), "lwin_fixture");
+      expect(i.records).toEqual([]);
+      expect(i.skipped["STATUS (wine deleted)"]).toBe(1);
+    }
+  });
+  it("the same full code twice is a repeated row (fatal), never folded (review of 004B)", () => {
+    const i = inspectProviderFile(file(line("91000012015"), line("91000012015")), "lwin_fixture");
+    expect(i.foldedRows).toBe(0);
+    expect(i.duplicateRows).toBe(1);
+    expect(i.fatal.join()).toMatch(/repeat an external id/);
+  });
+  it("the same rows in another order give the same record (review of 004B)", () => {
+    const rows = [
+      line("9100001"),
+      line("91000012015"),
+      line("9100001201601500"),
+      line("91000012016"),
+    ];
+    const a = inspectProviderFile(file(...rows), "lwin_fixture").records[0];
+    const b = inspectProviderFile(file(...[...rows].reverse()), "lwin_fixture").records[0];
+    expect(a).toEqual(b);
+  });
+  it("an implausible LWIN vintage (after next year) is dropped and noted (review of 004B)", () => {
+    const [r] = inspectProviderFile(file(line("91000012099")), "lwin_fixture").records;
+    expect(r!.vintages).toEqual([]);
+    expect(r!.modifications).toContain("implausible vintages dropped");
+  });
   it("X-Wines still treats a repeated id as fatal (no fold for it)", () => {
     expect("fold" in ADAPTERS.xwines).toBe(false);
   });
