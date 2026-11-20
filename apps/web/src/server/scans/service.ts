@@ -4,7 +4,7 @@ import {
   isUsableQuad,
   LABEL_TEXT_LIMITS,
   labelPhrases,
-  matchLabel,
+  matchLabelSafely,
   recognizeLabelText,
   normalizeExtraction,
   quadFromNumbers,
@@ -170,14 +170,14 @@ export function createScanService(deps: ScanDeps) {
 
   /**
    * Which wine the reading is: through the resolver when there is one (a bounded set of candidates), else against
-   * every wine the household can see, as before. Either way the decision is `matchLabel`'s.
+   * every wine the household can see, as before. Either way the decision is `matchLabelSafely`'s (Sprint 004C).
    */
   const matchReading = async (
     householdId: string,
     facts: LabelFacts,
   ): Promise<Pick<ScanResult, "outcome" | "matches" | "resolution">> => {
     const resolved = deps.resolve ? await deps.resolve(householdId, facts).catch(() => null) : null;
-    if (!resolved) return matchLabel(facts, await deps.wines());
+    if (!resolved) return matchLabelSafely(facts, await deps.wines());
     return {
       outcome: scanOutcomeOf(resolved.status),
       matches: resolved.candidates.map(({ wine, score }) => ({ wine, score })),

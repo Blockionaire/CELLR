@@ -23,6 +23,8 @@ export interface WineSourcesRepository {
   catalogSources(wineId: string): Promise<CatalogSourceRef[]>;
   /** Null before the database step for this has been taken. */
   notices(householdId: string, wineId: string): Promise<unknown[] | null>;
+  /** R-27: credits of the records a household's own wine was filled in from. Null before that database step. */
+  originNotices(householdId: string, wineId: string): Promise<unknown[] | null>;
 }
 
 /** One notice as the database gives it: checked here, so a malformed row is dropped instead of shown. */
@@ -42,6 +44,8 @@ const NoticeSchema = z.object({
   datasetVersion: z.string().max(120).nullable(),
   // only a source shown to people is ever credited to people
   scope: z.literal("public"),
+  // R-27: whether the household kept the record's details as they were (wine origins only)
+  matchesRecord: z.boolean().optional(),
 });
 
 export function createWineSourcesRepository(db: Db): WineSourcesRepository {
@@ -80,6 +84,16 @@ export function createWineSourcesRepository(db: Db): WineSourcesRepository {
       if (error) throw mapDbError(error);
       return Array.isArray(data) ? data : [];
     },
+    async originNotices(householdId, wineId) {
+      const { data, error } = await db.rpc("wine_origin_notices", {
+        p_household_id: householdId,
+        p_wine_id: wineId,
+      });
+      // Before 20261128000050 the function does not exist: nothing is credited, nothing fails.
+      if (error && (error.code === "PGRST202" || error.code === "42883")) return null;
+      if (error) throw mapDbError(error);
+      return Array.isArray(data) ? data : [];
+    },
   };
 }
 
@@ -91,7 +105,18 @@ export function createWineSourcesService(deps: {
     async get(wineId: string): Promise<WineSourcesData> {
       const kind = await deps.repo.wineKind(wineId);
       if (kind === null) throw new DomainError("NOT_FOUND");
-      if (kind === "household") return { catalog: false, catalogSources: [], external: [] };
+      if (kind === "household") {
+        // R-27: the household's own wine credits only the records it was filled in from, while they may be shown
+        const raw = await deps.repo
+          .originNotices(await deps.householdId(), wineId)
+          .catch(() => null);
+        const derivedFrom: SourceNotice[] = [];
+        for (const row of raw ?? []) {
+          const parsed = NoticeSchema.safeParse(row);
+          if (parsed.success) derivedFrom.push(parsed.data);
+        }
+        return { catalog: false, catalogSources: [], external: [], derivedFrom };
+      }
       const [catalogSources, raw] = await Promise.all([
         deps.repo.catalogSources(wineId),
         // a failing or missing lookup credits nobody; it never takes the page down

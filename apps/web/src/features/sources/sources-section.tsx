@@ -81,7 +81,7 @@ function Group({ id, title, children }: { id: string; title: string; children: R
 }
 
 /** One external source: the plain credit line, and behind "licence and details" everything its licence asks for. */
-export function SourceCredit({ notice }: { notice: SourceNotice }) {
+export function SourceCredit({ notice, lead }: { notice: SourceNotice; lead?: string }) {
   const t = useTranslations("sources");
   const locale = useLocale();
   const lang = localeOf(locale);
@@ -96,7 +96,9 @@ export function SourceCredit({ notice }: { notice: SourceNotice }) {
       data-testid="source-credit"
       data-provider={notice.providerId}
     >
-      <p className="text-small text-ink">{t("alsoListed", { provider: notice.providerName })}</p>
+      <p className="text-small text-ink">
+        {lead ?? t("alsoListed", { provider: notice.providerName })}
+      </p>
       <p className="text-small text-ink-2">{attributionLine(notice, lang)}</p>
       <details className="group/credit mt-1">
         <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 text-small font-medium text-accent-fg [&::-webkit-details-marker]:hidden">
@@ -183,6 +185,22 @@ export function SourceIdentity({ identity }: { identity: WineSourcesView["identi
       {identity.external.map((notice) => (
         <SourceCredit key={`${notice.providerId}:${notice.externalId}`} notice={notice} />
       ))}
+      {identity.derivedFrom.length > 0 && (
+        <div className="flex flex-col gap-2" data-testid="source-derived-from">
+          <p className="text-small text-ink-2">
+            {identity.derivedFrom.some((n) => n.matchesRecord === false)
+              ? t("derivedFromChanged")
+              : t("derivedFrom")}
+          </p>
+          {identity.derivedFrom.map((notice) => (
+            <SourceCredit
+              key={`${notice.providerId}:${notice.externalId}`}
+              notice={notice}
+              lead={t("derivedLead", { provider: notice.providerName })}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

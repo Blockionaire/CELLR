@@ -897,6 +897,7 @@ const components = [
       "catalog_provider_rights_log",
       "catalog_providers",
       "catalog_record_links",
+      "wine_record_origins",
     ],
     risks: [
       {
@@ -1419,6 +1420,15 @@ const edges: SystemEdge[] = [
   ),
   wired("composition-root", "runtime-config", "feature switches", "const features = getFeatures()"),
 
+  // R-27: where a household's own wine's data came from (Sprint 004C)
+  edge(
+    "svc-cellar",
+    "data-providers",
+    "data-write",
+    "wine origins",
+    web("server/cellar/repository.ts", '.rpc("record_wine_origin"'),
+    ev(M + "20261128000050_r27_wine_record_origins.sql", "wine_record_origins"),
+  ),
   // Cellar
   edge(
     "svc-cellar",
@@ -1689,9 +1699,11 @@ const edges: SystemEdge[] = [
     "svc-wine-sources",
     "data-providers",
     "data-read",
-    "source notices",
+    "source notices, origin notices (R-27)",
     web("server/catalog/sources.ts", '.rpc("wine_source_notices"'),
+    web("server/catalog/sources.ts", '.rpc("wine_origin_notices"'),
     ev(M + "20261117000040_wi05_wine_source_notices.sql", "catalog_providers"),
+    ev(M + "20261128000050_r27_wine_record_origins.sql", "wine_record_origins"),
   ),
   edge(
     "svc-wine-sources",

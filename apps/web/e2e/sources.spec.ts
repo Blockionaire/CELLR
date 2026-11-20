@@ -430,7 +430,13 @@ test.describe("sources and reliability", () => {
       undefined,
       200,
     );
-    expect(ownSources.body).toEqual({ catalog: false, catalogSources: [], external: [] });
+    // R-27 (Sprint 004C): a wine of the household's own credits only the record it was filled in from; none here
+    expect(ownSources.body).toEqual({
+      catalog: false,
+      catalogSources: [],
+      external: [],
+      derivedFrom: [],
+    });
     await clientB.call("get", `/wines/${own.body.id}/sources`, undefined, 404);
     await clientB.call("get", `/wines/not-a-uuid/sources`, undefined, 404);
     expect((await request.get(`/api/v1/wines/${wine.wineId}/sources`)).status()).toBe(401);

@@ -61,8 +61,35 @@ describe("wineSourcesView", () => {
         },
       }),
     );
-    expect(view.identity).toEqual({ origin: "user_provided", catalogSources: [], external: [] });
+    expect(view.identity).toEqual({
+      origin: "user_provided",
+      catalogSources: [],
+      external: [],
+      derivedFrom: [],
+    });
     expect(view.characteristics).toEqual([{ field: "type", origin: "user_provided" }]);
+  });
+
+  it("R-27: a household's own wine credits the records it was filled in from, once each, public only; still its own entry", () => {
+    const pilot = { ...notice({ externalId: "F-9" }), scope: "pilot" } as unknown as SourceNotice;
+    const view = wineSourcesView(
+      base({
+        wine: { type: "red", countryCode: null, region: null, appellation: null },
+        data: {
+          catalog: false,
+          catalogSources: [],
+          external: [],
+          derivedFrom: [notice(), notice(), pilot],
+        },
+      }),
+    );
+    expect(view.identity.origin).toBe("user_provided");
+    expect(view.identity.derivedFrom.map((n) => n.externalId)).toEqual([notice().externalId]);
+  });
+
+  it("R-27: a catalogue wine never shows household origins", () => {
+    const view = wineSourcesView(base({ data: { ...base().data, derivedFrom: [notice()] } }));
+    expect(view.identity.derivedFrom).toEqual([]);
   });
 
   it("an external source is listed once per record, and only when it is shown to people", () => {
