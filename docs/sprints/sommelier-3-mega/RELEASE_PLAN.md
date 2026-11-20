@@ -92,7 +92,8 @@ and nothing reads their tables with the switches off.
   the unit suites of V1, Tonight and Wine Intelligence unchanged, and `CELLR_FEATURES=all` turning none of the
   five on.
 - A missing migration is survived: with 0048, 0049 or 0050 absent the app shows no button and reads nothing.
-- No open P0 or P1 from the independent reviews (`progress/S9.md` §7 for the last one).
+- No open P0 or P1 from the independent reviews. The last one (`progress/S9.md` §7) found four P1; all four
+  are fixed and tested in the S9 branch.
 - Conditions, all the owner's: check that `CELLR_FEATURES` in Production and Preview names none of the five; merge
   in the order of §1; treat every `db push` from `main` as a release of its own (0047 is already waiting there).
 

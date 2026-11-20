@@ -79,7 +79,7 @@ have no effect until a friend's sommelier asks, which needs the app's switch.
 ## R-15 — The main benchmark flatters the engine (found in S9)
 
 **What.** The engine has been developed against the 246 scenarios of the main set since S1. On 88 new scenarios
-about dishes it had never seen, it understands 72% of the dishes (92% on the main set) and passes 44% (69%).
+about dishes it had never seen, it understands 72% of the dishes (92% on the main set) and passes 43% (69%).
 The rise of "first bottle" on the main set in S9 (73% → 83%) did not appear on the new scenarios at all.
 **Why it matters.** Every number in `FINAL_REPORT.md` is from the main set. Read alone they overstate what a
 person with their own dinner will get.

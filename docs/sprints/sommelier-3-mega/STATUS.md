@@ -22,7 +22,7 @@ AI KEY:         none available to the agent. V1's AI path is NOT measured (RISK 
                 The comparison is designed and its harness built (AI_COMPARISON.md); it waits for the owner's
                 approval (about $1).
 RETAILER:       no source. Live offers are built, validated and off (`offers: null`); buying advice is styles.
-QUALITY:        main set 170 / 246; blind holdout 20 / 43; unseen dishes understood 72% (progress/S9.md §2).
+QUALITY:        main set 170 / 246; blind holdout 19 / 43; unseen dishes understood 72% (progress/S9.md §2).
 PRODUCTION:     not touched. No merge, deploy, db push, setting or production write by the agent.
 WORKTREES:      /home/user/CELLR (S7 branch), /home/user/CELLR-s3 (S9 branch). Ephemeral: only what is pushed lasts.
 ```
@@ -62,7 +62,7 @@ review's findings and what was done about each, limitations.
 - **S7**: what came of a bottle, apart from the thumb; the admin's report; migration 0049 (draft).
 - **S8**: final review, classification of what is open, `FINAL_REPORT.md`, `RELEASE_PLAN.md`.
 - **S9**: the 106 failures sorted and a blind second opinion on the disagreements; engine recalibrated (main set
-  140 → 170; unseen dishes 34 → 39 of 88); a blind holdout; a friend's cellar and presents not already owned
+  140 → 170; unseen dishes 34 → 38 of 88); a blind holdout; a friend's cellar and presents not already owned
   (migration 0050, draft); friends kept across follow-ups; the harness for the comparison with V1's AI (not run);
   the brief against what exists; GO / NO-GO.
 

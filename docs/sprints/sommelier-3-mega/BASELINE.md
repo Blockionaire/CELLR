@@ -202,15 +202,15 @@ The thresholds are not changed.
 | Set                                    | Passed      | Dish understood | Outcome | First bottle | No poor bottle | Says none when none |
 | -------------------------------------- | ----------- | --------------: | ------: | -----------: | -------------: | ------------------: |
 | Main (246), S8                         | 140         |             92% |     88% |          73% |            72% |                 89% |
-| Main (246), S9                         | 170         |             92% |     90% |          83% |            81% |                 94% |
+| Main (246), S9                         | 170         |             93% |     90% |          83% |            81% |                 94% |
 | Holdout, unseen dishes (88), S8 engine | 34          |             70% |     72% |          64% |            81% |                 86% |
-| Holdout, unseen dishes (88), S9 engine | 39          |             73% |     77% |          64% |            82% |                 86% |
-| Holdout, blind half (43), S9 engine    | 20 (S8: 16) |             72% |     77% |          63% |            79% |                 89% |
+| Holdout, unseen dishes (88), S9 engine | 38          |             73% |     76% |          64% |            82% |                 86% |
+| Holdout, blind half (43), S9 engine    | 19 (S8: 16) |             72% |     74% |          63% |            79% |                 89% |
 
 On the main set at S9 two gates are still missed (no poor bottle 81% against 90%; pairing scenarios 63% against
 70%). On unseen dishes every quality gate is missed. `progress/S9.md` §2 says what that means; R-15 what follows.
 The 24 scenarios with friends are attempted since S9 (the benchmark plays the friends database): 15 pass.
-`results/s9-v3-app.json`, `s9-holdout-dev.json` and `s9-holdout-test.json` are pinned by the tests;
+`results/s9-v3-app.json` and `s9-holdout-dev.json` are pinned scenario by scenario, `s9-holdout-test.json` (the blind half) in totals only;
 `s8-v3-app.json` is replaced by `s9-v3-app.json`.
 
 ## Label corrections
