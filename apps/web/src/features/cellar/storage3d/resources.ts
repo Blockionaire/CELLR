@@ -476,6 +476,8 @@ export interface BottleKit {
   shade: THREE.Material;
   counter: THREE.Material;
   marker: THREE.Material;
+  /** The ring round a spot a bottle is about to be put on (sprint 4): the app's own wine red, quiet. */
+  target: THREE.Material;
   /**
    * Premium, where shadows are drawn: the soft shadow a bottle lying along a wall throws on that wall (one
    * instanced picture per bottle shape, as the shadow under a bottle on a shelf is). Null otherwise.
@@ -595,6 +597,14 @@ export function buildBottleKit(
       new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.5, metalness: 0 }),
     ),
     marker: owned.add(new THREE.MeshBasicMaterial({ color: "#d9a441", toneMapped: false })),
+    target: owned.add(
+      new THREE.MeshBasicMaterial({
+        color: "#8c2b3a",
+        toneMapped: false,
+        transparent: true,
+        opacity: 0.9,
+      }),
+    ),
     wallShadow:
       premium && quality.shadows
         ? owned.add(new THREE.PlaneGeometry(BOTTLE_L * 1.12, BOTTLE_R * 3.1))
