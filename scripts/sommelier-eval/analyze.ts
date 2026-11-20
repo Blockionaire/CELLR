@@ -19,7 +19,7 @@ import {
 } from "@cellr/domain/intelligence";
 import { ENGINES } from "./engines";
 import { buildFixture } from "./fixtures";
-import { cardsOf, scenariosOf } from "./sets";
+import { BLIND_SETS, cardsOf, scenariosOf } from "./sets";
 import { expectedVerdictOf, scoreScenario } from "./score";
 import type { DishCard } from "./types";
 
@@ -30,6 +30,12 @@ const { values: args } = parseArgs({
     json: { type: "string" },
   },
 });
+if (BLIND_SETS.has(args.set!)) {
+  console.error(
+    `"${args.set}" is a blind set: it is measured (run.ts), never read failure by failure.`,
+  );
+  process.exit(2);
+}
 const engine = ENGINES.find((e) => e.name === args.engine)!;
 const cards = cardsOf(args.set!);
 const labelOf = (card: DishCard, key: string) =>

@@ -358,10 +358,14 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
     const head = found.find(
       (f) => f.entry.kind === "ingredient" && f.entry.item.main !== undefined,
     );
+    // ...and unless everything else on it only seasons it ("pancakes with bacon", "stamppot met spekjes").
+    const onlyGarnish =
+      head?.entry.kind === "ingredient" &&
+      mains.every((m) => m.i.id === head.entry.item.id || m.i.garnish === true);
     const headed =
       head?.headed &&
       head.entry.kind === "ingredient" &&
-      !STARCH_OR_SNACK.has(head.entry.item.main!)
+      (!STARCH_OR_SNACK.has(head.entry.item.main!) || onlyGarnish)
         ? head.entry.item
         : null;
     const chosen = headed ?? mains[0]?.i ?? null;

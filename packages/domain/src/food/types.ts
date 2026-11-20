@@ -153,6 +153,11 @@ export interface Ingredient extends Named {
    * the pairing engine understands. Used when a dish is composed around it; a dish template names its own.
    */
   classics?: readonly string[];
+  /**
+   * It seasons a dish more often than it is one (bacon bits, pancetta): named after "with", it does not take the
+   * plate over from the starch it is on. "Pancakes with bacon" are pancakes; "rice with chicken" is chicken.
+   */
+  garnish?: true;
 }
 
 export interface Technique extends Named {

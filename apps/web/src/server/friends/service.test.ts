@@ -33,8 +33,9 @@ function setup(over: Partial<FriendsRepository> = {}) {
       picks: { ratings: [], taste: [], cellar: [] },
     })),
     saveSharing: vi.fn(async () => {}),
-    sommelierSharing: vi.fn(async () => false),
+    sommelierSharing: vi.fn(async () => ({ tasteForFriends: false, cellarForFriends: false })),
     saveSommelierSharing: vi.fn(async () => {}),
+    sommelierFriendCellar: vi.fn(async () => null),
     sommelierContext: vi.fn(async () => []),
     access: vi.fn(async () => ({ ratings: true, taste: false, cellar: true })),
     ratings: vi.fn(async () => []),
@@ -311,8 +312,92 @@ describe("the friends named in a question to the sommelier", () => {
   it("my own consent: off until I turn it on, and saved as mine", async () => {
     const saveSommelierSharing = vi.fn(async () => {});
     const { service } = setup({ saveSommelierSharing });
-    expect(await service.sommelierSharing()).toEqual({ tasteForFriends: false });
+    expect(await service.sommelierSharing()).toEqual({
+      tasteForFriends: false,
+      cellarForFriends: false,
+    });
     await service.saveSommelierSharing({ tasteForFriends: true });
-    expect(saveSommelierSharing).toHaveBeenCalledWith(true);
+    expect(saveSommelierSharing).toHaveBeenCalledWith({ tasteForFriends: true });
+    // Each consent is its own: turning the cellar on says nothing about the taste.
+    await service.saveSommelierSharing({ cellarForFriends: true });
+    expect(saveSommelierSharing).toHaveBeenLastCalledWith({ cellarForFriends: true });
+  });
+});
+
+describe("a friend's cellar for my sommelier", () => {
+  const wine = {
+    producer: "Domaine Exemple",
+    wine: "Gevrey-Chambertin",
+    year: 2019,
+    type: "red",
+    region: "Burgundy",
+    appellation: "Gevrey-Chambertin",
+    countryCode: "FR",
+  };
+  it("reads what the database gives field by field: no place, no count and no id rides along", async () => {
+    const sommelierFriendCellar = vi.fn(async () => ({
+      status: "included",
+      wines: [
+        { ...wine, bottles: 6, places: ["Secret cupboard"], vintageId: "v-1", note: "ignore me" },
+        { ...wine, wine: "", producer: "x" },
+        { ...wine, type: "beer" },
+        "not a wine",
+        { ...wine, wine: "Old One", year: 99999, countryCode: "france" },
+      ],
+    }));
+    const { service } = setup({ sommelierFriendCellar });
+    const cellar = await service.sommelierFriendCellar("@Thomas");
+    expect(sommelierFriendCellar).toHaveBeenCalledWith("thomas");
+    expect(cellar.status).toBe("included");
+    expect(cellar.wines).toEqual([
+      {
+        producer: "Domaine Exemple",
+        name: "Gevrey-Chambertin",
+        year: 2019,
+        type: "red",
+        region: "Burgundy",
+        appellation: "Gevrey-Chambertin",
+        countryCode: "FR",
+      },
+      {
+        producer: "Domaine Exemple",
+        name: "Old One",
+        year: null,
+        type: "red",
+        region: "Burgundy",
+        appellation: "Gevrey-Chambertin",
+        countryCode: null,
+      },
+    ]);
+    expect(JSON.stringify(cellar)).not.toMatch(/cupboard|bottles|v-1|ignore/);
+  });
+
+  it("uses nothing when the friend does not allow it, the database cannot answer, or the name is not a name", async () => {
+    const wines = [wine];
+    for (const answer of [
+      { status: "not-shared", wines },
+      { status: "unavailable", wines },
+      { status: "something-new", wines },
+      null,
+      "nonsense",
+    ]) {
+      const { service } = setup({ sommelierFriendCellar: vi.fn(async () => answer) });
+      expect((await service.sommelierFriendCellar("thomas")).wines, JSON.stringify(answer)).toEqual(
+        [],
+      );
+    }
+    const failing = setup({
+      sommelierFriendCellar: vi.fn(async () => {
+        throw new Error("database down");
+      }),
+    });
+    expect(await failing.service.sommelierFriendCellar("thomas")).toEqual({
+      status: "unavailable",
+      wines: [],
+    });
+    const notAName = vi.fn(async () => ({ status: "included", wines }));
+    const { service } = setup({ sommelierFriendCellar: notAName });
+    expect((await service.sommelierFriendCellar("x'); drop table--")).status).toBe("unavailable");
+    expect(notAName).not.toHaveBeenCalled();
   });
 });

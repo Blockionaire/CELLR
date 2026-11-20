@@ -1,5 +1,7 @@
 import { DISHES } from "./dishes";
+import { HOLDOUT_DISHES } from "./dishes-holdout";
 import { SCENARIOS } from "./scenarios";
+import { HOLDOUT_SCENARIOS } from "./scenarios-holdout";
 import type { DishCard, Scenario } from "./types";
 
 /**
@@ -9,7 +11,29 @@ import type { DishCard, Scenario } from "./types";
  */
 const SETS: Record<string, { scenarios: readonly Scenario[]; dishes: readonly DishCard[] }> = {
   main: { scenarios: SCENARIOS, dishes: DISHES },
+  /**
+   * Written in S9 by an agent that saw the benchmark's contract and the 30 wines and nothing of the engines,
+   * their results or their documents: 44 dishes that are not in "main", every one labelled against all 30
+   * wines, and 88 pairing scenarios. Measured before and after the S9 changes; no rule was developed on it.
+   */
+  holdout: { scenarios: HOLDOUT_SCENARIOS, dishes: HOLDOUT_DISHES },
+  /**
+   * The holdout split in two by the order of its dishes, after its first measurement showed how little of the
+   * development set's gain carried over. "holdout-dev": the first 22 dishes; its failures may be read, to learn
+   * what kind of thing the engines miss. "holdout-test": the other 22; only ever measured, and never read
+   * scenario by scenario (analyze.ts refuses to list it).
+   */
+  "holdout-dev": half(0),
+  "holdout-test": half(1),
 };
+function half(which: 0 | 1) {
+  const middle = Math.floor(HOLDOUT_DISHES.length / 2);
+  const dishes = which === 0 ? HOLDOUT_DISHES.slice(0, middle) : HOLDOUT_DISHES.slice(middle);
+  const ids = new Set(dishes.map((d) => d.id));
+  return { dishes, scenarios: HOLDOUT_SCENARIOS.filter((s) => s.dish && ids.has(s.dish)) };
+}
+/** Sets whose failures are not to be read one by one: they are the blind measure. */
+export const BLIND_SETS: ReadonlySet<string> = new Set(["holdout-test"]);
 
 export const SET_NAMES = () => Object.keys(SETS);
 export function registerSet(

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { normalizeText, WINE_TYPES } from "./cellar";
+import { normalizeText, WINE_TYPES, type WineType } from "./cellar";
 import type { TasteSignals } from "./pairing-engine/taste";
 import { WINE_FOCUS } from "./taste";
 
@@ -95,12 +95,99 @@ export interface MentionOutcome {
 
 export const aliasFor = (index: number) => `friend-${index + 1}`;
 
-/** Whether the asker lets their own taste be used by their friends' sommelier. */
-export const SaveSommelierSharingSchema = z.object({ tasteForFriends: z.boolean() });
+/**
+ * What the asker lets their friends' sommelier use: their taste, and (apart from it) the wines in their cellar.
+ * Each is its own consent, off until turned on; a request changes the ones it names.
+ */
+export const SaveSommelierSharingSchema = z
+  .object({ tasteForFriends: z.boolean().optional(), cellarForFriends: z.boolean().optional() })
+  .refine((s) => s.tasteForFriends !== undefined || s.cellarForFriends !== undefined, {
+    message: "name at least one setting",
+  });
 export type SaveSommelierSharing = z.infer<typeof SaveSommelierSharingSchema>;
 export interface SommelierSharingView {
   tasteForFriends: boolean;
+  /** Null: this deployment's database does not know the setting yet (the 0050 step is not taken). */
+  cellarForFriends: boolean | null;
 }
+
+// ---- A friend's cellar, for the asker's sommelier (migration 0050) --------------------------------------------
+
+/**
+ * What the database said about a friend's cellar. "unavailable": not an accepted friend, whatever the reason.
+ * "not-shared": a friend who does not show their cellar to the asker, or does not allow a sommelier to use it
+ * (which of the two is never told). "included": the wines in it now, never where they lie or how many.
+ */
+export const FRIEND_CELLAR_STATUSES = ["included", "not-shared", "unavailable"] as const;
+export type FriendCellarStatus = (typeof FRIEND_CELLAR_STATUSES)[number];
+
+export interface FriendWine {
+  producer: string;
+  name: string;
+  year: number | null;
+  type: WineType;
+  region: string | null;
+  appellation: string | null;
+  countryCode: string | null;
+}
+export interface FriendCellar {
+  status: FriendCellarStatus;
+  wines: FriendWine[];
+}
+export const NO_FRIEND_CELLAR: FriendCellar = { status: "unavailable", wines: [] };
+export const MAX_FRIEND_WINES = 300;
+
+const text = (value: unknown, max: number): string | null =>
+  typeof value === "string" && value.trim().length > 0 ? value.trim().slice(0, max) : null;
+
+/**
+ * A friend's cellar as the engines may use it: read field by field from what the database returned, so nothing
+ * that is not a wine's name, vintage, kind and origin can ride along (no place, no count, no id).
+ */
+export function readFriendCellar(value: unknown): FriendCellar {
+  if (typeof value !== "object" || value === null) return NO_FRIEND_CELLAR;
+  const row = value as Record<string, unknown>;
+  const status = (FRIEND_CELLAR_STATUSES as readonly unknown[]).includes(row.status)
+    ? (row.status as FriendCellarStatus)
+    : "unavailable";
+  if (status !== "included" || !Array.isArray(row.wines)) return { status, wines: [] };
+  const wines: FriendWine[] = [];
+  for (const w of row.wines.slice(0, MAX_FRIEND_WINES)) {
+    if (typeof w !== "object" || w === null) continue;
+    const r = w as Record<string, unknown>;
+    const name = text(r.wine, 160);
+    const producer = text(r.producer, 160);
+    if (!name || !producer || !(WINE_TYPES as readonly unknown[]).includes(r.type)) continue;
+    wines.push({
+      producer,
+      name,
+      year:
+        typeof r.year === "number" && Number.isInteger(r.year) && r.year >= 1900 && r.year <= 2200
+          ? r.year
+          : null,
+      type: r.type as WineType,
+      region: text(r.region, 120),
+      appellation: text(r.appellation, 160),
+      countryCode:
+        typeof r.countryCode === "string" && /^[A-Z]{2}$/.test(r.countryCode)
+          ? r.countryCode
+          : null,
+    });
+  }
+  return { status, wines };
+}
+
+/** "What does he own…", "from her cellar", "is bringing a bottle": the question is about the friend's wines. */
+export const asksFriendCellar = (question: string): boolean =>
+  /\b(?:what (?:does|do) (?:he|she|they) (?:own|have)|(?:his|her|their) (?:cellar|bottles|wines|collection)|(?:is|are) bringing (?:a|the|some) (?:bottle|bottles|wine)|wat heeft (?:hij|zij|ze)|wat hebben (?:zij|ze)|(?:zijn|haar|hun) (?:kelder|wijnkelder|flessen|wijnen|collectie)|neemt (?:een|de) (?:fles|flessen|wijn) mee|brengt (?:een|de) (?:fles|flessen|wijn) mee)\b/i.test(
+    tidy(question),
+  );
+
+/** "…that he does not already own", "die hij nog niet heeft": what they have is to be left out. */
+export const asksNotAlreadyOwned = (question: string): boolean =>
+  /\b(?:(?:does not|doesn t|doesn't|don t|don't|do not|not) (?:already |yet )?(?:own|have)|not already in|nog niet (?:heeft|hebben|in)|niet al (?:heeft|hebben|in)|nog niet (?:zelf )?(?:bezit|heeft liggen))\b/i.test(
+    tidy(question),
+  );
 
 const SCALES = ["body", "tannin", "sweetness", "acidity"] as const;
 

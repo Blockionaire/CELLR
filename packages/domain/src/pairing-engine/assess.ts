@@ -200,6 +200,9 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
     return asked.length === 0 || asked.some((g) => wine.keys.includes(g));
   });
   const classic = answers(named);
+  // Known for a grape, a place or an appellation, as against known for a kind of wine ("a rosé"): only the
+  // first softens what speaks against the wine (a rosé stays too light for a cassoulet).
+  const classicByName = answers(named.filter((c) => !NARROW_COLOURS.has(c)));
   // A partnership that names this wine's grape, place or appellation; one that only names its kind ("a crisp
   // white", "a full red") is true of half a cellar and counts for less.
   let specific = false;
@@ -393,15 +396,13 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
       pro("fresh-with-seafood", 6);
 
     // --- bubbles ---
-    if (
-      w.fizz &&
-      (tag("fried") ||
-        tag("raw-seafood") ||
-        tag("egg-yolk") ||
-        main === "snack" ||
-        (f.salt >= 2 && f.weight <= 3))
-    )
-      pro("bubbles-refresh", 7);
+    if (w.fizz) {
+      // Fried food, raw seafood, egg yolk and salty snacks with bubbles is a rule in itself; salt on a light
+      // dish is a reason for them and no more.
+      if (tag("fried") || tag("raw-seafood") || tag("egg-yolk") || main === "snack")
+        pro("bubbles-refresh", 7);
+      else if (f.salt >= 2 && f.weight <= 3) pro("bubbles-refresh", 5);
+    }
 
     // --- chili heat and spice ---
     // Heat and a sweet glaze make a bone-dry wine taste thin and sharp: it will do, it is not the wine for it.
@@ -457,7 +458,7 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
   pros.sort((a, b) => b[1] - a[1]);
   cons.sort((a, b) => b[1] - a[1]);
   const clash = cons.find(([note]) => HARD.has(note))?.[0] ?? null;
-  const soft = classic ? CLASSIC_DAMPING : 1;
+  const soft = classicByName ? CLASSIC_DAMPING : 1;
   const raw =
     NEUTRAL +
     pros.reduce((sum, [, p]) => sum + p, 0) -
@@ -479,7 +480,8 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
       // An affinity that only names the wine's kind, and tannin beside savoury richness that is not rich meat,
       // are reasons, not recommendations.
       (note !== "affinity" || (specific && points >= 5)) &&
-      (note !== "tannin-meets-meat" || points >= 8),
+      (note !== "tannin-meets-meat" || points >= 8) &&
+      (note !== "bubbles-refresh" || points >= 7),
   );
   return {
     level:
