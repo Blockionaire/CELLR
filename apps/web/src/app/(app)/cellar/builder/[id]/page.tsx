@@ -30,5 +30,12 @@ export default async function PlaceBuilderPage({
   const ctx = await getPageContext();
   if (!ctx) return null;
   const query = await searchParams;
-  return <RackBuilder placeId={id.toLowerCase()} access={access} justSaved={query.saved === "1"} />;
+  return (
+    <RackBuilder
+      placeId={id.toLowerCase()}
+      access={access}
+      justSaved={query.saved === "1"}
+      section={query.section === "zones" ? "zones" : null}
+    />
+  );
 }
