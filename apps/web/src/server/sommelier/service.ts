@@ -336,8 +336,10 @@ export function createSommelierService(deps: SommelierDeps) {
         basic: null,
         bottles: checked.bottles.length > 0 ? checked.bottles : (named ?? []),
         // With the engines on, a verdict and buying advice only ever come from them: the model's own are dropped.
+        // (Also with buying advice switched off: a model-made product and price is never shown beside the
+        // engines. Buying advice then comes with `sommelier_buying`, as styles.)
         verdict: facts || deps.intelligence ? null : checked.verdict,
-        buy: facts || deps.intelligence?.buying ? [] : checked.buy,
+        buy: facts || deps.intelligence ? [] : checked.buy,
         reason: null,
         // Only when a taste was shown and the model says it shaped the answer.
         personal: personal !== null && checked.usedTaste,
