@@ -94,65 +94,16 @@
     },
     "producer_spelling_variants": {
       "groups": 28,
-      "examples": [
-        ["Almadén", "Almaden"],
-        ["Maia", "MaÏa"],
-        ["Muller", "Müller"],
-        ["Château Bel-Air", "Chateau Bel-Air", "Château Bel Air"],
-        ["Château Saint-Pierre", "Château Saint Pierre"],
-        ["Château l'Enclos", "Château L'Enclos"],
-        ["Château Ferran", "Chateau Ferran"],
-        ["Château Saint Andre", "Château Saint André"],
-        ["Château Moulin à Vent", "Château Moulin-à-Vent"],
-        ["Chateau Saint-Vincent", "Château Saint Vincent"]
-      ]
+      "examples": 10
     },
     "producers_differing_only_by_estate_words": {
       "groups": 500,
-      "examples": [
-        ["aurora", "cantine aurora", "aurora cellars", "aurora vineyard"],
-        ["pergola", "cantine la pergola", "tenuta la pergola"],
-        ["jolimont", "cave de jolimont"],
-        ["giaretta", "la giaretta"],
-        ["bella quinta", "bella vineyards", "bella wines", "bella"],
-        ["del prado", "el prado"],
-        ["santa barbara", "santa barbara winery", "santa barbara vineyards"],
-        ["mira", "mira winery"],
-        ["frank", "chateau frank", "weingut frank"],
-        ["quinta do monte", "caves do monte"]
-      ]
+      "examples": 10
     },
     "identical_identities": {
       "groups": 155,
       "records_in_them": 320,
-      "examples": [
-        [
-          "100041: Lidio Carraro — Dádivas Chardonnay (white)",
-          "110360: Lidio Carraro — Dádivas Chardonnay (white)"
-        ],
-        [
-          "100597: Aurora — Procedencias Pinot Noir Natural Brut (sparkling)",
-          "101472: Aurora — Procedencias Pinot Noir Natural Brut (sparkling)"
-        ],
-        ["100903: Zanotto — Bordô Suave Tinto (red)", "101559: Zanotto — Bordô Suave Tinto (red)"],
-        [
-          "101860: Quinta da Plansel — Marquês de Montemor (red)",
-          "106420: Quinta da Plansel — Marques de Montemor (red)"
-        ],
-        [
-          "101873: Quinta do Portal — Grande Reserva (red)",
-          "105453: Quinta do Portal — Grande Reserva (red)"
-        ],
-        [
-          "101897: Quinta de Bons-Ventos — Branco (white)",
-          "104699: Quinta de Bons-Ventos — Branco (white)"
-        ],
-        [
-          "102030: Quinta do Vale Meão — Monte Meão Vinha dos Novos (red)",
-          "105229: Quinta do Vale Meão — Monte Meão Vinha dos Novos (red)"
-        ],
-        ["102960: Rozès — Vintage Port (fortified)", "106264: Rozès — Vintage Port (fortified)"]
-      ]
+      "examples": 8
     },
     "same_name_other_colour": 6,
     "near_identical_names_of_one_producer": {
@@ -160,23 +111,7 @@
         "variant": 59,
         "uncertain": 9
       },
-      "examples": [
-        "Luiz Argenta: \"Merlot\" ~ \"LA Merlot\" (variant)",
-        "Luiz Argenta: \"LA Cabernet Franc\" ~ \"Cabernet Franc\" (variant)",
-        "Vinícola Pericó: \"Equ4cao Cabernet Sauvignon\" ~ \"Equação Cabernet Sauvignon\" (uncertain)",
-        "Amitié Espumantes e Vinhos: \"Brut Rosé\" ~ \"Cuvée Brut Rosé\" (variant)",
-        "CHANDON Argentina: \"Brut Extra\" ~ \"Extra Brut\" (variant)",
-        "CHANDON California: \"Brut\" ~ \"Brut Cuvée\" (variant)",
-        "Altas Quintas: \"Reserva-Do Tinto\" ~ \"Reserva Tinto\" (variant)",
-        "Allendorf: \"Rüdesheimer Berg Roseneck Riesling Trocken\" ~ \"Rüdesheim Berg Roseneck Riesling Trocken\" (uncertain)",
-        "Hans Wirsching: \"Iphöfer Kronsberg Scheurebe Alte Reben\" ~ \"Scheurebe Iphöfer Kronsberg Alte Reben\" (variant)",
-        "Château d'Yquem: \"Sauternes\" ~ \"Sauternes d'Yquem\" (variant)",
-        "Louis Jadot: \"Château des Jacques Moulin-a-Vent Clos du Grand Carquelin\" ~ \"Chateau des Jacques Clos du Grand Carquelin Moulin-à-Vent\" (variant)",
-        "Château Latour: \"Grand Vin Pauillac (Premier Grand Cru Classé)\" ~ \"Pauillac de Latour\" (variant)",
-        "Château Calon-Ségur: \"Saint-Estèphe (Grand Cru Classé)\" ~ \"Saint-Estephe de Calon-Ségur\" (variant)",
-        "Château La Tour Carnet: \"Haut-Médoc (Grand Cru Classé)\" ~ \"Haut-Médoc\" (variant)",
-        "Château La Tour Carnet: \"Les Douves Haut-Médoc\" ~ \"Cuvée Les Douves Haut-Médoc\" (variant)"
-      ]
+      "examples": 15
     }
   },
   "database": {
@@ -261,5 +196,6 @@
     }
   },
   "seconds": 17.7,
-  "peak_rss_mb": 1370
+  "peak_rss_mb": 1370,
+  "redacted": "Redacted for the repository (scripts/catalog-tools/redact-results.ts): counts and ranks only; record names, ids, hits and examples removed."
 }

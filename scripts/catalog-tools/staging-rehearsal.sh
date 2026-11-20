@@ -181,4 +181,10 @@ done
 "${T[@]}" perf.ts --db "$PGURL" --user "$USER_ID" --household "$HOUSEHOLD" --set "$ROOT/eval/catalog/benchmark.json" \
   --mode public --subset 004a --concurrency 8 --rounds 3 --out "$OUT/perf-public-c8-after.json" >/dev/null
 j "$OUT/perf-public-c8-after.json" "'  public c8 after: ' + JSON.stringify(r.overall)"
+# results that land in the repository keep counts and ranks only: no record of the real dataset is committed
+case "$(cd "$OUT" && pwd)/" in
+  "$ROOT"/*)
+    "${T[@]}" redact-results.ts "$OUT/benchmark-results.json" "$OUT/recognition-results.json" "$OUT/quality-xwines.json" >/dev/null
+    echo "  results redacted for the repository (redact-results.ts)" ;;
+esac
 echo "• done: $OUT"
