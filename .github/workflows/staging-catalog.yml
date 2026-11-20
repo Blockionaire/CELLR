@@ -55,10 +55,10 @@ jobs:
           PW=$(node -e 'try{process.stdout.write(decodeURIComponent(new URL(process.env.STAGING_DB_URL).password))}catch{}')
           if [ -n "$PW" ]; then echo "::add-mask::$PW"; fi
           echo "::add-mask::$STAGING_DB_URL"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with: { persist-credentials: false }
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - name: Postgres client
@@ -80,7 +80,7 @@ jobs:
         run: rm -f "$RUNNER_TEMP/XWines_Full_100K_wines.csv"
       - name: Results (counts and ranks only)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: staging-${{ inputs.mode }}-${{ github.run_id }}
           path: |
