@@ -1,5 +1,6 @@
 import { WINE_TYPES, type WineType } from "../cellar";
 import type { FoodMain, FoodProfile, FoodTag } from "../food/types";
+import { STYLE_KEYS } from "./styles";
 import type { WineReading } from "./wine";
 
 /**
@@ -124,8 +125,15 @@ export const AFFINITY: Partial<Record<FoodTag, readonly string[]>> = {
   truffle: ["nebbiolo", "pinot noir", "burgundy", "piedmont"],
   "green-herb": ["sauvignon blanc", "gruner veltliner", "vermentino", "crisp white"],
   coconut: ["aromatic white", "off-dry white", "riesling", "gewurztraminer", "pinot gris"],
-  cured: ["light red", "dry rose", "dry sherry", "lambrusco"],
-  smoked: ["riesling", "aromatic white", "traditional method sparkling", "oaked white"],
+  cured: ["light red", "dry rose", "dry sherry", "lambrusco", "gamay", "beaujolais"],
+  smoked: [
+    "riesling",
+    "aromatic white",
+    "traditional method sparkling",
+    "oaked white",
+    "pinot gris",
+    "alsace",
+  ],
   cream: ["rich white", "oaked white", "chardonnay"],
   butter: ["rich white", "oaked white", "chardonnay"],
   chocolate: ["port", "sweet red", "sweet fortified"],
@@ -139,9 +147,29 @@ export const AFFINITY: Partial<Record<FoodTag, readonly string[]>> = {
 };
 
 const COLOURS: ReadonlySet<string> = new Set(WINE_TYPES);
+/**
+ * Colours that are a style in themselves: a dish known for rosé, bubbles or an orange wine names something as
+ * narrow as a grape. "Red" and "white" say far less, and stay a hint.
+ */
+const NARROW_COLOURS: ReadonlySet<string> = new Set(["rose", "sparkling", "orange"]);
+const STYLE_WORDS: ReadonlySet<string> = new Set(STYLE_KEYS);
+
+/** The reasons that can carry "good" on their own (see the end of `assessPairing`). */
+const VOUCHING: ReadonlySet<PairingPro> = new Set<PairingPro>([
+  "classic",
+  "affinity",
+  "tannin-meets-meat",
+  "fresh-with-seafood",
+  "sweetness-meets-sweetness",
+  "sweet-with-salt",
+  "sweetness-tames-heat",
+  "bubbles-refresh",
+]);
 
 export interface AssessedWine extends Pick<WineReading, "structure" | "keys" | "colourOnly"> {
   type: WineType;
+  /** The grapes each region among `keys` is known for (see `WineReading.native`); absent: not known. */
+  native?: Readonly<Record<string, readonly string[]>>;
 }
 
 /**
@@ -162,11 +190,24 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
 
   // A classic names a wine ("sancerre", "nebbiolo", "rhone"). A dish that only names a colour ("red") says much
   // less: that is worth a little, and never what a named classic is worth.
-  const classic = answers(food.classics.filter((c) => !COLOURS.has(c)));
+  // A place named next to one of its own grapes ("pinot noir, burgundy") means that place's wine of that grape:
+  // a white Burgundy does not answer to it.
+  const named = food.classics.filter((c) => {
+    if (COLOURS.has(c)) return NARROW_COLOURS.has(c);
+    const grapesOfPlace = wine.native?.[c];
+    if (!grapesOfPlace) return true;
+    const asked = grapesOfPlace.filter((g) => food.classics.includes(g));
+    return asked.length === 0 || asked.some((g) => wine.keys.includes(g));
+  });
+  const classic = answers(named);
+  // A partnership that names this wine's grape, place or appellation; one that only names its kind ("a crisp
+  // white", "a full red") is true of half a cellar and counts for less.
+  let specific = false;
   if (classic) pro("classic", 12);
   else {
-    const affinity = food.tags.some((t) => answers(AFFINITY[t] ?? []));
-    if (affinity) pro("affinity", 5);
+    const partners = food.tags.flatMap((t) => AFFINITY[t] ?? []);
+    specific = answers(partners.filter((k) => !STYLE_WORDS.has(k)));
+    if (specific || answers(partners)) pro("affinity", 5);
     else if (answers(food.classics)) pro("affinity", 3);
   }
 
@@ -204,6 +245,17 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
     }
     if (tag("fruit-dessert") && w.acidity >= 3.5 && w.sweetness >= 3)
       pro("acidity-meets-acidity", 5);
+    // A delicate dessert is flattened by a fortified wine much louder than itself, however sweet. (A sweet white
+    // is intense by nature and still light on its feet: this is about spirit and age.)
+    const louder = w.intensity - f.intensity;
+    if (
+      wine.type === "fortified" &&
+      louder > 1.5 &&
+      !tag("chocolate") &&
+      !tag("caramel") &&
+      !tag("nutty")
+    )
+      con("overpowers", (louder - 1.5) * 10);
     if (w.fizz && f.weight <= 2 && gap < 1) pro("bubbles-refresh", 4);
   } else {
     // --- sweetness in the glass, with a savoury dish ---
@@ -229,14 +281,22 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
     // A wine that is too heavy buries the dish; one that is too light tastes thin beside it. Bubbles carry a
     // wine a little further down the scale (towards lighter food), not up it.
     const richMeat = (main === "red-meat" || main === "game") && f.weight >= 4 && f.fat >= 1.5;
-    const firmForMeat = richMeat && w.tannin >= 3 && f.heat < 2;
+    // Chili makes firm tannin taste hard and bitter long before it is a clash: a very tannic wine gets no credit
+    // for the meat once there is noticeable heat on the plate.
+    const hardWithHeat = f.heat >= 1 && w.tannin >= 4;
+    const firmForMeat = richMeat && w.tannin >= 3 && f.heat < 2 && !hardWithHeat;
     let diff = w.body - f.weight;
     if (w.fizz && diff > 0) diff = Math.max(0, diff - 0.5);
     // A light wine cannot bury a dish: with the lightest food a lean white is simply the lightest there is.
     const light = w.body <= 2.5;
+    // A fresh wine with no oak and next to no tannin goes further up the scale than its body says: that is what
+    // makes a dry rosé, a Gamay or a Grüner Veltliner a wine for the whole table. Not beside rich red meat.
+    const versatile =
+      w.tannin < 2 && w.oak <= 1 && w.acidity >= 3.5 && w.sweetness < 1.5 && !richMeat;
+    const under = versatile ? 1.75 : 1;
     if (diff > (light ? 1.5 : 1)) con("too-heavy", (diff - (light ? 1.5 : 1)) * 14);
     // A firm red beside rich meat is carried by its tannin more than by its body.
-    else if (diff < -1) con("too-light", (-diff - 1) * (firmForMeat ? 5 : 9));
+    else if (diff < -under) con("too-light", (-diff - under) * (firmForMeat ? 5 : 9));
     else if (Math.abs(diff) <= 0.75 || (light && f.weight <= 2 && diff > 0))
       pro("weight-matches", 5);
 
@@ -269,11 +329,30 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
       con("tannin-with-fish");
     else if (f.heat >= 2 && w.tannin >= 3.5) con("tannin-with-heat");
     else if (w.tannin > capacity) con("tannin-too-firm", (w.tannin - capacity) * 13);
+    else if (hardWithHeat) con("tannin-too-firm", (w.tannin - 3) * f.heat * 6);
 
+    // Savoury richness carries tannin whatever it is built on: a ragù, a burger, a board of hard cheese.
+    const carriesTannin =
+      !richMeat &&
+      f.umami >= 2 &&
+      f.fat >= 2 &&
+      f.weight >= 3 &&
+      main !== "white-fish" &&
+      main !== "shellfish" &&
+      main !== "oily-fish" &&
+      main !== "egg";
     if (richMeat && f.heat < 2) {
-      if (w.tannin >= 3) pro("tannin-meets-meat", 8);
+      // With heat on the plate the credit is half: the meat still carries the wine, the chili works against it.
+      if (w.tannin >= 3 && !hardWithHeat) pro("tannin-meets-meat", f.heat >= 1 ? 4 : 8);
       else if (w.tannin < 1.5) con("underpowered", 10);
-    }
+    } else if (
+      carriesTannin &&
+      wine.type === "red" &&
+      f.heat < 1 &&
+      w.tannin >= 2.5 &&
+      w.tannin <= capacity
+    )
+      pro("tannin-meets-meat", 6);
 
     // --- acidity ---
     // Where the dish carries a firm red, its tannin does the cutting; everywhere else fat, salt and acid on the
@@ -295,7 +374,7 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
       if (short > 0.25) con("needs-more-acidity", short * 9);
       // Credit only where the dish really asks for it and the wine is really fresh.
       else if (
-        w.acidity >= 4 &&
+        w.acidity >= (f.fat >= 2 || tag("fried") ? 3.7 : 4) &&
         ((f.fat >= 2 && !tanninDoesIt) || f.acid >= 2 || tag("fried") || tag("tomato"))
       )
         pro(f.fat >= 2 || tag("fried") ? "acidity-cuts-richness" : "acidity-meets-acidity", 6);
@@ -325,6 +404,9 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
       pro("bubbles-refresh", 7);
 
     // --- chili heat and spice ---
+    // Heat and a sweet glaze make a bone-dry wine taste thin and sharp: it will do, it is not the wine for it.
+    if ((f.heat >= 1.5 || f.sweet >= 1.5 || tag("sweet-glaze")) && w.sweetness < 1 && w.tannin < 2)
+      con("not-sweet-enough", 6);
     if (f.heat >= 1.5) {
       if (w.alcohol >= 3 && f.heat >= 2) con("alcohol-fans-heat", (f.heat - 0.5) * 7);
       if (w.oak >= 2) con("oak-overwhelms", 5);
@@ -388,9 +470,20 @@ export function assessPairing(food: FoodProfile, wine: AssessedWine): Assessment
   // "It will do" has to rest on something: a wine with nothing against it but nothing for it either (or only
   // that it is about as heavy as the dish) is not a recommendation.
   const substantive = pros.some(([note]) => note !== "weight-matches");
+  // "Good" is a recommendation with confidence, and that has to rest on the dish pointing at this wine: a named
+  // classic, a long-standing partnership, or one of the few structural matches that are a rule in themselves.
+  // A wine that is only about as heavy, fresh enough or sparkling scores well and still only "will do".
+  const vouched = pros.some(
+    ([note, points]) =>
+      VOUCHING.has(note) &&
+      // An affinity that only names the wine's kind, and tannin beside savoury richness that is not rich meat,
+      // are reasons, not recommendations.
+      (note !== "affinity" || (specific && points >= 5)) &&
+      (note !== "tannin-meets-meat" || points >= 8),
+  );
   return {
     level:
-      score >= GOOD_FROM
+      score >= GOOD_FROM && vouched
         ? "good"
         : score >= ACCEPTABLE_FROM && substantive
           ? "acceptable"

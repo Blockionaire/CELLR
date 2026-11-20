@@ -206,10 +206,24 @@ export function createSommelierService(deps: SommelierDeps) {
         deps.intelligence.readsDish(question);
       // "8 guests, roast lamb: do I have enough bottles?" reads like a count and asks for a judgement.
       const enoughForGuests = deps.intelligence?.asksEnoughFor(question) === true;
-      const facts =
+      const counted =
         !tonight && isCellarQuestion(question) && !pairingInDisguise && !enoughForGuests
           ? cellarFacts(items, ...(await Promise.all([deps.storage(), deps.racks()])), question)
           : null;
+      // "Roquefort after dinner, which wine do I have?" names a dish and no wine, colour, year or place: it asks
+      // what to open, not for a list of the cellar. With the engines on that is theirs.
+      const facts =
+        counted &&
+        deps.intelligence &&
+        counted.kind === "selection" &&
+        // (the words of the dish are no wine of this cellar: nothing matched, and no colour or year was asked)
+        (counted.asked === null ||
+          (counted.matches.length === 0 &&
+            counted.asked.type === null &&
+            counted.asked.year === null)) &&
+        deps.intelligence.readsDish(question)
+          ? null
+          : counted;
       // The person's taste: only for advice (never for a question of fact, an empty cellar, or when they asked
       // for general advice), read at most once per question, and simply left out if it cannot be read.
       const explore = wantsSomethingDifferent(question);

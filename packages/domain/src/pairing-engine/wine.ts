@@ -90,6 +90,12 @@ export interface WineReading {
   colourOnly: boolean;
   /** What this wine answers to in a dish's list of classics: its colour, and the keys of every rule that matched. */
   keys: string[];
+  /**
+   * For each region among `keys`: the grapes that region is known for, in any colour. A dish that names a place
+   * next to one of its grapes ("pinot noir, burgundy") means that place's wine of that grape: red Burgundy, not
+   * Meursault (see `assessPairing`).
+   */
+  native: Record<string, string[]>;
   /** The rules that shaped the structure, weakest first. */
   rules: string[];
 }
@@ -387,13 +393,28 @@ export function readWine(input: WineInput, k: WineKnowledge): WineReading {
     if (exact && axes >= EXACT_MIN_AXES) tier = "exact";
   }
   for (const axis of AXES) structure[axis] = clamp(structure[axis], LIMITS[axis]);
+  const keys = keysOf(wine.type, applied, index);
 
   return {
     structure,
     tier,
     fromName,
     colourOnly: applied.length === 0 && !profiled,
-    keys: keysOf(wine.type, applied, index),
+    keys,
+    native: Object.fromEntries(
+      keys
+        .filter((k) => index.regionIds.has(k))
+        .map((k) => [
+          k,
+          [
+            ...new Set(
+              index.region
+                .filter((r) => r.id === k)
+                .flatMap((r) => r.keys.filter((x) => index.grapeIds.has(x))),
+            ),
+          ],
+        ]),
+    ),
     rules: applied.map((r) => r.id),
   };
 }

@@ -420,8 +420,15 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
     main,
     structure,
     tags,
-    // A dish names its own classics; a plate composed around an ingredient has that ingredient's.
-    classics: [...(dish ? (dish.classics ?? []) : (parts.main?.classics ?? []))],
+    // A dish names its own classics; a plate composed around an ingredient has that ingredient's. A plain base
+    // (pasta, rice, potato) has none of its own and is known for what is on it: truffle on pasta is truffle's.
+    classics: [
+      ...(dish
+        ? (dish.classics ?? [])
+        : parts.main?.classics?.length
+          ? parts.main.classics
+          : new Set((parts.extras ?? []).flatMap((x) => x.classics ?? []))),
+    ],
     parts: {
       ingredients: uniq([...(parts.main ? [parts.main] : []), ...(parts.extras ?? [])]).map(
         (i) => i.id,

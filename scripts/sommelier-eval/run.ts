@@ -5,6 +5,7 @@
  *   pnpm sommelier:eval --engine v3             Sommelier 3.0's engines
  *   pnpm sommelier:eval --failures              also list every failed check
  *   pnpm sommelier:eval --only pairing-hard     one category, or one scenario id
+ *   pnpm sommelier:eval --set holdout            another scenario set (sets.ts)
  *   pnpm sommelier:eval --json out.json         write the per-scenario results (no timings: they vary per run)
  *
  * Nothing here calls a model or a network: the engines are run with fixed cellars and a fixed day.
@@ -12,10 +13,9 @@
  */
 import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import { DISHES } from "./dishes";
 import { ENGINES } from "./engines";
 import { formatFailures, formatSummary } from "./report";
-import { SCENARIOS } from "./scenarios";
+import { cardsOf, scenariosOf } from "./sets";
 import { scoreScenario, summarize, type ScenarioResult } from "./score";
 import type { EvalAnswer } from "./types";
 
@@ -25,6 +25,8 @@ const { values: args } = parseArgs({
     only: { type: "string" },
     json: { type: "string" },
     failures: { type: "boolean", default: false },
+    /** The scenario set: "main" (the benchmark the engines were developed against) or another one of sets.ts. */
+    set: { type: "string", default: "main" },
   },
 });
 
@@ -33,10 +35,10 @@ if (!engine) {
   console.error(`unknown engine "${args.engine}"; known: ${ENGINES.map((e) => e.name).join(", ")}`);
   process.exit(2);
 }
-const scenarios = SCENARIOS.filter(
+const scenarios = scenariosOf(args.set!).filter(
   (s) => !args.only || s.category === args.only || s.id === args.only,
 );
-const cards = new Map(DISHES.map((d) => [d.id, d]));
+const cards = cardsOf(args.set!);
 const results: ScenarioResult[] = [];
 const answers: EvalAnswer[] = [];
 // Once unmeasured, so module loading and the first call's warm-up are not counted as latency.
