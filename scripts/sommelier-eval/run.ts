@@ -18,7 +18,10 @@
 import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { ENGINES } from "./engines";
+import { hybrid, type HybridRun } from "./engines/hybrid";
 import { v1Ai, type V1AiRun } from "./engines/v1-ai";
+import { buildFixture } from "./fixtures";
+import { formatQuality, qualityRow, qualityTotals, type QualityRow } from "./quality";
 import { BudgetReached } from "./paid";
 import { formatFailures, formatSummary } from "./report";
 import { cardsOf, holdsBlind, scenariosOf } from "./sets";
@@ -42,24 +45,35 @@ const { values: args } = parseArgs({
   },
 });
 
-let paid: V1AiRun | null = null;
-if (args.engine === "v1-ai") {
+let paid: V1AiRun | HybridRun | null = null;
+const PAID_ENGINES = new Set(["v1-ai", "v3-hybrid", "v3-hybrid-review"]);
+if (PAID_ENGINES.has(args.engine!)) {
   const maxUsd = Number(args["max-usd"]);
   if (!Number.isFinite(maxUsd) || maxUsd <= 0 || maxUsd > 25) {
     console.error("--max-usd must be a number of dollars between 0 and 25");
     process.exit(2);
   }
   try {
-    paid = v1Ai({ estimate: args.estimate!, maxUsd });
+    paid =
+      args.engine === "v1-ai"
+        ? v1Ai({ estimate: args.estimate!, maxUsd })
+        : hybrid({ estimate: args.estimate!, maxUsd });
   } catch (error) {
     console.error((error as Error).message);
     process.exit(2);
   }
 }
-const engine = paid?.engine ?? ENGINES.find((e) => e.name === args.engine);
+const engine =
+  paid === null
+    ? ENGINES.find((e) => e.name === args.engine)
+    : "engine" in paid
+      ? paid.engine
+      : args.engine === "v3-hybrid"
+        ? paid.engines.c
+        : paid.engines.d;
 if (!engine) {
   console.error(
-    `unknown engine "${args.engine}"; known: ${ENGINES.map((e) => e.name).join(", ")}, v1-ai`,
+    `unknown engine "${args.engine}"; known: ${ENGINES.map((e) => e.name).join(", ")}, ${[...PAID_ENGINES].join(", ")}`,
   );
   process.exit(2);
 }
@@ -79,6 +93,8 @@ const scenarios = scenariosOf(args.set!).filter(
 );
 const cards = cardsOf(args.set!);
 const results: ScenarioResult[] = [];
+const qualityRows: QualityRow[] = [];
+const cellarOfScenario = new Map<string, string[]>();
 const answers: EvalAnswer[] = [];
 // Once unmeasured, so module loading and the first call's warm-up are not counted as latency.
 // (Never for the paid engine: a warm-up there is a call that costs money and is thrown away.)
@@ -97,20 +113,27 @@ for (const scenario of scenarios) {
     break;
   }
   answers.push(run.answer);
-  results.push(
-    scoreScenario(
-      scenario,
-      scenario.dish ? (cards.get(scenario.dish) ?? null) : null,
-      run.answer,
-      run.ms,
-    ),
-  );
+  const card = scenario.dish ? (cards.get(scenario.dish) ?? null) : null;
+  const scored = scoreScenario(scenario, card, run.answer, run.ms);
+  results.push(scored);
+  const cellarKeys = buildFixture(scenario).wines.map((w) => w.key);
+  cellarOfScenario.set(scenario.id, cellarKeys);
+  const row = qualityRow(scenario, card, run.answer, scored, cellarKeys);
+  if (row) qualityRows.push(row);
 }
+const quality = qualityTotals(
+  qualityRows,
+  (id) => cellarOfScenario.get(id) ?? [],
+  (id) => {
+    const dish = scenarios.find((x) => x.id === id)?.dish;
+    return dish ? (cards.get(dish) ?? null) : null;
+  },
+);
 if (paid?.mode === "estimate") {
   // No model answered, so there is nothing to score: only what asking would cost.
   const m = paid.meter;
   console.log(
-    `ESTIMATE ONLY, nothing was sent. Set "${args.set}": ${scenarios.length} scenarios, of which V1 can attempt ${results.filter((r) => r.supported).length}; ${m.calls} model calls (${paid.model}).`,
+    `ESTIMATE ONLY, nothing was sent. Set "${args.set}": ${scenarios.length} scenarios, of which the engine can attempt ${results.filter((r) => r.supported).length}; ${m.calls} model calls (${paid.model}).`,
   );
   console.log(
     `At most about ${m.inputTokens} tokens in and ${m.outputTokens} out: $${(m.usdMicro / 1e6).toFixed(4)} per run of this set (a high estimate: the full output allowance and one repair per call).`,
@@ -119,6 +142,11 @@ if (paid?.mode === "estimate") {
 }
 const summary = summarize(engine.name, results, answers);
 console.log(formatSummary(summary, engine.describes));
+console.log(`\n${formatQuality(quality)}`);
+if (paid && !("engine" in paid))
+  console.log(
+    `Dish readings: by the model ${paid.readings.model}, from the shared store ${paid.readings.cache}, failed ${paid.readings.failed}.`,
+  );
 console.log(
   `\nLatency of the engine's own work per question (this machine, this run): p50 ${summary.latencyMs.p50.toFixed(2)} ms, p95 ${summary.latencyMs.p95.toFixed(2)} ms, max ${summary.latencyMs.max.toFixed(2)} ms.`,
 );
@@ -143,6 +171,8 @@ if (args.json) {
     supported: summary.supported,
     byCategory: summary.byCategory,
     measures: summary.measures,
+    quality,
+    ...(paid && !("engine" in paid) ? { dishReadings: paid.readings } : {}),
     ...(blind
       ? {}
       : {
@@ -152,6 +182,8 @@ if (args.json) {
             supported: r.supported,
             failed: r.checks.filter((c) => !c.pass).map((c) => c.name),
           })),
+          // By bottle, for the paired comparisons of S10 (only for sets that may be read scenario by scenario).
+          labels: Object.fromEntries(qualityRows.map((q) => [q.id, q.labels])),
         }),
   };
   await writeFile(args.json, JSON.stringify(stable, null, 2) + "\n");

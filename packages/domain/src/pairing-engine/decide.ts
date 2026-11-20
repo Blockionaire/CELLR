@@ -120,3 +120,20 @@ export function decidePairing<T>(
     outcome === "none" ? (all.find((p) => p.assessment.level === "neutral") ?? null) : null;
   return { outcome, picks, confidence: least(food.confidence, wines), closest, all };
 }
+
+/**
+ * FEWER, SURER BOTTLES (S10). Better one bottle that suits than three of which one disappoints. Measured on the
+ * readable benchmark sets (`selection-study.ts`): a pick after the first with something against it (a con) is
+ * labelled poor two to four times as often as one with nothing against it, while the first pick is rarely poor.
+ * So after the first, only picks with nothing against them are offered; and when the dish itself is only a guess,
+ * only the first. The outcome and the first pick never change: this only leaves out.
+ */
+export function conservativePicks<T>(
+  decision: PairingDecision<T>,
+  food: FoodProfile,
+): PairingDecision<T> {
+  const [first, ...rest] = decision.picks;
+  if (!first) return decision;
+  const kept = food.confidence === "low" ? [] : rest.filter((p) => p.assessment.cons.length === 0);
+  return kept.length === rest.length ? decision : { ...decision, picks: [first, ...kept] };
+}

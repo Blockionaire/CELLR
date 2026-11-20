@@ -163,15 +163,15 @@ describe("Sommelier 3.0 in the app", () => {
       expect(now).toBe(recorded.passed);
       expect(now).toBe(passed);
     });
-  pinned("main", "s9-v3-app.json", 170);
+  pinned("main", "s10-v3-app.json", 175);
   // The blind set of S9: its halves are pinned so that neither can drift, and never to be tuned to.
-  pinned("holdout-dev", "s9-holdout-dev.json", 19);
+  pinned("holdout-dev", "s10-holdout-dev.json", 19);
   // The blind half is compared in totals only: a failure here names no scenario, so fixing it cannot be tuning.
-  it('gives the recorded totals on "holdout-test" (blind): 19 scenarios', async () => {
+  it('gives the recorded totals on "holdout-test" (blind): 20 scenarios', async () => {
     const recorded = JSON.parse(
       readFileSync(
         new URL(
-          "../../docs/sprints/sommelier-3-mega/results/s9-holdout-test.json",
+          "../../docs/sprints/sommelier-3-mega/results/s10-holdout-test.json",
           import.meta.url,
         ),
         "utf8",
@@ -188,7 +188,7 @@ describe("Sommelier 3.0 in the app", () => {
       results.push(scoreScenario(s, s.dish ? (cardOf.get(s.dish) ?? null) : null, answer, ms));
     }
     const now = summarize("v3-app", results, answers);
-    expect(now.passed).toBe(19);
+    expect(now.passed).toBe(20);
     expect(now.passed).toBe(recorded.passed);
     expect(now.measures).toEqual(recorded.measures);
     expect(answers.reduce((n, a) => n + a.invented, 0)).toBe(0);

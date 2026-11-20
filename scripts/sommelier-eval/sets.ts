@@ -61,3 +61,12 @@ export function cardsOf(name: string): ReadonlyMap<string, DishCard> {
   if (!set) throw new Error(`unknown set "${name}"; known: ${Object.keys(SETS).join(", ")}`);
   return new Map(set.dishes.map((d) => [d.id, d]));
 }
+
+/** Every dish card of every set, by id (the main set's and the holdout's ids do not overlap). */
+let every: ReadonlyMap<string, DishCard> | null = null;
+export function anyCard(id: string): DishCard | null {
+  every ??= new Map(
+    Object.values(SETS).flatMap((set) => set.dishes.map((d) => [d.id, d] as const)),
+  );
+  return every.get(id) ?? null;
+}

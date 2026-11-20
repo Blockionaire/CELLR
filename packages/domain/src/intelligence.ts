@@ -20,6 +20,7 @@ export * from "./food/knowledge";
 export * from "./pairing-engine/wine";
 export * from "./pairing-engine/assess";
 export * from "./pairing-engine/decide";
+export * from "./pairing-engine/review";
 export * from "./pairing-engine/taste";
 export * from "./pairing-engine/knowledge";
 export * from "./buying/styles";

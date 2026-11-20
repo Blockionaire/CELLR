@@ -57,6 +57,7 @@ import { createSommelierService } from "@/server/sommelier/service";
 import { createSommelierIntelligence } from "@/server/sommelier/intelligence";
 import { createDishReader } from "@/server/sommelier/dish-reader";
 import { sharedDishCache } from "@/server/sommelier/dish-cache";
+import { createPairingReviewer } from "@/server/sommelier/pairing-reviewer";
 import { createSommelierChatService } from "@/server/sommelier/conversation";
 import { createSommelierConversationRepository } from "@/server/sommelier/repository";
 import { recordSommelierExchange } from "@/server/privileged/sommelier-conversations";
@@ -201,6 +202,19 @@ export function servicesFor(ctx: RequestContext) {
                   recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
                 cache: sharedDishCache(),
               }),
+              // An experiment: a model's second opinion on close calls, keeping, reordering or leaving out the
+              // engine's own picks. Only with its own switch (which needs the dish reading).
+              ...(features.sommelier_second_opinion
+                ? {
+                    secondOpinion: createPairingReviewer({
+                      llm: dishLlm,
+                      spend: () => limiter.enforce(LIMITS.pairingReview),
+                      householdId: async () => (await household()).id,
+                      recordUsage: ({ householdId, task, status, usage }) =>
+                        recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
+                    }),
+                  }
+                : {}),
             }
           : {}),
         now: () => new Date(),

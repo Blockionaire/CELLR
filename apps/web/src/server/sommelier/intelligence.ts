@@ -61,6 +61,11 @@ import {
   mergeDishReading,
   type DishReading,
   type DishRoute,
+  isCloseCall,
+  conservativePicks,
+  applyPairingReview,
+  type PairingReview,
+  type ReviewInput,
   readWine,
   recommendStyles,
   searchTextOf,
@@ -117,6 +122,13 @@ export interface IntelligenceDeps {
    * without the switch). Never called for a question that names a friend. Absent: never called.
    */
   readDish?: (phrase: string) => Promise<DishReading | null>;
+  /**
+   * A model's second opinion in a close call (S10, an experiment: switch `sommelier_second_opinion`): it may put
+   * the engine's own picks in another order, leave some out, or say none suits; never add one. Given the dish as
+   * the engine read it and each pick as a style, never a producer, a name or the household. Never called for a
+   * question that names a friend. Null: the engine's picks stand.
+   */
+  secondOpinion?: (input: ReviewInput, refs: string[]) => Promise<PairingReview | null>;
   /** Hears which reading of the dish the engines used (for the benchmark and metrics). Changes nothing. */
   observe?: (seen: { food: FoodProfile | null; route: DishRoute | null }) => void;
   now: () => Date;
@@ -662,7 +674,7 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
             };
           },
         );
-        const decision = decidePairing(food, candidates);
+        const decision = conservativePicks(decidePairing(food, candidates), food);
         return {
           plan: {
             ...emptyPlan({ ...state, offered: [] }),
@@ -756,9 +768,12 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
             : 0,
         });
         const decide = (from: readonly Read[]) =>
-          decidePairing(
+          conservativePicks(
+            decidePairing(
+              food,
+              from.filter((r) => blockedBy(r, state) === null).map((r) => candidate(r, true)),
+            ),
             food,
-            from.filter((r) => blockedBy(r, state) === null).map((r) => candidate(r, true)),
           );
         // The wines they asked about first; when none of those suits, the rest of the cellar after all.
         let scope = pool;
@@ -767,6 +782,44 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
           scope = read;
           decision = decide(scope);
           plan = { ...plan, considered: read.length, kind: buying ? "buying" : "pairing" };
+        }
+        // A close call may get a model's second opinion: the same picks, in another order or fewer, never more.
+        if (deps.secondOpinion && food && mentions.length === 0 && isCloseCall(decision, food)) {
+          const refs = decision.picks.map((_, i) => `c${i + 1}`);
+          const review = await deps
+            .secondOpinion(
+              {
+                dish: {
+                  main: food.main ?? "unknown",
+                  structure: food.structure,
+                  tags: [...food.tags],
+                  readBy: food.readBy ?? "parser",
+                },
+                candidates: decision.picks.map((p, i) => ({
+                  ref: refs[i]!,
+                  type: p.item.item.type,
+                  keys: p.item.reading.keys.slice(0, 8),
+                  structure: {
+                    body: p.item.reading.structure.body,
+                    tannin: p.item.reading.structure.tannin,
+                    acidity: p.item.reading.structure.acidity,
+                    sweetness: p.item.reading.structure.sweetness,
+                    oak: p.item.reading.structure.oak,
+                  },
+                  fizz: p.item.reading.structure.fizz === true,
+                  level: p.assessment.level === "good" ? "good" : "acceptable",
+                })),
+              },
+              refs,
+            )
+            .catch(() => null);
+          if (review) {
+            const kept = applyPairingReview(decision.picks, refs, review);
+            decision =
+              kept.length > 0
+                ? { ...decision, picks: kept }
+                : { ...decision, outcome: "none", picks: [], confidence: "low" };
+          }
         }
         const open = scope.filter((r) => blockedBy(r, state) === null);
         if ((taste || friendTastes.length > 0) && decision.picks.length > 1) {

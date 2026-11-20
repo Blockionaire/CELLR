@@ -93,7 +93,9 @@ export function estimating(
   return {
     async generateObject<T>(request: GenerateObjectRequest<T>): Promise<AiResult<T>> {
       const plan = planCall(env, request);
-      const promptChars = request.system.length + request.user.length;
+      // The schema is sent with every call and counts as input too (for the dish reading it is the larger part).
+      const promptChars =
+        request.system.length + request.user.length + JSON.stringify(request.jsonSchema).length;
       meter.calls += 1;
       meter.inputTokens += Math.ceil(promptChars / 3);
       meter.outputTokens += plan.maxOutputTokens;

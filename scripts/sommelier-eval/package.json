@@ -11,7 +11,8 @@
     "test": "vitest run",
     "matrix": "tsx --conditions=react-server matrix.ts",
     "analyze": "tsx --conditions=react-server analyze.ts",
-    "self-knowledge": "tsx --conditions=react-server self-knowledge.ts"
+    "self-knowledge": "tsx --conditions=react-server self-knowledge.ts",
+    "selection-study": "tsx --conditions=react-server selection-study.ts"
   },
   "dependencies": {
     "@cellr/domain": "workspace:*",
