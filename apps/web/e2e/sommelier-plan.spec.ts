@@ -1,5 +1,15 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { apiClient, arrive, audit, bearer, signIn, SOMMELIER_URL, sql, STACK } from "./helpers";
+import {
+  APP_URL,
+  apiClient,
+  arrive,
+  audit,
+  bearer,
+  signIn,
+  SOMMELIER_URL,
+  sql,
+  STACK,
+} from "./helpers";
 
 /**
  * Sommelier 3.0 in a browser, on the server where its switches are NAMED (playwright.config.ts). The engines decide
@@ -405,6 +415,27 @@ test.describe("what came of a bottle (sommelier_learning)", () => {
     expect(await audit(page)).toEqual([]);
     await fitsTheScreen(page);
 
+    // The same server build WITHOUT the switch (the default server, the same database): the route is not there
+    // for this very answer and bottle, nothing changes, and the kept plan is drawn without the buttons.
+    const [kept] = await sql<{ message_id: string; vintage_id: string }>(
+      `select o.message_id, o.vintage_id from public.sommelier_outcomes o
+         join auth.users u on u.id = o.user_id where u.email = $1`,
+      [email],
+    );
+    const off = await request.put(`${APP_URL}/api/v1/sommelier/outcomes`, {
+      headers: bearer(token),
+      data: { messageId: kept!.message_id, vintageId: kept!.vintage_id, opened: false },
+    });
+    expect(off.status()).toBe(404);
+    expect(await outcomes()).toEqual([
+      { with_dish: true, enjoyed: "mixed", plan_kind: "pairing", plan_outcome: "good" },
+    ]);
+    await page.goto(`${APP_URL}/sommelier`);
+    await expect(page.getByTestId("plan")).toHaveCount(1);
+    await expect(page.getByTestId("pick-outcome")).toHaveCount(0);
+    await page.goto("/sommelier");
+    await planNo(page, 1);
+
     // A thumb is its own record, and changes nothing about the bottle.
     await page.getByRole("button", { name: "Useful", exact: true }).click();
     await expect.poll(thumbs).toEqual([{ n: "1" }]);
@@ -472,17 +503,8 @@ test.describe("sommelier 3.0, not switched on", () => {
     // An answer came (the old sommelier's), and it is not a plan.
     await expect(page.getByTestId("answer-feedback")).toHaveCount(1);
     await expect(page.getByTestId("plan")).toHaveCount(0);
-    await expect(page.getByTestId("pick-outcome")).toHaveCount(0);
-    await call(
-      "put",
-      "/sommelier/outcomes",
-      {
-        messageId: "6f1c2b0a-1111-4111-8111-111111111111",
-        vintageId: "6f1c2b0a-2222-4222-8222-222222222222",
-        opened: true,
-      },
-      404,
-    );
+    // (That the outcome route and its buttons are not there without the switch is checked with a real answer
+    // and bottle in "what came of a bottle" above: made-up ids would be refused with the switch on as well.)
   });
 });
 

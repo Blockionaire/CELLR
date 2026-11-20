@@ -69,6 +69,10 @@ export function mapDbError(error: DbError): DomainError {
 export const isMissingTable = (error: { code?: string | undefined }) =>
   error.code === "PGRST205" || error.code === "42P01" || error.code === "PGRST200";
 
+/** PostgREST's "no such function" (its schema cache) or Postgres's own: a database step not taken yet. */
+export const isMissingFunction = (error: { code?: string | undefined }) =>
+  error.code === "PGRST202" || error.code === "42883";
+
 /** PostgREST's "no such column" (its schema cache) or Postgres's own: a database step not taken yet. */
 export const missingColumn = (error: { code?: string | undefined }) =>
   error.code === "PGRST204" || error.code === "42703";
