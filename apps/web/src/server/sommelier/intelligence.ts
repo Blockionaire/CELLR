@@ -2,6 +2,10 @@ import "server-only";
 import {
   aboutWine,
   advance,
+  asksFriendCellar,
+  asksNotAlreadyOwned,
+  NO_FRIEND_CELLAR,
+  type FriendCellar,
   askedFor,
   asksPairing,
   asksWhichOf,
@@ -95,6 +99,11 @@ export interface IntelligenceDeps {
   friends?: (
     handles: readonly string[],
   ) => Promise<Array<{ handle: string; status: MentionStatus; taste: TasteSignals | null }>>;
+  /**
+   * One named friend's cellar, as the database gives it to the asker in this request (accepted friendship, the
+   * cellar shown to the asker, and the friend's own consent for a sommelier to use it). Absent: never looked at.
+   */
+  friendCellar?: (handle: string) => Promise<FriendCellar>;
   now: () => Date;
 }
 
@@ -215,6 +224,7 @@ const emptyPlan = (state: ConversationState): SommelierPlan => ({
   serving: [],
   keeping: [],
   quantity: null,
+  friendCellar: null,
   coursesCut: false,
   dishIdeasTier: null,
   ask: null,
@@ -268,6 +278,44 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         f.status === "included" && f.taste ? [f.taste] : [],
       );
       const friends = table.map(({ handle, status }) => ({ handle, status }));
+      // A friend's cellar is looked at only when the question is about what that one friend owns ("what does he
+      // own that suits…", "a present she does not have yet"), and only for a name the database called a friend.
+      const asked = request.question.slice(0, 800);
+      const aboutTheirs = asksFriendCellar(asked);
+      const notOwned = asksNotAlreadyOwned(asked);
+      const cellarOf =
+        deps.friendCellar &&
+        mentions.length === 1 &&
+        table[0] !== undefined &&
+        table[0].status !== "unavailable" &&
+        (aboutTheirs || notOwned)
+          ? mentions[0]!
+          : null;
+      const theirs = cellarOf
+        ? await deps.friendCellar!(cellarOf).catch(() => NO_FRIEND_CELLAR)
+        : null;
+      // What their wines answer to, for "not already in their cellar": read from the wines, never stored.
+      const theirKeys = new Set(
+        (theirs?.wines ?? []).flatMap((w) => [
+          ...readWine(
+            {
+              type: w.type,
+              name: w.name,
+              region: w.region,
+              appellation: w.appellation,
+              countryCode: w.countryCode,
+              profile: null,
+            },
+            WINE_KNOWLEDGE,
+          ).rules,
+          ...(w.appellation ? [normalizeText(w.appellation)] : []),
+        ]),
+      );
+      /** What the plan says about their cellar when it was asked about and not used for picks. */
+      let friendCellar: SommelierPlan["friendCellar"] =
+        cellarOf && theirs && theirs.status !== "included"
+          ? { handle: cellarOf, status: "not-shared", outcome: null, picks: [], leftOut: [] }
+          : null;
       const said = parseFood(question, FOOD);
       const wines = mentionedWines(question, WINE_KNOWLEDGE);
       const named = wines.map((w) => w.id);
@@ -525,6 +573,68 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         }
         return null;
       };
+      // "What does @thomas own that suits us both with the lamb?": their wines are judged against the dish, for
+      // the tastes at the table, and shown as theirs. Nothing of the asker's own cellar is offered beside them.
+      if (cellarOf && theirs?.status === "included" && aboutTheirs && food) {
+        const { taste } = await gather();
+        const candidates = theirs.wines.map(
+          (w): PairingCandidate<(typeof theirs.wines)[number]> => {
+            const reading = readWine(
+              {
+                type: w.type,
+                name: w.name,
+                region: w.region,
+                appellation: w.appellation,
+                countryCode: w.countryCode,
+                profile: null,
+              },
+              WINE_KNOWLEDGE,
+            );
+            return {
+              item: w,
+              wine: { ...reading, type: w.type },
+              tier: reading.tier,
+              taste: groupTasteScore(
+                [...(taste ? [taste] : []), ...friendTastes].map((t) =>
+                  tasteScore({ ...reading, type: w.type }, t),
+                ),
+              ),
+            };
+          },
+        );
+        const decision = decidePairing(food, candidates);
+        return {
+          plan: {
+            ...emptyPlan({ ...state, offered: [] }),
+            kind: "pairing",
+            dish: food.said ?? state.dish,
+            dishConfidence: food.confidence,
+            outcome: decision.outcome,
+            confidence: decision.confidence,
+            friends,
+            friendCellar: {
+              handle: cellarOf,
+              status: "used",
+              outcome: decision.outcome,
+              picks: decision.picks.map((p) => ({
+                producer: p.item.producer,
+                name: p.item.name,
+                year: p.item.year,
+                type: p.item.type,
+                level: p.assessment.level === "good" ? ("good" as const) : ("acceptable" as const),
+                tier: p.tier,
+                pros: p.assessment.pros.slice(0, 4),
+                cons: p.assessment.cons.slice(0, 3),
+              })),
+              leftOut: [],
+            },
+          },
+          bottles: [],
+          otherBottles: [],
+          personal: false,
+        };
+      }
+
       if (deps.experiences) {
         const experience = await planExperience();
         if (experience) return experience;
@@ -644,21 +754,44 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
       const adviseBuying =
         deps.buying && !state.ownOnly && (buying || (food !== null && !ownedSuits));
       if (adviseBuying) {
-        const suggestions = recommendStyles(
+        // For a present, or when asked for what a friend does not have yet: styles found in the cellar they share
+        // are left out, and said to be. "Not found in what they share" is all that is known: never "they do not
+        // own it".
+        const leaveOutTheirs =
+          theirs?.status === "included" && (notOwned || state.intent === "gift");
+        const all = recommendStyles(
           {
             food,
             state,
             // For a present to a friend who allows it: what they like. Their taste shapes the advice and is
             // never written into the conversation's state, which travels to the screen and back.
+            // (A present is chosen for the receiver: the giver's own taste stays out of it.)
             likes: [
               ...friendTastes.flatMap((t) => [...t.likes, ...t.styles]),
-              ...(taste?.likes ?? []),
+              ...(state.intent === "gift" ? [] : (taste?.likes ?? [])),
             ],
             asked: named,
             ownedTypes: [...new Set(items.map((i) => i.type))],
+            ...(leaveOutTheirs ? { limit: 9 } : {}),
           },
           WINE_KNOWLEDGE,
         );
+        const inTheirs = (s: (typeof all)[number]) =>
+          theirKeys.has(s.style.id) ||
+          (s.style.wine.appellation != null &&
+            theirKeys.has(normalizeText(s.style.wine.appellation)));
+        const suggestions = leaveOutTheirs ? all.filter((s) => !inTheirs(s)).slice(0, 3) : all;
+        if (leaveOutTheirs && cellarOf)
+          friendCellar = {
+            handle: cellarOf,
+            status: "used",
+            outcome: null,
+            picks: [],
+            leftOut: all
+              .filter(inTheirs)
+              .slice(0, 6)
+              .map((s) => s.style.label[request.locale === "nl" ? "nl" : "en"]),
+          };
         const lang = request.locale === "nl" ? "nl" : "en";
         const styles: PlanStyle[] = suggestions.map((s) => ({
           styleId: s.style.id,
@@ -751,7 +884,7 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         : null;
       state = withAsked({ ...state, offered: plan.picks.map((p) => p.vintageId).slice(0, 6) }, ask);
       return {
-        plan: { ...plan, ask, state, friends },
+        plan: { ...plan, ask, state, friends, friendCellar },
         bottles,
         otherBottles,
         // "Based on your taste" is about the asker; with friends at the table the note on the bottle says it.

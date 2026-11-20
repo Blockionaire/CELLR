@@ -49,6 +49,7 @@ const plan: SommelierPlan = {
   keeping: [],
   quantity: null,
   coursesCut: false,
+  friendCellar: null,
   dishIdeasTier: null,
   ask: "budget",
   state: { ...EMPTY_STATE, dish: SECRET_DISH, budgetMaxEuros: 25 },

@@ -195,6 +195,7 @@
     "save_storage_layout",
     "send_friend_request",
     "shared_wine_profile",
+    "sommelier_friend_cellar",
     "sommelier_friend_context",
     "sommelier_purge_expired",
     "sommelier_record_exchange",
@@ -207,7 +208,7 @@
     "wine_bottle_art_for",
     "wine_source_notices"
   ],
-  "migrations": { "count": 49, "latest": "20261126000049_sommelier_learning.sql" },
+  "migrations": { "count": 50, "latest": "20261127000050_sommelier_friend_cellar.sql" },
   "buckets": [
     "bottle-art",
     "bottle-images",
