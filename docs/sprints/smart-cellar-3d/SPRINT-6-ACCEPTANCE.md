@@ -231,7 +231,19 @@ cover the same flows in more depth on the local stack and still pass (§9a).
 
 ### 9a. Regression run of the existing suites
 
-PLACEHOLDER_REGRESSION
+On the local stack with the main Playwright configuration (production build), the Smart Cellar suites
+`placement`, `advice`, `rack-builder`, `smart-cellar-3d`, `smart-cellar-3d-old-db`, `smart-cellar-api` and
+`cellar3d`, desktop and phone: **217 passed, 4 failed, 47 skipped** (skipped: tests of the other project).
+
+| Failure                                    | Outcome                                                                                                                      |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `cellar3d.spec.ts:171` (desktop and phone) | fails again when run alone; **fails the same way on `main`**, reported since sprint 2B.3 (the existing 3D view; not touched) |
+| `smart-cellar-3d.spec.ts:466` (phone)      | passed when run again; a known load-time flake (Sprint 5 report)                                                             |
+| `smart-cellar-3d.spec.ts:599` (desktop)    | passed when run again; it failed before the panel opened (the 3D stage not loaded within the test's 5 s)                     |
+
+Also: `pnpm format:check`, `pnpm lint` (the one warning that exists on `main`), `pnpm typecheck`, `pnpm test`
+(domain 1,007, web 1,347 + 13 skipped, scripts 244 — all passed), `pnpm architecture:inventory` (unchanged),
+`scripts/check-bundle-secrets.sh`, `pnpm migrations:check`, `scripts/db-test.sh` (1,648 passed).
 
 ## 10. Physical-device tests (required, NOT done)
 
