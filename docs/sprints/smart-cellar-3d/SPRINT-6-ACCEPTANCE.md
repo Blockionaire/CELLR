@@ -197,7 +197,7 @@ Made by `apps/web/e2e-demo/tour.spec.ts` (`DEMO_TOUR=1`), which only looks (it o
 
 `apps/web/e2e-demo/acceptance.spec.ts` against the running demo (production build, preview gates, isolated
 database), every test with its own new synthetic person and household, on **desktop (1440 × 900) and phone (iPhone 13
-emulation)**: **34 of 34 passed** (17 × 2). Persistence is checked through the API as that person, never assumed from
+emulation)**: **36 of 36 passed** (18 × 2). Persistence is checked through the API as that person, never assumed from
 the screen.
 
 | Workflow / scenario                       | What is verified                                                                                                                                                    | Desktop | Phone  |
@@ -210,6 +210,7 @@ the screen.
 | W6 Recover: request never arrives         | "The bottle didn't move", the bottle still on its spot                                                                                                              | passed  | passed |
 | W6 Recover: answer lost                   | a fresh read decides; "now at …" only because it really moved; no Undo (not attributable)                                                                           | passed  | passed |
 | W6 Recover: conflicting destination       | the advised spot taken meanwhile → refused, said ("just taken"), nothing placed elsewhere, advice asked again                                                       | passed  | passed |
+| The demo's fixed sign-in code             | accepted for a `@demo.cellr.test` address, refused for any other (also `…@demo.cellr.test.example.com`)                                                             | passed  | passed |
 | First-time user                           | no bottles, no places: no 3D view offered                                                                                                                           | passed  | passed |
 | Empty cellar (bottles, no place)          | "Build your cellar first"                                                                                                                                           | passed  | passed |
 | Returning user                            | signed out and in: the same cellar and view                                                                                                                         | passed  | passed |
@@ -261,7 +262,74 @@ Record: device model, OS and browser versions, pass/fail per row, screenshots of
 
 ## 11. Performance
 
-PLACEHOLDER_PERFORMANCE
+Re-run on this branch's production build, same machine as sprints 2B.3–5 (4 cores, **SwiftShader software
+rendering**, headless Chromium 153, local stack), with the gated benches already in the repository. **No frame rate
+on a real device is claimed**; these numbers compare builds on one machine. "1,200" is 899 bottles in the measured
+place plus 300 elsewhere (one place cannot hold more while depth is off). Raw results are not committed.
+
+**Smart Placement (advice)** — `PERF_ADVICE=1 … perf-advice --workers=1`, desktop / phone:
+
+|                                                   | 40           | 200          | 900          | 1,200        | Sprint 5 (40 → 1,200) |
+| ------------------------------------------------- | ------------ | ------------ | ------------ | ------------ | --------------------- |
+| API, median of 7                                  | 107 / 98 ms  | 106 / 111 ms | 117 / 114 ms | 170 / 151 ms | 66–109 ms             |
+| Response size                                     | 1.7 kB       | 1.7 kB       | 2.4 kB       | 3.1 kB       | the same              |
+| Place tapped → advice on screen, median of 3      | 663 / 480 ms | 755 / 616 ms | 912 / 835 ms | 999 / 834 ms | 450–908 ms            |
+| Show tapped → picture with the ring               | 24 / 22 ms   | 34 / 31 ms   | 55 / 57 ms   | 61 / 52 ms   | 17–55 ms              |
+| Advice requests while showing options (9 taps)    | 0            | 0            | 0            | 0            | 0                     |
+| Furniture built, before → after                   | 1 → 1        | 1 → 1        | 1 → 1        | 1 → 1        | the same              |
+| Pictures in 3 s at rest (advice open / after)     | 0 / 0        | 0 / 0        | 0 / 0        | 0 / 0        | the same              |
+| Geometries / textures / programs after each round | 28/7/32 ×3   | 26/4/29 ×3   | 26/4/9 ×3    | 26/4/9 ×3    | identical             |
+
+The advice API is **30–60 ms slower** than the Sprint 5 measurement at every size, with the same number of database
+requests and the same responses. Sprint 5's review corrections (two reads changed from inner to left joins) were
+merged after that measurement, which is the likely cause; it was **not profiled** in this sprint. It stays well under
+the time the panel takes to appear and grows mildly with size; worth a look before a beta.
+
+**Placement (moves)** — `PERF_PLACEMENT=1 … perf-placement --workers=1`, 10 confirmed moves per size, desktop / phone:
+
+|                                                 | 40           | 200          | 900              | 1,200 (899 + 300) |
+| ----------------------------------------------- | ------------ | ------------ | ---------------- | ----------------- |
+| Navigation → first picture with all bottles     | 5.2 / 6.3 s  | 5.8 / 5.2 s  | 5.7 / 6.1 s      | 6.5 / 6.4 s       |
+| Draw calls / triangles at rest                  | 16 / 32,310  | 12 / 79,592  | 12 / 355,480     | 12 / 355,480      |
+| Bottle out, median                              | 637 / 393 ms | 864 / 427 ms | 1,141 / 1,075 ms | 1,327 / 1,018 ms  |
+| Move → panel with the picker, median            | 2.0 / 1.2 s  | 3.1 / 1.2 s  | 3.9 / 3.6 s      | 4.7 / 3.9 s       |
+| Destination chosen → target ring                | 27 / 25 ms   | 28 / 26 ms   | 58 / 47 ms       | 67 / 64 ms        |
+| Confirm → bottle drawn on its new spot, median  | 1.9 / 5.4 s  | 3.2 / 5.5 s  | 4.2 / 3.9 s      | 5.0 / 4.2 s       |
+| API requests per confirmed move                 | 6            | 6            | 6                | 6                 |
+| Geometries / textures / programs after 5 rounds | 35/8/32 ×5   | 32/6/29 ×5   | 32/6/29 ×5       | 32/6/29 ×5        |
+| Furniture built (start → after 10 moves)        | 1 → 1        | 1 → 1        | 1 → 1            | 1 → 1             |
+| Pictures in 3 s at rest, after 10 moves         | 0            | 0            | 0                | 0                 |
+| Lost taps in 80 moves                           | 0            | 0            | 0                | 0                 |
+
+Against Sprint 4 (same bench): the picture is identical (calls, triangles, held resources), nothing is rebuilt,
+nothing is drawn at rest, and the times are within that report's range. **One API request more per move (6 against 5)**, constant at every size (not a growth); most likely a refresh added with Sprint 5's advice (the bench server has
+advice on), **not investigated** in this sprint. The multi-second times are pictures drawn in software (about a second per picture at 900 bottles), as Sprint
+4 explained; real GPUs are to be measured on devices (§10).
+
+**The 3D cellar (inspection)** — `PERF_PRODUCT3D=1 … perf-product3d`, desktop, product view against the gallery:
+
+|                                                     | 40             | 200            | 900             |
+| --------------------------------------------------- | -------------- | -------------- | --------------- |
+| Draw calls / triangles at rest                      | 16 / 33,122    | 12 / 79,980    | 12 / 355,868    |
+| Programs, all warmed before the first tap           | 31             | 28             | 28              |
+| Pictures in 3 s at rest                             | 0              | 0              | 0               |
+| First tap → bottle moves / later taps               | 40 / 20 ms     | 38 / 24 ms     | 58 / 38 ms      |
+| Held after 5 inspections (geo/tex/prog)             | 43/8/31        | 32/6/28        | 40/6/28         |
+| Placements API (time, size)                         | 134 ms, 2.2 kB | 111 ms, 6.8 kB | 104 ms, 26.6 kB |
+| Turning, median between pictures: product / gallery | 567 / 483 ms   | 800 / 583 ms   | 983 / 1,050 ms  |
+
+Identical to Sprint 2B.3 in every count (calls, triangles, programs, held resources, nothing at rest). The turning
+times are not comparable with 2B.3's like-for-like table: this run drew the product at its natural 974 × 542 against
+the gallery's 758 × 542 (software rendering scales with pixels).
+
+**Rack Builder** — `PERF_BUILDER=1 … perf-builder --project=desktop`: navigation → first picture 1,527 ms (Sprint 3:
+1,510); one shelf more → picture 375 ms median (280); another colour 314 ms (294); another template 460 ms median
+(485); 17/8/8 held after four rounds of six switches (identical); nothing at rest; one canvas; no layout shift; an
+existing place of 900 bottles: colour → picture 1,988 ms (1,897). Within the noise of one run on this machine,
+except the shelf change (+95 ms), which is drawing in software and not investigated further.
+
+**The demo environment itself** (12 places, 86 bottles; not a bench): every place drew within the acceptance tests'
+limits on desktop and phone, including with the CPU slowed 4× (§9).
 
 ## 12. Bugs fixed
 
