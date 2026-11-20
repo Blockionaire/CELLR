@@ -94,7 +94,13 @@ async function scan(request: APIRequestContext, token: string, photo: Buffer): P
  * people's search (scope "off", what X-Wines and LWIN are today; unverified sources cannot even be imported here). */
 async function seedSource(
   m: string,
-  options: { shown?: boolean; type?: string; producer?: string; name?: string } = {},
+  options: {
+    shown?: boolean;
+    type?: string;
+    producer?: string;
+    name?: string;
+    licenseUrl?: string;
+  } = {},
 ) {
   const shown = options.shown ?? true;
   const provider = `e2e_rec_${m}`.toLowerCase().slice(0, 30);
@@ -109,6 +115,7 @@ async function seedSource(
       provider,
       JSON.stringify({
         license: "CC0-1.0",
+        ...(options.licenseUrl ? { license_url: options.licenseUrl } : {}),
         attribution: "CELLR test fixture (not real data)",
         may_store: true,
         may_display: true,
@@ -200,9 +207,6 @@ test.describe("scan → an external record → a wine of your own, with where it
     const m = marker();
     const ext = await seedSource(m);
     const { householdId } = await arrive(page, "rec-ui");
-    const canonicalBefore = await sql(
-      "select count(*)::int as n from public.wines where status = 'canonical'",
-    );
 
     // the label is read; CELLR has no such wine, a source shown to people does
     const size = uniqueSize();
@@ -219,9 +223,18 @@ test.describe("scan → an external record → a wine of your own, with where it
     await expect(card).toHaveCount(1);
     await expect(card).toHaveAttribute("data-record", ext.recordId);
     await expect(card).toContainText(`${ext.producer} — ${ext.name}`);
+    // the credit the licence asks for, on the card: the source's own attribution, the licence, not verified, and
+    // that the source does not endorse CELLR (the source names no licence link: none is shown)
     await expect(page.getByTestId("record-suggestion-credit")).toHaveText(
-      `Source: ${ext.providerName} · licence CC0-1.0 · not verified by CELLR`,
+      "Source: CELLR test fixture (not real data) · licence CC0-1.0 · not verified by CELLR",
     );
+    await expect(page.getByTestId("record-suggestion-endorsement")).toHaveText(
+      `${ext.providerName} is not affiliated with and does not endorse CELLR.`,
+    );
+    await expect(page.getByTestId("record-suggestion-license")).toHaveCount(0);
+    await expect(
+      card.getByRole("button", { name: "Use these details" }),
+    ).toHaveAccessibleDescription(`${ext.producer} — ${ext.name}`);
     expect(await audit(page)).toEqual([]);
     await page.screenshot({
       path: `test-results/shots/004c-scan-record-${test.info().project.name}.png`,
@@ -275,9 +288,14 @@ test.describe("scan → an external record → a wine of your own, with where it
       },
     ]);
     // the catalogue is untouched and the record is not made a CELLR identity
+    // (scoped to this producer: other workers import catalogue wines at the same time)
     expect(
-      await sql("select count(*)::int as n from public.wines where status = 'canonical'"),
-    ).toEqual(canonicalBefore);
+      await sql(
+        `select count(*)::int as n from public.wines w join public.producers p on p.id = w.producer_id
+          where w.status = 'canonical' and p.name = $1`,
+        [ext.producer],
+      ),
+    ).toEqual([{ n: 0 }]);
     expect(
       await sql("select count(*)::int as n from public.catalog_record_links where record_id = $1", [
         ext.recordId,
@@ -365,6 +383,13 @@ test.describe("scan → an external record → a wine of your own, with where it
     expect(known.outcome).toBe("found");
     expect(known.matches.map((x) => x.wine.id)).toEqual([made.body.id]);
     expect(known.resolution?.records ?? []).toEqual([]);
+    // a Reserva label of that wine, or its white: offered as a choice, never "found" (review of Sprint 004C)
+    for (const over of [{ wine_name: `${shown.name} Reserva` }, { wine_type: "white" }]) {
+      const other = await read({ producer: shown.producer, wine_name: shown.name, ...over });
+      expect(other.outcome).toBe("choose");
+      expect(other.resolution?.status).toBe("ambiguous");
+      expect(other.matches.map((x) => x.wine.id)).toContain(made.body.id);
+    }
 
     // a record of a source switched off since it was shown: the wine is still created, no origin is kept
     await disable(shown.provider);
@@ -412,6 +437,7 @@ test.describe("scan → an external record → a wine of your own, with where it
     const second = await seedSource(`${m}b`, {
       producer: `Casa Segunda ${m}`,
       name: `Garnacha Lenta ${m}`,
+      licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/",
     });
     const { email, householdId } = await arrive(page, "rec-nl");
     await sql(
@@ -428,7 +454,10 @@ test.describe("scan → an external record → a wine of your own, with where it
     const suggestions = page.getByTestId("record-suggestions");
     await expect(suggestions.getByRole("heading", { name: "Mogelijk deze wijn" })).toBeVisible();
     await expect(page.getByTestId("record-suggestion-credit")).toHaveText(
-      `Bron: ${ext.providerName} · licentie CC0-1.0 · niet geverifieerd door CELLR`,
+      "Bron: CELLR test fixture (not real data) · licentie CC0-1.0 · niet geverifieerd door CELLR",
+    );
+    await expect(page.getByTestId("record-suggestion-endorsement")).toHaveText(
+      `${ext.providerName} is niet verbonden aan CELLR en onderschrijft CELLR niet.`,
     );
     expect(await audit(page)).toEqual([]);
     await page.screenshot({
@@ -469,6 +498,16 @@ test.describe("scan → an external record → a wine of your own, with where it
     // (the test marker the two wines share makes the one just added look alike: "is het een van deze?", where the
     // record is offered beneath the household's own wine)
     await expect(page.getByRole("heading", { name: "Is het een van deze?" })).toBeVisible();
+    const secondCard = page.locator(
+      `[data-testid="record-suggestion"][data-record="${second.recordId}"]`,
+    );
+    await expect(secondCard.getByTestId("record-suggestion-license")).toHaveAttribute(
+      "href",
+      "https://creativecommons.org/publicdomain/zero/1.0/",
+    );
+    await expect(secondCard.getByTestId("record-suggestion-license")).toHaveText(
+      "Licentie: CC0-1.0",
+    );
     await page
       .locator(`[data-testid="record-suggestion"][data-record="${second.recordId}"]`)
       .getByRole("button", { name: "Gebruik deze gegevens" })

@@ -848,6 +848,7 @@ function Review({
             ))}
           </ul>
           <RecordSuggestions
+            level={3}
             records={result.resolution?.records}
             onUse={(s) => {
               setFromRecord({ draft: draftOfRecord(s.hit), provider: s.hit.provider?.name ?? "" });

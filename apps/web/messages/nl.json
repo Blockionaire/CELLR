@@ -264,7 +264,7 @@
       "title": "Mogelijk deze wijn",
       "body": "Niet in je kelder of in de CELLR-catalogus, wel in een externe wijnbron. Kies hem om het formulier in te vullen; je controleert alles voordat je toevoegt.",
       "use": "Gebruik deze gegevens",
-      "credit": "Bron: {provider} · licentie {license} · niet geverifieerd door CELLR",
+      "credit": "Bron: {provider} · licentie {license}{modified, select, yes { · bewerkt door CELLR} other {}} · niet geverifieerd door CELLR",
       "reason": {
         "same_name": "Zelfde naam als op het etiket",
         "name_variant": "Bijna dezelfde naam",
@@ -273,7 +273,8 @@
         "producer_only": "Alleen de producent komt overeen",
         "vintage_listed": "Bron kent deze jaargang",
         "vintage_not_listed": "Bron noemt deze jaargang niet"
-      }
+      },
+      "licenseLink": "Licentie: {license}"
     }
   },
   "sommelier": {
