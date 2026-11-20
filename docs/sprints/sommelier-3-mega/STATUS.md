@@ -30,16 +30,16 @@ WORKTREES:      /home/user/CELLR (S7 branch), /home/user/CELLR-s3 (S9 branch). E
 
 ## Pull requests (a stack: review and merge top to bottom)
 
-| Phase   | Branch                               | Base                                 | Pull request                                         |
-| ------- | ------------------------------------ | ------------------------------------ | ---------------------------------------------------- |
-| S0      | `claude/sommelier-3-s0-foundation`   | `main`                               | [#90](https://github.com/Blockionaire/CELLR/pull/90) |
-| S1 + S2 | `claude/sommelier-3-s2-food-pairing` | `claude/sommelier-3-s0-foundation`   | [#91](https://github.com/Blockionaire/CELLR/pull/91) |
-| S3 + S4 | `claude/sommelier-3-s3-wine`         | `claude/sommelier-3-s2-food-pairing` | [#93](https://github.com/Blockionaire/CELLR/pull/93) |
-| S5      | `claude/sommelier-3-s5-social`       | `claude/sommelier-3-s3-wine`         | [#94](https://github.com/Blockionaire/CELLR/pull/94) |
-| S6      | `claude/sommelier-3-s6-experiences`  | `claude/sommelier-3-s5-social`       | [#95](https://github.com/Blockionaire/CELLR/pull/95) |
-| S7      | `claude/sommelier-3-s7-learning`     | `claude/sommelier-3-s6-experiences`  | [#97](https://github.com/Blockionaire/CELLR/pull/97) |
-| S8      | `claude/sommelier-3-s8-release`      | `claude/sommelier-3-s7-learning`     | [#98](https://github.com/Blockionaire/CELLR/pull/98) |
-| S9      | `claude/sommelier-3-s9-quality`      | `claude/sommelier-3-s8-release`      | S9_PR_LINK                                           |
+| Phase   | Branch                               | Base                                 | Pull request                                           |
+| ------- | ------------------------------------ | ------------------------------------ | ------------------------------------------------------ |
+| S0      | `claude/sommelier-3-s0-foundation`   | `main`                               | [#90](https://github.com/Blockionaire/CELLR/pull/90)   |
+| S1 + S2 | `claude/sommelier-3-s2-food-pairing` | `claude/sommelier-3-s0-foundation`   | [#91](https://github.com/Blockionaire/CELLR/pull/91)   |
+| S3 + S4 | `claude/sommelier-3-s3-wine`         | `claude/sommelier-3-s2-food-pairing` | [#93](https://github.com/Blockionaire/CELLR/pull/93)   |
+| S5      | `claude/sommelier-3-s5-social`       | `claude/sommelier-3-s3-wine`         | [#94](https://github.com/Blockionaire/CELLR/pull/94)   |
+| S6      | `claude/sommelier-3-s6-experiences`  | `claude/sommelier-3-s5-social`       | [#95](https://github.com/Blockionaire/CELLR/pull/95)   |
+| S7      | `claude/sommelier-3-s7-learning`     | `claude/sommelier-3-s6-experiences`  | [#97](https://github.com/Blockionaire/CELLR/pull/97)   |
+| S8      | `claude/sommelier-3-s8-release`      | `claude/sommelier-3-s7-learning`     | [#98](https://github.com/Blockionaire/CELLR/pull/98)   |
+| S9      | `claude/sommelier-3-s9-quality`      | `claude/sommelier-3-s8-release`      | [#100](https://github.com/Blockionaire/CELLR/pull/100) |
 
 `claude/sommelier-3-s1-food` holds early work-in-progress checkpoints only. It is not a pull request branch and
 can be deleted once the stack is merged.
