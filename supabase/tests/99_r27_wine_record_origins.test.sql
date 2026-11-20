@@ -163,12 +163,42 @@ begin
   perform test.su();
   insert into public.wine_record_origins (wine_id, household_id, record_id, provider_id, external_id, license, record_producer, record_name, matches_record)
     values (pw3, h1, test.r27_record('R1'), 'r27src', 'R1', 'CC BY 4.0', 'Domaine Herkomst', 'Cuvée Een', false);
+  -- a bottle on the extra, to see it move
+  insert into public.wine_vintages (wine_id, year) values (pw3, 2020) returning id into v;
+  insert into public.bottles (household_id, vintage_id) values (h1, v);
   perform test.as_user(1);
   perform public.merge_wines(pw3, pw);
   perform test.rec('r27 merge: the extra''s origin moved to the target, kept as history when the target already has it',
     (select count(*) from public.wine_record_origins where wine_id = pw) = 2
     and (select count(*) from public.wine_record_origins where wine_id = pw and unlinked_at is null) = 1);
-  perform test.rec('r27 merge: the merge still moves bottles as before', (select count(*) from public.wines where id = pw3) = 0);
+  perform test.su();
+  perform test.rec('r27 merge: the extra is gone and its bottle moved to the target, as before',
+    (select count(*) from public.wines where id = pw3) = 0
+    and (select count(*) from public.bottles b join public.wine_vintages wv on wv.id = b.vintage_id
+          where b.household_id = h1 and wv.wine_id = pw) = 2);
+
+  -- ---- two households merge their own wine from the same record into the same catalogue wine (review of 004C) ------
+  -- one household's origin must decide nothing about the other's: each keeps its own, active
+  perform test.as_user(2);
+  insert into public.producers (name, country_code, status, owner_household_id, origin)
+    values ('Domaine Herkomst', 'FR', 'provisional', h2, 'user_entered') returning id into pp2;
+  insert into public.wines (producer_id, name, wine_type, country_code, status, owner_household_id, origin)
+    values (pp2, 'Cuvée Een', 'red', 'FR', 'provisional', h2, 'user_entered') returning id into ow;
+  perform test.su();
+  insert into public.wine_record_origins (wine_id, household_id, record_id, provider_id, external_id, license, record_producer, record_name, matches_record)
+    values (ow, h2, test.r27_record('R1'), 'r27src', 'R1', 'CC BY 4.0', 'Domaine Herkomst', 'Cuvée Een', true);
+  perform test.as_user(1);
+  perform public.merge_wines(pw, cw);
+  perform test.as_user(2);
+  perform public.merge_wines(ow, cw);
+  perform test.su();
+  perform test.rec('r27 merge into a catalogue wine: each household keeps its own active origin',
+    (select count(*) from public.wine_record_origins where wine_id = cw and unlinked_at is null and household_id = h1) = 1
+    and (select count(*) from public.wine_record_origins where wine_id = cw and unlinked_at is null and household_id = h2) = 1
+    and (select count(*) from public.wine_record_origins where household_id = h2 and unlinked_at is not null) = 0);
+  perform test.as_user(2);
+  perform test.rec('r27 merge into a catalogue wine: a household sees only its own origins',
+    (select count(*) from public.wine_record_origins where wine_id = cw) = 1);
 
   -- ---- deleting the household removes its origins (privacy) --------------------------------------------------------
   perform test.su();

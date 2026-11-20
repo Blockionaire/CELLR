@@ -383,7 +383,7 @@ export function createCellarRepository(db: Db): CellarRepository {
         return data ? toWine(data) : null;
       };
       const existing = await find();
-      if (existing) return existing;
+      if (existing) return { ...existing, created: false };
       const { data, error } = await db
         .from("wines")
         .insert({
@@ -402,11 +402,11 @@ export function createCellarRepository(db: Db): CellarRepository {
       if (error) {
         if (isUniqueViolation(error)) {
           const raced = await find();
-          if (raced) return raced;
+          if (raced) return { ...raced, created: false };
         }
         throw mapDbError(error);
       }
-      return toWine(data);
+      return { ...toWine(data), created: true };
     },
 
     async recordWineOrigin(householdId, wineId, recordId) {

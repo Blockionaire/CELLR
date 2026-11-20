@@ -44,6 +44,8 @@ const NoticeSchema = z.object({
   datasetVersion: z.string().max(120).nullable(),
   // only a source shown to people is ever credited to people
   scope: z.literal("public"),
+  // R-27: whether the household kept the record's details as they were (wine origins only)
+  matchesRecord: z.boolean().optional(),
 });
 
 export function createWineSourcesRepository(db: Db): WineSourcesRepository {

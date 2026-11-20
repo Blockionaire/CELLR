@@ -2141,7 +2141,9 @@
     },
     "yoursPrivate": "Door jullie vastgelegd. Het staat niet in de gedeelde CELLR-catalogus; vrienden zien alleen wat je in Profiel met hen deelt.",
     "catalogTitle": "Bron van de wijngegevens",
-    "derivedFrom": "De gegevens zijn bij het toevoegen overgenomen uit deze bron; jullie hebben ze bevestigd."
+    "derivedFrom": "De gegevens zijn bij het toevoegen overgenomen uit deze bron; jullie hebben ze bevestigd.",
+    "derivedFromChanged": "De gegevens zijn bij het toevoegen uit deze bron ingevuld; jullie hebben een deel aangepast en de rest bevestigd.",
+    "derivedLead": "Ingevuld uit {provider}"
   },
   "builder": {
     "titleNew": "Ontwerp een nieuwe plek",

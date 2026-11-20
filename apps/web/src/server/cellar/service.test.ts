@@ -78,6 +78,7 @@ function fakeRepo(
     }>,
     origins: [] as Array<{ householdId: string; wineId: string; recordId: string }>,
     failOrigin: false,
+    madeWineIds: new Set<string>(),
   };
   const household =
     options.household === undefined ? { id: "h1", currency: "EUR" } : options.household;
@@ -135,8 +136,11 @@ function fakeRepo(
       return "created";
     },
     async findOrCreateWine(_h, producerId, input) {
+      const id = `w:${producerId}:${input.name}:${input.type}`;
+      const created = !state.madeWineIds.has(id);
+      state.madeWineIds.add(id);
       state.wines.push({ producerId, name: input.name, appellation: input.appellation });
-      return { ...WINE, id: `w:${producerId}:${input.name}:${input.type}`, name: input.name };
+      return { ...WINE, id, name: input.name, created };
     },
     async findOrCreateVintage(wineId, year) {
       const key = `${wineId}:${year}`;
@@ -1303,6 +1307,11 @@ describe("the shared catalogue", () => {
     expect(state.origins).toEqual([{ householdId: "h1", wineId: made.id, recordId: record }]);
     // a catalogue wine found instead gets no origin: its sources are admin-verified links
     expect((await service.createWine({ ...typed, sourceRecordId: record })).id).toBe("cw");
+    expect(state.origins).toHaveLength(1);
+    // nor does a wine of the household's own that was already there: it was not filled in from the record
+    expect(
+      (await service.createWine({ ...typed, name: "Something New", sourceRecordId: record })).id,
+    ).toBe(made.id);
     expect(state.origins).toHaveLength(1);
     // without a record nothing is recorded
     await service.createWine({ ...typed, name: "Third" });

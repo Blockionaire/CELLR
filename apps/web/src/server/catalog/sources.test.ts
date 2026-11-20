@@ -74,6 +74,18 @@ describe("what a wine page may credit", () => {
     expect((await failing.sources.get("w1")).derivedFrom).toEqual([]);
   });
 
+  it("R-27: whether the household changed the record's details travels with the credit (review of 004C)", async () => {
+    const { sources } = service({
+      wineKind: vi.fn(async () => "household" as const),
+      originNotices: vi.fn(async () => [
+        notice({ matchesRecord: false }),
+        notice({ externalId: "F-2" }),
+      ]),
+    });
+    const derived = (await sources.get("w1")).derivedFrom ?? [];
+    expect(derived.map((n) => n.matchesRecord)).toEqual([false, undefined]);
+  });
+
   it("a wine the person cannot see does not exist", async () => {
     const { sources } = service({ wineKind: vi.fn(async () => null) });
     await expect(sources.get("w1")).rejects.toMatchObject({ code: "NOT_FOUND" });

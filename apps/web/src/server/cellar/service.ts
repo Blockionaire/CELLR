@@ -479,8 +479,15 @@ export function createCellarService(
       // R-27: a wine started from an external record keeps where its data came from (the household's own wine
       // only; the database refuses a catalogue wine and a source that may not be shown). Best effort: the wine is the
       // person's either way, and a failing or missing step never stops them adding it.
-      const remember = async (householdId: string, wine: WineSummary, recordId?: string) => {
-        if (recordId && !wine.catalog)
+      // Only a wine this very call created was filled in from the record: one that was already there keeps its own
+      // story (review of 004C). `created` never leaves the service.
+      const remember = async (
+        householdId: string,
+        made: WineSummary & { created?: boolean },
+        recordId?: string,
+      ): Promise<WineSummary> => {
+        const { created, ...wine } = made;
+        if (recordId && created && !wine.catalog)
           await repo.recordWineOrigin(householdId, wine.id, recordId).catch(() => null);
         return wine;
       };
@@ -491,7 +498,9 @@ export function createCellarService(
         same.filter((w) => !w.catalog),
         same.filter((w) => w.catalog),
       );
-      if (existing) return remember(id, existing, input.sourceRecordId);
+      // a wine the household (or the catalogue) already had was not filled in from the record: no origin, so its
+      // page never claims its details were taken from that source (review of 004C)
+      if (existing) return existing;
       // The household already has this name from another country: the new wine must not land under that wine's
       // producer (it would be found again), so only a producer of the given country is reused, else a new one.
       const elsewhere = same.some(

@@ -2141,7 +2141,9 @@
     },
     "yoursPrivate": "Recorded by your household. It is not part of the shared CELLR catalogue; friends see only what you share with them in Profile.",
     "catalogTitle": "Source of the wine details",
-    "derivedFrom": "The details were taken from this source when the wine was added; your household confirmed them."
+    "derivedFrom": "The details were taken from this source when the wine was added; your household confirmed them.",
+    "derivedFromChanged": "The details were filled in from this source when the wine was added; your household changed some of them and confirmed the rest.",
+    "derivedLead": "Filled in from {provider}"
   },
   "builder": {
     "titleNew": "Design a new place",

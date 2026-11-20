@@ -45,7 +45,10 @@ create table public.wine_record_origins (
   -- who unlinked is cleared when that account is deleted; the date stays
   constraint wine_record_origins_unlink check (unlinked_by is null or unlinked_at is not null)
 );
-create unique index wine_record_origins_active_uq on public.wine_record_origins (wine_id, provider_id, external_id)
+-- one active origin per household, wine and record: per household, because a canonical wine (a merge target) is
+-- shared, and one household's origins must never decide anything about another's (review of 004C)
+create unique index wine_record_origins_active_uq
+  on public.wine_record_origins (household_id, wine_id, provider_id, external_id)
   where unlinked_at is null;
 create index wine_record_origins_wine_idx on public.wine_record_origins (wine_id);
 create index wine_record_origins_household_idx on public.wine_record_origins (household_id);
@@ -89,7 +92,7 @@ begin
           r.license, r.attribution, r.producer, r.name, r.wine_type,
           r.normalized_producer = w.producer and r.normalized_name = w.normalized_name
             and (r.wine_type is null or r.wine_type = w.wine_type))
-  on conflict (wine_id, provider_id, external_id) where unlinked_at is null do nothing;
+  on conflict (household_id, wine_id, provider_id, external_id) where unlinked_at is null do nothing;
   return case when found then 'created' else 'exists' end;
 end $$;
 revoke all on function public.record_wine_origin(uuid, uuid, uuid) from public, anon;
@@ -120,7 +123,8 @@ create function public.wine_origin_notices(p_household_id uuid, p_wine_id uuid) 
       select pr.name as provider_name, o.external_id,
              jsonb_build_object(
                'originId', o.id, 'providerId', pr.id, 'providerName', pr.name, 'homepage', pr.homepage,
-               'license', o.license, 'licenseUrl', pr.license_url,
+               -- the licence as the source states it now, name and link alike (the snapshot keeps the one at the time)
+               'license', coalesce(pr.license, o.license), 'licenseUrl', pr.license_url,
                'attribution', coalesce(pr.attribution, o.attribution), 'legalNotice', pr.legal_notice,
                'modified', true, 'modificationNotice', pr.modification_notice, 'modifications', '[]'::jsonb,
                'externalId', o.external_id, 'sourceUrl', null,
@@ -210,7 +214,8 @@ begin
      set unlinked_at = now(), unlinked_by = uid
    where o.wine_id = p_source and o.unlinked_at is null
      and exists (select 1 from public.wine_record_origins t
-                  where t.wine_id = p_target and t.provider_id = o.provider_id and t.external_id = o.external_id
+                  where t.wine_id = p_target and t.household_id = o.household_id
+                    and t.provider_id = o.provider_id and t.external_id = o.external_id
                     and t.unlinked_at is null);
   update public.wine_record_origins set wine_id = p_target where wine_id = p_source;
 
