@@ -14,6 +14,7 @@ import {
   scanOutcomeOf,
   type ImageSide,
   type LabelFacts,
+  type RecordSuggestion,
   type ResolveOutcome,
   type ScanResult,
   type TextRecognition,
@@ -63,7 +64,10 @@ export interface ScanDeps {
    * server looks up, by the same identity rules. Missing, failing or answering null (its database steps are not
    * taken) = matched against `wines()` as before.
    */
-  resolve?: (householdId: string, facts: LabelFacts) => Promise<ResolveOutcome | null>;
+  resolve?: (
+    householdId: string,
+    facts: LabelFacts,
+  ) => Promise<(ResolveOutcome & { records?: readonly RecordSuggestion[] }) | null>;
   /** One wine the household can see, by id (for a remembered photo, instead of loading every wine). */
   wineById?: (wineId: string) => Promise<WineSummary | null>;
   householdId: () => Promise<string>;
@@ -180,6 +184,10 @@ export function createScanService(deps: ScanDeps) {
       resolution: {
         status: resolved.status,
         reasons: Object.fromEntries(resolved.candidates.map((c) => [c.wine.id, c.reasons])),
+        // a record is offered only where no CELLR wine is the identity (an exact candidate leaves nothing to suggest)
+        ...(resolved.records && resolved.status !== "exact_candidate" && resolved.records.length > 0
+          ? { records: resolved.records }
+          : {}),
       },
     };
   };

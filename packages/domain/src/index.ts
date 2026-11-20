@@ -52,4 +52,5 @@ export * from "./storage-placement";
 export * from "./storage-advice";
 export * from "./export-v2";
 export * from "./system-architecture";
+export * from "./record-suggestions";
 export * from "./system-health";

@@ -109,7 +109,10 @@ describe("the LWIN adapter (assumed layout, CELLR's own fictitious fixture)", ()
     expect(i.layoutVerified).toBe(false);
     expect(i.warnings.join(" ")).toMatch(/assumption/);
     // changing the fixture means changing the pinned hash in the same commit, on purpose
-    expect(ADAPTERS.lwin_fixture.fixtureSha256).toBe(sha("fixture-lwin-layout.csv"));
+    expect(ADAPTERS.lwin_fixture.fixtureSha256s).toEqual([
+      sha("fixture-lwin-layout.csv"),
+      sha("fixture-lwin-levels.csv"),
+    ]);
     expect(importBlocker("lwin_fixture", i, sha("fixture-lwin-layout.csv"))).toBeNull();
     // the very same rows offered as real LWIN data are refused: the layout was never verified against a real file
     const asReal = inspectProviderFile(fixture("fixture-lwin-layout.csv"), "lwin");
@@ -125,6 +128,20 @@ describe("the LWIN adapter (assumed layout, CELLR's own fictitious fixture)", ()
         createHash("sha256").update(other).digest("hex"),
       ),
     ).toMatch(/never verified/);
+  });
+
+  it("the multi-level fixture folds to three wines: vintages, bottle sizes, the placeholder; deleted and spirits skipped", () => {
+    const l = inspectProviderFile(fixture("fixture-lwin-levels.csv"), "lwin_fixture");
+    expect(l.fatal).toEqual([]);
+    expect(importBlocker("lwin_fixture", l, sha("fixture-lwin-levels.csv"))).toBeNull();
+    expect(l.records.map((r) => [r.external_id, r.vintages, r.details.bottle_ml ?? null])).toEqual([
+      ["9100001", [2015, 2016], [750, 1500]],
+      ["9100002", [2019, 2020], null],
+      ["9100003", [], null],
+    ]);
+    expect(l.records[2]!.details.vintage_placeholder).toBe(true);
+    expect(l.foldedRows).toBe(6);
+    expect(l.skipped).toEqual({ STATUS: 1, "TYPE (not wine)": 1 });
   });
 
   it("the real provider stays blocked in the static assessment", () => {
