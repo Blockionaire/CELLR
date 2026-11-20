@@ -55,3 +55,22 @@ The inventory is current; the register validates without errors or warnings; eve
 evidence text is found; every table, bucket, pg_cron job and route has exactly one owner; every server module belongs
 to a component; every switch named is real; no secrets, e-mail addresses or user ids; only the admin service imports
 the register, and it is `server-only`.
+
+## The health catalogue (sprint 2)
+
+`apps/web/src/server/health/catalogue.ts` declares what the live monitor measures, per register component.
+`src/server/system/health-catalogue.test.ts` keeps it true, and fails when:
+
+- a probe names a component the register does not have;
+- a probe does not say what it does not prove;
+- the catalogue's buckets or pg_cron jobs differ from what the migrations create;
+- the server records an AI task (`task: "…"`) that no probe watches.
+
+So:
+
+- **A new bucket or pg_cron job:** add it to `EXPECTED_BUCKETS` / `EXPECTED_CRON_JOBS` too.
+- **A new AI task:** add it to `AI_TASKS`, with the components whose feature it serves.
+- **Renaming or removing a component a probe speaks for:** move the probe with it.
+
+Measurements themselves never go in the repository. They live in the database (migration 0047) and are shown only
+to admins.

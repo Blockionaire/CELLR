@@ -55,6 +55,8 @@ const APP_ENV: Record<string, string> = {
   VAPID_PRIVATE_KEY: vapid.privateKey,
   VAPID_SUBJECT: "mailto:tests@cellr.invalid",
   CRON_SECRET,
+  // System › Health's readiness endpoint (e2e/system-health.spec.ts knows it too)
+  CELLR_HEALTH_READY_TOKEN: "local-stack-ready-token-000000000000",
   NODE_EXTRA_CA_CERTS: PUSH_CERT,
 };
 
