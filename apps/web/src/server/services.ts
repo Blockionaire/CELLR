@@ -59,7 +59,7 @@ import { createPurchaseCheckService } from "@/server/purchase-check/service";
 import { createStatsService } from "@/server/stats/service";
 import { createInsightsRepository } from "@/server/insights/repository";
 import { createInsightsService } from "@/server/insights/service";
-import { getFeatures, getPushEnv, getSmartCellarAccess } from "@/server/env";
+import { getFeatures, getPlacementAccess, getPushEnv, getSmartCellarAccess } from "@/server/env";
 import { createPushRepository } from "@/server/push/repository";
 import { createPushService } from "@/server/push/service";
 import { createSmartCellarRepository } from "@/server/smart-cellar/repository";
@@ -108,6 +108,7 @@ export function servicesFor(ctx: RequestContext) {
     repo: smartCellarRepo,
     household,
     access: smartCellarAccess,
+    placement: getPlacementAccess(),
   });
   const households = createHouseholdService(createHouseholdRepository(ctx.db), {
     userId: ctx.userId,

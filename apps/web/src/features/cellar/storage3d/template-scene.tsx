@@ -21,7 +21,7 @@ import {
   type RenderModel,
   type StoredBottle,
 } from "./model";
-import { AIR, BOTTLE_L, BOTTLE_R } from "./parts";
+import { AIR, BOTTLE_L, BOTTLE_R, type Pose } from "./parts";
 import { Inspection, hidesInstance, type InspectionProps } from "./showcase-hero";
 import { isOut } from "./showcase-machine";
 import {
@@ -68,6 +68,11 @@ export interface TemplateSceneProps {
    * view shows the bottle of `inspection.state` out of its place; what may happen and when is decided outside.
    */
   inspection?: InspectionProps | undefined;
+  /**
+   * A spot a bottle is about to be put on (sprint 4): marked with a ring, nothing more. Its own bottle is not drawn
+   * there until the server has said it moved; this is only where it would go.
+   */
+  target?: { row: number; col: number; index: number } | null | undefined;
 }
 
 function lowPower(): boolean {
@@ -88,6 +93,7 @@ export default function TemplateScene({
   debug = false,
   placement: given,
   inspection,
+  target = null,
 }: TemplateSceneProps) {
   if (model.renderer === "legacy")
     throw new Error(
@@ -109,6 +115,18 @@ export default function TemplateScene({
       : null;
   const hiddenId = hidesInstance(outBottle) ? outBottle!.id : null;
   const storage = useRef<THREE.Group>(null);
+  // where the ring of a target goes: the spot itself where spots are places, the next place in the pile in a bin
+  const targetPose = useMemo(() => {
+    if (!target) return null;
+    if (model.built.poseOf) return model.built.poseOf(target.row, target.col, target.index);
+    if (model.built.pileOf) {
+      const inCell = placement.placed.filter(
+        (b) => b.address.row === target.row && b.address.col === target.col,
+      ).length;
+      return model.built.pileOf(target.row, target.col, inCell);
+    }
+    return null;
+  }, [target, model, placement]);
   const onDrag = useCallback((moved: boolean) => {
     dragged.current = moved;
   }, []);
@@ -156,6 +174,7 @@ export default function TemplateScene({
           model={model}
           level={level}
           selectedId={out ? null : selectedId}
+          targetPose={out ? null : targetPose}
           hiddenId={hiddenId}
           onPick={
             out
@@ -417,9 +436,11 @@ function Bottles({
   model,
   level,
   selectedId,
+  targetPose,
   hiddenId,
   onPick,
 }: {
+  targetPose: Pose | null;
   placed: PlacedBottle[];
   empties: Array<[number, number, number]>;
   model: RenderModel;
@@ -448,6 +469,16 @@ function Bottles({
     }
     invalidate();
   }, [selected, invalidate]);
+
+  const targetRing = useRef<THREE.Mesh>(null);
+  useLayoutEffect(() => {
+    if (targetRing.current && targetPose) {
+      markerMatrix(targetPose, targetRing.current.matrix);
+      targetRing.current.matrixAutoUpdate = false;
+      targetRing.current.matrixWorldNeedsUpdate = true;
+    }
+    invalidate();
+  }, [targetPose, invalidate]);
 
   const pick = (items: PlacedBottle[]) => (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -484,6 +515,15 @@ function Bottles({
       )}
       {empties.length > 0 && (
         <Dots key={`dots-${empties.length}-${level}`} at={empties} kit={kit.parts} model={model} />
+      )}
+      {targetPose && (
+        <mesh
+          ref={targetRing}
+          geometry={kit.parts.ring}
+          material={kit.parts.target}
+          raycast={noRaycast}
+          renderOrder={3}
+        />
       )}
       {selected && (
         <mesh
@@ -723,6 +763,11 @@ function Readout({
     el.dataset.bottles = String(bottles);
     el.dataset.stranded = String(stranded);
   }, [store, model, level, bottles, stranded]);
+  // how many different models this canvas has been given: a move must not rebuild the furniture
+  useEffect(() => {
+    const el = store.getState().gl.domElement;
+    el.dataset.builds = String(Number(el.dataset.builds ?? "0") + 1);
+  }, [store, model]);
   useEffect(() => {
     const el = gl.domElement;
     const { scene } = store.getState();
