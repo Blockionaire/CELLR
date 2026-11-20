@@ -120,5 +120,12 @@ describe("names that are almost names", () => {
     expect(withoutAnyMention(text)).toContain("for dinner");
     expect(hasAnyMention("no names here")).toBe(false);
     expect(withoutAnyMention("no names here")).toBe("no names here");
+    // Not mentions, and still possibly names: a space after the "@", or the "@" behind the word.
+    expect(withoutAnyMention("Dinner with @ Anna tomorrow")).toBe("Dinner tomorrow");
+    expect(withoutAnyMention("Anna@ is coming for lamb")).toBe("is coming for lamb");
+    expect(withoutAnyMention("write to jan.de.vries@example.com about the Barolo")).toBe(
+      "write about the Barolo",
+    );
+    expect(withoutAnyMention("lamb for ＠Bram")).toBe("lamb");
   });
 });

@@ -333,6 +333,7 @@ export function servicesFor(ctx: RequestContext) {
       record: (entry) => recordSommelierExchange({ ...entry, userId: ctx.userId }),
       userId: ctx.userId,
       householdId: async () => (await household()).id,
+      social: features.sommelier_social,
     }),
     // Koopcheck: read only. Its photo is never kept (no bottle image, no catalogue signal), nothing is written.
     purchaseCheck: createPurchaseCheckService({

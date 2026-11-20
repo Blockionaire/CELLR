@@ -51,7 +51,15 @@ export const withoutAnyMention = (text: string): string =>
   tidy(text)
     // With the little word that tied the name to the sentence ("for @anna", "met @bram"), so that what is left
     // still reads as the question it was.
-    .replace(new RegExp(String.raw`(?:\b${TIE}\s+)?@[^\s,;:!?()]*`, "gi"), " ")
+    // Also what is glued to the front of the "@" ("anna@", an e-mail address), and a name after "@ " with a
+    // space: neither is a mention anyone looks up, and both may be someone's name.
+    .replace(
+      new RegExp(
+        String.raw`(?:\b${TIE}\s+)?(?:[^\s,;:!?()]+@[^\s,;:!?()]*|@\s?[^\s,;:!?()]*)`,
+        "gi",
+      ),
+      " ",
+    )
     .replace(/\s{2,}/g, " ")
     .trim();
 /** Whether a text holds anything that looks like a name. */
