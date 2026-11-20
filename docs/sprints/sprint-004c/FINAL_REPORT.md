@@ -117,7 +117,10 @@ When no CELLR wine is the exact match, records of **public** sources appear unde
 3. **Dutch, network and session:** a dropped connection is said so, nothing is created, and the retry gives one wine and one origin. An expired session creates nothing. The suggestion shows under "Is het een van deze?". The licence link.
 4. **Untrusted readings:** not a wine label, producer only, an unknown producer, and a record withdrawn while on screen (the wine is made, credited to no one, and not suggested again).
 
-**Related specs re-run with the final build:** pending; this line is updated when the run finishes.
+**Related specs re-run with the final build** (16 spec files, including scan, scan-api, scan-resolver, wine-search, sources, cellar, detail, catalog, purchase-intel, admin-sources, households, language, acceptance and cellar3d; 3 workers): **156 passed, 3 skipped, 3 failed.**
+
+- `detail.spec.ts:81` (phone) passes when re-run serially: load timing.
+- `cellar3d.spec.ts:171`, on phone and desktop, fails identically on `origin/main` (6ab4350) in this container, so it predates this work. It is a canvas click in headless Chromium, in code 004B and 004C do not touch. It is not fixed here.
 
 **Earlier in the sprint:**
 
@@ -193,7 +196,7 @@ For a file several times larger (a full LWIN file could hold 200k+ wines at seve
 | storage-backup | 75                                             |
 | `db:test`      | **1661 / 0** on Postgres 16 and on Postgres 17 |
 
-The 3D canvas test failed once under load; it is in the final re-run.
+E2E: see §5. The only consistent failure, the 3D canvas click, fails the same way on `main`.
 
 ## 10. Needs your decision
 
