@@ -59,6 +59,8 @@ const APP_ENV: Record<string, string> = {
   VAPID_PRIVATE_KEY: vapid.privateKey,
   VAPID_SUBJECT: "mailto:tests@cellr.invalid",
   CRON_SECRET,
+  // System › Health's readiness endpoint (e2e/system-health.spec.ts knows it too)
+  CELLR_HEALTH_READY_TOKEN: "local-stack-ready-token-000000000000",
   NODE_EXTRA_CA_CERTS: PUSH_CERT,
 };
 
@@ -119,6 +121,8 @@ export default defineConfig({
         CELLR_SMART_CELLAR_3D: "1",
         // asked for on a production build: the Rack Builder must stay closed here (sprint 3)
         CELLR_SMART_CELLAR_BUILDER: "1",
+        // ... and so must placement (sprint 4)
+        CELLR_SMART_CELLAR_PLACEMENT: "1",
       },
     },
     {
@@ -138,6 +142,8 @@ export default defineConfig({
         CELLR_SMART_CELLAR_3D: "1",
         // the Rack Builder is open here, and saves: the database is the local stack (sprint 3)
         CELLR_SMART_CELLAR_BUILDER: "1",
+        // placing, moving and swapping bottles in the new 3D view, writing to the local stack (sprint 4)
+        CELLR_SMART_CELLAR_PLACEMENT: "1",
       },
     },
     {

@@ -32,7 +32,11 @@ const reads = {
   adminWineMasterRecord: vi.fn(),
   adminUploadCatalogLabel: vi.fn(),
   adminArchitecture: vi.fn(),
+  adminHealth: vi.fn(),
+  adminHealthOverlay: vi.fn(),
+  adminHealthConfig: vi.fn(),
 };
+const health = { measureNow: vi.fn() };
 const sources = {
   overview: vi.fn(),
   links: vi.fn(),
@@ -49,6 +53,7 @@ vi.mock("@/server/admin/service", () => ({
   bottleLibrary: library,
   wineMaster: master,
   adminSources: sources,
+  systemHealth: health,
   LINK_STATES: ["suggested", "verified", "rejected"],
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -74,6 +79,7 @@ describe("admin pages without an admin session", () => {
     ["corrections", () => import("./catalog/corrections/page"), search],
     ["external sources", () => import("./sources/page"), search],
     ["system architecture", () => import("./system/page"), {}],
+    ["system health", () => import("./system/health/page"), search],
     [
       "correction",
       () => import("./catalog/corrections/[wineId]/page"),
@@ -102,6 +108,12 @@ describe("admin pages without an admin session", () => {
       for (const write of Object.values(sources)) expect(write).not.toHaveBeenCalled();
     },
   );
+
+  it("system health · measureNowAction: not found, nothing measured", async () => {
+    const actions = await import("./system/actions");
+    await expect(actions.measureNowAction()).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(health.measureNow).not.toHaveBeenCalled();
+  });
 });
 
 const SRC = path.resolve(import.meta.dirname, "../..");
@@ -114,7 +126,7 @@ const files = (dir: string): string[] =>
 describe("the admin boundary", () => {
   it("every admin page checks the session itself", () => {
     const pages = files(path.join(SRC, "app/admin")).filter((f) => /(page|layout)\.tsx$/.test(f));
-    expect(pages.length).toBe(18);
+    expect(pages.length).toBe(19);
     for (const p of pages)
       expect(readFileSync(p, "utf8")).toMatch(
         /if \(!(session|\(await getAdminSession\(\)\))\) notFound\(\)/,
@@ -134,9 +146,14 @@ describe("the admin boundary", () => {
     }
     // The admin pages are server-rendered only. The one exception is the catalogue review's Server Actions (they
     // are reachable over HTTP, so each checks the admin session again before doing anything; see below).
-    const ACTIONS = ["catalog", "bottle-photos", "wines", "catalog/corrections", "sources"].map(
-      (d) => path.join(SRC, `app/admin/${d}/actions.ts`),
-    );
+    const ACTIONS = [
+      "catalog",
+      "bottle-photos",
+      "wines",
+      "catalog/corrections",
+      "sources",
+      "system",
+    ].map((d) => path.join(SRC, `app/admin/${d}/actions.ts`));
     for (const f of files(path.join(SRC, "app/admin")))
       if (!ACTIONS.includes(f) && !f.endsWith(".test.ts"))
         expect(readFileSync(f, "utf8"), f).not.toMatch(/["']use (server|client)["']/);
@@ -148,6 +165,7 @@ describe("the admin boundary", () => {
     ["wines", 16],
     ["catalog/corrections", 1],
     ["sources", 2],
+    ["system", 1],
   ] as const)(
     "every %s action checks the admin session again before anything else",
     (dir, count) => {

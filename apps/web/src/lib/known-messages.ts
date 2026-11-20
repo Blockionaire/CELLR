@@ -90,6 +90,16 @@ export const KNOWN_MESSAGES = {
   "Changing a layout isn't switched on here yet.": "layoutWritesOff",
   "This place was changed since you opened it. Reload it to see the latest version.": "layoutStale",
   "Only a new name can be saved against a version of a place.": "renameOnly",
+  "That bottle was moved by someone else. Nothing was changed.": "placementStale",
+  "CELLR doesn't know how that place is arranged, so it can't put a bottle there.":
+    "placementUnknown",
+  "Another bottle is in front of that spot.": "placementBehind",
+  "That compartment is full.": "compartmentFull",
+  "This bottle lies behind another one. It can be moved once moving at depth is switched on.":
+    "placementAmbiguous",
+  "Moving bottles here isn't switched on yet.": "placementClosed",
+  "Two bottles in one compartment can't trade places: a compartment has no order.":
+    "sameCompartment",
   "That export version isn't available.": "exportVersionUnavailable",
 } as const;
 

@@ -30,9 +30,14 @@ import {
   photoStage,
   type MasterQuery,
   type PhotoStage,
+  summarizeHealth,
+  type ComponentHealth,
+  type HealthHistorySample,
+  type HealthOverlay,
+  type HealthOverview,
 } from "@cellr/domain";
 import { getPageContext } from "@/server/context";
-import { getAdminAllowlist, getAiBudgetEnv } from "@/server/env";
+import { getAdminAllowlist, getAiBudgetEnv, getCronSecret, getHealthEnv } from "@/server/env";
 import {
   readActivity,
   readAiCosts,
@@ -102,6 +107,11 @@ import {
 } from "@/server/privileged/wine-master";
 import { DEPENDENCY_SOURCE, MissingDependencyError } from "@/server/privileged/db-errors";
 import { architectureView } from "@/server/system/service";
+import { PROBES } from "@/server/health/catalogue";
+import { reasonOf, withTimeout } from "@/server/health/probes";
+import { runManualRound, type RoundResult } from "@/server/health/round";
+import { logWarn } from "@/server/log";
+import { readHealth } from "@/server/privileged/health";
 import { assertAdmin, verifyAdmin, type AdminSession } from "./access";
 
 /**
@@ -251,6 +261,107 @@ export function adminArchitecture(session: AdminSession) {
   assertAdmin(session);
   return architectureView();
 }
+
+/**
+ * System › Health (System Intelligence sprint 2): the stored measurements, judged now. Bounded and isolated: it
+ * gives up after `timeoutMs` and never throws, so a slow or broken monitor yields "unavailable" with a reason
+ * instead of a broken page. Missing or stale measurements come out as unknown (summarizeHealth), never healthy.
+ */
+export type AdminHealthView =
+  | {
+      readonly state: "available";
+      readonly overview: {
+        readonly now: string;
+        readonly monitor: HealthOverview["monitor"];
+        readonly overall: HealthOverview["overall"];
+        readonly counts: HealthOverview["counts"];
+        readonly probes: HealthOverview["probes"];
+        readonly components: ReadonlyArray<ComponentHealth>;
+      };
+      readonly history: ReadonlyArray<HealthHistorySample>;
+    }
+  | {
+      readonly state: "unavailable";
+      readonly reason: "not_installed" | "not_configured" | "error" | "timeout";
+    };
+
+export async function adminHealth(
+  session: AdminSession,
+  {
+    timeoutMs = 4_000,
+    now = new Date(),
+    history = true,
+  }: { timeoutMs?: number; now?: Date; history?: boolean } = {},
+): Promise<AdminHealthView> {
+  assertAdmin(session);
+  try {
+    const data = await withTimeout(readHealth(session, timeoutMs, { history }), timeoutMs + 250);
+    if (data === null) return { state: "unavailable", reason: "not_configured" };
+    if (data === "missing") return { state: "unavailable", reason: "not_installed" };
+    const ids = architectureView().registry.components.map((c) => c.id);
+    const o = summarizeHealth(PROBES, data.latest, ids, now);
+    return {
+      state: "available",
+      overview: {
+        now: o.now,
+        monitor: o.monitor,
+        overall: o.overall,
+        counts: o.counts,
+        probes: o.probes,
+        components: [...o.components.values()],
+      },
+      history: data.history,
+    };
+  } catch (e) {
+    const reason = reasonOf(e);
+    logWarn("health_view_unavailable", { reason });
+    return { state: "unavailable", reason: reason === "timeout" ? "timeout" : "error" };
+  }
+}
+
+/**
+ * The map's health overlay: one status per measured component, or why there is none. Short timeout, never throws:
+ * the architecture map renders the same with or without it.
+ */
+export async function adminHealthOverlay(session: AdminSession): Promise<HealthOverlay> {
+  assertAdmin(session);
+  // the newest state only (no history): the map waits for as little as possible
+  const view = await adminHealth(session, { timeoutMs: 1_500, history: false });
+  if (view.state === "unavailable") return view;
+  return {
+    state: "available",
+    overall: view.overview.overall,
+    monitor: view.overview.monitor.state,
+    components: Object.fromEntries(
+      view.overview.components.map((c) => [c.componentId, { status: c.status, reason: c.reason }]),
+    ),
+  };
+}
+
+/**
+ * Which parts of the monitor are configured on this server: yes or no only, never a value (System › Health). The
+ * heartbeat itself runs outside CELLR (GitHub Actions); whether it reaches the app shows as the monitor's state.
+ */
+export function adminHealthConfig(session: AdminSession) {
+  assertAdmin(session);
+  const h = getHealthEnv();
+  return {
+    roundTrigger: h.roundSecret !== null || (getCronSecret()?.length ?? 0) >= 16,
+    dedicatedRoundSecret: h.roundSecret !== null,
+    readyToken: h.readyToken !== null,
+    pingUrl: h.pingUrl !== null,
+    github: h.github !== null,
+    vercel: h.vercel !== null,
+  };
+}
+
+/** "Measure now": one round, as the heartbeat runs it (bounded by the same one-a-minute rule). */
+export const systemHealth = {
+  measureNow: async (session: AdminSession): Promise<RoundResult> => {
+    assertAdmin(session);
+    return runManualRound();
+  },
+};
 
 /** The catalogue review list: candidates (counts only), the learning switch, and the catalogue's size. */
 export async function adminCatalog(

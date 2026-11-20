@@ -1,2 +1,4 @@
 # False positive: a throwaway password for a throwaway user on a local CI stack (replaced by a random one since)
 83721a5a6dc14abe811bd7065bc5ebcbd7622b0f:scripts/real-stack-smoke.mjs:generic-api-key:39
+# False positive: a dummy test value in a unit test (commit a97c689; replaced by low-entropy dummies in the next commit)
+a97c689a80f87a32bcf75349e09d8791e33b286d:apps/web/src/server/health/health.test.ts:generic-api-key:400

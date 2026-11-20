@@ -1,6 +1,7 @@
 import "server-only";
 import { parseAdminAllowlist, parseFeatures, type FeatureFlags } from "@cellr/domain";
 import { builderAccessIn, type BuilderAccess } from "@/lib/smart-cellar-builder-gate";
+import { placementAccessIn, type PlacementAccess } from "@/lib/smart-cellar-placement-gate";
 import { cellarGalleryOpenIn } from "@/lib/cellar-gallery-gate";
 import { smartCellarAccessIn, type SmartCellarAccess } from "@/lib/smart-cellar-gate";
 import { smartCellarRendererOpenIn } from "@/lib/smart-cellar-renderer-gate";
@@ -51,6 +52,15 @@ export function isSmartCellarRendererEnabled(): boolean {
  */
 export function getBuilderAccess(): BuilderAccess {
   return builderAccessIn(process.env, getSmartCellarAccess());
+}
+
+/**
+ * Whether bottles may be placed, moved and swapped through the new cellar view (CELLR_SMART_CELLAR_PLACEMENT=1, dev
+ * and previews only), whether that may write (the API's write level, a test database only) and whether depth may
+ * be written (never in this version). The rule and its reasons: lib/smart-cellar-placement-gate.ts.
+ */
+export function getPlacementAccess(): PlacementAccess {
+  return placementAccessIn(process.env, getSmartCellarAccess());
 }
 
 export interface AiEnv {
@@ -142,4 +152,71 @@ export function getAdminAllowlist(): ReadonlySet<string> {
  */
 export function getFeatures(): FeatureFlags {
   return parseFeatures(process.env.CELLR_FEATURES);
+}
+
+/**
+ * Optional settings of the health monitor (System Intelligence sprint 2, docs/sprints/system-health/OPERATIONS.md).
+ * Every one may be unset: what it switches on then shows `unknown` (not configured), never healthy, and nothing
+ * else changes. Server only; none of these values is ever shown or logged.
+ */
+export interface HealthEnv {
+  /** Bearer token for GET /api/health/ready (an external uptime check). Null = that endpoint answers 404. */
+  readyToken: string | null;
+  /**
+   * The secret that starts a probe round (GET /api/cron/health), held by whatever triggers rounds (an external
+   * uptime provider). Its own secret, so that caller cannot also start the drink-reminder cron; null = the round
+   * falls back to CRON_SECRET. At least 16 characters.
+   */
+  roundSecret: string | null;
+  /**
+   * An https URL the monitor calls after every recorded round: a dead man's switch at an external uptime provider,
+   * which alerts when the calls stop. Null = no call.
+   */
+  pingUrl: string | null;
+  /** CI status of the main branch from GitHub Actions: "owner/repo" and a read-only token. Null = not configured. */
+  github: { repo: string; token: string } | null;
+  /** The newest production deployment from Vercel: project id, team id and a read token. Null = not configured. */
+  vercel: { projectId: string; teamId: string | null; token: string } | null;
+}
+
+export function getHealthEnv(): HealthEnv {
+  const clean = (v: string | undefined) => v?.trim() || null;
+  const httpsUrl = (v: string | null) => {
+    if (!v) return null;
+    try {
+      const u = new URL(v);
+      return u.protocol === "https:" && !u.username && !u.password ? u.toString() : null;
+    } catch {
+      return null;
+    }
+  };
+  const repo = clean(process.env.CELLR_HEALTH_GITHUB_REPO);
+  const githubToken = clean(process.env.CELLR_HEALTH_GITHUB_TOKEN);
+  const projectId = clean(process.env.CELLR_HEALTH_VERCEL_PROJECT_ID);
+  const vercelToken = clean(process.env.CELLR_HEALTH_VERCEL_TOKEN);
+  const readyToken = clean(process.env.CELLR_HEALTH_READY_TOKEN);
+  const roundSecret = clean(process.env.CELLR_HEALTH_ROUND_SECRET);
+  return {
+    // a short token would be guessable: refuse it rather than guard the endpoint weakly
+    readyToken: readyToken && readyToken.length >= 24 ? readyToken : null,
+    roundSecret: roundSecret && roundSecret.length >= 16 ? roundSecret : null,
+    pingUrl: httpsUrl(clean(process.env.CELLR_HEALTH_PING_URL)),
+    github:
+      repo &&
+      githubToken &&
+      /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo) &&
+      !repo.split("/").some((part) => part === "." || part === "..")
+        ? { repo, token: githubToken }
+        : null,
+    vercel:
+      projectId && vercelToken && /^[A-Za-z0-9_-]+$/.test(projectId)
+        ? {
+            projectId,
+            teamId: /^[A-Za-z0-9_-]+$/.test(clean(process.env.CELLR_HEALTH_VERCEL_TEAM_ID) ?? "")
+              ? clean(process.env.CELLR_HEALTH_VERCEL_TEAM_ID)
+              : null,
+            token: vercelToken,
+          }
+        : null,
+  };
 }
