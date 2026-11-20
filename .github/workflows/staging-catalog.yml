@@ -1,0 +1,81 @@
+# Sprint 004C: the X-Wines pilot on the STAGING project (cellr-staging). Started by hand only; never on a schedule or a
+# push. Every run waits for the owner's approval in the `cellr-staging` GitHub Environment, which also holds the only
+# credentials (staging's, never production's). Before every write, scripts/catalog-tools/staging-guard.ts checks the
+# ref typed below, the reviewed `main`, the environment, the approved project list and what the database itself says it
+# is. Logs and artifacts carry counts only: no dataset record, no connection string, no key.
+# Setup and use: docs/sprints/sprint-004c/STAGING_WORKFLOW.md
+name: Staging catalogue (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "check = read-only; migrate = schema onto the new project; import = X-Wines pilot import and validation; scan = scan chain with a fictitious public source (rolled back)"
+        required: true
+        type: choice
+        options: [check, migrate, import, scan]
+        default: check
+      confirm_project_ref:
+        description: "Type the staging project ref to confirm (must equal the environment's configured ref)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-catalog
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    # reviewed code only: the main branch, started by hand
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    environment: cellr-staging
+    env:
+      CELLR_ENVIRONMENT: cellr-staging
+      STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+      STAGING_PROJECT_REF: ${{ vars.STAGING_PROJECT_REF }}
+      CONFIRM_REF: ${{ inputs.confirm_project_ref }}
+    steps:
+      - name: Refuse anything but the configured staging project
+        run: |
+          set -euo pipefail
+          [ -n "$STAGING_DB_URL" ] || { echo "no STAGING_DB_URL secret in the cellr-staging environment"; exit 1; }
+          [ -n "$STAGING_PROJECT_REF" ] || { echo "no STAGING_PROJECT_REF variable in the cellr-staging environment"; exit 1; }
+          [ "$CONFIRM_REF" = "$STAGING_PROJECT_REF" ] || { echo "the typed ref is not the configured staging project"; exit 1; }
+          case "$STAGING_DB_URL$STAGING_PROJECT_REF" in *vvelgyhbjfmjvxkzekyz*) echo "production: refused"; exit 1;; esac
+          echo "::add-mask::$STAGING_DB_URL"
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Postgres client
+        run: sudo apt-get install -y -qq postgresql-client >/dev/null
+      - name: The X-Wines file from its official source (checksum-verified, never stored in the repository)
+        if: inputs.mode == 'import'
+        run: |
+          set -euo pipefail
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/XWines_Full_100K_wines.csv" \
+            "https://drive.usercontent.google.com/download?id=1uEEipmKNxdiKUAhjH-K14JOSQ2BLRFss&export=download&confirm=t"
+          echo "eac2d812b5eb94264f3c4ee1764ccdacf764cdf1c2599c26e3832ed91a4662cc  $RUNNER_TEMP/XWines_Full_100K_wines.csv" | sha256sum -c --quiet
+          echo "file verified: $(wc -c < "$RUNNER_TEMP/XWines_Full_100K_wines.csv") bytes"
+      - name: Run (${{ inputs.mode }})
+        run: bash scripts/catalog-tools/staging-pilot.sh "${{ inputs.mode }}" "$RUNNER_TEMP/out" "$RUNNER_TEMP/XWines_Full_100K_wines.csv"
+      - name: Remove the dataset from the runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/XWines_Full_100K_wines.csv"
+      - name: Results (counts and ranks only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-${{ inputs.mode }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/out/*.json
+            ${{ runner.temp }}/out/*.txt
+          if-no-files-found: ignore
+          retention-days: 30
