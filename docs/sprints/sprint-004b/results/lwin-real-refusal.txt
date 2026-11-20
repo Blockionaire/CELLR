@@ -1,1 +1,0 @@
-the lwin-assumed-layout-v0 layout was never verified against a real Liv-ex LWIN file: a real import stays blocked until it is: nothing imported
