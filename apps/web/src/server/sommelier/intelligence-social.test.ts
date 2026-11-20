@@ -255,6 +255,7 @@ describe("a question that names a friend", () => {
       record: record as unknown as SommelierChatDeps["record"],
       userId: "u1",
       householdId: async () => "h1",
+      social: true,
     });
     const reply = await chat.ask({
       messages: [{ role: "user", text: `${QUESTION} with @anna` }],

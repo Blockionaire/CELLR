@@ -29,6 +29,7 @@ function setup(
     kept?: Record<string, Awaited<ReturnType<SommelierConversationRepository["findExchange"]>>>;
     record?: RecordedExchange | null | "fails";
     household?: "fails" | string;
+    social?: boolean;
   } = {},
 ) {
   const state = {
@@ -81,6 +82,7 @@ function setup(
       if (options.household === "fails") throw new Error("no household");
       return options.household ?? "h1";
     },
+    ...(options.social === undefined ? {} : { social: options.social }),
   });
   return { service, state };
 }
@@ -252,5 +254,23 @@ describe("the kept conversation", () => {
       withDish: null,
       enjoyed: null,
     });
+  });
+
+  it("keeps a question with an '@' in it as it always did, unless the social sommelier is switched on", async () => {
+    // Found by the final review: the "do not keep a question that names a friend" rule ran with every switch
+    // off, so "what do I open @home tonight" was answered but not kept, could not be rated and was gone on reload.
+    for (const social of [undefined, false] as const) {
+      const { service, state } = setup(social === undefined ? {} : { social });
+      const reply = await service.ask(chat("What do I open @home tonight?"));
+      expect(reply.saved).toEqual({ conversationId: "c1", messageId: "a1" });
+      expect(state.recorded).toHaveLength(1);
+    }
+    const on = setup({ social: true });
+    const reply = await on.service.ask(chat("What do I open @home tonight?"));
+    expect(reply.saved).toBeNull();
+    expect(on.state.recorded).toEqual([]);
+    // With it on, a question without a name is kept as ever.
+    const plain = setup({ social: true });
+    expect((await plain.service.ask(chat("What do I open tonight?"))).saved).not.toBeNull();
   });
 });

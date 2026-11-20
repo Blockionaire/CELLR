@@ -221,7 +221,7 @@ begin
     select test.uid(4), 'sommelier_friends' from generate_series(1, 600);
   perform test.as_user(4);
   perform test.rec('a caller who has used up the limit is refused',
-    test.error_of('select * from public.sommelier_friend_context(array[''anna''])') like '53400:%');
+    test.error_of('select * from public.sommelier_friend_context(array[''anna''])') like '54000:%');
   perform test.as_user(1);
   perform test.rec('...and nobody else is', test.count_of('select 1 from public.sommelier_friend_context(array[''anna''])') = 1);
 
