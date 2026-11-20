@@ -334,8 +334,11 @@ household adds: nothing to the picture.
   small: one move and four refresh requests against the local stack (2B.3 measured the bottles read at ~80 ms).
   On a GPU these are a few frames; **that is to be confirmed on real phones** (§18).
 - No tap was lost in 80 timed moves (`lostTaps: 0`); an earlier run lost one Move tap at 200 bottles on desktop
-  while the details were still opening, which the bench now waits for (the product: a tap during the opening
-  transition can be ignored; noted in §17).
+  while the details were still opening, which the bench now waits for. Cause: the details panel slides in with a
+  500 ms CSS transition, and an automated click on the moving Move button can land beside it (neither the panel
+  closes nor placement opens: the click never reaches the button). The browser spec now clicks Move once the
+  panel's transitions have finished (`getAnimations()`), after the same miss was seen once in the suite on the
+  merged branch. For a person this is a button still sliding into place; worth watching in device validation.
 
 ## 15. Legacy compatibility audit
 

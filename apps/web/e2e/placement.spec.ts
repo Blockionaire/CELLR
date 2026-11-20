@@ -508,6 +508,12 @@ test.describe("the new cellar (preview)", () => {
       })
       .focus();
     await page.keyboard.press("Enter");
+    // the details panel slides in (a CSS transition): click Move once it has come to rest, not while it moves
+    const details = page.getByTestId("inspection-panel");
+    await expect(details).toHaveAttribute("data-open", "true");
+    await details.evaluate((el) =>
+      Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)),
+    );
     await page.getByTestId("smart-3d-move").click();
     await expect(panel(page)).toBeVisible();
   }
