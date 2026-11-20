@@ -112,6 +112,18 @@ for _ in $(seq 1 240); do
 done
 kill -9 -- "-$KPID" 2>/dev/null || kill -9 "$KPID" 2>/dev/null || true
 wait "$KPID" 2>/dev/null || true
+# SIGKILL stops the client only: the server may still commit the batch in flight. Wait until no import statement runs,
+# so the snapshot below is what the re-run actually starts from.
+for _ in $(seq 1 120); do
+  BUSY=$("${PSQL[@]}" -X -At -c "select count(*) from pg_stat_activity where state = 'active' and query like '%catalog_external_import%' and pid <> pg_backend_pid()")
+  [ "$BUSY" = 0 ] && break; sleep 0.5
+done
+KILLED_AT=$("${PSQL[@]}" -X -At -c "select count(*) from public.catalog_external_records e join public.catalog_import_runs r on r.id = e.last_run_id where r.dataset_version = 'rehearsal-v2'")
+EDITED_BEFORE=$("${PSQL[@]}" -X -At -c "select count(*) from public.catalog_external_records where provider_id = 'xwines' and region like '% (edited)'")
+OPEN_AFTER_KILL=$("${PSQL[@]}" -X -At -c "select count(*) from public.catalog_import_runs where provider_id = 'xwines' and finished_at is null")
+# the kill must really have landed mid-run: a run left open, part of the file written, not all of it
+[ "$OPEN_AFTER_KILL" = 1 ] && [ "$KILLED_AT" -gt 0 ] && [ "$KILLED_AT" -lt 100646 ] \
+  || { echo "  ERROR: the kill did not land mid-run (open runs=$OPEN_AFTER_KILL, written=$KILLED_AT)" >&2; exit 1; }
 "${PSQL[@]}" -X -At -c "select 'after the kill: records under the killed run=' || (select count(*) from public.catalog_external_records e join public.catalog_import_runs r on r.id = e.last_run_id where r.dataset_version = 'rehearsal-v2')
   || ', edited regions so far=' || (select count(*) from public.catalog_external_records where provider_id = 'xwines' and region like '% (edited)')
   || ', open runs=' || (select count(*) from public.catalog_import_runs where provider_id = 'xwines' and finished_at is null)
@@ -126,6 +138,11 @@ j "$OUT/import-xwines-after-kill.json" "'  re-run: ' + JSON.stringify({inserted:
   || ', duplicate ids=' || (select count(*) from (select 1 from public.catalog_external_records group by provider_id, external_id having count(*) > 1) d)" | tee -a "$OUT/interrupted-import.txt"
 EDITED_NOW=$("${PSQL[@]}" -X -At -c "select count(*) from public.catalog_external_records where provider_id = 'xwines' and region like '% (edited)'")
 [ "$EDITED_NOW" = "$EDITED" ] || { echo "  ERROR: the re-run did not complete the update" >&2; exit 1; }
+UPDATED_BY_RERUN=$(node -e "console.log(require('$OUT/import-xwines-after-kill.json').updated)")
+# what the killed run wrote plus what the re-run updated is exactly the change: nothing lost, nothing twice
+[ $((EDITED_BEFORE + UPDATED_BY_RERUN)) = "$EDITED" ] \
+  || { echo "  ERROR: edited before ($EDITED_BEFORE) + updated by the re-run ($UPDATED_BY_RERUN) != $EDITED" >&2; exit 1; }
+echo "  edited before the re-run $EDITED_BEFORE + updated by it $UPDATED_BY_RERUN = $EDITED: exact" | tee -a "$OUT/interrupted-import.txt"
 "${T[@]}" import.ts --db "$PGURL" --provider xwines --file "$XW" --sha256 "$XW_SHA" --dataset-version "X-Wines 1.0 (2023-01)" \
   --source-url "$XW_URL" --retrieved-at "$RETRIEVED" --apply --pilot --withdraw-missing --out "$OUT/import-xwines-restored.json" >/dev/null
 j "$OUT/import-xwines-restored.json" "'  original restored: ' + JSON.stringify({inserted:r.inserted,updated:r.updated,unchanged:r.unchanged})" | tee -a "$OUT/interrupted-import.txt"

@@ -43,6 +43,9 @@ const PEOPLE_MUST_NOT_EXECUTE = [
   "public.catalog_external_import(text, uuid, jsonb, boolean)",
   "public.catalog_target_identity()",
   "public.admin_catalog_provider_disable(text, text, text, boolean)",
+  "public.catalog_import_run_finish(uuid, boolean, jsonb)",
+  "public.catalog_import_run_abandon(uuid, text)",
+  "public.admin_catalog_record_decide(uuid, uuid, text, text, uuid)",
 ];
 const CATALOGUE_TABLES = [
   "public.catalog_providers",
@@ -165,6 +168,24 @@ async function main() {
       "rls: on for every catalogue table",
       off.length === 0,
       off.join(", ") || `${CATALOGUE_TABLES.length} tables`,
+    );
+    // and no direct table privilege for people at all (they reach the catalogue only through the search functions)
+    const granted: string[] = [];
+    for (const t of CATALOGUE_TABLES)
+      for (const role of ["anon", "authenticated"])
+        if (
+          (
+            await one<{ ok: boolean }>(
+              "select to_regclass($1) is not null and has_table_privilege($2, $1, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE') as ok",
+              [t, role],
+            )
+          ).ok
+        )
+          granted.push(`${role} → ${t}`);
+    add(
+      "grants: people hold no privilege on any catalogue table",
+      granted.length === 0,
+      granted.join("; ") || "none",
     );
 
     // providers

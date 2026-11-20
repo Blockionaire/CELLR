@@ -19,6 +19,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import {
+  identityRelation,
   normalizeText,
   resolveWine,
   resolverQuery,
@@ -143,7 +144,7 @@ async function main() {
         )
       ).rows[0]!.id.environment;
       const host = new URL(str(args, "db")).hostname;
-      const local = ["127.0.0.1", "localhost", "::1"].includes(host);
+      const local = ["127.0.0.1", "localhost", "[::1]"].includes(host);
       // seeds are test wines: in a pilot database, or a LOCAL staging rehearsal with --local-seeds; never remotely
       if (!(env === "pilot" || (env === "staging" && local && args["local-seeds"] === true)))
         throw new Error(
@@ -167,17 +168,28 @@ async function main() {
           p.rows[0]?.id ??
           (
             await client.query<{ id: string }>(
-              "select id from public.producers where status = 'canonical' and normalized_name = private.normalize_text($1)",
-              [r.producer],
+              `select id from public.producers where status = 'canonical' and normalized_name = private.normalize_text($1)
+                  and coalesce(country_code, '') = coalesce($2, '')`,
+              [r.producer, r.country],
             )
           ).rows[0]!.id;
+        // re-runnable: the same identity again (another entry, or a second run) reuses the seeded wine
         const w = await client.query<{ id: string }>(
           `insert into public.wines (producer_id, name, wine_type, country_code, status, origin)
-           values ($1, $2, $3::public.wine_type, $4, 'canonical', 'verified') returning id`,
+           values ($1, $2, $3::public.wine_type, $4, 'canonical', 'verified') on conflict do nothing returning id`,
           [producerId, r.name, r.type ?? e.expect.type, r.country],
         );
-        seeded.set(e.id, w.rows[0]!.id);
-        seedsByIdentity.set(identityKey(e.expect), w.rows[0]!.id);
+        const wineId =
+          w.rows[0]?.id ??
+          (
+            await client.query<{ id: string }>(
+              `select id from public.wines where status = 'canonical' and producer_id = $1
+                  and normalized_name = private.normalize_text($2) and wine_type = $3::public.wine_type`,
+              [producerId, r.name, r.type ?? e.expect.type],
+            )
+          ).rows[0]!.id;
+        seeded.set(e.id, wineId);
+        seedsByIdentity.set(identityKey(e.expect), wineId);
       }
       await client.query("set role service_role");
     }
@@ -249,6 +261,24 @@ async function main() {
           broken.push(`${e.id}/${kind}: automatic identity ${exactWine}`);
         if (records.some((s) => s.hit.type && facts.type && s.hit.type !== facts.type))
           broken.push(`${e.id}/${kind}: a record of the other colour`);
+        if (
+          records.some(
+            (s) =>
+              s.hit.countryCode && facts.countryCode && s.hit.countryCode !== facts.countryCode,
+          )
+        )
+          broken.push(`${e.id}/${kind}: a record of another country`);
+        // the producer read must be the record's (compared with the record's own name on both sides)
+        if (
+          records.some(
+            (s) =>
+              identityRelation(
+                { producer: facts.producer ?? facts.name ?? "", name: s.hit.name },
+                { producer: s.hit.producer, name: s.hit.name },
+              ).relation === "different_producer",
+          )
+        )
+          broken.push(`${e.id}/${kind}: a record of another producer`);
         if (records.some((s) => s.hit.kind !== "record" || s.hit.verified))
           broken.push(`${e.id}/${kind}: a suggestion that is not an unverified record`);
         if (outcome.candidates.some((c) => !candidates.some((w) => w.id === c.wine.id)))

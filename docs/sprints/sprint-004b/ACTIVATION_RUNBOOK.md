@@ -41,11 +41,25 @@ The tools **refuse production** (`PRODUCTION_PROJECT_REFS`) and will keep doing 
 deliberate change to that guard in a reviewed PR for that one release, or the same SQL functions called by the owner.
 The recommended way is the latter, with the importer's own payloads:
 
-1. Dry run first (`catalog_external_import(..., p_apply => false)` per batch): the counts must equal staging's.
+**Three guards live only in the import tool, not in the database** (review of Sprint 004B). Calling the SQL functions
+directly skips them, so they are explicit steps here:
+
+| Guard (in `import.ts` / `importBlocker`)                                             | Its manual equivalent                                                                                                                 |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| the file is inspected first; an unverified layout (LWIN) reads only CELLR's fixtures | run `inspectProviderFile` + `importBlocker` on the file (the tool's dry run without a database does it) and stop on any fatal finding |
+| a sharp drop in records refuses `--withdraw-missing`                                 | compare the file's record count with the provider's active records before finishing                                                   |
+| records the database refused (`invalid > 0`) refuse withdrawal                       | sum `invalid` over all batches                                                                                                        |
+
+1. Dry run first (`catalog_external_import(..., p_apply => false)` per batch): the counts must equal staging's, and
+   `invalid` must be 0.
 2. `catalog_import_run_start(provider, version, source_url, sha256, note, retrieved_at, p_pilot => false)` (refused
-   unless rights are `verified`), batches of 500 with `p_apply => true`, then
-   `catalog_import_run_finish(run, p_withdraw_missing => true, counts)`.
-3. If anything fails half-way: `catalog_import_run_abandon(run, reason)` withdraws nothing; a new run supersedes an
+   unless rights are `verified`), then batches of 500 with `p_apply => true`.
+3. Finish **with withdrawal only when all three hold**: every batch was applied, `invalid = 0` over all batches, and
+   the file's record count is not far below the provider's active records:
+   `catalog_import_run_finish(run, p_withdraw_missing => true, counts)`. Otherwise finish with
+   `p_withdraw_missing => false` (nothing is withdrawn) and investigate. A wrong withdrawal is recoverable
+   (re-import the complete file: records become active again), but records disappear from search meanwhile.
+4. If anything fails half-way: `catalog_import_run_abandon(run, reason)` withdraws nothing; a new run supersedes an
    open one; re-running the same file is idempotent (rehearsed: kill -9 mid-run, re-run completes, 0 duplicates).
 
 ## 3. Checks right after the import (still not visible)
@@ -81,8 +95,9 @@ blocks further imports. Removing `wine_search` from `CELLR_FEATURES` hides the s
   imports: 0").
 - A household wine created from a record is the household's own provisional wine: switching the source off, or
   withdrawing the record, leaves it exactly as it is.
-- A failed or abandoned run withdraws nothing; a damaged export (empty, partial, far smaller) is refused before it
-  can withdraw anything (WI-01).
+- A failed or abandoned run withdraws nothing. A damaged export (empty, partial, far smaller) is refused before it can
+  withdraw anything **by the import tool** (WI-01); on the direct SQL route of §2 that protection is the three manual
+  checks of step 3. A wrong withdrawal hides records, never deletes them.
 
 ## 7. Updates later
 
