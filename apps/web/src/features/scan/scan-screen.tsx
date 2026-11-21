@@ -87,6 +87,11 @@ export function ScanScreen({
   // The rack spot this scan was started from; used once, by the first bottle added.
   const [spot, setSpot] = useState<PreferredSpot | null>(initialSpot ?? null);
   const [stage, setStage] = useState<Stage>({ name: "capture", error: null, retry: null });
+  // The stage as it is now, for work that ends after the person may have moved on (sending bottle photos).
+  const stageNow = useRef(stage);
+  useEffect(() => {
+    stageNow.current = stage;
+  }, [stage]);
   // An optional back label, tied to the front photo it was taken with: it can never go on to another wine.
   const [back, setBack] = useState<{ imageId: string; photo: PreparedPhoto } | null>(null);
   const backFor = (imageId: string) => (back?.imageId === imageId ? back.photo : null);
@@ -115,7 +120,10 @@ export function ScanScreen({
       photos: files.length,
       mode: flowMode(itemId),
     });
-    if (!itemId) {
+    // Still on its "added" screen: said there. Moved on (a series, or "Scan another" before the photos were
+    // through): said where the person is, and a failure is listed to try again, never dropped.
+    const now = stageNow.current;
+    if (!itemId && now.name === "done" && now.result === result && now.photos) {
       setStage((s) =>
         s.name === "done" && s.result === result && s.photos
           ? { ...s, photos: { files, outcome } }
@@ -317,7 +325,7 @@ export function ScanScreen({
         )}
 
         <BackLabelRetries items={backRetries} onChange={setBackRetries} />
-        <KeptPhotoRetries items={photoRetries} onChange={setPhotoRetries} mode="batch" />
+        <KeptPhotoRetries items={photoRetries} onChange={setPhotoRetries} mode={mode} />
 
         {stage.name === "review" && (
           <ScanReview

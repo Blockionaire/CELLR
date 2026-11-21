@@ -205,6 +205,35 @@ test.describe("the invitation on the scan's review", () => {
     expect((await contributions(user))[0]!.photos).toBe(2);
   });
 
+  test("leaving the 'added' screen while the photos are on their way: a failure is still offered again", async ({
+    page,
+  }) => {
+    const { email } = await arrive(page, "inviteleave");
+    const user = await userOf(email);
+    const m = marker();
+    await scanLabel(page, label({ producer: `Domaine Weg ${m}`, wine_name: "Vertrek" }));
+    await keepPhotos(page, 1);
+    let failed = 0;
+    await page.route("**/api/v1/bottle-photos", async (route) => {
+      if (route.request().method() === "POST" && failed === 0) {
+        failed += 1;
+        await new Promise((r) => setTimeout(r, 1500));
+        return route.abort("internetdisconnected");
+      }
+      return route.continue();
+    });
+    await page.getByRole("button", { name: "Add 1 bottle" }).click();
+    await expect(page.getByTestId("scan-photo-result")).toHaveAttribute("data-state", "sending");
+    // on to the next bottle before the photos are through
+    await page.getByRole("button", { name: "Scan another" }).click();
+    const retries = page.getByTestId("scan-photo-retries");
+    await expect(retries).toContainText(`Bottle photos for Domaine Weg ${m} Vertrek weren’t sent.`);
+    expect(failed).toBe(1);
+    await retries.getByRole("button", { name: "Try again" }).click();
+    await expect(retries).toHaveCount(0);
+    await expect.poll(async () => (await contributions(user)).length).toBe(1);
+  });
+
   test("not asked for a wine with a published picture, or one the person already sent photos of", async ({
     page,
     request,
