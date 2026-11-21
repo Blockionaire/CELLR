@@ -11,7 +11,11 @@ import { apiClient, arrive, bearer, sql, stamp } from "./helpers";
 
 const marker = () => `${test.info().parallelIndex}${stamp()}`;
 
-type CellarItem = { vintageId: string; wineId: string; art?: { id: string; shared: boolean } | null };
+type CellarItem = {
+  vintageId: string;
+  wineId: string;
+  art?: { id: string; shared: boolean } | null;
+};
 type Call = Awaited<ReturnType<typeof apiClient>>["call"];
 
 const artOf = async (call: Call, wineId: string) =>
@@ -129,7 +133,12 @@ test.describe("a 2D bottle picture belongs to the wine", () => {
     const m = marker();
     const { email: a } = await arrive(page, "art-own-a");
     const alice = await apiClient(request, a);
-    const body = { producer: `Domaine Prive ${m}`, name: "Secret", type: "white", countryCode: "FR" };
+    const body = {
+      producer: `Domaine Prive ${m}`,
+      name: "Secret",
+      type: "white",
+      countryCode: "FR",
+    };
     const mine = (await alice.call<{ id: string }>("post", "/wines", body, 201)).body;
     await addBottle(alice.call, mine.id);
     const artId = await publishArt(mine.id, await makeBottlePng(page, "#d8c98a", "#fbf6ea"));
