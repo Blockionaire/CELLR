@@ -1,0 +1,12 @@
+LWIN,STATUS,PRODUCER_TITLE,PRODUCER_NAME,WINE,COUNTRY,REGION,SUB_REGION,COLOUR,TYPE,DESIGNATION,CLASSIFICATION
+9100001,Live,Domaine,Fictif des Niveaux,Cuvée des Codes,France,Bourgogne Fictive,Côte Fictive,Red,Wine,AOC Fictive,Premier Cru Fictif
+91000012015,Live,Domaine,Fictif des Niveaux,Cuvée des Codes,France,Bourgogne Fictive,Côte Fictive,Red,Wine,AOC Fictive,Premier Cru Fictif
+91000012016,Live,Domaine,Fictif des Niveaux,Cuvée des Codes,France,Bourgogne Fictive,Côte Fictive,Red,Wine,AOC Fictive,
+9100001201600750,Live,Domaine,Fictif des Niveaux,Cuvée des Codes,France,Bourgogne Fictive,Côte Fictive,Red,Wine,AOC Fictive,Premier Cru Fictif
+9100001201601500,Live,Domaine,Fictif des Niveaux,Cuvée des Codes,France,Bourgogne Fictive,Côte Fictive,Red,Wine,AOC Fictive,Premier Cru Fictif
+910000120161200750,Live,Domaine,Fictif des Niveaux,Cuvée des Codes,France,Bourgogne Fictive,Côte Fictive,Red,Wine,AOC Fictive,Premier Cru Fictif
+91000022019,Live,Domaine,Fictif des Niveaux,Blanc des Codes,France,Bourgogne Fictive,Côte Fictive,White,Wine,AOC Fictive,
+91000022020,Live,Domaine,Fictif des Niveaux,Blanc des Codes,France,Bourgogne Fictive,Côte Fictive,White,Wine,AOC Fictive,
+91000031000,Live,Maison,Bulle des Niveaux,Assemblage Sans Année,France,Champagne Fictive,,White,Sparkling,AOC Fictive,
+91000042018,Deleted,Domaine,Fictif des Niveaux,Ancien Code,France,Bourgogne Fictive,,Red,Wine,AOC Fictive,
+91000052019,Live,,Distillerie Fictive,Eau de Vie,France,Cognac Fictif,,,Spirit,,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SommelierAnswer } from "@cellr/domain";
+import { AskSommelierSchema } from "@cellr/domain";
 import { chatExpired, chatStateFrom, newQuestionId, ratingIn, spoken, withRating } from "./turns";
 
 const answer = (text: string | null): SommelierAnswer => ({
@@ -57,6 +58,22 @@ describe("the kept chat on screen", () => {
       { role: "assistant", text: "These are ready." },
     ]);
     expect(spoken({ role: "error", message: "x", retry: "y" }, () => "")).toBeNull();
+  });
+
+  it("sends back a long answer no longer than a turn of history may be, so the next question still goes through", () => {
+    const long = "A".repeat(900);
+    const sent = spoken(
+      {
+        role: "sommelier",
+        answer: { source: "ai", text: long, basic: null, bottles: [], reason: null },
+      },
+      () => "",
+    );
+    expect(sent?.text).toHaveLength(800);
+    const request = AskSommelierSchema.safeParse({
+      messages: [{ role: "user", text: "And with fish?" }, sent, { role: "user", text: "Thanks" }],
+    });
+    expect(request.success).toBe(true);
   });
 
   it("a rating changes one answer only, and can be taken back", () => {

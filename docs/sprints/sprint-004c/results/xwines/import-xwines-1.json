@@ -1,0 +1,35 @@
+{
+  "provider": "xwines",
+  "file": "XWines_Full_100K_wines.csv",
+  "sha256": "eac2d812b5eb94264f3c4ee1764ccdacf764cdf1c2599c26e3832ed91a4662cc",
+  "applied": true,
+  "pilot": true,
+  "retrieved_at": "2026-11-13",
+  "license": "CC0-1.0",
+  "rights_status": "unverified",
+  "run": "e8934735-ee05-4a73-a1a2-3ef6e3777922",
+  "rows": 100646,
+  "schema": "xwines-wines-csv-v1",
+  "layout_verified": true,
+  "adapter_records": 100646,
+  "adapter_skipped": {},
+  "folded_rows": 0,
+  "unmapped_types": {},
+  "implausible_vintage_rows": 0,
+  "warnings": [],
+  "inserted": 100646,
+  "updated": 0,
+  "unchanged": 0,
+  "invalid": 0,
+  "possible_duplicates": 171,
+  "suggested_links": 0,
+  "problems": [],
+  "finish": {
+    "j": {
+      "run": "e8934735-ee05-4a73-a1a2-3ef6e3777922",
+      "withdrawn": 0
+    }
+  },
+  "seconds": 63,
+  "peak_rss_mb": 1101
+}

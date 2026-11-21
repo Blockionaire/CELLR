@@ -1,0 +1,38 @@
+• Postgres 17.12 (Ubuntu 17.12-1.pgdg24.04+1)
+• 1. schema; the owner marks the database 'staging'
+• 2. a CELLR catalogue wine the fixtures also describe (fictitious)
+  ok   canonical wine = present
+• 3. providers registered, rights set by the logged admin step (fixtures only; search scope stays off)
+  ok   scope of both sources = off
+  X-Wines-layout fixture: {"inserted":5,"suggested_links":1}
+• 4. the LWIN fixture: levels folded, pack kept, linked to the CELLR wine only as a suggestion
+  ok   v1 inserted = 7
+  ok   v1 folded rows = 2
+  ok   v1 suggested links = 1
+  ok   9200001 details = [750] [12]
+  ok   9200001 link = suggested:true
+  ok   X-Wines-layout 900001 link to the same wine = suggested:true
+  ok   CELLR wines written by imports = 0
+  LWIN ↔ X-Wines (file, identity rules): {"same":3,"variant":1,"uncertain":1,"different_cuvee":0,"none":2} ambiguous 0
+  same identity in the other source (database, exact): [{"provider_id":"fixture","records":3}]
+  ok   cross-source same = 3
+• 5. the update: 9200001 new region and vintage, 9200006 deleted, 9200007 no longer listed
+  ok   dry run writes nothing = 7
+  ok   a smaller file is refused without --allow-shrink: the file holds 5 records but 7 are active: refusing to withdraw 2 records (pass --allow-shrink if the provider really removed them)
+  v2: {"updated":1,"unchanged":4,"inserted":0}
+  ok   v2 updated = 1
+  ok   v2 unchanged = 4
+  ok   withdrawn records = 9200006,9200007
+  ok   9200001 after the update = Fictive Région Nord {2016,2019}
+  ok   9200001 link kept = suggested
+• 6. the same update again: nothing changes
+  ok   again unchanged = 5
+  ok   again updated = 0
+  ok   duplicates (provider, id) = 0
+• 7. what a person may see: the CELLR wine, nothing of either source (scope off)
+  ok   kinds a person sees for 'cuvee fictive rouge' = wine
+• 8. the real LWIN provider: the same rows as real data are refused (layout never verified)
+  ok   refused: the lwin-assumed-layout-v0 layout was never verified against a real Liv-ex LWIN file: a real import stays blocked until it is: nothing imported
+  ok   real LWIN rights in the database = unverified/off/false
+  ok   real LWIN records = 0
+• done: every expectation held

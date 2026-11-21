@@ -1,0 +1,10 @@
+LWIN,STATUS,PRODUCER_TITLE,PRODUCER_NAME,WINE,COUNTRY,REGION,SUB_REGION,COLOUR,TYPE,DESIGNATION,CLASSIFICATION
+9200001,Live,Domaine,Imaginaire,Cuvée Fictive Rouge,France,Fictive Région Nord,,Red,Wine,AOC Fictive,
+92000012016,Live,Domaine,Imaginaire,Cuvée Fictive Rouge,France,Fictive Région Nord,,Red,Wine,AOC Fictive,
+92000012019,Live,Domaine,Imaginaire,Cuvée Fictive Rouge,France,Fictive Région Nord,,Red,Wine,AOC Fictive,
+920000120161200750,Live,Domaine,Imaginaire,Cuvée Fictive Rouge,France,Fictive Région Nord,,Red,Wine,AOC Fictive,
+9200002,Live,Domaine,Imaginaire,Cuvee Fictive Reserve,France,Fictive Région,,Red,Wine,AOC Fictive,
+9200003,Live,Maison,Inventée,Brut Fictif,France,Champagne Fictive,,White,Sparkling,AOC Fictive,
+9200004,Live,Château,Imaginé,Rosé Fictif Grand Vin,France,Provence Fictive,,Rose,Wine,AOC Fictive,
+9200005,Live,Quinta,Inventadas,Vino Fittizio,Portugal,Douro Fittizio,,Red,Fortified,DOC Fictiva,
+9200006,Deleted,Domaine,Seulement Ici,Cuvée Unique Fictive,France,Fictive Région,,Red,Wine,AOC Fictive,

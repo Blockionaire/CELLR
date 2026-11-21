@@ -383,7 +383,7 @@ export function createCellarRepository(db: Db): CellarRepository {
         return data ? toWine(data) : null;
       };
       const existing = await find();
-      if (existing) return existing;
+      if (existing) return { ...existing, created: false };
       const { data, error } = await db
         .from("wines")
         .insert({
@@ -402,11 +402,23 @@ export function createCellarRepository(db: Db): CellarRepository {
       if (error) {
         if (isUniqueViolation(error)) {
           const raced = await find();
-          if (raced) return raced;
+          if (raced) return { ...raced, created: false };
         }
         throw mapDbError(error);
       }
-      return toWine(data);
+      return { ...toWine(data), created: true };
+    },
+
+    async recordWineOrigin(householdId, wineId, recordId) {
+      const { data, error } = await db.rpc("record_wine_origin", {
+        p_household_id: householdId,
+        p_wine_id: wineId,
+        p_record_id: recordId,
+      });
+      // Before 20261128000050 the function does not exist.
+      if (error && (error.code === "PGRST202" || error.code === "42883")) return null;
+      if (error) throw mapDbError(error);
+      return data;
     },
 
     async catalogVintage(wineId, year) {
