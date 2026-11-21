@@ -107,8 +107,14 @@ export function BackLabelPicker({
       </figure>
       <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
         <p className="text-small text-ink-2">{value ? t("backReady") : t("backOptional")}</p>
-        <div className="flex flex-wrap gap-2">
-          <FileButton size="sm" variant="secondary" onFile={choose}>
+        {/* a long label (in Dutch) wraps instead of pushing the page sideways */}
+        <div className="flex max-w-full flex-wrap gap-2">
+          <FileButton
+            size="sm"
+            variant="secondary"
+            onFile={choose}
+            className="h-auto min-h-9 max-w-full whitespace-normal py-1.5 text-center"
+          >
             {value ? t("retakeBack") : t("addBack")}
           </FileButton>
           {value && (
