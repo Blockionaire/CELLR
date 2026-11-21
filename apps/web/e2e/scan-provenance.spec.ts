@@ -203,13 +203,16 @@ test.describe("the household's own wines", () => {
       { producer, name: "Grand Vin", type: "red", countryCode: "FR" },
       201,
     );
-    // the same name, read as a white: the matcher still finds the red
+    // the same name, read as a white: never chosen for the person
     await scanLabel(page, label({ producer, wine_name: "Grand Vin", wine_type: "white" }));
-    await expect(page.getByRole("heading", { name: "Is it this wine?" })).toBeVisible();
     await expect(page.getByTestId("scan-candidate")).toHaveAttribute("data-selected", "false");
-    await expect(page.locator('[data-testid="wine-conflict"][data-field="type"]')).toHaveText(
-      "The label says “White” for the kind. Not this wine? Choose another one.",
+    await expect(page.locator('[data-testid="scan-candidate"][data-selected="true"]')).toHaveCount(
+      0,
     );
+
+    // another cuvée of the same name ("… Blanc"): offered, never taken for the person
+    await scanLabel(page, label({ producer, wine_name: "Grand Vin Blanc" }));
+    await expect(page.getByTestId("scan-candidate")).toHaveAttribute("data-selected", "false");
     expect(await audit(page)).toEqual([]);
     await page.screenshot({
       path: `test-results/shots/provenance-conflict-${test.info().project.name}.png`,
@@ -222,6 +225,10 @@ test.describe("the household's own wines", () => {
     // the person says it is this wine: then it is, and the wine itself is not changed by the label
     await page.getByRole("button", { name: /Grand Vin/ }).click();
     await expect(page.getByTestId("scan-candidate")).toHaveAttribute("data-selected", "true");
+    // what the label says otherwise stays beside it, never applied
+    await expect(page.locator('[data-testid="wine-conflict"][data-field="name"]')).toHaveText(
+      "The label says “Grand Vin Blanc” for the name. Not this wine? Choose another one.",
+    );
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
     await expect(
       page.getByText(new RegExp(`1 bottle of ${producer} Grand Vin 2019`)),
