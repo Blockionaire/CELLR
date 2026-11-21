@@ -9,6 +9,13 @@ type SommelierT = ReturnType<typeof useTranslations<"sommelier">>;
  * gets where each bottle is (place, shelf, position, and how many have no place yet), all from the counted facts.
  */
 export function plainSentence(a: SommelierAnswer, t: SommelierT): string {
+  // An answer of the engines: its outcome in one line (what is sent back as the conversation so far).
+  if (a.plan) {
+    if (a.plan.kind === "clarify") return t("plan.outcome.clarify");
+    if (a.plan.outcome) return t(`plan.outcome.${a.plan.outcome}`);
+    if (a.plan.ask) return t(`plan.ask.${a.plan.ask}`);
+    return t("plan.buy.title");
+  }
   if (a.basic === "facts" && a.facts) {
     const located = a.facts.located ?? [];
     if (located.length > 0)

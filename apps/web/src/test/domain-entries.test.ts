@@ -35,6 +35,9 @@ describe("the package's two entries", () => {
     const files = relative(reachable("index.ts"));
     expect(files.length).toBeGreaterThan(40);
     expect(files.filter((f) => f.split(path.sep).includes("knowledge"))).toEqual([]);
+    // The catalogue of styles to buy is knowledge too.
+    expect(files).not.toContain(path.join("buying", "styles.ts"));
+    expect(files).not.toContain(path.join("buying", "recommend.ts"));
   });
   it("the server entry does", () => {
     const files = relative(reachable("intelligence.ts"));

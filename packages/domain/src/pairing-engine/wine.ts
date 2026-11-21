@@ -246,23 +246,34 @@ function find(
 }
 
 /**
- * The wines a text names: ids of every appellation, region and grape rule it mentions, the longest names first
- * ("a Rioja Reserva for my father who loves Bordeaux" → rioja reserva, bordeaux). For reading what someone asks
- * for; it says nothing about any bottle.
+ * The wines a text names: every appellation, region and grape rule it mentions, the longest names first ("a Rioja
+ * Reserva for my father who loves Bordeaux" → rioja reserva, bordeaux). `id` is the rule (what a wine answers
+ * to); `name` is the word as it was written, which is what a shop would be asked for. For reading what someone
+ * asks for; it says nothing about any bottle.
  */
-export function mentionedWineKeys(text: string, k: WineKnowledge, limit = 6): string[] {
+export function mentionedWines(
+  text: string,
+  k: WineKnowledge,
+  limit = 6,
+): Array<{ id: string; name: string }> {
   const haystack = words(text.slice(0, 800));
   if (haystack === "") return [];
-  const hits = new Map<string, number>();
+  const hits = new Map<string, string>();
   for (const rule of k.rules)
     for (const name of rule.names)
-      if (name.length >= 4 && haystack.includes(` ${name} `))
-        hits.set(rule.id, Math.max(hits.get(rule.id) ?? 0, name.length));
+      if (name.length >= 4 && haystack.includes(` ${name} `)) {
+        const known = hits.get(rule.id);
+        if (known === undefined || name.length > known.length) hits.set(rule.id, name);
+      }
   return [...hits.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
     .slice(0, limit)
-    .map(([id]) => id);
+    .map(([id, name]) => ({ id, name }));
 }
+
+/** The ids of `mentionedWines`. */
+export const mentionedWineKeys = (text: string, k: WineKnowledge, limit = 6): string[] =>
+  mentionedWines(text, k, limit).map((w) => w.id);
 
 /** Sparkling, sweet and fortified wines are named by what they are, not by the grape they are made of. */
 const NOT_BY_GRAPE: ReadonlySet<WineType> = new Set<WineType>([
