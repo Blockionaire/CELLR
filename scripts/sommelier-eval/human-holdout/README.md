@@ -2,7 +2,17 @@
 
 The engines have been developed against benchmark dishes written by an AI. The honest test of "does CELLR
 understand a dish it has never seen" is a set of dishes written by **people**, that nobody uses while developing.
-This folder is where that set goes, as `dishes.json`. It does not exist yet.
+It does not exist yet.
+
+**Held in escrow (S11): the file is never put in this repository**, where whoever develops the engines could read
+it. The owner keeps it in a private place, seals it, and commits only the seal; the benchmark reads it from the
+owner's path and refuses a file that does not match. The whole procedure, and the blind expert panel that uses
+these dishes: `docs/sprints/sommelier-3-mega/HUMAN_EVALUATION_PROTOCOL.md`.
+
+```bash
+pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/path/dishes.json   # prints SEAL.json
+SOMMELIER_EVAL_HUMAN_FILE=/private/path/dishes.json pnpm sommelier:eval --set human --engine v1-basic
+```
 
 ## Who writes it
 
@@ -47,8 +57,10 @@ At least **100 dishes**, each once, as a list of objects:
 - A real mix: everyday Dutch food, other cuisines, restaurant dishes, desserts, cheese, vague descriptions
   ("something with leftover chicken"), misspellings, a sauce or a cooking method that matters.
 - Nothing copied from `../dishes.ts` or `../dishes-holdout.ts`, and no dish chosen because CELLR gets it wrong.
-- Once committed, the file is **blind**: `run.ts` reports it in totals only, `analyze.ts` refuses it, and no
-  engine change may be made because of its results. A change to the file after the first measurement is recorded
-  in `docs/sprints/sommelier-3-mega/progress/` with the reason.
+- Once sealed, the file is **blind**: `run.ts` reports it in totals only, `analyze.ts` refuses it, and no
+  engine change may be made because of its results. A change to the file after the first measurement gets a new
+  seal and is recorded in `docs/sprints/sommelier-3-mega/progress/` with the reason.
+- A copy at `human-holdout/dishes.json` (inside the repository) is refused by the benchmark and ignored by Git.
 
-`pnpm --filter @cellr/sommelier-eval test` checks the file's shape when it exists.
+`pnpm --filter @cellr/sommelier-eval test` checks the escrow; with `SOMMELIER_EVAL_HUMAN_FILE` set it also checks
+the file's shape and size.

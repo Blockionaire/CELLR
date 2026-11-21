@@ -170,7 +170,8 @@ Product events of the sommelier carry codes and counts only: `engine`, `source`,
 `with_dish` and `enjoyed`. Never the question, the dish, a wine, a price or a name.
 
 **V1+ shadow guard (S11, switch `sommelier_v1_guard`, off).** With the switch on, an answer of V1 (`engine = v1`)
-that offered bottles for a pairing also carries what variant E's guard would have held back: `guard_v` (its
+that offered bottles for a pairing, in the chat (`sommelier_question_asked`) or for Tonight
+(`tonight_recommendation_generated`), also carries what variant E's guard would have held back: `guard_v` (its
 version), `guard_judged` (it read the dish well enough to judge), `guard_bottles` and `guard_flagged` (counts,
 capped at 12) and `guard_first` (the first bottle is among the flagged). Not the clash it saw: that names the kind of
 dish. The answer shown is never changed by it, and nothing of it is kept with the conversation. Like every client

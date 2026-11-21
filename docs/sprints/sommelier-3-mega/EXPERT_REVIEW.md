@@ -1,5 +1,9 @@
 # Expert review of 30 hard pairings (S10)
 
+> **S11: this is a label audit of the development set, not the independent expert panel.** The 30 pairs come from
+> the main set the engines were developed on. Its results may correct labels there; they are not evidence about
+> unseen dishes. The independent panel: [`HUMAN_EVALUATION_PROTOCOL.md`](HUMAN_EVALUATION_PROTOCOL.md) §2.
+
 For a person with proven wine knowledge (a sommelier, a wine educator, a buyer). Please judge each pair on its
 own, as you would advise a guest at home: would you serve this wine with this dish?
 

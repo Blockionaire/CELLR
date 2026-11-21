@@ -164,3 +164,32 @@ conversation's state marks which is which (`dishReadByModel`).
 The paid comparison did not meet the rule set before it (D-38). The engine is kept for what it measurably does
 better (honesty about "nothing suits", groundedness), as a guard on V1's answer rather than in its place. No tuning
 on the blind half after the run.
+
+## D-41 — V1+: V1's model chooses, code supplies facts, rules and a guard (S11)
+
+Two measurements (S9, S10) showed V1 with AI generalises better to unfamiliar dishes than any engine variant. The
+engines stay for what code does reliably: inventory and refs (groundedness), permissions, budgets, drink windows,
+consent, and flagging a hard clash. `V1PLUS_ARCHITECTURE.md`.
+
+## D-42 — The guard is frozen before it is measured, and only ever cautions (S11)
+
+`GUARD_VERSION` 1 was chosen on the main set and committed before the unseen sets were run; it is not tuned on
+their results. If it is ever made active it adds a caution to V1's card and does not remove the bottle: V1's text
+names the wines it chose, and a removed card would leave a sentence about a bottle no longer shown.
+
+## D-43 — Comparisons draw dishes, not runs or scenarios (S11)
+
+Repeated runs of a scenario are averaged inside it, and the bootstrap resamples dishes, because scenarios about one
+dish are not independent either (the 88 unseen scenarios are 44 dishes; the human holdout's 200 will be 100).
+`stats.ts`. S10's conclusion was re-checked this way and stands.
+
+## D-44 — The human holdout is held in escrow (S11)
+
+Never in the repository: read from the owner's path and checked against a committed seal. The S10 expert sheet is
+a label audit of the development set, not the independent panel (`HUMAN_EVALUATION_PROTOCOL.md`).
+
+## D-45 — Social stays engine-only until the owner chooses A or B (S11)
+
+No friend's name, taste, cellar or question reaches a model (D-14, D-29, D-39 unchanged). Option B (V1's model picks
+from the asker's cellar for the dish only, code applies the friend's consented taste and cellar) relaxes D-39 and
+needs the owner's approval and new consent wording. `V1PLUS_ARCHITECTURE.md` §7.
