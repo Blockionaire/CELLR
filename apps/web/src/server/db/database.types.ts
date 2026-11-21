@@ -2702,6 +2702,99 @@ export type Database = {
         };
         Relationships: [];
       };
+      wine_record_origins: {
+        Row: {
+          attribution: string | null;
+          created_at: string;
+          created_by: string | null;
+          dataset_version: string | null;
+          external_id: string;
+          household_id: string;
+          id: number;
+          license: string;
+          matches_record: boolean;
+          provider_id: string;
+          record_id: string | null;
+          record_name: string;
+          record_producer: string;
+          record_type: Database["public"]["Enums"]["wine_type"] | null;
+          retrieved_at: string | null;
+          unlinked_at: string | null;
+          unlinked_by: string | null;
+          wine_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          attribution?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          dataset_version?: string | null;
+          external_id: string;
+          household_id: string;
+          id?: never;
+          license: string;
+          matches_record: boolean;
+          provider_id: string;
+          record_id?: string | null;
+          record_name: string;
+          record_producer: string;
+          record_type?: Database["public"]["Enums"]["wine_type"] | null;
+          retrieved_at?: string | null;
+          unlinked_at?: string | null;
+          unlinked_by?: string | null;
+          wine_id: string;
+        };
+        Update: {
+          attribution?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          dataset_version?: string | null;
+          external_id?: string;
+          household_id?: string;
+          id?: never;
+          license?: string;
+          matches_record?: boolean;
+          provider_id?: string;
+          record_id?: string | null;
+          record_name?: string;
+          record_producer?: string;
+          record_type?: Database["public"]["Enums"]["wine_type"] | null;
+          retrieved_at?: string | null;
+          unlinked_at?: string | null;
+          unlinked_by?: string | null;
+          wine_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wine_record_origins_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wine_record_origins_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_providers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wine_record_origins_record_id_fkey";
+            columns: ["record_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_external_records";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wine_record_origins_wine_id_fkey";
+            columns: ["wine_id"];
+            isOneToOne: false;
+            referencedRelation: "wines";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       wine_sources: {
         Row: {
           id: string;
@@ -3480,6 +3573,10 @@ export type Database = {
         Args: { p_friend: string; p_note?: string; p_vintage: string };
         Returns: string;
       };
+      record_wine_origin: {
+        Args: { p_household_id: string; p_record_id: string; p_wine_id: string };
+        Returns: string;
+      };
       release_shared_profile_research: {
         Args: { p_language: string; p_token: string; p_vintage_id: string };
         Returns: boolean;
@@ -3590,6 +3687,10 @@ export type Database = {
         };
         Returns: string;
       };
+      unlink_wine_origin: {
+        Args: { p_household_id: string; p_origin_id: number };
+        Returns: string;
+      };
       wine_bottle_art_for: {
         Args: { p_wine_ids: string[] };
         Returns: {
@@ -3600,6 +3701,7 @@ export type Database = {
           wine_id: string;
         }[];
       };
+      wine_origin_notices: { Args: { p_household_id: string; p_wine_id: string }; Returns: Json };
       wine_source_notices: { Args: { p_household_id: string; p_wine_id: string }; Returns: Json };
     };
     Enums: {

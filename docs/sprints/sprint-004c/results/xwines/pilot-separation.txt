@@ -1,0 +1,1 @@
+  'muga reserva': people's search 0 provider rows, pilot search 20; a signed-in person calling the pilot search: ERROR:  permission denied for function catalog_search_pilot

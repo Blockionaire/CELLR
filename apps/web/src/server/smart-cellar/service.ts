@@ -11,6 +11,9 @@ import {
   indexMeaningOf,
   landingSpot,
   placementMeaning,
+  adviseStorage,
+  type AdviceIntent,
+  type SmartAdviceView,
   placementProblem,
   swapProblem,
   type PlacementProblem,
@@ -115,6 +118,8 @@ export interface SmartCellarDeps {
    * closed.
    */
   placement?: PlacementAccess | undefined;
+  /** Whether placement advice may be given here (lib/smart-cellar-advice-gate.ts, sprint 5). Left out: closed. */
+  advice?: boolean | undefined;
 }
 
 /** The words of a placement refusal (each has an English and a Dutch translation, lib/known-messages.ts). */
@@ -159,6 +164,7 @@ export function createSmartCellarService({
   household,
   access,
   placement = PLACEMENT_CLOSED,
+  advice = false,
 }: SmartCellarDeps) {
   /** Closed is "there is no such thing here": the same answer as a route that does not exist. */
   const requireReads = () => {
@@ -243,6 +249,46 @@ export function createSmartCellarService({
      * this check and the database call still wins (last write wins under the row lock). Closing that needs the
      * revision compared inside the transaction, which is a migration (SPRINT-3-REPORT §11), not done here.
      */
+    /**
+     * Where this bottle could go, ranked and explained (sprint 5; ADR-009). Read-only: nothing is written or kept. Every
+     * fact is read here, as the person (RLS), never taken from the caller: the bottle, the household's places and
+     * every placed bottle (six requests whatever the cellar's size, one page more per 1,000 placed bottles).
+     * `canPlace` says whether acting on it is possible here (the Sprint 4 gate and write target); advice never moves
+     * anything.
+     */
+    async advise(bottleId: string, intent: AdviceIntent): Promise<SmartAdviceView> {
+      requireReads();
+      if (!placement.open || !advice) throw new DomainError("NOT_FOUND");
+      const { id: householdId } = await household();
+      const [bottle, places, occupants] = await Promise.all([
+        repo.adviceBottle(householdId, bottleId),
+        repo.listPlaces(householdId),
+        repo.adviceOccupants(householdId),
+      ]);
+      if (!bottle) throw new DomainError("NOT_FOUND", PLACEMENT_MESSAGES.notFound);
+      // No drinking-window source is passed: whether CELLR has a window for this bottle, and where it came from (the
+      // table, which also weighs the purchase price, or a stored AI insight), is decided by the cellar's own reads,
+      // which advice doesn't make. A known year proves neither. With nothing authoritative, the engine's
+      // `estimated_window_not_used` caveat is simply not emitted (ADR-009 §1); ranking never used a window anyway.
+      const result = adviseStorage({
+        bottle: {
+          bottleId: bottle.bottleId,
+          inCellar: bottle.inCellar,
+          vintageId: bottle.vintageId,
+          wineId: bottle.wineId,
+          producerId: bottle.producerId,
+          type: bottle.type,
+          year: bottle.year,
+          current: bottle.spot,
+        },
+        places: places.map((p) => ({ id: p.id, label: p.label, resolved: resolvePlace(p) })),
+        occupants,
+        intent,
+        depthEnabled: placement.depth,
+      });
+      return { ...result, bottleId, canPlace: placement.canWrite && access.writes };
+    },
+
     /**
      * Where one bottle is now, read from the database as the person (no cache anywhere): what a client asks after a
      * move, swap or take-off whose answer it did not get. Open wherever placement is open, also read-only; another

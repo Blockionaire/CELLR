@@ -1,0 +1,3080 @@
+{
+  "summary": {
+    "covered_wines": 101,
+    "by_reading": {
+      "clean": {
+        "readings": 90,
+        "suggestion_1st": 85,
+        "suggestion_top3": 86,
+        "no_suggestion": 0,
+        "statuses": {
+          "exact_candidate": 0,
+          "ambiguous": 0,
+          "not_found": 90
+        }
+      },
+      "misread": {
+        "readings": 90,
+        "suggestion_1st": 50,
+        "suggestion_top3": 51,
+        "no_suggestion": 39,
+        "statuses": {
+          "exact_candidate": 0,
+          "ambiguous": 0,
+          "not_found": 90
+        }
+      },
+      "producer": {
+        "readings": 90,
+        "suggestion_1st": 24,
+        "suggestion_top3": 44,
+        "no_suggestion": 6,
+        "statuses": {
+          "exact_candidate": 0,
+          "ambiguous": 0,
+          "not_found": 90
+        }
+      }
+    },
+    "canonical_seeds": {
+      "wines": 5,
+      "clean_exact_canonical": 11,
+      "misread_exact_canonical": 0
+    },
+    "wrong_automatic_identities": 0,
+    "safety_violations": []
+  },
+  "readings": [
+    {
+      "id": "b001",
+      "reading": "clean",
+      "status": "exact_candidate",
+      "target": 1,
+      "ms": 15,
+      "seeded": true,
+      "exact_wine": true,
+      "suggestions": 1
+    },
+    {
+      "id": "b001",
+      "reading": "misread",
+      "status": "ambiguous",
+      "target": null,
+      "ms": 12.2,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b001",
+      "reading": "producer",
+      "status": "ambiguous",
+      "target": 1,
+      "ms": 10.2,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b002",
+      "reading": "clean",
+      "status": "exact_candidate",
+      "target": 1,
+      "ms": 17.7,
+      "seeded": true,
+      "exact_wine": true,
+      "suggestions": 1
+    },
+    {
+      "id": "b002",
+      "reading": "misread",
+      "status": "ambiguous",
+      "target": null,
+      "ms": 17,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b002",
+      "reading": "producer",
+      "status": "ambiguous",
+      "target": 2,
+      "ms": 9.1,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b017",
+      "reading": "clean",
+      "status": "exact_candidate",
+      "target": 1,
+      "ms": 15.2,
+      "seeded": true,
+      "exact_wine": true,
+      "suggestions": 3
+    },
+    {
+      "id": "b017",
+      "reading": "misread",
+      "status": "ambiguous",
+      "target": 1,
+      "ms": 10.3,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b017",
+      "reading": "producer",
+      "status": "ambiguous",
+      "target": null,
+      "ms": 4.6,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b018",
+      "reading": "clean",
+      "status": "exact_candidate",
+      "target": 1,
+      "ms": 38,
+      "seeded": true,
+      "exact_wine": true,
+      "suggestions": 2
+    },
+    {
+      "id": "b018",
+      "reading": "misread",
+      "status": "ambiguous",
+      "target": 1,
+      "ms": 16.3,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b018",
+      "reading": "producer",
+      "status": "ambiguous",
+      "target": 1,
+      "ms": 19.4,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b019",
+      "reading": "clean",
+      "status": "exact_candidate",
+      "target": 1,
+      "ms": 15.8,
+      "seeded": true,
+      "exact_wine": true,
+      "suggestions": 3
+    },
+    {
+      "id": "b019",
+      "reading": "misread",
+      "status": "ambiguous",
+      "target": 1,
+      "ms": 15.7,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b019",
+      "reading": "producer",
+      "status": "ambiguous",
+      "target": null,
+      "ms": 7.3,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b020",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 27.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b020",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 16.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b020",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 8.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b021",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 10.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b021",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 10.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b021",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 3,
+      "ms": 5.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b023",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 6.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b023",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b023",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 4.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b034",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 18.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b034",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 16.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b034",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 3,
+      "ms": 6.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b036",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 11.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b036",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 7.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b036",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 54.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b037",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 7.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b037",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 11.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b037",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 3,
+      "ms": 8.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b039",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b039",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 9.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b039",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b042",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 11.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b042",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 6.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b042",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b043",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 36.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b043",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 35.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b043",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 8.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b044",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 48,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b044",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 33.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b044",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 8.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b045",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 24,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b045",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 17.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b045",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b048",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 13.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b048",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 8.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b048",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 5.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b049",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 35.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b049",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 17.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b049",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 18,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b050",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 36.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b050",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 24.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b050",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 2,
+      "ms": 11.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b051",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 26.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b051",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 19.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b051",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b053",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 14.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b053",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 14.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b053",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b056",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 11.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b056",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 10.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b056",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 9.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b057",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 9.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b057",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 7.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b057",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 4.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b058",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 37.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b058",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 29.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b058",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b059",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 27.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b059",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 8.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b059",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b060",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 15,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b060",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 14.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b060",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b061",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 40.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b061",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 34.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b061",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b063",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 7.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b063",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 6.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b063",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 9.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b064",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 11.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b064",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b064",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 26,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b065",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 14.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b065",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 13.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b065",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b072",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 13.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b072",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 7.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b072",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 3,
+      "ms": 6.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b077",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b077",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 6.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b077",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 2,
+      "ms": 5.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b078",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b078",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b078",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b084",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 15.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b084",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 12.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b084",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b085",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 14.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b085",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 9.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b085",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 6.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b086",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 7.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b086",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 6.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b086",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 3,
+      "ms": 4.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b087",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 13.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b087",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 10.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b087",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b088",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 29.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b088",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b088",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b089",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 21.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b089",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 14.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b089",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 7.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b090",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 13.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b090",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 13.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b090",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b091",
+      "reading": "clean",
+      "status": "not_found",
+      "target": null,
+      "ms": 125.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b091",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 17.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b091",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 7.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b092",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 3,
+      "ms": 23.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b092",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 24.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b092",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 6.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b093",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 29.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b093",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 17.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b093",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 3,
+      "ms": 7.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b094",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 12.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b094",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 16,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b094",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b095",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 20.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b095",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 15.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b095",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 2,
+      "ms": 5.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b099",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 6.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b099",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 7.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b099",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 4.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b101",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 33.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b101",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 11.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b101",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 10.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b102",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 42.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b102",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 17.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b102",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 6.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b103",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 19.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b103",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 18.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b103",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 6.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b104",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 13.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b104",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 12.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b104",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b105",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 21.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b105",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 2,
+      "ms": 17.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b105",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b108",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 10.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b108",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b108",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 2,
+      "ms": 5.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b113",
+      "reading": "clean",
+      "status": "exact_candidate",
+      "target": 1,
+      "ms": 8.9,
+      "seeded": true,
+      "exact_wine": true,
+      "suggestions": 1
+    },
+    {
+      "id": "b113",
+      "reading": "misread",
+      "status": "ambiguous",
+      "target": null,
+      "ms": 11.1,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b113",
+      "reading": "producer",
+      "status": "ambiguous",
+      "target": 1,
+      "ms": 9.2,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b115",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b115",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 11,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b115",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b124",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 35.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b124",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 33.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b124",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 7.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b125",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b125",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 15,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b125",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 9.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b127",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 12.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b127",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 12.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b127",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b130",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 17,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b130",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 19.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b130",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b131",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 14,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b131",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 11.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b131",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 2,
+      "ms": 4.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b133",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 6.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b133",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b133",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 6.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b134",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 15.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b134",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 14.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b134",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 3,
+      "ms": 6.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b135",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 14.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b135",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 11.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b135",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b136",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 11.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b136",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 9.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b136",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b137",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 5.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b137",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b137",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 4.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b138",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 10.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b138",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 10.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b138",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 4.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b139",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 15.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b139",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 9.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b139",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 7.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b140",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 12.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b140",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 14.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b140",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b141",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b141",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b141",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 4.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b142",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 61.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b142",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 15.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b142",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 6.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b145",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b145",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 5.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b145",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 5.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b146",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 15.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b146",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 12.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b146",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 3,
+      "ms": 6.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b147",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 6.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b147",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b147",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 4.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b148",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 5.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b148",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b148",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 3,
+      "ms": 4.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b149",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 9.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b149",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 8.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b149",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 3,
+      "ms": 5.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b150",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 15.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b150",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 10,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b150",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 3,
+      "ms": 6.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b151",
+      "reading": "clean",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b151",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 6.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b151",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 7.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b156",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 17,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b156",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 19.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b156",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 9.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b160",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 22.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b160",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 14.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b160",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 2,
+      "ms": 39.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b162",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 11.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b162",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b162",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 5.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b167",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 21.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b167",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 14.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b167",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 3,
+      "ms": 20,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b169",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 12.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b169",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 11.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b169",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 12.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b171",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 10.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b171",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 9.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b171",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b172",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 12.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b172",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 10.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b172",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 24.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b173",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 10.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b173",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b173",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 2,
+      "ms": 7.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b174",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 9.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b174",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b174",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b175",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 16.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b175",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 8.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b175",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b176",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 25.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b176",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 21.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b176",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b180",
+      "reading": "clean",
+      "status": "exact_candidate",
+      "target": 1,
+      "ms": 18,
+      "seeded": true,
+      "exact_wine": true,
+      "suggestions": 1
+    },
+    {
+      "id": "b180",
+      "reading": "misread",
+      "status": "ambiguous",
+      "target": null,
+      "ms": 15.5,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b180",
+      "reading": "producer",
+      "status": "ambiguous",
+      "target": 2,
+      "ms": 8.8,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b182",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 14.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b182",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 12.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b182",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 26.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b183",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 28.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b183",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 10.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b183",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b190",
+      "reading": "clean",
+      "status": "exact_candidate",
+      "target": 1,
+      "ms": 8.7,
+      "seeded": true,
+      "exact_wine": true,
+      "suggestions": 1
+    },
+    {
+      "id": "b190",
+      "reading": "misread",
+      "status": "ambiguous",
+      "target": null,
+      "ms": 10.9,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b190",
+      "reading": "producer",
+      "status": "ambiguous",
+      "target": 1,
+      "ms": 8.9,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b191",
+      "reading": "clean",
+      "status": "exact_candidate",
+      "target": 1,
+      "ms": 8.6,
+      "seeded": true,
+      "exact_wine": true,
+      "suggestions": 1
+    },
+    {
+      "id": "b191",
+      "reading": "misread",
+      "status": "ambiguous",
+      "target": null,
+      "ms": 10,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b191",
+      "reading": "producer",
+      "status": "ambiguous",
+      "target": 1,
+      "ms": 9,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b193",
+      "reading": "clean",
+      "status": "exact_candidate",
+      "target": 1,
+      "ms": 15.4,
+      "seeded": true,
+      "exact_wine": true,
+      "suggestions": 3
+    },
+    {
+      "id": "b193",
+      "reading": "misread",
+      "status": "ambiguous",
+      "target": 1,
+      "ms": 31.9,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b193",
+      "reading": "producer",
+      "status": "ambiguous",
+      "target": null,
+      "ms": 7.8,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b194",
+      "reading": "clean",
+      "status": "exact_candidate",
+      "target": 1,
+      "ms": 16.1,
+      "seeded": true,
+      "exact_wine": true,
+      "suggestions": 3
+    },
+    {
+      "id": "b194",
+      "reading": "misread",
+      "status": "ambiguous",
+      "target": 1,
+      "ms": 14.7,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b194",
+      "reading": "producer",
+      "status": "ambiguous",
+      "target": null,
+      "ms": 7.4,
+      "seeded": true,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b198",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 6.7,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b198",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 9.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b198",
+      "reading": "producer",
+      "status": "not_found",
+      "target": 3,
+      "ms": 7.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b204",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 10.4,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b204",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b204",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 25.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b205",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 10.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b205",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.8,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b205",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 25.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b211",
+      "reading": "clean",
+      "status": "not_found",
+      "target": null,
+      "ms": 134.1,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b211",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 25.3,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b211",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 10.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b212",
+      "reading": "clean",
+      "status": "not_found",
+      "target": null,
+      "ms": 137,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b212",
+      "reading": "misread",
+      "status": "not_found",
+      "target": null,
+      "ms": 17.9,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 0
+    },
+    {
+      "id": "b212",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 7.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b220",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 12.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b220",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 12.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b220",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 5.6,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    },
+    {
+      "id": "b221",
+      "reading": "clean",
+      "status": "not_found",
+      "target": 1,
+      "ms": 14,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 2
+    },
+    {
+      "id": "b221",
+      "reading": "misread",
+      "status": "not_found",
+      "target": 1,
+      "ms": 23.5,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 1
+    },
+    {
+      "id": "b221",
+      "reading": "producer",
+      "status": "not_found",
+      "target": null,
+      "ms": 4.2,
+      "seeded": false,
+      "exact_wine": false,
+      "suggestions": 3
+    }
+  ],
+  "redacted": "Redacted for the repository (scripts/catalog-tools/redact-results.ts): counts and ranks only; record names, ids, hits and examples removed."
+}

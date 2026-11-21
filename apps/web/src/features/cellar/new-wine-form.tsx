@@ -29,6 +29,8 @@ export interface NewWineDraft {
   type: WineType | null;
   countryCode: string | null;
   region: string | null;
+  /** R-27: the external record this draft came from; sent along so the server can keep where the data came from. */
+  recordId?: string | null;
 }
 
 /**
@@ -44,6 +46,7 @@ export function draftOfRecord(hit: CatalogSearchHit): NewWineDraft {
       ? hit.countryCode
       : null,
     region: hit.region,
+    recordId: hit.recordId,
   };
 }
 
@@ -91,6 +94,7 @@ export function NewWineForm({
       type,
       ...(country ? { countryCode: country } : {}),
       region,
+      ...(draft?.recordId ? { sourceRecordId: draft.recordId } : {}),
     });
     if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
     try {
