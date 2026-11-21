@@ -198,8 +198,10 @@ if (args.vectors && keyOf) {
     keyed: keyOf.keyed,
     salt: keyOf.fingerprint,
     incomplete: stoppedAt !== null,
-    rows: Object.fromEntries(vectors),
+    // Sorted by key: in run order a blind set's rows would line up with the scenario list in the repository.
+    rows: Object.fromEntries([...vectors].sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))),
   };
+  keyOf.check();
   await writeFile(args.vectors, JSON.stringify(file) + "\n");
 }
 if (args.json) {

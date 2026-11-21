@@ -203,6 +203,56 @@ describe("V1 with the guard in shadow mode", () => {
     expect(calls).toBe(0);
   });
 
+  it("with the social sommelier on, never judges by a turn that names someone (no model heard it)", async () => {
+    const heard: GuardShadow[] = [];
+    const service = createSommelierService({
+      cellar: async () => ({ items: [BAROLO], bottleCount: 2, wineCount: 1 }) as never,
+      storage: async () => [],
+      racks: async () => ({ units: [], unplaced: [] }),
+      tonight: async () => ({
+        dish: null,
+        occasion: "weeknight",
+        considered: 1,
+        personal: false,
+        picks: [],
+      }),
+      // The engines are on with the social sommelier, and decide nothing here: V1 answers.
+      intelligence: {
+        social: true,
+        plan: async () => null,
+        readsDish: () => false,
+        asksEnoughFor: () => false,
+      } as never,
+      llm: {
+        async generateObject<T>(request: GenerateObjectRequest<T>) {
+          const refs = [...request.user.matchAll(/^(\S+) \| /gm)].map((m) => m[1]!);
+          return {
+            ok: true as const,
+            value: request.parse({ answer: "This one.", bottle_refs: refs }),
+            usage: { model: "chat-model", tokensIn: 1, tokensOut: 1, latencyMs: 1 },
+          };
+        },
+      },
+      spend: async () => {},
+      householdId: async () => "h1",
+      locale: async () => "en",
+      recordUsage: async () => {},
+      guard: guardShadow,
+    });
+    await service.ask(
+      {
+        messages: [
+          { role: "user", text: "Oysters with @anna tonight?" },
+          { role: "assistant", text: "…" },
+          { role: "user", text: "and something cheaper?" },
+        ],
+      },
+      { guard: (g) => heard.push(g) },
+    );
+    expect(heard).toHaveLength(1);
+    expect(heard[0]).toMatchObject({ considered: false, flagged: 0 });
+  });
+
   it("its counts pass the analytics rules", () => {
     const counts = shadowCounts(guardShadow(["What goes with oysters?"], [BAROLO]));
     expect(

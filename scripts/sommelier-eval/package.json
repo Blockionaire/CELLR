@@ -15,7 +15,8 @@
     "selection-study": "tsx --conditions=react-server selection-study.ts",
     "expert-sheet": "tsx --conditions=react-server expert-sheet.ts",
     "guard-study": "tsx --conditions=react-server guard-study.ts",
-    "compare": "tsx --conditions=react-server compare.ts"
+    "compare": "tsx --conditions=react-server compare.ts",
+    "seal-human-holdout": "tsx --conditions=react-server human-holdout.ts"
   },
   "dependencies": {
     "@cellr/domain": "workspace:*",

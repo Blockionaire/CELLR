@@ -1,4 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { DISHES } from "./dishes";
 import { ENGINES } from "./engines";
@@ -6,7 +9,14 @@ import { SCENARIOS } from "./scenarios";
 import { buildFixture } from "./fixtures";
 import { qualityRow, qualityTotals, type QualityRow } from "./quality";
 import { addGuardEffect, emptyGuardEffect } from "./guard-effect";
-import { checkHumanDishes, HUMAN_HOLDOUT_FILE, HUMAN_HOLDOUT_MIN_DISHES } from "./human-holdout";
+import {
+  checkHumanDishes,
+  HUMAN_HOLDOUT_ENV,
+  HUMAN_HOLDOUT_FILE,
+  HUMAN_HOLDOUT_MIN_DISHES,
+  readEscrowed,
+  sealOf,
+} from "./human-holdout";
 import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { expectedVerdictOf, scoreScenario, summarize } from "./score";
 import { CAPABILITIES, CATEGORIES, type EvalAnswer, type Scenario } from "./types";
@@ -317,7 +327,9 @@ describe("the holdout set's own data", () => {
 describe("the human holdout (S10)", () => {
   it("is blind, and empty until people have written it", () => {
     expect(holdsBlind("human")).toBe(true);
-    if (!existsSync(HUMAN_HOLDOUT_FILE)) expect(scenariosOf("human")).toEqual([]);
+    // Never in the repository (S11: escrow); read only from the owner's own path, checked against its seal.
+    expect(existsSync(HUMAN_HOLDOUT_FILE)).toBe(false);
+    if (!process.env[HUMAN_HOLDOUT_ENV]) expect(scenariosOf("human")).toEqual([]);
     else {
       const dishes = cardsOf("human");
       expect(dishes.size).toBeGreaterThanOrEqual(HUMAN_HOLDOUT_MIN_DISHES);
@@ -325,6 +337,35 @@ describe("the human holdout (S10)", () => {
       for (const d of dishes.values()) expect(known.has(d.en.toLowerCase()), d.id).toBe(false);
     }
   });
+  it("is held in escrow: outside the repository, and only as sealed (S11)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "human-holdout-"));
+    const dish = {
+      id: "hh-test-dish",
+      en: "Test dish",
+      nl: "Testgerecht",
+      question_en: "Which wine with the test dish?",
+      question_nl: "Welke wijn bij het testgerecht?",
+      truth: { main: "poultry", weight: 3, fat: 1, acid: 1, sweet: 0, heat: 0, umami: 1 },
+      by: "test",
+    };
+    const text = JSON.stringify([dish]);
+    const file = join(dir, "dishes.json");
+    writeFileSync(file, text);
+    const seal = sealOf(text, new Date("2026-11-21T00:00:00Z"));
+    expect(seal).toMatchObject({ dishes: 1, sealedOn: "2026-11-21" });
+    expect(readEscrowed({ [HUMAN_HOLDOUT_ENV]: file }, seal, false)).toBe(text);
+    expect(readEscrowed({}, seal, false)).toBeNull();
+    expect(() => readEscrowed({ [HUMAN_HOLDOUT_ENV]: file }, null, false)).toThrow(/SEAL/);
+    expect(() =>
+      readEscrowed({ [HUMAN_HOLDOUT_ENV]: file }, { ...seal, sha256: "0".repeat(64) }, false),
+    ).toThrow(/does not match its seal/);
+    expect(() => readEscrowed({}, seal, true)).toThrow(/inside the repository/);
+    const inside = fileURLToPath(new URL("./package.json", import.meta.url));
+    expect(() => readEscrowed({ [HUMAN_HOLDOUT_ENV]: inside }, seal, false)).toThrow(
+      /outside the repository/,
+    );
+  });
+
   it("refuses a file that is not what the README asks for", () => {
     expect(() => checkHumanDishes([{ id: "x" }])).toThrow(/id must look like/);
     expect(() =>

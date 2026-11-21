@@ -66,7 +66,11 @@ export function studyGuard(set: string, settings: GuardSettings): GuardStudy {
       food,
       fixture.wines.map((f) => ({
         item: f.key,
-        wine: { ...readWine(wineInput(f), WINE_KNOWLEDGE), type: f.wine.type },
+        // As the guard in the app reads a wine (v1-guard.ts): without a researched profile.
+        wine: {
+          ...readWine({ ...wineInput(f), profile: null }, WINE_KNOWLEDGE),
+          type: f.wine.type,
+        },
       })),
       settings,
     );

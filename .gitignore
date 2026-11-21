@@ -35,3 +35,6 @@ platform-objects.sql
 # Supabase CLI local state (`supabase link` writes the project ref and pooler URL here)
 supabase/.temp/
 supabase/.branches/
+
+# The human holdout is kept in escrow, never in Git (scripts/sommelier-eval/human-holdout/README.md).
+scripts/sommelier-eval/human-holdout/dishes.json

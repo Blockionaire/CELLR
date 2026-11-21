@@ -30,12 +30,6 @@ import {
 } from "@cellr/domain";
 import type { SommelierIntelligence } from "@/server/sommelier/intelligence";
 import type { GuardShadow } from "@/server/sommelier/v1-guard";
-
-/** What a caller may hear about an answer besides the answer itself. */
-export interface SommelierObserver {
-  model?: (id: string) => void;
-  guard?: (shadow: GuardShadow) => void;
-}
 import type { AiErrorKind, AiUsage, LlmProvider } from "@/server/ai";
 import {
   parseSommelier,
@@ -43,6 +37,12 @@ import {
   SOMMELIER_SYSTEM,
   sommelierUserMessage,
 } from "@/server/ai/prompts/sommelier";
+
+/** What a caller may hear about an answer besides the answer itself. */
+export interface SommelierObserver {
+  model?: (id: string) => void;
+  guard?: (shadow: GuardShadow) => void;
+}
 
 export interface SommelierDeps {
   cellar: () => Promise<CellarView>;
@@ -416,7 +416,15 @@ export function createSommelierService(deps: SommelierDeps) {
           const offered = answer.bottles.flatMap((b) => byId.get(b.vintageId) ?? []);
           observe.guard(
             deps.guard(
-              request.messages.filter((m) => m.role === "user").map((m) => m.text),
+              request.messages
+                // With the social sommelier on, a turn that names someone is one no model heard: not the dish
+                // the answer was given for, so not the guard's either.
+                .filter(
+                  (m) =>
+                    m.role === "user" &&
+                    !(deps.intelligence?.social === true && hasAnyMention(m.text)),
+                )
+                .map((m) => m.text),
               offered,
             ),
           );

@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { checkVectorFiles, compare } from "./compare";
+import { checkSides, checkVectorFiles, compare, dropped } from "./compare";
 import { pairedProportion, pairedRatio, type ScenarioVector } from "./stats";
+import { mkdtempSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { vectorKeyer, type VectorFile } from "./vectors";
+
+const SALT = "0f3a9c2e7b14d856a1e0";
 
 const v = (first: 0 | 1, poor = 0, offered = 1): ScenarioVector => ({
   first,
@@ -78,6 +84,22 @@ describe("a comparison counts scenarios, not runs", () => {
   });
 });
 
+describe("edge cases", () => {
+  it("a resample with no bottle offered is left out, never read as 0% poor", () => {
+    const a = new Map<string, ScenarioVector>([
+      ["s0", v(1, 1, 1)],
+      ["s1", { ...v(1, 0, 0), offered: 0, good: 0 }],
+    ]);
+    const b = new Map<string, ScenarioVector>([
+      ["s0", v(1, 0, 1)],
+      ["s1", v(1, 0, 1)],
+    ]);
+    const r = pairedRatio([a], [b], "poor", { rounds: 400 });
+    expect(r.undefinedDraws).toBeGreaterThan(0);
+    expect(r.low).toBeGreaterThan(0);
+  });
+});
+
 describe("vector files", () => {
   const file = (over: Partial<VectorFile>): VectorFile => ({
     set: "holdout-dev",
@@ -100,15 +122,25 @@ describe("vector files", () => {
     ).toMatch(/salt/);
     expect(checkVectorFiles([file({}), file({ incomplete: true })])).toMatch(/stopped early/);
     expect(compare([file({})], [file({ rows: { s0: v(0) } })]).first.diff).toBe(1);
+    expect(checkSides([file({}), file({ engine: "v3-app" })], [file({})])).toMatch(/mixes engines/);
+    expect(dropped([file({ rows: { s0: v(1), s1: v(1) } })], [file({})])).toEqual({ a: 1, b: 0 });
   });
 
-  it("keys a blind set by a salted hash, outside the repository only", () => {
+  it("keys a blind set by a salted hash, outside every Git checkout only", () => {
+    expect(() =>
+      vectorKeyer("holdout-test", "/tmp/x.json", { SOMMELIER_EVAL_BLIND_SALT: "a".repeat(32) }),
+    ).toThrow(/random/);
+    const link = join(mkdtempSync(join(tmpdir(), "vec-")), "into-repo");
+    symlinkSync(fileURLToPath(new URL(".", import.meta.url)), link);
+    expect(() =>
+      vectorKeyer("holdout-test", join(link, "x.json"), { SOMMELIER_EVAL_BLIND_SALT: SALT }),
+    ).toThrow(/outside every Git checkout/);
     expect(() => vectorKeyer("holdout-test", "/tmp/x.json", {})).toThrow(/SALT/);
     expect(() =>
-      vectorKeyer("holdout-test", "results/x.json", { SOMMELIER_EVAL_BLIND_SALT: "s".repeat(16) }),
-    ).toThrow(/outside the repository/);
+      vectorKeyer("holdout-test", "results/x.json", { SOMMELIER_EVAL_BLIND_SALT: SALT }),
+    ).toThrow(/outside every Git checkout/);
     const k = vectorKeyer("holdout-test", "/tmp/x.json", {
-      SOMMELIER_EVAL_BLIND_SALT: "s".repeat(16),
+      SOMMELIER_EVAL_BLIND_SALT: SALT,
     });
     expect(k.keyed).toBe("salted-sha256");
     expect(k.key("ht-001")).not.toContain("ht-001");

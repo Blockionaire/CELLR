@@ -42,6 +42,8 @@ export interface Interval {
   scenarios: number;
   runsA: number;
   runsB: number;
+  /** Ratio measures only: resamples left out because an engine offered no bottle in them. */
+  undefinedDraws?: number;
 }
 
 /** A small, seeded generator, so a comparison gives the same interval every time it is run. */
@@ -67,7 +69,13 @@ export function commonScenarios(a: Runs, b: Runs): string[] {
 const mean = (xs: readonly number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
 
 function quantiles(sorted: readonly number[]): [number, number] {
-  const at = (q: number) => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))]!;
+  // Linear interpolation between order statistics, at (n − 1)·q: symmetric at both ends.
+  const at = (q: number) => {
+    const h = (sorted.length - 1) * q;
+    const lo = Math.floor(h);
+    const hi = Math.min(sorted.length - 1, lo + 1);
+    return sorted[lo]! + (h - lo) * (sorted[hi]! - sorted[lo]!);
+  };
   return [at(0.025), at(0.975)];
 }
 
@@ -122,6 +130,7 @@ export function pairedRatio(
   const oa = perScenario(a, ids, (v) => v.offered);
   const nb = perScenario(b, ids, (v) => v[measure]);
   const ob = perScenario(b, ids, (v) => v.offered);
+  // No bottle offered in the drawn scenarios: the share is undefined, not 0% (that would read as "nothing poor").
   const ratio = (num: readonly number[], den: readonly number[], pick: readonly number[]) => {
     let n = 0;
     let d = 0;
@@ -129,18 +138,22 @@ export function pairedRatio(
       n += num[i]!;
       d += den[i]!;
     }
-    return d === 0 ? 0 : n / d;
+    return d === 0 ? NaN : n / d;
   };
   const every = ids.map((_, i) => i);
   const rounds = options.rounds ?? 4000;
   const rnd = xorshift(options.seed ?? 20261121);
   const boots: number[] = [];
+  let undefinedDraws = 0;
   for (let r = 0; r < rounds; r += 1) {
     const pick = every.map(() => Math.floor(rnd() * every.length));
-    boots.push(ratio(na, oa, pick) - ratio(nb, ob, pick));
+    const d = ratio(na, oa, pick) - ratio(nb, ob, pick);
+    // A resample in which one engine offered nothing has no difference to give: it is left out (and counted).
+    if (Number.isNaN(d)) undefinedDraws += 1;
+    else boots.push(d);
   }
   boots.sort((x, y) => x - y);
-  const [low, high] = ids.length === 0 ? [NaN, NaN] : quantiles(boots);
+  const [low, high] = boots.length === 0 ? [NaN, NaN] : quantiles(boots);
   return {
     diff: ids.length === 0 ? NaN : ratio(na, oa, every) - ratio(nb, ob, every),
     low,
@@ -148,5 +161,6 @@ export function pairedRatio(
     scenarios: ids.length,
     runsA: a.length,
     runsB: b.length,
+    undefinedDraws,
   };
 }
