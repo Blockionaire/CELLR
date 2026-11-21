@@ -6,6 +6,7 @@ import { placementAccessIn, type PlacementAccess } from "@/lib/smart-cellar-plac
 import { cellarGalleryOpenIn } from "@/lib/cellar-gallery-gate";
 import { smartCellarAccessIn, type SmartCellarAccess } from "@/lib/smart-cellar-gate";
 import { smartCellarRendererOpenIn } from "@/lib/smart-cellar-renderer-gate";
+import { demoOriginsIn } from "@/lib/demo-origins";
 import { getPublicEnv, isDevelopment, type PublicEnv } from "@/lib/public-env";
 
 /** Server-side view of the environment. Validated lazily, so `next build` works without secrets. */
@@ -16,6 +17,11 @@ export function getServerEnv(): ServerEnv {
 }
 
 /** The /design gallery is for development and for Vercel *preview* deployments (set DESIGN_GALLERY=1 there). */
+/** The exact origins the local demonstration's server also accepts for changes (see lib/demo-origins.ts). */
+export function getTrustedDemoOrigins(): ReadonlySet<string> {
+  return demoOriginsIn(process.env);
+}
+
 export function isDesignGalleryEnabled(): boolean {
   return isDevelopment() || process.env.DESIGN_GALLERY === "1";
 }

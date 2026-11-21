@@ -61,9 +61,19 @@ COMMON=(
   CELLR_SMART_CELLAR_3D=1 CELLR_SMART_CELLAR_BUILDER=1
   CELLR_SMART_CELLAR_PLACEMENT=1 CELLR_SMART_CELLAR_ADVICE=1
 )
-setsid env "${COMMON[@]}" CELLR_SMART_CELLAR=write pnpm exec next start -H "$HOST" -p 3200 >"$STATE/app.log" 2>&1 &
+# In GitHub Codespaces: each app accepts sign-in and changes from exactly the private forwarded address of its own
+# port (https://<codespace>-3200.<domain>), built from the variables Codespaces sets in this machine. The port forward
+# delivers requests with the internal host, so without this the same-origin check refuses them (403). Nothing else is
+# trusted: not a pattern, not a header (apps/web/src/server/http.ts, trustedDemoOrigins).
+demo_origin() {
+  local name="${CODESPACE_NAME:-}" domain="${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}"
+  if [[ "$name" =~ ^[a-z0-9-]+$ && "$domain" =~ ^[a-z0-9.-]+$ ]]; then echo "https://$name-$1.$domain"; fi
+}
+ORIGIN_3200="$(demo_origin 3200)"
+ORIGIN_3201="$(demo_origin 3201)"
+setsid env "${COMMON[@]}" CELLR_DEMO_ORIGINS="$ORIGIN_3200" CELLR_SMART_CELLAR=write pnpm exec next start -H "$HOST" -p 3200 >"$STATE/app.log" 2>&1 &
 echo $! >"$STATE/app.pid"
-setsid env "${COMMON[@]}" CELLR_SMART_CELLAR=read pnpm exec next start -H "$HOST" -p 3201 >"$STATE/app-readonly.log" 2>&1 &
+setsid env "${COMMON[@]}" CELLR_DEMO_ORIGINS="$ORIGIN_3201" CELLR_SMART_CELLAR=read pnpm exec next start -H "$HOST" -p 3201 >"$STATE/app-readonly.log" 2>&1 &
 echo $! >"$STATE/app-readonly.pid"
 for port in 3200 3201; do
   for _ in $(seq 1 60); do
@@ -84,3 +94,11 @@ CELLR demo is running ($([ "$HOST" = 127.0.0.1 ] && echo "this machine only" || 
   then         Cellar → 3D
 stop with      bash scripts/demo/down.sh
 EOF
+if [ -n "$ORIGIN_3200" ]; then
+  cat <<EOF
+
+GitHub Codespaces: forward port 3200 (and 3201) with visibility PRIVATE, then open
+  $ORIGIN_3200      read-only  $ORIGIN_3201
+Never forward 54321 (fake Auth) or 54997 (database) publicly.
+EOF
+fi

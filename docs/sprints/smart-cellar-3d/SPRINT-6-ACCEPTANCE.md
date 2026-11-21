@@ -170,8 +170,10 @@ The fixed code works **only** for `@demo.cellr.test` addresses and only in the f
 - **Codespaces (recommended)**: in the Ports panel, forward **3200** (and 3201) with visibility **Private** and open
   the forwarded `https://…-3200.app.github.dev` address on the phone, signed in to GitHub. **Do not forward or make
   public 54321 (fake Auth) or 54997 (database)**; if Codespaces forwards them automatically, stop forwarding them.
-  The app accepts the forwarded host for its same-origin check (`x-forwarded-host`); this was **not** exercised in a
-  real Codespace in this sprint.
+  `up.sh` detects the Codespace and prints both addresses. Sign-in through the forwarded port needed a fix (§12.4):
+  the port forward delivers requests with the internal host (`localhost:3200`), so the same-origin check refused
+  the external origin with 403. Each demo app now accepts exactly the forwarded address of its own port, built from
+  `CODESPACE_NAME` and `GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN`, which Codespaces sets in the machine.
 - **Own Linux machine on a trusted Wi-Fi**: `DEMO_HOST=0.0.0.0 bash scripts/demo/up.sh`, then
   `http://<the machine's LAN address>:3200` on the phone. Anyone on that network can then sign in to the demo
   (synthetic data only). Not on public or shared networks.
@@ -358,6 +360,19 @@ limits on desktop and phone, including with the CPU slowed 4× (§9).
 3. Demo realism (not a product bug): the dual-zone cooler's long-term bottles were filled into the serving zone by the
    app's top-down add; the seed now places them in the keeping zone with the move API.
 
+4. **Sign-in through a private Codespaces port forward was refused (403 `FORBIDDEN`)**, reported by the owner. Cause:
+   the CSRF check compares the browser's `Origin` (`https://<codespace>-3200.app.github.dev`) with the request's
+   `X-Forwarded-Host`/`Host`, and the port forward delivers the internal `localhost:3200` in both. Fix
+   (`lib/demo-origins.ts`, `server/http.ts`, `scripts/demo/up.sh`): a server may name exact extra origins in its own
+   environment (`CELLR_DEMO_ORIGINS`). The check accepts one only when the origin is exactly in that set and the
+   request arrived on a loopback host. Rules: no patterns or wildcards; never on Vercel Production; no header is
+   trusted for it. `up.sh` sets one origin per app, for its own port, only inside a Codespace. Unit tests cover:
+   the reported 403 without the setting; the configured origin accepted; another codespace, the other port, `http`,
+   look-alikes, a trailing slash and `null` refused; a non-loopback or spoofed host refused; Production ignoring
+   it; wildcard and path entries ignored. Verified in Chromium (desktop and phone) through an emulated private
+   forward: HTTPS on the external name, internal `Host` and `X-Forwarded-Host`. Sign-in, the 3D cellar and a move
+   with Undo all worked. Not run inside a real Codespace from this session.
+
 ## 13. Remaining UX issues (not fixed; for the owner's review)
 
 | #   | Issue                                                                                                                                                            | Severity | Suggestion                                                                                      |
@@ -375,6 +390,9 @@ limits on desktop and phone, including with the CPU slowed 4× (§9).
   switching shows only the active household's places. The database suite (`scripts/db-test.sh`, RLS on every table)
   passes (§9a).
 - **Read-only is enforced by the server** (403 on the move API), not only hidden in the UI.
+- **The Codespaces exception is narrow** (§12.4): exact origins from the server's own environment, accepted only
+  on a loopback host, ignored on Vercel Production. The normal same-origin rule and the bearer-token exemption are
+  unchanged.
 - **The fake Auth is never public**: it binds to localhost; the demo apps bind to 127.0.0.1 unless `DEMO_HOST` is
   set; the fixed code (`DEMO_FIXED_OTP`) is honoured only for `@demo.cellr.test` and only when that variable is set
   (the Playwright suites never set it). The production Supabase Auth is not involved anywhere.

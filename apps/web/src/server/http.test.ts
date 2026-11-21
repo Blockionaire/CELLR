@@ -19,6 +19,7 @@ import {
   readForm,
   readJson,
 } from "./http";
+import { demoOriginsIn } from "@/lib/demo-origins";
 
 const post = (body: unknown, headers: Record<string, string> = {}) =>
   new Request("https://cellr.test/api/v1/x", {
@@ -68,6 +69,79 @@ describe("checkOrigin (CSRF)", () => {
       headers: { authorization: "Bearer abc.def.ghi" },
     });
     expect(() => checkOrigin(req)).not.toThrow();
+  });
+});
+
+/** A server environment for the test (only the variables it names). */
+const envOf = (vars: Record<string, string>) => vars as unknown as NodeJS.ProcessEnv;
+/** What a server with those variables trusts. */
+const trusted = (vars: Record<string, string>) => demoOriginsIn(envOf(vars));
+
+describe("checkOrigin: the private Codespaces address of the local demo", () => {
+  const CODESPACE = "https://my-space-3200.app.github.dev";
+  const demoEnv = trusted({ CELLR_DEMO_ORIGINS: CODESPACE });
+  // what the Codespaces port forward delivers: the internal host, the browser's external origin
+  const forwarded = (origin: string, headers: Record<string, string> = {}) =>
+    post({}, { host: "localhost:3200", "x-forwarded-host": "localhost:3200", origin, ...headers });
+
+  it("without the setting, the forwarded request is refused (the reported 403)", () => {
+    expect(() => checkOrigin(forwarded(CODESPACE), trusted({}))).toThrow(DomainError);
+  });
+  it("accepts exactly the configured origin, arriving on loopback", () => {
+    expect(() => checkOrigin(forwarded(CODESPACE), demoEnv)).not.toThrow();
+    expect(() =>
+      checkOrigin(post({}, { host: "127.0.0.1:3200", origin: CODESPACE }), demoEnv),
+    ).not.toThrow();
+  });
+  it("refuses any other github.dev origin, another port, http, a look-alike or a longer origin", () => {
+    for (const origin of [
+      "https://other-space-3200.app.github.dev",
+      "https://my-space-3201.app.github.dev",
+      "http://my-space-3200.app.github.dev",
+      "https://my-space-3200.app.github.dev.evil.test",
+      "https://evil.test",
+      "https://my-space-3200.app.github.dev:443/",
+      "null",
+    ])
+      expect(() => checkOrigin(forwarded(origin), demoEnv), origin).toThrow(DomainError);
+  });
+  it("does not apply when the request did not arrive on loopback (a spoofed or real public host)", () => {
+    for (const host of [
+      "cellr.app",
+      "localhost.evil.test",
+      "localhost@evil.test",
+      "127.0.0.1.evil.test",
+    ])
+      expect(
+        () => checkOrigin(post({}, { host, "x-forwarded-host": host, origin: CODESPACE }), demoEnv),
+        host,
+      ).toThrow(DomainError);
+  });
+  it("is ignored on Vercel Production", () => {
+    for (const env of [
+      trusted({ CELLR_DEMO_ORIGINS: CODESPACE, VERCEL_ENV: "production" }),
+      trusted({
+        CELLR_DEMO_ORIGINS: CODESPACE,
+        VERCEL_ENV: "preview",
+        VERCEL_TARGET_ENV: "production",
+      }),
+    ])
+      expect(() => checkOrigin(forwarded(CODESPACE), env)).toThrow(DomainError);
+  });
+  it("keeps every other rule: no origin, a malformed one", () => {
+    const noOrigin = new Request("https://cellr.test/x", {
+      method: "POST",
+      headers: { host: "localhost:3200" },
+    });
+    expect(() => checkOrigin(noOrigin, demoEnv)).toThrow(DomainError);
+    expect(() => checkOrigin(forwarded("not a url"), demoEnv)).toThrow(DomainError);
+  });
+  it("demoOriginsIn takes only exact origins", () => {
+    const env = envOf({
+      CELLR_DEMO_ORIGINS: ` ${CODESPACE} ,https://*.app.github.dev,https://a.test/path,ftp://a.test,,garbage`,
+    });
+    expect([...demoOriginsIn(env)]).toEqual([CODESPACE]);
+    expect(demoOriginsIn(envOf({})).size).toBe(0);
   });
 });
 
