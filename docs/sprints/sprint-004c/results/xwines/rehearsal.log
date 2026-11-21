@@ -1,0 +1,46 @@
+• Postgres 17.12 (Ubuntu 17.12-1.pgdg24.04+1)
+• 1. schema
+  an unmarked database is production: the staging check must refuse it
+  refused: refusing: the target database says it is production
+• 2. the owner marks the database 'staging' (localrehearsal004b)
+  staging check: PASS (9 checks)
+• 3. providers: registered, rights set explicitly (admin step, logged)
+{"id":"xwines","name":"X-Wines dataset","license":"CC0-1.0","may_store":true,"may_display":true,"commercial_use":false,"rights_status":"unverified","search_scope":"pilot"}
+• 4. LWIN adapter on fictitious fixtures (no Liv-ex data)
+  layout: {"rows":12,"inserted":7,"folded_rows":0,"skipped":{"TYPE (not wine)":1,"STATUS":2,"LWIN":2}}
+  levels: {"rows":11,"inserted":3,"folded_rows":6,"skipped":{"STATUS":1,"TYPE (not wine)":1}}
+  9100001 folded: vintages={2015,2016} bottle_ml=[750, 1500]
+  real provider refused: the lwin-assumed-layout-v0 layout was never verified against a real Liv-ex LWIN file: a real import stays blocked until it is: nothing imported
+• 8a. load test BEFORE the X-Wines data (people's search; the pilot path over the fixtures only)
+  public c8 before: {"n":1914,"p50":70,"p95":113.2,"p99":135.3,"max":188.3,"mean":64.8,"empty":1908}
+• 5. X-Wines
+  non-pilot refused: provider xwines: rights are not verified; only a pilot run is allowed
+  run 1: {"rows":100646,"inserted":100646,"updated":0,"unchanged":0,"invalid":0,"possible_duplicates":171,"seconds":63,"peak_rss_mb":1101}
+  run 2: {"rows":100646,"inserted":0,"updated":0,"unchanged":100646,"invalid":0,"possible_duplicates":331,"seconds":75.6,"peak_rss_mb":1116}
+• 6. an interrupted import: a changed export (every 20th region edited) killed mid-run, then run again
+after the kill: records under the killed run=30500, edited regions so far=1525, open runs=1, active=100646
+  re-run: {"inserted":0,"updated":3508,"unchanged":97138,"seconds":68.4}
+after the re-run: edited regions=5033 (expected 5033), active=100646, open runs=0, abandoned runs=1, duplicate ids=0
+  edited before the re-run 1525 + updated by it 3508 = 5033: exact
+  original restored: {"inserted":0,"updated":5033,"unchanged":95613}
+• 7. quality, separation, invariants, sizes
+  quality: {"records":100646,"producers":30161,"identities":100481,"identical_groups":155,"spelling_variants":28,"nv_only":97}
+  'muga reserva': people's search 0 provider rows, pilot search 20; a signed-in person calling the pilot search: ERROR:  permission denied for function catalog_search_pilot
+CELLR wines written by imports: 0
+verified links: 0, suggested: 0
+records by provider/status: lwin_fixture/active=10, xwines/active=100646
+wines: 7200 kB
+catalog_external_records: 121 MB
+catalog_record_links: 24 kB
+catalog_search_entries: 79 MB
+database: 221 MB
+  staging check after the import: PASS
+• 8b. search benchmark, recognition, load test after the data
+  benchmark: {"sprint_004a_set":{"queries":127,"with_covered_record":95,"top1":77,"top3":84,"top8":92,"not_found":3,"not_found_ids":["b071","b083","b121"],"not_first_ids":["b007","b009","b017","b021","b026","b047","b058","b061","b103","b105","b107","b116","b118","b122","b127"]},"all_positive":{"queries":189,"with_covered_record":151,"top1":129,"top3":139,"top8":147,"not_found":4,"not_found_ids":["b071","b083","b121","b151"],"not_first_ids":["b007","b009","b017","b021","b026","b047","b058","b061","b103","b105","b107","b116","b118","b122","b127","b134","b143","b156"]},"new_positive":{"queries":62,"with_covered_record":56,"top1":52,"top3":55,"top8":55,"not_found":1,"not_found_ids":["b151"],"not_first_ids":["b134","b143","b156"]},"perturbation":{"queries":32,"with_covered_record":20,"top1":16,"top3":16,"top8":17,"not_found":3,"not_found_ids":["b219","b220","b221"],"not_first_ids":["b218"]},"near_twins":{"queries":10,"sibling_offered_first":[]},"filter":{"queries":6,"rows_contradicting_the_filter":0},"generic":[{"query":"chateau","rows":8,"ms":29.4},{"query":"domaine","rows":8,"ms":19.4},{"query":"bodega","rows":8,"ms":13.2},{"query":"reserva","rows":8,"ms":17.9}],"adversarial":{"queries":16,"not_a_search":5,"errors":[],"over_the_limit":0},"provider_marked_verified":0,"errors":0,"queries_with_duplicate_rows":0,"empty_results":8}
+  recognition: {"by_reading":{"clean":{"readings":90,"suggestion_1st":85,"suggestion_top3":86,"no_suggestion":0,"statuses":{"exact_candidate":0,"ambiguous":0,"not_found":90}},"misread":{"readings":90,"suggestion_1st":50,"suggestion_top3":51,"no_suggestion":39,"statuses":{"exact_candidate":0,"ambiguous":0,"not_found":90}},"producer":{"readings":90,"suggestion_1st":24,"suggestion_top3":44,"no_suggestion":6,"statuses":{"exact_candidate":0,"ambiguous":0,"not_found":90}}},"canonical":{"wines":5,"clean_exact_canonical":11,"misread_exact_canonical":0},"wrong":0}
+  pilot  c1: {"n":1914,"p50":9,"p95":29.3,"p99":69.7,"max":178.2,"mean":12.7,"empty":27} throughput/s 79
+  pilot  c8: {"n":1914,"p50":18.3,"p95":65,"p99":118.2,"max":353.9,"mean":25.3,"empty":27} throughput/s 309
+  pilot  c16: {"n":1914,"p50":39.7,"p95":121.8,"p99":226.2,"max":596.9,"mean":51.4,"empty":27} throughput/s 302
+  public c8 after: {"n":1914,"p50":15.7,"p95":78,"p99":194.3,"max":265.7,"mean":24.9,"empty":1770}
+• done: /tmp/claude-0/-home-user-CELLR/2715b06e-bb7b-5b14-8b34-c1852f1f463a/scratchpad/xw-results
+EXIT 0

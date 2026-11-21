@@ -66,6 +66,10 @@
     { "name": "wine_grapes", "references": ["grapes", "wines"] },
     { "name": "wine_links", "references": ["wines"] },
     { "name": "wine_recommendations", "references": [] },
+    {
+      "name": "wine_record_origins",
+      "references": ["catalog_external_records", "catalog_providers", "households", "wines"]
+    },
     { "name": "wine_sources", "references": ["wines"] },
     { "name": "wine_vintages", "references": ["wines"] },
     { "name": "wines", "references": ["households", "producers"] },
@@ -186,6 +190,7 @@
     "publish_shared_wine_profile",
     "recall_confirmed_scan",
     "recommend_wine",
+    "record_wine_origin",
     "release_shared_profile_research",
     "remove_friend",
     "respond_friend_request",
@@ -199,10 +204,12 @@
     "submit_bottle_photos",
     "swap_bottles",
     "swap_bottles_v2",
+    "unlink_wine_origin",
     "wine_bottle_art_for",
+    "wine_origin_notices",
     "wine_source_notices"
   ],
-  "migrations": { "count": 47, "latest": "20261124000047_system_health.sql" },
+  "migrations": { "count": 48, "latest": "20261128000050_r27_wine_record_origins.sql" },
   "buckets": [
     "bottle-art",
     "bottle-images",
@@ -281,6 +288,7 @@
     { "path": "/api/v1/smart-cellar", "methods": ["GET"] },
     { "path": "/api/v1/smart-cellar/bottles/[id]", "methods": ["GET"] },
     { "path": "/api/v1/smart-cellar/bottles/[id]/move", "methods": ["POST"] },
+    { "path": "/api/v1/smart-cellar/bottles/[id]/recommendations", "methods": ["GET"] },
     { "path": "/api/v1/smart-cellar/bottles/[id]/swap", "methods": ["POST"] },
     { "path": "/api/v1/smart-cellar/storage", "methods": ["GET"] },
     { "path": "/api/v1/smart-cellar/storage/[id]", "methods": ["GET"] },

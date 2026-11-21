@@ -111,6 +111,8 @@ const useDebugReadout = () =>
 export interface PlacementSwitch {
   open: boolean;
   canWrite: boolean;
+  /** Placement advice (sprint 5, lib/smart-cellar-advice-gate.ts): read-only, only where placement is open. */
+  advice?: boolean;
 }
 
 export default function SmartCellar3D({
@@ -349,6 +351,8 @@ export default function SmartCellar3D({
             backToStart();
           }}
           canWrite={placement.canWrite}
+          advice={placement.advice === true}
+          builderHref={builderOpen ? "/cellar/builder" : null}
         />
       )}
       {placement.open && !placing && unplaced.length > 0 && (

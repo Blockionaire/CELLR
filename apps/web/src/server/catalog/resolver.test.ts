@@ -214,3 +214,49 @@ describe("the wine resolver (server side)", () => {
     expect(Object.keys(deps).sort()).toEqual(["findByText", "ownWines", "search"]);
   });
 });
+
+describe("records of external sources for a wine nobody in CELLR has added (Sprint 004B)", () => {
+  const record = (id: string, over: Partial<CatalogSearchRow> = {}) =>
+    row({
+      result_kind: "record",
+      wine_id: null,
+      record_id: id,
+      name: "Reserva",
+      source: "provider",
+      verified: false,
+      match: "exact",
+      provider_id: "src",
+      provider_name: "A source",
+      license: "CC0-1.0",
+      provider_scope: "public",
+      modified: true,
+      vintages: [2017, 2018],
+      ...over,
+    });
+
+  it("a public record is suggested apart; it is never a candidate and never changes the outcome", async () => {
+    const { resolver } = setup({ rows: [record("r1")] });
+    const out = await resolver.resolve("h1", facts());
+    expect(out?.status).toBe("not_found");
+    expect(out?.candidates).toEqual([]);
+    expect(out?.records.map((s) => [s.hit.recordId, s.reasons])).toEqual([
+      ["r1", ["same_name", "vintage_listed"]],
+    ]);
+  });
+  it("fails closed: a pilot or unscoped record is dropped even if the database returned it", async () => {
+    const { resolver } = setup({
+      rows: [record("p1", { provider_scope: "pilot" }), record("p2", { provider_scope: null })],
+    });
+    expect((await resolver.resolve("h1", facts()))?.records).toEqual([]);
+  });
+  it("a record of the other colour is never suggested", async () => {
+    const { resolver } = setup({ rows: [record("r1", { wine_type: "white" })] });
+    expect((await resolver.resolve("h1", facts()))?.records).toEqual([]);
+  });
+  it("with a CELLR wine as the exact candidate, the record is still ranked but the catalogue wine decides", async () => {
+    const { resolver } = setup({ rows: [row({}), record("r1")] });
+    const out = await resolver.resolve("h1", facts());
+    expect(out?.status).toBe("exact_candidate");
+    expect(out?.candidates[0]?.wine.id).toBe("c-reserva");
+  });
+});

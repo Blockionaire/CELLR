@@ -332,7 +332,20 @@ test.describe("the wine resolver behind a scan", () => {
     expect(external.body.outcome).not.toBe("found");
     expect(external.body.matches.map((x) => x.wine.name)).not.toContain(`Tinto Bron ${m}`);
     expect(JSON.stringify(external.body.matches)).not.toContain("Bodega Extern");
-    expect(JSON.stringify(external.body)).not.toContain("Testbron");
+    // since Sprint 004B the record of a source shown to people may be offered apart, as a suggestion only: never a
+    // match, never verified, always with its source named (Sprint 004C: "Could be this wine")
+    expect(external.body.resolution?.status).not.toBe("exact_candidate");
+    const offered =
+      (external.body.resolution as { records?: Array<{ hit: Record<string, unknown> }> }).records ??
+      [];
+    for (const r of offered)
+      expect(r.hit).toMatchObject({
+        kind: "record",
+        wineId: null,
+        verified: false,
+        source: "provider",
+      });
+    expect(offered.map((r) => (r.hit.provider as { id: string }).id)).toEqual([provider]);
     await sql("select public.admin_catalog_provider_disable($1, 'e2e done', 'e2e', true)", [
       provider,
     ]);

@@ -119,6 +119,7 @@ export default defineConfig({
         CELLR_SMART_CELLAR_BUILDER: "1",
         // ... and so must placement (sprint 4)
         CELLR_SMART_CELLAR_PLACEMENT: "1",
+        CELLR_SMART_CELLAR_ADVICE: "1",
       },
     },
     {
@@ -140,6 +141,7 @@ export default defineConfig({
         CELLR_SMART_CELLAR_BUILDER: "1",
         // placing, moving and swapping bottles in the new 3D view, writing to the local stack (sprint 4)
         CELLR_SMART_CELLAR_PLACEMENT: "1",
+        CELLR_SMART_CELLAR_ADVICE: "1",
       },
     },
   ],
