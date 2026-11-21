@@ -15,9 +15,11 @@ import type { RatingSummary } from "./tasting";
 
 // ---- The request ---------------------------------------------------------------------------------------------
 
+/** The longest one turn of the conversation may be when the screen sends it back as history. */
+export const CHAT_MESSAGE_MAX = 800;
 const ChatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
-  text: z.string().trim().min(1).max(800),
+  text: z.string().trim().min(1).max(CHAT_MESSAGE_MAX),
 });
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
