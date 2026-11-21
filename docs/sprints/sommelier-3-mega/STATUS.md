@@ -40,7 +40,7 @@ WORKTREES:      /home/user/CELLR-s3 (S11 branch). Ephemeral: only what is pushed
 | S8      | `claude/sommelier-3-s8-release`      | `claude/sommelier-3-s7-learning`     | [#98](https://github.com/Blockionaire/CELLR/pull/98)   |
 | S9      | `claude/sommelier-3-s9-quality`      | `claude/sommelier-3-s8-release`      | [#100](https://github.com/Blockionaire/CELLR/pull/100) |
 | S10     | `claude/sommelier-3-s10-hybrid`      | `claude/sommelier-3-s9-quality`      | [#104](https://github.com/Blockionaire/CELLR/pull/104) |
-| S11     | `claude/sommelier-3-s11-v1plus`      | `claude/sommelier-3-s10-hybrid`      | (draft, S11)                                           |
+| S11     | `claude/sommelier-3-s11-v1plus`      | `claude/sommelier-3-s10-hybrid`      | [#106](https://github.com/Blockionaire/CELLR/pull/106) |
 
 #90 and #91 are merged into `main`. #93 is marked merged but went into `claude/sommelier-3-s2-food-pairing`
 (`RELEASE_PLAN.md` §1).
