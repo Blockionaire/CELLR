@@ -1,6 +1,8 @@
 import "server-only";
 import type {
+  AdviceOccupant,
   SmartSpot,
+  WineType,
   OccupiedSpot,
   SmartCellarCapabilities,
   SmartPlacementView,
@@ -113,6 +115,16 @@ export interface SmartCellarRepository {
     to: SmartSpot | null,
   ): Promise<MoveOutcome>;
   /**
+   * The facts advice uses about one bottle of this household (sprint 5): its spot and the stable ids of its vintage,
+   * wine and producer, its type and year. As the person (RLS); null when this household has no such bottle.
+   */
+  adviceBottle(householdId: string, bottleId: string): Promise<AdviceBottleRow | null>;
+  /**
+   * Every bottle of the household on a spot, with the ids grouping compares: ONE paged read for the whole cellar
+   * (never one per place or per spot).
+   */
+  adviceOccupants(householdId: string): Promise<AdviceOccupant[]>;
+  /**
    * Where one bottle of this household is now (as the person: another household's bottle is not found, null).
    * `spot` is null for a bottle without a place, and for one no longer in the cellar.
    */
@@ -126,4 +138,17 @@ export interface SmartCellarRepository {
     a: { bottleId: string; spot: SmartSpot },
     b: { bottleId: string; spot: SmartSpot },
   ): Promise<SwapOutcome>;
+}
+
+/** One bottle as advice reads it (repository → service). */
+export interface AdviceBottleRow {
+  bottleId: string;
+  inCellar: boolean;
+  spot: SmartSpot | null;
+  vintageId: string;
+  /** Null when this person can't read the catalogue row (RLS): then never "related" to other bottles. */
+  wineId: string | null;
+  producerId: string | null;
+  type: WineType | null;
+  year: number | null;
 }

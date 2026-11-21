@@ -57,6 +57,11 @@ export interface SourceNotice {
   datasetVersion: string | null;
   /** Only "public" providers ever reach a wine page (pilot data is never shown to people). */
   scope: "public";
+  /**
+   * R-27, for a wine the household filled in from this record: false when the household changed what the record
+   * said before confirming (the page then says so). Absent for every other credit.
+   */
+  matchesRecord?: boolean | undefined;
 }
 
 export interface ProvenancedFact {
