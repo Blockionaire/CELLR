@@ -21,6 +21,10 @@ const FEATURES_PORT = 3101;
 // not put on the other servers: Next itself reads VERCEL_ENV (it changes the manifest link), and no other spec
 // should run under it.
 const PREVIEW_PORT = 3102;
+// A fourth copy with the Sommelier 3.0 switches NAMED. They are never part of `all` (packages/domain features.ts,
+// NAMED_ONLY), so the features server above leaves them off, as every deployment does until someone names them.
+// The specs of the new sommelier point here (`test.use({ baseURL: SOMMELIER_URL })`).
+const SOMMELIER_PORT = 3103;
 const STACK_URL = "http://localhost:54321";
 // The sandbox ships Chromium at a fixed path; CI lets Playwright find its own browser. That is not the same browser:
 // without a path Playwright runs its "headless shell", and a path to the full Chrome runs that instead. They differ
@@ -142,6 +146,16 @@ export default defineConfig({
         // placing, moving and swapping bottles in the new 3D view, writing to the local stack (sprint 4)
         CELLR_SMART_CELLAR_PLACEMENT: "1",
         CELLR_SMART_CELLAR_ADVICE: "1",
+      },
+    },
+    {
+      command: `pnpm exec next start -p ${SOMMELIER_PORT}`,
+      url: `http://localhost:${SOMMELIER_PORT}/manifest.webmanifest`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+      env: {
+        ...APP_ENV,
+        CELLR_FEATURES: "sommelier_engine,sommelier_buying,sommelier_social,sommelier_experiences",
       },
     },
   ],

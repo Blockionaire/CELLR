@@ -49,7 +49,12 @@ const MODEL: RawSommelier = {
   used_taste: false,
 };
 
-function setup(engine: "on" | "off" | "broken", items: CellarItem[] = [item({})], buying = true) {
+function setup(
+  engine: "on" | "off" | "broken",
+  items: CellarItem[] = [item({})],
+  experiences = false,
+  buying = true,
+) {
   const state = { modelCalls: 0, spent: 0 };
   const cellar = async () => ({ items, bottleCount: items.reduce((s, i) => s + i.count, 0) });
   const llm = {
@@ -68,10 +73,12 @@ function setup(engine: "on" | "off" | "broken", items: CellarItem[] = [item({})]
     taste: async () => null,
     offers: null,
     buying,
+    experiences,
     now: () => new Date("2026-11-19T18:00:00Z"),
   });
   const broken: SommelierIntelligence = {
     readsDish: () => true,
+    asksEnoughFor: () => false,
     buying: true,
     social: false,
     plan: async () => {
@@ -132,6 +139,24 @@ describe("the sommelier with the engines switched on", () => {
     expect(state).toEqual({ modelCalls: 1, spent: 1 });
   });
 
+  it("takes 'do I have enough bottles for 8 guests at roast lamb' for a judgement, not a count", async () => {
+    const lamb = [
+      item({ wineName: "Pauillac", type: "red", appellation: "Pauillac", region: "Bordeaux" }),
+    ];
+    const question = "8 guests, roast lamb. Do I have enough bottles?";
+    const on = await setup("on", lamb, true).ask(question);
+    expect(on.plan?.kind).toBe("quantity");
+    expect(on.plan?.quantity).toMatchObject({ guests: 8, needed: 4 });
+    // Without the experiences it is what it was: a question about the cellar, answered from counted facts.
+    const off = await setup("on", lamb, false).ask(question);
+    expect(off.plan).toBeUndefined();
+    // A count stays a count, whatever is switched on.
+    const count = await setup("on", lamb, true).ask("How many bottles do I have?");
+    expect(count.plan).toBeUndefined();
+    const guestsOnly = await setup("on", lamb, true).ask("Do I have enough bottles for 8 guests?");
+    expect(guestsOnly.plan?.kind).not.toBe("quantity");
+  });
+
   it("takes 'which wine do I have for the oysters' for what it is: a pairing", async () => {
     const { ask, state } = setup("on");
     const answer = await ask("Oysters tonight. Which wine do I have for that?");
@@ -152,7 +177,7 @@ describe("the sommelier with the engines switched on", () => {
 
   it("shows no model-made product or price with the engine on, also when buying advice is switched off", async () => {
     // The engine alone is the first switch to be turned on: V1's buy list must not survive beside it.
-    const { ask, state } = setup("on", [item({})], false);
+    const { ask, state } = setup("on", [item({})], false, false);
     const answer = await ask("Tell me something about Chablis as a wine");
     expect(state.modelCalls).toBe(1);
     expect(answer.buy).toEqual([]);

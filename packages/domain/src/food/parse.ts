@@ -439,6 +439,84 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
   };
 }
 
+/** Words that say "the next course". Punctuation alone does not make a menu ("I had oysters; tonight lamb"). */
+const COURSE_MARKER =
+  /\b(?:then|followed by|after that|afterwards|to start|as a starter|for dessert|for the main|and for|daarna|vervolgens|gevolgd door|vooraf|als voorgerecht|als hoofdgerecht|als toetje|als dessert|als toe)\b|(?<=(?:^|[,.;:]|\ben)\s*)toe\b|,(?=\s*(?:then|and then|daarna|en dan))/gi;
+/** "Which wine with each course?": the person says it is a menu, also when the courses are a plain list. */
+const SAYS_MENU = /\b(?:each|every) course\b|\bper course\b|\b(?:per|elke|iedere) gang\b|\bmenu\b/i;
+export const MAX_COURSES = 8;
+
+export interface MenuCourse {
+  /** The course as it was said (for a course that could not be read). */
+  said: string;
+  /** What the food engine made of it; null when it names nothing the engine knows. */
+  food: FoodProfile | null;
+}
+export interface ParsedMenu {
+  courses: MenuCourse[];
+  /** More courses were said than are planned (`MAX_COURSES`). */
+  cut: boolean;
+}
+
+/**
+ * A menu, when the text says it is one: courses set apart by words ("to start", "then", "for dessert", "als
+ * toetje"), or a list with "each course". Null when the text is not a menu. A piece that names no main ingredient
+ * ("then I add a cream sauce") belongs to the course before it; a piece that names nothing the engine knows stays
+ * a course, unread, so that it is said and not silently dropped.
+ */
+export function parseMenu(text: string, k: FoodKnowledge): ParsedMenu | null {
+  const bounded = text.slice(0, MAX_TEXT * 4);
+  COURSE_MARKER.lastIndex = 0;
+  const marked = COURSE_MARKER.test(bounded);
+  COURSE_MARKER.lastIndex = 0;
+  let pieces: string[];
+  if (marked) pieces = bounded.split(new RegExp(`[;\\n]|${COURSE_MARKER.source}`, "gi"));
+  else if (SAYS_MENU.test(bounded))
+    // A plain list: the sentence that holds the courses, split on commas and "and".
+    pieces = bounded
+      .split(/[.?!;\n]/)
+      .filter((sentence) => !SAYS_MENU.test(sentence))
+      .flatMap((sentence) => sentence.split(/,|\b(?:and|en)\b/i));
+  else return null;
+  const said = pieces
+    .map((p) => (p ?? "").replace(/^[\s,.;:!?]+|[\s,.;:!?]+$/g, ""))
+    .filter((p) => p.length > 2);
+  const courses: MenuCourse[] = [];
+  for (const piece of said) {
+    const food = parseFood(piece, k);
+    const previous = courses.at(-1);
+    if (food.source === "none") {
+      // Words about the menu, not a course ("which wine with each course"): only a piece that names a thing counts.
+      if (marked && isBareCourse(piece)) courses.push({ said: piece, food: null });
+      continue;
+    }
+    if (food.main === null && previous?.food) {
+      // A sauce or a side on its own is part of the course before it.
+      const joined = parseFood(`${previous.said}, ${piece}`, k);
+      courses[courses.length - 1] = {
+        said: previous.said,
+        food: joined.main ? joined : previous.food,
+      };
+      continue;
+    }
+    courses.push({ said: piece, food });
+  }
+  const read = courses.filter((c) => c.food !== null).length;
+  if (read < 2) return null;
+  return { courses: courses.slice(0, MAX_COURSES), cut: courses.length > MAX_COURSES };
+}
+
+/**
+ * A piece the engine cannot read that is still plainly a course: a word or three naming a thing ("soup", "the
+ * zarzuela"), not a question about the menu and not the sentence around it ("tonight we are having").
+ */
+const isBareCourse = (piece: string) =>
+  /\p{L}{3,}/u.test(piece) &&
+  piece.trim().split(/\s+/).length <= 3 &&
+  !/\?|\b(?:which|what|welke|welk|wat|wine|wijn|open|pour|schenk|drink|tonight|dinner|lunch|menu|course|courses|vanavond|diner|eten|gang|gangen|we|i|ik|wij)\b/i.test(
+    piece,
+  );
+
 /** Every dish a text names, in the order said: for a menu ("oysters to start, then roast lamb"). */
 export function parseCourses(text: string, k: FoodKnowledge): FoodProfile[] {
   // A menu has a handful of courses: the same bound as a single dish on the text, and no more than eight pieces.

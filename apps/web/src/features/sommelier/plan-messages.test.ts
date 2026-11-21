@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ASK_CODES,
+  DRINK_PHASES,
   MENTION_STATUSES,
   OFFER_CHECKS,
   PAIRING_CONFIDENCE_LEVELS,
@@ -11,6 +12,7 @@ import {
   SET_ASIDE_REASONS,
   STYLE_REASONS,
 } from "@cellr/domain";
+import { DECANT_KINDS, GLASSES } from "@cellr/domain";
 import en from "../../../messages/en.json";
 import nl from "../../../messages/nl.json";
 
@@ -38,6 +40,10 @@ const NEEDED = [
   "offer.local-availability",
   ...ASK_CODES.map((c) => `ask.${c}`),
   ...MENTION_STATUSES.map((c) => `friend.${c}`),
+  ...DECANT_KINDS.map((c) => `serve.decant.${c}`),
+  ...GLASSES.map((c) => `serve.glass.${c}`),
+  ...DRINK_PHASES.map((c) => `keep.phase.${c}`),
+  ...(["serving", "keeping", "wine-to-food", "menu", "quantity"] as const).map((c) => `kind.${c}`),
 ];
 
 describe.each([

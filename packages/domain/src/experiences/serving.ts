@@ -97,8 +97,9 @@ function decanting(input: ServingInput, thisYear: number): DecantAdvice {
   const old = age !== null && age >= (s.tannin >= 4 ? 20 : 15);
   if (old) return { kind: "sediment", minutes: 0 };
   if (s.tannin >= 4 || (s.tannin >= 3.5 && s.body >= 4)) {
-    const young = age === null || age <= 8;
-    return { kind: "air", minutes: young ? 90 : 45 };
+    // An age that is not known is not "young": air is offered, not prescribed.
+    if (age === null) return { kind: "optional", minutes: 30 };
+    return { kind: "air", minutes: age <= 8 ? 90 : 45 };
   }
   if (s.tannin >= 3 && s.body >= 3.5) return { kind: "optional", minutes: 30 };
   return { kind: "no", minutes: 0 };
@@ -126,20 +127,29 @@ export function servingAdvice(input: ServingInput, thisYear: number): ServingAdv
       : null;
   const tempC = sound ?? temperature(input.type, input.structure);
   const ruled = decanting(input, thisYear);
-  // The profile's decanting time is used, except for an old bottle: that advice is about sediment, not air.
-  const decant: DecantAdvice =
-    stated?.decantMinutes != null && ruled.kind !== "sediment"
-      ? stated.decantMinutes === 0
-        ? { kind: "no", minutes: 0 }
-        : { kind: "air", minutes: stated.decantMinutes }
-      : ruled;
+  // The profile's decanting time is used where airing can make sense at all: never for bubbles, rosé or a sweet
+  // wine, never for an old bottle of any colour (it is fragile), and never against sediment advice.
+  const age = input.year === null ? null : Math.max(0, thisYear - input.year);
+  const airable =
+    input.type !== "sparkling" &&
+    input.type !== "rose" &&
+    input.type !== "dessert" &&
+    ruled.kind !== "sediment" &&
+    !(age !== null && age >= 15);
+  const profileDecant = stated?.decantMinutes != null && airable;
+  const decant: DecantAdvice = profileDecant
+    ? stated.decantMinutes === 0
+      ? { kind: "no", minutes: 0 }
+      : { kind: "air", minutes: Math.min(stated.decantMinutes!, 240) }
+    : ruled;
   return {
     tempC,
     fridgeMinutes: fridge((tempC.min + tempC.max) / 2),
     decant,
     glass: glass(input.type, input.structure),
-    basis:
-      sound || (stated?.decantMinutes != null && ruled.kind !== "sediment") ? "profile" : "style",
+    // "Known about this exact wine" only when everything said is: the temperature and the decanting. One of the
+    // two from the rule makes the whole a rule of thumb (under-claiming is the safe side).
+    basis: sound && profileDecant ? "profile" : "style",
     tier: input.tier,
   };
 }

@@ -7,6 +7,7 @@ import { PAIRING_CONS, PAIRING_PROS } from "./pairing-engine/assess";
 import { CONFIDENCE_LEVELS, PAIRING_OUTCOMES } from "./pairing-engine/decide";
 import { EVIDENCE_TIERS } from "./pairing-engine/wine";
 import { MENTION_STATUSES } from "./social";
+import { DRINK_PHASES } from "./drink-window";
 
 /**
  * THE SOMMELIER'S PLAN: what the engines decided, before any sentence is written. It is the whole answer in a
@@ -33,6 +34,7 @@ export {
   type PairingOutcome,
 } from "./pairing-engine/decide";
 export { EVIDENCE_TIERS, type EvidenceTier } from "./pairing-engine/wine";
+export { DECANT_KINDS, GLASSES, type DecantKind, type Glass } from "./experiences/serving";
 
 export const PLAN_KINDS = [
   /** What to open with a dish. */
@@ -145,11 +147,16 @@ export const PlanOfferSchema = z.object({
 });
 export type PlanOffer = z.infer<typeof PlanOfferSchema>;
 
+/** Where a drinking window comes from. */
+export const KEEPING_BASES = ["own", "profile", "style"] as const;
+
 export const PlanServingSchema = z.object({
   vintageId: uuid,
-  tempC: z.object({ min: z.number(), max: z.number() }),
-  fridgeMinutes: z.number().int().min(0),
-  decant: z.object({ kind: z.enum(DECANT_KINDS), minutes: z.number().int().min(0) }),
+  tempC: z
+    .object({ min: z.number().min(0).max(25), max: z.number().min(0).max(25) })
+    .refine((t) => t.min <= t.max, "min above max"),
+  fridgeMinutes: z.number().int().min(0).max(240),
+  decant: z.object({ kind: z.enum(DECANT_KINDS), minutes: z.number().int().min(0).max(240) }),
   glass: z.enum(GLASSES),
   basis: z.enum(["profile", "style"]),
   tier: z.enum(EVIDENCE_TIERS),
@@ -162,6 +169,8 @@ export const PlanCourseSchema = z.object({
   pick: PlanPickSchema.nullable(),
   /** The same wine is poured with another course too. */
   shared: z.boolean(),
+  /** The course could not be read: no wine was chosen for it, and that is not "nothing suits". */
+  unread: z.boolean().default(false),
 });
 
 export const SommelierPlanSchema = z.object({
@@ -192,23 +201,53 @@ export const SommelierPlanSchema = z.object({
   offerCheck: z.enum(OFFER_CHECKS),
   /** Why offers were dropped, counted per reason (for the record; no offer data). */
   offersDropped: z.array(z.enum(OFFER_DEFECTS)).max(20),
+  // Everything from here to `ask` came with the premium experiences. Each has a default, so a plan kept by an
+  // earlier version (which has none of them) still reads, and its conversation does not vanish.
   /** A menu: one entry per course. */
-  courses: z.array(PlanCourseSchema).max(6),
+  courses: z.array(PlanCourseSchema).max(8).default([]),
+  /** More courses were said than were planned. */
+  coursesCut: z.boolean().default(false),
   /** Wine-to-food: dishes that suit the bottle (ids of the food knowledge), and what to steer away from. */
   dishIdeas: z
     .array(z.object({ dishId: z.string().max(60), label: z.string().max(80), pros }))
-    .max(8),
-  avoid: cons,
-  serving: z.array(PlanServingSchema).max(3),
+    .max(8)
+    .default([]),
+  /** What the wine-to-food ideas rest on: how well the wine itself is known. */
+  dishIdeasTier: z.enum(EVIDENCE_TIERS).nullable().default(null),
+  avoid: cons.default([]),
+  serving: z.array(PlanServingSchema).max(3).default([]),
+  /** How long a bottle can be kept: the drinking window the app already shows for it, and what it rests on. */
+  keeping: z
+    .array(
+      z
+        .object({
+          vintageId: uuid,
+          from: z.number().int().min(1900).max(2200).nullable(),
+          until: z.number().int().min(1900).max(2200).nullable(),
+          phase: z.enum(DRINK_PHASES),
+          /**
+           * Where the window comes from: the person set it (`own`), the wine's profile (`profile`: an estimate
+           * from what is known about the wine), or the table for its style (`style`: a guess).
+           */
+          basis: z.enum(KEEPING_BASES),
+        })
+        .refine(
+          (k) => k.from === null || k.until === null || k.from <= k.until,
+          "from after until",
+        ),
+    )
+    .max(3)
+    .default([]),
   /** Guests and bottles: needed, and how many of the offered wines are there. */
   quantity: z
     .object({
-      guests: z.number().int(),
-      needed: z.number().int(),
-      available: z.number().int(),
-      short: z.number().int(),
+      guests: z.number().int().min(1).max(500),
+      needed: z.number().int().min(0).max(1000),
+      available: z.number().int().min(0),
+      short: z.number().int().min(0),
     })
-    .nullable(),
+    .nullable()
+    .default(null),
   /** The one question asked back, if any. */
   ask: z.enum(ASK_CODES).nullable(),
   /** What was established so far; the screen sends it back with the next question. */

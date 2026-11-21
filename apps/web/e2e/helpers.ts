@@ -257,6 +257,12 @@ export const FEATURES_URL = "http://localhost:3101";
 export const PREVIEW_URL = "http://localhost:3102";
 
 /**
+ * The same build with the Sommelier 3.0 switches named (playwright.config.ts). `all` never turns them on, so the
+ * features server does not have them.
+ */
+export const SOMMELIER_URL = "http://localhost:3103";
+
+/**
  * A wine offered on the "choose a wine" screen. The classic list offers each wine as a button; the wine search
  * (feature `wine_search`) offers it as an option of a listbox. A test that means "choose this wine" uses this, so
  * it holds whichever of the two the server shows. Tests of the search itself (wine-search.spec.ts) stay exact.

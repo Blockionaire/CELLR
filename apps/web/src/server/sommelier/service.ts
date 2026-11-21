@@ -204,8 +204,10 @@ export function createSommelierService(deps: SommelierDeps) {
         // "...for the oysters", "...bij de vis": the dish is what the wine is for, not part of a producer's name.
         /\b(for|with|voor|bij|met)\b/i.test(question) &&
         deps.intelligence.readsDish(question);
+      // "8 guests, roast lamb: do I have enough bottles?" reads like a count and asks for a judgement.
+      const enoughForGuests = deps.intelligence?.asksEnoughFor(question) === true;
       const facts =
-        !tonight && isCellarQuestion(question) && !pairingInDisguise
+        !tonight && isCellarQuestion(question) && !pairingInDisguise && !enoughForGuests
           ? cellarFacts(items, ...(await Promise.all([deps.storage(), deps.racks()])), question)
           : null;
       // The person's taste: only for advice (never for a question of fact, an empty cellar, or when they asked

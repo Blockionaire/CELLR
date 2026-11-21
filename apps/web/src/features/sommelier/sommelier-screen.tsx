@@ -496,8 +496,11 @@ export function SommelierChat({
               </li>
             ))}
             {pending && (
-              <li role="status">
-                <span className="inline-flex items-center gap-2.5 rounded-full bg-surface py-2 pl-4 pr-5 text-small text-ink-2 ring-1 ring-hairline">
+              <li>
+                <span
+                  role="status"
+                  className="inline-flex items-center gap-2.5 rounded-full bg-surface py-2 pl-4 pr-5 text-small text-ink-2 ring-1 ring-hairline"
+                >
                   <span aria-hidden="true" className="flex items-center gap-1">
                     <span className="size-1.5 rounded-full bg-accent-fg motion-safe:animate-pulse" />
                     <span className="size-1.5 rounded-full bg-accent-fg motion-safe:animate-pulse [animation-delay:200ms]" />

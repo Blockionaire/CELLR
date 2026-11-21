@@ -32,6 +32,9 @@ const CAPABILITIES: ReadonlySet<Capability> = new Set([
   "conversation",
   "buying",
   "offers",
+  // The experience scenarios carry their reference as a note for a person to read; what is checked by machine is
+  // that no wine is invented and nothing forbidden is offered. They are counted apart in the reports.
+  "experiences",
 ]);
 
 /** A researched profile of the exact wine, as the app stores one. */
@@ -153,6 +156,7 @@ export const v3App: Engine = {
         taste: async () => null,
         offers: provider,
         buying: true,
+        experiences: true,
         now: () => NOW,
       }),
       cellar,
