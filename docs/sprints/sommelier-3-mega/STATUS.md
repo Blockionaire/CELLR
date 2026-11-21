@@ -14,7 +14,7 @@ PHASE:          S10 — done: no hybrid beats V1 with AI on unseen dishes; V1 st
 TRACKING ISSUE: #89
 MAIN:           6ab4350 (#88 system monitoring and #92 3D sprint 4 merged). main holds migration 20261124000047,
                 and Production records 0001–0047 (read-only check, 2026-11-20, after the owner applied 0047).
-                This work's migrations: 0048, 0049, 0050; all unapplied, all later than 0047.
+                This work's migrations: 0051, 0052, 0053; all unapplied, all later than 0047.
 SWITCHES:       sommelier_engine, sommelier_buying, sommelier_social, sommelier_experiences, sommelier_learning,
                 sommelier_dish_ai and sommelier_second_opinion (S10).
                 None is turned on by `all`; each must be named in CELLR_FEATURES; the last four need the first.
@@ -59,14 +59,14 @@ review's findings and what was done about each, limitations.
 - **S2**: pairing engine; 566 wine style rules; three honest outcomes. Engines alone: 79 / 246.
 - **S3 + S4**: the engines in the app (a plan, no model call), buying advice as styles with a conversation that
   keeps its state, offer validation with no source connected. In the app: 131 / 246.
-- **S5**: friends named in a question, with their own consent (off by default); migration 0048 (draft).
+- **S5**: friends named in a question, with their own consent (off by default); migration 0051 (draft).
 - **S6**: serving, keeping, wine-to-food, menus, quantities; the plan in a real browser (phone and desktop, WCAG
   2.1 AA by axe). 140 / 246.
-- **S7**: what came of a bottle, apart from the thumb; the admin's report; migration 0049 (draft).
+- **S7**: what came of a bottle, apart from the thumb; the admin's report; migration 0052 (draft).
 - **S8**: final review, classification of what is open, `FINAL_REPORT.md`, `RELEASE_PLAN.md`.
 - **S9**: the 106 failures sorted and a blind second opinion on the disagreements; engine recalibrated (main set
   140 → 170; unseen dishes 34 → 38 of 88); a blind holdout; a friend's cellar and presents not already owned
-  (migration 0050, draft); friends kept across follow-ups; the comparison with V1's AI (run: 3.0 not shown to be better);
+  (migration 0053, draft); friends kept across follow-ups; the comparison with V1's AI (run: 3.0 not shown to be better);
   the brief against what exists; GO / NO-GO.
 - **S10**: does the parser know when it misread a dish (a router, measured); a model reads the dish the
   parser could not place (C) and a bounded second opinion in close calls (D), both behind new named-only
