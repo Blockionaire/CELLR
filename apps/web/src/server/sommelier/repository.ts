@@ -32,7 +32,7 @@ const toOutcome = (row: {
 
 /**
  * `outcomes`: the `sommelier_learning` feature is on. Without it nothing about outcomes is read (no query, and no
- * dependence on the 0049 database step).
+ * dependence on the 0052 database step).
  */
 export function createSommelierConversationRepository(
   db: Db,
@@ -65,11 +65,11 @@ export function createSommelierConversationRepository(
       if (ratings.error) throw mapDbError(ratings.error);
       const rated = new Map(ratings.data.map((r) => [r.message_id, r.rating]));
       // What came of the bottles these answers offered: the person's own (row-level security), and only for the
-      // answers of this conversation. Before the 0049 database step there are none.
+      // answers of this conversation. Before the 0052 database step there are none.
       const answerIds = messages.data.filter((m) => m.role === "assistant").map((m) => m.id);
       const said = new Map<string, SommelierOutcome[]>();
       // Asked for, and the database knows them: only then does an answer carry outcomes (and the screen offer to
-      // say one). With the switch on before the 0049 step is taken, there is nothing to say anything to.
+      // say one). With the switch on before the 0052 step is taken, there is nothing to say anything to.
       let known = options.outcomes === true;
       if (options.outcomes && answerIds.length > 0) {
         const outcomes = await db
@@ -153,7 +153,7 @@ export function createSommelierConversationRepository(
         ...(input.withDish === null ? {} : { p_with_dish: input.withDish }),
         ...(input.enjoyed === null ? {} : { p_enjoyed: input.enjoyed }),
       });
-      // The 0049 database step is not taken: there is nothing to say an outcome to (as with the switch off).
+      // The 0052 database step is not taken: there is nothing to say an outcome to (as with the switch off).
       if (error && isMissingFunction(error)) throw new DomainError("NOT_FOUND");
       if (error) throw mapDbError(error);
       if (typeof data !== "object" || data === null || Array.isArray(data)) return null;

@@ -138,7 +138,7 @@ export function createFriendsRepository(db: Db): FriendsRepository {
           tasteForFriends: both.data?.taste_for_friends === true,
           cellarForFriends: both.data?.cellar_for_friends === true,
         };
-      // The table is there and the newer column is not (the 0050 step is not taken): the taste consent works
+      // The table is there and the newer column is not (the 0053 step is not taken): the taste consent works
       // as before, and the cellar one is reported as not available. Asked before "not ready", which also
       // counts a missing column: the first question must not be read as "no friends' sommelier at all".
       if (!missingColumn(both.error)) {

@@ -1,4 +1,4 @@
--- 0050: a friend's cellar for my sommelier, only with both of that friend's settings on; never a location.
+-- 0053: a friend's cellar for my sommelier, only with both of that friend's settings on; never a location.
 begin;
 do $$
 declare

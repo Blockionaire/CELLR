@@ -253,7 +253,7 @@ export const SommelierPlanSchema = z.object({
     .nullable()
     .default(null),
   /**
-   * A named friend's cellar (migration 0050): wines of THEIRS that suit, never shown as the asker's own, and for
+   * A named friend's cellar (migration 0053): wines of THEIRS that suit, never shown as the asker's own, and for
    * a present the styles left out because they were found there. "not-shared": the friend does not allow it,
    * and nothing about what they own is said or implied. Null: the question was not about a friend's cellar.
    * "Not found in the cellar they share" is all that can ever be claimed: never that they do not own something.

@@ -186,7 +186,7 @@ export function readCatalog(session: AdminSession, from: Date, to: Date): Read<A
   );
 }
 
-/** The sommelier's report (migration 0049): "missing" until that step is taken. */
+/** The sommelier's report (migration 0052): "missing" until that step is taken. */
 export function readSommelierReport(
   session: AdminSession,
   from: Date,

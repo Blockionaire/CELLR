@@ -3,8 +3,8 @@ import type { Db } from "@/server/db/clients";
 import { createFriendsRepository } from "./repository";
 
 /**
- * THE FRIENDS' SOMMELIER CONSENTS WHEN THE DATABASE IS ONE STEP BEHIND. Migration 0048 creates the table with
- * the taste consent; 0050 adds the cellar consent. With 0048 applied and 0050 not, the taste consent must keep
+ * THE FRIENDS' SOMMELIER CONSENTS WHEN THE DATABASE IS ONE STEP BEHIND. Migration 0051 creates the table with
+ * the taste consent; 0053 adds the cellar consent. With 0051 applied and 0053 not, the taste consent must keep
  * working and be shown as it is: a switch that shows "off" while the database holds "on" cannot be turned off.
  */
 type Answer = { data: unknown; error: { code: string } | null };
