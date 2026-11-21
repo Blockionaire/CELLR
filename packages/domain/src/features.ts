@@ -13,9 +13,34 @@ export const FEATURES = [
   "purchase_intel",
   /** "Bronnen & betrouwbaarheid" on the wine page and the Koopcheck result. */
   "sources_panel",
+  /** Sommelier 3.0: the food and pairing engines answer pairing questions (a plan, three honest outcomes). */
+  "sommelier_engine",
+  /** Sommelier 3.0: buying advice as wine styles, with the conversation that leads to it. Needs the engine. */
+  "sommelier_buying",
+  /** Sommelier 3.0: friends named in a question, with their consent. Needs the engine. */
+  "sommelier_social",
+  /** Sommelier 3.0: menus, wine-to-food, comparing, serving, quantities. Needs the engine. */
+  "sommelier_experiences",
 ] as const;
 export type Feature = (typeof FEATURES)[number];
 export type FeatureFlags = Readonly<Record<Feature, boolean>>;
+
+/**
+ * Switches that `all` does not turn on: each must be named. A deployment that was set to `all` for an earlier
+ * epic must not start a later one by accident; these go live only when someone writes their name.
+ */
+export const NAMED_ONLY: ReadonlySet<Feature> = new Set<Feature>([
+  "sommelier_engine",
+  "sommelier_buying",
+  "sommelier_social",
+  "sommelier_experiences",
+]);
+/** Switches that do nothing without another one. */
+const REQUIRES: Partial<Record<Feature, Feature>> = {
+  sommelier_buying: "sommelier_engine",
+  sommelier_social: "sommelier_engine",
+  sommelier_experiences: "sommelier_engine",
+};
 
 export const NO_FEATURES: FeatureFlags = Object.freeze(
   Object.fromEntries(FEATURES.map((f) => [f, false])) as Record<Feature, boolean>,
@@ -23,7 +48,8 @@ export const NO_FEATURES: FeatureFlags = Object.freeze(
 
 /**
  * The switches from the setting. Fails closed: unset or empty is all off, an unknown name switches nothing on (and
- * never switches anything else off), and `all` is every feature. Case and spaces are ignored.
+ * never switches anything else off), and `all` is every feature except the ones that must be named (`NAMED_ONLY`).
+ * A switch that needs another one stays off without it. Case and spaces are ignored.
  */
 export function parseFeatures(raw: string | null | undefined): FeatureFlags {
   if (!raw || raw.trim() === "") return NO_FEATURES;
@@ -35,7 +61,10 @@ export function parseFeatures(raw: string | null | undefined): FeatureFlags {
       .filter(Boolean),
   );
   const all = names.has("all");
+  const on = (f: Feature) => names.has(f) || (all && !NAMED_ONLY.has(f));
   return Object.freeze(
-    Object.fromEntries(FEATURES.map((f) => [f, all || names.has(f)])) as Record<Feature, boolean>,
+    Object.fromEntries(
+      FEATURES.map((f) => [f, on(f) && (REQUIRES[f] === undefined || on(REQUIRES[f]))]),
+    ) as Record<Feature, boolean>,
   );
 }

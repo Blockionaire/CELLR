@@ -360,5 +360,14 @@
     "secrets",
     "supabase-stack"
   ],
-  "features": ["purchase_intel", "scan_resolver", "sources_panel", "wine_search"]
+  "features": [
+    "purchase_intel",
+    "scan_resolver",
+    "sommelier_buying",
+    "sommelier_engine",
+    "sommelier_experiences",
+    "sommelier_social",
+    "sources_panel",
+    "wine_search"
+  ]
 }

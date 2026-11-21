@@ -356,6 +356,134 @@
       "love": "Waar zou ik vanavond van genieten?",
       "new": "Iets nieuws om te proberen",
       "match": "Welke van mijn wijnen past het best bij mijn smaak?"
+    },
+    "plan": {
+      "outcome": {
+        "good": "Een goede match uit je kelder:",
+        "acceptable": "Niets past perfect. Dit kan ermee door:",
+        "none": "Niets in je kelder past hier echt bij.",
+        "noneEmpty": "Je kelder heeft hier nog niets voor.",
+        "clarify": "Vertel me wat je eet, dan zoek ik er een wijn bij."
+      },
+      "dish": "Bij {dish}",
+      "confidence": {
+        "low": "Ik weet weinig van deze wijn of dit gerecht, dus zie het als een suggestie.",
+        "medium": "Beoordeeld op hoe zijn appellatie meestal is, niet op precies deze fles.",
+        "high": "Beoordeeld op wat er over precies deze wijn bekend is."
+      },
+      "why": "Waarom",
+      "but": "Let op",
+      "pro": {
+        "classic": "een klassieker bij dit gerecht",
+        "affinity": "een stijl die past bij wat er op het bord ligt",
+        "weight-matches": "ongeveer even rijk als het gerecht",
+        "acidity-cuts-richness": "zijn frisheid snijdt door het vet",
+        "acidity-meets-acidity": "fris genoeg voor het zuur op het bord",
+        "bubbles-refresh": "de bubbels verfrissen",
+        "tannin-meets-meat": "zijn tannine kan het vlees aan",
+        "sweetness-tames-heat": "een beetje zoet verzacht het pittige",
+        "sweetness-meets-sweetness": "zoet genoeg voor het gerecht",
+        "sweet-with-salt": "zoet tegen zout, een oude combinatie",
+        "aromatics-meet-spice": "aromatisch genoeg voor de kruiden",
+        "oak-meets-richness": "zijn hout past bij het rijke",
+        "fruit-meets-char": "rijp fruit bij het geroosterde van de grill",
+        "red-for-red-wine-sauce": "rood bij een rodewijnsaus",
+        "fresh-with-seafood": "fris en zonder hout, zoals vis het graag heeft"
+      },
+      "con": {
+        "too-heavy": "aan de zware kant voor dit gerecht",
+        "too-light": "aan de lichte kant voor dit gerecht",
+        "tannin-too-firm": "zijn tannine is stevig voor dit gerecht",
+        "needs-more-acidity": "mag wat frisser",
+        "not-sweet-enough": "net niet zoet genoeg",
+        "too-sweet": "aan de zoete kant hiervoor",
+        "alcohol-fans-heat": "zijn alcohol maakt het pittige heter",
+        "oak-overwhelms": "zijn hout kan overheersen",
+        "overpowers": "hij kan het gerecht overheersen",
+        "underpowered": "het gerecht kan hem overheersen",
+        "red-with-delicate-fish": "rood bij fijne vis",
+        "white-for-red-wine-sauce": "wit bij een rodewijnsaus",
+        "little-known": "alleen zijn kleur is bekend",
+        "tannin-with-fish": "tannine smaakt metalig bij vis",
+        "tannin-with-heat": "tannine wordt scherp bij chili",
+        "tannin-with-sweet": "tannine smaakt bitter bij zoet",
+        "dry-with-dessert": "droge wijn smaakt zuur bij een dessert",
+        "sweet-with-savoury": "te zoet voor een hartig gerecht"
+      },
+      "note": {
+        "partly-reserved": "Een deel van deze flessen is gereserveerd voor een gelegenheid.",
+        "young": "Nog jong: met wat lucht komt hij open.",
+        "past": "Voorbij zijn drinkvenster: open hem snel, hij kan vermoeid zijn.",
+        "may-be-past": "Mogelijk over zijn hoogtepunt; er is te weinig over bekend om het zeker te zeggen.",
+        "estimate": "Beoordeeld op streek en druif, niet op precies deze wijn.",
+        "by-name": "Zijn herkomst is niet vastgelegd: beoordeeld op zijn naam.",
+        "little-known": "Alleen zijn kleur is bekend.",
+        "your-taste": "Vooraan gezet vanwege jouw smaak.",
+        "table-taste": "Vooraan gezet voor de smaak van de tafel."
+      },
+      "aside": {
+        "title": "Zou passen, maar niet aangeboden",
+        "reserved": "alle flessen zijn gereserveerd voor een gelegenheid",
+        "too-young": "nu nog te jong om te openen",
+        "turned-down": "die wilde je niet"
+      },
+      "closest": "Het dichtst in de buurt, al spreekt er weinig voor:",
+      "buy": {
+        "title": "Waar je naar kunt zoeken",
+        "hint": "Een soort wijn, geen fles die ik gevonden heb. Prijzen zijn een ruwe indicatie van waar het begint.",
+        "from": "meestal vanaf ongeveer €{euros}",
+        "reason": {
+          "suits-dish": "past bij het gerecht",
+          "liked": "wat diegene lekker vindt",
+          "gift-worthy": "een fles die als cadeau herkend wordt",
+          "versatile": "past bij veel",
+          "fills-gap": "iets wat je kelder mist"
+        }
+      },
+      "offerCheck": {
+        "no-provider": "Ik kan nog niet in winkels kijken, dus dit is een stijl om naar te zoeken, geen aanbod.",
+        "provider-down": "Ik kon de winkels nu niet bereiken, dus dit is een stijl om naar te zoeken, geen aanbod.",
+        "nothing-verified": "Ik vond in de winkels niets wat ik kon verifiëren.",
+        "shown": "Gevonden in een winkel en gecontroleerd:"
+      },
+      "offer": {
+        "online-offer": "Online aanbod",
+        "local-availability": "In een winkel",
+        "at": "bij {merchant}",
+        "store": "{store}",
+        "seen": "gezien {when}",
+        "open": "Bekijk bij de winkel"
+      },
+      "ask": {
+        "dish": "Wat eet je?",
+        "budget": "Wat mag een fles kosten?",
+        "channel": "Wil je online bestellen, of vandaag ophalen?",
+        "location-consent": "Mag ik je locatie gebruiken om winkels in de buurt te zoeken?",
+        "recipient-taste": "Wat drinkt diegene graag?",
+        "occasion": "Wat is de gelegenheid?"
+      },
+      "quick": {
+        "budget": {
+          "a": "Tot €15",
+          "b": "Tot €25",
+          "c": "Tot €50",
+          "d": "Prijs maakt niet uit"
+        },
+        "channel": {
+          "a": "Online is prima",
+          "b": "Vandaag ophalen"
+        },
+        "location-consent": {
+          "a": "Ja, dat is goed",
+          "b": "Nee, liever niet"
+        },
+        "recipient-taste": {
+          "a": "Rood",
+          "b": "Wit",
+          "c": "Bubbels"
+        }
+      },
+      "quickLabel": "Antwoord"
     }
   },
   "profile": {
