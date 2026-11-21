@@ -129,3 +129,35 @@ describe("the V1 baseline", () => {
     }
   });
 });
+
+describe("Sommelier 3.0 in the app", () => {
+  it("gives the recorded result: no scenario passes or fails other checks than in the recorded run", async () => {
+    // Found missing by the final review: only V1's baseline was pinned, so a change to the engines could move
+    // the result the documents quote without any test noticing. A change that moves it now has to record a new
+    // run (`pnpm sommelier:eval --engine v3-app --json …/results/s8-v3-app.json`) and say why.
+    const recorded = JSON.parse(
+      readFileSync(
+        new URL("../../docs/sprints/sommelier-3-mega/results/s8-v3-app.json", import.meta.url),
+        "utf8",
+      ),
+    ) as { passed: number; results: Array<{ id: string; supported: boolean; failed: string[] }> };
+    const before = new Map(recorded.results.map((r) => [r.id, r]));
+    const engine = ENGINES.find((e) => e.name === "v3-app")!;
+    let passed = 0;
+    for (const s of SCENARIOS) {
+      const was = before.get(s.id);
+      const supported = s.needs.every((n) => engine.capabilities.has(n));
+      expect(supported, s.id).toBe(was?.supported);
+      if (!supported) continue;
+      const { answer, ms } = await engine.run(s);
+      expect(answer.invented, s.id).toBe(0);
+      const failed = scoreScenario(s, s.dish ? (cards.get(s.dish) ?? null) : null, answer, ms)
+        .checks.filter((c) => !c.pass)
+        .map((c) => c.name);
+      expect(failed, s.id).toEqual(was?.failed);
+      if (failed.length === 0) passed += 1;
+    }
+    expect(passed).toBe(recorded.passed);
+    expect(passed).toBe(140);
+  });
+});

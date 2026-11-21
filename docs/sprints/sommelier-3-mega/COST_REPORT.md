@@ -27,10 +27,16 @@ question also costs the reads it always cost (the cellar, the profiles, the tast
 
 ## What the engines change about cost
 
-Over the 222 benchmark scenarios the app's engines can attempt, **0 model calls** were made. In V1 every question
-that is not a counted fact costs one model call carrying up to 120 wines. So with the switches on, the model's
-cost falls to the share of questions that are general questions about wine. That share is not known: it is what
-`/admin/sommelier` ("By the engines") will show once the switches are on for real people.
+The benchmark runs the app's service with **no model configured**, so its "0 model calls" is true by
+construction and proves only that an answer exists without one. What it does show is how the 222 attempted
+scenarios were answered: 212 by a plan of the engines, 6 by the counted facts, and 4 fell through to V1's path,
+which in the app would call the model (counted by the final review). The browser test is the one with a model
+configured: a pairing question there made no call.
+
+In V1 every question that is not a counted fact costs one model call carrying up to 120 wines. So with the
+switches on, the model's cost falls to the share of questions the engines do not answer (general questions about
+wine). That share among real questions is not known: it is what `/admin/sommelier` ("By the engines") will show
+once the switches are on for real people.
 
 No number for money saved is given here: V1's cost per AI question was never measured (no key), and a saving
 computed from an unmeasured number would be invented.
