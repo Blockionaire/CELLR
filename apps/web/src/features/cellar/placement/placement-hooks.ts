@@ -1,7 +1,9 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  AdviceIntent,
+  SmartAdviceView,
   SmartBottleSpot,
   SmartMove,
   SmartMoveResult,
@@ -10,6 +12,7 @@ import type {
 } from "@cellr/domain";
 import { ApiError, api } from "@/lib/api";
 import { useRefreshCellar } from "../hooks";
+import { smartStorageKey } from "../smart-cellar-hooks";
 import type { BottleRead } from "./reconcile";
 
 /**
@@ -54,4 +57,25 @@ export async function readBottleNow(bottleId: string): Promise<BottleRead> {
   } catch {
     return { ok: false };
   }
+}
+
+/**
+ * Where this bottle could go (sprint 5; ADR-009): read-only advice from the server, which reads every fact itself.
+ * Kept under the Smart Cellar storage key, so every move, swap or refresh of the cellar asks for it again: advice is
+ * never older than the bottles it is about. A household switch clears all of it (the switcher clears the cache).
+ */
+export const adviceKey = (bottleId: string, intent: AdviceIntent) =>
+  [...smartStorageKey, "advice", bottleId, intent] as const;
+
+export function useAdvice(bottleId: string | null, intent: AdviceIntent, enabled: boolean) {
+  return useQuery({
+    queryKey: adviceKey(bottleId ?? "none", intent),
+    queryFn: ({ signal }) =>
+      api.get<SmartAdviceView>(
+        `/smart-cellar/bottles/${bottleId}/recommendations?intent=${intent}`,
+        { signal },
+      ),
+    enabled: enabled && bottleId !== null,
+    staleTime: 0,
+  });
 }

@@ -151,6 +151,11 @@ export const CreateWineSchema = z.object({
   type: z.enum(WINE_TYPES),
   countryCode: CountryCodeSchema.optional(),
   region: optionalText(120),
+  /**
+   * R-27 (Sprint 004C): the external source's record the person started from. The server keeps where the wine's
+   * data came from, only while that source may be shown; it never changes which wine is created or found.
+   */
+  sourceRecordId: z.uuid().optional(),
 });
 export type CreateWine = z.infer<typeof CreateWineSchema>;
 

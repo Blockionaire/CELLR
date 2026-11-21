@@ -164,6 +164,25 @@ tested end to end without any third-party data.
 | X-Wines  | **NO**              | Answers to X1, X2 (at least) in writing; this register updated; `admin_catalog_provider_rights` with evidence | the owner   |
 | LWIN     | **NO**              | Answers to L1–L5 in writing; a lawfully obtained file; the adapter layout verified against it (L8)            | the owner   |
 
+## 4a. X-Wines content in this repository and its Git history (2026-11-20)
+
+- **Now (the tree of `main`):** no records of the X-Wines dataset. The result files of 004A, Wine Intelligence and 004B
+  hold only summaries, counts and per-query ranks (`scripts/catalog-tools/redact-results.ts`, applied in #96;
+  `staging-rehearsal.sh` and the staging workflow redact automatically). CELLR's own evaluation sets
+  (`eval/catalog/benchmark.json`, `identity-pairs.json`, `eval/scan/golden-resolver.json`) and fictitious fixtures
+  are CELLR's own work; a few well-known wine names in them, and in report prose, are not taken from the dataset as
+  records.
+- **Earlier versions remain in the reachable Git history:** the per-query benchmark results of 004A and Wine
+  Intelligence (on `main` since those sprints) and the 004B benchmark, recognition and quality results (in #96's
+  branch commits, reachable through the PR). Together a few hundred wine and winery names with X-Wines record ids,
+  from a 100,646-record dataset — evaluation output, not a copy of the dataset.
+- **Owner decision 2026-11-20: history is NOT rewritten** (no force-push, no rewrite of `main`). Should a source or
+  a rights holder ever ask for removal, a rewrite is possible then, as its own reviewed step (it also needs GitHub to
+  purge cached views and pull-request refs).
+- The X-Wines file itself has never been committed: it is read from its official source, checksum-verified, outside
+  the repository.
+- E-mails (final, ready to send by the owner, not sent): `docs/sprints/sprint-004c/emails/`.
+
 ## 5. How this register was made
 
 - The pages above were fetched and read on 2026-11-13 by a read-only research pass, and the LWIN code-structure quote

@@ -9,6 +9,7 @@ import {
 import type { BottleArtRef } from "./bottle-library";
 import type { ImageRef } from "./image";
 import type { Quad } from "./label-crop";
+import type { RecordSuggestion } from "./record-suggestions";
 
 /**
  * SCANNING A LABEL. A vision model reads what is printed; everything after that is ordinary, testable code:
@@ -419,6 +420,11 @@ export interface ScanResult {
   resolution?: {
     status: "exact_candidate" | "ambiguous" | "not_found";
     reasons: Record<string, readonly string[]>;
+    /**
+     * Records of external sources that may be this wine when no CELLR wine is (Sprint 004B): suggestions to pre-fill
+     * the new-wine form from, never an identity, never a candidate above. Public sources only; absent or empty today.
+     */
+    records?: readonly RecordSuggestion[];
   };
 }
 

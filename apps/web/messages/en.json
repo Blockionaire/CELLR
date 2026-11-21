@@ -259,6 +259,22 @@
       "producer_only": "The same producer; no wine name was read",
       "type_differs": "Another colour than was read",
       "country_differs": "Another country than was read"
+    },
+    "records": {
+      "title": "Could be this wine",
+      "body": "Not in your cellar or the CELLR catalogue, but in an external wine source. Choose it to fill in the form; you check everything before adding.",
+      "use": "Use these details",
+      "credit": "Source: {provider} · licence {license}{modified, select, yes { · modified by CELLR} other {}} · not verified by CELLR",
+      "reason": {
+        "same_name": "Same name as on the label",
+        "name_variant": "Nearly the same name",
+        "similar_name": "Similar name",
+        "other_bottling": "Possibly another cuvée",
+        "producer_only": "Only the producer matches",
+        "vintage_listed": "The source lists this vintage",
+        "vintage_not_listed": "The source does not list this vintage"
+      },
+      "licenseLink": "Licence: {license}"
     }
   },
   "sommelier": {
@@ -2260,7 +2276,10 @@
       "own_value": "your own value"
     },
     "yoursPrivate": "Recorded by your household. It is not part of the shared CELLR catalogue; friends see only what you share with them in Profile.",
-    "catalogTitle": "Source of the wine details"
+    "catalogTitle": "Source of the wine details",
+    "derivedFrom": "The details were taken from this source when the wine was added; your household confirmed them.",
+    "derivedFromChanged": "The details were filled in from this source when the wine was added; your household changed some of them and confirmed the rest.",
+    "derivedLead": "Filled in from {provider}"
   },
   "builder": {
     "titleNew": "Design a new place",
@@ -2600,5 +2619,70 @@
     "goneMeanwhile": "This bottle is no longer in the cellar.",
     "takenOff": "{wine} has no place now.",
     "alreadyOff": "{wine} already had no place. Nothing was changed."
+  },
+  "advice": {
+    "title": "Where it fits best",
+    "intentLabel": "What is this bottle for?",
+    "intent": {
+      "store": "Keep",
+      "serve": "Serve soon"
+    },
+    "loading": "Looking at your places…",
+    "failed": "The advice couldn't be loaded.",
+    "retry": "Try again",
+    "noPlaces": "You have no places for bottles yet.",
+    "openBuilder": "Design a place",
+    "noEligible": "There is no free position for this bottle right now.",
+    "excludedDepth": "{count, plural, one {# spot behind the front isn't offered} other {# spots behind the front aren't offered}}: placing at depth isn't switched on yet.",
+    "excludedUnknown": "{count, plural, one {# place is left out} other {# places are left out}}: CELLR doesn't know how it is arranged.",
+    "stay": "Its current position is already suitable, based on what CELLR knows. You can still move it.",
+    "suit": {
+      "strong": "Strong match, based on known facts",
+      "reasonable": "Reasonable option",
+      "limited": "Limited information"
+    },
+    "rank": "Option {rank}",
+    "equivalent": "{count, plural, one {# other free spot is} other {# other free spots are}} just as suitable.",
+    "show": "Show",
+    "shown": "Shown",
+    "placeHere": "Place here",
+    "more": "More options",
+    "advisory": "Advice, not a rule: you can also choose any free spot yourself below.",
+    "readOnly": "Placing isn't switched on here; the advice is for looking only.",
+    "reason": {
+      "purposeStorage": "Zone {zone} is set aside for keeping wine.",
+      "purposeServing": "Zone {zone} is set aside for serving.",
+      "vintage": "{count, plural, one {# bottle} other {# bottles}} of the same vintage {where}.",
+      "wine": "{count, plural, one {# bottle} other {# bottles}} of this wine (another vintage) {where}.",
+      "producer": "{count, plural, one {# bottle} other {# bottles}} from the same producer {where}.",
+      "type": "{count, plural, one {# other bottle} other {# other bottles}} of the same kind ({type}) {where}.",
+      "where": {
+        "neighbour": "nearby (within one shelf or spot)",
+        "shelf": "on the same shelf",
+        "place": "in this place"
+      },
+      "frontReachable": "At the front: it can be taken out without moving another bottle.",
+      "zoneTarget": "Zone {zone} is set to {temp} °C. That is a setting in CELLR, not a measured temperature.",
+      "freeNow": "Free now.",
+      "currentSpot": "This is where it is now."
+    },
+    "caveat": {
+      "mismatchStorage": "Zone {zone} is set aside for keeping wine, not for serving.",
+      "mismatchServing": "Zone {zone} is set aside for serving, not for keeping.",
+      "zoneNoTarget": "No temperature is set for zone {zone}.",
+      "noZone": "No zone here: CELLR doesn't know the conditions at this spot.",
+      "compartmentCounter": "In a compartment a bottle gets the next free number; that isn't a position at the front or back.",
+      "noGrouping": "No related bottles nearby.",
+      "noMatchingStorage": "None of your places has a zone set aside for keeping wine, so the advice rests on what is already stored where.",
+      "noMatchingServing": "None of your places has a zone set aside for serving, so the advice rests on what is already stored where.",
+      "windowNotUsed": "CELLR's drinking window for this wine is an estimate and wasn't used. Choose Serve soon if you plan to open it.",
+      "vintageUnknown": "No vintage is recorded for this bottle."
+    },
+    "announce": "{count, plural, =0 {No options} one {# option} other {# options}} for this bottle.",
+    "notInCellar": "This bottle is no longer in the cellar.",
+    "stayNothingBetter": "No free spot is clearly better than where it is now. You can still move it.",
+    "excludedBehind": "{count, plural, one {# spot behind a bottle at the front isn't offered} other {# spots behind a bottle at the front aren't offered}}.",
+    "stale": "This advice couldn't be refreshed, so it may be out of date. “Place here” is off until it is; choosing a spot yourself below still works.",
+    "updating": "Updating the advice…"
   }
 }

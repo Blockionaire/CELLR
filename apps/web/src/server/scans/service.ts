@@ -4,7 +4,7 @@ import {
   isUsableQuad,
   LABEL_TEXT_LIMITS,
   labelPhrases,
-  matchLabel,
+  matchLabelSafely,
   recognizeLabelText,
   normalizeExtraction,
   quadFromNumbers,
@@ -14,6 +14,7 @@ import {
   scanOutcomeOf,
   type ImageSide,
   type LabelFacts,
+  type RecordSuggestion,
   type ResolveOutcome,
   type ScanResult,
   type TextRecognition,
@@ -63,7 +64,10 @@ export interface ScanDeps {
    * server looks up, by the same identity rules. Missing, failing or answering null (its database steps are not
    * taken) = matched against `wines()` as before.
    */
-  resolve?: (householdId: string, facts: LabelFacts) => Promise<ResolveOutcome | null>;
+  resolve?: (
+    householdId: string,
+    facts: LabelFacts,
+  ) => Promise<(ResolveOutcome & { records?: readonly RecordSuggestion[] }) | null>;
   /** One wine the household can see, by id (for a remembered photo, instead of loading every wine). */
   wineById?: (wineId: string) => Promise<WineSummary | null>;
   householdId: () => Promise<string>;
@@ -166,20 +170,24 @@ export function createScanService(deps: ScanDeps) {
 
   /**
    * Which wine the reading is: through the resolver when there is one (a bounded set of candidates), else against
-   * every wine the household can see, as before. Either way the decision is `matchLabel`'s.
+   * every wine the household can see, as before. Either way the decision is `matchLabelSafely`'s (Sprint 004C).
    */
   const matchReading = async (
     householdId: string,
     facts: LabelFacts,
   ): Promise<Pick<ScanResult, "outcome" | "matches" | "resolution">> => {
     const resolved = deps.resolve ? await deps.resolve(householdId, facts).catch(() => null) : null;
-    if (!resolved) return matchLabel(facts, await deps.wines());
+    if (!resolved) return matchLabelSafely(facts, await deps.wines());
     return {
       outcome: scanOutcomeOf(resolved.status),
       matches: resolved.candidates.map(({ wine, score }) => ({ wine, score })),
       resolution: {
         status: resolved.status,
         reasons: Object.fromEntries(resolved.candidates.map((c) => [c.wine.id, c.reasons])),
+        // a record is offered only where no CELLR wine is the identity (an exact candidate leaves nothing to suggest)
+        ...(resolved.records && resolved.status !== "exact_candidate" && resolved.records.length > 0
+          ? { records: resolved.records }
+          : {}),
       },
     };
   };

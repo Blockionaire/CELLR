@@ -30,6 +30,11 @@ export interface WineSourcesData {
   catalogSources: CatalogSourceRef[];
   /** Verified links to records of sources that are cleared and shown to people. Usually empty. */
   external: SourceNotice[];
+  /**
+   * R-27: for the household's own wine, the source records its details were taken from (`wine_origin_notices`),
+   * while those sources may be shown. Absent or empty otherwise.
+   */
+  derivedFrom?: SourceNotice[];
 }
 
 export interface WineSourcesInput {
@@ -78,6 +83,8 @@ export interface WineSourcesView {
     origin: Extract<FactOrigin, "cellr_catalog" | "user_provided">;
     catalogSources: CatalogSourceRef[];
     external: SourceNotice[];
+    /** The household's own wine, filled in from these source records (R-27). Never for a catalogue wine. */
+    derivedFrom: SourceNotice[];
   };
   characteristics: Array<{
     field: CharacteristicField;
@@ -120,6 +127,16 @@ export function wineSourcesView(input: WineSourcesInput): WineSourcesView {
         ).values(),
       ]
     : [];
+  // R-27: a household's own wine credits the records it was filled in from; still the household's own entry
+  const derivedFrom = catalog
+    ? []
+    : [
+        ...new Map(
+          (data.derivedFrom ?? [])
+            .filter((n) => n.scope === "public")
+            .map((n) => [`${n.providerId}:${n.externalId}`, n] as const),
+        ).values(),
+      ];
   const catalogSources = catalog
     ? data.catalogSources.map((s) => ({ ...s, url: safeHttpUrl(s.url) }))
     : [];
@@ -161,5 +178,10 @@ export function wineSourcesView(input: WineSourcesInput): WineSourcesView {
   if (hasWindow && input.drink.source === "own") add("own_window", 1);
   if (input.ownValue) add("own_value", 1);
 
-  return { identity: { origin, catalogSources, external }, characteristics, ai, yours };
+  return {
+    identity: { origin, catalogSources, external, derivedFrom },
+    characteristics,
+    ai,
+    yours,
+  };
 }
