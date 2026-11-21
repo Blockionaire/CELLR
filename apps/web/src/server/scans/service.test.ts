@@ -710,6 +710,58 @@ describe("scanning with the wine resolver (the scan_resolver feature)", () => {
     expect(state.reads).toHaveLength(1); // the AI's own reading, as before
   });
 
+  it("a record of an external source is passed on as a suggestion when no CELLR wine is the one (Sprint 004B)", async () => {
+    const suggestion = {
+      hit: {
+        kind: "record" as const,
+        wineId: null,
+        recordId: "r1",
+        producer: "Domaine Test",
+        name: "Cuvée Nouvelle",
+        matchedAlias: null,
+        type: "red" as const,
+        countryCode: "FR",
+        region: null,
+        source: "provider" as const,
+        verified: false,
+        match: "exact" as const,
+        bottles: 0,
+        provider: {
+          id: "src",
+          name: "A source",
+          license: "CC0-1.0",
+          licenseUrl: null,
+          attribution: "credit",
+          scope: "public" as const,
+          modified: true,
+        },
+        vintages: [2015],
+      },
+      relation: "same" as const,
+      reasons: ["same_name" as const, "vintage_listed" as const],
+      vintageListed: true,
+    };
+    const { service } = setup({
+      resolve: async () => ({
+        status: "not_found",
+        candidates: [],
+        year: 2015,
+        nonVintage: false,
+        records: [suggestion],
+      }),
+    });
+    const result = await service.scan({ photo });
+    // still a new wine: a record never makes a scan "found"
+    expect(result.outcome).toBe("new");
+    expect(result.matches).toEqual([]);
+    expect(result.resolution?.records?.map((r) => r.hit.recordId)).toEqual(["r1"]);
+    // with an exact CELLR candidate there is nothing to suggest
+    const exactWithRecord = setup({
+      resolve: async () => ({ ...(await exact()), records: [suggestion] }),
+    });
+    expect((await exactWithRecord.service.scan({ photo })).resolution?.records).toBeUndefined();
+  });
+
   it("when the resolver cannot answer (not deployed, or the database fails) the scan matches as it did before", async () => {
     for (const resolve of [
       async () => null,

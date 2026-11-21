@@ -127,6 +127,7 @@ export function KnowledgeSection({
                   url: safeHttpUrl(c.url),
                 })),
                 external: sources.data.external.filter((n) => n.scope === "public"),
+                derivedFrom: [],
               }}
             />
           </div>
