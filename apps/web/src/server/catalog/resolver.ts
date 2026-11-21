@@ -2,13 +2,16 @@ import "server-only";
 import {
   CATALOG_SEARCH,
   labelPhrases,
+  publicSearchHits,
   resolverQuery,
   resolveWine,
   searchableQuery,
+  suggestRecordsForReading,
   WINE_TYPES,
   type CatalogSearchRow,
   type LabelFacts,
   type LabelTextCandidate,
+  type RecordSuggestion,
   type ResolveOutcome,
   type WineSummary,
   type WineType,
@@ -52,15 +55,20 @@ function wineOfRow(row: CatalogSearchRow): WineSummary | null {
  *   3. the best ranked hits of the catalogue search for "producer name" (typos, word order, aliases).
  * Instead of every wine the household can see, which grows with the catalogue.
  *
- * It only reads. It never calls a model, never spends a budget, and never returns a provider's record: records of
- * external sources are offered to the person by the search in the review screen, as suggestions, never here.
+ * It only reads. It never calls a model, never spends a budget, and never makes a provider's record a candidate: the
+ * identity decision is over CELLR wines only. Records the same search already offered this person (sources in the
+ * "public" scope; none today) are ranked apart, in `records`, as suggestions for a wine nobody in CELLR has added yet
+ * (Sprint 004B, `suggestRecordsForReading`). They never change the outcome and are never an identity.
  * `null` means the lookups are not available in this database; the caller then matches as it did before.
  */
 export function createWineResolver(deps: WineResolverDeps) {
   return {
-    async resolve(householdId: string, facts: LabelFacts): Promise<ResolveOutcome | null> {
+    async resolve(
+      householdId: string,
+      facts: LabelFacts,
+    ): Promise<(ResolveOutcome & { records: RecordSuggestion[] }) | null> {
       const text = resolverQuery(facts);
-      if (text === null) return resolveWine(facts, []);
+      if (text === null) return { ...resolveWine(facts, []), records: [] };
       const query = searchableQuery(text);
       const phrases = labelPhrases([facts.producer, facts.name].filter(Boolean).join("\n"));
       const [own, byText, rows] = await Promise.all([
@@ -87,7 +95,9 @@ export function createWineResolver(deps: WineResolverDeps) {
       }
       for (const wine of own) candidates.set(wine.id, wine);
       for (const c of byText) candidates.set(c.wine.id, c.wine);
-      return resolveWine(facts, [...candidates.values()]);
+      // records: only what the people's search returned, and only public sources again (fail closed)
+      const records = suggestRecordsForReading(facts, publicSearchHits(rows));
+      return { ...resolveWine(facts, [...candidates.values()]), records };
     },
   };
 }

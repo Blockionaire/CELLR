@@ -1,0 +1,1 @@
+the file holds 5 records but 7 are active: refusing to withdraw 2 records (pass --allow-shrink if the provider really removed them)
