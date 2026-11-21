@@ -160,6 +160,6 @@ function features(source: string): string[] {
       .slice(start, end)
       .split("\n")
       .filter((l) => !l.trim().startsWith("/") && !l.trim().startsWith("*"))
-      .flatMap((l) => [...l.matchAll(/"([a-z_]+)"/g)].map((m) => m[1]!)),
+      .flatMap((l) => [...l.matchAll(/"([a-z][a-z0-9_]*)"/g)].map((m) => m[1]!)),
   );
 }
