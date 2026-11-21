@@ -54,6 +54,10 @@ only) and shown on `/admin/sources`. Like every client event they are not sent a
 `action` added / wished · `mode` single / same / batch · `vintage` dated / nv / none. With `wine_scan_completed` it
 gives scan conversion: readings that became bottles. Never the wine, the label text or the photo.
 
+`bottle_photo_invite` (Unified Scan): the scan review's invitation to send bottle photos. `step` shown / accepted /
+later / kept / sent / failed / not_needed · `photos` 0–3 · `wine` existing / new · `mode` single / same / batch. Invite
+conversion = sent ÷ shown. Never a photo, a wine or the label's text.
+
 **Never in them:** what was typed, a wine's name or id, a source's name, a price, an advice, a person's ratings or
 preferences. **They are not anonymous in storage:** like every product event, a row carries the account that sent
 it (`analytics_events.user_id`). The admin counts join no person or household.

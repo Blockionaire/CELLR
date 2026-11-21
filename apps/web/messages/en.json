@@ -307,7 +307,8 @@
       "labelCheck": "From the label, but hard to read: please check",
       "remembered": "Confirmed by you for this photo before",
       "unknown": "Not read from the label: type it or choose NV"
-    }
+    },
+    "photoSentFor": "Bottle photos sent for {wine}."
   },
   "sommelier": {
     "title": "Sommelier",
@@ -2588,5 +2589,25 @@
     "excludedBehind": "{count, plural, one {# spot behind a bottle at the front isn't offered} other {# spots behind a bottle at the front aren't offered}}.",
     "stale": "This advice couldn't be refreshed, so it may be out of date. “Place here” is off until it is; choosing a spot yourself below still works.",
     "updating": "Updating the advice…"
+  },
+  "scanPhotoInvite": {
+    "title": "Make your bottle visible in CELLR",
+    "body": "Take 1–3 photos of your bottle and help build the 2D bottle library.",
+    "take": "Take bottle photos",
+    "later": "Maybe later",
+    "keptBody": "{count, plural, one {Your photo is} other {Your # photos are}} sent once the bottle is added. Adding never waits for it.",
+    "change": "Change photos",
+    "removeAll": "Don’t send",
+    "previewAlt": "Your bottle photo {n}",
+    "sheetTitle": "Photos of your bottle",
+    "sheetBody": "Good photos show the whole bottle, upright, in good light, against a plain background. They stay on your phone until the bottle is added, and are then sent with your yes below.",
+    "keep": "Keep {count, plural, one {photo} other {# photos}} for adding",
+    "sending": "Sending your bottle photos…",
+    "sentNoPoints": "Your photos help picture this wine.",
+    "notNeeded": "This wine needs no new bottle photos from you, so nothing was sent.",
+    "failed": "Your bottle photos weren’t sent. The bottle is added.",
+    "retry": "Try again",
+    "retryFor": "Bottle photos for {wine} weren’t sent.",
+    "dismiss": "Never mind"
   }
 }

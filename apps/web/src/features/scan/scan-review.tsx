@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   draftOrigins,
   existingWineOrigins,
@@ -39,6 +39,8 @@ import { track } from "@/lib/analytics";
 import { api } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { CheckIcon, SearchIcon } from "@/ui/icons";
+import type { PickedPhoto } from "@/features/cellar/bottle-photo";
+import { ScanPhotoInvite, type InviteStep } from "./photo-invite";
 import { RecordSuggestions } from "./record-suggestions";
 import type { ScanMode } from "./modes";
 
@@ -74,6 +76,8 @@ export function ScanReview({
   onWished,
   onAgain,
   batch,
+  photoInvite,
+  onInviteStep,
 }: {
   result: ScanResult;
   wines: WineSummary[];
@@ -87,12 +91,16 @@ export function ScanReview({
   onSpotChange: (spot: PreferredSpot | null) => void;
   /** The front label and the optional back label, under the wine. */
   labels?: ReactNode;
-  onDone: (result: AddBottlesResult, placeId: string | null) => void;
+  /** The bottles are added; `photos`: the bottle photos kept for the 2D library (with the yes), to send now. */
+  onDone: (result: AddBottlesResult, placeId: string | null, photos: File[]) => void;
   /** Saved to the wishlist instead: nothing was added. */
   onWished: (wine: WineSummary) => void;
   onAgain: () => void;
   /** A photo of a batch: back to the batch, or leave this photo out (nothing is added). */
   batch?: { onBack: () => void; onSkip: () => void } | undefined;
+  /** This scan flow has not answered the invitation to send bottle photos yet. */
+  photoInvite: boolean;
+  onInviteStep: (step: InviteStep, wine: "existing" | "new", photos: number) => void;
 }) {
   const t = useTranslations("scan");
   const tAdd = useTranslations("addBottle");
@@ -146,6 +154,13 @@ export function ScanReview({
   // created a second time.
   const created = useRef<{ key: string; wine: WineSummary } | null>(null);
   const wishing = useRef(false);
+  // Bottle photos chosen on this review: on the device until the bottles are saved (their previews are local).
+  const [kept, setKept] = useState<PickedPhoto[]>([]);
+  const keptNow = useRef<PickedPhoto[]>([]);
+  useEffect(() => {
+    keptNow.current = kept;
+  }, [kept]);
+  useEffect(() => () => keptNow.current.forEach((p) => URL.revokeObjectURL(p.url)), []);
   const wineSection = useRef<HTMLElement>(null);
 
   const producers = [...new Set(wines.map((w) => w.producer))];
@@ -469,9 +484,31 @@ export function ScanReview({
             {tWish("saveFromScan")}
           </Button>
         }
+        beforeSubmit={
+          <ScanPhotoInvite
+            wine={
+              pick?.kind === "wine" ? { id: pick.wine.id } : pick?.kind === "new" ? "new" : null
+            }
+            hasArt={!!(match && pick?.kind === "wine" && pick.wine.id === match.id && result.art)}
+            open={photoInvite}
+            kept={kept}
+            onKeep={(photos) => {
+              // previews no longer kept are let go
+              kept.filter((p) => !photos.includes(p)).forEach((p) => URL.revokeObjectURL(p.url));
+              setKept(photos);
+            }}
+            onStep={(step, photos) =>
+              onInviteStep(step, pick?.kind === "wine" ? "existing" : "new", photos)
+            }
+          />
+        }
         onDone={(added, placeId) => {
           report("added");
-          onDone(added, placeId);
+          onDone(
+            added,
+            placeId,
+            kept.map((p) => p.file),
+          );
         }}
       />
 

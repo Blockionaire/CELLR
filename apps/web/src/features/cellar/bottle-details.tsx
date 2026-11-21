@@ -53,6 +53,8 @@ interface BottleDetailsProps {
   quantityHint?: string | undefined;
   /** Something to offer under the "Add" button (a scan offers "save to wishlist instead"). */
   footer?: ReactNode;
+  /** Shown above the "Add" button (a scan's optional invitation to send bottle photos). */
+  beforeSubmit?: ReactNode;
   /** Shown under the wine (a scan shows its front label and offers the back). */
   labels?: ReactNode;
   /**
@@ -102,6 +104,7 @@ export function BottleDetails({
   initialQuantity = 1,
   quantityHint,
   footer,
+  beforeSubmit,
   labels,
   spot = null,
   onSpotChange,
@@ -446,6 +449,7 @@ export function BottleDetails({
           </details>
         </section>
 
+        {beforeSubmit}
         {error && (
           <p role="alert" className="text-small text-danger">
             {error}

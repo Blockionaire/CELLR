@@ -307,7 +307,8 @@
       "labelCheck": "Van het etiket, maar slecht leesbaar: controleer",
       "remembered": "Eerder door jou bevestigd voor deze foto",
       "unknown": "Niet van het etiket gelezen: vul in of kies NV"
-    }
+    },
+    "photoSentFor": "Flesfoto's verstuurd voor {wine}."
   },
   "sommelier": {
     "title": "Sommelier",
@@ -2588,5 +2589,25 @@
     "excludedBehind": "{count, plural, one {# plaats achter een fles vooraan wordt niet aangeboden} other {# plaatsen achter een fles vooraan worden niet aangeboden}}.",
     "stale": "Dit advies kon niet worden ververst en is mogelijk verouderd. „Hier plaatsen” staat uit tot het weer klopt; zelf hieronder een plaats kiezen werkt nog.",
     "updating": "Het advies wordt bijgewerkt…"
+  },
+  "scanPhotoInvite": {
+    "title": "Maak jouw wijnfles zichtbaar in CELLR",
+    "body": "Maak 1–3 foto's van je fles en help mee aan de 2D-flessenbibliotheek.",
+    "take": "Maak flesfoto's",
+    "later": "Misschien later",
+    "keptBody": "{count, plural, one {Je foto wordt} other {Je # foto's worden}} verstuurd zodra de fles is toegevoegd. Toevoegen wacht er niet op.",
+    "change": "Foto's wijzigen",
+    "removeAll": "Niet versturen",
+    "previewAlt": "Je flesfoto {n}",
+    "sheetTitle": "Foto's van je fles",
+    "sheetBody": "Goede foto's tonen de hele fles, rechtop, in goed licht, tegen een rustige achtergrond. Ze blijven op je telefoon tot de fles is toegevoegd en worden dan verstuurd met je toestemming hieronder.",
+    "keep": "{count, plural, one {Foto} other {# foto's}} bewaren voor het toevoegen",
+    "sending": "Je flesfoto's worden verstuurd…",
+    "sentNoPoints": "Je foto's helpen deze wijn in beeld te brengen.",
+    "notNeeded": "Voor deze wijn zijn geen nieuwe flesfoto's van jou nodig, dus er is niets verstuurd.",
+    "failed": "Je flesfoto's zijn niet verstuurd. De fles is wel toegevoegd.",
+    "retry": "Opnieuw proberen",
+    "retryFor": "Flesfoto's voor {wine} zijn niet verstuurd.",
+    "dismiss": "Laat maar"
   }
 }
