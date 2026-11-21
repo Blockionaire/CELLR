@@ -28,6 +28,8 @@ import { formatFailures, formatSummary } from "./report";
 import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { scoreScenario, summarize, type ScenarioResult } from "./score";
 import type { EvalAnswer } from "./types";
+import { vectorKeyer, vectorOf, type VectorFile } from "./vectors";
+import type { ScenarioVector } from "./stats";
 
 const { values: args } = parseArgs({
   options: {
@@ -45,6 +47,12 @@ const { values: args } = parseArgs({
     "max-usd": { type: "string", default: "2" },
     /** With a hybrid engine on a readable set: a local file the dish phrases sent are appended to. */
     "phrase-log": { type: "string" },
+    /**
+     * Per-scenario outcomes for paired comparisons (compare.ts), written to this file. For a blind set the keys are
+     * salted hashes (SOMMELIER_EVAL_BLIND_SALT) and the file must be outside the repository: it pairs runs, it
+     * never names a scenario.
+     */
+    vectors: { type: "string" },
   },
 });
 
@@ -105,6 +113,15 @@ const qualityRows: QualityRow[] = [];
 const cellarOfScenario = new Map<string, string[]>();
 const answers: EvalAnswer[] = [];
 const guardEffect = emptyGuardEffect();
+// Refuses, before anything is run, a blind set without a salt or a file inside the repository.
+let keyOf: ReturnType<typeof vectorKeyer> | null = null;
+try {
+  keyOf = args.vectors ? vectorKeyer(args.set!, args.vectors, process.env) : null;
+} catch (error) {
+  console.error((error as Error).message);
+  process.exit(2);
+}
+const vectors = new Map<string, ScenarioVector>();
 // Once unmeasured, so module loading and the first call's warm-up are not counted as latency.
 // (Never for the paid engine: a warm-up there is a call that costs money and is thrown away.)
 if (scenarios[0] && !paid) await engine.run(scenarios[0]);
@@ -137,6 +154,7 @@ for (const scenario of scenarios) {
   cellarOfScenario.set(scenario.id, cellarKeys);
   const row = qualityRow(scenario, card, run.answer, scored, cellarKeys);
   if (row) qualityRows.push(row);
+  if (row && keyOf) vectors.set(keyOf.key(scenario.id), vectorOf(row, scored));
   addGuardEffect(guardEffect, scenario, card, run.answer, scored, cellarKeys);
 }
 const quality = qualityTotals(
@@ -173,6 +191,17 @@ console.log(
   `Model calls: ${summary.ai.calls}; tokens in/out: ${summary.ai.inputTokens}/${summary.ai.outputTokens}; cost: $${(summary.ai.usdMicro / 1e6).toFixed(4)}.`,
 );
 if (args.failures) console.log(`\nFailed checks:\n${formatFailures(results)}`);
+if (args.vectors && keyOf) {
+  const file: VectorFile = {
+    set: args.set!,
+    engine: engine.name,
+    keyed: keyOf.keyed,
+    salt: keyOf.fingerprint,
+    incomplete: stoppedAt !== null,
+    rows: Object.fromEntries(vectors),
+  };
+  await writeFile(args.vectors, JSON.stringify(file) + "\n");
+}
 if (args.json) {
   const stable = {
     engine: engine.name,
