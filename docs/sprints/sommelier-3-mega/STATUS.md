@@ -12,7 +12,7 @@ UPDATED:        2026-11-20 (S0–S8 written; everything is in open pull requests
 PHASE:          S8 — final validation and release readiness
 TRACKING ISSUE: #89
 MAIN:           07bc80c; all 46 migrations are in production (docs/MIGRATIONS.md). PR #88 (system monitoring) is
-                open and adds migration 20261124000047: this work's two migrations (0048, 0049) are drafts and
+                open and adds migration 20261124000047: this work's two migrations (0051, 0052) are drafts and
                 must be numbered and released after it.
 SWITCHES:       sommelier_engine, sommelier_buying, sommelier_social, sommelier_experiences, sommelier_learning.
                 None is turned on by `all`; each must be named in CELLR_FEATURES; the last four need the first.
@@ -51,10 +51,10 @@ review's findings and what was done about each, limitations.
 - **S2**: pairing engine; 566 wine style rules; three honest outcomes. Engines alone: 79 / 246.
 - **S3 + S4**: the engines in the app (a plan, no model call), buying advice as styles with a conversation that
   keeps its state, offer validation with no source connected. In the app: 131 / 246.
-- **S5**: friends named in a question, with their own consent (off by default); migration 0048 (draft).
+- **S5**: friends named in a question, with their own consent (off by default); migration 0051 (draft).
 - **S6**: serving, keeping, wine-to-food, menus, quantities; the plan in a real browser (phone and desktop, WCAG
   2.1 AA by axe). 140 / 246.
-- **S7**: what came of a bottle, apart from the thumb; the admin's report; migration 0049 (draft).
+- **S7**: what came of a bottle, apart from the thumb; the admin's report; migration 0052 (draft).
 - **S8**: final review, classification of what is open, `FINAL_REPORT.md`, `RELEASE_PLAN.md`.
 
 ## Next action

@@ -430,7 +430,7 @@ const components = [
       {
         name: "sommelier_social",
         kind: "feature",
-        note: "Friends named in a question, with their own consent (migration 0048). Needs sommelier_engine.",
+        note: "Friends named in a question, with their own consent (migration 0051). Needs sommelier_engine.",
       },
       {
         name: "sommelier_experiences",

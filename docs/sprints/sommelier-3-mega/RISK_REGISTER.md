@@ -63,10 +63,10 @@ back automatically (D-26).
 
 ## R-14 — An applied migration is live in the database whatever the app's switches say
 
-**What.** Migrations 0048 and 0049 grant their functions to every signed-in person. Once applied they can be
+**What.** Migrations 0051 and 0052 grant their functions to every signed-in person. Once applied they can be
 called through the API directly, also while the app's switches are off.
-**What that allows.** 0048: turning one's own consent on or off; asking about one's own accepted friends, which
-returns taste signals only for a friend who turned their own consent on (off by default for everyone). 0049:
+**What that allows.** 0051: turning one's own consent on or off; asking about one's own accepted friends, which
+returns taste signals only for a friend who turned their own consent on (off by default for everyone). 0052:
 recording one's own outcome for a bottle one's own kept plan offered (no plan is kept while the engine is off).
 No other person's data in either case; both limited per person.
 **Why it matters.** "Off until the owner switches it on" holds for the app, not for the database: applying a

@@ -25,9 +25,9 @@ anything in Sommelier 3.0**, and the answer is drawn from fixed sentences in Eng
 | S0    | Design, a benchmark of 246 scenarios, the measured baseline of V1 without AI                         | [#90](https://github.com/Blockionaire/CELLR/pull/90) |
 | S1+S2 | Food engine (331 ingredients, 31 techniques, 82 sauces, 360 dishes) and pairing engine (566 rules)   | [#91](https://github.com/Blockionaire/CELLR/pull/91) |
 | S3+S4 | The engines in the app: a plan with three honest outcomes; buying advice as styles; offer validation | [#93](https://github.com/Blockionaire/CELLR/pull/93) |
-| S5    | Friends named in a question, with their own consent (off by default); migration 0048                 | [#94](https://github.com/Blockionaire/CELLR/pull/94) |
+| S5    | Friends named in a question, with their own consent (off by default); migration 0051                 | [#94](https://github.com/Blockionaire/CELLR/pull/94) |
 | S6    | Serving, keeping, wine-to-food, menus, quantities; the plan in a real browser                        | [#95](https://github.com/Blockionaire/CELLR/pull/95) |
-| S7    | What came of a bottle, apart from the thumb; the admin's report; migration 0049                      | [#97](https://github.com/Blockionaire/CELLR/pull/97) |
+| S7    | What came of a bottle, apart from the thumb; the admin's report; migration 0052                      | [#97](https://github.com/Blockionaire/CELLR/pull/97) |
 | S8    | Final review, corrections to the documents, this report, the release plan                            | [#98](https://github.com/Blockionaire/CELLR/pull/98) |
 
 Each depends on the one above it. Five switches, all off, none turned on by `CELLR_FEATURES=all`:
@@ -105,7 +105,7 @@ knowledge.**
 | ---- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | P1-1 | Four quality thresholds are missed, on knowledge and labels written by AI and reviewed by nobody (R-01, R-11)              | owner: a wine professional's review, or an explicit decision to run it as a labelled trial |
 | P1-2 | V1 with AI is unmeasured, so "better than today" is unproven (R-04)                                                        | owner: a model key in a test environment, about 250 calls                                  |
-| P1-3 | Migrations 0048 and 0049 are unapplied; their order against #88's 0047 must be settled before they are merged (R-03, R-14) | owner                                                                                      |
+| P1-3 | Migrations 0051 and 0052 are unapplied; their order against #88's 0047 must be settled before they are merged (R-03, R-14) | owner                                                                                      |
 | P1-4 | The consent wording for using a friend's taste, and alcohol marketing rules for buying advice (R-07)                       | owner                                                                                      |
 
 **P2 (should be fixed; none blocks merging switched off):**
@@ -134,9 +134,9 @@ the honest fallback exist and are tested with fixture sources in tests only.
 The rule was "no new behaviour until a switch is named". These are the exceptions; all were judged harmless by
 the final review, and the owner should know them before merging:
 
-- A new admin page, `/admin/sommelier`, and its link (it shows "not ready" until migration 0049).
+- A new admin page, `/admin/sommelier`, and its link (it shows "not ready" until migration 0052).
 - Sommelier and Tonight product events carry new props (codes and counts; `engine: "v1"` when off).
-- A rating records the plan's codes (empty when the answer has no plan); needs migration 0049.
+- A rating records the plan's codes (empty when the answer has no plan); needs migration 0052.
 - Every inventory item in the API carries `appellation`.
 - The ask request accepts `state` and `budgetEuros` (ignored when off).
 - Earlier turns sent along as history are cut to 800 characters (this fixes a V1 validation failure).
@@ -146,8 +146,8 @@ the final review, and the owner should know them before merging:
 
 ## 7. Dependencies
 
-- **Pull request #88** (system monitoring) holds migration `20261124000047`. This work's 0048 and 0049 are
-  numbered after it. #88 must be merged and applied first, or 0048 and 0049 renamed in their pull requests
+- **Pull request #88** (system monitoring) holds migration `20261124000047`. This work's 0051 and 0052 are
+  numbered after it. #88 must be merged and applied first, or 0051 and 0052 renamed in their pull requests
   before they are merged (once on `main`, CI forbids a rename).
 - The pull requests merge in the order of §2. Fixes from the final review were committed on the branch they
   belong to and merged upward (no pushed branch was rewritten): #93, #94, #95 and #97 each got commits after
@@ -170,7 +170,7 @@ A saving in money is not claimed: V1's cost per AI question was never measured.
 In order; details in `RELEASE_PLAN.md`.
 
 1. Read §6 and accept or reject what changes with the switches off.
-2. #88 first, or rename 0048 and 0049 before merging #94 and #97.
+2. #88 first, or rename 0051 and 0052 before merging #94 and #97.
 3. Merge the stack (switches off).
 4. Decide how the knowledge gets reviewed (P1-1) and whether to pay for measuring the AI path (P1-2).
 5. Approve the consent wording and check the marketing rules (P1-4).
