@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   draftOrigins,
+  ERROR_MESSAGES,
   existingWineOrigins,
   formatVintage,
   RESOLVE_REASONS,
@@ -36,7 +37,7 @@ import { useOwnedCounts, WineChoice } from "@/features/cellar/wine-stage";
 import { countryName, placeLine } from "@/features/cellar/wine-visuals";
 import { useAddWish } from "@/features/wishlist/hooks";
 import { track } from "@/lib/analytics";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { CheckIcon, SearchIcon } from "@/ui/icons";
 import type { PickedPhoto } from "@/features/cellar/bottle-photo";
@@ -150,9 +151,9 @@ export function ScanReview({
   const [year, setYear] = useState<number | null | undefined>(
     facts?.nonVintage ? null : (facts?.year ?? undefined),
   );
-  // The new wine made by an earlier "Add" that then failed (a spot taken, no connection): the same fields are not
-  // created a second time.
-  const created = useRef<{ key: string; wine: WineSummary } | null>(null);
+  // The new wine made (or being made) for these fields: an "Add" that then failed (a spot taken, no connection), or
+  // "Add" and "Save to wishlist" tapped in one go, never create it a second time.
+  const created = useRef<{ key: string; wine: Promise<WineSummary> } | null>(null);
   const wishing = useRef(false);
   // Bottle photos chosen on this review: on the device until the bottles are saved (their previews are local).
   const [kept, setKept] = useState<PickedPhoto[]>([]);
@@ -212,8 +213,15 @@ export function ScanReview({
     const key = JSON.stringify(checked.input);
     if (created.current?.key === key) return created.current.wine;
     // The server keeps one wine per identity: the same producer, name and kind already in the household is reused.
-    const wine = await api.post<WineSummary>("/wines", checked.input);
+    const wine = api.post<WineSummary>("/wines", checked.input);
     created.current = { key, wine };
+    try {
+      await wine;
+    } catch (e) {
+      // not made: the next tap tries again
+      if (created.current?.wine === wine) created.current = null;
+      throw e;
+    }
     // the list catches up in the background: the bottles do not wait for it
     void queryClient.invalidateQueries({ queryKey: winesKey });
     return wine;
@@ -232,7 +240,14 @@ export function ScanReview({
     if (wishing.current) return;
     wishing.current = true;
     try {
-      const wine = await resolveWine();
+      let wine: WineSummary | null;
+      try {
+        wine = await resolveWine();
+      } catch (e) {
+        // the new wine could not be made (no connection…): said beside the wine, nothing was listed
+        notReady(errorMessage(e, (k) => te(k), ERROR_MESSAGES));
+        return;
+      }
       if (!wine) return;
       await addWish.mutateAsync({
         wineId: wine.id,
