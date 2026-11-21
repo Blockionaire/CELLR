@@ -362,6 +362,134 @@
       "love": "What would I love tonight?",
       "new": "Something new for me to try",
       "match": "Which of my wines fits my taste best?"
+    },
+    "plan": {
+      "outcome": {
+        "good": "A good match from your cellar:",
+        "acceptable": "Nothing is a perfect match. This will do:",
+        "none": "Nothing in your cellar really suits this.",
+        "noneEmpty": "Your cellar has nothing to open for this yet.",
+        "clarify": "Tell me what you are eating, and I will find a wine for it."
+      },
+      "dish": "For {dish}",
+      "confidence": {
+        "low": "I know little about this wine or this dish, so take it as a suggestion.",
+        "medium": "Judged by what its appellation is usually like, not by this exact bottle.",
+        "high": "Judged by what is known about this exact wine."
+      },
+      "why": "Why",
+      "but": "Keep in mind",
+      "pro": {
+        "classic": "a classic with this dish",
+        "affinity": "a style that suits what is on the plate",
+        "weight-matches": "about as rich as the dish",
+        "acidity-cuts-richness": "its freshness cuts through the richness",
+        "acidity-meets-acidity": "fresh enough for the acidity on the plate",
+        "bubbles-refresh": "the bubbles refresh the palate",
+        "tannin-meets-meat": "its tannin stands up to the meat",
+        "sweetness-tames-heat": "a little sweetness cools the heat",
+        "sweetness-meets-sweetness": "sweet enough for the dish",
+        "sweet-with-salt": "sweet against salt, an old pairing",
+        "aromatics-meet-spice": "aromatic enough for the spices",
+        "oak-meets-richness": "its oak suits the richness",
+        "fruit-meets-char": "ripe fruit for the char of the grill",
+        "red-for-red-wine-sauce": "a red for a red-wine sauce",
+        "fresh-with-seafood": "fresh and unoaked, as fish likes it"
+      },
+      "con": {
+        "too-heavy": "rather heavy for this dish",
+        "too-light": "rather light for this dish",
+        "tannin-too-firm": "its tannin is firm for this dish",
+        "needs-more-acidity": "could do with more freshness",
+        "not-sweet-enough": "not quite sweet enough",
+        "too-sweet": "on the sweet side for this",
+        "alcohol-fans-heat": "its alcohol makes the heat hotter",
+        "oak-overwhelms": "its oak may dominate",
+        "overpowers": "it may overpower the dish",
+        "underpowered": "the dish may overpower it",
+        "red-with-delicate-fish": "a red with delicate fish",
+        "white-for-red-wine-sauce": "a white with a red-wine sauce",
+        "little-known": "only its colour is known",
+        "tannin-with-fish": "tannin turns metallic with fish",
+        "tannin-with-heat": "tannin turns harsh with chili",
+        "tannin-with-sweet": "tannin tastes bitter with sweetness",
+        "dry-with-dessert": "a dry wine tastes sour with dessert",
+        "sweet-with-savoury": "too sweet for a savoury dish"
+      },
+      "note": {
+        "partly-reserved": "Some of these bottles are kept for an occasion.",
+        "young": "Still young: it will open up with some air.",
+        "past": "Past its drinking window: open it soon, it may have faded.",
+        "may-be-past": "It may be past its best; too little is known about it to be sure.",
+        "estimate": "Judged by its region and grape, not by this exact wine.",
+        "by-name": "Its origin is not recorded: judged by its name.",
+        "little-known": "Only its colour is known.",
+        "your-taste": "Put first because of your taste.",
+        "table-taste": "Put first for the taste of the table."
+      },
+      "aside": {
+        "title": "Would suit, but not offered",
+        "reserved": "all its bottles are kept for an occasion",
+        "too-young": "too young to open now",
+        "turned-down": "you turned it down"
+      },
+      "closest": "The closest you have, though nothing really speaks for it:",
+      "buy": {
+        "title": "What to look for",
+        "hint": "A kind of wine, not a bottle I found. Prices are a rough idea of where it starts.",
+        "from": "usually from about €{euros}",
+        "reason": {
+          "suits-dish": "suits the dish",
+          "liked": "what they like",
+          "gift-worthy": "a bottle that reads as a present",
+          "versatile": "goes with many things",
+          "fills-gap": "something your cellar lacks"
+        }
+      },
+      "offerCheck": {
+        "no-provider": "I cannot look in shops yet, so this is a style to look for, not an offer.",
+        "provider-down": "I could not reach the shops just now, so this is a style to look for, not an offer.",
+        "nothing-verified": "I found nothing in the shops that I could verify.",
+        "shown": "Found in a shop and checked:"
+      },
+      "offer": {
+        "online-offer": "Online offer",
+        "local-availability": "In a store",
+        "at": "at {merchant}",
+        "store": "{store}",
+        "seen": "seen {when}",
+        "open": "View at the shop"
+      },
+      "ask": {
+        "dish": "What are you eating?",
+        "budget": "What may a bottle cost?",
+        "channel": "Do you want to order online, or pick it up today?",
+        "location-consent": "May I use your location to look for shops nearby?",
+        "recipient-taste": "What do they like to drink?",
+        "occasion": "What is the occasion?"
+      },
+      "quick": {
+        "budget": {
+          "a": "Up to €15",
+          "b": "Up to €25",
+          "c": "Up to €50",
+          "d": "Price does not matter"
+        },
+        "channel": {
+          "a": "Online is fine",
+          "b": "Pick up today"
+        },
+        "location-consent": {
+          "a": "Yes, that is fine",
+          "b": "No, rather not"
+        },
+        "recipient-taste": {
+          "a": "Red",
+          "b": "White",
+          "c": "Bubbles"
+        }
+      },
+      "quickLabel": "Answer"
     }
   },
   "profile": {
