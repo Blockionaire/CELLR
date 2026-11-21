@@ -1,0 +1,40 @@
+{
+  "provider": "lwin_fixture",
+  "file": "fixture-lwin-crossmatch-v2.csv",
+  "sha256": "4ffc3a09032d5b5b4ecf0109d9e7f56d9f6164904422c3c9bdc654323f776de4",
+  "applied": true,
+  "pilot": false,
+  "retrieved_at": "2026-11-20",
+  "license": "CC0-1.0",
+  "rights_status": "verified",
+  "run": "9ae767f1-33af-4482-93a6-7faf8a236c38",
+  "rows": 9,
+  "schema": "lwin-assumed-layout-v0",
+  "layout_verified": false,
+  "adapter_records": 5,
+  "adapter_skipped": {
+    "STATUS": 1
+  },
+  "folded_rows": 3,
+  "unmapped_types": {},
+  "implausible_vintage_rows": 0,
+  "warnings": [
+    "1 row(s) skipped",
+    "the lwin-assumed-layout-v0 layout is an assumption, not verified against the provider's real file"
+  ],
+  "inserted": 0,
+  "updated": 0,
+  "unchanged": 5,
+  "invalid": 0,
+  "possible_duplicates": 0,
+  "suggested_links": 0,
+  "problems": [],
+  "finish": {
+    "j": {
+      "run": "9ae767f1-33af-4482-93a6-7faf8a236c38",
+      "withdrawn": 0
+    }
+  },
+  "seconds": 0,
+  "peak_rss_mb": 108
+}

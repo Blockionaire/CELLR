@@ -111,6 +111,9 @@ function fake(
     async findOrCreateWine() {
       return WINE;
     },
+    async recordWineOrigin() {
+      return null;
+    },
     async findOrCreateVintage() {
       return "v1";
     },

@@ -11,6 +11,7 @@ import {
   type SmartSpot,
   type SmartStorageUnitView,
   type SmartSwapResult,
+  type AdviceIntent,
 } from "@cellr/domain";
 import { ApiError, errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
@@ -20,6 +21,7 @@ import { useSmartPlacements } from "../smart-cellar-hooks";
 import { resolvedFromView } from "../storage3d/from-api";
 import { readBottleNow, uncertain, useSmartMove, useSmartSwap } from "./placement-hooks";
 import { judgeMove, judgeSwap, type Verdict } from "./reconcile";
+import { AdvicePanel } from "./advice-panel";
 import { SpotPicker, type PickerChoice } from "./spot-picker";
 import { tempText } from "./zone-legend";
 
@@ -68,6 +70,10 @@ export interface PlacementPanelProps {
   onCancel: () => void;
   /** Whether this deployment writes (otherwise the panel shows and explains, and does not confirm). */
   canWrite: boolean;
+  /** Whether placement advice is open here (sprint 5): a "Where it fits best" section for a known bottle. */
+  advice?: boolean;
+  /** The Rack Builder, where it is open (advice points there when there are no places). */
+  builderHref?: string | null;
 }
 
 /**
@@ -86,6 +92,8 @@ export function PlacementPanel({
   onDone,
   onCancel,
   canWrite,
+  advice = false,
+  builderHref = null,
 }: PlacementPanelProps) {
   const t = useTranslations("placement");
   const tz = useTranslations("placement.zone");
@@ -118,6 +126,9 @@ export function PlacementPanel({
     [placements],
   );
   const [choice, setChoice] = useState<PickerChoice | null>(null);
+  const [intent, setIntent] = useState<AdviceIntent>("store");
+  // a recommendation in another place: chosen once that place is the one shown
+  const [pending, setPending] = useState<SmartSpot | null>(null);
   const [who, setWho] = useState<MovableBottle | null>(bottle);
   // opened from a spot (no bottle yet): the list of bottles stays, so the choice can still be changed
   const [spotFirst] = useState(bottle === null);
@@ -131,7 +142,12 @@ export function PlacementPanel({
   const [shownUnit, setShownUnit] = useState(unitId);
   if (shownUnit !== unitId) {
     setShownUnit(unitId);
-    setChoice(null);
+    setChoice(
+      pending && pending.locationId === unitId
+        ? { kind: "move", address: { row: pending.row, col: pending.col, index: pending.index } }
+        : null,
+    );
+    setPending(null);
     setProblem(null);
   }
   useEffect(() => {
@@ -141,7 +157,13 @@ export function PlacementPanel({
 
   const meaning = resolved ? placementMeaning(resolved) : null;
   const movingHere = who?.from?.locationId === unitId ? who.bottleId : null;
-  const describe = (u: SmartStorageUnitView, row: number, col: number, index: number) => {
+  const describe = (
+    u: SmartStorageUnitView,
+    row: number,
+    col: number,
+    index: number,
+    withZone = true,
+  ) => {
     const m = placementMeaning(resolvedFromView(u));
     const base =
       m === "ordinal"
@@ -149,7 +171,7 @@ export function PlacementPanel({
         : m === "depth" && u.cellCapacity > 1
           ? t("where.deep", { unit: u.label, row, col, index })
           : t("where.spot", { unit: u.label, row, col });
-    const zone = zoneOfRow(u.zones, row);
+    const zone = withZone ? zoneOfRow(u.zones, row) : null;
     if (!zone) return base;
     return `${base} · ${
       zone.targetTempC === null
@@ -167,12 +189,21 @@ export function PlacementPanel({
     unit && choice
       ? describe(unit, choice.address.row, choice.address.col, choice.address.index)
       : null;
+  const chosenNow = choice;
 
-  async function confirm() {
-    if (!choice || !unit || !who) return;
+  /**
+   * Confirms the spot chosen in the picker, or (from a recommendation's "Place here") exactly the spot given: the same
+   * Sprint 4 request either way, never another spot than the one on screen.
+   */
+  async function confirm(at?: SmartSpot) {
+    const choice: PickerChoice | null = at
+      ? { kind: "move", address: { row: at.row, col: at.col, index: at.index } }
+      : chosenNow;
+    if (!choice || !who || (!at && !unit)) return;
     setBusy(true);
     setProblem(null);
-    const to: SmartSpot = { locationId: unit.id, ...choice.address };
+    const to: SmartSpot = at ?? { locationId: unit!.id, ...choice.address };
+    const targetText = spotText(to);
     try {
       if (choice.kind === "swap" && who.from) {
         const other: MovableBottle = {
@@ -190,7 +221,7 @@ export function PlacementPanel({
           bottleId: who.bottleId,
           move: { from: who.from, to },
         });
-        onDone({ kind: "moved", bottle: who, result, where: targetText ?? "" });
+        onDone({ kind: "moved", bottle: who, result, where: targetText });
       }
     } catch (e) {
       if (uncertain(e))
@@ -247,11 +278,10 @@ export function PlacementPanel({
       }
     } else {
       // a compartment's counter is the server's choice; anywhere else the whole spot must be the one asked for
+      // (from the target's own place, not the one on screen: a recommendation may be in another)
+      const targetUnit = to ? units.find((u) => u.id === to.locationId) : undefined;
       const counters =
-        to !== null &&
-        to.locationId === unit?.id &&
-        resolved !== null &&
-        placementMeaning(resolved) === "ordinal";
+        targetUnit !== undefined && placementMeaning(resolvedFromView(targetUnit)) === "ordinal";
       verdict = judgeMove(await readBottleNow(who.bottleId), from, to, { counters });
       if (verdict.kind === "done") {
         onDone({
@@ -317,6 +347,19 @@ export function PlacementPanel({
     }
   }
 
+  /** A recommendation, shown: its place becomes the one on screen, its spot the choice (ringed in 3D). Nothing moves. */
+  function show(spot: SmartSpot) {
+    setProblem(null);
+    if (spot.locationId === unitId)
+      setChoice({ kind: "move", address: { row: spot.row, col: spot.col, index: spot.index } });
+    else if (units.some((u) => u.id === spot.locationId)) {
+      setPending(spot);
+      onUnit(spot.locationId);
+    }
+    // a place this screen doesn't list (its list is older than the advice): nothing is switched or kept for later;
+    // the advice refreshes with the places
+  }
+
   return (
     <section
       aria-labelledby="placement-title"
@@ -344,6 +387,29 @@ export function PlacementPanel({
           </p>
         )}
       </div>
+
+      {advice && who && (
+        <AdvicePanel
+          bottleId={who.bottleId}
+          intent={intent}
+          onIntent={setIntent}
+          spotText={(spot) => {
+            const u = units.find((x) => x.id === spot.locationId);
+            return u ? describe(u, spot.row, spot.col, spot.index, false) : t("where.elsewhere");
+          }}
+          chosen={choice ? { locationId: unitId, ...choice.address } : null}
+          onShow={show}
+          onPlace={(spot) => {
+            // exactly this spot, confirmed now; the place on screen is only switched for "Show" (switching it here
+            // would change the panel under a request still on its way)
+            if (spot.locationId === unitId) show(spot);
+            void confirm(spot);
+          }}
+          canPlace={canWrite}
+          busy={busy}
+          builderHref={builderHref}
+        />
+      )}
 
       {units.length > 1 && (
         <div

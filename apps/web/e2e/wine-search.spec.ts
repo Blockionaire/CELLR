@@ -227,9 +227,6 @@ test.describe("wine search: adding a bottle", () => {
     const m = marker();
     const ext = await seedProviderRecord(m);
     const { householdId } = await arrive(page, "extern");
-    const canonicalBefore = await sql(
-      "select count(*)::int as n from public.wines where status = 'canonical'",
-    );
 
     await page.goto("/cellar/add");
     await combobox(page).fill(`tinto fixture ${m}`);
@@ -265,10 +262,15 @@ test.describe("wine search: adding a bottle", () => {
         owner: householdId,
       },
     ]);
-    // the catalogue is untouched, and nothing links the record to anything
+    // the catalogue is untouched, and nothing links the record to anything (counted for this producer: other workers
+    // import catalogue wines at the same time)
     expect(
-      await sql("select count(*)::int as n from public.wines where status = 'canonical'"),
-    ).toEqual(canonicalBefore);
+      await sql(
+        `select count(*)::int as n from public.wines w join public.producers p on p.id = w.producer_id
+          where w.status = 'canonical' and p.name = $1`,
+        [ext.producer],
+      ),
+    ).toEqual([{ n: 0 }]);
     expect(
       await sql(
         `select count(*)::int as n from public.catalog_record_links l

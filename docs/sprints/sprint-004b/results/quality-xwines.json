@@ -1,0 +1,201 @@
+{
+  "provider": "xwines",
+  "file": {
+    "rows": 100646,
+    "records": 100646,
+    "skipped": {},
+    "fatal": [],
+    "warnings": [],
+    "duplicate_external_ids": 0,
+    "folded_rows": 0,
+    "encoding_suspect_rows": 0,
+    "implausible_vintage_rows": 0,
+    "unmapped_types": {},
+    "empty_fields": {
+      "WineID": 0,
+      "WineName": 0,
+      "Type": 0,
+      "Elaborate": 0,
+      "Grapes": 0,
+      "Harmonize": 0,
+      "ABV": 0,
+      "Body": 0,
+      "Acidity": 0,
+      "Code": 0,
+      "Country": 0,
+      "RegionID": 0,
+      "RegionName": 0,
+      "WineryID": 0,
+      "WineryName": 0,
+      "Website": 17867,
+      "Vintages": 0
+    },
+    "unique": {
+      "producers_as_written": 30190,
+      "producers_normalised": 30161,
+      "wine_names_normalised": 59712,
+      "identities": 100481,
+      "countries": 62,
+      "regions": 2159,
+      "grapes": 777
+    },
+    "types": {
+      "red": 56162,
+      "white": 29196,
+      "sparkling": 7366,
+      "rose": 4401,
+      "dessert": 2409,
+      "fortified": 1112
+    },
+    "countries_top": {
+      "FR": 24371,
+      "IT": 19358,
+      "US": 13139,
+      "ES": 7109,
+      "PT": 4958,
+      "DE": 4824,
+      "AU": 4818,
+      "CL": 4610,
+      "AR": 3610,
+      "ZA": 3218,
+      "AT": 2146,
+      "BR": 1547,
+      "NZ": 1393,
+      "CA": 842,
+      "CH": 708
+    },
+    "grapes_top": {
+      "Cabernet Sauvignon": 14371,
+      "Chardonnay": 12416,
+      "Merlot": 10554,
+      "Pinot Noir": 10474,
+      "Syrah/Shiraz": 10089,
+      "Cabernet Franc": 5354,
+      "Grenache": 4149,
+      "Sauvignon Blanc": 4083,
+      "Riesling": 4001,
+      "Malbec": 3619
+    },
+    "vintages": {
+      "listed_total": 2149993,
+      "records_without_any": 97,
+      "records_marked_nv": 6504,
+      "records_nv_only": 97,
+      "earliest": 1950,
+      "latest": 2022
+    },
+    "scripts": {
+      "latin-accented": 34742,
+      "cyrillic": 311,
+      "greek": 143,
+      "georgian-armenian": 61,
+      "arabic-hebrew": 34,
+      "cjk": 14
+    },
+    "producer_spelling_variants": {
+      "groups": 28,
+      "examples": 10
+    },
+    "producers_differing_only_by_estate_words": {
+      "groups": 500,
+      "examples": 10
+    },
+    "identical_identities": {
+      "groups": 155,
+      "records_in_them": 320,
+      "examples": 8
+    },
+    "same_name_other_colour": 6,
+    "near_identical_names_of_one_producer": {
+      "pairs": {
+        "variant": 59,
+        "uncertain": 9
+      },
+      "examples": 15
+    }
+  },
+  "database": {
+    "provider": {
+      "id": "xwines",
+      "license": "CC0-1.0",
+      "rights_status": "unverified",
+      "search_scope": "pilot",
+      "may_store": true,
+      "may_display": true,
+      "commercial_use": false
+    },
+    "records_by_status": [
+      {
+        "status": "active",
+        "n": 100646
+      }
+    ],
+    "duplicate_provider_ids": {
+      "n": 0
+    },
+    "runs": [
+      {
+        "dataset_version": "X-Wines 1.0 (2023-01)",
+        "pilot": true,
+        "rights_status": "unverified",
+        "license": "CC0-1.0",
+        "started_at": "2026-11-20T06:16:08.894Z",
+        "finished_at": "2026-11-20T06:17:05.282Z",
+        "abandoned": null,
+        "reason": null
+      },
+      {
+        "dataset_version": "X-Wines 1.0 (2023-01)",
+        "pilot": true,
+        "rights_status": "unverified",
+        "license": "CC0-1.0",
+        "started_at": "2026-11-20T06:17:10.693Z",
+        "finished_at": "2026-11-20T06:18:06.605Z",
+        "abandoned": null,
+        "reason": null
+      },
+      {
+        "dataset_version": "rehearsal-v2",
+        "pilot": true,
+        "rights_status": "unverified",
+        "license": "CC0-1.0",
+        "started_at": "2026-11-20T06:18:12.956Z",
+        "finished_at": "2026-11-20T06:18:35.492Z",
+        "abandoned": "true",
+        "reason": "superseded by run 13b82cb2-d8f3-4677-9556-b19d0a599f24"
+      },
+      {
+        "dataset_version": "rehearsal-v2",
+        "pilot": true,
+        "rights_status": "unverified",
+        "license": "CC0-1.0",
+        "started_at": "2026-11-20T06:18:35.492Z",
+        "finished_at": "2026-11-20T06:19:30.322Z",
+        "abandoned": null,
+        "reason": null
+      },
+      {
+        "dataset_version": "X-Wines 1.0 (2023-01)",
+        "pilot": true,
+        "rights_status": "unverified",
+        "license": "CC0-1.0",
+        "started_at": "2026-11-20T06:19:35.919Z",
+        "finished_at": "2026-11-20T06:20:29.245Z",
+        "abandoned": null,
+        "reason": null
+      }
+    ],
+    "links": [],
+    "same_identity_as_cellr_wines": [],
+    "same_identity_in_other_providers": [],
+    "cellr_wines_written_by_imports": {
+      "n": 0
+    },
+    "canonical_wines": {
+      "n": 0
+    }
+  },
+  "seconds": 17.7,
+  "peak_rss_mb": 1370,
+  "redacted": "Redacted for the repository (scripts/catalog-tools/redact-results.ts): counts and ranks only; record names, ids, hits and examples removed."
+}
