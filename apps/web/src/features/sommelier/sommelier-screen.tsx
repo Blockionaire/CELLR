@@ -25,6 +25,7 @@ import {
   type SommelierAnswer,
   type SommelierBottle,
   type SommelierConversationView,
+  type SommelierOutcome,
   type SommelierRating,
 } from "@cellr/domain";
 import { placeLine } from "@/features/cellar/wine-visuals";
@@ -35,6 +36,7 @@ import { Button, buttonStyles } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { EmptyState } from "@/ui/empty-state";
 import { plainSentence } from "./plain-sentence";
+import { PickOutcome } from "./pick-outcome";
 import { PlanView } from "./plan-view";
 import { completeMention, MentionSuggestions } from "./mention-suggestions";
 import { cn } from "@/ui/cn";
@@ -66,18 +68,22 @@ export function SommelierScreen({
   hasBottles,
   conversation,
   social,
+  learning,
 }: {
   hasBottles: boolean;
   /** The kept conversation, read with the page; left out when it could not be, and the screen reads it itself. */
   conversation?: SommelierConversationView | undefined;
   /** The social sommelier is switched on: friends' names are suggested while typing "@". */
   social?: boolean | undefined;
+  /** A person can say what came of a bottle an answer offered (`sommelier_learning`). */
+  learning?: boolean | undefined;
 }) {
   const t = useTranslations("sommelier");
   return (
     <SommelierChat
       mode="chat"
       social={social === true}
+      learning={learning === true}
       title={t("title")}
       subtitle={t("subtitle")}
       chips={CHIPS.map((id) => t(`chips.${id}`))}
@@ -140,6 +146,7 @@ export function SommelierChat({
   initialQuestion,
   conversation,
   social = false,
+  learning = false,
 }: {
   mode: "chat" | "tonight";
   title: string;
@@ -152,6 +159,7 @@ export function SommelierChat({
   /** The general chat's kept conversation, as the page read it. */
   conversation?: SommelierConversationView | undefined;
   social?: boolean | undefined;
+  learning?: boolean | undefined;
 }) {
   const t = useTranslations("sommelier");
   const te = useTranslations();
@@ -473,6 +481,12 @@ export function SommelierChat({
                     answer={turn.answer}
                     // A quick answer belongs to the last question asked back, not to an older one.
                     onReply={turn === turns.at(-1) ? (text) => void send(text) : undefined}
+                    // Only for a kept answer: an outcome is recorded against the answer the server holds.
+                    outcomes={
+                      learning && kept && turn.id
+                        ? { messageId: turn.id, said: turn.outcomes ?? [] }
+                        : undefined
+                    }
                     feedback={
                       kept && turn.id ? (
                         <AnswerFeedback messageId={turn.id} rating={turn.rating ?? null} />
@@ -626,10 +640,13 @@ function Answer({
   answer,
   feedback,
   onReply,
+  outcomes,
 }: {
   answer: SommelierAnswer;
   feedback?: ReactNode;
   onReply?: ((text: string) => void) | undefined;
+  /** The kept answer's id and what was said about its bottles; absent when outcomes are not asked for. */
+  outcomes?: { messageId: string; said: readonly SommelierOutcome[] } | undefined;
 }) {
   const t = useTranslations("sommelier");
   let i = 0;
@@ -647,6 +664,18 @@ function Answer({
           bottles={[...answer.bottles, ...(answer.otherBottles ?? [])]}
           card={(bottle, first) => <BottleCard bottle={bottle} first={first} />}
           onReply={onReply}
+          afterPick={
+            outcomes
+              ? (vintageId) => (
+                  <PickOutcome
+                    messageId={outcomes.messageId}
+                    vintageId={vintageId}
+                    outcome={outcomes.said.find((o) => o.vintageId === vintageId) ?? null}
+                    pairing={answer.plan?.kind === "pairing" && answer.plan.dish !== null}
+                  />
+                )
+              : undefined
+          }
         />
         <div className="flex items-center justify-end gap-3 px-1">{feedback}</div>
       </div>

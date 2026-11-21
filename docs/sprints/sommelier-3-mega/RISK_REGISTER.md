@@ -42,3 +42,11 @@ re-measure. Until then the switch should not be turned on in Production.
 **What.** `CELLR_FEATURES=all` does not turn on the four sommelier switches; each must be named.
 **Why.** A deployment set to `all` for an earlier epic must not start this one by accident (R-02).
 **Residual.** Someone who expects `all` to mean all will find the sommelier still off. `docs` and the registry say so.
+
+## R-13 — Outcome signals are sparse and self-reported
+
+**What.** Most people will not say what came of a bottle; those who do are not a sample.
+**Why it matters.** A share on a page looks like a measure.
+**Handled.** The report shows counts next to every share and says that small numbers prove nothing; nothing is fed
+back automatically (D-26).
+**Residual.** Someone may still read 3 of 4 as 75%.

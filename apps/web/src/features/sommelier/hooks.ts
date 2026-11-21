@@ -10,13 +10,23 @@ import {
 import type {
   AskSommelier,
   RateSommelierAnswer,
+  SetSommelierOutcome,
   SommelierConversationView,
+  SommelierOutcome,
   SommelierRating,
   SommelierReply,
 } from "@cellr/domain";
 import { track } from "@/lib/analytics";
 import { api } from "@/lib/api";
-import { chatStateFrom, EMPTY_CHAT, ratingIn, withRating, type ChatState } from "./turns";
+import {
+  chatStateFrom,
+  EMPTY_CHAT,
+  outcomeIn,
+  ratingIn,
+  withOutcome,
+  withRating,
+  type ChatState,
+} from "./turns";
 
 /** The general chat, as the screen holds it: kept in the query cache, so it is there again after any other screen. */
 export const CHAT_KEY = ["sommelier", "conversation"] as const;
@@ -26,6 +36,8 @@ const askKey = (mode: "chat" | "tonight") => ["sommelier", "ask", mode] as const
  * Asks the sommelier about the cellar. The screen sends the recent conversation; in the general chat a question
  * id goes with it, so the server keeps the question and its answer (and sends a question it has seen back as kept).
  */
+import { answerMetrics } from "./plan-metrics";
+
 export function useAskSommelier(mode: "chat" | "tonight") {
   return useMutation({
     mutationKey: askKey(mode),
@@ -37,7 +49,7 @@ export function useAskSommelier(mode: "chat" | "tonight") {
     onSuccess: (answer, input) =>
       track(
         input.mode === "tonight" ? "tonight_recommendation_generated" : "sommelier_question_asked",
-        { source: answer.source },
+        answerMetrics(answer),
       ),
   });
 }
@@ -100,4 +112,78 @@ export function useRateAnswer(messageId: string, onFailed: () => void) {
       onFailed();
     },
   });
+}
+
+/**
+ * What the server last confirmed about a bottle of an answer, and how many requests about it are still on their
+ * way. The screen shows a tap at once; when the last request for that bottle is done, it shows what the server
+ * holds, whichever of the taps failed. (Putting back "what was on screen before this tap" is not enough: with two
+ * quick taps, the second one's "before" is the first one's unconfirmed guess.)
+ */
+const settledOutcomes = new Map<string, { confirmed: SommelierOutcome | null; pending: number }>();
+
+/** The options of `useSetOutcome`, apart from React: so the order of taps and failures can be tested as it is. */
+export function outcomeMutation(client: QueryClient, messageId: string, onFailed: () => void) {
+  const keyOf = (input: SetSommelierOutcome) => `${input.messageId}:${input.vintageId}`;
+  return {
+    scope: { id: `sommelier-outcome:${messageId}` },
+    meta: { refresh: false },
+    mutationFn: (input: SetSommelierOutcome) =>
+      api.put<{ outcome: SommelierOutcome | null }>("/sommelier/outcomes", input),
+    onMutate: (input: SetSommelierOutcome) => {
+      const entry = settledOutcomes.get(keyOf(input));
+      if (!entry || entry.pending === 0)
+        // Nothing on its way: what is on screen is what the server holds.
+        settledOutcomes.set(keyOf(input), {
+          confirmed: outcomeIn(
+            client.getQueryData<ChatState>(CHAT_KEY),
+            input.messageId,
+            input.vintageId,
+          ),
+          pending: 1,
+        });
+      else entry.pending += 1;
+      updateChat(client, (state) =>
+        withOutcome(
+          state,
+          input.messageId,
+          input.vintageId,
+          input.opened
+            ? { vintageId: input.vintageId, withDish: input.withDish, enjoyed: input.enjoyed }
+            : null,
+        ),
+      );
+    },
+    onSuccess: (result: { outcome: SommelierOutcome | null }, input: SetSommelierOutcome) => {
+      const entry = settledOutcomes.get(keyOf(input));
+      if (entry) entry.confirmed = result.outcome;
+      track("sommelier_outcome_said", {
+        opened: input.opened,
+        with_dish: input.withDish === null ? "not-said" : input.withDish ? "yes" : "no",
+        enjoyed: input.enjoyed ?? "not-said",
+      });
+    },
+    onError: () => onFailed(),
+    onSettled: (_result: unknown, _error: unknown, input: SetSommelierOutcome) => {
+      const entry = settledOutcomes.get(keyOf(input));
+      if (!entry) return;
+      entry.pending -= 1;
+      if (entry.pending > 0) return;
+      settledOutcomes.delete(keyOf(input));
+      // The last one is done: the screen shows what the server holds.
+      updateChat(client, (state) =>
+        withOutcome(state, input.messageId, input.vintageId, entry.confirmed),
+      );
+    },
+  };
+}
+
+/**
+ * Says what came of one bottle of one answer (or takes it back). Shown at once; the requests for one answer go one
+ * after the other, so the last tap is what stays; when they are done the screen shows what the server holds. Its
+ * own event, with the three signals as they now stand and nothing about the wine, the dish or the answer's words.
+ */
+export function useSetOutcome(messageId: string, onFailed: () => void) {
+  const client = useQueryClient();
+  return useMutation(outcomeMutation(client, messageId, onFailed));
 }

@@ -353,3 +353,98 @@ export function sumActivity(days: readonly AdminActivityDay[]) {
     peakActive: Math.max(0, ...days.map((d) => d.active)),
   };
 }
+
+// ---- The sommelier's report (migration 0052): counts only -------------------------------------------------------
+
+const Code = z.string().max(40);
+/**
+ * Ratings of answers, what came of offered bottles, how answers were given and what the model cost, for one
+ * window. Counts by code: no person, household, wine or word is in it. A thumb (`ratings`) and what came of a
+ * bottle (`outcomes`) are separate lists, and neither is derived from the other.
+ */
+export const AdminSommelierReportSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  ratings: z.array(
+    z.object({
+      source: Code,
+      kind: Code,
+      outcome: Code,
+      confidence: Code,
+      answers: Count,
+      positive: Count,
+      negative: Count,
+    }),
+  ),
+  outcomes: z.array(
+    z.object({
+      kind: Code,
+      outcome: Code,
+      confidence: Code,
+      opened: Count,
+      with_dish: Count,
+      without_dish: Count,
+      enjoyed_yes: Count,
+      enjoyed_mixed: Count,
+      enjoyed_no: Count,
+    }),
+  ),
+  answers: z.array(
+    z.object({
+      engine: Code,
+      source: Code,
+      kind: Code,
+      outcome: Code,
+      questions: Count,
+      people: Count,
+    }),
+  ),
+  model: z.object({
+    calls: Count,
+    ok: Count,
+    failed: Count,
+    blocked: Count,
+    known_cost: Count,
+    unknown_calls: Count,
+    avg_latency_ms: Count.nullable(),
+    p95_latency_ms: Count.nullable(),
+  }),
+});
+export type AdminSommelierReport = z.infer<typeof AdminSommelierReportSchema>;
+
+/** Totals of the report, with the shares a reader wants first. Null where nothing was counted. */
+export function summarizeSommelierReport(report: AdminSommelierReport) {
+  const sum = <T>(rows: readonly T[], of: (row: T) => number) =>
+    rows.reduce((total, row) => total + of(row), 0);
+  const share = (part: number, whole: number) => (whole > 0 ? part / whole : null);
+  const questions = sum(report.answers, (a) => a.questions);
+  const byEngines = sum(
+    report.answers.filter((a) => a.engine === "v3"),
+    (a) => a.questions,
+  );
+  const rated = sum(report.ratings, (r) => r.answers);
+  const opened = sum(report.outcomes, (o) => o.opened);
+  const withDish = sum(report.outcomes, (o) => o.with_dish);
+  const said = sum(report.outcomes, (o) => o.enjoyed_yes + o.enjoyed_mixed + o.enjoyed_no);
+  return {
+    questions,
+    /** Answered by the engines: no model was called for these. */
+    byEngines,
+    engineShare: share(byEngines, questions),
+    rated,
+    positiveShare: share(
+      sum(report.ratings, (r) => r.positive),
+      rated,
+    ),
+    opened,
+    withDish,
+    /** Of those who had the wine with the dish and said how it went: went well. */
+    enjoyedShare: share(
+      sum(report.outcomes, (o) => o.enjoyed_yes),
+      said,
+    ),
+    enjoyedSaid: said,
+    /** Model cost per question asked (all questions, the engines' free ones included). */
+    costPerQuestionUsdMicro: questions > 0 ? Math.round(report.model.known_cost / questions) : null,
+  };
+}

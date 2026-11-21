@@ -21,6 +21,8 @@ export const FEATURES = [
   "sommelier_social",
   /** Sommelier 3.0: menus, wine-to-food, comparing, serving, quantities. Needs the engine. */
   "sommelier_experiences",
+  /** Sommelier 3.0: a person can say what came of a bottle (opened, with the dish, how it went). Needs the engine. */
+  "sommelier_learning",
 ] as const;
 export type Feature = (typeof FEATURES)[number];
 export type FeatureFlags = Readonly<Record<Feature, boolean>>;
@@ -34,12 +36,14 @@ export const NAMED_ONLY: ReadonlySet<Feature> = new Set<Feature>([
   "sommelier_buying",
   "sommelier_social",
   "sommelier_experiences",
+  "sommelier_learning",
 ]);
 /** Switches that do nothing without another one. */
 const REQUIRES: Partial<Record<Feature, Feature>> = {
   sommelier_buying: "sommelier_engine",
   sommelier_social: "sommelier_engine",
   sommelier_experiences: "sommelier_engine",
+  sommelier_learning: "sommelier_engine",
 };
 
 export const NO_FEATURES: FeatureFlags = Object.freeze(

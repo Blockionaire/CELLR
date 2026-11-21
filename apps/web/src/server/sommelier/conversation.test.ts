@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { AskSommelier, SommelierAnswer } from "@cellr/domain";
+import {
+  SetSommelierOutcomeSchema,
+  type AskSommelier,
+  type SetSommelierOutcome,
+  type SommelierAnswer,
+} from "@cellr/domain";
 import { createSommelierChatService } from "./conversation";
 import type { ExchangeEntry, RecordedExchange, SommelierConversationRepository } from "./types";
 
@@ -32,6 +37,7 @@ function setup(
     recorded: [] as Array<Omit<ExchangeEntry, "userId">>,
     cleared: [] as string[],
     rated: [] as Array<[string, string | null]>,
+    outcomes: [] as SetSommelierOutcome[],
     lookedUp: [] as Array<[string, string]>,
   };
   const repo: SommelierConversationRepository = {
@@ -48,6 +54,12 @@ function setup(
     rate: async (messageId, rating) => {
       state.rated.push([messageId, rating]);
       return rating;
+    },
+    setOutcome: async (input) => {
+      state.outcomes.push(input);
+      return input.opened
+        ? { vintageId: input.vintageId, withDish: input.withDish, enjoyed: input.enjoyed }
+        : null;
     },
   };
   const service = createSommelierChatService({
@@ -193,6 +205,55 @@ describe("the kept conversation", () => {
       ["a1", "negative"],
       ["a1", null],
     ]);
+  });
+
+  it("what came of a bottle is its own record: saying it rates nothing, and rating says nothing about it", async () => {
+    const { service, state } = setup();
+    const said = SetSommelierOutcomeSchema.parse({
+      messageId: "6f1c2b0a-1111-4111-8111-111111111111",
+      vintageId: "6f1c2b0a-2222-4222-8222-222222222222",
+      opened: true,
+      withDish: true,
+      enjoyed: "mixed",
+    });
+    expect(await service.outcome(said)).toEqual({
+      outcome: { vintageId: said.vintageId, withDish: true, enjoyed: "mixed" },
+    });
+    expect(state.rated).toEqual([]);
+    await service.rate({ messageId: said.messageId, rating: "positive" });
+    expect(state.outcomes).toEqual([said]);
+    // Taking it back.
+    expect(
+      await service.outcome(
+        SetSommelierOutcomeSchema.parse({ ...said, opened: false, withDish: null, enjoyed: null }),
+      ),
+    ).toEqual({ outcome: null });
+  });
+
+  it("refuses an outcome that says more than the person can know", () => {
+    const base = {
+      messageId: "6f1c2b0a-1111-4111-8111-111111111111",
+      vintageId: "6f1c2b0a-2222-4222-8222-222222222222",
+    };
+    // How it went together, without having had them together.
+    expect(
+      SetSommelierOutcomeSchema.safeParse({ ...base, opened: true, enjoyed: "yes" }).success,
+    ).toBe(false);
+    expect(
+      SetSommelierOutcomeSchema.safeParse({ ...base, opened: true, withDish: false, enjoyed: "no" })
+        .success,
+    ).toBe(false);
+    // Not opened, and yet something about it.
+    expect(
+      SetSommelierOutcomeSchema.safeParse({ ...base, opened: false, withDish: true }).success,
+    ).toBe(false);
+    expect(
+      SetSommelierOutcomeSchema.safeParse({ ...base, opened: true, enjoyed: "great" }).success,
+    ).toBe(false);
+    expect(SetSommelierOutcomeSchema.parse({ ...base, opened: true })).toMatchObject({
+      withDish: null,
+      enjoyed: null,
+    });
   });
 
   it("keeps a question with an '@' in it as it always did, unless the social sommelier is switched on", async () => {

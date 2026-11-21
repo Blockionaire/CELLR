@@ -41,6 +41,7 @@ const NAV: AdminNavGroup[] = [
       { href: "/admin/users", label: "Users" },
       { href: "/admin/product", label: "Product analytics" },
       { href: "/admin/ai", label: "AI & costs" },
+      { href: "/admin/sommelier", label: "Sommelier" },
       { href: "/admin/feedback", label: "Beta feedback" },
     ],
   },

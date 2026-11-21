@@ -48,6 +48,44 @@ export const RateSommelierAnswerSchema = z.object({
 });
 export type RateSommelierAnswer = z.infer<typeof RateSommelierAnswerSchema>;
 
+// ---- What came of a bottle (Sommelier 3.0, S7) ----------------------------------------------------------------
+
+/**
+ * How a wine and the dish went together, said by someone who had them together. A thumb on the answer is another
+ * thing (the answer was useful) and is never read as this.
+ */
+export const PAIRING_ENJOYED = ["yes", "mixed", "no"] as const;
+export type PairingEnjoyed = (typeof PAIRING_ENJOYED)[number];
+
+/**
+ * What a person says came of one bottle an answer offered. Three separate things: they opened it (the outcome
+ * exists), they had it with the dish (`withDish`), and how the two went together (`enjoyed`, only with the dish).
+ */
+export interface SommelierOutcome {
+  vintageId: string;
+  withDish: boolean | null;
+  enjoyed: PairingEnjoyed | null;
+}
+
+/** PUT /sommelier/outcomes. `opened: false` takes everything said about the bottle back. */
+export const SetSommelierOutcomeSchema = z
+  .object({
+    messageId: z.uuid(),
+    vintageId: z.uuid(),
+    opened: z.boolean(),
+    withDish: z.boolean().nullable().default(null),
+    enjoyed: z.enum(PAIRING_ENJOYED).nullable().default(null),
+  })
+  .refine((o) => o.enjoyed === null || o.withDish === true, {
+    message: "how it went together can only be said by someone who had the wine with the dish",
+    path: ["enjoyed"],
+  })
+  .refine((o) => o.opened || (o.withDish === null && o.enjoyed === null), {
+    message: "a bottle that was not opened has no outcome",
+    path: ["opened"],
+  });
+export type SetSommelierOutcome = z.infer<typeof SetSommelierOutcomeSchema>;
+
 // ---- The kept conversation ------------------------------------------------------------------------------------
 
 /** Where an answer is kept: the conversation and the answer's own id (what a rating is for). */
@@ -64,7 +102,14 @@ export type SommelierReply = SommelierAnswer & { saved?: SavedAnswerRef | null }
 
 export type SavedSommelierMessage =
   | { id: string; role: "user"; text: string }
-  | { id: string; role: "assistant"; answer: SommelierAnswer; rating: SommelierRating | null };
+  | {
+      id: string;
+      role: "assistant";
+      answer: SommelierAnswer;
+      rating: SommelierRating | null;
+      /** What the person said came of the bottles this answer offered (only with `sommelier_learning`). */
+      outcomes?: SommelierOutcome[];
+    };
 
 export interface SavedSommelierConversation {
   id: string;

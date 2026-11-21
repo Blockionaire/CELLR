@@ -174,6 +174,11 @@ benchmark through the AI path needs an adapter that passes a real provider inste
 | S0    | V1 without AI                   |              13 |             58% |     67% |          32% |             8% |                 14% |
 | S2    | Sommelier 3.0 engines alone     |              79 |             95% |     90% |          68% |            73% |                 86% |
 | S3–S4 | Sommelier 3.0 in the app, no AI |             131 |             92% |     88% |          73% |            72% |                 89% |
+| S6–S7 | The same, with the experiences  |             140 |             92% |     88% |          73% |            72% |                 89% |
+
+The nine scenarios S6 adds to the passes are the experience scenarios, which are checked only for inventing
+nothing (§2, limits); the pairing measures did not move. The app's engines cannot attempt the 24 scenarios with
+friends (the benchmark has no friends database; `progress/S5.md` says how that is tested instead).
 
 Two thresholds of §4 are missed in S2 (first bottle, no poor bottle); `progress/S2.md` says what the misses are and
 `RISK_REGISTER.md` R-11 what follows from it. The thresholds are not changed.

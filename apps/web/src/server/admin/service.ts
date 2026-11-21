@@ -6,6 +6,7 @@ import {
   budgetUse,
   isUserId,
   summarizeAiCosts,
+  summarizeSommelierReport,
   summarizeRecognitionCache,
   summarizeRecognitionPaths,
   summarizeSharedProfiles,
@@ -43,6 +44,7 @@ import {
   readBudgetStatus,
   readFeedback,
   readRecognitionCache,
+  readSommelierReport,
   readRecognitionPaths,
   readSharedProfiles,
   readCatalog,
@@ -222,6 +224,21 @@ export async function adminAi(session: AdminSession, days: AdminRange, now = new
     catalog:
       typeof catalog === "object" && catalog ? { ...catalog, share: catalogShare(catalog) } : null,
     ready: range !== "missing",
+  };
+}
+
+/**
+ * The sommelier's report: how answers were given (the engines or the model), how they were rated, what came of
+ * the bottles they offered, and what the model cost. Counts only. "missing" until migration 0052 is applied.
+ */
+export async function adminSommelier(session: AdminSession, days: AdminRange, now = new Date()) {
+  assertAdmin(session);
+  const end = new Date(now.getTime() + 60_000);
+  const from = new Date(startOfUtcDay(now).getTime() - (days - 1) * day);
+  const report = await readSommelierReport(session, from, end);
+  return {
+    report,
+    summary: typeof report === "object" && report ? summarizeSommelierReport(report) : null,
   };
 }
 

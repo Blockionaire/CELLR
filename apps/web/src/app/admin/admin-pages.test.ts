@@ -126,7 +126,7 @@ const files = (dir: string): string[] =>
 describe("the admin boundary", () => {
   it("every admin page checks the session itself", () => {
     const pages = files(path.join(SRC, "app/admin")).filter((f) => /(page|layout)\.tsx$/.test(f));
-    expect(pages.length).toBe(18);
+    expect(pages.length).toBe(19);
     for (const p of pages)
       expect(readFileSync(p, "utf8")).toMatch(
         /if \(!(session|\(await getAdminSession\(\)\))\) notFound\(\)/,
