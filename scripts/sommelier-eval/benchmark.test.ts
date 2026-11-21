@@ -1,11 +1,22 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { DISHES } from "./dishes";
 import { ENGINES } from "./engines";
 import { SCENARIOS } from "./scenarios";
 import { buildFixture } from "./fixtures";
 import { qualityRow, qualityTotals, type QualityRow } from "./quality";
-import { checkHumanDishes, HUMAN_HOLDOUT_FILE, HUMAN_HOLDOUT_MIN_DISHES } from "./human-holdout";
+import { addGuardEffect, emptyGuardEffect } from "./guard-effect";
+import {
+  checkHumanDishes,
+  HUMAN_HOLDOUT_ENV,
+  HUMAN_HOLDOUT_FILE,
+  HUMAN_HOLDOUT_MIN_DISHES,
+  readEscrowed,
+  sealOf,
+} from "./human-holdout";
 import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { expectedVerdictOf, scoreScenario, summarize } from "./score";
 import { CAPABILITIES, CATEGORIES, type EvalAnswer, type Scenario } from "./types";
@@ -135,6 +146,33 @@ describe("the V1 baseline", () => {
 });
 
 const cellarKeys = (s: Scenario) => buildFixture(s).wines.map((w) => w.key);
+
+describe("variant E in shadow mode, on V1 without its model (S11)", () => {
+  // The guard's settings were frozen on the main set before the unseen sets were run (GUARD_VERSION 1). These are
+  // the recorded totals of `progress/S11.md` §2; a change to the guard or the engines that moves them is seen here.
+  for (const [set, expected] of [
+    ["main", { answers: 92, poor: 27, blocked: 0, useful: [8, 12], emptied: 6 }],
+    ["holdout-dev", { answers: 22, poor: 5, blocked: 0, useful: [6, 6], emptied: 0 }],
+    ["holdout-test", { answers: 26, poor: 13, blocked: 0, useful: [5, 8], emptied: 2 }],
+  ] as const)
+    it(`flags only poor bottles on "${set}" and never changes V1's answer`, async () => {
+      const engine = ENGINES.find((e) => e.name === "v1-basic")!;
+      const total = emptyGuardEffect();
+      const setCards = cardsOf(set);
+      for (const s of scenariosOf(set)) {
+        const { answer, ms } = await engine.run(s);
+        const card = s.dish ? (setCards.get(s.dish) ?? null) : null;
+        addGuardEffect(total, s, card, answer, scoreScenario(s, card, answer, ms), cellarKeys(s));
+      }
+      expect({
+        answers: total.answers,
+        poor: total.flagged.poor,
+        blocked: total.flagged.good + total.flagged.ok,
+        useful: total.useful,
+        emptied: total.emptied,
+      }).toEqual(expected);
+    });
+});
 
 describe("Sommelier 3.0 in the app", () => {
   // Only V1's baseline used to be pinned, so a change to the engines could move the results the documents quote
@@ -289,7 +327,9 @@ describe("the holdout set's own data", () => {
 describe("the human holdout (S10)", () => {
   it("is blind, and empty until people have written it", () => {
     expect(holdsBlind("human")).toBe(true);
-    if (!existsSync(HUMAN_HOLDOUT_FILE)) expect(scenariosOf("human")).toEqual([]);
+    // Never in the repository (S11: escrow); read only from the owner's own path, checked against its seal.
+    expect(existsSync(HUMAN_HOLDOUT_FILE)).toBe(false);
+    if (!process.env[HUMAN_HOLDOUT_ENV]) expect(scenariosOf("human")).toEqual([]);
     else {
       const dishes = cardsOf("human");
       expect(dishes.size).toBeGreaterThanOrEqual(HUMAN_HOLDOUT_MIN_DISHES);
@@ -297,6 +337,35 @@ describe("the human holdout (S10)", () => {
       for (const d of dishes.values()) expect(known.has(d.en.toLowerCase()), d.id).toBe(false);
     }
   });
+  it("is held in escrow: outside the repository, and only as sealed (S11)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "human-holdout-"));
+    const dish = {
+      id: "hh-test-dish",
+      en: "Test dish",
+      nl: "Testgerecht",
+      question_en: "Which wine with the test dish?",
+      question_nl: "Welke wijn bij het testgerecht?",
+      truth: { main: "poultry", weight: 3, fat: 1, acid: 1, sweet: 0, heat: 0, umami: 1 },
+      by: "test",
+    };
+    const text = JSON.stringify([dish]);
+    const file = join(dir, "dishes.json");
+    writeFileSync(file, text);
+    const seal = sealOf(text, new Date("2026-11-21T00:00:00Z"));
+    expect(seal).toMatchObject({ dishes: 1, sealedOn: "2026-11-21" });
+    expect(readEscrowed({ [HUMAN_HOLDOUT_ENV]: file }, seal, false)).toBe(text);
+    expect(readEscrowed({}, seal, false)).toBeNull();
+    expect(() => readEscrowed({ [HUMAN_HOLDOUT_ENV]: file }, null, false)).toThrow(/SEAL/);
+    expect(() =>
+      readEscrowed({ [HUMAN_HOLDOUT_ENV]: file }, { ...seal, sha256: "0".repeat(64) }, false),
+    ).toThrow(/does not match its seal/);
+    expect(() => readEscrowed({}, seal, true)).toThrow(/inside the repository/);
+    const inside = fileURLToPath(new URL("./package.json", import.meta.url));
+    expect(() => readEscrowed({ [HUMAN_HOLDOUT_ENV]: inside }, seal, false)).toThrow(
+      /outside the repository/,
+    );
+  });
+
   it("refuses a file that is not what the README asks for", () => {
     expect(() => checkHumanDishes([{ id: "x" }])).toThrow(/id must look like/);
     expect(() =>

@@ -414,6 +414,7 @@ const components = [
     sources: [
       W + "server/sommelier/service.ts",
       W + "server/sommelier/intelligence.ts",
+      W + "server/sommelier/v1-guard.ts",
       W + "server/ai/prompts/sommelier.ts",
     ],
     gates: [
@@ -436,6 +437,11 @@ const components = [
         name: "sommelier_experiences",
         kind: "feature",
         note: "Menus, wine-to-food, comparing, serving, keeping, quantities. Needs sommelier_engine.",
+      },
+      {
+        name: "sommelier_v1_guard",
+        kind: "feature",
+        note: "V1+ shadow mode (S11): a guard in code judges the bottles V1 offered and changes nothing; counts go with the answer's analytics event. Named-only, needs nothing else.",
       },
     ],
     risks: [

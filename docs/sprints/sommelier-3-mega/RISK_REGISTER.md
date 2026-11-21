@@ -162,3 +162,26 @@ give 16 points fewer useful answers than V1 with AI, and most of their remaining
 **Handled.** No activation; V1 with AI stays the default (`RELEASE_PLAN.md` §7).
 **Residual.** None for users while the switches stay off. For the product: the engine's knowledge needs an expert's
 review and a human holdout before it can be trusted on food nobody tuned it for.
+
+## R-22 — A pull request merged into a stale base branch (S11, happened)
+
+**What.** #93 was merged into `claude/sommelier-3-s2-food-pairing` after that branch's own pull request had gone to
+`main`, so S3+S4 is marked merged but is not on `main`. The same would happen with #94.
+**Handled.** Reported; the release plan now says a pull request must have `main` as its base when merged.
+**Residual.** Until the owner re-lands S3+S4 and retargets #94, the next merge in the stack can repeat it.
+
+## R-23 — Shadow counts in analytics could hint at a dish (S11)
+
+**What.** `guard_flagged > 0` says an offered bottle clashed with a dish read with confidence. In a cellar of almost
+only tannic reds that hints at fish. No dish, wine or clash code is sent, and whoever can read the event table can
+already read the kept question.
+**Handled.** Counts only; Do Not Track / GPC apply; the switch is off. **Residual.** Low; if it matters, send only
+"flagged: yes/no".
+
+## R-24 — Migrations 0051–0053 ride along with any later database release (S11)
+
+**What.** `supabase db push` applies every pending file in order. Once #94, #97 or #100 is on `main`, a release for
+unrelated work (3D cellar, catalogue) applies the Sommelier migrations too, with their functions live although no
+switch is on.
+**Handled.** Recommended to stop after #93 and take the guard separately (`progress/S11.md` §6.3).
+**Residual.** The owner's choice.

@@ -1,13 +1,15 @@
-import type { SommelierAnswer } from "@cellr/domain";
+import type { SommelierAnswer, SommelierReply } from "@cellr/domain";
 
 /**
  * What is measured about an answer: which engine gave it and what kind of answer it was, as codes and counts.
  * Never what was asked, the dish, a wine, a price, a friend's name or anything else a person typed or owns
  * (docs/METRICS.md). The dish is not even sent as a code: with a small household it could say what they ate.
  */
-export function answerMetrics(answer: SommelierAnswer): Record<string, string | number | boolean> {
+export function answerMetrics(
+  answer: SommelierAnswer | SommelierReply,
+): Record<string, string | number | boolean> {
   const plan = answer.plan;
-  if (!plan) return { source: answer.source, engine: "v1" };
+  if (!plan) return { source: answer.source, engine: "v1", ...shadowMetrics(answer) };
   return {
     source: answer.source,
     engine: "v3",
@@ -19,5 +21,21 @@ export function answerMetrics(answer: SommelierAnswer): Record<string, string | 
     styles: plan.styles.length,
     asked: plan.ask ?? "nothing",
     friends: plan.friends.length,
+  };
+}
+
+/**
+ * Variant E in shadow mode (S11): what its guard would have held back of V1's bottles, as counts. Present only when
+ * the deployment runs the guard (`sommelier_v1_guard`); the answer shown was not changed by it.
+ */
+function shadowMetrics(answer: SommelierAnswer | SommelierReply): Record<string, number | boolean> {
+  const g = "shadow" in answer ? answer.shadow : undefined;
+  if (!g) return {};
+  return {
+    guard_v: g.version,
+    guard_judged: g.considered,
+    guard_bottles: Math.min(g.bottles, 12),
+    guard_flagged: Math.min(g.flagged, 12),
+    guard_first: g.first,
   };
 }

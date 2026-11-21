@@ -7,6 +7,7 @@ import {
 } from "@cellr/domain";
 import { aggregateInventory, buildTonight } from "@/server/cellar/service";
 import { createSommelierService } from "@/server/sommelier/service";
+import { guardShadow, type GuardShadow } from "@/server/sommelier/v1-guard";
 import type { LlmProvider } from "@/server/ai/types";
 import { buildFixture, NOW } from "../fixtures";
 import type { Capability, Engine, EvalAnswer, Scenario, Verdict } from "../types";
@@ -101,7 +102,11 @@ async function runV1(scenario: Scenario, model: ReturnType<ModelFor> | null) {
     householdId: async () => "00000000-0000-4000-8000-0000000000aa",
     locale: async () => scenario.lang,
     recordUsage: async () => {},
+    // Variant E in shadow mode (S11): it changes nothing about the answer (v1-guard.test.ts), it is only heard.
+    guard: guardShadow,
   });
+  let shadow: GuardShadow | null = null;
+  const observe = { guard: (g: GuardShadow) => (shadow = g) };
   const messages = scenario.turns.flatMap((t, i) =>
     i === scenario.turns.length - 1
       ? [{ role: "user" as const, text: t.user.slice(0, 800) }]
@@ -118,11 +123,13 @@ async function runV1(scenario: Scenario, model: ReturnType<ModelFor> | null) {
     for (const turn of scenario.turns) {
       said.push({ role: "user", text: turn.user.slice(0, 800) });
       started = performance.now();
-      answer = await service.ask({ messages: said.slice(-12), mode: "chat" });
+      shadow = null;
+      answer = await service.ask({ messages: said.slice(-12), mode: "chat" }, observe);
       said.push({ role: "assistant", text: (answer.text ?? "…").slice(0, 2000) });
     }
   }
-  answer ??= await service.ask({ messages: messages.slice(-12), mode: "chat" });
+  answer ??= await service.ask({ messages: messages.slice(-12), mode: "chat" }, observe);
+  const heard = shadow as GuardShadow | null;
   const ms = performance.now() - started;
 
   const seen = tonight as TonightView | null;
@@ -164,6 +171,12 @@ async function runV1(scenario: Scenario, model: ReturnType<ModelFor> | null) {
       level: "style" as const,
     })),
   };
+  result.guard = heard
+    ? {
+        considered: heard.considered,
+        flagged: heard.flaggedIds.flatMap((id) => fixture.keyOfVintage.get(id) ?? []),
+      }
+    : null;
   if (model) result.ai = model.usage();
   return { answer: result, ms };
 }

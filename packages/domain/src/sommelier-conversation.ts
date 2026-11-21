@@ -98,7 +98,27 @@ export interface SavedAnswerRef {
  * The sommelier's answer as POST /sommelier returns it. Asked with a `questionId` in the general chat, `saved`
  * says where it is kept, or is null when it could not be (it is then shown, but not there next time).
  */
-export type SommelierReply = SommelierAnswer & { saved?: SavedAnswerRef | null };
+export type SommelierReply = SommelierAnswer & {
+  saved?: SavedAnswerRef | null;
+  /** Variant E in shadow mode (switch `sommelier_v1_guard`), as counts only: see `GuardShadowCounts`. */
+  shadow?: GuardShadowCounts;
+};
+
+/**
+ * What the guard of variant E would have done with this answer (S11, shadow mode). Counts only: never which wine,
+ * which dish or which clash (a clash names the kind of dish). The answer itself is never changed by it.
+ */
+export interface GuardShadowCounts {
+  version: number;
+  /** The guard read the dish well enough to judge by. */
+  considered: boolean;
+  /** Bottles the answer offered. */
+  bottles: number;
+  /** Of those, how many the guard would hold back. */
+  flagged: number;
+  /** The first bottle offered is among them. */
+  first: boolean;
+}
 
 export type SavedSommelierMessage =
   | { id: string; role: "user"; text: string }

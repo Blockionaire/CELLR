@@ -22,11 +22,14 @@ import { hybrid, type HybridRun } from "./engines/hybrid";
 import { v1Ai, type V1AiRun } from "./engines/v1-ai";
 import { buildFixture } from "./fixtures";
 import { formatQuality, qualityRow, qualityTotals, type QualityRow } from "./quality";
+import { addGuardEffect, emptyGuardEffect, formatGuardEffect } from "./guard-effect";
 import { BudgetReached } from "./paid";
 import { formatFailures, formatSummary } from "./report";
 import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { scoreScenario, summarize, type ScenarioResult } from "./score";
 import type { EvalAnswer } from "./types";
+import { vectorKeyer, vectorOf, type VectorFile } from "./vectors";
+import type { ScenarioVector } from "./stats";
 
 const { values: args } = parseArgs({
   options: {
@@ -44,6 +47,12 @@ const { values: args } = parseArgs({
     "max-usd": { type: "string", default: "2" },
     /** With a hybrid engine on a readable set: a local file the dish phrases sent are appended to. */
     "phrase-log": { type: "string" },
+    /**
+     * Per-scenario outcomes for paired comparisons (compare.ts), written to this file. For a blind set the keys are
+     * salted hashes (SOMMELIER_EVAL_BLIND_SALT) and the file must be outside the repository: it pairs runs, it
+     * never names a scenario.
+     */
+    vectors: { type: "string" },
   },
 });
 
@@ -103,6 +112,16 @@ const results: ScenarioResult[] = [];
 const qualityRows: QualityRow[] = [];
 const cellarOfScenario = new Map<string, string[]>();
 const answers: EvalAnswer[] = [];
+const guardEffect = emptyGuardEffect();
+// Refuses, before anything is run, a blind set without a salt or a file inside the repository.
+let keyOf: ReturnType<typeof vectorKeyer> | null = null;
+try {
+  keyOf = args.vectors ? vectorKeyer(args.set!, args.vectors, process.env) : null;
+} catch (error) {
+  console.error((error as Error).message);
+  process.exit(2);
+}
+const vectors = new Map<string, ScenarioVector>();
 // Once unmeasured, so module loading and the first call's warm-up are not counted as latency.
 // (Never for the paid engine: a warm-up there is a call that costs money and is thrown away.)
 if (scenarios[0] && !paid) await engine.run(scenarios[0]);
@@ -135,6 +154,13 @@ for (const scenario of scenarios) {
   cellarOfScenario.set(scenario.id, cellarKeys);
   const row = qualityRow(scenario, card, run.answer, scored, cellarKeys);
   if (row) qualityRows.push(row);
+  // Clustered by dish (keyed like the scenario, so a blind set's dishes are not named either).
+  if (row && keyOf)
+    vectors.set(
+      keyOf.key(scenario.id),
+      vectorOf(row, scored, scenario.dish ? keyOf.key(`dish:${scenario.dish}`) : undefined),
+    );
+  addGuardEffect(guardEffect, scenario, card, run.answer, scored, cellarKeys);
 }
 const quality = qualityTotals(
   qualityRows,
@@ -158,6 +184,7 @@ if (paid?.mode === "estimate") {
 const summary = summarize(engine.name, results, answers);
 console.log(formatSummary(summary, engine.describes));
 console.log(`\n${formatQuality(quality)}`);
+if (guardEffect.answers > 0) console.log(`\n${formatGuardEffect(guardEffect)}`);
 if (paid && !("engine" in paid))
   console.log(
     `Dish readings: by the model ${paid.readings.model}, from the shared store ${paid.readings.cache}, failed ${paid.readings.failed}, refused by the person's limit ${paid.readings.limited}.`,
@@ -169,6 +196,19 @@ console.log(
   `Model calls: ${summary.ai.calls}; tokens in/out: ${summary.ai.inputTokens}/${summary.ai.outputTokens}; cost: $${(summary.ai.usdMicro / 1e6).toFixed(4)}.`,
 );
 if (args.failures) console.log(`\nFailed checks:\n${formatFailures(results)}`);
+if (args.vectors && keyOf) {
+  const file: VectorFile = {
+    set: args.set!,
+    engine: engine.name,
+    keyed: keyOf.keyed,
+    salt: keyOf.fingerprint,
+    incomplete: stoppedAt !== null,
+    // Sorted by key: in run order a blind set's rows would line up with the scenario list in the repository.
+    rows: Object.fromEntries([...vectors].sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))),
+  };
+  keyOf.check();
+  await writeFile(args.vectors, JSON.stringify(file) + "\n");
+}
 if (args.json) {
   const stable = {
     engine: engine.name,
@@ -187,6 +227,7 @@ if (args.json) {
     byCategory: summary.byCategory,
     measures: summary.measures,
     quality,
+    ...(guardEffect.answers > 0 ? { guardEffect } : {}),
     ...(paid && !("engine" in paid) ? { dishReadings: paid.readings } : {}),
     ...(blind
       ? {}

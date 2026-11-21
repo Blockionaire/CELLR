@@ -9,16 +9,19 @@ import {
   type SommelierConversationView,
   type SommelierRating,
   type SommelierReply,
+  type GuardShadowCounts,
   findMentions,
 } from "@cellr/domain";
+import type { SommelierObserver } from "./service";
 import type { ExchangeEntry, RecordedExchange, SommelierConversationRepository } from "./types";
+import { shadowCounts, type GuardShadow } from "./v1-guard";
 
 export interface SommelierChatDeps {
-  /** The sommelier itself (unchanged): it answers; `observe.model` hears which model wrote an AI answer. */
-  ask: (
-    request: AskSommelier,
-    observe: { model: (id: string) => void },
-  ) => Promise<SommelierAnswer>;
+  /**
+   * The sommelier itself (unchanged): it answers; `observe.model` hears which model wrote an AI answer, `observe.guard`
+   * what variant E's guard would have held back (shadow mode).
+   */
+  ask: (request: AskSommelier, observe: Required<SommelierObserver>) => Promise<SommelierAnswer>;
   /** Reads, deletes and ratings as the signed-in person (row-level security). */
   repo: SommelierConversationRepository;
   /** Keeps a question and its answer (service role, for this request's verified person); null when it could not. */
@@ -43,12 +46,21 @@ export function createSommelierChatService(deps: SommelierChatDeps) {
     async ask(request: AskSommelier): Promise<SommelierReply> {
       const questionId = request.questionId;
       // Tonight, or a caller that does not keep a conversation: the sommelier as it always was.
+      // What variant E's guard would have done (shadow mode): counts only, with this answer and never kept.
+      let shadow: GuardShadowCounts | null = null;
+      const guard = (g: GuardShadow) => (shadow = shadowCounts(g));
+      const withShadow = <T extends SommelierReply>(reply: T): T =>
+        shadow ? { ...reply, shadow } : reply;
       if (!questionId || (request.mode ?? "chat") !== "chat")
-        return deps.ask(request, { model: () => {} });
+        return withShadow(await deps.ask(request, { model: () => {}, guard }));
 
       // Without a household nothing is kept or brought back; the sommelier itself says what it can.
       const householdId = await deps.householdId().catch(() => null);
-      if (!householdId) return { ...(await deps.ask(request, { model: () => {} })), saved: null };
+      if (!householdId)
+        return withShadow({
+          ...(await deps.ask(request, { model: () => {}, guard })),
+          saved: null,
+        });
 
       // Already answered (a retry of a question that did reach us): the kept answer, no second call. Only from the
       // live conversation in this household (the database decides what is alive and theirs).
@@ -60,7 +72,7 @@ export function createSommelierChatService(deps: SommelierChatDeps) {
         };
 
       let model: string | null = null;
-      const answer = await deps.ask(request, { model: (id) => (model = id) });
+      const answer = await deps.ask(request, { model: (id) => (model = id), guard });
       const question = request.messages.at(-1)!.text;
       // A question that names a friend is answered and then forgotten: neither the question (it holds their
       // name) nor the answer (it was shaped by what they allowed at that moment) is kept. So when a friend
@@ -71,7 +83,7 @@ export function createSommelierChatService(deps: SommelierChatDeps) {
         deps.social === true &&
         (findMentions(question).length > 0 || (answer.plan?.friends.length ?? 0) > 0)
       )
-        return { ...answer, saved: null };
+        return withShadow({ ...answer, saved: null });
       const saved = await deps
         .record({
           householdId,
@@ -82,11 +94,11 @@ export function createSommelierChatService(deps: SommelierChatDeps) {
           questionKind: sommelierQuestionKind(question),
         })
         .catch(() => null);
-      if (!saved) return { ...answer, saved: null };
+      if (!saved) return withShadow({ ...answer, saved: null });
       const ref = { conversationId: saved.conversationId, messageId: saved.messageId };
       // The same question reached us twice at once and the other one was kept first: that is the answer.
       if (saved.replayed && saved.answer) return { ...saved.answer, saved: ref };
-      return { ...answer, saved: ref };
+      return withShadow({ ...answer, saved: ref });
     },
 
     /** The conversation to continue: the person's own, in their active household, used in the last 7 days. */

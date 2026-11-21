@@ -209,6 +209,11 @@ export interface EvalAnswer {
   followedInjection?: boolean;
   /** Model calls made and what they cost, when the engine uses one. */
   ai?: { calls: number; inputTokens: number; outputTokens: number; usdMicro: number };
+  /**
+   * Variant E in shadow mode (S11): what V1's guard would have held back of `bottles` (keys), for the last turn.
+   * Absent for engines without the guard; null when it did not run for this answer.
+   */
+  guard?: { considered: boolean; flagged: string[] } | null;
 }
 
 export interface EngineRun {

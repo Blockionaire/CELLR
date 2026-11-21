@@ -1,0 +1,30 @@
+[
+  {
+    "set": "main",
+    "settings": {
+      "minConfidence": "high"
+    },
+    "version": 1,
+    "scenarios": 124,
+    "considered": 82,
+    "byLabel": {
+      "good": [211, 0],
+      "ok": [336, 3],
+      "poor": [1531, 482]
+    }
+  },
+  {
+    "set": "main",
+    "settings": {
+      "minConfidence": "medium"
+    },
+    "version": 1,
+    "scenarios": 124,
+    "considered": 122,
+    "byLabel": {
+      "good": [297, 0],
+      "ok": [494, 5],
+      "poor": [2321, 757]
+    }
+  }
+]

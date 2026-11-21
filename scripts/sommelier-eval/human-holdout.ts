@@ -1,16 +1,73 @@
-import { existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { DishCard, FoodTruth, Scenario } from "./types";
 import { WINE_KEYS } from "./wines";
 
 /**
- * THE HUMAN HOLDOUT (S10, not yet written). At least 100 dishes written by people, in Dutch and English, that
- * nobody has used to develop the engines: the honest test of "unseen dishes". The file
- * `human-holdout/dishes.json` does not exist yet; until it does, this set is empty and every report says so.
- * When it arrives it is blind (sets.ts): measured in totals only, never read scenario by scenario, never tuned
- * on. The format and the rules for writing it are in `human-holdout/README.md`.
+ * THE HUMAN HOLDOUT (S10, not yet written; held in escrow since S11). At least 100 dishes written by people, in
+ * Dutch and English, that nobody has used to develop the engines: the honest test of "unseen dishes". Until it is
+ * written this set is empty and every report says so. When it arrives it is blind (sets.ts): measured in totals
+ * only, never read scenario by scenario, never tuned on.
+ *
+ * In ESCROW (S11): the file is never in this repository, where whoever develops the engines could read it. It is
+ * kept by the owner, outside the checkout, and read only from the path in SOMMELIER_EVAL_HUMAN_FILE. What is
+ * committed is its seal, `human-holdout/SEAL.json` (the file's sha256 and number of dishes, made with `seal`
+ * below): a file that does not match the seal is refused, so it cannot change unseen after the first measurement.
+ * The format and the rules for writing it are in `human-holdout/README.md`.
  */
+/** Where the file must NOT be: a copy here is refused (and ignored by Git). */
 export const HUMAN_HOLDOUT_FILE = new URL("./human-holdout/dishes.json", import.meta.url);
+export const HUMAN_HOLDOUT_SEAL = new URL("./human-holdout/SEAL.json", import.meta.url);
+export const HUMAN_HOLDOUT_ENV = "SOMMELIER_EVAL_HUMAN_FILE";
 export const HUMAN_HOLDOUT_MIN_DISHES = 100;
+
+export interface HumanHoldoutSeal {
+  sha256: string;
+  dishes: number;
+  /** The day it was sealed (YYYY-MM-DD). */
+  sealedOn: string;
+}
+
+const REPO = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+
+/** The seal of a written file: what the owner commits as `human-holdout/SEAL.json`. */
+export function sealOf(text: string, today: Date = new Date()): HumanHoldoutSeal {
+  return {
+    sha256: createHash("sha256").update(text).digest("hex"),
+    dishes: checkHumanDishes(JSON.parse(text)).length,
+    sealedOn: today.toISOString().slice(0, 10),
+  };
+}
+
+/**
+ * The escrowed file's text, checked against the seal; null when no path is given. Refuses a copy inside the
+ * repository, a path inside it, a missing seal, and a file that does not match the seal.
+ */
+export function readEscrowed(
+  env: Record<string, string | undefined>,
+  seal: HumanHoldoutSeal | null,
+  inRepository: boolean = existsSync(HUMAN_HOLDOUT_FILE),
+): string | null {
+  if (inRepository)
+    throw new Error(
+      "human holdout: a copy is inside the repository (human-holdout/dishes.json). Move it out: it is kept in escrow.",
+    );
+  const path = env[HUMAN_HOLDOUT_ENV];
+  if (!path) return null;
+  const real = realpathSync(resolve(path));
+  const rel = relative(realpathSync(REPO), real);
+  if (rel === "" || (!rel.startsWith(`..${sep}`) && rel !== ".."))
+    throw new Error("human holdout: the escrowed file must be outside the repository");
+  if (!seal) throw new Error("human holdout: no human-holdout/SEAL.json; seal the file first");
+  const text = readFileSync(real, "utf8");
+  if (createHash("sha256").update(text).digest("hex") !== seal.sha256)
+    throw new Error(
+      "human holdout: the file does not match its seal (it changed, or it is another file)",
+    );
+  return text;
+}
 
 const MAINS: ReadonlySet<string> = new Set([
   "red-meat",
@@ -78,9 +135,16 @@ export function checkHumanDishes(value: unknown): HumanDish[] {
 }
 
 /** The human holdout as dish cards and scenarios: two scenarios per dish, one in each language. */
-export function humanHoldout(): { dishes: DishCard[]; scenarios: Scenario[] } {
-  if (!existsSync(HUMAN_HOLDOUT_FILE)) return { dishes: [], scenarios: [] };
-  const dishes = checkHumanDishes(JSON.parse(readFileSync(HUMAN_HOLDOUT_FILE, "utf8")));
+export function humanHoldout(env: Record<string, string | undefined> = process.env): {
+  dishes: DishCard[];
+  scenarios: Scenario[];
+} {
+  const seal = existsSync(HUMAN_HOLDOUT_SEAL)
+    ? (JSON.parse(readFileSync(HUMAN_HOLDOUT_SEAL, "utf8")) as HumanHoldoutSeal)
+    : null;
+  const text = readEscrowed(env, seal);
+  if (text === null) return { dishes: [], scenarios: [] };
+  const dishes = checkHumanDishes(JSON.parse(text));
   const labelled = (d: HumanDish) => (d.good?.length ?? 0) + (d.ok?.length ?? 0) > 0;
   return {
     dishes: dishes.map((d) => ({
@@ -107,4 +171,15 @@ export function humanHoldout(): { dishes: DishCard[]; scenarios: Scenario[] } {
       })),
     ),
   };
+}
+
+// `pnpm --filter @cellr/sommelier-eval run seal-human-holdout /path/outside/the/repo/dishes.json`: prints the seal
+// to commit. It reads the file to hash and check its shape; it prints no dish.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const path = process.argv[2];
+  if (!path) {
+    console.error("usage: seal-human-holdout <path to the escrowed dishes.json>");
+    process.exit(2);
+  }
+  console.log(JSON.stringify(sealOf(readFileSync(path, "utf8")), null, 2));
 }

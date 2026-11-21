@@ -7,6 +7,7 @@ import {
 } from "@cellr/domain";
 import { createSommelierChatService } from "./conversation";
 import type { ExchangeEntry, RecordedExchange, SommelierConversationRepository } from "./types";
+import type { GuardShadow } from "./v1-guard";
 
 const QID = "6f1c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
 const answerOf = (text: string, source: "ai" | "basic" = "ai"): SommelierAnswer => ({
@@ -30,6 +31,8 @@ function setup(
     record?: RecordedExchange | null | "fails";
     household?: "fails" | string;
     social?: boolean;
+    /** What the V1 guard would have held back (shadow mode), heard by the chat service. */
+    shadow?: GuardShadow;
   } = {},
 ) {
   const state = {
@@ -67,6 +70,7 @@ function setup(
       state.asked.push(request);
       const answer = options.answer ?? answerOf("Open the Barolo.");
       if (answer.source === "ai") observe.model("gpt-6-luna-2026-09-22");
+      if (options.shadow) observe.guard(options.shadow);
       return answer;
     },
     repo,
@@ -272,5 +276,50 @@ describe("the kept conversation", () => {
     // With it on, a question without a name is kept as ever.
     const plain = setup({ social: true });
     expect((await plain.service.ask(chat("What do I open tonight?"))).saved).not.toBeNull();
+  });
+});
+
+describe("the V1 guard's shadow (S11)", () => {
+  const shadow: GuardShadow = {
+    version: 1,
+    considered: true,
+    bottles: 2,
+    flagged: 1,
+    first: true,
+    flaggedIds: ["11111111-1111-4111-8111-111111111111"],
+  };
+
+  it("goes back with the reply as counts, and is never kept with the answer", async () => {
+    const { service, state } = setup({ shadow });
+    const reply = await service.ask(chat("What goes with oysters?"));
+    expect(reply.shadow).toEqual({
+      version: 1,
+      considered: true,
+      bottles: 2,
+      flagged: 1,
+      first: true,
+    });
+    expect(JSON.stringify(reply)).not.toContain(shadow.flaggedIds[0]);
+    expect(state.recorded).toHaveLength(1);
+    expect(JSON.stringify(state.recorded[0])).not.toMatch(/shadow|flagged/);
+  });
+
+  it("goes with an answer that is not kept, and not with one brought back from the conversation", async () => {
+    for (const extra of [{ questionId: undefined }, { mode: "tonight" as const }]) {
+      const { service } = setup({ shadow });
+      expect((await service.ask(chat("Oysters?", extra))).shadow?.flagged).toBe(1);
+    }
+    const { service } = setup({
+      shadow,
+      kept: {
+        h1: { conversationId: "c1", messageId: "a1", answer: answerOf("Open the Muscadet.") },
+      },
+    });
+    expect((await service.ask(chat("Oysters?"))).shadow).toBeUndefined();
+  });
+
+  it("is absent when the guard did not run", async () => {
+    const { service } = setup();
+    expect((await service.ask(chat("Oysters?"))).shadow).toBeUndefined();
   });
 });

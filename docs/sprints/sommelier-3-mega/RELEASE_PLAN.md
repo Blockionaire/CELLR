@@ -1,31 +1,35 @@
 # Sommelier 3.0 — release plan
 
-Updated in S9, 2026-11-20. **Nothing here has been done.** Every step is the owner's to authorise: the agent
-did not merge, deploy, apply a migration or change a setting, and will not.
+Updated in S11, 2026-11-21. **The agent merged, deployed, applied and switched on nothing.** The owner merged #90 and
+#91 into `main` on 2026-11-21 (§1). Every further step is the owner's to authorise.
 
-**The verdict in two lines** (the reasons are in §7): merging the stack with every switch off is a **GO**;
-switching anything on for real users is a **NO-GO** for now.
+**The verdict in three lines** (the reasons are in §7): V1 with AI stays the sommelier; merging what is left of the
+stack with every switch off is safe code, but brings migrations 0051–0053 into the next database release (§1); no
+sommelier switch is to be named in Production or Preview.
 
-State of `main` and Production, checked read-only on 2026-11-20 (Supabase migration history, a second time after
-the owner applied 0047): pull requests #88 (system monitoring) and #92 (3D sprint 4) are merged; `main` is at
-`6ab4350` and holds migration `20261124000047_system_health.sql`. **Production records 0001–0047: `main` and
-Production are level again.** A `db push` from `main` has nothing to apply until a pull request of this stack
-that carries a migration (#94, #97, #100) is merged.
+State on 2026-11-21, read from GitHub and Supabase (read-only): `main` is at `4ffa39f` (#90 and #91 merged; before
+them #101 brought migration `20261128000050_r27_wine_record_origins.sql`, not applied). Production records 0001–0047.
+This work's drafts were renumbered in S11 to come after 0050: **0051, 0052, 0053**, none on `main`.
 
 ## 0. Before anything is merged
 
-| Check                                                                                | Why                                                                                                              |
-| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `CELLR_FEATURES` in Production and Preview names none of the five sommelier switches | `all` turns none of them on (tested), so only a name can; make sure no name is there (R-02)                      |
-| Migration `20261124000047` (#88): applied in Production (checked 2026-11-20)         | This work's 0051, 0052 and 0053 are later than it, so the order is right as it stands and nothing needs renaming |
-| Read `FINAL_REPORT.md` §6                                                            | The few things that change with every switch off                                                                 |
+| Check                                                                                 | Why                                                                                                                 |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `CELLR_FEATURES` in Production and Preview names none of the eight sommelier switches | `all` turns none of them on (tested), so only a name can; make sure no name is there (R-02)                         |
+| The newest migration on `main` is older than this work's 0051 (S11: `…28000050` is)   | The CLI refuses a version older than the newest applied one; a parallel migration merged first means renaming again |
+| Read `FINAL_REPORT.md` §6                                                             | The few things that change with every switch off                                                                    |
 
 ## 1. Merge (switches off)
 
-Order: #90 → #91 → #93 → #94 → #95 → #97 → #98 → #100 → #104. Each is safe alone: new behaviour is
-behind switches that are off. When a base branch is merged and deleted, GitHub retargets the next pull request to
-`main`. Every branch of the stack contains `main` as of `6ab4350` and merges without conflict (checked in S9);
-#95, #97 and #98 are drafts and must be marked ready first.
+Order: #90 → #91 → #93 → #94 → #95 → #97 → #98 → #100 → #104 → S11. Each is safe alone: new behaviour is
+behind switches that are off. **A pull request must have `main` as its base when it is merged**: GitHub retargets the
+next one only when the merged base branch is deleted. Every branch of the stack contains `main` as of `e27e533` and
+merges without conflict (S11); #95, #97, #98, #100 and #104 are drafts and must be marked ready first.
+
+**State, 2026-11-21:** #90 and #91 are on `main`. **#93 was merged into `claude/sommelier-3-s2-food-pairing`, not into
+`main`** (its base had not been retargeted), so `main` does not hold S3+S4. To land it: a pull request from
+`claude/sommelier-3-s3-wine` to `main` (the diff #93 reviewed), then change #94's base to `main` before merging it.
+Whether to go past #93 at all is the choice of §7 (S11).
 
 From the moment #94 is on `main`, migration 0051 is in `supabase/migrations`; from #97, 0052; from the S9 pull
 request, 0053. **A `db push` from `main` after that applies them.** That is
@@ -58,8 +62,9 @@ answer "nothing", never a 500 (tested or reviewed for both).
 | 4b   | (no new switch) a friend's cellar             | step 4, 0053, its own consent wording      | Part of `sommelier_social`. Without 0053 the second consent switch is not shown and a friend's cellar is never read (tested)                                |
 | 5    | `sommelier_dish_ai` (S10)                     | step 1, an AI key, a platform budget       | A model reads dishes the parser could not place; costs a call per routed dish (shared through the cache). Budget mode closed: no budget configured, no call |
 | 6    | `sommelier_second_opinion` (S10, experiment)  | step 5, the paid evaluation's result       | Only if `HYBRID_EVALUATION.md` shows it helps; it is not an approved architecture                                                                           |
+| 7    | `sommelier_v1_guard` (S11, shadow)            | nothing                                    | V1+: counts what the guard would flag, changes no answer. Only to measure, after the owner decides to; Preview first                                        |
 
-Each of the last four does nothing without `sommelier_engine` (tested).
+Steps 2 to 6 do nothing without `sommelier_engine` (tested); step 7 needs nothing and changes no answer.
 
 ## 4. Before a switch is on in Production
 
@@ -87,7 +92,29 @@ Remove the switch from `CELLR_FEATURES` and redeploy: V1 answers again. Conversa
 open (a kept plan is drawn as it was; the outcome buttons disappear). The migrations stay: they are additive,
 and nothing reads their tables with the switches off.
 
-## 7. GO / NO-GO (S10, replaces the S9 verdict below it)
+## 7. GO / NO-GO (S11, replaces the S10 verdict below it)
+
+### V1 with AI stays the sommelier: **GO** (no change)
+
+V1+ (`V1PLUS_ARCHITECTURE.md`): V1's model keeps choosing; code supplies facts, rules and a guard. Nothing of it
+is on for anyone.
+
+### Merging the rest of the stack with every switch off
+
+- **#93 (S3+S4), re-landed on `main`: GO.** No migration; the switch-off changes are listed in `progress/S11.md` §6.3.
+- **#94 onward: the owner's choice** (`progress/S11.md` §6.3). The code is safe with the switches off, but from #94
+  on, migrations 0051–0053 are in `supabase/migrations`, and the next `db push` for any reason applies all three.
+  Recommended: stop after #93 and take V1+ (the guard) as its own small pull request on `main`, with no migration,
+  until it is decided whether the social and learning parts are wanted in Production at all.
+- #104 also changes, with every switch off, how much the platform budget holds per AI call (it counts the schema).
+
+### Switching anything on for real users: **NO-GO**
+
+Unchanged from S10. Not to be used: `sommelier_engine` in front of V1, `sommelier_dish_ai`,
+`sommelier_second_opinion`. The guard (`sommelier_v1_guard`) changes no answer and may be measured in Preview or
+Production in shadow once the owner decides to; it is not a release of anything a person sees.
+
+## 7b. GO / NO-GO (S10)
 
 ### Merging the stack with every switch off: **GO**
 

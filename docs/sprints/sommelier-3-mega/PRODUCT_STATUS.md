@@ -49,3 +49,10 @@ decision (D-15), not a completed requirement, and S9 replaces it with consent (D
 
 Still not built, and not marked done anywhere: model wording, free comparison of
 two wines, any live offer.
+
+## 4. S11
+
+No new product functionality is on. Built behind an off switch: variant E's guard in shadow
+(`sommelier_v1_guard`), which counts what it would flag on V1's own answers and changes none. Proposed, not built:
+the engines as V1's fallback, deterministic facts on V1's chosen bottle, a budget and price check for V1's buying
+advice (`V1PLUS_ARCHITECTURE.md`).

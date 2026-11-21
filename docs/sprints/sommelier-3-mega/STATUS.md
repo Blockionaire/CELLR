@@ -9,24 +9,22 @@ the GO / NO-GO, is in [`RELEASE_PLAN.md`](RELEASE_PLAN.md).
 ## Resume block
 
 ```text
-UPDATED:        2026-11-20 (S0–S10 written; everything is in open pull requests; nothing is merged or released)
-PHASE:          S10 — done: no hybrid beats V1 with AI on unseen dishes; V1 stays the default; S11 proposed
+UPDATED:        2026-11-21 (S11 written; #90 and #91 merged by the owner; nothing released or switched on)
+PHASE:          S11 — done (preparatory): V1+ proposal, variant E in shadow (off), statistics by dish, escrow
 TRACKING ISSUE: #89
-MAIN:           6ab4350 (#88 system monitoring and #92 3D sprint 4 merged). main holds migration 20261124000047,
-                and Production records 0001–0047 (read-only check, 2026-11-20, after the owner applied 0047).
-                This work's migrations: 0051, 0052, 0053; all unapplied, all later than 0047.
-SWITCHES:       sommelier_engine, sommelier_buying, sommelier_social, sommelier_experiences, sommelier_learning,
-                sommelier_dish_ai and sommelier_second_opinion (S10).
-                None is turned on by `all`; each must be named in CELLR_FEATURES; the last four need the first.
+MAIN:           4ffa39f (#90 S0, #91 S1+S2 merged 2026-11-21). #93 (S3+S4) was merged into its stale base branch
+                claude/sommelier-3-s2-food-pairing, NOT into main (progress/S11.md §6.2): to be re-landed by the owner.
+                main also holds 20261128000050 (r27, #101, not applied). Production records 0001–0047.
+                This work's migrations: 0051, 0052, 0053 (renumbered in S11); none on main, none applied.
+SWITCHES:       sommelier_engine, _buying, _social, _experiences, _learning, _dish_ai, _second_opinion,
+                and sommelier_v1_guard (S11, shadow, needs nothing else). None is turned on by `all`.
                 Nothing is on anywhere.
-AI:             The comparison with V1's AI was run on 2026-11-20 with the owner's approval ($0.10 of $2;
-                gpt-6-luna, reasoning none, as Production). Result: 3.0 is NOT shown to be better; the model
-                generalises better to unseen dishes (AI_COMPARISON.md §8–§9). The key lives in the cloud
-                environment's secret store (api.openai.com), never in the repository.
+AI:             No paid call in S11. Proposed: the guard's shadow on V1 with AI, cap $0.25 (progress/S11.md §3.3).
+                The key lives in the cloud environment's secret store (api.openai.com), never in the repository.
 RETAILER:       no source. Live offers are built, validated and off (`offers: null`); buying advice is styles.
-QUALITY:        main set 170 / 246; blind holdout 19 / 43; unseen dishes understood 72% (progress/S9.md §2).
-PRODUCTION:     not touched. No merge, deploy, db push, setting or production write by the agent.
-WORKTREES:      /home/user/CELLR (S7 branch), /home/user/CELLR-s3 (S10 branch). Ephemeral: only what is pushed lasts.
+QUALITY:        V1 with AI stays the sommelier (S10). The guard flags 0 good or acceptable wines on every set.
+PRODUCTION:     not touched by the agent. No merge, deploy, db push, setting or production write.
+WORKTREES:      /home/user/CELLR-s3 (S11 branch). Ephemeral: only what is pushed lasts.
 ```
 
 ## Pull requests (a stack: review and merge top to bottom)
@@ -42,6 +40,10 @@ WORKTREES:      /home/user/CELLR (S7 branch), /home/user/CELLR-s3 (S10 branch). 
 | S8      | `claude/sommelier-3-s8-release`      | `claude/sommelier-3-s7-learning`     | [#98](https://github.com/Blockionaire/CELLR/pull/98)   |
 | S9      | `claude/sommelier-3-s9-quality`      | `claude/sommelier-3-s8-release`      | [#100](https://github.com/Blockionaire/CELLR/pull/100) |
 | S10     | `claude/sommelier-3-s10-hybrid`      | `claude/sommelier-3-s9-quality`      | [#104](https://github.com/Blockionaire/CELLR/pull/104) |
+| S11     | `claude/sommelier-3-s11-v1plus`      | `claude/sommelier-3-s10-hybrid`      | [#106](https://github.com/Blockionaire/CELLR/pull/106) |
+
+#90 and #91 are merged into `main`. #93 is marked merged but went into `claude/sommelier-3-s2-food-pairing`
+(`RELEASE_PLAN.md` §1).
 
 `claude/sommelier-3-s1-food` holds early work-in-progress checkpoints only. It is not a pull request branch and
 can be deleted once the stack is merged.
@@ -72,12 +74,17 @@ review's findings and what was done about each, limitations.
   parser could not place (C) and a bounded second opinion in close calls (D), both behind new named-only
   switches; fewer, surer bottles; per-bottle measures, an upper bound and the four variants on the same
   scenarios; a shared store of dish readings; the frame for a human holdout and a blind expert review sheet.
-  The paid comparison waits for approval (`HYBRID_EVALUATION.md` §6).
+  Paid comparison run with approval ($0.26): V1 with AI stays the default (`HYBRID_EVALUATION.md` §7).
+- **S11**: V1+ architecture (V1's model chooses; code supplies facts, rules and a guard); variant E's guard in
+  shadow behind `sommelier_v1_guard` (0 good or acceptable wines flagged on any set); the plans for buying and
+  social with V1; the human holdout in escrow and the panel's protocol; comparisons clustered by dish; the
+  migrations renumbered after `main`'s 0050; which pull requests can be merged (`progress/S11.md`).
 
 ## Next action
 
-Nothing for the agent without the owner. The S10 verdict is in: V1 with AI stays the default
-(`HYBRID_EVALUATION.md` §7–§8). The owner decides on S11 (variant E), the human holdout and the expert review.
+Nothing for the agent without the owner. The owner's decisions are listed in `progress/S11.md` §9: re-land S3+S4 on
+`main` and retarget #94; option 1 or 2 for the rest of the stack (§6.3); the paid shadow run (cap $0.25); social A or
+B; whether the engines-as-fallback proposal is worth a sprint; people for the human holdout and the panel.
 A session that resumes: read the pull requests' review comments and CI, fix what is asked on the branch it
 belongs to, merge it into each branch above it (D-28: never rebase or force-push a branch with an open pull
 request), and update the phase's `progress` file.

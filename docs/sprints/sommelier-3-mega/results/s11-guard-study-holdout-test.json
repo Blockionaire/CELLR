@@ -1,0 +1,16 @@
+[
+  {
+    "set": "holdout-test",
+    "settings": {
+      "minConfidence": "medium"
+    },
+    "version": 1,
+    "scenarios": 43,
+    "considered": 37,
+    "byLabel": {
+      "good": [68, 0],
+      "ok": [132, 0],
+      "poor": [504, 274]
+    }
+  }
+]
