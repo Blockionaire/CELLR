@@ -43,11 +43,23 @@ check)
   ;;
 migrate)
   guard migrate
+  # the CLI's own output stays on the runner (never in an artifact); its exit code decides
+  PUSHLOG="$(mktemp)"
+  show() { grep -oE "[0-9]{14}_[a-z0-9_]+\.sql|Finished[^.]*|ERROR.*" "$PUSHLOG" | sed 's/postgres[^ ]*@[^ ]*/<db>/g' | sort -u; }
   echo "• dry run: what db push would apply"
-  (cd "$ROOT" && pnpm exec supabase db push --db-url "$STAGING_DB_URL" --dry-run --include-seed 2>&1 | grep -E "^ ?•|Would|would|[0-9]{14}" | sed 's/postgres[^ ]*@[^ ]*/<db>/g' || true)
+  if ! (cd "$ROOT" && pnpm exec supabase db push --db-url "$STAGING_DB_URL" --dry-run --include-seed >"$PUSHLOG" 2>&1); then
+    show; echo "dry run failed" >&2; exit 1; fi
+  show
   echo "• applying"
-  (cd "$ROOT" && pnpm exec supabase db push --db-url "$STAGING_DB_URL" --include-seed --yes 2>&1 | grep -E "Applying|Finished|[0-9]{14}" | sed 's/postgres[^ ]*@[^ ]*/<db>/g' || true)
-  echo "• migration history: $(psqlq -c "select count(*) || ' versions, last ' || max(version) from supabase_migrations.schema_migrations")"
+  if ! (cd "$ROOT" && pnpm exec supabase db push --db-url "$STAGING_DB_URL" --include-seed --yes >"$PUSHLOG" 2>&1); then
+    show; echo "db push failed" >&2; exit 1; fi
+  show | grep -v "\.sql$" || true
+  rm -f "$PUSHLOG"
+  # the history must hold exactly the repository's migrations
+  REPO_VERSIONS=$(ls "$ROOT"/supabase/migrations/*.sql | sed -E 's#.*/([0-9]{14})_.*#\1#' | sort | paste -sd, -)
+  DB_VERSIONS=$(psqlq -c "select string_agg(version, ',' order by version) from supabase_migrations.schema_migrations")
+  [ "$REPO_VERSIONS" = "$DB_VERSIONS" ] || { echo "migration history differs from the repository" >&2; exit 1; }
+  echo "• migration history = repository ($(echo "$REPO_VERSIONS" | tr ',' '\n' | wc -l) versions, last ${REPO_VERSIONS##*,})"
   echo "• next: the owner marks the database staging (see STAGING_WORKFLOW.md); until then every other mode refuses"
   ;;
 import)
