@@ -19,22 +19,22 @@ Legend:
 - **P** = production deployed
 - **U** = user activated
 
-| Item                                                                                             | I                        | L                   | S             | P   | U                          | Evidence                         |
-| ------------------------------------------------------------------------------------------------ | ------------------------ | ------------------- | ------------- | --- | -------------------------- | -------------------------------- |
-| PR #96 (004B) ready for squash merge: CI green, no conflicts                                     | ✓                        | ✓                   | —             | —   | —                          | §2                               |
-| R-27: a wine added from a record keeps its origin                                                | ✓                        | ✓                   | ✗             | ✗   | ✗                          | §3; pgTAP 1661/0 on PG 16 and 17 |
-| Scan UX: "Could be this wine" → form → confirm → wine → credit                                   | ✓                        | ✓                   | ✗             | ✗   | ✗                          | §4; `e2e/scan-records.spec.ts`   |
-| Never "found" for another bottling or colour of an own wine (review fix)                         | ✓                        | ✓                   | ✗             | ✗   | ✗                          | §8 P2-1                          |
-| Full credit on the suggestion card                                                               | ✓                        | ✓                   | ✗             | ✗   | ✗                          | §8 P2-2/5                        |
-| Staging preparation (config, env, migrations, identity, security, backup, import, cost)          | ✓ (docs, check)          | ✓ (rehearsal)       | ✗: no project | —   | —                          | `STAGING_PREP.md`                |
-| LWIN technically complete (levels, pack, anomalies, conflicts, withdrawal, update, cross-source) | ✓                        | ✓ (fictitious only) | ✗             | ✗   | ✗                          | `LWIN.md`; `results/lwin/`       |
-| Data quality and performance on the full X-Wines set                                             | ✓                        | ✓ (PG 17.12)        | ✗             | —   | —                          | §6; `results/xwines/`            |
-| E-mails to the X-Wines authors and Liv-ex                                                        | ✓ (final, ready to send) | —                   | —             | —   | **not sent**               | `emails/`                        |
-| E2E chain tests (phone and desktop, NL/EN, network, session, a11y, …)                            | ✓                        | ✓                   | ✗             | —   | —                          | §5                               |
-| Physical iPhone checklist                                                                        | ✓                        | — (needs a device)  | ✗             | —   | —                          | `IPHONE_CHECKLIST.md`            |
-| Independent review, fixes, re-runs                                                               | ✓                        | ✓                   | —             | —   | —                          | §8                               |
-| Production activation plan (12 steps)                                                            | ✓                        | —                   | —             | —   | —                          | `ACTIVATION_PLAN.md`             |
-| X-Wines / LWIN shown to people                                                                   | —                        | —                   | —             | —   | **no**: rights not cleared | `SOURCE_RIGHTS_REGISTER.md`      |
+| Item                                                                                             | I                         | L                                    | S                                                                                | P                                                                | U                                                          | Evidence                                       |
+| ------------------------------------------------------------------------------------------------ | ------------------------- | ------------------------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
+| PR #96 (004B): squash-merged as 7bd0aaf, deployed                                                | ✓                         | ✓                                    | —                                                                                | ✓ (7bd0aaf, then e27e533)                                        | — (no source is public)                                    | §11                                            |
+| R-27: a wine added from a record keeps its origin                                                | ✓                         | ✓                                    | ✗ (no project yet)                                                               | code ✓ (e27e533); **migration 0050 not applied** (needs your GO) | ✗                                                          | §3, §11; `RELEASE_0050.md`, `verify-0050.sql`  |
+| Scan UX: "Could be this wine" → form → confirm → wine → credit                                   | ✓                         | ✓                                    | ✗                                                                                | ✓ (e27e533)                                                      | ✗: no source is public, so nobody sees it                  | §4; `e2e/scan-records.spec.ts`                 |
+| Never "found" for another bottling or colour of an own wine (review fix)                         | ✓                         | ✓                                    | —                                                                                | ✓ (e27e533)                                                      | ✓: applies to every scan, with and without `scan_resolver` | §8 P2-1                                        |
+| Full credit on the suggestion card                                                               | ✓                         | ✓                                    | ✗                                                                                | ✓ (e27e533)                                                      | ✗: no source is public                                     | §8 P2-2/5                                      |
+| Staging (`cellr-staging`) and its workflow (#103)                                                | ✓ (docs, guard, workflow) | ✓ (guard tests, scan check on PG 17) | ✗: project waiting for your cost confirmation; GitHub Environment not yet set up | —                                                                | —                                                          | `STAGING_PREP.md`, `STAGING_WORKFLOW.md`, #103 |
+| LWIN technically complete (levels, pack, anomalies, conflicts, withdrawal, update, cross-source) | ✓                         | ✓ (fictitious only)                  | ✗                                                                                | ✗                                                                | ✗                                                          | `LWIN.md`; `results/lwin/`                     |
+| Data quality and performance on the full X-Wines set                                             | ✓                         | ✓ (PG 17.12)                         | ✗                                                                                | —                                                                | —                                                          | §6; `results/xwines/`                          |
+| E-mails to the X-Wines authors and Liv-ex (contact routes verified; the owner sends them)        | ✓ (final, ready to send)  | —                                    | —                                                                                | —                                                                | **not sent**                                               | `emails/`                                      |
+| E2E chain tests (phone and desktop, NL/EN, network, session, a11y, …)                            | ✓                         | ✓                                    | ✗                                                                                | —                                                                | —                                                          | §5                                             |
+| Physical iPhone checklist                                                                        | ✓                         | — (needs a device)                   | ✗                                                                                | —                                                                | —                                                          | `IPHONE_CHECKLIST.md`                          |
+| Independent review, fixes, re-runs                                                               | ✓                         | ✓                                    | —                                                                                | —                                                                | —                                                          | §8                                             |
+| Production activation plan (12 steps)                                                            | ✓                         | —                                    | —                                                                                | —                                                                | —                                                          | `ACTIVATION_PLAN.md`                           |
+| X-Wines / LWIN shown to people                                                                   | —                         | —                                    | —                                                                                | —                                                                | **no**: rights not cleared                                 | `SOURCE_RIGHTS_REGISTER.md`                    |
 
 ## 2. PR #96 (Sprint 004B)
 
@@ -198,7 +198,38 @@ For a file several times larger (a full LWIN file could hold 200k+ wines at seve
 
 E2E: see §5. The only consistent failure, the 3D canvas click, fails the same way on `main`.
 
-## 10. Needs your decision
+## 10. Completion on 2026-11-20 (what was actually done)
+
+1. **No dataset records in the repository.** `redact-results.ts` reduced the result files of 004A, Wine Intelligence and 004B to counts and ranks. Older versions remain in Git history: by your decision it is not rewritten, and this is recorded in `SOURCE_RIGHTS_REGISTER.md` §4a.
+2. **#96 squash-merged** (7bd0aaf, the same tree as the reviewed 807cb19). Production deployed 7bd0aaf: health `ok`, sign-in works, the API refuses anonymous requests (401), no runtime errors, 0 providers, 0 external records.
+3. **#101 updated onto main** by a merge, without a force-push. The result is identical to the 004C commits replayed on `main`; the diff was 004C only.
+   - Checks: all green; `db:test` 1681/0 on PG 16 and 17; CI green.
+   - **Squash-merged** as e27e533 (tree = c424cde). Production deployed e27e533 with the same checks passing and no runtime errors. Migration 0050 is **not** applied.
+4. **E2E on the merged branch:** 155 passed, 3 skipped, 4 failed.
+   - `cellar3d.spec.ts:171` fails the same way on main 813fe48. It is an existing issue, tracked as #102.
+   - `scan-resolver.spec.ts:145` reached its 30-second limit under load. It passes in 9–10 s alone, the same as before the merge, and the scan and search specs pass 46/46 at 3 workers.
+   - `wine-search.spec.ts:224` had a test-isolation issue, fixed on #96's branch.
+5. **0050 final dry run against production (read-only):** history 0001–0047; `merge_wines` exactly what 0050 replaces; none of its objects exist; `verify-0050.sql` gives the expected "before" answers. Steps: `RELEASE_0050.md`. Waiting for your GO.
+6. **Staging workflow (#103):**
+   - manual, `main` only, behind the `cellr-staging` environment, staging secret only;
+   - the guard runs before every write;
+   - counts-only logs and artifacts.
+   - Reviewed and hardened: the secret is only in the two steps that use it, the mode goes through env, and the password is masked on its own.
+   - **Not yet run:** the staging project does not exist yet (the cost confirmation got no answer twice), and the environment is not set up.
+7. **LWIN:** integration prepared on fictitious data; `blocked` and off; no LWIN data imported anywhere.
+
+## 11. Remaining blockers for public activation
+
+| Blocker                                                                                                                 | Who                             | Unblocks                                                |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ------------------------------------------------------- |
+| Confirm the cost of `cellr-staging` in the Supabase confirmation (about $10/month)                                      | Owner                           | Staging                                                 |
+| GitHub Environment `cellr-staging` with secret and variable; merge #103; a PR adding the ref to `approved-targets.json` | Owner (setup); Claude (PR)      | The staging import                                      |
+| GO for migration 0050                                                                                                   | Owner                           | R-27 in production                                      |
+| Answers from the X-Wines authors and Liv-ex (e-mails ready)                                                             | Owner sends; the sources answer | **Any** public activation (`ACTIVATION_PLAN.md` step 1) |
+| A lawfully obtained real LWIN file, and the layout verified against it                                                  | Owner, after Liv-ex's answer    | LWIN import (`LWIN.md` §5)                              |
+| iPhone checklist on a device                                                                                            | Owner                           | Activation step 10                                      |
+
+## 12. Earlier decisions (all taken)
 
 1. **Merge:** squash-merge #96, then this PR after a rebase onto `main`.
 2. **Send** the two e-mails (fill in name and address). Nothing can be shown before the answers.
