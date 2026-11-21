@@ -166,8 +166,6 @@ async function scanToDetails(page: Page, call: Call, n: number) {
     buffer: await makeJpeg(page, { ...size, words: "Kappa" }),
   });
   await expect(page.getByLabel("Producer")).toHaveValue("Domaine Kappa");
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "How many, and where?" })).toBeVisible();
   await expect(page.getByTestId("scan-labels")).toBeVisible();
 }
 /**

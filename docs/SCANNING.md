@@ -10,6 +10,14 @@
 
 Switching mode never discards a batch: its photos stay in the tray, and no photo is sent by switching.
 
+## One review screen
+
+Every scan, in every mode, is checked on one screen (`features/scan/scan-review.tsx`): the photo, the wine (the
+match, candidates, or the fields for a new wine), and the bottles (vintage, how many, where, price) with one "Add"
+button. The wine can be changed there (another candidate, your own wines, a new wine) without losing what was typed
+about the bottles. A new wine is created only when "Add" is tapped, once; an existing wine is never edited from a
+scan. With several candidates none is chosen for you.
+
 ## Recognition cache (identical photos)
 
 In every mode, a photo that is byte-for-byte identical (after processing) to one this household already

@@ -219,7 +219,7 @@ test.describe("the wishlist", () => {
       buffer: await makeJpeg(page, size),
     });
     await expect(page.getByRole("heading", { name: "A new wine" })).toBeVisible();
-    await page.getByRole("button", { name: "Continue" }).click();
+    // straight from the review: the new wine is made as it is saved to the list
     await page.getByRole("button", { name: "Not buying it? Save to wishlist" }).click();
     await expect(page.getByText("Added to your wishlist.")).toBeVisible();
     // Back at the camera, ready for the next bottle on the shelf.

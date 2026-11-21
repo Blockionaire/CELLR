@@ -1,51 +1,39 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
   ERROR_MESSAGES,
   formatVintage,
   MATCH,
   matchLabel,
-  RESOLVE_REASONS,
   scoreWine,
-  suggestWine,
-  type ResolveReason,
   type AddBottlesResult,
-  type BottleArtRef,
   type ScanResult,
   type WineSummary,
 } from "@cellr/domain";
 import { CatalogScanNote } from "@/features/account/catalog-section";
 import { AddedDone } from "@/features/cellar/added-done";
 import type { PreferredSpot } from "@/features/cellar/add-spot";
-import { BottleDetails } from "@/features/cellar/bottle-details";
-import { ChooseWine } from "@/features/cellar/choose-wine";
 import {
   attachBackLabel,
   useWines,
   winesKey,
   type BackLabelAttempt,
 } from "@/features/cellar/hooks";
-import { LabelImage } from "@/features/cellar/label-image";
-import { draftOfRecord, NewWineForm, type NewWineDraft } from "@/features/cellar/new-wine-form";
-import { RecordSuggestions } from "./record-suggestions";
-import { useOwnedCounts, WineChoice } from "@/features/cellar/wine-stage";
-import { placeLine } from "@/features/cellar/wine-visuals";
 import { ApiError, errorMessage } from "@/lib/api";
 import { UnreadablePhotoError, type PreparedPhoto } from "@/lib/photo";
 import { Button } from "@/ui/button";
 import { cn } from "@/ui/cn";
-import { CheckIcon, SearchIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
 import { useToast } from "@/ui/toast";
-import { useAddWish } from "@/features/wishlist/hooks";
 import { useCamera, type Camera } from "./camera";
 import { BackLabelPicker, BackLabelResult, BackLabelRetries, type BackRetry } from "./back-label";
 import { useScan } from "./hooks";
 import { warmOcr } from "./ocr";
 import { ModeBar, type ScanMode } from "./modes";
+import { ScanReview } from "./scan-review";
 import { SeriesTray, useScanSeries, type SeriesItem } from "./series";
 
 type Stage =
@@ -53,7 +41,6 @@ type Stage =
   | { name: "reading"; preview: string }
   // `itemId`: the photo came from a series (several bottles in a row), see series.tsx
   | { name: "review"; result: ScanResult; itemId?: string | undefined }
-  | { name: "details"; result: ScanResult; wine: WineSummary; itemId?: string | undefined }
   | {
       name: "done";
       result: AddBottlesResult;
@@ -79,12 +66,10 @@ export function ScanScreen({
 }) {
   const t = useTranslations("scan");
   const tAdd = useTranslations("addBottle");
-  const tWish = useTranslations("wishlist");
   const te = useTranslations();
   const scan = useScan();
   const wines = useWines();
   const queryClient = useQueryClient();
-  const addWish = useAddWish();
   const toast = useToast();
   const [mode, setMode] = useState<ScanMode>("single");
   // In a series the place chosen for one bottle is offered for the next.
@@ -92,8 +77,6 @@ export function ScanScreen({
   // The rack spot this scan was started from; used once, by the first bottle added.
   const [spot, setSpot] = useState<PreferredSpot | null>(initialSpot ?? null);
   const [stage, setStage] = useState<Stage>({ name: "capture", error: null, retry: null });
-  // In a "found" review, "not this one" turns the screen into the new-wine form.
-  const [rejectedFound, setRejectedFound] = useState(false);
   // An optional back label, tied to the front photo it was taken with: it can never go on to another wine.
   const [back, setBack] = useState<{ imageId: string; photo: PreparedPhoto } | null>(null);
   const backFor = (imageId: string) => (back?.imageId === imageId ? back.photo : null);
@@ -175,21 +158,10 @@ export function ScanScreen({
     return { ...result, ...matchLabel(result.facts, list) };
   };
 
-  /** A batch photo to look at: one we are sure of goes straight to its bottles (the row was the check). */
+  /** A batch photo to look at, on the same one-screen review as a single scan (matched again against the wines now). */
   function open(item: SeriesItem) {
     if (!item.result) return;
-    setRejectedFound(false);
-    const result = current(item.result);
-    const sure =
-      result.outcome === "found" &&
-      result.matches[0] &&
-      result.facts &&
-      !Object.values(result.facts.confidence).includes("low");
-    setStage(
-      sure
-        ? { name: "details", result, wine: result.matches[0]!.wine, itemId: item.id }
-        : { name: "review", result, itemId: item.id },
-    );
+    setStage({ name: "review", result: current(item.result), itemId: item.id });
   }
 
   async function addToBatch(files: File[]) {
@@ -198,7 +170,6 @@ export function ScanScreen({
   }
 
   async function read(file: File) {
-    setRejectedFound(false);
     setStage({ name: "reading", preview: URL.createObjectURL(file) });
     try {
       setStage({ name: "review", result: await readLabel(file) });
@@ -220,7 +191,6 @@ export function ScanScreen({
 
   /** On to the next photo that is ready, or back to the batch. */
   function next(afterId: string) {
-    setRejectedFound(false);
     const item = series.queue.nextReady(afterId);
     if (item) open(item);
     else setStage({ name: "capture", error: null, retry: null });
@@ -233,7 +203,6 @@ export function ScanScreen({
   }
 
   const restart = () => {
-    setRejectedFound(false);
     setBack(null);
     setStage({ name: "capture", error: null, retry: null });
   };
@@ -246,15 +215,7 @@ export function ScanScreen({
         className={cn("outline-none", stage.name === "capture" && "pt-4 lg:pt-10")}
       >
         {stage.name !== "capture" && (
-          <PageHeader
-            title={
-              stage.name === "details"
-                ? tAdd("detailsTitle")
-                : stage.name === "done"
-                  ? tAdd("savedTitle")
-                  : t("title")
-            }
-          />
+          <PageHeader title={stage.name === "done" ? tAdd("savedTitle") : t("title")} />
         )}
       </div>
       <div className="mx-auto w-full max-w-xl">
@@ -313,42 +274,19 @@ export function ScanScreen({
         <BackLabelRetries items={backRetries} onChange={setBackRetries} />
 
         {stage.name === "review" && (
-          <Review
+          <ScanReview
+            // A fresh review per photo: going straight on to the next one never carries its vintage over. Choosing
+            // another wine on it keeps everything typed (the key is the photo, not the wine).
+            key={stage.result.image.id}
             result={stage.result}
-            rejectedFound={rejectedFound}
             wines={wines.data ?? []}
             catalogSearch={catalogSearch}
-            onReject={() => setRejectedFound(true)}
-            onWine={(wine) =>
-              setStage({ name: "details", result: stage.result, wine, itemId: stage.itemId })
-            }
-            onAgain={restart}
-            batch={
-              stage.itemId
-                ? {
-                    onBack: () => setStage({ name: "capture", error: null, retry: null }),
-                    onSkip: () => skip(stage.itemId!),
-                  }
-                : undefined
-            }
-          />
-        )}
-
-        {stage.name === "details" && (
-          <BottleDetails
-            // A fresh form per photo: going straight on to the next one never carries its vintage over.
-            key={`${stage.result.image.id}:${stage.wine.id}`}
-            wine={stage.wine}
             currency={currency}
+            mode={mode}
+            inBatch={!!stage.itemId}
             preferredPlaceId={spot ? spot.locationId : stage.itemId ? lastPlace : undefined}
             spot={spot}
             onSpotChange={setSpot}
-            initialQuantity={mode === "same" && !stage.itemId ? 2 : 1}
-            quantityHint={mode === "same" && !stage.itemId ? t("modes.sameQuantity") : undefined}
-            initialYear={
-              stage.result.facts?.nonVintage ? null : (stage.result.facts?.year ?? undefined)
-            }
-            imageId={stage.result.image.id}
             labels={
               <BackLabelPicker
                 frontImageId={stage.result.image.id}
@@ -367,41 +305,23 @@ export function ScanScreen({
                 }}
               />
             }
-            footer={
-              <Button
-                type="button"
-                variant="ghost"
-                size="lg"
-                block
-                loading={addWish.isPending}
-                onClick={async () => {
-                  if (addWish.isPending) return;
-                  try {
-                    await addWish.mutateAsync({
-                      wineId: stage.wine.id,
-                      year: stage.result.facts?.nonVintage
-                        ? null
-                        : (stage.result.facts?.year ?? null),
-                      note: null,
-                      maxPriceCents: null,
-                    });
-                    if (stage.itemId)
-                      handled(
-                        stage.itemId,
-                        t("series.wished", { wine: `${stage.wine.producer} ${stage.wine.name}` }),
-                        true, // the wishlist has said so already
-                      );
-                    else restart();
-                  } catch {
-                    // The hook has said what went wrong (for instance, that it is on the list already).
+            onWished={(wine) => {
+              if (stage.itemId)
+                handled(
+                  stage.itemId,
+                  t("series.wished", { wine: `${wine.producer} ${wine.name}` }),
+                  true, // the wishlist has said so already
+                );
+              else restart();
+            }}
+            onAgain={restart}
+            batch={
+              stage.itemId
+                ? {
+                    onBack: () => setStage({ name: "capture", error: null, retry: null }),
+                    onSkip: () => skip(stage.itemId!),
                   }
-                }}
-              >
-                {tWish("saveFromScan")}
-              </Button>
-            }
-            onChangeWine={() =>
-              setStage({ name: "review", result: stage.result, itemId: stage.itemId })
+                : undefined
             }
             onDone={(result, placeId) => {
               // The bottles are in. The back label (if any) follows on its own: whatever happens to it, the
@@ -722,285 +642,5 @@ function PhotosIcon() {
       <circle cx="9" cy="10" r="1.75" />
       <path d="m21 16-5.5-5.5L6 20" />
     </svg>
-  );
-}
-
-function Review({
-  result,
-  rejectedFound,
-  wines,
-  catalogSearch,
-  onReject,
-  onWine,
-  onAgain,
-  batch,
-}: {
-  result: ScanResult;
-  rejectedFound: boolean;
-  wines: WineSummary[];
-  catalogSearch: boolean;
-  onReject: () => void;
-  onWine: (wine: WineSummary) => void;
-  onAgain: () => void;
-  /** A photo of a batch: back to the batch, or leave this photo out (nothing is added). */
-  batch?: { onBack: () => void; onSkip: () => void } | undefined;
-}) {
-  const t = useTranslations("scan");
-  const owned = useOwnedCounts();
-  const [chosenNew, setChosenNew] = useState(false);
-  // A wrong guess is corrected by finding the right wine among your own, not by typing it in again (a duplicate).
-  const [searching, setSearching] = useState(false);
-  // A record of an external source chosen while searching: it starts the form below, for the person to check.
-  const [fromRecord, setFromRecord] = useState<{ draft: NewWineDraft; provider: string } | null>(
-    null,
-  );
-  const tAdd = useTranslations("addBottle");
-  const { outcome, facts, matches } = result;
-  const [query, setQuery] = useState(facts?.producer ?? facts?.name ?? "");
-  const wantsForm =
-    chosenNew ||
-    outcome === "new" ||
-    outcome === "unread" ||
-    (outcome === "found" && (rejectedFound || !matches[0]));
-  const producers = [...new Set(wines.map((w) => w.producer))];
-  const unsure = facts ? Object.values(facts.confidence).includes("low") : false;
-  /**
-   * Why the resolver offers this wine (WI-03), in words: what tells the candidates apart. Undefined without the
-   * resolver, so the review looks exactly as it did.
-   */
-  const whyOf = (wineId: string): string | undefined => {
-    const reasons = result.resolution?.reasons[wineId];
-    if (!reasons) return undefined;
-    return reasons
-      .filter((r): r is ResolveReason => (RESOLVE_REASONS as readonly string[]).includes(r))
-      .map((r) => t(`why.${r}`))
-      .join(" · ");
-  };
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="rounded-[28px] bg-hero p-3 shadow-raised">
-        <LabelImage
-          image={result.image}
-          size="photo"
-          alt={t("photoAlt")}
-          className="h-44 w-full rounded-[16px] object-contain"
-        />
-      </div>
-
-      {!wantsForm && outcome === "found" && matches[0] && (
-        <section className="flex flex-col gap-4 rounded-card bg-surface p-4 shadow-raised ring-1 ring-hairline">
-          <div className="flex items-start gap-3">
-            <span
-              aria-hidden="true"
-              className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-accent text-accent-ink"
-            >
-              <CheckIcon size={16} />
-            </span>
-            <div>
-              <h2 className="font-display text-headline">{t("foundTitle")}</h2>
-              <p className="mt-1 text-body text-ink-2">
-                {t(
-                  result.remembered
-                    ? "rememberedBody"
-                    : result.fromText
-                      ? result.facts?.year === null
-                        ? "fromTextNoYearBody"
-                        : "fromTextBody"
-                      : "foundBody",
-                )}
-              </p>
-            </div>
-          </div>
-          <Candidate
-            wine={matches[0].wine}
-            year={facts?.year ?? null}
-            owned={owned.get(matches[0].wine.id)}
-            art={result.art}
-            why={whyOf(matches[0].wine.id)}
-          />
-          <Button size="lg" block onClick={() => onWine(matches[0]!.wine)}>
-            {t("confirmFound")}
-          </Button>
-          <Button variant="ghost" size="lg" block onClick={onReject}>
-            {t("notThisOne")}
-          </Button>
-        </section>
-      )}
-
-      {!wantsForm && outcome === "choose" && (
-        <section className="flex flex-col gap-4">
-          <div>
-            <h2 className="font-display text-headline">{t("chooseTitle")}</h2>
-            <p className="mt-1 text-body text-ink-2">{t("chooseBody")}</p>
-          </div>
-          <ul className="flex flex-col gap-3">
-            {matches.map((m) => (
-              <li key={m.wine.id}>
-                <Candidate
-                  wine={m.wine}
-                  year={facts?.year ?? null}
-                  owned={owned.get(m.wine.id)}
-                  onPick={() => onWine(m.wine)}
-                  why={whyOf(m.wine.id)}
-                />
-              </li>
-            ))}
-          </ul>
-          <RecordSuggestions
-            level={3}
-            records={result.resolution?.records}
-            onUse={(s) => {
-              setFromRecord({ draft: draftOfRecord(s.hit), provider: s.hit.provider?.name ?? "" });
-              setChosenNew(true);
-            }}
-          />
-          <Button variant="secondary" size="lg" block onClick={() => setChosenNew(true)}>
-            {t("noneOfThese")}
-          </Button>
-        </section>
-      )}
-
-      {wantsForm && searching && (
-        <section className="flex flex-col gap-4">
-          <div>
-            <h2 className="font-display text-headline">{t("searchTitle")}</h2>
-            <p className="mt-1 text-body text-ink-2">{t("searchBody")}</p>
-          </div>
-          <ChooseWine
-            wines={wines}
-            query={query}
-            onQuery={setQuery}
-            onPick={onWine}
-            onNew={() => {
-              setFromRecord(null);
-              setSearching(false);
-            }}
-            catalog={
-              catalogSearch
-                ? {
-                    surface: "scan",
-                    onRecord: (hit) => {
-                      setFromRecord({
-                        draft: draftOfRecord(hit),
-                        provider: hit.provider?.name ?? "",
-                      });
-                      setSearching(false);
-                    },
-                  }
-                : undefined
-            }
-          />
-        </section>
-      )}
-
-      {wantsForm && !searching && (
-        <section className="flex flex-col gap-4">
-          {outcome === "unread" ? (
-            <div role="status">
-              <h2 className="font-display text-headline">{t("unreadTitle")}</h2>
-              <p className="mt-1 text-body text-ink-2">
-                {t(`unread.${result.reason ?? "ai-down"}`)}
-              </p>
-            </div>
-          ) : (
-            <div>
-              <h2 className="font-display text-headline">{t("newTitle")}</h2>
-              <p className="mt-1 text-body text-ink-2">{t("newBody")}</p>
-              {unsure && <p className="mt-2 text-small text-ink">{t("hardToRead")}</p>}
-              {facts && facts.type === null && (
-                <p className="mt-2 text-small text-ink">{t("typeUnclear")}</p>
-              )}
-            </div>
-          )}
-          {/* Sprint 004C: a wine nobody in CELLR has added yet may be known to a source shown to people. */}
-          {!fromRecord && outcome !== "unread" && (
-            <RecordSuggestions
-              records={result.resolution?.records}
-              onUse={(s) =>
-                setFromRecord({ draft: draftOfRecord(s.hit), provider: s.hit.provider?.name ?? "" })
-              }
-            />
-          )}
-          {(wines.length > 0 || catalogSearch) && (
-            <Button variant="secondary" size="lg" block onClick={() => setSearching(true)}>
-              <SearchIcon size={18} />
-              {t("searchMine")}
-            </Button>
-          )}
-          <NewWineForm
-            key={fromRecord ? "record" : "read"}
-            initialName=""
-            draft={fromRecord?.draft ?? (facts ? suggestWine(facts) : undefined)}
-            notice={
-              fromRecord ? tAdd("recordNotice", { provider: fromRecord.provider }) : undefined
-            }
-            producers={producers}
-            onCreated={onWine}
-          />
-          {!batch && (
-            <Button variant="ghost" size="lg" block onClick={onAgain}>
-              {t("tryAnother")}
-            </Button>
-          )}
-        </section>
-      )}
-
-      {batch && (
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="ghost" size="lg" block onClick={batch.onBack}>
-            {t("series.back")}
-          </Button>
-          <Button variant="ghost" size="lg" block onClick={batch.onSkip}>
-            {t("series.skipPhoto")}
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Candidate({
-  wine,
-  year,
-  owned,
-  onPick,
-  art,
-  why,
-}: {
-  wine: WineSummary;
-  year: number | null;
-  owned?: number | undefined;
-  onPick?: () => void;
-  art?: BottleArtRef | null | undefined;
-  /** Why this wine is offered (the resolver's reasons, in words). With it, the colour is shown too. */
-  why?: string | undefined;
-}) {
-  const locale = useLocale();
-  const tTypes = useTranslations("wineTypes");
-  const detail = [
-    year === null ? null : formatVintage(year),
-    // what tells two candidates apart: with the resolver's reasons the colour is said as well
-    why !== undefined ? tTypes(wine.type) : null,
-    placeLine(wine.region, wine.countryCode, locale),
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  return (
-    <div className="flex flex-col gap-1.5" data-testid="scan-candidate" data-wine={wine.id}>
-      <WineChoice
-        wine={wine}
-        detail={detail}
-        owned={owned}
-        onPick={onPick}
-        size={onPick ? "thumb" : "card"}
-        art={art}
-      />
-      {why && (
-        <p className="px-1 text-caption text-ink-2" data-testid="scan-why">
-          {why}
-        </p>
-      )}
-    </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   WINE_COUNTRIES,
   WINE_TYPES,
   type CatalogSearchHit,
+  type CreateWine,
   type WineSummary,
   type WineType,
 } from "@cellr/domain";
@@ -50,6 +51,51 @@ export function draftOfRecord(hit: CatalogSearchHit): NewWineDraft {
   };
 }
 
+/** What the person has in the wine fields: everything as typed, a type that may still be open. */
+export interface WineFieldsValue {
+  producer: string;
+  name: string;
+  type: WineType | null;
+  /** "" = not sure */
+  countryCode: string;
+  region: string;
+}
+
+export const fieldsOfDraft = (
+  draft: NewWineDraft | undefined,
+  initialName = "",
+): WineFieldsValue => ({
+  producer: draft?.producer ?? "",
+  name: draft?.name ?? initialName,
+  type: draft ? draft.type : "red",
+  countryCode: draft?.countryCode ?? "",
+  region: draft?.region ?? "",
+});
+
+/**
+ * The wine as the server takes it, or what is still missing in the person's words (a translation key's text): a
+ * kind of wine to choose, a producer, a name. Shared by the add flow and the scan's review.
+ */
+export function checkWineFields(
+  value: WineFieldsValue,
+  recordId: string | null | undefined,
+  t: (key: "typeRequired") => string,
+  te: Parameters<typeof checkMessage>[1],
+): { ok: true; input: CreateWine } | { ok: false; error: string } {
+  if (value.type === null) return { ok: false, error: t("typeRequired") };
+  const parsed = CreateWineSchema.safeParse({
+    producer: value.producer,
+    name: value.name,
+    type: value.type,
+    ...(value.countryCode ? { countryCode: value.countryCode } : {}),
+    region: value.region,
+    ...(recordId ? { sourceRecordId: recordId } : {}),
+  });
+  return parsed.success
+    ? { ok: true, input: parsed.data }
+    : { ok: false, error: checkMessage(parsed.error.issues, te) };
+}
+
 interface NewWineFormProps {
   initialName: string;
   /** Starts the form from what a label scan read; the person checks and corrects it. */
@@ -70,35 +116,18 @@ export function NewWineForm({
   onCreated,
 }: NewWineFormProps) {
   const t = useTranslations("addBottle");
-  const tTypes = useTranslations("wineTypes");
   const te = useTranslations();
-  const locale = useLocale();
   const create = useCreateWine();
-  const listId = useId();
-  const countryId = useId();
-
-  const [producer, setProducer] = useState(draft?.producer ?? "");
-  const [name, setName] = useState(draft?.name ?? initialName);
-  const [type, setType] = useState<WineType | null>(draft ? draft.type : "red");
-  const [country, setCountry] = useState(draft?.countryCode ?? "");
-  const [region, setRegion] = useState(draft?.region ?? "");
+  const [value, setValue] = useState<WineFieldsValue>(() => fieldsOfDraft(draft, initialName));
   const [error, setError] = useState<string | null>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    if (type === null) return setError(t("typeRequired"));
-    const parsed = CreateWineSchema.safeParse({
-      producer,
-      name,
-      type,
-      ...(country ? { countryCode: country } : {}),
-      region,
-      ...(draft?.recordId ? { sourceRecordId: draft.recordId } : {}),
-    });
-    if (!parsed.success) return setError(checkMessage(parsed.error.issues, te));
+    const checked = checkWineFields(value, draft?.recordId, t, te);
+    if (!checked.ok) return setError(checked.error);
     try {
-      onCreated(await create.mutateAsync(parsed.data));
+      onCreated(await create.mutateAsync(checked.input));
     } catch (e) {
       setError(errorMessage(e, (k) => te(k), ERROR_MESSAGES));
     }
@@ -115,47 +144,99 @@ export function NewWineForm({
           {notice}
         </p>
       )}
+      <WineFields value={value} onChange={setValue} producers={producers} autoFocus />
+
+      {error && (
+        <p role="alert" className="text-small text-danger">
+          {error}
+        </p>
+      )}
+      <Button type="submit" size="lg" block loading={create.isPending}>
+        {t("continue")}
+      </Button>
+    </form>
+  );
+}
+
+/**
+ * The fields that say which wine it is (producer, name, kind, country, region), under a live preview of the bottle,
+ * controlled by the caller: the add flow's "new wine" step and the scan's review share them.
+ */
+export function WineFields({
+  value,
+  onChange,
+  producers,
+  autoFocus = false,
+  preview = true,
+}: {
+  value: WineFieldsValue;
+  onChange: (next: WineFieldsValue) => void;
+  /** Producers already in the household's list, offered as suggestions so spellings stay consistent. */
+  producers: string[];
+  autoFocus?: boolean;
+  /** The typeset bottle above the fields (the scan's review shows the label photo instead). */
+  preview?: boolean;
+}) {
+  const t = useTranslations("addBottle");
+  const tTypes = useTranslations("wineTypes");
+  const locale = useLocale();
+  const listId = useId();
+  const countryId = useId();
+  const { producer, name, type, countryCode: country, region } = value;
+  const set = (patch: Partial<WineFieldsValue>) => onChange({ ...value, ...patch });
+  const setProducer = (producer: string) => set({ producer });
+  const setName = (name: string) => set({ name });
+  const setType = (type: WineType) => set({ type });
+  const setCountry = (countryCode: string) => set({ countryCode });
+  const setRegion = (region: string) => set({ region });
+  return (
+    <>
       {/* A live preview: the bottle on its stage, typeset from what is typed. Decorative, the fields say it all. */}
-      <div
-        aria-hidden="true"
-        className="flex items-center gap-4 rounded-card bg-surface p-3 shadow-raised ring-1 ring-hairline"
-      >
-        <WineStage
-          type={type ?? "red"}
-          muted={type === null}
-          producer={producer}
-          name={name}
-          size="card"
-        />
-        <div className="min-w-0 flex-1">
-          <p
-            className={cn(
-              "truncate text-caption font-medium uppercase tracking-[0.14em]",
-              producer.trim() ? "text-bronze" : "text-ink-3",
-            )}
-          >
-            {producer.trim() || t("producerPlaceholder")}
-          </p>
-          <p
-            className={cn(
-              "mt-0.5 line-clamp-2 font-display text-title",
-              name.trim() ? "text-ink" : "text-ink-3",
-            )}
-          >
-            {name.trim() || t("namePlaceholder")}
-          </p>
-          <p className="mt-1 text-small text-ink-2">
-            {[type ? tTypes(type) : null, placeLine(region.trim() || null, country || null, locale)]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
+      {preview && (
+        <div
+          aria-hidden="true"
+          className="flex items-center gap-4 rounded-card bg-surface p-3 shadow-raised ring-1 ring-hairline"
+        >
+          <WineStage
+            type={type ?? "red"}
+            muted={type === null}
+            producer={producer}
+            name={name}
+            size="card"
+          />
+          <div className="min-w-0 flex-1">
+            <p
+              className={cn(
+                "truncate text-caption font-medium uppercase tracking-[0.14em]",
+                producer.trim() ? "text-bronze" : "text-ink-3",
+              )}
+            >
+              {producer.trim() || t("producerPlaceholder")}
+            </p>
+            <p
+              className={cn(
+                "mt-0.5 line-clamp-2 font-display text-title",
+                name.trim() ? "text-ink" : "text-ink-3",
+              )}
+            >
+              {name.trim() || t("namePlaceholder")}
+            </p>
+            <p className="mt-1 text-small text-ink-2">
+              {[
+                type ? tTypes(type) : null,
+                placeLine(region.trim() || null, country || null, locale),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       <Field
         label={t("producerLabel")}
         placeholder={t("producerPlaceholder")}
-        autoFocus
+        autoFocus={autoFocus}
         autoComplete="off"
         autoCapitalize="words"
         list={listId}
@@ -233,15 +314,6 @@ export function NewWineForm({
           onChange={(e) => setRegion(e.target.value)}
         />
       </div>
-
-      {error && (
-        <p role="alert" className="text-small text-danger">
-          {error}
-        </p>
-      )}
-      <Button type="submit" size="lg" block loading={create.isPending}>
-        {t("continue")}
-      </Button>
-    </form>
+    </>
   );
 }
