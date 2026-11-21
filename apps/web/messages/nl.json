@@ -141,9 +141,9 @@
     "photoAlt": "Jouw foto van het etiket",
     "foundTitle": "Gevonden",
     "foundBody": "Dit lijkt een wijn die je al hebt.",
-    "rememberedBody": "Deze foto heb je eerder bevestigd. Kijk hem na en bevestig opnieuw.",
-    "fromTextBody": "Herkend aan de gedrukte tekst op het etiket, zonder AI. Controleer de wijn en het jaar en bevestig.",
-    "fromTextNoYearBody": "Herkend aan de gedrukte tekst op het etiket, zonder AI. Het jaar was niet leesbaar: dat kies je hierna.",
+    "rememberedBody": "Deze foto heb je eerder bevestigd. Kijk hem hieronder na.",
+    "fromTextBody": "Herkend aan de gedrukte tekst op het etiket, zonder AI. Controleer hieronder de wijn en het jaar.",
+    "fromTextNoYearBody": "Herkend aan de gedrukte tekst op het etiket, zonder AI. Het jaar was niet leesbaar: kies het hieronder.",
     "confirmFound": "Ja, voeg flessen toe",
     "notThisOne": "Niet deze",
     "chooseTitle": "Is het een van deze?",
@@ -275,6 +275,12 @@
         "vintage_not_listed": "Bron noemt deze jaargang niet"
       },
       "licenseLink": "Licentie: {license}"
+    },
+    "review": {
+      "wineTitle": "De wijn",
+      "closeSearch": "Terug naar de scan",
+      "useMatch": "Toch {wine}",
+      "pickFirst": "Kies eerst welke wijn het is, of voeg hem toe als nieuwe wijn."
     }
   },
   "sommelier": {

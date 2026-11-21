@@ -84,7 +84,6 @@ test("a corrected vintage is a scan misread, never evidence that the catalogue w
   await takePhoto(page, await makeJpeg(page, { ...size, words: "Témoin" }));
   await expect(page.getByRole("heading", { name: "We found it" })).toBeVisible();
   await expect(page.getByText(name, { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Yes, add bottles" }).click();
   await expect(page.getByLabel("Vintage")).toHaveValue("2016");
   // typing on its own records nothing
   await page.getByLabel("Vintage").fill("2017");

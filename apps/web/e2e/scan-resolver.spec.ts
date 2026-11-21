@@ -394,7 +394,7 @@ test.describe("the wine resolver behind a scan", () => {
 
     // "none of these": the form, with what was read, nothing created yet
     await page.getByRole("button", { name: "None of these: it is a new wine" }).click();
-    await expect(page.getByRole("heading", { name: "A new wine" })).toBeVisible();
+    await expect(page.getByTestId("scan-review-new")).toBeVisible();
     await expect(page.getByLabel("Wine name")).toHaveValue(`Cuvée Beta ${m}`);
 
     // an exact reading: one wine, said to be exactly that name, still for the person to confirm or refuse
@@ -412,7 +412,8 @@ test.describe("the wine resolver behind a scan", () => {
       "Exactly this name in the CELLR catalogue",
     );
     await expect(page.getByRole("button", { name: "Not this one" })).toBeVisible();
-    await page.getByRole("button", { name: "Yes, add bottles" }).click();
+    // the vintage read off the label is on the same screen, ready to add
     await expect(page.getByLabel("Vintage")).toHaveValue("2020");
+    await expect(page.getByRole("button", { name: "Add 1 bottle" })).toBeVisible();
   });
 });
