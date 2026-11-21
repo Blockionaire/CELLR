@@ -229,7 +229,7 @@ export async function adminAi(session: AdminSession, days: AdminRange, now = new
 
 /**
  * The sommelier's report: how answers were given (the engines or the model), how they were rated, what came of
- * the bottles they offered, and what the model cost. Counts only. "missing" until migration 0049 is applied.
+ * the bottles they offered, and what the model cost. Counts only. "missing" until migration 0052 is applied.
  */
 export async function adminSommelier(session: AdminSession, days: AdminRange, now = new Date()) {
   assertAdmin(session);

@@ -489,7 +489,7 @@ const components = [
         severity: "medium",
         title: "Ratings and outcomes are reported, not yet fed back",
         detail:
-          "sommelier_feedback and sommelier_outcomes are counted in the admin's report (/admin/sommelier, migration 0049). No code feeds them back into the engines' knowledge, a prompt or a model: that takes enough outcomes to mean something and a person to judge them (docs/sprints/sommelier-3-mega/progress/S7.md).",
+          "sommelier_feedback and sommelier_outcomes are counted in the admin's report (/admin/sommelier, migration 0052). No code feeds them back into the engines' knowledge, a prompt or a model: that takes enough outcomes to mean something and a person to judge them (docs/sprints/sommelier-3-mega/progress/S7.md).",
       },
     ],
   },
@@ -994,7 +994,7 @@ const components = [
     outputs: [],
     sources: [
       M + "20261123000046_sommelier_conversations.sql",
-      M + "20261126000049_sommelier_learning.sql",
+      M + "20261130000052_sommelier_learning.sql",
     ],
     tables: [
       "sommelier_conversations",

@@ -354,7 +354,7 @@ export function sumActivity(days: readonly AdminActivityDay[]) {
   };
 }
 
-// ---- The sommelier's report (migration 0049): counts only -------------------------------------------------------
+// ---- The sommelier's report (migration 0052): counts only -------------------------------------------------------
 
 const Code = z.string().max(40);
 /**
