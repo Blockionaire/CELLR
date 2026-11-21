@@ -28,9 +28,14 @@ export interface VectorFile {
 
 const REPO = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
-export function vectorOf(row: QualityRow, result: ScenarioResult): ScenarioVector {
+export function vectorOf(
+  row: QualityRow,
+  result: ScenarioResult,
+  cluster?: string,
+): ScenarioVector {
   const first = result.checks.find((c) => c.name === "first");
   return {
+    ...(cluster === undefined ? {} : { cluster }),
     first: first === undefined || first.pass ? 1 : 0,
     noPoor: row.labels.includes("poor") ? 0 : 1,
     useful: row.useful ? 1 : 0,

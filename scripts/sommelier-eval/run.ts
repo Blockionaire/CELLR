@@ -154,7 +154,12 @@ for (const scenario of scenarios) {
   cellarOfScenario.set(scenario.id, cellarKeys);
   const row = qualityRow(scenario, card, run.answer, scored, cellarKeys);
   if (row) qualityRows.push(row);
-  if (row && keyOf) vectors.set(keyOf.key(scenario.id), vectorOf(row, scored));
+  // Clustered by dish (keyed like the scenario, so a blind set's dishes are not named either).
+  if (row && keyOf)
+    vectors.set(
+      keyOf.key(scenario.id),
+      vectorOf(row, scored, scenario.dish ? keyOf.key(`dish:${scenario.dish}`) : undefined),
+    );
   addGuardEffect(guardEffect, scenario, card, run.answer, scored, cellarKeys);
 }
 const quality = qualityTotals(

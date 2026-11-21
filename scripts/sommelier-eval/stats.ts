@@ -4,8 +4,9 @@
  * observation. Every comparison here therefore
  *
  * 1. averages each engine's runs WITHIN a scenario first (a scenario counts once, however often it was run), then
- * 2. resamples SCENARIOS (a paired, cluster bootstrap): both engines' values of a drawn scenario go together, so
- *    what the scenarios share (an easy dish, a hard cellar) cancels out of the difference.
+ * 2. resamples DISHES (a paired cluster bootstrap): every scenario about a drawn dish goes in, and both engines'
+ *    values of a scenario go together, so what the scenarios share (an easy dish, a hard cellar) cancels out of
+ *    the difference, and two questions about one dish count as the one dish they are.
  *
  * A measure per bottle (poor bottles of all offered) is a ratio of sums over the drawn scenarios, so the bottles of
  * one answer are never counted as independent either. Running a scenario more often narrows nothing here except
@@ -23,6 +24,12 @@ export interface ScenarioVector {
   noPoor: 0 | 1;
   /** The answer was useful (`qualityRow`). */
   useful: 0 | 1;
+  /**
+   * What the scenario shares with others: its dish. Scenarios about the same dish (the same dish asked in two
+   * languages, or with another cellar) are not independent either, so the bootstrap draws dishes, not scenarios.
+   * Absent: the scenario is its own cluster.
+   */
+  cluster?: string;
   /** Bottles offered, and of those labelled poor and good. */
   offered: number;
   poor: number;
@@ -38,8 +45,10 @@ export interface Interval {
   diff: number;
   low: number;
   high: number;
-  /** Scenarios in both, in every run of both: the n of the comparison. */
+  /** Scenarios in both, in every run of both. */
   scenarios: number;
+  /** Their clusters (dishes): the n the interval rests on. */
+  clusters: number;
   runsA: number;
   runsB: number;
   /** Ratio measures only: resamples left out because an engine offered no bottle in them. */
@@ -79,6 +88,24 @@ function quantiles(sorted: readonly number[]): [number, number] {
   return [at(0.025), at(0.975)];
 }
 
+/** The scenarios' indices, grouped by cluster (the first run of `a` says which cluster a scenario is in). */
+function clustersOf(runs: Runs, ids: readonly string[]): number[][] {
+  const by = new Map<string, number[]>();
+  ids.forEach((id, i) => {
+    const c = runs[0]?.get(id)?.cluster ?? `scenario:${id}`;
+    by.set(c, [...(by.get(c) ?? []), i]);
+  });
+  return [...by.values()];
+}
+
+/** One resample: clusters drawn with replacement, every scenario of a drawn cluster in it. */
+function draw(groups: readonly number[][], rnd: () => number): number[] {
+  const pick: number[] = [];
+  for (let g = 0; g < groups.length; g += 1)
+    pick.push(...groups[Math.floor(rnd() * groups.length)]!);
+  return pick;
+}
+
 /** Per scenario: the engine's mean over its runs of `f`. */
 function perScenario(runs: Runs, ids: readonly string[], f: (v: ScenarioVector) => number) {
   return ids.map((id) => mean(runs.map((r) => f(r.get(id)!))));
@@ -95,13 +122,13 @@ export function pairedProportion(
   const da = perScenario(a, ids, (v) => v[measure]);
   const db = perScenario(b, ids, (v) => v[measure]);
   const diffs = da.map((x, i) => x - db[i]!);
+  const groups = clustersOf(a, ids);
   const rounds = options.rounds ?? 4000;
   const rnd = xorshift(options.seed ?? 20261121);
   const boots: number[] = [];
   for (let r = 0; r < rounds; r += 1) {
-    let s = 0;
-    for (let i = 0; i < diffs.length; i += 1) s += diffs[Math.floor(rnd() * diffs.length)]!;
-    boots.push(s / diffs.length);
+    const pick = draw(groups, rnd);
+    boots.push(pick.reduce((sum, i) => sum + diffs[i]!, 0) / pick.length);
   }
   boots.sort((x, y) => x - y);
   const [low, high] = ids.length === 0 ? [NaN, NaN] : quantiles(boots);
@@ -110,6 +137,7 @@ export function pairedProportion(
     low,
     high,
     scenarios: ids.length,
+    clusters: groups.length,
     runsA: a.length,
     runsB: b.length,
   };
@@ -141,12 +169,13 @@ export function pairedRatio(
     return d === 0 ? NaN : n / d;
   };
   const every = ids.map((_, i) => i);
+  const groups = clustersOf(a, ids);
   const rounds = options.rounds ?? 4000;
   const rnd = xorshift(options.seed ?? 20261121);
   const boots: number[] = [];
   let undefinedDraws = 0;
   for (let r = 0; r < rounds; r += 1) {
-    const pick = every.map(() => Math.floor(rnd() * every.length));
+    const pick = draw(groups, rnd);
     const d = ratio(na, oa, pick) - ratio(nb, ob, pick);
     // A resample in which one engine offered nothing has no difference to give: it is left out (and counted).
     if (Number.isNaN(d)) undefinedDraws += 1;
@@ -159,6 +188,7 @@ export function pairedRatio(
     low,
     high,
     scenarios: ids.length,
+    clusters: groups.length,
     runsA: a.length,
     runsB: b.length,
     undefinedDraws,

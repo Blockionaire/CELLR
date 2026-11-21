@@ -84,6 +84,33 @@ describe("a comparison counts scenarios, not runs", () => {
   });
 });
 
+const withoutCluster = (x: ScenarioVector): ScenarioVector => {
+  const copy = { ...x };
+  delete copy.cluster;
+  return copy;
+};
+
+describe("scenarios about one dish count as that dish", () => {
+  it("is as wide for 20 dishes asked twice as for the 20 dishes asked once", () => {
+    const once = engines(20, 15, 10);
+    const twice = { a: new Map<string, ScenarioVector>(), b: new Map<string, ScenarioVector>() };
+    for (const side of ["a", "b"] as const)
+      for (const [id, x] of once[side])
+        for (const lang of ["en", "nl"]) twice[side].set(`${id}-${lang}`, { ...x, cluster: id });
+    const r1 = pairedProportion([once.a], [once.b], "first");
+    const r2 = pairedProportion([twice.a], [twice.b], "first");
+    expect(r2).toMatchObject({ scenarios: 40, clusters: 20, diff: r1.diff });
+    expect(r2.high - r2.low).toBeCloseTo(r1.high - r1.low, 1);
+    // Without the dish, the same 40 scenarios would seem to say more than they do.
+    const naive = {
+      a: new Map([...twice.a].map(([k, x]) => [k, withoutCluster(x)])),
+      b: new Map([...twice.b].map(([k, x]) => [k, withoutCluster(x)])),
+    };
+    const r3 = pairedProportion([naive.a], [naive.b], "first");
+    expect(r3.high - r3.low).toBeLessThan(r2.high - r2.low);
+  });
+});
+
 describe("edge cases", () => {
   it("a resample with no bottle offered is left out, never read as 0% poor", () => {
     const a = new Map<string, ScenarioVector>([

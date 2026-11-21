@@ -87,6 +87,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     );
   for (const [name, r] of Object.entries(compare(a, b)))
     console.log(
-      `  ${name.padEnd(14)} ${pts(r.diff)} points [${pts(r.low)}, ${pts(r.high)}] over ${r.scenarios} scenarios`,
+      `  ${name.padEnd(14)} ${pts(r.diff)} points [${pts(r.low)}, ${pts(r.high)}] over ${r.scenarios} scenarios of ${r.clusters} dishes`,
     );
 }
