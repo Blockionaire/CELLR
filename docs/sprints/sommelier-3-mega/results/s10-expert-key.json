@@ -1,0 +1,275 @@
+{
+  "what": "The key to EXPERT_REVIEW.md: which pair each row is, the benchmark's label, the engine's level at S8 and the AI second opinion of S9. Not for the reviewer.",
+  "rows": [
+    {
+      "n": 1,
+      "dish": "bouillabaisse",
+      "wine": "champagne",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "good",
+      "group": "engine"
+    },
+    {
+      "n": 2,
+      "dish": "coq-au-vin",
+      "wine": "pauillac",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "ok",
+      "group": "neither"
+    },
+    {
+      "n": 3,
+      "dish": "ratatouille",
+      "wine": "chablis",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "ok",
+      "group": "neither"
+    },
+    {
+      "n": 4,
+      "dish": "osso-buco",
+      "wine": "pauillac",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "ok",
+      "group": "neither"
+    },
+    {
+      "n": 5,
+      "dish": "veal-morels",
+      "wine": "barolo",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "ok",
+      "group": "neither"
+    },
+    {
+      "n": 6,
+      "dish": "stamppot-boerenkool",
+      "wine": "meursault",
+      "label": "poor",
+      "engineAtS8": "ok",
+      "aiJudge": "ok",
+      "group": "engine"
+    },
+    {
+      "n": 7,
+      "dish": "shakshuka",
+      "wine": "champagne",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "good",
+      "group": "engine"
+    },
+    {
+      "n": 8,
+      "dish": "strawberries-cream",
+      "wine": "tawny-port",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "poor",
+      "group": "label"
+    },
+    {
+      "n": 9,
+      "dish": "draadjesvlees",
+      "wine": "barolo",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "good",
+      "group": "engine"
+    },
+    {
+      "n": 10,
+      "dish": "stamppot-boerenkool",
+      "wine": "beaujolais",
+      "label": "good",
+      "engineAtS8": "poor",
+      "aiJudge": "good",
+      "group": "label"
+    },
+    {
+      "n": 11,
+      "dish": "mushroom-risotto",
+      "wine": "albarino",
+      "label": "poor",
+      "engineAtS8": "ok",
+      "aiJudge": "ok",
+      "group": "engine"
+    },
+    {
+      "n": 12,
+      "dish": "falafel-tahini",
+      "wine": "gruner",
+      "label": "good",
+      "engineAtS8": "poor",
+      "aiJudge": "good",
+      "group": "label"
+    },
+    {
+      "n": 13,
+      "dish": "steak-tartare",
+      "wine": "cava",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "good",
+      "group": "engine"
+    },
+    {
+      "n": 14,
+      "dish": "cheese-board-hard",
+      "wine": "rioja-reserva",
+      "label": "good",
+      "engineAtS8": "ok",
+      "aiJudge": "good",
+      "group": "label"
+    },
+    {
+      "n": 15,
+      "dish": "eggs-benedict",
+      "wine": "meursault",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "good",
+      "group": "engine"
+    },
+    {
+      "n": 16,
+      "dish": "peking-duck",
+      "wine": "meursault",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "poor",
+      "group": "label"
+    },
+    {
+      "n": 17,
+      "dish": "seafood-paella",
+      "wine": "champagne",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "good",
+      "group": "engine"
+    },
+    {
+      "n": 18,
+      "dish": "butter-chicken",
+      "wine": "chianti",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "poor",
+      "group": "label"
+    },
+    {
+      "n": 19,
+      "dish": "osso-buco",
+      "wine": "amarone",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "good",
+      "group": "engine"
+    },
+    {
+      "n": 20,
+      "dish": "roast-lamb",
+      "wine": "amarone",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "ok",
+      "group": "neither"
+    },
+    {
+      "n": 21,
+      "dish": "draadjesvlees",
+      "wine": "amarone",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "good",
+      "group": "engine"
+    },
+    {
+      "n": 22,
+      "dish": "chili-con-carne",
+      "wine": "chianti",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "ok",
+      "group": "neither"
+    },
+    {
+      "n": 23,
+      "dish": "ratatouille",
+      "wine": "gruner",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "good",
+      "group": "engine"
+    },
+    {
+      "n": 24,
+      "dish": "pizza-margherita",
+      "wine": "chablis",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "ok",
+      "group": "neither"
+    },
+    {
+      "n": 25,
+      "dish": "pho",
+      "wine": "sancerre",
+      "label": "poor",
+      "engineAtS8": "ok",
+      "aiJudge": "ok",
+      "group": "engine"
+    },
+    {
+      "n": 26,
+      "dish": "nasi-goreng",
+      "wine": "cava",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "ok",
+      "group": "neither"
+    },
+    {
+      "n": 27,
+      "dish": "cheese-board-hard",
+      "wine": "barolo",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "good",
+      "group": "engine"
+    },
+    {
+      "n": 28,
+      "dish": "hutspot-klapstuk",
+      "wine": "napa-cab",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "ok",
+      "group": "neither"
+    },
+    {
+      "n": 29,
+      "dish": "seared-tuna",
+      "wine": "meursault",
+      "label": "poor",
+      "engineAtS8": "good",
+      "aiJudge": "good",
+      "group": "engine"
+    },
+    {
+      "n": 30,
+      "dish": "hummus-mezze",
+      "wine": "champagne",
+      "label": "poor",
+      "engineAtS8": "ok",
+      "aiJudge": "good",
+      "group": "neither"
+    }
+  ]
+}

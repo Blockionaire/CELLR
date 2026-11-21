@@ -17,6 +17,10 @@ export const LIMITS = {
   chat: { bucket: "chat", limit: 60, windowSeconds: 3600 },
   /** Sommelier 3.0's engines cost no model call, so more is allowed; a loop is still stopped. */
   sommelierEngine: { bucket: "sommelier_engine", limit: 300, windowSeconds: 3600 },
+  /** A model reading a dish the engines could not place (S10): a call each, for a minority of questions. */
+  dishReading: { bucket: "dish_reading", limit: 60, windowSeconds: 3600 },
+  /** A model's second opinion on the engines' candidates (S10, experiment): a call each, in close calls only. */
+  pairingReview: { bucket: "pairing_review", limit: 60, windowSeconds: 3600 },
   /** A full copy of the household's data is a big read: plenty for a person, not for a loop. */
   export: { bucket: "export", limit: 10, windowSeconds: 3600 },
   /** Every label read costs money: a person scanning a whole case is fine, a script is not. */

@@ -88,7 +88,7 @@ describe("an estimate", () => {
     const result = await estimating(AI, meter).generateObject(REQUEST);
     expect(result).toMatchObject({ ok: false, kind: "unavailable", usage: { notSent: true } });
     expect(meter.calls).toBe(1);
-    expect(meter.inputTokens).toBe(300);
+    expect(meter.inputTokens).toBe(301);
     expect(meter.outputTokens).toBe(900);
     expect(meter.usdMicro).toBeGreaterThan(0);
   });

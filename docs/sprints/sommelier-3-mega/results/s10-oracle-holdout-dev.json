@@ -1,0 +1,401 @@
+{
+  "engine": "v3-oracle",
+  "scenarios": 45,
+  "passed": 24,
+  "supported": 45,
+  "byCategory": {
+    "pairing-simple": {
+      "scenarios": 17,
+      "supported": 17,
+      "passed": 10
+    },
+    "pairing-hard": {
+      "scenarios": 14,
+      "supported": 14,
+      "passed": 8
+    },
+    "pairing-misleading": {
+      "scenarios": 4,
+      "supported": 4,
+      "passed": 1
+    },
+    "no-suitable-wine": {
+      "scenarios": 5,
+      "supported": 5,
+      "passed": 3
+    },
+    "missing-metadata": {
+      "scenarios": 3,
+      "supported": 3,
+      "passed": 1
+    },
+    "inventory": {
+      "scenarios": 2,
+      "supported": 2,
+      "passed": 1
+    }
+  },
+  "measures": {
+    "grounded": [45, 45],
+    "food": [42, 45],
+    "verdict": [34, 45],
+    "first": [28, 45],
+    "no-poor-bottle": [33, 40],
+    "no-bottles": [4, 5],
+    "honest-none": [4, 5],
+    "confidence": [3, 3],
+    "never": [1, 1],
+    "flag": [1, 1]
+  },
+  "quality": {
+    "scenarios": 45,
+    "byPlace": [
+      {
+        "place": 1,
+        "good": 22,
+        "ok": 9,
+        "poor": 7
+      },
+      {
+        "place": 2,
+        "good": 16,
+        "ok": 6,
+        "poor": 1
+      },
+      {
+        "place": 3,
+        "good": 8,
+        "ok": 5,
+        "poor": 0
+      }
+    ],
+    "offeredBottles": 74,
+    "poorBottles": 8,
+    "goodBottles": 46,
+    "useful": 34,
+    "answeredWhenPossible": [37, 40],
+    "goodMissed": [5, 34],
+    "honestNone": [4, 5],
+    "counts": [7, 15, 10, 13],
+    "dishRead": [42, 45]
+  },
+  "results": [
+    {
+      "id": "ho-001",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ho-002",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-003",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-004",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-005",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-006",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ho-007",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ho-008",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ho-009",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-012",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-013",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-017",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-018",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ho-021",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-022",
+      "pass": false,
+      "supported": true,
+      "failed": ["food"]
+    },
+    {
+      "id": "ho-025",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ho-026",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-027",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-028",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-029",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-030",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-042",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ho-045",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ho-046",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-047",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ho-048",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ho-049",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-050",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ho-052",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ho-053",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-055",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-060",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ho-061",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-062",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ho-066",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ho-067",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-069",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-071",
+      "pass": false,
+      "supported": true,
+      "failed": ["food"]
+    },
+    {
+      "id": "ho-079",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first", "no-bottles"]
+    },
+    {
+      "id": "ho-080",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-081",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-082",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ho-083",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict"]
+    },
+    {
+      "id": "ho-087",
+      "pass": false,
+      "supported": true,
+      "failed": ["food"]
+    },
+    {
+      "id": "ho-088",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    }
+  ],
+  "labels": {
+    "ho-001": ["ok", "good", "good"],
+    "ho-002": ["good", "ok", "ok"],
+    "ho-003": ["good", "good", "good"],
+    "ho-004": ["good", "good", "good"],
+    "ho-005": ["good", "good"],
+    "ho-006": ["ok", "good"],
+    "ho-007": ["ok", "good", "good"],
+    "ho-008": ["ok", "poor"],
+    "ho-009": ["good"],
+    "ho-012": ["good", "good", "ok"],
+    "ho-013": ["good"],
+    "ho-017": ["good"],
+    "ho-018": ["poor", "ok", "ok"],
+    "ho-021": ["good"],
+    "ho-022": ["good", "good", "good"],
+    "ho-025": ["ok", "good"],
+    "ho-026": ["good", "good"],
+    "ho-027": ["good"],
+    "ho-028": ["good"],
+    "ho-029": ["good"],
+    "ho-030": ["good", "ok"],
+    "ho-042": ["ok", "good", "ok"],
+    "ho-045": ["poor"],
+    "ho-046": ["good"],
+    "ho-047": ["ok"],
+    "ho-048": [],
+    "ho-049": ["ok"],
+    "ho-050": [],
+    "ho-052": [],
+    "ho-053": ["good", "good"],
+    "ho-055": ["ok", "ok"],
+    "ho-060": ["poor", "ok", "good"],
+    "ho-061": ["good", "good"],
+    "ho-062": ["poor", "good"],
+    "ho-066": ["poor"],
+    "ho-067": [],
+    "ho-069": [],
+    "ho-071": [],
+    "ho-079": ["poor"],
+    "ho-080": [],
+    "ho-081": ["good", "good", "good"],
+    "ho-082": ["poor", "ok", "ok"],
+    "ho-083": ["good", "good", "good"],
+    "ho-087": ["good"],
+    "ho-088": ["good"]
+  }
+}

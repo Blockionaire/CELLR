@@ -1,0 +1,82 @@
+{
+  "engine": "v3-app",
+  "scenarios": 88,
+  "passed": 39,
+  "supported": 88,
+  "byCategory": {
+    "pairing-simple": {
+      "scenarios": 26,
+      "supported": 26,
+      "passed": 17
+    },
+    "pairing-hard": {
+      "scenarios": 30,
+      "supported": 30,
+      "passed": 10
+    },
+    "pairing-misleading": {
+      "scenarios": 10,
+      "supported": 10,
+      "passed": 1
+    },
+    "no-suitable-wine": {
+      "scenarios": 14,
+      "supported": 14,
+      "passed": 7
+    },
+    "missing-metadata": {
+      "scenarios": 4,
+      "supported": 4,
+      "passed": 2
+    },
+    "inventory": {
+      "scenarios": 4,
+      "supported": 4,
+      "passed": 2
+    }
+  },
+  "measures": {
+    "grounded": [88, 88],
+    "food": [64, 88],
+    "verdict": [67, 88],
+    "first": [56, 88],
+    "no-poor-bottle": [64, 74],
+    "no-bottles": [12, 14],
+    "honest-none": [12, 14],
+    "confidence": [4, 4],
+    "never": [2, 2],
+    "flag": [1, 1]
+  },
+  "quality": {
+    "scenarios": 88,
+    "byPlace": [
+      {
+        "place": 1,
+        "good": 40,
+        "ok": 16,
+        "poor": 11
+      },
+      {
+        "place": 2,
+        "good": 24,
+        "ok": 8,
+        "poor": 1
+      },
+      {
+        "place": 3,
+        "good": 13,
+        "ok": 7,
+        "poor": 1
+      }
+    ],
+    "offeredBottles": 121,
+    "poorBottles": 13,
+    "goodBottles": 77,
+    "useful": 67,
+    "answeredWhenPossible": [65, 74],
+    "goodMissed": [16, 64],
+    "honestNone": [12, 14],
+    "counts": [21, 34, 12, 21],
+    "dishRead": [64, 88]
+  }
+}

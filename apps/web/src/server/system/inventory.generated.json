@@ -372,9 +372,11 @@
     "purchase_intel",
     "scan_resolver",
     "sommelier_buying",
+    "sommelier_dish_ai",
     "sommelier_engine",
     "sommelier_experiences",
     "sommelier_learning",
+    "sommelier_second_opinion",
     "sommelier_social",
     "sources_panel",
     "wine_search"

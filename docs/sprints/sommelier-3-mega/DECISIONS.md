@@ -119,3 +119,48 @@ improved scores would look like, and partly be, moving the goalposts. New scenar
 **Recorded in S9.** The harness for V1 with AI estimates by default and sends nothing. A real run needs
 `SOMMELIER_EVAL_PAID=owner-approved` and a key, skips what V1 cannot attempt, and stops at a spending limit. The
 agent sets neither value.
+
+## D-33 — A model reads dishes, in the engine's vocabulary, and the engine still decides (S10)
+
+The model is asked what a dish is, never what to drink. Its answer is a profile in closed lists and fixed scales,
+checked by code and merged with what the person wrote. This keeps the guarantees of 3.0 (nothing invented, honest
+"nothing", no friend data in a prompt) whatever the model says.
+
+## D-34 — The model sees the dish phrase only (S10)
+
+Not the question, the conversation, the cellar, a taste or a friend; nothing for a question that names a friend.
+This makes a reading a function of the phrase, which is what allows sharing it (D-35), and keeps the friends'
+consent text true.
+
+## D-35 — Dish readings are shared, in memory, without text (S10)
+
+`DISH_CACHE.md`. A table shared by every instance is designed and not built: it needs a migration and a secret.
+
+## D-36 — Fewer, surer bottles (S10)
+
+After the first pick only picks with nothing against them; one bottle for a dish that is a guess. Set on the
+readable sets, checked once on the blind half. It never changes the first pick or the outcome, so it can only
+make an answer more careful.
+
+## D-37 — The second opinion is an experiment that can only take away (S10)
+
+It may reorder or drop the engine's own picks, or say none suits; never add or raise. Behind its own switch,
+which needs the dish reading. Not to be switched on unless the paid run shows it helps.
+
+## D-38 — The decision rule for activation is written before the paid run (S10)
+
+`HYBRID_EVALUATION.md` §6. If the best hybrid is not at least as good as V1 with AI on the first bottle and as safe
+on poor bottles and "nothing suits", on the unseen dishes, the advice is no activation.
+
+## D-39 — No model for a conversation with any "@" in it; a follow-up re-reads only what a model has seen (S10)
+
+Found by the independent security review: a malformed mention is still someone's name. The engines now ask no model
+anything about a conversation in which any turn the screen sends holds an "@". A follow-up's dish is the phrase a
+model already read (from the store, or read again), never a dish that came from a question naming someone; the
+conversation's state marks which is which (`dishReadByModel`).
+
+## D-40 — V1 with AI stays the default; S11 tests "V1 decides, the engine vetoes" (S10)
+
+The paid comparison did not meet the rule set before it (D-38). The engine is kept for what it measurably does
+better (honesty about "nothing suits", groundedness), as a guard on V1's answer rather than in its place. No tuning
+on the blind half after the run.

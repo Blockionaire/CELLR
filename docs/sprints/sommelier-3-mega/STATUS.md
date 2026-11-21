@@ -9,13 +9,14 @@ the GO / NO-GO, is in [`RELEASE_PLAN.md`](RELEASE_PLAN.md).
 ## Resume block
 
 ```text
-UPDATED:        2026-11-20 (S0–S9 written; everything is in open pull requests; nothing is merged or released)
-PHASE:          S9 — quality and product completion
+UPDATED:        2026-11-20 (S0–S10 written; everything is in open pull requests; nothing is merged or released)
+PHASE:          S10 — done: no hybrid beats V1 with AI on unseen dishes; V1 stays the default; S11 proposed
 TRACKING ISSUE: #89
 MAIN:           6ab4350 (#88 system monitoring and #92 3D sprint 4 merged). main holds migration 20261124000047,
                 and Production records 0001–0047 (read-only check, 2026-11-20, after the owner applied 0047).
                 This work's migrations: 0051, 0052, 0053; all unapplied, all later than 0047.
-SWITCHES:       sommelier_engine, sommelier_buying, sommelier_social, sommelier_experiences, sommelier_learning.
+SWITCHES:       sommelier_engine, sommelier_buying, sommelier_social, sommelier_experiences, sommelier_learning,
+                sommelier_dish_ai and sommelier_second_opinion (S10).
                 None is turned on by `all`; each must be named in CELLR_FEATURES; the last four need the first.
                 Nothing is on anywhere.
 AI:             The comparison with V1's AI was run on 2026-11-20 with the owner's approval ($0.10 of $2;
@@ -25,7 +26,7 @@ AI:             The comparison with V1's AI was run on 2026-11-20 with the owner
 RETAILER:       no source. Live offers are built, validated and off (`offers: null`); buying advice is styles.
 QUALITY:        main set 170 / 246; blind holdout 19 / 43; unseen dishes understood 72% (progress/S9.md §2).
 PRODUCTION:     not touched. No merge, deploy, db push, setting or production write by the agent.
-WORKTREES:      /home/user/CELLR (S7 branch), /home/user/CELLR-s3 (S9 branch). Ephemeral: only what is pushed lasts.
+WORKTREES:      /home/user/CELLR (S7 branch), /home/user/CELLR-s3 (S10 branch). Ephemeral: only what is pushed lasts.
 ```
 
 ## Pull requests (a stack: review and merge top to bottom)
@@ -40,6 +41,7 @@ WORKTREES:      /home/user/CELLR (S7 branch), /home/user/CELLR-s3 (S9 branch). E
 | S7      | `claude/sommelier-3-s7-learning`     | `claude/sommelier-3-s6-experiences`  | [#97](https://github.com/Blockionaire/CELLR/pull/97)   |
 | S8      | `claude/sommelier-3-s8-release`      | `claude/sommelier-3-s7-learning`     | [#98](https://github.com/Blockionaire/CELLR/pull/98)   |
 | S9      | `claude/sommelier-3-s9-quality`      | `claude/sommelier-3-s8-release`      | [#100](https://github.com/Blockionaire/CELLR/pull/100) |
+| S10     | `claude/sommelier-3-s10-hybrid`      | `claude/sommelier-3-s9-quality`      | [#104](https://github.com/Blockionaire/CELLR/pull/104) |
 
 `claude/sommelier-3-s1-food` holds early work-in-progress checkpoints only. It is not a pull request branch and
 can be deleted once the stack is merged.
@@ -66,10 +68,16 @@ review's findings and what was done about each, limitations.
   140 → 170; unseen dishes 34 → 38 of 88); a blind holdout; a friend's cellar and presents not already owned
   (migration 0053, draft); friends kept across follow-ups; the comparison with V1's AI (run: 3.0 not shown to be better);
   the brief against what exists; GO / NO-GO.
+- **S10**: does the parser know when it misread a dish (a router, measured); a model reads the dish the
+  parser could not place (C) and a bounded second opinion in close calls (D), both behind new named-only
+  switches; fewer, surer bottles; per-bottle measures, an upper bound and the four variants on the same
+  scenarios; a shared store of dish readings; the frame for a human holdout and a blind expert review sheet.
+  The paid comparison waits for approval (`HYBRID_EVALUATION.md` §6).
 
 ## Next action
 
-Nothing for the agent without the owner. The owner's decisions, in order, are in `RELEASE_PLAN.md`; the first
-one that unblocks more work is S10 as advised in `progress/S9.md` §10 (a model reads the dish the parser cannot).
+Nothing for the agent without the owner. The S10 verdict is in: V1 with AI stays the default
+(`HYBRID_EVALUATION.md` §7–§8). The owner decides on S11 (variant E), the human holdout and the expert review.
 A session that resumes: read the pull requests' review comments and CI, fix what is asked on the branch it
-belongs to, rebase the branches above it, and update the phase's `progress` file.
+belongs to, merge it into each branch above it (D-28: never rebase or force-push a branch with an open pull
+request), and update the phase's `progress` file.

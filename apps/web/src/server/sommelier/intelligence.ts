@@ -14,6 +14,7 @@ import {
   cellarQuestionKind,
   isSmallTalk,
   findMentions,
+  hasAnyMention,
   withoutMentions,
   type MentionStatus,
   nextQuestion,
@@ -56,6 +57,17 @@ import {
   hasTaste,
   mentionedWines,
   parseFood,
+  routeDishReading,
+  dishPhrase,
+  asksForWine,
+  mergeDishReading,
+  type DishReading,
+  type DishRoute,
+  isCloseCall,
+  conservativePicks,
+  applyPairingReview,
+  type PairingReview,
+  type ReviewInput,
   readWine,
   recommendStyles,
   searchTextOf,
@@ -106,6 +118,21 @@ export interface IntelligenceDeps {
    * cellar shown to the asker, and the friend's own consent for a sommelier to use it). Absent: never looked at.
    */
   friendCellar?: (handle: string) => Promise<FriendCellar>;
+  /**
+   * A model's reading of a dish the parser shows it may have misread (S10, switch `sommelier_dish_ai`): given the
+   * dish phrase alone, it gives the engine's own dish profile, or null (then the parser's reading is used, as
+   * without the switch). Never called for a question that names a friend. Absent: never called.
+   */
+  readDish?: (phrase: string, options?: { cacheOnly?: boolean }) => Promise<DishReading | null>;
+  /**
+   * A model's second opinion in a close call (S10, an experiment: switch `sommelier_second_opinion`): it may put
+   * the engine's own picks in another order, leave some out, or say none suits; never add one. Given the dish as
+   * the engine read it and each pick as a style, never a producer, a name or the household. Never called for a
+   * question that names a friend. Null: the engine's picks stand.
+   */
+  secondOpinion?: (input: ReviewInput, refs: string[]) => Promise<PairingReview | null>;
+  /** Hears which reading of the dish the engines used (for the benchmark and metrics). Changes nothing. */
+  observe?: (seen: { food: FoodProfile | null; route: DishRoute | null }) => void;
   now: () => Date;
 }
 
@@ -239,6 +266,20 @@ const emptyPlan = (state: ConversationState): SommelierPlan => ({
   friends: [],
 });
 
+/** How long the engines wait for a model's dish reading or second opinion before going on without it. */
+const READ_MS = 10_000;
+const REVIEW_MS = 10_000;
+/** The value of a promise, or null when it fails or takes longer than `ms`. Never throws. */
+const within = <T>(promise: Promise<T>, ms: number): Promise<T | null> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    promise.catch(() => null),
+    new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+};
+
 export function createSommelierIntelligence(deps: IntelligenceDeps) {
   return {
     /** Whether a question names a dish the food engine understands (no I/O). */
@@ -345,7 +386,53 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         cellarOf && theirs && theirs.status !== "included"
           ? { handle: cellarOf, status: "not-shared", outcome: null, picks: [], leftOut: [] }
           : null;
-      const said = parseFood(question, FOOD);
+      /**
+       * The dish, read by the parser, and by a model where the parser shows it may have misread it (S10).
+       *
+       * Nothing at all goes to a model for a conversation that names someone, in any form ("@anna", "@ anna",
+       * "anna@…"), in this question or an earlier one the screen sent: the friends' consent says no model sees
+       * such a question, not even its dish. Otherwise only the dish phrase is sent, and only for the question
+       * itself when it is about a dish: a follow-up's dish (the conversation's state) is looked up among the
+       * readings already made, never sent again. A question with no food in it is sent only when it asks which
+       * wine to pour, opens a conversation, names no wine, and is not a menu or one of the experiences.
+       */
+      const namesSomeone =
+        mentions.length > 0 ||
+        hasAnyMention(asked) ||
+        (request.earlier ?? []).some((q) => hasAnyMention(q.slice(0, 800)));
+      let route: DishRoute | null = null;
+      const understand = async (
+        parsed: FoodProfile,
+        text: string,
+        followUp: boolean,
+      ): Promise<FoodProfile> => {
+        if (!deps.readDish || namesSomeone) return parsed;
+        const wanted = routeDishReading(parsed);
+        route ??= wanted;
+        if (!wanted.read) return parsed;
+        if (followUp) {
+          // The reading made for an earlier turn; asked again only for a dish a model has already seen.
+          const kept = await within(
+            deps.readDish(text, { cacheOnly: !previous.dishReadByModel }),
+            READ_MS,
+          );
+          return kept ? mergeDishReading(parsed, kept, FOOD, text) : parsed;
+        }
+        if (parseMenu(text, FOOD) !== null) return parsed;
+        if (
+          parsed.main === null &&
+          (previous.dish !== null ||
+            !asksForWine(text) ||
+            mentionedWines(text, WINE_KNOWLEDGE).length > 0 ||
+            askedFor(text) !== null)
+        )
+          return parsed;
+        const phrase = dishPhrase(text, FOOD);
+        if (!phrase) return parsed;
+        const reading = await within(deps.readDish(phrase), READ_MS);
+        return reading ? mergeDishReading(parsed, reading, FOOD, phrase) : parsed;
+      };
+      const said = await understand(parseFood(question, FOOD), question, false);
       const wines = mentionedWines(question, WINE_KNOWLEDGE);
       const named = wines.map((w) => w.id);
       let state = advance(previous, {
@@ -354,6 +441,11 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         dish: said.main === null ? null : said.said,
         wineKeys: named,
       });
+      // A new dish in this turn says whether a model has seen it; otherwise the conversation's dish keeps its mark.
+      state = {
+        ...state,
+        dishReadByModel: said.main !== null ? said.readBy === "model" : previous.dishReadByModel,
+      };
       if (
         !deps.buying &&
         (state.intent === "buy" || state.intent === "gift" || state.intent === "either")
@@ -407,8 +499,11 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
         said.main !== null
           ? said
           : state.dish !== null
-            ? ((d) => (d.main === null ? null : d))(parseFood(state.dish, FOOD))
+            ? ((d) => (d.main === null ? null : d))(
+                await understand(parseFood(state.dish, FOOD), state.dish, true),
+              )
             : null;
+      deps.observe?.({ food, route });
       const buying = state.intent === "buy" || state.intent === "gift";
 
       /**
@@ -631,7 +726,7 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
             };
           },
         );
-        const decision = decidePairing(food, candidates);
+        const decision = conservativePicks(decidePairing(food, candidates), food);
         return {
           plan: {
             ...emptyPlan({ ...state, offered: [] }),
@@ -725,9 +820,12 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
             : 0,
         });
         const decide = (from: readonly Read[]) =>
-          decidePairing(
+          conservativePicks(
+            decidePairing(
+              food,
+              from.filter((r) => blockedBy(r, state) === null).map((r) => candidate(r, true)),
+            ),
             food,
-            from.filter((r) => blockedBy(r, state) === null).map((r) => candidate(r, true)),
           );
         // The wines they asked about first; when none of those suits, the rest of the cellar after all.
         let scope = pool;
@@ -736,6 +834,48 @@ export function createSommelierIntelligence(deps: IntelligenceDeps) {
           scope = read;
           decision = decide(scope);
           plan = { ...plan, considered: read.length, kind: buying ? "buying" : "pairing" };
+        }
+        // A close call may get a model's second opinion: the same picks, in another order or fewer, never more.
+        if (deps.secondOpinion && food && !namesSomeone && isCloseCall(decision, food)) {
+          const refs = decision.picks.map((_, i) => `c${i + 1}`);
+          const review = await within(
+            deps.secondOpinion(
+              {
+                dish: {
+                  main: food.main ?? "unknown",
+                  structure: food.structure,
+                  tags: [...food.tags],
+                  readBy: food.readBy ?? "parser",
+                },
+                candidates: decision.picks.map((p, i) => ({
+                  ref: refs[i]!,
+                  type: p.item.item.type,
+                  keys: p.item.reading.keys.slice(0, 8),
+                  structure: {
+                    body: p.item.reading.structure.body,
+                    tannin: p.item.reading.structure.tannin,
+                    acidity: p.item.reading.structure.acidity,
+                    sweetness: p.item.reading.structure.sweetness,
+                    oak: p.item.reading.structure.oak,
+                  },
+                  fizz: p.item.reading.structure.fizz === true,
+                  level: p.assessment.level === "good" ? "good" : "acceptable",
+                })),
+              },
+              refs,
+            ),
+            REVIEW_MS,
+          );
+          if (review) {
+            // Whatever order it chose, after the first only picks with nothing against them (as without it).
+            const kept = applyPairingReview(decision.picks, refs, review).filter(
+              (p, i) => i === 0 || p.assessment.cons.length === 0,
+            );
+            decision =
+              kept.length > 0
+                ? { ...decision, picks: kept }
+                : { ...decision, outcome: "none", picks: [], confidence: "low" };
+          }
         }
         const open = scope.filter((r) => blockedBy(r, state) === null);
         if ((taste || friendTastes.length > 0) && decision.picks.length > 1) {

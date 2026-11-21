@@ -1,5 +1,6 @@
 import { DISHES } from "./dishes";
 import { HOLDOUT_DISHES } from "./dishes-holdout";
+import { humanHoldout } from "./human-holdout";
 import { SCENARIOS } from "./scenarios";
 import { HOLDOUT_SCENARIOS } from "./scenarios-holdout";
 import type { DishCard, Scenario } from "./types";
@@ -27,6 +28,11 @@ const SETS: Record<string, { scenarios: readonly Scenario[]; dishes: readonly Di
    */
   "holdout-dev": half(0),
   "holdout-test": half(1),
+  /**
+   * S10: at least 100 dishes written by people (human-holdout.ts). Empty until the file is written; blind from
+   * the moment it exists.
+   */
+  human: humanHoldout(),
 };
 function half(which: 0 | 1) {
   const middle = Math.floor(HOLDOUT_DISHES.length / 2);
@@ -35,9 +41,10 @@ function half(which: 0 | 1) {
   return { dishes, scenarios: HOLDOUT_SCENARIOS.filter((s) => s.dish && ids.has(s.dish)) };
 }
 /** Sets whose failures are not to be read one by one: they are the blind measure. */
-export const BLIND_SETS: ReadonlySet<string> = new Set(["holdout-test"]);
+export const BLIND_SETS: ReadonlySet<string> = new Set(["holdout-test", "human"]);
 /** Whether a set is blind or holds a blind set's scenarios ("holdout" holds "holdout-test"): totals only. */
 export function holdsBlind(name: string): boolean {
+  if (BLIND_SETS.has(name)) return true;
   const blind = new Set(
     [...BLIND_SETS].flatMap((b) => (SETS[b]?.scenarios ?? []).map((x) => x.id)),
   );
@@ -60,4 +67,13 @@ export function cardsOf(name: string): ReadonlyMap<string, DishCard> {
   const set = SETS[name];
   if (!set) throw new Error(`unknown set "${name}"; known: ${Object.keys(SETS).join(", ")}`);
   return new Map(set.dishes.map((d) => [d.id, d]));
+}
+
+/** Every dish card of every set, by id (the main set's and the holdout's ids do not overlap). */
+let every: ReadonlyMap<string, DishCard> | null = null;
+export function anyCard(id: string): DishCard | null {
+  every ??= new Map(
+    Object.values(SETS).flatMap((set) => set.dishes.map((d) => [d.id, d] as const)),
+  );
+  return every.get(id) ?? null;
 }

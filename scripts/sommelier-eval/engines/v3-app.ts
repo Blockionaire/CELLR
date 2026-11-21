@@ -14,10 +14,16 @@ import {
   WINE_KNOWLEDGE,
   parseFood,
   readWine,
+  type DishReading,
+  type FoodProfile,
   type TasteSignals,
 } from "@cellr/domain/intelligence";
 import { aggregateInventory, buildTonight } from "@/server/cellar/service";
-import { createSommelierIntelligence, profileFacts } from "@/server/sommelier/intelligence";
+import {
+  createSommelierIntelligence,
+  profileFacts,
+  type IntelligenceDeps,
+} from "@/server/sommelier/intelligence";
 import { createSommelierService } from "@/server/sommelier/service";
 import { buildFixture, NOW, type FixtureWine } from "../fixtures";
 import type { Capability, Engine, EvalAnswer, OfferLevel, Scenario } from "../types";
@@ -181,216 +187,257 @@ function providerOf(world: World | undefined): {
   };
 }
 
-export const v3App: Engine = {
+/**
+ * What a variant of the app adds to the engines (S10): a reader of dishes the parser could not place (a model, or
+ * the reference card itself as an upper bound), and a second opinion on close calls. Each is made per scenario
+ * and reports what it spent.
+ */
+export interface V3Variant {
+  name: string;
+  describes: string;
+  /** A dish reader for one scenario, or null for none. */
+  readerFor?: (scenario: Scenario) => ((phrase: string) => Promise<DishReading | null>) | null;
+  /** A second opinion for one scenario (variant D), or null for none. */
+  reviewFor?: (scenario: Scenario) => IntelligenceDeps["secondOpinion"] | null;
+  /** Model use of the scenario just run, when the variant calls one. */
+  usage?: () => NonNullable<EvalAnswer["ai"]> | undefined;
+  /** Called before each scenario (to reset per-scenario usage). */
+  begin?: () => void;
+}
+
+export const v3App: Engine = makeV3App({
   name: "v3-app",
   describes:
     "Sommelier 3.0 in the app (createSommelierService + createSommelierIntelligence, engine and buying on, no AI)",
-  capabilities: CAPABILITIES,
-  async run(scenario: Scenario) {
-    const missing = scenario.needs.filter((n) => !CAPABILITIES.has(n));
-    const fixture = buildFixture(scenario);
-    const favorites = new Set(fixture.wines.filter((f) => f.favorite).map((f) => f.wineId));
-    const scores = fixture.wines
-      .filter((f) => f.rating !== null)
-      .map((f) => ({ vintageId: f.vintageId, score: f.rating! }));
-    const reservedOf = new Map<string, Reservation>(
-      fixture.wines
-        .filter((f) => f.reserved > 0)
-        .map((f) => [f.vintageId, { count: f.reserved, title: "Benchmark occasion", on: null }]),
-    );
-    const cellar = async (): Promise<CellarView> => {
-      const view = aggregateInventory(fixture.rows, favorites, scores, NOW);
-      return {
-        ...view,
-        items: view.items.map((i): CellarItem => ({
-          ...i,
-          reserved: reservedOf.get(i.vintageId) ?? null,
-        })),
+});
+
+export function makeV3App(variant: V3Variant): Engine {
+  return {
+    name: variant.name,
+    describes: variant.describes,
+    capabilities: CAPABILITIES,
+    async run(scenario: Scenario) {
+      variant.begin?.();
+      const readDish = variant.readerFor?.(scenario) ?? null;
+      const secondOpinion = variant.reviewFor?.(scenario) ?? null;
+      let observed: FoodProfile | null | undefined = undefined;
+      const missing = scenario.needs.filter((n) => !CAPABILITIES.has(n));
+      const fixture = buildFixture(scenario);
+      const favorites = new Set(fixture.wines.filter((f) => f.favorite).map((f) => f.wineId));
+      const scores = fixture.wines
+        .filter((f) => f.rating !== null)
+        .map((f) => ({ vintageId: f.vintageId, score: f.rating! }));
+      const reservedOf = new Map<string, Reservation>(
+        fixture.wines
+          .filter((f) => f.reserved > 0)
+          .map((f) => [f.vintageId, { count: f.reserved, title: "Benchmark occasion", on: null }]),
+      );
+      const cellar = async (): Promise<CellarView> => {
+        const view = aggregateInventory(fixture.rows, favorites, scores, NOW);
+        return {
+          ...view,
+          items: view.items.map((i): CellarItem => ({
+            ...i,
+            reserved: reservedOf.get(i.vintageId) ?? null,
+          })),
+        };
       };
-    };
-    const profiles = new Map(
-      fixture.wines.filter((f) => f.profiled).map((f) => [f.vintageId, profileOf(f)]),
-    );
-    const world = scenario.world as World | undefined;
-    const { provider, offers: worldOffers } = providerOf(world);
-    // The friend graph as it is at the turn being asked: `previously` for the earlier turns of a scenario in
-    // which something is withdrawn, `friends` at the last one. Read anew for every question, as in the app.
-    let friendsNow: WorldFriend[] = world?.friends ?? [];
-    const friendOf = (handle: string) =>
-      friendsNow.find((f) => f.handle.toLowerCase() === handle.toLowerCase()) ?? null;
-    const social = world?.friends !== undefined;
-    const service = createSommelierService({
-      intelligence: createSommelierIntelligence({
+      const profiles = new Map(
+        fixture.wines.filter((f) => f.profiled).map((f) => [f.vintageId, profileOf(f)]),
+      );
+      const world = scenario.world as World | undefined;
+      const { provider, offers: worldOffers } = providerOf(world);
+      // The friend graph as it is at the turn being asked: `previously` for the earlier turns of a scenario in
+      // which something is withdrawn, `friends` at the last one. Read anew for every question, as in the app.
+      let friendsNow: WorldFriend[] = world?.friends ?? [];
+      const friendOf = (handle: string) =>
+        friendsNow.find((f) => f.handle.toLowerCase() === handle.toLowerCase()) ?? null;
+      const social = world?.friends !== undefined;
+      const service = createSommelierService({
+        intelligence: createSommelierIntelligence({
+          cellar,
+          profiles: async () => profiles,
+          taste: async () => null,
+          ...(social
+            ? {
+                friends: async (handles: readonly string[]) =>
+                  handles.map((handle) => {
+                    const f = friendOf(handle);
+                    if (!f || f.relation !== "accepted")
+                      return { handle, status: "unavailable" as const, taste: null };
+                    return f.share.taste && f.share.ai
+                      ? { handle, status: "included" as const, taste: signalsOf(f) }
+                      : { handle, status: "no-taste" as const, taste: null };
+                  }),
+                friendCellar: async (handle: string): Promise<FriendCellar> => {
+                  const f = friendOf(handle);
+                  if (!f || f.relation !== "accepted") return { status: "unavailable", wines: [] };
+                  return f.share.cellar && f.share.ai
+                    ? { status: "included", wines: friendWinesOf(f) }
+                    : { status: "not-shared", wines: [] };
+                },
+              }
+            : {}),
+          offers: provider,
+          buying: true,
+          experiences: true,
+          ...(readDish ? { readDish } : {}),
+          ...(secondOpinion ? { secondOpinion } : {}),
+          observe: ({ food }) => {
+            observed = food;
+          },
+          now: () => NOW,
+        }),
         cellar,
-        profiles: async () => profiles,
-        taste: async () => null,
+        storage: async () => [],
+        racks: async () => ({ units: [], unplaced: [] }),
+        tonight: async (request, taste) =>
+          buildTonight(fixture.rows, favorites, scores, request, NOW, taste ?? null),
+        llm: null,
+        spend: async () => {},
+        householdId: async () => "00000000-0000-4000-8000-0000000000aa",
+        locale: async () => scenario.lang,
+        recordUsage: async () => {},
+      });
+
+      let state: unknown = undefined;
+      let answer: SommelierAnswer | null = null;
+      let ms = 0;
+      const said: Array<{ role: "user" | "assistant"; text: string }> = [];
+      for (const [n, turn] of scenario.turns.entries()) {
+        friendsNow =
+          n < scenario.turns.length - 1
+            ? (world?.previously?.friends ?? world?.friends ?? [])
+            : (world?.friends ?? []);
+        said.push({ role: "user", text: turn.user.slice(0, 800) });
+        const started = performance.now();
+        answer = await service.ask({
+          messages: said.slice(-12),
+          mode: "chat",
+          state,
+          ...(turn.budgetEuros === undefined ? {} : { budgetEuros: turn.budgetEuros }),
+        });
+        ms = performance.now() - started;
+        state = answer.plan?.state;
+        said.push({ role: "assistant", text: "…" });
+      }
+      const plan = answer!.plan ?? null;
+      const keyOf = (vintageId: string) => fixture.keyOfVintage.get(vintageId) ?? null;
+      // What the engine offers to open: the plan's picks when it answered, V1's cards otherwise.
+      const offered = plan
+        ? plan.picks.map((p) => p.vintageId)
+        : answer!.bottles.map((b) => b.vintageId);
+      const keys = offered.map(keyOf);
+
+      const flags = new Set<string>();
+      for (const pick of plan?.picks ?? [])
+        for (const note of pick.notes) {
+          if (note === "partly-reserved") flags.add("reserved");
+          if (note === "young" || note === "past") flags.add(note);
+          // A warning that the wine may be over its best is the app's honest form of "past" when it cannot be sure.
+          if (note === "may-be-past") flags.add("past");
+          if (note === "estimate" || note === "by-name") flags.add("estimate");
+          if (note === "little-known") flags.add("unknown-data");
+        }
+      for (const aside of plan?.setAside ?? [])
+        flags.add(
+          aside.reason === "too-young"
+            ? "young"
+            : aside.reason === "reserved"
+              ? "reserved"
+              : "turned-down",
+        );
+      if (plan?.closest?.notes.includes("past")) flags.add("past");
+
+      const question = scenario.turns.at(-1)!.user;
+      // The baseline engine reports the dish as the parser reads the question (as recorded since S6). A variant
+      // with a dish reader reports the reading the engines actually used.
+      const food =
+        readDish && observed
+          ? (observed as FoodProfile)
+          : ((f) => (f.main === null && plan?.dish ? parseFood(plan.dish, FOOD) : f))(
+              parseFood(question, FOOD),
+            );
+      const styleOfUrl = new Map(worldOffers.map((o) => [o.url, o]));
+      const result: EvalAnswer = {
+        ...(missing.length > 0 ? { unsupported: missing } : {}),
+        food: { truth: truthOf(food) },
+        verdict: plan?.outcome ?? null,
+        bottles: keys.filter((k): k is string => k !== null),
+        invented: keys.filter((k) => k === null).length,
+        flags: [...flags],
+        facts: answer!.facts
+          ? {
+              bottles: answer!.facts.bottles,
+              wines: answer!.facts.wines,
+              ...(answer!.facts.matchedBottles === undefined
+                ? {}
+                : { matchedBottles: answer!.facts.matchedBottles }),
+            }
+          : null,
+        confidence: plan?.confidence ?? null,
+        // The tier of every wine, read the way the app reads it (the plan only carries the wines it offers).
+        tiers: Object.fromEntries(
+          fixture.wines.map((f) => [
+            f.key,
+            readWine(
+              {
+                type: f.wine.type,
+                name: f.wine.name,
+                region: f.stripped ? null : f.wine.region,
+                appellation: f.stripped ? null : f.wine.appellation,
+                countryCode: f.stripped ? null : f.wine.countryCode,
+                profile: f.profiled ? profileFacts(profileOf(f)) : null,
+              },
+              WINE_KNOWLEDGE,
+            ).tier,
+          ]),
+        ),
+        buy: [
+          ...(plan?.styles ?? []).map((s) => ({
+            style: s.styleId,
+            minEuros: s.fromEuros,
+            maxEuros: null,
+            level: "style" as OfferLevel,
+          })),
+          ...(plan?.offers ?? []).map((o) => ({
+            style: styleOfUrl.get(o.url)?.style ?? null,
+            minEuros: o.priceCents / 100,
+            maxEuros: o.priceCents / 100,
+            level: o.level as OfferLevel,
+          })),
+        ],
+        state: plan
+          ? { ...plan.state, asked: null, rejected: null, offered: null, recipientLikes: null }
+          : {},
+        asks: plan?.ask ?? null,
         ...(social
           ? {
-              friends: async (handles: readonly string[]) =>
-                handles.map((handle) => {
-                  const f = friendOf(handle);
-                  if (!f || f.relation !== "accepted")
-                    return { handle, status: "unavailable" as const, taste: null };
-                  return f.share.taste && f.share.ai
-                    ? { handle, status: "included" as const, taste: signalsOf(f) }
-                    : { handle, status: "no-taste" as const, taste: null };
-                }),
-              friendCellar: async (handle: string): Promise<FriendCellar> => {
-                const f = friendOf(handle);
-                if (!f || f.relation !== "accepted") return { status: "unavailable", wines: [] };
-                return f.share.cellar && f.share.ai
-                  ? { status: "included", wines: friendWinesOf(f) }
-                  : { status: "not-shared", wines: [] };
+              friends: {
+                resolved: (plan?.friends ?? [])
+                  .filter((f) => f.status !== "unavailable")
+                  .map((f) => f.handle),
+                taste: (plan?.friends ?? [])
+                  .filter((f) => f.status === "included")
+                  .map((f) => f.handle),
+                cellar: plan?.friendCellar?.status === "used" ? [plan.friendCellar.handle] : [],
+                // A friend's wine in the answer although that friend does not share their cellar now.
+                leaked: (world?.friends ?? [])
+                  .filter(
+                    (f) =>
+                      !(f.relation === "accepted" && f.share.cellar && f.share.ai) &&
+                      JSON.stringify(answer).includes(producerOf(f.handle)),
+                  )
+                  .map((f) => f.handle),
               },
             }
           : {}),
-        offers: provider,
-        buying: true,
-        experiences: true,
-        now: () => NOW,
-      }),
-      cellar,
-      storage: async () => [],
-      racks: async () => ({ units: [], unplaced: [] }),
-      tonight: async (request, taste) =>
-        buildTonight(fixture.rows, favorites, scores, request, NOW, taste ?? null),
-      llm: null,
-      spend: async () => {},
-      householdId: async () => "00000000-0000-4000-8000-0000000000aa",
-      locale: async () => scenario.lang,
-      recordUsage: async () => {},
-    });
-
-    let state: unknown = undefined;
-    let answer: SommelierAnswer | null = null;
-    let ms = 0;
-    const said: Array<{ role: "user" | "assistant"; text: string }> = [];
-    for (const [n, turn] of scenario.turns.entries()) {
-      friendsNow =
-        n < scenario.turns.length - 1
-          ? (world?.previously?.friends ?? world?.friends ?? [])
-          : (world?.friends ?? []);
-      said.push({ role: "user", text: turn.user.slice(0, 800) });
-      const started = performance.now();
-      answer = await service.ask({
-        messages: said.slice(-12),
-        mode: "chat",
-        state,
-        ...(turn.budgetEuros === undefined ? {} : { budgetEuros: turn.budgetEuros }),
-      });
-      ms = performance.now() - started;
-      state = answer.plan?.state;
-      said.push({ role: "assistant", text: "…" });
-    }
-    const plan = answer!.plan ?? null;
-    const keyOf = (vintageId: string) => fixture.keyOfVintage.get(vintageId) ?? null;
-    // What the engine offers to open: the plan's picks when it answered, V1's cards otherwise.
-    const offered = plan
-      ? plan.picks.map((p) => p.vintageId)
-      : answer!.bottles.map((b) => b.vintageId);
-    const keys = offered.map(keyOf);
-
-    const flags = new Set<string>();
-    for (const pick of plan?.picks ?? [])
-      for (const note of pick.notes) {
-        if (note === "partly-reserved") flags.add("reserved");
-        if (note === "young" || note === "past") flags.add(note);
-        // A warning that the wine may be over its best is the app's honest form of "past" when it cannot be sure.
-        if (note === "may-be-past") flags.add("past");
-        if (note === "estimate" || note === "by-name") flags.add("estimate");
-        if (note === "little-known") flags.add("unknown-data");
-      }
-    for (const aside of plan?.setAside ?? [])
-      flags.add(
-        aside.reason === "too-young"
-          ? "young"
-          : aside.reason === "reserved"
-            ? "reserved"
-            : "turned-down",
-      );
-    if (plan?.closest?.notes.includes("past")) flags.add("past");
-
-    const question = scenario.turns.at(-1)!.user;
-    const food = ((f) => (f.main === null && plan?.dish ? parseFood(plan.dish, FOOD) : f))(
-      parseFood(question, FOOD),
-    );
-    const styleOfUrl = new Map(worldOffers.map((o) => [o.url, o]));
-    const result: EvalAnswer = {
-      ...(missing.length > 0 ? { unsupported: missing } : {}),
-      food: { truth: truthOf(food) },
-      verdict: plan?.outcome ?? null,
-      bottles: keys.filter((k): k is string => k !== null),
-      invented: keys.filter((k) => k === null).length,
-      flags: [...flags],
-      facts: answer!.facts
-        ? {
-            bottles: answer!.facts.bottles,
-            wines: answer!.facts.wines,
-            ...(answer!.facts.matchedBottles === undefined
-              ? {}
-              : { matchedBottles: answer!.facts.matchedBottles }),
-          }
-        : null,
-      confidence: plan?.confidence ?? null,
-      // The tier of every wine, read the way the app reads it (the plan only carries the wines it offers).
-      tiers: Object.fromEntries(
-        fixture.wines.map((f) => [
-          f.key,
-          readWine(
-            {
-              type: f.wine.type,
-              name: f.wine.name,
-              region: f.stripped ? null : f.wine.region,
-              appellation: f.stripped ? null : f.wine.appellation,
-              countryCode: f.stripped ? null : f.wine.countryCode,
-              profile: f.profiled ? profileFacts(profileOf(f)) : null,
-            },
-            WINE_KNOWLEDGE,
-          ).tier,
-        ]),
-      ),
-      buy: [
-        ...(plan?.styles ?? []).map((s) => ({
-          style: s.styleId,
-          minEuros: s.fromEuros,
-          maxEuros: null,
-          level: "style" as OfferLevel,
-        })),
-        ...(plan?.offers ?? []).map((o) => ({
-          style: styleOfUrl.get(o.url)?.style ?? null,
-          minEuros: o.priceCents / 100,
-          maxEuros: o.priceCents / 100,
-          level: o.level as OfferLevel,
-        })),
-      ],
-      state: plan
-        ? { ...plan.state, asked: null, rejected: null, offered: null, recipientLikes: null }
-        : {},
-      asks: plan?.ask ?? null,
-      ...(social
-        ? {
-            friends: {
-              resolved: (plan?.friends ?? [])
-                .filter((f) => f.status !== "unavailable")
-                .map((f) => f.handle),
-              taste: (plan?.friends ?? [])
-                .filter((f) => f.status === "included")
-                .map((f) => f.handle),
-              cellar: plan?.friendCellar?.status === "used" ? [plan.friendCellar.handle] : [],
-              // A friend's wine in the answer although that friend does not share their cellar now.
-              leaked: (world?.friends ?? [])
-                .filter(
-                  (f) =>
-                    !(f.relation === "accepted" && f.share.cellar && f.share.ai) &&
-                    JSON.stringify(answer).includes(producerOf(f.handle)),
-                )
-                .map((f) => f.handle),
-            },
-          }
-        : {}),
-      offers: (plan?.offers ?? []).map((o) => styleOfUrl.get(o.url)?.id ?? "unknown"),
-      followedInjection: false,
-    };
-    return { answer: result, ms };
-  },
-};
+        offers: (plan?.offers ?? []).map((o) => styleOfUrl.get(o.url)?.id ?? "unknown"),
+        followedInjection: false,
+      };
+      const spent = variant.usage?.();
+      if (spent) result.ai = spent;
+      return { answer: result, ms };
+    },
+  };
+}

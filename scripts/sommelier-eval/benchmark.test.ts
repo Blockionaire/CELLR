@@ -1,8 +1,11 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DISHES } from "./dishes";
 import { ENGINES } from "./engines";
 import { SCENARIOS } from "./scenarios";
+import { buildFixture } from "./fixtures";
+import { qualityRow, qualityTotals, type QualityRow } from "./quality";
+import { checkHumanDishes, HUMAN_HOLDOUT_FILE, HUMAN_HOLDOUT_MIN_DISHES } from "./human-holdout";
 import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { expectedVerdictOf, scoreScenario, summarize } from "./score";
 import { CAPABILITIES, CATEGORIES, type EvalAnswer, type Scenario } from "./types";
@@ -131,6 +134,8 @@ describe("the V1 baseline", () => {
   });
 });
 
+const cellarKeys = (s: Scenario) => buildFixture(s).wines.map((w) => w.key);
+
 describe("Sommelier 3.0 in the app", () => {
   // Only V1's baseline used to be pinned, so a change to the engines could move the results the documents quote
   // without any test noticing. A change that moves a result now has to record a new run
@@ -142,7 +147,11 @@ describe("Sommelier 3.0 in the app", () => {
           new URL(`../../docs/sprints/sommelier-3-mega/results/${file}`, import.meta.url),
           "utf8",
         ),
-      ) as { passed: number; results: Array<{ id: string; supported: boolean; failed: string[] }> };
+      ) as {
+        passed: number;
+        results: Array<{ id: string; supported: boolean; failed: string[] }>;
+        labels?: Record<string, string[]>;
+      };
       const before = new Map(recorded.results.map((r) => [r.id, r]));
       const engine = ENGINES.find((e) => e.name === "v3-app")!;
       const cardOf = cardsOf(set);
@@ -154,44 +163,89 @@ describe("Sommelier 3.0 in the app", () => {
         if (!supported) continue;
         const { answer, ms } = await engine.run(s);
         expect(answer.invented, s.id).toBe(0);
-        const failed = scoreScenario(s, s.dish ? (cardOf.get(s.dish) ?? null) : null, answer, ms)
-          .checks.filter((c) => !c.pass)
-          .map((c) => c.name);
+        const card = s.dish ? (cardOf.get(s.dish) ?? null) : null;
+        const scored = scoreScenario(s, card, answer, ms);
+        const failed = scored.checks.filter((c) => !c.pass).map((c) => c.name);
         expect(failed, s.id).toEqual(was?.failed);
         if (failed.length === 0) now += 1;
+        // The bottles themselves, by the card's labels: the per-bottle claims of S10 cannot drift either.
+        const row = qualityRow(s, card, answer, scored, cellarKeys(s));
+        if (row) expect(row.labels, s.id).toEqual(recorded.labels?.[s.id]);
       }
       expect(now).toBe(recorded.passed);
       expect(now).toBe(passed);
     });
-  pinned("main", "s9-v3-app.json", 170);
+  pinned("main", "s10-v3-app.json", 175);
   // The blind set of S9: its halves are pinned so that neither can drift, and never to be tuned to.
-  pinned("holdout-dev", "s9-holdout-dev.json", 19);
+  pinned("holdout-dev", "s10-holdout-dev.json", 19);
   // The blind half is compared in totals only: a failure here names no scenario, so fixing it cannot be tuning.
-  it('gives the recorded totals on "holdout-test" (blind): 19 scenarios', async () => {
+  it('gives the recorded totals on "holdout-test" (blind): 20 scenarios', async () => {
     const recorded = JSON.parse(
       readFileSync(
         new URL(
-          "../../docs/sprints/sommelier-3-mega/results/s9-holdout-test.json",
+          "../../docs/sprints/sommelier-3-mega/results/s10-holdout-test.json",
           import.meta.url,
         ),
         "utf8",
       ),
-    ) as { passed: number; measures: Record<string, [number, number]>; results?: unknown };
+    ) as {
+      passed: number;
+      measures: Record<string, [number, number]>;
+      results?: unknown;
+      quality: unknown;
+    };
     expect(recorded.results).toBeUndefined();
     const engine = ENGINES.find((e) => e.name === "v3-app")!;
     const cardOf = cardsOf("holdout-test");
     const results = [];
     const answers = [];
-    for (const s of scenariosOf("holdout-test")) {
+    const rows: QualityRow[] = [];
+    const scenarios = scenariosOf("holdout-test");
+    for (const s of scenarios) {
+      const { answer, ms } = await engine.run(s);
+      answers.push(answer);
+      const card = s.dish ? (cardOf.get(s.dish) ?? null) : null;
+      const scored = scoreScenario(s, card, answer, ms);
+      results.push(scored);
+      const row = qualityRow(s, card, answer, scored, cellarKeys(s));
+      if (row) rows.push(row);
+    }
+    const now = summarize("v3-app", results, answers);
+    expect(now.passed).toBe(20);
+    expect(now.passed).toBe(recorded.passed);
+    expect(now.measures).toEqual(recorded.measures);
+    const quality = qualityTotals(
+      rows,
+      (id) => cellarKeys(scenarios.find((x) => x.id === id)!),
+      (id) => cardOf.get(scenarios.find((x) => x.id === id)!.dish!) ?? null,
+    );
+    expect(quality).toEqual(recorded.quality);
+    expect(answers.reduce((n, a) => n + a.invented, 0)).toBe(0);
+  });
+
+  // The class-and-scales check of HYBRID_EVALUATION.md §3: its recorded totals cannot drift unnoticed either.
+  it.each([
+    ["holdout-dev", "s10-oracle-holdout-dev.json"],
+    ["holdout-test", "s10-oracle-holdout-test.json"],
+  ])("the class-and-scales check gives its recorded totals on %s", async (set, file) => {
+    const recorded = JSON.parse(
+      readFileSync(
+        new URL(`../../docs/sprints/sommelier-3-mega/results/${file}`, import.meta.url),
+        "utf8",
+      ),
+    ) as { passed: number; measures: Record<string, [number, number]> };
+    const engine = ENGINES.find((e) => e.name === "v3-oracle")!;
+    const cardOf = cardsOf(set);
+    const results = [];
+    const answers = [];
+    for (const s of scenariosOf(set)) {
       const { answer, ms } = await engine.run(s);
       answers.push(answer);
       results.push(scoreScenario(s, s.dish ? (cardOf.get(s.dish) ?? null) : null, answer, ms));
     }
-    const now = summarize("v3-app", results, answers);
-    expect(now.passed).toBe(19);
+    const now = summarize("v3-oracle", results, answers);
     expect(now.passed).toBe(recorded.passed);
     expect(now.measures).toEqual(recorded.measures);
-    expect(answers.reduce((n, a) => n + a.invented, 0)).toBe(0);
   });
 
   it("no tool lists the blind scenarios one by one", () => {
@@ -229,5 +283,35 @@ describe("the holdout set's own data", () => {
     const test = scenariosOf("holdout-test").map((s) => s.id);
     expect(dev.length + test.length).toBe(88);
     expect(dev.filter((id) => test.includes(id))).toEqual([]);
+  });
+});
+
+describe("the human holdout (S10)", () => {
+  it("is blind, and empty until people have written it", () => {
+    expect(holdsBlind("human")).toBe(true);
+    if (!existsSync(HUMAN_HOLDOUT_FILE)) expect(scenariosOf("human")).toEqual([]);
+    else {
+      const dishes = cardsOf("human");
+      expect(dishes.size).toBeGreaterThanOrEqual(HUMAN_HOLDOUT_MIN_DISHES);
+      const known = new Set([...DISHES.map((d) => d.en.toLowerCase())]);
+      for (const d of dishes.values()) expect(known.has(d.en.toLowerCase()), d.id).toBe(false);
+    }
+  });
+  it("refuses a file that is not what the README asks for", () => {
+    expect(() => checkHumanDishes([{ id: "x" }])).toThrow(/id must look like/);
+    expect(() =>
+      checkHumanDishes([
+        {
+          id: "hh-test-dish",
+          en: "Test dish",
+          nl: "Testgerecht",
+          question_en: "What with the test dish?",
+          question_nl: "Wat bij het testgerecht?",
+          truth: { main: "pork", weight: 9, fat: 1, acid: 1, sweet: 0, heat: 0, umami: 1 },
+          good: ["not-a-wine"],
+          by: "JP",
+        },
+      ]),
+    ).toThrow(/weight must be 1–5[\s\S]*not a benchmark wine/);
   });
 });

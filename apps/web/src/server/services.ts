@@ -55,6 +55,9 @@ import { createScanRepository } from "@/server/scans/repository";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
 import { createSommelierIntelligence } from "@/server/sommelier/intelligence";
+import { createDishReader } from "@/server/sommelier/dish-reader";
+import { sharedDishCache } from "@/server/sommelier/dish-cache";
+import { createPairingReviewer } from "@/server/sommelier/pairing-reviewer";
 import { createSommelierChatService } from "@/server/sommelier/conversation";
 import { createSommelierConversationRepository } from "@/server/sommelier/repository";
 import { recordSommelierExchange } from "@/server/privileged/sommelier-conversations";
@@ -64,6 +67,7 @@ import { createStatsService } from "@/server/stats/service";
 import { createInsightsRepository } from "@/server/insights/repository";
 import { createInsightsService } from "@/server/insights/service";
 import {
+  getAiEnv,
   getFeatures,
   getPlacementAccess,
   isAdviceOpen,
@@ -165,6 +169,7 @@ export function servicesFor(ctx: RequestContext) {
   // Sommelier 3.0's engines: only where the deployment names the switch (never under `all`). They read the same
   // household-scoped inventory, the household's own wine profiles and the person's own taste; no retailer source
   // is connected, so buying advice is a style.
+  const dishLlm = features.sommelier_dish_ai ? getLlmProvider() : null;
   const intelligence = features.sommelier_engine
     ? createSommelierIntelligence({
         cellar: () => cellar.inventory(),
@@ -184,6 +189,34 @@ export function servicesFor(ctx: RequestContext) {
               // friendship, the cellar shown to this person, and the friend's own consent). Never cached.
               friendCellar: (handle: string) =>
                 readSommelierFriendCellar(createFriendsRepository(ctx.db), handle),
+            }
+          : {}),
+        // A model reads the dishes the parser cannot place (S10): only with its own switch and a configured
+        // key, under the platform budget (closed when it cannot be checked) and the person's own limit.
+        ...(features.sommelier_dish_ai && dishLlm
+          ? {
+              readDish: createDishReader({
+                llm: dishLlm,
+                model: `${getAiEnv().adviceModel}|${getAiEnv().reasoningEffort}`,
+                spend: () => limiter.enforce(LIMITS.dishReading),
+                householdId: async () => (await household()).id,
+                recordUsage: ({ householdId, task, status, usage }) =>
+                  recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
+                cache: sharedDishCache(),
+              }),
+              // An experiment: a model's second opinion on close calls, keeping, reordering or leaving out the
+              // engine's own picks. Only with its own switch (which needs the dish reading).
+              ...(features.sommelier_second_opinion
+                ? {
+                    secondOpinion: createPairingReviewer({
+                      llm: dishLlm,
+                      spend: () => limiter.enforce(LIMITS.pairingReview),
+                      householdId: async () => (await household()).id,
+                      recordUsage: ({ householdId, task, status, usage }) =>
+                        recordAiUsage({ userId: ctx.userId, householdId, task, status, usage }),
+                    }),
+                  }
+                : {}),
             }
           : {}),
         now: () => new Date(),

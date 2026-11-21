@@ -22,7 +22,7 @@ that carries a migration (#94, #97, #100) is merged.
 
 ## 1. Merge (switches off)
 
-Order: #90 → #91 → #93 → #94 → #95 → #97 → #98 → #100. Each is safe alone: new behaviour is
+Order: #90 → #91 → #93 → #94 → #95 → #97 → #98 → #100 → #104. Each is safe alone: new behaviour is
 behind switches that are off. When a base branch is merged and deleted, GitHub retargets the next pull request to
 `main`. Every branch of the stack contains `main` as of `6ab4350` and merges without conflict (checked in S9);
 #95, #97 and #98 are drafts and must be marked ready first.
@@ -49,13 +49,15 @@ answer "nothing", never a 500 (tested or reviewed for both).
 
 ## 3. Switches, in Preview first, one step at a time
 
-| Step | Name                                          | Needs                                      | Note                                                                                                                         |
-| ---- | --------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| 1    | `sommelier_engine` **and** `sommelier_buying` | nothing                                    | Together: with the engine alone, V1's buy list is dropped and nothing replaces it                                            |
-| 2    | `sommelier_experiences`                       | step 1                                     | Serving, keeping, wine-to-food, menus, quantities                                                                            |
-| 3    | `sommelier_learning`                          | step 1, 0052                               | Outcome buttons; `/admin/sommelier` starts to fill                                                                           |
-| 4    | `sommelier_social`                            | step 1, 0051, the approved consent wording | Last: it is the one that touches other people's data                                                                         |
-| 4b   | (no new switch) a friend's cellar             | step 4, 0053, its own consent wording      | Part of `sommelier_social`. Without 0053 the second consent switch is not shown and a friend's cellar is never read (tested) |
+| Step | Name                                          | Needs                                      | Note                                                                                                                                                        |
+| ---- | --------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `sommelier_engine` **and** `sommelier_buying` | nothing                                    | Together: with the engine alone, V1's buy list is dropped and nothing replaces it                                                                           |
+| 2    | `sommelier_experiences`                       | step 1                                     | Serving, keeping, wine-to-food, menus, quantities                                                                                                           |
+| 3    | `sommelier_learning`                          | step 1, 0052                               | Outcome buttons; `/admin/sommelier` starts to fill                                                                                                          |
+| 4    | `sommelier_social`                            | step 1, 0051, the approved consent wording | Last: it is the one that touches other people's data                                                                                                        |
+| 4b   | (no new switch) a friend's cellar             | step 4, 0053, its own consent wording      | Part of `sommelier_social`. Without 0053 the second consent switch is not shown and a friend's cellar is never read (tested)                                |
+| 5    | `sommelier_dish_ai` (S10)                     | step 1, an AI key, a platform budget       | A model reads dishes the parser could not place; costs a call per routed dish (shared through the cache). Budget mode closed: no budget configured, no call |
+| 6    | `sommelier_second_opinion` (S10, experiment)  | step 5, the paid evaluation's result       | Only if `HYBRID_EVALUATION.md` shows it helps; it is not an approved architecture                                                                           |
 
 Each of the last four does nothing without `sommelier_engine` (tested).
 
@@ -85,7 +87,31 @@ Remove the switch from `CELLR_FEATURES` and redeploy: V1 answers again. Conversa
 open (a kept plan is drawn as it was; the outcome buttons disappear). The migrations stay: they are additive,
 and nothing reads their tables with the switches off.
 
-## 7. GO / NO-GO (S9)
+## 7. GO / NO-GO (S10, replaces the S9 verdict below it)
+
+### Merging the stack with every switch off: **GO**
+
+S10 adds two switches, both named-only and off, no migration and no new table. With them off nothing calls a
+model and the only change in behaviour is inside `sommelier_engine` (off): the conservative selection, which offers
+fewer bottles and never changes the first one or the outcome. All suites pass (`progress/S10.md` §8); the
+independent reviews' P0 and P1 findings are fixed (§7 there).
+
+### Switching anything on for real users: **NO-GO**; V1 with AI stays the default
+
+The owner's rule for S10: activation only if the hybrid sommelier is shown to give better and safer advice than V1
+with AI on unseen dishes. The paid comparison (`HYBRID_EVALUATION.md` §7, $0.26) shows it is not:
+
+- On safety all three engine variants are behind V1 with AI: no poor bottle offered −12 points [−22, −4], useful
+  answers −16 [−27, −5].
+- On the first bottle B and C are behind (−15 [−28, −1]); D is closest (−10 [−23, +3]) and ahead nowhere.
+- The decision rule written before the run is not met by any variant.
+- Even a favourable result would have been provisional until the human holdout and the expert review exist (both
+  BLOCKED on people), and the S9 conditions (consent wording, the alcohol marketing and age check) still stand.
+
+None of the seven sommelier switches is to be named in Production or Preview. The next step is S11 (variant E: V1
+decides, the engine only vetoes; `HYBRID_EVALUATION.md` §8).
+
+## 7a. GO / NO-GO (S9)
 
 ### Merging the stack with every switch off: **GO**
 

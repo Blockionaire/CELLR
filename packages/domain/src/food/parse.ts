@@ -6,6 +6,21 @@ import type { DishTemplate, FoodMain, FoodProfile, Ingredient, Sauce, Technique 
 const PLAIN_BASES: ReadonlySet<string> = new Set(["pasta-grain", "snack"]);
 
 /**
+ * The classics of a plate composed around an ingredient: that ingredient's. A plain base (pasta, rice, bread,
+ * potato) has none of its own and is known for what is on it: truffle on pasta is truffle's. Only a plain base:
+ * chicken with a little chocolate is not a dish known for port.
+ */
+export function composedClassics(
+  main: Ingredient | null | undefined,
+  extras: readonly Ingredient[],
+): string[] {
+  if (main?.classics?.length) return [...main.classics];
+  if (main && (PLAIN_BASES.has(main.main ?? "") || main.id === "potato"))
+    return [...new Set(extras.flatMap((x) => x.classics ?? []))];
+  return [];
+}
+
+/**
  * READING A DISH. The text a person typed ("pan-seared sea bass with lemon butter sauce", "gebakken zeebaars met
  * citroenbotersaus") is matched against the knowledge: first whole dishes, then sauces, techniques and
  * ingredients, longest phrase first, in English and Dutch at once. Dutch compounds are split on known words
@@ -431,13 +446,7 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
     // (pasta, rice, bread, potato) has none of its own and is known for what is on it: truffle on pasta is
     // truffle's. Only a plain base: chicken with a little chocolate is not a dish known for port.
     classics: [
-      ...(dish
-        ? (dish.classics ?? [])
-        : parts.main?.classics?.length
-          ? parts.main.classics
-          : parts.main && (PLAIN_BASES.has(parts.main.main ?? "") || parts.main.id === "potato")
-            ? new Set((parts.extras ?? []).flatMap((x) => x.classics ?? []))
-            : []),
+      ...(dish ? (dish.classics ?? []) : composedClassics(parts.main, parts.extras ?? [])),
     ],
     parts: {
       ingredients: uniq([...(parts.main ? [parts.main] : []), ...(parts.extras ?? [])]).map(

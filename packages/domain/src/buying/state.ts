@@ -66,6 +66,12 @@ export const ConversationStateSchema = z.object({
   rejected: z.array(z.string().uuid()).max(30),
   /** The wines offered in the last answer (vintage ids), so "not that one" knows which one is meant. */
   offered: z.array(z.string().uuid()).max(6),
+  /**
+   * The dish of the conversation was described by a model (S10): its phrase was sent once, for a question that
+   * named nobody, so a follow-up may ask again when the stored reading is gone. False for any dish a model never
+   * saw (read by the parser alone, or from a question that named someone): that one is never sent.
+   */
+  dishReadByModel: z.boolean().default(false),
 });
 export type ConversationState = z.infer<typeof ConversationStateSchema>;
 
@@ -86,6 +92,7 @@ export const EMPTY_STATE: ConversationState = Object.freeze({
   asked: [],
   rejected: [],
   offered: [],
+  dishReadByModel: false,
 }) as ConversationState;
 
 /** A state a screen sent back: used when it is well-formed, else the conversation starts over. Never trusted. */

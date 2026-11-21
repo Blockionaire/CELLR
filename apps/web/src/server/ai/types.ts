@@ -5,6 +5,10 @@ export type AiTask =
   /** Koopcheck: the same label reading, of a bottle in a shop (counted apart, so scan metrics stay scans). */
   | "purchase_check"
   | "sommelier_chat"
+  /** Sommelier 3.0 (S10): a dish the food engine could not place, described in the engine's own vocabulary. */
+  | "dish_reading"
+  /** Sommelier 3.0 (S10, experiment): a second opinion on the engine's own candidates in a close call. */
+  | "pairing_review"
   | "wine_insight"
   | "wine_valuation";
 
