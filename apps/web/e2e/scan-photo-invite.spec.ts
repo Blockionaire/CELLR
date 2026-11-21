@@ -28,6 +28,13 @@ const label = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+/**
+ * Adding a new wine's bottle and then sending its photos is several requests in a row (the wine, the bottles, the
+ * status, the upload with the photos made ready on the device): on a busy CI machine that takes longer than the
+ * default five seconds, though nothing waits on anything else.
+ */
+const SLOW = { timeout: 20_000 };
+
 let counter = 0;
 const uniqueSize = () => {
   counter += 1;
@@ -55,7 +62,7 @@ async function scanLabel(page: Page, content: unknown) {
     mimeType: "image/jpeg",
     buffer: await makeJpeg(page, size),
   });
-  await expect(page.getByTestId("scan-review")).toBeVisible();
+  await expect(page.getByTestId("scan-review")).toBeVisible(SLOW);
 }
 
 const userOf = async (email: string) =>
@@ -131,7 +138,11 @@ test.describe("the invitation on the scan's review", () => {
       expect(await contributions(user)).toEqual([]);
 
       await page.getByRole("button", { name: "Add 1 bottle" }).click();
-      await expect(page.getByTestId("scan-photo-result")).toHaveAttribute("data-state", "sent");
+      await expect(page.getByTestId("scan-photo-result")).toHaveAttribute(
+        "data-state",
+        "sent",
+        SLOW,
+      );
       expect(uploads).toBe(1);
       const [added] = await vintageOf(householdId);
       expect(await contributions(user)).toEqual([{ vintage: added, photos: n, status: "pending" }]);
@@ -160,7 +171,7 @@ test.describe("the invitation on the scan's review", () => {
     await invite(page).getByRole("button", { name: "Maybe later" }).click();
     await expect(invite(page)).toHaveCount(0);
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
-    await expect(page.getByText(/1 bottle of Domaine Later/)).toBeVisible();
+    await expect(page.getByText(/1 bottle of Domaine Later/)).toBeVisible(SLOW);
     await expect(page.getByTestId("scan-photo-result")).toHaveCount(0);
     expect(await contributions(user)).toEqual([]);
 
@@ -173,7 +184,7 @@ test.describe("the invitation on the scan's review", () => {
       mimeType: "image/jpeg",
       buffer: await makeJpeg(page, size),
     });
-    await expect(page.getByTestId("scan-review")).toBeVisible();
+    await expect(page.getByTestId("scan-review")).toBeVisible(SLOW);
     await expect(invite(page)).toHaveCount(0);
   });
 
@@ -195,12 +206,12 @@ test.describe("the invitation on the scan's review", () => {
     });
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
     const result = page.getByTestId("scan-photo-result");
-    await expect(result).toHaveAttribute("data-state", "failed");
+    await expect(result).toHaveAttribute("data-state", "failed", SLOW);
     await expect(result).toContainText("The bottle is added.");
     expect(await vintageOf(householdId)).toHaveLength(1);
     expect(await contributions(user)).toEqual([]);
     await result.getByRole("button", { name: "Try again" }).click();
-    await expect(result).toHaveAttribute("data-state", "sent");
+    await expect(result).toHaveAttribute("data-state", "sent", SLOW);
     expect(await contributions(user)).toHaveLength(1);
     expect((await contributions(user))[0]!.photos).toBe(2);
   });
@@ -223,15 +234,22 @@ test.describe("the invitation on the scan's review", () => {
       return route.continue();
     });
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
-    await expect(page.getByTestId("scan-photo-result")).toHaveAttribute("data-state", "sending");
+    await expect(page.getByTestId("scan-photo-result")).toHaveAttribute(
+      "data-state",
+      "sending",
+      SLOW,
+    );
     // on to the next bottle before the photos are through
     await page.getByRole("button", { name: "Scan another" }).click();
     const retries = page.getByTestId("scan-photo-retries");
-    await expect(retries).toContainText(`Bottle photos for Domaine Weg ${m} Vertrek weren’t sent.`);
+    await expect(retries).toContainText(
+      `Bottle photos for Domaine Weg ${m} Vertrek weren’t sent.`,
+      SLOW,
+    );
     expect(failed).toBe(1);
     await retries.getByRole("button", { name: "Try again" }).click();
-    await expect(retries).toHaveCount(0);
-    await expect.poll(async () => (await contributions(user)).length).toBe(1);
+    await expect(retries).toHaveCount(0, SLOW);
+    await expect.poll(async () => (await contributions(user)).length, SLOW).toBe(1);
   });
 
   test("not asked for a wine with a published picture, or one the person already sent photos of", async ({
@@ -250,20 +268,20 @@ test.describe("the invitation on the scan's review", () => {
     );
     await publishArt(pictured.body.id, await makeBottlePng(page, "#3a1020", "#f4ead8"));
     await scanLabel(page, label({ producer: `Clos Beeld ${m}`, wine_name: "Afgebeeld" }));
-    await expect(page.getByRole("heading", { name: "We found it" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "We found it" })).toBeVisible(SLOW);
     await expect(invite(page)).toHaveCount(0);
 
     // a wine they sent photos of from an earlier scan: a new flow does not ask again
     await scanLabel(page, label({ producer: `Domaine Eerder ${m}`, wine_name: "Verstuurd" }));
     await keepPhotos(page, 1);
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
-    await expect(page.getByTestId("scan-photo-result")).toHaveAttribute("data-state", "sent");
+    await expect(page.getByTestId("scan-photo-result")).toHaveAttribute("data-state", "sent", SLOW);
     await scanLabel(page, label({ producer: `Domaine Eerder ${m}`, wine_name: "Verstuurd" }));
-    await expect(page.getByRole("heading", { name: "We found it" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "We found it" })).toBeVisible(SLOW);
     await expect(page.getByLabel("Vintage")).toHaveValue("2021");
     await expect(invite(page)).toHaveCount(0);
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
-    await expect(page.getByText(/1 bottle of Domaine Eerder/)).toBeVisible();
+    await expect(page.getByText(/1 bottle of Domaine Eerder/)).toBeVisible(SLOW);
     const [bottles] = await sql<{ n: number }>(
       "select count(*)::int as n from public.bottles where household_id = $1",
       [householdId],
@@ -302,11 +320,12 @@ test.describe("the invitation on the scan's review", () => {
     // on to the next photo at once; the invitation is not made again
     await expect(page.getByLabel("Wine name")).toHaveValue(
       firstName === "Eerste" ? "Tweede" : "Eerste",
+      SLOW,
     );
     await expect(invite(page)).toHaveCount(0);
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
-    await expect(page.getByTestId("series-counts")).toHaveText(/2 added/);
-    await expect.poll(async () => (await contributions(user)).length).toBe(1);
+    await expect(page.getByTestId("series-counts")).toHaveText(/2 added/, SLOW);
+    await expect.poll(async () => (await contributions(user)).length, SLOW).toBe(1);
     const [first] = await sql<{ id: string }>(
       `select v.id from public.wine_vintages v join public.wines w on w.id = v.wine_id
         where w.owner_household_id = $1 and w.name = $2`,
