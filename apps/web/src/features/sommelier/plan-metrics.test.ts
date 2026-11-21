@@ -94,4 +94,24 @@ describe("what is measured about an answer", () => {
       engine: "v1",
     });
   });
+  it("adds the V1 guard's shadow counts when the reply has them, and nothing else (S11)", () => {
+    const props = answerMetrics({
+      source: "ai",
+      text: "…",
+      basic: null,
+      bottles: [],
+      reason: null,
+      shadow: { version: 1, considered: true, bottles: 2, flagged: 1, first: false },
+    });
+    expect(props).toEqual({
+      source: "ai",
+      engine: "v1",
+      guard_v: 1,
+      guard_judged: true,
+      guard_bottles: 2,
+      guard_flagged: 1,
+      guard_first: false,
+    });
+    expect(AnalyticsPropsSchema.safeParse(props).success).toBe(true);
+  });
 });

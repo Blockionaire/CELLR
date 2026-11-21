@@ -29,6 +29,13 @@ import {
   BUDGET_EUROS,
 } from "@cellr/domain";
 import type { SommelierIntelligence } from "@/server/sommelier/intelligence";
+import type { GuardShadow } from "@/server/sommelier/v1-guard";
+
+/** What a caller may hear about an answer besides the answer itself. */
+export interface SommelierObserver {
+  model?: (id: string) => void;
+  guard?: (shadow: GuardShadow) => void;
+}
 import type { AiErrorKind, AiUsage, LlmProvider } from "@/server/ai";
 import {
   parseSommelier,
@@ -56,6 +63,11 @@ export interface SommelierDeps {
   intelligence?: SommelierIntelligence | null;
   /** Counts an answer of the engines against its own, generous limit; throws RATE_LIMITED when it is gone. */
   spendEngine?: () => Promise<void>;
+  /**
+   * Variant E in shadow mode (switch `sommelier_v1_guard`): judges the bottles V1 offered, after it answered, and
+   * changes nothing (`v1-guard.ts`). Absent: nothing is judged.
+   */
+  guard?: ((userTexts: readonly string[], offered: readonly CellarItem[]) => GuardShadow) | null;
   /** Null = no AI configured. */
   llm: LlmProvider | null;
   /** Spends from the chat budget; throws RATE_LIMITED when it is gone. */
@@ -165,14 +177,12 @@ export function createSommelierService(deps: SommelierDeps) {
     };
   }
 
-  return {
-    /**
-     * `observe.model` hears which model wrote the answer, for an answer that is the AI's (never for a plain one):
-     * the kept conversation notes it with the answer. It changes nothing about how the question is answered.
-     */
-    async ask(
+  const v1 = {
+    /** Sommelier V1's answer. `seen` says what it was given and saw (for the shadow guard below). */
+    async answer(
       request: AskSommelier,
-      observe?: { model?: (id: string) => void },
+      seen: { items: readonly CellarItem[]; facts: boolean },
+      observe?: SommelierObserver,
     ): Promise<SommelierAnswer> {
       // With the social sommelier on, a friend's name is personal data that never leaves for a model: not in this
       // question, not in an earlier turn the screen sends along. A question that names someone is answered by
@@ -197,6 +207,7 @@ export function createSommelierService(deps: SommelierDeps) {
             .map((m) => ({ ...m, text: withoutAnyMention(m.text) || "…" }))
         : request.messages;
       const { items } = await deps.cellar();
+      seen.items = items;
       const tonight = request.mode === "tonight";
       const nothing: SommelierAnswer = {
         source: "basic",
@@ -236,6 +247,7 @@ export function createSommelierService(deps: SommelierDeps) {
         deps.intelligence.readsDish(question)
           ? null
           : counted;
+      seen.facts = facts !== null;
       // The person's taste: only for advice (never for a question of fact, an empty cellar, or when they asked
       // for general advice), read at most once per question, and simply left out if it cannot be read.
       const explore = wantsSomethingDifferent(question);
@@ -377,6 +389,42 @@ export function createSommelierService(deps: SommelierDeps) {
         // Only when a taste was shown and the model says it shaped the answer.
         personal: personal !== null && checked.usedTaste,
       };
+    },
+  };
+
+  return {
+    /**
+     * `observe.model` hears which model wrote the answer, for an answer that is the AI's (never for a plain one):
+     * the kept conversation notes it with the answer. `observe.guard` hears what variant E's guard would have
+     * held back (shadow mode, only with `deps.guard`). Neither changes anything about how the question is answered.
+     */
+    async ask(request: AskSommelier, observe?: SommelierObserver): Promise<SommelierAnswer> {
+      const seen: { items: readonly CellarItem[]; facts: boolean } = { items: [], facts: false };
+      const answer = await v1.answer(request, seen, observe);
+      // Shadow mode: V1's own pairing advice only (the AI's, or the plain engine's pairing), never the engines'
+      // plans or a question of fact. A failure here is the shadow's, never the person's: the answer goes out as is.
+      if (
+        deps.guard &&
+        observe?.guard &&
+        !answer.plan &&
+        !seen.facts &&
+        answer.bottles.length > 0 &&
+        (answer.source === "ai" || answer.basic === "pairing")
+      ) {
+        try {
+          const byId = new Map(seen.items.map((i) => [i.vintageId, i]));
+          const offered = answer.bottles.flatMap((b) => byId.get(b.vintageId) ?? []);
+          observe.guard(
+            deps.guard(
+              request.messages.filter((m) => m.role === "user").map((m) => m.text),
+              offered,
+            ),
+          );
+        } catch {
+          // nothing: the shadow is simply not measured for this answer
+        }
+      }
+      return answer;
     },
   };
 }

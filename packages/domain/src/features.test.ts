@@ -77,6 +77,15 @@ describe("feature switches", () => {
     ).toMatchObject({ sommelier_dish_ai: true, sommelier_second_opinion: true });
   });
 
+  it("the V1 guard's shadow mode is named-only and needs nothing else (S11)", () => {
+    for (const raw of ["all", "", "sommelier_engine", "sommelier_v1_guar"])
+      expect(parseFeatures(raw).sommelier_v1_guard, raw).toBe(false);
+    expect(parseFeatures("sommelier_v1_guard")).toMatchObject({
+      sommelier_v1_guard: true,
+      sommelier_engine: false,
+    });
+  });
+
   it("the answer cannot be changed by whoever receives it", () => {
     const flags = parseFeatures("wine_search") as Record<string, boolean>;
     expect(() => {

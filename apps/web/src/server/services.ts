@@ -54,6 +54,7 @@ import { createWineSourcesRepository, createWineSourcesService } from "@/server/
 import { createScanRepository } from "@/server/scans/repository";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
+import { guardShadow } from "@/server/sommelier/v1-guard";
 import { createSommelierIntelligence } from "@/server/sommelier/intelligence";
 import { createDishReader } from "@/server/sommelier/dish-reader";
 import { sharedDishCache } from "@/server/sommelier/dish-cache";
@@ -224,6 +225,9 @@ export function servicesFor(ctx: RequestContext) {
     : null;
   const sommelier = createSommelierService({
     intelligence,
+    // Variant E in shadow mode (S11): only with its own switch. Judges V1's offered bottles in code after the
+    // answer is made and changes nothing; the counts go back with the reply, never stored here.
+    guard: features.sommelier_v1_guard ? guardShadow : null,
     spendEngine: () => limiter.enforce(LIMITS.sommelierEngine),
     cellar: () => cellar.inventory(),
     // Read only: the same household-scoped (RLS) reads the cellar screens use.

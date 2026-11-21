@@ -5,6 +5,7 @@ import { ENGINES } from "./engines";
 import { SCENARIOS } from "./scenarios";
 import { buildFixture } from "./fixtures";
 import { qualityRow, qualityTotals, type QualityRow } from "./quality";
+import { addGuardEffect, emptyGuardEffect } from "./guard-effect";
 import { checkHumanDishes, HUMAN_HOLDOUT_FILE, HUMAN_HOLDOUT_MIN_DISHES } from "./human-holdout";
 import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { expectedVerdictOf, scoreScenario, summarize } from "./score";
@@ -135,6 +136,33 @@ describe("the V1 baseline", () => {
 });
 
 const cellarKeys = (s: Scenario) => buildFixture(s).wines.map((w) => w.key);
+
+describe("variant E in shadow mode, on V1 without its model (S11)", () => {
+  // The guard's settings were frozen on the main set before the unseen sets were run (GUARD_VERSION 1). These are
+  // the recorded totals of `progress/S11.md` §2; a change to the guard or the engines that moves them is seen here.
+  for (const [set, expected] of [
+    ["main", { answers: 92, poor: 27, blocked: 0, useful: [8, 12], emptied: 6 }],
+    ["holdout-dev", { answers: 22, poor: 5, blocked: 0, useful: [6, 6], emptied: 0 }],
+    ["holdout-test", { answers: 26, poor: 13, blocked: 0, useful: [5, 8], emptied: 2 }],
+  ] as const)
+    it(`flags only poor bottles on "${set}" and never changes V1's answer`, async () => {
+      const engine = ENGINES.find((e) => e.name === "v1-basic")!;
+      const total = emptyGuardEffect();
+      const setCards = cardsOf(set);
+      for (const s of scenariosOf(set)) {
+        const { answer, ms } = await engine.run(s);
+        const card = s.dish ? (setCards.get(s.dish) ?? null) : null;
+        addGuardEffect(total, s, card, answer, scoreScenario(s, card, answer, ms), cellarKeys(s));
+      }
+      expect({
+        answers: total.answers,
+        poor: total.flagged.poor,
+        blocked: total.flagged.good + total.flagged.ok,
+        useful: total.useful,
+        emptied: total.emptied,
+      }).toEqual(expected);
+    });
+});
 
 describe("Sommelier 3.0 in the app", () => {
   // Only V1's baseline used to be pinned, so a change to the engines could move the results the documents quote

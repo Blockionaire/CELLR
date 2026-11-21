@@ -33,6 +33,12 @@ export const FEATURES = [
    * candidates, never add one. Needs the model's dish reading.
    */
   "sommelier_second_opinion",
+  /**
+   * Sommelier V1+ (S11, shadow mode): after V1 answers, a guard in code says which offered bottles it would hold
+   * back for a hard clash with the dish. The answer is never changed; only counts go with the answer's own
+   * analytics event. No model call, no database read. Needs nothing else (it guards V1, not the engines).
+   */
+  "sommelier_v1_guard",
 ] as const;
 export type Feature = (typeof FEATURES)[number];
 export type FeatureFlags = Readonly<Record<Feature, boolean>>;
@@ -49,6 +55,7 @@ export const NAMED_ONLY: ReadonlySet<Feature> = new Set<Feature>([
   "sommelier_learning",
   "sommelier_dish_ai",
   "sommelier_second_opinion",
+  "sommelier_v1_guard",
 ]);
 /** Switches that do nothing without another one. */
 const REQUIRES: Partial<Record<Feature, Feature>> = {

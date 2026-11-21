@@ -22,6 +22,7 @@ import { hybrid, type HybridRun } from "./engines/hybrid";
 import { v1Ai, type V1AiRun } from "./engines/v1-ai";
 import { buildFixture } from "./fixtures";
 import { formatQuality, qualityRow, qualityTotals, type QualityRow } from "./quality";
+import { addGuardEffect, emptyGuardEffect, formatGuardEffect } from "./guard-effect";
 import { BudgetReached } from "./paid";
 import { formatFailures, formatSummary } from "./report";
 import { cardsOf, holdsBlind, scenariosOf } from "./sets";
@@ -103,6 +104,7 @@ const results: ScenarioResult[] = [];
 const qualityRows: QualityRow[] = [];
 const cellarOfScenario = new Map<string, string[]>();
 const answers: EvalAnswer[] = [];
+const guardEffect = emptyGuardEffect();
 // Once unmeasured, so module loading and the first call's warm-up are not counted as latency.
 // (Never for the paid engine: a warm-up there is a call that costs money and is thrown away.)
 if (scenarios[0] && !paid) await engine.run(scenarios[0]);
@@ -135,6 +137,7 @@ for (const scenario of scenarios) {
   cellarOfScenario.set(scenario.id, cellarKeys);
   const row = qualityRow(scenario, card, run.answer, scored, cellarKeys);
   if (row) qualityRows.push(row);
+  addGuardEffect(guardEffect, scenario, card, run.answer, scored, cellarKeys);
 }
 const quality = qualityTotals(
   qualityRows,
@@ -158,6 +161,7 @@ if (paid?.mode === "estimate") {
 const summary = summarize(engine.name, results, answers);
 console.log(formatSummary(summary, engine.describes));
 console.log(`\n${formatQuality(quality)}`);
+if (guardEffect.answers > 0) console.log(`\n${formatGuardEffect(guardEffect)}`);
 if (paid && !("engine" in paid))
   console.log(
     `Dish readings: by the model ${paid.readings.model}, from the shared store ${paid.readings.cache}, failed ${paid.readings.failed}, refused by the person's limit ${paid.readings.limited}.`,
@@ -187,6 +191,7 @@ if (args.json) {
     byCategory: summary.byCategory,
     measures: summary.measures,
     quality,
+    ...(guardEffect.answers > 0 ? { guardEffect } : {}),
     ...(paid && !("engine" in paid) ? { dishReadings: paid.readings } : {}),
     ...(blind
       ? {}

@@ -168,3 +168,11 @@ A rating and an outcome are separate records. Neither is derived from the other,
 Product events of the sommelier carry codes and counts only: `engine`, `source`, `kind`, `outcome`, `confidence`,
 `picks`, `set_aside`, `styles`, `asked`, `friends` (a number). `sommelier_outcome_said` carries `opened`,
 `with_dish` and `enjoyed`. Never the question, the dish, a wine, a price or a name.
+
+**V1+ shadow guard (S11, switch `sommelier_v1_guard`, off).** With the switch on, an answer of V1 (`engine = v1`)
+that offered bottles for a pairing also carries what variant E's guard would have held back: `guard_v` (its
+version), `guard_judged` (it read the dish well enough to judge), `guard_bottles` and `guard_flagged` (counts,
+capped at 12) and `guard_first` (the first bottle is among the flagged). Not the clash it saw: that names the kind of
+dish. The answer shown is never changed by it, and nothing of it is kept with the conversation. Like every client
+event it is not sent under Do Not Track / GPC. Read as: flagged answers ÷ judged answers; what fraction of those
+flags were right is only known from the benchmark (`docs/sprints/sommelier-3-mega/progress/S11.md`).
