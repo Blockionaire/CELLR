@@ -570,6 +570,19 @@
         },
         "noted": "Genoteerd. Dit gaat over de wijn bij het gerecht, niet over mijn antwoord.",
         "failed": "Dat kon niet worden opgeslagen. Probeer het opnieuw."
+      },
+      "theirs": {
+        "title": "Uit de kelder van @{handle}",
+        "owner": "Fles van @{handle}, niet van jou",
+        "outcome": {
+          "good": "Uit de kelder die @{handle} met je deelt, een goede match:",
+          "acceptable": "In de kelder die @{handle} met je deelt past niets perfect. Dit kan ermee door:",
+          "none": "Niets in de kelder die @{handle} met je deelt past hier echt bij."
+        },
+        "notShared": "Ik kan niet zien wat @{handle} in de kelder heeft, dus ik zeg niets over wat diegene bezit.",
+        "basis": "Beoordeeld op hoe zo'n wijn meestal is, niet op precies hun fles.",
+        "leftOut": "Weggelaten omdat het in de kelder staat die @{handle} met je deelt: {styles}.",
+        "giftChecked": "Gecontroleerd met de kelder die @{handle} met je deelt. Wat diegene daarbuiten bezit, kan ik niet weten."
       }
     },
     "mentions": {
@@ -1796,7 +1809,11 @@
     "sommelierSharing": {
       "title": "Sommelier van vrienden",
       "body": "Als een vriend jou noemt in een vraag aan diens sommelier (\"@jij komt eten, wat trek ik open?\"), mag die rekening houden met jouw smaak: de soorten en streken die je hoog waardeert, hoe de wijnen die je hoog waardeert meestal aanvoelen (body, tannine, zoetheid, zuren) en wat je zelf hebt aangegeven. Je vriend kan zien of je dit toestaat.",
-      "never": "Nooit je flessen, je beoordelingen, je notities of je naam. Vragen waarin jij genoemd wordt, worden niet bewaard en geen AI-model krijgt ze te zien. Zet je dit uit, dan stopt het bij de volgende vraag."
+      "never": "Nooit je flessen, je beoordelingen, je notities of je naam. Vragen waarin jij genoemd wordt, worden niet bewaard en geen AI-model krijgt ze te zien. Zet je dit uit, dan stopt het bij de volgende vraag.",
+      "cellarTitle": "Sommelier van vrienden: mijn kelder",
+      "cellarBody": "Als een vriend je noemt in een vraag aan de eigen sommelier (\"@jij neemt een fles mee, wat heeft die dat bij ons past?\", \"een cadeau dat diegene nog niet heeft\"), mag die kijken naar de wijnen in je kelder: producent, wijn, jaargang, soort en herkomst. Alleen voor vrienden aan wie je je kelder al laat zien.",
+      "cellarNever": "Nooit waar een fles ligt, hoeveel je er hebt, je beoordelingen of je notities. Vragen waarin jij genoemd wordt worden niet bewaard, en geen AI-model krijgt ze te zien. Zet je dit uit, dan stopt het bij de volgende vraag.",
+      "cellarNeedsSharing": "Dit werkt alleen voor vrienden aan wie je je kelder laat zien (\"Wat mijn vrienden zien\", hierboven)."
     }
   },
   "pin": {

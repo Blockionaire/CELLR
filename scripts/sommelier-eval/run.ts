@@ -5,17 +5,23 @@
  *   pnpm sommelier:eval --engine v3             Sommelier 3.0's engines
  *   pnpm sommelier:eval --failures              also list every failed check
  *   pnpm sommelier:eval --only pairing-hard     one category, or one scenario id
+ *   pnpm sommelier:eval --set holdout            another scenario set (sets.ts)
  *   pnpm sommelier:eval --json out.json         write the per-scenario results (no timings: they vary per run)
+ *   pnpm sommelier:eval --needs pairing,facts   only the scenarios that need no more than these capabilities
+ *   pnpm sommelier:eval --engine v1-ai --estimate   what running V1 WITH its AI would cost; nothing is sent
  *
- * Nothing here calls a model or a network: the engines are run with fixed cellars and a fixed day.
+ * Nothing here calls a model or a network: the engines are run with fixed cellars and a fixed day. The one
+ * exception is `--engine v1-ai` without `--estimate`, which calls the paid model and therefore refuses to run
+ * without the owner's approval (paid.ts says how, and what is sent).
  * How the reference answers were made, and what the benchmark cannot show: docs/sprints/sommelier-3-mega/BASELINE.md.
  */
 import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import { DISHES } from "./dishes";
 import { ENGINES } from "./engines";
+import { v1Ai, type V1AiRun } from "./engines/v1-ai";
+import { BudgetReached } from "./paid";
 import { formatFailures, formatSummary } from "./report";
-import { SCENARIOS } from "./scenarios";
+import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { scoreScenario, summarize, type ScenarioResult } from "./score";
 import type { EvalAnswer } from "./types";
 
@@ -25,28 +31,91 @@ const { values: args } = parseArgs({
     only: { type: "string" },
     json: { type: "string" },
     failures: { type: "boolean", default: false },
+    /** The scenario set: "main" (the benchmark the engines were developed against) or another one of sets.ts. */
+    set: { type: "string", default: "main" },
+    /** With `--engine v1-ai`: build and count the prompts, send nothing. */
+    estimate: { type: "boolean", default: false },
+    /** Only scenarios that need nothing beyond these capabilities ("pairing,facts": what V1 can attempt). */
+    needs: { type: "string" },
+    /** With `--engine v1-ai` for real: stop once this much was spent (US dollars). */
+    "max-usd": { type: "string", default: "2" },
   },
 });
 
-const engine = ENGINES.find((e) => e.name === args.engine);
+let paid: V1AiRun | null = null;
+if (args.engine === "v1-ai") {
+  const maxUsd = Number(args["max-usd"]);
+  if (!Number.isFinite(maxUsd) || maxUsd <= 0 || maxUsd > 25) {
+    console.error("--max-usd must be a number of dollars between 0 and 25");
+    process.exit(2);
+  }
+  try {
+    paid = v1Ai({ estimate: args.estimate!, maxUsd });
+  } catch (error) {
+    console.error((error as Error).message);
+    process.exit(2);
+  }
+}
+const engine = paid?.engine ?? ENGINES.find((e) => e.name === args.engine);
 if (!engine) {
-  console.error(`unknown engine "${args.engine}"; known: ${ENGINES.map((e) => e.name).join(", ")}`);
+  console.error(
+    `unknown engine "${args.engine}"; known: ${ENGINES.map((e) => e.name).join(", ")}, v1-ai`,
+  );
   process.exit(2);
 }
-const scenarios = SCENARIOS.filter(
-  (s) => !args.only || s.category === args.only || s.id === args.only,
+// A blind set is reported in totals only: nothing here names one of its scenarios.
+const blind = holdsBlind(args.set!);
+if (blind && (args.failures || args.only)) {
+  console.error(
+    `"${args.set}" holds the blind scenarios: it is measured in totals only (no --failures, no --only).`,
+  );
+  process.exit(2);
+}
+const within = args.needs ? new Set(args.needs.split(",")) : null;
+const scenarios = scenariosOf(args.set!).filter(
+  (s) =>
+    (!args.only || s.category === args.only || s.id === args.only) &&
+    (!within || s.needs.every((n) => within.has(n))),
 );
-const cards = new Map(DISHES.map((d) => [d.id, d]));
+const cards = cardsOf(args.set!);
 const results: ScenarioResult[] = [];
 const answers: EvalAnswer[] = [];
 // Once unmeasured, so module loading and the first call's warm-up are not counted as latency.
-if (scenarios[0]) await engine.run(scenarios[0]);
+// (Never for the paid engine: a warm-up there is a call that costs money and is thrown away.)
+if (scenarios[0] && !paid) await engine.run(scenarios[0]);
+let stoppedAt: string | null = null;
 for (const scenario of scenarios) {
-  const { answer, ms } = await engine.run(scenario);
-  answers.push(answer);
+  let run;
+  try {
+    run = await engine.run(scenario);
+  } catch (error) {
+    if (!(error instanceof BudgetReached)) throw error;
+    stoppedAt = scenario.id;
+    console.error(
+      `Stopped before ${scenario.id}: ${error.message}. The results below are incomplete.`,
+    );
+    break;
+  }
+  answers.push(run.answer);
   results.push(
-    scoreScenario(scenario, scenario.dish ? (cards.get(scenario.dish) ?? null) : null, answer, ms),
+    scoreScenario(
+      scenario,
+      scenario.dish ? (cards.get(scenario.dish) ?? null) : null,
+      run.answer,
+      run.ms,
+    ),
   );
+}
+if (paid?.mode === "estimate") {
+  // No model answered, so there is nothing to score: only what asking would cost.
+  const m = paid.meter;
+  console.log(
+    `ESTIMATE ONLY, nothing was sent. Set "${args.set}": ${scenarios.length} scenarios, of which V1 can attempt ${results.filter((r) => r.supported).length}; ${m.calls} model calls (${paid.model}).`,
+  );
+  console.log(
+    `At most about ${m.inputTokens} tokens in and ${m.outputTokens} out: $${(m.usdMicro / 1e6).toFixed(4)} per run of this set (a high estimate: the full output allowance and one repair per call).`,
+  );
+  process.exit(0);
 }
 const summary = summarize(engine.name, results, answers);
 console.log(formatSummary(summary, engine.describes));
@@ -60,17 +129,30 @@ if (args.failures) console.log(`\nFailed checks:\n${formatFailures(results)}`);
 if (args.json) {
   const stable = {
     engine: engine.name,
+    ...(paid
+      ? {
+          model: paid.model,
+          servedModels: [...paid.meter.servedModels].sort(),
+          ai: summary.ai,
+          callsWithUnknownCost: paid.meter.unknownCost,
+          incomplete: stoppedAt !== null,
+        }
+      : {}),
     scenarios: summary.scenarios,
     passed: summary.passed,
     supported: summary.supported,
     byCategory: summary.byCategory,
     measures: summary.measures,
-    results: results.map((r) => ({
-      id: r.id,
-      pass: r.pass,
-      supported: r.supported,
-      failed: r.checks.filter((c) => !c.pass).map((c) => c.name),
-    })),
+    ...(blind
+      ? {}
+      : {
+          results: results.map((r) => ({
+            id: r.id,
+            pass: r.pass,
+            supported: r.supported,
+            failed: r.checks.filter((c) => !c.pass).map((c) => c.name),
+          })),
+        }),
   };
   await writeFile(args.json, JSON.stringify(stable, null, 2) + "\n");
 }

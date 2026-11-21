@@ -570,6 +570,19 @@
         },
         "noted": "Noted. This is about the wine with the dish, not about my answer.",
         "failed": "That could not be saved. Try again."
+      },
+      "theirs": {
+        "title": "From @{handle}'s cellar",
+        "owner": "@{handle}'s bottle, not yours",
+        "outcome": {
+          "good": "From the cellar @{handle} shares with you, a good match:",
+          "acceptable": "In the cellar @{handle} shares with you nothing is a perfect match. This will do:",
+          "none": "Nothing in the cellar @{handle} shares with you really suits this."
+        },
+        "notShared": "I cannot see what @{handle} has in their cellar, so I say nothing about what they own.",
+        "basis": "Judged by what a wine like this is usually like, not by their exact bottle.",
+        "leftOut": "Left out because it is in the cellar @{handle} shares with you: {styles}.",
+        "giftChecked": "Checked against the cellar @{handle} shares with you. I cannot know what they own beyond it."
       }
     },
     "mentions": {
@@ -1796,7 +1809,11 @@
     "sommelierSharing": {
       "title": "Friends' sommelier",
       "body": "When a friend names you in a question to their sommelier (\"@you is coming, what do I open?\"), it may take your taste into account: the kinds and regions your ratings favour, how the wines you rate highly tend to feel (body, tannin, sweetness, acidity) and what you said you like. Your friend can see whether you allow this.",
-      "never": "Never your bottles, your ratings, your notes or your name. Questions that name you are not kept, and no AI model sees them. Turn this off and it stops at the next question."
+      "never": "Never your bottles, your ratings, your notes or your name. Questions that name you are not kept, and no AI model sees them. Turn this off and it stops at the next question.",
+      "cellarTitle": "Friends' sommelier: my cellar",
+      "cellarBody": "When a friend names you in a question to their sommelier (\"@you is bringing a bottle, what do they have that suits us?\", \"a present they do not have yet\"), it may look at the wines in your cellar: producer, wine, vintage, kind and where it is from. Only for friends you already show your cellar to.",
+      "cellarNever": "Never where a bottle lies, how many you have, your ratings or your notes. Questions that name you are not kept, and no AI model sees them. Turn this off and it stops at the next question.",
+      "cellarNeedsSharing": "This only has effect for friends you show your cellar to (\"What my friends see\", above)."
     }
   },
   "pin": {

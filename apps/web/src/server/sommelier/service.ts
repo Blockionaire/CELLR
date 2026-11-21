@@ -181,8 +181,20 @@ export function createSommelierService(deps: SommelierDeps) {
       const asked = request.messages.at(-1)!.text;
       const namesSomeone = social && hasAnyMention(asked);
       const question = social ? withoutAnyMention(asked) : asked;
+      // An earlier question that named someone, and the answer to it, are left out of what a model hears
+      // altogether: the question was about a friend, also with the name taken out of it.
       const history = social
-        ? request.messages.map((m) => ({ ...m, text: withoutAnyMention(m.text) || "…" }))
+        ? request.messages
+            .filter(
+              (m, i, all) =>
+                !(m.role === "user" && hasAnyMention(m.text)) &&
+                !(
+                  m.role === "assistant" &&
+                  all[i - 1]?.role === "user" &&
+                  hasAnyMention(all[i - 1]!.text)
+                ),
+            )
+            .map((m) => ({ ...m, text: withoutAnyMention(m.text) || "…" }))
         : request.messages;
       const { items } = await deps.cellar();
       const tonight = request.mode === "tonight";
@@ -206,10 +218,24 @@ export function createSommelierService(deps: SommelierDeps) {
         deps.intelligence.readsDish(question);
       // "8 guests, roast lamb: do I have enough bottles?" reads like a count and asks for a judgement.
       const enoughForGuests = deps.intelligence?.asksEnoughFor(question) === true;
-      const facts =
+      const counted =
         !tonight && isCellarQuestion(question) && !pairingInDisguise && !enoughForGuests
           ? cellarFacts(items, ...(await Promise.all([deps.storage(), deps.racks()])), question)
           : null;
+      // "Roquefort after dinner, which wine do I have?" names a dish and no wine, colour, year or place: it asks
+      // what to open, not for a list of the cellar. With the engines on that is theirs.
+      const facts =
+        counted &&
+        deps.intelligence &&
+        counted.kind === "selection" &&
+        // (the words of the dish are no wine of this cellar: nothing matched, and no colour or year was asked)
+        (counted.asked === null ||
+          (counted.matches.length === 0 &&
+            counted.asked.type === null &&
+            counted.asked.year === null)) &&
+        deps.intelligence.readsDish(question)
+          ? null
+          : counted;
       // The person's taste: only for advice (never for a question of fact, an empty cellar, or when they asked
       // for general advice), read at most once per question, and simply left out if it cannot be read.
       const explore = wantsSomethingDifferent(question);
@@ -233,6 +259,13 @@ export function createSommelierService(deps: SommelierDeps) {
           .plan({
             // The engines read the names themselves (and only they do): they get the question as it was asked.
             question: asked,
+            // Their earlier questions, for whom the conversation is about; no answer of ours is sent along.
+            earlier: social
+              ? request.messages
+                  .slice(0, -1)
+                  .filter((m) => m.role === "user")
+                  .map((m) => m.text)
+              : [],
             state: request.state,
             budgetEuros:
               request.budgetEuros ?? (request.budget ? BUDGET_EUROS[request.budget][1] : null),

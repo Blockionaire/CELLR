@@ -49,6 +49,11 @@ export interface PairingDecision<T> {
 const LEVEL_ORDER: Record<PairingLevel, number> = { good: 0, acceptable: 1, neutral: 2, poor: 3 };
 /** How much taste can move a wine among others of its level, in points of the ordering score. */
 export const TASTE_WEIGHT = 6;
+/**
+ * Among wines of one level, the wine a dish is known for comes before one that merely fits, unless the other
+ * scores clearly higher: this many points of the ordering score.
+ */
+export const CLASSIC_FIRST = 8;
 
 const TIER_CONFIDENCE: Record<EvidenceTier, Confidence> = {
   exact: "high",
@@ -71,7 +76,13 @@ export function decidePairing<T>(
     .map((c, n) => ({
       pick: { item: c.item, assessment: assessPairing(food, c.wine), tier: c.tier },
       order: Math.max(-1, Math.min(1, c.taste ?? 0)) * TASTE_WEIGHT,
+      // How far the wine's body is from the dish's weight: between equals, the closer one.
+      apart: Math.abs(c.wine.structure.body - food.structure.weight),
       n,
+    }))
+    .map((x) => ({
+      ...x,
+      order: x.order + (x.pick.assessment.pros.includes("classic") ? CLASSIC_FIRST : 0),
     }))
     .sort(
       (a, b) =>
@@ -81,6 +92,7 @@ export function decidePairing<T>(
         Number(b.pick.assessment.pros.includes("classic")) -
           Number(a.pick.assessment.pros.includes("classic")) ||
         a.pick.assessment.cons.length - b.pick.assessment.cons.length ||
+        a.apart - b.apart ||
         a.n - b.n,
     )
     .map((x) => x.pick);

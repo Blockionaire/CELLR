@@ -24,8 +24,18 @@ export interface FriendsRepository {
   remove(userId: string): Promise<boolean>;
   sharing(userId: string): Promise<SharingView | null>;
   /** Whether I let my friends' sommelier use my taste; null when that step is not there yet. */
-  sommelierSharing(userId: string): Promise<boolean | null>;
-  saveSommelierSharing(allow: boolean): Promise<void>;
+  sommelierSharing(
+    userId: string,
+  ): Promise<{ tasteForFriends: boolean; cellarForFriends: boolean | null } | null>;
+  saveSommelierSharing(patch: {
+    tasteForFriends?: boolean | undefined;
+    cellarForFriends?: boolean | undefined;
+  }): Promise<void>;
+  /**
+   * One friend's cellar as the database gives it to me right now for my sommelier (their wines only when they
+   * show me their cellar AND allow a sommelier to use it). Null when the function is not there.
+   */
+  sommelierFriendCellar(handle: string): Promise<unknown | null>;
   /**
    * The friends named in a question, as the database judges them for me right now: one row per name, with the
    * closed taste signals only where both consents hold. Null when the function is not there (nothing is used).

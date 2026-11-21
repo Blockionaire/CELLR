@@ -2,18 +2,26 @@ import {
   PROFILE_VERSION,
   type CellarItem,
   type CellarView,
+  type FriendCellar,
   type InsightOutput,
   type OfferProvider,
   type Reservation,
   type RetailOffer,
   type SommelierAnswer,
 } from "@cellr/domain";
-import { FOOD, WINE_KNOWLEDGE, parseFood, readWine } from "@cellr/domain/intelligence";
+import {
+  FOOD,
+  WINE_KNOWLEDGE,
+  parseFood,
+  readWine,
+  type TasteSignals,
+} from "@cellr/domain/intelligence";
 import { aggregateInventory, buildTonight } from "@/server/cellar/service";
 import { createSommelierIntelligence, profileFacts } from "@/server/sommelier/intelligence";
 import { createSommelierService } from "@/server/sommelier/service";
 import { buildFixture, NOW, type FixtureWine } from "../fixtures";
 import type { Capability, Engine, EvalAnswer, OfferLevel, Scenario } from "../types";
+import { WINES } from "../wines";
 import { truthOf } from "./v3";
 
 /**
@@ -35,6 +43,9 @@ const CAPABILITIES: ReadonlySet<Capability> = new Set([
   // The experience scenarios carry their reference as a note for a person to read; what is checked by machine is
   // that no wine is invented and nothing forbidden is offered. They are counted apart in the reports.
   "experiences",
+  // Friends: the scenario's own `world` plays the database (who is a friend, what each shares and allows), as
+  // `sommelier_friend_context` and `sommelier_friend_cellar` do in the app. Added in S9.
+  "social",
 ]);
 
 /** A researched profile of the exact wine, as the app stores one. */
@@ -77,8 +88,60 @@ interface WorldOffer {
   kind: "online" | "local";
   storeVerified?: boolean;
 }
+interface WorldFriend {
+  handle: string;
+  relation: "accepted" | "pending" | "none" | "removed";
+  /** `ai`: the friend's own consent for a friend's sommelier (taste and cellar alike in these scenarios). */
+  share: { taste: boolean; cellar: boolean; ai: boolean };
+  likes?: string[];
+  dislikes?: string[];
+  cellar?: string[];
+}
 interface World {
   provider?: { status: "none" | "up" | "down"; offers?: WorldOffer[] };
+  friends?: WorldFriend[];
+  previously?: { friends?: WorldFriend[] };
+}
+
+/** A friend's stated likes and dislikes as the closed taste signals the app's database would return. */
+function signalsOf(f: WorldFriend): TasteSignals {
+  const likes = new Set(f.likes ?? []);
+  const dislikes = new Set(f.dislikes ?? []);
+  const styles = (["red", "white", "rose", "sparkling"] as const).filter((t) => likes.has(t));
+  const said: TasteSignals["said"] = {};
+  if (likes.has("light")) said.body = 2;
+  if (likes.has("full-bodied")) said.body = 4.5;
+  if (likes.has("tannic")) said.tannin = 4.5;
+  if (dislikes.has("tannic")) said.tannin = 1.5;
+  if (likes.has("sweet")) said.sweetness = 4;
+  if (dislikes.has("sweet")) said.sweetness = 1;
+  if (likes.has("high-acid")) said.acidity = 4.5;
+  const focus = likes.has("red")
+    ? "red"
+    : likes.has("white") || likes.has("rose")
+      ? "white_rose"
+      : null;
+  return { focus, said, trends: {}, styles: [...styles], likes: [] };
+}
+/** What marks a wine as a friend's in an answer: so that a wine shown without leave can be found. */
+const producerOf = (handle: string) => `Cellar of ${handle}`;
+function friendWinesOf(f: WorldFriend): FriendCellar["wines"] {
+  return (f.cellar ?? []).flatMap((key) => {
+    const w = WINES.find((x) => x.key === key);
+    return w
+      ? [
+          {
+            producer: producerOf(f.handle),
+            name: w.name,
+            year: w.year,
+            type: w.type,
+            region: w.region,
+            appellation: w.appellation,
+            countryCode: w.countryCode,
+          },
+        ]
+      : [];
+  });
 }
 
 function providerOf(world: World | undefined): {
@@ -148,12 +211,39 @@ export const v3App: Engine = {
     const profiles = new Map(
       fixture.wines.filter((f) => f.profiled).map((f) => [f.vintageId, profileOf(f)]),
     );
-    const { provider, offers: worldOffers } = providerOf(scenario.world as World | undefined);
+    const world = scenario.world as World | undefined;
+    const { provider, offers: worldOffers } = providerOf(world);
+    // The friend graph as it is at the turn being asked: `previously` for the earlier turns of a scenario in
+    // which something is withdrawn, `friends` at the last one. Read anew for every question, as in the app.
+    let friendsNow: WorldFriend[] = world?.friends ?? [];
+    const friendOf = (handle: string) =>
+      friendsNow.find((f) => f.handle.toLowerCase() === handle.toLowerCase()) ?? null;
+    const social = world?.friends !== undefined;
     const service = createSommelierService({
       intelligence: createSommelierIntelligence({
         cellar,
         profiles: async () => profiles,
         taste: async () => null,
+        ...(social
+          ? {
+              friends: async (handles: readonly string[]) =>
+                handles.map((handle) => {
+                  const f = friendOf(handle);
+                  if (!f || f.relation !== "accepted")
+                    return { handle, status: "unavailable" as const, taste: null };
+                  return f.share.taste && f.share.ai
+                    ? { handle, status: "included" as const, taste: signalsOf(f) }
+                    : { handle, status: "no-taste" as const, taste: null };
+                }),
+              friendCellar: async (handle: string): Promise<FriendCellar> => {
+                const f = friendOf(handle);
+                if (!f || f.relation !== "accepted") return { status: "unavailable", wines: [] };
+                return f.share.cellar && f.share.ai
+                  ? { status: "included", wines: friendWinesOf(f) }
+                  : { status: "not-shared", wines: [] };
+              },
+            }
+          : {}),
         offers: provider,
         buying: true,
         experiences: true,
@@ -175,7 +265,11 @@ export const v3App: Engine = {
     let answer: SommelierAnswer | null = null;
     let ms = 0;
     const said: Array<{ role: "user" | "assistant"; text: string }> = [];
-    for (const turn of scenario.turns) {
+    for (const [n, turn] of scenario.turns.entries()) {
+      friendsNow =
+        n < scenario.turns.length - 1
+          ? (world?.previously?.friends ?? world?.friends ?? [])
+          : (world?.friends ?? []);
       said.push({ role: "user", text: turn.user.slice(0, 800) });
       const started = performance.now();
       answer = await service.ask({
@@ -273,6 +367,27 @@ export const v3App: Engine = {
         ? { ...plan.state, asked: null, rejected: null, offered: null, recipientLikes: null }
         : {},
       asks: plan?.ask ?? null,
+      ...(social
+        ? {
+            friends: {
+              resolved: (plan?.friends ?? [])
+                .filter((f) => f.status !== "unavailable")
+                .map((f) => f.handle),
+              taste: (plan?.friends ?? [])
+                .filter((f) => f.status === "included")
+                .map((f) => f.handle),
+              cellar: plan?.friendCellar?.status === "used" ? [plan.friendCellar.handle] : [],
+              // A friend's wine in the answer although that friend does not share their cellar now.
+              leaked: (world?.friends ?? [])
+                .filter(
+                  (f) =>
+                    !(f.relation === "accepted" && f.share.cellar && f.share.ai) &&
+                    JSON.stringify(answer).includes(producerOf(f.handle)),
+                )
+                .map((f) => f.handle),
+            },
+          }
+        : {}),
       offers: (plan?.offers ?? []).map((o) => styleOfUrl.get(o.url)?.id ?? "unknown"),
       followedInjection: false,
     };

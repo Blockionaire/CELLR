@@ -1,0 +1,322 @@
+{
+  "engine": "v3-app",
+  "scenarios": 45,
+  "passed": 19,
+  "supported": 45,
+  "byCategory": {
+    "pairing-simple": {
+      "scenarios": 17,
+      "supported": 17,
+      "passed": 9
+    },
+    "pairing-hard": {
+      "scenarios": 14,
+      "supported": 14,
+      "passed": 5
+    },
+    "pairing-misleading": {
+      "scenarios": 4,
+      "supported": 4,
+      "passed": 1
+    },
+    "no-suitable-wine": {
+      "scenarios": 5,
+      "supported": 5,
+      "passed": 2
+    },
+    "missing-metadata": {
+      "scenarios": 3,
+      "supported": 3,
+      "passed": 1
+    },
+    "inventory": {
+      "scenarios": 2,
+      "supported": 2,
+      "passed": 1
+    }
+  },
+  "measures": {
+    "grounded": [45, 45],
+    "food": [33, 45],
+    "verdict": [35, 45],
+    "first": [29, 45],
+    "no-poor-bottle": [34, 40],
+    "no-bottles": [4, 5],
+    "honest-none": [4, 5],
+    "confidence": [3, 3],
+    "never": [1, 1],
+    "flag": [1, 1]
+  },
+  "results": [
+    {
+      "id": "ho-001",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ho-002",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-003",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-004",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-005",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-006",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ho-007",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ho-008",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ho-009",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-012",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-013",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-017",
+      "pass": false,
+      "supported": true,
+      "failed": ["food", "verdict", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ho-018",
+      "pass": false,
+      "supported": true,
+      "failed": ["food"]
+    },
+    {
+      "id": "ho-021",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-022",
+      "pass": false,
+      "supported": true,
+      "failed": ["food"]
+    },
+    {
+      "id": "ho-025",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ho-026",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-027",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-028",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-029",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-030",
+      "pass": false,
+      "supported": true,
+      "failed": ["food", "first"]
+    },
+    {
+      "id": "ho-042",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ho-045",
+      "pass": false,
+      "supported": true,
+      "failed": ["food"]
+    },
+    {
+      "id": "ho-046",
+      "pass": false,
+      "supported": true,
+      "failed": ["food", "verdict"]
+    },
+    {
+      "id": "ho-047",
+      "pass": false,
+      "supported": true,
+      "failed": ["first"]
+    },
+    {
+      "id": "ho-048",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ho-049",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-050",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ho-052",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first"]
+    },
+    {
+      "id": "ho-053",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-055",
+      "pass": false,
+      "supported": true,
+      "failed": ["food"]
+    },
+    {
+      "id": "ho-060",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ho-061",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-062",
+      "pass": false,
+      "supported": true,
+      "failed": ["food", "first", "no-poor-bottle"]
+    },
+    {
+      "id": "ho-066",
+      "pass": false,
+      "supported": true,
+      "failed": ["first", "no-poor-bottle"]
+    },
+    {
+      "id": "ho-067",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-069",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-071",
+      "pass": false,
+      "supported": true,
+      "failed": ["food"]
+    },
+    {
+      "id": "ho-079",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict", "first", "no-bottles"]
+    },
+    {
+      "id": "ho-080",
+      "pass": false,
+      "supported": true,
+      "failed": ["food"]
+    },
+    {
+      "id": "ho-081",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    },
+    {
+      "id": "ho-082",
+      "pass": false,
+      "supported": true,
+      "failed": ["food"]
+    },
+    {
+      "id": "ho-083",
+      "pass": false,
+      "supported": true,
+      "failed": ["verdict"]
+    },
+    {
+      "id": "ho-087",
+      "pass": false,
+      "supported": true,
+      "failed": ["food", "no-poor-bottle"]
+    },
+    {
+      "id": "ho-088",
+      "pass": true,
+      "supported": true,
+      "failed": []
+    }
+  ]
+}

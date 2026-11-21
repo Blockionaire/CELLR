@@ -11,7 +11,7 @@ import {
   type WineType,
 } from "@cellr/domain";
 import type { Db } from "@/server/db/clients";
-import { isMissingTable, mapDbError } from "@/server/db/errors";
+import { isMissingFunction, isMissingTable, mapDbError, missingColumn } from "@/server/db/errors";
 import type { FriendsRepository } from "./types";
 
 /** The friends step not taken yet: a missing table, function or column. */
@@ -127,6 +127,24 @@ export function createFriendsRepository(db: Db): FriendsRepository {
     },
 
     async sommelierSharing(userId) {
+      const both = await db
+        .from("sommelier_sharing")
+        .select("taste_for_friends, cellar_for_friends")
+        .eq("user_id", userId)
+        .maybeSingle();
+      // No row: never answered, which is "no".
+      if (!both.error)
+        return {
+          tasteForFriends: both.data?.taste_for_friends === true,
+          cellarForFriends: both.data?.cellar_for_friends === true,
+        };
+      // The table is there and the newer column is not (the 0053 step is not taken): the taste consent works
+      // as before, and the cellar one is reported as not available. Asked before "not ready", which also
+      // counts a missing column: the first question must not be read as "no friends' sommelier at all".
+      if (!missingColumn(both.error)) {
+        if (notReady(both.error)) return null;
+        throw mapDbError(both.error);
+      }
       const { data, error } = await db
         .from("sommelier_sharing")
         .select("taste_for_friends")
@@ -134,16 +152,30 @@ export function createFriendsRepository(db: Db): FriendsRepository {
         .maybeSingle();
       if (error && notReady(error)) return null;
       if (error) throw mapDbError(error);
-      // No row: never answered, which is "no".
-      return data?.taste_for_friends === true;
+      return { tasteForFriends: data?.taste_for_friends === true, cellarForFriends: null };
     },
 
-    async saveSommelierSharing(allow) {
+    async saveSommelierSharing(patch) {
       // The row is always mine: user_id comes from the sign-in (its default), never from the request.
-      const { error } = await db
-        .from("sommelier_sharing")
-        .upsert({ taste_for_friends: allow }, { onConflict: "user_id" });
+      const { error } = await db.from("sommelier_sharing").upsert(
+        {
+          ...(patch.tasteForFriends === undefined
+            ? {}
+            : { taste_for_friends: patch.tasteForFriends }),
+          ...(patch.cellarForFriends === undefined
+            ? {}
+            : { cellar_for_friends: patch.cellarForFriends }),
+        },
+        { onConflict: "user_id" },
+      );
       if (error) throw mapDbError(error);
+    },
+
+    async sommelierFriendCellar(handle) {
+      const { data, error } = await db.rpc("sommelier_friend_cellar", { p_handle: handle });
+      if (error && (notReady(error) || isMissingFunction(error))) return null;
+      if (error) throw mapDbError(error);
+      return data;
     },
 
     async sommelierContext(handles) {

@@ -2249,17 +2249,20 @@ export type Database = {
       };
       sommelier_sharing: {
         Row: {
+          cellar_for_friends: boolean;
           taste_for_friends: boolean;
           updated_at: string;
           user_id: string;
         };
         ComputedFields: never;
         Insert: {
+          cellar_for_friends?: boolean;
           taste_for_friends?: boolean;
           updated_at?: string;
           user_id?: string;
         };
         Update: {
+          cellar_for_friends?: boolean;
           taste_for_friends?: boolean;
           updated_at?: string;
           user_id?: string;
@@ -3608,6 +3611,7 @@ export type Database = {
           output: Json;
         }[];
       };
+      sommelier_friend_cellar: { Args: { p_handle: string }; Returns: Json };
       sommelier_friend_context: {
         Args: { p_handles: string[] };
         Returns: {

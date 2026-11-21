@@ -110,12 +110,13 @@ export function recommendStyles(input: RecommendInput, k: WineKnowledge): StyleS
   }
 
   if (state.intent === "gift") {
-    // What the receiver likes first; then bottles that read as a present. The budget is there to be used.
-    const pool = within.filter((s) => answersTo(s, state.recipientLikes) || s.gift);
+    // What the receiver likes first (what the giver said of them, and what the receiver themself allows to be
+    // known); then bottles that read as a present. The budget is there to be used.
+    const pool = within.filter((s) => answersTo(s, liked) || s.gift);
     return pool
       .sort(
         (a, b) =>
-          Number(answersTo(b, state.recipientLikes)) - Number(answersTo(a, state.recipientLikes)) ||
+          Number(answersTo(b, liked)) - Number(answersTo(a, liked)) ||
           Number(b.gift) - Number(a.gift) ||
           b.fromEuros - a.fromEuros,
       )
@@ -123,7 +124,7 @@ export function recommendStyles(input: RecommendInput, k: WineKnowledge): StyleS
       .map((s) => ({
         style: s,
         level: "style" as const,
-        reason: answersTo(s, state.recipientLikes) ? ("liked" as const) : ("gift-worthy" as const),
+        reason: answersTo(s, liked) ? ("liked" as const) : ("gift-worthy" as const),
         assessment: null,
       }));
   }

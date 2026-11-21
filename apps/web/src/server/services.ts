@@ -20,7 +20,11 @@ import { createImageService } from "@/server/images/service";
 import { createExportRepository } from "@/server/export/repository";
 import { createExportService } from "@/server/export/service";
 import { createFriendsRepository } from "@/server/friends/repository";
-import { createFriendsService, readSommelierContext } from "@/server/friends/service";
+import {
+  createFriendsService,
+  readSommelierContext,
+  readSommelierFriendCellar,
+} from "@/server/friends/service";
 import { ALL_WINE_KEYS } from "@cellr/domain/intelligence";
 import { getTranslations } from "next-intl/server";
 import { sendFriendNotice } from "@/server/privileged/friend-notices";
@@ -176,6 +180,10 @@ export function servicesFor(ctx: RequestContext) {
           ? {
               friends: (handles: readonly string[]) =>
                 readSommelierContext(createFriendsRepository(ctx.db), handles, ALL_WINE_KEYS),
+              // One friend's cellar, judged by the database in this request (sommelier_friend_cellar: the
+              // friendship, the cellar shown to this person, and the friend's own consent). Never cached.
+              friendCellar: (handle: string) =>
+                readSommelierFriendCellar(createFriendsRepository(ctx.db), handle),
             }
           : {}),
         now: () => new Date(),

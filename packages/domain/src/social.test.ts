@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { groupTasteScore, NO_TASTE, tasteScore, type TasteSignals } from "./pairing-engine/taste";
 import type { WineStructure } from "./pairing-engine/wine";
 import {
+  asksNotAlreadyOwned,
+  asksOwnCellar,
+  leansOnBefore,
   findMentions,
   hasAnyMention,
   MAX_MENTIONS,
@@ -128,4 +131,52 @@ describe("names that are almost names", () => {
     );
     expect(withoutAnyMention("lamb for ＠Bram")).toBe("lamb");
   });
+});
+
+describe("a follow-up that turns to the asker's own wines", () => {
+  it.each([
+    "And what do I have myself for the lamb?",
+    "What about my own cellar?",
+    "Can I open something of mine?",
+    "En wat heb ik zelf liggen?",
+    "En uit mijn eigen kelder?",
+  ])("%s", (question) => expect(asksOwnCellar(question)).toBe(true));
+  it.each(["And with oysters?", "Up to 50 euros", "En bij de vis?", "Something lighter?"])(
+    "not: %s",
+    (question) => expect(asksOwnCellar(question)).toBe(false),
+  );
+});
+
+describe("what THEY do not own yet, never what I do not own (S9 review)", () => {
+  it.each([
+    "What suits his taste that he does not already own?",
+    "A present she doesn't have yet",
+    "Something they do not have yet",
+    "A bottle not already in their cellar",
+    "Een cadeau dat hij nog niet heeft",
+    "Iets wat ze nog niet hebben",
+    "Een fles die nog niet in haar kelder ligt",
+  ])("%s", (question) => expect(asksNotAlreadyOwned(question)).toBe(true));
+  it.each([
+    "I do not have any Champagne, what should I buy?",
+    "We don't have a red for tonight",
+    "I don't own a decanter",
+    "Ik heb nog geen champagne, wat koop ik?",
+    "Wij hebben nog niet gegeten",
+  ])("not: %s", (question) => expect(asksNotAlreadyOwned(question)).toBe(false));
+});
+
+describe("a follow-up that leans on the question before it (S9 review)", () => {
+  it.each([
+    "And with oysters?",
+    "What about the fish?",
+    "Does he have something lighter?",
+    "En bij de vis?",
+    "Heeft hij ook iets lichters?",
+  ])("%s", (question) => expect(leansOnBefore(question)).toBe(true));
+  it.each([
+    "What goes with oysters tonight?",
+    "Which wine do I open with roast chicken?",
+    "Wat schenk ik bij de kaas?",
+  ])("stands on its own: %s", (question) => expect(leansOnBefore(question)).toBe(false));
 });

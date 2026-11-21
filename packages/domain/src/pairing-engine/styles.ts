@@ -1,0 +1,23 @@
+/** The closed list of style words a rule (and a dish) may use for "a wine like this". */
+export const STYLE_KEYS = [
+  "crisp white",
+  "aromatic white",
+  "rich white",
+  "oaked white",
+  "off-dry white",
+  "light red",
+  "medium red",
+  "full red",
+  "tannic red",
+  "dry rose",
+  "traditional method sparkling",
+  "tank method sparkling",
+  "sweet white",
+  "sweet red",
+  "dry sherry",
+  "sweet sherry",
+  "port",
+  "tawny port",
+  "sweet fortified",
+  "orange",
+] as const;

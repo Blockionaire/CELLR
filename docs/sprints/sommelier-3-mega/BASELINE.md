@@ -163,9 +163,8 @@ the labels cannot move the baseline unnoticed.
 
 With the owner's model key, `LIVE_AI=1 OPENAI_API_KEY=… pnpm --filter @cellr/web exec vitest run
 src/server/ai/live.test.ts` already runs the sommelier with the real model on a few questions. Running the whole
-benchmark through the AI path needs an adapter that passes a real provider instead of `llm: null`
-(`engines/baseline.ts`). It is not written, because it could not be run or checked here; it is listed in
-`RELEASE_PLAN.md` as an owner decision (cost: 133 to 246 calls of the chat model).
+benchmark through the AI path is `--engine v1-ai` (S9): it estimates by default and calls the model only with the
+owner's approval. Design, cost and how to approve: [`AI_COMPARISON.md`](AI_COMPARISON.md).
 
 ## 7. Results of later phases against this baseline
 
@@ -179,7 +178,7 @@ benchmark through the AI path needs an adapter that passes a real provider inste
 The nine scenarios S6 adds to the passes are eight experience scenarios and one robustness scenario. The
 experience scenarios are checked only for inventing nothing (§2, limits); the pairing measures did not move. The
 app's engines cannot attempt the 24 scenarios with friends (the benchmark has no friends database;
-`progress/S5.md` says how that is tested instead). The run at the end of S8 (`results/s8-v3-app.json`) is the
+`progress/S5.md` says how that is tested instead). The run at the end of S8 (then `results/s8-v3-app.json`; replaced in S9 by `results/s9-v3-app.json`) is the
 same as S6's scenario for scenario, and a test now fails when it changes.
 
 **Against the thresholds of §4, at the final state: four are missed, four are met.**
@@ -198,6 +197,24 @@ same as S6's scenario for scenario, and a test now fails when it changes.
 `progress/S2.md` and `progress/S3.md` say what the misses are and `RISK_REGISTER.md` R-11 what follows from them.
 The thresholds are not changed.
 
+### After S9
+
+| Set                                    | Passed      | Dish understood | Outcome | First bottle | No poor bottle | Says none when none |
+| -------------------------------------- | ----------- | --------------: | ------: | -----------: | -------------: | ------------------: |
+| Main (246), S8                         | 140         |             92% |     88% |          73% |            72% |                 89% |
+| Main (246), S9                         | 170         |             93% |     90% |          83% |            81% |                 94% |
+| Holdout, unseen dishes (88), S8 engine | 34          |             70% |     72% |          64% |            81% |                 86% |
+| Holdout, unseen dishes (88), S9 engine | 38          |             73% |     76% |          64% |            82% |                 86% |
+| Holdout, blind half (43), S9 engine    | 19 (S8: 16) |             72% |     74% |          63% |            79% |                 89% |
+
+On the main set at S9 two gates are still missed (no poor bottle 81% against 90%; pairing scenarios 63% against
+70%). On unseen dishes every quality gate is missed. `progress/S9.md` §2 says what that means; R-15 what follows.
+The 24 scenarios with friends are attempted since S9 (the benchmark plays the friends database): 15 pass.
+`results/s9-v3-app.json` and `s9-holdout-dev.json` are pinned scenario by scenario, `s9-holdout-test.json` (the blind half) in totals only;
+`s8-v3-app.json` is replaced by `s9-v3-app.json`.
+
 ## Label corrections
 
 None. Where the engine and a label disagree, the label stands and the disagreement counts against the engine.
+Labels a blind second opinion disputed, and four defects of the benchmark itself, are listed apart in
+`progress/S9.md` §2.6; none was changed.

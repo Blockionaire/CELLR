@@ -8,6 +8,7 @@ import { CONFIDENCE_LEVELS, PAIRING_OUTCOMES } from "./pairing-engine/decide";
 import { EVIDENCE_TIERS } from "./pairing-engine/wine";
 import { MENTION_STATUSES } from "./social";
 import { DRINK_PHASES } from "./drink-window";
+import { WINE_TYPES } from "./cellar";
 
 /**
  * THE SOMMELIER'S PLAN: what the engines decided, before any sentence is written. It is the whole answer in a
@@ -147,6 +148,9 @@ export const PlanOfferSchema = z.object({
 });
 export type PlanOffer = z.infer<typeof PlanOfferSchema>;
 
+/** What became of a question about a friend's cellar. */
+export const FRIEND_CELLAR_USES = ["used", "not-shared"] as const;
+
 /** Where a drinking window comes from. */
 export const KEEPING_BASES = ["own", "profile", "style"] as const;
 
@@ -245,6 +249,36 @@ export const SommelierPlanSchema = z.object({
       needed: z.number().int().min(0).max(1000),
       available: z.number().int().min(0),
       short: z.number().int().min(0),
+    })
+    .nullable()
+    .default(null),
+  /**
+   * A named friend's cellar (migration 0053): wines of THEIRS that suit, never shown as the asker's own, and for
+   * a present the styles left out because they were found there. "not-shared": the friend does not allow it,
+   * and nothing about what they own is said or implied. Null: the question was not about a friend's cellar.
+   * "Not found in the cellar they share" is all that can ever be claimed: never that they do not own something.
+   */
+  friendCellar: z
+    .object({
+      handle: z.string().max(21),
+      status: z.enum(FRIEND_CELLAR_USES),
+      outcome: z.enum(PAIRING_OUTCOMES).nullable(),
+      picks: z
+        .array(
+          z.object({
+            producer: z.string().max(160),
+            name: z.string().max(160),
+            year: z.number().int().min(1900).max(2200).nullable(),
+            type: z.enum(WINE_TYPES),
+            level: z.enum(["good", "acceptable"]),
+            tier: z.enum(EVIDENCE_TIERS),
+            pros,
+            cons,
+          }),
+        )
+        .max(3),
+      /** Styles that would have been advised as a present, left out because one is in the cellar they share. */
+      leftOut: z.array(z.string().max(80)).max(6),
     })
     .nullable()
     .default(null),

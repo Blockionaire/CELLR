@@ -49,21 +49,23 @@ export function PlanView({
   const closest = plan.closest ? bottleOf.get(plan.closest.vintageId) : undefined;
   // One thing is said once: a question back is the whole message when nothing else was decided.
   const headline =
-    plan.kind === "clarify"
-      ? plan.ask === "dish"
-        ? null
-        : t("plan.outcome.clarify")
-      : plan.kind === "serving" ||
-          plan.kind === "keeping" ||
-          plan.kind === "wine-to-food" ||
-          plan.kind === "menu" ||
-          plan.kind === "quantity"
-        ? t(`plan.kind.${plan.kind}`)
-        : plan.outcome === null
+    plan.friendCellar?.status === "used" && plan.friendCellar.outcome !== null
+      ? null
+      : plan.kind === "clarify"
+        ? plan.ask === "dish"
           ? null
-          : plan.outcome === "none" && plan.considered === 0
-            ? t("plan.outcome.noneEmpty")
-            : t(`plan.outcome.${plan.outcome}`);
+          : t("plan.outcome.clarify")
+        : plan.kind === "serving" ||
+            plan.kind === "keeping" ||
+            plan.kind === "wine-to-food" ||
+            plan.kind === "menu" ||
+            plan.kind === "quantity"
+          ? t(`plan.kind.${plan.kind}`)
+          : plan.outcome === null
+            ? null
+            : plan.outcome === "none" && plan.considered === 0
+              ? t("plan.outcome.noneEmpty")
+              : t(`plan.outcome.${plan.outcome}`);
   const quick = plan.ask ? QUICK[plan.ask] : [];
 
   return (
@@ -124,6 +126,77 @@ export function PlanView({
               })
             : t("plan.quantity.enough", { available: plan.quantity.available })}
         </p>
+      )}
+
+      {plan.friendCellar && (
+        <section
+          className="flex flex-col gap-2"
+          aria-label={t("plan.theirs.title", { handle: plan.friendCellar.handle })}
+          data-testid="plan-friend-cellar"
+        >
+          {plan.friendCellar.status === "not-shared" ? (
+            <p className="px-1 text-small text-ink-2">
+              {t("plan.theirs.notShared", { handle: plan.friendCellar.handle })}
+            </p>
+          ) : (
+            <>
+              {plan.friendCellar.outcome !== null && (
+                <p className="px-1 text-small text-ink-2">
+                  {t(`plan.theirs.outcome.${plan.friendCellar.outcome}`, {
+                    handle: plan.friendCellar.handle,
+                  })}
+                </p>
+              )}
+              {plan.friendCellar.picks.length > 0 && (
+                <ul className="flex flex-col gap-2.5">
+                  {plan.friendCellar.picks.map((p, i) => (
+                    <li
+                      key={`${i}|${p.producer}|${p.name}|${p.year ?? "nv"}`}
+                      className="rounded-card bg-surface p-4 ring-1 ring-hairline"
+                      data-testid="plan-friend-pick"
+                    >
+                      <p className="text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+                        {t("plan.theirs.owner", { handle: plan.friendCellar!.handle })}
+                      </p>
+                      <p className="font-display text-title text-ink">
+                        {p.producer} {p.name}
+                        {p.year ? ` ${p.year}` : ""}
+                      </p>
+                      {p.pros.length > 0 && (
+                        <p className="mt-1 text-small text-ink-2">
+                          <span className="font-medium text-ink">{t("plan.why")}: </span>
+                          {p.pros.map((x) => t(`plan.pro.${x}`)).join("; ")}.
+                        </p>
+                      )}
+                      {p.cons.length > 0 && (
+                        <p className="text-small text-ink-2">
+                          <span className="font-medium text-ink">{t("plan.but")}: </span>
+                          {p.cons.map((x) => t(`plan.con.${x}`)).join("; ")}.
+                        </p>
+                      )}
+                      {p.tier !== "exact" && (
+                        <p className="mt-1 text-small text-ink-3">{t("plan.theirs.basis")}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {plan.friendCellar.leftOut.length > 0 && (
+                <p className="px-1 text-small text-ink-2" data-testid="plan-friend-left-out">
+                  {t("plan.theirs.leftOut", {
+                    handle: plan.friendCellar.handle,
+                    styles: plan.friendCellar.leftOut.join(", "),
+                  })}
+                </p>
+              )}
+              {plan.friendCellar.outcome === null && (
+                <p className="px-1 text-small text-ink-3">
+                  {t("plan.theirs.giftChecked", { handle: plan.friendCellar.handle })}
+                </p>
+              )}
+            </>
+          )}
+        </section>
       )}
 
       {plan.courses.length > 0 && (

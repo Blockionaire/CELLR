@@ -1,5 +1,10 @@
 # Sommelier 3.0 — final report
 
+> **Read with S9.** This report is the state at the end of S8. S9 ([`progress/S9.md`](progress/S9.md)) measured the
+> engine on dishes it had never seen and found it weaker than the numbers below suggest (R-15), built two things
+> this report lists as not done (a friend's cellar, presents not already owned) and replaced the GO / NO-GO
+> ([`RELEASE_PLAN.md`](RELEASE_PLAN.md) §7). Where the two differ, S9 is the later one.
+
 2026-11-20. Written at the end of S8. Every number is the output of a command in this repository or of CI; where
 something was not measured or not done, it says so. Nothing was merged, deployed, applied to a database or
 switched on by the agent.

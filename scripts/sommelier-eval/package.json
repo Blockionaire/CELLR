@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "matrix": "tsx --conditions=react-server matrix.ts"
+    "matrix": "tsx --conditions=react-server matrix.ts",
+    "analyze": "tsx --conditions=react-server analyze.ts"
   },
   "dependencies": {
     "@cellr/domain": "workspace:*",

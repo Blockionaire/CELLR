@@ -163,6 +163,10 @@ describe("a name in an earlier turn is not sent along", () => {
     expect(prompts).toHaveLength(1);
     expect(seenByModel(prompts)).not.toMatch(/anna|@/);
     expect(seenByModel(prompts)).toContain("Barolo in general");
+    // Not the question that was about a friend either, nor the answer to it: with the name gone it is still
+    // a question about them.
+    expect(seenByModel(prompts)).not.toContain("steak tonight");
+    expect(seenByModel(prompts)).not.toContain("Open this for");
   });
 
   it("takes out anything that looks like a name, valid or not", async () => {
@@ -185,5 +189,41 @@ describe("with the social sommelier switched off", () => {
     expect(lookups).toEqual([]);
     expect(prompts).toHaveLength(1);
     expect(seenByModel(prompts)).toContain("@anna");
+  });
+});
+
+describe("a follow-up is still about the friend the conversation named", () => {
+  const FIRST = "@anna is coming, steak tonight. What do I open?";
+
+  it("looks the friend up again for a follow-up that names nobody, from the asker's own earlier question", async () => {
+    const { service, lookups, prompts } = setup();
+    const first = await service.ask(turns(FIRST));
+    const next = await service.ask({
+      ...turns(FIRST, "Open this.", "And with grilled sea bass?"),
+      state: first.plan!.state,
+    });
+    expect(lookups).toEqual([["anna"], ["anna"]]);
+    expect(next.plan?.friends).toEqual([{ handle: "anna", status: "unavailable" }]);
+    expect(prompts).toEqual([]);
+  });
+
+  it("reads no name from an answer the screen sends back, only from what the person asked", async () => {
+    const { service, lookups } = setup();
+    const first = await service.ask(turns("Steak tonight. What do I open?"));
+    await service.ask({
+      ...turns("Steak tonight. What do I open?", "Ask @bram.", "And with grilled sea bass?"),
+      state: first.plan!.state,
+    });
+    expect(lookups).toEqual([]);
+  });
+
+  it("with the social sommelier off, earlier questions are not read for names at all", async () => {
+    const { service, lookups } = setup({ social: false });
+    const first = await service.ask(turns("Steak tonight. What do I open?"));
+    await service.ask({
+      ...turns(FIRST, "Open this.", "And with grilled sea bass?"),
+      state: first.plan!.state,
+    });
+    expect(lookups).toEqual([]);
   });
 });

@@ -10,6 +10,9 @@ import {
   type WineType,
   type SharingView,
   friendTasteSignals,
+  type FriendCellar,
+  NO_FRIEND_CELLAR,
+  readFriendCellar,
   MAX_MENTIONS,
   type MentionStatus,
   type SaveSommelierSharing,
@@ -42,6 +45,16 @@ export type SaveToWishlist = (wine: {
  * Finding friends by account name or friend code, asking, answering, and what each of you lets the other see.
  * Every read of a friend's wines goes through the database, which checks the friendship and the sharing again.
  */
+/** See `sommelierFriendCellar` on the service: the same read, for callers that hold only the repository. */
+export async function readSommelierFriendCellar(
+  repo: Pick<FriendsRepository, "sommelierFriendCellar">,
+  handle: string,
+): Promise<FriendCellar> {
+  const name = handle.toLowerCase().replace(/^@/, "");
+  if (!/^[a-z0-9][a-z0-9_.]{2,19}$/.test(name)) return NO_FRIEND_CELLAR;
+  return readFriendCellar(await repo.sommelierFriendCellar(name).catch(() => null));
+}
+
 /** See `sommelierContext` on the service: the same read, for callers that hold only the repository. */
 export async function readSommelierContext(
   repo: Pick<FriendsRepository, "sommelierContext">,
@@ -142,13 +155,19 @@ export function createFriendsService(deps: {
     async sommelierSharing(): Promise<SommelierSharingView> {
       const allowed = await repo.sommelierSharing(userId);
       if (allowed === null) throw new DomainError("INTERNAL", NOT_READY);
-      return { tasteForFriends: allowed };
+      return allowed;
     },
 
     async saveSommelierSharing(input: SaveSommelierSharing): Promise<SommelierSharingView> {
-      await repo.saveSommelierSharing(input.tasteForFriends);
+      await repo.saveSommelierSharing(input);
       return this.sommelierSharing();
     },
+
+    /**
+     * One friend's cellar for my sommelier, as the database gives it now. Anything but a friend who shows me
+     * their cellar and allows this comes back without wines; if the database cannot answer, nothing is used.
+     */
+    sommelierFriendCellar: (handle: string) => readSommelierFriendCellar(repo, handle),
 
     /**
      * The friends named in a question to my sommelier. Names are only text until the database has matched them

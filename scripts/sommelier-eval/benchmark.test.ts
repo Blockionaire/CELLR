@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DISHES } from "./dishes";
 import { ENGINES } from "./engines";
 import { SCENARIOS } from "./scenarios";
+import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { expectedVerdictOf, scoreScenario, summarize } from "./score";
 import { CAPABILITIES, CATEGORIES, type EvalAnswer, type Scenario } from "./types";
 import { CELLARS, WINE_KEYS } from "./wines";
@@ -131,33 +132,102 @@ describe("the V1 baseline", () => {
 });
 
 describe("Sommelier 3.0 in the app", () => {
-  it("gives the recorded result: no scenario passes or fails other checks than in the recorded run", async () => {
-    // Found missing by the final review: only V1's baseline was pinned, so a change to the engines could move
-    // the result the documents quote without any test noticing. A change that moves it now has to record a new
-    // run (`pnpm sommelier:eval --engine v3-app --json …/results/s8-v3-app.json`) and say why.
+  // Only V1's baseline used to be pinned, so a change to the engines could move the results the documents quote
+  // without any test noticing. A change that moves a result now has to record a new run
+  // (`pnpm sommelier:eval --engine v3-app --set <set> --json …/results/<file>`) and say why.
+  const pinned = (set: string, file: string, passed: number) =>
+    it(`gives the recorded result on "${set}": ${passed} scenarios, each failing the same checks`, async () => {
+      const recorded = JSON.parse(
+        readFileSync(
+          new URL(`../../docs/sprints/sommelier-3-mega/results/${file}`, import.meta.url),
+          "utf8",
+        ),
+      ) as { passed: number; results: Array<{ id: string; supported: boolean; failed: string[] }> };
+      const before = new Map(recorded.results.map((r) => [r.id, r]));
+      const engine = ENGINES.find((e) => e.name === "v3-app")!;
+      const cardOf = cardsOf(set);
+      let now = 0;
+      for (const s of scenariosOf(set)) {
+        const was = before.get(s.id);
+        const supported = s.needs.every((n) => engine.capabilities.has(n));
+        expect(supported, s.id).toBe(was?.supported);
+        if (!supported) continue;
+        const { answer, ms } = await engine.run(s);
+        expect(answer.invented, s.id).toBe(0);
+        const failed = scoreScenario(s, s.dish ? (cardOf.get(s.dish) ?? null) : null, answer, ms)
+          .checks.filter((c) => !c.pass)
+          .map((c) => c.name);
+        expect(failed, s.id).toEqual(was?.failed);
+        if (failed.length === 0) now += 1;
+      }
+      expect(now).toBe(recorded.passed);
+      expect(now).toBe(passed);
+    });
+  pinned("main", "s9-v3-app.json", 170);
+  // The blind set of S9: its halves are pinned so that neither can drift, and never to be tuned to.
+  pinned("holdout-dev", "s9-holdout-dev.json", 19);
+  // The blind half is compared in totals only: a failure here names no scenario, so fixing it cannot be tuning.
+  it('gives the recorded totals on "holdout-test" (blind): 19 scenarios', async () => {
     const recorded = JSON.parse(
       readFileSync(
-        new URL("../../docs/sprints/sommelier-3-mega/results/s8-v3-app.json", import.meta.url),
+        new URL(
+          "../../docs/sprints/sommelier-3-mega/results/s9-holdout-test.json",
+          import.meta.url,
+        ),
         "utf8",
       ),
-    ) as { passed: number; results: Array<{ id: string; supported: boolean; failed: string[] }> };
-    const before = new Map(recorded.results.map((r) => [r.id, r]));
+    ) as { passed: number; measures: Record<string, [number, number]>; results?: unknown };
+    expect(recorded.results).toBeUndefined();
     const engine = ENGINES.find((e) => e.name === "v3-app")!;
-    let passed = 0;
-    for (const s of SCENARIOS) {
-      const was = before.get(s.id);
-      const supported = s.needs.every((n) => engine.capabilities.has(n));
-      expect(supported, s.id).toBe(was?.supported);
-      if (!supported) continue;
+    const cardOf = cardsOf("holdout-test");
+    const results = [];
+    const answers = [];
+    for (const s of scenariosOf("holdout-test")) {
       const { answer, ms } = await engine.run(s);
-      expect(answer.invented, s.id).toBe(0);
-      const failed = scoreScenario(s, s.dish ? (cards.get(s.dish) ?? null) : null, answer, ms)
-        .checks.filter((c) => !c.pass)
-        .map((c) => c.name);
-      expect(failed, s.id).toEqual(was?.failed);
-      if (failed.length === 0) passed += 1;
+      answers.push(answer);
+      results.push(scoreScenario(s, s.dish ? (cardOf.get(s.dish) ?? null) : null, answer, ms));
     }
-    expect(passed).toBe(recorded.passed);
-    expect(passed).toBe(140);
+    const now = summarize("v3-app", results, answers);
+    expect(now.passed).toBe(19);
+    expect(now.passed).toBe(recorded.passed);
+    expect(now.measures).toEqual(recorded.measures);
+    expect(answers.reduce((n, a) => n + a.invented, 0)).toBe(0);
+  });
+
+  it("no tool lists the blind scenarios one by one", () => {
+    expect(holdsBlind("holdout-test")).toBe(true);
+    expect(holdsBlind("holdout")).toBe(true);
+    expect(holdsBlind("holdout-dev")).toBe(false);
+    expect(holdsBlind("main")).toBe(false);
+  });
+});
+
+describe("the holdout set's own data", () => {
+  it("has dishes that are not in the main set, labelled against known wines, and scenarios that use them", () => {
+    const main = new Set(DISHES.map((d) => d.id));
+    const mainNames = new Set(DISHES.map((d) => d.en.toLowerCase()));
+    const holdout = cardsOf("holdout");
+    expect(holdout.size).toBe(44);
+    for (const d of holdout.values()) {
+      expect(main.has(d.id), d.id).toBe(false);
+      expect(mainNames.has(d.en.toLowerCase()), d.en).toBe(false);
+      for (const key of [...d.good, ...d.ok]) expect(WINE_KEYS, `${d.id}: ${key}`).toContain(key);
+      expect(
+        d.good.filter((k) => d.ok.includes(k)),
+        d.id,
+      ).toEqual([]);
+    }
+    const scenarios = scenariosOf("holdout");
+    expect(scenarios.length).toBe(88);
+    expect(new Set(scenarios.map((s) => s.id)).size).toBe(88);
+    for (const s of scenarios) {
+      expect(holdout.has(s.dish!), s.id).toBe(true);
+      expect(CELLARS[s.cellar], s.id).toBeDefined();
+    }
+    // The two halves are the whole, with no scenario in both.
+    const dev = scenariosOf("holdout-dev").map((s) => s.id);
+    const test = scenariosOf("holdout-test").map((s) => s.id);
+    expect(dev.length + test.length).toBe(88);
+    expect(dev.filter((id) => test.includes(id))).toEqual([]);
   });
 });

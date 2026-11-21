@@ -25,6 +25,7 @@ const plan = (over: Partial<SommelierPlan> = {}): SommelierPlan => ({
   keeping: [],
   quantity: null,
   coursesCut: false,
+  friendCellar: null,
   dishIdeasTier: null,
   ask: null,
   state: EMPTY_STATE,

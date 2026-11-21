@@ -147,14 +147,44 @@ describe("the sommelier with the engines switched on", () => {
     const on = await setup("on", lamb, true).ask(question);
     expect(on.plan?.kind).toBe("quantity");
     expect(on.plan?.quantity).toMatchObject({ guests: 8, needed: 4 });
-    // Without the experiences it is what it was: a question about the cellar, answered from counted facts.
+    // Without the experiences nothing counts bottles against guests, but the question still names a dish and no
+    // wine: it gets the pairing for the lamb, not "that wine isn't in your cellar".
     const off = await setup("on", lamb, false).ask(question);
-    expect(off.plan).toBeUndefined();
+    expect(off.plan?.kind).toBe("pairing");
+    expect(off.plan?.quantity ?? null).toBeNull();
     // A count stays a count, whatever is switched on.
     const count = await setup("on", lamb, true).ask("How many bottles do I have?");
     expect(count.plan).toBeUndefined();
     const guestsOnly = await setup("on", lamb, true).ask("Do I have enough bottles for 8 guests?");
     expect(guestsOnly.plan?.kind).not.toBe("quantity");
+  });
+
+  it("takes a dish and 'which wine do I have' for a pairing, also without 'for' or 'with'", async () => {
+    // Found by the failure analysis of S9: "Roquefort na het diner, welke wijn heb ik?" was answered as a list
+    // of the cellar ("that wine isn't in your cellar"), because the dish stood in a clause of its own.
+    const cellar = [
+      item({
+        wineName: "Sauternes",
+        type: "dessert",
+        appellation: "Sauternes",
+        region: "Bordeaux",
+      }),
+      item({ wineName: "Chablis", type: "white", appellation: "Chablis", region: "Burgundy" }),
+    ];
+    for (const question of [
+      "Roquefort na het diner, welke wijn heb ik?",
+      "Stilton and crackers. What wine do I have?",
+    ]) {
+      const answer = await setup("on", cellar).ask(question);
+      expect(answer.plan?.kind, question).toBe("pairing");
+      expect(answer.plan?.dish, question).toBeTruthy();
+    }
+    // A wine of the cellar named in the question is still a question about the cellar.
+    const named = await setup("on", cellar).ask("Which Chablis do I have?");
+    expect(named.plan).toBeUndefined();
+    // And without the engines nothing changes.
+    const off = await setup("off", cellar).ask("Roquefort na het diner, welke wijn heb ik?");
+    expect(off.plan).toBeUndefined();
   });
 
   it("takes 'which wine do I have for the oysters' for what it is: a pairing", async () => {

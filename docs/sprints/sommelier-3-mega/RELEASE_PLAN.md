@@ -1,23 +1,35 @@
 # Sommelier 3.0 — release plan
 
-Final version, S8, 2026-11-20. **Nothing here has been done.** Every step is the owner's to authorise: the agent
+Updated in S9, 2026-11-20. **Nothing here has been done.** Every step is the owner's to authorise: the agent
 did not merge, deploy, apply a migration or change a setting, and will not.
+
+**The verdict in two lines** (the reasons are in §7): merging the stack with every switch off is a **GO**;
+switching anything on for real users is a **NO-GO** for now.
+
+State of `main` and Production, checked read-only on 2026-11-20 (Supabase migration history, a second time after
+the owner applied 0047): pull requests #88 (system monitoring) and #92 (3D sprint 4) are merged; `main` is at
+`6ab4350` and holds migration `20261124000047_system_health.sql`. **Production records 0001–0047: `main` and
+Production are level again.** A `db push` from `main` has nothing to apply until a pull request of this stack
+that carries a migration (#94, #97, #100) is merged.
 
 ## 0. Before anything is merged
 
-| Check                                                                                | Why                                                                                                                                                                                                                                                                         |
-| ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CELLR_FEATURES` in Production and Preview names none of the five sommelier switches | `all` turns none of them on (tested), so only a name can; make sure no name is there (R-02)                                                                                                                                                                                 |
-| Pull request #88 (migration `20261124000047`): merged and applied first, or not?     | This work's 0051 and 0052 come after it. If #88 will not go first, rename 0051 and 0052 **in pull requests #94 and #97 before merging them**: once a migration is on `main`, CI forbids renaming it, and the CLI refuses a version older than the newest one applied (R-03) |
-| Read `FINAL_REPORT.md` §6                                                            | The few things that change with every switch off                                                                                                                                                                                                                            |
+| Check                                                                                | Why                                                                                                              |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `CELLR_FEATURES` in Production and Preview names none of the five sommelier switches | `all` turns none of them on (tested), so only a name can; make sure no name is there (R-02)                      |
+| Migration `20261124000047` (#88): applied in Production (checked 2026-11-20)         | This work's 0051, 0052 and 0053 are later than it, so the order is right as it stands and nothing needs renaming |
+| Read `FINAL_REPORT.md` §6                                                            | The few things that change with every switch off                                                                 |
 
 ## 1. Merge (switches off)
 
-Order: #90 → #91 → #93 → #94 → #95 → #97 → the S8 pull request. Each is safe alone: new behaviour is behind
-switches that are off. When a base branch is merged and deleted, GitHub retargets the next pull request to `main`.
+Order: #90 → #91 → #93 → #94 → #95 → #97 → #98 → #100. Each is safe alone: new behaviour is
+behind switches that are off. When a base branch is merged and deleted, GitHub retargets the next pull request to
+`main`. Every branch of the stack contains `main` as of `6ab4350` and merges without conflict (checked in S9);
+#95, #97 and #98 are drafts and must be marked ready first.
 
-From the moment #94 is on `main`, migration 0051 is in `supabase/migrations`; from #97, 0052. **A `db push` from
-`main` after that applies them.** That is a release step of its own (§2), not a side effect to let happen.
+From the moment #94 is on `main`, migration 0051 is in `supabase/migrations`; from #97, 0052; from the S9 pull
+request, 0053. **A `db push` from `main` after that applies them.** That is
+a release step of its own (§2), not a side effect to let happen.
 
 CI runs the browser tests on pushes to `main` only: the first run of `sommelier-plan.spec.ts` in CI is after the
 merge. It adds a fourth server to that job; watch its duration.
@@ -26,36 +38,39 @@ merge. It adds a fourth server to that job; watch its duration.
 
 With the procedure of `docs/MIGRATIONS.md`, when the owner decides, each right before the switch that needs it:
 
-| Migration                               | Needed by                                                     | What applying it makes live, whatever the app's switches say (R-14)                                                                                                                                                           |
-| --------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `20261129000051_social_sommelier.sql`   | `sommelier_social`                                            | A signed-in person can set their own consent (off by default) and ask about their own accepted friends; taste signals come back only for a friend who turned their consent on                                                 |
-| `20261130000052_sommelier_learning.sql` | `sommelier_learning`, the admin report, plan codes on ratings | A signed-in person can record their own outcome for a bottle their own kept plan offered (no plan is kept while the engine is off). It also replaces `sommelier_set_feedback` (same checks and grants, plus the plan's codes) |
+| Migration                                         | Needed by                                                                  | What applying it makes live, whatever the app's switches say (R-14)                                                                                                                                                                                                                                                        |
+| ------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `20261129000051_social_sommelier.sql`             | `sommelier_social`                                                         | A signed-in person can set their own consent (off by default) and ask about their own accepted friends; taste signals come back only for a friend who turned their consent on                                                                                                                                              |
+| `20261130000052_sommelier_learning.sql`           | `sommelier_learning`, the admin report, plan codes on ratings              | A signed-in person can record their own outcome for a bottle their own kept plan offered (no plan is kept while the engine is off). It also replaces `sommelier_set_feedback` (same checks and grants, plus the plan's codes)                                                                                              |
+| `20261201000053_sommelier_friend_cellar.sql` (S9) | a friend's cellar and "a present they do not own" under `sommelier_social` | A signed-in person can set a second consent of their own (off by default) and ask for the wines of an accepted friend. Wines come back only for a friend who shows their cellar to them **and** turned that consent on: producer, wine, vintage, colour, origin; never a count, a place, a rating or a note. It needs 0051 |
 
-Both are additive. With a switch on and its migration missing, the app fails closed: no button, a 404, or the
+Order: 0051, 0052, 0053 (0047, not this work's, is applied). 0053 alters the table 0051 creates. All three are additive. With a switch on and its migration missing, the app fails closed: no button, a 404, or the
 answer "nothing", never a 500 (tested or reviewed for both).
 
 ## 3. Switches, in Preview first, one step at a time
 
-| Step | Name                                          | Needs                                      | Note                                                                              |
-| ---- | --------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
-| 1    | `sommelier_engine` **and** `sommelier_buying` | nothing                                    | Together: with the engine alone, V1's buy list is dropped and nothing replaces it |
-| 2    | `sommelier_experiences`                       | step 1                                     | Serving, keeping, wine-to-food, menus, quantities                                 |
-| 3    | `sommelier_learning`                          | step 1, 0052                               | Outcome buttons; `/admin/sommelier` starts to fill                                |
-| 4    | `sommelier_social`                            | step 1, 0051, the approved consent wording | Last: it is the one that touches other people's data                              |
+| Step | Name                                          | Needs                                      | Note                                                                                                                         |
+| ---- | --------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `sommelier_engine` **and** `sommelier_buying` | nothing                                    | Together: with the engine alone, V1's buy list is dropped and nothing replaces it                                            |
+| 2    | `sommelier_experiences`                       | step 1                                     | Serving, keeping, wine-to-food, menus, quantities                                                                            |
+| 3    | `sommelier_learning`                          | step 1, 0052                               | Outcome buttons; `/admin/sommelier` starts to fill                                                                           |
+| 4    | `sommelier_social`                            | step 1, 0051, the approved consent wording | Last: it is the one that touches other people's data                                                                         |
+| 4b   | (no new switch) a friend's cellar             | step 4, 0053, its own consent wording      | Part of `sommelier_social`. Without 0053 the second consent switch is not shown and a friend's cellar is never read (tested) |
 
 Each of the last four does nothing without `sommelier_engine` (tested).
 
 ## 4. Before a switch is on in Production
 
-| Check                                                                                                                           | Why                                                                     | State   |
-| ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------- |
-| A wine professional reviews the food and wine knowledge and the benchmark labels, or the owner accepts them as a labelled trial | R-01, R-11: AI-written, `reviewed: false`; four thresholds missed       | open    |
-| An AI key in a test environment, to run the benchmark through V1's AI path (about 250 calls)                                    | R-04: "better than today" is unproven                                   | open    |
-| Consent wording for using a friend's taste in a friend's sommelier                                                              | A privacy default the owner must approve (D-08, D-15)                   | open    |
-| Alcohol marketing and age rules for buying advice (NL: no targeting of minors; STIVA code)                                      | R-07                                                                    | open    |
-| A retailer source with a licence, before any live offer                                                                         | R-05: without it buying advice stays at "style", and the screen says so | blocked |
-| A person looks at the screens on a phone, and someone uses a screen reader on them                                              | Accessibility is machine-checked only                                   | open    |
-| Decide on issue #76 with the query in `COST_REPORT.md`                                                                          | D-25                                                                    | open    |
+| Check                                                                                                                           | Why                                                                                                                                                           | State                                      |
+| ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| A wine professional reviews the food and wine knowledge and the benchmark labels, or the owner accepts them as a labelled trial | R-01, R-11: AI-written, `reviewed: false`; four thresholds missed                                                                                             | open                                       |
+| The comparison with V1's AI (`AI_COMPARISON.md` §8–§9), run on 2026-11-20 for $0.10                                             | R-04. Result: 3.0 is **not** shown to be better than today's sommelier with AI; on unseen dishes the model picks better first bottles and far fewer poor ones | done; the result is a reason for the NO-GO |
+| Quality on unseen dishes (`progress/S9.md` §2.4): 72% of dishes understood, every measure below its gate                        | R-15: the main set flatters the engine                                                                                                                        | open                                       |
+| Consent wording for using a friend's taste, and separately a friend's cellar, in a friend's sommelier                           | Privacy defaults the owner must approve (D-08, D-29)                                                                                                          | open                                       |
+| Alcohol marketing and age rules for buying advice (NL: no targeting of minors; STIVA code)                                      | R-07                                                                                                                                                          | open                                       |
+| A retailer source with a licence, before any live offer                                                                         | R-05: without it buying advice stays at "style", and the screen says so                                                                                       | blocked                                    |
+| A person looks at the screens on a phone, and someone uses a screen reader on them                                              | Accessibility is machine-checked only                                                                                                                         | open                                       |
+| Decide on issue #76 with the query in `COST_REPORT.md`                                                                          | D-25                                                                                                                                                          | open                                       |
 
 ## 5. What to watch once a switch is on
 
@@ -69,3 +84,32 @@ the platform's own logs.
 Remove the switch from `CELLR_FEATURES` and redeploy: V1 answers again. Conversations kept by the engines still
 open (a kept plan is drawn as it was; the outcome buttons disappear). The migrations stay: they are additive,
 and nothing reads their tables with the switches off.
+
+## 7. GO / NO-GO (S9)
+
+### Merging the stack with every switch off: **GO**
+
+- With no switch named, the app answers as it does today. That is tested: the end-to-end suite with switches off,
+  the unit suites of V1, Tonight and Wine Intelligence unchanged, and `CELLR_FEATURES=all` turning none of the
+  five on.
+- A missing migration is survived: with 0051, 0052 or 0053 absent the app shows no button and reads nothing.
+- No open P0 or P1 from the independent reviews. The last one (`progress/S9.md` §7) found four P1; all four
+  are fixed and tested in the S9 branch.
+- Conditions, all the owner's: check that `CELLR_FEATURES` in Production and Preview names none of the five; merge
+  in the order of §1; treat every `db push` from `main` as a release of its own.
+
+What merging does change with everything off is listed in `FINAL_REPORT.md` §6 and is unchanged by S9.
+
+### Switching functionality on for real users: **NO-GO**, for these reasons
+
+| Reason                                                                                                                                                                                | Kind                          | Lifts when                                                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------- |
+| On dishes it had not seen, the engine understands 72% and misses every quality gate (`progress/S9.md` §2.4)                                                                           | quality                       | Food knowledge is widened or a model reads the dishes the parser misses                              |
+| Measured against today's sommelier with AI, 3.0 is not better: on unseen dishes it offers a poor bottle several times as often and picks a worse first bottle (`AI_COMPARISON.md` §9) | quality, measured             | The model reads the dishes the parser cannot (`progress/S9.md` §10), then the comparison is repeated |
+| The knowledge and the labels are unreviewed by a wine professional; a blind second opinion disputes 14 labels and half-disputes 26                                                    | evidence, BLOCKED on a person | A professional's review, or the owner accepts a labelled trial                                       |
+| Consent wording (taste; cellar) is not approved                                                                                                                                       | privacy                       | The owner approves it                                                                                |
+| Alcohol marketing and age rules for buying advice are not checked                                                                                                                     | legal                         | The owner's check (R-07)                                                                             |
+| Live availability                                                                                                                                                                     | BLOCKED on a licence          | A retailer source                                                                                    |
+
+A **Preview** trial with the owner's own account is reasonable after the merge and the migrations: `sommelier_engine`
+with `sommelier_buying`, then the others in the order of §3. That is a trial, not a launch.

@@ -1,0 +1,49 @@
+{
+  "engine": "v3-app",
+  "scenarios": 43,
+  "passed": 19,
+  "supported": 43,
+  "byCategory": {
+    "pairing-simple": {
+      "scenarios": 9,
+      "supported": 9,
+      "passed": 8
+    },
+    "pairing-hard": {
+      "scenarios": 16,
+      "supported": 16,
+      "passed": 4
+    },
+    "pairing-misleading": {
+      "scenarios": 6,
+      "supported": 6,
+      "passed": 0
+    },
+    "no-suitable-wine": {
+      "scenarios": 9,
+      "supported": 9,
+      "passed": 5
+    },
+    "missing-metadata": {
+      "scenarios": 1,
+      "supported": 1,
+      "passed": 1
+    },
+    "inventory": {
+      "scenarios": 2,
+      "supported": 2,
+      "passed": 1
+    }
+  },
+  "measures": {
+    "grounded": [43, 43],
+    "food": [31, 43],
+    "verdict": [32, 43],
+    "first": [27, 43],
+    "no-poor-bottle": [27, 34],
+    "no-bottles": [8, 9],
+    "honest-none": [8, 9],
+    "confidence": [1, 1],
+    "never": [1, 1]
+  }
+}

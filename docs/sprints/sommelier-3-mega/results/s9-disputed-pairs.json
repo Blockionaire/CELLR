@@ -1,0 +1,658 @@
+{
+  "what": "72 dish and wine pairs on which the benchmark label and the S8 engine disagreed, judged blind by an independent reviewer who saw neither the label nor the engine level (only dish card and wine card). No label was changed.",
+  "summary": {
+    "engine": 14,
+    "neither": 26,
+    "label": 32
+  },
+  "pairs": [
+    {
+      "dish": "bouillabaisse",
+      "wine": "champagne",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "good",
+      "judgeSidesWith": "engine",
+      "why": "High-acid sparkling with no tannin is sound with saffron fish stew and rouille, even if Provence rosé is the regional classic."
+    },
+    {
+      "dish": "veal-morels",
+      "wine": "barolo",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Nebbiolo has a real affinity with morels and veal, but tannin 5 is heavy-handed for a delicate cream sauce that wants white Burgundy or Vin Jaune."
+    },
+    {
+      "dish": "osso-buco",
+      "wine": "pauillac",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "The weight suits a marrow-rich braise, but the tannin is firm for veal and the acidity is modest; a northern Italian red is the natural choice."
+    },
+    {
+      "dish": "butter-chicken",
+      "wine": "chianti",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "poor",
+      "judgeSidesWith": "label",
+      "why": "A sweetish, creamy, spiced sauce makes dry, firmly tannic Sangiovese taste hard and bitter; this wants an off-dry white or soft fruity red."
+    },
+    {
+      "dish": "peking-duck",
+      "wine": "meursault",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "poor",
+      "judgeSidesWith": "label",
+      "why": "Sweet hoisin strips a dry, oaky, moderate-acid Chardonnay, and the dish calls for Pinot Noir or an off-dry aromatic white."
+    },
+    {
+      "dish": "cheese-board-hard",
+      "wine": "rioja-reserva",
+      "label": "good",
+      "engineAtS8": "ok",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Mature Tempranillo with moderate tannin and hard sheep or cow cheeses is a recognised classic."
+    },
+    {
+      "dish": "ratatouille",
+      "wine": "chablis",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "The acidity copes with the tomato, but lean mineral Chablis has no flavour link to a sun-ripe Provençal vegetable stew."
+    },
+    {
+      "dish": "coq-au-vin",
+      "wine": "pauillac",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "The red-wine sauce with bacon and mushrooms can carry a red, but full-bodied tannin-5 Cabernet is too much for chicken where Burgundy is the classic."
+    },
+    {
+      "dish": "seared-tuna",
+      "wine": "meursault",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "good",
+      "judgeSidesWith": "engine",
+      "why": "A full-bodied, tannin-free white matches the meaty weight of seared tuna with nothing working against it."
+    },
+    {
+      "dish": "falafel-tahini",
+      "wine": "gruner",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Crisp, herbal, peppery Grüner cuts the fried chickpea and echoes the herbs; a textbook vegetable-friendly match."
+    },
+    {
+      "dish": "stamppot-boerenkool",
+      "wine": "beaujolais",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Cru Beaujolais with smoked sausage and potato is a charcuterie classic: juicy fruit, fresh acidity and low tannin against fat and smoke."
+    },
+    {
+      "dish": "hummus-mezze",
+      "wine": "champagne",
+      "label": "poor",
+      "engineAtS8": "ok",
+      "judge": "good",
+      "judgeSidesWith": "neither",
+      "why": "Bubbles and high acidity handle lemon, garlic, tahini and fried bites across a mixed mezze table."
+    },
+    {
+      "dish": "strawberries-cream",
+      "wine": "tawny-port",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "poor",
+      "judgeSidesWith": "label",
+      "why": "Sweet enough, but a 20% nutty, oxidative, full-bodied tawny flattens delicate fresh strawberries that want Moscato or Brachetto."
+    },
+    {
+      "dish": "hutspot-klapstuk",
+      "wine": "napa-cab",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Ripe Cabernet suits the beef and tolerates the sweet carrot-onion mash, but it is weightier than this humble dish needs."
+    },
+    {
+      "dish": "truffle-pasta",
+      "wine": "bourgogne-pinot",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Earthy red Burgundy with truffle is a recognised match, and the moderate tannin and fresh acidity suit buttery pasta."
+    },
+    {
+      "dish": "nasi-goreng",
+      "wine": "cava",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Bubbles suit fried rice, but bone-dry Brut Nature has no sweetness to meet kecap manis and sambal heat."
+    },
+    {
+      "dish": "burger",
+      "wine": "crozes",
+      "label": "good",
+      "engineAtS8": "ok",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Peppery northern Rhône Syrah with grilled beef, fat and melted cheese is structurally spot on."
+    },
+    {
+      "dish": "pasta-arrabbiata",
+      "wine": "provence-rose",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "A tannin-free, fresh, chilled rosé is exactly what chili-hot tomato sauce wants."
+    },
+    {
+      "dish": "cheese-board-hard",
+      "wine": "meursault",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Nutty hard cheeses such as Comté and aged Gouda with rich white Burgundy is a recognised classic, often better than red."
+    },
+    {
+      "dish": "pizza-margherita",
+      "wine": "chablis",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "The acidity matches the tomato and cuts the mozzarella, but an austere Chablis is not what a pizza calls for."
+    },
+    {
+      "dish": "chili-con-carne",
+      "wine": "chianti",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "The acidity suits the tomato and the beef absorbs some tannin, but tannin 4 against chili heat is not ideal; a riper, softer red is better."
+    },
+    {
+      "dish": "roast-lamb",
+      "wine": "amarone",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Lamb has the fat and protein for it, but raisined high-alcohol Amarone is heavier than a roast leg wants; Bordeaux or Rioja is the classic."
+    },
+    {
+      "dish": "duck-cherry",
+      "wine": "meursault",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "poor",
+      "judgeSidesWith": "label",
+      "why": "Duck with a sweet-sour cherry sauce wants Pinot Noir; a dry oaky white with moderate acidity clashes with the fruit sauce."
+    },
+    {
+      "dish": "shakshuka",
+      "wine": "provence-rose",
+      "label": "good",
+      "engineAtS8": "ok",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Dry rosé with spiced tomato, peppers and egg is a natural: fresh acidity, no tannin, Mediterranean affinity."
+    },
+    {
+      "dish": "fish-red-wine-sauce",
+      "wine": "rioja-reserva",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Red-wine sauce licenses a red and the tannin is moderate, but an oak-aged Reserva is heavier than the light Pinot or Loire red the dish wants."
+    },
+    {
+      "dish": "stamppot-boerenkool",
+      "wine": "pinot-gris",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Alsace Pinot Gris with smoked pork, potato and cabbage-family greens mirrors the choucroute classic; body and a touch of sugar suit smoke and salt."
+    },
+    {
+      "dish": "hutspot-klapstuk",
+      "wine": "amarone",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "The hint of sweetness sits fine with carrot and onion and the beef takes the tannin, but Amarone outweighs a simple mash with boiled beef."
+    },
+    {
+      "dish": "thai-green-curry",
+      "wine": "sancerre",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "The herbal lime notes echo the curry and there is no tannin, but a bone-dry lean wine lacks the fruit sweetness to cushion heat and coconut."
+    },
+    {
+      "dish": "miso-cod",
+      "wine": "albarino",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Clean and tannin-free with fish, but light and dry against a sweet, umami-rich miso glaze that wants more body or a little sugar."
+    },
+    {
+      "dish": "burger",
+      "wine": "barolo",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Beef fat and protein can take the tannin, but the wine's austerity and acidity sit awkwardly with ketchup, pickles and a soft bun."
+    },
+    {
+      "dish": "vitello-tonnato",
+      "wine": "riesling-kabinett",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "The high acidity cuts the tuna mayonnaise and the sugar handles the salt, but an off-dry featherweight Riesling is not the dry Piedmont white the dish wants."
+    },
+    {
+      "dish": "pad-thai",
+      "wine": "cava",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Bubbles work with fried noodles and peanuts, but zero-dosage dryness turns austere against the sweet tamarind sauce."
+    },
+    {
+      "dish": "cheese-board-hard",
+      "wine": "barolo",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "good",
+      "judgeSidesWith": "engine",
+      "why": "Aged hard cheeses such as Parmigiano and Castelmagno have the fat, salt and protein for Barolo; a Piedmontese classic."
+    },
+    {
+      "dish": "pho",
+      "wine": "sancerre",
+      "label": "poor",
+      "engineAtS8": "ok",
+      "judge": "ok",
+      "judgeSidesWith": "engine",
+      "why": "The herbs and lime echo Sauvignon Blanc and the weight is right, but spiced beef broth with wine is serviceable rather than a match to seek out."
+    },
+    {
+      "dish": "cheese-fondue",
+      "wine": "barolo",
+      "label": "poor",
+      "engineAtS8": "ok",
+      "judge": "poor",
+      "judgeSidesWith": "label",
+      "why": "Melted cheese wants a crisp neutral white; a firmly tannic red turns bitter and heavy against fondue."
+    },
+    {
+      "dish": "ratatouille",
+      "wine": "gruner",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "good",
+      "judgeSidesWith": "engine",
+      "why": "Grüner Veltliner is the classic vegetable wine, with the acidity for tomato and peppery herbal notes for the stewed vegetables."
+    },
+    {
+      "dish": "draadjesvlees",
+      "wine": "amarone",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "good",
+      "judgeSidesWith": "engine",
+      "why": "Long-braised beef with Amarone is a recognised match; richness, spice and weight line up."
+    },
+    {
+      "dish": "shakshuka",
+      "wine": "beaujolais",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "A light, juicy, low-tannin Gamay with fresh acidity suits spiced tomato and egg."
+    },
+    {
+      "dish": "falafel-tahini",
+      "wine": "orange",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Skin-contact white with its light grip and nutty, savoury notes is a well-established match for tahini and fried chickpea."
+    },
+    {
+      "dish": "stamppot-boerenkool",
+      "wine": "gruner",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Grüner's green peppery notes suit kale and its acidity cuts the fatty smoked sausage, in the Austrian sausage-and-cabbage tradition."
+    },
+    {
+      "dish": "hummus-mezze",
+      "wine": "orange",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Orange wine's texture and savoury character bridge the many flavours of a mezze spread; a recognised modern pairing."
+    },
+    {
+      "dish": "surf-and-turf",
+      "wine": "napa-cab",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Ideal for the steak but too tannic and heavy for the lobster, so it only serves half the plate."
+    },
+    {
+      "dish": "korean-bbq",
+      "wine": "bourgogne-pinot",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Pinot's moderate tannin and acidity can work with grilled beef, but the sweet marinade, gochujang and kimchi trample a fine Burgundy."
+    },
+    {
+      "dish": "truffle-pasta",
+      "wine": "meursault",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Rich white Burgundy with buttery truffle pasta is a recognised luxury match."
+    },
+    {
+      "dish": "osso-buco",
+      "wine": "amarone",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "good",
+      "judgeSidesWith": "engine",
+      "why": "A rich, gelatinous northern Italian braise carries Amarone's weight, and the pairing is a regional standard."
+    },
+    {
+      "dish": "burger",
+      "wine": "malbec",
+      "label": "good",
+      "engineAtS8": "ok",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Ripe, full Malbec with grilled beef and cheese is a classic burger wine."
+    },
+    {
+      "dish": "pasta-carbonara",
+      "wine": "muscadet",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "The acidity cuts egg and guanciale fat, but a body-1 Muscadet is on the thin side for the richness and the pecorino."
+    },
+    {
+      "dish": "cheese-board-hard",
+      "wine": "orange",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "The nutty, lightly tannic, savoury character of a macerated white sits well with aged hard cheeses."
+    },
+    {
+      "dish": "ratatouille",
+      "wine": "albarino",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Fresh and clean with enough acidity for the tomato, but a saline, peachy Atlantic white has no real link to the dish."
+    },
+    {
+      "dish": "coq-au-vin",
+      "wine": "meursault",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "poor",
+      "judgeSidesWith": "label",
+      "why": "A red-wine braise with bacon and mushrooms wants red Burgundy; an oaky dry white is at odds with the sauce."
+    },
+    {
+      "dish": "seafood-paella",
+      "wine": "champagne",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "good",
+      "judgeSidesWith": "engine",
+      "why": "Dry sparkling with saffron rice and shellfish is sound and mirrors the local Cava habit."
+    },
+    {
+      "dish": "eggs-benedict",
+      "wine": "meursault",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "good",
+      "judgeSidesWith": "engine",
+      "why": "Buttery Chardonnay mirrors hollandaise and egg; a recognised richness-with-richness brunch match."
+    },
+    {
+      "dish": "spaghetti-bolognese",
+      "wine": "rioja-reserva",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Savoury Tempranillo with moderate tannin suits a meat ragù, with nothing working against it."
+    },
+    {
+      "dish": "hummus-mezze",
+      "wine": "albarino",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Crisp, saline, citrusy Albariño matches lemon, garlic and chickpea across the mezze."
+    },
+    {
+      "dish": "steak-tartare",
+      "wine": "cava",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "good",
+      "judgeSidesWith": "engine",
+      "why": "Dry sparkling with raw beef, yolk, capers and mustard is a brasserie classic; acidity and bubbles cut the richness."
+    },
+    {
+      "dish": "hutspot-klapstuk",
+      "wine": "barolo",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Braised beef welcomes Nebbiolo, but the sweet carrot-and-onion mash makes tannin 5 and acid 5 taste harder."
+    },
+    {
+      "dish": "truffle-pasta",
+      "wine": "barolo",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Truffle pasta with Nebbiolo is the Piedmontese classic."
+    },
+    {
+      "dish": "mushroom-risotto",
+      "wine": "albarino",
+      "label": "poor",
+      "engineAtS8": "ok",
+      "judge": "ok",
+      "judgeSidesWith": "engine",
+      "why": "No clash, but a light aromatic coastal white misses the earthy, creamy register that wants Chardonnay, Pinot Noir or Nebbiolo."
+    },
+    {
+      "dish": "burger",
+      "wine": "beaujolais",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Juicy chilled Gamay is a recognised burger wine: acidity for the fat, fruit for the condiments, little tannin."
+    },
+    {
+      "dish": "white-asparagus-flemish",
+      "wine": "cava",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "The bubbles cut butter and egg, but zero-dosage austerity is less kind to asparagus than a soft Pinot Blanc or Silvaner."
+    },
+    {
+      "dish": "pasta-arrabbiata",
+      "wine": "beaujolais",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "A low-tannin, fresh, fruity red is the right kind of red for chili-hot tomato sauce."
+    },
+    {
+      "dish": "cheese-board-hard",
+      "wine": "chianti",
+      "label": "good",
+      "engineAtS8": "ok",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Sangiovese with Pecorino and Parmigiano is a Tuscan classic; fat and salt tame the tannin."
+    },
+    {
+      "dish": "pizza-margherita",
+      "wine": "albarino",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Acidity for the tomato and freshness for the cheese, but not a wine one reaches for with pizza."
+    },
+    {
+      "dish": "chili-con-carne",
+      "wine": "barolo",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "poor",
+      "judgeSidesWith": "label",
+      "why": "Tannin 5 and very high acidity amplify chili heat and turn bitter."
+    },
+    {
+      "dish": "rendang",
+      "wine": "crozes",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "The peppery Syrah and the beef fit, but tannin 4 is exposed by the chili heat; a riper, softer red or an aromatic white is safer."
+    },
+    {
+      "dish": "draadjesvlees",
+      "wine": "barolo",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "good",
+      "judgeSidesWith": "engine",
+      "why": "Slow-braised beef with Barolo follows the brasato classic; the meat's richness absorbs the tannin."
+    },
+    {
+      "dish": "shakshuka",
+      "wine": "champagne",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "good",
+      "judgeSidesWith": "engine",
+      "why": "Eggs and Champagne is a brunch classic, and the high acidity matches the tomato."
+    },
+    {
+      "dish": "falafel-tahini",
+      "wine": "provence-rose",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Dry rosé with falafel and tahini is a standard, structurally sound Mediterranean match."
+    },
+    {
+      "dish": "stamppot-boerenkool",
+      "wine": "meursault",
+      "label": "poor",
+      "engineAtS8": "ok",
+      "judge": "ok",
+      "judgeSidesWith": "engine",
+      "why": "The body matches the mash and the oak meets the smoke, but the moderate acidity and fine detail are wasted on fatty sausage and bitter kale."
+    },
+    {
+      "dish": "hummus-mezze",
+      "wine": "provence-rose",
+      "label": "good",
+      "engineAtS8": "poor",
+      "judge": "good",
+      "judgeSidesWith": "label",
+      "why": "Provence rosé with mezze is a recognised classic."
+    },
+    {
+      "dish": "surf-and-turf",
+      "wine": "pauillac",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "ok",
+      "judgeSidesWith": "neither",
+      "why": "Excellent with the steak, but the firm tannin overwhelms the lobster; a compromise rather than a match."
+    },
+    {
+      "dish": "lamb-rogan-josh",
+      "wine": "barolo",
+      "label": "poor",
+      "engineAtS8": "good",
+      "judge": "poor",
+      "judgeSidesWith": "label",
+      "why": "Lamb suits Nebbiolo, but tannin 5 against chili and heavy spice turns hot and bitter."
+    }
+  ]
+}
