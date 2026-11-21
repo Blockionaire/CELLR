@@ -107,11 +107,11 @@ export const SaveSommelierSharingSchema = z
 export type SaveSommelierSharing = z.infer<typeof SaveSommelierSharingSchema>;
 export interface SommelierSharingView {
   tasteForFriends: boolean;
-  /** Null: this deployment's database does not know the setting yet (the 0050 step is not taken). */
+  /** Null: this deployment's database does not know the setting yet (the 0053 step is not taken). */
   cellarForFriends: boolean | null;
 }
 
-// ---- A friend's cellar, for the asker's sommelier (migration 0050) --------------------------------------------
+// ---- A friend's cellar, for the asker's sommelier (migration 0053) --------------------------------------------
 
 /**
  * What the database said about a friend's cellar. "unavailable": not an accepted friend, whatever the reason.

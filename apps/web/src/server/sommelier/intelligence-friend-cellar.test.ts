@@ -9,7 +9,7 @@ import type { TasteSignals } from "@cellr/domain/intelligence";
 import { createSommelierIntelligence } from "./intelligence";
 
 /**
- * A FRIEND'S CELLAR IN MY SOMMELIER'S ANSWER (migration 0050). The database decides whether it may be looked at
+ * A FRIEND'S CELLAR IN MY SOMMELIER'S ANSWER (migration 0053). The database decides whether it may be looked at
  * (`friendCellar` here plays the database); these tests hold the engine to what it does with the answer: their
  * bottles are shown as theirs and never as mine, a cellar that is not shared says nothing about what they own,
  * a present leaves out what was found there and claims no more than "not found in what they share", and their

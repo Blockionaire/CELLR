@@ -17,7 +17,7 @@ that carries a migration (#94, #97, #100) is merged.
 | Check                                                                                | Why                                                                                                              |
 | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | `CELLR_FEATURES` in Production and Preview names none of the five sommelier switches | `all` turns none of them on (tested), so only a name can; make sure no name is there (R-02)                      |
-| Migration `20261124000047` (#88): applied in Production (checked 2026-11-20)         | This work's 0048, 0049 and 0050 are later than it, so the order is right as it stands and nothing needs renaming |
+| Migration `20261124000047` (#88): applied in Production (checked 2026-11-20)         | This work's 0051, 0052 and 0053 are later than it, so the order is right as it stands and nothing needs renaming |
 | Read `FINAL_REPORT.md` §6                                                            | The few things that change with every switch off                                                                 |
 
 ## 1. Merge (switches off)
@@ -27,8 +27,8 @@ behind switches that are off. When a base branch is merged and deleted, GitHub r
 `main`. Every branch of the stack contains `main` as of `6ab4350` and merges without conflict (checked in S9);
 #95, #97 and #98 are drafts and must be marked ready first.
 
-From the moment #94 is on `main`, migration 0048 is in `supabase/migrations`; from #97, 0049; from the S9 pull
-request, 0050. **A `db push` from `main` after that applies them.** That is
+From the moment #94 is on `main`, migration 0051 is in `supabase/migrations`; from #97, 0052; from the S9 pull
+request, 0053. **A `db push` from `main` after that applies them.** That is
 a release step of its own (§2), not a side effect to let happen.
 
 CI runs the browser tests on pushes to `main` only: the first run of `sommelier-plan.spec.ts` in CI is after the
@@ -40,11 +40,11 @@ With the procedure of `docs/MIGRATIONS.md`, when the owner decides, each right b
 
 | Migration                                         | Needed by                                                                  | What applying it makes live, whatever the app's switches say (R-14)                                                                                                                                                                                                                                                        |
 | ------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `20261125000048_social_sommelier.sql`             | `sommelier_social`                                                         | A signed-in person can set their own consent (off by default) and ask about their own accepted friends; taste signals come back only for a friend who turned their consent on                                                                                                                                              |
-| `20261126000049_sommelier_learning.sql`           | `sommelier_learning`, the admin report, plan codes on ratings              | A signed-in person can record their own outcome for a bottle their own kept plan offered (no plan is kept while the engine is off). It also replaces `sommelier_set_feedback` (same checks and grants, plus the plan's codes)                                                                                              |
-| `20261127000050_sommelier_friend_cellar.sql` (S9) | a friend's cellar and "a present they do not own" under `sommelier_social` | A signed-in person can set a second consent of their own (off by default) and ask for the wines of an accepted friend. Wines come back only for a friend who shows their cellar to them **and** turned that consent on: producer, wine, vintage, colour, origin; never a count, a place, a rating or a note. It needs 0048 |
+| `20261129000051_social_sommelier.sql`             | `sommelier_social`                                                         | A signed-in person can set their own consent (off by default) and ask about their own accepted friends; taste signals come back only for a friend who turned their consent on                                                                                                                                              |
+| `20261130000052_sommelier_learning.sql`           | `sommelier_learning`, the admin report, plan codes on ratings              | A signed-in person can record their own outcome for a bottle their own kept plan offered (no plan is kept while the engine is off). It also replaces `sommelier_set_feedback` (same checks and grants, plus the plan's codes)                                                                                              |
+| `20261201000053_sommelier_friend_cellar.sql` (S9) | a friend's cellar and "a present they do not own" under `sommelier_social` | A signed-in person can set a second consent of their own (off by default) and ask for the wines of an accepted friend. Wines come back only for a friend who shows their cellar to them **and** turned that consent on: producer, wine, vintage, colour, origin; never a count, a place, a rating or a note. It needs 0051 |
 
-Order: 0048, 0049, 0050 (0047, not this work's, is applied). 0050 alters the table 0048 creates. All three are additive. With a switch on and its migration missing, the app fails closed: no button, a 404, or the
+Order: 0051, 0052, 0053 (0047, not this work's, is applied). 0053 alters the table 0051 creates. All three are additive. With a switch on and its migration missing, the app fails closed: no button, a 404, or the
 answer "nothing", never a 500 (tested or reviewed for both).
 
 ## 3. Switches, in Preview first, one step at a time
@@ -53,9 +53,9 @@ answer "nothing", never a 500 (tested or reviewed for both).
 | ---- | --------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | 1    | `sommelier_engine` **and** `sommelier_buying` | nothing                                    | Together: with the engine alone, V1's buy list is dropped and nothing replaces it                                            |
 | 2    | `sommelier_experiences`                       | step 1                                     | Serving, keeping, wine-to-food, menus, quantities                                                                            |
-| 3    | `sommelier_learning`                          | step 1, 0049                               | Outcome buttons; `/admin/sommelier` starts to fill                                                                           |
-| 4    | `sommelier_social`                            | step 1, 0048, the approved consent wording | Last: it is the one that touches other people's data                                                                         |
-| 4b   | (no new switch) a friend's cellar             | step 4, 0050, its own consent wording      | Part of `sommelier_social`. Without 0050 the second consent switch is not shown and a friend's cellar is never read (tested) |
+| 3    | `sommelier_learning`                          | step 1, 0052                               | Outcome buttons; `/admin/sommelier` starts to fill                                                                           |
+| 4    | `sommelier_social`                            | step 1, 0051, the approved consent wording | Last: it is the one that touches other people's data                                                                         |
+| 4b   | (no new switch) a friend's cellar             | step 4, 0053, its own consent wording      | Part of `sommelier_social`. Without 0053 the second consent switch is not shown and a friend's cellar is never read (tested) |
 
 Each of the last four does nothing without `sommelier_engine` (tested).
 
@@ -92,7 +92,7 @@ and nothing reads their tables with the switches off.
 - With no switch named, the app answers as it does today. That is tested: the end-to-end suite with switches off,
   the unit suites of V1, Tonight and Wine Intelligence unchanged, and `CELLR_FEATURES=all` turning none of the
   five on.
-- A missing migration is survived: with 0048, 0049 or 0050 absent the app shows no button and reads nothing.
+- A missing migration is survived: with 0051, 0052 or 0053 absent the app shows no button and reads nothing.
 - No open P0 or P1 from the independent reviews. The last one (`progress/S9.md` §7) found four P1; all four
   are fixed and tested in the S9 branch.
 - Conditions, all the owner's: check that `CELLR_FEATURES` in Production and Preview names none of the five; merge

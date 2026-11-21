@@ -1,8 +1,8 @@
 -- =====================================================================
--- 0050 The social sommelier: a friend's cellar in my sommelier's answers, only when that friend allows it
+-- 0053 The social sommelier: a friend's cellar in my sommelier's answers, only when that friend allows it
 -- =====================================================================
 -- NOT APPLIED ANYWHERE. RELEASE ORDER (docs/sprints/sommelier-3-mega/RELEASE_PLAN.md): after 0047 (on `main`,
--- not yet applied to production on 2026-11-20), 0048 (which creates the table this file alters) and 0049.
+-- not yet applied to production on 2026-11-20), 0051 (which creates the table this file alters) and 0052.
 -- Once applied, its function can be called by any signed-in person through the API, whatever the app's switches
 -- say. What that allows: asking about ONE of one's own accepted friends, which returns that friend's wines only
 -- when the friend (1) shows their cellar to this person under the sharing rules that already exist (0015; off

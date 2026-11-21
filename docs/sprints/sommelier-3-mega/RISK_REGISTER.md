@@ -91,7 +91,7 @@ Production while recognition of unseen dishes is at this level.
 
 ## R-16 — A friend's cellar in someone else's answer (S9)
 
-**What.** With `sommelier_social` on and migration 0050 applied, a person's wines can appear in a friend's
+**What.** With `sommelier_social` on and migration 0053 applied, a person's wines can appear in a friend's
 sommelier answer.
 **Why it matters.** It is the first time 3.0 shows one person's possessions to another. A wrong default or a
 missed check is a privacy breach, not a bad recommendation.
@@ -108,7 +108,7 @@ by style and appellation, so a wine the engine cannot place excludes nothing.
 
 **What.** When S9 was written `main` held migration 0047 unapplied. The owner has since applied it: Production
 records 0001–0047 (checked read-only, 2026-11-20) and `main` is level with it. The risk that remains is this
-work's own: once #94, #97 or #100 is merged, a `db push` from `main` applies 0048, 0049 or 0050.
+work's own: once #94, #97 or #100 is merged, a `db push` from `main` applies 0051, 0052 or 0053.
 **Handled.** Said at the top of `RELEASE_PLAN.md` and in `docs/MIGRATIONS.md`.
 **Residual.** Someone who merges the stack and runs a routine `db push` releases up to three migrations at once.
 
