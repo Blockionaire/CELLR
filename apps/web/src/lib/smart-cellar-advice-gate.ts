@@ -1,5 +1,5 @@
 import type { PlacementAccess } from "./smart-cellar-placement-gate";
-import { internalPreviewIn } from "./smart-cellar-renderer-gate";
+import { smartCellarMayShowIn } from "./smart-cellar-renderer-gate";
 
 /**
  * Whether CELLR may advise where a bottle goes (Smart Cellar 3D, sprint 5; ADR-009). A gate of its own, decided on the
@@ -16,5 +16,5 @@ import { internalPreviewIn } from "./smart-cellar-renderer-gate";
 export type AdviceEnv = Readonly<Record<string, string | undefined>>;
 
 export function adviceOpenIn(env: AdviceEnv, placement: PlacementAccess): boolean {
-  return env.CELLR_SMART_CELLAR_ADVICE === "1" && internalPreviewIn(env) && placement.open;
+  return env.CELLR_SMART_CELLAR_ADVICE === "1" && smartCellarMayShowIn(env) && placement.open;
 }

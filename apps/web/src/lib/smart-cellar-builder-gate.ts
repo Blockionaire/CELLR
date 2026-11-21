@@ -1,5 +1,5 @@
 import { writesMayOpenIn, type SmartCellarAccess } from "./smart-cellar-gate";
-import { internalPreviewIn } from "./smart-cellar-renderer-gate";
+import { smartCellarMayShowIn } from "./smart-cellar-renderer-gate";
 import { writeTargetIn } from "./smart-cellar-write-target";
 
 /**
@@ -41,7 +41,7 @@ export const BUILDER_CLOSED: BuilderAccess = Object.freeze({
 });
 
 export function builderAccessIn(env: BuilderEnv, api: SmartCellarAccess): BuilderAccess {
-  if (env.CELLR_SMART_CELLAR_BUILDER !== "1" || !internalPreviewIn(env) || !api.reads)
+  if (env.CELLR_SMART_CELLAR_BUILDER !== "1" || !smartCellarMayShowIn(env) || !api.reads)
     return BUILDER_CLOSED;
   if (api.writes) return Object.freeze({ open: true, canSave: true, saveBlockedBy: null });
   const block: BuilderSaveBlock =

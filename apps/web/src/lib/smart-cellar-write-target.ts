@@ -45,7 +45,8 @@ const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 const HOST_NAME =
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/;
 
-function hostOf(url: string | undefined): string | null {
+/** The host of a database URL, lower case; null where it cannot be read (not http(s), credentials in it). */
+export function hostOf(url: string | undefined): string | null {
   if (!url) return null;
   try {
     const parsed = new URL(url);

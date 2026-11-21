@@ -1,3 +1,4 @@
+import { productionReleaseIn } from "./smart-cellar-release";
 import { writeTargetIn } from "./smart-cellar-write-target";
 
 /**
@@ -9,9 +10,9 @@ import { writeTargetIn } from "./smart-cellar-write-target";
  *   "read"                                   reading places in the new terms, and export version 2.
  *   "write"                                  reading, and saving a layout: BUT ONLY WHERE WRITES MAY BE OPEN (below).
  *
- * WRITES ARE NEVER OPEN ON PRODUCTION, whatever is set. Saving layouts for real users is a separate decision of the
- * owner; when it is taken, it is taken in code (a reviewed change to this file), not by a variable someone can set by
- * mistake. Until then "write" opens writes in exactly two places, the gallery gate's (lib/cellar-gallery-gate.ts):
+ * WRITES ON PRODUCTION only in the authorized production release (lib/smart-cellar-release.ts, owner decision of
+ * 2026-11-21): a Vercel production deployment that declares, exactly, the production database it connects to.
+ * Otherwise "write" opens writes in exactly two places, the gallery gate's (lib/cellar-gallery-gate.ts):
  *   1. `next dev` (NODE_ENV "development"), unless the environment says it is production;
  *   2. a Vercel PREVIEW deployment (VERCEL_ENV "preview", and no custom target environment).
  * Everything else, above all a production build that carries no Vercel marker, can at most read. Writes that are
@@ -50,7 +51,7 @@ export function smartCellarAccessIn(env: SmartCellarEnv): SmartCellarAccess {
   if (mode === "write")
     return Object.freeze({
       reads: true,
-      writes: writesMayOpenIn(env) && writeTargetIn(env).verified,
+      writes: (writesMayOpenIn(env) && writeTargetIn(env).verified) || productionReleaseIn(env),
     });
   return SMART_CELLAR_CLOSED;
 }

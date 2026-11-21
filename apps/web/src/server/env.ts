@@ -36,8 +36,9 @@ export function isCellarGalleryEnabled(): boolean {
 }
 
 /**
- * Whether the Smart Cellar API reads and writes here (CELLR_SMART_CELLAR: off | read | write). Writes are never open
- * on production, whatever is set. The rule and its reasons: lib/smart-cellar-gate.ts.
+ * Whether the Smart Cellar API reads and writes here (CELLR_SMART_CELLAR: off | read | write). Writes open on
+ * production only as the authorized release (lib/smart-cellar-release.ts:
+ * CELLR_SMART_CELLAR_PRODUCTION_DATABASE, the exact production database host, on a Vercel production deployment). The rule: lib/smart-cellar-gate.ts.
  */
 export function getSmartCellarAccess(): SmartCellarAccess {
   return smartCellarAccessIn(process.env);
@@ -45,7 +46,8 @@ export function getSmartCellarAccess(): SmartCellarAccess {
 
 /**
  * Whether the cellar's 3D view may use the new storage renderer for places with a template (CELLR_SMART_CELLAR_3D=1,
- * in `next dev` and on Vercel previews only; never on production, never where the deployment cannot be told). The
+ * in `next dev`, on Vercel previews and in the authorized production release; never where the deployment cannot
+ * be told). The
  * rule and its reasons: lib/smart-cellar-renderer-gate.ts.
  */
 export function isSmartCellarRendererEnabled(): boolean {
@@ -53,8 +55,8 @@ export function isSmartCellarRendererEnabled(): boolean {
 }
 
 /**
- * Whether the Rack Builder may be shown here (CELLR_SMART_CELLAR_BUILDER=1, `next dev` and Vercel previews only),
- * and whether it may save (the API's write level, which also needs a database known not to be production). The
+ * Whether the Rack Builder may be shown here (CELLR_SMART_CELLAR_BUILDER=1: `next dev`, Vercel previews or the
+ * production release), and whether it may save (the API's write level). The
  * rule and its reasons: lib/smart-cellar-builder-gate.ts.
  */
 export function getBuilderAccess(): BuilderAccess {
@@ -62,8 +64,8 @@ export function getBuilderAccess(): BuilderAccess {
 }
 
 /**
- * Whether bottles may be placed, moved and swapped through the new cellar view (CELLR_SMART_CELLAR_PLACEMENT=1, dev
- * and previews only), whether that may write (the API's write level, a test database only) and whether depth may
+ * Whether bottles may be placed, moved and swapped through the new cellar view (CELLR_SMART_CELLAR_PLACEMENT=1: dev,
+ * previews or the production release), whether that may write (the API's write level) and whether depth may
  * be written (never in this version). The rule and its reasons: lib/smart-cellar-placement-gate.ts.
  */
 export function getPlacementAccess(): PlacementAccess {

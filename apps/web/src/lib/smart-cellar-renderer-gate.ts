@@ -1,4 +1,5 @@
 import type { SmartCellarAccess } from "./smart-cellar-gate";
+import { productionReleaseIn } from "./smart-cellar-release";
 
 /**
  * Whether the cellar's 3D view may use the NEW storage renderer (Smart Cellar 3D, sprint 2B.3) for places that
@@ -15,8 +16,8 @@ import type { SmartCellarAccess } from "./smart-cellar-gate";
  *   - a production build that carries no Vercel marker at all: the app cannot tell what such a place is, so it is
  *     treated as production (the gallery gate's rule, lib/cellar-gallery-gate.ts);
  *   - a custom Vercel environment (staging, qa).
- * Opening it for real users is a reviewed change to this file after the owner decides and after the view has been
- * validated on real phones; it is never a variable someone can set.
+ * ...UNLESS the deployment is the authorized production release (lib/smart-cellar-release.ts: a Vercel production
+ * deployment that declares, exactly, the production database it connects to). Owner decision of 2026-11-21.
  *
  * INDEPENDENT OF THE OTHER GATES. Not the design gallery's (DESIGN_GALLERY opens nothing here), and not the Smart
  * Cellar API's permission to write (the renderer only reads; with this gate open and the API on "read", layouts
@@ -39,9 +40,17 @@ export function internalPreviewIn(env: RendererEnv): boolean {
 }
 
 /**
+ * Whether Smart Cellar features may be shown here at all: an internal preview, or the authorized production release.
+ * Every Smart Cellar gate (renderer, Rack Builder, placement, advice) asks this; each still needs its own setting.
+ */
+export function smartCellarMayShowIn(env: RendererEnv): boolean {
+  return internalPreviewIn(env) || productionReleaseIn(env);
+}
+
+/**
  * The rule, on an environment and the Smart Cellar API's access handed to it. The app asks through
  * `isSmartCellarRendererEnabled()` in src/server/env.ts.
  */
 export function smartCellarRendererOpenIn(env: RendererEnv, api: SmartCellarAccess): boolean {
-  return env.CELLR_SMART_CELLAR_3D === "1" && internalPreviewIn(env) && api.reads;
+  return env.CELLR_SMART_CELLAR_3D === "1" && smartCellarMayShowIn(env) && api.reads;
 }
