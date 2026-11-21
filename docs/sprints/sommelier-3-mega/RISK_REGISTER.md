@@ -19,3 +19,26 @@ closed list at the bottom).
 ## Closed
 
 None yet.
+
+## R-11 — Two pairing thresholds of S0 are missed
+
+**What.** On the benchmark the engines put a labelled-right bottle first in 68% of scenarios (threshold 80%) and
+offer no labelled-poor bottle in 73% (threshold 90%). V1 without AI: 32% and 8%.
+
+**Why it matters.** The thresholds were set before the engine existed as the bar for "better than a competent
+guess". Missing them means the claim "the first bottle is the right one" is not yet supported.
+
+**What is known.** Part is ties (a labelled-good wine at the same score), part is labels that call sound wines poor
+(only three to five wines per dish are listed as good), part is real weaknesses of the rules (`progress/S2.md`).
+The benchmark cannot separate these without a wine professional's judgement.
+
+**Mitigation.** The textbook test (46 classics, 15 clashes) holds on the real knowledge; hard clashes are never
+offered (reviewed and attacked); the engine says "nothing suits" rather than force a bottle.
+**Owner decision.** Have a wine professional review the 107 dish cards and the 3,210 pair labels (or a sample), then
+re-measure. Until then the switch should not be turned on in Production.
+
+## R-12 — Named-only switches
+
+**What.** `CELLR_FEATURES=all` does not turn on the four sommelier switches; each must be named.
+**Why.** A deployment set to `all` for an earlier epic must not start this one by accident (R-02).
+**Residual.** Someone who expects `all` to mean all will find the sommelier still off. `docs` and the registry say so.

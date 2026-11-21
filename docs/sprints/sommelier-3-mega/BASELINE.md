@@ -167,6 +167,16 @@ benchmark through the AI path needs an adapter that passes a real provider inste
 (`engines/baseline.ts`). It is not written, because it could not be run or checked here; it is listed in
 `RELEASE_PLAN.md` as an owner decision (cost: 133 to 246 calls of the chat model).
 
+## 7. Results of later phases against this baseline
+
+| Phase | Engine                      | Passed (of 246) | Dish understood | Outcome | First bottle | No poor bottle | Says none when none |
+| ----- | --------------------------- | --------------: | --------------: | ------: | -----------: | -------------: | ------------------: |
+| S0    | V1 without AI               |              13 |             58% |     67% |          32% |             8% |                 14% |
+| S2    | Sommelier 3.0 engines alone |              79 |             95% |     90% |          68% |            73% |                 86% |
+
+Two thresholds of §4 are missed in S2 (first bottle, no poor bottle); `progress/S2.md` says what the misses are and
+`RISK_REGISTER.md` R-11 what follows from it. The thresholds are not changed.
+
 ## Label corrections
 
-None yet.
+None. Where the engine and a label disagree, the label stands and the disagreement counts against the engine.

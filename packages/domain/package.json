@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Pure, framework-free business logic and contracts. No I/O, no React, no Next. Reusable by a native client.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./intelligence": "./src/intelligence.ts"
   },
   "scripts": {
     "lint": "eslint .",
@@ -13,7 +14,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "zod": "4.6.6"
+    "zod": "4.6.6",
+    "server-only": "0.0.1"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
