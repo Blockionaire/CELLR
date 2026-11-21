@@ -42,7 +42,25 @@ checked (Vercel 403). Merging this PR deploys `main` as it is plus this branch.
 
 ## 4. Tests and results
 
-See the PR and §4a below (filled in with the final runs).
+Run on this branch (`main` merged in), production build, local stack (real Postgres 16, PostgREST, RLS):
+
+| Check                                                                                                                                                   | Result                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm format:check`, `pnpm typecheck`, `pnpm migrations:check`                                                                                          | passed                                                                                                                                                                                                                                                                                                              |
+| `pnpm lint`                                                                                                                                             | passed (the one warning that is also on `main`)                                                                                                                                                                                                                                                                     |
+| `pnpm test`                                                                                                                                             | domain 1,325 · web 1,375 (+13 skipped) · scripts 268: all passed; includes the new release matrix and every gate's tests (120)                                                                                                                                                                                      |
+| `scripts/db-test.sh` (RLS, functions, triggers, both slot indexes)                                                                                      | 1,681 passed                                                                                                                                                                                                                                                                                                        |
+| `pnpm build`, `scripts/check-bundle-secrets.sh`, `pnpm architecture:inventory`                                                                          | passed, no secret in the bundle, inventory unchanged                                                                                                                                                                                                                                                                |
+| Browser: placement, advice, rack-builder, smart-cellar-3d (+ old database), smart-cellar-api, cellar3d, racks, flows, smoke, drag-swap; desktop + phone | **316 passed**, 51 skipped (the other project's), 5 failed: `cellar3d.spec.ts:171` ×2 and `racks.spec.ts:371` ×3, **the same failures as on `main`** (reported since sprint 2B.3 / 4)                                                                                                                               |
+| Sprint 6 acceptance on the demo (W1–W6, isolation, read-only, no WebGL, context loss, reduced motion, slow CPU)                                         | 36/36 (PR #105)                                                                                                                                                                                                                                                                                                     |
+| CI on the PR                                                                                                                                            | format/lint/types/unit, migrations + permission suite, migration integrity, secret scan, dependency audit, backup round trip: passed. "Database · real Supabase stack" failed **before running**: GitHub returned 403 downloading the Supabase CLI; re-run requested. End-to-end jobs do not run on PRs (by design) |
+
+The workflows of the brief map onto these suites: create / configure / zones / save and reopen
+(`rack-builder.spec.ts`, acceptance W1, W4); place an unplaced bottle, move across places, swap, Undo, lost answer
+(`placement.spec.ts`, W2, W3, W6); advice and placing on exactly the advised spot (`advice.spec.ts`, W2); consistent
+views (every placement test checks the database and the other views). The production-mode difference is only which
+gate opens; it is covered by the release matrix (the production host cannot be emulated locally without weakening
+the check). **PWA reopen (workflow 12) and real phones are part of the post-deployment smoke checks (§10).**
 
 ## 5. Database and migration verification
 
@@ -117,7 +135,11 @@ Do **not** add `CELLR_SMART_CELLAR_WRITE_DATABASE` or `CELLR_DEMO_ORIGINS` anywh
    new deployments only.
 4. Smoke checks (§10).
 
-Actual result: see the PR / final report (this session cannot reach Vercel without the owner's team authorization).
+**Actual result (2026-11-21): NOT deployed.** This session cannot read or change the Vercel project (403 for team
+`jp-builds`), so it can neither set the variables nor watch the deployment, nor verify that production runs the
+expected commit. Per the brief it stops here. The PR is ready; production stays exactly as it is until the owner
+merges and sets the variables (or grants this session team access, after which it can do steps 1–4 and the smoke
+checks itself).
 
 ## 10. Production smoke checks (non-destructive)
 
