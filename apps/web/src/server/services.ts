@@ -70,6 +70,7 @@ import {
   getAiEnv,
   getFeatures,
   getPlacementAccess,
+  isAdviceOpen,
   getPushEnv,
   getSmartCellarAccess,
 } from "@/server/env";
@@ -122,6 +123,7 @@ export function servicesFor(ctx: RequestContext) {
     household,
     access: smartCellarAccess,
     placement: getPlacementAccess(),
+    advice: isAdviceOpen(),
   });
   const households = createHouseholdService(createHouseholdRepository(ctx.db), {
     userId: ctx.userId,

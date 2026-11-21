@@ -76,6 +76,9 @@ function fakeRepo(
       name: string;
       appellation?: string | null | undefined;
     }>,
+    origins: [] as Array<{ householdId: string; wineId: string; recordId: string }>,
+    failOrigin: false,
+    madeWineIds: new Set<string>(),
   };
   const household =
     options.household === undefined ? { id: "h1", currency: "EUR" } : options.household;
@@ -127,9 +130,17 @@ function fakeRepo(
       state.producers.push({ name, countryCode, exactCountry: exactCountry ?? false });
       return `p:${name}`;
     },
+    async recordWineOrigin(householdId, wineId, recordId) {
+      if (state.failOrigin) throw new Error("database unavailable");
+      state.origins.push({ householdId, wineId, recordId });
+      return "created";
+    },
     async findOrCreateWine(_h, producerId, input) {
+      const id = `w:${producerId}:${input.name}:${input.type}`;
+      const created = !state.madeWineIds.has(id);
+      state.madeWineIds.add(id);
       state.wines.push({ producerId, name: input.name, appellation: input.appellation });
-      return { ...WINE, id: `w:${producerId}:${input.name}:${input.type}`, name: input.name };
+      return { ...WINE, id, name: input.name, created };
     },
     async findOrCreateVintage(wineId, year) {
       const key = `${wineId}:${year}`;
@@ -1282,6 +1293,41 @@ describe("the shared catalogue", () => {
     expect(state.producers).toEqual([
       { name: "DOMAINE TEST", countryCode: "FR", exactCountry: false },
     ]);
+  });
+
+  it("R-27: a wine started from an external record keeps where it came from (the household's own wine only)", async () => {
+    const record = "11111111-1111-4111-8111-111111111111";
+    const { repo, state } = fakeRepo({ known: [catalogWine] });
+    const service = createCellarService(repo, { userId: "me" });
+    const made = await service.createWine({
+      ...typed,
+      name: "Something New",
+      sourceRecordId: record,
+    });
+    expect(state.origins).toEqual([{ householdId: "h1", wineId: made.id, recordId: record }]);
+    // a catalogue wine found instead gets no origin: its sources are admin-verified links
+    expect((await service.createWine({ ...typed, sourceRecordId: record })).id).toBe("cw");
+    expect(state.origins).toHaveLength(1);
+    // nor does a wine of the household's own that was already there: it was not filled in from the record
+    expect(
+      (await service.createWine({ ...typed, name: "Something New", sourceRecordId: record })).id,
+    ).toBe(made.id);
+    expect(state.origins).toHaveLength(1);
+    // without a record nothing is recorded
+    await service.createWine({ ...typed, name: "Third" });
+    expect(state.origins).toHaveLength(1);
+  });
+
+  it("R-27: a failing origin step never stops the person adding the wine", async () => {
+    const { repo, state } = fakeRepo();
+    state.failOrigin = true;
+    const service = createCellarService(repo, { userId: "me" });
+    const made = await service.createWine({
+      ...typed,
+      name: "Something New",
+      sourceRecordId: "11111111-1111-4111-8111-111111111111",
+    });
+    expect(made.name).toBe("Something New");
   });
 
   it("an unknown or only similar wine is made privately, as before", async () => {
