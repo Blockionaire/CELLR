@@ -23,6 +23,16 @@ export interface FriendsRepository {
   respond(friendshipId: string, accept: boolean): Promise<boolean>;
   remove(userId: string): Promise<boolean>;
   sharing(userId: string): Promise<SharingView | null>;
+  /** Whether I let my friends' sommelier use my taste; null when that step is not there yet. */
+  sommelierSharing(userId: string): Promise<boolean | null>;
+  saveSommelierSharing(allow: boolean): Promise<void>;
+  /**
+   * The friends named in a question, as the database judges them for me right now: one row per name, with the
+   * closed taste signals only where both consents hold. Null when the function is not there (nothing is used).
+   */
+  sommelierContext(
+    handles: readonly string[],
+  ): Promise<Array<{ handle: string; status: string; taste: unknown }> | null>;
   saveSharing(userId: string, sharing: SaveSharing): Promise<void>;
   access(friendId: string): Promise<Record<ShareItem, boolean>>;
   ratings(friendId: string): Promise<FriendRating[]>;

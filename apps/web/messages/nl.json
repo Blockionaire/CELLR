@@ -483,7 +483,15 @@
           "c": "Bubbels"
         }
       },
-      "quickLabel": "Antwoord"
+      "quickLabel": "Antwoord",
+      "friend": {
+        "included": "met diens smaak is rekening gehouden",
+        "no-taste": "staat niet toe dat jouw sommelier diens smaak gebruikt",
+        "unavailable": "geen vriend van je, dus er is niets van diegene gebruikt"
+      }
+    },
+    "mentions": {
+      "label": "Je vrienden"
     }
   },
   "profile": {
@@ -1702,7 +1710,12 @@
     "activityCount": "{count, plural, one {# ding wacht} other {# dingen wachten}}",
     "activityInvite": "{name} wil vrienden worden",
     "activityRecommendation": "{name} raadt {wine} aan",
-    "someone": "Iemand"
+    "someone": "Iemand",
+    "sommelierSharing": {
+      "title": "Sommelier van vrienden",
+      "body": "Als een vriend jou noemt in een vraag aan diens sommelier (\"@jij komt eten, wat trek ik open?\"), mag die rekening houden met jouw smaak: de soorten en streken die je hoog waardeert, hoe de wijnen die je hoog waardeert meestal aanvoelen (body, tannine, zoetheid, zuren) en wat je zelf hebt aangegeven. Je vriend kan zien of je dit toestaat.",
+      "never": "Nooit je flessen, je beoordelingen, je notities of je naam. Vragen waarin jij genoemd wordt, worden niet bewaard en geen AI-model krijgt ze te zien. Zet je dit uit, dan stopt het bij de volgende vraag."
+    }
   },
   "pin": {
     "usePin": "Inloggen met mijn pincode",

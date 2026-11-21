@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ASK_CODES,
+  MENTION_STATUSES,
   OFFER_CHECKS,
   PAIRING_CONFIDENCE_LEVELS,
   PAIRING_CONS,
@@ -36,6 +37,7 @@ const NEEDED = [
   "offer.online-offer",
   "offer.local-availability",
   ...ASK_CODES.map((c) => `ask.${c}`),
+  ...MENTION_STATUSES.map((c) => `friend.${c}`),
 ];
 
 describe.each([

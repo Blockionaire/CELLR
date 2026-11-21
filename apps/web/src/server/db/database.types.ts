@@ -2184,6 +2184,25 @@ export type Database = {
           },
         ];
       };
+      sommelier_sharing: {
+        Row: {
+          taste_for_friends: boolean;
+          updated_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          taste_for_friends?: boolean;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          taste_for_friends?: boolean;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       taste_preferences: {
         Row: {
           acidity: number | null;
@@ -3523,6 +3542,14 @@ export type Database = {
           generated_at: string;
           model: string;
           output: Json;
+        }[];
+      };
+      sommelier_friend_context: {
+        Args: { p_handles: string[] };
+        Returns: {
+          handle: string;
+          status: string;
+          taste: Json;
         }[];
       };
       sommelier_purge_expired: { Args: Record<PropertyKey, never>; Returns: number };

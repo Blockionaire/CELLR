@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { groupTasteScore, NO_TASTE, tasteScore, type TasteSignals } from "./pairing-engine/taste";
 import type { WineStructure } from "./pairing-engine/wine";
-import { findMentions, MAX_MENTIONS, withoutMentions } from "./social";
+import {
+  findMentions,
+  hasAnyMention,
+  MAX_MENTIONS,
+  withoutAnyMention,
+  withoutMentions,
+} from "./social";
 
 describe("mentions", () => {
   it("finds account names", () => {
@@ -95,5 +101,31 @@ describe("a table of several people", () => {
     expect(groupTasteScore([0.4, 0.4, 0.4])).toBe(0.4);
     // A wine everyone finds fine beats one two love and one dislikes.
     expect(groupTasteScore([0.3, 0.3, 0.3])).toBeGreaterThan(groupTasteScore([1, 1, -0.8]));
+  });
+});
+
+describe("names that are almost names", () => {
+  it("does not look up the first part of something longer", () => {
+    expect(findMentions("@abcdefghijklmnopqrs.t")).toEqual([]);
+    expect(findMentions("@anna.jansen and @bram")).toEqual(["anna.jansen", "bram"]);
+  });
+  it("reads a full-width @ and ignores invisible characters", () => {
+    expect(findMentions("dinner with ＠anna")).toEqual(["anna"]);
+    expect(findMentions("dinner with @an​na")).toEqual(["anna"]);
+  });
+  it("takes everything that looks like a name out of text bound for a model", () => {
+    const text = "x.@anna, @@bram; ＠carla and @аnna (and joe@example.com) for dinner";
+    expect(hasAnyMention(text)).toBe(true);
+    expect(withoutAnyMention(text)).not.toMatch(/@|＠|anna|bram|carla|example/);
+    expect(withoutAnyMention(text)).toContain("for dinner");
+    expect(hasAnyMention("no names here")).toBe(false);
+    expect(withoutAnyMention("no names here")).toBe("no names here");
+    // Not mentions, and still possibly names: a space after the "@", or the "@" behind the word.
+    expect(withoutAnyMention("Dinner with @ Anna tomorrow")).toBe("Dinner tomorrow");
+    expect(withoutAnyMention("Anna@ is coming for lamb")).toBe("is coming for lamb");
+    expect(withoutAnyMention("write to jan.de.vries@example.com about the Barolo")).toBe(
+      "write about the Barolo",
+    );
+    expect(withoutAnyMention("lamb for ＠Bram")).toBe("lamb");
   });
 });

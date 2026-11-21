@@ -9,7 +9,13 @@ import {
   type SaveSharing,
   type WineType,
   type SharingView,
+  friendTasteSignals,
+  MAX_MENTIONS,
+  type MentionStatus,
+  type SaveSommelierSharing,
+  type SommelierSharingView,
 } from "@cellr/domain";
+import type { TasteSignals } from "@cellr/domain/intelligence";
 import type { FriendsRepository } from "./types";
 
 const NOT_READY =
@@ -36,6 +42,31 @@ export type SaveToWishlist = (wine: {
  * Finding friends by account name or friend code, asking, answering, and what each of you lets the other see.
  * Every read of a friend's wines goes through the database, which checks the friendship and the sharing again.
  */
+/** See `sommelierContext` on the service: the same read, for callers that hold only the repository. */
+export async function readSommelierContext(
+  repo: Pick<FriendsRepository, "sommelierContext">,
+  handles: readonly string[],
+  knownKeys: ReadonlySet<string>,
+): Promise<Array<{ handle: string; status: MentionStatus; taste: TasteSignals | null }>> {
+  const asked = [...new Set(handles.map((h) => h.toLowerCase()))].slice(0, MAX_MENTIONS);
+  if (asked.length === 0) return [];
+  const rows = (await repo.sommelierContext(asked).catch(() => null)) ?? [];
+  const byHandle = new Map(rows.map((r) => [r.handle, r]));
+  return asked.map((handle) => {
+    const row = byHandle.get(handle);
+    const taste = row?.status === "included" ? friendTasteSignals(row.taste, knownKeys) : null;
+    const status: MentionStatus =
+      row?.status === "included"
+        ? taste
+          ? "included"
+          : "no-taste"
+        : row?.status === "no-taste"
+          ? "no-taste"
+          : "unavailable";
+    return { handle, status, taste };
+  });
+}
+
 export function createFriendsService(deps: {
   repo: FriendsRepository;
   userId: string;
@@ -106,6 +137,27 @@ export function createFriendsService(deps: {
       if (!view) throw new DomainError("INTERNAL", NOT_READY);
       return view;
     },
+
+    /** Whether my friends' sommelier may use my taste. Off until I turn it on. */
+    async sommelierSharing(): Promise<SommelierSharingView> {
+      const allowed = await repo.sommelierSharing(userId);
+      if (allowed === null) throw new DomainError("INTERNAL", NOT_READY);
+      return { tasteForFriends: allowed };
+    },
+
+    async saveSommelierSharing(input: SaveSommelierSharing): Promise<SommelierSharingView> {
+      await repo.saveSommelierSharing(input.tasteForFriends);
+      return this.sommelierSharing();
+    },
+
+    /**
+     * The friends named in a question to my sommelier. Names are only text until the database has matched them
+     * to my own accepted friends and checked what each allows, now, in this request; the result is cached
+     * nowhere. Anything that is not a friend who allows it comes back without taste, and a name that is not my
+     * friend is "unavailable" whatever the reason. If the database cannot answer, nobody is included.
+     */
+    sommelierContext: (handles: readonly string[], knownKeys: ReadonlySet<string>) =>
+      readSommelierContext(repo, handles, knownKeys),
 
     async saveSharing(input: SaveSharing): Promise<SharingView> {
       // Only people who are my friends now can be picked (the database checks this too).

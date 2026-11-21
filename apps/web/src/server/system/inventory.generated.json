@@ -57,6 +57,7 @@
       "name": "sommelier_messages",
       "references": ["sommelier_conversations", "sommelier_messages"]
     },
+    { "name": "sommelier_sharing", "references": [] },
     { "name": "taste_preferences", "references": [] },
     { "name": "tastings", "references": ["bottles", "households", "profiles", "wine_vintages"] },
     { "name": "vintage_insights", "references": ["households", "wine_vintages"] },
@@ -197,6 +198,7 @@
     "save_storage_layout",
     "send_friend_request",
     "shared_wine_profile",
+    "sommelier_friend_context",
     "sommelier_purge_expired",
     "sommelier_record_exchange",
     "sommelier_set_feedback",
@@ -209,7 +211,7 @@
     "wine_origin_notices",
     "wine_source_notices"
   ],
-  "migrations": { "count": 48, "latest": "20261128000050_r27_wine_record_origins.sql" },
+  "migrations": { "count": 49, "latest": "20261129000051_social_sommelier.sql" },
   "buckets": [
     "bottle-art",
     "bottle-images",
@@ -285,6 +287,7 @@
     { "path": "/api/v1/reminders", "methods": ["GET"] },
     { "path": "/api/v1/scans", "methods": ["POST"] },
     { "path": "/api/v1/sharing", "methods": ["GET", "PUT"] },
+    { "path": "/api/v1/sharing/sommelier", "methods": ["GET", "PUT"] },
     { "path": "/api/v1/smart-cellar", "methods": ["GET"] },
     { "path": "/api/v1/smart-cellar/bottles/[id]", "methods": ["GET"] },
     { "path": "/api/v1/smart-cellar/bottles/[id]/move", "methods": ["POST"] },

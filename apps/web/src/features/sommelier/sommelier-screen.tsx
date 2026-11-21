@@ -36,6 +36,7 @@ import { Chip } from "@/ui/chip";
 import { EmptyState } from "@/ui/empty-state";
 import { plainSentence } from "./plain-sentence";
 import { PlanView } from "./plan-view";
+import { completeMention, MentionSuggestions } from "./mention-suggestions";
 import { cn } from "@/ui/cn";
 import { ChevronRightIcon, ScanIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
@@ -64,15 +65,19 @@ const SHOWN_ON_PHONE = 2;
 export function SommelierScreen({
   hasBottles,
   conversation,
+  social,
 }: {
   hasBottles: boolean;
   /** The kept conversation, read with the page; left out when it could not be, and the screen reads it itself. */
   conversation?: SommelierConversationView | undefined;
+  /** The social sommelier is switched on: friends' names are suggested while typing "@". */
+  social?: boolean | undefined;
 }) {
   const t = useTranslations("sommelier");
   return (
     <SommelierChat
       mode="chat"
+      social={social === true}
       title={t("title")}
       subtitle={t("subtitle")}
       chips={CHIPS.map((id) => t(`chips.${id}`))}
@@ -134,6 +139,7 @@ export function SommelierChat({
   hasBottles,
   initialQuestion,
   conversation,
+  social = false,
 }: {
   mode: "chat" | "tonight";
   title: string;
@@ -145,6 +151,7 @@ export function SommelierChat({
   initialQuestion?: string | undefined;
   /** The general chat's kept conversation, as the page read it. */
   conversation?: SommelierConversationView | undefined;
+  social?: boolean | undefined;
 }) {
   const t = useTranslations("sommelier");
   const te = useTranslations();
@@ -509,6 +516,15 @@ export function SommelierChat({
           onSubmit={submit}
           className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--nav-height)+env(safe-area-inset-bottom))] z-20 bg-linear-to-t from-canvas via-canvas/90 to-transparent px-5 pb-3 pt-8 lg:sticky lg:bottom-4 lg:bg-none lg:p-0"
         >
+          {social && (
+            <MentionSuggestions
+              draft={draft}
+              onPick={(handle) => {
+                setDraft(completeMention(draft, handle));
+                box.current?.focus();
+              }}
+            />
+          )}
           <div className="pointer-events-auto mx-auto flex max-w-2xl items-end gap-2 rounded-[28px] bg-surface p-1.5 pl-5 shadow-raised ring-1 ring-hairline focus-within:ring-accent-fg">
             <textarea
               ref={box}
