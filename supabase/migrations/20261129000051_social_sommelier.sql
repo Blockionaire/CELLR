@@ -1,5 +1,5 @@
 -- =====================================================================
--- 0048 The social sommelier: a friend's taste in my sommelier's answers, only when that friend allows it
+-- 0051 The social sommelier: a friend's taste in my sommelier's answers, only when that friend allows it
 -- =====================================================================
 -- NOT APPLIED ANYWHERE. RELEASE ORDER (docs/sprints/sommelier-3-mega/RELEASE_PLAN.md):
 --   * Pull request #88 holds migration 20261124000047. It must be merged and applied BEFORE this file is applied:
