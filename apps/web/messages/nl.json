@@ -280,7 +280,33 @@
       "wineTitle": "De wijn",
       "closeSearch": "Terug naar de scan",
       "useMatch": "Toch {wine}",
-      "pickFirst": "Kies eerst welke wijn het is, of voeg hem toe als nieuwe wijn."
+      "pickFirst": "Kies eerst welke wijn het is, of voeg hem toe als nieuwe wijn.",
+      "checkTitle": "Is het deze wijn?",
+      "checkBody": "Het etiket wijkt op een detail hieronder af van deze wijn. Tik hem aan als hij het is, of kies een andere."
+    },
+    "source": {
+      "label": "Van het etiket",
+      "catalog": "CELLR-database (geverifieerd)",
+      "cellar": "Je eigen wijn",
+      "remembered": "Eerder door jou bevestigd",
+      "record": "Externe bron, controleer",
+      "typed": "Door jou ingevuld",
+      "unknown": "Onbekend",
+      "group": "{source}: {fields}",
+      "conflict": "Op het etiket staat “{value}” als {field}. Niet deze wijn? Kies een andere."
+    },
+    "field": {
+      "producer": "producent",
+      "name": "naam",
+      "type": "soort",
+      "countryCode": "land",
+      "region": "regio"
+    },
+    "vintageSource": {
+      "label": "Van het etiket",
+      "labelCheck": "Van het etiket, maar slecht leesbaar: controleer",
+      "remembered": "Eerder door jou bevestigd voor deze foto",
+      "unknown": "Niet van het etiket gelezen: vul in of kies NV"
     }
   },
   "sommelier": {

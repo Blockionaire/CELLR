@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent, type ReactNode } from "react";
 import {
   CreateWineSchema,
   ERROR_MESSAGES,
@@ -9,6 +9,7 @@ import {
   WINE_TYPES,
   type CatalogSearchHit,
   type CreateWine,
+  type WineField,
   type WineSummary,
   type WineType,
 } from "@cellr/domain";
@@ -168,6 +169,7 @@ export function WineFields({
   producers,
   autoFocus = false,
   preview = true,
+  sources,
 }: {
   value: WineFieldsValue;
   onChange: (next: WineFieldsValue) => void;
@@ -176,6 +178,8 @@ export function WineFields({
   autoFocus?: boolean;
   /** The typeset bottle above the fields (the scan's review shows the label photo instead). */
   preview?: boolean;
+  /** Per field, a quiet line saying where its value comes from (the scan's review: the label, a record, unknown). */
+  sources?: Partial<Record<WineField, ReactNode>> | undefined;
 }) {
   const t = useTranslations("addBottle");
   const tTypes = useTranslations("wineTypes");
@@ -237,6 +241,7 @@ export function WineFields({
         label={t("producerLabel")}
         placeholder={t("producerPlaceholder")}
         autoFocus={autoFocus}
+        hint={sources?.producer}
         autoComplete="off"
         autoCapitalize="words"
         list={listId}
@@ -252,6 +257,7 @@ export function WineFields({
       <Field
         label={t("nameLabel")}
         placeholder={t("namePlaceholder")}
+        hint={sources?.name}
         autoComplete="off"
         autoCapitalize="words"
         value={name}
@@ -282,6 +288,7 @@ export function WineFields({
             );
           })}
         </div>
+        {sources?.type && <p className="mt-1.5 text-caption text-ink-3">{sources.type}</p>}
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
@@ -302,12 +309,12 @@ export function WineFields({
               </option>
             ))}
           </select>
-          <p className="text-caption text-ink-3">{t("countryHint")}</p>
+          <p className="text-caption text-ink-3">{sources?.countryCode ?? t("countryHint")}</p>
         </div>
         <Field
           label={t("regionLabel")}
           placeholder={t("regionPlaceholder")}
-          hint={t("regionHint")}
+          hint={sources?.region ?? t("regionHint")}
           autoComplete="off"
           autoCapitalize="words"
           value={region}
