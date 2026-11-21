@@ -2,6 +2,7 @@ import "server-only";
 import { z, ZodError, type ZodType } from "zod";
 import { DomainError, ERROR_HTTP_STATUS, isDomainError, type ApiErrorBody } from "@cellr/domain";
 import { requireContext, type RequestContext } from "./context";
+import { getTrustedDemoOrigins } from "./env";
 import { logError } from "./log";
 
 export const MAX_BODY_BYTES = 64 * 1024;
@@ -40,24 +41,43 @@ export function errorResponse(error: unknown): Response {
   return jsonResponse(body, ERROR_HTTP_STATUS[domainError.code]);
 }
 
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
 /**
  * CSRF defence for cookie-authenticated requests: a state-changing request must come from our own
  * origin. Bearer-token callers (native apps) are not cookie-authenticated, so they are exempt.
+ *
+ * One exception, for the local demonstration only: a request that reached this server on a loopback host (the
+ * Codespaces port forward delivers it as localhost) from exactly one of the trusted demo origins (this server's own
+ * configuration, `getTrustedDemoOrigins`). Not a pattern, not a domain: the one forwarded address of this server's port.
  */
-export function checkOrigin(request: Request): void {
+export function checkOrigin(
+  request: Request,
+  demoOrigins: ReadonlySet<string> = getTrustedDemoOrigins(),
+): void {
   if (SAFE_METHODS.has(request.method.toUpperCase())) return;
   if (/^bearer\s/i.test(request.headers.get("authorization") ?? "")) return;
 
   const origin = request.headers.get("origin");
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
   if (!origin || !host) throw new DomainError("FORBIDDEN");
-  let originHost: string;
+  let originUrl: URL;
   try {
-    originHost = new URL(origin).host;
+    originUrl = new URL(origin);
   } catch {
     throw new DomainError("FORBIDDEN");
   }
-  if (originHost !== host) throw new DomainError("FORBIDDEN");
+  if (originUrl.host === host) return;
+  if (origin === originUrl.origin && demoOrigins.has(origin) && isLoopbackHost(host)) return;
+  throw new DomainError("FORBIDDEN");
+}
+
+function isLoopbackHost(host: string): boolean {
+  try {
+    return LOOPBACK_HOSTNAMES.has(new URL(`http://${host}`).hostname);
+  } catch {
+    return false;
+  }
 }
 
 /**

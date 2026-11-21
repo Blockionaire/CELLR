@@ -458,8 +458,13 @@ function SmartUnitStage({
   const out = outId ? (byId.get(outId) ?? null) : null;
   // The wine's own details (back label, appellation, how many there are): asked for when a bottle is taken out,
   // once per vintage, never for the whole place up front.
-  const detail = useVintageDetail(out?.vintageId ?? null).data;
+  const detailQuery = useVintageDetail(out?.vintageId ?? null);
+  const detail = detailQuery.data;
   const outDetail = detail && out && detail.vintageId === out.vintageId ? detail : null;
+  // While those details are on their way, their line is held open, so the panel's buttons don't move under a finger
+  // that is about to tap Move (sprint 6 acceptance: a tap during that shift could miss, or land on another button).
+  const pendingFor =
+    out !== null && outDetail === null && detailQuery.isPending ? out.bottleId : null;
 
   const name = useCallback(
     (p: SmartPlacementView) => `${p.producer} ${p.wineName} ${formatVintage(p.year)}`,
@@ -490,7 +495,9 @@ function SmartUnitStage({
                 t("facts.inCellarCount", { count: mine.bottles.length }),
               ] as const,
             ]
-          : []),
+          : pendingFor === p.bottleId
+            ? [[t("facts.inCellar"), "…"] as const]
+            : []),
         // the zone of its shelf, when the place has zones: what it is for and what it is SET to (never a reading)
         ...(unitZones.length > 0
           ? (() => {
@@ -556,6 +563,7 @@ function SmartUnitStage({
       byId,
       locale,
       outDetail,
+      pendingFor,
       unitLabel,
       unitMeaning,
       unitKnown,
@@ -805,7 +813,15 @@ function SmartUnitStage({
           >
             {/* no blur behind it: a blurred layer over the picture has to be drawn again with every frame */}
             <span className="max-w-full rounded-full bg-surface/90 px-4 py-1.5 text-center text-caption text-ink-2 ring-1 ring-hairline">
-              {data.placements.length === 0 ? t("empty") : t("hint")}
+              {data.placements.length === 0 ? (
+                t("empty")
+              ) : (
+                <>
+                  {/* a phone: one line, so it never covers the foot of the furniture */}
+                  <span className="sm:hidden">{t("hintShort")}</span>
+                  <span className="hidden sm:inline">{t("hint")}</span>
+                </>
+              )}
             </span>
           </p>
         </div>

@@ -827,6 +827,7 @@
   },
   "smart3d": {
     "hint": "Sleep om te draaien · knijp of scrol om te zoomen · tik op een fles om hem eruit te nemen",
+    "hintShort": "Sleep om te draaien · knijp om te zoomen · tik op een fles",
     "where": {
       "spot": "{unit} · Plank {row} · Positie {col}",
       "front": "{unit} · Plank {row} · Positie {col}, vooraan",
