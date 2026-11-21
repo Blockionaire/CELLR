@@ -70,6 +70,8 @@ interface BottleDetailsProps {
   resolveWine?: (() => Promise<WineSummary | null>) | undefined;
   /** The vintage as it stands (a year, null for NV, undefined while not given), for the caller to show. */
   onYearChange?: ((year: number | null | undefined) => void) | undefined;
+  /** Where the vintage it starts with comes from (the scan's review), shown under it until it is changed. */
+  yearSource?: ReactNode;
   /** The vintage field takes the cursor (the add flow); the scan's review leaves the keyboard closed. */
   autoFocusYear?: boolean | undefined;
   onDone: (result: AddBottlesResult, placeId: string | null) => void;
@@ -107,6 +109,7 @@ export function BottleDetails({
   resolveWine,
   onYearChange,
   autoFocusYear = true,
+  yearSource,
   onDone,
 }: BottleDetailsProps) {
   const t = useTranslations("addBottle");
@@ -274,6 +277,7 @@ export function BottleDetails({
             autoFocus={autoFocusYear}
             autoComplete="off"
             placeholder={t("yearPlaceholder")}
+            hint={year === initialYear ? yearSource : undefined}
             disabled={nv}
             value={nv ? "" : yearText}
             error={submitted && year === undefined ? t("yearError") : null}
