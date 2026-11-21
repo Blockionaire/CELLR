@@ -1,0 +1,26 @@
+{
+  "name": "@cellr/sommelier-eval",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The sommelier benchmark: fixed scenarios with documented reference answers, run against the app's own engines. Run with `pnpm sommelier:eval` from the repository root.",
+  "scripts": {
+    "start": "tsx --conditions=react-server run.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "matrix": "tsx --conditions=react-server matrix.ts"
+  },
+  "dependencies": {
+    "@cellr/domain": "workspace:*",
+    "tsx": "4.21.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "^22.0.0",
+    "eslint": "9.39.5",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1",
+    "vitest": "5.0.3"
+  }
+}
