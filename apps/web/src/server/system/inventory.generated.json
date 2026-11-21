@@ -215,7 +215,7 @@
     "wine_origin_notices",
     "wine_source_notices"
   ],
-  "migrations": { "count": 51, "latest": "20261128000050_r27_wine_record_origins.sql" },
+  "migrations": { "count": 51, "latest": "20261201000053_sommelier_friend_cellar.sql" },
   "buckets": [
     "bottle-art",
     "bottle-images",
