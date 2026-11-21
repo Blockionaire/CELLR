@@ -148,7 +148,7 @@ Read-only, for allowlisted admins (`CELLR_ADMIN_USER_IDS`). It shows the figures
   `AI_BUDGET_DAILY_USD` / `AI_BUDGET_MONTHLY_USD`. A hold is deleted when its usage is recorded, so nothing is
   counted twice (apart from the instant between the two writes). It is an application guard, not a provider cap.
 
-## The sommelier (`/admin/sommelier`, migration 0049)
+## The sommelier (`/admin/sommelier`, migration 0052)
 
 Counted by `public.admin_sommelier_report(from, to)` (service role only). Counts by code: no person, household,
 wine or word.
