@@ -56,7 +56,7 @@ PRODUCTION:     not touched. No merge, deploy, db push or production write by th
    word alone is not a wish to buy; unit tests for the orchestrator and the service; the screen (plan sentences in
    English and Dutch); registry (`pnpm architecture:inventory`); analytics events; independent review; PR.
 3. S5 from the migration draft and domain files on `claude/sommelier-3-s1-food` (`supabase/migrations/
-20261125000048_social_sommelier.sql`, `supabase/tests/99_social_sommelier.test.sql`, `social.ts`).
+20261129000051_social_sommelier.sql`, `supabase/tests/99_social_sommelier.test.sql`, `social.ts`).
 4. S6 (experiences), S7 (signals, routing, caching), S8 (final review, `FINAL_REPORT.md`, `RELEASE_PLAN.md`).
 
 ## Rules for whoever continues
