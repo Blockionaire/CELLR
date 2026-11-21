@@ -1,0 +1,5 @@
+wines: 7200 kB
+catalog_external_records: 121 MB
+catalog_record_links: 24 kB
+catalog_search_entries: 79 MB
+database: 221 MB

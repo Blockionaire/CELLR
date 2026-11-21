@@ -259,6 +259,22 @@
       "producer_only": "Dezelfde producent; er is geen wijnnaam gelezen",
       "type_differs": "Een andere kleur dan gelezen",
       "country_differs": "Een ander land dan gelezen"
+    },
+    "records": {
+      "title": "Mogelijk deze wijn",
+      "body": "Niet in je kelder of in de CELLR-catalogus, wel in een externe wijnbron. Kies hem om het formulier in te vullen; je controleert alles voordat je toevoegt.",
+      "use": "Gebruik deze gegevens",
+      "credit": "Bron: {provider} · licentie {license}{modified, select, yes { · bewerkt door CELLR} other {}} · niet geverifieerd door CELLR",
+      "reason": {
+        "same_name": "Zelfde naam als op het etiket",
+        "name_variant": "Bijna dezelfde naam",
+        "similar_name": "Lijkt op de naam",
+        "other_bottling": "Mogelijk een andere cuvée",
+        "producer_only": "Alleen de producent komt overeen",
+        "vintage_listed": "Bron kent deze jaargang",
+        "vintage_not_listed": "Bron noemt deze jaargang niet"
+      },
+      "licenseLink": "Licentie: {license}"
     }
   },
   "sommelier": {
@@ -2273,7 +2289,10 @@
       "own_value": "een eigen waarde"
     },
     "yoursPrivate": "Door jullie vastgelegd. Het staat niet in de gedeelde CELLR-catalogus; vrienden zien alleen wat je in Profiel met hen deelt.",
-    "catalogTitle": "Bron van de wijngegevens"
+    "catalogTitle": "Bron van de wijngegevens",
+    "derivedFrom": "De gegevens zijn bij het toevoegen overgenomen uit deze bron; jullie hebben ze bevestigd.",
+    "derivedFromChanged": "De gegevens zijn bij het toevoegen uit deze bron ingevuld; jullie hebben een deel aangepast en de rest bevestigd.",
+    "derivedLead": "Ingevuld uit {provider}"
   },
   "builder": {
     "titleNew": "Ontwerp een nieuwe plek",
@@ -2613,5 +2632,70 @@
     "goneMeanwhile": "Deze fles is niet meer in de kelder.",
     "takenOff": "{wine} heeft nu geen plek.",
     "alreadyOff": "{wine} had al geen plek. Er is niets veranderd."
+  },
+  "advice": {
+    "title": "Waar hij het best past",
+    "intentLabel": "Waarvoor is deze fles?",
+    "intent": {
+      "store": "Bewaren",
+      "serve": "Binnenkort schenken"
+    },
+    "loading": "Je plekken worden bekeken…",
+    "failed": "Het advies kon niet worden geladen.",
+    "retry": "Opnieuw proberen",
+    "noPlaces": "Je hebt nog geen plekken voor flessen.",
+    "openBuilder": "Een plek ontwerpen",
+    "noEligible": "Er is nu geen vrije plaats voor deze fles.",
+    "excludedDepth": "{count, plural, one {# plaats achter de voorste wordt niet aangeboden} other {# plaatsen achter de voorste worden niet aangeboden}}: plaatsen op diepte staat nog uit.",
+    "excludedUnknown": "{count, plural, one {# plek blijft buiten beschouwing} other {# plekken blijven buiten beschouwing}}: CELLR weet niet hoe die is ingedeeld.",
+    "stay": "De huidige plaats past al goed, op basis van wat CELLR weet. Verplaatsen kan nog steeds.",
+    "suit": {
+      "strong": "Sterke keuze, op basis van bekende feiten",
+      "reasonable": "Redelijke optie",
+      "limited": "Weinig informatie"
+    },
+    "rank": "Optie {rank}",
+    "equivalent": "{count, plural, one {# andere vrije plaats is} other {# andere vrije plaatsen zijn}} net zo geschikt.",
+    "show": "Toon",
+    "shown": "Getoond",
+    "placeHere": "Hier plaatsen",
+    "more": "Meer opties",
+    "advisory": "Advies, geen regel: je kunt hieronder ook zelf elke vrije plaats kiezen.",
+    "readOnly": "Plaatsen staat hier nog uit; het advies is alleen om te bekijken.",
+    "reason": {
+      "purposeStorage": "Zone {zone} is bestemd om wijn te bewaren.",
+      "purposeServing": "Zone {zone} is bestemd om te schenken.",
+      "vintage": "{count, plural, one {# fles} other {# flessen}} van dezelfde jaargang {where}.",
+      "wine": "{count, plural, one {# fles} other {# flessen}} van deze wijn (andere jaargang) {where}.",
+      "producer": "{count, plural, one {# fles} other {# flessen}} van dezelfde producent {where}.",
+      "type": "{count, plural, one {# andere fles} other {# andere flessen}} van dezelfde soort ({type}) {where}.",
+      "where": {
+        "neighbour": "vlakbij (binnen één plank of plaats)",
+        "shelf": "op dezelfde plank",
+        "place": "op deze plek"
+      },
+      "frontReachable": "Vooraan: hij kan eruit zonder een andere fles te verplaatsen.",
+      "zoneTarget": "Zone {zone} staat ingesteld op {temp} °C. Dat is een instelling in CELLR, geen gemeten temperatuur.",
+      "freeNow": "Nu vrij.",
+      "currentSpot": "Hier staat hij nu."
+    },
+    "caveat": {
+      "mismatchStorage": "Zone {zone} is bestemd om wijn te bewaren, niet om te schenken.",
+      "mismatchServing": "Zone {zone} is bestemd om te schenken, niet om te bewaren.",
+      "zoneNoTarget": "Voor zone {zone} is geen temperatuur ingesteld.",
+      "noZone": "Hier is geen zone: CELLR kent de omstandigheden op deze plaats niet.",
+      "compartmentCounter": "In een vak krijgt een fles het volgende vrije nummer; dat is geen plaats voor- of achterin.",
+      "noGrouping": "Geen verwante flessen in de buurt.",
+      "noMatchingStorage": "Geen van je plekken heeft een zone om wijn te bewaren, dus het advies steunt op wat er al waar ligt.",
+      "noMatchingServing": "Geen van je plekken heeft een zone om te schenken, dus het advies steunt op wat er al waar ligt.",
+      "windowNotUsed": "Het drinkvenster van CELLR voor deze wijn is een schatting en is niet gebruikt. Kies Binnenkort schenken als je hem wilt openen.",
+      "vintageUnknown": "Voor deze fles is geen jaargang vastgelegd."
+    },
+    "announce": "{count, plural, =0 {Geen opties} one {# optie} other {# opties}} voor deze fles.",
+    "notInCellar": "Deze fles is niet meer in de kelder.",
+    "stayNothingBetter": "Geen vrije plaats is duidelijk beter dan waar hij nu staat. Verplaatsen kan nog steeds.",
+    "excludedBehind": "{count, plural, one {# plaats achter een fles vooraan wordt niet aangeboden} other {# plaatsen achter een fles vooraan worden niet aangeboden}}.",
+    "stale": "Dit advies kon niet worden ververst en is mogelijk verouderd. „Hier plaatsen” staat uit tot het weer klopt; zelf hieronder een plaats kiezen werkt nog.",
+    "updating": "Het advies wordt bijgewerkt…"
   }
 }
