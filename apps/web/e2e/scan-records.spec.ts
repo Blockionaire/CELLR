@@ -462,6 +462,12 @@ test.describe("scan → an external record → a wine of your own, with where it
       path: `test-results/shots/004c-scan-record-nl-${test.info().project.name}.png`,
       fullPage: true,
     });
+    // the whole review (wine, labels, bottles) on one screen, in Dutch: nothing sticks out sideways on a phone
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    ).toBeLessThanOrEqual(0);
     await page.getByRole("button", { name: "Gebruik deze gegevens" }).click();
     await expect(page.getByTestId("new-wine-notice")).toContainText("niet heeft geverifieerd");
 
