@@ -522,7 +522,10 @@ test.describe("scan → an external record → a wine of your own, with where it
     await expect(page.getByLabel("Producent")).toHaveValue(second.producer);
     await page.context().clearCookies();
     await page.getByRole("button", { name: "1 fles toevoegen" }).click();
-    await expect(page.getByRole("alert")).toBeVisible();
+    // named: after a client-side navigation Next.js also renders an (empty) route announcer with role="alert"
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Log in om verder te gaan." }),
+    ).toBeVisible();
     await expect(page.getByRole("heading", { name: "Toegevoegd aan je kelder." })).toHaveCount(0);
     expect(await winesOf(householdId)).toBe(1);
     expect(await originsOf(householdId)).toBe(1);
