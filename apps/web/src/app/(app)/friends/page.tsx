@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { FriendsScreen } from "@/features/friends/friends-screen";
 import { getPageContext } from "@/server/context";
+import { getFeatures } from "@/server/env";
 import { servicesFor } from "@/server/services";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,11 +17,17 @@ export default async function FriendsPage() {
   const [sharing, recommendations] = overview.ready
     ? await Promise.all([friends.sharing().catch(() => null), friends.recommendations()])
     : [null, { ready: false, items: [], unseen: 0 }];
+  // The social sommelier's consent exists only where its switch is named.
+  const sommelierSharing =
+    getFeatures().sommelier_social && overview.ready
+      ? await friends.sommelierSharing().catch(() => null)
+      : undefined;
   return (
     <FriendsScreen
       initial={overview}
       initialSharing={sharing}
       initialRecommendations={recommendations}
+      initialSommelierSharing={sommelierSharing}
     />
   );
 }

@@ -126,6 +126,39 @@ export function createFriendsRepository(db: Db): FriendsRepository {
       return view;
     },
 
+    async sommelierSharing(userId) {
+      const { data, error } = await db
+        .from("sommelier_sharing")
+        .select("taste_for_friends")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error && notReady(error)) return null;
+      if (error) throw mapDbError(error);
+      // No row: never answered, which is "no".
+      return data?.taste_for_friends === true;
+    },
+
+    async saveSommelierSharing(allow) {
+      // The row is always mine: user_id comes from the sign-in (its default), never from the request.
+      const { error } = await db
+        .from("sommelier_sharing")
+        .upsert({ taste_for_friends: allow }, { onConflict: "user_id" });
+      if (error) throw mapDbError(error);
+    },
+
+    async sommelierContext(handles) {
+      const { data, error } = await db.rpc("sommelier_friend_context", {
+        p_handles: [...handles],
+      });
+      if (error && notReady(error)) return null;
+      if (error) throw mapDbError(error);
+      return (data ?? []).map((r: { handle: string; status: string; taste: unknown }) => ({
+        handle: r.handle,
+        status: r.status,
+        taste: r.taste,
+      }));
+    },
+
     async saveSharing(userId, { modes, picks }) {
       // The row is always mine: user_id comes from the sign-in (its default), never from the request.
       const saved = await db.from("sharing_settings").upsert(modes, { onConflict: "user_id" });

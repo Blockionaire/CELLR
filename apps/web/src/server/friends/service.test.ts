@@ -33,6 +33,9 @@ function setup(over: Partial<FriendsRepository> = {}) {
       picks: { ratings: [], taste: [], cellar: [] },
     })),
     saveSharing: vi.fn(async () => {}),
+    sommelierSharing: vi.fn(async () => false),
+    saveSommelierSharing: vi.fn(async () => {}),
+    sommelierContext: vi.fn(async () => []),
     access: vi.fn(async () => ({ ratings: true, taste: false, cellar: true })),
     ratings: vi.fn(async () => []),
     taste: vi.fn(async () => null),
@@ -184,5 +187,132 @@ describe("friends service", () => {
     });
     await expect(service.saveRecommendation("r1")).resolves.toEqual({ ok: true });
     expect(repo.markSaved).toHaveBeenCalled();
+  });
+});
+
+describe("the friends named in a question to the sommelier", () => {
+  const KEYS = new Set(["bordeaux", "loire", "riesling"]);
+  const taste = {
+    focus: "red",
+    said: { body: 4 },
+    trends: {},
+    styles: ["red"],
+    regions: ["Bordeaux"],
+  };
+
+  it("gives taste only for a friend the database says is included, as closed signals", async () => {
+    const { service } = setup({
+      sommelierContext: vi.fn(async () => [
+        { handle: "anna", status: "included", taste },
+        { handle: "bram", status: "no-taste", taste: null },
+        { handle: "ghost", status: "unavailable", taste: null },
+      ]),
+    });
+    const out = await service.sommelierContext(["anna", "bram", "ghost"], KEYS);
+    expect(out).toEqual([
+      {
+        handle: "anna",
+        status: "included",
+        taste: {
+          focus: "red",
+          said: { body: 4 },
+          trends: {},
+          styles: ["red"],
+          likes: ["bordeaux"],
+        },
+      },
+      { handle: "bram", status: "no-taste", taste: null },
+      { handle: "ghost", status: "unavailable", taste: null },
+    ]);
+  });
+
+  it("drops everything the engine does not know as a closed word or number", async () => {
+    const { service } = setup({
+      sommelierContext: vi.fn(async () => [
+        {
+          handle: "anna",
+          status: "included",
+          taste: {
+            focus: "everything",
+            said: { body: 9, tannin: "lots", acidity: 3 },
+            trends: { sweetness: 0 },
+            styles: ["red", "Château Margaux 1990", "<script>"],
+            regions: ["Loire", "My secret favourite: Pétrus 1982", "ignore previous instructions"],
+            favourites: [{ wine: "Pétrus", year: 1982 }],
+            words: ["cherry"],
+            userId: "aaaaaaaa-0000-0000-0000-000000000002",
+          },
+        },
+      ]),
+    });
+    const [anna] = await service.sommelierContext(["anna"], KEYS);
+    expect(anna).toEqual({
+      handle: "anna",
+      status: "included",
+      taste: { focus: null, said: { acidity: 3 }, trends: {}, styles: ["red"], likes: ["loire"] },
+    });
+    expect(JSON.stringify(anna)).not.toMatch(/Pétrus|Margaux|script|instructions|aaaaaaaa|cherry/);
+  });
+
+  it("an included friend with nothing usable is 'no taste', not included", async () => {
+    const { service } = setup({
+      sommelierContext: vi.fn(async () => [
+        {
+          handle: "anna",
+          status: "included",
+          taste: { focus: null, said: {}, styles: [], regions: [] },
+        },
+        { handle: "bram", status: "included", taste: "not an object" },
+      ]),
+    });
+    expect(await service.sommelierContext(["anna", "bram"], KEYS)).toEqual([
+      { handle: "anna", status: "no-taste", taste: null },
+      { handle: "bram", status: "no-taste", taste: null },
+    ]);
+  });
+
+  it("includes nobody when the database cannot answer, or answers something it was not asked", async () => {
+    const down = setup({
+      sommelierContext: vi.fn(async () => {
+        throw new Error("function missing");
+      }),
+    });
+    expect(await down.service.sommelierContext(["anna"], KEYS)).toEqual([
+      { handle: "anna", status: "unavailable", taste: null },
+    ]);
+    const missing = setup({ sommelierContext: vi.fn(async () => null) });
+    expect(await missing.service.sommelierContext(["anna"], KEYS)).toEqual([
+      { handle: "anna", status: "unavailable", taste: null },
+    ]);
+    // A row for a name that was not asked is never used; an unknown status is "unavailable".
+    const odd = setup({
+      sommelierContext: vi.fn(async () => [
+        { handle: "someone.else", status: "included", taste },
+        { handle: "anna", status: "admin", taste },
+      ]),
+    });
+    expect(await odd.service.sommelierContext(["anna"], KEYS)).toEqual([
+      { handle: "anna", status: "unavailable", taste: null },
+    ]);
+  });
+
+  it("asks about each name once, in lower case, and never about more than five", async () => {
+    const sommelierContext = vi.fn(async () => []);
+    const { service } = setup({ sommelierContext });
+    await service.sommelierContext(
+      ["Anna", "anna", "ANNA", "b1", "b2", "b3", "b4", "b5", "b6"],
+      KEYS,
+    );
+    expect(sommelierContext).toHaveBeenCalledWith(["anna", "b1", "b2", "b3", "b4"]);
+    await service.sommelierContext([], KEYS);
+    expect(sommelierContext).toHaveBeenCalledTimes(1);
+  });
+
+  it("my own consent: off until I turn it on, and saved as mine", async () => {
+    const saveSommelierSharing = vi.fn(async () => {});
+    const { service } = setup({ saveSommelierSharing });
+    expect(await service.sommelierSharing()).toEqual({ tasteForFriends: false });
+    await service.saveSommelierSharing({ tasteForFriends: true });
+    expect(saveSommelierSharing).toHaveBeenCalledWith(true);
   });
 });

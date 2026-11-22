@@ -93,6 +93,18 @@ export function PlanView({
         )}
       </div>
 
+      {plan.friends.length > 0 && (
+        <ul className="flex flex-col gap-0.5 px-1 text-small text-ink-3" data-testid="plan-friends">
+          {plan.friends.map((f) => (
+            <li key={f.handle}>
+              <span className="font-medium text-ink-2">@{f.handle}</span>
+              {": "}
+              {t(`plan.friend.${f.status}`)}
+            </li>
+          ))}
+        </ul>
+      )}
+
       {offered.length > 0 && (
         <ul className="flex flex-col gap-2.5" data-testid="plan-picks">
           {offered.map(({ pick, bottle }, n) => (

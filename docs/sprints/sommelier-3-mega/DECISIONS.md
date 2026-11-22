@@ -23,3 +23,31 @@ the one it replaces.
 | D-16 | 2026-11-19 | **"Exact" means what the shared-profile rule means.** Tier `exact` requires a researched profile with `exact_wine` evidence, high confidence and a source. `producer` and `appellation_rules` evidence count as `appellation`. Review finding 5: `producer` is what an unsourced exact claim is downgraded to (`insights.ts`).                                                                                                                                                                                           | D-05's first mapping (`producer` as exact).                                                                                                                                                                                                       |
 | D-17 | 2026-11-19 | **Two named AI tasks, and V1's answer loses `verdict` and `buy` when the engine is on.** `sommelier_wording` and `food_interpretation` are added to the task list and the budget modes. General questions still go to V1's prompt, but its verdict and buy list are dropped from the answer, so no model-made price or product is shown while the engine is on. Review findings 6 and 7.                                                                                                                                 | Reusing `sommelier_chat` for everything: V1 and 3.0 costs could not be told apart, and an unlisted task is silently never called.                                                                                                                 |
 | D-18 | 2026-11-19 | **Simpler shape.** No `server/buying` or `server/social` directory: offers are an interface and a validator in the domain (no provider exists), friend context extends `server/friends`. The three later switches require `sommelier_engine`. Review finding 11.                                                                                                                                                                                                                                                         | Empty registries and one directory per phase.                                                                                                                                                                                                     |
+
+## D-19 — The sommelier switches are never turned on by `all`
+
+**Decided in S3.** `CELLR_FEATURES=all` turns on every switch except the four of the sommelier; each of those must be
+named, and three of them do nothing without `sommelier_engine`. **Why:** a deployment set to `all` for an earlier
+epic must not start a later one by accident (R-02). **Rejected:** trusting that no deployment uses `all`.
+
+## D-20 — A question that names a friend is not kept at all (replaces the "redacted skeleton" of D-13)
+
+**Decided in S5.** Neither the question (it holds the name) nor the answer (it was shaped by what the friend
+allowed at that moment) is stored; the reply says so (`saved: null`). **Why:** then there is nothing to take back
+when a friend withdraws or the friendship ends, and no rule about what a skeleton may hold. **Cost:** such an
+answer cannot be rated and is gone after a reload.
+
+## D-21 — With the social sommelier on, no name reaches a model, whatever path a question takes
+
+**Decided in S5, after the security review.** D-14 said a social answer is never worded by a model; the review
+showed three ways a name still reached one (a question of fact that named a friend, an earlier turn sent along as
+history, the engines failing). Now, with the switch on: a question that holds anything like a name is answered by
+the engines or the counted facts or not at all, and every text sent to a model has anything like a name taken out
+first. With the switch off a name is the person's own text, as it always was.
+
+## D-22 — The friend context returns catalogue values only, and limits itself
+
+**Decided in S5, after the security review.** A region counts only for a wine of the reviewed catalogue (a
+household can type anything as the region of its own wine); numbers are clamped in SQL; the function counts each
+call against the caller's own limit, since it can be called directly with a person's own token and not only by
+the app.

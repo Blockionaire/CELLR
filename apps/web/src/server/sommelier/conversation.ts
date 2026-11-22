@@ -7,6 +7,7 @@ import {
   type SommelierConversationView,
   type SommelierRating,
   type SommelierReply,
+  findMentions,
 } from "@cellr/domain";
 import type { ExchangeEntry, RecordedExchange, SommelierConversationRepository } from "./types";
 
@@ -22,6 +23,11 @@ export interface SommelierChatDeps {
   record: (entry: Omit<ExchangeEntry, "userId">) => Promise<RecordedExchange | null>;
   userId: string;
   householdId: () => Promise<string>;
+  /**
+   * The social sommelier is switched on: a question that names a friend is then answered and not kept. Without
+   * it an "@" in a question is the person's own text, kept as it always was.
+   */
+  social?: boolean;
 }
 
 /**
@@ -54,6 +60,16 @@ export function createSommelierChatService(deps: SommelierChatDeps) {
       let model: string | null = null;
       const answer = await deps.ask(request, { model: (id) => (model = id) });
       const question = request.messages.at(-1)!.text;
+      // A question that names a friend is answered and then forgotten: neither the question (it holds their
+      // name) nor the answer (it was shaped by what they allowed at that moment) is kept. So when a friend
+      // withdraws their consent, or the friendship ends, there is nothing stored to take back.
+      // Only with the social switch on: without it nobody is looked up, and "what do I open @home tonight" is
+      // kept like any other question.
+      if (
+        deps.social === true &&
+        (findMentions(question).length > 0 || (answer.plan?.friends.length ?? 0) > 0)
+      )
+        return { ...answer, saved: null };
       const saved = await deps
         .record({
           householdId,
