@@ -169,6 +169,11 @@ async function scanToDetails(page: Page, call: Call, n: number) {
   await expect(page.getByTestId("scan-labels")).toBeVisible();
 }
 /**
+ * Since the one-screen review, "Add" for a new wine creates the wine and adds the bottles in one step, before the back
+ * label is uploaded: on a busy CI runner that takes longer than the default five seconds.
+ */
+const BACK_SAVE = { timeout: 15_000 };
+/**
  * Chooses a back photo. `large` is a photo the size a phone takes (12 megapixels): making it ready takes the
  * browser a moment, long enough for "Add" to be tapped meanwhile.
  */
@@ -215,10 +220,10 @@ test.describe("a back label while scanning", () => {
     });
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
     const result = page.getByTestId("back-label-result");
-    await expect(result).toHaveAttribute("data-state", "failed");
+    await expect(result).toHaveAttribute("data-state", "failed", BACK_SAVE);
     expect(await images(householdId)).toHaveLength(1);
     await result.getByRole("button", { name: "Try again" }).click();
-    await expect(result).toHaveAttribute("data-state", "saved");
+    await expect(result).toHaveAttribute("data-state", "saved", BACK_SAVE);
     // The retry reused the photo already uploaded: one back photo kept, not two.
     expect(
       await sql("select 1 from public.bottle_images where household_id = $1 and side = 'back'", [
@@ -243,7 +248,11 @@ test.describe("a back label while scanning", () => {
     await backPhoto(page, { large: true });
     // no waiting for the preview: straight on
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
-    await expect(page.getByTestId("back-label-result")).toHaveAttribute("data-state", "saved");
+    await expect(page.getByTestId("back-label-result")).toHaveAttribute(
+      "data-state",
+      "saved",
+      BACK_SAVE,
+    );
     const [row] = await images(householdId);
     expect(row!.front).toBeTruthy();
     expect(row!.back).toBeTruthy();
