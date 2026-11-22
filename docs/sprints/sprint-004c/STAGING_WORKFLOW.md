@@ -50,6 +50,6 @@ The workflow uses the existing tools unchanged (`import.ts`, `quality.ts`, `benc
   - pilot separation;
   - benchmark: top 1/3/8;
   - recognition: 0 wrong identities, 0 safety violations;
-  - performance: pilot c1/c8/c16 and people's c8, measured over the network from GitHub's runner. Expect higher numbers than the local ones;
+  - performance, measured over the network from GitHub's runner (expect higher numbers than the local ones): pilot c1 and c8, and people's c8, through the session pooler, which is limited to its pool size (`STAGING_POOL_CLIENTS`, 15 on Micro; a higher concurrency is refused, never reduced); pilot c16 and people's c16 through the same pooler in transaction mode (port 6543), each search in its own transaction with `set local role`, as PostgREST does;
   - the staging check again.
 - **`scan`:** a fictitious public source is created, a person finds it, X-Wines stays invisible, and R-27 keeps the origin and refuses X-Wines. All in one transaction that is rolled back.
