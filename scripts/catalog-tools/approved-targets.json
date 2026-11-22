@@ -1,4 +1,4 @@
 {
-  "description": "Staging Supabase projects the owner approved for catalogue imports (project refs). Production is always refused (lib.ts). Empty until a staging project exists; add a ref only in a reviewed PR.",
-  "staging_project_refs": []
+  "description": "Staging Supabase projects the owner approved for catalogue imports (project refs). Production is always refused (lib.ts). Add a ref only in a reviewed PR. konxmgdjdewpknfqvsuq = cellr-staging (eu-central-1, created 2026-11-21 by the owner; never production, never dqwkbtsstvakcvlnwvwk).",
+  "staging_project_refs": ["konxmgdjdewpknfqvsuq"]
 }
