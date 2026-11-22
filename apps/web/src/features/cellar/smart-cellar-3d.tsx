@@ -2,12 +2,15 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import {
   type CSSProperties,
   useCallback,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   useSyncExternalStore,
@@ -36,7 +39,12 @@ import {
 import { useSmartMove, useSmartSwap } from "./placement/placement-hooks";
 import { ZoneLegend, tempText } from "./placement/zone-legend";
 import { imageUrl } from "./label-image";
-import { useSmartCapabilities, useSmartPlacements, useSmartUnits } from "./smart-cellar-hooks";
+import {
+  smartPlacementsKey,
+  useSmartCapabilities,
+  useSmartPlacements,
+  useSmartUnits,
+} from "./smart-cellar-hooks";
 import { resolvedFromView, storedBottlesFrom } from "./storage3d/from-api";
 import type {
   InspectableStorageHandle,
@@ -48,6 +56,17 @@ import { buildModel, placeBottles, type PlacedBottle } from "./storage3d/model";
 import { labelSpecOf, selectedIn, whereOf } from "./storage3d/product-details";
 import type { ShowcaseState } from "./storage3d/showcase-machine";
 import { placeLine } from "./wine-visuals";
+import { QuickAddSheet, QuickPlacingBar, QuickSpotList } from "./quick-add/quick-add-ui";
+import { addHref } from "./add-spot";
+import {
+  QUICK_VIEW,
+  chosenSpot,
+  offersSpots,
+  quickActive,
+  quickReducer,
+  type PanelAction,
+} from "./quick-add/machine";
+import { freeSpots, spotMarkers, type FreeSpot } from "./quick-add/spots";
 
 /** three.js and the new storage view are large: downloaded only when a place with a template is opened in 3D. */
 const InspectableStorage = dynamic(() => import("./storage3d/inspectable-storage"), {
@@ -154,6 +173,90 @@ export default function SmartCellar3D({
     setSelectionState(next);
   }, []);
 
+  // ---- 3D Quick Add (sprint 7) ----------------------------------------------------------------------------------------
+  const tq = useTranslations("quickAdd");
+  const [quick, dispatchQuick] = useReducer(quickReducer, QUICK_VIEW);
+  const quickClose = useCallback(() => {
+    dispatchQuick({ type: "cancel" });
+    dispatchQuick({ type: "reset" });
+  }, []);
+  const quickPick = useCallback((spot: FreeSpot) => dispatchQuick({ type: "pick", spot }), []);
+  // Escape stops choosing a spot, as it puts a bottle back; with the sheet open, the sheet's own Escape goes back to
+  // the spots first
+  const choosingSpot = quick.phase === "placing";
+  useEffect(() => {
+    if (!choosingSpot) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) quickClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [choosingSpot, quickClose]);
+  // Back from Scan or the add flow (`/cellar?unit=…&added=…`): only hints. The place is opened only when it is one of
+  // the household's own (the server's list); the new bottle is named only once the server's own read of that place
+  // has it on a spot. The hints leave the URL at once, so a reload or a shared link shows the cellar as it is.
+  const params = useSearchParams();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [arrived, setArrived] = useState<{
+    unitId: string;
+    bottleId: string;
+    /** When the place's bottles were last read before coming back: only a newer read counts. */
+    since: number;
+  } | null>(null);
+  const [arrivalNote, setArrivalNote] = useState<{ text: string } | null>(null);
+  const hintUnit = params.get("unit");
+  const hintAdded = params.get("added");
+  const hintKey = hintUnit ? `${hintUnit}:${hintAdded ?? ""}` : null;
+  const [takenHint, setTakenHint] = useState<string | null>(null);
+  if (hintKey && hintKey !== takenHint && units.data) {
+    // taken in while rendering (React's way to adjust state to new input), once per hint
+    setTakenHint(hintKey);
+    if (units.data.some((u) => u.id === hintUnit)) {
+      rememberUnit(hintUnit!);
+      setUnitIdState(hintUnit);
+      if (hintAdded && /^[0-9a-f-]{36}$/i.test(hintAdded))
+        setArrived({
+          unitId: hintUnit!,
+          bottleId: hintAdded,
+          since: queryClient.getQueryState(smartPlacementsKey(hintUnit!))?.dataUpdatedAt ?? 0,
+        });
+    }
+  }
+  // the hint leaves the URL (the address bar is outside React: an effect is the place for it)
+  useEffect(() => {
+    if (hintUnit && units.data) router.replace("/cellar", { scroll: false });
+  }, [hintUnit, units.data, router]);
+  const arrivedPlacements = useSmartPlacements(arrived?.unitId ?? null);
+  if (
+    arrived &&
+    arrivedPlacements.data &&
+    !arrivedPlacements.isFetching &&
+    arrivedPlacements.dataUpdatedAt > arrived.since
+  ) {
+    // only a read made after coming back decides: what was cached before the add knows nothing of the new bottle
+    const p = arrivedPlacements.data.placements.find((x) => x.bottleId === arrived.bottleId);
+    setArrived(null);
+    // not on a spot there (moved since, or never there): nothing is claimed
+    if (p) {
+      setSelection({ unitId: arrived.unitId, bottleId: p.bottleId });
+      setArrivalNote({
+        text: tq("addedHere", {
+          wine: `${p.producer} ${p.wineName} ${formatVintage(p.year)}`,
+          where: tp("where.spot", {
+            unit: arrivedPlacements.data.unit.label,
+            row: p.row,
+            col: p.col,
+          }),
+        }),
+      });
+    }
+  }
+  // said once (the toast lives outside React's state)
+  useEffect(() => {
+    if (arrivalNote) toast.show(arrivalNote.text);
+  }, [arrivalNote, toast]);
+
   // A database without the Smart Cellar step: the cellar in 3D is the existing one, and nothing is said about it.
   if (capabilities.data?.schema.reads === "missing")
     return (
@@ -209,6 +312,8 @@ export default function SmartCellar3D({
   const unit = units.data.find((u) => u.id === unitId) ?? units.data[0]!;
   const choose = (id: string) => {
     if (id === unit.id) return;
+    // another place: a spot chosen in this one is not chosen there (spots are offered again)
+    if (quick.phase === "spot") dispatchQuick({ type: "back" });
     rememberUnit(id);
     setUnitIdState(id);
     // a bottle chosen in one place is not chosen in another
@@ -224,6 +329,35 @@ export default function SmartCellar3D({
     setPlacing({ bottle });
     if (bottle?.from && bottle.from.locationId !== unit.id) choose(bottle.from.locationId);
   };
+  // 3D Quick Add: what is offered, what is chosen, and the bottles that can go on a chosen spot
+  const quickOn = placement.open && placement.canWrite;
+  const stageQuick = offersSpots(quick)
+    ? { chosen: chosenSpot(quick), onSpot: quickPick, onClose: quickClose }
+    : null;
+  const quickPanel =
+    quick.phase === "action" || quick.phase === "saving" || quick.phase === "conflict"
+      ? { spot: quick.spot, action: quick.action as PanelAction }
+      : null;
+  const shownTarget = quick.phase === "spot" ? { unitId: unit.id, ...quick.spot } : target;
+  const placedBottles: MovableBottle[] = (racks.data?.units ?? []).flatMap((u) =>
+    u.bottles.flatMap((b) =>
+      b.row === null || b.col === null
+        ? []
+        : [
+            {
+              bottleId: b.bottleId,
+              name: `${b.producer} ${b.wineName} ${formatVintage(b.year)}`,
+              // one bottle per spot while depth is off; a stale index is refused by the server and read again
+              from: { locationId: u.id, row: b.row, col: b.col, index: 1 },
+              whereText: tp("where.spot", { unit: u.label, row: b.row, col: b.col }),
+            },
+          ],
+    ),
+  );
+  const quickSpotHere =
+    quick.phase === "spot" || quick.phase === "leaving"
+      ? { locationId: unit.id, ...quick.spot }
+      : null;
   const undoFailed = (e: unknown) =>
     toast.show(
       errorMessage(e, (key) => te(key), ERROR_MESSAGES),
@@ -238,6 +372,13 @@ export default function SmartCellar3D({
     setPlacing(null);
     setTarget(null);
     backToStart();
+    if (quickActive(quick)) {
+      dispatchQuick({ type: "saved" });
+      dispatchQuick({ type: "reset" });
+      // the bottle, shown where the server says it is now (the cellar is refreshed by the move itself)
+      if (result.kind === "moved" && result.result.to)
+        setSelection({ unitId: result.result.to.locationId, bottleId: result.bottle.bottleId });
+    }
     const undoable = result.undoable !== false;
     // where a moved bottle is now, in one sentence ("has no place now" for a take-off)
     const movedText = (r: Extract<PlacementDone, { kind: "moved" }>) =>
@@ -292,6 +433,7 @@ export default function SmartCellar3D({
       data-testid="smart-3d"
       data-mode="ready"
       data-placing={placing ? "true" : "false"}
+      data-quick={quick.phase}
       data-unit={unit.id}
       data-unit-renderer={unit.legacy ? "legacy" : "smart"}
     >
@@ -301,7 +443,12 @@ export default function SmartCellar3D({
           data-testid="smart-3d-units"
         >
           {units.data.map((u) => (
-            <Chip key={u.id} selected={u.id === unit.id} onClick={() => choose(u.id)}>
+            <Chip
+              key={u.id}
+              selected={u.id === unit.id}
+              disabled={quickPanel !== null && u.id !== unit.id}
+              onClick={() => choose(u.id)}
+            >
               {u.label}
             </Chip>
           ))}
@@ -309,7 +456,10 @@ export default function SmartCellar3D({
       )}
       {unit.legacy ? (
         // from before templates: the existing view, with its own details, actions and words
-        <Cellar3DView onShowRacks={onShowRacks} only={unit.id} />
+        <>
+          <Cellar3DView onShowRacks={onShowRacks} only={unit.id} />
+          {stageQuick && <LegacyQuick unit={unit} quick={stageQuick} />}
+        </>
       ) : (
         <SmartUnitStage
           key={unit.id}
@@ -319,12 +469,24 @@ export default function SmartCellar3D({
           onShowRacks={onShowRacks}
           builderOpen={builderOpen}
           zones={placement.open}
-          target={target && target.unitId === unit.id ? target : null}
-          onMove={placement.open && !placing ? (b) => startPlacing(b) : undefined}
+          target={shownTarget && shownTarget.unitId === unit.id ? shownTarget : null}
+          onMove={
+            placement.open && !placing && !quickActive(quick) ? (b) => startPlacing(b) : undefined
+          }
+          quick={stageQuick}
         />
       )}
-      {placement.open && !placing && (
+      {placement.open && !placing && !quickActive(quick) && (
         <div className="flex flex-wrap items-center gap-2" data-testid="placement-entry">
+          {quickOn && (
+            <Button
+              size="sm"
+              onClick={() => dispatchQuick({ type: "enter" })}
+              data-testid="quick-add-start"
+            >
+              {tq("add")}
+            </Button>
+          )}
           <Button
             variant="secondary"
             size="sm"
@@ -355,7 +517,49 @@ export default function SmartCellar3D({
           builderHref={builderOpen ? "/cellar/builder" : null}
         />
       )}
-      {placement.open && !placing && unplaced.length > 0 && (
+      {quickSpotHere && (
+        <QuickAddSheet
+          open={quick.phase === "spot"}
+          where={tp("where.spot", {
+            unit: unit.label,
+            row: quickSpotHere.row,
+            col: quickSpotHere.col,
+          })}
+          unplacedCount={unplaced.length}
+          placedCount={placedBottles.length}
+          scanHref={addHref("/scan", quickSpotHere, "3d")}
+          manualHref={addHref("/cellar/add", quickSpotHere, "3d")}
+          onChoose={(action) => dispatchQuick({ type: "choose", action })}
+          onOtherSpot={() => dispatchQuick({ type: "back" })}
+          // closing the sheet (Escape, its close button, a tap beside it) goes back to choosing a spot
+          onClose={() => dispatchQuick({ type: "back" })}
+        />
+      )}
+      {quickPanel && (
+        <PlacementPanel
+          key={`quick:${quickPanel.action}:${quickPanel.spot.row}:${quickPanel.spot.col}`}
+          bottle={null}
+          units={units.data}
+          unitId={unit.id}
+          onUnit={choose}
+          unplaced={unplaced}
+          onTarget={setTarget}
+          onDone={done}
+          onCancel={() => {
+            quickClose();
+            setTarget(null);
+            backToStart();
+          }}
+          canWrite={placement.canWrite}
+          spotFirst={quickPanel.spot}
+          candidates={quickPanel.action === "unplaced" ? "unplaced" : "placed"}
+          placed={placedBottles}
+          onPhase={(phase) =>
+            dispatchQuick(phase === "saving" ? { type: "submit" } : { type: "conflict" })
+          }
+        />
+      )}
+      {placement.open && !placing && !quickActive(quick) && unplaced.length > 0 && (
         <section className="flex flex-col gap-2" data-testid="placement-unplaced">
           <h2 className="text-small font-medium text-ink">
             {tp("unplacedTitle", { count: unplaced.length })}
@@ -384,6 +588,51 @@ export default function SmartCellar3D({
   );
 }
 
+/** 3D Quick Add on a place from before templates: the existing view stays; its free spots are chosen from the list. */
+function LegacyQuick({ unit, quick }: { unit: SmartStorageUnitView; quick: StageQuick }) {
+  const query = useSmartPlacements(unit.id);
+  const free = useMemo(
+    () =>
+      query.data
+        ? freeSpots(
+            resolvedFromView(query.data.unit),
+            query.data.placements.map((p) => ({
+              bottleId: p.bottleId,
+              row: p.row,
+              col: p.col,
+              index: p.index,
+            })),
+          ).length
+        : 0,
+    [query.data],
+  );
+  return (
+    <>
+      <QuickPlacingBar
+        unit={unit}
+        free={free}
+        listShown
+        listForced
+        onToggleList={() => {}}
+        onClose={quick.onClose}
+      />
+      <QuickSpotList
+        unit={query.data?.unit ?? unit}
+        placements={query.data?.placements}
+        chosen={quick.chosen}
+        onSpot={quick.onSpot}
+      />
+    </>
+  );
+}
+
+/** 3D Quick Add as one place's stage takes it (sprint 7). */
+interface StageQuick {
+  chosen: FreeSpot | null;
+  onSpot: (spot: FreeSpot) => void;
+  onClose: () => void;
+}
+
 /** One place with a template, in the new view, with what its bottles really are. */
 const NO_ZONES: SmartStorageUnitView["zones"] = [];
 
@@ -396,6 +645,7 @@ function SmartUnitStage({
   zones,
   target,
   onMove,
+  quick,
 }: {
   /** The place as the list of places has it: shown until its bottles are in. */
   listed: SmartStorageUnitView;
@@ -409,6 +659,8 @@ function SmartUnitStage({
   target: { row: number; col: number; index: number } | null;
   /** Placement is on here: a bottle can be moved (from its panel, or from the flat picture). */
   onMove: ((bottle: MovableBottle) => void) | undefined;
+  /** 3D Quick Add (sprint 7): free spots on offer to tap, the one chosen, and how to stop. */
+  quick: StageQuick | null;
 }) {
   const tp = useTranslations("placement");
   const t = useTranslations("smart3d");
@@ -419,6 +671,7 @@ function SmartUnitStage({
   const tRacks = useTranslations("racks");
   const tRack = useTranslations("rack");
   const tShowcase = useTranslations("showcase");
+  const tq = useTranslations("quickAdd");
   const locale = useLocale();
   const webgl = useWebGL();
   const reduced = useReducedMotion();
@@ -454,6 +707,33 @@ function SmartUnitStage({
     () => (model ? placeBottles(model, bottles).stranded : []),
     [model, bottles],
   );
+  // 3D Quick Add: the free spots (the domain's eligibility) and, where the picture has an exact place for each, its
+  // marker. No markers (null) means this place is chosen from the list instead.
+  const offering = quick !== null;
+  const free = useMemo(
+    () =>
+      offering && model && placements
+        ? freeSpots(
+            model.resolved,
+            placements.map((p) => ({
+              bottleId: p.bottleId,
+              row: p.row,
+              col: p.col,
+              index: p.index,
+            })),
+          )
+        : [],
+    [offering, model, placements],
+  );
+  const markers = useMemo(
+    () => (offering && model ? spotMarkers(model, free) : null),
+    [offering, model, free],
+  );
+  const [listShown, setListShown] = useState(false);
+  // spots on offer: a bottle that is out goes back first (taking out and choosing a spot never overlap)
+  useEffect(() => {
+    if (offering) handle.current?.dismiss();
+  }, [offering]);
 
   const out = outId ? (byId.get(outId) ?? null) : null;
   // The wine's own details (back label, appellation, how many there are): asked for when a bottle is taken out,
@@ -623,7 +903,7 @@ function SmartUnitStage({
   if (!webgl) {
     // No 3D on this device. With placement on, the flat picture of the same place stands in, with the same
     // choices (a bottle chosen here can be moved); without it, the existing message and the racks, as before.
-    if (!onMove || !data || !model)
+    if ((!onMove && !quick) || !data || !model)
       return (
         <EmptyState
           title={t3("noWebglTitle")}
@@ -637,6 +917,26 @@ function SmartUnitStage({
       );
     const flatSelected = selectedIn(selection, unit.id, data.placements);
     const chosen = flatSelected ? (byId.get(flatSelected) ?? null) : null;
+    if (quick)
+      return (
+        <>
+          {meta}
+          <QuickPlacingBar
+            unit={unit}
+            free={free.length}
+            listShown
+            listForced
+            onToggleList={() => {}}
+            onClose={quick.onClose}
+          />
+          <QuickSpotList
+            unit={unit}
+            placements={data.placements}
+            chosen={quick.chosen}
+            onSpot={quick.onSpot}
+          />
+        </>
+      );
     return (
       <>
         {meta}
@@ -657,7 +957,7 @@ function SmartUnitStage({
             label={unit.label}
           />
         </div>
-        {chosen && (
+        {chosen && onMove && (
           <div
             className="flex flex-wrap items-center justify-between gap-2 rounded-card bg-surface p-3 ring-1 ring-hairline"
             data-testid="smart-3d-flat-chosen"
@@ -761,6 +1061,7 @@ function SmartUnitStage({
           data-bottles={data.placements.length}
           data-stranded={stranded.length}
           data-selected={selectedId ?? ""}
+          data-offering={offering ? (markers === null ? "list" : "3d") : ""}
           onPointerDown={() => setTouched(true)}
         >
           {!lost && (
@@ -782,6 +1083,8 @@ function SmartUnitStage({
               }}
               debug={debug}
               target={target}
+              spots={offering ? (markers ?? []) : null}
+              onSpot={quick?.onSpot}
             />
           )}
           {lost && (
@@ -813,7 +1116,9 @@ function SmartUnitStage({
           >
             {/* no blur behind it: a blurred layer over the picture has to be drawn again with every frame */}
             <span className="max-w-full rounded-full bg-surface/90 px-4 py-1.5 text-center text-caption text-ink-2 ring-1 ring-hairline">
-              {data.placements.length === 0 ? (
+              {quick ? (
+                tq("placingTitle")
+              ) : data.placements.length === 0 ? (
                 t("empty")
               ) : (
                 <>
@@ -828,6 +1133,27 @@ function SmartUnitStage({
       </div>
       {/* on a narrow screen the panel of the bottle that is out goes here, right under the picture */}
       <div ref={setPanelSlot} className="empty:hidden" data-testid="smart-3d-panel-slot" />
+
+      {quick && (
+        <>
+          <QuickPlacingBar
+            unit={unit}
+            free={free.length}
+            listShown={listShown || markers === null || lost}
+            listForced={markers === null || lost}
+            onToggleList={() => setListShown((v) => !v)}
+            onClose={quick.onClose}
+          />
+          {(listShown || markers === null || lost) && (
+            <QuickSpotList
+              unit={unit}
+              placements={data.placements}
+              chosen={quick.chosen}
+              onSpot={quick.onSpot}
+            />
+          )}
+        </>
+      )}
 
       {stranded.length > 0 && (
         <div
@@ -859,21 +1185,23 @@ function SmartUnitStage({
       )}
 
       {/* The same bottles for keyboard and screen-reader users; visible while one has focus. */}
-      <ul
-        className="sr-only focus-within:not-sr-only focus-within:flex focus-within:flex-col focus-within:gap-1 focus-within:rounded-card focus-within:bg-raised focus-within:p-3"
-        aria-label={t3("listLabel", { unit: unit.label })}
-        data-testid="smart-3d-list"
-      >
-        {data.placements
-          .filter((p) => !stranded.some((s) => s.id === p.bottleId))
-          .map((p) => (
-            <li key={p.bottleId}>
-              <button type="button" onClick={() => handle.current?.inspect(p.bottleId)}>
-                {tRack("cellBottle", { wine: name(p), row: p.row, col: p.col })}
-              </button>
-            </li>
-          ))}
-      </ul>
+      {!quick && (
+        <ul
+          className="sr-only focus-within:not-sr-only focus-within:flex focus-within:flex-col focus-within:gap-1 focus-within:rounded-card focus-within:bg-raised focus-within:p-3"
+          aria-label={t3("listLabel", { unit: unit.label })}
+          data-testid="smart-3d-list"
+        >
+          {data.placements
+            .filter((p) => !stranded.some((s) => s.id === p.bottleId))
+            .map((p) => (
+              <li key={p.bottleId}>
+                <button type="button" onClick={() => handle.current?.inspect(p.bottleId)}>
+                  {tRack("cellBottle", { wine: name(p), row: p.row, col: p.col })}
+                </button>
+              </li>
+            ))}
+        </ul>
+      )}
     </>
   );
 }

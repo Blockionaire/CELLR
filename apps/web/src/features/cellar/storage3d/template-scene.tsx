@@ -22,6 +22,7 @@ import {
   type StoredBottle,
 } from "./model";
 import { AIR, BOTTLE_L, BOTTLE_R, type Pose } from "./parts";
+import type { FreeSpot, SpotMarker } from "../quick-add/spots";
 import { Inspection, hidesInstance, type InspectionProps } from "./showcase-hero";
 import { isOut } from "./showcase-machine";
 import {
@@ -73,6 +74,12 @@ export interface TemplateSceneProps {
    * there until the server has said it moved; this is only where it would go.
    */
   target?: { row: number; col: number; index: number } | null | undefined;
+  /**
+   * Free spots offered to tap (3D Quick Add, sprint 7), each with the pose a bottle put there would have. Given (even
+   * empty): a tap chooses a spot, never takes a bottle out; dragging the camera is never a tap. Null: as before.
+   */
+  spots?: readonly SpotMarker[] | null | undefined;
+  onSpot?: ((spot: FreeSpot) => void) | undefined;
 }
 
 function lowPower(): boolean {
@@ -94,6 +101,8 @@ export default function TemplateScene({
   placement: given,
   inspection,
   target = null,
+  spots = null,
+  onSpot,
 }: TemplateSceneProps) {
   if (model.renderer === "legacy")
     throw new Error(
@@ -109,6 +118,8 @@ export default function TemplateScene({
   const dragged = useRef(false);
   // a bottle is out (on display or moving): the camera holds still and a tap does not choose another
   const out = inspection !== undefined && isOut(inspection.state);
+  // spots on offer (sprint 7): a tap chooses a spot; bottles stay where they are and are not taken out meanwhile
+  const offering = spots !== null && !out;
   const outBottle =
     out && inspection
       ? (placement.placed.find((b) => b.id === inspection.state.bottleId) ?? null)
@@ -157,7 +168,7 @@ export default function TemplateScene({
         onReady?.();
       }}
       onPointerMissed={() => {
-        if (dragged.current) return;
+        if (dragged.current || offering) return;
         // beside the bottle that is out: it goes back. Otherwise: nothing is chosen.
         if (out) inspection.onDismiss();
         else onPick?.(null);
@@ -181,9 +192,14 @@ export default function TemplateScene({
               ? () => {
                   if (!dragged.current) inspection.onDismiss();
                 }
-              : onPick
+              : offering
+                ? undefined
+                : onPick
           }
         />
+        {offering && spots.length > 0 && (
+          <SpotMarkers spots={spots} dragged={dragged} onSpot={onSpot} />
+        )}
       </group>
       {inspection && (
         <Inspection
@@ -211,6 +227,7 @@ export default function TemplateScene({
           level={level}
           placed={placement.placed}
           stranded={placement.stranded.length}
+          spots={offering ? spots : null}
         />
       )}
     </Canvas>
@@ -703,6 +720,79 @@ function Dots({
   return <instancedMesh ref={ref} args={[kit.dot, material, at.length]} raycast={noRaycast} />;
 }
 
+// ---- Free spots on offer (3D Quick Add, sprint 7) ------------------------------------------------------------------
+
+/** How the marker of a free spot sits: a disc facing the viewer where the end of a bottle put there would be. */
+function spotMatrix(pose: Pose, out: THREE.Matrix4): THREE.Matrix4 {
+  const [x, y, z] = pose.position;
+  // lying towards the viewer (racks, coolers, crates): at the bottle's front end; along a wall: on its front side
+  const front = pose.lie === "z" ? BOTTLE_L / 2 + 0.03 : BOTTLE_R + 0.03;
+  return out.makeTranslation(x, y, z + front);
+}
+
+/**
+ * One instanced mesh of plain discs for every free spot: one draw call however many there are, the same shared
+ * geometry, nothing allocated per frame. The disc is both what is seen and what is tapped (a bottle's width across,
+ * the size of a bottle's end), so the target is as large as the spot. A tap that moved more than a few pixels, or that
+ * ended a camera drag, is not a tap. Drawn only on demand, like everything else here; nothing moves, so reduced
+ * motion needs nothing more.
+ */
+function SpotMarkers({
+  spots,
+  dragged,
+  onSpot,
+}: {
+  spots: readonly SpotMarker[];
+  dragged: React.RefObject<boolean>;
+  onSpot: ((spot: FreeSpot) => void) | undefined;
+}) {
+  const { invalidate } = useThree();
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const geometry = useMemo(() => new THREE.CircleGeometry(BOTTLE_R, 28), []);
+  const material = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: "#d9a441",
+        transparent: true,
+        opacity: 0.42,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      }),
+    [],
+  );
+  useEffect(
+    () => () => {
+      geometry.dispose();
+      material.dispose();
+    },
+    [geometry, material],
+  );
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    spots.forEach((m, i) => mesh.setMatrixAt(i, spotMatrix(m.pose, matrix)));
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    invalidate();
+  }, [spots, invalidate]);
+  return (
+    <instancedMesh
+      // a new number of spots is a new mesh (an instanced mesh's count is fixed when it is made)
+      key={spots.length}
+      ref={ref}
+      args={[geometry, material, spots.length]}
+      renderOrder={4}
+      onClick={(e: ThreeEvent<MouseEvent>) => {
+        e.stopPropagation();
+        if (e.delta > TAP_SLOP || dragged.current) return;
+        const m = e.instanceId === undefined ? undefined : spots[e.instanceId];
+        if (m) onSpot?.(m.spot);
+      }}
+    />
+  );
+}
+
 // ---- Keeping pace ---------------------------------------------------------------------------------------------------
 
 /**
@@ -745,11 +835,14 @@ function Readout({
   level,
   placed,
   stranded,
+  spots,
 }: {
   model: RenderModel;
   level: Quality;
   placed: PlacedBottle[];
   stranded: number;
+  /** The spots on offer (sprint 7), so a test can tap exactly on one. */
+  spots: readonly SpotMarker[] | null;
 }) {
   const store = useStore();
   const { gl, camera, size } = useThree();
@@ -813,6 +906,14 @@ function Readout({
         );
       },
       ids: () => placed.map((b) => b.id),
+      /** Where the marker of a free spot is on the canvas (CSS px), or null when it is not on offer. */
+      locateSpot(row: number, col: number) {
+        const m = spots?.find((x) => x.spot.row === row && x.spot.col === col);
+        if (!m) return null;
+        spotMatrix(m.pose, matrix);
+        return project([matrix.elements[12]!, matrix.elements[13]!, matrix.elements[14]!]);
+      },
+      spots: () => (spots ?? []).map((m) => `${m.spot.row}:${m.spot.col}:${m.spot.index}`),
       /** The shader programs that exist, by name and by what they were compiled for (for the prewarm tests). */
       programs: () =>
         (store.getState().gl.info.programs ?? []).map((p) => `${p.name}|${p.cacheKey}`),
@@ -836,6 +937,9 @@ function Readout({
     return () => {
       delete w.__cellrStorage3d;
     };
-  }, [camera, size, placed, store]);
+  }, [camera, size, placed, store, spots]);
+  useEffect(() => {
+    store.getState().gl.domElement.dataset.spots = spots ? String(spots.length) : "";
+  }, [store, spots]);
   return null;
 }

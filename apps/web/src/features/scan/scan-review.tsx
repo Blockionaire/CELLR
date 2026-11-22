@@ -72,6 +72,8 @@ export function ScanReview({
   preferredPlaceId,
   spot,
   onSpotChange,
+  savedHref,
+  savedLabel,
   labels,
   onDone,
   onWished,
@@ -90,6 +92,9 @@ export function ScanReview({
   preferredPlaceId: string | null | undefined;
   spot: PreferredSpot | null;
   onSpotChange: (spot: PreferredSpot | null) => void;
+  /** Where to go when a save whose answer was lost turns out to have happened (sprint 7). */
+  savedHref?: string | undefined;
+  savedLabel?: string | undefined;
   /** The front label and the optional back label, under the wine. */
   labels?: ReactNode;
   /** The bottles are added; `photos`: the bottle photos kept for the 2D library (with the yes), to send now. */
@@ -478,6 +483,8 @@ export function ScanReview({
         preferredPlaceId={preferredPlaceId}
         spot={spot}
         onSpotChange={onSpotChange}
+        savedHref={savedHref}
+        savedLabel={savedLabel}
         initialQuantity={mode === "same" && !inBatch ? 2 : 1}
         quantityHint={mode === "same" && !inBatch ? t("modes.sameQuantity") : undefined}
         initialYear={facts?.nonVintage ? null : (facts?.year ?? undefined)}
