@@ -131,6 +131,25 @@ async function tapSpot(page: Page, row: number, col: number, touch: boolean) {
   if (touch) await page.touchscreen.tap(at.x, at.y);
   else await page.mouse.click(at.x, at.y);
 }
+/** The placeholders as the picture draws them (the readout), or null when none are drawn. */
+const ghosts = (page: Page) =>
+  page.evaluate(() =>
+    (
+      window as unknown as {
+        __cellrStorage3d: {
+          ghosts: () => {
+            count: number;
+            triangles: number;
+            attributes: string[];
+            materials: number;
+            objects: number;
+            length: number;
+            width: number;
+          } | null;
+        };
+      }
+    ).__cellrStorage3d.ghosts(),
+  );
 const spotsOnOffer = (page: Page) =>
   page.evaluate(() =>
     (window as unknown as { __cellrStorage3d: { spots: () => string[] } }).__cellrStorage3d.spots(),
@@ -217,6 +236,14 @@ test.describe("3D Quick Add", () => {
     const card = (await stage.boundingBox())!;
     expect(card.y).toBeGreaterThan(0);
     expect(card.y + card.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+    // the empty spots are bottles and nothing else: one instanced mesh of see-through bottles, no plus, no icon,
+    // no second part in front of them (a bottle's length and width, a lit glass: normals, no per-vertex colours)
+    const placeholders = (await ghosts(page))!;
+    expect(placeholders).toMatchObject({ count: 10, materials: 1, objects: 1 });
+    expect(placeholders.attributes).toEqual(["normal", "position"]);
+    expect(placeholders.length).toBeCloseTo(3.4, 1);
+    expect(placeholders.width).toBeLessThanOrEqual(0.9);
+    expect(placeholders.triangles).toBeLessThan(400);
     // the sheet: one title, four choices, two ways out, in the same words everywhere; none of them cut off
     await tapSpot(page, 2, 2, hasTouch);
     await expect(quickSheet(page)).toBeVisible();
@@ -244,12 +271,56 @@ test.describe("3D Quick Add", () => {
     await expect(quickSheet(page)).toBeHidden();
     await expect(view(page)).toHaveAttribute("data-quick", "view");
     await expect(canvas(page)).not.toHaveAttribute("data-spots", /^[1-9]/);
+    // out of adding: no placeholder is drawn at all
+    await expect.poll(() => ghosts(page)).toBeNull();
     await expect(add).toBeVisible();
     // Cancel in the bar does the same
     await startQuick(page);
     await page.getByTestId("quick-close").click();
     await expect(view(page)).toHaveAttribute("data-quick", "view");
     await expect(add).toBeVisible();
+  });
+
+  test("while adding, two fingers zoom the picture and choose nothing", async ({
+    page,
+    request,
+    hasTouch,
+  }) => {
+    test.skip(!hasTouch, "a phone");
+    await debugOn(page);
+    await household(page, request, "qapinch");
+    await open3D(page);
+    await drawn(page);
+    await startQuick(page);
+    const box = (await canvas(page).boundingBox())!;
+    const cx = Math.round(box.x + box.width / 2);
+    const cy = Math.round(box.y + box.height / 2);
+    const before = await canvas(page).getAttribute("data-distance");
+    const cdp = await page.context().newCDPSession(page);
+    const fingers = (type: string, apart: number) =>
+      cdp.send("Input.dispatchTouchEvent", {
+        type: type as "touchStart",
+        touchPoints:
+          type === "touchEnd"
+            ? []
+            : [
+                { x: cx - apart, y: cy, id: 1 },
+                { x: cx + apart, y: cy, id: 2 },
+              ],
+      });
+    // fingers apart: the camera comes closer
+    await fingers("touchStart", 30);
+    for (const apart of [45, 60, 75, 90, 105, 120]) await fingers("touchMove", apart);
+    await fingers("touchEnd", 120);
+    await expect
+      .poll(async () => Number((await canvas(page).getAttribute("data-distance")) ?? NaN))
+      .toBeLessThan(before === null ? Infinity : Number(before));
+    await expect(canvas(page)).toHaveAttribute("data-distance", /\d/);
+    // and nothing was chosen: still choosing a spot, no sheet, every placeholder still there
+    await page.waitForTimeout(400);
+    await expect(sheet(page)).toBeHidden();
+    await expect(view(page)).toHaveAttribute("data-quick", "placing");
+    expect((await ghosts(page))!.count).toBe(10);
   });
 
   test("dragging the camera across a marker chooses nothing; taps on bottles take nothing out meanwhile", async ({
@@ -809,7 +880,7 @@ test.describe("3D Quick Add screenshots (sprint 7.2)", () => {
         ]
       : [{ name: "desktop", width: 1280, height: 800 }];
     await debugOn(page);
-    await household(page, request, `qashots${info.project.name}`);
+    const h = await household(page, request, `qashots${info.project.name}`);
     for (const size of sizes) {
       await page.setViewportSize({ width: size.width, height: size.height });
       await open3D(page);
@@ -839,6 +910,44 @@ test.describe("3D Quick Add screenshots (sprint 7.2)", () => {
       await shot("4-chosen");
       await page.getByTestId("placement-cancel").click();
       await expect(view(page)).toHaveAttribute("data-quick", "view");
+      if (!hasTouch) {
+        // a mouse over a placeholder warms it (a finger has no hover)
+        await startQuick(page);
+        const at = await markerAt(page, 2, 3);
+        await page.mouse.move(at.x, at.y);
+        await page.waitForTimeout(800);
+        await shot("5-hover");
+        await page.getByTestId("quick-close").click();
+      }
+    }
+    // the placeholders on a dark and on a light piece of furniture: seen on both, dominant on neither
+    const size = sizes[0]!;
+    await page.setViewportSize({ width: size.width, height: size.height });
+    for (const [name, template, appearance] of [
+      [
+        "dark",
+        "rack_classic",
+        { v: 1, material: "wood", color: "ebony", lighting: "none", door: "none" },
+      ],
+      [
+        "light",
+        "rack_generic",
+        { v: 1, material: "lacquer", color: "white", lighting: "none", door: "none" },
+      ],
+    ] as const) {
+      await h.call(
+        "put",
+        `/smart-cellar/storage/${h.rack}/layout`,
+        { structure: { template, rows: 3, cols: 4, cellCapacity: 1, zones: [] }, appearance },
+        200,
+      );
+      await open3D(page);
+      await drawn(page);
+      await startQuick(page);
+      await expect(canvas(page)).toHaveAttribute("data-spots", "10");
+      await page.waitForTimeout(800);
+      await page.screenshot({ path: `test-results/shots72/${size.name}-6-${name}.png` });
+      await page.getByTestId("quick-close").click();
     }
   });
 });

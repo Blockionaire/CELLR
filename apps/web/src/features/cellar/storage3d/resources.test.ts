@@ -13,6 +13,7 @@ vi.mock("../three/materials", () => {
   };
 });
 
+import { BOTTLE_LENGTH, SHAPES, lathePoints } from "../three/layout";
 import { fixtureBottles, fixturePlace } from "./fixtures";
 import { QUALITY, buildModel, placeBottles, type Quality } from "./model";
 import { MATERIAL_ROLES } from "./palette";
@@ -20,10 +21,11 @@ import { BOTTLE_L, BOTTLE_R } from "./parts";
 import {
   Owned,
   bottleGroups,
-  GHOST_BODY,
-  GHOST_PLUS,
+  GHOST_OPACITY,
   buildBottleKit,
   buildGhostBottle,
+  buildGhostMaterial,
+  ghostRadial,
   buildStructure,
   markerMatrix,
   poseMatrix,
@@ -321,55 +323,81 @@ describe("picking: a tap chooses the bottle under it and no other", () => {
 });
 
 describe("the placeholder bottle of a free spot (3D Quick Add, sprint 7.2)", () => {
-  const front = (g: THREE.BufferGeometry, lie: "z" | "x") => {
-    // where the placeholder is, posed as a bottle on a spot at the origin
-    const posed = g.clone().applyMatrix4(poseMatrix({ position: [0, 0, 0], lie } as never));
-    posed.computeBoundingBox();
-    return posed.boundingBox!;
+  // a bottle lying towards the viewer, at the origin
+  const posed = (g: THREE.BufferGeometry, lie: "z" | "x") => {
+    const p = g.clone().applyMatrix4(poseMatrix({ position: [0, 0, 0], lie } as never));
+    p.computeBoundingBox();
+    return p.boundingBox!;
   };
+  // the body of the real bottle at the same level of roundness: what a placeholder must be, and nothing more
+  const bottleBody = (radial: number) =>
+    new THREE.LatheGeometry(
+      thinned(lathePoints("bordeaux")).map(([r, y]) => new THREE.Vector2(r, y)),
+      radial,
+    );
+  const thinned = (points: Array<[number, number]>) =>
+    points.filter((_, i) => i === 0 || i === points.length - 1 || i % 3 === 0 || i < 6);
 
-  it("is one geometry with a colour and a see-through-ness per vertex: one draw call for every spot", () => {
-    for (const lie of ["z", "x"] as const) {
-      const g = buildGhostBottle(lie);
-      const colour = g.getAttribute("color");
-      expect(colour.itemSize).toBe(4);
-      expect(colour.count).toBe(g.getAttribute("position").count);
-      // a flat colour: no normals or texture coordinates are kept
-      expect(g.getAttribute("normal")).toBeUndefined();
+  it("is the outline of a bottle and nothing else: no plus, no icon, no second part", () => {
+    for (const radial of [16, 12, 10]) {
+      const g = buildGhostBottle(radial);
+      const body = bottleBody(radial);
+      // exactly the lathe of a bottle: the same vertices and triangles, no boxes merged in front of it
+      expect(g.getAttribute("position").count).toBe(body.getAttribute("position").count);
+      expect(g.getIndex()!.count).toBe(body.getIndex()!.count);
+      // one look for the whole placeholder: no per-vertex colours (the plus was painted that way), no groups
+      expect(g.getAttribute("color")).toBeUndefined();
+      expect(g.groups).toHaveLength(0);
+      // lit like glass (normals kept); no textures (no uvs)
+      expect(g.getAttribute("normal")).toBeDefined();
       expect(g.getAttribute("uv")).toBeUndefined();
-      // pale glass, a nearly opaque plus, and nothing in between
-      const alphas = new Set<number>();
-      for (let i = 0; i < colour.count; i++) alphas.add(Math.round(colour.getW(i) * 100));
-      expect([...alphas].sort()).toEqual(
-        [Math.round(GHOST_BODY[3] * 100), Math.round(GHOST_PLUS[3] * 100)].sort(),
+      // nothing past its neck or beside its body
+      g.computeBoundingBox();
+      expect(g.boundingBox!.max.y).toBeLessThanOrEqual(BOTTLE_LENGTH + 1e-6);
+      expect(g.boundingBox!.min.y).toBeGreaterThanOrEqual(-1e-6);
+      expect(Math.max(g.boundingBox!.max.x, -g.boundingBox!.min.x)).toBeLessThanOrEqual(
+        SHAPES.bordeaux.radius + 0.02,
       );
       g.dispose();
+      body.dispose();
     }
   });
 
-  it("takes a bottle's place exactly: lying towards the viewer, its plus is in front of the neck", () => {
-    const g = buildGhostBottle("z");
-    const box = front(g, "z");
-    // as long as a bottle, a little more for the plus just past its neck; as wide as a bottle at most
-    expect(box.max.z).toBeGreaterThan(BOTTLE_L / 2);
-    expect(box.max.z).toBeLessThan(BOTTLE_L / 2 + 0.1);
-    expect(box.min.z).toBeCloseTo(-BOTTLE_L / 2, 1);
-    expect(Math.max(box.max.x, -box.min.x)).toBeLessThanOrEqual(BOTTLE_R);
+  it("takes a bottle's place exactly, lying towards the viewer and along a wall", () => {
+    const g = buildGhostBottle();
+    const z = posed(g, "z");
+    expect(z.max.z).toBeCloseTo(BOTTLE_L / 2, 2);
+    expect(z.min.z).toBeCloseTo(-BOTTLE_L / 2, 1);
+    expect(Math.max(z.max.x, -z.min.x)).toBeLessThanOrEqual(BOTTLE_R);
+    const x = posed(g, "x");
+    expect(x.max.x - x.min.x).toBeCloseTo(BOTTLE_L, 1);
+    expect(x.max.z).toBeLessThanOrEqual(BOTTLE_R);
     g.dispose();
   });
 
-  it("along a wall: its plus is on the front of its body, facing the viewer", () => {
-    const g = buildGhostBottle("x");
-    const box = front(g, "x");
-    expect(box.max.z).toBeGreaterThan(0.42);
-    expect(box.max.z).toBeLessThan(BOTTLE_R + 0.1);
-    expect(box.max.x - box.min.x).toBeCloseTo(BOTTLE_L, 1);
-    g.dispose();
+  it("is plainer when hundreds are on offer, and never more than a few hundred triangles", () => {
+    expect(ghostRadial(12)).toBe(16);
+    expect(ghostRadial(200)).toBe(12);
+    expect(ghostRadial(450)).toBe(10);
+    const tris = (n: number) => {
+      const g = buildGhostBottle(ghostRadial(n));
+      const t = g.getIndex()!.count / 3;
+      g.dispose();
+      return t;
+    };
+    expect(tris(40)).toBeLessThan(400);
+    expect(tris(450)).toBeLessThan(tris(40) * 0.7);
   });
 
-  it("is cheap: well under a thousand triangles, whatever the level of detail of the real bottles", () => {
-    const g = buildGhostBottle("z");
-    expect(g.getIndex()!.count / 3).toBeLessThan(1000);
-    g.dispose();
+  it("is see-through glass that never hides what is behind it, toned per placeholder", () => {
+    const m = buildGhostMaterial();
+    expect(m.transparent).toBe(true);
+    expect(m.opacity).toBe(GHOST_OPACITY);
+    expect(m.opacity).toBeLessThan(0.5);
+    expect(m.depthWrite).toBe(false);
+    expect(m.map).toBeNull();
+    // white: the tone (resting, warmer under a mouse, gold when chosen) is each instance's colour
+    expect(m.color.getHexString()).toBe("ffffff");
+    m.dispose();
   });
 });

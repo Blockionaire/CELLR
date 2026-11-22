@@ -31,8 +31,10 @@ import {
   buildAmbience,
   buildBottleKit,
   buildGhostBottle,
+  buildGhostMaterial,
   buildStructure,
   GHOST_LIFT,
+  ghostRadial,
   markerMatrix,
   poseMatrix,
   type BottleKit,
@@ -730,25 +732,32 @@ function Dots({
 // ---- Free spots on offer (3D Quick Add, sprints 7 and 7.2) ---------------------------------------------------------
 
 /**
- * The point of a free spot's placeholder that faces the viewer: its plus, where bottles lie towards the viewer; the
- * front of its body, along a wall. Where a tap on it lands (the readout's `locateSpot`).
+ * A point inside a free spot's placeholder, towards the viewer: where a tap on it lands (the readout's `locateSpot`).
+ * Inside the bottle, so a ray through it from the camera meets the placeholder whatever the camera's angle: lying
+ * towards the viewer (racks, coolers, crates), in the front part of the body; along a wall, at its middle.
  */
 function spotMatrix(pose: Pose, out: THREE.Matrix4): THREE.Matrix4 {
   const [x, y, z] = pose.position;
-  // lying towards the viewer (racks, coolers, crates): at the bottle's front end; along a wall: on its front side
-  const front = pose.lie === "z" ? BOTTLE_L / 2 + 0.03 : BOTTLE_R + 0.03;
+  const front = pose.lie === "z" ? BOTTLE_L * 0.25 : 0;
   return out.makeTranslation(x, y, z + front);
 }
 
 /**
  * A see-through placeholder bottle on every free spot (sprint 7.2; sprint 7 drew a gold disc): the same pose a bottle
- * put there would have, pale and flat-coloured with a small gold plus, so it reads as "a bottle can go here" and never
- * as a bottle. One instanced mesh per way of lying (in practice one: a place lies its bottles one way), one shared
- * geometry, nothing allocated per frame: one draw call however many spots there are. The placeholder is both what is
- * seen and what is tapped. A tap that moved more than a few pixels, or that ended a camera drag, is not a tap. The
- * chosen spot (and, with a mouse, the one under the pointer) is a little larger and warmer. Drawn only on demand,
- * like everything else here; nothing moves on its own, so reduced motion needs nothing more.
+ * put there would have, pale glass lit by the scene, no icon on it, so it reads as "a bottle can go here" inside the
+ * furniture and never as a bottle. ONE instanced mesh, one shared geometry (plainer when hundreds are on offer), one
+ * material, nothing allocated per frame: one draw call however many spots there are. The placeholder itself is what is
+ * tapped. A tap that moved more than a few pixels, or that ended a camera drag, is not a tap. Resting, a placeholder
+ * is pale; under a mouse it is warmer; the chosen one is gold and a little larger (and ringed, by the target ring).
+ * Drawn only on demand, like everything else here; nothing moves on its own, so reduced motion needs nothing more.
  */
+const GHOST_REST = new THREE.Color("#efe7d6");
+const GHOST_HOVER = new THREE.Color("#ffe6b3");
+const GHOST_CHOSEN = new THREE.Color("#e9b955");
+const LIFT = new THREE.Vector3(GHOST_LIFT, GHOST_LIFT, GHOST_LIFT);
+const liftAbout = new THREE.Matrix4();
+const liftScale = new THREE.Matrix4();
+
 function SpotMarkers({
   spots,
   active,
@@ -761,65 +770,12 @@ function SpotMarkers({
   dragged: React.RefObject<boolean>;
   onSpot: ((spot: FreeSpot) => void) | undefined;
 }) {
-  const groups = useMemo(() => {
-    const byLie = new Map<Pose["lie"], SpotMarker[]>();
-    for (const m of spots) {
-      const lie = m.pose.lie === "x" ? "x" : "z";
-      const list = byLie.get(lie);
-      if (list) list.push(m);
-      else byLie.set(lie, [m]);
-    }
-    return [...byLie.entries()];
-  }, [spots]);
-  return (
-    <>
-      {groups.map(([lie, items]) => (
-        <GhostGroup
-          // a new number of spots is a new mesh (an instanced mesh's count is fixed when it is made)
-          key={`${lie}-${items.length}`}
-          lie={lie}
-          items={items}
-          active={active}
-          dragged={dragged}
-          onSpot={onSpot}
-        />
-      ))}
-    </>
-  );
-}
-
-const IDLE = new THREE.Color("#ffffff");
-const WARM = new THREE.Color("#f6c76a");
-const LIFT = new THREE.Vector3(GHOST_LIFT, GHOST_LIFT, GHOST_LIFT);
-
-function GhostGroup({
-  lie,
-  items,
-  active,
-  dragged,
-  onSpot,
-}: {
-  lie: Pose["lie"];
-  items: readonly SpotMarker[];
-  active: { row: number; col: number } | null;
-  dragged: React.RefObject<boolean>;
-  onSpot: ((spot: FreeSpot) => void) | undefined;
-}) {
   const { invalidate } = useThree();
   const ref = useRef<THREE.InstancedMesh>(null);
   const [hovered, setHovered] = useState<number | null>(null);
-  const geometry = useMemo(() => buildGhostBottle(lie), [lie]);
-  const material = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        color: "#ffffff",
-        vertexColors: true,
-        transparent: true,
-        depthWrite: false,
-        toneMapped: false,
-      }),
-    [],
-  );
+  const radial = ghostRadial(spots.length);
+  const geometry = useMemo(() => buildGhostBottle(radial), [radial]);
+  const material = useMemo(() => buildGhostMaterial(), []);
   useEffect(
     () => () => {
       geometry.dispose();
@@ -830,12 +786,10 @@ function GhostGroup({
   useLayoutEffect(() => {
     const mesh = ref.current;
     if (!mesh) return;
-    items.forEach((m, i) => {
-      const lit =
-        i === hovered ||
-        (active !== null && m.spot.row === active.row && m.spot.col === active.col);
+    spots.forEach((m, i) => {
+      const chosen = active !== null && m.spot.row === active.row && m.spot.col === active.col;
       poseMatrix(m.pose, matrix);
-      if (lit) {
+      if (chosen) {
         // larger about its own middle, not about the end it is modelled from
         const [x, y, z] = m.pose.position;
         matrix.premultiply(liftAbout.makeTranslation(-x, -y, -z));
@@ -843,27 +797,30 @@ function GhostGroup({
         matrix.premultiply(liftAbout.makeTranslation(x, y, z));
       }
       mesh.setMatrixAt(i, matrix);
-      mesh.setColorAt(i, lit ? WARM : IDLE);
+      mesh.setColorAt(i, chosen ? GHOST_CHOSEN : i === hovered ? GHOST_HOVER : GHOST_REST);
     });
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
     invalidate();
-  }, [items, active, hovered, invalidate]);
+  }, [spots, active, hovered, invalidate]);
   return (
     <instancedMesh
+      // a new number of spots is a new mesh (an instanced mesh's count is fixed when it is made)
+      key={spots.length}
       ref={ref}
-      args={[geometry, material, items.length]}
+      name={GHOSTS_NAME}
+      args={[geometry, material, spots.length]}
       renderOrder={4}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation();
         if (e.delta > TAP_SLOP || dragged.current) return;
-        const m = e.instanceId === undefined ? undefined : items[e.instanceId];
+        const m = e.instanceId === undefined ? undefined : spots[e.instanceId];
         if (m) onSpot?.(m.spot);
       }}
       onPointerOver={(e: ThreeEvent<PointerEvent>) => {
         e.stopPropagation();
-        // a finger has no hover: only a mouse or a pen lifts a placeholder before it is chosen
+        // a finger has no hover: only a mouse or a pen warms a placeholder before it is chosen
         if (!onSpot || e.pointerType === "touch") return;
         (e.nativeEvent.target as HTMLElement).style.cursor = "pointer";
         setHovered(e.instanceId ?? null);
@@ -875,8 +832,8 @@ function GhostGroup({
     />
   );
 }
-const liftAbout = new THREE.Matrix4();
-const liftScale = new THREE.Matrix4();
+/** The placeholders' mesh, by name: for the debug readout and its tests. */
+const GHOSTS_NAME = "quick-add-ghosts";
 
 // ---- Keeping pace ---------------------------------------------------------------------------------------------------
 
@@ -999,6 +956,29 @@ function Readout({
         return project([matrix.elements[12]!, matrix.elements[13]!, matrix.elements[14]!]);
       },
       spots: () => (spots ?? []).map((m) => `${m.spot.row}:${m.spot.col}:${m.spot.index}`),
+      /**
+       * The placeholders as drawn: how many, their triangles, what they are made of and the size of one (a bottle's
+       * length and width, nothing in front of it), or null when none are drawn.
+       */
+      ghosts() {
+        const mesh = store.getState().scene.getObjectByName(GHOSTS_NAME) as
+          THREE.InstancedMesh | undefined;
+        if (!mesh) return null;
+        const g = mesh.geometry;
+        if (!g.boundingBox) g.computeBoundingBox();
+        const size = g.boundingBox!.getSize(new THREE.Vector3());
+        const objects: string[] = [];
+        mesh.traverse((o) => objects.push(o.type));
+        return {
+          count: mesh.count,
+          triangles: (g.index ? g.index.count : g.getAttribute("position").count) / 3,
+          attributes: Object.keys(g.attributes).sort(),
+          materials: Array.isArray(mesh.material) ? mesh.material.length : 1,
+          objects: objects.length,
+          length: +size.y.toFixed(3),
+          width: +Math.max(size.x, size.z).toFixed(3),
+        };
+      },
       /** The shader programs that exist, by name and by what they were compiled for (for the prewarm tests). */
       programs: () =>
         (store.getState().gl.info.programs ?? []).map((p) => `${p.name}|${p.cacheKey}`),
