@@ -126,6 +126,19 @@ const components = [
     env: ["CELLR_DEMO_ORIGINS"],
   },
   {
+    id: "http-response",
+    name: "JSON response shape",
+    layer: "edge",
+    status: "implemented",
+    summary: "Every JSON response: no-store, nosniff",
+    responsibility:
+      "The one shape of a JSON response the server sends: private, uncacheable (Cache-Control: no-store) and never content-sniffed (X-Content-Type-Options: nosniff). No request handling of its own; the API, the health endpoints and the cron round answer through it.",
+    inputs: ["A body and a status"],
+    outputs: ["A Response"],
+    sources: [W + "server/http-response.ts"],
+    foundation: true,
+  },
+  {
     id: "request-context",
     name: "Request context & session",
     layer: "edge",
@@ -1465,6 +1478,27 @@ const edges: SystemEdge[] = [
   ),
   edge(
     "api-v1",
+    "http-response",
+    "control",
+    "JSON responses: no-store, nosniff",
+    web("server/http.ts", 'from "./http-response"'),
+  ),
+  edge(
+    "health-monitor",
+    "http-response",
+    "control",
+    "JSON responses: no-store, nosniff",
+    web("server/health/http.ts", 'from "@/server/http-response"'),
+  ),
+  edge(
+    "cron-endpoint",
+    "http-response",
+    "control",
+    "JSON responses: no-store, nosniff",
+    web("server/push/cron.ts", 'from "@/server/http-response"'),
+  ),
+  edge(
+    "api-v1",
     "composition-root",
     "request",
     "servicesFor(ctx)",
@@ -2624,20 +2658,6 @@ const edges: SystemEdge[] = [
     web(SERVICES, 'from "@/server/auth/service"'),
   ),
   edge(
-    "cron-endpoint",
-    "api-v1",
-    "control",
-    "JSON responses",
-    web("server/push/cron.ts", 'from "@/server/http"'),
-  ),
-  edge(
-    "health-monitor",
-    "api-v1",
-    "control",
-    "JSON responses",
-    web("server/health/http.ts", 'from "@/server/http"'),
-  ),
-  edge(
     "health-monitor",
     "admin-service",
     "control",
@@ -2833,7 +2853,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.3.1",
+  version: "1.4.0",
   reviewedOn: "2026-11-22",
   repository: "Blockionaire/CELLR",
   components,

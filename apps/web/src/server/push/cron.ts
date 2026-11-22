@@ -1,7 +1,7 @@
 import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import { getCronSecret } from "@/server/env";
-import { jsonResponse } from "@/server/http";
+import { jsonResponse } from "@/server/http-response";
 import { runDrinkReminders } from "@/server/privileged/drink-reminders";
 
 /** The daily reminder round, for the scheduler only: it must show the shared secret. */

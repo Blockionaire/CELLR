@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { HEALTH_PROBE_TIMEOUT_MS, summarizeHealth } from "@cellr/domain";
 import { getCronSecret, getHealthEnv } from "@/server/env";
-import { jsonResponse } from "@/server/http";
+import { jsonResponse } from "@/server/http-response";
 import { logWarn } from "@/server/log";
 import { healthPort } from "@/server/privileged/health";
 import { PROBES } from "./catalogue";
