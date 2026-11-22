@@ -219,7 +219,22 @@ test.describe("the wishlist", () => {
       buffer: await makeJpeg(page, size),
     });
     await expect(page.getByRole("heading", { name: "A new wine" })).toBeVisible();
-    await page.getByRole("button", { name: "Continue" }).click();
+    // straight from the review: the new wine is made as it is saved to the list. The connection drops as it is
+    // made: that is said beside the wine, nothing is made or listed, and the same tap works once it is back.
+    let dropped = 0;
+    await page.route("**/api/v1/wines", (route) => {
+      if (route.request().method() === "POST" && dropped === 0) {
+        dropped += 1;
+        return route.abort("internetdisconnected");
+      }
+      return route.continue();
+    });
+    await page.getByRole("button", { name: "Not buying it? Save to wishlist" }).click();
+    await expect(page.getByTestId("scan-review-error")).toBeVisible();
+    expect(dropped).toBe(1);
+    expect((await call<{ items: Wish[] }>("get", "/wishlist", undefined, 200)).body.items).toEqual(
+      [],
+    );
     await page.getByRole("button", { name: "Not buying it? Save to wishlist" }).click();
     await expect(page.getByText("Added to your wishlist.")).toBeVisible();
     // Back at the camera, ready for the next bottle on the shelf.

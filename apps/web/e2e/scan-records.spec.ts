@@ -257,9 +257,7 @@ test.describe("scan → an external record → a wine of your own, with where it
     await expect(page.getByLabel("Region")).toHaveValue("Rioja");
     expect(await audit(page)).toEqual([]);
 
-    // confirmed, then the bottle (the year read off the label)
-    await page.getByRole("button", { name: "Continue" }).click();
-    await expect(page.getByRole("heading", { name: "How many, and where?" })).toBeVisible();
+    // confirmed with the bottle, on the same screen (the year read off the label)
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
     await expect(page.getByText(new RegExp(`1 bottle of ${ext.producer}`))).toBeVisible();
 
@@ -464,6 +462,12 @@ test.describe("scan → an external record → a wine of your own, with where it
       path: `test-results/shots/004c-scan-record-nl-${test.info().project.name}.png`,
       fullPage: true,
     });
+    // the whole review (wine, labels, bottles) on one screen, in Dutch: nothing sticks out sideways on a phone
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    ).toBeLessThanOrEqual(0);
     await page.getByRole("button", { name: "Gebruik deze gegevens" }).click();
     await expect(page.getByTestId("new-wine-notice")).toContainText("niet heeft geverifieerd");
 
@@ -476,7 +480,7 @@ test.describe("scan → an external record → a wine of your own, with where it
       }
       return route.continue();
     });
-    await page.getByRole("button", { name: "Verder" }).click();
+    await page.getByRole("button", { name: "1 fles toevoegen" }).click();
     await expect(
       page.getByRole("alert").filter({ hasText: "We konden CELLR niet bereiken" }),
     ).toBeVisible();
@@ -485,8 +489,10 @@ test.describe("scan → an external record → a wine of your own, with where it
     await expect(page.getByLabel("Producent")).toHaveValue(ext.producer);
 
     // tried again: one wine and one origin, however often it was tried
-    await page.getByRole("button", { name: "Verder" }).click();
-    await expect(page.getByRole("heading", { name: "Hoeveel, en waar?" })).toBeVisible();
+    await page.getByRole("button", { name: "1 fles toevoegen" }).click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Toegevoegd aan je kelder." }),
+    ).toBeVisible();
     expect(await winesOf(householdId)).toBe(1);
     expect(await originsOf(householdId)).toBe(1);
 
@@ -515,8 +521,9 @@ test.describe("scan → an external record → a wine of your own, with where it
     await expect(page.getByTestId("new-wine-notice")).toContainText(second.providerName);
     await expect(page.getByLabel("Producent")).toHaveValue(second.producer);
     await page.context().clearCookies();
-    await page.getByRole("button", { name: "Verder" }).click();
-    await expect(page.getByRole("heading", { name: "Hoeveel, en waar?" })).toHaveCount(0);
+    await page.getByRole("button", { name: "1 fles toevoegen" }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Toegevoegd aan je kelder." })).toHaveCount(0);
     expect(await winesOf(householdId)).toBe(1);
     expect(await originsOf(householdId)).toBe(1);
   });
@@ -565,12 +572,10 @@ test.describe("scan → an external record → a wine of your own, with where it
     );
     await withdrawAll(ext.provider);
     await page.getByRole("button", { name: "Use these details" }).click();
-    await page.getByRole("button", { name: "Continue" }).click();
-    await expect(page.getByRole("heading", { name: "How many, and where?" })).toBeVisible();
-    expect(await winesOf(householdId)).toBe(1);
-    expect(await originsOf(householdId)).toBe(0);
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
     await expect(page.getByText(new RegExp(`1 bottle of ${ext.producer}`))).toBeVisible();
+    expect(await winesOf(householdId)).toBe(1);
+    expect(await originsOf(householdId)).toBe(0);
     const [vintage] = await sql<{ id: string }>(
       `select v.id from public.wine_vintages v join public.wines w on w.id = v.wine_id
         where w.owner_household_id = $1`,
