@@ -6,13 +6,13 @@ the presentation changes: the same free spots (the domain's eligibility), the sa
 
 ## 1. What changed
 
-| Area                         | Before (sprint 7)                                                                                                              | Now (sprint 7.2)                                                                                                                                                                                                                                                                                              |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A. Free spots in the picture | A gold disc in front of each free spot                                                                                         | A see-through placeholder bottle on each free spot, in exactly the pose a bottle put there would have, pale and flat-coloured (it never reads as a real bottle), with a small gold plus. The chosen spot (and, with a mouse, the one under the pointer) is drawn a little larger and warmer. Tapped directly. |
-| B. "Add bottle"              | A small button under the picture, next to "Place a bottle"                                                                     | The primary button of the place, at the top, next to what the place holds (`smart-3d-top`). In add mode the same place shows the instruction "Tap an empty spot to add a bottle.", how many empty spots there are, "Choose from a list" and "Cancel", above the picture.                                      |
-| C. The sheet's words         | "A bottle without a place", "A bottle from another spot", "Add a new bottle by hand"                                           | Title "Add a bottle here" / "Hier een fles toevoegen"; options "Choose a bottle without a spot", "Move an existing bottle", "Scan a new bottle", "Add a new bottle manually"; at the foot "Choose another spot" and **"Cancel"** (new: out of adding altogether). Dutch: see `messages/nl.json` › `quickAdd`. |
-| D. Mobile                    | Options were one line each (`whitespace-nowrap`) and could be cut off on a narrow phone; the instruction was under the picture | Options wrap, are full-width rows with a chevron and a hint line (how many bottles wait for a spot); the instruction and Cancel are on the first screen on iPhone SE, iPhone 13 and Pixel 7 (checked by a test).                                                                                              |
-| E. "Show empty spots" toggle | —                                                                                                                              | Not built, on purpose: add mode already shows the empty spots, and a second mode with the same picture but different taps would add a state without adding a use. Can be added later on the same placeholders if a use appears.                                                                               |
+| Area                         | Before (sprint 7)                                                                                                              | Now (sprint 7.2)                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A. Free spots in the picture | A gold disc in front of each free spot                                                                                         | A see-through glass bottle on each free spot, in exactly the pose a bottle put there would have, lit by the scene so it sits in the furniture; **no plus, no icon**: the empty bottle itself is what is tapped. Resting pale; under a mouse warmer; chosen: gold, 5 % larger, with the existing target ring. Only while adding: the normal 3D view draws none. |
+| B. "Add bottle"              | A small button under the picture, next to "Place a bottle"                                                                     | The primary button of the place, at the top, next to what the place holds (`smart-3d-top`). In add mode the same place shows the instruction "Tap an empty spot to add a bottle.", how many empty spots there are, "Choose from a list" and "Cancel", above the picture.                                                                                       |
+| C. The sheet's words         | "A bottle without a place", "A bottle from another spot", "Add a new bottle by hand"                                           | Title "Add a bottle here" / "Hier een fles toevoegen"; options "Choose a bottle without a spot", "Move an existing bottle", "Scan a new bottle", "Add a new bottle manually"; at the foot "Choose another spot" and **"Cancel"** (new: out of adding altogether). Dutch: see `messages/nl.json` › `quickAdd`.                                                  |
+| D. Mobile                    | Options were one line each (`whitespace-nowrap`) and could be cut off on a narrow phone; the instruction was under the picture | Options wrap, are full-width rows with a chevron and a hint line (how many bottles wait for a spot); the instruction and Cancel are on the first screen on iPhone SE, iPhone 13 and Pixel 7 (checked by a test).                                                                                                                                               |
+| E. "Show empty spots" toggle | —                                                                                                                              | Not built, on purpose: add mode already shows the empty spots, and a second mode with the same picture but different taps would add a state without adding a use. Can be added later on the same placeholders if a use appears.                                                                                                                                |
 
 Dutch copy (the owner's words): "Fles toevoegen", "Tik op een lege plek om een fles toe te voegen.", "Annuleren",
 "Hier een fles toevoegen", "Kies een fles zonder plek", "Verplaats een bestaande fles", "Scan een nieuwe fles",
@@ -21,18 +21,21 @@ Quick Add.
 
 ## 2. How the placeholders are drawn
 
-- `buildGhostBottle(lie)` (`storage3d/resources.ts`): the outline of a Bordeaux bottle at a fixed low level of detail
-  (16 segments around, every third ring of the profile) and a plus made of two thin boxes, **merged into one
-  geometry** with a colour and an alpha per vertex (RGBA). Normals and texture coordinates are dropped (flat colour).
-  Under 1,000 triangles (unit test).
-- `SpotMarkers` / `GhostGroup` (`storage3d/template-scene.tsx`): one `InstancedMesh` per way of lying (in practice
-  one per place), one `MeshBasicMaterial` with vertex colours, see-through, no depth write, front faces only: **one
-  draw call for every placeholder of a place**, as the disc was. Each placeholder is posed with the bottles' own
-  `poseMatrix`, so it is where a bottle put there will be. Instance colour and a 6 % lift mark the chosen spot (and
-  hover with a mouse, never with a finger). Nothing is allocated per frame; nothing moves on its own; demand
-  rendering is unchanged.
-- The tap target is the placeholder itself (a bottle's silhouette), with the same rules as before: a tap that moved
-  more than 8 px or ended a camera drag is not a tap; bottles cannot be taken out while spots are on offer.
+- `buildGhostBottle(radial)` (`storage3d/resources.ts`): the outline of a Bordeaux bottle and nothing else (the plus
+  of an earlier draft of this sprint was removed at the owner's request: no boxes, no per-vertex colours, no second
+  part). Modelled standing on y = 0 like every bottle, posed with the bottles' own `poseMatrix`. Normals kept (lit),
+  texture coordinates dropped.
+- **Detail adapts to the number on offer** (`ghostRadial`): 16 segments around up to 120 free spots, 12 up to 400,
+  10 beyond, so a large rack's many small placeholders cost less while a small rack's few large ones stay smooth.
+- `buildGhostMaterial()`: `MeshStandardMaterial`, white (each placeholder's tone is its instance colour), roughness
+  0.18, 30 % opacity, no depth write, so the furniture and the bottles behind stay seen and the placeholder catches
+  the scene's own light and reflections.
+- `SpotMarkers` (`storage3d/template-scene.tsx`): **one `InstancedMesh`**, one geometry, one material: one draw call
+  for every placeholder of a place. Instance colours: resting `#efe7d6`, hovered with a mouse or pen `#ffe6b3` (never
+  with a finger), chosen `#e9b955` plus a 5 % lift about its own middle, and the existing target ring. Nothing is
+  allocated per frame; demand rendering unchanged; geometry and material are disposed when the placeholders go.
+- The tap target is the whole placeholder bottle, with the rules as before: a tap that moved more than 8 px or ended a
+  camera drag (or a pinch) is not a tap; bottles cannot be taken out while spots are on offer.
 
 ## 3. Tests
 
