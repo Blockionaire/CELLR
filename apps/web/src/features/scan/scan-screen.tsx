@@ -15,7 +15,7 @@ import {
 } from "@cellr/domain";
 import { CatalogScanNote } from "@/features/account/catalog-section";
 import { AddedDone } from "@/features/cellar/added-done";
-import type { PreferredSpot } from "@/features/cellar/add-spot";
+import { back3dHref, type AddOrigin, type PreferredSpot } from "@/features/cellar/add-spot";
 import {
   attachBackLabel,
   useWines,
@@ -52,6 +52,8 @@ type Stage =
   | {
       name: "done";
       result: AddBottlesResult;
+      /** The place the bottles went to (null: none), for the way back to the 3D cellar. */
+      placeId?: string | null | undefined;
       /** A back label taken with this scan, and what became of it. */
       back?: { photo: PreparedPhoto; outcome: BackLabelAttempt | "saving" } | undefined;
       /** Bottle photos kept on the review for the 2D library, and what became of them. */
@@ -67,8 +69,11 @@ export function ScanScreen({
   currency,
   initialSpot,
   catalogSearch = false,
+  origin,
 }: {
   currency: string;
+  /** Started from a spot in the 3D cellar (sprint 7): the last screen offers to go back there. */
+  origin?: AddOrigin | undefined;
   /** From "add a bottle here" in a rack: the first bottle scanned goes on that spot (unless changed). */
   initialSpot?: PreferredSpot | undefined;
   /** The `wine_search` feature: correcting a reading searches the database, not only the fetched list. */
@@ -76,6 +81,7 @@ export function ScanScreen({
 }) {
   const t = useTranslations("scan");
   const tAdd = useTranslations("addBottle");
+  const t3 = useTranslations("quickAdd");
   const te = useTranslations();
   const scan = useScan();
   const wines = useWines();
@@ -341,6 +347,10 @@ export function ScanScreen({
             preferredPlaceId={spot ? spot.locationId : stage.itemId ? lastPlace : undefined}
             spot={spot}
             onSpotChange={setSpot}
+            savedHref={
+              origin === "3d" && initialSpot ? back3dHref(initialSpot.locationId, null) : undefined
+            }
+            savedLabel={origin === "3d" ? t3("back3d") : undefined}
             labels={
               <BackLabelPicker
                 frontImageId={stage.result.image.id}
@@ -407,6 +417,7 @@ export function ScanScreen({
                 setStage({
                   name: "done",
                   result,
+                  placeId,
                   back: coming && shown ? { photo: shown, outcome: "saving" } : undefined,
                   photos:
                     photos.length > 0
@@ -493,6 +504,14 @@ export function ScanScreen({
             hasPhoto
             // the invitation was made on the review already: not a second time here
             photoOffer={!inviteShown}
+            back3d={
+              origin === "3d" && stage.placeId
+                ? back3dHref(
+                    stage.placeId,
+                    stage.result.firstSlot ? (stage.result.bottleIds[0] ?? null) : null,
+                  )
+                : undefined
+            }
           />
         )}
       </div>
