@@ -30,7 +30,9 @@ import {
   bottleGroups,
   buildAmbience,
   buildBottleKit,
+  buildGhostBottle,
   buildStructure,
+  GHOST_LIFT,
   markerMatrix,
   poseMatrix,
   type BottleKit,
@@ -198,7 +200,12 @@ export default function TemplateScene({
           }
         />
         {offering && spots.length > 0 && (
-          <SpotMarkers spots={spots} dragged={dragged} onSpot={onSpot} />
+          <SpotMarkers
+            spots={spots}
+            active={target ? { row: target.row, col: target.col } : null}
+            dragged={dragged}
+            onSpot={onSpot}
+          />
         )}
       </group>
       {inspection && (
@@ -720,9 +727,12 @@ function Dots({
   return <instancedMesh ref={ref} args={[kit.dot, material, at.length]} raycast={noRaycast} />;
 }
 
-// ---- Free spots on offer (3D Quick Add, sprint 7) ------------------------------------------------------------------
+// ---- Free spots on offer (3D Quick Add, sprints 7 and 7.2) ---------------------------------------------------------
 
-/** How the marker of a free spot sits: a disc facing the viewer where the end of a bottle put there would be. */
+/**
+ * The point of a free spot's placeholder that faces the viewer: its plus, where bottles lie towards the viewer; the
+ * front of its body, along a wall. Where a tap on it lands (the readout's `locateSpot`).
+ */
 function spotMatrix(pose: Pose, out: THREE.Matrix4): THREE.Matrix4 {
   const [x, y, z] = pose.position;
   // lying towards the viewer (racks, coolers, crates): at the bottle's front end; along a wall: on its front side
@@ -731,34 +741,81 @@ function spotMatrix(pose: Pose, out: THREE.Matrix4): THREE.Matrix4 {
 }
 
 /**
- * One instanced mesh of plain discs for every free spot: one draw call however many there are, the same shared
- * geometry, nothing allocated per frame. The disc is both what is seen and what is tapped (a bottle's width across,
- * the size of a bottle's end), so the target is as large as the spot. A tap that moved more than a few pixels, or that
- * ended a camera drag, is not a tap. Drawn only on demand, like everything else here; nothing moves, so reduced
- * motion needs nothing more.
+ * A see-through placeholder bottle on every free spot (sprint 7.2; sprint 7 drew a gold disc): the same pose a bottle
+ * put there would have, pale and flat-coloured with a small gold plus, so it reads as "a bottle can go here" and never
+ * as a bottle. One instanced mesh per way of lying (in practice one: a place lies its bottles one way), one shared
+ * geometry, nothing allocated per frame: one draw call however many spots there are. The placeholder is both what is
+ * seen and what is tapped. A tap that moved more than a few pixels, or that ended a camera drag, is not a tap. The
+ * chosen spot (and, with a mouse, the one under the pointer) is a little larger and warmer. Drawn only on demand,
+ * like everything else here; nothing moves on its own, so reduced motion needs nothing more.
  */
 function SpotMarkers({
   spots,
+  active,
   dragged,
   onSpot,
 }: {
   spots: readonly SpotMarker[];
+  /** The spot that is chosen now (the sheet or the panel is about it), drawn as chosen. */
+  active: { row: number; col: number } | null;
+  dragged: React.RefObject<boolean>;
+  onSpot: ((spot: FreeSpot) => void) | undefined;
+}) {
+  const groups = useMemo(() => {
+    const byLie = new Map<Pose["lie"], SpotMarker[]>();
+    for (const m of spots) {
+      const lie = m.pose.lie === "x" ? "x" : "z";
+      const list = byLie.get(lie);
+      if (list) list.push(m);
+      else byLie.set(lie, [m]);
+    }
+    return [...byLie.entries()];
+  }, [spots]);
+  return (
+    <>
+      {groups.map(([lie, items]) => (
+        <GhostGroup
+          // a new number of spots is a new mesh (an instanced mesh's count is fixed when it is made)
+          key={`${lie}-${items.length}`}
+          lie={lie}
+          items={items}
+          active={active}
+          dragged={dragged}
+          onSpot={onSpot}
+        />
+      ))}
+    </>
+  );
+}
+
+const IDLE = new THREE.Color("#ffffff");
+const WARM = new THREE.Color("#f6c76a");
+const LIFT = new THREE.Vector3(GHOST_LIFT, GHOST_LIFT, GHOST_LIFT);
+
+function GhostGroup({
+  lie,
+  items,
+  active,
+  dragged,
+  onSpot,
+}: {
+  lie: Pose["lie"];
+  items: readonly SpotMarker[];
+  active: { row: number; col: number } | null;
   dragged: React.RefObject<boolean>;
   onSpot: ((spot: FreeSpot) => void) | undefined;
 }) {
   const { invalidate } = useThree();
   const ref = useRef<THREE.InstancedMesh>(null);
-  const geometry = useMemo(() => new THREE.CircleGeometry(BOTTLE_R, 28), []);
+  const [hovered, setHovered] = useState<number | null>(null);
+  const geometry = useMemo(() => buildGhostBottle(lie), [lie]);
   const material = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
-        color: "#d9a441",
+        color: "#ffffff",
+        vertexColors: true,
         transparent: true,
-        opacity: 0.42,
         depthWrite: false,
-        side: THREE.DoubleSide,
-        // one pass: three.js would otherwise draw a transparent two-sided material twice (back, then front)
-        forceSinglePass: true,
         toneMapped: false,
       }),
     [],
@@ -773,27 +830,53 @@ function SpotMarkers({
   useLayoutEffect(() => {
     const mesh = ref.current;
     if (!mesh) return;
-    spots.forEach((m, i) => mesh.setMatrixAt(i, spotMatrix(m.pose, matrix)));
+    items.forEach((m, i) => {
+      const lit =
+        i === hovered ||
+        (active !== null && m.spot.row === active.row && m.spot.col === active.col);
+      poseMatrix(m.pose, matrix);
+      if (lit) {
+        // larger about its own middle, not about the end it is modelled from
+        const [x, y, z] = m.pose.position;
+        matrix.premultiply(liftAbout.makeTranslation(-x, -y, -z));
+        matrix.premultiply(liftScale.makeScale(LIFT.x, LIFT.y, LIFT.z));
+        matrix.premultiply(liftAbout.makeTranslation(x, y, z));
+      }
+      mesh.setMatrixAt(i, matrix);
+      mesh.setColorAt(i, lit ? WARM : IDLE);
+    });
     mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
     invalidate();
-  }, [spots, invalidate]);
+  }, [items, active, hovered, invalidate]);
   return (
     <instancedMesh
-      // a new number of spots is a new mesh (an instanced mesh's count is fixed when it is made)
-      key={spots.length}
       ref={ref}
-      args={[geometry, material, spots.length]}
+      args={[geometry, material, items.length]}
       renderOrder={4}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation();
         if (e.delta > TAP_SLOP || dragged.current) return;
-        const m = e.instanceId === undefined ? undefined : spots[e.instanceId];
+        const m = e.instanceId === undefined ? undefined : items[e.instanceId];
         if (m) onSpot?.(m.spot);
+      }}
+      onPointerOver={(e: ThreeEvent<PointerEvent>) => {
+        e.stopPropagation();
+        // a finger has no hover: only a mouse or a pen lifts a placeholder before it is chosen
+        if (!onSpot || e.pointerType === "touch") return;
+        (e.nativeEvent.target as HTMLElement).style.cursor = "pointer";
+        setHovered(e.instanceId ?? null);
+      }}
+      onPointerOut={(e: ThreeEvent<PointerEvent>) => {
+        (e.nativeEvent.target as HTMLElement).style.cursor = "grab";
+        setHovered((h) => (h === e.instanceId ? null : h));
       }}
     />
   );
 }
+const liftAbout = new THREE.Matrix4();
+const liftScale = new THREE.Matrix4();
 
 // ---- Keeping pace ---------------------------------------------------------------------------------------------------
 

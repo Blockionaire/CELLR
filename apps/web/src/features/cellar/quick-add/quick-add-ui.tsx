@@ -9,6 +9,8 @@ import {
   type SmartStorageUnitView,
 } from "@cellr/domain";
 import { Button, buttonStyles } from "@/ui/button";
+import { cn } from "@/ui/cn";
+import { ChevronRightIcon } from "@/ui/icons";
 import { Sheet } from "@/ui/sheet";
 import { Skeleton } from "@/ui/skeleton";
 import { SpotPicker } from "../placement/spot-picker";
@@ -23,7 +25,10 @@ import type { FreeSpot } from "./spots";
  * spot picker, the sheet, the buttons. Nothing here writes.
  */
 
-/** The bar under the picture while spots are on offer. */
+/**
+ * The instruction over the picture while spots are on offer: what to do, in one line, and the way out, at the top of
+ * the 3D card, so nobody has to scroll to learn what a tap now does (sprint 7.2).
+ */
 export function QuickPlacingBar({
   unit,
   free,
@@ -43,33 +48,35 @@ export function QuickPlacingBar({
   const t = useTranslations("quickAdd");
   return (
     <div
-      className="flex flex-col gap-2 rounded-card bg-surface p-3 shadow-raised ring-1 ring-hairline"
+      className="flex flex-col gap-2 rounded-card bg-surface px-3 py-2.5 shadow-raised ring-1 ring-accent/40 sm:flex-row sm:items-center sm:justify-between"
       data-testid="quick-placing"
       data-free={free}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0" aria-live="polite">
-          <p className="font-medium text-ink">{t("placingTitle")}</p>
-          <p className="text-small text-ink-2">
-            {listForced ? t("listOnly") : t("placingBody", { count: free, unit: unit.label })}
+      <div className="min-w-0" aria-live="polite">
+        <p className="text-small font-medium text-ink" data-testid="quick-instruction">
+          {listForced ? t("listOnly") : t("placingTitle")}
+        </p>
+        {!listForced && (
+          <p className="text-caption text-ink-2 tnum">
+            {t("placingBody", { count: free, unit: unit.label })}
           </p>
-        </div>
-        <div className="flex gap-2">
-          {!listForced && free > 0 && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={onToggleList}
-              aria-expanded={listShown}
-              data-testid="quick-list-toggle"
-            >
-              {listShown ? t("hideList") : t("showList")}
-            </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={onClose} data-testid="quick-close">
-            {t("close")}
+        )}
+      </div>
+      <div className="flex shrink-0 gap-2">
+        {!listForced && free > 0 && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onToggleList}
+            aria-expanded={listShown}
+            data-testid="quick-list-toggle"
+          >
+            {listShown ? t("hideList") : t("showList")}
           </Button>
-        </div>
+        )}
+        <Button size="sm" variant="ghost" onClick={onClose} data-testid="quick-close">
+          {t("close")}
+        </Button>
       </div>
     </div>
   );
@@ -129,6 +136,22 @@ export function QuickSpotList({
   );
 }
 
+/** One choice of the sheet: a whole-width row that wraps (never cut off on a narrow phone), a hint under it. */
+const OPTION =
+  "h-auto min-h-14 w-full justify-start whitespace-normal py-3 text-left [&>span]:w-full";
+
+function OptionBody({ label, hint }: { label: string; hint?: string | undefined }) {
+  return (
+    <span className="flex w-full items-center justify-between gap-3">
+      <span className="flex min-w-0 flex-col">
+        <span>{label}</span>
+        {hint && <span className="text-small font-normal text-ink-2">{hint}</span>}
+      </span>
+      <ChevronRightIcon size={18} aria-hidden className="shrink-0 opacity-60" />
+    </span>
+  );
+}
+
 /** What can go on the chosen spot. */
 export function QuickAddSheet({
   open,
@@ -139,6 +162,7 @@ export function QuickAddSheet({
   manualHref,
   onChoose,
   onOtherSpot,
+  onCancel,
   onClose,
 }: {
   open: boolean;
@@ -149,58 +173,61 @@ export function QuickAddSheet({
   scanHref: string;
   manualHref: string;
   onChoose: (action: QuickAction) => void;
+  /** Back to choosing a spot. */
   onOtherSpot: () => void;
+  /** Out of adding altogether: the cellar as it was. */
+  onCancel: () => void;
+  /** The sheet itself closed (Escape, its close button, a tap beside it). */
   onClose: () => void;
 }) {
   const t = useTranslations("quickAdd");
-  const option = "flex min-h-14 w-full items-center justify-between gap-3 text-left";
   return (
     <Sheet open={open} onClose={onClose} title={t("sheetTitle")} description={where}>
       <div className="flex flex-col gap-2" data-testid="quick-sheet">
         <Button
           variant="secondary"
           size="lg"
-          block
-          className={option}
+          className={OPTION}
           disabled={unplacedCount === 0}
           onClick={() => onChoose("unplaced")}
           data-testid="quick-unplaced"
         >
-          <span>{t("unplaced")}</span>
-          <span className="text-small text-ink-2 tnum">
-            {t("unplacedCount", { count: unplacedCount })}
-          </span>
+          <OptionBody label={t("unplaced")} hint={t("unplacedCount", { count: unplacedCount })} />
         </Button>
         <Button
           variant="secondary"
           size="lg"
-          block
-          className={option}
+          className={OPTION}
           disabled={placedCount === 0}
           onClick={() => onChoose("move")}
           data-testid="quick-move"
         >
-          {t("move")}
+          <OptionBody label={t("move")} />
         </Button>
         <Link
           href={scanHref}
-          className={buttonStyles({ size: "lg", block: true })}
+          className={cn(buttonStyles({ variant: "secondary", size: "lg" }), OPTION)}
           onClick={() => onChoose("scan")}
           data-testid="quick-scan"
         >
-          {t("scan")}
+          <OptionBody label={t("scan")} />
         </Link>
         <Link
           href={manualHref}
-          className={buttonStyles({ variant: "secondary", size: "lg", block: true })}
+          className={cn(buttonStyles({ variant: "secondary", size: "lg" }), OPTION)}
           onClick={() => onChoose("manual")}
           data-testid="quick-manual"
         >
-          {t("manual")}
+          <OptionBody label={t("manual")} />
         </Link>
-        <Button variant="ghost" onClick={onOtherSpot} data-testid="quick-other-spot">
-          {t("otherSpot")}
-        </Button>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <Button variant="ghost" onClick={onOtherSpot} data-testid="quick-other-spot">
+            {t("otherSpot")}
+          </Button>
+          <Button variant="ghost" onClick={onCancel} data-testid="quick-cancel">
+            {t("cancel")}
+          </Button>
+        </div>
       </div>
     </Sheet>
   );

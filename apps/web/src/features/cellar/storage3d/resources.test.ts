@@ -20,7 +20,10 @@ import { BOTTLE_L, BOTTLE_R } from "./parts";
 import {
   Owned,
   bottleGroups,
+  GHOST_BODY,
+  GHOST_PLUS,
   buildBottleKit,
+  buildGhostBottle,
   buildStructure,
   markerMatrix,
   poseMatrix,
@@ -314,5 +317,59 @@ describe("picking: a tap chooses the bottle under it and no other", () => {
       }
       owned.dispose();
     }
+  });
+});
+
+describe("the placeholder bottle of a free spot (3D Quick Add, sprint 7.2)", () => {
+  const front = (g: THREE.BufferGeometry, lie: "z" | "x") => {
+    // where the placeholder is, posed as a bottle on a spot at the origin
+    const posed = g.clone().applyMatrix4(poseMatrix({ position: [0, 0, 0], lie } as never));
+    posed.computeBoundingBox();
+    return posed.boundingBox!;
+  };
+
+  it("is one geometry with a colour and a see-through-ness per vertex: one draw call for every spot", () => {
+    for (const lie of ["z", "x"] as const) {
+      const g = buildGhostBottle(lie);
+      const colour = g.getAttribute("color");
+      expect(colour.itemSize).toBe(4);
+      expect(colour.count).toBe(g.getAttribute("position").count);
+      // a flat colour: no normals or texture coordinates are kept
+      expect(g.getAttribute("normal")).toBeUndefined();
+      expect(g.getAttribute("uv")).toBeUndefined();
+      // pale glass, a nearly opaque plus, and nothing in between
+      const alphas = new Set<number>();
+      for (let i = 0; i < colour.count; i++) alphas.add(Math.round(colour.getW(i) * 100));
+      expect([...alphas].sort()).toEqual(
+        [Math.round(GHOST_BODY[3] * 100), Math.round(GHOST_PLUS[3] * 100)].sort(),
+      );
+      g.dispose();
+    }
+  });
+
+  it("takes a bottle's place exactly: lying towards the viewer, its plus is in front of the neck", () => {
+    const g = buildGhostBottle("z");
+    const box = front(g, "z");
+    // as long as a bottle, a little more for the plus just past its neck; as wide as a bottle at most
+    expect(box.max.z).toBeGreaterThan(BOTTLE_L / 2);
+    expect(box.max.z).toBeLessThan(BOTTLE_L / 2 + 0.1);
+    expect(box.min.z).toBeCloseTo(-BOTTLE_L / 2, 1);
+    expect(Math.max(box.max.x, -box.min.x)).toBeLessThanOrEqual(BOTTLE_R);
+    g.dispose();
+  });
+
+  it("along a wall: its plus is on the front of its body, facing the viewer", () => {
+    const g = buildGhostBottle("x");
+    const box = front(g, "x");
+    expect(box.max.z).toBeGreaterThan(0.42);
+    expect(box.max.z).toBeLessThan(BOTTLE_R + 0.1);
+    expect(box.max.x - box.min.x).toBeCloseTo(BOTTLE_L, 1);
+    g.dispose();
+  });
+
+  it("is cheap: well under a thousand triangles, whatever the level of detail of the real bottles", () => {
+    const g = buildGhostBottle("z");
+    expect(g.getIndex()!.count / 3).toBeLessThan(1000);
+    g.dispose();
   });
 });

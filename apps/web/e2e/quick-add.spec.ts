@@ -109,6 +109,8 @@ async function startQuick(page: Page) {
 /** Where a free spot's marker is on the page (CSS px), from the view's own readout. */
 async function markerAt(page: Page, row: number, col: number) {
   await expect(canvas(page)).toHaveAttribute("data-spots", /^[1-9]/);
+  // the whole picture on screen (it fits on every screen tested): a tap at a point below the fold would land nowhere
+  await canvas(page).scrollIntoViewIfNeeded();
   const at = await page.evaluate(
     ([r, c]) =>
       (
@@ -169,9 +171,7 @@ test.describe("3D Quick Add", () => {
         "3:4:1",
       ].sort(),
     );
-    await expect(page.getByTestId("quick-placing")).toContainText(
-      "10 free spots in Oak rack are marked.",
-    );
+    await expect(page.getByTestId("quick-placing")).toContainText("10 empty spots in Oak rack");
     await expect(page.getByTestId("smart-3d-stage")).toHaveAttribute("data-offering", "3d");
     await tapSpot(page, 3, 4, hasTouch);
     await expect(sheet(page)).toBeVisible();
@@ -185,6 +185,69 @@ test.describe("3D Quick Add", () => {
     await expect(view(page)).toHaveAttribute("data-quick", "placing");
     await tapSpot(page, 2, 1, hasTouch);
     await expect(quickSheet(page)).toContainText("Oak rack · shelf 2 · spot 1");
+  });
+
+  test("sprint 7.2: Add bottle at the top, the instruction in view without scrolling, the sheet's words, Cancel", async ({
+    page,
+    request,
+    hasTouch,
+  }) => {
+    await debugOn(page);
+    await household(page, request, "qatop");
+    await open3D(page);
+    await drawn(page);
+    const add = page.getByTestId("quick-add-start");
+    const stage = page.getByTestId("smart-3d-stage");
+    // the primary action of the place, above its picture, on the first screen
+    await expect(add).toHaveText("Add bottle");
+    await expect(add).toBeInViewport();
+    expect((await add.boundingBox())!.y).toBeLessThan((await stage.boundingBox())!.y);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await startQuick(page);
+    // what a tap does now, and the way out: at the top, above the picture, seen without scrolling
+    const bar = page.getByTestId("quick-placing");
+    await expect(page.getByTestId("quick-instruction")).toHaveText(
+      "Tap an empty spot to add a bottle.",
+    );
+    await expect(page.getByTestId("quick-instruction")).toBeInViewport();
+    await expect(page.getByTestId("quick-close")).toHaveText("Cancel");
+    await expect(page.getByTestId("quick-close")).toBeInViewport();
+    expect((await bar.boundingBox())!.y).toBeLessThan((await stage.boundingBox())!.y);
+    // and the picture itself starts on the first screen
+    expect((await stage.boundingBox())!.y).toBeLessThan(page.viewportSize()!.height * 0.6);
+    // the sheet: one title, four choices, two ways out, in the same words everywhere; none of them cut off
+    await tapSpot(page, 2, 2, hasTouch);
+    await expect(quickSheet(page)).toBeVisible();
+    await expect(page.getByTestId("quick-unplaced")).toContainText(
+      "Choose a bottle without a spot",
+    );
+    await expect(page.getByTestId("quick-move")).toHaveText("Move an existing bottle");
+    await expect(page.getByTestId("quick-scan")).toHaveText("Scan a new bottle");
+    await expect(page.getByTestId("quick-manual")).toHaveText("Add a new bottle manually");
+    await expect(page.getByTestId("quick-other-spot")).toHaveText("Choose another spot");
+    await expect(page.getByTestId("quick-cancel")).toHaveText("Cancel");
+    for (const id of ["quick-unplaced", "quick-move", "quick-scan", "quick-manual"]) {
+      const cut = await page
+        .getByTestId(id)
+        .evaluate(
+          (el) => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1,
+        );
+      expect(cut, `${id} is cut off`).toBe(false);
+    }
+    await page.screenshot({
+      path: `test-results/shots/quick-add-72-sheet-${test.info().project.name}.png`,
+    });
+    // Cancel in the sheet: out of adding altogether, the cellar as it was, "Add bottle" back at the top
+    await page.getByTestId("quick-cancel").click();
+    await expect(quickSheet(page)).toBeHidden();
+    await expect(view(page)).toHaveAttribute("data-quick", "view");
+    await expect(canvas(page)).not.toHaveAttribute("data-spots", /^[1-9]/);
+    await expect(add).toBeVisible();
+    // Cancel in the bar does the same
+    await startQuick(page);
+    await page.getByTestId("quick-close").click();
+    await expect(view(page)).toHaveAttribute("data-quick", "view");
+    await expect(add).toBeVisible();
   });
 
   test("dragging the camera across a marker chooses nothing; taps on bottles take nothing out meanwhile", async ({
@@ -725,5 +788,54 @@ test.describe("3D Quick Add", () => {
     await expect(page.getByTestId("quick-add-start")).toBeVisible();
     expect(placed).toHaveLength(2);
     expect(hasTouch === true || hasTouch === false).toBe(true);
+  });
+});
+
+// =================================================================================================================
+// Not a test: the screenshots of sprint 7.2 (SHOTS72=1), on every size the acceptance names. On each: the place as it
+// is, adding (the instruction at the top, the placeholders), and a chosen spot with its sheet. It also checks, on
+// each size, that the instruction and the way out are on the first screen.
+test.describe("3D Quick Add screenshots (sprint 7.2)", () => {
+  test.skip(!process.env.SHOTS72, "only when asked for (SHOTS72=1)");
+  test("normal, adding, a chosen spot and its sheet", async ({ page, request, hasTouch }, info) => {
+    test.setTimeout(300_000);
+    const sizes = hasTouch
+      ? [
+          { name: "iphone-se", width: 375, height: 667 },
+          { name: "iphone-13", width: 390, height: 844 },
+          { name: "pixel-7", width: 412, height: 915 },
+        ]
+      : [{ name: "desktop", width: 1280, height: 800 }];
+    await debugOn(page);
+    await household(page, request, `qashots${info.project.name}`);
+    for (const size of sizes) {
+      await page.setViewportSize({ width: size.width, height: size.height });
+      await open3D(page);
+      await drawn(page);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const shot = (state: string) =>
+        page.screenshot({ path: `test-results/shots72/${size.name}-${state}.png` });
+      await expect(page.getByTestId("quick-add-start")).toBeInViewport();
+      await page.waitForTimeout(800);
+      await shot("1-normal");
+      await startQuick(page);
+      await expect(page.getByTestId("quick-instruction")).toBeInViewport();
+      await expect(page.getByTestId("quick-close")).toBeInViewport();
+      await page.waitForTimeout(800);
+      await shot("2-adding");
+      await tapSpot(page, 2, 2, hasTouch);
+      await expect(quickSheet(page)).toBeVisible();
+      await page.waitForTimeout(800);
+      await shot("3-sheet");
+      // the chosen spot itself, held while a bottle is chosen for it (only its placeholder, larger and warmer)
+      await page.getByTestId("quick-unplaced").click();
+      await expect(panel(page)).toBeVisible();
+      await expect(canvas(page)).toHaveAttribute("data-spots", "1");
+      await canvas(page).scrollIntoViewIfNeeded();
+      await page.waitForTimeout(800);
+      await shot("4-chosen");
+      await page.getByTestId("placement-cancel").click();
+      await expect(view(page)).toHaveAttribute("data-quick", "view");
+    }
   });
 });
