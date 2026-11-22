@@ -382,6 +382,7 @@
         "database",
         "dependencies",
         "e2e",
+        "e2e-3d",
         "e2e-result",
         "migration-integrity",
         "secrets",
