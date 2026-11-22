@@ -17,7 +17,7 @@
  *   providers   no provider is public without verified rights; what each provider is set to
  */
 import { readdirSync, writeFileSync } from "node:fs";
-import { parseArgs, str } from "./lib";
+import { actAsService, parseArgs, str } from "./lib";
 import { connectToTarget } from "./target";
 
 type Check = { name: string; ok: boolean; detail: string };
@@ -93,12 +93,16 @@ async function main() {
 
     // schema: by history where there is one (a hosted project), else by the objects the newest migrations create
     const repo = repositoryVersions(new URL("../../supabase/migrations/", import.meta.url));
+    // the history is read as the connecting owner role: service_role (which the checks below run as) has no access
+    // to supabase_migrations on a hosted project, and the check then fell back to objects (staging run 45038743438)
+    await client.query("reset role");
     const history = await client
       .query<{ version: string }>(
         "select version from supabase_migrations.schema_migrations order by 1",
       )
       .then((r) => r.rows.map((x) => x.version))
       .catch(() => null);
+    await actAsService(client);
     if (history) {
       const { missing, extra } = compareVersions(repo, history);
       add(
