@@ -1,6 +1,6 @@
 import { DEPTH_PLACEMENT_ENABLED } from "@cellr/domain";
 import type { SmartCellarAccess } from "./smart-cellar-gate";
-import { internalPreviewIn } from "./smart-cellar-renderer-gate";
+import { smartCellarMayShowIn } from "./smart-cellar-renderer-gate";
 
 /**
  * Whether bottles may be placed, moved and swapped through the Smart Cellar API and the new cellar view (Smart
@@ -38,7 +38,7 @@ export const PLACEMENT_CLOSED: PlacementAccess = Object.freeze({
 });
 
 export function placementAccessIn(env: PlacementEnv, api: SmartCellarAccess): PlacementAccess {
-  if (env.CELLR_SMART_CELLAR_PLACEMENT !== "1" || !internalPreviewIn(env) || !api.reads)
+  if (env.CELLR_SMART_CELLAR_PLACEMENT !== "1" || !smartCellarMayShowIn(env) || !api.reads)
     return PLACEMENT_CLOSED;
   return Object.freeze({
     open: true,

@@ -988,6 +988,7 @@
   },
   "smart3d": {
     "hint": "Drag to turn · pinch or scroll to zoom · tap a bottle to take it out",
+    "hintShort": "Drag to turn · pinch to zoom · tap a bottle",
     "where": {
       "spot": "{unit} · Shelf {row} · Position {col}",
       "front": "{unit} · Shelf {row} · Position {col}, at the front",
