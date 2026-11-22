@@ -1302,10 +1302,10 @@ const components = [
     risks: [
       {
         id: "R-MON-1",
-        severity: "medium",
-        title: "No alert channel of its own yet",
+        severity: "low",
+        title: "Alerting is configured outside the repository",
         detail:
-          "Nothing outside CELLR notices a full outage until the external provider (better-stack: readiness check, dead man's switch, round trigger) is configured. The endpoints for it exist; configuring the provider is the owner's step.",
+          "Better Stack watches liveness, readiness and the dead man's switch, but its monitors and alert routes live in Better Stack: CI cannot see a monitor that was changed, paused or removed. Incident handling inside CELLR (thresholds, deduplication, impact, audit trail) is the planned incident engine.",
       },
       {
         id: "R-MON-2",
@@ -1319,14 +1319,15 @@ const components = [
   {
     id: "better-stack",
     name: "Better Stack (uptime & heartbeat)",
-    layer: "planned",
-    status: "planned",
+    layer: "platform",
+    status: "unverified",
     summary: "External liveness, readiness, round trigger, heartbeat, alerts",
     responsibility:
-      "Planned external monitoring, outside CELLR's own infrastructure so it notices a full outage: checks /api/health (liveness) and /api/health/ready (readiness, with the ready token), starts a probe round on /api/cron/health on a schedule, receives the dead man's switch ping after every recorded round, and alerts the owner when any of them fails or goes quiet. Not configured: no account, monitor or secret is in the repository, so nothing here is confirmed.",
+      "External monitoring outside CELLR's own infrastructure, so it notices a full outage: checks /api/health (liveness) and /api/health/ready (readiness, with the ready token), starts a probe round on /api/cron/health on a schedule, receives the dead man's switch ping after every recorded round, and alerts the owner when any of them fails or goes quiet. Configured by the owner in Better Stack, outside the repository: its monitors, schedules and alert routes cannot be checked here. The edges prove CELLR's side only (the endpoints it answers, the ping it sends).",
     inputs: ["HTTPS answers of the health endpoints", "Heartbeat pings"],
     outputs: ["Uptime checks and round triggers", "Alerts to the owner"],
-    sources: [],
+    // its configuration lives in Better Stack; the repository has only the setup procedure
+    sources: ["docs/sprints/system-health/OPERATIONS.md"],
   },
   {
     id: "plan-incident-engine",
@@ -2532,6 +2533,22 @@ const edges: SystemEdge[] = [
     web("server/admin/service.ts", "export async function adminHealthOverlay"),
   ),
   edge(
+    "health-monitor",
+    "better-stack",
+    "external-call",
+    "dead man's switch ping after every recorded round",
+    web("server/health/round.ts", "await d.fetch(d.health.pingUrl"),
+  ),
+  edge(
+    "health-monitor",
+    "better-stack",
+    "ops",
+    "liveness, readiness and the round trigger answer Better Stack's checks (schedule configured there, not here)",
+    web("app/api/health/route.ts", "export const GET = () => handleLiveness();"),
+    web("server/health/http.ts", "const token = getHealthEnv().readyToken;"),
+    web("server/health/http.ts", "getHealthEnv().roundSecret ??"),
+  ),
+  edge(
     "pg-cron",
     "health-monitor",
     "ops",
@@ -2727,13 +2744,7 @@ const edges: SystemEdge[] = [
   planned("svc-cellar", "plan-food-engine", "dish and outcome of Tonight"),
   planned("plan-food-engine", "domain-rules", "outcome-informed pairing"),
   planned("health-monitor", "plan-incident-engine", "measurements and history"),
-  planned(
-    "better-stack",
-    "health-monitor",
-    "liveness and readiness checks, scheduled round trigger (not yet configured)",
-  ),
-  planned("health-monitor", "better-stack", "dead man's switch ping after every recorded round"),
-  planned("better-stack", "plan-incident-engine", "external outage signals and alerts"),
+  planned("better-stack", "plan-incident-engine", "outage signals into incidents"),
   planned("plan-incident-engine", "architecture-registry", "impact via the dependency graph"),
 ];
 

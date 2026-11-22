@@ -86,9 +86,11 @@ an import between services, a table read outside its owner, a new environment va
 1. **The inventory covers relations, not just parts.** It also records workflows, environment variable names (never
    values), `https://` hosts in code, runtime dependencies, `.from(table)` per area and imports between areas. Still
    Node built-ins only, deterministic, no network.
-2. **Completeness is checked file by file.** Every source file belongs to a component; every cross-component import
-   and every table access outside the owner must be a confirmed edge; every variable, host and dependency has exactly
-   one owner. A change that adds any of these fails CI until the register is updated in the same pull request.
+2. **What the inventory sees is checked file by file.** Every source file belongs to a component; every
+   cross-component import and every literal table access outside the owner must be an edge; every variable, host and
+   dependency found has exactly one owner. A change that adds any of these fails CI until the register is updated in
+   the same pull request. What the inventory cannot see (RPCs, hosts built at run time, external configuration) is
+   left to review: REGISTRY-GUIDE.md separates the three.
 3. **Foundation components** (request context, configuration, UI kit) may be imported without an edge, so the graph
    shows architecture rather than every helper call. Imports out of them still need one.
 4. **Proof is code.** Confirmed edges may not cite Markdown, and evidence texts must be specific. What cannot be
@@ -98,6 +100,6 @@ an import between services, a table read outside its owner, a new environment va
 6. **An impact report, not an AI review.** `pnpm architecture:impact` diffs the inventory against the base branch
    and CI writes it to the job summary. It informs the reviewer; the tests decide. No AI calls, no new dependency.
 
-Limits, accepted: a relation made at runtime without an import or a literal `.from("…")` (a table name built from a
-variable, a call through a URL) is not detected; such a relation is added by hand, with evidence. Edge labels and kinds
-remain human judgement.
+Limits, accepted: a relation made without an import or a literal `.from("…")` (an RPC, a table name in a variable, a
+call to a URL built at run time) is not detected; it is added by hand, with evidence. CI proves that an edge exists,
+not that its kind, label or owner is right; that remains human judgement.

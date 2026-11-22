@@ -104,10 +104,11 @@ public, so a scheduled workflow's run history would show anyone when CELLR had t
 
   Prefer an EU-hosted provider (Better Stack is the most complete single choice) and keep its status page private.
 
-  **Chosen: Better Stack.** It is in the architecture register as the `planned` component `better-stack`, with
-  planned edges only, until monitors A–D exist. When they do, update the register in the same pull request as any
-  related change (REGISTRY-GUIDE.md, "External monitoring"): status `unverified`, never monitor ids, tokens or alert
-  contacts. The free tier allows 10 monitors and heartbeats together; A–D use four.
+  **Chosen and configured: Better Stack** (owner, 2026-11-22: liveness, readiness, round trigger and heartbeat). In
+  the architecture register it is the `unverified` component `better-stack`: its configuration lives in Better
+  Stack, not in the repository, so CI cannot see a monitor that changes or disappears. Keep monitor ids, heartbeat
+  URLs, tokens and alert contacts out of the repository (REGISTRY-GUIDE.md, "External monitoring"). The free tier
+  allows 10 monitors and heartbeats together; A–D use four.
 
 | Monitor                    | Calls                                                                                                      | Every                   | Alerts when                                                                              |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------- |

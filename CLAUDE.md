@@ -1,6 +1,6 @@
 # CELLR — working agreements for Claude Code
 
-pnpm monorepo: `apps/web` (Next.js App Router, Supabase) and `packages/domain` (pure TypeScript). Run everything from
+Node 22.18 or newer (type stripping; `engines` in package.json). pnpm monorepo: `apps/web` (Next.js App Router, Supabase) and `packages/domain` (pure TypeScript). Run everything from
 the repository root. Communicate with the owner in Dutch; code, comments and docs in English.
 
 ## Before you finish any change
@@ -22,11 +22,14 @@ same pull request** as the code. Do this without being asked:
 3. `pnpm --filter @cellr/web exec vitest run src/server/system` — fix every gap it names in `registry.ts`: owners of
    files, tables, routes, jobs, workflows, env vars, hosts and dependencies; an edge for every new import or table
    access between components, with **code** evidence (`{ path, contains }`: an import line, a `.from("…")`, an RPC).
-4. Something you cannot prove from the code (an external account, a hosted setting, an intended relation) is
+4. The tests only see imports, literal `.from("…")` calls, env names, `https://` literals and dependencies. Check by
+   hand what they cannot see: RPC calls, hosts built at run time, external configuration, whether each edge's kind
+   and label are right, and edges or risks the change made obsolete.
+5. Something you cannot prove from the code (an external account, a hosted setting, an intended relation) is
    `planned` or `unverified`, never confirmed. Never weaken a check to get green.
-5. Bump the register's `version` and `reviewedOn`.
+6. Bump the register's `version` and `reviewedOn`.
 
-How-to and the meaning of each field: `docs/sprints/system-health/REGISTRY-GUIDE.md`.
+How-to, and exactly what is detected, enforced or left to judgement: `docs/sprints/system-health/REGISTRY-GUIDE.md`.
 
 ## Hard rules
 

@@ -7,18 +7,13 @@
 // fails when a change is not reflected in the register. Node built-ins only; no network, no AI, no secrets.
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { assertNodeVersion } from "./node-version.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../../../..");
 const INVENTORY = "apps/web/src/server/system/inventory.generated.json";
 const REGISTER = "apps/web/src/server/system/registry.ts";
 
-const [major, minor] = process.versions.node.split(".").map(Number);
-if (major < 22 || (major === 22 && minor < 18)) {
-  console.error(
-    `architecture:impact needs Node 22.18 or newer (type stripping); this is ${process.version}`,
-  );
-  process.exit(2);
-}
+assertNodeVersion("architecture:impact");
 const { buildInventory } = await import("./inventory-builder.ts");
 
 const args = process.argv.slice(2);

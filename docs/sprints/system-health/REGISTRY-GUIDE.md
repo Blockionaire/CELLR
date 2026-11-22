@@ -9,8 +9,9 @@ page says what to do when it turns red. The register is updated **in the same pu
 1. `pnpm architecture:inventory` — refreshes `inventory.generated.json` from the code.
 2. `pnpm architecture:impact` — lists what changed structurally against `origin/main` (CI posts the same list in the
    job summary). Informational; it never blocks.
-3. `pnpm --filter @cellr/web exec vitest run src/server/system` — names every gap; fill it as in the tables below.
-4. Commit the inventory and the register with the code.
+3. `pnpm --filter @cellr/web exec vitest run src/server/system` — names every gap it can see; fill it as in the
+   tables below.
+4. Review what the tests cannot see (section 3 below), then commit the inventory and the register with the code.
 
 ## When you change the code
 
@@ -56,8 +57,8 @@ When the text disappears, CI fails and the relation must be confirmed again.
 Evidence is code, never prose: a Markdown file proves nothing about what runs, and CI refuses it for a confirmed edge,
 as it refuses a `contains` shorter than six characters. **What cannot be proven from the code is never confirmed:** a
 relation that is intended but not built is a `planned` edge (no evidence); a part that lives outside the repository
-and cannot be checked here (a hosted setting, an external account) is `unverified` or `planned`, and its edges say so
-in the label. Every edge touching a `planned` component must itself be `planned`.
+and cannot be checked here (a hosted setting, an external account) is `unverified` or `planned`. An edge to or from
+an `unverified` part proves CELLR's side only; its label says what is configured elsewhere. Every edge touching a `planned` component must itself be `planned`.
 
 ## Foundation components
 
@@ -78,32 +79,81 @@ The register is shown only to admins but is readable by anyone on GitHub. Write 
 no production numbers, no detail of an open weakness, no customer data. Live and sensitive observations go into the
 database-backed monitoring (sprint 2).
 
-## What CI checks
+## What is automatic, what is enforced, what needs judgement
 
-The inventory is current; the register validates without errors or warnings; every source path exists; every
-evidence text is found; every table, bucket, pg_cron job and route has exactly one owner; every server module belongs
-to a component; every switch named is real; no secrets, e-mail addresses or user ids; only the admin service imports
-the register, and it is `server-only`.
+Three different things. Do not read the first two as the third.
 
-Since register 1.3.0 also: every source file of the app and the domain package and every workflow belongs to a
-component; every import between components and every table access outside the owner is a confirmed edge; every
-environment variable (by name, never its value), external host and runtime dependency has exactly one owner;
-confirmed edges carry code evidence; the register, its service and the inventory builder import nothing that reads
-live data (health, privileged or database modules, Supabase, the services), so the live health overlay stays a
-separate layer on top of the structure.
+### 1. Detected automatically (the inventory and `pnpm architecture:impact`)
 
-What the checks do **not** prove: that an edge's label is the best description, that a `gated` switch is on in
-production, or that an `unverified` part behaves as described. Those stay human judgement, made visible in review.
+`inventory.generated.json` is read from the repository by `scripts/architecture/inventory-builder.ts`. It is plain
+text matching, not a compiler, and sees only these, in **non-test `.ts`/`.tsx` files under `apps/web/src/`** unless
+stated otherwise:
+
+| Fact                  | How it is found (and what it misses)                                                                                        |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| tables, foreign keys  | `database.types.ts`                                                                                                         |
+| functions, migrations | `database.types.ts`, `supabase/migrations/`                                                                                 |
+| buckets, pg_cron jobs | literal SQL in the migrations                                                                                               |
+| route handlers        | `route.ts` files under `app/api` and their exported methods                                                                 |
+| server modules        | directories and top-level files under `src/server`                                                                          |
+| workflows, CI jobs    | `.github/workflows/*.yml` (job ids only)                                                                                    |
+| feature switches      | `packages/domain/src/features.ts`                                                                                           |
+| env var names         | `process.env.X`, `env.X`, `env["X"]`, and `X: z.` keys in files that read `process.env`; a name built at run time is missed |
+| external hosts        | `https://` literals; not `http://`, not hosts built from variables or hidden in an SDK; `server/system/` is skipped         |
+| runtime dependencies  | `dependencies` of `apps/web` and `packages/domain`; not devDependencies, not the tools under `scripts/`                     |
+| table access per area | literal `.from("table")`; **not** `.rpc(...)`, not a table name in a variable; `server/system/` is skipped                  |
+| imports between areas | static, dynamic and side-effect imports through `@/` or relative paths; type-only imports and package imports are left out  |
+
+`pnpm architecture:impact` diffs these facts against the base branch and CI writes the result to the job summary. It
+reports; it never blocks, and it says nothing about whether the register is right.
+
+### 2. Enforced by CI (`registry.test.ts`, blocking once the job is a required check)
+
+- The committed inventory equals a fresh build.
+- The register validates without errors or warnings; every source path exists; every evidence text is found in its
+  file; every switch it names is real; it holds no secret, e-mail address or user id; it is `server-only` and only
+  the admin service imports it.
+- **Exactly one owner** for every table, bucket, pg_cron job, route, server module, workflow, env var name, external
+  host and runtime dependency in the inventory, and an owning component for every non-test source file of the app and
+  the domain package.
+- **An edge exists** for every runtime import from one component's app file into another component (except into a
+  `foundation` component), and a `data-read` or `data-write` edge for every literal `.from("table")` outside the
+  table's owner.
+- A confirmed edge cites code: no Markdown evidence, no `contains` shorter than six characters. Every edge touching a
+  `planned` component is itself `planned`.
+- The register, its service and the inventory builder import nothing that reads live data (health, privileged or
+  database modules, Supabase, the services): structure and the live health overlay stay apart.
+
+CI checks that an edge **exists**, not that it is **right**: it accepts `data-read` where the code writes, any label,
+and any of several components as owner. It does not notice an edge that is no longer needed while its evidence text
+still exists, and it checks imports only in the app, not inside the domain package.
+
+### 3. Needs human review or Claude Code (every pull request)
+
+- Relations the inventory cannot see: RPC calls, calls to hosts built from variables or made by an SDK, tables named
+  in variables, anything configured outside the repository (hosting, cron schedules, Better Stack).
+- Whether each edge has the right kind (read or write), direction and label, and whether the owner chosen is the
+  sensible one.
+- Status words: `gated` when the production switch value is unknown, `unverified` for anything outside the
+  repository, `planned` for what is not built. Never upgrade a status from a claim alone.
+- Removing edges, components and risks that the change made obsolete, and updating flows and risks.
+- Whether the impact report matches the PR description: anything structural that it lists and the description does
+  not explain deserves a question in review.
 
 ## External monitoring (Better Stack)
 
-`better-stack` is a `planned` component: liveness (`/api/health`), readiness (`/api/health/ready`, with the ready
-token), the scheduled round trigger (`/api/cron/health`), the dead man's switch ping (`CELLR_HEALTH_PING_URL`) and
-alerts to the owner. Its edges stay `planned` until it is configured. Then, in one pull request: set its status to
-`unverified` (the account and monitors live outside the repository and cannot be checked here), turn the edge
-`health-monitor → better-stack` into an `external-call` with the ping code as evidence, and keep
-`better-stack → health-monitor` unverified in its label. Never put monitor ids, URLs with tokens or alert contacts in
-the register: the repository is public. Setup steps: [OPERATIONS.md](OPERATIONS.md).
+`better-stack` is `unverified`: the owner configured it in Better Stack (liveness, readiness, the scheduled round
+trigger, the dead man's switch heartbeat and alerts), and none of that configuration is in the repository, so CI
+cannot see it. Its edges prove CELLR's side only:
+
+- `health-monitor → better-stack` (`external-call`): the ping after every recorded round, in `server/health/round.ts`;
+- `health-monitor → better-stack` (`ops`): the endpoints that answer Better Stack's checks; the schedule itself is
+  configured there, which the label says.
+
+Incident handling inside CELLR (thresholds, deduplication, impact, audit trail) is not built: `plan-incident-engine`
+and its edges stay `planned`. Never put monitor ids, heartbeat URLs, tokens or alert contacts in the register or the
+docs: the repository is public. When a monitor is added, removed or moved to another endpoint, update the component
+text in the same pull request. Setup steps: [OPERATIONS.md](OPERATIONS.md).
 
 ## The health catalogue (sprint 2)
 

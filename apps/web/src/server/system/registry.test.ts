@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -220,6 +221,31 @@ describe("structure and live health stay apart", () => {
         .map((spec) => `${f} imports ${spec}`),
     );
     expect(reached).toEqual([]);
+  });
+});
+
+describe("the architecture scripts run on the Node the repository asks for", () => {
+  const scripts = path.join(ROOT, "apps/web/scripts/architecture");
+  const run = (code: string) =>
+    execFileSync(process.execPath, ["--input-type=module", "-e", code], {
+      cwd: scripts,
+      encoding: "utf8",
+    }).trim();
+
+  it("take their minimum from package.json engines, which has the form they parse", () => {
+    const engines = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).engines.node;
+    expect(engines).toMatch(/^>=\d+\.\d+$/);
+    const out = run(
+      `import { minimumOf, satisfies } from "./node-version.mjs";` +
+        `const m = minimumOf(${JSON.stringify(engines)});` +
+        `console.log(JSON.stringify([m, satisfies("v22.17.9", [22, 18]), satisfies("v22.18.0", [22, 18]), satisfies("v24.0.0", [22, 18])]));`,
+    );
+    expect(JSON.parse(out)).toEqual([engines.slice(2).split(".").map(Number), false, true, true]);
+    for (const f of ["inventory.mjs", "impact.mjs"]) {
+      const src = readFileSync(path.join(scripts, f), "utf8");
+      expect(src, f).toContain("assertNodeVersion(");
+      expect(src, f).not.toMatch(/process\.versions\.node/);
+    }
   });
 });
 
