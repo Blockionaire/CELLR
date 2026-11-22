@@ -69,12 +69,13 @@ async function seed(
   return { placed };
 }
 
-test("measure 3D Quick Add", async ({ page, request }, info) => {
+test("measure 3D Quick Add", async ({ page, request, hasTouch }, info) => {
   test.setTimeout(3_600_000);
   await page.addInitScript(() => window.sessionStorage.setItem("cellr:3d-debug", "1"));
   const results = [];
   for (const size of SIZES) {
     await seed(page, request, size.rows, size.cols);
+    console.error(`${info.project.name} ${size.rows}x${size.cols}: seeded`);
     const canvas = page.locator('[data-testid="smart-3d-stage"] canvas[data-engine]');
     const num = async (name: string) => Number((await canvas.getAttribute(`data-${name}`)) ?? NaN);
     const held = async () =>
@@ -117,11 +118,17 @@ test("measure 3D Quick Add", async ({ page, request }, info) => {
                 '[data-testid="smart-3d-stage"] canvas[data-engine]',
               )!;
               const start = performance.now();
-              new MutationObserver((_, obs) => {
+              const obs = new MutationObserver(() => {
                 if (!c.dataset.spots) return;
                 obs.disconnect();
                 resolve(performance.now() - start);
-              }).observe(c, { attributes: true, attributeFilter: ["data-frames"] });
+              });
+              obs.observe(c, { attributes: true, attributeFilter: ["data-frames", "data-spots"] });
+              // never wait for ever: a missing picture is a result (-1), not a hung bench
+              setTimeout(() => {
+                obs.disconnect();
+                resolve(c.dataset.spots ? performance.now() - start : -1);
+              }, 60_000);
               document.querySelector<HTMLButtonElement>('[data-testid="quick-add-start"]')!.click();
             }),
         ),
@@ -152,7 +159,9 @@ test("measure 3D Quick Add", async ({ page, request }, info) => {
       });
       const box = (await canvas.boundingBox())!;
       const t = Date.now();
-      await page.mouse.click(box.x + at!.x, box.y + at!.y);
+      // a finger on a touch screen, a mouse elsewhere
+      if (hasTouch) await page.touchscreen.tap(box.x + at!.x, box.y + at!.y);
+      else await page.mouse.click(box.x + at!.x, box.y + at!.y);
       await expect(page.getByRole("dialog", { name: "Add a bottle here" })).toBeVisible();
       tapMs.push(Date.now() - t);
       await page.keyboard.press("Escape");
