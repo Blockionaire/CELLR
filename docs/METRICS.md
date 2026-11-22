@@ -49,6 +49,15 @@ only) and shown on `/admin/sources`. Like every client event they are not sent a
 | `purchase_check_completed` | once per finished Koopcheck comparison                             | `entry` photo / search / typed · `knowledge` vintage_profile / stable_facts / catalog_only / none / off · `priced` (a flag, never the price). **Not** the advice and **not** the taste fit: both say something about the person, and neither is needed to see whether the feature is used |
 | `wine_scan_completed`      | as before                                                          | new: `resolution` exact_candidate / ambiguous / not_found, only when the resolver answered                                                                                                                                                                                                |
 
+`scan_review_completed` (Unified Scan): once per reviewed scan that ended in bottles or a wish. `outcome` found / choose
+/ new / unread (what the scan said) · `choice` match / candidate / other_wine / new_wine (how the wine was settled) ·
+`action` added / wished · `mode` single / same / batch · `vintage` dated / nv / none. With `wine_scan_completed` it
+gives scan conversion: readings that became bottles. Never the wine, the label text or the photo.
+
+`bottle_photo_invite` (Unified Scan): the scan review's invitation to send bottle photos. `step` shown / accepted /
+later / kept / sent / failed / not_needed · `photos` 0–3 · `wine` existing / new · `mode` single / same / batch. Invite
+conversion = sent ÷ shown. Never a photo, a wine or the label's text.
+
 **Never in them:** what was typed, a wine's name or id, a source's name, a price, an advice, a person's ratings or
 preferences. **They are not anonymous in storage:** like every product event, a row carries the account that sent
 it (`analytics_events.user_id`). The admin counts join no person or household.

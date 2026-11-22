@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ESLint } from "eslint";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 const root = path.resolve(import.meta.dirname, "../..");
 const eslint = new ESLint({ cwd: root });
@@ -13,6 +13,12 @@ async function violations(file: string, code: string): Promise<string[]> {
     .filter((m) => m.severity === 2)
     .map((m) => m.ruleId ?? "parse-error");
 }
+
+// ESLint reads the whole configuration on its first use, which takes seconds on a busy machine: done here, with
+// room, so that no single case is timed against it.
+beforeAll(async () => {
+  await violations("src/ui/warm-up.tsx", "export {};");
+}, 120_000);
 
 describe("layer boundaries are enforced", () => {
   it("UI cannot import server modules", async () => {

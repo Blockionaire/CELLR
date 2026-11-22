@@ -84,6 +84,10 @@ test.describe("out, looked at, back", () => {
     isMobile,
   }) => {
     test.skip(isMobile, "turning the place with the mouse");
+    // Three places, each opened, turned, and a bottle taken out and put back: three times the work the file's
+    // budget is for. On a CI runner each place took 35–62 s (run 44928710365: places opened at 0, 63 and 100 s,
+    // out of time at 120 s in the third), locally about 19 s. Three places, three times the budget.
+    test.slow();
     const boxes: string[] = [];
     for (const query of [
       "template=rack_classic&fill=full",

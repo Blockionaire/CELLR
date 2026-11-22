@@ -16,6 +16,7 @@ export function AddedDone({
   onAnother,
   anotherLabel,
   hasPhoto = false,
+  photoOffer = true,
 }: {
   result: AddBottlesResult;
   onAnother: () => void;
@@ -23,6 +24,8 @@ export function AddedDone({
   anotherLabel?: string | undefined;
   /** The wine already has a label photo (a scan): no need to offer one. */
   hasPhoto?: boolean;
+  /** Offer whole-bottle photos for the wine's 2D picture (not when the scan's review invited to it already). */
+  photoOffer?: boolean;
 }) {
   const t = useTranslations("addBottle");
   const tv = useTranslations("vintage");
@@ -87,11 +90,13 @@ export function AddedDone({
         </div>
       )}
       {/* Whole-bottle photos for the wine's 2D picture: a separate, optional ask, only if never sent for this wine. */}
-      <BottlePhotoOffer
-        vintageId={result.vintageId}
-        wineId={result.wine.id}
-        wine={`${result.wine.producer} ${result.wine.name}`}
-      />
+      {photoOffer && (
+        <BottlePhotoOffer
+          vintageId={result.vintageId}
+          wineId={result.wine.id}
+          wine={`${result.wine.producer} ${result.wine.name}`}
+        />
+      )}
       <div className="flex w-full max-w-sm flex-col gap-3">
         <Button size="lg" block onClick={onAnother}>
           {anotherLabel ?? t("addAnother")}

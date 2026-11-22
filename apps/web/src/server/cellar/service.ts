@@ -199,6 +199,7 @@ export function aggregateInventory(
       const prices = known?.prices ?? [];
       return {
         ...item,
+        appellation: known?.appellation ?? null,
         drink: toDrinkSummary(
           {
             type: item.type,

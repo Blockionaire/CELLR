@@ -10,6 +10,23 @@
 
 Switching mode never discards a batch: its photos stay in the tray, and no photo is sent by switching.
 
+## One review screen
+
+Every scan, in every mode, is checked on one screen (`features/scan/scan-review.tsx`): the photo, the wine (the
+match, candidates, or the fields for a new wine), and the bottles (vintage, how many, where, price) with one "Add"
+button. The wine can be changed there (another candidate, your own wines, a new wine) without losing what was typed
+about the bottles. A new wine is created only when "Add" is tapped, once; an existing wine is never edited from a
+scan. With several candidates none is chosen for you.
+
+Each field of the review says where it comes from (the label, CELLR's verified catalogue, your own wine, an earlier
+confirmation, an external source to check, or unknown); a vintage the label does not show stays empty. A label that
+contradicts the wine found is shown beside it, and that wine is then not chosen for you.
+
+On the review, an optional card invites you to send 1 to 3 whole-bottle photos for the 2D bottle library ("Make your
+bottle visible in CELLR"). Photos are kept on the device and sent only after the bottles are added, with your yes.
+It is not shown for a wine with a picture or one you sent photos of, and only once per scan flow. See
+`docs/sprints/unified-scan/ART-LIFECYCLE.md`.
+
 ## Recognition cache (identical photos)
 
 In every mode, a photo that is byte-for-byte identical (after processing) to one this household already

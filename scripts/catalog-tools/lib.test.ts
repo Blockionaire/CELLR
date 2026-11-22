@@ -101,6 +101,28 @@ describe("where the catalog tools may connect", () => {
     for (const ref of approvedTargets().staging_project_refs)
       expect(PRODUCTION_PROJECT_REFS).not.toContain(ref);
   });
+  it("the committed list holds cellr-staging only, never the owner's other project (2026-11-21)", () => {
+    expect(approvedTargets().staging_project_refs).toEqual(["konxmgdjdewpknfqvsuq"]);
+    expect(approvedTargets().staging_project_refs).not.toContain("dqwkbtsstvakcvlnwvwk");
+  });
+  it("cellr-staging is reached only by a URL of that very project", () => {
+    const ref = "konxmgdjdewpknfqvsuq";
+    const args = { "staging-project": ref };
+    const pooler = `postgresql://postgres.${ref}:x@aws-0-eu-central-1.pooler.supabase.com:5432/postgres`;
+    expect(assertSafeTarget(pooler, args, approvedTargets())).toEqual({ local: false, ref });
+    expect(
+      assertSafeTarget(
+        `postgresql://postgres:x@db.${ref}.supabase.co:5432/postgres`,
+        args,
+        approvedTargets(),
+      ),
+    ).toEqual({ local: false, ref });
+    const other =
+      "postgresql://postgres.dqwkbtsstvakcvlnwvwk:x@aws-0-eu-central-1.pooler.supabase.com:5432/postgres";
+    expect(() => assertSafeTarget(other, args, approvedTargets())).toThrow(/does not belong/);
+    const prod = `postgresql://postgres.${PROD}:x@aws-0-eu-central-1.pooler.supabase.com:5432/postgres`;
+    expect(() => assertSafeTarget(prod, args, approvedTargets())).toThrow(/production/);
+  });
 });
 
 describe("what the target database says it is", () => {

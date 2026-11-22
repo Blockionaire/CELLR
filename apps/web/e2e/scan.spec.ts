@@ -91,9 +91,10 @@ test.describe("scanning a label", () => {
     await expect(page.getByRole("img", { name: "Your photo of the label" })).toBeVisible();
     await page.screenshot({ path: shot(`scan-found-${project()}`), fullPage: true });
 
-    await page.getByRole("button", { name: "Yes, add bottles" }).click();
-    // The vintage on the label is already filled in.
+    // One screen: the wine, its vintage (read off the label, filled in already) and the bottles, with one button.
     await expect(page.getByLabel("Vintage")).toHaveValue("2015");
+    await expect(page.getByTestId("scan-candidate")).toContainText("2015");
+    await expect(page.getByRole("button", { name: "Yes, add bottles" })).toHaveCount(0);
     await page.getByRole("button", { name: "One more" }).click();
     await page.getByRole("button", { name: "Add 2 bottles" }).click();
     await expect(page.getByText(/2 bottles of Château Margaux Pavillon Rouge 2015/)).toBeVisible();
@@ -150,20 +151,22 @@ test.describe("scanning a label", () => {
     await expect(page.getByLabel("Region")).toHaveValue("Champagne");
     await page.screenshot({ path: shot(`scan-new-${project()}`), fullPage: true });
 
-    // The colour or style was not clear from the label, so the form will not go on until it is chosen.
-    await page.getByRole("button", { name: "Continue" }).click();
-    await expect(page.getByText("Which kind of wine is it? Choose one above.")).toBeVisible();
-    await page.getByRole("button", { name: "Sparkling" }).click();
-    await page.getByRole("button", { name: "Continue" }).click();
-
-    // Non-vintage was read off the label, so the vintage step starts as "NV".
-    await expect(
-      page.getByRole("heading", { level: 1, name: "How many, and where?" }),
-    ).toBeVisible();
+    // Non-vintage was read off the label: the vintage, on the same screen, starts as "NV".
     await expect(page.getByRole("button", { name: "NV", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
+    // The colour or style was not clear from the label, so nothing is added until it is chosen.
+    let posted = 0;
+    page.on("request", (r) => {
+      if (r.method() === "POST" && /\/api\/v1\/(wines|bottles)$/.test(r.url())) posted += 1;
+    });
+    await page.getByRole("button", { name: "Add 1 bottle" }).click();
+    await expect(page.getByTestId("scan-review-error")).toHaveText(
+      "Which kind of wine is it? Choose one above.",
+    );
+    expect(posted).toBe(0);
+    await page.getByRole("button", { name: "Sparkling" }).click();
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
     await expect(page.getByText(/1 bottle of Bollinger Special Cuvée NV/)).toBeVisible();
 
@@ -190,7 +193,7 @@ test.describe("scanning a label", () => {
     page,
     request,
   }) => {
-    const { call } = await furnish(page, request, "scanchoose");
+    const { call, householdId } = await furnish(page, request, "scanchoose");
     for (const [name, type] of [
       ["Pavillon Rouge", "red"],
       ["Pavillon Blanc", "white"],
@@ -212,16 +215,37 @@ test.describe("scanning a label", () => {
     await expect(page.getByRole("button", { name: /Pavillon Blanc/ })).toBeVisible();
     await page.screenshot({ path: shot(`scan-choose-${project()}`), fullPage: true });
 
+    // Two cuvées of one producer: none is chosen for the person, and nothing is added until one is.
+    await expect(page.locator('[data-testid="scan-candidate"][data-selected="true"]')).toHaveCount(
+      0,
+    );
+    await page.getByLabel("Vintage").fill("2014");
+    await page.getByRole("button", { name: "Add 1 bottle" }).click();
+    await expect(page.getByTestId("scan-review-error")).toHaveText(
+      "Choose which wine it is first, or add it as a new wine.",
+    );
+
+    // Choosing, changing the mind, trying a new wine: all on this screen, and the vintage stays as typed.
     await page.getByRole("button", { name: /Pavillon Blanc/ }).click();
+    await expect(page.getByTestId("scan-review-error")).toHaveCount(0);
+    await page.getByRole("button", { name: /Pavillon Rouge/ }).click();
     await expect(
-      page.getByRole("heading", { level: 1, name: "How many, and where?" }),
-    ).toBeVisible();
-    await expect(page.getByText("Pavillon Blanc")).toBeVisible();
-    // Going back to change the wine returns to the choices, not to the camera.
-    await page.getByRole("button", { name: "Change" }).click();
-    await expect(page.getByRole("heading", { name: "Is it one of these?" })).toBeVisible();
+      page.locator('[data-testid="scan-candidate"][data-selected="true"]'),
+    ).toContainText("Pavillon Rouge");
     await page.getByRole("button", { name: "None of these: it is a new wine" }).click();
-    await expect(page.getByRole("heading", { name: "A new wine" })).toBeVisible();
+    await expect(page.getByTestId("scan-review-new")).toBeVisible();
+    await expect(page.getByLabel("Producer")).toHaveValue("Château Margaux");
+    await page.getByRole("button", { name: /Pavillon Blanc/ }).click();
+    await expect(page.getByTestId("scan-review-new")).toHaveCount(0);
+    await expect(page.getByLabel("Vintage")).toHaveValue("2014");
+    await page.getByRole("button", { name: "Add 1 bottle" }).click();
+    await expect(page.getByText(/1 bottle of Château Margaux Pavillon Blanc 2014/)).toBeVisible();
+    // No wine was made on the way.
+    const [made] = await sql<{ n: number }>(
+      "select count(*)::int as n from public.wines where owner_household_id = $1",
+      [householdId],
+    );
+    expect(made!.n).toBe(2);
   });
 
   test("when the AI is down the photo is still kept and the form is waiting beside it", async ({
@@ -243,7 +267,6 @@ test.describe("scanning a label", () => {
 
     await page.getByLabel("Producer").fill("Domaine Test");
     await page.getByLabel("Wine name").fill("Cuvée Maison");
-    await page.getByRole("button", { name: "Continue" }).click();
     await page.getByLabel("Vintage").fill("2020");
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
     await expect(page.getByText(/1 bottle of Domaine Test Cuvée Maison 2020/)).toBeVisible();
@@ -354,7 +377,7 @@ test.describe("scanning a label", () => {
       await expect.poll(() => audit(page)).toEqual([]);
     }
     await page.getByRole("button", { name: "Not this one" }).click();
-    await expect(page.getByRole("heading", { name: "A new wine" })).toBeVisible();
+    await expect(page.getByTestId("scan-review-new")).toBeVisible();
     for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
       await expect.poll(() => audit(page)).toEqual([]);
@@ -398,7 +421,7 @@ test.describe("several bottles in a row", () => {
     await expect(page.getByTestId("series-counts")).toHaveText(/2 ready/);
     await page.screenshot({ path: shot(`series-tray-${project()}`), fullPage: true });
 
-    // A sure match: the row was the check, so it opens straight on its bottles (with "Change" there).
+    // A sure match: it opens on the same one-screen review, with the wine chosen and the bottles to add.
     await tray.getByRole("button", { name: "Add", exact: true }).first().click();
     await page.getByRole("button", { name: /^Add 1 bottle/ }).click();
     await expect(
@@ -448,7 +471,6 @@ test.describe("the same wine, several bottles", () => {
     await page.goto("/scan");
     await page.getByRole("radio", { name: "Same wine" }).click();
     await takePhoto(page, await makeJpeg(page, size));
-    await page.getByRole("button", { name: "Yes, add bottles" }).click();
     await expect(page.getByText(/One scan covers them all/)).toBeVisible();
     await page.getByRole("button", { name: "Add 2 bottles" }).click();
     await expect(page.getByText(/2 bottles of Château Margaux Pavillon Rouge/)).toBeVisible();
@@ -538,15 +560,13 @@ test.describe("a batch of different wines", () => {
     // On by itself to the next one: a new wine, checked and created once.
     await expect(page.getByRole("heading", { name: "A new wine" })).toBeVisible();
     await expect(page.getByLabel("Producer")).toHaveValue("Domaine Tempier");
-    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByLabel("Vintage")).toHaveValue("2019");
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
     await expect(page.getByText(/Added 1 bottle of Domaine Tempier Bandol/).first()).toBeVisible();
 
     // The second photo of it now finds that wine instead of offering it as new a second time.
-    await expect(
-      page.getByRole("heading", { level: 1, name: "How many, and where?" }),
-    ).toBeVisible();
-    await expect(page.getByText("Bandol").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "We found it" })).toBeVisible();
+    await expect(page.getByTestId("scan-candidate")).toContainText("Bandol");
     await page.getByRole("button", { name: "Add 1 bottle" }).click();
 
     // The unread one is left to the person: skipped, nothing added.

@@ -49,6 +49,7 @@ import { createWineSourcesRepository, createWineSourcesService } from "@/server/
 import { createScanRepository } from "@/server/scans/repository";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
+import { createSommelierIntelligence } from "@/server/sommelier/intelligence";
 import { createSommelierChatService } from "@/server/sommelier/conversation";
 import { createSommelierConversationRepository } from "@/server/sommelier/repository";
 import { recordSommelierExchange } from "@/server/privileged/sommelier-conversations";
@@ -156,7 +157,23 @@ export function servicesFor(ctx: RequestContext) {
     search: createCatalogSearchRepository(ctx.db).search,
   });
   const avatars = createAvatarService(createAvatarRepository(ctx.db), ctx.userId);
+  // Sommelier 3.0's engines: only where the deployment names the switch (never under `all`). They read the same
+  // household-scoped inventory, the household's own wine profiles and the person's own taste; no retailer source
+  // is connected, so buying advice is a style.
+  const intelligence = features.sommelier_engine
+    ? createSommelierIntelligence({
+        cellar: () => cellar.inventory(),
+        profiles: async (vintageIds) =>
+          tasteRepo.listInsights((await household()).id, [...vintageIds]),
+        taste: () => taste.profile(),
+        offers: null,
+        buying: features.sommelier_buying,
+        now: () => new Date(),
+      })
+    : null;
   const sommelier = createSommelierService({
+    intelligence,
+    spendEngine: () => limiter.enforce(LIMITS.sommelierEngine),
     cellar: () => cellar.inventory(),
     // Read only: the same household-scoped (RLS) reads the cellar screens use.
     storage: () => cellar.storage(),

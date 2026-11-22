@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   AddBottlesSchema,
   BottleExtrasSchema,
@@ -38,7 +38,8 @@ import { WineStage } from "./wine-stage";
 import { placeLine } from "./wine-visuals";
 
 interface BottleDetailsProps {
-  wine: WineSummary;
+  /** The wine the bottles are of. Null while the caller still decides it (the scan's review, see `resolveWine`). */
+  wine: WineSummary | null;
   currency: string;
   /** Last place used, so adding a second bottle is two taps shorter. */
   preferredPlaceId: string | null | undefined;
@@ -52,6 +53,8 @@ interface BottleDetailsProps {
   quantityHint?: string | undefined;
   /** Something to offer under the "Add" button (a scan offers "save to wishlist instead"). */
   footer?: ReactNode;
+  /** Shown above the "Add" button (a scan's optional invitation to send bottle photos). */
+  beforeSubmit?: ReactNode;
   /** Shown under the wine (a scan shows its front label and offers the back). */
   labels?: ReactNode;
   /**
@@ -60,7 +63,19 @@ interface BottleDetailsProps {
    */
   spot?: PreferredSpot | null | undefined;
   onSpotChange?: ((spot: PreferredSpot | null) => void) | undefined;
-  onChangeWine: () => void;
+  /** Without it, no wine card is shown here: the caller shows (and lets the person change) the wine itself. */
+  onChangeWine?: (() => void) | undefined;
+  /**
+   * The wine to add the bottles to, decided only when "Add" is tapped (the scan's review: a wine chosen, or a new
+   * one created from the fields beside it). Null: not ready, the caller has said why; nothing is saved.
+   */
+  resolveWine?: (() => Promise<WineSummary | null>) | undefined;
+  /** The vintage as it stands (a year, null for NV, undefined while not given), for the caller to show. */
+  onYearChange?: ((year: number | null | undefined) => void) | undefined;
+  /** Where the vintage it starts with comes from (the scan's review), shown under it until it is changed. */
+  yearSource?: ReactNode;
+  /** The vintage field takes the cursor (the add flow); the scan's review leaves the keyboard closed. */
+  autoFocusYear?: boolean | undefined;
   onDone: (result: AddBottlesResult, placeId: string | null) => void;
 }
 
@@ -89,10 +104,15 @@ export function BottleDetails({
   initialQuantity = 1,
   quantityHint,
   footer,
+  beforeSubmit,
   labels,
   spot = null,
   onSpotChange,
   onChangeWine,
+  resolveWine,
+  onYearChange,
+  autoFocusYear = true,
+  yearSource,
   onDone,
 }: BottleDetailsProps) {
   const t = useTranslations("addBottle");
@@ -110,6 +130,7 @@ export function BottleDetails({
   const [quantity, setQuantity] = useState(initialQuantity);
   // One save at a time: a double tap (or Enter twice) never adds the bottles twice.
   const saving = useRef(false);
+  const [busy, setBusy] = useState(false);
   /** undefined = "not chosen yet": the first place with room is preselected. */
   const [chosenPlace, setChosenPlace] = useState<string | null | undefined>(preferredPlaceId);
   const [priceText, setPriceText] = useState("");
@@ -151,6 +172,8 @@ export function BottleDetails({
     : /^\d{4}$/.test(yearText) && Number(yearText) >= 1800 && Number(yearText) <= 2100
       ? Number(yearText)
       : undefined;
+  // the caller passes a stable setter (a state's): it hears each change of the vintage once
+  useEffect(() => onYearChange?.(year), [year, onYearChange]);
   const priceCents = parseMoneyToCents(priceText);
   const symbol = currencySymbol(currency, locale);
 
@@ -161,10 +184,12 @@ export function BottleDetails({
     setError(null);
     if (year === undefined || priceCents === undefined) return;
     saving.current = true;
+    setBusy(true);
     try {
       await save();
     } finally {
       saving.current = false;
+      setBusy(false);
     }
   }
 
@@ -172,8 +197,17 @@ export function BottleDetails({
     // Saved before the places had loaded? Wait for them, so the bottles go where the form would have offered.
     const target = storage.isPending ? placeIn((await storage.refetch()).data ?? []) : placeId;
     const slot = spot && target === spot.locationId ? { row: spot.row, col: spot.col } : undefined;
+    let wineId = wine?.id;
+    if (resolveWine) {
+      try {
+        wineId = (await resolveWine())?.id;
+      } catch (e) {
+        return setError(errorMessage(e, (k) => te(k), ERROR_MESSAGES));
+      }
+    }
+    if (!wineId) return;
     const parsed = AddBottlesSchema.safeParse({
-      wineId: wine.id,
+      wineId,
       year,
       quantity,
       locationId: target,
@@ -202,37 +236,39 @@ export function BottleDetails({
     }
   }
 
-  const where = placeLine(wine.region, wine.countryCode, locale);
+  const where = wine ? placeLine(wine.region, wine.countryCode, locale) : null;
   return (
     <>
       <form onSubmit={submit} noValidate className="flex flex-col gap-5">
-        <div className="flex items-center gap-4 rounded-card bg-surface p-3 shadow-raised ring-1 ring-hairline">
-          <WineStage
-            type={wine.type}
-            producer={wine.producer}
-            name={wine.name}
-            year={year === undefined ? undefined : formatVintage(year)}
-            size="card"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-caption font-medium uppercase tracking-[0.14em] text-bronze">
-              {wine.producer}
-            </p>
-            <p className="mt-0.5 line-clamp-2 font-display text-title text-ink">{wine.name}</p>
-            <p className="mt-1 text-small text-ink-2 tnum">
-              {[year === undefined ? null : formatVintage(year), where]
-                .filter(Boolean)
-                .join(" · ") || " "}
-            </p>
+        {wine && onChangeWine && (
+          <div className="flex items-center gap-4 rounded-card bg-surface p-3 shadow-raised ring-1 ring-hairline">
+            <WineStage
+              type={wine.type}
+              producer={wine.producer}
+              name={wine.name}
+              year={year === undefined ? undefined : formatVintage(year)}
+              size="card"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-caption font-medium uppercase tracking-[0.14em] text-bronze">
+                {wine.producer}
+              </p>
+              <p className="mt-0.5 line-clamp-2 font-display text-title text-ink">{wine.name}</p>
+              <p className="mt-1 text-small text-ink-2 tnum">
+                {[year === undefined ? null : formatVintage(year), where]
+                  .filter(Boolean)
+                  .join(" · ") || " "}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onChangeWine}
+              className="shrink-0 self-start rounded-full px-3.5 py-2 text-small font-medium text-accent-fg ring-1 ring-hairline transition-colors duration-150 ease-cellr hover:bg-raised"
+            >
+              {t("change")}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onChangeWine}
-            className="shrink-0 self-start rounded-full px-3.5 py-2 text-small font-medium text-accent-fg ring-1 ring-hairline transition-colors duration-150 ease-cellr hover:bg-raised"
-          >
-            {t("change")}
-          </button>
-        </div>
+        )}
 
         {labels}
 
@@ -241,9 +277,10 @@ export function BottleDetails({
             label={t("yearLabel")}
             inputMode="numeric"
             maxLength={4}
-            autoFocus
+            autoFocus={autoFocusYear}
             autoComplete="off"
             placeholder={t("yearPlaceholder")}
+            hint={year === initialYear ? yearSource : undefined}
             disabled={nv}
             value={nv ? "" : yearText}
             error={submitted && year === undefined ? t("yearError") : null}
@@ -412,12 +449,13 @@ export function BottleDetails({
           </details>
         </section>
 
+        {beforeSubmit}
         {error && (
           <p role="alert" className="text-small text-danger">
             {error}
           </p>
         )}
-        <Button type="submit" size="lg" block loading={add.isPending}>
+        <Button type="submit" size="lg" block loading={busy || add.isPending}>
           {t("submit", { count: quantity })}
         </Button>
         {footer}

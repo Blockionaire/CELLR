@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { cellarQuestionKind, isCellarQuestion } from "./cellar-facts";
+import { readPlan } from "./sommelier-plan";
 import { detectIntent, type SommelierAnswer } from "./sommelier";
 
 /**
@@ -89,6 +90,9 @@ export function isStoredAnswer(value: unknown): value is SommelierAnswer {
     (a.source === "ai" || a.source === "basic") &&
     Array.isArray(a.bottles) &&
     (a.text === null || typeof a.text === "string") &&
-    (a.basic === null || typeof a.basic === "string")
+    (a.basic === null || typeof a.basic === "string") &&
+    // A kept plan is drawn as it is (links included), so it must be one; anything else is not drawn.
+    (a.plan === undefined || a.plan === null || readPlan(a.plan) !== null) &&
+    (a.otherBottles === undefined || Array.isArray(a.otherBottles))
   );
 }

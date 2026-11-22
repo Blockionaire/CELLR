@@ -5,6 +5,7 @@ import type { DishId } from "./pairing";
 import type { Reservation } from "./insights";
 import type { Occasion } from "./tonight";
 import type { RatingSummary } from "./tasting";
+import type { SommelierPlan } from "./sommelier-plan";
 
 /**
  * THE SOMMELIER. A conversation about the cellar that is only ever as smart as the cellar is real: the model is
@@ -52,6 +53,13 @@ export const AskSommelierSchema = z
      * Left out (or for Tonight), nothing is kept.
      */
     questionId: z.uuid().optional(),
+    /**
+     * What the conversation has established so far, as the last answer's plan returned it (Sommelier 3.0). The
+     * screen sends it back untouched; the server validates it and treats it as a hint, never as a fact.
+     */
+    state: z.unknown().optional(),
+    /** A price ceiling chosen on the screen, per bottle in whole euros (Sommelier 3.0; more exact than `budget`). */
+    budgetEuros: z.number().min(1).max(100_000).nullable().optional(),
   })
   .refine((v) => v.messages.at(-1)?.role === "user", "Ask a question.");
 /** What a caller sends; mode and budget may be left out (a plain chat, no budget). */
@@ -128,6 +136,16 @@ export interface SommelierAnswer {
   reason: "ai-off" | "ai-down" | "limit" | null;
   /** The person's own taste really shaped this answer (said so only then; never for a question of fact). */
   personal?: boolean;
+  /**
+   * What the engines decided (Sommelier 3.0), when they answered: the outcome, the reasons, what was set aside,
+   * what to buy as a style, the question asked back. Absent from every answer V1 gives.
+   */
+  plan?: SommelierPlan | null;
+  /**
+   * Bottles the plan mentions without offering them (set aside, or the closest when nothing suits). Apart from
+   * `bottles` on purpose: a screen that knows no plans draws `bottles` as suggestions, and these are not.
+   */
+  otherBottles?: SommelierBottle[];
 }
 
 export const toSommelierBottle = (item: CellarItem): SommelierBottle => ({
