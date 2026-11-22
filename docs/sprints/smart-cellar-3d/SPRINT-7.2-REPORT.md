@@ -32,60 +32,65 @@ Quick Add.
   the scene's own light and reflections.
 - `SpotMarkers` (`storage3d/template-scene.tsx`): **one `InstancedMesh`**, one geometry, one material: one draw call
   for every placeholder of a place. Instance colours: resting `#efe7d6`, hovered with a mouse or pen `#ffe6b3` (never
-  with a finger), chosen `#e9b955` plus a 5 % lift about its own middle, and the existing target ring. Nothing is
+  with a finger), chosen `#e9b955` with a 5 % lift about its own middle, and the existing target ring. Nothing is
   allocated per frame; demand rendering unchanged; geometry and material are disposed when the placeholders go.
 - The tap target is the whole placeholder bottle, with the rules as before: a tap that moved more than 8 px or ended a
   camera drag (or a pinch) is not a tap; bottles cannot be taken out while spots are on offer.
 
 ## 3. Tests
 
-| Check                                                                                                                                                                         | Result                                                                                                                                                                                                                              |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test`                                                                                                               | green (web 1593 passed, domain 1495 passed; one existing lint warning in `playwright.webkit.config.ts`)                                                                                                                             |
-| New unit tests (`storage3d/resources.test.ts`)                                                                                                                                | 4: one geometry with RGBA per vertex and only two alphas; posed exactly where a bottle lies, the plus in front of the neck; along a wall, the plus on the front; < 1,000 triangles                                                  |
-| New browser test "sprint 7.2" (phone and desktop)                                                                                                                             | Add bottle above the picture and on the first screen; after Add, the instruction and Cancel in view and the whole picture on the first screen; the sheet's six labels; no option cut off; Cancel (sheet and bar) back to the cellar |
-| Screenshots test (`SHOTS72=1`): iPhone SE, iPhone 13, Pixel 7, desktop                                                                                                        | instruction, Cancel and three quarters of the picture on screen while adding, on every size                                                                                                                                         |
-| Browser regression on the final build: `quick-add`, `smart-cellar-3d`, `placement`, `advice`, `visual-placement`, `smart-cellar-3d-old-db`, `add-to-spot` (phone and desktop) | **178 passed, 0 failed**, 22 skipped (the other project's half of device-specific tests, and the opt-in suites `VISUAL_PLACEMENT=1` and `OLD_DB=1`)                                                                                 |
-| Architecture: `architecture:inventory`, `architecture:impact`, `vitest run src/server/system`                                                                                 | inventory unchanged; "No structural change against `origin/main`"; 27 passed; register 1.3.2                                                                                                                                        |
+| Check                                                                                                                 | Result                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test`                                                       | green: domain 1495, web 1596 (13 skipped), scripts 274; one existing lint warning (`playwright.webkit.config.ts`)                                                                                                                                                                                                                                                                                                                    |
+| Translation keys                                                                                                      | `en.json` and `nl.json`: 2,354 keys each, none missing on either side                                                                                                                                                                                                                                                                                                                                                                |
+| Unit tests for the placeholders (`storage3d/resources.test.ts`)                                                       | **no plus**: the geometry is exactly a bottle's lathe (same vertices and triangles), no per-vertex colours, no groups, nothing past the neck or beside the body; posed exactly where a bottle lies, towards the viewer and along a wall; plainer with hundreds on offer, under 400 triangles; see-through material, no depth write, white (tone per instance)                                                                        |
+| Browser test "sprint 7.2" (phone and desktop)                                                                         | Add bottle above the picture, on the first screen; after Add: the instruction and Cancel in view and the whole picture on the first screen; **the placeholders drawn are one mesh of bottle-sized glass** (one object, one material, attributes `normal` + `position` only, length 3.4, width ≤ 0.9, < 400 triangles); the sheet's six labels; no option cut off; Cancel (sheet and bar) back to the cellar, **no placeholder left** |
+| Browser test "two fingers zoom and choose nothing" (phone)                                                            | a pinch while adding moves the camera closer; no sheet, still choosing, all 10 placeholders still there                                                                                                                                                                                                                                                                                                                              |
+| Screenshots test (`SHOTS72=1`)                                                                                        | iPhone SE, iPhone 13, Pixel 7, desktop: instruction, Cancel and three quarters of the picture in view while adding; dark and light furniture; a mouse hover                                                                                                                                                                                                                                                                          |
+| Browser regression on the final build (`quick-add`, `smart-cellar-3d`, `placement`, `add-to-spot`; phone and desktop) | **141 passed, 0 failed**, 17 skipped (the other project's half of device-specific tests)                                                                                                                                                                                                                                                                                                                                             |
+| Earlier on this sprint, same suites plus `advice`, `visual-placement`, `smart-cellar-3d-old-db`                       | 178 passed, 0 failed                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `e2e/admin-system.spec.ts` (failed on `main`'s CI after #114 and #118)                                                | passes locally on the integrated branch (with #120); see the CI on the PR                                                                                                                                                                                                                                                                                                                                                            |
+| Architecture: inventory, impact, `vitest run src/server/system`                                                       | inventory matches `main`; "No structural change against `origin/main`. The register itself changed." (version only); 27 passed; register 1.4.1, reviewed 2026-11-22                                                                                                                                                                                                                                                                  |
 
-All 15 scenarios of the sprint 7 brief stay covered by `e2e/quick-add.spec.ts` (now 18 tests per project), including the
-scan and manual return to 3D, a spot taken meanwhile, lost answers (never a bottle twice), another household, legacy
-places, no WebGL, a lost graphics context, the keyboard with reduced motion (axe: no violations).
+All 15 scenarios of the sprint 7 brief stay covered by `e2e/quick-add.spec.ts`: a tap
+opens the right sheet; dragging the camera chooses nothing; closing the sheet goes back to choosing; Cancel removes
+every placeholder; scan and manual add keep the chosen spot and come back to 3D; a spot taken meanwhile; lost answers
+(never a bottle twice); another household; legacy places and places the picture cannot point into (list); no WebGL;
+a lost graphics context; the keyboard with reduced motion (axe: no violations); bottle inspection unchanged.
 
 ## 4. Performance
 
 The sprint 7 bench (`e2e/perf-quick-add.spec.ts`, `PERF_QUICK=1`): a real household, a `rack_classic` place half
 full (every other spot taken, so as many placeholders as bottles), the product's 3D cellar on the preview server, three
-rounds of Add bottle → tap a placeholder → sheet → close. Software rendering (no GPU here): these numbers compare
-builds on one machine; they are not a phone's.
+rounds of Add bottle → tap a placeholder → sheet → close. **Software rendering (no GPU in this environment): these
+numbers compare builds on one machine; they say nothing about a real phone's GPU.**
 
-| Device  | Spots (free) | Draw calls (view → adding) | Triangles (view → adding) | Idle frames in 3 s | Add → placeholders drawn | Tap → sheet (upper bound) | Geometries/textures/programs after 3 rounds | Builds | JS heap MB (before → after) |
-| ------- | ------------ | -------------------------- | ------------------------- | ------------------ | ------------------------ | ------------------------- | ------------------------------------------- | ------ | --------------------------- |
-| phone   | 80 (40)      | 8 → 9                      | 33,662 → 49,982           | 0                  | 6 ms                     | 334 ms                    | 22/7/32 (unchanged each round)              | 1      | 25.4 → 28.3                 |
-| phone   | 400 (200)    | 6 → 7                      | 82,188 → 163,788          | 0                  | 11 ms                    | 385 ms                    | 20/4/29 (unchanged)                         | 1      | 36.2 → 32.6                 |
-| phone   | 900 (450)    | 6 → 7                      | 181,268 → 364,868         | 0                  | 19 ms                    | 593 ms                    | 20/4/29 (unchanged)                         | 1      | 60.2 → 63.9                 |
-| desktop | 80 (40)      | 8 → 9                      | 33,662 → 49,982           | 0                  | 17 ms                    | 285 ms                    | 22/7/32 (unchanged)                         | 1      | 33.2 → 35.4                 |
-| desktop | 400 (200)    | 6 → 7                      | 82,188 → 163,788          | 0                  | 10 ms                    | 471 ms                    | 20/4/29 (unchanged)                         | 1      | 69.5 → 35.5                 |
-| desktop | 900 (450)    | 6 → 7                      | 181,268 → 364,868         | 0                  | 25 ms                    | 650 ms                    | 20/4/29 (unchanged)                         | 1      | 59.8 → 57.1                 |
+| Device  | Spots (free) | Draw calls (view → adding) | Triangles (view → adding) | Per placeholder | Idle frames in 3 s | Add → drawn | Tap → sheet (upper bound) | Geometries/textures/programs after 3 rounds | Builds | JS heap MB (before → after) |
+| ------- | ------------ | -------------------------- | ------------------------- | --------------- | ------------------ | ----------- | ------------------------- | ------------------------------------------- | ------ | --------------------------- |
+| phone   | 80 (40)      | 8 → 9                      | 33,662 → 49,022           | 384             | 0                  | 6 ms        | 361 ms                    | 22/7/32, same every round                   | 1      | 25.3 → 32.1                 |
+| phone   | 400 (200)    | 6 → 7                      | 82,188 → 139,788          | 288             | 0                  | 7 ms        | 405 ms                    | 20/4/29, same                               | 1      | 36.0 → 47.2                 |
+| phone   | 900 (450)    | 6 → 7                      | 181,268 → 289,268         | 240             | 0                  | 11 ms       | 589 ms                    | 20/4/29, same                               | 1      | 58.3 → 42.0                 |
+| desktop | 80 (40)      | 8 → 9                      | 33,662 → 49,022           | 384             | 0                  | 7 ms        | 335 ms                    | 22/7/32, same                               | 1      | 32.9 → 36.4                 |
+| desktop | 400 (200)    | 6 → 7                      | 82,188 → 139,788          | 288             | 0                  | 7 ms        | 520 ms                    | 20/4/29, same                               | 1      | 41.7 → 32.4                 |
+| desktop | 900 (450)    | 6 → 7                      | 181,268 → 289,268         | 240             | 0                  | 12 ms       | 731 ms                    | 20/4/29, same                               | 1      | 66.1 → 45.5                 |
 
-Compared with sprint 7 (gold discs):
-
-- **Draw calls: unchanged** (+1 while adding, however many spots). **Idle: unchanged** (nothing drawn while nothing
-  moves). **Leaks: none** (the same geometries, textures and programs after every round; the scene is built once;
-  the heap does not grow round after round).
-- **Triangles: higher.** A placeholder is 408 triangles (a disc was 28). Adding in a half-full place now costs about
-  what the same place full of real bottles costs (the placeholders are as detailed as the real bottles at the lower
-  levels of detail): 30×30 half full goes from 181k to 365k triangles while adding. That is the price of a bottle
-  silhouette; it only applies while adding, and the largest case is within what a full place already draws. Should a
-  real device show a problem on very large places, the placeholder's ring count can be halved without changing
-  anything else (one constant, `GHOST_RADIAL`).
-- Tap → sheet is within the spread of sprint 7 (316–680 ms there, 285–650 ms here, same machine class).
+- **Draw calls:** +1 while adding, however many spots (as sprint 7's discs). **Idle:** nothing drawn while nothing
+  moves. **Cleanup:** the same geometries, textures and programs after every round (nothing left behind by entering
+  and leaving); the scene is built once; the heap moves with the collector, it does not grow round after round.
+- **Triangles:** removing the plus and the adaptive detail took the placeholder from 408 triangles (the draft with the
+  plus) to 384 / 288 / 240; a 30×30 rack half full goes to 289k while adding instead of 365k (−21 %). That is still
+  more than sprint 7's flat discs (28 each): the price of a bottle silhouette. It only applies while adding, and the
+  largest case stays below what the same rack full of real bottles draws.
+- Tap → sheet stays within the spread measured for sprint 7 on this machine class (316–680 ms there).
 
 ## 5. Screenshots
 
-`screens/7.2-quick-add-*.jpg`: per size (desktop 1280×800, iPhone SE 375×667, iPhone 13 390×844, Pixel 7 412×915)
-the place as it is, adding (instruction at the top, placeholders), the sheet of a chosen spot, and the chosen spot
-held while a bottle is chosen for it.
+`screens/7.2-quick-add-{desktop,iphone-se,iphone-13,pixel-7}.jpg`: per size (desktop 1280×800, iPhone SE 375×667,
+iPhone 13 390×844, Pixel 7 412×915) the normal 3D view (no placeholders), adding (glass bottles on the empty spots, no
+plus, the instruction above the furniture), the Quick Add sheet, and the selected position (gold, ringed) while a
+bottle is chosen for it. `screens/7.2-quick-add-furniture.jpg`: the placeholders on dark (ebony) and light (white
+lacquer) furniture, a mouse hover, and light furniture on an iPhone SE. The earlier screenshots with a plus are
+replaced.
 
 ## 6. Compatibility and regression
 
@@ -106,9 +111,11 @@ previous deployment (or `CELLR_SMART_CELLAR=read` to stop all placement writes, 
 
 ## 8. Open points
 
-- **A real phone.** The bench uses software rendering; the triangle cost of the placeholders on very large places
-  (30×30) is best confirmed on a real mid-range phone after deploy. The fallback is one constant (`GHOST_RADIAL`).
-- **"Show empty spots" toggle** (E) not built, on purpose (see section 1).
-- **Pre-existing, not this sprint:** `e2e/admin-system.spec.ts:67` fails on `main` too (from PR #114); public docs
-  that still carry production observations are a separate clean-up.
+- **A real phone.** The bench uses software rendering; real-device GPU performance is not verified. Large racks
+  (hundreds of free spots) are the case to look at on a mid-range phone after deploy. Already in place: plainer
+  placeholders above 120 and 400 spots (`ghostRadial`).
+- **Light furniture.** On white lacquer the placeholders are deliberately faint (pale glass on a pale surface); they
+  stay visible through the scene's shading. If the owner wants them stronger there, the opacity is one constant
+  (`GHOST_OPACITY`).
+- **"Show empty spots" toggle** (E): not built, on purpose (see section 1).
 - Merge and deploy are the owner's.
