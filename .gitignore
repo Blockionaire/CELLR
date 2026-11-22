@@ -35,3 +35,4 @@ platform-objects.sql
 # Supabase CLI local state (`supabase link` writes the project ref and pooler URL here)
 supabase/.temp/
 supabase/.branches/
+/.demo/

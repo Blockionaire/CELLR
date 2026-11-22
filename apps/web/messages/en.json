@@ -141,9 +141,9 @@
     "photoAlt": "Your photo of the label",
     "foundTitle": "We found it",
     "foundBody": "This looks like a wine you already have.",
-    "rememberedBody": "You confirmed this exact photo before. Check it and confirm again.",
-    "fromTextBody": "Recognised from the printed label text, without AI. Check the wine and the year, then confirm.",
-    "fromTextNoYearBody": "Recognised from the printed label text, without AI. The year could not be read: you choose it next.",
+    "rememberedBody": "You confirmed this exact photo before. Check it below.",
+    "fromTextBody": "Recognised from the printed label text, without AI. Check the wine and the year below.",
+    "fromTextNoYearBody": "Recognised from the printed label text, without AI. The year could not be read: choose it below.",
     "confirmFound": "Yes, add bottles",
     "notThisOne": "Not this one",
     "chooseTitle": "Is it one of these?",
@@ -275,7 +275,40 @@
         "vintage_not_listed": "The source does not list this vintage"
       },
       "licenseLink": "Licence: {license}"
-    }
+    },
+    "review": {
+      "wineTitle": "The wine",
+      "closeSearch": "Back to the scan",
+      "useMatch": "Use {wine} after all",
+      "pickFirst": "Choose which wine it is first, or add it as a new wine.",
+      "checkTitle": "Is it this wine?",
+      "checkBody": "The label differs from this wine in a detail below. Tap it if it is this wine, or choose another one."
+    },
+    "source": {
+      "label": "From the label",
+      "catalog": "CELLR database (verified)",
+      "cellar": "Your own wine",
+      "remembered": "Confirmed by you before",
+      "record": "External source, check it",
+      "typed": "Typed by you",
+      "unknown": "Unknown",
+      "group": "{source}: {fields}",
+      "conflict": "The label says “{value}” for the {field}. Not this wine? Choose another one."
+    },
+    "field": {
+      "producer": "producer",
+      "name": "name",
+      "type": "kind",
+      "countryCode": "country",
+      "region": "region"
+    },
+    "vintageSource": {
+      "label": "From the label",
+      "labelCheck": "From the label, but hard to read: please check",
+      "remembered": "Confirmed by you for this photo before",
+      "unknown": "Not read from the label: type it or choose NV"
+    },
+    "photoSentFor": "Bottle photos sent for {wine}."
   },
   "sommelier": {
     "title": "Sommelier",
@@ -955,6 +988,7 @@
   },
   "smart3d": {
     "hint": "Drag to turn · pinch or scroll to zoom · tap a bottle to take it out",
+    "hintShort": "Drag to turn · pinch to zoom · tap a bottle",
     "where": {
       "spot": "{unit} · Shelf {row} · Position {col}",
       "front": "{unit} · Shelf {row} · Position {col}, at the front",
@@ -2684,5 +2718,25 @@
     "excludedBehind": "{count, plural, one {# spot behind a bottle at the front isn't offered} other {# spots behind a bottle at the front aren't offered}}.",
     "stale": "This advice couldn't be refreshed, so it may be out of date. “Place here” is off until it is; choosing a spot yourself below still works.",
     "updating": "Updating the advice…"
+  },
+  "scanPhotoInvite": {
+    "title": "Make your bottle visible in CELLR",
+    "body": "Take 1–3 photos of your bottle and help build the 2D bottle library.",
+    "take": "Take bottle photos",
+    "later": "Maybe later",
+    "keptBody": "{count, plural, one {Your photo is} other {Your # photos are}} sent once the bottle is added. Adding never waits for it.",
+    "change": "Change photos",
+    "removeAll": "Don’t send",
+    "previewAlt": "Your bottle photo {n}",
+    "sheetTitle": "Photos of your bottle",
+    "sheetBody": "Good photos show the whole bottle, upright, in good light, against a plain background. They stay on your phone until the bottle is added, and are then sent with your yes below.",
+    "keep": "Keep {count, plural, one {photo} other {# photos}} for adding",
+    "sending": "Sending your bottle photos…",
+    "sentNoPoints": "Your photos help picture this wine.",
+    "notNeeded": "This wine needs no new bottle photos from you, so nothing was sent.",
+    "failed": "Your bottle photos weren’t sent. The bottle is added.",
+    "retry": "Try again",
+    "retryFor": "Bottle photos for {wine} weren’t sent.",
+    "dismiss": "Never mind"
   }
 }

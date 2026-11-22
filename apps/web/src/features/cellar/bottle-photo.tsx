@@ -17,10 +17,12 @@ import { Button } from "@/ui/button";
 import { FileButton } from "@/ui/file-button";
 import { Sheet } from "@/ui/sheet";
 
-interface Picked {
+/** A photo chosen, with its local preview address (released when it goes). */
+export interface PickedPhoto {
   file: File;
   url: string;
 }
+type Picked = PickedPhoto;
 
 /** Where I stand with a wine's bottle photos (any vintage), read from the server: the same on every device. */
 export const contributionKey = (wineId: string) => ["bottle-photo-status", wineId] as const;
@@ -42,7 +44,7 @@ export function useContributionStatus(wineId: string) {
  * Sends one contribution of 1 to 3 bottle photos with the explicit yes. Afterwards (sent, or refused because one was
  * already sent) my points and every contribution status are read again, and Home's invitation with them.
  */
-function useSendBottlePhoto() {
+export function useSendBottlePhoto() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const settle = () => {
@@ -159,66 +161,16 @@ export function BottlePhotoSheet({
       ) : (
         <div className="flex flex-col gap-4">
           <p className="text-body text-ink-2 text-pretty">{t("body", { wine })}</p>
-          <ul className="list-disc pl-5 text-small text-ink-2">
-            <li>{t("tipWhole")}</li>
-            <li>{t("tipLight")}</li>
-            <li>{t("tipBackground")}</li>
-            <li>{t("tipMore")}</li>
-          </ul>
-          {picked.length > 0 && (
-            <ul className="grid grid-cols-3 gap-2" data-testid="bottle-photo-previews">
-              {picked.map((p, i) => (
-                <li key={p.url} className="relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- a local preview, not sent yet */}
-                  <img
-                    src={p.url}
-                    alt={t("previewAlt", { n: i + 1 })}
-                    className="aspect-[3/4] w-full rounded-[12px] bg-raised object-cover"
-                  />
-                  <button
-                    type="button"
-                    aria-label={t("remove")}
-                    onClick={() => {
-                      drop([p]);
-                      setPicked((all) => all.filter((x) => x !== p));
-                    }}
-                    className="absolute right-1 top-1 grid size-7 place-items-center rounded-full bg-canvas/90 text-small text-ink ring-1 ring-hairline"
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {picked.length < BOTTLE_PHOTO_MAX && (
-            <FileButton
-              variant={picked.length ? "ghost" : "secondary"}
-              block
-              accept="image/*"
-              onFile={(file) => {
-                setError(null);
-                setPicked((all) =>
-                  all.length >= BOTTLE_PHOTO_MAX
-                    ? all
-                    : [...all, { file, url: URL.createObjectURL(file) }],
-                );
-              }}
-            >
-              {picked.length
-                ? t("another", { count: picked.length + 1, max: BOTTLE_PHOTO_MAX })
-                : t("choose")}
-            </FileButton>
-          )}
-          <label className="flex items-start gap-3 rounded-[14px] bg-raised p-3 text-small text-ink">
-            <input
-              type="checkbox"
-              checked={consent}
-              onChange={(e) => setConsent(e.target.checked)}
-              className="mt-0.5 size-5 shrink-0 accent-[var(--accent)]"
-            />
-            <span>{t("consent")}</span>
-          </label>
-          <p className="text-caption text-ink-3">{t("privacy")}</p>
+          <PhotoPicker
+            picked={picked}
+            onPicked={(next) => {
+              setError(null);
+              setPicked(next);
+            }}
+            onDrop={drop}
+            consent={consent}
+            onConsent={setConsent}
+          />
           {error && (
             <p role="alert" className="text-small text-danger">
               {error}
@@ -349,5 +301,86 @@ export function BottlePhotoOffer({
         wine={wine}
       />
     </div>
+  );
+}
+
+/**
+ * What choosing bottle photos is made of, wherever it happens: what makes a good photo, the photos chosen (each with a
+ * local preview and a way to remove it), up to three, and the explicit yes. Nothing is sent from here.
+ */
+export function PhotoPicker({
+  picked,
+  onPicked,
+  onDrop,
+  consent,
+  onConsent,
+}: {
+  picked: PickedPhoto[];
+  onPicked: (next: PickedPhoto[]) => void;
+  /** Photos let go: their previews' local addresses are released. */
+  onDrop: (gone: PickedPhoto[]) => void;
+  consent: boolean;
+  onConsent: (yes: boolean) => void;
+}) {
+  const t = useTranslations("bottlePhoto");
+  return (
+    <>
+      <ul className="list-disc pl-5 text-small text-ink-2">
+        <li>{t("tipWhole")}</li>
+        <li>{t("tipLight")}</li>
+        <li>{t("tipBackground")}</li>
+        <li>{t("tipMore")}</li>
+      </ul>
+      {picked.length > 0 && (
+        <ul className="grid grid-cols-3 gap-2" data-testid="bottle-photo-previews">
+          {picked.map((p, i) => (
+            <li key={p.url} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a local preview, not sent yet */}
+              <img
+                src={p.url}
+                alt={t("previewAlt", { n: i + 1 })}
+                className="aspect-[3/4] w-full rounded-[12px] bg-raised object-cover"
+              />
+              <button
+                type="button"
+                aria-label={t("remove")}
+                onClick={() => {
+                  onDrop([p]);
+                  onPicked(picked.filter((x) => x !== p));
+                }}
+                className="absolute right-1 top-1 grid size-7 place-items-center rounded-full bg-canvas/90 text-small text-ink ring-1 ring-hairline"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {picked.length < BOTTLE_PHOTO_MAX && (
+        <FileButton
+          variant={picked.length ? "ghost" : "secondary"}
+          block
+          accept="image/*"
+          onFile={(file) => {
+            if (picked.length < BOTTLE_PHOTO_MAX)
+              onPicked([...picked, { file, url: URL.createObjectURL(file) }]);
+          }}
+        >
+          {picked.length
+            ? t("another", { count: picked.length + 1, max: BOTTLE_PHOTO_MAX })
+            : t("choose")}
+        </FileButton>
+      )}
+      <label className="flex items-start gap-3 rounded-[14px] bg-raised p-3 text-small text-ink">
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => onConsent(e.target.checked)}
+          className="mt-0.5 size-5 shrink-0 accent-[var(--accent)]"
+        />
+        <span>{t("consent")}</span>
+      </label>
+      <p className="text-caption text-ink-3">{t("privacy")}</p>
+    </>
   );
 }

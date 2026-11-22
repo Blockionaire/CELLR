@@ -373,7 +373,6 @@ test.describe("adding a bottle on the spot you tapped", () => {
         timeout: 4_000,
       });
     }).toPass({ timeout: 30_000 });
-    await page.getByRole("button", { name: "Yes, add bottles" }).click();
     await expect(place(page, "Stellingkast")).toHaveAttribute("aria-checked", "true");
     await expect(page.getByTestId("add-spot")).toContainText("Stellingkast · Shelf 3 · Position 2");
     await page.getByRole("button", { name: "Add 1 bottle" }).click();

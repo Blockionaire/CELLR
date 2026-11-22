@@ -201,7 +201,7 @@ const components = [
     status: "gated",
     summary: "Templates, cells, zones; read/write per deployment",
     responsibility:
-      "The structured storage model (templates, cell placement, temperature zones) behind its own routes. Closed unless CELLR_SMART_CELLAR opens it; writes are never opened on an unmarked production build.",
+      "The structured storage model (templates, cell placement, temperature zones) behind its own routes. Closed unless CELLR_SMART_CELLAR opens it. Production opens only as the authorized release (lib/smart-cellar-release.ts: a Vercel production deployment declaring, exactly, the production database it connects to); an unmarked or unknown build never writes. CELLR_SMART_CELLAR=off is the kill switch.",
     inputs: ["Household scope", "Storage config"],
     outputs: [
       "Storage unit views",
@@ -222,16 +222,25 @@ const components = [
       "/api/v1/smart-cellar/storage/[id]/layout",
     ],
     gates: [
-      { name: "CELLR_SMART_CELLAR", kind: "env", note: "off | read | write" },
+      {
+        name: "CELLR_SMART_CELLAR",
+        kind: "env",
+        note: "off | read | write; off is the kill switch",
+      },
+      {
+        name: "CELLR_SMART_CELLAR_PRODUCTION_DATABASE",
+        kind: "env",
+        note: "the exact production database host: authorizes the production release (Vercel production only)",
+      },
       {
         name: "CELLR_SMART_CELLAR_PLACEMENT",
         kind: "env",
-        note: "1: moving and swapping bottles; internal previews only, writes need the API's write level",
+        note: "1: moving and swapping bottles; internal previews or the production release, writes need the API's write level",
       },
       {
         name: "CELLR_SMART_CELLAR_ADVICE",
         kind: "env",
-        note: "1: read-only placement advice; internal previews only, needs the placement gate, grants no write",
+        note: "1: read-only placement advice; internal previews or the production release, needs the placement gate, grants no write",
       },
     ],
   },

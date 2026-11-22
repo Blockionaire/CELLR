@@ -103,8 +103,7 @@ test("a new person, from the first code to signing back in, loses nothing", asyn
   await expect(page.getByRole("heading", { name: "A new wine" })).toBeVisible();
   await expect(page.getByLabel("Producer")).toHaveValue("Château Musar");
   await expect(page.getByLabel("Wine name")).toHaveValue("Château Musar Rouge");
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "How many, and where?" })).toBeVisible();
+  // …on the same screen as the bottles: nothing to confirm in between.
   await expect(page.getByLabel("Vintage")).toHaveValue("2016");
 
   // 7. Three bottles.

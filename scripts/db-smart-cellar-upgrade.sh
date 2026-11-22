@@ -113,7 +113,11 @@ app_still_works() {   # $1 = label
 }
 app_still_works "as deployed"
 L=$(su "select id from public.cellar_locations where label = 'A rack'")
-out=$(su "insert into public.bottles (household_id, vintage_id, location_id, loc_row, loc_col, loc_index) values ('$H', '$V', '$L', 1, 1, 1)" 2>&1 || true)
+# a cell that is taken NOW: the seed opens and removes a few bottles picked by (random) id, which empties their cells,
+# so a fixed cell such as (1,1) is occasionally free and a second bottle there would rightly be accepted
+TAKEN=$(su "select loc_row || ',' || loc_col from public.bottles where location_id = '$L' and status = 'in_cellar' order by loc_row, loc_col limit 1")
+[ -n "$TAKEN" ] || fail "the seeded rack has no bottle left in a cell"
+out=$(su "insert into public.bottles (household_id, vintage_id, location_id, loc_row, loc_col, loc_index) values ('$H', '$V', '$L', ${TAKEN%,*}, ${TAKEN#*,}, 1)" 2>&1 || true)
 echo "$out" | grep -q 'duplicate key' || fail "as deployed, a second bottle in a cell was not refused"
 # even with the switch turned on, the old index keeps a cell to one bottle
 su "update private.cellar_settings set depth_placement = true;

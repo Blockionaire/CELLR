@@ -132,7 +132,6 @@ test("a new photo of a known catalogue wine is recognised from its label text, w
   });
 
   // the person still confirms; the bottle is the catalogue wine itself, not a private duplicate
-  await page.getByRole("button", { name: "Yes, add bottles" }).click();
   await expect(page.getByLabel("Vintage")).toHaveValue("2019");
   await page.getByRole("button", { name: "Add 1 bottle" }).click();
   await expect(page.getByText(new RegExp(`1 bottle of ${producer} ${name} 2019`))).toBeVisible();

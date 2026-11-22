@@ -13,6 +13,12 @@ export const ANALYTICS_EVENTS = [
   "wine_scan_completed",
   "wine_scan_failed",
   "bottle_added",
+  // Unified scan review: how a reviewed scan ended (added or wished) and how its wine was settled (the match, a
+  // candidate, another wine, a new wine). Words only: never the wine, the label's text or the photo.
+  "scan_review_completed",
+  // The scan review's invitation to send whole-bottle photos for the 2D library: its step (shown, accepted, later,
+  // kept, sent, failed, not_needed), how many photos, new or existing wine, scan mode. Never a photo or a wine.
+  "bottle_photo_invite",
   "bottle_opened",
   "rating_created",
   "sommelier_question_asked",
