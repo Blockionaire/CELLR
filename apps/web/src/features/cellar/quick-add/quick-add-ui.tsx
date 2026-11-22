@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   placementMeaning,
   type SmartPlacementView,
@@ -46,9 +46,17 @@ export function QuickPlacingBar({
   onClose: () => void;
 }) {
   const t = useTranslations("quickAdd");
+  const bar = useRef<HTMLDivElement>(null);
+  // Adding starts here: the instruction goes to the top of the screen, so the picture under it is seen as a whole
+  // (on a small phone the bottom bar would otherwise cover most of it). At once, not smoothly: it is a change of
+  // mode, and a moving page would move the spots under a finger about to tap one.
+  useEffect(() => {
+    bar.current?.scrollIntoView({ block: "start", behavior: "auto" });
+  }, []);
   return (
     <div
-      className="flex flex-col gap-2 rounded-card bg-surface px-3 py-2.5 shadow-raised ring-1 ring-accent/40 sm:flex-row sm:items-center sm:justify-between"
+      ref={bar}
+      className="flex scroll-mt-3 flex-col gap-2 rounded-card bg-surface px-3 py-2.5 shadow-raised ring-1 ring-accent/40 sm:flex-row sm:items-center sm:justify-between"
       data-testid="quick-placing"
       data-free={free}
     >

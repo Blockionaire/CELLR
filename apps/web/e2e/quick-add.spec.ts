@@ -213,8 +213,10 @@ test.describe("3D Quick Add", () => {
     await expect(page.getByTestId("quick-close")).toHaveText("Cancel");
     await expect(page.getByTestId("quick-close")).toBeInViewport();
     expect((await bar.boundingBox())!.y).toBeLessThan((await stage.boundingBox())!.y);
-    // and the picture itself starts on the first screen
-    expect((await stage.boundingBox())!.y).toBeLessThan(page.viewportSize()!.height * 0.6);
+    // adding brings the instruction to the top of the screen: the whole picture is under it, on the first screen
+    const card = (await stage.boundingBox())!;
+    expect(card.y).toBeGreaterThan(0);
+    expect(card.y + card.height).toBeLessThanOrEqual(page.viewportSize()!.height);
     // the sheet: one title, four choices, two ways out, in the same words everywhere; none of them cut off
     await tapSpot(page, 2, 2, hasTouch);
     await expect(quickSheet(page)).toBeVisible();
@@ -821,6 +823,7 @@ test.describe("3D Quick Add screenshots (sprint 7.2)", () => {
       await startQuick(page);
       await expect(page.getByTestId("quick-instruction")).toBeInViewport();
       await expect(page.getByTestId("quick-close")).toBeInViewport();
+      await expect(page.getByTestId("smart-3d-stage")).toBeInViewport({ ratio: 0.75 });
       await page.waitForTimeout(800);
       await shot("2-adding");
       await tapSpot(page, 2, 2, hasTouch);
