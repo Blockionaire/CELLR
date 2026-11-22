@@ -3,6 +3,7 @@ import {
   cellarDigest,
   cellarFacts,
   cellarFactsText,
+  cellarQuestionKind,
   isCellarQuestion,
   type CellarFacts,
   type RackView,
@@ -23,7 +24,9 @@ import {
   type SommelierAnswer,
   type TonightRequest,
   type TonightView,
+  BUDGET_EUROS,
 } from "@cellr/domain";
+import type { SommelierIntelligence } from "@/server/sommelier/intelligence";
 import type { AiErrorKind, AiUsage, LlmProvider } from "@/server/ai";
 import {
   parseSommelier,
@@ -44,6 +47,13 @@ export interface SommelierDeps {
    * Read only for advice, never for a question of fact; left out, the sommelier is the general one.
    */
   taste?: () => Promise<TasteProfileView | null>;
+  /**
+   * Sommelier 3.0's engines, when the deployment has them switched on. They answer what they can decide (a dish
+   * to pair, something to buy); everything else is answered as before. Absent: nothing changes.
+   */
+  intelligence?: SommelierIntelligence | null;
+  /** Counts an answer of the engines against its own, generous limit; throws RATE_LIMITED when it is gone. */
+  spendEngine?: () => Promise<void>;
   /** Null = no AI configured. */
   llm: LlmProvider | null;
   /** Spends from the chat budget; throws RATE_LIMITED when it is gone. */
@@ -174,8 +184,17 @@ export function createSommelierService(deps: SommelierDeps) {
       };
       // A question about the cellar itself is answered from counted facts: the places and spots are only read
       // for such a question, never for wine advice.
+      // "Which wine do I have for the oysters?" asks what to open, not for an inventory: with the engines on, a
+      // "which" question that names a dish is theirs. "How many" and "where" stay questions of fact.
+      const pairingInDisguise =
+        deps.intelligence !== undefined &&
+        deps.intelligence !== null &&
+        cellarQuestionKind(question) === "selection" &&
+        // "...for the oysters", "...bij de vis": the dish is what the wine is for, not part of a producer's name.
+        /\b(for|with|voor|bij|met)\b/i.test(question) &&
+        deps.intelligence.readsDish(question);
       const facts =
-        !tonight && isCellarQuestion(question)
+        !tonight && isCellarQuestion(question) && !pairingInDisguise
           ? cellarFacts(items, ...(await Promise.all([deps.storage(), deps.racks()])), question)
           : null;
       // The person's taste: only for advice (never for a question of fact, an empty cellar, or when they asked
@@ -192,6 +211,34 @@ export function createSommelierService(deps: SommelierDeps) {
             : Promise.resolve(null));
       /** For the plain engine: asked for something different, the usual taste is not what to steer by. */
       const plainTaste = async () => (explore ? null : taste());
+      // The engines first, for what they decide themselves: no model is asked and nothing is spent. A question
+      // of fact never goes to them; a failure of theirs is not the person's problem (the old path answers).
+      if (deps.intelligence && !facts) {
+        // Free of model cost, not free of limits: a script must not turn the engines into a CPU tap.
+        await deps.spendEngine?.();
+        const planned = await deps.intelligence
+          .plan({
+            question,
+            state: request.state,
+            budgetEuros:
+              request.budgetEuros ?? (request.budget ? BUDGET_EUROS[request.budget][1] : null),
+            personal: request.personal !== false && !explore,
+            locale: await deps.locale().catch(() => "en"),
+            cellar: { items, bottleCount: items.reduce((sum, i) => sum + i.count, 0) },
+          })
+          .catch(() => null);
+        if (planned)
+          return {
+            source: "basic",
+            text: null,
+            basic: planned.plan.picks.length > 0 ? "pairing" : "nothing",
+            bottles: planned.bottles,
+            ...(planned.otherBottles.length > 0 ? { otherBottles: planned.otherBottles } : {}),
+            reason: null,
+            personal: planned.personal,
+            plan: planned.plan,
+          };
+      }
       // An empty cellar has nothing for the model to word: the counted facts say it all (and cost nothing).
       if (items.length === 0 && facts) return plainFacts(facts, null);
       // Nothing to talk about yet: no point paying for an answer that can only say so. (For tonight there is:
@@ -272,8 +319,11 @@ export function createSommelierService(deps: SommelierDeps) {
         text: checked.text,
         basic: null,
         bottles: checked.bottles.length > 0 ? checked.bottles : (named ?? []),
-        verdict: facts ? null : checked.verdict,
-        buy: facts ? [] : checked.buy,
+        // With the engines on, a verdict and buying advice only ever come from them: the model's own are dropped.
+        // (Also with buying advice switched off: a model-made product and price is never shown beside the
+        // engines. Buying advice then comes with `sommelier_buying`, as styles.)
+        verdict: facts || deps.intelligence ? null : checked.verdict,
+        buy: facts || deps.intelligence ? [] : checked.buy,
         reason: null,
         // Only when a taste was shown and the model says it shaped the answer.
         personal: personal !== null && checked.usedTaste,

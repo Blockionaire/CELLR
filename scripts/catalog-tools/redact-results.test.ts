@@ -59,6 +59,16 @@ describe("result files that may be committed", () => {
     expect(q).toMatchObject({ file: { producer_spelling_variants: { groups: 28, examples: 1 } } });
   });
 
+  it("an import report keeps its counts; the refused records become a count", () => {
+    const out = redact("import-xwines-1.json", {
+      rows: 3,
+      invalid: 1,
+      problems: [{ external_id: "1", producer: "Domaine Z", error: "bad" }],
+    });
+    expect(out).toMatchObject({ rows: 3, invalid: 1, problems: 1 });
+    expect(JSON.stringify(out)).not.toMatch(/Domaine Z/);
+  });
+
   it("refuses a file it does not know", () => {
     expect(() => redact("perf-c8.json", {})).toThrow(/not a result file/);
   });

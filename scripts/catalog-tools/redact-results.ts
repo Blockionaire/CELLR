@@ -68,6 +68,9 @@ export function redact(file: string, data: { [k: string]: Json }): { [k: string]
   if (data.redacted) return data;
   if (/benchmark-results\.json$/.test(file)) return benchmark(data);
   if (/recognition-results\.json$/.test(file)) return recognition(data);
+  // an import report: its counts, never the refused records themselves
+  if (/import-[\w-]+\.json$/.test(file))
+    return { ...data, problems: count(data.problems), redacted: NOTE };
   if (/quality-[\w-]+\.json$/.test(file))
     return { ...(quality(data) as { [k: string]: Json }), redacted: NOTE };
   throw new Error(`${file}: not a result file this tool knows`);
