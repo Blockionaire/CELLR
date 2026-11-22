@@ -757,6 +757,8 @@ function SpotMarkers({
         opacity: 0.42,
         depthWrite: false,
         side: THREE.DoubleSide,
+        // one pass: three.js would otherwise draw a transparent two-sided material twice (back, then front)
+        forceSinglePass: true,
         toneMapped: false,
       }),
     [],

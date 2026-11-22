@@ -333,7 +333,18 @@ export default function SmartCellar3D({
   const quickOn = placement.open && placement.canWrite;
   const stageQuick = offersSpots(quick)
     ? { chosen: chosenSpot(quick), onSpot: quickPick, onClose: quickClose }
-    : null;
+    : quick.phase === "action" || quick.phase === "saving" || quick.phase === "conflict"
+      ? {
+          // what the panel has chosen now (the person may pick another free spot there); none after a refusal
+          chosen:
+            target && target.unitId === unit.id && target.index === 1
+              ? { row: target.row, col: target.col, index: 1 as const }
+              : null,
+          onSpot: quickPick,
+          onClose: quickClose,
+          held: true,
+        }
+      : null;
   const quickPanel =
     quick.phase === "action" || quick.phase === "saving" || quick.phase === "conflict"
       ? { spot: quick.spot, action: quick.action as PanelAction }
@@ -458,7 +469,7 @@ export default function SmartCellar3D({
         // from before templates: the existing view, with its own details, actions and words
         <>
           <Cellar3DView onShowRacks={onShowRacks} only={unit.id} />
-          {stageQuick && <LegacyQuick unit={unit} quick={stageQuick} />}
+          {stageQuick && !stageQuick.held && <LegacyQuick unit={unit} quick={stageQuick} />}
         </>
       ) : (
         <SmartUnitStage
@@ -631,6 +642,11 @@ interface StageQuick {
   chosen: FreeSpot | null;
   onSpot: (spot: FreeSpot) => void;
   onClose: () => void;
+  /**
+   * A spot is chosen and a bottle is being chosen for it (the panel is open): only that spot is marked, nothing is
+   * offered or tapped, and no bottle is taken out meanwhile. No bar and no list.
+   */
+  held?: boolean;
 }
 
 /** One place with a template, in the new view, with what its bottles really are. */
@@ -725,10 +741,12 @@ function SmartUnitStage({
         : [],
     [offering, model, placements],
   );
-  const markers = useMemo(
-    () => (offering && model ? spotMarkers(model, free) : null),
-    [offering, model, free],
-  );
+  const heldSpot = quick?.held ? quick.chosen : null;
+  const markers = useMemo(() => {
+    if (!offering || !model) return null;
+    // held: the one chosen spot, as a marker (it is free: it was chosen from the free ones)
+    return spotMarkers(model, heldSpot ? [heldSpot] : free);
+  }, [offering, model, free, heldSpot]);
   const [listShown, setListShown] = useState(false);
   // spots on offer: a bottle that is out goes back first (taking out and choosing a spot never overlap)
   useEffect(() => {
@@ -917,7 +935,7 @@ function SmartUnitStage({
       );
     const flatSelected = selectedIn(selection, unit.id, data.placements);
     const chosen = flatSelected ? (byId.get(flatSelected) ?? null) : null;
-    if (quick)
+    if (quick && !quick.held)
       return (
         <>
           {meta}
@@ -1084,7 +1102,7 @@ function SmartUnitStage({
               debug={debug}
               target={target}
               spots={offering ? (markers ?? []) : null}
-              onSpot={quick?.onSpot}
+              onSpot={quick?.held ? undefined : quick?.onSpot}
             />
           )}
           {lost && (
@@ -1116,7 +1134,7 @@ function SmartUnitStage({
           >
             {/* no blur behind it: a blurred layer over the picture has to be drawn again with every frame */}
             <span className="max-w-full rounded-full bg-surface/90 px-4 py-1.5 text-center text-caption text-ink-2 ring-1 ring-hairline">
-              {quick ? (
+              {quick && !quick.held ? (
                 tq("placingTitle")
               ) : data.placements.length === 0 ? (
                 t("empty")
@@ -1134,7 +1152,7 @@ function SmartUnitStage({
       {/* on a narrow screen the panel of the bottle that is out goes here, right under the picture */}
       <div ref={setPanelSlot} className="empty:hidden" data-testid="smart-3d-panel-slot" />
 
-      {quick && (
+      {quick && !quick.held && (
         <>
           <QuickPlacingBar
             unit={unit}

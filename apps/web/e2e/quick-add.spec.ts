@@ -223,6 +223,13 @@ test.describe("3D Quick Add", () => {
     await tapSpot(page, 3, 4, hasTouch);
     await page.getByTestId("quick-unplaced").click();
     await expect(panel(page)).toHaveAttribute("data-choice", "move:3:4:1");
+    // the chosen spot stays marked in the picture (one disc, on it), and follows a change of spot in the panel
+    await expect(canvas(page)).toHaveAttribute("data-spots", "1");
+    expect(await spotsOnOffer(page)).toEqual(["3:4:1"]);
+    await page.getByTestId("spot-picker").locator('[data-spot="3:3:1"]').click();
+    await expect.poll(() => spotsOnOffer(page)).toEqual(["3:3:1"]);
+    await page.getByTestId("spot-picker").locator('[data-spot="3:4:1"]').click();
+    await expect.poll(() => spotsOnOffer(page)).toEqual(["3:4:1"]);
     // the place is fixed: no other place is offered in this panel
     await expect(page.getByTestId("placement-units")).toHaveCount(0);
     await page.getByTestId("placement-which").getByRole("radio").first().check();
