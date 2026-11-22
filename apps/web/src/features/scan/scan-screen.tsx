@@ -33,6 +33,14 @@ import { BackLabelPicker, BackLabelResult, BackLabelRetries, type BackRetry } fr
 import { useScan } from "./hooks";
 import { warmOcr } from "./ocr";
 import { ModeBar, type ScanMode } from "./modes";
+import {
+  KeptPhotoRetries,
+  KeptPhotosResult,
+  trackInvite,
+  useSendKeptPhotos,
+  type PhotoRetry,
+  type SendOutcome,
+} from "./photo-invite";
 import { ScanReview } from "./scan-review";
 import { SeriesTray, useScanSeries, type SeriesItem } from "./series";
 
@@ -46,6 +54,8 @@ type Stage =
       result: AddBottlesResult;
       /** A back label taken with this scan, and what became of it. */
       back?: { photo: PreparedPhoto; outcome: BackLabelAttempt | "saving" } | undefined;
+      /** Bottle photos kept on the review for the 2D library, and what became of them. */
+      photos?: { files: File[]; outcome: SendOutcome } | undefined;
     };
 
 /**
@@ -77,6 +87,11 @@ export function ScanScreen({
   // The rack spot this scan was started from; used once, by the first bottle added.
   const [spot, setSpot] = useState<PreferredSpot | null>(initialSpot ?? null);
   const [stage, setStage] = useState<Stage>({ name: "capture", error: null, retry: null });
+  // The stage as it is now, for work that ends after the person may have moved on (sending bottle photos).
+  const stageNow = useRef(stage);
+  useEffect(() => {
+    stageNow.current = stage;
+  }, [stage]);
   // An optional back label, tied to the front photo it was taken with: it can never go on to another wine.
   const [back, setBack] = useState<{ imageId: string; photo: PreparedPhoto } | null>(null);
   const backFor = (imageId: string) => (back?.imageId === imageId ? back.photo : null);
@@ -87,6 +102,43 @@ export function ScanScreen({
   const backChoice = useRef<{ imageId: string; ready: Promise<PreparedPhoto | null> } | null>(null);
   // Back labels of a series that could not be saved, each tied to its own wine, until retried or dismissed.
   const [backRetries, setBackRetries] = useState<BackRetry[]>([]);
+  // The invitation to send bottle photos is made once per scan flow: once it has been on a review that is finished
+  // (added, wished, skipped), or answered, it is not made again here.
+  const [inviteOpen, setInviteOpen] = useState(true);
+  const [inviteShown, setInviteShown] = useState(false);
+  const closeInvite = () => {
+    if (inviteShown) setInviteOpen(false);
+  };
+  const [photoRetries, setPhotoRetries] = useState<PhotoRetry[]>([]);
+  const sendKept = useSendKeptPhotos();
+  const flowMode = (itemId?: string) => (itemId ? "batch" : mode);
+
+  /** Sends the photos kept on a review now that its bottles are in; the outcome is said where the person is. */
+  async function sendPhotos(result: AddBottlesResult, files: File[], itemId?: string) {
+    const outcome = await sendKept(result, files);
+    trackInvite(outcome.state, {
+      photos: files.length,
+      mode: flowMode(itemId),
+    });
+    // Still on its "added" screen: said there. Moved on (a series, or "Scan another" before the photos were
+    // through): said where the person is, and a failure is listed to try again, never dropped.
+    const now = stageNow.current;
+    if (!itemId && now.name === "done" && now.result === result && now.photos) {
+      setStage((s) =>
+        s.name === "done" && s.result === result && s.photos
+          ? { ...s, photos: { files, outcome } }
+          : s,
+      );
+      return;
+    }
+    const wine = `${result.wine.producer} ${result.wine.name}`;
+    if (outcome.state === "sent") toast.show(t("photoSentFor", { wine }));
+    if (outcome.state === "failed")
+      setPhotoRetries((list) => [
+        ...list,
+        { key: `${result.vintageId}:${Date.now()}`, added: result, files, wine },
+      ]);
+  }
   const heading = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // A step that puts the cursor in its first field (search, producer) keeps it: that is where the keyboard
@@ -197,6 +249,7 @@ export function ScanScreen({
   }
 
   function skip(itemId: string) {
+    closeInvite();
     series.queue.skip(itemId);
     toast.show(t("series.skipped"));
     next(itemId);
@@ -272,6 +325,7 @@ export function ScanScreen({
         )}
 
         <BackLabelRetries items={backRetries} onChange={setBackRetries} />
+        <KeptPhotoRetries items={photoRetries} onChange={setPhotoRetries} mode={mode} />
 
         {stage.name === "review" && (
           <ScanReview
@@ -305,7 +359,14 @@ export function ScanScreen({
                 }}
               />
             }
+            photoInvite={inviteOpen}
+            onInviteStep={(step, wine, photos) => {
+              trackInvite(step, { wine, photos, mode: flowMode(stage.itemId) });
+              if (step === "shown") setInviteShown(true);
+              if (step === "later") setInviteOpen(false);
+            }}
             onWished={(wine) => {
+              closeInvite();
               if (stage.itemId)
                 handled(
                   stage.itemId,
@@ -323,7 +384,12 @@ export function ScanScreen({
                   }
                 : undefined
             }
-            onDone={(result, placeId) => {
+            onDone={(result, placeId, photos) => {
+              closeInvite();
+              if (photos.length > 0) {
+                setInviteOpen(false);
+                void sendPhotos(result, photos, stage.itemId);
+              }
               // The bottles are in. The back label (if any) follows on its own: whatever happens to it, the
               // bottles stay added, and the photo is only uploaded now, so leaving earlier left nothing behind.
               const shown = backFor(stage.result.image.id);
@@ -342,6 +408,10 @@ export function ScanScreen({
                   name: "done",
                   result,
                   back: coming && shown ? { photo: shown, outcome: "saving" } : undefined,
+                  photos:
+                    photos.length > 0
+                      ? { files: photos, outcome: { state: "sending" } }
+                      : undefined,
                 });
                 void coming?.then(async (photo) => {
                   if (!photo) return;
@@ -398,12 +468,31 @@ export function ScanScreen({
             initial={stage.back.outcome}
           />
         )}
+        {stage.name === "done" && stage.photos && (
+          <div className="mb-4 flex justify-center">
+            <KeptPhotosResult
+              outcome={stage.photos.outcome}
+              onRetry={() => {
+                const { result, photos } = stage;
+                if (!photos) return;
+                setStage((s) =>
+                  s.name === "done" && s.result === result
+                    ? { ...s, photos: { files: photos.files, outcome: { state: "sending" } } }
+                    : s,
+                );
+                void sendPhotos(result, photos.files);
+              }}
+            />
+          </div>
+        )}
         {stage.name === "done" && (
           <AddedDone
             result={stage.result}
             onAnother={restart}
             anotherLabel={t("another")}
             hasPhoto
+            // the invitation was made on the review already: not a second time here
+            photoOffer={!inviteShown}
           />
         )}
       </div>
