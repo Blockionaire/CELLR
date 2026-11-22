@@ -73,6 +73,7 @@ export const THREE_D_SPECS = [
   /[\\/]e2e[\\/]smart-cellar-3d[^\\/]*\.spec\.ts$/,
   /[\\/]e2e[\\/]storage-[^\\/]*\.spec\.ts$/,
   /[\\/]e2e[\\/]three-view\.spec\.ts$/,
+  /[\\/]e2e[\\/]quick-add\.spec\.ts$/, // Smart Cellar 3D sprint 7: Quick Add in the 3D cellar
   /[\\/]e2e[\\/]visual-[^\\/]*3d[^\\/]*\.spec\.ts$/,
   /[\\/]e2e[\\/]perf-[^\\/]*3d[^\\/]*\.spec\.ts$/,
 ];
