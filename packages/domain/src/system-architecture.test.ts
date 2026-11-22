@@ -45,6 +45,12 @@ const inventory: RepositoryInventory = {
   serverModules: [],
   ciJobs: [],
   features: ["scan_resolver"],
+  workflows: [],
+  envVars: [],
+  externalHosts: [],
+  dependencies: [],
+  dataAccess: [],
+  imports: [],
 };
 
 // api → svc → db, svc → ai; ui → api; db ⇢ svc (feedback); future ⇢ svc (planned)
@@ -187,6 +193,40 @@ describe("validating the architecture register", () => {
     expect(errors({ ...registry, version: "v1", reviewedOn: "19-11-2026" })).toEqual(
       expect.arrayContaining(["version", "reviewed-on"]),
     );
+  });
+});
+
+describe("ownership of configuration, hosts and dependencies", () => {
+  it("every env var, external host and runtime dependency belongs to exactly one component", () => {
+    const inv: RepositoryInventory = {
+      ...inventory,
+      envVars: ["AI_KEY", "SWITCH"],
+      externalHosts: ["api.vendor.dev"],
+      dependencies: ["left-pad"],
+    };
+    const comps = registry.components.map((c) =>
+      c.id === "svc"
+        ? {
+            ...c,
+            env: ["AI_KEY"],
+            gates: [{ name: "SWITCH", kind: "env" as const, note: "" }],
+            hosts: ["api.vendor.dev"],
+            packages: ["left-pad"],
+          }
+        : c,
+    );
+    const errors = (reg: ArchitectureRegistry, i: RepositoryInventory) =>
+      validateRegistry(reg, i).filter((x) => x.level === "error");
+    expect(errors({ ...registry, components: comps }, inv)).toEqual([]);
+    expect(errors(registry, inv).map((i) => i.code)).toEqual(
+      expect.arrayContaining(["unowned-env-var", "unowned-host", "unowned-dependency"]),
+    );
+    const claimsUnknown = registry.components.map((c) =>
+      c.id === "svc" ? { ...c, env: ["GONE"], packages: ["nope"] } : c,
+    );
+    expect(
+      errors({ ...registry, components: claimsUnknown }, inventory).map((i) => i.code),
+    ).toEqual(expect.arrayContaining(["unknown-env-var", "unknown-dependency"]));
   });
 });
 
