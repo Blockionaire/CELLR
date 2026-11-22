@@ -16,6 +16,14 @@
 
 So 0050 runs on exactly what it was written for. It adds one table, three functions and one index set, replaces `merge_wines` (the same body plus the origin carry-over), and **changes no existing data**.
 
+### Final dry run (2026-11-20, after #101 was merged as e27e533; read-only)
+
+- Production history: still 0001–0047. `main` now ends at 0050, so a `db push` from `main` applies exactly 0050.
+- `merge_wines` and `my_household_ids` are unchanged (the same MD5s as above). No R-27 object exists.
+- Production runs e27e533. The app treats the missing R-27 functions as "no origin", and there were no runtime errors after the deploy.
+- `verify-0050.sql` run against production **before** the apply: checks 1, 3 and 10 are false (0050 is not there yet), and 2 and 15 are true. On a local Postgres 17 with 0050 applied, all 15 checks are true.
+- Data baseline at that moment: 45 wines, 57 bottles, 4 households, 41 producers, 0 providers, 0 external records. The production app is in use, so the baseline is taken again right before applying.
+
 ## 2. Apply (owner, after the go-ahead)
 
 On a machine with the repository at the merged `main` (which then ends at 0050), with the production database password at hand.
@@ -49,6 +57,8 @@ pnpm exec supabase db push --linked --skip-vault
 **Order:** the app of #101 works with or without 0050. A missing R-27 function is treated as "no origin" (tested). The migration can therefore come before or after the deploy. The procedure prefers migration first.
 
 ## 3. Verification after applying (Claude, read-only)
+
+Run [`verify-0050.sql`](verify-0050.sql) (only `SELECT`s): all 15 rows must be `ok = true`. Then compare its data counts with the baseline taken just before. In more detail:
 
 1. `list_migrations` shows 0050, and nothing else changed.
 2. **Objects:**

@@ -20,3 +20,8 @@ export * from "./pairing-engine/assess";
 export * from "./pairing-engine/decide";
 export * from "./pairing-engine/taste";
 export * from "./pairing-engine/knowledge";
+export * from "./buying/styles";
+export * from "./buying/recommend";
+export * from "./experiences/serving";
+export * from "./experiences/quantity";
+export * from "./experiences/menu";
