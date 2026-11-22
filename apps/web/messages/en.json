@@ -280,7 +280,33 @@
       "wineTitle": "The wine",
       "closeSearch": "Back to the scan",
       "useMatch": "Use {wine} after all",
-      "pickFirst": "Choose which wine it is first, or add it as a new wine."
+      "pickFirst": "Choose which wine it is first, or add it as a new wine.",
+      "checkTitle": "Is it this wine?",
+      "checkBody": "The label differs from this wine in a detail below. Tap it if it is this wine, or choose another one."
+    },
+    "source": {
+      "label": "From the label",
+      "catalog": "CELLR database (verified)",
+      "cellar": "Your own wine",
+      "remembered": "Confirmed by you before",
+      "record": "External source, check it",
+      "typed": "Typed by you",
+      "unknown": "Unknown",
+      "group": "{source}: {fields}",
+      "conflict": "The label says “{value}” for the {field}. Not this wine? Choose another one."
+    },
+    "field": {
+      "producer": "producer",
+      "name": "name",
+      "type": "kind",
+      "countryCode": "country",
+      "region": "region"
+    },
+    "vintageSource": {
+      "label": "From the label",
+      "labelCheck": "From the label, but hard to read: please check",
+      "remembered": "Confirmed by you for this photo before",
+      "unknown": "Not read from the label: type it or choose NV"
     }
   },
   "sommelier": {

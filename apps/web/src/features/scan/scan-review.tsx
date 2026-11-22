@@ -4,10 +4,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { useRef, useState, type ReactNode } from "react";
 import {
+  draftOrigins,
   ERROR_MESSAGES,
+  existingWineOrigins,
   formatVintage,
   RESOLVE_REASONS,
   suggestWine,
+  vintageOrigin,
+  WINE_FIELDS,
+  type FieldOrigin,
+  type FieldSource,
+  type WineField,
   type AddBottlesResult,
   type BottleArtRef,
   type ResolveReason,
@@ -27,7 +34,7 @@ import {
   type WineFieldsValue,
 } from "@/features/cellar/new-wine-form";
 import { useOwnedCounts, WineChoice } from "@/features/cellar/wine-stage";
-import { placeLine } from "@/features/cellar/wine-visuals";
+import { countryName, placeLine } from "@/features/cellar/wine-visuals";
 import { useAddWish } from "@/features/wishlist/hooks";
 import { track } from "@/lib/analytics";
 import { api, errorMessage } from "@/lib/api";
@@ -97,17 +104,34 @@ export function ScanReview({
   const addWish = useAddWish();
   const { outcome, facts, matches } = result;
   const match = outcome === "found" ? (matches[0]?.wine ?? null) : null;
+  const path = { remembered: result.remembered, fromText: result.fromText };
+  // The match is filled in for the person only when the label does not contradict who it is (producer, name, kind):
+  // a label that names another cuvée is never added to this wine by default. Otherwise it is offered, to tap.
+  const reliable =
+    !!match &&
+    !(["producer", "name", "type"] as const).some(
+      (f) => existingWineOrigins(match, facts, path)[f].conflict !== undefined,
+    );
+  const offered =
+    outcome === "choose" ? matches.map((m) => m.wine) : match && !reliable ? [match] : [];
 
   const [pick, setPick] = useState<Pick>(() =>
-    match ? { kind: "wine", wine: match } : outcome === "choose" ? null : { kind: "new" },
+    reliable && match ? { kind: "wine", wine: match } : offered.length > 0 ? null : { kind: "new" },
   );
-  const [choice, setChoice] = useState<Choice>(match ? "match" : "new_wine");
+  const [choice, setChoice] = useState<Choice>(reliable ? "match" : "new_wine");
   // A wrong guess is corrected by finding the right wine among your own, not by typing it in again (a duplicate).
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState(facts?.producer ?? facts?.name ?? "");
   // What the person has in the new-wine fields: kept while another wine is tried, so nothing typed is lost.
   const [fields, setFields] = useState<WineFieldsValue>(() =>
     fieldsOfDraft(facts ? suggestWine(facts) : undefined),
+  );
+  // What the fields were started from (the label's reading, or a record): a field still as started says so.
+  const [start, setStart] = useState<{ value: WineFieldsValue; from: "label" | "record" | "none" }>(
+    () => ({
+      value: fieldsOfDraft(facts ? suggestWine(facts) : undefined),
+      from: facts && outcome !== "unread" ? "label" : "none",
+    }),
   );
   // A record of an external source chosen to start the fields: named above them, and sent along (R-27 provenance).
   const [fromRecord, setFromRecord] = useState<{
@@ -148,7 +172,9 @@ export function ScanReview({
   }
 
   function takeRecord(hit: Parameters<typeof draftOfRecord>[0]) {
-    setFields(fieldsOfDraft(draftOfRecord(hit)));
+    const value = fieldsOfDraft(draftOfRecord(hit));
+    setFields(value);
+    setStart({ value, from: "record" });
     setFromRecord({ recordId: hit.recordId, provider: hit.provider?.name ?? "" });
     choose({ kind: "new" }, "new_wine");
   }
@@ -223,10 +249,16 @@ export function ScanReview({
     }
   }
 
+  /** A quiet line per field of a new wine: where it comes from, and only when that says something. */
+  const draftSources = (origins: Record<WineField, FieldOrigin>) =>
+    Object.fromEntries(
+      WINE_FIELDS.map((f) => [f, <SourceTag key={f} field={f} source={origins[f].source} />]),
+    ) as Record<WineField, ReactNode>;
+
   const status =
     outcome === "unread"
       ? { title: t("unreadTitle"), body: t(`unread.${result.reason ?? "ai-down"}`) }
-      : outcome === "found" && match
+      : outcome === "found" && match && reliable
         ? {
             title: t("foundTitle"),
             body: t(
@@ -239,9 +271,11 @@ export function ScanReview({
                   : "foundBody",
             ),
           }
-        : outcome === "choose"
-          ? { title: t("chooseTitle"), body: t("chooseBody") }
-          : { title: t("newTitle"), body: t("newBody") };
+        : outcome === "found" && match
+          ? { title: t("review.checkTitle"), body: t("review.checkBody") }
+          : outcome === "choose"
+            ? { title: t("chooseTitle"), body: t("chooseBody") }
+            : { title: t("newTitle"), body: t("newBody") };
 
   return (
     <div className="flex flex-col gap-5" data-testid="scan-review">
@@ -255,7 +289,7 @@ export function ScanReview({
       </div>
 
       <div role={outcome === "unread" ? "status" : undefined} className="flex items-start gap-3">
-        {outcome === "found" && match && (
+        {outcome === "found" && match && reliable && (
           <span
             aria-hidden="true"
             className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-accent text-accent-ink"
@@ -310,33 +344,40 @@ export function ScanReview({
           </div>
         ) : (
           <>
-            {outcome === "choose" && (
-              <ul className="flex flex-col gap-3" aria-label={t("chooseTitle")}>
-                {matches.map((m) => (
-                  <li key={m.wine.id}>
+            {offered.length > 0 && (
+              <ul className="flex flex-col gap-3" aria-label={status.title}>
+                {offered.map((w) => (
+                  <li key={w.id}>
                     <Candidate
-                      wine={m.wine}
+                      wine={w}
                       year={yearText}
-                      owned={owned.get(m.wine.id)}
-                      selected={pick?.kind === "wine" && pick.wine.id === m.wine.id}
-                      onPick={() => choose({ kind: "wine", wine: m.wine }, "candidate")}
-                      why={whyOf(m.wine.id)}
+                      owned={owned.get(w.id)}
+                      selected={pick?.kind === "wine" && pick.wine.id === w.id}
+                      onPick={() => choose({ kind: "wine", wine: w }, "candidate")}
+                      why={whyOf(w.id)}
+                      art={match && w.id === match.id ? result.art : undefined}
                     />
                   </li>
                 ))}
               </ul>
             )}
 
-            {pick?.kind === "wine" &&
-              !(outcome === "choose" && matches.some((m) => m.wine.id === pick.wine.id)) && (
-                <Candidate
-                  wine={pick.wine}
-                  year={yearText}
-                  owned={owned.get(pick.wine.id)}
-                  art={match && pick.wine.id === match.id ? result.art : undefined}
-                  why={whyOf(pick.wine.id)}
-                />
-              )}
+            {pick?.kind === "wine" && !offered.some((w) => w.id === pick.wine.id) && (
+              <Candidate
+                wine={pick.wine}
+                year={yearText}
+                owned={owned.get(pick.wine.id)}
+                art={match && pick.wine.id === match.id ? result.art : undefined}
+                why={whyOf(pick.wine.id)}
+              />
+            )}
+
+            {pick?.kind === "wine" && (
+              <WineSources origins={existingWineOrigins(pick.wine, facts, path)} />
+            )}
+            {pick?.kind !== "wine" && match && !reliable && (
+              <WineSources origins={existingWineOrigins(match, facts, path)} conflictsOnly />
+            )}
 
             {pick?.kind === "new" && (
               <div className="flex flex-col gap-5" data-testid="scan-review-new">
@@ -363,6 +404,7 @@ export function ScanReview({
                   }}
                   producers={producers}
                   preview={false}
+                  sources={draftSources(draftOrigins(fields, start.value, start.from))}
                 />
               </div>
             )}
@@ -383,7 +425,7 @@ export function ScanReview({
             )}
 
             <div className="flex flex-col gap-2">
-              {match && pick?.kind !== "wine" && (
+              {match && reliable && pick?.kind !== "wine" && (
                 <Button
                   variant="secondary"
                   block
@@ -427,6 +469,7 @@ export function ScanReview({
         imageId={result.image.id}
         labels={labels}
         autoFocusYear={false}
+        yearSource={<VintageSource origin={vintageOrigin(facts, path)} />}
         resolveWine={resolveWine}
         onYearChange={setYear}
         footer={
@@ -516,5 +559,87 @@ function Candidate({
         </p>
       )}
     </div>
+  );
+}
+
+/** Under a field of a new wine: where its value comes from. Nothing for what the person typed themselves. */
+function SourceTag({ field, source }: { field: WineField; source: FieldSource }) {
+  const t = useTranslations("scan.source");
+  if (source === "typed") return null;
+  return (
+    <span data-testid="field-source" data-field={field} data-source={source}>
+      {t(source)}
+    </span>
+  );
+}
+
+/**
+ * Under the wine chosen: where each part of it comes from, grouped ("From the label: producer, name, kind · CELLR
+ * database: region"), and what the label says that differs from it. Quiet, in the caption's size: the wine is the
+ * point, this says how much of it the label confirmed.
+ */
+function WineSources({
+  origins,
+  conflictsOnly = false,
+}: {
+  origins: Record<WineField, FieldOrigin>;
+  conflictsOnly?: boolean;
+}) {
+  const t = useTranslations("scan.source");
+  const tf = useTranslations("scan.field");
+  const tTypes = useTranslations("wineTypes");
+  const locale = useLocale();
+  const groups = new Map<FieldSource, WineField[]>();
+  for (const f of WINE_FIELDS) {
+    const { source } = origins[f];
+    groups.set(source, [...(groups.get(source) ?? []), f]);
+  }
+  const said = (f: WineField, value: string) =>
+    f === "type"
+      ? tTypes(value as WineSummary["type"])
+      : f === "countryCode"
+        ? (countryName(value, locale) ?? value)
+        : value;
+  const conflicts = WINE_FIELDS.filter((f) => origins[f].conflict !== undefined);
+  return (
+    <div className="flex flex-col gap-1.5 px-1" data-testid="wine-sources">
+      {!conflictsOnly && (
+        <p className="text-caption text-ink-3">
+          {[...groups.entries()].map(([source, fields], i) => (
+            <span
+              key={source}
+              data-testid="wine-source"
+              data-source={source}
+              data-fields={fields.join(" ")}
+            >
+              {i > 0 && " · "}
+              {t("group", {
+                source: t(source),
+                fields: fields.map((f) => tf(f)).join(", "),
+              })}
+            </span>
+          ))}
+        </p>
+      )}
+      {conflicts.map((f) => (
+        <p key={f} className="text-small text-ink" data-testid="wine-conflict" data-field={f}>
+          {t("conflict", { field: tf(f), value: said(f, origins[f].conflict!) })}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/** Under the vintage: where the year it starts with comes from (never from the vintages a wine has). */
+function VintageSource({
+  origin,
+}: {
+  origin: { source: "label" | "remembered" | "unknown"; check: boolean };
+}) {
+  const t = useTranslations("scan.vintageSource");
+  return (
+    <span data-testid="vintage-source" data-source={origin.source}>
+      {t(origin.source === "label" && origin.check ? "labelCheck" : origin.source)}
+    </span>
   );
 }
