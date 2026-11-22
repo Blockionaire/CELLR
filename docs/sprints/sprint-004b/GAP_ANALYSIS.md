@@ -5,13 +5,13 @@ says what already works, what had to be repaired, and what this sprint builds. E
 
 ## Changes since the existing reports
 
-| Checked                                                                      | Result                                                                                                                                                            |
-| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| X-Wines repository (`github.com/rogerioxavier/X-Wines`)                      | HEAD still `5e43c7f` (May 2024); LICENSE unchanged (CC0 1.0)                                                                                                      |
-| X-Wines Drive folder                                                         | same 15 files; `XWines_Full_100K_wines.csv` SHA-256 `eac2d812…62cc`, equal to the authors' `INFO_Hashing.txt`                                                     |
-| Liv-ex LWIN licence page                                                     | same text: "Creative Commons", commercial adaptation, attribution, no version or licensor named                                                                   |
-| E-mails to the X-Wines authors and Liv-ex (`wine-intelligence-mega/emails/`) | drafts, not sent; no answer on file                                                                                                                               |
-| Supabase projects on the account                                             | `vvelgyhbjfmjvxkzekyz` (production, Postgres 17) and `dqwkbtsstvakcvlnwvwk` "Blockionaire's Project" (created 2026-05-12, nothing identifies it as CELLR staging) |
+| Checked                                                                      | Result                                                                                                                                  |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| X-Wines repository (`github.com/rogerioxavier/X-Wines`)                      | HEAD still `5e43c7f` (May 2024); LICENSE unchanged (CC0 1.0)                                                                            |
+| X-Wines Drive folder                                                         | same 15 files; `XWines_Full_100K_wines.csv` SHA-256 `eac2d812…62cc`, equal to the authors' `INFO_Hashing.txt`                           |
+| Liv-ex LWIN licence page                                                     | same text: "Creative Commons", commercial adaptation, attribution, no version or licensor named                                         |
+| E-mails to the X-Wines authors and Liv-ex (`wine-intelligence-mega/emails/`) | drafts, not sent; no answer on file                                                                                                     |
+| Supabase projects on the account                                             | the production project and `dqwkbtsstvakcvlnwvwk` "Blockionaire's Project" (created 2026-05-12, nothing identifies it as CELLR staging) |
 
 **Conclusion:** no new evidence; rights stay X-Wines `unverified` (pilot only) and LWIN `blocked`.
 
