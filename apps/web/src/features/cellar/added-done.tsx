@@ -17,6 +17,7 @@ export function AddedDone({
   anotherLabel,
   hasPhoto = false,
   photoOffer = true,
+  back3d,
 }: {
   result: AddBottlesResult;
   onAnother: () => void;
@@ -24,12 +25,15 @@ export function AddedDone({
   anotherLabel?: string | undefined;
   /** The wine already has a label photo (a scan): no need to offer one. */
   hasPhoto?: boolean;
+  /** Started from a spot in the 3D cellar (sprint 7): the first way on is back there, to see the bottle in place. */
+  back3d?: string | undefined;
   /** Offer whole-bottle photos for the wine's 2D picture (not when the scan's review invited to it already). */
   photoOffer?: boolean;
 }) {
   const t = useTranslations("addBottle");
   const tv = useTranslations("vintage");
   const tPhoto = useTranslations("photo");
+  const t3 = useTranslations("quickAdd");
   return (
     <div className="flex flex-col items-center gap-6 py-2 text-center">
       {/* The bottle on its stage, with a calm check and how many went in. */}
@@ -98,7 +102,16 @@ export function AddedDone({
         />
       )}
       <div className="flex w-full max-w-sm flex-col gap-3">
-        <Button size="lg" block onClick={onAnother}>
+        {back3d && (
+          <Link
+            href={back3d}
+            className={buttonStyles({ size: "lg", block: true })}
+            data-testid="added-back-3d"
+          >
+            {t3("back3d")}
+          </Link>
+        )}
+        <Button size="lg" block variant={back3d ? "secondary" : undefined} onClick={onAnother}>
           {anotherLabel ?? t("addAnother")}
         </Button>
         <Link

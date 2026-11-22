@@ -7,7 +7,7 @@ import { Button } from "@/ui/button";
 import { ChevronRightIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
 import { AddedDone } from "./added-done";
-import { addHref, type PreferredSpot } from "./add-spot";
+import { addHref, back3dHref, type AddOrigin, type PreferredSpot } from "./add-spot";
 import { BottleDetails } from "./bottle-details";
 import { ChooseWine } from "./choose-wine";
 import { useForgetWish } from "@/features/wishlist/hooks";
@@ -27,6 +27,7 @@ export function AddBottleFlow({
   wishId,
   initialSpot,
   catalogSearch = false,
+  origin,
 }: {
   currency: string;
   /** Jump straight to "how many and where" for this wine (from "Add more"). */
@@ -36,10 +37,13 @@ export function AddBottleFlow({
   wishId?: string | undefined;
   /** An empty spot tapped in a rack: the first bottle goes there (the person can still choose otherwise). */
   initialSpot?: PreferredSpot | undefined;
+  /** Started from a spot in the 3D cellar (sprint 7): the last screen offers to go back there. */
+  origin?: AddOrigin | undefined;
   /** The `wine_search` feature: find the wine through the database search instead of the fetched list. */
   catalogSearch?: boolean | undefined;
 }) {
   const t = useTranslations("addBottle");
+  const t3 = useTranslations("quickAdd");
   const wines = useWines();
   const forgetWish = useForgetWish();
   const [step, setStep] = useState<Step>(initialWine ? "details" : "choose");
@@ -115,7 +119,7 @@ export function AddBottleFlow({
       <div className="mx-auto w-full max-w-xl">
         {step === "choose" && (
           <ChooseWine
-            scanHref={addHref("/scan", spot)}
+            scanHref={addHref("/scan", spot, origin)}
             wines={wines.data}
             query={query}
             onQuery={setQuery}
@@ -145,6 +149,10 @@ export function AddBottleFlow({
             preferredPlaceId={lastPlace}
             spot={spot}
             onSpotChange={setSpot}
+            savedHref={
+              origin === "3d" && initialSpot ? back3dHref(initialSpot.locationId, null) : undefined
+            }
+            savedLabel={origin === "3d" ? t3("back3d") : undefined}
             initialYear={result === null && wine.id === initialWine?.id ? initialYear : undefined}
             onChangeWine={() => setStep("choose")}
             onDone={(r, placeId) => {
@@ -157,7 +165,17 @@ export function AddBottleFlow({
             }}
           />
         )}
-        {step === "done" && result && <AddedDone result={result} onAnother={reset} />}
+        {step === "done" && result && (
+          <AddedDone
+            result={result}
+            onAnother={reset}
+            back3d={
+              origin === "3d" && lastPlace
+                ? back3dHref(lastPlace, result.firstSlot ? (result.bottleIds[0] ?? null) : null)
+                : undefined
+            }
+          />
+        )}
       </div>
     </>
   );

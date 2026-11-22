@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { spotFromParams } from "@/features/cellar/add-spot";
+import { originFromParams, spotFromParams } from "@/features/cellar/add-spot";
 import { ScanScreen } from "@/features/scan/scan-screen";
 import { getPageContext } from "@/server/context";
 import { getFeatures } from "@/server/env";
@@ -11,7 +11,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("scan"))("title") };
 }
 
-type Props = { searchParams: Promise<{ place?: string; row?: string; col?: string }> };
+type Props = {
+  searchParams: Promise<{ place?: string; row?: string; col?: string; from?: string }>;
+};
 
 export default async function ScanPage({ searchParams }: Props) {
   const params = await searchParams;
@@ -26,6 +28,8 @@ export default async function ScanPage({ searchParams }: Props) {
     <ScanScreen
       currency={currency}
       initialSpot={initialSpot}
+      // only with a spot that is one of this household's own: otherwise there is nothing to go back to
+      origin={initialSpot ? originFromParams(params) : undefined}
       catalogSearch={getFeatures().wine_search}
     />
   );

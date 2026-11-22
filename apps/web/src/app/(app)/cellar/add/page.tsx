@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { AddBottleFlow } from "@/features/cellar/add-bottle-flow";
-import { spotFromParams } from "@/features/cellar/add-spot";
+import { originFromParams, spotFromParams } from "@/features/cellar/add-spot";
 import { getPageContext } from "@/server/context";
 import { getFeatures } from "@/server/env";
 import { getPageMe } from "@/server/me";
@@ -20,6 +20,7 @@ type Props = {
     wish?: string;
     /** An empty spot tapped in a rack: its place, shelf and position. */
     place?: string;
+    from?: string;
     row?: string;
     col?: string;
   }>;
@@ -55,6 +56,8 @@ export default async function AddBottlePage({ searchParams }: Props) {
       initialYear={initialYear}
       wishId={wishId.success ? wishId.data : undefined}
       initialSpot={initialSpot}
+      // only with a spot that is one of this household's own: otherwise there is nothing to go back to
+      origin={initialSpot ? originFromParams(params) : undefined}
       catalogSearch={getFeatures().wine_search}
     />
   );

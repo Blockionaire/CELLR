@@ -10,13 +10,16 @@ import {
   MAX_BOTTLES_PER_ADD,
   parseMoneyToCents,
   type AddBottlesResult,
+  type RackView,
   type StorageUnitView,
+  type VintageDetail,
   type WineSummary,
 } from "@cellr/domain";
 import { ApiError, checkMessage, errorMessage } from "@/lib/api";
 import { todayLocal } from "@/lib/local-date";
 import { Skeleton } from "@/ui/skeleton";
-import { Button } from "@/ui/button";
+import { Button, buttonStyles } from "@/ui/button";
+import Link from "next/link";
 import { Chip } from "@/ui/chip";
 import { Field } from "@/ui/field";
 import {
@@ -31,10 +34,11 @@ import { CheckIcon, PlusIcon } from "@/ui/icons";
 import { Stepper } from "@/ui/stepper";
 import { cn } from "@/ui/cn";
 import type { PreferredSpot } from "./add-spot";
-import { useAddBottles, useStorage } from "./hooks";
+import { useAddBottles, useRefreshCellar, useStorage } from "./hooks";
 import { NewPlaceSheet } from "./new-place-sheet";
 import { SpotPickerSheet } from "./spot-picker-sheet";
 import { WineStage } from "./wine-stage";
+import { uncertain as uncertainOutcome } from "./placement/placement-hooks";
 import { placeLine } from "./wine-visuals";
 
 interface BottleDetailsProps {
@@ -55,6 +59,9 @@ interface BottleDetailsProps {
   footer?: ReactNode;
   /** Shown above the "Add" button (a scan's optional invitation to send bottle photos). */
   beforeSubmit?: ReactNode;
+  /** Where to go when a save whose answer was lost turns out to have happened (sprint 7). Default: the cellar. */
+  savedHref?: string | undefined;
+  savedLabel?: string | undefined;
   /** Shown under the wine (a scan shows its front label and offers the back). */
   labels?: ReactNode;
   /**
@@ -105,6 +112,8 @@ export function BottleDetails({
   quantityHint,
   footer,
   beforeSubmit,
+  savedHref = "/cellar",
+  savedLabel,
   labels,
   spot = null,
   onSpotChange,
@@ -143,6 +152,22 @@ export function BottleDetails({
   const [pickerOpen, setPickerOpen] = useState(false);
   /** The server said the chosen spot is taken: it stays chosen (never silently swapped) until another is picked. */
   const [spotTaken, setSpotTaken] = useState(false);
+  /**
+   * A save to an exact spot whose answer was lost (sprint 7): it may or may not have happened. Saving again could add
+   * the bottles twice, so it is not offered until the spot has been checked (one fresh read: who is on it now).
+   */
+  const [unsure, setUnsure] = useState<{
+    locationId: string;
+    row: number;
+    col: number;
+    wineId: string;
+    year: number | null;
+  } | null>(null);
+  const [checking, setChecking] = useState(false);
+  /** The check found the bottles saved: nothing more to do here. */
+  const [savedAfterAll, setSavedAfterAll] = useState(false);
+  const refreshCellar = useRefreshCellar();
+  const tq = useTranslations("quickAdd");
 
   const units: StorageUnitView[] = storage.data ?? [];
   /** The place bottles go: the one chosen, else the first with room for all of them, else any with room. */
@@ -179,7 +204,7 @@ export function BottleDetails({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (saving.current) return;
+    if (saving.current || unsure || savedAfterAll) return;
     setSubmitted(true);
     setError(null);
     if (year === undefined || priceCents === undefined) return;
@@ -230,9 +255,57 @@ export function BottleDetails({
         );
       onDone(result, target);
     } catch (e) {
+      // No answer to a save to an exact spot: it may have been saved. Never repeated blindly; checked first.
+      if (slot && target && uncertainOutcome(e)) {
+        setUnsure({
+          locationId: target,
+          row: slot.row,
+          col: slot.col,
+          wineId,
+          year: parsed.data.year,
+        });
+        setError(tq("uncertainSave"));
+        return;
+      }
       // The spot went in the meantime: say so where the spot is shown, and offer another one.
       if (slot && e instanceof ApiError && e.code === "CONFLICT") setSpotTaken(true);
       setError(errorMessage(e, (k) => te(k), ERROR_MESSAGES));
+    }
+  }
+
+  /**
+   * Who is on the spot now, read fresh from the server: a bottle of this wine and vintage means the lost save did
+   * happen (said, and the cellar refreshed; nothing is saved again); an empty spot means it did not (saving is offered
+   * again); another bottle means the spot went to someone else meanwhile (another spot must be chosen).
+   */
+  async function checkSpot() {
+    if (!unsure || checking) return;
+    setChecking(true);
+    try {
+      const racks = await api.get<RackView>("/racks");
+      const there = racks.units
+        .find((u) => u.id === unsure.locationId)
+        ?.bottles.find((b) => b.row === unsure.row && b.col === unsure.col);
+      if (!there) {
+        setUnsure(null);
+        setError(tq("checkedNot"));
+        return;
+      }
+      const detail = await api.get<VintageDetail>(`/cellar/${there.vintageId}`);
+      if (detail.wine.id === unsure.wineId && detail.year === unsure.year) {
+        setUnsure(null);
+        setError(null);
+        setSavedAfterAll(true);
+        await refreshCellar();
+        return;
+      }
+      setUnsure(null);
+      setSpotTaken(true);
+      setError(tq("checkedOther"));
+    } catch {
+      setError(tq("checkFailed"));
+    } finally {
+      setChecking(false);
     }
   }
 
@@ -451,13 +524,39 @@ export function BottleDetails({
 
         {beforeSubmit}
         {error && (
-          <p role="alert" className="text-small text-danger">
+          <p role="alert" className="text-small text-danger" data-testid="add-error">
             {error}
           </p>
         )}
-        <Button type="submit" size="lg" block loading={busy || add.isPending}>
-          {t("submit", { count: quantity })}
-        </Button>
+        {savedAfterAll ? (
+          <div className="flex flex-col gap-3" data-testid="add-saved-after-all">
+            <p role="status" className="text-small text-ink">
+              {tq("checkedSaved")}
+            </p>
+            <Link
+              href={savedHref}
+              className={buttonStyles({ size: "lg", block: true })}
+              data-testid="add-saved-after-all-link"
+            >
+              {savedLabel ?? t("seeCellar")}
+            </Link>
+          </div>
+        ) : unsure ? (
+          <Button
+            type="button"
+            size="lg"
+            block
+            loading={checking}
+            onClick={() => void checkSpot()}
+            data-testid="add-check-spot"
+          >
+            {tq("check")}
+          </Button>
+        ) : (
+          <Button type="submit" size="lg" block loading={busy || add.isPending}>
+            {t("submit", { count: quantity })}
+          </Button>
+        )}
         {footer}
       </form>
 
