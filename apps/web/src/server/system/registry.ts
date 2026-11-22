@@ -469,12 +469,17 @@ const components = [
       {
         name: "sommelier_social",
         kind: "feature",
-        note: "Friends named in a question, with their own consent. Needs sommelier_engine. Not wired yet.",
+        note: "Friends named in a question, with their own consent. Needs sommelier_engine. Read nowhere on main: inert, kept until #94 is closed (D-48).",
       },
       {
         name: "sommelier_experiences",
         kind: "feature",
-        note: "Menus, wine-to-food, comparing, serving, quantities. Needs sommelier_engine. Not wired yet.",
+        note: "Menus, wine-to-food, comparing, serving, quantities. Needs sommelier_engine. Read nowhere on main: inert, kept until #95 is closed; V1+ builds these as CELLR_SOMMELIER parts instead.",
+      },
+      {
+        name: "CELLR_SOMMELIER",
+        kind: "env",
+        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. In P2 no part changes an answer yet.",
       },
     ],
     risks: [
@@ -2853,7 +2858,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.4.0",
+  version: "1.4.1",
   reviewedOn: "2026-11-22",
   repository: "Blockionaire/CELLR",
   components,

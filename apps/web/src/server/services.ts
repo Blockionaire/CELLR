@@ -60,6 +60,7 @@ import { createInsightsRepository } from "@/server/insights/repository";
 import { createInsightsService } from "@/server/insights/service";
 import {
   getFeatures,
+  getSommelierParts,
   getPlacementAccess,
   isAdviceOpen,
   getPushEnv,
@@ -181,6 +182,8 @@ export function servicesFor(ctx: RequestContext) {
     tonight: (request, personal) => cellar.tonight(request, personal),
     taste: () => taste.profile(),
     llm: getLlmProvider(),
+    // Sommelier V1+ parts (CELLR_SOMMELIER); empty unless the deployment names them, and none changes an answer yet.
+    parts: getSommelierParts(),
     spend: () => limiter.enforce(LIMITS.chat),
     householdId: async () => (await household()).id,
     locale: async () => (await households.me()).locale,
