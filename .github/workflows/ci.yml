@@ -80,6 +80,37 @@ jobs:
             echo "nothing to compare with for a $EVENT run"
           fi
 
+  architecture:
+    # The architecture register (System Intelligence ADR-001) moves with the code: a new table, route, module, job,
+    # workflow, environment variable, external host, dependency, data access or import between components fails
+    # here until the register says who owns it, with code evidence for every confirmed edge. The impact summary lists
+    # what changed structurally. Code facts only, no live data, no secrets. Make this a required check.
+    name: Architecture · register matches the code
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 } # the impact report compares with the base branch
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Inventory is up to date
+        run: pnpm architecture:inventory --check
+      - name: Register matches the repository
+        run: pnpm --filter @cellr/web exec vitest run src/server/system
+      - name: Impact summary
+        if: always()
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then base="origin/$BASE_REF"
+          elif [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then base="$BEFORE"
+          else base="HEAD~1"; fi
+          pnpm -s architecture:impact -- --base "$base" >> "$GITHUB_STEP_SUMMARY"
+
   database:
     name: Database · migrations + permission suite (Postgres 16)
     runs-on: ubuntu-24.04

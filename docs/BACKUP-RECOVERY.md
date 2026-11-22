@@ -158,7 +158,7 @@ not in Postgres).
 
 ### 4.1 Prerequisites
 
-- The repository at the commit that has this tool, `pnpm install` done, Node 22.12+.
+- The repository at the commit that has this tool, `pnpm install` done, Node 22.18+.
 - A destination **outside the repository and outside any cloud-synced folder**, on an encrypted disk (BitLocker,
   FileVault, LUKS), with at least 3× the project's Storage size free (files + archive).
 - Optional, for the encrypted copy: [`age`](https://age-encryption.org) (Windows: `winget install FiloSottile.age`;
