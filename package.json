@@ -5,7 +5,7 @@
   "description": "CELLR — your personal intelligent wine cellar",
   "packageManager": "pnpm@10.28.0",
   "engines": {
-    "node": ">=22.12"
+    "node": ">=22.18"
   },
   "scripts": {
     "dev": "pnpm --filter @cellr/web dev",
@@ -20,6 +20,7 @@
     "db:types": "bash scripts/db-types.sh",
     "db:types:check": "bash scripts/db-types.sh --check",
     "architecture:inventory": "node apps/web/scripts/architecture/inventory.mjs",
+    "architecture:impact": "node apps/web/scripts/architecture/impact.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "splash": "node scripts/generate-splash.mjs",
     "offline-page": "node scripts/generate-offline.mjs",

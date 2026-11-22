@@ -17,8 +17,10 @@ export function buildInventory(root: string): RepositoryInventory {
     .filter((f) => f.endsWith(".sql"))
     .sort();
   const sql = migrationFiles.map((f) => read(`supabase/migrations/${f}`));
+  const tableList = tables(types);
+  const code = sourceFiles(root);
   return {
-    tables: tables(types),
+    tables: tableList,
     functions: functions(types),
     migrations: { count: migrationFiles.length, latest: migrationFiles.at(-1) ?? "" },
     buckets: buckets(sql),
@@ -28,6 +30,12 @@ export function buildInventory(root: string): RepositoryInventory {
     serverModules: serverModules(root),
     ciJobs: ciJobs(read(".github/workflows/ci.yml")),
     features: features(read("packages/domain/src/features.ts")),
+    workflows: workflows(root),
+    envVars: envVars(code),
+    externalHosts: externalHosts(code),
+    dependencies: dependencies(root),
+    dataAccess: dataAccess(code, new Set(tableList.map((t) => t.name))),
+    imports: imports(code),
   };
 }
 
@@ -162,4 +170,167 @@ function features(source: string): string[] {
       .filter((l) => !l.trim().startsWith("/") && !l.trim().startsWith("*"))
       .flatMap((l) => [...l.matchAll(/"([a-z_]+)"/g)].map((m) => m[1]!)),
   );
+}
+
+// ---- Sprint "architecture stays current": what the code itself says it uses -----------------------------------------
+
+/** The app's own source files (no tests, no type declarations), repository-relative, with their text. */
+type SourceFile = { readonly rel: string; readonly text: string };
+const APP_SRC = "apps/web/src/";
+
+function sourceFiles(root: string): SourceFile[] {
+  return walk(path.join(root, APP_SRC))
+    .map((f) => path.relative(root, f).split(path.sep).join("/"))
+    .filter((rel) => /\.(ts|tsx)$/.test(rel) && !/\.(test|spec|d)\.tsx?$/.test(rel))
+    .sort()
+    .map((rel) => ({ rel, text: readFileSync(path.join(root, rel), "utf8") }));
+}
+
+/**
+ * The area a file belongs to, for the links below: a directory under src two levels deep ("server/cellar/",
+ * "app/api/", "features/admin/") or the file itself when it sits higher ("server/http.ts", "lib/photo.ts").
+ */
+export function areaOf(rel: string): string {
+  const inner = rel.startsWith(APP_SRC) ? rel.slice(APP_SRC.length) : rel;
+  const parts = inner.split("/");
+  return parts.length > 2 ? `${parts[0]}/${parts[1]}/` : inner;
+}
+
+/** GitHub Actions workflows and their job ids. */
+function workflows(root: string): RepositoryInventory["workflows"] {
+  const dir = path.join(root, ".github/workflows");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => /\.ya?ml$/.test(f))
+    .sort()
+    .map((f) => ({
+      file: `.github/workflows/${f}`,
+      jobs: ciJobs(readFileSync(path.join(dir, f), "utf8")),
+    }));
+}
+
+/**
+ * Environment variables the app reads: process.env.X, env.X, env["X"], and the keys of a zod schema in a file that
+ * parses process.env (names only, never values).
+ */
+function envVars(code: readonly SourceFile[]): string[] {
+  const names = new Set<string>();
+  for (const f of code)
+    for (const m of f.text.matchAll(
+      /\b(?:process\.env|env)(?:\.([A-Z][A-Z0-9_]{2,})|\[\s*["']([A-Z][A-Z0-9_]{2,})["']\s*\])/g,
+    ))
+      names.add((m[1] ?? m[2])!);
+  // a zod schema that parses process.env names its variables as keys
+  for (const f of code)
+    if (f.text.includes("process.env"))
+      for (const m of f.text.matchAll(/^\s*([A-Z][A-Z0-9_]{2,}):\s*z\./gm)) names.add(m[1]!);
+  return sorted(names);
+}
+
+/** Placeholder and test domains, which name no real integration. */
+const NOT_A_HOST =
+  /(^|\.)(example|test|invalid|localhost)$|^example\.(com|org|net|nl)$|^www\.example\./;
+
+/**
+ * External hosts named in the app's code as https:// literals (an integration's fixed address). Supabase project
+ * hosts are collapsed to "*.supabase.co": which project is configuration, not architecture. The register itself and
+ * its UI are left out: they only quote these hosts.
+ */
+function externalHosts(code: readonly SourceFile[]): string[] {
+  const hosts = new Set<string>();
+  for (const f of code) {
+    if (f.rel.startsWith(`${APP_SRC}server/system/`)) continue;
+    for (const m of f.text.matchAll(/https:\/\/([a-z0-9-]+(?:\.[a-z0-9-]+)+)/g)) {
+      const host = m[1]!.endsWith(".supabase.co") ? "*.supabase.co" : m[1]!;
+      if (!NOT_A_HOST.test(host) && !host.endsWith(".app.github.dev")) hosts.add(host);
+    }
+  }
+  return sorted(hosts);
+}
+
+/** Runtime dependencies of what is deployed (the web app and the domain package), workspace packages left out. */
+function dependencies(root: string): string[] {
+  const names = new Set<string>();
+  for (const pkg of ["apps/web/package.json", "packages/domain/package.json"]) {
+    const json = JSON.parse(readFileSync(path.join(root, pkg), "utf8")) as {
+      dependencies?: Record<string, string>;
+    };
+    for (const [name, version] of Object.entries(json.dependencies ?? {}))
+      if (!version.startsWith("workspace:")) names.add(name);
+  }
+  return sorted(names);
+}
+
+/** Which area reads or writes which table: `.from("table")` calls on tables the migrations create. */
+function dataAccess(
+  code: readonly SourceFile[],
+  tableNames: ReadonlySet<string>,
+): RepositoryInventory["dataAccess"] {
+  const seen = new Map<string, { area: string; table: string }>();
+  for (const f of code) {
+    if (f.rel.startsWith(`${APP_SRC}server/system/`)) continue; // the register's evidence, not access
+    for (const m of f.text.matchAll(/\.from\(\s*["']([a-z_0-9]+)["']\s*\)/g))
+      if (tableNames.has(m[1]!)) {
+        const link = { area: areaOf(f.rel), table: m[1]! };
+        seen.set(`${link.area} ${link.table}`, link);
+      }
+  }
+  return sorted(seen.values(), (l) => `${l.area} ${l.table}`);
+}
+
+/**
+ * The module specifiers a file imports at run time: static imports and re-exports, and dynamic import(). Imports
+ * of types only (`import type`, or every name marked `type`) are left out: they couple no behaviour.
+ */
+export function runtimeImports(text: string): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(
+    /^\s*(?:import|export)\s+(type\s+)?([\s\S]*?)\s*from\s*["']([^"']+)["']/gm,
+  )) {
+    if (m[1]) continue;
+    const braces = /\{([\s\S]*)\}/.exec(m[2]!)?.[1];
+    const names = braces
+      ?.split(",")
+      .map((n) => n.trim())
+      .filter(Boolean);
+    const onlyTypes =
+      names &&
+      names.length > 0 &&
+      names.every((n) => n.startsWith("type ")) &&
+      !/^\s*\w+\s*,/.test(m[2]!);
+    if (!onlyTypes) out.push(m[3]!);
+  }
+  for (const m of text.matchAll(/import\(\s*["']([^"']+)["']\s*\)/g)) out.push(m[1]!);
+  for (const m of text.matchAll(/^\s*import\s+["']([^"']+)["']/gm)) out.push(m[1]!);
+  return out;
+}
+
+/** Resolves an "@/…" or relative specifier to one of the app's files; null for packages and anything else. */
+export function resolveImport(
+  from: string,
+  spec: string,
+  files: ReadonlySet<string>,
+): string | null {
+  let base: string;
+  if (spec.startsWith("@/")) base = APP_SRC + spec.slice(2);
+  else if (spec.startsWith("."))
+    base = path.posix.normalize(path.posix.join(path.posix.dirname(from), spec));
+  else return null;
+  for (const c of [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`])
+    if (files.has(c)) return c;
+  return null;
+}
+
+/** Which area uses which other area at run time (from the imports above). */
+function imports(code: readonly SourceFile[]): RepositoryInventory["imports"] {
+  const files = new Set(code.map((f) => f.rel));
+  const seen = new Map<string, { from: string; to: string }>();
+  for (const f of code)
+    for (const spec of runtimeImports(f.text)) {
+      const target = resolveImport(f.rel, spec, files);
+      if (!target) continue;
+      const link = { from: areaOf(f.rel), to: areaOf(target) };
+      if (link.from !== link.to) seen.set(`${link.from} ${link.to}`, link);
+    }
+  return sorted(seen.values(), (l) => `${l.from} ${l.to}`);
 }
