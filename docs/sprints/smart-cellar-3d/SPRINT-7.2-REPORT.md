@@ -36,7 +36,18 @@ Quick Add.
 
 ## 3. Tests
 
-_Filled in after the regression run._
+| Check                                                                                                                                                                         | Result                                                                                                                                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test`                                                                                                               | green (web 1593 passed, domain 1495 passed; one existing lint warning in `playwright.webkit.config.ts`)                                                                                                                             |
+| New unit tests (`storage3d/resources.test.ts`)                                                                                                                                | 4: one geometry with RGBA per vertex and only two alphas; posed exactly where a bottle lies, the plus in front of the neck; along a wall, the plus on the front; < 1,000 triangles                                                  |
+| New browser test "sprint 7.2" (phone and desktop)                                                                                                                             | Add bottle above the picture and on the first screen; after Add, the instruction and Cancel in view and the whole picture on the first screen; the sheet's six labels; no option cut off; Cancel (sheet and bar) back to the cellar |
+| Screenshots test (`SHOTS72=1`): iPhone SE, iPhone 13, Pixel 7, desktop                                                                                                        | instruction, Cancel and three quarters of the picture on screen while adding, on every size                                                                                                                                         |
+| Browser regression on the final build: `quick-add`, `smart-cellar-3d`, `placement`, `advice`, `visual-placement`, `smart-cellar-3d-old-db`, `add-to-spot` (phone and desktop) | **178 passed, 0 failed**, 22 skipped (the other project's half of device-specific tests, and the opt-in suites `VISUAL_PLACEMENT=1` and `OLD_DB=1`)                                                                                 |
+| Architecture: `architecture:inventory`, `architecture:impact`, `vitest run src/server/system`                                                                                 | inventory unchanged; "No structural change against `origin/main`"; 27 passed; register 1.3.2                                                                                                                                        |
+
+All 15 scenarios of the sprint 7 brief stay covered by `e2e/quick-add.spec.ts` (now 18 tests per project), including the
+scan and manual return to 3D, a spot taken meanwhile, lost answers (never a bottle twice), another household, legacy
+places, no WebGL, a lost graphics context, the keyboard with reduced motion (axe: no violations).
 
 ## 4. Performance
 
@@ -92,4 +103,9 @@ previous deployment (or `CELLR_SMART_CELLAR=read` to stop all placement writes, 
 
 ## 8. Open points
 
-_Filled in after the regression run._
+- **A real phone.** The bench uses software rendering; the triangle cost of the placeholders on very large places
+  (30×30) is best confirmed on a real mid-range phone after deploy. The fallback is one constant (`GHOST_RADIAL`).
+- **"Show empty spots" toggle** (E) not built, on purpose (see section 1).
+- **Pre-existing, not this sprint:** `e2e/admin-system.spec.ts:67` fails on `main` too (from PR #114); public docs
+  that still carry production observations are a separate clean-up.
+- Merge and deploy are the owner's.
