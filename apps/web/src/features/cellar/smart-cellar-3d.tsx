@@ -9,6 +9,7 @@ import {
   type CSSProperties,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -29,6 +30,7 @@ import { Chip } from "@/ui/chip";
 import { Skeleton } from "@/ui/skeleton";
 import { useToast } from "@/ui/toast";
 import { EmptyState } from "@/ui/empty-state";
+import { PlusIcon } from "@/ui/icons";
 import { Cellar3DView, useReducedMotion, useWebGL } from "./cellar-3d-view";
 import { useRacks, useVintageDetail } from "./hooks";
 import {
@@ -184,7 +186,9 @@ export default function SmartCellar3D({
   // Escape stops choosing a spot, as it puts a bottle back; with the sheet open, the sheet's own Escape goes back to
   // the spots first
   const choosingSpot = quick.phase === "placing";
-  useEffect(() => {
+  // attached as the phase is committed (a layout effect, not a later one): an Escape right after the sheet has
+  // closed must find it, or it would be lost on a slow phone
+  useLayoutEffect(() => {
     if (!choosingSpot) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !e.defaultPrevented) quickClose();
@@ -331,6 +335,9 @@ export default function SmartCellar3D({
   };
   // 3D Quick Add: what is offered, what is chosen, and the bottles that can go on a chosen spot
   const quickOn = placement.open && placement.canWrite;
+  // "Add bottle", at the top of the place (sprint 7.2): offered whenever nothing else is being placed
+  const addEntry =
+    quickOn && !placing && !quickActive(quick) ? () => dispatchQuick({ type: "enter" }) : undefined;
   const stageQuick = offersSpots(quick)
     ? { chosen: chosenSpot(quick), onSpot: quickPick, onClose: quickClose }
     : quick.phase === "action" || quick.phase === "saving" || quick.phase === "conflict"
@@ -468,8 +475,13 @@ export default function SmartCellar3D({
       {unit.legacy ? (
         // from before templates: the existing view, with its own details, actions and words
         <>
-          <Cellar3DView onShowRacks={onShowRacks} only={unit.id} />
+          {addEntry && (
+            <div className="flex justify-end">
+              <AddBottleButton onClick={addEntry} />
+            </div>
+          )}
           {stageQuick && !stageQuick.held && <LegacyQuick unit={unit} quick={stageQuick} />}
+          <Cellar3DView onShowRacks={onShowRacks} only={unit.id} />
         </>
       ) : (
         <SmartUnitStage
@@ -485,19 +497,11 @@ export default function SmartCellar3D({
             placement.open && !placing && !quickActive(quick) ? (b) => startPlacing(b) : undefined
           }
           quick={stageQuick}
+          onAdd={addEntry}
         />
       )}
       {placement.open && !placing && !quickActive(quick) && (
         <div className="flex flex-wrap items-center gap-2" data-testid="placement-entry">
-          {quickOn && (
-            <Button
-              size="sm"
-              onClick={() => dispatchQuick({ type: "enter" })}
-              data-testid="quick-add-start"
-            >
-              {tq("add")}
-            </Button>
-          )}
           <Button
             variant="secondary"
             size="sm"
@@ -542,6 +546,7 @@ export default function SmartCellar3D({
           manualHref={addHref("/cellar/add", quickSpotHere, "3d")}
           onChoose={(action) => dispatchQuick({ type: "choose", action })}
           onOtherSpot={() => dispatchQuick({ type: "back" })}
+          onCancel={quickClose}
           // closing the sheet (Escape, its close button, a tap beside it) goes back to choosing a spot
           onClose={() => dispatchQuick({ type: "back" })}
         />
@@ -596,6 +601,17 @@ export default function SmartCellar3D({
         </section>
       )}
     </div>
+  );
+}
+
+/** The way into 3D Quick Add: the primary action of the place, above its picture (sprint 7.2). */
+function AddBottleButton({ onClick }: { onClick: () => void }) {
+  const tq = useTranslations("quickAdd");
+  return (
+    <Button size="sm" onClick={onClick} data-testid="quick-add-start" className="shrink-0">
+      <PlusIcon size={18} />
+      {tq("add")}
+    </Button>
   );
 }
 
@@ -662,6 +678,7 @@ function SmartUnitStage({
   target,
   onMove,
   quick,
+  onAdd,
 }: {
   /** The place as the list of places has it: shown until its bottles are in. */
   listed: SmartStorageUnitView;
@@ -677,6 +694,8 @@ function SmartUnitStage({
   onMove: ((bottle: MovableBottle) => void) | undefined;
   /** 3D Quick Add (sprint 7): free spots on offer to tap, the one chosen, and how to stop. */
   quick: StageQuick | null;
+  /** "Add bottle" is offered here (placement can write, and nothing else is being placed). */
+  onAdd: (() => void) | undefined;
 }) {
   const tp = useTranslations("placement");
   const t = useTranslations("smart3d");
@@ -917,6 +936,38 @@ function SmartUnitStage({
       {tRacks("unitMeta", { used: unit.occupied, capacity: unit.capacity, free: unit.free })}
     </p>
   );
+  // The top of the place (sprint 7.2): what it holds and "Add bottle"; while spots are on offer, what a tap does now
+  // and the way out, in the same place, so the instruction is seen without scrolling (and the list right under it).
+  const offeringNow = quick !== null && !quick.held;
+  const header = (listForced: boolean) =>
+    offeringNow && data ? (
+      <>
+        <QuickPlacingBar
+          unit={unit}
+          free={free.length}
+          listShown={listShown || listForced}
+          listForced={listForced}
+          onToggleList={() => setListShown((v) => !v)}
+          onClose={quick.onClose}
+        />
+        {(listShown || listForced) && (
+          <QuickSpotList
+            unit={unit}
+            placements={data.placements}
+            chosen={quick.chosen}
+            onSpot={quick.onSpot}
+          />
+        )}
+      </>
+    ) : (
+      <div
+        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
+        data-testid="smart-3d-top"
+      >
+        {meta}
+        {onAdd && <AddBottleButton onClick={onAdd} />}
+      </div>
+    );
 
   if (!webgl) {
     // No 3D on this device. With placement on, the flat picture of the same place stands in, with the same
@@ -935,29 +986,10 @@ function SmartUnitStage({
       );
     const flatSelected = selectedIn(selection, unit.id, data.placements);
     const chosen = flatSelected ? (byId.get(flatSelected) ?? null) : null;
-    if (quick && !quick.held)
-      return (
-        <>
-          {meta}
-          <QuickPlacingBar
-            unit={unit}
-            free={free.length}
-            listShown
-            listForced
-            onToggleList={() => {}}
-            onClose={quick.onClose}
-          />
-          <QuickSpotList
-            unit={unit}
-            placements={data.placements}
-            chosen={quick.chosen}
-            onSpot={quick.onSpot}
-          />
-        </>
-      );
+    if (quick && !quick.held) return header(true);
     return (
       <>
-        {meta}
+        {header(false)}
         {zones && <ZoneLegend unit={unit} occupants={data.placements} builderOpen={builderOpen} />}
         <div data-testid="smart-3d-flat" className="rounded-card bg-raised p-3">
           <LayoutMap
@@ -1047,7 +1079,7 @@ function SmartUnitStage({
 
   return (
     <>
-      {meta}
+      {header(markers === null || lost)}
       {zones && <ZoneLegend unit={unit} occupants={data.placements} builderOpen={builderOpen} />}
       {!unit.arrangementKnown && (
         <p className="text-small text-ink-2" data-testid="smart-3d-not-known">
@@ -1135,7 +1167,7 @@ function SmartUnitStage({
             {/* no blur behind it: a blurred layer over the picture has to be drawn again with every frame */}
             <span className="max-w-full rounded-full bg-surface/90 px-4 py-1.5 text-center text-caption text-ink-2 ring-1 ring-hairline">
               {quick && !quick.held ? (
-                tq("placingTitle")
+                tq("placingShort")
               ) : data.placements.length === 0 ? (
                 t("empty")
               ) : (
@@ -1151,27 +1183,6 @@ function SmartUnitStage({
       </div>
       {/* on a narrow screen the panel of the bottle that is out goes here, right under the picture */}
       <div ref={setPanelSlot} className="empty:hidden" data-testid="smart-3d-panel-slot" />
-
-      {quick && !quick.held && (
-        <>
-          <QuickPlacingBar
-            unit={unit}
-            free={free.length}
-            listShown={listShown || markers === null || lost}
-            listForced={markers === null || lost}
-            onToggleList={() => setListShown((v) => !v)}
-            onClose={quick.onClose}
-          />
-          {(listShown || markers === null || lost) && (
-            <QuickSpotList
-              unit={unit}
-              placements={data.placements}
-              chosen={quick.chosen}
-              onSpot={quick.onSpot}
-            />
-          )}
-        </>
-      )}
 
       {stranded.length > 0 && (
         <div

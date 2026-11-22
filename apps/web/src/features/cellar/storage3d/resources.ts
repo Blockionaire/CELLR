@@ -625,6 +625,55 @@ export function buildBottleKit(
   };
 }
 
+// ---- The placeholder of a free spot (3D Quick Add, sprint 7.2) -----------------------------------------------------
+
+/** How much larger the placeholder that is chosen is drawn: a quiet lift, nothing more. */
+export const GHOST_LIFT = 1.05;
+/** How see-through a placeholder is: there, in the furniture, but never mistaken for a real bottle. */
+export const GHOST_OPACITY = 0.3;
+
+/**
+ * How round a placeholder is, by how many are on offer at once: smooth when a place has few free spots (and each is
+ * large on screen), plainer when it has hundreds (each is small, and together they are what costs).
+ */
+export function ghostRadial(spots: number): number {
+  return spots <= 120 ? 16 : spots <= 400 ? 12 : 10;
+}
+
+/**
+ * The see-through bottle that stands on a free spot while a bottle can be added (sprint 7.2): the outline of a
+ * Bordeaux bottle and nothing else (no icon, no plus: the empty bottle itself is what is tapped). Modelled standing on
+ * y = 0, like every bottle, so `poseMatrix` puts it exactly where a bottle put there would be. Normals are kept (it is
+ * lit like glass, so it sits in the furniture's light); texture coordinates are not needed. One geometry for every
+ * placeholder of a place: one instanced mesh, one draw call.
+ */
+export function buildGhostBottle(radial = ghostRadial(0)): THREE.BufferGeometry {
+  const g = new THREE.LatheGeometry(
+    thin(lathePoints("bordeaux"), 3).map(([r, y]) => new THREE.Vector2(r, y)),
+    radial,
+  );
+  g.deleteAttribute("uv");
+  g.computeBoundingSphere();
+  return g;
+}
+
+/**
+ * The placeholder's glass: pale, faintly lit (the scene's own light and reflections), see-through and never writing
+ * depth, so the furniture and the bottles behind it stay seen. White: each placeholder's tone is its instance colour
+ * (resting, under a mouse, chosen).
+ */
+export function buildGhostMaterial(): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color: "#ffffff",
+    roughness: 0.18,
+    metalness: 0,
+    envMapIntensity: 1.1,
+    transparent: true,
+    opacity: GHOST_OPACITY,
+    depthWrite: false,
+  });
+}
+
 /**
  * The bottles as they are drawn: one group per bottle shape (one instanced mesh each), and the counters of a neutral
  * picture apart. THE ORDER IN A GROUP IS THE PICKING TABLE: instance i of a group's mesh is `items[i]`, so a tap that
