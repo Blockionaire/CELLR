@@ -1,6 +1,7 @@
 // Regenerates apps/web/src/server/system/inventory.generated.json from the repository (System Intelligence
 // ADR-001): tables and foreign keys, functions, migrations, Storage buckets, pg_cron jobs, route handlers, server
-// modules, CI jobs, Vercel crons, feature switches.
+// modules, CI jobs, Vercel crons, feature switches, workflows, environment variables (names only), external hosts,
+// runtime dependencies, data access per area and imports between areas.
 //   pnpm architecture:inventory           write the file
 //   pnpm architecture:inventory --check   fail if the committed file is out of date
 // registry.test.ts runs the same comparison in `pnpm test`, so CI catches drift either way.

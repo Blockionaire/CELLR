@@ -77,3 +77,27 @@ bundle weight, a CSP review and an upgrade path.
   job or server module; CI says exactly what is missing.
 - Evidence strings are short, stable texts (an RPC name, a table name, an import). A refactor that renames them
   breaks the test, on purpose: the relationship must be re-confirmed.
+
+## Addendum (2026-11-22): the register stays current by itself
+
+Sprint 1 checked what the register _named_ against the repository. It did not notice what the register _left out_:
+an import between services, a table read outside its owner, a new environment variable, host or dependency. Decided:
+
+1. **The inventory covers relations, not just parts.** It also records workflows, environment variable names (never
+   values), `https://` hosts in code, runtime dependencies, `.from(table)` per area and imports between areas. Still
+   Node built-ins only, deterministic, no network.
+2. **Completeness is checked file by file.** Every source file belongs to a component; every cross-component import
+   and every table access outside the owner must be a confirmed edge; every variable, host and dependency has exactly
+   one owner. A change that adds any of these fails CI until the register is updated in the same pull request.
+3. **Foundation components** (request context, configuration, UI kit) may be imported without an edge, so the graph
+   shows architecture rather than every helper call. Imports out of them still need one.
+4. **Proof is code.** Confirmed edges may not cite Markdown, and evidence texts must be specific. What cannot be
+   proven from the repository is `planned` or `unverified`, never confirmed.
+5. **Structure and health stay apart.** A test forbids the register, its service and the inventory builder from
+   importing anything that reads live data. Health is an overlay on the map; it never changes the structure.
+6. **An impact report, not an AI review.** `pnpm architecture:impact` diffs the inventory against the base branch
+   and CI writes it to the job summary. It informs the reviewer; the tests decide. No AI calls, no new dependency.
+
+Limits, accepted: a relation made at runtime without an import or a literal `.from("…")` (a table name built from a
+variable, a call through a URL) is not detected; such a relation is added by hand, with evidence. Edge labels and kinds
+remain human judgement.

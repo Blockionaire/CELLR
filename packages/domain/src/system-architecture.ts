@@ -115,6 +115,17 @@ export interface SystemComponent {
   /** Route handlers it owns, as in the inventory (e.g. "/api/v1/scans"). */
   readonly routes?: readonly string[];
   readonly gates?: readonly ComponentGate[];
+  /** Environment variables it reads that are not gates (configuration, keys), by name only. */
+  readonly env?: readonly string[];
+  /** External hosts its code names (https:// literals), as in the inventory. */
+  readonly hosts?: readonly string[];
+  /** Runtime npm dependencies it is the reason for, as in the inventory. */
+  readonly packages?: readonly string[];
+  /**
+   * Shared plumbing every part may import (database clients, configuration): imports INTO it need no edge. Use it
+   * sparingly; anything with behaviour of its own is not foundation.
+   */
+  readonly foundation?: boolean;
   readonly risks?: readonly ComponentRisk[];
 }
 
@@ -164,6 +175,18 @@ export interface RepositoryInventory {
   readonly serverModules: readonly string[];
   readonly ciJobs: readonly string[];
   readonly features: readonly string[];
+  /** GitHub Actions workflows and their job ids. */
+  readonly workflows: ReadonlyArray<{ readonly file: string; readonly jobs: readonly string[] }>;
+  /** Environment variable names the app reads. */
+  readonly envVars: readonly string[];
+  /** External hosts named in the app's code. */
+  readonly externalHosts: readonly string[];
+  /** Runtime npm dependencies of what is deployed. */
+  readonly dependencies: readonly string[];
+  /** Which code area reads or writes which table (`.from("table")`). */
+  readonly dataAccess: ReadonlyArray<{ readonly area: string; readonly table: string }>;
+  /** Which code area uses which other area at run time (type-only imports excluded). */
+  readonly imports: ReadonlyArray<{ readonly from: string; readonly to: string }>;
 }
 
 export const edgeId = (e: Pick<SystemEdge, "from" | "to" | "kind">) =>
@@ -289,6 +312,27 @@ export function validateRegistry(
     "route",
     inv.apiRoutes.map((r) => r.path),
     reg.components.flatMap((c) => (c.routes ?? []).map((r) => [c.id, r] as const)),
+  );
+  ownership(
+    issues,
+    "env var",
+    inv.envVars,
+    reg.components.flatMap((c) => [
+      ...(c.env ?? []).map((v) => [c.id, v] as const),
+      ...(c.gates ?? []).filter((g) => g.kind === "env").map((g) => [c.id, g.name] as const),
+    ]),
+  );
+  ownership(
+    issues,
+    "host",
+    inv.externalHosts,
+    reg.components.flatMap((c) => (c.hosts ?? []).map((h) => [c.id, h] as const)),
+  );
+  ownership(
+    issues,
+    "dependency",
+    inv.dependencies,
+    reg.components.flatMap((c) => (c.packages ?? []).map((p) => [c.id, p] as const)),
   );
   return issues;
 }
