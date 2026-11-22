@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ERROR_MESSAGES,
   formatVintage,
+  matchesSearch,
   placementMeaning,
   zoneOfRow,
   type SmartMoveResult,
@@ -16,6 +17,7 @@ import {
 import { ApiError, errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { Chip } from "@/ui/chip";
+import { Field } from "@/ui/field";
 import { Skeleton } from "@/ui/skeleton";
 import { useSmartPlacements } from "../smart-cellar-hooks";
 import { resolvedFromView } from "../storage3d/from-api";
@@ -32,7 +34,12 @@ export interface MovableBottle {
   name: string;
   /** Where it is now (whole), or null: no place yet. */
   from: SmartSpot | null;
+  /** Where it is now, in words (for choosing among placed bottles; sprint 7). */
+  whereText?: string | undefined;
 }
+
+/** Where a write from the panel stands (sprint 7: the 3D Quick Add machine follows it). */
+export type PanelPhase = "saving" | "problem";
 
 /**
  * What was done. `undoable: false` when the outcome was only established by reading afterwards (the answer was
@@ -74,6 +81,17 @@ export interface PlacementPanelProps {
   advice?: boolean;
   /** The Rack Builder, where it is open (advice points there when there are no places). */
   builderHref?: string | null;
+  /**
+   * 3D Quick Add (sprint 7): the spot was chosen in the picture first. It is chosen here from the start, the place
+   * stays the one it is in (no other place is offered), and the bottle is chosen after: one without a place
+   * (`candidates: "unplaced"`) or one that has a place (`"placed"`, searchable, with where each one is now).
+   */
+  spotFirst?: { row: number; col: number; index: number } | undefined;
+  candidates?: "unplaced" | "placed" | undefined;
+  /** Bottles that have a place, for `candidates: "placed"`. */
+  placed?: readonly MovableBottle[] | undefined;
+  /** Told when a write starts and when it ends in a problem (not on success: that is `onDone`). */
+  onPhase?: ((phase: PanelPhase) => void) | undefined;
 }
 
 /**
@@ -94,7 +112,12 @@ export function PlacementPanel({
   canWrite,
   advice = false,
   builderHref = null,
+  spotFirst: presetSpot,
+  candidates = "unplaced",
+  placed = [],
+  onPhase,
 }: PlacementPanelProps) {
+  const tq = useTranslations("quickAdd");
   const t = useTranslations("placement");
   const tz = useTranslations("placement.zone");
   const locale = useLocale();
@@ -125,7 +148,13 @@ export function PlacementPanel({
       ),
     [placements],
   );
-  const [choice, setChoice] = useState<PickerChoice | null>(null);
+  const [choice, setChoice] = useState<PickerChoice | null>(
+    presetSpot ? { kind: "move", address: presetSpot } : null,
+  );
+  // one write at a time, even when two taps land before the next render (the button's `disabled` comes a render late)
+  const inFlight = useRef(false);
+  const [search, setSearch] = useState("");
+  const quick = presetSpot !== undefined;
   const [intent, setIntent] = useState<AdviceIntent>("store");
   // a recommendation in another place: chosen once that place is the one shown
   const [pending, setPending] = useState<SmartSpot | null>(null);
@@ -199,9 +228,12 @@ export function PlacementPanel({
     const choice: PickerChoice | null = at
       ? { kind: "move", address: { row: at.row, col: at.col, index: at.index } }
       : chosenNow;
-    if (!choice || !who || (!at && !unit)) return;
+    if (!choice || !who || (!at && !unit) || inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setProblem(null);
+    onPhase?.("saving");
+    let ok = false;
     const to: SmartSpot = at ?? { locationId: unit!.id, ...choice.address };
     const targetText = spotText(to);
     try {
@@ -215,23 +247,27 @@ export function PlacementPanel({
           bottleId: who.bottleId,
           swap: { with: choice.bottleId, expected: { self: who.from, other: to } },
         });
+        ok = true;
         onDone({ kind: "swapped", bottle: who, other, result });
       } else {
         const result = await move.mutateAsync({
           bottleId: who.bottleId,
           move: { from: who.from, to },
         });
+        ok = true;
         onDone({ kind: "moved", bottle: who, result, where: targetText });
       }
     } catch (e) {
       if (uncertain(e))
-        await afterLostAnswer(e, to, choice.kind === "swap" ? choice.bottleId : null);
+        ok = await afterLostAnswer(e, to, choice.kind === "swap" ? choice.bottleId : null);
       else {
         setProblem(errorMessage(e, (k) => te(k), ERROR_MESSAGES));
         if (e instanceof ApiError && e.code === "CONFLICT") await catchUp();
       }
     } finally {
+      inFlight.current = false;
       setBusy(false);
+      if (!ok) onPhase?.("problem");
     }
   }
 
@@ -253,8 +289,12 @@ export function PlacementPanel({
    *              because the server moves a bottle only from the spot it was seen on (a repeat of a move that did
    *              apply answers "already there").
    */
-  async function afterLostAnswer(error: unknown, to: SmartSpot | null, swapWith: string | null) {
-    if (!who) return;
+  async function afterLostAnswer(
+    error: unknown,
+    to: SmartSpot | null,
+    swapWith: string | null,
+  ): Promise<boolean> {
+    if (!who) return false;
     const from = who.from;
     let verdict: Verdict;
     if (swapWith && from && to) {
@@ -274,7 +314,7 @@ export function PlacementPanel({
           },
           undoable: false,
         });
-        return;
+        return true;
       }
     } else {
       // a compartment's counter is the server's choice; anywhere else the whole spot must be the one asked for
@@ -291,13 +331,13 @@ export function PlacementPanel({
           where: spotText(verdict.now),
           undoable: false,
         });
-        return;
+        return true;
       }
     }
     switch (verdict.kind) {
       case "unchanged":
         setProblem(t("notMoved", { reason: errorMessage(error, (k) => te(k), ERROR_MESSAGES) }));
-        return;
+        return false;
       case "elsewhere":
         setProblem(
           verdict.now
@@ -305,13 +345,15 @@ export function PlacementPanel({
             : t("takenOffMeanwhile"),
         );
         setWho({ ...who, from: verdict.now });
-        setChoice(null);
-        return;
+        // a spot chosen in the picture first stays chosen: only the bottle's source changed
+        if (!quick) setChoice(null);
+        return false;
       case "gone":
         setProblem(t("goneMeanwhile"));
-        return;
+        return false;
       default:
         setProblem(t("uncertain"));
+        return false;
     }
   }
 
@@ -327,7 +369,8 @@ export function PlacementPanel({
   }
 
   async function takeOff() {
-    if (!who?.from) return;
+    if (!who?.from || inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setProblem(null);
     try {
@@ -343,6 +386,7 @@ export function PlacementPanel({
         if (e instanceof ApiError && e.code === "CONFLICT") await catchUp();
       }
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }
@@ -388,7 +432,7 @@ export function PlacementPanel({
         )}
       </div>
 
-      {advice && who && (
+      {advice && who && !quick && (
         <AdvicePanel
           bottleId={who.bottleId}
           intent={intent}
@@ -411,7 +455,7 @@ export function PlacementPanel({
         />
       )}
 
-      {units.length > 1 && (
+      {units.length > 1 && !quick && (
         <div
           className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1"
           role="group"
@@ -477,7 +521,7 @@ export function PlacementPanel({
         )}
       </div>
 
-      {spotFirst && choice?.kind === "move" && (
+      {spotFirst && choice?.kind === "move" && candidates === "unplaced" && (
         <fieldset className="flex flex-col gap-2" data-testid="placement-which">
           <legend className="text-small font-medium text-ink">{t("whichBottle")}</legend>
           {unplaced.length === 0 ? (
@@ -498,6 +542,60 @@ export function PlacementPanel({
                 {b.name}
               </label>
             ))
+          )}
+        </fieldset>
+      )}
+
+      {spotFirst && choice?.kind === "move" && candidates === "placed" && (
+        <fieldset className="flex flex-col gap-2" data-testid="placement-which-placed">
+          <legend className="text-small font-medium text-ink">{tq("whichPlaced")}</legend>
+          {placed.length === 0 ? (
+            <p className="text-small text-ink-2">{tq("nonePlaced")}</p>
+          ) : (
+            <>
+              <Field
+                label={tq("searchLabel")}
+                hideLabel
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={tq("search")}
+                data-testid="placement-search"
+              />
+              {(() => {
+                const shown = placed.filter((b) =>
+                  matchesSearch([b.name, b.whereText ?? ""], search),
+                );
+                return shown.length === 0 ? (
+                  <p className="text-small text-ink-2">{tq("noMatch")}</p>
+                ) : (
+                  <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+                    {shown.slice(0, 60).map((b) => (
+                      <label
+                        key={b.bottleId}
+                        className="flex min-h-11 items-center gap-3 text-small text-ink"
+                      >
+                        <input
+                          type="radio"
+                          name="placement-which-placed"
+                          checked={who?.bottleId === b.bottleId}
+                          className="size-5 shrink-0 accent-[var(--color-accent)]"
+                          onChange={() => setWho(b)}
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate">{b.name}</span>
+                          {b.whereText && (
+                            <span className="block truncate text-caption text-ink-2">
+                              {b.whereText}
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                );
+              })()}
+            </>
           )}
         </fieldset>
       )}
@@ -528,7 +626,7 @@ export function PlacementPanel({
                 : t("confirmPlace")}
           </Button>
         )}
-        {canWrite && who?.from && (
+        {canWrite && who?.from && !quick && (
           <Button
             variant="secondary"
             onClick={() => void takeOff()}

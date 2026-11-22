@@ -14,15 +14,44 @@ const SpotParams = z.object({
   col: z.coerce.number().int().min(1).max(30),
 });
 
-/** "/cellar/add?place=…&row=2&col=3": the add flow (or the scanner) with that spot already chosen. */
-export function addHref(base: "/cellar/add" | "/scan", spot?: PreferredSpot | null): string {
+/** Where an add was started from, when it should go back there afterwards (sprint 7: the 3D cellar). */
+export type AddOrigin = "3d";
+
+/**
+ * "/cellar/add?place=…&row=2&col=3": the add flow (or the scanner) with that spot already chosen; `&from=3d` when it
+ * was chosen in the 3D cellar, which the flow then offers to go back to. Only ever these values: no URL is carried,
+ * so nothing can be redirected anywhere else.
+ */
+export function addHref(
+  base: "/cellar/add" | "/scan",
+  spot?: PreferredSpot | null,
+  origin?: AddOrigin,
+): string {
   if (!spot) return base;
   const q = new URLSearchParams({
     place: spot.locationId,
     row: String(spot.row),
     col: String(spot.col),
+    ...(origin ? { from: origin } : {}),
   });
   return `${base}?${q}`;
+}
+
+/** The origin in a page's search params: exactly "3d", or nothing. */
+export function originFromParams(params: {
+  from?: string | string[] | undefined;
+}): AddOrigin | undefined {
+  return params.from === "3d" ? "3d" : undefined;
+}
+
+/**
+ * Back to the 3D cellar on the place the bottle went to, with the new bottle named so the view can show it:
+ * `/cellar?unit=<id>&added=<id>`. Both are only hints: the 3D view uses them only when the place is one of the
+ * household's own (from the server) and the bottle is really there (from the server), and removes them from the URL.
+ */
+export function back3dHref(locationId: string, bottleId: string | null): string {
+  const q = new URLSearchParams({ unit: locationId, ...(bottleId ? { added: bottleId } : {}) });
+  return `/cellar?${q}`;
 }
 
 /**
