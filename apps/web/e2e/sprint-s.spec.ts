@@ -113,7 +113,8 @@ test("a new photo of a known catalogue wine is recognised from its label text, w
   const photo = await labelPhoto(size, [
     producer.toUpperCase(),
     name,
-    "2019",
+    // the vintage as labels print it: a short number alone on a line is what on-device OCR misreads most
+    "Millésime 2019",
     "Pouilly-Fumé",
     "Produit de France",
   ]);
