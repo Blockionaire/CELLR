@@ -1,5 +1,9 @@
 # Sommelier 3.0 — architecture
 
+> **Superseded in part (2026-11-22).** This file describes Sommelier 3.0, in which the engine chooses the wine. The
+> project now is Sommelier V1+: V1's model chooses, code adds facts, checks and a fallback (D-46). What still holds,
+> what is void and what is built where: [`SOMMELIER_CLOSEOUT.md`](SOMMELIER_CLOSEOUT.md). Kept as history.
+
 Status: **S0, independently reviewed: approved with changes.** The review's twelve findings and what each changed
 are in [`progress/S0.md`](progress/S0.md); this file already includes them. Decisions and the alternatives that were
 rejected are in [`DECISIONS.md`](DECISIONS.md); this file says what is built where.

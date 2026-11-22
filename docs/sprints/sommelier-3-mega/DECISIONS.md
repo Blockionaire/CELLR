@@ -23,3 +23,66 @@ the one it replaces.
 | D-16 | 2026-11-19 | **"Exact" means what the shared-profile rule means.** Tier `exact` requires a researched profile with `exact_wine` evidence, high confidence and a source. `producer` and `appellation_rules` evidence count as `appellation`. Review finding 5: `producer` is what an unsourced exact claim is downgraded to (`insights.ts`).                                                                                                                                                                                           | D-05's first mapping (`producer` as exact).                                                                                                                                                                                                       |
 | D-17 | 2026-11-19 | **Two named AI tasks, and V1's answer loses `verdict` and `buy` when the engine is on.** `sommelier_wording` and `food_interpretation` are added to the task list and the budget modes. General questions still go to V1's prompt, but its verdict and buy list are dropped from the answer, so no model-made price or product is shown while the engine is on. Review findings 6 and 7.                                                                                                                                 | Reusing `sommelier_chat` for everything: V1 and 3.0 costs could not be told apart, and an unlisted task is silently never called.                                                                                                                 |
 | D-18 | 2026-11-19 | **Simpler shape.** No `server/buying` or `server/social` directory: offers are an interface and a validator in the domain (no provider exists), friend context extends `server/friends`. The three later switches require `sommelier_engine`. Review finding 11.                                                                                                                                                                                                                                                         | Empty registries and one directory per phase.                                                                                                                                                                                                     |
+
+## Decisions after D-18
+
+D-19 to D-45 were recorded on the stacked, unmerged branches of #94–#106 (S5–S11) and are not on `main`. They stay with
+their branch. [`SOMMELIER_CLOSEOUT.md`](SOMMELIER_CLOSEOUT.md) §3 lists which of them still bind and which are
+superseded. The entries below continue that numbering so that no ID means two things.
+
+Each entry says who decided: **owner** (the owner stated it; the date is when), or **proposal** (the agent's design, accepted
+by the owner only as a direction; it binds the code, but the owner may still change it).
+
+## D-46 — V1 with AI is the primary sommelier (replaces D-01; D-17's premise lapses)
+
+**Owner**, 2026-11-21 and 2026-11-22. V1's model keeps choosing the wine, for pairings and conversations. Code supplies
+facts, checks, limits and a fallback, and never replaces V1's choice. The engines are not switched on in front of V1:
+measured on unseen dishes they are worse than V1 with AI (78% against 69% first bottle right; 99% against 86% no poor
+bottle; `SOMMELIER_CLOSEOUT.md` §1).
+
+**Replaces** D-01 ("the engine decides, the model words"). D-17 (V1's verdict and buy list dropped when the engine is
+on) still describes the dormant engine path on `main`, but no V1+ release depends on it.
+
+**Rejected.** Merging the S0–S8 chain and turning the engine on behind switches (the old `RELEASE_PLAN.md`): it would
+ship the weaker choice.
+
+## D-47 — The S5–S11 stack is not a merge order
+
+**Owner**, 2026-11-22. The seven open Sommelier PRs (#94, #95, #97, #98, #100, #104, #106) are not merged as a chain.
+Code is taken over into small, self-contained PRs from the current `main`, with at most two open at a time. No original
+PR is closed before the code it holds is taken over, or its postponement is written down
+(`SOMMELIER_CLOSEOUT.md` §6.1). #94 and #97 stay open as unmerged drafts.
+
+## D-48 — The first V1+ release leaves out social and outcome learning
+
+**Owner**, 2026-11-22. The social sommelier (#94, migrations 0051 and 0053) and outcome learning (#97, migration 0052) are
+separate later releases. The earlier privacy decision stays: no friend's data, name or question reaches a model (option
+A, 2026-11-21). The first release needs no migration.
+
+## D-49 — The no-model fallback may be built, not activated
+
+**Owner**, 2026-11-22. The engines' plan as V1's fallback when it has no model (part `fallback`, P7) may be developed. It is
+not activated anywhere without a suitable quality measurement and a wine expert's review of the knowledge (R-01).
+
+## D-50 — Quality is measured against V1 with AI on unseen dishes
+
+**Owner**, 2026-11-22. The primary criterion is the comparison with V1 **with** AI on dishes the work was not developed on,
+not with V1's plain fallback. Comparisons draw dishes, not scenarios. Definitive quality claims need an independent
+human holdout and a wine expert's review. Until then results are described as "on AI-labelled sets".
+
+The thresholds in `SOMMELIER_CLOSEOUT.md` §5 (for example "not worse than V1 by more than 5 points") are a **proposal**
+and await the owner.
+
+## D-51 — Paid evaluation runs need an explicit budget approval
+
+**Owner**, 2026-11-22. No paid model call is made for evaluation until the owner approves a budget. **Pending:** the
+proposed total of $3 for the whole V1+ release is a proposal, not an approval. This continues D-32 of the S9 branch
+(the paid path refuses without the owner's phrase).
+
+## D-52 — One release configuration, independent parts (proposal)
+
+**Proposal**, accepted as a direction on 2026-11-22. New V1+ behaviour is configured by one environment variable,
+`CELLR_SOMMELIER`, a list of independent parts. Each part can be tested alone, a missing or unknown part means off,
+and the variable is not part of `CELLR_FEATURES`, so `all` cannot turn it on. With the variable empty, V1 behaves
+exactly as before. The parts and their names are fixed in P2. The existing switches keep their meaning until P2
+documents what happens to each.

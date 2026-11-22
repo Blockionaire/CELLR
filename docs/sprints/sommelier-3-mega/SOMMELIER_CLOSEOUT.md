@@ -1,6 +1,7 @@
 # Sommelier V1+ — closeout and release plan
 
-2026-11-22, against `main` at `ecde6eb`. This document replaces the parallel Sommelier 3.0 sprint plan. It turns the
+2026-11-22, against `main` at `ed3e529` (after #113). The owner accepted this plan as the development direction on
+2026-11-22 (D-46–D-52 in [`DECISIONS.md`](DECISIONS.md)). It replaces the parallel Sommelier 3.0 sprint plan. It turns the
 seven open pull requests (#94, #95, #97, #98, #100, #104, #106) and the merged S0–S4 work into one release project with
 V1 AI as the primary sommelier.
 
@@ -91,19 +92,25 @@ inventories are stale against `main`'s required check **Architecture · register
 
 | Item                                                                                                      | Now                                                                                                                                                                |
 | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| D-01 "The engine decides, the model words"; D-17                                                          | **Superseded by D-40/D-41** ("V1 with AI stays the default; V1's model chooses, code supplies facts, rules and a guard"). The log should say so in D-01 itself     |
+| D-01 "The engine decides, the model words"; D-17                                                          | **Superseded by D-46** on `main` (D-40/D-41 on the stack): V1's model chooses; code supplies facts, rules and a fallback                                           |
 | D-24 "No cache across questions" vs D-35 (dish readings cached)                                           | Contradictory, and neither names the other. Moot for V1+: the dish reader does not ship (§4.4)                                                                     |
 | RELEASE_PLAN.md order (merge S0→S8 in chain, switches on one by one, Preview trial of `sommelier_engine`) | **Void.** No chain merge, no engine in front of V1. Replaced by §6 of this document                                                                                |
 | RELEASE_PLAN.md and S11 §6.2 "S3+S4 not on main"                                                          | Wrong: S3+S4 are on `main` (#111)                                                                                                                                  |
 | STATUS.md resume block (S3 in progress, "V1's AI path NOT measured")                                      | Stale. V1 with AI was measured on S9/S10 branches ($0.36 in total), but not on `main`                                                                              |
-| COST_REPORT.md "V1 with AI not measured, 0 model calls"                                                   | Stale: p50 1.5–1.7 s, p95 2.2–2.8 s, about $0.0001 per answer (S9)                                                                                                 |
+| COST_REPORT.md "V1 with AI not measured, 0 model calls"                                                   | Corrected: p50 1.5–1.9 s, p95 2.2–2.9 s, about $0.00009 per answer (S9; `COST_REPORT.md`)                                                                          |
 | Social option B (V1PLUS §7, D-45)                                                                         | Owner chose **A**: no friend data, name or question to a model. Since `sommelier_social` requires `sommelier_engine`, A means social **stays off** in this release |
 | Guard "active mode" gate (V1PLUS §4)                                                                      | Needs the paid shadow run, now declined: the guard can only run in shadow                                                                                          |
 | Migration 0053 header "after 0047, not yet applied"                                                       | Stale text; content unchanged                                                                                                                                      |
 | R-04 (V1 AI path not measured)                                                                            | Partly closed (branch measurement). Closes fully when the harness is on `main` (P2)                                                                                |
 
-P1 (§6) corrects these, together with this document. The decision log then gets D-46 for this plan
-and supersession notes on D-01, D-17 and D-24.
+P1 corrects these in the documents on `main`:
+
+- `DECISIONS.md`: D-46–D-52, with D-46 naming D-01 as replaced. D-19–D-45 stay on their branches, so the D-24/D-35
+  conflict lives there and lapses with the dish reader.
+- `STATUS.md`, `RELEASE_PLAN.md` and `COST_REPORT.md`: rewritten for V1+.
+- `RISK_REGISTER.md`: R-03, R-04, R-08 and R-10 updated; R-13, R-14 and R-15 added.
+- The S3.0 design documents (`ARCHITECTURE.md`, `MASTER_BRIEF.md`, `ACCEPTANCE_MATRIX.md`): marked as superseded in
+  part.
 
 ## 4. V1+ architecture
 
@@ -174,11 +181,11 @@ CELLR_SOMMELIER = "" | "check,annotate,quantities,menu,fallback"      (comma lis
 
 ## 5. Quality gate
 
-V1+ is compared with **V1 with AI** (today's production behaviour), not with V1's plain fallback. The fallback part
+V1+ is compared with **V1 with AI** (V1 as it runs on `main` with a model), not with V1's plain fallback (D-50). The fallback part
 is compared with `plain()`. All comparisons draw dishes (`stats.ts`, D-43); the per-scenario vectors are committed
 this time.
 
-| Measure                                                      | Set                                          | Release threshold                                                                            |
+| Measure                                                      | Set                                          | Release threshold (**proposal**, pending the owner: D-50)                                    |
 | ------------------------------------------------------------ | -------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | First bottle right                                           | unseen (holdout-test) + human holdout        | Not worse than V1: the lower bound of the 95% interval of (V1+ − V1) above −5 points         |
 | No poor bottle offered                                       | same                                         | ≥ V1's rate (99%) within the interval                                                        |
@@ -197,8 +204,10 @@ this time.
 - **Claims need people.** Quality claims for production need the human holdout (escrowed, D-44) and at least one
   wine expert. Both are blocked on people. Until then the gate states "not worse than V1 on the AI-labelled sets",
   and nothing more.
-- **Paid runs need the owner's approval** (D-32, the phrase `SOMMELIER_EVAL_PAID=owner-approved`).
-  - Proposed budget for the whole release: **at most $3**. The S9 and S10 runs together cost $0.36; this allows
+- **Paid runs need the owner's budget approval** (D-51; on the stack D-32, the phrase
+  `SOMMELIER_EVAL_PAID=owner-approved`).
+  - Proposed budget for the whole release: **at most $3**. This is **pending**: the owner named it, but it is not an
+    approval to spend. The S9 and S10 runs together cost $0.36; this allows
     about six full comparisons.
   - The budget is asked for before P3, the first change V1's model sees.
 
@@ -213,7 +222,7 @@ Rules:
 
 | #   | PR                                                                                                                                                                                                                                                                              | Visible change                                         | Acceptance                                                                                                                                                  | Migration | Paid calls      |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | --------------- |
-| P1  | **Closeout docs.** This document; STATUS, RELEASE_PLAN, COST_REPORT and DECISIONS corrected (§3); RISK_REGISTER R-04 updated                                                                                                                                                    | none                                                   | Docs only; CI green                                                                                                                                         | –         | –               |
+| P1  | **Closeout docs.** This document; DECISIONS D-46–D-52; STATUS, RELEASE_PLAN and COST_REPORT rewritten; RISK_REGISTER updated; S3.0 design docs marked superseded in part (§3)                                                                                                   | none                                                   | Docs only; CI green                                                                                                                                         | –         | –               |
 | P2  | **Gate and release config.** Port `engines/v1-ai.ts`, `paid.ts`, `stats.ts`, `compare.ts` and the holdout sets from #100/#104/#106 onto `main`'s eval. Add `CELLR_SOMMELIER` (parts, fails closed); remove the two dead switches                                                | none (empty = today)                                   | Benchmark tests pass; `--estimate` runs free; the paid path refuses without the phrase; one baseline V1-with-AI run **if approved**, with vectors committed | –         | optional, 1 run |
 | P3  | **Trust: `check`.** Answer text checked against the digest (a sentence naming a cellar wine that is not on the cards falls back to a card-only sentence). Buy entries without a model price: the budget band if one is set, else "price not known"; prompt v7 drops "about €20" | Fewer, truer claims; buy chips without invented prices | Gate (§5) on unseen sets vs V1 v6; 0 invented prices; unit tests for every check; e2e NL/EN                                                                 | –         | yes             |
 | P4  | **`annotate`.** Per V1 card: drink now / keep until, serving temperature and decanting, reserved, where it lies. Reuses the serving and window modules with #95's refinements                                                                                                   | Richer cards                                           | Fixtures 100%; V1's choice byte-identical with the part on or off (test); latency within gate; e2e phone NL/EN                                              | –         | no              |
@@ -233,17 +242,18 @@ Rules:
 
 ### 6.1 What happens to the open pull requests
 
-None is merged or closed before the owner agrees. The proposal:
+None is merged or closed by the agent. Each stays until the code it holds is taken over or its postponement is written
+down (D-47). Closing is the owner's call; the "When" column is a proposal.
 
-| PR   | Proposal                                                                                                                                                                                      | When            |
-| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| #98  | Close: its documents are superseded by P1                                                                                                                                                     | after P1 merges |
-| #100 | Close: the harness and holdout sets are ported in P2; the rule tuning stays unported (the engine does not choose); the friend cellar and 0053 are deferred with social                        | after P2 merges |
-| #104 | Close: statistics and the human-holdout frame are ported in P2; the dish reader, second opinion and cache are not shipped (measured, no gain). The branch is kept as reference                | after P2 merges |
-| #106 | Close: the stats are ported in P2; the guard is deferred, and its code is kept on the branch                                                                                                  | after P2 merges |
-| #95  | Close: the serving, window, quantity and menu parts are ported in P4–P6; engine orchestration and `planMenu` are not                                                                          | after P6 merges |
-| #94  | Keep open as a draft, or close with its branch kept, until the social project starts (owner's choice). **Do not merge**: it would release consent UI for a feature that cannot be switched on | owner decision  |
-| #97  | As #94, until the learning project starts. **Do not merge**: 0052's retention is not acceptable as is                                                                                         | owner decision  |
+| PR   | Proposal                                                                                                                                                                       | When            |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
+| #98  | Close: its documents are superseded by P1                                                                                                                                      | after P1 merges |
+| #100 | Close: the harness and holdout sets are ported in P2; the rule tuning stays unported (the engine does not choose); the friend cellar and 0053 are deferred with social         | after P2 merges |
+| #104 | Close: statistics and the human-holdout frame are ported in P2; the dish reader, second opinion and cache are not shipped (measured, no gain). The branch is kept as reference | after P2 merges |
+| #106 | Close: the stats are ported in P2; the guard is deferred, and its code is kept on the branch                                                                                   | after P2 merges |
+| #95  | Close: the serving, window, quantity and menu parts are ported in P4–P6; engine orchestration and `planMenu` are not                                                           | after P6 merges |
+| #94  | **Stays open as an unmerged draft** until the social project starts (owner, D-47, D-48). **Not merged**: it would release consent UI for a feature that cannot be switched on  | owner: decided  |
+| #97  | **Stays open as an unmerged draft** until the learning project starts (owner, D-47, D-48). **Not merged**: 0052's retention is not acceptable as is                            | owner: decided  |
 
 Each closing comment lists the code taken over (with the PR that took it), the functions deliberately not taken, and
 the risks that remain.
@@ -283,12 +293,24 @@ Production activation (owner):
 
 **GO/NO-GO today:**
 
-- **GO** to start P1 and P2.
+- **GO** for P1 and P2 (owner, 2026-11-22). P3–P8 are not started before P2 is merged.
 - **NO-GO** for any production activation: nothing of V1+ is built yet.
 
-Open owner decisions:
+Owner decisions taken (2026-11-21 and 2026-11-22):
 
-1. The budget for paid evaluation runs (proposed: at most $3).
-2. Whether #94 and #97 stay open as drafts or are closed with their branches kept.
+| Decision                                                                                           | Entry      |
+| -------------------------------------------------------------------------------------------------- | ---------- |
+| V1 with AI stays the primary sommelier; the S5–S11 stack is not a merge order                      | D-46, D-47 |
+| #94 and #97 stay open as unmerged drafts; social and outcome learning are not in the first release | D-47, D-48 |
+| Social: option A, no friend data, name or question to a model                                      | D-48       |
+| The fallback (P7) may be built, and is not activated without a quality and expert review           | D-49       |
+| Primary criterion: V1 with AI on unseen dishes; a human holdout and an expert for final claims     | D-50       |
+| No paid evaluation call without a budget approval                                                  | D-51       |
+| Variant E only in shadow; the paid shadow measurement is postponed                                 | §4.4       |
+
+Pending owner decisions:
+
+1. The budget for paid evaluation runs: $3 is proposed, not approved (D-51).
+2. The gate thresholds of §5 (D-50).
 3. Who writes the human holdout, and who the wine expert(s) are.
-4. Whether the `fallback` part is wanted at all before the R-01 review can be done.
+4. When the originals #95, #98, #100, #104 and #106 are closed, once their code is taken over (§6.1).
