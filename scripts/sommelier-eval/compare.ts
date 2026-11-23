@@ -4,10 +4,11 @@
  * paired cluster bootstrap of stats.ts: runs are averaged within a scenario, scenarios are resampled.
  *
  *   pnpm --filter @cellr/sommelier-eval run compare --a a1.json,a2.json --b d1.json,d2.json
+ *   ... --json out.json      also write the differences and intervals as JSON (for a record of a comparison)
  *
  * Files of different sets, different salts or different key types are refused, as is an incomplete run.
  */
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { pairedProportion, pairedRatio, type Interval, type ScenarioVector } from "./stats";
 import type { VectorFile } from "./vectors";
@@ -61,7 +62,9 @@ export function compare(a: readonly VectorFile[], b: readonly VectorFile[]) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const { values: args } = parseArgs({ options: { a: { type: "string" }, b: { type: "string" } } });
+  const { values: args } = parseArgs({
+    options: { a: { type: "string" }, b: { type: "string" }, json: { type: "string" } },
+  });
   const load = async (list: string | undefined) =>
     Promise.all(
       (list ?? "")
@@ -85,8 +88,23 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(
       `  Left out (not in every run of both): ${left.a} scenarios of ${a[0]!.engine}, ${left.b} of ${b[0]!.engine}.`,
     );
-  for (const [name, r] of Object.entries(compare(a, b)))
+  const result = compare(a, b);
+  for (const [name, r] of Object.entries(result))
     console.log(
       `  ${name.padEnd(14)} ${pts(r.diff)} points [${pts(r.low)}, ${pts(r.high)}] over ${r.scenarios} scenarios of ${r.clusters} dishes`,
+    );
+  if (args.json)
+    await writeFile(
+      args.json,
+      JSON.stringify(
+        {
+          set: a[0]!.set,
+          a: { engine: a[0]!.engine, runs: a.length, leftOut: left.a },
+          b: { engine: b[0]!.engine, runs: b.length, leftOut: left.b },
+          measures: result,
+        },
+        null,
+        2,
+      ) + "\n",
     );
 }

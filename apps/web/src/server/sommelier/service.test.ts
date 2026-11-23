@@ -4,7 +4,6 @@ import {
   DomainError,
   NO_PREFERENCES,
   parseSommelierParts,
-  SOMMELIER_PARTS,
   type SommelierParts,
   type CellarItem,
   type InsightOutput,
@@ -781,14 +780,9 @@ describe("the sommelier and your own taste", () => {
   });
 });
 
-describe("Sommelier V1+ parts (CELLR_SOMMELIER): a part that is not on, or not built, changes nothing", () => {
-  // `check`, `annotate`, `quantities` and `menu` (P3–P6) are built: they have their own tests below. `fallback`
-  // is not yet.
-  const all = parseSommelierParts(
-    SOMMELIER_PARTS.filter((p) => !["check", "annotate", "quantities", "menu"].includes(p)).join(
-      ",",
-    ),
-  );
+describe("Sommelier V1+ parts (CELLR_SOMMELIER): with no part named, V1 answers exactly as before", () => {
+  // Every part is built (P3–P7) and has its own tests below and in parts/. What is left to prove here: a
+  // deployment that names none, or only names that are not a part, is V1 byte for byte.
   const questions: Array<{ texts: string[]; mode?: "tonight" }> = [
     { texts: ["What goes with roast lamb?"] },
     { texts: ["How many bottles of red do I have?"] },
@@ -798,7 +792,6 @@ describe("Sommelier V1+ parts (CELLR_SOMMELIER): a part that is not on, or not b
   const variants: Array<[string, SommelierParts | undefined]> = [
     ["absent", undefined],
     ["empty", parseSommelierParts("")],
-    ["every part that is not built", all],
     ["an unknown name", parseSommelierParts("all,bogus")],
   ];
   for (const noAi of [false, true]) {

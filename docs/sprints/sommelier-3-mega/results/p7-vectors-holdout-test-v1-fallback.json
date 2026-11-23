@@ -1,0 +1,396 @@
+{
+  "set": "holdout-test",
+  "engine": "v1-fallback",
+  "keyed": "salted-sha256",
+  "salt": "136e8b0d",
+  "incomplete": false,
+  "rows": {
+    "0a7bf39adafdf501": {
+      "cluster": "f2cbf25203b5ad07",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "1de4fe17f9ac1ae0": {
+      "cluster": "63cb18973273ccf8",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "1fc822f07dd1c419": {
+      "cluster": "a944b7d19af2960a",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "221f7811c82c211e": {
+      "cluster": "2454257df8714fb1",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 0,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "2621e8b08f80dda1": {
+      "cluster": "f2cbf25203b5ad07",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 0
+    },
+    "2eb870484a7d8509": {
+      "cluster": "a944b7d19af2960a",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "48e600c93760fdc9": {
+      "cluster": "63cb18973273ccf8",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "4c4fcf42dff45b84": {
+      "cluster": "63cb18973273ccf8",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "4d3957c752dc96ef": {
+      "cluster": "078949ff985e79bc",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 0,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "4e8df6f77b05b566": {
+      "cluster": "ef77f5241790b29b",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 0,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "50534b425bfd3f15": {
+      "cluster": "078949ff985e79bc",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "528cecf10097dbfd": {
+      "cluster": "7f03b472db594191",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "5b22f280a087cf6c": {
+      "cluster": "a1d4618bcce30297",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "65b9933aeb6111f9": {
+      "cluster": "fa64c687b8c19eb6",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 3,
+      "good": 0
+    },
+    "69cf2de5bc00e501": {
+      "cluster": "61bc304af0d0750b",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 2,
+      "poor": 1,
+      "good": 1
+    },
+    "7012136ef5447882": {
+      "cluster": "8b53224aa704781e",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "77f1f40a4a3a47b0": {
+      "cluster": "bfe4803367632786",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 3,
+      "good": 0
+    },
+    "78ed2cb8d68ea620": {
+      "cluster": "d9f925179f8b3dc6",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 0
+    },
+    "7d6220339fe09363": {
+      "cluster": "13d1b7ab8581f4a5",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "8118d5c0a2f51028": {
+      "cluster": "0d9417e5268a04f8",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 0
+    },
+    "89be1a0789b361ec": {
+      "cluster": "151b32e932435d32",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 0,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "8c0a30d4438a8aeb": {
+      "cluster": "ef77f5241790b29b",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "95b6e2bd37644adc": {
+      "cluster": "a2f54faf80b100f6",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "a8854c33b01cb1e6": {
+      "cluster": "151b32e932435d32",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "a9288f575d07e427": {
+      "cluster": "a1d4618bcce30297",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 0,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "a976e8b82cc6650a": {
+      "cluster": "2a0b1f6201757c06",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 0
+    },
+    "aabc9cc5f1f4b9c1": {
+      "cluster": "53bf7774f787f387",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "af9839a70ba9c52b": {
+      "cluster": "fa64c687b8c19eb6",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "b2660c166303c295": {
+      "cluster": "59bc9a0d4924e10e",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 0
+    },
+    "b54f242136e0cf2d": {
+      "cluster": "f83beed1f57fdc0a",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "b630a744e12c76ef": {
+      "cluster": "7f03b472db594191",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "bfceec72dcaac9e2": {
+      "cluster": "59bc9a0d4924e10e",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 2
+    },
+    "ca3ba4b6d884008b": {
+      "cluster": "53bf7774f787f387",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "cf35864d636537e4": {
+      "cluster": "a944b7d19af2960a",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 0
+    },
+    "d108229f77a2c4bb": {
+      "cluster": "f83beed1f57fdc0a",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "d23bd481918f568e": {
+      "cluster": "a2f54faf80b100f6",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "d64944ac8c7f1b58": {
+      "cluster": "4d7f3cf5e3e75e12",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 2
+    },
+    "e7276db648ab2477": {
+      "cluster": "13d1b7ab8581f4a5",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "e73185816fa6451e": {
+      "cluster": "2a0b1f6201757c06",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 1,
+      "poor": 1,
+      "good": 0
+    },
+    "ea8566fd12d52a38": {
+      "cluster": "ef77f5241790b29b",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ed974bf34d3cb112": {
+      "cluster": "2454257df8714fb1",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "eee3dc7c928dfd4b": {
+      "cluster": "fa64c687b8c19eb6",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "f4b14c3fe5eb3476": {
+      "cluster": "61bc304af0d0750b",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    }
+  }
+}
