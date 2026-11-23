@@ -336,6 +336,30 @@ describe("a model that gets everything wrong, with every combination of parts", 
   });
 });
 
+describe("the check of the words and the cards' serving facts together", () => {
+  it("a ref is rendered, an invented price goes, and a temperature that differs from the card goes too: one call", async () => {
+    const { service, requests, items } = world(SOMMELIER_PARTS.join(","), (_request, items) => ({
+      answer: `[[${ref(items[2]!)}]] suits the lamb. Serve it at 22 °C after three hours in a carafe. It costs about €40.`,
+      bottle_refs: [ref(items[2]!)],
+      verdict: "match",
+      buy: [],
+      used_taste: false,
+    }));
+    const answer = await service.ask({
+      messages: [{ role: "user", text: "What goes with roast lamb?" }],
+    });
+    expect(requests).toHaveLength(1);
+    expect(answer.bottles.map((b) => b.vintageId)).toEqual([items[2]!.vintageId]);
+    expect(answer.text).toBe("Château Margaux Pavillon Rouge 2015 suits the lamb.");
+    expect(answer.check).toMatchObject({ text: "trimmed", codes: ["price"] });
+    expect(answer.servingCheck).toMatchObject({
+      text: "trimmed",
+      codes: ["temperature", "decanting"],
+    });
+    expect(isStoredAnswer(JSON.parse(JSON.stringify(answer)))).toBe(true);
+  });
+});
+
 describe("one conversation with every part on", () => {
   const ALL = SOMMELIER_PARTS.join(",");
   const said = (a: SommelierAnswer) => a.text ?? "(the plain answer's sentence)";

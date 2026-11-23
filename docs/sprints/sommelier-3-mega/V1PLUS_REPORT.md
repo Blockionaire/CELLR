@@ -94,24 +94,24 @@ profiles read is a database round trip), and the machine was shared with other w
 One reviewer agent (maximum effort) that wrote none of the code, asked to break it. **No P0.** Its findings and what
 became of them:
 
-| #     | Severity | Finding                                                                                                            | Status                                                                                           |
-| ----- | -------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| 1     | P1       | The menu reader lost or merged a course named after its dish ("…fondant for dessert")                              | Fixed (P6)                                                                                       |
-| 2     | P1       | With `check` and `menu`, a reason could outgrow what a kept answer allows: answer lost, model asked twice on retry | Fixed (refs rendered before the cut; every answer of every combination is tested to be storable) |
-| 3     | P1       | The check replaced good answers on everyday wording (glassware, cuisines, Dutch "open je twee flessen")            | Fixed (P3); a doubtful name alone now removes one sentence, not the answer                       |
-| 4     | P1       | Invented bottles and impossible actions kept ("Serve the Sassicaia", "I've set it aside")                          | Fixed (P3)                                                                                       |
-| 5     | P2       | Vintages and counts in other formats                                                                               | Fixed (P3); the remaining misses are listed in the module                                        |
-| 6     | P2       | Prices without a currency sign; shops not on the list                                                              | Fixed (P3)                                                                                       |
-| 7     | P2       | The model's words can contradict the card's temperature, decanting time or years                                   | **Open.** The model is told the facts; nothing checks that it used them                          |
-| 8     | P2       | A comparison read where there was none replaced the model's own pick                                               | Fixed (P6): the pair are the cards only when the model pointed at one of them                    |
-| 9     | P2       | Non-menus read as menus (another day, the past)                                                                    | Fixed (P6)                                                                                       |
-| 10    | P2       | A made-up course wine shown as "nothing suits"                                                                     | Fixed (P6): "no wine could be chosen"                                                            |
-| 11    | P2       | Menu arithmetic summed a shared wine after rounding                                                                | Fixed (P5)                                                                                       |
-| 12    | P2       | Guest counts carried over or read where there were none                                                            | Fixed (P5)                                                                                       |
-| 13    | P2       | An answer the check replaced had no text: an older screen broke on it                                              | Fixed (P3): the server puts the card sentence on the answer                                      |
-| 14    | P2       | Latency at 3,000 wines                                                                                             | Fixed: one cellar index per question; see §3                                                     |
-| 15    | P2       | Serving wording a professional would correct; rules of thumb forced on the model                                   | Fixed in wording and marking (P4); **the tables themselves are not reviewed by a person**        |
-| 16–19 | P3       | Cosmetic refs, test gaps, a register evidence, copy                                                                | Fixed, except: the fallback's "closest" card carries no facts (kept as is)                       |
+| #     | Severity | Finding                                                                                                            | Status                                                                                                                     |
+| ----- | -------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| 1     | P1       | The menu reader lost or merged a course named after its dish ("…fondant for dessert")                              | Fixed (P6)                                                                                                                 |
+| 2     | P1       | With `check` and `menu`, a reason could outgrow what a kept answer allows: answer lost, model asked twice on retry | Fixed (refs rendered before the cut; every answer of every combination is tested to be storable)                           |
+| 3     | P1       | The check replaced good answers on everyday wording (glassware, cuisines, Dutch "open je twee flessen")            | Fixed (P3); a doubtful name alone now removes one sentence, not the answer                                                 |
+| 4     | P1       | Invented bottles and impossible actions kept ("Serve the Sassicaia", "I've set it aside")                          | Fixed (P3)                                                                                                                 |
+| 5     | P2       | Vintages and counts in other formats                                                                               | Fixed (P3); the remaining misses are listed in the module                                                                  |
+| 6     | P2       | Prices without a currency sign; shops not on the list                                                              | Fixed (P3)                                                                                                                 |
+| 7     | P2       | The model's words can contradict the card's temperature, decanting time or years                                   | Fixed (P4, 2026-11-23, owner decision: the app's facts lead): contradicting sentences are left out in code, no second call |
+| 8     | P2       | A comparison read where there was none replaced the model's own pick                                               | Fixed (P6): the pair are the cards only when the model pointed at one of them                                              |
+| 9     | P2       | Non-menus read as menus (another day, the past)                                                                    | Fixed (P6)                                                                                                                 |
+| 10    | P2       | A made-up course wine shown as "nothing suits"                                                                     | Fixed (P6): "no wine could be chosen"                                                                                      |
+| 11    | P2       | Menu arithmetic summed a shared wine after rounding                                                                | Fixed (P5)                                                                                                                 |
+| 12    | P2       | Guest counts carried over or read where there were none                                                            | Fixed (P5)                                                                                                                 |
+| 13    | P2       | An answer the check replaced had no text: an older screen broke on it                                              | Fixed (P3): the server puts the card sentence on the answer                                                                |
+| 14    | P2       | Latency at 3,000 wines                                                                                             | Fixed: one cellar index per question; see §3                                                                               |
+| 15    | P2       | Serving wording a professional would correct; rules of thumb forced on the model                                   | Fixed in wording and marking (P4); **the tables themselves are not reviewed by a person**                                  |
+| 16–19 | P3       | Cosmetic refs, test gaps, a register evidence, copy                                                                | Fixed, except: the fallback's "closest" card carries no facts (kept as is)                                                 |
 
 The reviewer's own limits: it is an AI, it wrote its adversarial sentences itself, and it ran no browser test.
 
@@ -125,7 +125,7 @@ The reviewer's own limits: it is an AI, it wrote its adversarial sentences itsel
 4. **The check's behaviour on real model output is unknown**: how often the model writes refs as asked, how often a
    good answer is trimmed. The corpus that measures 0 false positives was written by agents.
 5. **Cost for a new menu exceeds the proposed +10%** on the worst-case estimate.
-6. **The model's words are not checked against the card's serving facts** (finding 7).
+6. ~~The model's words are not checked against the card's serving facts~~ — resolved in #129: the app's facts lead (numbers only; a claim without a number is not seen).
 7. **No person has used it on a device.** Phone behaviour is proven by automated browser tests and screenshots.
 8. **Full CI on the final commits of each branch**: started by hand for all four branches; see the pull requests'
    checks for the outcome. The run on the integration branch predates the review fixes.

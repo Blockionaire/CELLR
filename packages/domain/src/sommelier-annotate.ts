@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CellarItem, DrinkSummary } from "./cellar";
+import { normalizeText, type CellarItem, type DrinkSummary } from "./cellar";
 import { DRINK_PHASES, type DrinkPhase } from "./drink-window";
 import { DECANT_KINDS, GLASSES, type DecantKind, type Glass } from "./experiences/serving";
 import { EVIDENCE_TIERS, type EvidenceTier } from "./pairing-engine/wine";
@@ -174,3 +174,31 @@ export function annotationEmphasis(question: string): "serving" | "keeping" | nu
   const kind = askedFor(question);
   return kind === "serving" || kind === "keeping" ? kind : null;
 }
+
+// ---- Which wine a text names ---------------------------------------------------------------------------------
+
+/** Words on many labels that do not pick out one wine. */
+const GENERIC: ReadonlySet<string> = new Set(
+  normalizeText(
+    "chateau domaine domaines bodega bodegas cantina cantine tenuta weingut quinta clos mas cave caves maison " +
+      "cuvee cuvees reserve reserva riserva gran grand grande grands premier cru crus classe classico superiore " +
+      "blanc blanche rouge rose rosso bianco tinto blanco brut extra vieilles vignes vigne estate winery wines " +
+      "wine cellars vineyards vineyard family selection selected special collection les des del della di de du la le " +
+      "the and van von und old vintage red white sparkling dessert fortified orange sweet dry " +
+      // The words of the questions themselves: "how long" is not the producer Long Shadows.
+      "long keep kept store serve served serving should would could what which when where ready still cold " +
+      "warm cool chill chilled decant decanted decanting carafe glass glasses breathe temperature bottle bottles " +
+      "drink open opened lang bewaren bewaar serveer serveren schenk schenken koud koel koelen warm decanteren " +
+      "decanteer karaf glas glazen temperatuur ademen dronk drinken wanneer welke welk fles flessen nog moet " +
+      "kunnen this that with your have mijn onze deze from them they these those",
+  ).split(" "),
+);
+
+/** A word that does not pick out one wine: on many labels, or a word of the questions themselves. */
+export const isLabelGenericWord = (word: string): boolean => GENERIC.has(word);
+
+/** The words of a label that can name it: long enough, and not on every other label. */
+export const labelNameWords = (text: string): string[] =>
+  normalizeText(text)
+    .split(" ")
+    .filter((w) => w.length >= 4 && !GENERIC.has(w) && !/^\d+$/.test(w));

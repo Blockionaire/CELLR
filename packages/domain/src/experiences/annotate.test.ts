@@ -550,11 +550,14 @@ describe("what the model may add to the app's facts", () => {
       expect(b.text).not.toMatch(/do not air/i);
     }
   });
-  it("rules of thumb leave room for what the model knows of the wine, as its own view", () => {
+  it("rules of thumb leave room for what the model knows of the wine in words, never other numbers", () => {
     const b = block(ask("How should I serve the Monfortino?"), [monfortino()])!;
     expect(b.text).toContain("[rule of thumb]");
-    expect(b.text).toMatch(/If you know this wine better you may say so, as your own view/);
-    expect(b.text).toMatch(/must not contradict the drinking window/);
+    expect(b.text).toMatch(/You may add what you know about this wine in words/);
+    expect(b.text).toMatch(
+      /state no other temperature, decanting time or drinking years than these: the app shows them under the wine and leaves out any that differ/,
+    );
+    expect(b.text).not.toMatch(/your own view/);
     expect(b.text).not.toContain("[as written]");
     expect(b.text).not.toMatch(/state them as written/);
   });
@@ -575,7 +578,7 @@ describe("what the model may add to the app's facts", () => {
     )!;
     expect(exact.text).not.toContain("[rule of thumb]");
     expect(exact.text).toContain("from this wine's researched profile [as written]");
-    expect(exact.text).not.toMatch(/your own view/);
+    expect(exact.text).not.toMatch(/in words/);
   });
   it("a wine with no known window: the model is told so, and to give no years as fact", () => {
     const b = block(ask("How long can I keep the Monfortino?"), [

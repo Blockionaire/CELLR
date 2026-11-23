@@ -1,5 +1,5 @@
 import type { useTranslations } from "next-intl";
-import type { BottleAnnotation, QuantityAdvice } from "@cellr/domain";
+import type { BottleAnnotation, QuantityAdvice, ServingCheck } from "@cellr/domain";
 
 /** The sommelier namespace's translator. */
 type SommelierT = ReturnType<typeof useTranslations<"sommelier">>;
@@ -146,4 +146,14 @@ export function quantityLines(
     return [t(key, values)];
   });
   return [head, ...wines];
+}
+
+/**
+ * The quiet note under an answer whose serving details were reconciled with the cards (the cards' facts lead):
+ * null when the model's words were kept as they were. For a replaced text, the sentence shown in its place is
+ * `annotate.seeCard`.
+ */
+export function servingNote(check: ServingCheck | null | undefined, t: SommelierT): string | null {
+  if (!check || check.text === "kept") return null;
+  return t(check.text === "replaced" ? "annotate.note.replaced" : "annotate.note.trimmed");
 }

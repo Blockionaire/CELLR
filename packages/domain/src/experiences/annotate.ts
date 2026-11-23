@@ -11,6 +11,8 @@ import type { ChatMessage } from "../sommelier";
 import {
   ANNOTATIONS_MAX,
   drinkAnnotation,
+  isLabelGenericWord,
+  labelNameWords,
   reservedAnnotation,
   whereAnnotation,
   type BottleAnnotation,
@@ -134,29 +136,6 @@ export function annotateBottles(
 
 // ---- Which cellar wines a text is about -----------------------------------------------------------------------
 
-/** Words on many labels that do not pick out one wine. */
-const GENERIC = new Set(
-  normalizeText(
-    "chateau domaine domaines bodega bodegas cantina cantine tenuta weingut quinta clos mas cave caves maison " +
-      "cuvee cuvees reserve reserva riserva gran grand grande grands premier cru crus classe classico superiore " +
-      "blanc blanche rouge rose rosso bianco tinto blanco brut extra vieilles vignes vigne estate winery wines " +
-      "wine cellars vineyards vineyard family selection selected special collection les des del della di de du la le " +
-      "the and van von und old vintage red white sparkling dessert fortified orange sweet dry " +
-      // The words of the questions themselves: "how long" is not the producer Long Shadows.
-      "long keep kept store serve served serving should would could what which when where ready still cold " +
-      "warm cool chill chilled decant decanted decanting carafe glass glasses breathe temperature bottle bottles " +
-      "drink open opened lang bewaren bewaar serveer serveren schenk schenken koud koel koelen warm decanteren " +
-      "decanteer karaf glas glazen temperatuur ademen dronk drinken wanneer welke welk fles flessen nog moet " +
-      "kunnen this that with your have mijn onze deze from them they these those",
-  ).split(" "),
-);
-
-/** The words of a label that can name it: long enough, and not on every other label. */
-const nameWords = (text: string) =>
-  normalizeText(text)
-    .split(" ")
-    .filter((w) => w.length >= 4 && !GENERIC.has(w) && !/^\d+$/.test(w));
-
 /**
  * A cheap first look, before the exact one: a pattern that finds a normalised word in raw, lower-cased label text
  * whatever accents the label writes it with ("rotie" in "côte-rôtie"). It may find too much (a word inside another
@@ -212,13 +191,15 @@ function namedIn(
   const said = normalizeText(text.slice(0, 800));
   if (said === "") return [];
   const tokens = new Set(said.split(" "));
-  const wanted = [...tokens].filter((w) => w.length >= 4 && !GENERIC.has(w) && !/^\d+$/.test(w));
+  const wanted = [...tokens].filter(
+    (w) => w.length >= 4 && !isLabelGenericWord(w) && !/^\d+$/.test(w),
+  );
   const finder = looseFinder(wanted);
   let found = finder
     ? items.filter(
         (i) =>
           mayContain(finder, `${i.producer} ${i.wineName}`) &&
-          nameWords(`${i.producer} ${i.wineName}`).some((w) => tokens.has(w)),
+          labelNameWords(`${i.producer} ${i.wineName}`).some((w) => tokens.has(w)),
       )
     : [];
   if (found.length === 0) {
@@ -375,8 +356,8 @@ export function servingFactsBlock(
     return `- ${refOf(item.vintageId) ?? "(not in the list)"} | ${name}: ${facts.join("; ")}.`;
   });
   const said = lines.join("\n");
-  // A fact about this very wine is stated as written. The app's rules of thumb leave room for what the model knows
-  // of the wine, as its own view: a rule for a style is not the last word on a Monfortino.
+  // A fact about this very wine is stated as written. A rule of thumb leaves room for what the model knows of the
+  // wine, in words; the numbers stay the app's (they lead: sommelier-serving-claims.ts removes any that differ).
   const text = [
     "Serving facts (worked out by the app from the cellar and its serving and drinking-window tables):",
     ...(said.includes(AS_WRITTEN)
@@ -386,7 +367,7 @@ export function servingFactsBlock(
       : []),
     ...(said.includes(RULE)
       ? [
-          `Facts marked ${RULE} are the app's rules for wines like this, not known for this bottle: give them as such ("about", "as a rule"). If you know this wine better you may say so, as your own view; it must not contradict the drinking window given.`,
+          `Facts marked ${RULE} are the app's rules for wines like this, not known for this bottle: give them as such ("about", "as a rule"). You may add what you know about this wine in words, but state no other temperature, decanting time or drinking years than these: the app shows them under the wine and leaves out any that differ.`,
         ]
       : []),
     ...lines,

@@ -40,6 +40,7 @@ import { plainSentence } from "./plain-sentence";
 import { PlanView } from "./plan-view";
 import { buyPriceLabel, checkNote, checkSentence } from "./check-sentence";
 import { AnnotationView } from "./annotation-view";
+import { servingNote } from "./annotation-lines";
 import { QuantityView } from "./quantity-view";
 import { MenuView } from "./menu-view";
 import { cn } from "@/ui/cn";
@@ -635,6 +636,8 @@ function Answer({
   const t = useTranslations("sommelier");
   let i = 0;
   const note = checkNote(answer.check, t);
+  // The app's serving facts lead: when a sentence of the model's differed from them and was left out, say so.
+  const served = servingNote(answer.servingCheck, t);
   // Sommelier V1+ (`annotate`, `quantities`): the app's own facts for the cards, when the answer carries them.
   const annotationOf = (vintageId: string) =>
     answer.annotations?.find((a) => a.vintageId === vintageId) ?? null;
@@ -714,6 +717,11 @@ function Answer({
         {note && (
           <p className="mt-2 text-caption text-ink-3" data-testid="check-note">
             {note}
+          </p>
+        )}
+        {served && (
+          <p className="mt-2 text-caption text-ink-3" data-testid="serving-note">
+            {served}
           </p>
         )}
       </div>

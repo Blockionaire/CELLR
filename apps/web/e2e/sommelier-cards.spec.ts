@@ -95,6 +95,62 @@ test.describe("facts on the sommelier's cards (CELLR_SOMMELIER=annotate,quantiti
     ).toHaveCount(3);
   });
 
+  test("the app's serving facts lead: words that state another temperature or decanting time are left out, in English and Dutch", async ({
+    page,
+    request,
+  }) => {
+    const { email } = await arrive(page, "served");
+    const { call } = await apiClient(request, email);
+    const ids = await furnish(call);
+    const m = marker();
+    await program(m, {
+      content: {
+        answer:
+          "The Tignanello is the one for a grilled steak. Serve it at 22 °C after three hours in a carafe.",
+        bottle_refs: [refOf(ids["Tignanello"]!)],
+        verdict: "match",
+        buy: [],
+        used_taste: false,
+      },
+    });
+    await page.goto("/sommelier");
+    await ask(page, `What goes with a grilled steak? ${m}`);
+    const log = page.getByRole("log", { name: "Conversation" });
+    await expect(log).toContainText("The Tignanello is the one for a grilled steak.");
+    // The card's own facts stay; the sentence that said otherwise is gone, and the answer says so.
+    await expect(log.getByTestId("annotation").first()).toContainText(/about 15–17 °C/);
+    await expect(log).not.toContainText("22 °C");
+    await expect(log).not.toContainText("three hours");
+    await expect(log.getByTestId("serving-note")).toHaveText(
+      "A serving detail in the answer differed from your cellar's own facts and was left out; the card shows them.",
+    );
+    // One call to the model: the words are compared in code.
+    expect(await modelCalls(m)).toHaveLength(1);
+    await page.screenshot({ path: shot("v1plus-cards-serving-leads"), fullPage: true });
+
+    // In Dutch, with nothing left of the model's words: the answer points at the card.
+    await setLocale(email, "nl");
+    await page.reload();
+    const nl = marker();
+    await program(nl, {
+      content: {
+        answer: "Schenk de Tignanello op 22 graden en decanteer hem drie uur.",
+        bottle_refs: [refOf(ids["Tignanello"]!)],
+        verdict: "not_pairing",
+        buy: [],
+        used_taste: false,
+      },
+    });
+    await ask(page, `Hoe serveer ik de Tignanello? ${nl}`, DUTCH);
+    const gesprek = page.getByRole("log", { name: "Gesprek" });
+    await expect(gesprek).toContainText(
+      "Hoe je hem serveert en wanneer je hem drinkt, staat op de kaart hieronder.",
+    );
+    await expect(gesprek).not.toContainText("22 graden");
+    await expect(gesprek.getByTestId("annotation").last()).toContainText(/ongeveer 15–17 °C/);
+    await expectNoSidewaysScroll(page);
+  });
+
   test("for a number of people: the bottles needed against what is free to open, counted by the app", async ({
     page,
     request,
