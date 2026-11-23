@@ -387,6 +387,11 @@
     },
     "annotate": {
       "label": "Feiten uit je kelder",
+      "note": {
+        "trimmed": "Een serveerdetail in het antwoord week af van de eigen gegevens van je kelder en is weggelaten; de kaart toont ze.",
+        "replaced": "De serveerdetails in het antwoord weken af van de eigen gegevens van je kelder, dus het antwoord is weggelaten; de kaart toont ze."
+      },
+      "seeCard": "Hoe je hem serveert en wanneer je hem drinkt, staat op de kaart hieronder.",
       "drink": {
         "keep": "Bewaren: nog jong",
         "improving": "Kan nu open, wordt nog beter",

@@ -387,6 +387,11 @@
     },
     "annotate": {
       "label": "Facts from your cellar",
+      "note": {
+        "trimmed": "A serving detail in the answer differed from your cellar's own facts and was left out; the card shows them.",
+        "replaced": "The answer's serving details differed from your cellar's own facts, so it was left out; the card shows them."
+      },
+      "seeCard": "How to serve it and when to drink it is on the card below.",
       "drink": {
         "keep": "Keep it: still young",
         "improving": "Can be opened now, still improving",

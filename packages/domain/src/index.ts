@@ -43,6 +43,7 @@ export * from "./features";
 export * from "./sommelier-parts";
 export * from "./sommelier-annotate";
 export * from "./sommelier-quantities";
+export * from "./sommelier-serving-claims";
 export * from "./catalog-identity";
 export * from "./wine-resolver";
 export * from "./wine-knowledge";

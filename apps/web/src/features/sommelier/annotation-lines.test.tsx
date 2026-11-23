@@ -10,7 +10,7 @@ import {
 } from "@cellr/domain";
 import en from "../../../messages/en.json";
 import nl from "../../../messages/nl.json";
-import { annotationLines, quantityLines } from "./annotation-lines";
+import { annotationLines, quantityLines, servingNote } from "./annotation-lines";
 import { AnnotationView } from "./annotation-view";
 import { QuantityView } from "./quantity-view";
 
@@ -363,6 +363,36 @@ describe("second review: words a wine professional would not correct", () => {
     };
     expect(lines(past, "keeping", "nl")[0]).toBe(
       "Over zijn drinkvenster: drink hem snel · 2022–2031, je eigen drinkvenster",
+    );
+  });
+});
+
+describe("the note when the answer's serving details were reconciled with the cards", () => {
+  const note = (check: Parameters<typeof servingNote>[0], lang: "en" | "nl" = "en") =>
+    servingNote(check, t[lang] as never);
+  it("nothing to say when the words were kept, or nothing was checked", () => {
+    expect(note({ v: 1, text: "kept", codes: [] })).toBeNull();
+    expect(note(null)).toBeNull();
+    expect(note(undefined)).toBeNull();
+  });
+  it("trimmed and replaced, in both languages", () => {
+    expect(note({ v: 1, text: "trimmed", codes: ["temperature"] })).toBe(
+      "A serving detail in the answer differed from your cellar's own facts and was left out; the card shows them.",
+    );
+    expect(note({ v: 1, text: "trimmed", codes: ["window"] }, "nl")).toBe(
+      "Een serveerdetail in het antwoord week af van de eigen gegevens van je kelder en is weggelaten; de kaart toont ze.",
+    );
+    expect(note({ v: 1, text: "replaced", codes: ["decanting"] })).toMatch(/so it was left out/);
+    expect(note({ v: 1, text: "replaced", codes: ["decanting"] }, "nl")).toMatch(
+      /dus het antwoord is weggelaten/,
+    );
+  });
+  it("the sentence in place of a text that is gone", () => {
+    expect(t.en("annotate.seeCard")).toBe(
+      "How to serve it and when to drink it is on the card below.",
+    );
+    expect(t.nl("annotate.seeCard")).toBe(
+      "Hoe je hem serveert en wanneer je hem drinkt, staat op de kaart hieronder.",
     );
   });
 });
