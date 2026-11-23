@@ -19,15 +19,22 @@ const word = () => {
   return w[0] + w.slice(1).toLowerCase();
 };
 
-/** Each photo has a size nobody else uses: that is how the fake model knows which answer to give. */
+/**
+ * Each photo has a size nobody else uses: that is how the fake model knows which answer to give. At most 1280 px
+ * long, so neither the app nor its reader resizes it: with the label always at the same place (`labelPhoto`), the
+ * reader sees the same lettering whatever the size. A resized label is read differently from one size to the next
+ * (a lone "2019" sometimes as "2018"), which is what the photo below that is resized on purpose is about.
+ */
 const uniqueSize = () => {
   const worker = test.info().parallelIndex;
-  return { width: 1100 + worker * 7 + (Date.now() % 50), height: 1500 + worker * 3 };
+  return { width: 900 + worker * 7 + (Date.now() % 50), height: 1200 + worker * 3 };
 };
 
-/** A photographed label: lettering on paper on a dark background (rendered, so no photo is kept in the repo). */
-async function labelPhoto(size: { width: number; height: number }, lines: string[]) {
-  const x = size.width / 2;
+/**
+ * A photographed label: lettering on paper on a dark background (rendered, so no photo is kept in the repo). The label
+ * stands at the same place in every photo, `x` from the left, whatever the photo's size.
+ */
+async function labelPhoto(size: { width: number; height: number }, lines: string[], x = 450) {
   const text = lines
     .map(
       (t, i) =>
@@ -178,6 +185,39 @@ test("a new photo of a known catalogue wine is recognised from its label text, w
     type: "ocr_ms before a photo-cache hit",
     description: String(again!.ocr_ms),
   });
+});
+
+test("a year printed alone that the phone reads two ways is not proposed: the wine is, and the person picks the year", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const { producer, name, wineId } = await catalogueWine();
+  const { householdId } = await arrive(page, "textyear");
+  await openScan(page);
+  // Resized to 1280 px for reading (1505 high), and centred on an odd width: at exactly this size the lone "2019" is
+  // read sparse as "2018", whatever the names above it (measured in Chromium with tesseract.js 7: 40 of 40 times).
+  // The second look at that line, with its neighbours, reads "2019". Two readings of one line that disagree are no
+  // year, never a guess. (No other photo has this size: uniqueSize() stays below 1280.)
+  const size = { width: 1177, height: 1505 };
+  await takePhoto(
+    page,
+    await labelPhoto(
+      size,
+      [producer.toUpperCase(), name, "2019", "Pouilly-Fumé", "Produit de France"],
+      size.width / 2,
+    ),
+  );
+
+  await expect(page.getByRole("heading", { name: "We found it" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/Recognised from the printed label text, without AI/)).toBeVisible();
+  expect(await labelReads(householdId)).toBe("0");
+  expect(await photoRow(householdId)).toMatchObject({
+    text_result: "hit",
+    text_wine_id: wineId,
+    text_year: null,
+  });
+  // not 2018: the person fills the year in
+  await expect(page.getByLabel("Vintage")).toHaveValue("");
 });
 
 test("a reserve bottling of the same name is not guessed: the vision model reads it as before", async ({

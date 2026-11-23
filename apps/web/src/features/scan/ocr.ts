@@ -1,6 +1,6 @@
 "use client";
 
-import type { Worker as OcrWorker } from "tesseract.js";
+import type { Bbox, Block, PSM, Rectangle, Worker as OcrWorker } from "tesseract.js";
 import tesseractPackage from "tesseract.js/package.json";
 
 /**
@@ -15,6 +15,9 @@ import tesseractPackage from "tesseract.js/package.json";
  * - a photo waits at most `readBudgetMs` for the text (`loadWaitMs` for a reader still loading). Not ready, too slow,
  *   failed or empty: the photo is sent without text at once and read by the model exactly as before;
  * - a reader that failed to load, or a read that ran out of time, is not tried again during the visit.
+ *
+ * A year printed alone on its line is read twice (see `readOnce`): read sparse, a lone "2019" is sometimes misread as
+ * another year ("2018"), and a wrong year is worse than none.
  */
 export const OCR = {
   /** Where scripts/ocr-assets.mjs puts the files (versioned, so they can be cached for good). */
@@ -27,6 +30,8 @@ export const OCR = {
   loadGiveUpMs: 30_000,
   /** Text is read from a copy this size (long edge): enough for label lettering, quick to read. */
   edge: 1280,
+  /** At most this many lone year lines of one photo are read a second time (each costs about half a read). */
+  secondLooks: 2,
 } as const;
 
 /** What the phone read: the text (null = nothing usable) and how long it took. Null overall = not tried. */
@@ -43,6 +48,8 @@ function setStatus(next: Status) {
   if (typeof document !== "undefined") document.documentElement.dataset.ocr = next;
 }
 let loading: Promise<OcrWorker | null> | null = null;
+/** The page-segmentation modes used (tesseract.js's own values, known once it has loaded). */
+let modes: { sparse: PSM; block: PSM } | null = null;
 
 const now = () => (typeof performance === "undefined" ? Date.now() : performance.now());
 
@@ -89,8 +96,9 @@ export function warmOcr(): Promise<OcrWorker | null> {
         // a same-origin worker file, not a blob: (stricter browsers and CSPs refuse those)
         workerBlobURL: false,
       });
-      // Labels are sparse text in odd places: find whatever text there is, line by line.
-      await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });
+      // Labels are sparse text in odd places: find whatever text there is, line by line (set before every read, as a
+      // second look switches to reading a block).
+      modes = { sparse: PSM.SPARSE_TEXT, block: PSM.SINGLE_BLOCK };
       if (ocrStatus() === "failed") {
         // given up meanwhile: do not keep a reader nobody will use
         await worker.terminate().catch(() => {});
@@ -175,6 +183,75 @@ async function shrink(photo: Blob): Promise<HTMLCanvasElement | null> {
 }
 
 /**
+ * A line that may be a year printed alone, as the sparse read saw it: one short "word" with a digit in it ("2019", but
+ * also the misreadings "2018", "20119", "20H").
+ */
+export const loneDigits = (text: string) => /^\S{2,7}$/.test(text) && /\d/.test(text);
+
+/** The lines of a read that may be a year printed alone, with where they are. */
+export function loneDigitLines(blocks: readonly Block[] | null): { text: string; bbox: Bbox }[] {
+  return (blocks ?? []).flatMap((b) =>
+    b.paragraphs.flatMap((p) =>
+      p.lines.map((l) => ({ text: l.text.trim(), bbox: l.bbox })).filter((l) => loneDigits(l.text)),
+    ),
+  );
+}
+
+/**
+ * Where to read such a line again: the line with its neighbours (three line heights above and below, eight to either
+ * side), within the picture. The neighbours are the point: read as a block with the lines around it, the lettering's
+ * size is judged from all of them. The line on its own (or the whole photo read sparse again) repeats the same mistake.
+ */
+export function aroundLine(bbox: Bbox, width: number, height: number): Rectangle {
+  const h = Math.max(1, bbox.y1 - bbox.y0);
+  const left = Math.max(0, Math.round(bbox.x0 - 8 * h));
+  const top = Math.max(0, Math.round(bbox.y0 - 3 * h));
+  return {
+    left,
+    top,
+    width: Math.max(1, Math.min(width, Math.round(bbox.x1 + 8 * h)) - left),
+    height: Math.max(1, Math.min(height, Math.round(bbox.y1 + 3 * h)) - top),
+  };
+}
+
+/**
+ * The sparse text, with what the second look read on those lines added as lines of their own (never replacing
+ * anything). The server takes a year only when exactly one distinct year is printed (`vintageFromLabel`), so: both
+ * readings agree, one year; the second look fixes a garbled "20119", the year; they disagree ("2018" and "2019"), no
+ * year at all rather than a wrong one.
+ */
+export function withSecondLook(text: string, again: readonly string[]): string {
+  return again.length > 0 ? `${text}\n${again.join("\n")}` : text;
+}
+
+/**
+ * One read of a shrunk photo: sparse, then a second look at each lone year line while the budget leaves room for it
+ * (at least as long again as the first read took). Every step runs on the one queued reader.
+ */
+async function readOnce(
+  worker: OcrWorker,
+  image: HTMLCanvasElement,
+  left: () => number,
+): Promise<string | null> {
+  if (!modes) return null;
+  const started = now();
+  await worker.setParameters({ tessedit_pageseg_mode: modes.sparse });
+  const first = await worker.recognize(image, {}, { text: true, blocks: true });
+  const text = first.data.text.trim();
+  if (!text) return null;
+  const lines = loneDigitLines(first.data.blocks).slice(0, OCR.secondLooks);
+  if (lines.length === 0 || left() < now() - started) return text;
+  await worker.setParameters({ tessedit_pageseg_mode: modes.block });
+  const again: string[] = [];
+  for (const line of lines) {
+    const rectangle = aroundLine(line.bbox, image.width, image.height);
+    const second = await worker.recognize(image, { rectangle }, { text: true, blocks: true });
+    again.push(...loneDigitLines(second.data.blocks).map((l) => l.text));
+  }
+  return withSecondLook(text, again);
+}
+
+/**
  * Reads the label text of a (prepared) photo within the budget. Null when the reader cannot run here at all;
  * otherwise the text (or null when not ready in time, failed or empty) and how long it took.
  */
@@ -202,11 +279,10 @@ export async function readLabelText(
     const job = queue.then(() => {
       if (read.dropped) return null;
       read.begun = true;
-      return worker.recognize(image);
+      return readOnce(worker, image, left);
     });
     queue = job.catch(() => {});
-    const result = await job;
-    return result ? result.data.text.trim() || null : null;
+    return await job;
   })();
   try {
     const text = await within(work, left());

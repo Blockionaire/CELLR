@@ -2853,8 +2853,8 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.4.0",
-  reviewedOn: "2026-11-22",
+  version: "1.4.1",
+  reviewedOn: "2026-11-23",
   repository: "Blockionaire/CELLR",
   components,
   edges,
