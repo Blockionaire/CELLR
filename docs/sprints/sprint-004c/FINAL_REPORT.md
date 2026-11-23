@@ -201,10 +201,10 @@ E2E: see §5. The only consistent failure, the 3D canvas click, fails the same w
 ## 10. Completion on 2026-11-20 (what was actually done)
 
 1. **No dataset records in the repository.** `redact-results.ts` reduced the result files of 004A, Wine Intelligence and 004B to counts and ranks. Older versions remain in Git history: by your decision it is not rewritten, and this is recorded in `SOURCE_RIGHTS_REGISTER.md` §4a.
-2. **#96 squash-merged** (7bd0aaf, the same tree as the reviewed 807cb19). Production deployed 7bd0aaf: health `ok`, sign-in works, the API refuses anonymous requests (401), no runtime errors, 0 providers, 0 external records.
+2. **#96 squash-merged** (7bd0aaf, the same tree as the reviewed 807cb19). Production deployed 7bd0aaf; the post-deploy checks passed (their details are kept by the owner, outside this public repository).
 3. **#101 updated onto main** by a merge, without a force-push. The result is identical to the 004C commits replayed on `main`; the diff was 004C only.
    - Checks: all green; `db:test` 1681/0 on PG 16 and 17; CI green.
-   - **Squash-merged** as e27e533 (tree = c424cde). Production deployed e27e533 with the same checks passing and no runtime errors. Migration 0050 is **not** applied.
+   - **Squash-merged** as e27e533 (tree = c424cde). Production deployed e27e533 and the same post-deploy checks passed. Migration 0050 was applied afterwards by the owner with the Supabase CLI (route A, `docs/MIGRATIONS.md` §2), separately from this sprint's code.
 4. **E2E on the merged branch:** 155 passed, 3 skipped, 4 failed.
    - `cellar3d.spec.ts:171` fails the same way on main 813fe48. It is an existing issue, tracked as #102.
    - `scan-resolver.spec.ts:145` reached its 30-second limit under load. It passes in 9–10 s alone, the same as before the merge, and the scan and search specs pass 46/46 at 3 workers.

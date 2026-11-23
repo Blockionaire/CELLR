@@ -11,7 +11,7 @@
 | `public.merge_wines(uuid, uuid)`, which 0050 replaces      | identical to the repository's definition. MD5 of `pg_get_functiondef` with line endings normalised: `7db49efe…cdb5bc` on both sides. Production stores it with CRLF line endings, so only the line endings differ |
 | `private.my_household_ids()`, which 0050 relies on         | identical (`aa143a54…2515`)                                                                                                                                                                                       |
 | Objects 0050 creates                                       | none exist yet: no `wine_record_origins`, no `record_wine_origin` / `unlink_wine_origin` / `wine_origin_notices`                                                                                                  |
-| Catalogue state in production                              | 0 providers, 0 external records, no `catalog_settings` row (so it counts as production)                                                                                                                           |
+| Catalogue state in production                              | as 0050 expects: no external source shown, no staging marker (so it counts as production); checked read-only, details kept by the owner                                                                           |
 | The same chain locally                                     | 0001–0047 + 0050 on Postgres 16 and 17: `db:test` 1661/0 (004C branch)                                                                                                                                            |
 
 So 0050 runs on exactly what it was written for. It adds one table, three functions and one index set, replaces `merge_wines` (the same body plus the origin carry-over), and **changes no existing data**.
@@ -20,7 +20,7 @@ So 0050 runs on exactly what it was written for. It adds one table, three functi
 
 - Production history: still 0001–0047. `main` now ends at 0050, so a `db push` from `main` applies exactly 0050.
 - `merge_wines` and `my_household_ids` are unchanged (the same MD5s as above). No R-27 object exists.
-- Production runs e27e533. The app treats the missing R-27 functions as "no origin", and there were no runtime errors after the deploy.
+- Production runs e27e533. The app treats the missing R-27 functions as "no origin".
 - `verify-0050.sql` run against production **before** the apply: checks 1, 3 and 10 are false (0050 is not there yet), and 2 and 15 are true. On a local Postgres 17 with 0050 applied, all 15 checks are true.
 - Data baseline at that moment: wines, bottles, households, producers, providers and external records counted (verified read-only on 2026-11-20; values kept by the owner, not in the repository). The production app is in use, so the baseline is taken again right before applying.
 
