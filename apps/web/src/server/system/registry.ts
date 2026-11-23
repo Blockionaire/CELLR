@@ -463,6 +463,7 @@ const components = [
       W + "server/sommelier/service.ts",
       W + "server/sommelier/intelligence.ts",
       W + "server/ai/prompts/sommelier.ts",
+      W + "server/ai/prompts/sommelier-v7.ts",
     ],
     gates: [
       {
@@ -488,7 +489,7 @@ const components = [
       {
         name: "CELLR_SOMMELIER",
         kind: "env",
-        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. In P2 no part changes an answer yet.",
+        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. Built: check (P3: prompt v7 with refs for cellar wines and no price field; the answer's words and buying claims are checked in code, and what cannot be shown is left out or replaced by a sentence made from the cards).",
       },
     ],
     risks: [
@@ -2881,7 +2882,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.5.1",
+  version: "1.6.0",
   reviewedOn: "2026-11-23",
   repository: "Blockionaire/CELLR",
   components,
