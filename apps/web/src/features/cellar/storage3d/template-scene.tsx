@@ -11,7 +11,9 @@ import {
   QUALITY,
   START_AZIMUTH,
   START_ELEVATION,
+  aimZoom,
   frameFor,
+  keepOutside,
   lowerQuality,
   placeBottles,
   qualityFor,
@@ -21,7 +23,7 @@ import {
   type RenderModel,
   type StoredBottle,
 } from "./model";
-import { AIR, BOTTLE_L, BOTTLE_R, type Pose } from "./parts";
+import { AIR, BOTTLE_L, BOTTLE_R, type Pose, type Vec3 } from "./parts";
 import type { FreeSpot, SpotMarker } from "../quick-add/spots";
 import { Inspection, hidesInstance, type InspectionProps } from "./showcase-hero";
 import { isOut } from "./showcase-machine";
@@ -142,6 +144,11 @@ export default function TemplateScene({
     }
     return null;
   }, [target, model, placement]);
+  // a tap with a finger on a spot too small to be sure of brings the view closer instead (sprint 10)
+  const aim = useRef<Aim | null>(null);
+  const setAim = useCallback((a: Aim | null) => {
+    aim.current = a;
+  }, []);
   const onDrag = useCallback((moved: boolean) => {
     dragged.current = moved;
   }, []);
@@ -159,14 +166,21 @@ export default function TemplateScene({
       dpr={[1, spec.maxDpr]}
       camera={{ fov: FOV, near: 0.1, far: 600 }}
       gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-      onCreated={({ gl }) => {
+      onCreated={({ gl, invalidate }) => {
         gl.setClearColor(0x000000, 0);
         gl.toneMapping = THREE.NeutralToneMapping;
         gl.toneMappingExposure = 1.0;
         gl.domElement.addEventListener("webglcontextlost", (e) => {
           if (leaving.current) return;
           e.preventDefault();
+          gl.domElement.dataset.contextLost = "1";
           onLost?.();
+        });
+        // A host that keeps this view up through a loss (none does today: they put a notice in its place and mount it
+        // anew) gets its picture back: three.js uploads everything again by itself, and nothing is drawn until asked.
+        gl.domElement.addEventListener("webglcontextrestored", () => {
+          delete gl.domElement.dataset.contextLost;
+          invalidate();
         });
         performance.mark("cellr:storage3d-created");
         onReady?.();
@@ -179,7 +193,13 @@ export default function TemplateScene({
       }}
     >
       <Lighting model={model} />
-      <Rig model={model} reducedMotion={reducedMotion} dragged={dragged} locked={out} />
+      <Rig
+        model={model}
+        reducedMotion={reducedMotion}
+        dragged={dragged}
+        locked={out}
+        onAim={setAim}
+      />
       {/* the place itself: not drawn while a picture of it stands in behind the bottle that is out */}
       <group ref={storage}>
         <Structure model={model} level={level} />
@@ -204,8 +224,10 @@ export default function TemplateScene({
         {offering && spots.length > 0 && (
           <SpotMarkers
             spots={spots}
+            placed={placement.placed}
             active={target ? { row: target.row, col: target.col } : null}
             dragged={dragged}
+            aim={aim}
             onSpot={onSpot}
           />
         )}
@@ -289,17 +311,29 @@ function Lighting({ model }: { model: RenderModel }) {
 
 // ---- Camera ---------------------------------------------------------------------------------------------------------
 
+/**
+ * A finger tapped a target at `point` whose nearest neighbour is `gap` px away on the screen. When that is too close to
+ * be sure of (`aimZoom`), the view comes closer round the point, from the same direction (a short glide, or at once
+ * under reduced motion), and true is returned: the tap chose nothing. False: the tap is taken as aimed.
+ */
+type Aim = (point: Readonly<Vec3>, gap: number) => boolean;
+/** How long the glide of a zoom to aim takes (ms). */
+const AIM_MS = 260;
+
 function Rig({
   model,
   reducedMotion,
   dragged,
   locked,
+  onAim,
 }: {
   model: RenderModel;
   reducedMotion: boolean;
   dragged: React.RefObject<boolean>;
   /** A bottle is out: the camera holds still, so that it comes back to the very view it left. */
   locked: boolean;
+  /** Given how the spots on offer may ask for a closer view (null when they may not any more). */
+  onAim: (aim: Aim | null) => void;
 }) {
   const { camera, gl, size, invalidate } = useThree();
   const controls = useRef<OrbitControls | null>(null);
@@ -316,10 +350,17 @@ function Rig({
   const framing = useMemo(() => frameFor(bounds, aspect), [bounds, aspect]);
   // the camera is placed once per place; a resize only changes how far it may go
   const placedFor = useRef<string | null>(null);
+  // a zoom to aim under way: from where, to where, since when (one object, made when the glide is asked for)
+  const glide = useRef<{
+    from: THREE.Vector3;
+    fromTarget: THREE.Vector3;
+    to: THREE.Vector3;
+    toTarget: THREE.Vector3;
+    start: number;
+  } | null>(null);
 
   useLayoutEffect(() => {
     const c = new OrbitControls(camera, gl.domElement);
-    c.enableDamping = !reducedMotion;
     c.dampingFactor = 0.09;
     c.zoomToCursor = true;
     c.enablePan = true;
@@ -335,6 +376,8 @@ function Rig({
     const onStart = () => {
       moved = 0;
       dragged.current = false;
+      // a finger on the picture again: the person takes over from a glide under way
+      glide.current = null;
     };
     const onChange = () => {
       moved += 1;
@@ -353,12 +396,20 @@ function Rig({
       controls.current = null;
       placedFor.current = null;
     };
-  }, [camera, gl, reducedMotion, invalidate, dragged]);
+    // (reduced motion is not among what makes the controls: a change of that setting must not put the camera back)
+  }, [camera, gl, invalidate, dragged]);
+
+  // no glide after a turn under reduced motion: the view stops where the finger lets go
+  useLayoutEffect(() => {
+    const c = controls.current;
+    if (c) c.enableDamping = !reducedMotion;
+  }, [reducedMotion, camera, gl]);
 
   useLayoutEffect(() => {
     const c = controls.current;
     if (!c) return;
-    c.minDistance = framing.distance * 0.25;
+    // never so close that the camera is in the front of the place (sprint 10: a small place on a wide screen was)
+    c.minDistance = framing.closest;
     c.maxDistance = framing.distance * 1.8;
     if (placedFor.current !== boxKey) {
       placedFor.current = boxKey;
@@ -379,11 +430,56 @@ function Rig({
   useLayoutEffect(() => {
     const c = controls.current;
     if (c) c.enabled = !locked;
-  }, [locked, camera, gl, reducedMotion]);
+  }, [locked, camera, gl]);
+
+  useLayoutEffect(() => {
+    onAim((point, gap) => {
+      const c = controls.current;
+      if (!c || locked) return false;
+      const want = aimZoom(gap, c.getDistance(), c.minDistance);
+      if (want === null) return false;
+      // look at the point (held on the place, as a slide is), from the same direction, closer
+      const [tx, ty] = framing.target;
+      const toTarget = new THREE.Vector3(
+        Math.min(tx + framing.reach.x, Math.max(tx - framing.reach.x, point[0])),
+        Math.min(ty + framing.reach.y, Math.max(ty - framing.reach.y, point[1])),
+        c.target.z,
+      );
+      const from = c.object.position;
+      const to = from.clone().sub(c.target).setLength(want).add(toTarget);
+      if (reducedMotion) {
+        c.target.copy(toTarget);
+        from.copy(to);
+        c.update();
+      } else
+        glide.current = {
+          from: from.clone(),
+          fromTarget: c.target.clone(),
+          to,
+          toTarget,
+          start: performance.now(),
+        };
+      invalidate();
+      return true;
+    });
+    return () => {
+      onAim(null);
+      glide.current = null;
+    };
+  }, [onAim, framing, invalidate, locked, reducedMotion]);
 
   useFrame(() => {
     const c = controls.current;
     if (!c || locked) return;
+    const g = glide.current;
+    if (g) {
+      const t = Math.min(1, (performance.now() - g.start) / AIM_MS);
+      const k = 1 - (1 - t) ** 3;
+      c.object.position.lerpVectors(g.from, g.to, k);
+      c.target.lerpVectors(g.fromTarget, g.toTarget, k);
+      if (t < 1) invalidate();
+      else glide.current = null;
+    }
     // the point looked at stays on the place, however the view is slid
     const [tx, ty] = framing.target;
     const x = Math.min(tx + framing.reach.x, Math.max(tx - framing.reach.x, c.target.x));
@@ -395,9 +491,29 @@ function Rig({
       c.target.y = y;
     }
     c.update();
+    // and the camera itself stays out of the furniture, at any angle (zooming in at a slant could reach into it)
+    const p = c.object.position;
+    seen.camera[0] = p.x;
+    seen.camera[1] = p.y;
+    seen.camera[2] = p.z;
+    seen.target[0] = c.target.x;
+    seen.target[1] = c.target.y;
+    seen.target[2] = c.target.z;
+    if (keepOutside(bounds, seen.camera, seen.target, c.maxDistance, seen.out)) {
+      p.set(seen.out[0], seen.out[1], seen.out[2]);
+      c.object.lookAt(c.target);
+      c.domElement!.dataset.distance = c.getDistance().toFixed(2);
+    }
   });
   return null;
 }
+
+/** Reused on every frame the camera moves: nothing is allocated for keeping it out of the furniture. */
+const seen = {
+  camera: [0, 0, 0] as Vec3,
+  target: [0, 0, 0] as Vec3,
+  out: [0, 0, 0] as Vec3,
+};
 
 // ---- The furniture --------------------------------------------------------------------------------------------------
 
@@ -545,19 +661,21 @@ function Bottles({
       {targetPose && (
         <mesh
           ref={targetRing}
-          geometry={kit.parts.ring}
-          material={kit.parts.target}
+          // a wine-red core in a pale keyline: seen on dark wood and on white lacquer alike (sprint 10)
+          geometry={kit.parts.targetRing}
+          material={kit.parts.ringPaint}
           raycast={noRaycast}
-          renderOrder={3}
+          renderOrder={5}
         />
       )}
       {selected && (
         <mesh
           ref={marker}
-          geometry={kit.parts.ring}
-          material={kit.parts.marker}
+          // a gold core in a dark keyline: the chosen bottle, told from a target by light and dark, not by hue
+          geometry={kit.parts.markerRing}
+          material={kit.parts.ringPaint}
           raycast={noRaycast}
-          renderOrder={2}
+          renderOrder={5}
         />
       )}
     </group>
@@ -751,6 +869,53 @@ function spotMatrix(pose: Pose, out: THREE.Matrix4): THREE.Matrix4 {
  * is pale; under a mouse it is warmer; the chosen one is gold and a little larger (and ringed, by the target ring).
  * Drawn only on demand, like everything else here; nothing moves on its own, so reduced motion needs nothing more.
  */
+const at = new THREE.Vector3();
+const other = new THREE.Vector3();
+const seenAt = new THREE.Vector3();
+
+/** Where a point is on the canvas (CSS px), into `out` (x, y; z is the depth, unused). */
+function onScreen(
+  p: THREE.Vector3,
+  camera: THREE.Camera,
+  size: { width: number; height: number },
+  out: THREE.Vector3,
+) {
+  out.copy(p).project(camera);
+  out.set(((out.x + 1) / 2) * size.width, ((1 - out.y) / 2) * size.height, out.z);
+  return out;
+}
+
+/**
+ * How far (CSS px) the tapped spot's point is from the nearest other target on the screen as it is now: any other
+ * spot on offer, and any bottle (a finger that lands on a bottle beside a spot has not aimed at the spot). Measured
+ * at the moment of the tap, from the camera as it is: one pass over the targets, nothing kept.
+ */
+function gapOnScreen(
+  point: THREE.Vector3,
+  index: number,
+  spots: readonly SpotMarker[],
+  placed: readonly PlacedBottle[],
+  camera: THREE.Camera,
+  size: { width: number; height: number },
+): number {
+  camera.updateMatrixWorld();
+  onScreen(point, camera, size, seenAt);
+  const sx = seenAt.x;
+  const sy = seenAt.y;
+  let gap = Infinity;
+  const consider = (pose: Pose) => {
+    spotMatrix(pose, matrix);
+    other.setFromMatrixPosition(matrix);
+    onScreen(other, camera, size, other);
+    gap = Math.min(gap, Math.hypot(other.x - sx, other.y - sy));
+  };
+  spots.forEach((m, i) => {
+    if (i !== index) consider(m.pose);
+  });
+  for (const b of placed) if (b.pose.lie !== "token") consider(b.pose);
+  return gap;
+}
+
 const GHOST_REST = new THREE.Color("#efe7d6");
 const GHOST_HOVER = new THREE.Color("#ffe6b3");
 const GHOST_CHOSEN = new THREE.Color("#e9b955");
@@ -760,17 +925,24 @@ const liftScale = new THREE.Matrix4();
 
 function SpotMarkers({
   spots,
+  placed,
   active,
   dragged,
+  aim,
   onSpot,
 }: {
   spots: readonly SpotMarker[];
+  /** The bottles in the place: targets a finger could land on as well, so they count as neighbours of a spot. */
+  placed: readonly PlacedBottle[];
   /** The spot that is chosen now (the sheet or the panel is about it), drawn as chosen. */
   active: { row: number; col: number } | null;
   dragged: React.RefObject<boolean>;
+  aim: React.RefObject<Aim | null>;
   onSpot: ((spot: FreeSpot) => void) | undefined;
 }) {
-  const { invalidate } = useThree();
+  const { invalidate, camera, size } = useThree();
+  // what pressed the spot that is now tapped: a finger is not as sure as a mouse
+  const pointer = useRef<string>("mouse");
   const ref = useRef<THREE.InstancedMesh>(null);
   const [hovered, setHovered] = useState<number | null>(null);
   const radial = ghostRadial(spots.length);
@@ -812,11 +984,24 @@ function SpotMarkers({
       name={GHOSTS_NAME}
       args={[geometry, material, spots.length]}
       renderOrder={4}
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+        pointer.current = e.pointerType;
+      }}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation();
         if (e.delta > TAP_SLOP || dragged.current) return;
-        const m = e.instanceId === undefined ? undefined : spots[e.instanceId];
-        if (m) onSpot?.(m.spot);
+        const i = e.instanceId;
+        const m = i === undefined ? undefined : spots[i];
+        if (!m || !onSpot) return;
+        // a finger on a spot whose neighbours are closer on the screen than a fingertip: not yet a choice. The view
+        // comes closer round it, and the next tap is clear (sprint 10). A mouse or a pen is taken at its word.
+        if (pointer.current === "touch" && aim.current) {
+          spotMatrix(m.pose, matrix);
+          at.setFromMatrixPosition(matrix);
+          const gap = gapOnScreen(at, i!, spots, placed, camera, size);
+          if (aim.current([at.x, at.y, at.z], gap)) return;
+        }
+        onSpot(m.spot);
       }}
       onPointerOver={(e: ThreeEvent<PointerEvent>) => {
         e.stopPropagation();
@@ -948,6 +1133,18 @@ function Readout({
         );
       },
       ids: () => placed.map((b) => b.id),
+      /**
+       * Where the camera is, and whether it is inside the box round the place grown by the clearance (sprint 10: it
+       * never should be).
+       */
+      camera() {
+        const p = camera.position;
+        const at: Vec3 = [p.x, p.y, p.z];
+        return {
+          position: at.map((n) => +n.toFixed(3)),
+          inside: keepOutside(model.bounds, at, at, Infinity, [0, 0, 0]),
+        };
+      },
       /** Where the marker of a free spot is on the canvas (CSS px), or null when it is not on offer. */
       locateSpot(row: number, col: number) {
         const m = spots?.find((x) => x.spot.row === row && x.spot.col === col);
@@ -1002,7 +1199,7 @@ function Readout({
     return () => {
       delete w.__cellrStorage3d;
     };
-  }, [camera, size, placed, store, spots]);
+  }, [camera, size, placed, store, spots, model]);
   useEffect(() => {
     store.getState().gl.domElement.dataset.spots = spots ? String(spots.length) : "";
   }, [store, spots]);

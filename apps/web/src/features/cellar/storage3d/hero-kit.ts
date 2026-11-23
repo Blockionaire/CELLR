@@ -20,7 +20,7 @@ import type { QualitySpec } from "./model";
 import type { Fidelity } from "./palette";
 import { distantLabelTexture } from "./textures";
 import { BOTTLE_L, BOTTLE_R } from "./parts";
-import type { Owned } from "./resources";
+import { buildRingPaint, type Owned } from "./resources";
 
 /**
  * The ONE bottle that is taken out to be looked at (Smart Cellar 3D, sprint 2B.1): finer than the bottles in the
@@ -321,8 +321,9 @@ export function prewarmSet(kit: HeroKit): { group: THREE.Group; dispose(): void 
   // picture (the label's print from afar): a material with a picture is another shader than one without.
   const faded = [kit.liquid.clone(), kit.foil.clone(), kit.paper.clone()];
   for (const m of faded) m.transparent = true;
-  // the ring that marks the chosen bottle when it is back in its place (the storage view's own, resources.ts)
-  const ring = new THREE.MeshBasicMaterial({ color: "#d9a441", toneMapped: false });
+  // the ring that marks the chosen bottle when it is back in its place (the storage view's own paint, resources.ts;
+  // since sprint 10 painted per vertex: a core in a keyline)
+  const ring = buildRingPaint();
   const all: THREE.Material[] = [
     coated,
     plain,

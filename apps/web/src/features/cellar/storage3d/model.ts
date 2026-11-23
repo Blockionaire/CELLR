@@ -243,7 +243,16 @@ export interface Framing {
   distance: number;
   /** How far the view may be slid sideways and up and down before the place would be lost. */
   reach: { x: number; y: number };
+  /**
+   * The closest the camera may come to what it looks at (sprint 10): a quarter of the starting distance, as before,
+   * but never so close that, looking straight at the place, it would be inside the front of the furniture or of a
+   * bottle that reaches out of it. (At an angle, `keepOutside` holds the rest.)
+   */
+  closest: number;
 }
+
+/** How far outside the box round a place the camera always stays: past its near plane (0.1), with room. */
+export const CAMERA_CLEARANCE = 0.3;
 
 /** The camera starts this far round to the side and above, as the existing view does, so depth reads at once. */
 export const START_AZIMUTH = 0.22;
@@ -264,11 +273,94 @@ export function frameFor(bounds: { min: Vec3; max: Vec3 }, aspect: number): Fram
   const fitHeight = size[1] / 2 / tan;
   const seenWidth = size[0] * Math.cos(START_AZIMUTH) + size[2] * Math.sin(START_AZIMUTH);
   const fitWidth = seenWidth / 2 / (tan * Math.max(0.2, aspect));
+  const distance = Math.max(fitHeight, fitWidth) * 1.14 + size[2] / 2;
   return {
     target,
-    distance: Math.max(fitHeight, fitWidth) * 1.14 + size[2] / 2,
+    distance,
     reach: { x: size[0] / 2, y: size[1] / 2 },
+    // never closer than the front of the place (and its clearance), and never past where it starts
+    closest: Math.min(distance, Math.max(distance * 0.25, size[2] / 2 + CAMERA_CLEARANCE)),
   };
+}
+
+/**
+ * Keeps the camera out of the furniture (sprint 10). The box round a place (`RenderModel.bounds`: the furniture and
+ * every spot a bottle can be on), grown by the clearance, is where the camera may not be. When `camera` is inside it,
+ * `out` is set to the nearest point outside it straight back along the line from `target` through the camera (so the
+ * view keeps its direction and only comes back a little), never farther from `target` than `farthest`, and true is
+ * returned. When it is outside, nothing is written and false is returned. Pure; allocates nothing (it runs on every
+ * frame the camera moves).
+ */
+export function keepOutside(
+  bounds: { min: Vec3; max: Vec3 },
+  camera: Readonly<Vec3>,
+  target: Readonly<Vec3>,
+  farthest: number,
+  out: Vec3,
+  clearance = CAMERA_CLEARANCE,
+): boolean {
+  let inside = true;
+  for (let i = 0; i < 3; i++)
+    if (camera[i]! <= bounds.min[i]! - clearance || camera[i]! >= bounds.max[i]! + clearance)
+      inside = false;
+  if (!inside) return false;
+  let dx = camera[0] - target[0];
+  let dy = camera[1] - target[1];
+  let dz = camera[2] - target[2];
+  let length = Math.hypot(dx, dy, dz);
+  // on the point it looks at: back towards the viewer
+  if (length < 1e-6) {
+    dx = 0;
+    dy = 0;
+    dz = 1;
+    length = 0;
+  } else {
+    dx /= length;
+    dy /= length;
+    dz /= length;
+  }
+  const d = [dx, dy, dz] as const;
+  // how far along that line the camera leaves the grown box: the first face it reaches
+  let step = Infinity;
+  for (let i = 0; i < 3; i++) {
+    const di = d[i]!;
+    if (Math.abs(di) < 1e-9) continue;
+    const face = di > 0 ? bounds.max[i]! + clearance : bounds.min[i]! - clearance;
+    step = Math.min(step, (face - camera[i]!) / di);
+  }
+  if (!Number.isFinite(step)) return false;
+  // a hair past the face, so the next frame finds it outside; never past the farthest the camera may be
+  const reach = Math.max(length, Math.min(farthest, length + step + 1e-4));
+  out[0] = target[0] + dx * reach;
+  out[1] = target[1] + dy * reach;
+  out[2] = target[2] + dz * reach;
+  return reach > length;
+}
+
+// ---- Aiming with a finger (sprint 10) -------------------------------------------------------------------------------
+
+/**
+ * How far apart (CSS px, on the screen) a finger's target and the nearest other target must be for a tap to be taken
+ * as aimed at it. Closer than this a fingertip covers both, and which one it lands on is chance: on a 30 x 30 rack on a
+ * phone the spots are about 12 px apart. Below it a tap chooses nothing; the view comes closer instead (`aimZoom`).
+ * About 4 mm on a phone: a cautious line, well under the 44 pt a button gets; the device validation may move it.
+ */
+export const MIN_AIM_PX = 24;
+/** How far apart a zoom to aim brings them: a fingertip's width. */
+export const AIM_PX = 44;
+
+/**
+ * What a tap with a finger does when its target is `gap` px from the nearest other one on the screen and the camera
+ * is `distance` from what it looks at (and may come as close as `closest`): null, it is taken as aimed; or the
+ * distance to come to first, so that the targets are about `AIM_PX` apart and the next tap is clear. Where the camera
+ * cannot come any closer, the tap is taken: there is nothing more the view can do (the list of spots is the precise
+ * way there). Pure.
+ */
+export function aimZoom(gap: number, distance: number, closest: number): number | null {
+  if (!(gap >= 0) || gap >= MIN_AIM_PX) return null;
+  // a gap of nothing (two targets on one point of the screen): as close as it goes
+  const want = Math.max(closest, gap > 0 ? (distance * gap) / AIM_PX : closest);
+  return want < distance * 0.98 ? want : null;
 }
 
 // ---- Quality --------------------------------------------------------------------------------------------------------

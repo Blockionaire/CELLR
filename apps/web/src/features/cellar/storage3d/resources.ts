@@ -484,6 +484,15 @@ export interface BottleKit {
    */
   wallShadow: THREE.BufferGeometry | null;
   wallShade: THREE.Material | null;
+  /**
+   * The two rings as they are drawn since sprint 10: each a coloured core inside a keyline of the opposite lightness
+   * (`buildKeylineRing`), so it stands out from dark wood and from white lacquer alike, and the two can be told apart
+   * by light and dark alone (a wine-red core in a pale keyline: where a bottle is about to go; a gold core in a dark
+   * keyline: the chosen bottle), not by hue. One geometry each, painted by `ringPaint`: one draw call each, as before.
+   */
+  targetRing: THREE.BufferGeometry;
+  markerRing: THREE.BufferGeometry;
+  ringPaint: THREE.Material;
 }
 
 const BOTTLE_SHAPES: BottleShape[] = ["bordeaux", "burgundy", "champagne"];
@@ -566,6 +575,9 @@ export function buildBottleKit(
     ),
     dot: owned.add(new THREE.CylinderGeometry(0.06, 0.06, 0.03, 10).rotateX(Math.PI / 2)),
     ring: owned.add(new THREE.TorusGeometry(BOTTLE_R + 0.07, 0.035, 8, 40)),
+    targetRing: owned.add(buildKeylineRing(RING.target)),
+    markerRing: owned.add(buildKeylineRing(RING.marker)),
+    ringPaint: owned.add(buildRingPaint()),
     glass: owned.add(glass),
     // (white: each bottle's paper colour is its instance's. Premium, where the level has it: the print of a label.)
     paper: owned.add(
@@ -623,6 +635,58 @@ export function buildBottleKit(
           )
         : null,
   };
+}
+
+// ---- The rings that mark a spot (sprint 10: legible on every finish) -------------------------------------------------
+
+/**
+ * The colours of the two rings. The cores are the colours the rings always had (the app's wine red where a bottle is
+ * about to go, gold round the chosen bottle); the keyline round each is of the opposite lightness, so that on any
+ * surface one of the two stands out (`premium-look.test.ts` holds a contrast of at least 3:1 on every finish).
+ */
+export const RING = {
+  target: { core: "#8c2b3a", keyline: "#fffaf2" },
+  marker: { core: "#d9a441", keyline: "#1e1611" },
+} as const;
+
+/** Where the ring lies (round a bottle's end, or round its middle on a wall), and how thick core and keyline are. */
+const RING_RADIUS = BOTTLE_R + 0.07;
+const RING_CORE = 0.035;
+const RING_KEYLINE = 0.062;
+
+/**
+ * A ring of a core inside a keyline: two tori on one centre line, the keyline's tube fatter, painted per vertex. The
+ * core's triangles come after the keyline's, and the paint writes no depth, so within the one draw call the core is
+ * drawn over the keyline from every side (a ring seen face on round a rack bottle's end, or edge on round a bottle on
+ * a wall), while the furniture and the bottles in front still hide both.
+ */
+export function buildKeylineRing(colours: { core: string; keyline: string }): THREE.BufferGeometry {
+  const paint = (g: THREE.BufferGeometry, hex: string) => {
+    const c = new THREE.Color(hex);
+    const n = g.getAttribute("position").count;
+    const data = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) c.toArray(data, i * 3);
+    g.setAttribute("color", new THREE.BufferAttribute(data, 3));
+    g.deleteAttribute("uv");
+    return g;
+  };
+  const keyline = paint(new THREE.TorusGeometry(RING_RADIUS, RING_KEYLINE, 8, 40), colours.keyline);
+  const core = paint(new THREE.TorusGeometry(RING_RADIUS, RING_CORE, 8, 40), colours.core);
+  const ring = mergeGeometries([keyline, core]);
+  keyline.dispose();
+  core.dispose();
+  ring.computeBoundingSphere();
+  return ring;
+}
+
+/** The rings' paint: their own colours, untouched by the light and the tone mapping, writing no depth. */
+export function buildRingPaint(): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    toneMapped: false,
+    transparent: true,
+    depthWrite: false,
+  });
 }
 
 // ---- The placeholder of a free spot (3D Quick Add, sprint 7.2) -----------------------------------------------------
