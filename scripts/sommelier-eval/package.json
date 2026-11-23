@@ -11,7 +11,13 @@
     "test": "vitest run",
     "matrix": "tsx --conditions=react-server matrix.ts",
     "compare": "tsx --conditions=react-server compare.ts",
-    "seal-human-holdout": "tsx --conditions=react-server human-holdout.ts"
+    "seal-human-holdout": "tsx --conditions=react-server human-holdout.ts",
+    "bench:latency": "tsx --conditions=react-server bench-latency.ts",
+    "bench:prompt": "tsx --conditions=react-server bench-prompt.ts",
+    "menu": "tsx --conditions=react-server menu-score.ts",
+    "annotation-sample": "tsx --conditions=react-server annotation-sample.ts",
+    "vectors-same": "tsx --conditions=react-server vectors-same.ts",
+    "bench:eval-cost": "tsx --conditions=react-server bench-eval-cost.ts"
   },
   "dependencies": {
     "@cellr/domain": "workspace:*",
