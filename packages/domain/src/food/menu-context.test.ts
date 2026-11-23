@@ -64,6 +64,31 @@ describe("the menu a conversation is about", () => {
     expect(menuContext([...messages.slice(0, 2), person(SECOND)])?.fromHistory).toBe(false);
   });
 
+  it("keeps a menu with a course word after its dish through a follow-up, in English and Dutch", () => {
+    const en = menuContext([
+      person("Oysters to start, then roast lamb, and chocolate fondant for dessert."),
+      sommelier("Muscadet, Rioja, tawny."),
+      person("And with the fondant, something lighter?"),
+    ]);
+    expect(en?.fromHistory).toBe(true);
+    expect(saidOf(en)).toEqual(["Oysters", "roast lamb", "chocolate fondant"]);
+    const nl = menuContext([
+      person("Carpaccio als voorgerecht, daarna eend en chocolademousse als dessert."),
+      sommelier("Beaujolais, Pinot, Moscato."),
+      person("Kan de Pinot ook bij de carpaccio?"),
+    ]);
+    expect(saidOf(nl)).toEqual(["Carpaccio", "eend", "chocolademousse"]);
+  });
+
+  it("is none when the person spoke of another day, not a menu", () => {
+    expect(
+      menuContext([
+        person("We're having steak tonight, then salmon tomorrow. Which wine for tonight?"),
+      ]),
+    ).toBeNull();
+    expect(menuContext([person("Wat drink ik bij de kip en dan morgen bij de vis?")])).toBeNull();
+  });
+
   it("is only ever what the person said, never the sommelier's own words", () => {
     expect(
       menuContext([

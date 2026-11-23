@@ -1486,6 +1486,47 @@ describe("Sommelier V1+ `menu` (P6): a wine per course, and a choice between two
     expect(answer).not.toHaveProperty("menu");
   });
 
+  it("a comparison the model answers with a third wine keeps the model's own card: its choice is never replaced by the pair", async () => {
+    const items = cellar();
+    const { service } = setup({
+      items,
+      parts: menuPart,
+      answer: {
+        answer: "Neither: the port is the one for this cheese.",
+        bottle_refs: [ref(items[3]!)],
+        verdict: "match",
+        buy: [],
+        used_taste: false,
+      },
+    });
+    const answer = await service.ask(ask("The Tignanello or the Pavillon Rouge with Stilton?"));
+    expect(answer.bottles.map((b) => b.wineName)).toEqual(["Vintage Port"]);
+  });
+
+  it("a postfix dessert is its own course, and a course whose wine was made up says that no wine could be chosen", async () => {
+    const items = cellar();
+    const { service, state } = setup({
+      items,
+      parts: menuPart,
+      answer: plan(items, [
+        { course: 1, ref: ref(items[0]!), why: "Bubbles and brine." },
+        { course: 2, ref: "nosuch", why: "An invented Barolo." },
+        { course: 3, ref: null, why: "Nothing sweet enough is in the cellar." },
+      ]),
+    });
+    const answer = await service.ask(
+      ask("Oysters to start, then roast lamb, and chocolate fondant for dessert. Which wines?"),
+    );
+    expect(state.requests[0]!.user).toMatch(/3\. .*chocolate fondant/i);
+    expect(answer.menu?.courses).toHaveLength(3);
+    expect(answer.menu?.courses[1]).toMatchObject({ vintageId: null, why: null, unchosen: true });
+    expect(answer.menu?.courses[2]).toMatchObject({
+      vintageId: null,
+      why: "Nothing sweet enough is in the cellar.",
+    });
+    expect(answer.menu?.courses[2]).not.toHaveProperty("unchosen", true);
+  });
+
   it("a question about the cellar itself, and no model, are left as they were", async () => {
     const items = cellar();
     const facts = setup({ items, parts: menuPart });

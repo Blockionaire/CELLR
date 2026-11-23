@@ -34,7 +34,8 @@ describe("a menu's lines", () => {
       [1, "Oysters", "white", true, null],
       [2, "roast lamb", "red", false, null],
       [3, "beef stew", null, false, "The same wine as with course 2."],
-      [4, "qwertzu", null, false, "Nothing in your cellar really suits this course."],
+      // The model's own reason why nothing suits, instead of a second, general sentence.
+      [4, "qwertzu", null, false, null],
     ]);
     expect(lines.map((l) => l.label)).toEqual(["Course 1", "Course 2", "Course 3", "Course 4"]);
     expect(lines[3]!.why).toBe("Nothing in the cellar is sweet enough.");
@@ -44,17 +45,47 @@ describe("a menu's lines", () => {
     const lines = menuLines(MENU, t.nl as never);
     expect(lines[0]!.label).toBe("Gang 1");
     expect(lines[2]!.note).toBe("Dezelfde wijn als bij gang 2.");
-    expect(lines[3]!.note).toBe("Niets in je kelder past echt bij deze gang.");
+    expect(lines[3]!.note).toBeNull();
+    expect(lines[3]!.why).toBe("Nothing in the cellar is sweet enough.");
     expect(menuCutNote({ ...MENU, cut: true }, t.nl as never, 8)).toBe(
       "Alleen de eerste 8 gangen zijn gepland.",
     );
     expect(menuCutNote(MENU, t.nl as never, 8)).toBeNull();
   });
 
+  it("says only what is true of a course without a wine, in English and Dutch", () => {
+    const menu: MenuAdvice = {
+      courses: [
+        // The model said nothing suits, and why.
+        { said: "Oysters", vintageId: null, why: "None of these is crisp enough.", shared: false },
+        // The model said nothing suits, without a reason.
+        { said: "lamb", vintageId: null, why: null, shared: false },
+        // The model named a wine that is not in the cellar, or left the course out.
+        { said: "fondant", vintageId: null, why: null, shared: false, unchosen: true },
+      ],
+      cut: false,
+    };
+    const say = (lang: "en" | "nl") =>
+      menuLines(menu, t[lang] as never).map((l) => [l.note, l.why]);
+    expect(say("en")).toEqual([
+      [null, "None of these is crisp enough."],
+      ["Nothing in your cellar really suits this course.", null],
+      ["No wine could be chosen for this course.", null],
+    ]);
+    expect(say("nl")).toEqual([
+      [null, "None of these is crisp enough."],
+      ["Niets in je kelder past echt bij deze gang.", null],
+      ["Voor deze gang kon geen wijn worden gekozen.", null],
+    ]);
+    // A course that could not be chosen never shows a reason, even one kept with it.
+    const kept = { ...menu, courses: [{ ...menu.courses[2]!, why: "stale" }, menu.courses[0]!] };
+    expect(menuLines(kept, t.en as never)[0]!.why).toBeNull();
+  });
+
   it("has every sentence in both languages", () => {
     for (const lang of ["en", "nl"] as const) {
       const m = (lang === "en" ? en : nl).sommelier.menu as Record<string, string>;
-      expect(Object.keys(m).sort()).toEqual(["course", "cut", "none", "same", "title"]);
+      expect(Object.keys(m).sort()).toEqual(["course", "cut", "none", "same", "title", "unchosen"]);
       for (const text of Object.values(m)) expect(text.trim().length).toBeGreaterThan(0);
     }
   });
@@ -82,14 +113,35 @@ describe("the menu on screen", () => {
     expect(html).toContain('data-card="red" data-first="false"');
     expect(html).toContain("Firm enough for the lamb.");
     expect(html).toContain("The same wine as with course 2.");
-    expect(html).toContain("Nothing in your cellar really suits this course.");
+    expect(html).toContain("Nothing in the cellar is sweet enough.");
+    expect(html).not.toContain("Nothing in your cellar really suits this course.");
     expect(html).toContain("Your menu, course by course");
   });
 
   it("says a course has no wine when its card cannot be drawn", () => {
     const html = render(MENU, "en", ["white"]);
     expect(html.match(/data-card=/g)).toHaveLength(1);
-    expect(html.match(/Nothing in your cellar really suits this course\./g)).toHaveLength(2);
+    // Not "nothing suits": a wine was chosen, it just cannot be shown. Its reason goes with it.
+    expect(html).toContain("No wine could be chosen for this course.");
+    expect(html).not.toContain("Crisp and saline.");
+    expect(html).not.toContain("Nothing in your cellar really suits this course.");
+  });
+
+  it("draws one sentence per course without a wine, never two", () => {
+    const html = render(
+      {
+        courses: [
+          { said: "Oysters", vintageId: null, why: "Too delicate for these reds.", shared: false },
+          { said: "lamb", vintageId: null, why: null, shared: false, unchosen: true },
+        ],
+        cut: false,
+      },
+      "nl",
+    );
+    expect(html.match(/data-testid="menu-note"/g)).toHaveLength(1);
+    expect(html.match(/data-testid="menu-why"/g)).toHaveLength(1);
+    expect(html).toContain("Voor deze gang kon geen wijn worden gekozen.");
+    expect(html).not.toContain("Niets in je kelder past echt bij deze gang.");
   });
 
   it("is in Dutch, and says when courses were left out", () => {

@@ -493,6 +493,7 @@
       "title": "Je menu, gang voor gang",
       "course": "Gang {n}",
       "none": "Niets in je kelder past echt bij deze gang.",
+      "unchosen": "Voor deze gang kon geen wijn worden gekozen.",
       "same": "Dezelfde wijn als bij gang {n}.",
       "cut": "Alleen de eerste {count} gangen zijn gepland."
     },

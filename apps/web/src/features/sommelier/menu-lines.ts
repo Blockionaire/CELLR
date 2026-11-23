@@ -16,14 +16,16 @@ export interface MenuLine {
   /** The wine is the first card of the menu (the one to take first). */
   first: boolean;
   why: string | null;
-  /** A sentence instead of a card: nothing suits, or the same wine as an earlier course. */
+  /** A sentence instead of a card: nothing suits, no wine could be chosen, or the same wine as an earlier course. */
   note: string | null;
 }
 
 /**
  * A menu, course by course. A wine is drawn once, with the first course it is poured with; a later course that
- * gets the same wine says so in words, so a menu stays short on a phone. A course without a wine says plainly
- * that nothing in the cellar suits it (the model may have said why).
+ * gets the same wine says so in words, so a menu stays short on a phone. A course without a wine says only what is
+ * true: the model's own reason why nothing suits when it gave one (instead of a second, general sentence), "nothing
+ * in your cellar really suits this course" when it said so without a reason, and "no wine could be chosen" when it
+ * named a wine that is not in the cellar or left the course out (nobody said that nothing suits).
  */
 export function menuLines(menu: MenuAdvice, t: SommelierT): MenuLine[] {
   const firstCourseOf = new Map<string, number>();
@@ -31,7 +33,10 @@ export function menuLines(menu: MenuAdvice, t: SommelierT): MenuLine[] {
   return menu.courses.map((c, i) => {
     const n = i + 1;
     const base = { n, label: t("menu.course", { n }), said: c.said, why: c.why };
-    if (c.vintageId === null) return { ...base, card: null, first: false, note: t("menu.none") };
+    if (c.vintageId === null)
+      return c.unchosen === true
+        ? { ...base, card: null, first: false, why: null, note: t("menu.unchosen") }
+        : { ...base, card: null, first: false, note: c.why === null ? t("menu.none") : null };
     const earlier = firstCourseOf.get(c.vintageId);
     if (earlier !== undefined)
       return { ...base, card: null, first: false, note: t("menu.same", { n: earlier }) };

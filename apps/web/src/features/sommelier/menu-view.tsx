@@ -34,9 +34,11 @@ export function MenuView({
       <ol className="flex min-w-0 flex-col gap-3">
         {lines.map((line) => {
           const drawn = line.card === null ? null : card(line.card, line.first);
-          // The card cannot be drawn (the wine is no longer in the answer's cards): say so, never an empty row.
+          // The card cannot be drawn (the wine is not among the answer's cards): no wine is shown, so say that no
+          // wine could be chosen, and leave out the reason, which was about that wine. Never an empty row.
           const missing = line.card !== null && (drawn === null || drawn === undefined);
-          const note = line.note ?? (missing ? t("menu.none") : null);
+          const note = missing ? t("menu.unchosen") : line.note;
+          const why = missing ? null : line.why;
           return (
             <li
               key={line.n}
@@ -63,9 +65,9 @@ export function MenuView({
                   {note}
                 </p>
               )}
-              {line.why && (
+              {why && (
                 <p className="break-words px-1 text-small text-ink-2" data-testid="menu-why">
-                  {line.why}
+                  {why}
                 </p>
               )}
             </li>
