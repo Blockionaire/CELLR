@@ -1,7 +1,7 @@
 # Sommelier V1+ — status (resume from here)
 
 A new session reads this file first, then [`SOMMELIER_CLOSEOUT.md`](SOMMELIER_CLOSEOUT.md) (the plan),
-[`DECISIONS.md`](DECISIONS.md) from D-46 on, `git log --oneline -15`, the open pull requests and the newest CI runs. It
+[`DECISIONS.md`](DECISIONS.md) from D-46 on (D-53 says which of them are confirmed, approved directions or proposals), `git log --oneline -15`, the open pull requests and the newest CI runs. It
 then continues at **Next action**.
 
 ## Resume block

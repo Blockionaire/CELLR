@@ -245,15 +245,15 @@ Rules:
 None is merged or closed by the agent. Each stays until the code it holds is taken over or its postponement is written
 down (D-47). Closing is the owner's call; the "When" column is a proposal.
 
-| PR   | Proposal                                                                                                                                                                       | When            |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
-| #98  | Close: its documents are superseded by P1                                                                                                                                      | after P1 merges |
-| #100 | Close: the harness and holdout sets are ported in P2; the rule tuning stays unported (the engine does not choose); the friend cellar and 0053 are deferred with social         | after P2 merges |
-| #104 | Close: statistics and the human-holdout frame are ported in P2; the dish reader, second opinion and cache are not shipped (measured, no gain). The branch is kept as reference | after P2 merges |
-| #106 | Close: the stats are ported in P2; the guard is deferred, and its code is kept on the branch                                                                                   | after P2 merges |
-| #95  | Close: the serving, window, quantity and menu parts are ported in P4–P6; engine orchestration and `planMenu` are not                                                           | after P6 merges |
-| #94  | **Stays open as an unmerged draft** until the social project starts (owner, D-47, D-48). **Not merged**: it would release consent UI for a feature that cannot be switched on  | owner: decided  |
-| #97  | **Stays open as an unmerged draft** until the learning project starts (owner, D-47, D-48). **Not merged**: 0052's retention is not acceptable as is                            | owner: decided  |
+| PR   | Proposal                                                                                                                                                                       | When                                   |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
+| #98  | Close: its documents are superseded by P1                                                                                                                                      | after P1 merges                        |
+| #100 | Close: the harness and holdout sets are ported in P2; the rule tuning stays unported (the engine does not choose); the friend cellar and 0053 are deferred with social         | after P2 merges                        |
+| #104 | Close: statistics and the human-holdout frame are ported in P2; the dish reader, second opinion and cache are not shipped (measured, no gain). The branch is kept as reference | after P2 merges                        |
+| #106 | Close: the stats are ported in P2; the guard is deferred, and its code is kept on the branch                                                                                   | after P2 merges                        |
+| #95  | Close: the serving, window, quantity and menu parts are ported in P4–P6; engine orchestration and `planMenu` are not                                                           | after P6 merges                        |
+| #94  | **Stays open as an unmerged draft** until the social project starts (D-47, D-48). **Not merged**: it would release consent UI for a feature that cannot be switched on         | approved direction, provisional (D-53) |
+| #97  | **Stays open as an unmerged draft** until the learning project starts (D-47, D-48). **Not merged**: 0052's retention is not acceptable as is                                   | approved direction, provisional (D-53) |
 
 Each closing comment lists the code taken over (with the PR that took it), the functions deliberately not taken, and
 the risks that remain.
@@ -293,20 +293,27 @@ Production activation (owner):
 
 **GO/NO-GO today:**
 
-- **GO** for P1 and P2 (owner, 2026-11-22). P3–P8 are not started before P2 is merged.
+- **GO** to build P1 and P2 (approved direction, 2026-11-22). P3–P8 are not started before P2 is merged.
 - **NO-GO** for any production activation: nothing of V1+ is built yet.
 
-Owner decisions taken (2026-11-21 and 2026-11-22):
+How far each decision binds (D-53):
 
-| Decision                                                                                           | Entry      |
-| -------------------------------------------------------------------------------------------------- | ---------- |
-| V1 with AI stays the primary sommelier; the S5–S11 stack is not a merge order                      | D-46, D-47 |
-| #94 and #97 stay open as unmerged drafts; social and outcome learning are not in the first release | D-47, D-48 |
-| Social: option A, no friend data, name or question to a model                                      | D-48       |
-| The fallback (P7) may be built, and is not activated without a quality and expert review           | D-49       |
-| Primary criterion: V1 with AI on unseen dishes; a human holdout and an expert for final claims     | D-50       |
-| No paid evaluation call without a budget approval                                                  | D-51       |
-| Variant E only in shadow; the paid shadow measurement is postponed                                 | §4.4       |
+| Point                                                                                                                                                    | Category                                            | Entry      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ---------- |
+| V1 with AI stays the primary sommelier                                                                                                                   | **Confirmed**                                       | D-46       |
+| The S5–S11 stack is not a merge order; small PRs from `main`, at most two open; no original closed before its code is taken over or postponed in writing | **Confirmed**                                       | D-47       |
+| Primary criterion: V1 with AI on unseen dishes; an independent human holdout and a wine expert for definitive claims                                     | **Confirmed**                                       | D-50       |
+| No paid evaluation call, and no migration, without the owner's explicit approval                                                                         | **Confirmed** (standing rules)                      | D-48, D-51 |
+| #94 and #97 stay open as unmerged drafts                                                                                                                 | Approved direction (provisional)                    | D-47       |
+| Social and outcome learning are not in the first release                                                                                                 | Approved direction                                  | D-48       |
+| The fallback (P7) may be built, and is not activated without a quality measurement and expert review                                                     | Approved direction                                  | D-49       |
+| One release configuration with independent parts, off by default                                                                                         | Approved direction                                  | D-52       |
+| Social option A (no friend data, name or question to a model)                                                                                            | Proposal: to be confirmed before the social project | D-48       |
+| What counts as enough measurement and review for the fallback                                                                                            | Proposal                                            | D-49       |
+| The gate thresholds of §5                                                                                                                                | Proposal                                            | D-50       |
+| $3 for the release, $1 for the three baseline runs                                                                                                       | Proposal: not an approval to spend                  | D-51       |
+| The name `CELLR_SOMMELIER`, the part names, keeping the inert switches                                                                                   | Proposal                                            | D-52       |
+| Variant E only in shadow; the paid shadow measurement postponed                                                                                          | Approved direction                                  | §4.4       |
 
 Pending owner decisions:
 

@@ -86,3 +86,32 @@ proposed total of $3 for the whole V1+ release is a proposal, not an approval. T
 and the variable is not part of `CELLR_FEATURES`, so `all` cannot turn it on. With the variable empty, V1 behaves
 exactly as before. The parts and their names are fixed in P2. The existing switches keep their meaning until P2
 documents what happens to each.
+
+## D-53 — How sure each of D-46 to D-52 is (replaces their "owner" and "proposal" labels)
+
+**Correction**, 2026-11-23, at the owner's request. D-46 to D-52 labelled some choices **owner** that the owner had
+stated in a working brief as a direction or a "for now", not confirmed as a decision. Their text stays as written;
+from here on this entry says how far each one binds, in three categories:
+
+- **Confirmed**: the owner stated it as a decision or a standing rule, and it is not provisional.
+- **Approved direction**: the owner accepted it as the way to develop, or as a provisional arrangement ("voorlopig").
+  Code follows it, but it is not a final decision and may change without a new correction.
+- **Proposal**: the agent's choice. It is not confirmed, and it needs the owner's explicit yes before anything
+  depends on it beyond the code that implements it.
+
+| Entry | Point                                                                                                                                                                | Category                                                                                             |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| D-46  | V1 with AI stays the primary sommelier; the engines are not put in front of it                                                                                       | **Confirmed**                                                                                        |
+| D-47  | The S5–S11 stack is not a merge order; small PRs from `main`, at most two open; no original PR closed before its code is taken over or its postponement written down | **Confirmed**                                                                                        |
+| D-47  | #94 and #97 stay open as unmerged drafts                                                                                                                             | **Approved direction** (provisional)                                                                 |
+| D-48  | Social and outcome learning are not part of the first V1+ release                                                                                                    | **Approved direction**                                                                               |
+| D-48  | Social option A: no friend's data, name or question reaches a model                                                                                                  | **Proposal**: stated as a preference on 2026-11-21, to be confirmed before the social project starts |
+| D-48  | Migrations 0051–0053 are not applied without the owner's explicit approval                                                                                           | **Confirmed** (standing rule)                                                                        |
+| D-49  | The no-model fallback (P7) may be built, and is not activated without a quality measurement and expert review                                                        | **Approved direction**                                                                               |
+| D-49  | Which measurement and which review count as enough (closeout §5, R-01)                                                                                               | **Proposal**                                                                                         |
+| D-50  | The primary criterion is V1 with AI on unseen dishes; definitive quality claims need an independent human holdout and a wine expert                                  | **Confirmed**                                                                                        |
+| D-50  | The gate thresholds of closeout §5                                                                                                                                   | **Proposal**                                                                                         |
+| D-51  | No paid evaluation call without the owner's explicit budget approval                                                                                                 | **Confirmed** (standing rule)                                                                        |
+| D-51  | The amounts: $3 for the release, $1 for the three baseline runs                                                                                                      | **Proposal**: not an approval to spend                                                               |
+| D-52  | One release configuration with independent parts, off by default                                                                                                     | **Approved direction**                                                                               |
+| D-52  | Its name `CELLR_SOMMELIER`, the part names, and keeping the inert switches                                                                                           | **Proposal**                                                                                         |
