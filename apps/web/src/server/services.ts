@@ -182,8 +182,10 @@ export function servicesFor(ctx: RequestContext) {
     tonight: (request, personal) => cellar.tonight(request, personal),
     taste: () => taste.profile(),
     llm: getLlmProvider(),
-    // Sommelier V1+ parts (CELLR_SOMMELIER); empty unless the deployment names them, and none changes an answer yet.
+    // Sommelier V1+ parts (CELLR_SOMMELIER); empty unless the deployment names them.
     parts: getSommelierParts(),
+    // The `annotate` part: the household's own wine profiles, for the few wines an answer shows (read as the person).
+    profiles: async (vintageIds) => tasteRepo.listInsights((await household()).id, [...vintageIds]),
     spend: () => limiter.enforce(LIMITS.chat),
     householdId: async () => (await household()).id,
     locale: async () => (await households.me()).locale,

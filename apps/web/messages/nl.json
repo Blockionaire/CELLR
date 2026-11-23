@@ -404,6 +404,78 @@
       "profile": "Mijn smaakprofiel",
       "used": "Op basis van je smaakprofiel"
     },
+    "annotate": {
+      "label": "Feiten uit je kelder",
+      "drink": {
+        "keep": "Bewaren: nog jong",
+        "improving": "Kan nu open, wordt nog beter",
+        "drink-now": "Nu op zijn best",
+        "drink-soon": "Binnenkort drinken",
+        "past-window": "Over zijn venster: drink hem snel",
+        "unknown": "Te weinig bekend om te zeggen wanneer je hem drinkt"
+      },
+      "window": {
+        "range": "{from}–{until}",
+        "until": "tot {until}",
+        "from": "vanaf {from}"
+      },
+      "windowBasis": {
+        "own": "je eigen venster",
+        "profile": "een schatting uit zijn profiel",
+        "style": "een schatting voor zijn stijl"
+      },
+      "serve": {
+        "temp": "{min}–{max} °C",
+        "tempAbout": "ongeveer {min}–{max} °C",
+        "fridge": "ongeveer {minutes} min in de koelkast",
+        "noChill": "koelen hoeft niet",
+        "decant": {
+          "no": "decanteren hoeft niet",
+          "air": "decanteer ongeveer {minutes} min",
+          "sediment": "voorzichtig van het depot schenken, niet beluchten",
+          "optional": "een karaf mag, hoeft niet"
+        },
+        "glass": {
+          "flute-or-tulip": "tulpglas of flûte",
+          "white": "wittewijnglas",
+          "large-white": "groot wittewijnglas",
+          "red": "rodewijnglas",
+          "large-red": "groot rodewijnglas",
+          "small": "klein glas"
+        },
+        "basis": {
+          "profile": "bekend van deze wijn",
+          "style": "vuistregel",
+          "colour": "vuistregel voor zijn kleur"
+        },
+        "unknown": "Te weinig bekend over deze wijn om te zeggen hoe je hem serveert"
+      },
+      "reserved": {
+        "some": "{free} van {total} vrij om te openen",
+        "all": "alle {count} gereserveerd"
+      },
+      "where": {
+        "places": "in {places}",
+        "unplaced": "{count, plural, one {# fles} other {# flessen}} zonder plek"
+      }
+    },
+    "quantity": {
+      "need": "Voor {guests, plural, one {# persoon} other {# personen}} {gathering}: ongeveer {needed, plural, one {# fles} other {# flessen}} in totaal ({basis}).",
+      "gathering": {
+        "dinner": "aan tafel",
+        "reception": "op een receptie",
+        "long-evening": "op een lange avond"
+      },
+      "basis": {
+        "dinner": "een schatting van een halve fles per persoon",
+        "reception": "een schatting van een derde fles per persoon",
+        "long-evening": "een schatting van driekwart fles per persoon"
+      },
+      "enough": "{wine}: {needed, plural, one {# fles} other {# flessen}} nodig, {available} vrij om te openen: genoeg.",
+      "short": "{wine}: {needed, plural, one {# fles} other {# flessen}} nodig, {available} vrij om te openen: {short} te weinig.",
+      "altEnough": "{wine}: {available} vrij om te openen, genoeg.",
+      "altShort": "{wine}: {available} vrij om te openen, {short} te weinig."
+    },
     "personalChips": {
       "love": "Waar zou ik vanavond van genieten?",
       "new": "Iets nieuws om te proberen",

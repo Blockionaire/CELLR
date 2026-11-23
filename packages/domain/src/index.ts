@@ -42,6 +42,8 @@ export * from "./catalog-providers";
 export * from "./provenance";
 export * from "./features";
 export * from "./sommelier-parts";
+export * from "./sommelier-annotate";
+export * from "./sommelier-quantities";
 export * from "./catalog-identity";
 export * from "./wine-resolver";
 export * from "./wine-knowledge";

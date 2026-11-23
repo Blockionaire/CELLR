@@ -15,10 +15,12 @@ import {
   type ReactNode,
 } from "react";
 import {
+  annotationEmphasis,
   BUDGET_EUROS,
   BUDGETS,
   ERROR_MESSAGES,
   formatVintage,
+  type BottleAnnotation,
   type Budget,
   type BuySuggestion,
   type PairingVerdict,
@@ -37,6 +39,8 @@ import { EmptyState } from "@/ui/empty-state";
 import { plainSentence } from "./plain-sentence";
 import { PlanView } from "./plan-view";
 import { buyPriceLabel, checkNote, checkSentence } from "./check-sentence";
+import { AnnotationView } from "./annotation-view";
+import { QuantityView } from "./quantity-view";
 import { cn } from "@/ui/cn";
 import { ChevronRightIcon, ScanIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
@@ -467,6 +471,9 @@ export function SommelierChat({
                 {turn.role === "sommelier" && (
                   <Answer
                     answer={turn.answer}
+                    // What the question before it asked about the wines (how to serve, how long to keep): the
+                    // cards show that first.
+                    emphasis={emphasisOf(turns[i - 1])}
                     // A quick answer belongs to the last question asked back, not to an older one.
                     onReply={turn === turns.at(-1) ? (text) => void send(text) : undefined}
                     feedback={
@@ -543,6 +550,9 @@ export function SommelierChat({
 /** The sentence of an answer that has no words of its own (see `basicSentence`). */
 const unworded = (a: SommelierAnswer, t: Parameters<typeof plainSentence>[1]) =>
   a.source === "ai" ? checkSentence(a, t) : plainSentence(a, t);
+/** What the question before an answer asked about its wines, for the cards' facts (see annotationEmphasis). */
+const emphasisOf = (turn: Turn | undefined) =>
+  turn?.role === "user" ? annotationEmphasis(turn.text) : null;
 
 const budgetLabel = (b: Budget) => {
   const [low, high] = BUDGET_EUROS[b];
@@ -612,16 +622,38 @@ function UserBubble({ text }: { text: string }) {
  */
 function Answer({
   answer,
+  emphasis = null,
   feedback,
   onReply,
 }: {
   answer: SommelierAnswer;
+  emphasis?: "serving" | "keeping" | null;
   feedback?: ReactNode;
   onReply?: ((text: string) => void) | undefined;
 }) {
   const t = useTranslations("sommelier");
   let i = 0;
   const note = checkNote(answer.check, t);
+  // Sommelier V1+ (`annotate`, `quantities`): the app's own facts for the cards, when the answer carries them.
+  const annotationOf = (vintageId: string) =>
+    answer.annotations?.find((a) => a.vintageId === vintageId) ?? null;
+  const card = (bottle: SommelierBottle, first: boolean) => (
+    <BottleCard
+      bottle={bottle}
+      first={first}
+      annotation={annotationOf(bottle.vintageId)}
+      emphasis={emphasis}
+    />
+  );
+  const quantity = answer.quantity ? (
+    <QuantityView
+      quantity={answer.quantity}
+      nameOf={(vintageId) => {
+        const bottle = answer.bottles.find((b) => b.vintageId === vintageId);
+        return bottle ? `${bottle.producer} ${bottle.wineName}` : null;
+      }}
+    />
+  ) : null;
   // Sommelier 3.0: the engines' plan is drawn as it is; nothing below it is a model's wording.
   if (answer.plan)
     return (
@@ -634,9 +666,10 @@ function Answer({
         <PlanView
           plan={answer.plan}
           bottles={[...answer.bottles, ...(answer.otherBottles ?? [])]}
-          card={(bottle, first) => <BottleCard bottle={bottle} first={first} />}
+          card={card}
           onReply={onReply}
         />
+        {quantity}
         <div className="flex items-center justify-end gap-3 px-1">{feedback}</div>
       </div>
     );
@@ -676,10 +709,15 @@ function Answer({
               className="reveal"
               style={{ "--i": i++ + 1 } as React.CSSProperties}
             >
-              <BottleCard bottle={b} first={n === 0} />
+              {card(b, n === 0)}
             </li>
           ))}
         </ul>
+      )}
+      {quantity && (
+        <div className="reveal" style={{ "--i": i++ + 1 } as React.CSSProperties}>
+          {quantity}
+        </div>
       )}
       {answer.buy && answer.buy.length > 0 && (
         <div className="reveal" style={{ "--i": i++ + 2 } as React.CSSProperties}>
@@ -773,7 +811,17 @@ function RateButton({
  * A bottle from the cellar the sommelier points at: the wine as itself (its label photo when there is one),
  * where it is, and the way from the advice to the glass — "take this bottle" opens it on its own page.
  */
-function BottleCard({ bottle, first }: { bottle: SommelierBottle; first: boolean }) {
+function BottleCard({
+  bottle,
+  first,
+  annotation = null,
+  emphasis = null,
+}: {
+  bottle: SommelierBottle;
+  first: boolean;
+  annotation?: BottleAnnotation | null;
+  emphasis?: "serving" | "keeping" | null;
+}) {
   const t = useTranslations("sommelier");
   const locale = useLocale();
   const where = placeLine(bottle.region, bottle.countryCode, locale);
@@ -806,6 +854,11 @@ function BottleCard({ bottle, first }: { bottle: SommelierBottle; first: boolean
           </span>
           <span>{t("bottles", { count: bottle.count })}</span>
         </p>
+        {annotation && (
+          <div className="mt-2 border-t border-hairline pt-2">
+            <AnnotationView annotation={annotation} emphasis={emphasis} />
+          </div>
+        )}
         <Link
           href={`/cellar/${bottle.vintageId}?pick=1`}
           className={buttonStyles({

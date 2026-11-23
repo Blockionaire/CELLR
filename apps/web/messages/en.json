@@ -404,6 +404,78 @@
       "profile": "My taste profile",
       "used": "Based on your taste profile"
     },
+    "annotate": {
+      "label": "Facts from your cellar",
+      "drink": {
+        "keep": "Keep it: still young",
+        "improving": "Can be opened now, still improving",
+        "drink-now": "At its best now",
+        "drink-soon": "Drink soon",
+        "past-window": "Past its window: drink it soon",
+        "unknown": "Too little is known to say when to drink it"
+      },
+      "window": {
+        "range": "{from}–{until}",
+        "until": "until {until}",
+        "from": "from {from}"
+      },
+      "windowBasis": {
+        "own": "your own window",
+        "profile": "an estimate from its profile",
+        "style": "an estimate for its style"
+      },
+      "serve": {
+        "temp": "{min}–{max} °C",
+        "tempAbout": "about {min}–{max} °C",
+        "fridge": "about {minutes} min in the fridge",
+        "noChill": "no need to chill",
+        "decant": {
+          "no": "no need to decant",
+          "air": "decant about {minutes} min",
+          "sediment": "pour gently off the sediment, no airing",
+          "optional": "a carafe is optional"
+        },
+        "glass": {
+          "flute-or-tulip": "tulip glass or flute",
+          "white": "white-wine glass",
+          "large-white": "large white-wine glass",
+          "red": "red-wine glass",
+          "large-red": "large red-wine glass",
+          "small": "small glass"
+        },
+        "basis": {
+          "profile": "known for this wine",
+          "style": "rule of thumb",
+          "colour": "rule of thumb for its colour"
+        },
+        "unknown": "Too little is known about this wine to say how to serve it"
+      },
+      "reserved": {
+        "some": "{free} of {total} free to open",
+        "all": "all {count} reserved"
+      },
+      "where": {
+        "places": "in {places}",
+        "unplaced": "{count, plural, one {# bottle} other {# bottles}} without a place"
+      }
+    },
+    "quantity": {
+      "need": "For {guests, plural, one {# person} other {# people}} {gathering}: about {needed, plural, one {# bottle} other {# bottles}} in all ({basis}).",
+      "gathering": {
+        "dinner": "at dinner",
+        "reception": "at a reception",
+        "long-evening": "over a long evening"
+      },
+      "basis": {
+        "dinner": "an estimate of half a bottle each",
+        "reception": "an estimate of a third of a bottle each",
+        "long-evening": "an estimate of three quarters of a bottle each"
+      },
+      "enough": "{wine}: {needed, plural, one {# bottle} other {# bottles}} needed, {available} free to open: enough.",
+      "short": "{wine}: {needed, plural, one {# bottle} other {# bottles}} needed, {available} free to open: {short} short.",
+      "altEnough": "{wine}: {available} free to open, enough.",
+      "altShort": "{wine}: {available} free to open, {short} short."
+    },
     "personalChips": {
       "love": "What would I love tonight?",
       "new": "Something new for me to try",

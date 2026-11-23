@@ -136,8 +136,9 @@ export default defineConfig({
       env: {
         ...APP_ENV,
         CELLR_FEATURES: "all",
-        // Every Sommelier V1+ part, and a name that is not one. Built so far: `check` (e2e/sommelier-check.spec.ts,
-        // which also proves the default server still asks with prompt v6 and shows V1's answer as it was).
+        // Every Sommelier V1+ part, and a name that is not one (ignored). Each part has its own spec:
+        // sommelier-check, sommelier-cards (annotate, quantities), sommelier-menu, sommelier-fallback; the whole
+        // journey with all of them on is sommelier-journey. The default server names none: V1 as it was.
         CELLR_SOMMELIER: "check,annotate,quantities,menu,fallback,not-a-part",
         CELLR_SMART_CELLAR: "write",
         CELLR_SMART_CELLAR_3D: "1",

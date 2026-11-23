@@ -145,3 +145,59 @@ describe("bottles for guests", () => {
     expect(enoughFor(4, 1)).toEqual({ enough: false, short: 3 });
   });
 });
+
+describe("what a serving advice may claim", () => {
+  const firm = (year: number | null) => ({
+    ...wine("red", { body: 4.5, tannin: 4.5 }, year),
+    tier: "exact" as const,
+  });
+  it("calls it fact about the exact wine only when both the temperature and the decanting are", () => {
+    const whole = servingAdvice(
+      { ...firm(2018), profile: { serving: { minC: 16, maxC: 18 }, decantMinutes: 60 } },
+      2026,
+    );
+    expect(whole.basis).toBe("profile");
+    const onlyDecant = servingAdvice(
+      { ...firm(2018), profile: { serving: null, decantMinutes: 30 } },
+      2026,
+    );
+    expect(onlyDecant.decant).toEqual({ kind: "air", minutes: 30 });
+    expect(onlyDecant.basis).toBe("style");
+    const onlyTemp = servingAdvice(
+      { ...firm(2018), profile: { serving: { minC: 16, maxC: 18 }, decantMinutes: null } },
+      2026,
+    );
+    expect(onlyTemp.basis).toBe("style");
+    const absurd = servingAdvice(
+      { ...firm(2018), profile: { serving: { minC: 40, maxC: 60 }, decantMinutes: 0 } },
+      2026,
+    );
+    expect(absurd.tempC.max).toBeLessThanOrEqual(18);
+    expect(absurd.basis).toBe("style");
+  });
+
+  it("does not prescribe air for a firm red whose age is not known", () => {
+    expect(servingAdvice({ ...firm(null), profile: null }, 2026).decant.kind).toBe("optional");
+  });
+
+  it("never airs bubbles or an old bottle because a profile said so", () => {
+    const champagne = servingAdvice(
+      {
+        ...wine("sparkling", { body: 3, acidity: 4.5 }, 2015),
+        tier: "exact" as const,
+        profile: { serving: { minC: 8, maxC: 10 }, decantMinutes: 60 },
+      },
+      2026,
+    );
+    expect(champagne.decant).toEqual({ kind: "no", minutes: 0 });
+    const oldWhite = servingAdvice(
+      {
+        ...wine("white", { body: 3.5, oak: 2 }, 1990),
+        tier: "exact" as const,
+        profile: { serving: { minC: 11, maxC: 13 }, decantMinutes: 120 },
+      },
+      2026,
+    );
+    expect(oldWhite.decant.kind).not.toBe("air");
+  });
+});

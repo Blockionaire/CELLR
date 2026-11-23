@@ -3,6 +3,8 @@ import { cellarQuestionKind, isCellarQuestion } from "./cellar-facts";
 import { readPlan } from "./sommelier-plan";
 import { detectIntent, type SommelierAnswer } from "./sommelier";
 import { AnswerCheckSchema, PriceBandSchema } from "./sommelier-check";
+import { readAnnotations } from "./sommelier-annotate";
+import { QuantityAdviceSchema } from "./sommelier-quantities";
 
 /**
  * THE SOMMELIER'S MEMORY. The general sommelier keeps one conversation per person: it is there again after the
@@ -104,6 +106,11 @@ export function isStoredAnswer(value: unknown): value is SommelierAnswer {
           b === null ||
           !("priceBand" in b) ||
           PriceBandSchema.safeParse(b.priceBand).success,
-      ))
+      )) &&
+    // The V1+ parts' facts are drawn as kept, so they must still be what the screen draws.
+    (a.annotations === undefined || readAnnotations(a.annotations) !== null) &&
+    (a.quantity === undefined ||
+      a.quantity === null ||
+      QuantityAdviceSchema.safeParse(a.quantity).success)
   );
 }
