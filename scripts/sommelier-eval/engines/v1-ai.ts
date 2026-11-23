@@ -5,6 +5,8 @@ import { getAiEnv } from "@/server/env";
 import {
   estimating,
   metered,
+  reservationFor,
+  type Ledger,
   newMeter,
   PAID_ENV,
   PAID_PHRASE,
@@ -36,6 +38,8 @@ export function v1Ai(options: {
   env?: Record<string, string | undefined>;
   /** For tests: the provider to use instead of the real one. */
   provider?: LlmProvider;
+  /** The total budget over all runs. Required for a run for real: without one, nothing is sent. */
+  ledger?: Ledger | null;
 }): V1AiRun {
   const env = options.env ?? process.env;
   const ai = getAiEnv();
@@ -49,12 +53,17 @@ export function v1Ai(options: {
     throw new Error(
       `v1-ai has no price for the model "${ai.adviceModel}" (apps/web/src/server/ai/pricing.ts), so it cannot keep to --max-usd. Add the price first, or run with --estimate.`,
     );
+  if (!options.estimate && !options.ledger)
+    throw new Error(
+      "v1-ai for real needs a total budget over all runs: --budget-file (outside the repository) and --total-usd.",
+    );
   const llm: LlmProvider = options.estimate
     ? estimating(ai, meter)
     : metered(
         options.provider ?? createOpenAiProvider({ ...ai, apiKey: env.OPENAI_API_KEY!.trim() }),
         meter,
         Math.round(options.maxUsd * 1e6),
+        { reserve: (request) => reservationFor(ai, request), ledger: options.ledger ?? null },
       );
   const modelFor = () => {
     const before = { ...meter };

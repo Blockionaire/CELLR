@@ -21,7 +21,7 @@ import { ENGINES } from "./engines";
 import { v1Ai, type V1AiRun } from "./engines/v1-ai";
 import { buildFixture } from "./fixtures";
 import { formatQuality, qualityRow, qualityTotals, type QualityRow } from "./quality";
-import { BudgetReached } from "./paid";
+import { BudgetReached, Ledger, paidAllowed } from "./paid";
 import { formatFailures, formatSummary } from "./report";
 import { cardsOf, holdsBlind, scenariosOf } from "./sets";
 import { scoreScenario, summarize, type ScenarioResult } from "./score";
@@ -41,8 +41,14 @@ const { values: args } = parseArgs({
     estimate: { type: "boolean", default: false },
     /** Only scenarios that need nothing beyond these capabilities ("pairing,facts": what V1 can attempt). */
     needs: { type: "string" },
-    /** With `--engine v1-ai` for real: stop once this much was spent (US dollars). */
+    /** With `--engine v1-ai` for real: this run never sends a call that could take it past this (US dollars). */
     "max-usd": { type: "string", default: "2" },
+    /**
+     * With `--engine v1-ai` for real, both required: a JSON file outside the repository that keeps the total spent
+     * over every run, and that total (US dollars). A call that could pass it is never sent.
+     */
+    "budget-file": { type: "string" },
+    "total-usd": { type: "string" },
     /**
      * Per-scenario outcomes for paired comparisons (compare.ts), written to this file. For a blind set the keys are
      * salted hashes (SOMMELIER_EVAL_BLIND_SALT) and the file must be outside the repository: it pairs runs, it
@@ -53,6 +59,7 @@ const { values: args } = parseArgs({
 });
 
 let paid: V1AiRun | null = null;
+let ledger: Ledger | null = null;
 const PAID_ENGINES = new Set(["v1-ai"]);
 if (PAID_ENGINES.has(args.engine!)) {
   const maxUsd = Number(args["max-usd"]);
@@ -61,7 +68,15 @@ if (PAID_ENGINES.has(args.engine!)) {
     process.exit(2);
   }
   try {
-    paid = v1Ai({ estimate: args.estimate!, maxUsd });
+    // An estimate spends nothing and never opens (or creates) the budget file.
+    // Nor does a run that may not spend: the refusal below comes first, and the file is left as it was.
+    if (!args.estimate && args["budget-file"] && paidAllowed(process.env)) {
+      const totalUsd = Number(args["total-usd"]);
+      if (!Number.isFinite(totalUsd) || totalUsd <= 0 || totalUsd > 25)
+        throw new Error("--total-usd must be a number of dollars between 0 and 25");
+      ledger = Ledger.open(args["budget-file"], Math.round(totalUsd * 1e6));
+    }
+    paid = v1Ai({ estimate: args.estimate!, maxUsd, ledger });
   } catch (error) {
     console.error((error as Error).message);
     process.exit(2);
@@ -158,9 +173,16 @@ if (paid?.mode === "estimate") {
   console.log(
     `At most about ${m.inputTokens} tokens in and ${m.outputTokens} out: $${(m.usdMicro / 1e6).toFixed(4)} per run of this set (a high estimate: the full output allowance and one repair per call).`,
   );
+  console.log(
+    `A run for real reserves before each call the most it can cost: $${(m.reservationsMicro / 1e6).toFixed(4)} for this set, call by call. A call is sent only while its reservation fits in what is left of --max-usd and --total-usd.`,
+  );
   process.exit(0);
 }
 const summary = summarize(engine.name, results, answers);
+if (stoppedAt !== null)
+  console.log(
+    `INCOMPLETE RUN: stopped at ${blind ? "a scenario of a blind set" : stoppedAt}. The numbers below cover only the scenarios before it; they are not a baseline and compare.ts refuses its vectors.\n`,
+  );
 console.log(formatSummary(summary, engine.describes));
 console.log(`\n${formatQuality(quality)}`);
 console.log(
@@ -192,9 +214,10 @@ if (args.json) {
           servedModels: [...paid.meter.servedModels].sort(),
           ai: summary.ai,
           callsWithUnknownCost: paid.meter.unknownCost,
-          incomplete: stoppedAt !== null,
+          callsOverReservation: paid.meter.overReservation,
         }
       : {}),
+    incomplete: stoppedAt !== null,
     scenarios: summary.scenarios,
     passed: summary.passed,
     supported: summary.supported,
@@ -216,3 +239,10 @@ if (args.json) {
   };
   await writeFile(args.json, JSON.stringify(stable, null, 2) + "\n");
 }
+ledger?.end(stoppedAt === null);
+if (ledger)
+  console.log(
+    `Budget file: $${(ledger.spentMicro() / 1e6).toFixed(4)} spent of the total, $${(ledger.remainingMicro() / 1e6).toFixed(4)} left (${ledger.path}).`,
+  );
+// A stopped run must not pass for a finished one in a script either.
+if (stoppedAt !== null) process.exitCode = 3;
