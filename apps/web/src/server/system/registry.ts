@@ -92,7 +92,7 @@ const components = [
     status: "implemented",
     summary: "Internal dashboard: catalogue, bottle library, metrics, this map",
     responsibility:
-      "Server-rendered admin pages; each checks the admin session itself and answers 404 otherwise. Changes go through Server Actions that check again and are audited.",
+      "Server-rendered admin pages; each checks the admin session itself and answers 404 otherwise. Changes go through Server Actions that check again and are audited. Mobile-first since Mobile Admin Portal 2.0: a header and a tab bar below 1024 px (the sidebar above), lists as cards, the architecture as a list with a map mode.",
     inputs: ["Verified admin session (CELLR_ADMIN_USER_IDS)"],
     outputs: ["Catalogue decisions", "Bottle art", "Source decisions"],
     sources: [W + "app/admin/", W + "features/admin/"],
@@ -2563,7 +2563,7 @@ const edges: SystemEdge[] = [
     "admin-service",
     "health-monitor",
     "request",
-    "System › Health, the map's overlay, Measure now",
+    "System › Health, the overview's status, the map's overlay, Measure now",
     web("server/admin/service.ts", "export async function adminHealthOverlay"),
   ),
   edge(
@@ -2853,8 +2853,8 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.4.0",
-  reviewedOn: "2026-11-22",
+  version: "1.4.1",
+  reviewedOn: "2026-11-23",
   repository: "Blockionaire/CELLR",
   components,
   edges,

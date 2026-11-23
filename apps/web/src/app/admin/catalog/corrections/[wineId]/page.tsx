@@ -3,13 +3,33 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import type { SignalField } from "@cellr/domain";
 import { adminCorrection, getAdminSession } from "@/server/admin/service";
-import { Notice, PageTitle, Section, Table, date, input, small, link } from "../../../_ui";
+import { Message, Notice, PageTitle, Section, Table, date, input, small, link } from "../../../_ui";
 import { reviewSignalAction } from "../actions";
 import { FIELD_LABEL, REVIEW_LABEL } from "../labels";
 
 export const dynamic = "force-dynamic";
 
 const show = (v: unknown) => (v === undefined || v === null || v === "" ? "—" : String(v));
+
+/** One value per changed field, the field named: easy to compare line by line, on a phone as on a desktop. */
+function Values({
+  fields,
+  values,
+}: {
+  fields: readonly SignalField[];
+  values: Partial<Record<SignalField, unknown>> | null | undefined;
+}) {
+  return (
+    <ul className="space-y-0.5">
+      {fields.map((f) => (
+        <li key={f}>
+          <span className="text-ink-2">{FIELD_LABEL[f]}:</span>{" "}
+          <span className="font-medium">{show(values?.[f])}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /**
  * One catalogue wine's correction signals: what was proposed, what people confirmed instead, and the review. Never who
@@ -51,11 +71,16 @@ export default async function AdminCorrectionPage({
         title={`${w.producer} — ${w.name}`}
         note={`Catalogue record: ${[w.type, w.country, w.region].filter(Boolean).join(" · ")} · accepted as is by ${accepted} ${accepted === 1 ? "person" : "people"}`}
       >
-        <Link href="/admin/catalog/corrections" prefetch={false} className={`${link} text-small`}>
+        {/* on a phone the header's back button does this */}
+        <Link
+          href="/admin/catalog/corrections"
+          prefetch={false}
+          className={`${link} hidden text-small lg:inline`}
+        >
           ← All corrections
         </Link>
       </PageTitle>
-      {message && <Notice>{message}</Notice>}
+      <Message text={message} />
       <Notice>
         Reviewing a signal changes nothing in the catalogue. To fix the record itself, edit it in
         the{" "}
@@ -71,10 +96,10 @@ export default async function AdminCorrectionPage({
             head={[
               { label: "Sent · last seen" },
               { label: "Fields" },
-              { label: "Proposed" },
-              { label: "Confirmed" },
+              { label: "Proposed", wideOnPhone: true },
+              { label: "Confirmed", wideOnPhone: true },
               { label: "Status" },
-              { label: "Review" },
+              { label: "Review", wideOnPhone: true },
             ]}
             rows={g.rows.map((s) => ({
               key: s.id,
@@ -85,17 +110,13 @@ export default async function AdminCorrectionPage({
                     : `${date(s.createdAt)} · ${date(s.lastSeenAt)}`
                 }${s.source === "text" ? " · via label text" : ""}`,
                 s.changedFields.map((f) => FIELD_LABEL[f]).join(", "),
-                s.changedFields
-                  .map((f: SignalField) => `${FIELD_LABEL[f]}: ${show(s.proposed[f])}`)
-                  .join(" · "),
-                s.changedFields
-                  .map((f: SignalField) => `${FIELD_LABEL[f]}: ${show(s.confirmed?.[f])}`)
-                  .join(" · "),
+                <Values key="p" fields={s.changedFields} values={s.proposed} />,
+                <Values key="c" fields={s.changedFields} values={s.confirmed} />,
                 `${REVIEW_LABEL[s.status ?? "open"]}${s.note ? ` · ${s.note}` : ""}`,
                 <form
                   key="r"
                   action={reviewSignalAction.bind(null, w.wineId, s.id)}
-                  className="flex flex-wrap items-center gap-1.5"
+                  className="flex w-full flex-wrap items-center gap-1.5"
                   data-testid="signal-review"
                 >
                   <input
@@ -103,7 +124,7 @@ export default async function AdminCorrectionPage({
                     maxLength={500}
                     placeholder="Note (optional)"
                     aria-label="Internal note"
-                    className={`${input} w-40 py-1 text-caption`}
+                    className={`${input} w-full py-1 text-caption sm:w-40`}
                   />
                   {s.status !== "reviewed" && (
                     <button name="status" value="reviewed" className={small}>

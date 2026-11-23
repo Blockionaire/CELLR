@@ -122,13 +122,13 @@ export default async function AdminWinePage({
       {!at && <Message text={message} />}
       <nav
         aria-label="Sections"
-        className="sticky top-0 z-10 -mx-4 mb-6 flex gap-1.5 overflow-x-auto border-b border-hairline bg-canvas/95 px-4 py-2 backdrop-blur md:-mx-8 md:px-8"
+        className="scrollbar-none sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-10 -mx-4 mb-6 flex gap-1.5 overflow-x-auto border-b border-hairline bg-canvas/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:top-0 lg:-mx-8 lg:px-8"
       >
         {SECTIONS.map(([anchor, label]) => (
           <a
             key={anchor}
             href={`#${anchor}`}
-            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-small font-medium text-ink-2 ring-1 ring-ink-3/40 hover:bg-raised hover:text-ink"
+            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-small font-medium text-ink-2 ring-1 ring-ink-3/40 hover:bg-raised hover:text-ink lg:min-h-0"
           >
             {label}
             {anchor === "art" && (
