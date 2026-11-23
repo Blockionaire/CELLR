@@ -7,18 +7,21 @@ then continues at **Next action**.
 ## Resume block
 
 ```text
-UPDATED:     2026-11-22
+UPDATED:     2026-11-23
 PROJECT:     Sommelier V1+ (D-46): V1 with AI chooses; code adds facts, checks, limits and a no-model fallback.
-             Replaces the Sommelier 3.0 sprint plan (S0–S11) as the way forward.
-PLAN:        SOMMELIER_CLOSEOUT.md §6: P1 docs → P2 gate and release config → P3 check → P4 annotate →
-             P5 quantities → P6 menu → P7 fallback (built, not activated: D-49) → P8 release.
-OPEN PRs:    at most two new Sommelier PRs at a time, each from main, none stacked (D-47).
-OLD STACK:   #94 (S5) ← #95 ← #97 ← #98 ← #100 ← #104 ← #106 (S11): drafts, not a merge order. Kept until their
-             code is taken over or postponed in writing (closeout §6.1). #94 and #97 stay unmerged drafts.
-MIGRATIONS:  V1+ needs none. 0051–0053 exist only on the stack; never applied automatically (closeout §6.2).
-SWITCHES:    nothing new is on anywhere. On main, sommelier_engine, sommelier_buying, sommelier_social and
-             sommelier_experiences are named-only and off. V1+ uses CELLR_SOMMELIER (D-52, P2), empty by default.
-PAID CALLS:  none without the owner's budget approval (D-51). Proposed total: $3, not approved.
+PLAN:        SOMMELIER_CLOSEOUT.md §6. P1 (#122) and P2 (#123) are on main. P3 to P7 are built, combined, reviewed
+             by an independent agent and fixed: V1PLUS_REPORT.md has the evidence, what is not met, and GO/NO-GO.
+OPEN PRs:    #128 P3 `check` (claude/sommelier-v1plus-p3), #129 P4+P5 `annotate`, `quantities`
+             (claude/sommelier-v1plus-p45). Both from main, not stacked. At most two open (D-47).
+PREPARED:    P6 `menu` (claude/sommelier-v1plus-p6) and P7 `fallback` (claude/sommelier-v1plus-p7): complete and
+             green alone, pushed, no pull request yet. Opened when one of the two above is merged.
+INTEGRATION: claude/lucid-knuth-ck7ge0 = all four merged, plus the tests of every combination, the journey in a
+             browser, the free benchmarks and V1PLUS_REPORT.md. A rehearsal of the merges, not a merge order.
+OLD STACK:   #98 closed by the owner. #100, #104, #106: proposed to close now; #95 after P6. #94 and #97 stay
+             unmerged drafts (V1PLUS_REPORT.md §6).
+MIGRATIONS:  V1+ needs none and adds none.
+SWITCHES:    nothing new is on anywhere. CELLR_SOMMELIER is empty by default; every part is off.
+PAID CALLS:  none made. None without the owner's budget approval (D-51).
 PRODUCTION:  not touched. No merge, deploy, db push, flag change or production write by the agent.
 ```
 
@@ -37,14 +40,15 @@ PRODUCTION:  not touched. No merge, deploy, db push, flag change or production w
 
 ## Next action
 
-1. **P1** (this documentation) is merged by the owner.
-2. **P2**, a branch from the current `main`:
-   - port the V1-with-AI evaluation (`engines/v1-ai.ts`, `paid.ts`), the dish-clustered statistics (`stats.ts`,
-     `compare.ts`) and the holdout sets from #100, #104 and #106;
-   - add `CELLR_SOMMELIER` (parts, fails closed, empty = V1 unchanged);
-   - run the free evaluation and write a checkable cost estimate for the paid baseline.
-   - No paid run.
-3. P3–P8 are not started before P2 is merged.
+1. The owner merges **#128** (P3), then **#129** (P4+P5). After each merge: merge `main` into the next branch
+   (the conflicts are in `server/sommelier/service.ts`, `service.test.ts`, `server/system/registry.ts`,
+   `sommelier-screen.tsx`, `playwright.config.ts` and the two domain type files; the integration branch shows every
+   resolution), set the register's version to the next minor, rerun the checks and the browser tests.
+2. Open **P6**, then **P7**, one at a time as a slot frees.
+3. When P3 to P7 are on `main`: one small pull request from the integration branch with the combined tests, the
+   journey test, the benchmarks and the report. Then P8 (V1PLUS_REPORT.md §8).
+4. Waiting on the owner: the budget for the paid runs, the gate's thresholds, the human holdout and the wine
+   expert, and closing the original pull requests (V1PLUS_REPORT.md §6 and §8).
 
 ## Rules for whoever continues
 
