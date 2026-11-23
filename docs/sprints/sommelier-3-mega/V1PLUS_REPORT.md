@@ -45,8 +45,8 @@ The thresholds are the closeout's **proposal** (D-50), not an owner decision.
 | False positives of the check                      | 0 of 60 everyday answers and 0 of 40 weak-spot sentences in the pinned corpus (before the fixes the reviewer measured 1 of 90 everyday, 13 of 40 weak-spot)                                                                             | Met on the corpus; corpus is AI-written                                        |
 | Annotation correctness                            | Fixtures 100%. Sample of 50 for a person: prepared, **not reviewed**                                                                                                                                                                    | Fixtures met; review open                                                      |
 | Privacy                                           | No new stored text beyond the answer itself; no friend data; one new read (the household's own wine profiles, as the person). The model is shown nothing it was not shown before except app-computed facts about the person's own wines | Met                                                                            |
-| Latency                                           | See §3                                                                                                                                                                                                                                  | See §3                                                                         |
-| Cost per answer                                   | Free estimate: every question that is not a menu within +3.4% with all parts on (`check` alone +1.6%). A new menu: +13% (3 courses) to +28% (8 courses) on the worst-case allowance                                                     | Met except for a new menu                                                      |
+| Latency                                           | p95 at most +36 ms over V1 with all five parts at 3,000 wines (code overhead only; §3)                                                                                                                                                  | Met on the free measurement                                                    |
+| Cost per answer                                   | Free estimate: every question that is not a menu within +6.9% with all parts on (`check` alone +1.6%). A new menu: +13% (3 courses) to +28% (8 courses) on the worst-case allowance                                                     | Met except for a new menu                                                      |
 | Fallback against `plain()`                        | First bottle +35 [+24, +45] main, +22 [+0, +44] holdout-dev, +33 [+14, +51] blind holdout-test; no poor bottle +49 to +71                                                                                                               | Met on main and the blind set; holdout-dev's lower bound is +0                 |
 | Mobile, Dutch and English                         | Every part and the whole journey in browser tests on the phone and desktop projects, Dutch at 360 px, no sideways scroll, accessibility audit clean                                                                                     | Met in tests; no person on a device                                            |
 
@@ -63,27 +63,31 @@ The thresholds are the closeout's **proposal** (D-50), not an owner decision.
 
 ## 3. Performance (free: a fake model that answers at once, reads in memory, a shared four-core machine)
 
-**Being measured again after the review fixes; the table below is the measurement before them** (commit `0fc8c09`,
-`results/p8-quality-bench.json`). p95 of one answer's code path, difference to V1, in milliseconds; the worst of
-six cells (a pairing with a guest count, a three-course menu, a serving question; conversations of 1 and 12
-messages).
+Measured after the review fixes (integration commit `85bd32f`, `results/p8-quality-bench.json`; the numbers before
+them are kept there under `beforeReviewFixes`). p95 of one answer's code path, difference to V1, in milliseconds;
+the worst of six cells (a pairing with a guest count, a three-course menu, a serving question; conversations of 1 and
+12 messages), 200 measured rounds per cell.
 
-| Parts on                   | 25 wines |  120 |  500 |        3,000 |
-| -------------------------- | -------: | ---: | ---: | -----------: |
-| `check`                    |     +1.3 | +6.1 |  +46 |         +252 |
-| `annotate`                 |     +1.8 | +4.9 |  +24 |         +130 |
-| `quantities`               |     +0.2 | +0.2 | +0.4 |         +2.6 |
-| `menu`                     |     +0.6 | +2.4 |  +14 |          +62 |
-| `fallback` (model answers) |       ~0 |   ~0 |   ~0 |         +0.7 |
-| all five                   |     +5.7 |  +24 | +135 | +275 to +892 |
+| Parts on                   | 25 wines |  120 |  500 | 3,000 | 3,000 before the fixes |
+| -------------------------- | -------: | ---: | ---: | ----: | ---------------------: |
+| `check`                    |     +0.7 | +2.0 | +5.6 | +25.2 |                   +252 |
+| `annotate`                 |     +0.2 | +1.7 | +0.6 |  +4.4 |                   +130 |
+| `quantities`               |     +0.1 | +0.3 | +0.4 |  +6.7 |                   +2.6 |
+| `menu`                     |     +0.4 | +0.5 | +0.6 |  +1.6 |                    +62 |
+| `fallback` (model answers) |       ~0 |   ~0 | +0.1 |  +0.8 |                   +0.7 |
+| all five                   |     +1.4 | +3.2 | +6.3 | +35.9 |                   +892 |
 
-Before the fixes the proposal (V1 + 300 ms) held for every part alone and for all five up to 500 wines, and not for
-all five at 3,000 wines (a menu: +892 ms), because the check indexed the cellar on every call and the serving facts
-read every wine. Both were changed (one index per question: 43 ms for the first check and 0.02 ms for each further
-one at 3,000 wines; the serving lookup about 1.5 ms). The table is replaced when the new run is in.
+**The proposal (V1 + 300 ms) is met in every cell measured.** The check now indexes the cellar once per question
+(p50 11.5 ms at 3,000 wines; each text checked against it 0.2 ms), and the serving facts look up the named wines
+first (0.7 ms instead of 90 ms). At most one profiles read per question.
+
+Cost, on the app's own high estimate: an ordinary pairing is identical to V1 except for `check`'s prompt (+1.6%);
+every question that is not a menu stays within +6.9% with all parts on (a serving question in a 25-wine cellar is the
+highest); a new menu is +12.8% (three courses) to +28.2% (eight), and up to +45.7% for eight courses in a 25-wine
+cellar, because its answer allowance grows.
 
 These numbers are code overhead only: the model answers at once, the reads are in memory (in production the one
-profiles read is a database round trip), and the machine was shared.
+profiles read is a database round trip), and the machine was shared with other work.
 
 ## 4. The independent end review
 
@@ -125,7 +129,6 @@ The reviewer's own limits: it is an AI, it wrote its adversarial sentences itsel
 7. **No person has used it on a device.** Phone behaviour is proven by automated browser tests and screenshots.
 8. **Full CI on the final commits of each branch**: started by hand for all four branches; see the pull requests'
    checks for the outcome. The run on the integration branch predates the review fixes.
-9. Latency: see §3 for whether the proposal holds at 3,000 wines with every part on.
 
 ## 6. The original Sommelier pull requests
 
