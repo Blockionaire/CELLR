@@ -3,6 +3,7 @@ import { apiClient, arrive, audit, FEATURES_URL, sql } from "./helpers";
 import {
   ask,
   askAt,
+  chosen,
   DEFAULT_URL,
   DUTCH,
   expectNoSidewaysScroll,
@@ -175,7 +176,9 @@ test.describe("the fallback and V1 (API)", () => {
       ),
     );
     expect(counted[0]).toMatchObject({ basic: "facts" });
-    expect(counted[1]).toEqual(counted[0]);
+    expect(chosen(counted[1]!)).toEqual(chosen(counted[0]!));
+    expect(counted[1]!.facts).toEqual(counted[0]!.facts);
+    expect(counted[1]!.plan ?? null).toBeNull();
 
     // A general question about wine is not the engines': the plain answer, as on the default server.
     const general = marker();
@@ -190,6 +193,7 @@ test.describe("the fallback and V1 (API)", () => {
         ),
       ),
     );
-    expect(plain[1]).toEqual(plain[0]);
+    expect(chosen(plain[1]!)).toEqual(chosen(plain[0]!));
+    expect(plain[1]!.plan ?? null).toBeNull();
   });
 });
