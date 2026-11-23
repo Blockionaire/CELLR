@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isStoredAnswer,
   parseSommelierParts,
   SOMMELIER_PARTS,
   type AskSommelier,
@@ -266,6 +267,11 @@ describe("every combination of the five parts", () => {
           const shown = JSON.stringify({ ...answer, plan: undefined });
           if (on("check")) expect(shown, label).not.toContain("[[");
           expect(shown, label).not.toContain("€");
+          // What is answered can be kept with the conversation and drawn again (a kept answer that no longer
+          // reads would vanish, and its question would be asked of the model a second time).
+          expect(isStoredAnswer(JSON.parse(JSON.stringify(answer))), label).toBe(true);
+          // An answer of the model always has words, also when the check took the model's own away.
+          if (answer.source === "ai") expect(answer.text, label).toBeTruthy();
           // A question of fact is left alone by every part but the check of its words.
           if (q.name === "a question of fact") {
             expect(answer, label).not.toHaveProperty("annotations");
@@ -278,9 +284,61 @@ describe("every combination of the five parts", () => {
     });
 });
 
+/** A model that does everything wrong at once: long reasons full of refs in every form, claims, prices, a shop. */
+const hostile: Model = (request, items) => {
+  const r = items.map(ref);
+  const long = `[${r[2]}] and ${r[1]} and [[${r[0]}]] `.repeat(12);
+  return {
+    answer: `Your Sassicaia 2016 is perfect. [[${r[1]}]] (×99) costs €40 at Sligro. I've set [[${r[2]}]] aside. ${long}`,
+    bottle_refs: [r[1], "nosuch", r[2], r[0], r[3]],
+    verdict: "match",
+    buy: [
+      {
+        wine: `${items[1]!.producer} ${items[1]!.wineName}`,
+        why: "Only €12 at Gall & Gall.",
+        price: "about €22",
+      },
+    ],
+    used_taste: true,
+    ...((request.jsonSchema as { required?: string[] }).required?.includes("courses")
+      ? {
+          courses: [
+            { course: 1, ref: r[0], why: long },
+            { course: 2, ref: "nosuch", why: "You have 40 bottles of it." },
+            { course: 3, ref: r[3], why: `You have 12 bottles of it, about €90 each. ${long}` },
+            { course: 7, ref: r[1], why: "No such course." },
+          ],
+        }
+      : {}),
+  };
+};
+
+describe("a model that gets everything wrong, with every combination of parts", () => {
+  it("never costs the answer: it is kept, drawn again, has words, and shows no invented fact, price or shop", async () => {
+    for (const subset of SUBSETS) {
+      for (const q of QUESTIONS) {
+        const label = `[${subset.join(",") || "none"}] ${q.name}`;
+        const { service, requests } = world(subset.join(","), hostile);
+        const answer = await service.ask(q.request);
+        expect(requests.length, label).toBeLessThanOrEqual(1);
+        expect(isStoredAnswer(JSON.parse(JSON.stringify(answer))), label).toBe(true);
+        if (answer.source === "ai") expect(answer.text, label).toBeTruthy();
+        if (!subset.includes("check")) continue;
+        // With the check on, none of it is shown, in the words, the menu's reasons or the buy list.
+        const shown = JSON.stringify(answer);
+        expect(shown, label).not.toMatch(
+          /Sassicaia|€|Sligro|Gall|×99|set .* aside|\[\[|40 bottles|12 bottles/,
+        );
+        for (const c of answer.menu?.courses ?? [])
+          expect((c.why ?? "").length, label).toBeLessThanOrEqual(240);
+      }
+    }
+  });
+});
+
 describe("one conversation with every part on", () => {
   const ALL = SOMMELIER_PARTS.join(",");
-  const said = (a: SommelierAnswer) => a.text ?? "(shown from the cards)";
+  const said = (a: SommelierAnswer) => a.text ?? "(the plain answer's sentence)";
 
   it("advice, serving, a menu for the guests, a follow-up and a model that is down agree with each other", async () => {
     const history: Array<{ role: "user" | "assistant"; text: string }> = [];

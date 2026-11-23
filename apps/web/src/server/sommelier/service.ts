@@ -1,6 +1,7 @@
 import "server-only";
 import {
-  checkAnswerClaims,
+  prepareAnswerCheck,
+  MENU_WHY_MAX,
   annotationEmphasis,
   guestsBlock,
   guestsIn,
@@ -557,22 +558,9 @@ export function createSommelierService(deps: SommelierDeps) {
       const buy = facts || deps.intelligence ? [] : checked.buy;
       // V1+ `check`: refs become the cellar's own names; a claim about the cellar that is not true, a price, a
       // shop or an action is not shown. The wines V1 chose (the cards) are never changed by it.
-      const claim = (text: string) =>
-        checkAnswerClaims({
-          text,
-          bottles,
-          buy: [],
-          digest,
-          items,
-          budget: request.budget ?? null,
-          facts: factsText,
-          now: clock(),
-        });
-      const words = checking
-        ? checkAnswerClaims({
-            text: checked.text,
-            bottles,
-            buy,
+      // The cellar is indexed once for the question, however many texts are checked against it.
+      const claim = checking
+        ? prepareAnswerCheck({
             digest,
             items,
             budget: request.budget ?? null,
@@ -580,14 +568,22 @@ export function createSommelierService(deps: SommelierDeps) {
             now: clock(),
           })
         : null;
-      // A menu's reasons are the model's words too: each is checked the same way, and one that cannot be shown is
-      // left out (its course keeps its wine, which was checked against the list already).
+      const words = claim ? claim({ text: checked.text, bottles, buy }) : null;
+      // A menu's reasons are the model's words too: each is checked the same way, as words about that course's
+      // wine ("you have twelve of it"), and one that cannot be shown is left out (the course keeps its wine, which
+      // was checked against the list already). A reason never gets longer than a kept menu allows.
       const reasons =
-        checking && coursed
+        claim && coursed
           ? coursed.menu.courses.map((course) => {
               if (course.why === null) return { course, codes: [] as CheckCode[] };
-              const said = claim(course.why);
-              return { course: { ...course, why: said.text }, codes: said.check.codes };
+              const said = claim({
+                text: course.why,
+                bottles,
+                buy: [],
+                previous: items.find((i) => i.vintageId === course.vintageId) ?? null,
+              });
+              const why = said.text === null ? null : said.text.slice(0, MENU_WHY_MAX).trim();
+              return { course: { ...course, why: why || null }, codes: said.check.codes };
             })
           : null;
       const menuAdvice = coursed
