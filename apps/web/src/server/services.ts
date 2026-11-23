@@ -9,7 +9,7 @@ import { canDeleteAccounts, deleteAuthUser } from "@/server/privileged/account";
 import { pinStatus, removePin, setPin } from "@/server/privileged/pin";
 import { createAuthGateway } from "@/server/auth/gateway";
 import { createAuthService } from "@/server/auth/service";
-import { DomainError, type ProfileLanguage } from "@cellr/domain";
+import { DomainError, hasSommelierPart, type ProfileLanguage } from "@cellr/domain";
 import { createCellarRepository } from "@/server/cellar/repository";
 import { createCellarService } from "@/server/cellar/service";
 import type { RequestContext } from "@/server/context";
@@ -50,6 +50,7 @@ import { createScanRepository } from "@/server/scans/repository";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
 import { createSommelierIntelligence } from "@/server/sommelier/intelligence";
+import { createSommelierFallback } from "@/server/sommelier/parts/fallback";
 import { createSommelierChatService } from "@/server/sommelier/conversation";
 import { createSommelierConversationRepository } from "@/server/sommelier/repository";
 import { recordSommelierExchange } from "@/server/privileged/sommelier-conversations";
@@ -172,8 +173,27 @@ export function servicesFor(ctx: RequestContext) {
         now: () => new Date(),
       })
     : null;
+  // Sommelier V1+ parts (CELLR_SOMMELIER); empty unless the deployment names them.
+  const sommelierParts = getSommelierParts();
+  // The `fallback` part (P7): the same engines, asked only when V1 has no model answer. Built of their own, with
+  // or without `sommelier_engine`, and always without buying advice or a retailer source: no price is ever shown.
+  const sommelierFallback = hasSommelierPart(sommelierParts, "fallback")
+    ? createSommelierFallback({
+        intelligence: createSommelierIntelligence({
+          cellar: () => cellar.inventory(),
+          profiles: async (vintageIds) =>
+            tasteRepo.listInsights((await household()).id, [...vintageIds]),
+          taste: () => taste.profile(),
+          offers: null,
+          buying: false,
+          now: () => new Date(),
+        }),
+        spend: () => limiter.enforce(LIMITS.sommelierEngine),
+      })
+    : null;
   const sommelier = createSommelierService({
     intelligence,
+    fallback: sommelierFallback,
     spendEngine: () => limiter.enforce(LIMITS.sommelierEngine),
     cellar: () => cellar.inventory(),
     // Read only: the same household-scoped (RLS) reads the cellar screens use.
@@ -182,8 +202,7 @@ export function servicesFor(ctx: RequestContext) {
     tonight: (request, personal) => cellar.tonight(request, personal),
     taste: () => taste.profile(),
     llm: getLlmProvider(),
-    // Sommelier V1+ parts (CELLR_SOMMELIER); empty unless the deployment names them, and none changes an answer yet.
-    parts: getSommelierParts(),
+    parts: sommelierParts,
     spend: () => limiter.enforce(LIMITS.chat),
     householdId: async () => (await household()).id,
     locale: async () => (await households.me()).locale,

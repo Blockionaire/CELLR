@@ -763,7 +763,9 @@ describe("the sommelier and your own taste", () => {
   });
 });
 
-describe("Sommelier V1+ parts (CELLR_SOMMELIER, P2): none changes an answer yet", () => {
+describe("Sommelier V1+ parts (CELLR_SOMMELIER): a part that is not built or not wired changes nothing", () => {
+  // `fallback` (P7) is wired through its own dependency, absent here: naming it alone changes nothing either
+  // (parts/fallback.test.ts has the service with it). The other parts are not built yet.
   const all = parseSommelierParts(SOMMELIER_PARTS.join(","));
   const questions: Array<{ texts: string[]; mode?: "tonight" }> = [
     { texts: ["What goes with roast lamb?"] },

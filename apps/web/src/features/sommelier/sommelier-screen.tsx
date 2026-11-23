@@ -629,7 +629,20 @@ function Answer({
           card={(bottle, first) => <BottleCard bottle={bottle} first={first} />}
           onReply={onReply}
         />
-        <div className="flex items-center justify-end gap-3 px-1">{feedback}</div>
+        {/* The engines answered because V1 had no model (the `fallback` part): say so, as a plain answer does. */}
+        <div
+          className={cn(
+            "flex items-center gap-3 px-1",
+            answer.reason ? "justify-between" : "justify-end",
+          )}
+        >
+          {answer.reason && (
+            <p className="text-caption text-ink-3" data-testid="answer-reason">
+              {t(`reason.${answer.reason}`)}
+            </p>
+          )}
+          {feedback}
+        </div>
       </div>
     );
   return (

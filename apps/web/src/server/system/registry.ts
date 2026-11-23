@@ -462,6 +462,7 @@ const components = [
     sources: [
       W + "server/sommelier/service.ts",
       W + "server/sommelier/intelligence.ts",
+      W + "server/sommelier/parts/fallback.ts",
       W + "server/ai/prompts/sommelier.ts",
     ],
     gates: [
@@ -488,7 +489,7 @@ const components = [
       {
         name: "CELLR_SOMMELIER",
         kind: "env",
-        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. In P2 no part changes an answer yet.",
+        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. Built: fallback (P7: the engines' plan when V1 has no model answer, without buying advice; not to be switched on in production before the knowledge is reviewed, D-49).",
       },
     ],
     risks: [
@@ -1900,7 +1901,12 @@ const edges: SystemEdge[] = [
     "tonight: (request, personal) => cellar.tonight(request, personal)",
   ),
   wired("svc-sommelier", "svc-taste", "taste profile", "taste: () => taste.profile()"),
-  wired("svc-sommelier", "rate-limiter", "chat limit", "spend: () => limiter.enforce(LIMITS.chat)"),
+  wired(
+    "svc-sommelier",
+    "rate-limiter",
+    "chat limit; the engines' own limit (also for the fallback part)",
+    "spend: () => limiter.enforce(LIMITS.chat)",
+  ),
   edge(
     "svc-sommelier",
     "privileged-ops",
@@ -2881,7 +2887,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.5.1",
+  version: "1.9.0",
   reviewedOn: "2026-11-23",
   repository: "Blockionaire/CELLR",
   components,

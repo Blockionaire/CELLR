@@ -5,6 +5,7 @@ import {
   type CellarItem,
   type RawSommelier,
   type SommelierAnswer,
+  parseSommelierParts,
 } from "@cellr/domain";
 import type { AiErrorKind, GenerateObjectRequest, LlmProvider } from "@/server/ai/types";
 import { createSommelierIntelligence, type Planned } from "../intelligence";
@@ -451,9 +452,8 @@ describe("the fallback is never the person's problem", () => {
 });
 
 /**
- * The service as the lead will wire it (docs: CONTRACT §1): where the service answers with plain() today it first
- * asks the fallback, with the same reason; anywhere else the fallback is not asked. Emulated around the service as
- * it is on `main`, so these tests hold before and after the wiring.
+ * The service with the part on: where it answered with plain() it first asks the fallback, with the same reason;
+ * anywhere else the fallback is not asked.
  */
 describe("only when V1 has no model answer", () => {
   const MODEL: RawSommelier = {
@@ -470,6 +470,10 @@ describe("only when V1 has no model answer", () => {
       model?: "answers" | AiErrorKind | "none";
       chatSpend?: () => Promise<void>;
       sommelierEngine?: boolean;
+      /** false: CELLR_SOMMELIER does not name `fallback` (the dependency is there, the part is off). */
+      part?: boolean;
+      /** The model answers with words that are empty once cleaned: V1 does not show such an answer. */
+      emptyAnswer?: boolean;
     } = {},
   ) {
     const items = options.items ?? [chablis(), barolo()];
@@ -480,12 +484,20 @@ describe("only when V1 has no model answer", () => {
         const usage = { model: "chat-model", tokensIn: 1, tokensOut: 1, latencyMs: 1 };
         if (options.model && options.model !== "answers" && options.model !== "none")
           return { ok: false as const, kind: options.model, usage };
-        return { ok: true as const, value: request.parse(MODEL), usage };
+        return {
+          ok: true as const,
+          value: request.parse(options.emptyAnswer ? { ...MODEL, answer: " \n " } : MODEL),
+          usage,
+        };
       },
     };
     const cellar = async () => ({ items, bottleCount: items.length });
+    const { fallback, calls } = counted(engines(items));
+    // The service as the composition root builds it with CELLR_SOMMELIER=fallback.
     const service = createSommelierService({
       ...(options.sommelierEngine ? { intelligence: engines(items, true) } : {}),
+      parts: parseSommelierParts(options.part === false ? "" : "fallback"),
+      fallback,
       cellar,
       storage: async () => [],
       racks: async () => ({ units: [], unplaced: [] }),
@@ -501,19 +513,8 @@ describe("only when V1 has no model answer", () => {
       locale: async () => "en",
       recordUsage: async () => {},
     });
-    const { fallback, calls } = counted(engines(items));
-    async function ask(text: string): Promise<SommelierAnswer> {
-      const request = { messages: [{ role: "user" as const, text }] };
-      const today = await service.ask(request);
-      // The three places plain() answers today: a basic answer with a reason that is not counted facts.
-      const plainToday =
-        today.source === "basic" && today.reason !== null && today.basic !== "facts";
-      if (!plainToday || items.length === 0) return today;
-      return (
-        (await fallback({ request, items, reason: today.reason!, personal: true, locale: "en" })) ??
-        today
-      );
-    }
+    const ask = (text: string): Promise<SommelierAnswer> =>
+      service.ask({ messages: [{ role: "user" as const, text }] });
     return { ask, state, calls };
   }
 
@@ -582,12 +583,38 @@ describe("only when V1 has no model answer", () => {
     expect(calls).toEqual({ spent: 0, planned: 0 });
   });
 
-  it("with sommelier_engine on, a question they declined is declined again: one answer, the plain one", async () => {
+  it("with sommelier_engine on, a question they declined is not put to them again: one answer, the plain one", async () => {
     const { ask, state, calls } = world({ model: "unavailable", sommelierEngine: true });
     const answer = await ask("What is the difference between Chablis and Meursault?");
     expect(state.modelCalls).toBe(1);
     expect(answer.reason).toBe("ai-down");
     expect(answer.plan ?? null).toBeNull();
-    expect(calls.planned).toBe(1);
+    expect(calls).toEqual({ spent: 0, planned: 0 });
+  });
+
+  it("with the part off the engines are never asked, whatever happens to the model", async () => {
+    for (const model of ["none", "unavailable", "answers"] as const) {
+      const { ask, calls } = world({ model, part: false });
+      const answer = await ask(OYSTERS);
+      expect(answer.plan ?? null).toBeNull();
+      expect(calls).toEqual({ spent: 0, planned: 0 });
+    }
+  });
+
+  it("'which wine do I have for the oysters' is a pairing for the engines when there is no model", async () => {
+    const { ask, calls } = world({ model: "none" });
+    const answer = await ask("Which wine do I have for the oysters?");
+    expect(answer.basic).not.toBe("facts");
+    expect(answer.plan?.outcome).toBe("good");
+    expect(answer.reason).toBe("ai-off");
+    expect(calls).toEqual({ spent: 1, planned: 1 });
+  });
+
+  it("an answer of the model that does not pass its check is the engines' too", async () => {
+    const { ask, state } = world({ model: "answers", emptyAnswer: true });
+    const answer = await ask(OYSTERS);
+    expect(state.modelCalls).toBe(1);
+    expect(answer.reason).toBe("ai-down");
+    expect(answer.plan?.outcome).toBe("good");
   });
 });
