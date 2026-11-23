@@ -71,6 +71,9 @@ test("a finger on a spot too small to be sure of brings the view closer, and the
   await expect(view(page)).toHaveAttribute("data-quick", "placing");
   await expect(canvas(page)).toHaveAttribute("data-spots", "897");
   // nudge the camera once so that it writes where it stands (it writes on every move)
+  await canvas(page).scrollIntoViewIfNeeded();
+  const box = (await canvas(page).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.wheel(0, 1);
 
   // the spots are far closer together than a fingertip
