@@ -17,7 +17,13 @@
     "menu": "tsx --conditions=react-server menu-score.ts",
     "annotation-sample": "tsx --conditions=react-server annotation-sample.ts",
     "vectors-same": "tsx --conditions=react-server vectors-same.ts",
-    "bench:eval-cost": "tsx --conditions=react-server bench-eval-cost.ts"
+    "bench:eval-cost": "tsx --conditions=react-server bench-eval-cost.ts",
+    "menu:run": "tsx --conditions=react-server menu-run.ts",
+    "menu:cost": "tsx --conditions=react-server menu-cost.ts",
+    "plan": "tsx --conditions=react-server plan-estimate.ts",
+    "compare-claims": "tsx --conditions=react-server compare-claims.ts",
+    "review-forms": "tsx --conditions=react-server review-forms.ts",
+    "holdout-from-csv": "tsx --conditions=react-server holdout-csv.ts"
   },
   "dependencies": {
     "@cellr/domain": "workspace:*",

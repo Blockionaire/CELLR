@@ -1,0 +1,26 @@
+﻿CELLR sommelier knowledge: 20 fallback answers that disagree most with the benchmark's AI-written labels
+"Filled in by (name, role):",
+Date:,
+"Nothing in this form counts as reviewed or approved until the person named above has signed it. Every verdict column starts empty; nothing in it was written by an AI or by code."
+
+#,set,scenario,question,the cellar (named cellar of the eval),"the fallback offered, best first",the fallback's verdict,"benchmark label of each wine offered (AI-WRITTEN, not reviewed)","wines in the cellar the benchmark labels good (AI-WRITTEN, not reviewed)",disagreement score (code),YOUR VERDICT: the fallback's choice: agree / disagree / unsure,YOUR VERDICT: the AI-written label: right / wrong / unsure,YOUR VERDICT: why
+1,main,ph-024,"Ratatouille met stokbrood, wat schenk ik?",all (30 wines),"Albariño; Chablis; Grüner Veltliner Federspiel",good,"poor; poor; poor","Côtes de Provence Rosé; Fleurie",5,,,
+2,main,ps-028,Hutspot met klapstuk vanavond. Wat drinken we?,all (30 wines),"Amarone della Valpolicella; Barolo; Cabernet Sauvignon",good,"poor; poor; poor","Gevrey-Chambertin; Rioja Reserva; Crozes-Hermitage",5,,,
+3,holdout-dev,ho-066,"Chinese roast pork in that red sauce, babi pangang. A red, right?",all (30 wines),"Gevrey-Chambertin; Chianti Classico",good,"poor; poor","Riesling Kabinett; Gewurztraminer; Pinot Gris",4,,,
+4,holdout-dev,ho-028,Dutch pancakes with bacon and syrup for dinner. Is there any wine that actually works with that?,all (30 wines),"Champagne Brut; Cava Brut Nature; Riesling Kabinett",good,"poor; poor; good",Riesling Kabinett,3,,,
+5,holdout-dev,ho-079,Pancakes with bacon and syrup tonight. Which wine?,dry-only (22 wines),"Champagne Brut; Cava Brut Nature",good,"poor; poor",(none),3,,,
+6,main,inv-005,"Osso buco vanavond, welke wijn?",all (30 wines),"Amarone della Valpolicella; Chianti Classico; Pauillac",good,"poor; good; poor","Chianti Classico; Barolo",3,,,
+7,main,ph-042,"Mezze-avond: hummus, baba ganoush, tabouleh, olijven. Welke wijn?",all (30 wines),Champagne Brut,acceptable,poor,"Albariño; Côtes de Provence Rosé; Ribolla Gialla macerata",3,,,
+8,main,pm-009,Big pot of chili con carne for game night. What wine?,all (30 wines),"Barolo; Chianti Classico; Malbec",good,"poor; poor; good","Châteauneuf-du-Pape; Malbec",3,,,
+9,main,pm-016,Chili con carne met rijst en zure room. Welke wijn?,all (30 wines),"Barolo; Chianti Classico; Malbec",good,"poor; poor; good","Châteauneuf-du-Pape; Malbec",3,,,
+10,main,ps-016,Boerenkool met rookworst vanavond. Kan daar een wijntje bij?,all (30 wines),Meursault,acceptable,poor,"Grüner Veltliner Federspiel; Fleurie; Pinot Gris",3,,,
+11,holdout-dev,ho-060,"Alsatian pizza tonight (tarte flambée with crème fraîche, onion and bacon). What's a good pizza wine?",all (30 wines),"Chianti Classico; Albariño; Chablis",good,"poor; ok; good","Chablis; Grüner Veltliner Federspiel; Riesling Kabinett; Champagne Brut; Pinot Gris",2,,,
+12,main,mp-10,@Thomas and I are having pizza. What should we open?,all (30 wines),"Chianti Classico; Albariño; Chablis",good,"good; poor; poor","Fleurie; Chianti Classico",2,,,
+13,main,ns-012,Kaasfondue vanavond. Wat kan ik openen?,reds-only (11 wines),Barolo,acceptable,poor,(none),2,,,
+14,main,ns-018,"Paddenstoelenrisotto, wat schenk ik?",everyday (8 wines),Albariño,acceptable,poor,(none),2,,,
+15,main,ph-037,"Miso-glazed black cod, Nobu-style. Which bottle?",all (30 wines),"Albariño; Chablis; Riesling Kabinett",good,"poor; ok; good","Riesling Kabinett; Pinot Gris",2,,,
+16,main,ph-040,"Pad thai met garnalen, wat drink ik erbij?",everyday (8 wines),Cava Brut Nature,good,poor,(none),2,,,
+17,main,ph-043,Shakshuka for a late brunch. Wine?,all (30 wines),"Cava Brut Nature; Champagne Brut",good,"ok; poor","Côtes de Provence Rosé; Fleurie",2,,,
+18,main,ph-053,Nasi goreng met een gebakken ei. Welke wijn?,everyday (8 wines),Cava Brut Nature,good,poor,(none),2,,,
+19,main,pm-002,"Coq au vin vanavond, welke wijn uit mijn kelder?",whites-and-bubbles (9 wines),Meursault,good,poor,(none),2,,,
+20,main,pm-005,Steak tartare with fries. What do I pour?,all (30 wines),"Chablis; Cava Brut Nature; Champagne Brut",good,"ok; poor; ok","Côtes de Provence Rosé; Fleurie; Gevrey-Chambertin",2,,,
