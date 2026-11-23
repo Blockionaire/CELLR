@@ -1,6 +1,6 @@
 # Release: migration 0050 (R-27, wine origins). Dry run done, NOT applied.
 
-**Production:** `vvelgyhbjfmjvxkzekyz`. Procedure: `docs/MIGRATIONS.md` §2. Apply only after the owner's explicit go-ahead.
+**Production:** the production project (`<production-ref>` below: Supabase → Project Settings → General → Project ID). Procedure: `docs/MIGRATIONS.md` §2. Apply only after the owner's explicit go-ahead.
 
 ## 1. Dry run (2026-11-20, read-only)
 
@@ -22,7 +22,7 @@ So 0050 runs on exactly what it was written for. It adds one table, three functi
 - `merge_wines` and `my_household_ids` are unchanged (the same MD5s as above). No R-27 object exists.
 - Production runs e27e533. The app treats the missing R-27 functions as "no origin", and there were no runtime errors after the deploy.
 - `verify-0050.sql` run against production **before** the apply: checks 1, 3 and 10 are false (0050 is not there yet), and 2 and 15 are true. On a local Postgres 17 with 0050 applied, all 15 checks are true.
-- Data baseline at that moment: 45 wines, 57 bottles, 4 households, 41 producers, 0 providers, 0 external records. The production app is in use, so the baseline is taken again right before applying.
+- Data baseline at that moment: wines, bottles, households, producers, providers and external records counted (verified read-only on 2026-11-20; values kept by the owner, not in the repository). The production app is in use, so the baseline is taken again right before applying.
 
 ## 2. Apply (owner, after the go-ahead)
 
@@ -31,7 +31,7 @@ On a machine with the repository at the merged `main` (which then ends at 0050),
 Link the project:
 
 ```bash
-pnpm exec supabase link --project-ref vvelgyhbjfmjvxkzekyz
+pnpm exec supabase link --project-ref <production-ref>
 ```
 
 Every version must show on both sides except 0050:

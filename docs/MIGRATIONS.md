@@ -130,7 +130,7 @@ outside §4 and §5.
 
 ## 3. Production inventory (verified read-only, 2026-11-02; re-verified 2026-11-17 and 2026-11-18)
 
-Production (project `vvelgyhbjfmjvxkzekyz`, Postgres 17.11) was built up to 0036 by pasting every migration into the
+Production (the project listed as protected in `scripts/storage-backup/src/config.ts`) was built up to 0036 by pasting every migration into the
 SQL Editor. 0037–0046 were the first migrations it got through `db push`. Its schema was compared with the repository
 object by object, read-only, each time:
 
