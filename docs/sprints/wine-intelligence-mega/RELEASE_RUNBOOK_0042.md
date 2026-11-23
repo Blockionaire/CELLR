@@ -82,8 +82,8 @@ empty.
 
 **Production, read-only.** Only `SELECT` statements, through the Supabase MCP:
 
-- **Plan:** organisation plan `pro`. Daily backups, the last 7 days. They are physical backups, because the project
-  runs Postgres 17.11 (Supabase docs, "Database Backups"). PITR is not enabled; on Pro it is a paid add-on. Whether
+- **Plan:** organisation plan `pro`. Daily backups, the last 7 days. They are physical backups, given the project's
+  Postgres version (Supabase docs, "Database Backups"). PITR is not enabled; on Pro it is a paid add-on. Whether
   today's backup is listed is for the owner to see in the dashboard (P1).
 - **Migration history:** exactly `0001`–`0036`, 36 versions, the newest `20261113000036`. The owner recorded it
   between 2026-11-15, when there was no history, and 2026-11-17.
@@ -95,12 +95,12 @@ empty.
   - no object of 0037–0046 exists;
   - `pg_trgm` and `unaccent` are present;
   - pg_cron has only `catalog-scan-reads-purge`, and it is active;
-  - 43 wines, 39 producers, 0 aliases.
+  - the row counts of `wines`, `producers` and `wine_aliases` (values kept by the owner, not in the repository).
 
 **Rehearsal** (`bash scripts/migration-audit/rehearse-release-0042.sh`, 31 s, on `main` at `21186f6`):
 
-- **The production-like database:** built from the release checkout, with production's row counts (39 producers, 43
-  wines, plus 2 aliases so the alias trigger has rows too) and the history 0001–0036. The preflight passes and the
+- **The production-like database:** built from the release checkout, with row counts like production's (the counts the
+  rehearsal script seeds, plus aliases so the alias trigger has rows too) and the history 0001–0036. The preflight passes and the
   database is equivalent to the repository at 0036.
 - **The release:**
   - the dry run with `--skip-vault` lists exactly 0037–0042;
@@ -191,7 +191,7 @@ Not tested here:
     `/workspaces/cellr-release-0042`. **Every `db push` of this release runs from `$REL`, never from `$MAIN`.**
 - **The connection string:** Supabase → Connect → **Session pooler** (port 5432; not the transaction pooler, and not
   the direct connection, which is IPv6-only and does not work from a Codespace). The user name contains the project
-  ref, `postgres.vvelgyhbjfmjvxkzekyz`. The password must be percent-encoded. Never write it into a file under
+  ref, `postgres.<production-ref>` (Supabase → Project Settings → General → Project ID). The password must be percent-encoded. Never write it into a file under
   `/workspaces`, which is kept with the Codespace and is a git checkout.
 
 **Setting up a Codespace (once per Codespace).** The default image (Ubuntu 24.04) has `git`, Node.js and Python, but no
@@ -308,8 +308,15 @@ shell history:
 read -rs DATABASE_URL && export DATABASE_URL
 ```
 
+Set `PRODUCTION_REF` to the production project ref (Supabase → Project Settings → General → Project ID; it is not
+written in this public repository). The check refuses to run while it is unset:
+
 ```bash
-case "$DATABASE_URL" in *vvelgyhbjfmjvxkzekyz*) echo "project vvelgyhbjfmjvxkzekyz";; *) echo "STOP: not the CELLR production project";; esac
+read -r PRODUCTION_REF && export PRODUCTION_REF
+```
+
+```bash
+case "$DATABASE_URL" in *"postgres.${PRODUCTION_REF:?set PRODUCTION_REF first}"[:@]*) echo "project $PRODUCTION_REF";; *) echo "STOP: not the CELLR production project";; esac
 ```
 
 ```bash
@@ -558,7 +565,7 @@ again: the history should be back to 0001–0036.
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
 | G1  | A completed daily backup from the last 24 hours is listed                                                                                                                                                                                                                                  | P1     |
 | G2  | `$REL` is `248206a`, holds exactly 42 files, 0001–0042 identical to `main`, the six sha256 match                                                                                                                                                                                           | P2, P3 |
-| G3  | The connection is project `vvelgyhbjfmjvxkzekyz`                                                                                                                                                                                                                                           | P4     |
+| G3  | The connection is the production project ref                                                                                                                                                                                                                                               | P4     |
 | G4  | The preflight SQL is all `ok`                                                                                                                                                                                                                                                              | P5     |
 | G5  | `compare.sh` against the repository at 0036: `RESULT: equivalent`                                                                                                                                                                                                                          | P6     |
 | G6  | The dry run from `$REL` lists exactly the six files of §1                                                                                                                                                                                                                                  | P7, R1 |

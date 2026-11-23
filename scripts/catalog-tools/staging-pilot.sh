@@ -32,6 +32,11 @@ P=("${T[@]}" provider.ts)
 j() { node -e "const r=require('$1');console.log($2)"; }
 psqlq() { psql "$STAGING_DB_URL" -X -q -At -v ON_ERROR_STOP=1 "$@"; }
 guard() { "${T[@]}" staging-guard.ts --phase "$1" "${DB[@]}" --confirm "$CONFIRM_REF"; }
+# what may leave the run, on EVERY exit (also a failure half-way, staging run 45039275216): results reduced to counts,
+# safe files kept, anything else deleted (redact-results.ts --dir is fail-closed)
+trap '"${T[@]}" redact-results.ts --dir "$OUT" || rm -rf "${OUT:?}"/*' EXIT
+# the session pooler's client limit (Supabase: the project's pool size, 15 on Micro); the load test never exceeds it
+POOL_CLIENTS="${STAGING_POOL_CLIENTS:-15}"
 
 case "$MODE" in
 check)
@@ -110,14 +115,19 @@ import)
   "${T[@]}" recognition.ts "${DB[@]}" --household "$HOUSEHOLD" --results "$OUT/benchmark-results.json" --out "$OUT" >/dev/null
   j "$OUT/recognition-results.json" "'• recognition: ' + JSON.stringify({clean:r.summary.by_reading.clean,misread:r.summary.by_reading.misread,wrong:r.summary.wrong_automatic_identities,violations:r.summary.safety_violations.length})"
   j "$OUT/recognition-results.json" "process.exit(r.summary.wrong_automatic_identities===0&&r.summary.safety_violations.length===0?0:1)"
-  for c in 1 8 16; do
-    "${T[@]}" perf.ts "${DB[@]}" --user "$USER_ID" --household "$HOUSEHOLD" --set "$ROOT/eval/catalog/benchmark.json" \
-      --mode pilot --subset 004a --concurrency $c --rounds 3 --out "$OUT/perf-pilot-c$c.json" >/dev/null
-    j "$OUT/perf-pilot-c$c.json" "'• pilot  c$c: ' + JSON.stringify(r.overall) + ' throughput/s ' + r.throughput_per_s"
+  # 1 and 8 clients through the session pooler (within its limit); 16 through the same pooler in transaction mode,
+  # each search in its own transaction with set local role, because 16 session clients exceed the pool size
+  PERF=("${T[@]}" perf.ts "${DB[@]}" --user "$USER_ID" --household "$HOUSEHOLD" --set "$ROOT/eval/catalog/benchmark.json" --subset 004a --rounds 3)
+  for c in 1 8; do
+    "${PERF[@]}" --mode pilot --concurrency $c --max-clients "$POOL_CLIENTS" --out "$OUT/perf-pilot-c$c.json" >/dev/null
+    j "$OUT/perf-pilot-c$c.json" "'• pilot  c$c (session pooler): ' + JSON.stringify(r.overall) + ' throughput/s ' + r.throughput_per_s"
   done
-  "${T[@]}" perf.ts "${DB[@]}" --user "$USER_ID" --household "$HOUSEHOLD" --set "$ROOT/eval/catalog/benchmark.json" \
-    --mode public --subset 004a --concurrency 8 --rounds 3 --out "$OUT/perf-public-c8.json" >/dev/null
-  j "$OUT/perf-public-c8.json" "'• public c8: ' + JSON.stringify(r.overall)"
+  "${PERF[@]}" --mode pilot --concurrency 16 --pooler transaction --out "$OUT/perf-pilot-c16-transaction.json" >/dev/null
+  j "$OUT/perf-pilot-c16-transaction.json" "'• pilot  c16 (transaction pooler): ' + JSON.stringify(r.overall) + ' throughput/s ' + r.throughput_per_s"
+  "${PERF[@]}" --mode public --concurrency 8 --max-clients "$POOL_CLIENTS" --out "$OUT/perf-public-c8.json" >/dev/null
+  j "$OUT/perf-public-c8.json" "'• public c8 (session pooler): ' + JSON.stringify(r.overall)"
+  "${PERF[@]}" --mode public --concurrency 16 --pooler transaction --out "$OUT/perf-public-c16-transaction.json" >/dev/null
+  j "$OUT/perf-public-c16-transaction.json" "'• public c16 (transaction pooler): ' + JSON.stringify(r.overall)"
   "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-after.json" >/dev/null
   j "$OUT/staging-check-after.json" "'• staging check after: ' + (r.ok ? 'PASS' : 'FAIL')"
   j "$OUT/staging-check-after.json" "process.exit(r.ok?0:1)"
@@ -131,8 +141,4 @@ scan)
 *) echo "unknown mode $MODE" >&2; exit 1 ;;
 esac
 
-# what may leave the run: counts and ranks only
-for f in "$OUT"/benchmark-results.json "$OUT"/recognition-results.json "$OUT"/quality-*.json "$OUT"/import-*.json; do
-  [ -f "$f" ] && "${T[@]}" redact-results.ts "$f" >/dev/null
-done
 echo "• done ($MODE)"

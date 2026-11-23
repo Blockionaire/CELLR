@@ -77,8 +77,14 @@ test.describe("the look changes how a place is drawn, never what is in it", () =
       expect((await bottleIds(page)).sort()).toEqual(Object.keys(high).sort());
     });
 
-  test("a tap takes the tapped bottle at every level of detail", async ({ page, hasTouch }) => {
-    for (const quality of ["high", "balanced", "low"]) {
+  // One test per level of detail: each opens its own page, so nothing carries from one level to the next. As a
+  // single test the three levels were nine take-outs in one 150 s budget: 66–120 s on a normal CI runner, over 150 s
+  // on a slow one (run 45079105123: phone out of time on both attempts, desktop once).
+  for (const quality of ["high", "balanced", "low"])
+    test(`a tap takes the tapped bottle at the ${quality} level of detail`, async ({
+      page,
+      hasTouch,
+    }) => {
       await show(page, `template=rack_classic&rows=4&cols=4&fill=full&quality=${quality}`);
       const ids = await bottleIds(page);
       for (const id of [ids[0]!, ids[5]!, ids.at(-1)!]) {
@@ -89,8 +95,7 @@ test.describe("the look changes how a place is drawn, never what is in it", () =
         expect(pose, `${quality} ${id}`).toBeLessThanOrEqual(1e-9);
         expect(drift, `${quality} ${id}`).toBeLessThanOrEqual(0.5);
       }
-    }
-  });
+    });
 
   test("bottles behind premium glass are still chosen through it", async ({ page, hasTouch }) => {
     await show(page, "template=cooler_dual&door=glass&fill=full&quality=high");

@@ -1,5 +1,9 @@
 # Sommelier 3.0 — acceptance matrix
 
+> **Superseded in part (2026-11-22).** This file describes Sommelier 3.0, in which the engine chooses the wine. The
+> project now is Sommelier V1+: V1's model chooses, code adds facts, checks and a fallback (D-46). What still holds,
+> what is void and what is built where: [`SOMMELIER_CLOSEOUT.md`](SOMMELIER_CLOSEOUT.md). Kept as history.
+
 Every requirement of the brief, how it is verified, and where the evidence is. State: `open` (not started),
 `in progress`, `done` (evidence linked), `blocked` (with the reason), `partial` (what is missing is named).
 

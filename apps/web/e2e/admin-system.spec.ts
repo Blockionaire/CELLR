@@ -191,7 +191,8 @@ test.describe("on a phone", () => {
     test.setTimeout(90_000);
     const { page, close } = await asAdmin(browser, true);
     await page.goto("/admin/system");
-    await expect(page.getByTestId("system-map")).toBeVisible();
+    // a phone starts with the list of components (Mobile Admin Portal 2.0); the drawing is one tap away
+    await expect(page.getByTestId("component-list")).toBeVisible();
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
@@ -200,9 +201,12 @@ test.describe("on a phone", () => {
     await page.getByRole("tab", { name: "Register" }).click();
     await page.getByTestId("register-table").getByRole("button", { name: "AI sommelier" }).click();
     await expect(page.getByRole("tab", { name: "Map" })).toHaveAttribute("aria-selected", "true");
-    await expect(detail(page).getByRole("heading", { name: "AI sommelier" })).toBeInViewport();
+    const sheet = page.getByTestId("component-sheet");
+    await expect(sheet.getByRole("heading", { name: "AI sommelier" })).toBeInViewport();
 
-    // a component on the map responds to a tap
+    // from the details to the map: a component on the map responds to a tap
+    await sheet.getByRole("button", { name: "Show on the map" }).click();
+    await expect(page.getByTestId("system-map")).toBeVisible();
     await node(page, "svc-sommelier").tap();
     await expect(node(page, "svc-sommelier")).toHaveAttribute("aria-pressed", "true");
     expect(await audit(page)).toEqual([]);

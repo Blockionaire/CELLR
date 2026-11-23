@@ -3,7 +3,7 @@
 **State on 2026-11-20:** there is **no** CELLR staging project.
 
 - `approved-targets.json` lists none.
-- `vvelgyhbjfmjvxkzekyz` is production: always refused by the tools, never used.
+- The production project is always refused by the tools, never used.
 - `dqwkbtsstvakcvlnwvwk` was not opened, changed or repurposed. Doing so needs your explicit permission.
 - Until a project exists, every staging step is rehearsed on a throwaway **local Postgres 17.12**: `staging-rehearsal.sh` for X-Wines and `lwin-rehearsal.sh` for LWIN.
 

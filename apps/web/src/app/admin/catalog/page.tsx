@@ -10,6 +10,7 @@ import {
   type CandidateState,
 } from "@cellr/domain";
 import { adminCatalog, getAdminSession } from "@/server/admin/service";
+import { cn } from "@/ui/cn";
 import {
   Kpi,
   Kpis,
@@ -101,7 +102,7 @@ export default async function AdminCatalogPage({
         note="Today CELLR tells people that nothing but the label photo is shared. Before switching this on, update the privacy text and decide opt-out or opt-in (docs/CATALOG.md, Catalogue learning)."
       >
         <form action={setModeAction} className="flex flex-wrap items-end gap-3 text-small">
-          <label className="flex flex-col gap-1">
+          <label className="flex min-w-0 max-w-full flex-col gap-1">
             <span className="text-ink-2">Catalogue learning</span>
             <select name="mode" defaultValue={data.mode} className={input}>
               {LEARNING_MODES.map((m) => (
@@ -140,7 +141,10 @@ export default async function AdminCatalogPage({
           </Tab>
         ))}
       </nav>
-      <nav aria-label="Sort" className="mb-4 flex flex-wrap gap-3 text-caption text-ink-2">
+      <nav
+        aria-label="Sort"
+        className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-ink-2"
+      >
         Sort:
         {CANDIDATE_SORTS.map((s) => (
           <Link
@@ -148,9 +152,10 @@ export default async function AdminCatalogPage({
             href={href(state, s)}
             prefetch={false}
             aria-current={s === sort ? "true" : undefined}
-            className={
-              s === sort ? "font-medium text-ink underline underline-offset-4" : "hover:text-ink"
-            }
+            className={cn(
+              "inline-flex min-h-9 items-center",
+              s === sort ? "font-medium text-ink underline underline-offset-4" : "hover:text-ink",
+            )}
           >
             {SORT_LABEL[s]}
           </Link>

@@ -80,8 +80,8 @@ export default async function AdminFeedbackPage({
         head={[
           { label: "Sent" },
           { label: "Category" },
-          { label: "Feedback" },
-          { label: "Context" },
+          { label: "Feedback", wideOnPhone: true },
+          { label: "Context", wideOnPhone: true },
         ]}
         rows={result.rows.map((r) => ({
           key: r.id,

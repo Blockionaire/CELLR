@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cn } from "@/ui/cn";
+import { ConfirmButton } from "@/features/admin/confirm-button";
 import {
   BOTTLE_ART_LIMITS,
   WINE_TYPES,
@@ -91,7 +92,12 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 const Reason = ({ required }: { required?: boolean }) => (
   <Field label={required ? "Reason (required)" : "Reason (internal, optional)"}>
-    <input name="reason" maxLength={500} required={required} className={`${input} w-72`} />
+    <input
+      name="reason"
+      maxLength={500}
+      required={required}
+      className={`${input} w-full sm:w-72`}
+    />
   </Field>
 );
 
@@ -102,14 +108,14 @@ export function OverviewSection({ record, visual }: { record: R; visual: WineVis
   return (
     <Section title="Overview" id="overview" tag="Read-only">
       <Scope record={record} />
-      <dl className="grid grid-cols-[12rem_1fr] gap-x-3 gap-y-1.5 rounded-[14px] border border-hairline bg-surface p-4 text-small">
+      <dl className="grid grid-cols-1 gap-x-3 gap-y-0.5 rounded-[14px] border border-hairline bg-surface p-4 text-small sm:grid-cols-[12rem_1fr] sm:gap-y-1.5 max-sm:[&>dt:not(:first-child)]:mt-2.5 max-sm:[&>dt]:text-caption">
         <dt className="text-ink-2">Status</dt>
         <dd>
           {record.status === "canonical" ? "Catalogue (canonical)" : "Household (provisional)"} ·
           origin {record.origin}
         </dd>
         <dt className="text-ink-2">Wine id</dt>
-        <dd className="font-mono text-caption">{record.id}</dd>
+        <dd className="break-all font-mono text-caption">{record.id}</dd>
         <dt className="text-ink-2">Producer</dt>
         <dd>
           {record.producer.name} · holds {num(record.producer.wines)}{" "}
@@ -210,7 +216,7 @@ export function DetailsSection({ record, msg }: { record: R; msg: At }) {
         </div>
       </form>
 
-      <div className="mt-4 grid max-w-5xl gap-4 md:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 max-w-5xl gap-4 md:grid-cols-2">
         <form
           action={setAliasesAction.bind(null, w.id)}
           className="flex flex-col gap-2 rounded-[14px] border border-hairline bg-surface p-4"
@@ -252,7 +258,7 @@ export function DetailsSection({ record, msg }: { record: R; msg: At }) {
           move only this wine to another producer, use “Move this wine to another producer” below.
         </Notice>
       )}
-      <div className="mt-3 grid max-w-5xl gap-4 md:grid-cols-2">
+      <div className="mt-3 grid grid-cols-1 max-w-5xl gap-4 md:grid-cols-2">
         <form
           action={updateProducerAction.bind(null, w.id, p.id)}
           className="flex flex-col gap-2 rounded-[14px] border border-hairline bg-surface p-4"
@@ -464,7 +470,9 @@ export function LabelsSection({ record, msg }: { record: R; msg: At }) {
                     )}
                     <span aria-hidden="true" className="mx-1 h-6 w-px bg-hairline" />
                     <form action={removeLabelAction.bind(null, record.id, l.id)}>
-                      <button className={danger}>Delete label</button>
+                      <ConfirmButton className={danger} confirm="Tap again to delete">
+                        Delete label
+                      </ConfirmButton>
                     </form>
                   </div>
                 </li>
@@ -483,7 +491,7 @@ export function LabelsSection({ record, msg }: { record: R; msg: At }) {
                 name="label"
                 accept="image/png,image/jpeg"
                 required
-                className={input}
+                className={cn(input, "w-full min-w-0")}
               />
             </Field>
             <Field label="Side">
@@ -503,7 +511,7 @@ export function LabelsSection({ record, msg }: { record: R; msg: At }) {
               </select>
             </Field>
             <Field label="Source (where it comes from, on what terms)">
-              <input name="source" required maxLength={200} className={`${input} w-72`} />
+              <input name="source" required maxLength={200} className={`${input} w-full sm:w-72`} />
             </Field>
             <button className={button}>Add shared label</button>
           </form>
@@ -649,7 +657,7 @@ export function ArtSection({
         </p>
       </div>
 
-      <ol className="grid gap-4 xl:grid-cols-2">
+      <ol className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <li className={step} data-testid="art-references">
           <h3 className={stepTitle}>1. Approved reference photos</h3>
           {references.length === 0 ? (
@@ -718,7 +726,7 @@ export function ArtSection({
                   required
                   className={cn(
                     input,
-                    "file:mr-3 file:rounded-full file:border-0 file:bg-raised file:px-3 file:py-1 file:text-ink",
+                    "w-full min-w-0 file:mr-3 file:rounded-full file:border-0 file:bg-raised file:px-3 file:py-1 file:text-ink",
                   )}
                 />
               </Field>
@@ -751,7 +759,7 @@ export function ArtSection({
                   />
                   <form
                     action={publishAction.bind(null, w.id, d.id)}
-                    className="flex min-w-64 flex-1 flex-col gap-3 text-small"
+                    className="flex min-w-0 flex-1 basis-full flex-col gap-3 text-small sm:min-w-64 sm:basis-auto"
                   >
                     {fromField}
                     <span className="flex flex-wrap items-center gap-2 text-ink-2">
@@ -836,7 +844,9 @@ export function ArtSection({
                 </form>
                 <form action={removeAction.bind(null, w.id, published.id)} className="mt-2">
                   {fromField}
-                  <button className={danger}>Remove picture</button>
+                  <ConfirmButton className={danger} confirm="Tap again to remove">
+                    Remove picture
+                  </ConfirmButton>
                 </form>
               </div>
             </div>
@@ -949,7 +959,7 @@ export function CorrectionsSection({
                 maxLength={500}
                 placeholder="Note (optional)"
                 aria-label="Internal note"
-                className={`${input} w-40 py-1 text-caption`}
+                className={`${input} w-full py-1 text-caption sm:w-40`}
               />
               <button name="status" value="reviewed" className={quiet}>
                 {REVIEW_LABEL.reviewed}
@@ -970,7 +980,7 @@ function Side({ title, w }: { title: string; w: R }) {
   return (
     <div className="rounded-[14px] border border-hairline bg-surface p-4 text-small">
       <h4 className="font-semibold text-ink">{title}</h4>
-      <dl className="mt-2 grid grid-cols-[7rem_1fr] gap-y-1">
+      <dl className="mt-2 grid grid-cols-1 gap-y-1 sm:grid-cols-[7rem_1fr]">
         <dt className="text-ink-2">Producer</dt>
         <dd>{w.producer.name}</dd>
         <dt className="text-ink-2">Wine</dt>
@@ -1085,7 +1095,7 @@ export function LinksSection({
               defaultValue={query}
               placeholder="Search the catalogue (producer, wine, alias)"
               aria-label="Search the catalogue"
-              className={`${input} w-80`}
+              className={`${input} w-full sm:w-80`}
             />
             <button className={quiet}>Find catalogue wines</button>
           </form>
@@ -1110,7 +1120,7 @@ export function LinksSection({
           )}
           {compare && (
             <div className="mt-4" data-testid="link-compare">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Side title="This household wine" w={record} />
                 <Side title="Catalogue wine" w={compare} />
               </div>
@@ -1125,7 +1135,7 @@ export function LinksSection({
                     required
                     minLength={3}
                     maxLength={500}
-                    className={`${input} w-96`}
+                    className={`${input} w-full sm:w-96`}
                   />
                 </Field>
                 <label className="flex items-center gap-2 text-small">

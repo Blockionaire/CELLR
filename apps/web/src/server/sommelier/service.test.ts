@@ -3,6 +3,9 @@ import {
   buildTasteProfile,
   DomainError,
   NO_PREFERENCES,
+  parseSommelierParts,
+  SOMMELIER_PARTS,
+  type SommelierParts,
   type CellarItem,
   type TasteContext,
   type TasteProfileView,
@@ -69,6 +72,8 @@ function setup(
     taste?: TasteProfileView | null | "fails";
     /** What the plain engine says about its picks: the person's taste changed them. */
     tonightPersonal?: boolean;
+    /** Sommelier V1+ parts (CELLR_SOMMELIER). Left out: the dependency is absent, as before V1+. */
+    parts?: SommelierParts;
   } = {},
 ) {
   const items = options.items ?? [
@@ -144,6 +149,7 @@ function setup(
           },
         }),
     llm: options.noAi ? null : llm,
+    ...(options.parts ? { parts: options.parts } : {}),
     spend:
       options.spend ??
       (async () => {
@@ -755,4 +761,42 @@ describe("the sommelier and your own taste", () => {
     expect(promptOf(partner.state)).toContain("Chablis (3 wines");
     expect(promptOf(partner.state)).not.toContain("Rioja (3 wines");
   });
+});
+
+describe("Sommelier V1+ parts (CELLR_SOMMELIER, P2): none changes an answer yet", () => {
+  const all = parseSommelierParts(SOMMELIER_PARTS.join(","));
+  const questions: Array<{ texts: string[]; mode?: "tonight" }> = [
+    { texts: ["What goes with roast lamb?"] },
+    { texts: ["How many bottles of red do I have?"] },
+    { texts: ["What should I open?", "The Margaux.", "And with fish?"] },
+    { texts: ["Wat past bij een biefstuk?"], mode: "tonight" },
+  ];
+  const variants: Array<[string, SommelierParts | undefined]> = [
+    ["absent", undefined],
+    ["empty", parseSommelierParts("")],
+    ["every part", all],
+    ["an unknown name", parseSommelierParts("all,bogus")],
+  ];
+  for (const noAi of [false, true]) {
+    for (const q of questions) {
+      it(`${noAi ? "without" : "with"} a model: "${q.texts.at(-1)}" is answered the same with the parts ${variants.map((v) => v[0]).join(", ")}`, async () => {
+        const results = [];
+        for (const [, parts] of variants) {
+          n = 0; // the same cellar ids for every variant
+          const { service, state } = setup({ noAi, ...(parts ? { parts } : {}) });
+          const answer = await service.ask({
+            ...ask(...q.texts),
+            ...(q.mode ? { mode: q.mode } : {}),
+          });
+          results.push({
+            answer,
+            prompts: state.requests.map((r) => JSON.stringify(r)),
+            usage: state.usage,
+            spent: state.spent,
+          });
+        }
+        for (const other of results.slice(1)) expect(other).toEqual(results[0]);
+      });
+    }
+  }
 });

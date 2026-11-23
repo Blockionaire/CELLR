@@ -22,6 +22,7 @@ import {
   type CellarItem,
   type CellarView,
   type SommelierAnswer,
+  type SommelierParts,
   type TonightRequest,
   type TonightView,
   BUDGET_EUROS,
@@ -54,6 +55,12 @@ export interface SommelierDeps {
   intelligence?: SommelierIntelligence | null;
   /** Counts an answer of the engines against its own, generous limit; throws RATE_LIMITED when it is gone. */
   spendEngine?: () => Promise<void>;
+  /**
+   * Sommelier V1+ parts switched on in this deployment (CELLR_SOMMELIER, D-52). None of them changes an answer yet:
+   * each is built in its own pull request (docs/sprints/sommelier-3-mega/SOMMELIER_CLOSEOUT.md §6). Absent or empty,
+   * V1 answers exactly as before.
+   */
+  parts?: SommelierParts;
   /** Null = no AI configured. */
   llm: LlmProvider | null;
   /** Spends from the chat budget; throws RATE_LIMITED when it is gone. */

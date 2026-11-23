@@ -3,6 +3,13 @@
  *
  *   pnpm --filter @cellr/catalog-tools perf --db <url> --user <uuid> --household <uuid>
  *     --set ../../eval/catalog/benchmark.json [--mode pilot|public] [--concurrency 8] [--rounds 3] [--out perf.json]
+ *     [--max-clients <n>] [--pooler auto|session|transaction]
+ *
+ * Connections (Sprint 004C, pool.ts): the clients are opened one at a time and always closed, also on an error. A
+ * concurrency above `--max-clients` is refused before anything is opened; through a Supabase session pooler the
+ * limit must be given. `--pooler transaction` runs through the same pooler in transaction mode (port 6543): more
+ * clients than session slots, each search in its own transaction with `set local role` (and, for a person, the
+ * claims), as PostgREST does per request. Only the search statement is timed there.
  *
  * Each benchmark query is "typed": its first 3, 5 and 8 characters and the whole query, as separate searches
  * (what a 250 ms debounce sends for a person typing at a normal pace), plus each query with a filter. Every search
@@ -15,8 +22,17 @@
  * the network or the API layer.
  */
 import { readFileSync, writeFileSync } from "node:fs";
+import type { Client } from "pg";
 import { actAs, parseArgs, percentile, shuffled, str } from "./lib";
-import { connectToTarget } from "./target";
+import {
+  assertClientLimit,
+  closeAll,
+  openClients,
+  poolerOf,
+  transactionPoolerUrl,
+  transactionPreamble,
+} from "./pool";
+import { connectToTarget, connectToTargetForTransactions } from "./target";
 
 interface Entry {
   id: string;
@@ -72,43 +88,72 @@ async function main() {
   const mode = str(args, "mode", "pilot");
   if (mode !== "pilot" && mode !== "public") throw new Error("--mode pilot|public");
   const fn = mode === "pilot" ? "public.catalog_search_pilot" : "public.catalog_search";
-  // every connection is checked against the allowed targets and the database's own identity
-  const clients = await Promise.all(
-    Array.from({ length: concurrency }, () => connectToTarget(db, args)),
+  const all: Array<{ ms: number; bucket: string; rows: number }> = [];
+  let seconds = 0;
+  // --pooler transaction: the same Supabase pooler in transaction mode, for more clients than its session slots
+  const poolerArg = str(args, "pooler", "auto");
+  if (poolerArg !== "auto" && poolerArg !== "session" && poolerArg !== "transaction")
+    throw new Error("--pooler auto|session|transaction");
+  const url = poolerArg === "transaction" ? transactionPoolerUrl(db) : db;
+  const pooler = poolerOf(url);
+  const perTransaction = pooler === "transaction";
+  const maxClients = typeof args["max-clients"] === "string" ? Number(args["max-clients"]) : null;
+  // before anything is opened: a configuration the target cannot serve is refused, never run with fewer clients
+  assertClientLimit(concurrency, perTransaction ? null : maxClients, pooler);
+  const preamble = perTransaction ? transactionPreamble(mode, user) : null;
+  // every connection is checked against the allowed targets and the database's own identity; opened one at a time,
+  // and all of them closed again whatever happens
+  const clients = await openClients(concurrency, () =>
+    perTransaction ? connectToTargetForTransactions(url, args) : connectToTarget(url, args),
   );
-  if (mode === "public")
-    await Promise.all(
-      clients.map(async (c) => {
+  try {
+    if (mode === "public" && !perTransaction)
+      for (const c of clients) {
         await c.query("reset role");
         await actAs(c, user);
-      }),
-    );
-  const run = async (list: Q[]) => {
-    const times: Array<{ ms: number; bucket: string; rows: number }> = [];
-    let next = 0;
-    await Promise.all(
-      clients.map(async (c) => {
-        while (next < list.length) {
-          const item = list[next++]!;
-          const t0 = performance.now();
-          const r = await c.query(`select * from ${fn}($1, $2, $3, $4, null, 8)`, [
-            household,
-            item.q,
-            item.type,
-            item.country,
-          ]);
-          times.push({ ms: performance.now() - t0, bucket: item.bucket, rows: r.rows.length });
-        }
-      }),
-    );
-    return times;
-  };
-  await run(base); // warm-up
-  const all: Array<{ ms: number; bucket: string; rows: number }> = [];
-  const started = performance.now();
-  for (let r = 0; r < rounds; r++) all.push(...(await run(shuffled(base, 4004 + r))));
-  const seconds = (performance.now() - started) / 1000;
-  await Promise.all(clients.map((c) => c.end()));
+      }
+    const search = async (c: Client, item: Q) => {
+      const sql = `select * from ${fn}($1, $2, $3, $4, null, 8)`;
+      const params = [household, item.q, item.type, item.country];
+      if (!preamble) {
+        const t0 = performance.now();
+        const r = await c.query(sql, params);
+        return { ms: performance.now() - t0, rows: r.rows.length };
+      }
+      // one transaction per search; only the search statement is timed (the begin/commit round trips are the
+      // pooler's cost, reported apart as throughput)
+      await c.query(preamble);
+      try {
+        const t0 = performance.now();
+        const r = await c.query(sql, params);
+        const ms = performance.now() - t0;
+        await c.query("commit");
+        return { ms, rows: r.rows.length };
+      } catch (e) {
+        await c.query("rollback").catch(() => undefined);
+        throw e;
+      }
+    };
+    const run = async (list: Q[]) => {
+      const times: Array<{ ms: number; bucket: string; rows: number }> = [];
+      let next = 0;
+      await Promise.all(
+        clients.map(async (c) => {
+          while (next < list.length) {
+            const item = list[next++]!;
+            times.push({ ...(await search(c, item)), bucket: item.bucket });
+          }
+        }),
+      );
+      return times;
+    };
+    await run(base); // warm-up
+    const started = performance.now();
+    for (let r = 0; r < rounds; r++) all.push(...(await run(shuffled(base, 4004 + r))));
+    seconds = (performance.now() - started) / 1000;
+  } finally {
+    await closeAll(clients);
+  }
 
   const stats = (list: typeof all) => {
     const ms = list.map((t) => t.ms).sort((a, b) => a - b);
@@ -129,6 +174,7 @@ async function main() {
     subset,
     queries: entries.length,
     concurrency,
+    pooler: pooler ?? "direct",
     rounds,
     searches: all.length,
     throughput_per_s: Math.round(all.length / seconds),

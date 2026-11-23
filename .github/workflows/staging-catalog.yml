@@ -78,6 +78,12 @@ jobs:
       - name: Remove the dataset from the runner
         if: always()
         run: rm -f "$RUNNER_TEMP/XWines_Full_100K_wines.csv"
+      - name: Reduce the results, fail-closed, whatever happened before
+        if: always()
+        run: |
+          if [ -d "$RUNNER_TEMP/out" ]; then
+            (cd scripts/catalog-tools && pnpm --silent exec tsx redact-results.ts --dir "$RUNNER_TEMP/out") || rm -rf "$RUNNER_TEMP/out"
+          fi
       - name: Results (counts and ranks only)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

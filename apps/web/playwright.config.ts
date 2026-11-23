@@ -60,8 +60,31 @@ const APP_ENV: Record<string, string> = {
   NODE_EXTRA_CA_CERTS: PUSH_CERT,
 };
 
+/**
+ * The specs that draw a 3D scene with software WebGL (SwiftShader on a CI runner). They are a sixth of the tests and
+ * about half of the suite's time (1–5 minutes each on a busy runner), and a shard takes tests by count and in file
+ * order, so they piled up in the last shards until one ran into the job's time limit (issue #77). CI therefore runs
+ * them as a suite of their own (E2E_SUITE=3d) beside the rest (E2E_SUITE=core), each with its own shards. Unset, the
+ * whole suite runs, as before. `scripts/e2e-suites-check.mjs` proves in CI that the two suites together are exactly
+ * the whole suite: no spec is run twice or left out.
+ */
+export const THREE_D_SPECS = [
+  /[\\/]e2e[\\/]cellar3d[^\\/]*\.spec\.ts$/,
+  /[\\/]e2e[\\/]smart-cellar-3d[^\\/]*\.spec\.ts$/,
+  /[\\/]e2e[\\/]storage-[^\\/]*\.spec\.ts$/,
+  /[\\/]e2e[\\/]three-view\.spec\.ts$/,
+  /[\\/]e2e[\\/]quick-add\.spec\.ts$/, // Smart Cellar 3D sprint 7: Quick Add in the 3D cellar
+  /[\\/]e2e[\\/]visual-[^\\/]*3d[^\\/]*\.spec\.ts$/,
+  /[\\/]e2e[\\/]perf-[^\\/]*3d[^\\/]*\.spec\.ts$/,
+];
+const SUITE = process.env.E2E_SUITE || "all";
+if (!["all", "3d", "core"].includes(SUITE))
+  throw new Error(`E2E_SUITE must be "3d", "core" or unset (the whole suite), not "${SUITE}"`);
+
 export default defineConfig({
   testDir: "./e2e",
+  ...(SUITE === "3d" ? { testMatch: THREE_D_SPECS } : {}),
+  ...(SUITE === "core" ? { testIgnore: THREE_D_SPECS } : {}),
   outputDir: "./test-results",
   fullyParallel: true,
   // A shared CI runner now and then stalls a browser; one retry, and a retried pass is still reported as flaky.
@@ -113,6 +136,9 @@ export default defineConfig({
       env: {
         ...APP_ENV,
         CELLR_FEATURES: "all",
+        // Every Sommelier V1+ part, and a name that is not one: none may change V1's answer yet
+        // (e2e/sommelier-parts.spec.ts). Each part's own pull request narrows this to what it tests.
+        CELLR_SOMMELIER: "check,annotate,quantities,menu,fallback,not-a-part",
         CELLR_SMART_CELLAR: "write",
         CELLR_SMART_CELLAR_3D: "1",
         // asked for on a production build: the Rack Builder must stay closed here (sprint 3)

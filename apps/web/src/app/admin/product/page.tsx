@@ -57,7 +57,7 @@ export default async function AdminProductPage({
               <Kpi label="Busiest day, active people" value={num(totals.peakActive)} />
               <Kpi label={`Bottles added, ${days} days`} value={num(totals.bottlesAdded)} />
             </Kpis>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div>
                 <p className="mb-2 text-caption text-ink-2">Sign-ups per day</p>
                 <DayBars

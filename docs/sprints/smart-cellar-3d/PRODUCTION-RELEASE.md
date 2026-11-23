@@ -6,19 +6,23 @@ temperature zones and Smart Placement advice. **Depth is not part of this releas
 
 Branch `claude/adoring-cori-jn7num` (PR #105), on top of `main` at `4ffa39f`.
 
-## 1. Production readiness (verified 2026-11-21, read-only)
+## 1. Production readiness (verified read-only on 2026-11-21)
+
+Each fact below was checked read-only (Supabase MCP, `SELECT` only) on 2026-11-21. The observed values (project
+status and version, numbers of places, bottles, accounts and households) are kept by the owner, not in the
+repository: the repository is public (`CLAUDE.md`, "Hard rules").
 
 | Fact                             | Verified                                                                                                                                                                                                             |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Production database              | Supabase `vvelgyhbjfmjvxkzekyz`, `ACTIVE_HEALTHY`, Postgres 17                                                                                                                                                       |
+| Production database              | the production Supabase project, checked for status and Postgres version; its host is the one listed in `PRODUCTION_DATABASE_HOSTS` (`lib/smart-cellar-write-target.ts`)                                             |
 | Migration history                | 0001–0047 and 0050 recorded (no 0048/0049 exist). **Identical to `main`**: this release needs **no migration**                                                                                                       |
 | Smart Cellar schema              | 0043–0045 present: template/semantics/appearance columns, `cellar_location_zones`, `save_storage_layout`, `swap_bottles_v2`                                                                                          |
-| Storage locations                | 6, **all `template = NULL`** (2 fridges, 2 shelving, 1 wall, 1 rack; one bottle per cell); 0 zones                                                                                                                   |
-| Bottles                          | 57, 34 placed, **0 beyond index 1**                                                                                                                                                                                  |
+| Storage locations                | **every existing place has `template = NULL`** (one bottle per cell); no zones                                                                                                                                       |
+| Bottles                          | **none beyond index 1**                                                                                                                                                                                              |
 | Depth                            | `private.cellar_settings.depth_placement = false`; `bottles_slot_unique` **and** `bottles_slot_index_unique` both present                                                                                            |
-| Accounts                         | **5** auth users in 5 households (the brief said three real users; there are five accounts)                                                                                                                          |
+| Accounts                         | counted (value kept by the owner); the release is for every signed-in user, so the number changes nothing in the plan                                                                                                |
 | Feature gates before this change | every Smart Cellar gate closed on production by code; writes refused for the production database by code                                                                                                             |
-| Vercel                           | **not readable from this session** (403 for team `jp-builds`): environment variables, current production deployment and Deployment Protection unverified                                                             |
+| Vercel                           | **not readable from this session** (403 for the Vercel team): environment variables, current production deployment and Deployment Protection unverified                                                              |
 | Backups                          | Supabase Pro daily physical backups, 7 days (per `docs/BACKUP-RECOVERY.md`; the dashboard itself is the owner's to check). Storage files are not touched by this release; their first backup is planned by the owner |
 
 ## 2. Code changes
@@ -104,7 +108,7 @@ the additive migration remains proposed.
 
 ## 7. Existing storage: conversion workflow
 
-Nothing is converted automatically. The six locations keep showing in the existing views (2D racks, list, and the
+Nothing is converted automatically. The existing locations keep showing in the existing views (2D racks, list, and the
 existing 3D view for places without a template), with every bottle on its row and column.
 
 To make one a 3D furniture piece: **Cellar → Racks → (the place) → Manage → "Design in 3D"**. The Rack Builder
@@ -115,14 +119,18 @@ more under a lock. Saving changes the place's description only: no bottle moves.
 
 ## 8. Feature settings (Vercel → Project → Settings → Environment Variables, **Production** scope only)
 
-| Variable                                 | Value                              |
-| ---------------------------------------- | ---------------------------------- |
-| `CELLR_SMART_CELLAR`                     | `write`                            |
-| `CELLR_SMART_CELLAR_PRODUCTION_DATABASE` | `vvelgyhbjfmjvxkzekyz.supabase.co` |
-| `CELLR_SMART_CELLAR_3D`                  | `1`                                |
-| `CELLR_SMART_CELLAR_BUILDER`             | `1`                                |
-| `CELLR_SMART_CELLAR_PLACEMENT`           | `1`                                |
-| `CELLR_SMART_CELLAR_ADVICE`              | `1`                                |
+| Variable                                 | Value                                                 |
+| ---------------------------------------- | ----------------------------------------------------- |
+| `CELLR_SMART_CELLAR`                     | `write`                                               |
+| `CELLR_SMART_CELLAR_PRODUCTION_DATABASE` | the exact host of the production database (see below) |
+| `CELLR_SMART_CELLAR_3D`                  | `1`                                                   |
+| `CELLR_SMART_CELLAR_BUILDER`             | `1`                                                   |
+| `CELLR_SMART_CELLAR_PLACEMENT`           | `1`                                                   |
+| `CELLR_SMART_CELLAR_ADVICE`              | `1`                                                   |
+
+`CELLR_SMART_CELLAR_PRODUCTION_DATABASE` is the bare host, without `https://`, path or trailing slash: the host of
+Production's `NEXT_PUBLIC_SUPABASE_URL` (Supabase → Project Settings → API → Project URL), which is also the entry in
+`PRODUCTION_DATABASE_HOSTS` (`apps/web/src/lib/smart-cellar-write-target.ts`). Any other value keeps production closed.
 
 Do **not** add `CELLR_SMART_CELLAR_WRITE_DATABASE` or `CELLR_DEMO_ORIGINS` anywhere. Leave Preview as it is.
 
@@ -135,8 +143,8 @@ Do **not** add `CELLR_SMART_CELLAR_WRITE_DATABASE` or `CELLR_DEMO_ORIGINS` anywh
    new deployments only.
 4. Smoke checks (§10).
 
-**Actual result (2026-11-21): NOT deployed.** This session cannot read or change the Vercel project (403 for team
-`jp-builds`), so it can neither set the variables nor watch the deployment, nor verify that production runs the
+**Actual result (2026-11-21): NOT deployed.** This session cannot read or change the Vercel project (403 for the
+Vercel team), so it can neither set the variables nor watch the deployment, nor verify that production runs the
 expected commit. Per the brief it stops here. The PR is ready; production stays exactly as it is until the owner
 merges and sets the variables (or grants this session team access, after which it can do steps 1–4 and the smoke
 checks itself).

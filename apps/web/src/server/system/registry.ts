@@ -92,10 +92,10 @@ const components = [
     status: "implemented",
     summary: "Internal dashboard: catalogue, bottle library, metrics, this map",
     responsibility:
-      "Server-rendered admin pages; each checks the admin session itself and answers 404 otherwise. Changes go through Server Actions that check again and are audited.",
+      "Server-rendered admin pages; each checks the admin session itself and answers 404 otherwise. Changes go through Server Actions that check again and are audited. Mobile-first since Mobile Admin Portal 2.0: a header and a tab bar below 1024 px (the sidebar above), lists as cards, the architecture as a list with a map mode. Installs as its own home-screen app, CELLR Admin (public manifest /admin.webmanifest: names and icons only).",
     inputs: ["Verified admin session (CELLR_ADMIN_USER_IDS)"],
     outputs: ["Catalogue decisions", "Bottle art", "Source decisions"],
-    sources: [W + "app/admin/", W + "features/admin/"],
+    sources: [W + "app/admin/", W + "app/admin.webmanifest/", W + "features/admin/"],
     hosts: ["github.com"],
   },
 
@@ -271,6 +271,15 @@ const components = [
         name: "CELLR_SMART_CELLAR_ADVICE",
         kind: "env",
         note: "1: read-only placement advice; internal previews or the production release, needs the placement gate, grants no write",
+      },
+    ],
+    risks: [
+      {
+        id: "R-SC-1",
+        severity: "low",
+        title: "The production database host is written in code in a public repository",
+        detail:
+          "PRODUCTION_DATABASE_HOSTS (lib/smart-cellar-write-target.ts) names the production host so the write guard can refuse it whatever is configured; the storage-backup and catalogue tools hard-code the production ref for the same reason. Deliberate: the host is public in every browser bundle, and a fail-closed guard must know it. Docs no longer repeat it (CLAUDE.md, Hard rules). Whether to keep it in code or move it to configuration with a fail-closed default is the owner's decision, not yet confirmed.",
       },
     ],
   },
@@ -469,12 +478,17 @@ const components = [
       {
         name: "sommelier_social",
         kind: "feature",
-        note: "Friends named in a question, with their own consent. Needs sommelier_engine. Not wired yet.",
+        note: "Friends named in a question, with their own consent. Needs sommelier_engine. Read nowhere on main: inert, kept until #94 is closed (D-48).",
       },
       {
         name: "sommelier_experiences",
         kind: "feature",
-        note: "Menus, wine-to-food, comparing, serving, quantities. Needs sommelier_engine. Not wired yet.",
+        note: "Menus, wine-to-food, comparing, serving, quantities. Needs sommelier_engine. Read nowhere on main: inert, kept until #95 is closed; V1+ builds these as CELLR_SOMMELIER parts instead.",
+      },
+      {
+        name: "CELLR_SOMMELIER",
+        kind: "env",
+        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. In P2 no part changes an answer yet.",
       },
     ],
     risks: [
@@ -2563,7 +2577,7 @@ const edges: SystemEdge[] = [
     "admin-service",
     "health-monitor",
     "request",
-    "System › Health, the map's overlay, Measure now",
+    "System › Health, the overview's status, the map's overlay, Measure now",
     web("server/admin/service.ts", "export async function adminHealthOverlay"),
   ),
   edge(
@@ -2611,6 +2625,20 @@ const edges: SystemEdge[] = [
     "request",
     "the empty state reuses the wine card's stage",
     web("ui/empty-state.tsx", 'from "@/features/cellar/wine-card"'),
+  ),
+  edge(
+    "admin-portal",
+    "api-v1",
+    "request",
+    "sign out (the installed CELLR Admin app has no profile page)",
+    web("features/admin/sign-out-button.tsx", 'fetch("/api/v1/auth/sign-out"'),
+  ),
+  edge(
+    "admin-portal",
+    "app-pwa",
+    "request",
+    "the iOS launch images of the home-screen app",
+    web("app/admin/layout.tsx", 'from "../splash-screens"'),
   ),
   edge(
     "admin-portal",
@@ -2853,8 +2881,8 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.4.1",
-  reviewedOn: "2026-11-22",
+  version: "1.5.2",
+  reviewedOn: "2026-11-23",
   repository: "Blockionaire/CELLR",
   components,
   edges,

@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Search, X } from "lucide-react";
+import { Activity, Info, List, Map as MapIcon, Search, X } from "lucide-react";
 import Link from "next/link";
 import {
   COMPONENT_STATUSES,
@@ -23,7 +23,9 @@ import {
 } from "@cellr/domain";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/ui/cn";
-import { DetailPanel, KindLine } from "./detail-panel";
+import { Sheet } from "@/ui/sheet";
+import { ComponentList } from "./component-list";
+import { DetailPanel, KindLine, StatusPill } from "./detail-panel";
 import { layoutMap } from "./layout";
 import {
   ALL_FILTERS,
@@ -31,6 +33,7 @@ import {
   readHash,
   writeHash,
   type MapFilters,
+  type PhoneMode,
   type Tab,
   TABS,
 } from "./model";
@@ -45,7 +48,13 @@ import { ChecksView, DataView, FlowsView, RegisterView, ReviewView } from "./vie
  *
  * Health (sprint 2) is an optional overlay, also server-rendered: `health` is one status per measured component,
  * or why there is none. Unavailable health changes nothing on the map but one line saying so.
+ *
+ * Phones and tablets (below 1024 px, Mobile Admin Portal 2.0) get the same view another way: the Map view opens as a
+ * searchable list of components, a component's details open in a sheet, and the drawing is its own mode (`m=map`
+ * in the hash) that fills the screen, with pinch, drag, fit and a card for the selected component. The tracing,
+ * paths, impact and filters are the same code as on a wide screen.
  */
+const PHONE = "(max-width: 1023px)";
 const TAB_LABEL: Record<Tab, string> = {
   map: "Map",
   register: "Register",
@@ -103,6 +112,17 @@ export function ArchitectureControlCenter({
   });
   const [copied, setCopied] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [mode, setMode] = useState<PhoneMode>("list");
+  const [phone, setPhone] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const mapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const mq = window.matchMedia(PHONE);
+    const on = () => setPhone(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
   const searchRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -117,7 +137,10 @@ export function ArchitectureControlCenter({
     const s = readHash(window.location.hash, known, flowIds);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the URL hash exists only in the browser, after hydration
     setTab(s.tab);
+    setMode(s.mode ?? "list");
     setSelected(s.selected);
+    // a link to a component opens its details on a phone (in list mode; the drawing shows its card instead)
+    if (s.selected && s.mode !== "map" && window.matchMedia(PHONE).matches) setSheetOpen(true);
     setDirection(s.direction);
     setDepth(s.depth);
     setFlow(s.flow);
@@ -130,11 +153,11 @@ export function ArchitectureControlCenter({
   }, [known, flowIds, reg, hashSeq]);
   useEffect(() => {
     if (!hydrated) return;
-    const hash = writeHash({ tab, selected, direction, depth, flow });
+    const hash = writeHash({ tab, mode, selected, direction, depth, flow });
     const url = `${window.location.pathname}${window.location.search}${hash}`;
     if (url !== `${window.location.pathname}${window.location.search}${window.location.hash}`)
       window.history.replaceState(window.history.state, "", url);
-  }, [hydrated, tab, selected, direction, depth, flow]);
+  }, [hydrated, tab, mode, selected, direction, depth, flow]);
 
   // "/" focuses the search, as on most consoles.
   useEffect(() => {
@@ -171,11 +194,23 @@ export function ArchitectureControlCenter({
   const open = (id: string) => {
     setTab("map");
     select(id, true);
-    // on a phone the panel is below the map: bring it into view
-    requestAnimationFrame(() => {
-      if (window.matchMedia("(max-width: 1023px)").matches)
-        panelRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
-    });
+    // on a phone the details open in a sheet, over the list or the drawing
+    if (window.matchMedia(PHONE).matches) setSheetOpen(true);
+  };
+  /** Phone: switch between the list and the drawing; the drawing comes into view. */
+  const showMode = (next: PhoneMode) => {
+    setMode(next);
+    if (next === "map")
+      requestAnimationFrame(() =>
+        mapRef.current?.scrollIntoView({ block: "end", behavior: "smooth" }),
+      );
+  };
+  /** Phone: from a component's details to the same component on the drawing, centred. */
+  const showOnMap = (id: string) => {
+    setSheetOpen(false);
+    setTab("map");
+    select(id, true);
+    showMode("map");
   };
   const showFlow = (id: string) => {
     setTab("map");
@@ -253,7 +288,7 @@ export function ArchitectureControlCenter({
         <div
           role="tablist"
           aria-label="Views"
-          className="flex gap-1 overflow-x-auto rounded-full bg-raised p-1"
+          className="grid grid-cols-3 gap-1 rounded-[18px] bg-raised p-1 sm:flex sm:overflow-x-auto sm:rounded-full"
         >
           {TABS.map((t) => (
             <button
@@ -283,7 +318,7 @@ export function ArchitectureControlCenter({
                 document.getElementById(`system-tab-${next}`)?.focus();
               }}
               className={cn(
-                "whitespace-nowrap rounded-full px-4 py-1.5 text-small font-medium transition-colors",
+                "min-h-10 whitespace-nowrap rounded-full px-4 py-1.5 text-small font-medium transition-colors sm:min-h-0",
                 tab === t ? "bg-surface text-ink shadow-raised" : "text-ink-2 hover:text-ink",
               )}
             >
@@ -329,7 +364,35 @@ export function ArchitectureControlCenter({
           aria-labelledby="system-tab-map"
           className="space-y-3"
         >
+          <div
+            role="group"
+            aria-label="Show components as"
+            className="flex gap-1 rounded-full bg-raised p-1 lg:hidden"
+            data-testid="phone-mode"
+          >
+            {(
+              [
+                ["list", "List", List],
+                ["map", "Map", MapIcon],
+              ] as const
+            ).map(([m, label, Icon]) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={mode === m}
+                onClick={() => showMode(m)}
+                className={cn(
+                  "flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-small font-medium transition-colors",
+                  mode === m ? "bg-surface text-ink shadow-raised" : "text-ink-2 hover:text-ink",
+                )}
+              >
+                <Icon size={16} aria-hidden="true" />
+                {label}
+              </button>
+            ))}
+          </div>
           <Filters
+            listMode={mode === "list"}
             filters={filters}
             filtered={filtered}
             onKind={(k) => setFilters((f) => ({ ...f, kinds: toggle(f.kinds, k) }))}
@@ -353,44 +416,97 @@ export function ArchitectureControlCenter({
               </button>
             </div>
           )}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <SystemMap
-              layout={layout}
-              components={reg.components}
-              edges={reg.edges}
-              emphasis={emph}
-              selected={selected}
-              focusRequest={focusRequest}
-              health={marks}
-              onSelect={(id) => select(id)}
-              className="h-[64dvh] min-h-[380px] lg:h-[calc(100dvh-400px)] lg:min-h-[520px]"
-            />
-            <div
-              ref={panelRef}
-              className="scroll-mt-4 rounded-[18px] border border-hairline bg-surface p-4 lg:h-[calc(100dvh-400px)] lg:min-h-[520px] lg:overflow-y-auto"
-            >
-              {component && health?.state === "available" && (
-                <ComponentHealthLine
-                  status={health.components[component.id]?.status ?? null}
-                  reason={health.components[component.id]?.reason ?? null}
-                />
-              )}
-              <DetailPanel
-                view={view}
+          {mode === "list" && (
+            <div className="lg:hidden">
+              <ComponentList
+                components={reg.components}
                 index={index}
-                component={component}
-                emphasis={emph}
-                direction={direction}
-                depth={depth}
-                pathTo={pathTo}
-                onDirection={setDirection}
-                onDepth={setDepth}
-                onPathTo={setPathTo}
-                onSelect={select}
-                onCopyLink={copyLink}
-                copied={copied}
+                visible={emph.visible}
+                matches={emph.matches}
+                health={marks}
+                selected={selected}
+                onOpen={open}
               />
             </div>
+          )}
+          <div
+            className={cn(
+              "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]",
+              mode === "list" && "max-lg:hidden",
+            )}
+          >
+            <div
+              ref={mapRef}
+              className="relative scroll-mb-[calc(var(--nav-height)+env(safe-area-inset-bottom)+0.5rem)]"
+            >
+              <SystemMap
+                layout={layout}
+                components={reg.components}
+                edges={reg.edges}
+                emphasis={emph}
+                selected={selected}
+                focusRequest={focusRequest}
+                health={marks}
+                onSelect={(id) => select(id)}
+                className="h-[calc(100dvh-9.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] min-h-[360px] lg:h-[calc(100dvh-400px)] lg:min-h-[520px]"
+              />
+              {phone && component && (
+                <div
+                  className="absolute bottom-3 left-3 right-16 flex items-center gap-2 rounded-[14px] border border-hairline bg-surface/95 p-2.5 shadow-raised backdrop-blur"
+                  data-testid="map-selection"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-small font-semibold text-ink">
+                      {component.name}
+                    </span>
+                    <StatusPill status={component.status} />
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSheetOpen(true)}
+                    className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-accent px-3.5 text-small font-medium text-accent-ink"
+                  >
+                    <Info size={16} aria-hidden="true" /> Details
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => select(null)}
+                    aria-label="Clear the selection"
+                    className="grid size-11 shrink-0 place-items-center rounded-full text-ink-2 hover:bg-raised"
+                  >
+                    <X size={18} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+            </div>
+            {!phone && (
+              <div
+                ref={panelRef}
+                className="scroll-mt-4 rounded-[18px] border border-hairline bg-surface p-4 lg:h-[calc(100dvh-400px)] lg:min-h-[520px] lg:overflow-y-auto"
+              >
+                {component && health?.state === "available" && (
+                  <ComponentHealthLine
+                    status={health.components[component.id]?.status ?? null}
+                    reason={health.components[component.id]?.reason ?? null}
+                  />
+                )}
+                <DetailPanel
+                  view={view}
+                  index={index}
+                  component={component}
+                  emphasis={emph}
+                  direction={direction}
+                  depth={depth}
+                  pathTo={pathTo}
+                  onDirection={setDirection}
+                  onDepth={setDepth}
+                  onPathTo={setPathTo}
+                  onSelect={select}
+                  onCopyLink={copyLink}
+                  copied={copied}
+                />
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -409,6 +525,46 @@ export function ArchitectureControlCenter({
           {tab === "checks" && <ChecksView view={view} />}
         </div>
       )}
+      <Sheet
+        open={phone && sheetOpen && component !== null}
+        onClose={() => setSheetOpen(false)}
+        title={component?.name ?? "Component"}
+        closeLabel="Close"
+        bare
+      >
+        {phone && sheetOpen && component && (
+          <div className="space-y-3 pb-2" data-testid="component-sheet">
+            <button
+              type="button"
+              onClick={() => showOnMap(component.id)}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-small font-medium text-ink ring-1 ring-ink-3/60 hover:bg-raised"
+            >
+              <MapIcon size={16} aria-hidden="true" /> Show on the map
+            </button>
+            {health?.state === "available" && (
+              <ComponentHealthLine
+                status={health.components[component.id]?.status ?? null}
+                reason={health.components[component.id]?.reason ?? null}
+              />
+            )}
+            <DetailPanel
+              view={view}
+              index={index}
+              component={component}
+              emphasis={emph}
+              direction={direction}
+              depth={depth}
+              pathTo={pathTo}
+              onDirection={setDirection}
+              onDepth={setDepth}
+              onPathTo={setPathTo}
+              onSelect={select}
+              onCopyLink={copyLink}
+              copied={copied}
+            />
+          </div>
+        )}
+      </Sheet>
     </div>
   );
 }
@@ -541,9 +697,12 @@ function Filters({
   onLayer,
   onStatus,
   onReset,
+  listMode = false,
 }: {
   filters: MapFilters;
   filtered: boolean;
+  /** Phone list mode: there are no lines to filter, so the line legend stays out of the way. */
+  listMode?: boolean;
   onKind: (k: EdgeKind) => void;
   onLayer: (l: SystemLayer) => void;
   onStatus: (s: ComponentStatus) => void;
@@ -554,7 +713,7 @@ function Filters({
       <div
         role="group"
         aria-label="Show lines of kind"
-        className="flex flex-wrap items-center gap-1.5"
+        className={cn("flex flex-wrap items-center gap-1.5", listMode && "max-lg:hidden")}
       >
         <span className="mr-1 font-semibold uppercase tracking-[0.08em] text-ink-3">Lines</span>
         {EDGE_KINDS.map((k) => (
@@ -565,7 +724,7 @@ function Filters({
         ))}
       </div>
       <details className="group">
-        <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-full px-2 py-1 font-medium text-ink-2 hover:text-ink">
+        <summary className="inline-flex min-h-10 cursor-pointer list-none items-center gap-1 rounded-full px-2 py-1 font-medium text-ink-2 hover:text-ink lg:min-h-0">
           <span className="transition-transform group-open:rotate-90" aria-hidden="true">
             ›
           </span>
@@ -636,7 +795,7 @@ function FilterChip({
       aria-pressed={on}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 ring-1 transition-colors",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 ring-1 transition-colors max-lg:min-h-9",
         on
           ? "bg-surface text-ink ring-ink-3/60"
           : "bg-transparent text-ink-3 ring-hairline line-through",

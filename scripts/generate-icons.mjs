@@ -3,6 +3,7 @@
 //   apps/web/public/brand/logo-lockup.png  glass + lettering, burgundy on transparent (used as a CSS mask, so it can take any theme colour)
 //   apps/web/public/brand/logo-mark.png    the glass alone
 //   apps/web/public/icons/*                home-screen / favicon icons: the glass in burgundy on ivory
+//   apps/web/public/icons/admin/*          the CELLR Admin home-screen app: the same glass, ivory on burgundy, framed
 // The artwork stays inside the central 80% — the "safe zone" Android's maskable icons may crop to.
 import fs from "node:fs";
 import path from "node:path";
@@ -78,15 +79,15 @@ for (let y = Math.floor(all.top + all.height * 0.6); y < all.top + all.height; y
 if (split < 0) throw new Error("Could not find the gap between the glass and the lettering");
 const mark = bounds(0, split);
 
-/** Burgundy RGBA (transparent paper) for a region, as a PNG buffer. */
-function ink_png(box) {
+/** Burgundy (or another colour) RGBA, transparent paper, for a region, as a PNG buffer. */
+function ink_png(box, colour = ink) {
   const out = Buffer.alloc(box.width * box.height * 4);
   for (let y = 0; y < box.height; y++) {
     for (let x = 0; x < box.width; x++) {
       const o = (y * box.width + x) * 4;
-      out[o] = ink[0];
-      out[o + 1] = ink[1];
-      out[o + 2] = ink[2];
+      out[o] = colour[0];
+      out[o + 1] = colour[1];
+      out[o + 2] = colour[2];
       out[o + 3] = Math.round(coverage[(box.top + y) * W + box.left + x] * 255);
     }
   }
@@ -131,4 +132,48 @@ fs.writeFileSync(
   path.join(iconOut, "icon.svg"),
   `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><image width="512" height="512" href="data:image/png;base64,${png512}"/></svg>\n`,
 );
+
+// ---- 4. CELLR Admin: the same glass, ivory on burgundy, inside a thin ivory frame ---------------------------
+// Recognisably CELLR, and told apart from the app at a glance on a home screen. The frame stays inside the central
+// 80% so a maskable crop keeps it.
+const adminOut = path.join(iconOut, "admin");
+fs.mkdirSync(adminOut, { recursive: true });
+const ivoryMark = await ink_png(mark, [IVORY.r, IVORY.g, IVORY.b]).toBuffer();
+async function adminIcon(size, fill, inset, name) {
+  const h = Math.round(size * fill);
+  const resized = await sharp(ivoryMark).resize({ height: h }).toBuffer();
+  const meta = await sharp(resized).metadata();
+  const at = Math.round(size * inset);
+  const side = size - 2 * at;
+  const stroke = Math.max(1, Math.round(size * 0.014));
+  const frame = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><rect x="${at + stroke / 2}" y="${at + stroke / 2}" width="${side - stroke}" height="${side - stroke}" rx="${Math.round(side * 0.2)}" fill="none" stroke="rgb(${IVORY.r},${IVORY.g},${IVORY.b})" stroke-opacity="0.85" stroke-width="${stroke}"/></svg>`,
+  );
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 3,
+      background: { r: ink[0], g: ink[1], b: ink[2] },
+    },
+  })
+    .composite([
+      ...(inset > 0 ? [{ input: frame, left: 0, top: 0 }] : []),
+      {
+        input: resized,
+        left: Math.round((size - meta.width) / 2),
+        top: Math.round((size - h) / 2),
+      },
+    ])
+    .png({ compressionLevel: 9 })
+    .toFile(path.join(adminOut, name));
+}
+await Promise.all([
+  adminIcon(192, 0.56, 0.1, "icon-192.png"),
+  adminIcon(512, 0.56, 0.1, "icon-512.png"),
+  adminIcon(512, 0.5, 0.13, "icon-maskable-512.png"), // frame and glass inside the maskable safe zone
+  adminIcon(180, 0.56, 0.1, "apple-touch-icon.png"),
+  adminIcon(32, 0.82, 0, "icon-32.png"), // too small for a frame: the inverted colours carry it
+]);
+
 console.log("brand assets and icons written");

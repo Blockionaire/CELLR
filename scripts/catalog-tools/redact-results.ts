@@ -9,7 +9,8 @@
  * names, record ids, search hits, suggestions and example groups are removed. Run it after the tools that read the
  * full files (recognition.ts reads benchmark-results.json), before anything is committed.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 const count = (v: Json | undefined): number =>
@@ -76,10 +77,51 @@ export function redact(file: string, data: { [k: string]: Json }): { [k: string]
   throw new Error(`${file}: not a result file this tool knows`);
 }
 
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop()!)) {
-  for (const file of process.argv.slice(2)) {
-    const out = redact(file, JSON.parse(readFileSync(file, "utf8")));
-    writeFileSync(file, JSON.stringify(out, null, 1) + "\n");
-    console.log(`redacted ${file}`);
+/** Files that carry no record of a dataset by construction: timings, the staging check, the provider row, summaries. */
+const SAFE = [
+  /^perf-[\w-]+\.json$/,
+  /^staging-check[\w-]*\.json$/,
+  /^xwines-provider\.json$/,
+  /^(pilot-separation|invariants|nonpilot-refusal|scan-check)\.txt$/,
+];
+
+/**
+ * FAIL-CLOSED for a directory that is about to leave the run (staging run 45039275216 uploaded unreduced results
+ * after a failure stopped the script before its redaction): every result file this tool knows is reduced, every
+ * file known to be safe is kept, and EVERY OTHER FILE IS DELETED. A file that cannot be read as JSON is deleted too.
+ * Returns what happened to each file.
+ */
+export function redactDir(dir: string): { redacted: string[]; kept: string[]; deleted: string[] } {
+  const out = { redacted: [] as string[], kept: [] as string[], deleted: [] as string[] };
+  for (const name of readdirSync(dir).sort()) {
+    const file = join(dir, name);
+    if (SAFE.some((r) => r.test(name))) {
+      out.kept.push(name);
+      continue;
+    }
+    try {
+      const data = JSON.parse(readFileSync(file, "utf8")) as { [k: string]: Json };
+      writeFileSync(file, JSON.stringify(redact(name, data), null, 1) + "\n");
+      out.redacted.push(name);
+    } catch {
+      rmSync(file, { recursive: true, force: true });
+      out.deleted.push(name);
+    }
   }
+  return out;
+}
+
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop()!)) {
+  const argv = process.argv.slice(2);
+  if (argv[0] === "--dir") {
+    const r = redactDir(argv[1]!);
+    console.log(
+      `results: ${r.redacted.length} reduced to counts, ${r.kept.length} kept, ${r.deleted.length} deleted (not known to be safe)`,
+    );
+  } else
+    for (const file of argv) {
+      const out = redact(file, JSON.parse(readFileSync(file, "utf8")));
+      writeFileSync(file, JSON.stringify(out, null, 1) + "\n");
+      console.log(`redacted ${file}`);
+    }
 }
