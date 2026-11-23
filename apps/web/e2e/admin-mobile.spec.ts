@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { ADMIN_ID, adminContext } from "./admin-session";
+import { ADMIN_ID, adminContext, ensureAdmin } from "./admin-session";
 import { arrive, audit, sql, stamp } from "./helpers";
 
 /**
@@ -21,8 +21,14 @@ async function asAdmin(browser: Browser, width = 390, phone = true) {
   );
 }
 
-/** A catalogue wine, a correction from a scan, and a bottle photo waiting for review: all under one fresh name. */
+/**
+ * A catalogue wine, a correction from a scan, and a bottle photo waiting for review: all under one fresh name.
+ * The correction and the photo belong to the test admin, so the admin's auth user is made first: on a fresh
+ * database nothing else has made it yet (signing in does that, and comes after the seed), and the foreign keys
+ * from catalog_scan_signals and bottle_photo_submissions to auth.users would refuse the rows.
+ */
 async function seed() {
+  await ensureAdmin();
   const m = stamp();
   const [p] = await sql<{ id: string }>(
     `insert into public.producers (name, country_code, status, origin)

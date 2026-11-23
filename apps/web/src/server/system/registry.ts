@@ -273,6 +273,15 @@ const components = [
         note: "1: read-only placement advice; internal previews or the production release, needs the placement gate, grants no write",
       },
     ],
+    risks: [
+      {
+        id: "R-SC-1",
+        severity: "low",
+        title: "The production database host is written in code in a public repository",
+        detail:
+          "PRODUCTION_DATABASE_HOSTS (lib/smart-cellar-write-target.ts) names the production host so the write guard can refuse it whatever is configured; the storage-backup and catalogue tools hard-code the production ref for the same reason. Deliberate: the host is public in every browser bundle, and a fail-closed guard must know it. Docs no longer repeat it (CLAUDE.md, Hard rules). Whether to keep it in code or move it to configuration with a fail-closed default is the owner's decision, not yet confirmed.",
+      },
+    ],
   },
   {
     id: "svc-households",

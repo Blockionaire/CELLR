@@ -48,7 +48,7 @@ it to this release.
 
 ## 1. Read-only production audit (2026-11-15)
 
-Project `vvelgyhbjfmjvxkzekyz` (Postgres 17.11). Only `SELECT` statements were run:
+The production project. Only `SELECT` statements were run:
 
 - the migration-history check;
 - the schema fingerprint (`scripts/migration-audit/fingerprint.sql`), compared with the repository at `main`
@@ -77,7 +77,8 @@ unchanged since 2026-11-02.
 There are **no unexplained differences** and nothing was half-applied: every object of 0037–0045 is either absent or
 exactly in its pre-0037 state. Production is the repository at 0036 plus the known platform deviations.
 
-**Data prechecks (counts only):** 43 wines, 39 producers, 0 aliases, 55 bottles, 5 places, 4 households, 17 MB.
+**Data prechecks (counts only):** wines, producers, aliases, bottles, places, households and database size were counted
+(verified read-only on 2026-11-15; values kept by the owner, not in the repository).
 
 - 0043's new capacity check (`grid_rows × grid_cols ≤ 1200`): 0 places would violate it.
 - 0043's new whole-spot index: 0 cells hold two bottles.
@@ -129,8 +130,8 @@ is **database (§4 steps 1–6) → merge PR #75 (step 7)**. Never the other way
 - **Owner check before step 7** (this session got 403 on team `jp-builds`), in Vercel → project `cellr`:
   1. _Settings → Git_: **Production Branch** is `main`, and Git deployments are not disabled or ignored (no Ignored Build
      Step that skips `main`);
-  2. _Settings → Environment Variables_: `NEXT_PUBLIC_SUPABASE_URL` for **Production** is
-     `https://vvelgyhbjfmjvxkzekyz.supabase.co`. For **Preview**, note which project it names. If it is the same, the
+  2. _Settings → Environment Variables_: `NEXT_PUBLIC_SUPABASE_URL` for **Production** names the
+     production project (Supabase → Project Settings → API → Project URL). For **Preview**, note which project it names. If it is the same, the
      points above apply;
   3. _Deployments_: the newest **Production** deployment is from `main` at `2f4079e` (the PR #74 merge). That confirms
      the automatic deploy on merge;
@@ -194,7 +195,7 @@ It must print nothing: no migration changed since the security fix that was audi
 **1. Link and preflight (read-only).** Each check must pass, or stop.
 
 ```bash
-pnpm exec supabase link --project-ref vvelgyhbjfmjvxkzekyz
+pnpm exec supabase link --project-ref <production-ref>
 ```
 
 ```bash

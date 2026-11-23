@@ -104,7 +104,13 @@ export async function assertTargetIdentity(
 
 export async function connect(url: string): Promise<Client> {
   const client = new pg.Client({ connectionString: url });
-  await client.connect();
+  try {
+    await client.connect();
+  } catch (e) {
+    // a half-opened client (the socket was opened, the session refused) is closed too
+    await client.end().catch(() => undefined);
+    throw e;
+  }
   return client;
 }
 

@@ -31,7 +31,7 @@ Nothing here is "live". The rehearsal database was deleted after each run.
 
 ## 2. Phase B — staging
 
-- **Projects on the account** (read-only listing, 2026-11-19): `vvelgyhbjfmjvxkzekyz` = production (refused by the
+- **Projects on the account** (read-only listing, 2026-11-19): the production project (refused by the
   tools in every form); `dqwkbtsstvakcvlnwvwk` "Blockionaire's Project" (created 2026-05-12). Nothing identifies the
   second as CELLR staging, so it was **not used, opened or queried**.
 - **What is needed from you** (`STAGING.md` S1): either approve a new staging project (likely extra cost on the Pro

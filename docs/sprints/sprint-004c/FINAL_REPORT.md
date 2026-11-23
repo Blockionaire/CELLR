@@ -6,7 +6,7 @@
 
 - No merge, no deployment, no production import and no public activation.
 - No email was sent, no paid project was created, and no rights status was changed on the basis of my own reading of a licence.
-- `vvelgyhbjfmjvxkzekyz` (production) and `dqwkbtsstvakcvlnwvwk` were not touched.
+- The production project and `dqwkbtsstvakcvlnwvwk` were not touched.
 - Real X-Wines data was used only on the permitted evaluation route: locally, in a throwaway Postgres 17.12, deleted after each run. Only aggregates were committed.
 
 ## 1. Status per item
