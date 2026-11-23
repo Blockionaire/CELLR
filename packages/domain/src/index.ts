@@ -59,6 +59,7 @@ export * from "./buying/state";
 export * from "./buying/offers";
 export * from "./social";
 export * from "./sommelier-route";
+export * from "./sommelier-menu";
 export * from "./sommelier-plan";
 export * from "./record-suggestions";
 export * from "./system-health";

@@ -15,6 +15,7 @@ export * from "./food/types";
 export * from "./food/compose";
 export * from "./food/parse";
 export * from "./food/knowledge";
+export * from "./food/menu-context";
 export * from "./pairing-engine/wine";
 export * from "./pairing-engine/assess";
 export * from "./pairing-engine/decide";
