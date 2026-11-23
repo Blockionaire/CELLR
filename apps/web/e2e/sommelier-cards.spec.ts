@@ -61,7 +61,7 @@ test.describe("facts on the sommelier's cards (CELLR_SOMMELIER=annotate,quantiti
     // No number of people was named: nothing is counted.
     await expect(log.getByTestId("quantity")).toHaveCount(0);
     await expectNoSidewaysScroll(page);
-    expect(await audit(page)).toEqual([]);
+    await expect.poll(() => audit(page)).toEqual([]);
     await page.screenshot({ path: shot("v1plus-cards"), fullPage: true });
 
     // A follow-up about serving: the app's facts go to the model, and the card shows the serving line first.
@@ -177,7 +177,7 @@ test.describe("facts on the sommelier's cards (CELLR_SOMMELIER=annotate,quantiti
       "Domaine Weinbach Riesling Schlossberg: 1 vrij om te openen, 5 te weinig.",
     );
     await expectNoSidewaysScroll(page);
-    expect(await audit(page)).toEqual([]);
+    await expect.poll(() => audit(page)).toEqual([]);
     await page.screenshot({ path: shot("v1plus-cards-nl-small"), fullPage: true });
   });
 });
