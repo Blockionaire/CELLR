@@ -72,9 +72,12 @@ function temperature(type: WineType, s: WineStructure): { min: number; max: numb
     if (s.body >= 3.5 || s.oak >= 2) return { min: 11, max: 13 };
     return s.body <= 1.5 ? { min: 7, max: 9 } : { min: 9, max: 11 };
   }
-  // Red
+  // Red, in the bands sommeliers use: light 13–15, medium 15–17, full or firm 17–18 (within the usual 16–18). A
+  // full-bodied red (body 4 and up) is full whatever its tannin: a Barossa Shiraz is not served at 15. A soft red
+  // a little more than light (a cru Beaujolais, a Bourgogne) sits between, at 14–16: at 17 its fruit goes flat.
   if (s.body <= 2.5 && s.tannin <= 2.5) return { min: 13, max: 15 };
-  if (s.body >= 4.5 || s.tannin >= 4) return { min: 17, max: 18 };
+  if (s.body >= 4 || s.tannin >= 4) return { min: 17, max: 18 };
+  if (s.body <= 3 && s.tannin <= 2.5) return { min: 14, max: 16 };
   return { min: 15, max: 17 };
 }
 

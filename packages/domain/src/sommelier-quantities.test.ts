@@ -264,3 +264,165 @@ describe("what the model is told", () => {
     expect(guestsBlock({ guests: 1, gathering: "dinner" })).toContain("1 person, a dinner.");
   });
 });
+
+describe("second review: guests that are not there, and a count the person replaced", () => {
+  it("'just me' later in the conversation ends the earlier count (null: no box for one person)", () => {
+    for (const later of [
+      "And tonight it's just me, with pasta?",
+      "Tonight only me, what with risotto?",
+      "I'm alone tonight",
+      "Eating by myself tonight",
+      "En vanavond alleen ik, bij pasta?",
+      "Vanavond in mijn eentje",
+      "Iets voor mezelf vanavond?",
+    ])
+      expect(
+        guestsIn([person("We are 8 on Saturday."), sommelier("Lovely, the Albe."), person(later)]),
+        later,
+      ).toBeNull();
+    // Said in the same message, the later statement wins either way.
+    expect(said("Just me tonight, but we are 6 on Saturday")?.guests).toBe(6);
+    expect(said("We were 6, now it is just me")).toBeNull();
+    // "Just me and my wife" is not one person, and not a number: the earlier count stays.
+    expect(
+      guestsIn([
+        person("We are 8 on Saturday."),
+        sommelier("..."),
+        person("Tonight just me and my wife"),
+      ])?.guests,
+    ).toBe(8);
+    // "Alone" alone is not read: "leave the Barolo alone" says nothing about people.
+    expect(
+      guestsIn([
+        person("We are 8."),
+        sommelier("..."),
+        person("Leave the Barolo alone, which white?"),
+      ])?.guests,
+    ).toBe(8);
+  });
+
+  it("two of us is two, in both languages", () => {
+    expect(said("Just the two of us tonight")?.guests).toBe(2);
+    expect(said("Met z'n tweeën vanavond")?.guests).toBe(2);
+    expect(said("Met z'n tweetjes")?.guests).toBe(2);
+    expect(said("Wij tweeën, bij de vis")?.guests).toBe(2);
+    // "We vieren" is "we celebrate", not four people.
+    expect(said("We vieren een verjaardag")).toBeNull();
+  });
+
+  it("'there are N' needs people: wines and bottles are not guests", () => {
+    for (const text of [
+      "There are 3 Barolos in my cellar; which one for the lamb?",
+      "There are 6 Barolos, which is ready?",
+      "Er zijn 6 Barolo's, welke past bij lam?",
+      "Er zijn nog 4 flessen",
+    ])
+      expect(said(text), text).toBeNull();
+    expect(said("There are 8 of us")?.guests).toBe(8);
+    expect(said("There will be 12 people")?.guests).toBe(12);
+    expect(said("Er zijn 10 gasten")?.guests).toBe(10);
+    expect(said("Er komen 6 eters")?.guests).toBe(6);
+  });
+
+  it("children do not drink wine", () => {
+    expect(said("A party of 10 kids")).toBeNull();
+    expect(said("Een feest van 10 kinderen")).toBeNull();
+    expect(said("We are 4 children")).toBeNull();
+    expect(said("8 adults and 4 kids")?.guests).toBe(8);
+    expect(said("8 volwassenen en 4 kinderen")?.guests).toBe(8);
+  });
+
+  it("what was right stays right", () => {
+    expect(said("Table for two")?.guests).toBe(2);
+    expect(said("Met z'n vieren")?.guests).toBe(4);
+    expect(said("8-10 people")?.guests).toBe(10);
+    expect(said("8 à 10 personen")?.guests).toBe(10);
+    expect(said("The 2015, please")).toBeNull();
+    expect(said("I have 3 bottles")).toBeNull();
+  });
+});
+
+describe("second review: a menu's bottles", () => {
+  const two = (guests: number, gathering: GuestCount["gathering"] = "dinner"): GuestCount => ({
+    guests,
+    gathering,
+  });
+  it("a wine poured with two courses is one bottle for two people, not two", () => {
+    const q = quantityFor(two(2), [pour("A", 6), pour("A", 6), pour("B", 6)], "sequence");
+    expect(q.wines).toEqual([
+      { vintageId: "A", needed: 1, available: 6, short: 0 },
+      { vintageId: "B", needed: 1, available: 6, short: 0 },
+    ]);
+    expect(q.needed).toBe(2);
+    // One bottle per wine is more than half a bottle each: the advice says the minimum made the total.
+    expect(q.minimum).toBe(true);
+  });
+  it("two people and eight courses: eight bottles, and it says why", () => {
+    const eight = Array.from({ length: 8 }, (_, i) => pour(`w${i}`, 1));
+    const q = quantityFor(two(2), eight, "sequence");
+    expect(q.needed).toBe(8);
+    expect(q.minimum).toBe(true);
+    expect(q.wines.every((w) => w.needed === 1)).toBe(true);
+  });
+  it("when the estimate per person is the total, minimum is absent (and older advice still reads)", () => {
+    const q = quantityFor(two(8), [pour("A", 6)], "alternatives");
+    expect(q).not.toHaveProperty("minimum");
+    expect(quantityFor(two(12), [pour("A", 6), pour("B", 6)], "sequence")).not.toHaveProperty(
+      "minimum",
+    );
+    expect(QuantityAdviceSchema.safeParse(q).success).toBe(true);
+    expect(QuantityAdviceSchema.safeParse({ ...q, minimum: true }).success).toBe(true);
+    expect(QuantityAdviceSchema.safeParse({ ...q, minimum: "yes" }).success).toBe(false);
+  });
+
+  const PER = { dinner: 0.5, reception: 0.35, "long-evening": 0.75 } as const;
+  for (const gathering of ["dinner", "reception", "long-evening"] as const)
+    for (const guests of [1, 2, 7, 8, 13, 500])
+      for (const wines of [1, 2, 3, 8])
+        it(`${guests} guests, ${wines} wine(s), ${gathering}: honest arithmetic`, () => {
+          const pours = Array.from({ length: wines }, (_, i) => pour(`w${i}`, 1000));
+          const estimate = Math.max(1, Math.ceil(guests * PER[gathering] - 1e-9));
+          const alt = quantityFor({ guests, gathering }, pours, "alternatives");
+          expect(alt.needed).toBe(estimate);
+          expect(alt.wines.every((w) => w.needed === estimate)).toBe(true);
+          expect(alt.minimum).toBeUndefined();
+          const seq = quantityFor({ guests, gathering }, pours, "sequence");
+          // The lines add up to the total; every wine is at least one bottle; never less than the estimate.
+          expect(seq.wines.reduce((s, w) => s + w.needed, 0)).toBe(seq.needed);
+          expect(seq.wines.every((w) => w.needed >= 1)).toBe(true);
+          expect(seq.needed).toBeGreaterThanOrEqual(estimate);
+          // Rounding each wine up to whole bottles adds less than one bottle per wine.
+          expect(seq.needed).toBeLessThan(guests * PER[gathering] + wines);
+          // `minimum` says exactly when whole bottles, not the estimate, make the total.
+          expect(seq.minimum === true).toBe(seq.needed > estimate);
+          expect(QuantityAdviceSchema.safeParse(seq).success).toBe(true);
+        });
+
+  it("exact values: 8 at dinner over 3 wines with a dessert wine; 13 over 2 wines; 500 over 8", () => {
+    const q = quantityFor(two(8), [pour("a", 9), pour("b", 9), pour("c", 9, 0, true)], "sequence");
+    expect(q.wines.map((w) => w.needed)).toEqual([2, 2, 1]);
+    expect(q).toMatchObject({ needed: 5, minimum: true });
+    const thirteen = quantityFor(two(13), [pour("a", 9), pour("b", 9)], "sequence");
+    expect(thirteen.wines.map((w) => w.needed)).toEqual([4, 4]);
+    expect(thirteen).toMatchObject({ needed: 8, minimum: true });
+    const big = quantityFor(
+      two(500),
+      Array.from({ length: 8 }, (_, i) => pour(`w${i}`, 1)),
+      "sequence",
+    );
+    expect(big.wines.map((w) => w.needed)).toEqual(Array(8).fill(32));
+    expect(big).toMatchObject({ needed: 256, minimum: true });
+    // A shared wine and a small pour: shares 2 + 0.5 of 2.5.
+    const shared = quantityFor(
+      two(10),
+      [pour("a", 9), pour("s", 9, 0, true), pour("a", 9)],
+      "sequence",
+    );
+    expect(shared.wines).toEqual([
+      { vintageId: "a", needed: 4, available: 9, short: 0 },
+      { vintageId: "s", needed: 1, available: 9, short: 0 },
+    ]);
+    expect(shared.needed).toBe(5);
+    expect(shared).not.toHaveProperty("minimum");
+  });
+});

@@ -158,26 +158,96 @@ const nameWords = (text: string) =>
     .filter((w) => w.length >= 4 && !GENERIC.has(w) && !/^\d+$/.test(w));
 
 /**
+ * A cheap first look, before the exact one: a pattern that finds a normalised word in raw, lower-cased label text
+ * whatever accents the label writes it with ("rotie" in "côte-rôtie"). It may find too much (a word inside another
+ * word); it never finds too little, so the exact check after it decides. A label with letters the pattern does not
+ * fold (ß, æ, œ, combining accents …) always goes on to the exact check.
+ */
+const FOLDS: Record<string, string> = {
+  a: "aàáâãäåāăą",
+  c: "cçćčĉ",
+  d: "dď",
+  e: "eèéêëēĕėęě",
+  g: "gğĝ",
+  i: "iìíîïīĭį",
+  l: "lĺľ",
+  n: "nñńňņ",
+  o: "oòóôõöøōŏő",
+  r: "rŕř",
+  s: "sśšşŝș",
+  t: "tťţț",
+  u: "uùúûüūŭůűų",
+  y: "yýÿ",
+  z: "zźżž",
+};
+// Letters folded otherwise, and combining accents (a label stored decomposed: "e" then "\u0301").
+const UNFOLDED = /[ßæœđðłþħı]|\p{M}/u;
+function looseFinder(words: readonly string[]): RegExp | null {
+  if (words.length === 0) return null;
+  const loose = (w: string) =>
+    [...w].map((ch) => (FOLDS[ch] ? `[${FOLDS[ch]}]` : ch.replace(/[^a-z0-9]/g, ""))).join("");
+  return new RegExp([...new Set(words)].map(loose).join("|"));
+}
+const mayContain = (finder: RegExp, raw: string) => {
+  const lower = raw.toLowerCase();
+  return finder.test(lower) || UNFOLDED.test(lower);
+};
+
+/**
  * The cellar wines a text names: by a word of the producer or the wine's name ("the Musar", "my Vajra"), else by an
  * appellation, region or grape the knowledge knows and the wine is read as ("the Barolo"). A year in the text
  * narrows to that vintage when one fits. Too many fits (more than `max`) is not an answer: none.
+ *
+ * Fast on a large cellar: no wine is read with the knowledge before the text is known to name one. The names are
+ * looked for first (a cheap pattern, then the exact word check, on the few that pass). Only when no name fits are
+ * wines read, and only those whose label could make the knowledge read them as what was named.
  */
 function namedIn(
   text: string,
-  read: ReadonlyArray<{ item: CellarItem; reading: WineReading }>,
+  items: readonly CellarItem[],
+  readingOf: (item: CellarItem) => WineReading,
+  grapesOf: (item: CellarItem) => readonly string[],
   max: number,
 ): CellarItem[] {
-  const words = ` ${normalizeText(text.slice(0, 800))} `;
-  if (words.trim() === "") return [];
-  const byName = read.filter((r) =>
-    nameWords(`${r.item.producer} ${r.item.wineName}`).some((w) => words.includes(` ${w} `)),
-  );
-  const keys = mentionedWines(text, WINE_KNOWLEDGE).map((w) => w.id);
-  const byKind =
-    byName.length > 0 || keys.length === 0
-      ? []
-      : read.filter((r) => keys.some((k) => r.reading.keys.includes(k)));
-  let found = (byName.length > 0 ? byName : byKind).map((r) => r.item);
+  const said = normalizeText(text.slice(0, 800));
+  if (said === "") return [];
+  const tokens = new Set(said.split(" "));
+  const wanted = [...tokens].filter((w) => w.length >= 4 && !GENERIC.has(w) && !/^\d+$/.test(w));
+  const finder = looseFinder(wanted);
+  let found = finder
+    ? items.filter(
+        (i) =>
+          mayContain(finder, `${i.producer} ${i.wineName}`) &&
+          nameWords(`${i.producer} ${i.wineName}`).some((w) => tokens.has(w)),
+      )
+    : [];
+  if (found.length === 0) {
+    const keys = mentionedWines(text, WINE_KNOWLEDGE).map((m) => m.id);
+    if (keys.length === 0) return [];
+    // A wine can only be read as a key when its label (or its profile's grapes) carries the name of a rule that
+    // gives that key: only those wines are read. The same wines as reading them all, without reading them all.
+    const giving = WINE_KNOWLEDGE.rules.filter(
+      (r) => keys.includes(r.id) || r.keys.some((k) => keys.includes(k)),
+    );
+    const labels = looseFinder(
+      giving.flatMap((r) =>
+        r.names.flatMap((name) => {
+          const parts = name.split(" ");
+          const long = parts.filter((w) => w.length >= 3);
+          return long.length > 0 ? long : parts;
+        }),
+      ),
+    );
+    found = labels
+      ? items.filter(
+          (i) =>
+            mayContain(
+              labels,
+              `${i.appellation ?? ""} ${i.region ?? ""} ${i.wineName} ${i.producer} ${grapesOf(i).join(" ")}`,
+            ) && keys.some((k) => readingOf(i).keys.includes(k)),
+        )
+      : [];
+  }
   const year = /\b(1[89]\d\d|20\d\d)\b/.exec(text);
   if (year) {
     const that = found.filter((i) => i.year === Number(year[1]));
@@ -197,17 +267,22 @@ const label = (value: string) => value.replace(/["\n\r|]/g, " ").slice(0, 80);
 const DECANT_TEXT = {
   no: "no need to decant",
   air: (m: number) => `decant about ${m} minutes before serving (air)`,
+  // The age says there will be sediment; whether the wine also wants air is a question about this wine.
   sediment:
-    "do not air it: stand it upright and pour it gently off its sediment just before serving",
+    "decant it gently off its sediment shortly before serving; whether it also wants air depends on the wine",
   optional: (m: number) => `a carafe for about ${m} minutes is optional`,
 } as const;
+
+/** How the model may use a fact: as written (about this very wine), or as the app's rule of thumb. */
+const AS_WRITTEN = "[as written]";
+const RULE = "[rule of thumb]";
 
 function servingText(s: NonNullable<BottleAnnotation["serving"]>): string {
   const temp =
     s.tempC.min === s.tempC.max ? `${s.tempC.min} °C` : `${s.tempC.min}–${s.tempC.max} °C`;
   const decant =
     s.decant === null
-      ? "say nothing about decanting (too little is known about this wine)"
+      ? "nothing known about decanting it"
       : s.decant.kind === "air" || s.decant.kind === "optional"
         ? DECANT_TEXT[s.decant.kind](s.decant.minutes)
         : DECANT_TEXT[s.decant.kind];
@@ -215,11 +290,8 @@ function servingText(s: NonNullable<BottleAnnotation["serving"]>): string {
     s.fridgeMinutes > 0
       ? `, about ${s.fridgeMinutes} minutes in a fridge from room temperature`
       : "";
-  const basis =
-    s.basis === "profile"
-      ? "from what is known about this exact wine"
-      : 'a rule of thumb for wines like this, not known for this bottle: say "about"';
-  return `serve at ${temp}${fridge}; ${decant}; glass: ${s.glass.replace(/-/g, " ")} (${basis})`;
+  const basis = s.basis === "profile" ? `from this wine's researched profile ${AS_WRITTEN}` : RULE;
+  return `serve at ${temp}${fridge}; ${decant}; glass: ${s.glass.replace(/-/g, " ")} ${basis}`;
 }
 
 const PHASE_TEXT: Record<BottleAnnotation["drink"]["advice"], string> = {
@@ -227,12 +299,12 @@ const PHASE_TEXT: Record<BottleAnnotation["drink"]["advice"], string> = {
   "drink-soon": "late in its window: drink it soon",
   keep: "still young: it can be kept",
   "past-window": "past its window",
-  unknown: "too little is known to say when to drink it: say so, give no years",
+  unknown: "not known to the app: say so, and give no years as fact",
 };
 const BASIS_TEXT: Record<BottleAnnotation["drink"]["basis"], string> = {
-  own: "the window the household set itself",
-  profile: "an estimate from this wine's profile, not a promise",
-  style: "an estimate for wines like this, not known for this bottle",
+  own: `the window the household set itself ${AS_WRITTEN}`,
+  profile: `an estimate from this wine's researched profile ${AS_WRITTEN}`,
+  style: `an estimate for wines like this ${RULE}`,
 };
 
 function drinkText(d: BottleAnnotation["drink"]): string {
@@ -249,7 +321,7 @@ function drinkText(d: BottleAnnotation["drink"]): string {
     d.advice === "keep" && d.phase === "developing"
       ? "open now or keep: it will still improve"
       : PHASE_TEXT[d.advice];
-  return `drinking window ${years}, ${phase} (${BASIS_TEXT[d.basis]})`;
+  return `drinking window ${years}, ${phase}, ${BASIS_TEXT[d.basis]}`;
 }
 
 /**
@@ -268,19 +340,29 @@ export function servingFactsBlock(
   const kind = askedFor(last.text);
   if (kind !== "serving" && kind !== "keeping") return null;
   const thisYear = ctx.now.getUTCFullYear();
-  const read = items.map((item) => ({
-    item,
-    ...annotate(item, ctx.profiles.get(item.vintageId), thisYear),
-  }));
-  let wines = namedIn(last.text, read, FACTS_WINES_MAX);
+  // Wines are read with the knowledge only when needed, each at most once.
+  const readings = new Map<string, WineReading>();
+  const readingOf = (item: CellarItem) => {
+    let reading = readings.get(item.vintageId);
+    if (!reading) {
+      reading = readItem(item, ctx.profiles.get(item.vintageId));
+      readings.set(item.vintageId, reading);
+    }
+    return reading;
+  };
+  const grapesOf = (item: CellarItem) => ctx.profiles.get(item.vintageId)?.grapes ?? [];
+  let wines = namedIn(last.text, items, readingOf, grapesOf, FACTS_WINES_MAX);
   if (wines.length === 0) {
     // "How should I serve it?" right after the sommelier named a wine: that wine.
     const before = messages.slice(0, -1).findLast((m) => m.role === "assistant");
-    if (before) wines = namedIn(before.text, read, FACTS_WINES_MAX);
+    if (before) wines = namedIn(before.text, items, readingOf, grapesOf, FACTS_WINES_MAX);
   }
   if (wines.length === 0) return null;
-  const lines = wines.map((item) => {
-    const { annotation } = read.find((r) => r.item.vintageId === item.vintageId)!;
+  const annotations = wines.map(
+    (item) => annotate(item, ctx.profiles.get(item.vintageId), thisYear).annotation,
+  );
+  const lines = wines.map((item, n) => {
+    const annotation = annotations[n]!;
     const serving =
       annotation.serving === null
         ? "serving: too little is known about this wine to give a temperature or a decanting time: say so"
@@ -292,8 +374,21 @@ export function servingFactsBlock(
     const name = `${label(item.producer)} — ${label(item.wineName)} | ${item.year ?? "NV"}`;
     return `- ${refOf(item.vintageId) ?? "(not in the list)"} | ${name}: ${facts.join("; ")}.`;
   });
+  const said = lines.join("\n");
+  // A fact about this very wine is stated as written. The app's rules of thumb leave room for what the model knows
+  // of the wine, as its own view: a rule for a style is not the last word on a Monfortino.
   const text = [
-    `Serving facts (worked out by the app from the cellar and its serving and drinking-window tables; state them as written, keep "about" and "estimate" where they are, and give no other temperature, decanting time or drinking years for these wines):`,
+    "Serving facts (worked out by the app from the cellar and its serving and drinking-window tables):",
+    ...(said.includes(AS_WRITTEN)
+      ? [
+          `Facts marked ${AS_WRITTEN} are about this very wine (the household's own window, or its researched profile): state them as written, and give no other temperature, decanting time or drinking years for it.`,
+        ]
+      : []),
+    ...(said.includes(RULE)
+      ? [
+          `Facts marked ${RULE} are the app's rules for wines like this, not known for this bottle: give them as such ("about", "as a rule"). If you know this wine better you may say so, as your own view; it must not contradict the drinking window given.`,
+        ]
+      : []),
     ...lines,
   ]
     .join("\n")

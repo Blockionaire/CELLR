@@ -398,7 +398,8 @@
       "window": {
         "range": "{from}–{until}",
         "until": "until {until}",
-        "from": "from {from}"
+        "from": "from {from}",
+        "estimated": "est. {years}"
       },
       "windowBasis": {
         "own": "your own window",
@@ -413,7 +414,7 @@
         "decant": {
           "no": "no need to decant",
           "air": "decant about {minutes} min",
-          "sediment": "pour gently off the sediment, no airing",
+          "sediment": "decant gently off the sediment shortly before serving",
           "optional": "a carafe is optional"
         },
         "glass": {
@@ -425,15 +426,15 @@
           "small": "small glass"
         },
         "basis": {
-          "profile": "known for this wine",
+          "profile": "from its profile",
           "style": "rule of thumb",
           "colour": "rule of thumb for its colour"
         },
         "unknown": "Too little is known about this wine to say how to serve it"
       },
       "reserved": {
-        "some": "{free} of {total} free to open",
-        "all": "all {count} reserved"
+        "some": "{free} of {total} not reserved",
+        "all": "{count, plural, one {reserved (the only bottle)} other {all reserved (#)}}"
       },
       "where": {
         "places": "in {places}",
@@ -455,7 +456,14 @@
       "enough": "{wine}: {needed, plural, one {# bottle} other {# bottles}} needed, {available} free to open: enough.",
       "short": "{wine}: {needed, plural, one {# bottle} other {# bottles}} needed, {available} free to open: {short} short.",
       "altEnough": "{wine}: {available} free to open, enough.",
-      "altShort": "{wine}: {available} free to open, {short} short."
+      "altShort": "{wine}: {available} free to open, {short} short.",
+      "needMinimum": "For {guests, plural, one {# person} other {# people}} {gathering}: one bottle of each wine, {needed} in all (there will be wine left).",
+      "needRounded": "For {guests, plural, one {# person} other {# people}} {gathering}: {needed} bottles in all, more than {share}, as each wine is opened whole (there will be wine left).",
+      "share": {
+        "dinner": "half a bottle each",
+        "reception": "a third of a bottle each",
+        "long-evening": "three quarters of a bottle each"
+      }
     },
     "personalChips": {
       "love": "What would I love tonight?",
