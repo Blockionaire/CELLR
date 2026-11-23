@@ -32,7 +32,11 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
   const events = Object.entries(summary.events_30d).sort((a, b) => b[1] - a[1]);
   return (
     <>
-      <Link href="/admin/users" prefetch={false} className="text-small text-ink-2 hover:underline">
+      <Link
+        href="/admin/users"
+        prefetch={false}
+        className="hidden text-small text-ink-2 hover:underline lg:inline"
+      >
         ← Users
       </Link>
       <PageTitle

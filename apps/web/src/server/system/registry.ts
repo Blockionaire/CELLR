@@ -92,10 +92,10 @@ const components = [
     status: "implemented",
     summary: "Internal dashboard: catalogue, bottle library, metrics, this map",
     responsibility:
-      "Server-rendered admin pages; each checks the admin session itself and answers 404 otherwise. Changes go through Server Actions that check again and are audited.",
+      "Server-rendered admin pages; each checks the admin session itself and answers 404 otherwise. Changes go through Server Actions that check again and are audited. Mobile-first since Mobile Admin Portal 2.0: a header and a tab bar below 1024 px (the sidebar above), lists as cards, the architecture as a list with a map mode. Installs as its own home-screen app, CELLR Admin (public manifest /admin.webmanifest: names and icons only).",
     inputs: ["Verified admin session (CELLR_ADMIN_USER_IDS)"],
     outputs: ["Catalogue decisions", "Bottle art", "Source decisions"],
-    sources: [W + "app/admin/", W + "features/admin/"],
+    sources: [W + "app/admin/", W + "app/admin.webmanifest/", W + "features/admin/"],
     hosts: ["github.com"],
   },
 
@@ -124,6 +124,19 @@ const components = [
     outputs: ["JSON responses", "Calls into services"],
     sources: [W + "server/http.ts", W + "app/api/v1/"],
     env: ["CELLR_DEMO_ORIGINS"],
+  },
+  {
+    id: "http-response",
+    name: "JSON response shape",
+    layer: "edge",
+    status: "implemented",
+    summary: "Every JSON response: no-store, nosniff",
+    responsibility:
+      "The one shape of a JSON response the server sends: private, uncacheable (Cache-Control: no-store) and never content-sniffed (X-Content-Type-Options: nosniff). No request handling of its own; the API, the health endpoints and the cron round answer through it.",
+    inputs: ["A body and a status"],
+    outputs: ["A Response"],
+    sources: [W + "server/http-response.ts"],
+    foundation: true,
   },
   {
     id: "request-context",
@@ -1474,6 +1487,27 @@ const edges: SystemEdge[] = [
   ),
   edge(
     "api-v1",
+    "http-response",
+    "control",
+    "JSON responses: no-store, nosniff",
+    web("server/http.ts", 'from "./http-response"'),
+  ),
+  edge(
+    "health-monitor",
+    "http-response",
+    "control",
+    "JSON responses: no-store, nosniff",
+    web("server/health/http.ts", 'from "@/server/http-response"'),
+  ),
+  edge(
+    "cron-endpoint",
+    "http-response",
+    "control",
+    "JSON responses: no-store, nosniff",
+    web("server/push/cron.ts", 'from "@/server/http-response"'),
+  ),
+  edge(
+    "api-v1",
     "composition-root",
     "request",
     "servicesFor(ctx)",
@@ -2538,7 +2572,7 @@ const edges: SystemEdge[] = [
     "admin-service",
     "health-monitor",
     "request",
-    "System › Health, the map's overlay, Measure now",
+    "System › Health, the overview's status, the map's overlay, Measure now",
     web("server/admin/service.ts", "export async function adminHealthOverlay"),
   ),
   edge(
@@ -2590,6 +2624,20 @@ const edges: SystemEdge[] = [
   edge(
     "admin-portal",
     "api-v1",
+    "request",
+    "sign out (the installed CELLR Admin app has no profile page)",
+    web("features/admin/sign-out-button.tsx", 'fetch("/api/v1/auth/sign-out"'),
+  ),
+  edge(
+    "admin-portal",
+    "app-pwa",
+    "request",
+    "the iOS launch images of the home-screen app",
+    web("app/admin/layout.tsx", 'from "../splash-screens"'),
+  ),
+  edge(
+    "admin-portal",
+    "api-v1",
     "control",
     "label upload checks the origin and reads the form",
     web("app/admin/wines/[id]/labels/route.ts", 'from "@/server/http"'),
@@ -2631,20 +2679,6 @@ const edges: SystemEdge[] = [
     "request",
     "auth service",
     web(SERVICES, 'from "@/server/auth/service"'),
-  ),
-  edge(
-    "cron-endpoint",
-    "api-v1",
-    "control",
-    "JSON responses",
-    web("server/push/cron.ts", 'from "@/server/http"'),
-  ),
-  edge(
-    "health-monitor",
-    "api-v1",
-    "control",
-    "JSON responses",
-    web("server/health/http.ts", 'from "@/server/http"'),
   ),
   edge(
     "health-monitor",
@@ -2842,8 +2876,8 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.3.1",
-  reviewedOn: "2026-11-22",
+  version: "1.5.1",
+  reviewedOn: "2026-11-23",
   repository: "Blockionaire/CELLR",
   components,
   edges,

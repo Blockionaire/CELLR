@@ -74,60 +74,124 @@ export function RegisterView({ view, index, matches, onOpen }: ViewProps) {
     </th>
   );
 
+  // below 768 px each row is a card (one DOM, CSS only); the header's sort buttons become a row of chips
+  const cell =
+    "px-3 py-2 max-md:flex max-md:flex-col max-md:items-start max-md:gap-0.5 max-md:p-0 max-md:text-left max-md:before:text-caption max-md:before:font-medium max-md:before:text-ink-2 max-md:before:content-[attr(data-label)]";
+  const SORTS: ReadonlyArray<[SortKey, string]> = [
+    ["name", "Name"],
+    ["layer", "Layer"],
+    ["status", "Status"],
+    ["out", "Uses"],
+    ["in", "Used by"],
+    ["risks", "Risks"],
+  ];
   return (
-    <div className="overflow-x-auto rounded-[18px] border border-hairline bg-surface">
-      <table className="w-full min-w-[760px] text-small" data-testid="register-table">
-        <caption className="sr-only">Component register, {rows.length} components</caption>
-        <thead className="border-b border-hairline text-caption uppercase tracking-[0.06em] text-ink-2">
-          <tr>
-            {th("name", "Component")}
-            {th("layer", "Layer")}
-            {th("status", "Status")}
-            {th("out", "Uses", "text-right")}
-            {th("in", "Used by", "text-right")}
-            {th("risks", "Risks", "text-right")}
-            <th scope="col" className="px-3 py-2 text-left font-semibold">
-              Owns
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((c) => (
-            <tr key={c.id} className="border-b border-hairline last:border-0 hover:bg-raised/60">
-              <td className="px-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => onOpen(c.id)}
-                  className="text-left font-medium text-accent-fg underline-offset-4 hover:underline"
-                >
-                  {c.name}
-                </button>
-                <p className="text-caption text-ink-2">{c.summary}</p>
-              </td>
-              <td className="whitespace-nowrap px-3 py-2" style={{ color: LAYER_COLOR(c.layer) }}>
-                {SYSTEM_LAYER_LABEL[c.layer]}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2">
-                <StatusPill status={c.status} />
-              </td>
-              <td className="px-3 py-2 text-right tnum">{index.out.get(c.id)?.length ?? 0}</td>
-              <td className="px-3 py-2 text-right tnum">{index.in.get(c.id)?.length ?? 0}</td>
-              <td className="px-3 py-2 text-right tnum">{c.risks?.length ?? 0}</td>
-              <td className="px-3 py-2 text-caption text-ink-2">
-                {[
-                  c.tables?.length ? `${c.tables.length} tables` : null,
-                  c.routes?.length ? `${c.routes.length} routes` : null,
-                  c.buckets?.length ? `${c.buckets.length} buckets` : null,
-                  c.cronJobs?.length ? `${c.cronJobs.length} jobs` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ") || "—"}
-              </td>
+    <>
+      <div
+        role="group"
+        aria-label="Sort the register"
+        className="mb-2 flex flex-wrap items-center gap-1.5 md:hidden"
+      >
+        <span className="mr-1 text-caption font-medium text-ink-2">Sort</span>
+        {SORTS.map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            aria-pressed={sort.key === k}
+            onClick={() => setSort((s) => ({ key: k, desc: s.key === k ? !s.desc : false }))}
+            className={cn(
+              "inline-flex min-h-9 items-center rounded-full px-3 text-caption font-medium ring-1",
+              sort.key === k
+                ? "bg-ink text-canvas ring-ink"
+                : "text-ink-2 ring-ink-3/50 hover:bg-raised hover:text-ink",
+            )}
+          >
+            {label}
+            {sort.key === k ? (sort.desc ? " ↓" : " ↑") : ""}
+          </button>
+        ))}
+      </div>
+      <div className="md:overflow-x-auto md:rounded-[18px] md:border md:border-hairline md:bg-surface">
+        <table
+          role="table"
+          className="w-full text-small md:min-w-[760px]"
+          data-testid="register-table"
+        >
+          <caption className="sr-only">Component register, {rows.length} components</caption>
+          <thead className="border-b border-hairline text-caption uppercase tracking-[0.06em] text-ink-2 max-md:sr-only">
+            <tr>
+              {th("name", "Component")}
+              {th("layer", "Layer")}
+              {th("status", "Status")}
+              {th("out", "Uses", "text-right")}
+              {th("in", "Used by", "text-right")}
+              {th("risks", "Risks", "text-right")}
+              <th scope="col" className="px-3 py-2 text-left font-semibold">
+                Owns
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody className="max-md:flex max-md:flex-col max-md:gap-2">
+            {rows.map((c) => (
+              <tr
+                key={c.id}
+                role="row"
+                className="border-b border-hairline hover:bg-raised/60 md:last:border-0 max-md:grid max-md:grid-cols-3 max-md:gap-x-3 max-md:gap-y-2 max-md:rounded-[14px] max-md:border max-md:bg-surface max-md:p-3.5"
+              >
+                <td role="cell" className="px-3 py-2 max-md:col-span-3 max-md:p-0">
+                  <button
+                    type="button"
+                    onClick={() => onOpen(c.id)}
+                    className="text-left font-medium text-accent-fg underline-offset-4 hover:underline"
+                  >
+                    {c.name}
+                  </button>
+                  <p className="text-caption text-ink-2">{c.summary}</p>
+                </td>
+                <td
+                  role="cell"
+                  data-label="Layer"
+                  className={cn(cell, "md:whitespace-nowrap")}
+                  style={{ color: LAYER_COLOR(c.layer) }}
+                >
+                  {SYSTEM_LAYER_LABEL[c.layer]}
+                </td>
+                <td
+                  role="cell"
+                  data-label="Status"
+                  className={cn(cell, "max-md:col-span-2 md:whitespace-nowrap")}
+                >
+                  <StatusPill status={c.status} />
+                </td>
+                <td role="cell" data-label="Uses" className={cn(cell, "tnum md:text-right")}>
+                  {index.out.get(c.id)?.length ?? 0}
+                </td>
+                <td role="cell" data-label="Used by" className={cn(cell, "tnum md:text-right")}>
+                  {index.in.get(c.id)?.length ?? 0}
+                </td>
+                <td role="cell" data-label="Risks" className={cn(cell, "tnum md:text-right")}>
+                  {c.risks?.length ?? 0}
+                </td>
+                <td
+                  role="cell"
+                  data-label="Owns"
+                  className={cn(cell, "text-caption text-ink-2 max-md:col-span-3")}
+                >
+                  {[
+                    c.tables?.length ? `${c.tables.length} tables` : null,
+                    c.routes?.length ? `${c.routes.length} routes` : null,
+                    c.buckets?.length ? `${c.buckets.length} buckets` : null,
+                    c.cronJobs?.length ? `${c.cronJobs.length} jobs` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 

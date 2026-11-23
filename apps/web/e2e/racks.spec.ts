@@ -1,5 +1,15 @@
 import { expect, test, type BrowserContextOptions, type Page } from "@playwright/test";
-import { api, apiClient, arrive, audit, PUBLISHABLE_KEY, sql, STACK, wineBody } from "./helpers";
+import {
+  api,
+  apiClient,
+  arrive,
+  audit,
+  PUBLISHABLE_KEY,
+  settled,
+  sql,
+  STACK,
+  wineBody,
+} from "./helpers";
 
 const shot = (name: string) => `test-results/shots/${name}.png`;
 const project = () => test.info().project.name;
@@ -380,23 +390,32 @@ test.describe("the racks view is accessible in both themes", () => {
       await page
         .getByRole("button", { name: /Chablis Premier Cru 2019, shelf 1, position 1/i })
         .click();
-      await expect(page.getByRole("dialog")).toBeVisible();
+      // A sheet fades in (260 ms) and out (160 ms): each is audited once it has come to rest, and gone before the
+      // next opens. Measured mid-fade, its text is half-transparent and axe rightly calls it low-contrast (CI run
+      // 45150763346: 3 of 4 attempts on a busy runner).
+      const sheet = page.getByRole("dialog");
+      await expect(sheet).toBeVisible();
+      await settled(sheet);
       expect(await audit(page), "peek").toEqual([]);
       await page.keyboard.press("Escape");
+      await expect(sheet).toHaveCount(0);
 
       await page
         .getByRole("region", { name: "Wine fridge" })
         .getByRole("button", { name: "Manage" })
         .click();
-      await expect(page.getByRole("dialog")).toBeVisible();
+      await expect(sheet).toBeVisible();
+      await settled(sheet);
       expect(await audit(page), "manage").toEqual([]);
       await page.keyboard.press("Escape");
+      await expect(sheet).toHaveCount(0);
 
       await page
         .getByRole("region", { name: "Wine fridge" })
         .getByRole("button", { name: "Shelf 5, position 4, empty" })
         .click();
-      await expect(page.getByRole("dialog")).toBeVisible();
+      await expect(sheet).toBeVisible();
+      await settled(sheet);
       expect(await audit(page), "place here").toEqual([]);
     });
   }

@@ -21,7 +21,8 @@ import {
   getAdminSession,
 } from "@/server/admin/service";
 import { cn } from "@/ui/cn";
-import { Notice, PageTitle, Pill, Section, link, quiet, type Tone } from "../../_ui";
+import { SubmitButton } from "@/features/admin/submit-button";
+import { Notice, PageTitle, Pill, Section, Tab, link, quiet, type Tone } from "../../_ui";
 import { measureNowAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -81,6 +82,21 @@ const RESULT = {
   record_failed: { tone: "danger", text: "Not measured: the results could not be stored." },
 } as const satisfies Record<string, { tone: Tone; text: string }>;
 
+/** What the list shows: everything, or one kind of result. "Problems" is failed or degraded. */
+const SHOWS = ["all", "problems", "healthy", "unknown"] as const;
+type Show = (typeof SHOWS)[number];
+const SHOW_LABEL: Record<Show, string> = {
+  all: "All",
+  problems: "Problems",
+  healthy: "Healthy",
+  unknown: "Unknown",
+};
+const inShow = (show: Show, status: HealthStatus) =>
+  show === "all" ||
+  (show === "problems" ? status === "failed" || status === "degraded" : status === show);
+/** Worst first, so a problem is never below a list of passing checks. */
+const RANK: Record<HealthStatus, number> = { failed: 0, degraded: 1, unknown: 2, healthy: 3 };
+
 const KIND_ORDER: readonly ProbeKind[] = [
   "monitor",
   "infrastructure",
@@ -112,6 +128,10 @@ export default async function AdminSystemHealthPage({
     typeof params.result === "string" && Object.hasOwn(RESULT, params.result)
       ? RESULT[params.result as keyof typeof RESULT]
       : null;
+  const show: Show =
+    typeof params.show === "string" && (SHOWS as readonly string[]).includes(params.show)
+      ? (params.show as Show)
+      : "all";
   const [view, config] = [await adminHealth(session), adminHealthConfig(session)];
   const names = new Map(adminArchitecture(session).registry.components.map((c) => [c.id, c.name]));
 
@@ -122,10 +142,14 @@ export default async function AdminSystemHealthPage({
         crumbs={[{ label: "System", href: "/admin/system" }, { label: "Health" }]}
         note="What the monitor measured, judged now. A check proves only what it measures: a pass means that aspect answered, not that the feature works for people. Missing or old measurements show as unknown, never as healthy."
       >
-        <form action={measureNowAction}>
-          <button type="submit" className={quiet}>
+        <form action={measureNowAction} className="w-full sm:w-auto">
+          <SubmitButton
+            pending="Measuring…"
+            className={`${quiet} w-full sm:w-auto`}
+            testId="measure-now"
+          >
             Measure now
-          </button>
+          </SubmitButton>
         </form>
       </PageTitle>
       {result && (
@@ -144,7 +168,7 @@ export default async function AdminSystemHealthPage({
           </p>
         </Notice>
       ) : (
-        <Board view={view} names={names} />
+        <Board view={view} names={names} show={show} />
       )}
 
       <Section
@@ -153,7 +177,10 @@ export default async function AdminSystemHealthPage({
         tag="Read-only"
         note="This page runs inside CELLR, so it cannot report CELLR being down. These run outside it; their state is set in GitHub and the server's settings (OPERATIONS.md)."
       >
-        <ul className="grid gap-2 text-small sm:grid-cols-2" data-testid="health-config">
+        <ul
+          className="grid grid-cols-1 gap-2 text-small sm:grid-cols-2"
+          data-testid="health-config"
+        >
           <ConfigItem
             on={config.roundTrigger}
             title="Round trigger (/api/cron/health, every 10 min from outside)"
@@ -164,7 +191,7 @@ export default async function AdminSystemHealthPage({
             on={config.pingUrl}
             title="Dead man's switch (uptime provider)"
             yes="After every recorded round the monitor calls the configured URL; the provider alerts when the calls stop."
-            no="Not configured (CELLR_HEALTH_PING_URL). Planned with the uptime provider in sprint 3."
+            no="Not configured (CELLR_HEALTH_PING_URL): nothing outside CELLR notices when rounds stop."
           />
           <ConfigItem
             on={config.readyToken}
@@ -208,12 +235,29 @@ function ConfigItem({
 
 type Available = Extract<Awaited<ReturnType<typeof adminHealth>>, { state: "available" }>;
 
-function Board({ view, names }: { view: Available; names: ReadonlyMap<string, string> }) {
+function Board({
+  view,
+  names,
+  show,
+}: {
+  view: Available;
+  names: ReadonlyMap<string, string>;
+  show: Show;
+}) {
   const o = view.overview;
   const now = new Date(o.now);
   const head = headline(o.counts);
   const measured = new Set(o.components.map((c) => c.componentId));
   const unmeasured = [...names].filter(([id]) => !measured.has(id));
+  const problems = o.probes
+    .filter((p) => p.status === "failed" || p.status === "degraded")
+    .sort((a, b) => RANK[a.status] - RANK[b.status]);
+  const count: Record<Show, number> = {
+    all: o.probes.length,
+    problems: problems.length,
+    healthy: o.counts.healthy,
+    unknown: o.counts.unknown,
+  };
   return (
     <>
       <div
@@ -237,18 +281,84 @@ function Board({ view, names }: { view: Available; names: ReadonlyMap<string, st
           {o.monitor.lastRound?.finishedAt &&
             ` Last round ${age(o.monitor.ageSec)} (${o.monitor.lastRound.trigger}${o.monitor.lastRound.outcome === "partial" ? ", some checks could not run" : ""}).`}
         </p>
-        <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-small text-ink-2">
+        <dl className="mt-3 grid grid-cols-2 gap-2 text-small sm:grid-cols-4">
           {(["failed", "degraded", "unknown", "healthy"] as const).map((s) => (
-            <div key={s} className="flex items-center gap-1.5">
-              <dt>{HEALTH_STATUS_LABEL[s]}</dt>
-              <dd className="font-semibold text-ink tnum">{o.counts[s]}</dd>
+            <div
+              key={s}
+              className="flex items-center gap-2 rounded-[12px] bg-raised/70 px-3 py-2"
+              data-count={s}
+            >
+              <span
+                aria-hidden="true"
+                className="grid size-5 shrink-0 place-items-center rounded-full text-[0.7rem] font-bold text-white"
+                style={{ background: HEALTH_COLOR[s] }}
+              >
+                {HEALTH_GLYPH[s]}
+              </span>
+              <dt className="text-ink-2">{HEALTH_STATUS_LABEL[s]}</dt>
+              <dd className="ml-auto font-semibold text-ink tnum">{o.counts[s]}</dd>
             </div>
           ))}
         </dl>
       </div>
 
+      {problems.length > 0 && show === "all" && (
+        <nav
+          aria-label="Checks that need attention"
+          className="mb-6 rounded-[14px] border border-fading-ink/30 bg-fading-bg/40 p-3"
+          data-testid="health-problems"
+        >
+          <p className="px-1 text-small font-semibold text-ink">Needs attention</p>
+          <ul className="mt-1">
+            {problems.map((p) => (
+              <li key={p.probe.id}>
+                <a
+                  href={`#probe-${p.probe.id}`}
+                  className="flex min-h-11 items-center gap-2 rounded-[10px] px-1 text-small hover:bg-surface/70"
+                >
+                  <Status status={p.status} />
+                  <span className="min-w-0 flex-1 font-medium text-ink">{p.probe.label}</span>
+                  <span className="shrink-0 text-caption text-ink-2">{reasonText(p.reason)}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+
+      <nav
+        aria-label="Show checks"
+        className="mb-5 flex flex-wrap gap-2"
+        data-testid="health-filter"
+      >
+        {SHOWS.map((s) => (
+          <Tab
+            key={s}
+            href={s === "all" ? "/admin/system/health" : `/admin/system/health?show=${s}`}
+            current={s === show}
+            count={count[s]}
+          >
+            {SHOW_LABEL[s]}
+          </Tab>
+        ))}
+      </nav>
+      {show !== "all" && count[show] === 0 && (
+        <p
+          className="mb-6 rounded-[14px] border border-dashed border-hairline p-6 text-small text-ink-2"
+          data-testid="health-filter-empty"
+        >
+          {show === "problems"
+            ? "No check failed or is degraded right now. That is only what the checks measure; unknown checks are not counted as passing."
+            : show === "healthy"
+              ? "No check has a current, passing measurement."
+              : "Every check has a current measurement."}
+        </p>
+      )}
+
       {KIND_ORDER.map((kind) => {
-        const probes = o.probes.filter((p) => p.probe.kind === kind);
+        const probes = o.probes
+          .filter((p) => p.probe.kind === kind && inShow(show, p.status))
+          .sort((a, b) => RANK[a.status] - RANK[b.status]);
         if (!probes.length) return null;
         return (
           <Section key={kind} title={PROBE_KIND_LABEL[kind]} id={`kind-${kind}`}>
@@ -316,7 +426,8 @@ function ProbeRow({
   const facts = Object.entries(p.detail).filter(([, v]) => v !== null);
   return (
     <li
-      className="rounded-[14px] border border-hairline bg-surface p-3"
+      id={`probe-${p.probe.id}`}
+      className="scroll-mt-24 rounded-[14px] border border-hairline bg-surface p-3"
       data-probe={p.probe.id}
       data-status={p.status}
       data-reason={p.reason}
@@ -325,14 +436,16 @@ function ProbeRow({
         <Status status={p.status} />
         <span className="font-semibold text-ink">{p.probe.label}</span>
         <span className="text-caption text-ink-2">{reasonText(p.reason)}</span>
-        {p.measuredAt && (
-          <span className="ml-auto text-caption text-ink-2 tnum">
+        {p.measuredAt ? (
+          <span className="text-caption text-ink-2 tnum sm:ml-auto">
             {p.latencyMs !== null && `${p.latencyMs} ms · `}
             measured {age(p.ageSec)}
             {p.status === "unknown" && p.lastStatus && p.reason === "stale"
               ? ` · last said ${HEALTH_STATUS_LABEL[p.lastStatus].toLowerCase()}`
               : ""}
           </span>
+        ) : (
+          <span className="text-caption text-ink-2 sm:ml-auto">no measurement</span>
         )}
       </div>
       <div
@@ -350,7 +463,7 @@ function ProbeRow({
         ))}
       </div>
       <details className="mt-2 text-caption text-ink-2">
-        <summary className="cursor-pointer">
+        <summary className="cursor-pointer py-2">
           Speaks for {p.probe.components.map((c) => names.get(c) ?? c).join(", ")}
           {facts.length > 0 &&
             ` · ${facts.map(([k, v]) => `${k} ${typeof v === "boolean" ? (v ? "yes" : "no") : v}`).join(", ")}`}
