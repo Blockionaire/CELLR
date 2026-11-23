@@ -124,6 +124,10 @@ test("a tap on a position with a bottle in front never takes the one behind", as
   page,
   hasTouch,
 }) => {
+  // One picture and three bottles taken out and put back in turn, on the same page (each tap after the last one is
+  // home): 17–27 s on a normal CI runner, over 30 s on a slow one (runs 45035147086 and 45079105123, out of time
+  // during the third bottle; the trace: 9 s to the first frame, then 8–10 s a bottle), locally 14–31 s.
+  test.setTimeout(60_000);
   await show(page, "template=rack_double_depth&rows=2&cols=3&fill=full");
   for (const id of ["b-1:1:1", "b-1:3:1", "b-2:2:1"]) {
     const at = await whereIs(page, id);
@@ -348,17 +352,19 @@ test("the gallery has no accessibility violations, for a rack and for bins", asy
   }
 });
 
-test("a place whose arrangement is not known gets the neutral picture and says so", async ({
-  page,
-}) => {
-  for (const unknown of ["unknown-template", "kind-mismatch", "pegs-three-each", "bins-as-depth"]) {
+// One test per kind of unknown arrangement: each is a page of its own. As a single test the four pages shared one
+// 30 s budget, and on a slow CI runner each took 8–9 s to its first frame (runs 45035147086 and 45079105123: out of
+// time on the fourth).
+for (const unknown of ["unknown-template", "kind-mismatch", "pegs-three-each", "bins-as-depth"])
+  test(`a place whose arrangement is not known (${unknown}) gets the neutral picture and says so`, async ({
+    page,
+  }) => {
     await show(page, `sample=unknown&unknown=${unknown}`);
     await expect(canvasOf(page)).toHaveAttribute("data-renderer", "neutral");
     await expect(canvasOf(page)).toHaveAttribute("data-template", "");
     await expect(page.getByTestId("layout-map-unknown")).toBeVisible();
     await expect(page.getByTestId("layout-map")).toHaveAttribute("data-mode", "count");
-  }
-});
+  });
 
 test("a place from before templates is drawn by the existing 3D view", async ({ page }) => {
   await page.goto("/design/cellar-3d?sample=legacy&rows=4&cols=6");

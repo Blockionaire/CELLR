@@ -60,7 +60,11 @@ export default async function AdminCandidatePage({
         title={`${c.producer} — ${c.name}`}
         note={`Candidate · ${STATE_LABEL[state]} · grouping key ${c.identityKey}`}
       >
-        <Link href="/admin/catalog" prefetch={false} className={`${link} text-small`}>
+        <Link
+          href="/admin/catalog"
+          prefetch={false}
+          className={`${link} hidden text-small lg:inline`}
+        >
           ← All candidates
         </Link>
       </PageTitle>
@@ -76,7 +80,7 @@ export default async function AdminCandidatePage({
           <Kpi label="Rival colours/countries" value={num(row.rivals)} />
           <Kpi label="Appellations given" value={num(row.appellationVariants)} />
         </Kpis>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <Table
             head={[
               { label: "Vintage" },
@@ -123,7 +127,7 @@ export default async function AdminCandidatePage({
       </Section>
 
       <Section title="The catalogue and similar candidates">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Table
             head={[{ label: "Catalogue wines of this producer" }, { label: "Type · country" }]}
             rows={c.catalogWines.map((w) => ({
@@ -159,7 +163,10 @@ export default async function AdminCandidatePage({
             : `This candidate is ${c.status}.`
         }
       >
-        <form action={editAction.bind(null, c.id)} className="grid gap-3 text-small md:grid-cols-2">
+        <form
+          action={editAction.bind(null, c.id)}
+          className="grid grid-cols-1 gap-3 text-small md:grid-cols-2"
+        >
           <label className="flex flex-col gap-1">
             Producer
             <input

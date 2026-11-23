@@ -204,6 +204,7 @@ describe("the URL hash", () => {
   it("round-trips the view", () => {
     const state = {
       tab: "flows",
+      mode: "map",
       selected: "svc-scans",
       direction: "dependents",
       depth: Infinity,
@@ -213,10 +214,14 @@ describe("the URL hash", () => {
     expect(writeHash({ tab: "map", selected: null, direction: "both", depth: 1, flow: null })).toBe(
       "",
     );
+    // a phone opens the component list unless the link asks for the drawing
+    expect(writeHash({ ...state, tab: "map", mode: "list" })).not.toContain("m=");
+    expect(readHash("#c=svc-scans", known, flows).mode).toBe("list");
   });
   it("ignores anything it does not know", () => {
-    expect(readHash("#v=evil&c=<script>&d=up&n=99&f=nope", known, flows)).toEqual({
+    expect(readHash("#v=evil&m=evil&c=<script>&d=up&n=99&f=nope", known, flows)).toEqual({
       tab: "map",
+      mode: "list",
       selected: null,
       direction: "both",
       depth: 1,

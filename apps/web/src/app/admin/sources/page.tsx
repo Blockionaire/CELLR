@@ -218,7 +218,7 @@ function SourceCard({ source: s, linksHref }: { source: SourceOverview; linksHre
         </Pill>
         {s.openRuns > 0 && <Pill tone="warn">{num(s.openRuns)} import open</Pill>}
       </div>
-      <dl className="mt-3 grid gap-x-6 gap-y-2 text-small text-ink-2 md:grid-cols-2">
+      <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 text-small text-ink-2 md:grid-cols-2">
         <div>
           <dt className="font-medium text-ink">Licence</dt>
           <dd>
@@ -293,7 +293,7 @@ function SourceCard({ source: s, linksHref }: { source: SourceOverview; linksHre
           className="mt-4 flex flex-wrap items-end gap-3 border-t border-hairline pt-4"
         >
           <input type="hidden" name="providerId" value={s.id} />
-          <label className="flex min-w-[16rem] flex-1 flex-col gap-1 text-small text-ink-2">
+          <label className="flex min-w-0 flex-1 basis-full flex-col gap-1 text-small text-ink-2 sm:min-w-[16rem] sm:basis-auto">
             Reason for switching {s.name} off (logged)
             <input name="reason" required minLength={3} maxLength={400} className={input} />
           </label>
@@ -426,7 +426,7 @@ function LinkCard({ row, tab, source }: { row: LinkRow; tab: LinkState; source: 
         <input type="hidden" name="wineId" value={row.wine.id} />
         <input type="hidden" name="tab" value={tab} />
         {source && <input type="hidden" name="source" value={source} />}
-        <label className="flex min-w-[16rem] flex-1 flex-col gap-1 text-small text-ink-2">
+        <label className="flex min-w-0 flex-1 basis-full flex-col gap-1 text-small text-ink-2 sm:min-w-[16rem] sm:basis-auto">
           Reason (logged)
           <input name="reason" required minLength={3} maxLength={400} className={input} />
         </label>
@@ -481,7 +481,7 @@ function Metrics({ metrics }: { metrics: IntelligenceMetrics | null }) {
         <Kpi label="Koopchecks completed" value={num(purchaseCheck?.completed ?? 0)} />
         <Kpi label="Scans completed" value={num(scan?.completed ?? 0)} />
       </Kpis>
-      <dl className="grid gap-x-6 gap-y-2 text-small text-ink-2 md:grid-cols-2">
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-small text-ink-2 md:grid-cols-2">
         <div>
           <dt className="font-medium text-ink">Search: where</dt>
           <dd>{spread(search?.bySurface ?? {})}</dd>
