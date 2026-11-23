@@ -466,6 +466,7 @@ const components = [
     sources: [
       W + "server/sommelier/service.ts",
       W + "server/sommelier/intelligence.ts",
+      W + "server/sommelier/parts/",
       W + "server/ai/prompts/sommelier.ts",
     ],
     gates: [

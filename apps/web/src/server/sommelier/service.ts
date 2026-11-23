@@ -5,6 +5,8 @@ import {
   guestsIn,
   hasSommelierPart,
   quantityFor,
+  reconcileServingClaims,
+  servingCheckOf,
   type InsightOutput,
   cellarDigest,
   cellarFacts,
@@ -35,6 +37,7 @@ import {
 } from "@cellr/domain";
 import { annotateBottles, servingFactsBlock } from "@cellr/domain/intelligence";
 import type { SommelierIntelligence } from "@/server/sommelier/intelligence";
+import { seeCardWords } from "@/server/sommelier/parts/serving-words";
 import type { AiErrorKind, AiUsage, LlmProvider } from "@/server/ai";
 import {
   parseSommelier,
@@ -162,6 +165,24 @@ export function createSommelierService(deps: SommelierDeps) {
           now: clock(),
         });
         if (annotations.length > 0) out = { ...out, annotations };
+        // The app's facts lead: a sentence of the model's that states another serving temperature, decanting
+        // time or drinking years for a wine on the cards is left out (the card shows the facts). No second
+        // call to the model: the words are compared in code.
+        if (out.source === "ai" && out.text !== null && annotations.length > 0) {
+          const said = reconcileServingClaims(
+            out.text,
+            annotations.flatMap((annotation) => {
+              const item = byId.get(annotation.vintageId);
+              return item ? [{ item, annotation }] : [];
+            }),
+          );
+          if (said.codes.length > 0)
+            out = {
+              ...out,
+              text: said.text ?? seeCardWords(await deps.locale().catch(() => "en")),
+              servingCheck: servingCheckOf(said),
+            };
+        }
       } catch {
         // The cards stay as V1 gave them.
       }

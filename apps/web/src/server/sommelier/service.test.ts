@@ -937,6 +937,81 @@ describe("Sommelier V1+ `annotate` (P4): the app's own facts on V1's cards", () 
     expect(state.requests[0]!.user).toContain("Château Margaux — Pavillon Rouge | 2015: serve at");
   });
 
+  it("the app's facts lead: a sentence that states another temperature, decanting time or drinking year is left out", async () => {
+    const items = cellar();
+    const { service, state } = setup({
+      items,
+      answer: {
+        answer:
+          "The Tignanello suits the lamb. Serve it at 22 °C after three hours in a carafe. Drink it before 2026.",
+        bottle_refs: [refs(items)[2]!],
+      },
+      parts: annotate,
+    });
+    const answer = await service.ask(ask("What goes with roast lamb?"));
+    // One model call; V1's wine is untouched; the sentences with the other numbers are gone, the first one stays.
+    expect(state.requests).toHaveLength(1);
+    expect(answer.bottles.map((b) => b.wineName)).toEqual(["Tignanello"]);
+    expect(answer.text).toBe("The Tignanello suits the lamb.");
+    expect(answer.servingCheck).toEqual({
+      v: 1,
+      text: "trimmed",
+      codes: ["temperature", "decanting", "window"],
+    });
+    expect(JSON.stringify(answer)).not.toMatch(/22 °C|three hours|2026/);
+  });
+
+  it("words that agree with the card are kept as they are, and nothing is noted", async () => {
+    const items = cellar();
+    const { service } = setup({
+      items,
+      answer: {
+        answer: "Serve the Tignanello at about 16 to 17 °C; it will drink well until 2030.",
+        bottle_refs: [refs(items)[2]!],
+      },
+      parts: annotate,
+    });
+    const answer = await service.ask(ask("How should I serve the Tignanello?"));
+    expect(answer.text).toBe(
+      "Serve the Tignanello at about 16 to 17 °C; it will drink well until 2030.",
+    );
+    expect(answer).not.toHaveProperty("servingCheck");
+  });
+
+  it("in Dutch, and when nothing is left of the words, the answer points at the card", async () => {
+    const items = cellar();
+    const { service } = setup({
+      items,
+      locale: "nl",
+      answer: {
+        answer: "Schenk de Tignanello op 22 graden en decanteer hem drie uur.",
+        bottle_refs: [refs(items)[2]!],
+      },
+      parts: annotate,
+    });
+    const answer = await service.ask(ask("Hoe serveer ik de Tignanello?"));
+    expect(answer.text).toBe(
+      "Hoe je hem serveert en wanneer je hem drinkt, staat op de kaart hieronder.",
+    );
+    expect(answer.servingCheck).toMatchObject({ text: "replaced" });
+    expect(answer.annotations).toHaveLength(1);
+  });
+
+  it("without the part the model's serving words are V1's, untouched", async () => {
+    const items = cellar();
+    const { service } = setup({
+      items,
+      answer: {
+        answer: "Serve it at 22 °C after three hours in a carafe.",
+        bottle_refs: [refs(items)[2]!],
+      },
+      parts: parseSommelierParts("quantities"),
+    });
+    const answer = await service.ask(ask("How should I serve the Tignanello?"));
+    expect(answer.text).toBe("Serve it at 22 °C after three hours in a carafe.");
+    expect(answer).not.toHaveProperty("servingCheck");
+  });
+
   it("a serving question that names no wine of the cellar, and any other question, get no block", async () => {
     const items = cellar();
     const { service, state } = setup({ items, parts: annotate });

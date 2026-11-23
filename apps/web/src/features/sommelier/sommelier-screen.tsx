@@ -39,6 +39,7 @@ import { EmptyState } from "@/ui/empty-state";
 import { plainSentence } from "./plain-sentence";
 import { PlanView } from "./plan-view";
 import { AnnotationView } from "./annotation-view";
+import { servingNote } from "./annotation-lines";
 import { QuantityView } from "./quantity-view";
 import { cn } from "@/ui/cn";
 import { ChevronRightIcon, ScanIcon } from "@/ui/icons";
@@ -627,6 +628,8 @@ function Answer({
 }) {
   const t = useTranslations("sommelier");
   let i = 0;
+  // The app's serving facts lead: when a sentence of the model's differed from them and was left out, say so.
+  const served = servingNote(answer.servingCheck, t);
   // Sommelier V1+ (`annotate`, `quantities`): the app's own facts for the cards, when the answer carries them.
   const annotationOf = (vintageId: string) =>
     answer.annotations?.find((a) => a.vintageId === vintageId) ?? null;
@@ -688,6 +691,11 @@ function Answer({
           <span className="sr-only">{t("sommelier")}: </span>
           {answer.source === "ai" ? answer.text : plainSentence(answer, t)}
         </p>
+        {served && (
+          <p className="mt-2 text-caption text-ink-3" data-testid="serving-note">
+            {served}
+          </p>
+        )}
       </div>
       {answer.bottles.length > 0 && (
         <ul className="flex flex-col gap-2.5">
