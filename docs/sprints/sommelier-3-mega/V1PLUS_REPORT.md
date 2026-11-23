@@ -61,6 +61,21 @@ The thresholds are the closeout's **proposal** (D-50), not an owner decision.
 | Full CI, integration branch (before fixes) | Run 45254808952: 21 of 23 jobs green, every sommelier test passed; the one failure is `scan-records.spec.ts` (the route announcer collides with `getByRole("alert")`), unrelated and addressed by the open #116 |
 | Per pull request                           | Each branch green alone on format, lint, types, unit tests, the architecture register and its browser tests; full CI by hand on each                                                                            |
 
+### Full CI on the branches (all 7 core and 7 3D end-to-end shards, run by hand)
+
+| Branch                        | Commit    | Run         | Result                                                                                                          |
+| ----------------------------- | --------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
+| `claude/sommelier-v1plus-p3`  | `d62156c` | 45267445415 | **Green**: every job, all 14 shards; the pull request's own checks green                                        |
+| `claude/sommelier-v1plus-p45` | `00c1184` | 45267451355 | 22 of 23 green; core shard 3 red on `scan-records.spec.ts:430` only. Superseded by the next commit              |
+| `claude/sommelier-v1plus-p45` | `439a6c8` | 45276785709 | Started for the commit that adds "the app's facts lead"; see the pull request's checks                          |
+| `claude/sommelier-v1plus-p6`  | `6000a7e` | 45267457095 | **Green**: every job, all 14 shards                                                                             |
+| `claude/sommelier-v1plus-p7`  | `642dae8` | 45267464492 | 21 of 23 green; core shard 6 red on `scan-records.spec.ts:430` only (desktop). The failed job was started again |
+| `claude/lucid-knuth-ck7ge0`   | `5c85798` | 45268693466 | **Green**: every job, all 14 shards, with all five parts on the features server and the journey test            |
+
+`scan-records.spec.ts:430` fails when Next's route announcer (`role="alert"`) is on the page together with the alert
+the test expects (`getByRole("alert")` then matches two elements). It is not Sommelier code, it passed on three of the
+five runs above, and the open #116 names the expected alert. No Sommelier test failed in any run.
+
 ## 3. Performance (free: a fake model that answers at once, reads in memory, a shared four-core machine)
 
 Measured after the review fixes (integration commit `85bd32f`, `results/p8-quality-bench.json`; the numbers before
