@@ -59,7 +59,7 @@ test.describe("the sommelier's fallback (CELLR_SOMMELIER=fallback)", () => {
     // The model was asked once, and not again.
     expect(await modelCalls(m)).toHaveLength(1);
     await expectNoSidewaysScroll(page);
-    expect(await audit(page)).toEqual([]);
+    await expect.poll(() => audit(page)).toEqual([]);
     await page.screenshot({ path: shot("v1plus-fallback"), fullPage: true });
 
     // The answer is kept with its reason: it is there, drawn the same, after a reload.
