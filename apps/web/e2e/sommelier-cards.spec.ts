@@ -3,6 +3,7 @@ import { apiClient, arrive, audit, FEATURES_URL } from "./helpers";
 import {
   ask,
   askAt,
+  chosen,
   DEFAULT_URL,
   DUTCH,
   expectNoSidewaysScroll,
@@ -210,9 +211,10 @@ test.describe("the cards' facts and V1 (API)", () => {
     const [v1, plus] = answers as [Record<string, unknown>, Record<string, unknown>];
     expect(v1.annotations).toBeUndefined();
     expect(v1.quantity).toBeUndefined();
-    const { annotations, ...rest } = plus;
-    // The same answer, and the same question put to the model: only the facts are new.
-    expect(rest).toEqual(v1);
+    const { annotations } = plus;
+    // The same wines and verdict, the same words, and the same question put to the model: the facts are added.
+    expect(chosen(plus)).toEqual(chosen(v1));
+    expect(plus.text).toEqual(v1.text);
     expect(prompts[1]).toEqual(prompts[0]);
     // One per card: a reference the model made up has no card and no facts.
     expect((annotations as Array<{ vintageId: string }>).map((a) => a.vintageId)).toEqual([
@@ -231,6 +233,9 @@ test.describe("the cards' facts and V1 (API)", () => {
         ]),
       ),
     );
-    expect(counted[1]).toEqual(counted[0]);
+    expect(chosen(counted[1]!)).toEqual(chosen(counted[0]!));
+    expect(counted[1]!.facts).toEqual(counted[0]!.facts);
+    expect(counted[1]!.annotations).toBeUndefined();
+    expect(counted[1]!.quantity).toBeUndefined();
   });
 });
