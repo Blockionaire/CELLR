@@ -548,6 +548,8 @@
     { "from": "app/(onboarding)/", "to": "server/me.ts" },
     { "from": "app/(public)/", "to": "features/auth/" },
     { "from": "app/(public)/", "to": "lib/routes.ts" },
+    { "from": "app/admin.webmanifest/", "to": "features/admin/" },
+    { "from": "app/admin/", "to": "app/splash-screens.ts" },
     { "from": "app/admin/", "to": "features/admin/" },
     { "from": "app/admin/", "to": "server/admin/" },
     { "from": "app/admin/", "to": "server/http.ts" },

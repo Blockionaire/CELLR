@@ -17,6 +17,7 @@ import { useState } from "react";
 import { cn } from "@/ui/cn";
 import { Logo } from "@/ui/logo";
 import { Sheet } from "@/ui/sheet";
+import { SignOutButton } from "./sign-out-button";
 import { ADMIN_NAV, TAB_LABEL, pageInfo, type AdminNavGroup, type AdminTab } from "./nav-model";
 
 /**
@@ -191,6 +192,7 @@ export function AdminMobileChrome() {
                 Open the CELLR app
                 <ChevronRight size={18} aria-hidden="true" />
               </Link>
+              <SignOutButton className="mb-2" />
             </>
           )}
         </div>

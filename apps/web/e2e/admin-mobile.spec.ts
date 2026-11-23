@@ -1,5 +1,6 @@
-import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
-import { arrive, audit, signIn, sql, stamp } from "./helpers";
+import { expect, test, type Browser, type Page } from "@playwright/test";
+import { ADMIN_ID, adminContext } from "./admin-session";
+import { arrive, audit, sql, stamp } from "./helpers";
 
 /**
  * Mobile Admin Portal 2.0: the whole admin portal on a phone (390 px, and the 320 px minimum), with the desktop kept
@@ -9,53 +10,15 @@ import { arrive, audit, signIn, sql, stamp } from "./helpers";
  * touch; health tells problems and unknowns apart. Its own data, under its own names: no other spec depends on it.
  * Screenshots land in test-results/shots/mobile-admin/ (local stack only: no real data, no credentials).
  */
-const ADMIN_ID = "00000000-0000-4000-8000-00000000ad01";
-const ADMIN_EMAIL = "feedback-admin@cellr.invalid";
 const SHOTS = "test-results/shots/mobile-admin";
 
-/**
- * The admin's session, signed in once per worker and reused: many specs sign in as this one admin at the same time,
- * and each sign-in reads the newest one-time code of that address, so fewer sign-ins means fewer of them racing.
- */
-type Session = Awaited<ReturnType<BrowserContext["storageState"]>>;
-let session: Promise<Session> | null = null;
-
 async function asAdmin(browser: Browser, width = 390, phone = true) {
-  const options = phone
-    ? { viewport: { width, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
-    : { viewport: { width, height: 900 } };
-  session ??= (async () => {
-    await sql("insert into auth.users (id, email) values ($1, $2) on conflict do nothing", [
-      ADMIN_ID,
-      ADMIN_EMAIL,
-    ]);
-    // another spec signing in as the same admin at the same moment can make our code stale: try again a little later
-    for (let attempt = 1; ; attempt++) {
-      const context = await browser.newContext(options);
-      try {
-        // a stale code leaves the sign-in page waiting: give each attempt its own limit
-        await Promise.race([
-          signIn(await context.newPage(), ADMIN_EMAIL),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("sign-in attempt timed out")), 25_000),
-          ),
-        ]);
-        const state = await context.storageState();
-        await context.close();
-        return state;
-      } catch (e) {
-        await context.close();
-        if (attempt === 3) throw e;
-        await new Promise((r) => setTimeout(r, 500 + Math.random() * 2_000));
-      }
-    }
-  })().catch((e) => {
-    session = null;
-    throw e;
-  });
-  const context = await browser.newContext({ ...options, storageState: await session });
-  const page = await context.newPage();
-  return { page, close: () => context.close() };
+  return adminContext(
+    browser,
+    phone
+      ? { viewport: { width, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
+      : { viewport: { width, height: 900 } },
+  );
 }
 
 /** A catalogue wine, a correction from a scan, and a bottle photo waiting for review: all under one fresh name. */

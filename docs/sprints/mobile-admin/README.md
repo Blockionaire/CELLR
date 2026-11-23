@@ -122,33 +122,76 @@ Inputs were 14 px, so iOS Safari zoomed the page whenever one got focus.
     `catalog_learning` switch and the one test admin, whose sign-in codes overwrite each other.
   - `admin-mobile.spec.ts` signs in once per worker and retries a sign-in that lost that race.
 
+## Two home-screen apps: CELLR and CELLR Admin
+
+Found on a real iPhone: adding `/admin` to the home screen installed the CELLR app, which opened `/`. Next's manifest
+file convention (`app/manifest.ts`) links one manifest on every page, and iOS takes the start page from it.
+
+|                    | CELLR                                                  | CELLR Admin                                             |
+| ------------------ | ------------------------------------------------------ | ------------------------------------------------------- |
+| Manifest           | `/manifest.webmanifest` (`app/manifest.ts`, unchanged) | `/admin.webmanifest` (`app/admin.webmanifest/route.ts`) |
+| `id`               | none, so `/` (its `start_url`, as before)              | `/admin`                                                |
+| `name` / iOS title | CELLR                                                  | CELLR Admin                                             |
+| `start_url`        | `/`                                                    | `/admin`                                                |
+| `scope`            | `/`                                                    | `/` (see below)                                         |
+| Icons              | `/icons/*`: burgundy glass on ivory                    | `/icons/admin/*`: ivory glass on burgundy, framed       |
+| Linked from        | every page except `/admin/**`                          | `/admin/**` only (`app/admin/layout.tsx` metadata)      |
+
+- **Scope `/` for the admin.** Sign-in (`/sign-in`), the session refresh and sign-out live outside `/admin`. With
+  scope `/admin`, iOS would open them in a browser sheet whose cookies are not the app's.
+- **The two apps are separate on an iPhone.** Each installed app has its own cookies, so the admin signs in once
+  inside CELLR Admin.
+- **Signing out.** The admin menu (phone) and the sidebar (desktop) now have **Sign out**: it ends this device's
+  session and goes to `/sign-in?next=/admin`, so signing in again returns to the admin.
+- **Public by design.** The manifest is served without a session (the proxy lets `/admin.webmanifest` through, like
+  `/manifest.webmanifest`). It holds names, colours, icons and the start page only. `/admin` itself still answers
+  404 to anyone not on the allowlist, and their pages link the CELLR app's manifest.
+- **Icons** are generated from the logo with the others: `pnpm icons` (`scripts/generate-icons.mjs`). The CELLR
+  app's icons come out byte-identical.
+
+**Tested** (`e2e/admin-pwa.spec.ts`):
+
+- both manifests are public, valid JSON with `application/manifest+json`, and their fields match the table above;
+- the admin manifest holds no ids, addresses or setting names;
+- `/sign-in` and `/` link the CELLR manifest, the iOS title "CELLR" and its icon;
+- `/admin`, `/admin/wines` and `/admin/system/health` link only the admin manifest, the title "CELLR Admin" and the
+  admin icon;
+- Chromium (DevTools `Page.getAppId`, `Page.getInstallabilityErrors`) installs two apps with ids `/` and
+  `/admin`, with no reason against either other than Playwright's own incognito profile;
+- in the admin: navigate, sign out from the menu, find `/admin` closed, sign in again, and land on `/admin`.
+
 ## Not verifiable here: real iPhone and installed PWA
 
 Everything above ran in Chromium with phone emulation (touch, 390/320 px, device scale 2). That is not iOS Safari:
 safe-area insets are 0 in emulation, and WebKit's own behaviour (keyboard, `100dvh`, rubber-band scrolling, the
 standalone app) was not exercised. Manual check on an iPhone, once on a preview deployment:
 
-1. In Safari, open `/admin` and sign in as an admin.
-2. Share → Add to Home Screen, then open CELLR from the home screen.
-3. Overview:
-   - the header sits under the notch and the tab bar sits above the home indicator;
-   - nothing is hidden behind either.
-4. Tab bar:
+1. Remove any old home-screen icon that was meant for the admin: touch and hold it → Remove App → Delete from Home
+   Screen. (It was installed as the CELLR app; it does not change into CELLR Admin.) Your CELLR app icon, if you
+   have one, stays.
+2. In Safari, open `/admin` on the deployment under test and sign in as an admin. Wait until the Overview shows.
+3. Share → Add to Home Screen. The suggested name is **CELLR Admin** and the icon is the ivory glass on burgundy.
+   Tap Add.
+4. Open CELLR Admin from the home screen:
+   - it opens on the admin, not on the CELLR app (sign in once if asked: the installed app has its own cookies);
+   - the header sits under the notch and the tab bar above the home indicator, with nothing hidden behind either.
+5. Tab bar:
    - Wine opens a sheet; choose Corrections;
    - the tab stays marked;
    - the back swipe and the header's back button behave.
-5. Wine Master Database:
+6. Wine Master Database:
    - tap the search field: the page does not zoom, and the keyboard's Search key submits;
    - open Filters, change one, Apply.
-6. Open a correction and mark it Reviewed. The green "Done." message appears.
-7. Architecture:
+7. Open a correction and mark it Reviewed. The green "Done." message appears.
+8. Architecture:
    - tap a component: the sheet opens, scrolls inside, and drags down to close;
    - Show on the map: pinch and drag move the map, not the page;
    - fit-all works.
-8. Health:
+9. Health:
    - filter Problems and Unknown;
    - unfold a check;
    - Measure now shows "Measuring…", then a result.
-9. Turn the phone to landscape on two pages: no sideways scroll, and the tab bar stays reachable.
-10. Close the app, reopen it from the home screen: the session holds. Sign out, reopen `/admin`: the sign-in page,
-    no admin content.
+10. Turn the phone to landscape on two pages: no sideways scroll, and the tab bar stays reachable.
+11. Menu → Sign out: the sign-in page, still inside CELLR Admin. Sign in again: back on the admin Overview.
+12. Close CELLR Admin and reopen it: the session holds.
+13. If you have the CELLR app on the home screen, open it: it opens `/` as before, with its own icon and name.

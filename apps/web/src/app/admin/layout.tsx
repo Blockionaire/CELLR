@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { AdminNav } from "@/features/admin/admin-nav";
+import { ADMIN_ICONS, ADMIN_MANIFEST_PATH } from "@/features/admin/admin-manifest";
 import { AdminMobileChrome } from "@/features/admin/admin-shell";
+import { SignOutButton } from "@/features/admin/sign-out-button";
 import { getAdminSession } from "@/server/admin/service";
 import { Logo } from "@/ui/logo";
+import { SPLASH_SCREENS } from "../splash-screens";
 
 /**
  * The internal admin dashboard, outside the app's own shell and navigation: a sidebar from 1024 px, a header and a
@@ -16,8 +19,25 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
+/**
+ * CELLR Admin installs as its own home-screen app (features/admin/admin-manifest.ts): these pages link the admin's
+ * manifest instead of the CELLR app's, and give iOS the admin's name and icon. Everything else in the head is the
+ * root layout's.
+ */
 export const metadata: Metadata = {
   title: "Admin",
+  manifest: ADMIN_MANIFEST_PATH,
+  applicationName: "CELLR Admin",
+  appleWebApp: {
+    capable: true,
+    title: "CELLR Admin",
+    statusBarStyle: "default",
+    startupImage: SPLASH_SCREENS,
+  },
+  icons: {
+    icon: [{ url: ADMIN_ICONS.favicon, sizes: "32x32", type: "image/png" }],
+    apple: ADMIN_ICONS.apple,
+  },
   robots: {
     index: false,
     follow: false,
@@ -48,6 +68,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           Read-only, except catalogue review, the bottle library, the Wine Master Database and
           external sources (every change there is audited). Costs are estimates, not invoices.
         </p>
+        <SignOutButton className="mt-4" />
       </aside>
       <Suspense fallback={null}>
         <AdminMobileChrome />
