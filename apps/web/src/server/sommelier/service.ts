@@ -1,7 +1,7 @@
 import "server-only";
 import {
   checkMenuAnswer,
-  comparedBottles,
+  comparedCards,
   compareRequest,
   hasSommelierPart,
   menuMaxOutputTokens,
@@ -367,10 +367,12 @@ export function createSommelierService(deps: SommelierDeps) {
         planned && planned.menu.courses.some((c) => c.vintageId !== null || c.why !== null)
           ? planned
           : null;
-      // The two wines asked about are the cards, the one the model would open first.
+      // The two wines asked about are the cards, the one the model would open first: but only when it pointed at
+      // one of them. A model that chose another wine altogether keeps its own cards (its choice is never replaced
+      // by the pair).
       const compared =
         compare && compareRefs?.[0] && compareRefs[1]
-          ? comparedBottles(result.value.raw.bottle_refs, compare.vintageIds, items, digest)
+          ? comparedCards(result.value.raw.bottle_refs, compare.vintageIds, items, digest)
           : null;
       return {
         source: "ai",
