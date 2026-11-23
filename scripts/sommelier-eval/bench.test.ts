@@ -316,7 +316,8 @@ describe("the annotation sample for a person to review", () => {
       if (r.flag.includes("serving: colour only")) expect(r.decanting).toBe("(nothing said)");
       if (r.flag === "") expect(r.codes).not.toMatch(/serving (style|colour)/);
     }
-    expect(rows.some((r) => r.servingBasis === "known for this wine")).toBe(true);
+    // The profile basis is worded "from its profile" since the review fixes (was "known for this wine").
+    expect(rows.some((r) => r.servingBasis === "from its profile")).toBe(true);
     expect(rows.some((r) => r.temperature.startsWith("Too little is known"))).toBe(true);
   });
 
@@ -325,7 +326,11 @@ describe("the annotation sample for a person to review", () => {
     expect(translate("annotate.serve.tempAbout", { min: 17, max: 18 })).toBe("about 17–18 °C");
     expect(translate("annotate.where.unplaced", { count: 1 })).toBe("1 bottle without a place");
     expect(translate("annotate.where.unplaced", { count: 2 })).toBe("2 bottles without a place");
-    expect(translate("annotate.reserved.some", { free: 4, total: 6 })).toBe("4 of 6 free to open");
+    // Since the review fixes the card line says "not reserved" ("free to open" is the quantity box's).
+    expect(translate("annotate.reserved.some", { free: 4, total: 6 })).toBe("4 of 6 not reserved");
+    expect(translate("annotate.reserved.all", { count: 1 })).toBe("reserved (the only bottle)");
+    expect(translate("annotate.reserved.all", { count: 3 })).toBe("all reserved (3)");
+    expect(translate("annotate.window.estimated", { years: "2022–2031" })).toBe("est. 2022–2031");
     expect(translate("annotate.window.range", { from: 2022, until: 2031 })).toBe("2022–2031");
   });
 });

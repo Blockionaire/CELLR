@@ -263,7 +263,7 @@ export function sampleMarkdown(): string {
     "- _Temperature_, _Fridge_, _Decanting_, _Glass_, _Serving basis_: the card's serving line in full (as for a",
     '  "how do I serve it" question). "(nothing said)" under Decanting: the code makes no decanting claim (only the',
     "  colour is known).",
-    "- _Stock and places_: the card's second line (bottles free to open when some are reserved; every place when",
+    "- _Stock and places_: the card's second line (bottles not reserved when some are; every place when",
     "  there is more than one). Empty: nothing beyond what the card itself shows.",
     "- _Code basis_: what the advice rests on, as the code records it (`window own|profile|style / advice`;",
     "  `serving profile|style|colour|none / evidence tier`).",

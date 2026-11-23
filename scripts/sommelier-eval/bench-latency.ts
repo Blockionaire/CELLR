@@ -19,7 +19,12 @@
 import { cpus, loadavg } from "node:os";
 import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import { cellarDigest, checkAnswerClaims, toSommelierBottle } from "@cellr/domain";
+import {
+  cellarDigest,
+  checkAnswerClaims,
+  prepareAnswerCheck,
+  toSommelierBottle,
+} from "@cellr/domain";
 import { servingFactsBlock } from "@cellr/domain/intelligence";
 import { benchCellar } from "./bench-cellar";
 import {
@@ -128,8 +133,9 @@ export async function measureCell(
 }
 
 /**
- * Where the time goes: the pieces of pure code whose cost grows with the cellar, timed alone (warm). `check` runs
- * `checkAnswerClaims` once for the answer and once more for each course's reason of a menu; `annotate` runs the
+ * Where the time goes: the pieces of pure code whose cost grows with the cellar, timed alone (warm). `check`
+ * indexes the cellar once per question (`prepareAnswerCheck`) and checks the answer and each course's reason of a
+ * menu with that index (`checkAnswerClaims` is both at once); `annotate` runs the
  * serving facts over the whole cellar to find the wine a serving question names.
  */
 export function components(wines: number, iterations: number) {
@@ -166,6 +172,14 @@ export function components(wines: number, iterations: number) {
         now: NOW,
       }),
     ),
+    /** Since the review fixes the service indexes the cellar once per question and checks each text with it. */
+    prepareAnswerCheck: time(() =>
+      prepareAnswerCheck({ digest, items, budget: null, facts: null, now: NOW }),
+    ),
+    checkWithPreparedIndex: (() => {
+      const check = prepareAnswerCheck({ digest, items, budget: null, facts: null, now: NOW });
+      return time(() => check({ text, bottles: bottles.map(toSommelierBottle), buy: [] }));
+    })(),
     servingFactsBlockWholeCellar: time(() =>
       servingFactsBlock(messagesFor("serving", 1), items, () => null, {
         profiles: new Map(),
