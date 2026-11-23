@@ -63,6 +63,7 @@ import {
   draftFromUnit,
   isNewerRevision,
   parseDraft,
+  rebaseDraft,
   resolvedOfDraft,
   savedAsDrafted,
   setColor,
@@ -334,7 +335,18 @@ function BuilderEditor({
   const [seenRevision, setSeenRevision] = useState(unit?.revision ?? null);
   const [changedElsewhere, setChangedElsewhere] = useState(false);
   /** Starting again from the latest version: on its way, or failed (said, with a way to try again; nothing lost). */
-  const [reloading, setReloading] = useState<null | "busy" | { failed: string }>(null);
+  const [reloading, setReloading] = useState<null | "busy" | { failed: string; keepMine: boolean }>(
+    null,
+  );
+  /**
+   * After "keep my changes" (sprint 8): the person's changes now stand on the latest version, unsaved, and this says
+   * what each side had changed. Cleared by the next save or a new start.
+   */
+  const [rebased, setRebased] = useState<null | {
+    mine: ChangeKind[];
+    theirs: ChangeKind[];
+    both: ChangeKind[];
+  }>(null);
   // only a LATER version is news: an answer that left before this screen's own save and arrives after it is older
   if (unit && isNewerRevision(unit.revision, seenRevision)) {
     setSeenRevision(unit.revision);
@@ -391,6 +403,7 @@ function BuilderEditor({
     setPhase({ kind: "idle" });
   };
   const resetToSaved = () => {
+    setRebased(null);
     setHistory([]);
     setDraft(baseline.draft);
     setNotes([]);
@@ -543,6 +556,7 @@ function BuilderEditor({
   }
   /** After a save: what was saved is the new starting point, at the revision the server answered with. */
   function settleOn(next: BuilderDraft, revision: string | null) {
+    setRebased(null);
     setBaseline({ draft: { ...next, templateChosen: true }, revision });
     if (revision) setSeenRevision(revision);
     setHistory([]);
@@ -554,32 +568,50 @@ function BuilderEditor({
     else void save();
   };
   /**
-   * Starts again from the place as the server has it NOW. Nothing is dropped until that read has succeeded: a
-   * failure (no connection, signed out, an error) is said with a way to try again, and the draft, its history and
-   * the browser's memory of it stay exactly as they were.
+   * Starts again from the place as the server has it NOW (and its bottles: the read refreshes both). Nothing is dropped
+   * until that read has succeeded: a failure (no connection, signed out, an error) is said with a way to try again,
+   * and the draft, its history and the browser's memory of it stay exactly as they were.
+   *
+   * `keepMine` (sprint 8): the person's changes are carried over onto the latest version (rebaseDraft): each part
+   * follows whoever changed it, and where both did, the person's. That is a DRAFT on the latest revision, unsaved: the
+   * newer save is not overwritten by this, the draft is checked again against the bottles as they are now, and saving
+   * it is the person's next step (with the latest revision, so a further save in between is refused again). Undo
+   * goes back to the draft as it was. Without `keepMine`, the latest version replaces the draft, as before.
    */
-  const loadLatest = async () => {
+  const loadLatest = async (keepMine = false) => {
     if (!unit) return;
     setReloading("busy");
     let latest: SmartStorageUnitView;
     try {
       latest = await reload();
     } catch (e) {
-      setReloading({ failed: reason(e) });
+      setReloading({ failed: reason(e), keepMine });
       return;
     }
     const fresh = draftFromUnit(latest);
-    forgetDraft(memoryKey);
-    setBaseline({ draft: fresh, revision: latest.revision });
-    setSeenRevision(latest.revision);
-    setDraft(fresh);
-    setHistory([]);
+    if (keepMine) {
+      const carried = rebaseDraft(draft, baseline.draft, fresh);
+      setBaseline({ draft: fresh, revision: latest.revision });
+      setSeenRevision(latest.revision);
+      setHistory((h) => [...h.slice(-49), draft]);
+      setDraft(carried.draft);
+      setRebased({ mine: carried.mine, theirs: carried.theirs, both: carried.both });
+    } else {
+      forgetDraft(memoryKey);
+      setBaseline({ draft: fresh, revision: latest.revision });
+      setSeenRevision(latest.revision);
+      setDraft(fresh);
+      setHistory([]);
+      setRebased(null);
+    }
     setNotes([]);
     setRestored(false);
     setChangedElsewhere(false);
     setPhase({ kind: "idle" });
     setReloading(null);
   };
+  const kinds = (list: readonly ChangeKind[]) =>
+    list.map((k) => t(`conflict.kinds.${k}`)).join(", ");
 
   // ---- labels ----
   const dimLabel = (field: Dimension) => {
@@ -676,14 +708,46 @@ function BuilderEditor({
           data-testid="builder-changed-elsewhere"
         >
           <span>{t("stale")}</span>
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={reloading === "busy"}
-            onClick={() => void loadLatest()}
-          >
-            {t("loadLatest")}
-          </Button>
+          <span className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={reloading === "busy"}
+              onClick={() => void loadLatest(true)}
+              data-testid="builder-keep-mine"
+            >
+              {t("conflict.keepMine")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={reloading === "busy"}
+              onClick={() => void loadLatest()}
+            >
+              {t("loadLatest")}
+            </Button>
+          </span>
+        </div>
+      )}
+      {rebased && (
+        <div
+          role="status"
+          className="flex flex-col gap-1 rounded-card bg-raised p-3 text-small"
+          data-testid="builder-rebased"
+          data-theirs={rebased.theirs.join(" ")}
+          data-mine={rebased.mine.join(" ")}
+          data-both={rebased.both.join(" ")}
+        >
+          <strong className="font-medium text-ink">{t("conflict.rebased")}</strong>
+          {rebased.theirs.length > 0 && (
+            <span>{t("conflict.theirs", { list: kinds(rebased.theirs) })}</span>
+          )}
+          {rebased.mine.length > 0 && (
+            <span>{t("conflict.mine", { list: kinds(rebased.mine) })}</span>
+          )}
+          {rebased.both.length > 0 && (
+            <span>{t("conflict.both", { list: kinds(rebased.both) })}</span>
+          )}
         </div>
       )}
 
@@ -1075,14 +1139,25 @@ function BuilderEditor({
             >
               <span>{phase.stale ? t("stale") : t("saveFailed", { reason: phase.message })}</span>
               {phase.stale && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  loading={reloading === "busy"}
-                  onClick={() => void loadLatest()}
-                >
-                  {t("loadLatest")}
-                </Button>
+                <span className="flex flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={reloading === "busy"}
+                    onClick={() => void loadLatest(true)}
+                    data-testid="builder-keep-mine"
+                  >
+                    {t("conflict.keepMine")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={reloading === "busy"}
+                    onClick={() => void loadLatest()}
+                  >
+                    {t("loadLatest")}
+                  </Button>
+                </span>
               )}
             </div>
           )}
@@ -1093,7 +1168,11 @@ function BuilderEditor({
               data-testid="builder-reload-failed"
             >
               <span>{t("reloadFailed", { reason: reloading.failed })}</span>
-              <Button variant="secondary" size="sm" onClick={() => void loadLatest()}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void loadLatest(reloading.keepMine)}
+              >
                 {t("retry")}
               </Button>
             </div>

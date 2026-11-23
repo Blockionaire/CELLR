@@ -419,3 +419,81 @@ describe("revisions (review corrections)", () => {
     expect(savedAsDrafted(draft, { ...view, rows: 6 })).toBe(false);
   });
 });
+
+describe("revisions to the microsecond (sprint 8: the database compares them exactly)", () => {
+  it("two saves within one millisecond are still told apart, in the right order", async () => {
+    const { isNewerRevision, revisionMicros } = await import("./draft");
+    const t1 = "2026-11-29T10:00:00.123456+00:00";
+    const t2 = "2026-11-29T10:00:00.123457+00:00";
+    // a JavaScript Date cannot see the difference: the bug this guards against
+    expect(Date.parse(t1)).toBe(Date.parse(t2));
+    expect(isNewerRevision(t2, t1)).toBe(true);
+    expect(isNewerRevision(t1, t2)).toBe(false);
+    expect(revisionMicros(t2)! - revisionMicros(t1)!).toBe(1);
+  });
+
+  it("reads every form PostgREST and Postgres write: fewer digits, none, Z, +00, +0530, a space", async () => {
+    const { revisionMicros } = await import("./draft");
+    const base = Date.parse("2026-11-29T10:00:00Z") * 1000;
+    expect(revisionMicros("2026-11-29T10:00:00+00:00")).toBe(base);
+    expect(revisionMicros("2026-11-29T10:00:00.5+00:00")).toBe(base + 500_000);
+    expect(revisionMicros("2026-11-29T10:00:00.000001Z")).toBe(base + 1);
+    expect(revisionMicros("2026-11-29 10:00:00.12+00")).toBe(base + 120_000);
+    expect(revisionMicros("2026-11-29T15:30:00.25+05:30")).toBe(base + 250_000);
+    expect(revisionMicros("2026-11-29T15:30:00.25+0530")).toBe(base + 250_000);
+    for (const bad of ["r1", "", "2026-11-29", "2026-11-29T10:00:00.1234567+00:00"])
+      expect(revisionMicros(bad), bad).toBeNull();
+  });
+});
+
+describe("keeping one's changes on a newer version of the place (sprint 8)", () => {
+  it("each part follows whoever changed it; both changed: the person's", async () => {
+    const { rebaseDraft } = await import("./draft");
+    const base = chooseTemplate(draftFromUnit(unit()), "rack_classic", "edit").draft;
+    const mine = setColor({ ...base, name: "Mine" }, "oak");
+    const latest = setDimension({ ...base, name: "Theirs" }, "rows", 6).draft;
+    const r = rebaseDraft(mine, base, latest);
+    expect(r.draft).toMatchObject({ name: "Mine", rows: 6, cols: base.cols });
+    expect(r.draft.appearance.color).toBe("oak");
+    expect(r.mine.sort()).toEqual(["look", "name"]);
+    expect(r.theirs.sort()).toEqual(["name", "size"]);
+    expect(r.both).toEqual(["name"]);
+  });
+
+  it("a new template brings its whole structure (and its own look, which the template change made)", async () => {
+    const { rebaseDraft } = await import("./draft");
+    const base = chooseTemplate(draftFromUnit(unit()), "rack_classic", "edit").draft;
+    const mine = chooseTemplate(base, "cooler_dual", "edit").draft;
+    const latest = setColor(setDimension(base, "cols", 4).draft, "oak");
+    const r = rebaseDraft(mine, base, latest);
+    expect(r.draft).toMatchObject({
+      template: "cooler_dual",
+      rows: mine.rows,
+      cols: mine.cols,
+      zones: mine.zones,
+    });
+    // choosing a cooler changed the look too (a cooler's own materials): both changed it, the person's is kept
+    expect(r.draft.appearance).toEqual(mine.appearance);
+    expect(r.both).toContain("look");
+  });
+
+  it("nothing of mine changed: the latest version, exactly", async () => {
+    const { rebaseDraft } = await import("./draft");
+    const base = chooseTemplate(draftFromUnit(unit()), "rack_classic", "edit").draft;
+    const latest = setColor(base, "oak");
+    const r = rebaseDraft(base, base, latest);
+    expect(changesBetween(r.draft, latest)).toEqual([]);
+    expect(r.mine).toEqual([]);
+  });
+
+  it("the result is only a draft: assess() still refuses one that would strand a bottle of the latest version", async () => {
+    const { rebaseDraft } = await import("./draft");
+    const base = chooseTemplate(draftFromUnit(unit()), "rack_classic", "edit").draft;
+    const mine = setDimension(base, "rows", 3).draft;
+    const r = rebaseDraft(mine, base, setColor(base, "oak"));
+    // someone placed a bottle on shelf 5 meanwhile: the carried-over smaller rack cannot be saved
+    const a = assess(r.draft, CURRENT, [{ row: 5, col: 1, index: 1 }]);
+    expect(a.savable).toBe(false);
+    expect(strandedBy(r.draft, [{ row: 5, col: 1, index: 1 }])).toHaveLength(1);
+  });
+});

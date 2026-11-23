@@ -2472,6 +2472,21 @@
     "partialName": "The design was saved, but the new name was not: {reason}",
     "retryName": "Try the name again",
     "stale": "Someone changed this place since you opened it. Nothing was saved.",
+    "conflict": {
+      "keepMine": "Keep my changes on the latest version",
+      "rebased": "Your changes now stand on the latest version. Nothing is saved yet: check them, then save.",
+      "theirs": "Changed by someone else: {list}.",
+      "mine": "Your changes: {list}.",
+      "both": "Changed by both of you, yours kept: {list}.",
+      "kinds": {
+        "name": "name",
+        "template": "kind",
+        "size": "size",
+        "cellCapacity": "bottles per spot",
+        "look": "look",
+        "zones": "temperature zones"
+      }
+    },
     "loadLatest": "Load the latest version",
     "reloadFailed": "The latest version couldn't be loaded: {reason} Your changes are still here.",
     "saveFailed": "Nothing was saved: {reason}",

@@ -436,9 +436,33 @@ export function strandedBy<T extends OccupiedSpot>(
 export function isNewerRevision(candidate: string, known: string | null): boolean {
   if (known === null) return true;
   if (candidate === known) return false;
-  const a = Date.parse(candidate);
-  const b = Date.parse(known);
-  return Number.isFinite(a) && Number.isFinite(b) ? a > b : true;
+  const a = revisionMicros(candidate);
+  const b = revisionMicros(known);
+  return a !== null && b !== null ? a > b : true;
+}
+
+const REVISION_TIME =
+  /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.(\d{1,6}))?(Z|[+-]\d{2}(?::?\d{2})?)$/;
+
+/**
+ * A revision as a count of MICROSECONDS since 1970, or null when it is not a time. The database keeps updated_at to the
+ * microsecond and PostgREST writes all of it ("2026-11-29T10:00:00.123456+00:00"); a JavaScript Date keeps
+ * milliseconds only, so two saves within one millisecond would read as the same time (and "later" as "not later").
+ * The seconds are read by Date, the fraction digit by digit. Exported for its tests.
+ */
+export function revisionMicros(revision: string): number | null {
+  const m = REVISION_TIME.exec(revision.trim());
+  if (!m) return null;
+  const [, day, time, fraction = "", zone] = m;
+  const offset =
+    zone === "Z"
+      ? "Z"
+      : zone!.length === 3
+        ? `${zone}:00`
+        : zone!.replace(/^([+-]\d{2})(\d{2})$/, "$1:$2");
+  const seconds = Date.parse(`${day}T${time}${offset}`);
+  if (!Number.isFinite(seconds)) return null;
+  return seconds * 1000 + Number(fraction.padEnd(6, "0"));
 }
 
 /**
@@ -508,6 +532,43 @@ export function changesBetween(before: BuilderDraft, after: BuilderDraft): Chang
     out.push("look");
   if (JSON.stringify(before.zones) !== JSON.stringify(after.zones)) out.push("zones");
   return out;
+}
+
+/**
+ * A draft carried over onto a newer version of its place (the person chose "keep my changes" after someone else saved
+ * it): every part the person changed is theirs, every other part is the latest version's. Nothing is guessed beyond
+ * that, and nothing is saved by this: the result is a draft, checked by assess() against the place's bottles as they
+ * are now, and saved (or not) by the person, against the latest revision.
+ *   - a new template is a new structure: its size, bottles per spot and zones come with it (they belong together);
+ *   - otherwise size, bottles per spot and zones each follow whoever changed them; the look and the name likewise.
+ * `theirs` and `mine` say what each side changed; `both` the parts both changed, where the person's version is kept.
+ */
+export function rebaseDraft(
+  mine: BuilderDraft,
+  base: BuilderDraft,
+  latest: BuilderDraft,
+): { draft: BuilderDraft; mine: ChangeKind[]; theirs: ChangeKind[]; both: ChangeKind[] } {
+  const mineChanged = changesBetween(base, mine);
+  const theirs = changesBetween(base, latest);
+  const has = (k: ChangeKind) => mineChanged.includes(k);
+  const draft: BuilderDraft = { ...latest, zones: latest.zones.map((z) => ({ ...z })) };
+  if (has("name")) draft.name = mine.name;
+  if (has("look")) draft.appearance = mine.appearance;
+  if (has("template")) {
+    Object.assign(draft, {
+      template: mine.template,
+      templateChosen: mine.templateChosen,
+      rows: mine.rows,
+      cols: mine.cols,
+      cellCapacity: mine.cellCapacity,
+      zones: mine.zones.map((z) => ({ ...z })),
+    });
+  } else {
+    if (has("size")) Object.assign(draft, { rows: mine.rows, cols: mine.cols });
+    if (has("cellCapacity")) draft.cellCapacity = mine.cellCapacity;
+    if (has("zones")) draft.zones = mine.zones.map((z) => ({ ...z }));
+  }
+  return { draft, mine: mineChanged, theirs, both: mineChanged.filter((k) => theirs.includes(k)) };
 }
 
 /** Changes that deserve a confirmation before they are saved over an existing place. */

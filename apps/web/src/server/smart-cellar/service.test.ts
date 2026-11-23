@@ -70,7 +70,7 @@ function fakeRepo(
     adviceOccupants?: AdviceOccupant[];
   } = {},
 ) {
-  const writes: Array<{ id: string; layout: LayoutWrite }> = [];
+  const writes: Array<{ id: string; layout: LayoutWrite; expectedRevision?: string | null }> = [];
   const moves: Array<{ bottleId: string; from: SmartSpot | null; to: SmartSpot | null }> = [];
   const swaps: Array<{ a: string; b: string }> = [];
   const repo: SmartCellarRepository = {
@@ -94,8 +94,8 @@ function fakeRepo(
       swaps.push({ a: a.bottleId, b: b.bottleId });
       return options.swap ?? "swapped";
     },
-    saveLayout: async (_h, id, layout) => {
-      writes.push({ id, layout });
+    saveLayout: async (_h, id, layout, expectedRevision) => {
+      writes.push({ id, layout, expectedRevision: expectedRevision ?? null });
       const outcome = options.outcome ?? "saved";
       if (outcome === "saved") {
         const p = places.find((x) => x.id === id)!;
@@ -504,6 +504,35 @@ describe("saving a layout", () => {
     await service(repo).saveLayout("p-1", config("rack_classic"), "r2");
     await service(repo).saveLayout("p-1", config("rack_classic"), null);
     expect(writes).toHaveLength(2);
+  });
+
+  it("the revision is handed to the database's own compare-and-swap, unchanged to the microsecond (0051)", async () => {
+    const revision = "2026-11-29T10:00:00.123456+00:00";
+    const { repo, writes } = fakeRepo([place({ revision })]);
+    await service(repo).saveLayout("p-1", config("rack_classic"), revision);
+    // none at all (an older client, or a basic place just made): no comparison, as before
+    await service(repo).saveLayout("p-1", config("rack_classic"), null);
+    await service(repo).saveLayout("p-1", config("rack_classic"));
+    expect(writes.map((w) => w.expectedRevision)).toEqual([revision, null, null]);
+  });
+
+  it("a revision that differs from the place's only below the millisecond is still another revision", async () => {
+    const { repo, writes } = fakeRepo([place({ revision: "2026-11-29T10:00:00.123456+00:00" })]);
+    const e = await fails(
+      service(repo).saveLayout("p-1", config("rack_classic"), "2026-11-29T10:00:00.123+00:00"),
+    );
+    expect(e.message).toBe(STALE_LAYOUT_MESSAGE);
+    expect(writes).toEqual([]);
+  });
+
+  it("the database's 'stale' (a save that landed after the app's own check) is the same 409", async () => {
+    const p = place({ revision: "r1" });
+    const { repo, writes } = fakeRepo([p], { outcome: "stale" });
+    const e = await fails(service(repo).saveLayout("p-1", config("rack_classic"), "r1"));
+    expect(e.code).toBe("CONFLICT");
+    expect(e.message).toBe(STALE_LAYOUT_MESSAGE);
+    expect(writes).toHaveLength(1);
+    expect(p.template).toBeNull();
   });
 
   it("the place's revision is part of what is read", () => {

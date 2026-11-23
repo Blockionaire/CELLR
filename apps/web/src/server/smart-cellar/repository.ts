@@ -256,6 +256,18 @@ const OUTCOMES: readonly SaveLayoutOutcome[] = [
   "invalid_zones",
   "depth_not_enabled",
 ];
+/** What save_storage_layout_v2 (0051) answers on top of 0045's answers. */
+const OUTCOMES_V2: readonly SaveLayoutOutcome[] = [...OUTCOMES, "stale"];
+
+/**
+ * PostgREST's "there is no such function" (PGRST202): it is answered by PostgREST itself, from its schema cache, BEFORE
+ * anything runs in the database. So a call of save_storage_layout_v2 that gets it changed nothing, and the database
+ * simply does not have 0051 (or PostgREST has not seen it yet): the save is then made exactly as before 0051.
+ */
+const isFunctionMissing = (error: { code?: string | undefined }) =>
+  // 42883: Postgres itself found no such function (PostgREST's cache still listed it, e.g. just after the function
+  // was dropped again): the call failed before anything ran, the same as PGRST202.
+  error.code === "PGRST202" || error.code === "42883";
 
 /** The zones as save_storage_layout reads them: snake_case keys, top zone first. */
 export const zonesForRpc = (zones: LayoutWrite["zones"]) =>
@@ -604,8 +616,8 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
         : "not_found";
     },
 
-    async saveLayout(householdId, id, layout) {
-      const { data, error } = await db.rpc("save_storage_layout", {
+    async saveLayout(householdId, id, layout, expectedRevision = null) {
+      const args = {
         p_household: householdId,
         p_location: id,
         p_kind: layout.kind,
@@ -616,8 +628,31 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
         p_cell_capacity: layout.cellCapacity,
         p_appearance: layout.appearance,
         p_zones: zonesForRpc(layout.zones),
-      });
-      // No fallback of any kind: a layout is written by this one function, in one transaction, or not at all.
+      };
+      // With a revision: the compare-and-swap of 0051, which compares it AFTER the place's row lock, so a save that
+      // landed since is never overwritten ('stale'). The revision is passed on exactly as the database wrote it (text,
+      // to the microsecond); the database reads it as a time.
+      if (expectedRevision !== null) {
+        const v2 = await db.rpc("save_storage_layout_v2", {
+          ...args,
+          p_expected_updated_at: expectedRevision,
+        });
+        if (!v2.error) {
+          if (!OUTCOMES_V2.includes(v2.data as SaveLayoutOutcome))
+            throw new DomainError("INTERNAL", undefined, {
+              cause: { answer: v2.data },
+              retryable: false,
+            });
+          return v2.data as SaveLayoutOutcome;
+        }
+        // a revision that is not a time at all names no version of this place (as renameIfCurrent reads it)
+        if (v2.error.code === "22007" || v2.error.code === "22008") return "stale";
+        // Only "no such function" falls through, and then to exactly what the app did before 0051 (its own check of
+        // the revision has already been made by the service). Nothing ran: PostgREST refused before the database.
+        if (!isFunctionMissing(v2.error)) throw mapSmartCellarError(v2.error);
+      }
+      const { data, error } = await db.rpc("save_storage_layout", args);
+      // No other fallback of any kind: a layout is written by one function, in one transaction, or not at all.
       if (error) throw mapSmartCellarError(error);
       if (!OUTCOMES.includes(data as SaveLayoutOutcome))
         throw new DomainError("INTERNAL", undefined, { cause: { answer: data }, retryable: false });
