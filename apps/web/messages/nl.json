@@ -481,6 +481,13 @@
       "new": "Iets nieuws om te proberen",
       "match": "Welke van mijn wijnen past het best bij mijn smaak?"
     },
+    "menu": {
+      "title": "Je menu, gang voor gang",
+      "course": "Gang {n}",
+      "none": "Niets in je kelder past echt bij deze gang.",
+      "same": "Dezelfde wijn als bij gang {n}.",
+      "cut": "Alleen de eerste {count} gangen zijn gepland."
+    },
     "plan": {
       "outcome": {
         "good": "Een goede match uit je kelder:",

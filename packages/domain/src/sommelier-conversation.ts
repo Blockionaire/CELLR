@@ -5,6 +5,7 @@ import { detectIntent, type SommelierAnswer } from "./sommelier";
 import { AnswerCheckSchema, PriceBandSchema } from "./sommelier-check";
 import { readAnnotations } from "./sommelier-annotate";
 import { QuantityAdviceSchema } from "./sommelier-quantities";
+import { MenuAdviceSchema } from "./sommelier-menu";
 
 /**
  * THE SOMMELIER'S MEMORY. The general sommelier keeps one conversation per person: it is there again after the
@@ -111,6 +112,8 @@ export function isStoredAnswer(value: unknown): value is SommelierAnswer {
     (a.annotations === undefined || readAnnotations(a.annotations) !== null) &&
     (a.quantity === undefined ||
       a.quantity === null ||
-      QuantityAdviceSchema.safeParse(a.quantity).success)
+      QuantityAdviceSchema.safeParse(a.quantity).success) &&
+    // A kept menu is drawn course by course, so it must still be one.
+    (a.menu === undefined || a.menu === null || MenuAdviceSchema.safeParse(a.menu).success)
   );
 }

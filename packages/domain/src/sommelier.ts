@@ -9,6 +9,7 @@ import type { SommelierPlan } from "./sommelier-plan";
 import type { AnswerCheck } from "./sommelier-check";
 import type { BottleAnnotation } from "./sommelier-annotate";
 import type { QuantityAdvice } from "./sommelier-quantities";
+import type { MenuAdvice } from "./sommelier-menu";
 
 /**
  * THE SOMMELIER. A conversation about the cellar that is only ever as smart as the cellar is real: the model is
@@ -172,6 +173,11 @@ export interface SommelierAnswer {
    * of each card. Counted in code, never by the model.
    */
   quantity?: QuantityAdvice | null;
+  /**
+   * V1+ part `menu`: a menu of several courses, with the wine V1's model chose for each (a wine in `bottles`, or
+   * none) and its short reason. Every wine in it was checked against the list the model was shown.
+   */
+  menu?: MenuAdvice | null;
 }
 
 export const toSommelierBottle = (item: CellarItem): SommelierBottle => ({

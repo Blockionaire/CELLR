@@ -481,6 +481,13 @@
       "new": "Something new for me to try",
       "match": "Which of my wines fits my taste best?"
     },
+    "menu": {
+      "title": "Your menu, course by course",
+      "course": "Course {n}",
+      "none": "Nothing in your cellar really suits this course.",
+      "same": "The same wine as with course {n}.",
+      "cut": "Only the first {count} courses are planned."
+    },
     "plan": {
       "outcome": {
         "good": "A good match from your cellar:",

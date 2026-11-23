@@ -6,7 +6,14 @@ import {
   guestsIn,
   hasSommelierPart,
   quantityFor,
+  CHECK_CODES,
+  type CheckCode,
   type InsightOutput,
+  checkMenuAnswer,
+  comparedBottles,
+  compareRequest,
+  menuMaxOutputTokens,
+  smallPour,
   cellarDigest,
   cellarFacts,
   cellarFactsText,
@@ -34,7 +41,7 @@ import {
   type TonightView,
   BUDGET_EUROS,
 } from "@cellr/domain";
-import { annotateBottles, servingFactsBlock } from "@cellr/domain/intelligence";
+import { annotateBottles, menuContext, servingFactsBlock } from "@cellr/domain/intelligence";
 import type { SommelierIntelligence } from "@/server/sommelier/intelligence";
 import type { AiErrorKind, AiUsage, LlmProvider } from "@/server/ai";
 import {
@@ -48,6 +55,12 @@ import {
   SOMMELIER_SCHEMA_V7,
   SOMMELIER_SYSTEM_V7,
 } from "@/server/ai/prompts/sommelier-v7";
+import {
+  compareBlock,
+  menuBlock,
+  parseMenuCourses,
+  withMenuSchema,
+} from "@/server/ai/prompts/sommelier-menu";
 
 export interface SommelierDeps {
   cellar: () => Promise<CellarView>;
@@ -177,17 +190,24 @@ export function createSommelierService(deps: SommelierDeps) {
     if (quantities && (cards.length > 0 || answer.source === "ai")) {
       try {
         const guests = guestsIn(request.messages);
+        // A menu's wines are poured one after another (a small glass of a dessert wine or a port); any other
+        // answer's cards are alternatives, of which one is opened.
+        const courses = (answer.menu?.courses ?? []).flatMap((c) =>
+          c.vintageId !== null && byId.has(c.vintageId) ? [byId.get(c.vintageId)!] : [],
+        );
+        const pours = courses.length > 0 ? courses : cards;
         if (guests)
           out = {
             ...out,
             quantity: quantityFor(
               guests,
-              cards.map((c) => ({
+              pours.map((c) => ({
                 vintageId: c.vintageId,
                 count: c.count,
                 reserved: c.reserved?.count ?? 0,
+                ...(courses.length > 0 ? { small: smallPour(c.type) } : {}),
               })),
-              "alternatives",
+              courses.length > 0 ? "sequence" : "alternatives",
             ),
           };
       } catch {
@@ -384,13 +404,21 @@ export function createSommelierService(deps: SommelierDeps) {
           : null;
       // V1+ `quantities`: how many people are drinking, when the person said so. The app counts the bottles.
       const guests = on("quantities") && !facts ? guestsIn(request.messages) : null;
+      // V1+ `menu`: a menu of several courses is put to the model as numbered courses, in this one call, and it
+      // answers with one wine per course; a follow-up about that menu gets it again as context. "The Barolo or the
+      // Chablis?" names two wines of the cellar: both are kept on the list and the model is asked to choose.
+      const menuOn = deps.parts !== undefined && hasSommelierPart(deps.parts, "menu") && !facts;
+      const menu = menuOn ? menuContext(request.messages) : null;
+      /** A menu said in this question is planned course by course; one from earlier is only context. */
+      const planning = menu !== null && !menu.fromHistory ? menu.menu : null;
+      const compare = menuOn && !planning ? compareRequest(question, items) : null;
       const digest = cellarDigest(
         items,
         question,
         facts
           ? new Set(facts.matches.map((m) => m.item.vintageId))
-          : servingAbout
-            ? new Set(servingAbout.vintageIds)
+          : servingAbout || compare
+            ? new Set([...(servingAbout?.vintageIds ?? []), ...(compare?.vintageIds ?? [])])
             : undefined,
       );
       const refOf = new Map([...digest.refs].map(([ref, item]) => [item.vintageId, ref]));
@@ -403,13 +431,23 @@ export function createSommelierService(deps: SommelierDeps) {
             { profiles: await profilesOf(seen, servingAbout.vintageIds), now: clock() },
           )
         : null;
-      const blocks = [serving?.text, guests ? guestsBlock(guests) : null].filter(
-        (block): block is string => typeof block === "string",
-      );
+      const compareRefs = compare
+        ? ([refOf.get(compare.vintageIds[0]), refOf.get(compare.vintageIds[1])] as const)
+        : null;
+      // What the app worked out for this question, for the model: the structure of the question first (a menu, a
+      // choice between two wines), then the facts (how to serve, who is coming).
+      const blocks = [
+        menu ? menuBlock(menu.menu, menu.fromHistory) : null,
+        compareRefs?.[0] && compareRefs[1] ? compareBlock([compareRefs[0], compareRefs[1]]) : null,
+        serving?.text,
+        guests ? guestsBlock(guests) : null,
+      ].filter((block): block is string => typeof block === "string");
       const factsText = facts ? cellarFactsText(facts, (id) => refOf.get(id) ?? null) : null;
       // V1+ `check`: prompt v7 has the model write a cellar wine as its ref (the app renders the name) and gives it
       // no place for a price; what it says is then checked claim by claim. Without the part: v6, exactly as before.
       const checking = deps.parts !== undefined && hasSommelierPart(deps.parts, "check");
+      const baseSchema = checking ? SOMMELIER_SCHEMA_V7 : SOMMELIER_SCHEMA;
+      const parseBase = checking ? parseSommelierV7 : parseSommelier;
       const result = await deps.llm.generateObject({
         task: "sommelier_chat",
         model: "chat",
@@ -423,9 +461,13 @@ export function createSommelierService(deps: SommelierDeps) {
           ...(blocks.length > 0 ? { blocks } : {}),
         }),
         schemaName: "sommelier_answer",
-        jsonSchema: checking ? SOMMELIER_SCHEMA_V7 : SOMMELIER_SCHEMA,
-        parse: checking ? parseSommelierV7 : parseSommelier,
-        maxOutputTokens: 900,
+        // Only a new menu extends the answer's shape (and its room): every other call sends V1's own schema.
+        jsonSchema: planning ? (withMenuSchema(baseSchema) as Record<string, unknown>) : baseSchema,
+        parse: (value: unknown) => ({
+          raw: parseBase(value),
+          courses: planning ? parseMenuCourses(value) : null,
+        }),
+        maxOutputTokens: planning ? menuMaxOutputTokens(900, planning.courses.length) : 900,
         timeoutMs: 30_000,
       });
       await deps
@@ -447,7 +489,7 @@ export function createSommelierService(deps: SommelierDeps) {
             : plain(items, question, why, await plainTaste());
       if (!result.ok) return fallback();
 
-      const checked = checkSommelierAnswer(result.value, digest);
+      const checked = checkSommelierAnswer(result.value.raw, digest);
       if (!checked) return fallback();
       observe?.model?.(result.usage.servedModel ?? result.usage.model);
       // For a question about the cellar the wines it named get their cards (and links) whatever the model pointed
@@ -461,14 +503,45 @@ export function createSommelierService(deps: SommelierDeps) {
       const about = serving
         ? items.filter((i) => serving.vintageIds.includes(i.vintageId)).map(toSommelierBottle)
         : null;
-      const bottles = checked.bottles.length > 0 ? checked.bottles : (named ?? about ?? []);
+      // The model's wine per course, each checked against the list it was shown. A plan that says nothing at all
+      // (no wine and no reason for any course) is not shown as one: the answer is then V1's ordinary one.
+      const planned = planning
+        ? checkMenuAnswer(result.value.courses ?? [], planning.courses, planning.cut, digest)
+        : null;
+      const coursed =
+        planned && planned.menu.courses.some((c) => c.vintageId !== null || c.why !== null)
+          ? planned
+          : null;
+      // The two wines asked about are the cards, the one the model would open first.
+      const compared =
+        compare && compareRefs?.[0] && compareRefs[1]
+          ? comparedBottles(result.value.raw.bottle_refs, compare.vintageIds, items, digest)
+          : null;
+      const bottles = coursed
+        ? coursed.bottles
+        : compared && compared.length > 0
+          ? compared
+          : checked.bottles.length > 0
+            ? checked.bottles
+            : (named ?? about ?? []);
       // With the engines on, a verdict and buying advice only ever come from them: the model's own are dropped.
       // (Also with buying advice switched off: a model-made product and price is never shown beside the
       // engines. Buying advice then comes with `sommelier_buying`, as styles.)
       const buy = facts || deps.intelligence ? [] : checked.buy;
       // V1+ `check`: refs become the cellar's own names; a claim about the cellar that is not true, a price, a
       // shop or an action is not shown. The wines V1 chose (the cards) are never changed by it.
-      const claims = checking
+      const claim = (text: string) =>
+        checkAnswerClaims({
+          text,
+          bottles,
+          buy: [],
+          digest,
+          items,
+          budget: request.budget ?? null,
+          facts: factsText,
+          now: clock(),
+        });
+      const words = checking
         ? checkAnswerClaims({
             text: checked.text,
             bottles,
@@ -477,9 +550,36 @@ export function createSommelierService(deps: SommelierDeps) {
             items,
             budget: request.budget ?? null,
             facts: factsText,
-            now: new Date(),
+            now: clock(),
           })
         : null;
+      // A menu's reasons are the model's words too: each is checked the same way, and one that cannot be shown is
+      // left out (its course keeps its wine, which was checked against the list already).
+      const reasons =
+        checking && coursed
+          ? coursed.menu.courses.map((course) => {
+              if (course.why === null) return { course, codes: [] as CheckCode[] };
+              const said = claim(course.why);
+              return { course: { ...course, why: said.text }, codes: said.check.codes };
+            })
+          : null;
+      const menuAdvice = coursed
+        ? reasons
+          ? { ...coursed.menu, courses: reasons.map((r) => r.course) }
+          : coursed.menu
+        : null;
+      const found = new Set(reasons?.flatMap((r) => r.codes) ?? []);
+      const claims =
+        words && found.size > 0
+          ? {
+              ...words,
+              check: {
+                ...words.check,
+                text: words.check.text === "kept" ? ("trimmed" as const) : words.check.text,
+                codes: CHECK_CODES.filter((c) => words.check.codes.includes(c) || found.has(c)),
+              },
+            }
+          : words;
       // A question about the cellar itself whose words could not be shown: the counted facts say it, in the
       // app's own sentence (never "the one to look at" for a question of how many or where).
       if (claims?.check.text === "replaced" && facts)
@@ -489,6 +589,7 @@ export function createSommelierService(deps: SommelierDeps) {
         text: claims ? claims.text : checked.text,
         basic: null,
         bottles,
+        ...(menuAdvice ? { menu: menuAdvice } : {}),
         verdict: facts || deps.intelligence ? null : checked.verdict,
         buy: claims ? claims.buy : buy,
         ...(claims ? { check: claims.check } : {}),
