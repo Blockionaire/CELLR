@@ -371,6 +371,25 @@
       "partial": "Kan, maar niet ideaal",
       "none": "Niets in je kelder past echt"
     },
+    "check": {
+      "cardOnly": {
+        "match": "{wine} uit je kelder past hier het best bij.",
+        "partial": "{wine} uit je kelder kan, maar is niet ideaal.",
+        "other": "{wine} uit je kelder is de fles om naar te kijken."
+      },
+      "more": "{count, plural, one {Er staat er nog één hieronder.} other {Er staan er nog # hieronder.}}",
+      "noneFits": "Niets in je kelder past hier zeker bij.",
+      "nothing": "Hierover valt vanuit je kelder niets zekers te zeggen. Probeer het anders te vragen.",
+      "note": {
+        "trimmed": "Een deel van het antwoord is weggelaten: het kon niet worden gecontroleerd.",
+        "replaced": "De eigen woorden van de sommelier zijn weggelaten: ze zeiden iets over je kelder dat niet kon worden gecontroleerd."
+      },
+      "priceUnknown": "Prijs niet bekend",
+      "priceBand": "€{min}–{max}, je budget",
+      "priceBandFrom": "€{min} of meer, je budget",
+      "priceBandUpTo": "Tot €{max}, je budget",
+      "buyHint": "Niet in je kelder: ideeën om naar te zoeken. Prijzen worden niet getoond, je budget wel."
+    },
     "buyTitle": "Het kopen waard",
     "buyHint": "Niet in je kelder: ideeën voor de winkel, prijzen zijn een schatting.",
     "placeholderTonight": "Wat eet je vanavond?",
