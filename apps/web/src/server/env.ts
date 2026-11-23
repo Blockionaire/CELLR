@@ -12,6 +12,7 @@ import { placementAccessIn, type PlacementAccess } from "@/lib/smart-cellar-plac
 import { cellarGalleryOpenIn } from "@/lib/cellar-gallery-gate";
 import { smartCellarAccessIn, type SmartCellarAccess } from "@/lib/smart-cellar-gate";
 import { smartCellarRendererOpenIn } from "@/lib/smart-cellar-renderer-gate";
+import { sharedRacksAccessIn, type SharedRacksAccess } from "@/lib/shared-racks-gate";
 import { demoOriginsIn } from "@/lib/demo-origins";
 import { getPublicEnv, isDevelopment, type PublicEnv } from "@/lib/public-env";
 import { logWarn } from "./log";
@@ -85,6 +86,15 @@ export function getPlacementAccess(): PlacementAccess {
  */
 export function isAdviceOpen(): boolean {
   return adviceOpenIn(process.env, getPlacementAccess());
+}
+
+/**
+ * Whether the Shared Racks API answers here and may write (CELLR_SHARED_RACKS=1: `next dev` and Vercel previews
+ * only, writing only to a database known not to be production; never production, which is not authorised). The rule
+ * and its reasons: lib/shared-racks-gate.ts, ADR-010.
+ */
+export function getSharedRacksAccess(): SharedRacksAccess {
+  return sharedRacksAccessIn(process.env);
 }
 
 export interface AiEnv {

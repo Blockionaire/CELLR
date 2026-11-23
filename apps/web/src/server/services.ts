@@ -65,11 +65,14 @@ import {
   isAdviceOpen,
   getPushEnv,
   getSmartCellarAccess,
+  getSharedRacksAccess,
 } from "@/server/env";
 import { createPushRepository } from "@/server/push/repository";
 import { createPushService } from "@/server/push/service";
 import { createSmartCellarRepository } from "@/server/smart-cellar/repository";
 import { createSmartCellarService, toUnitView } from "@/server/smart-cellar/service";
+import { createSharedRacksRepository } from "@/server/shared-racks/repository";
+import { createSharedRacksService } from "@/server/shared-racks/service";
 import { createTasteRepository } from "@/server/taste/repository";
 import { createTasteService } from "@/server/taste/service";
 import { createWishlistRepository } from "@/server/wishlist/repository";
@@ -262,6 +265,12 @@ export function servicesFor(ctx: RequestContext) {
     }),
     // The Smart Cellar API (sprint 1C): closed unless CELLR_SMART_CELLAR opens it, and never writing on production.
     smartCellar,
+    // Shared racks (ADR-010): closed unless CELLR_SHARED_RACKS opens it, and never on production. Everything runs
+    // as this request's person, through the database's own functions; no identity is passed along.
+    sharedRacks: createSharedRacksService({
+      repo: createSharedRacksRepository(ctx.db),
+      access: getSharedRacksAccess(),
+    }),
     export: createExportService({
       repo: createExportRepository(ctx.db),
       household,
