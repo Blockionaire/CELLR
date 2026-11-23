@@ -148,3 +148,16 @@ export async function expectNoSidewaysScroll(page: Page) {
     ),
   ).toBeLessThanOrEqual(0);
 }
+
+/**
+ * What V1 itself decided in an answer: where it came from, the wines and their order, the verdict. A V1+ part may
+ * add its own facts around these, never change them; comparing them between the default and the features server
+ * stays true whichever other parts are on there.
+ */
+export const chosen = (answer: Record<string, unknown>) => ({
+  source: answer.source,
+  basic: answer.basic,
+  reason: answer.reason,
+  verdict: answer.verdict ?? null,
+  bottles: answer.bottles,
+});
