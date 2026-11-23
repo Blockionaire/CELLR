@@ -210,12 +210,21 @@ on a 1280 px copy of the photo. No paid OCR API; only the text is sent, next to 
   `apps/web/scripts/ocr-assets.mjs` before `dev`/`build`), cached immutably; the model is kept in IndexedDB.
   The `/ocr/*` files carry their own worker CSP (`script-src 'self' 'wasm-unsafe-eval'`); the pages' nonce CSP is
   unchanged.
+- **A year printed alone on its line is read twice.** Read sparse (`PSM.SPARSE_TEXT`, line by line), a lone "2019"
+  is sometimes read as another year, depending on where the digits fall on the pixel grid. Each line that is one short
+  word with a digit in it (at most two per photo) is read again as a block together with its neighbours
+  (`PSM.SINGLE_BLOCK`, three line heights above and below, eight to either side), and what that reads is added as
+  extra lines. The server's rule (exactly one distinct year) then gives the year when both readings agree, fixes a
+  garbled first reading ("20119"), and gives no year when they disagree ("2018" and "2019"): never a wrong year from
+  that line. Skipped when the budget left is shorter than the first read took. Measured on rendered labels (not real
+  photos), with the alternatives (AUTO loses text in corners and columns): `docs/spikes/ocr-lone-year/`.
 - **First use vs warm** (measured in Chromium with iPhone 13 emulation on a fast CPU, localhost; not a phone):
   - transfer on first use ≈ 4.0 MB compressed: core `.wasm` 1.06 MB (2.86 MB if the host does not compress `.wasm`),
     model 2.95 MB, worker and glue ≈ 58 KB; the main-thread code is a separate ≈ 6 KB chunk. At 10 Mbit/s that is
     ≈ 3–5 s of download (arithmetic, not measured). Until it has loaded, scans go to the model as before;
   - reader start: 0.44–0.53 s with an empty cache (excluding network), 0.21–0.24 s warm (model from IndexedDB);
-  - one read of a 1280 px label: 0.4–0.8 s warm; 0.85–1.5 s in the e2e runs (parallel load, includes the wait).
+  - one read of a 1280 px label: 0.4–0.8 s warm; 0.85–1.5 s in the e2e runs (parallel load, includes the wait). A
+    second look at a lone year line adds about half a read (≈ +0.1 s p50, +0.27 s p90 on a desktop CPU).
 - Bounded: a photo waits at most 2.5 s for text (decoding the photo, queueing, reading and stopping the reader
   included; work that finishes later is dropped), and at most 0.3 s for a reader that is still loading. A read that
   runs out of time, or a load that fails (or takes over 30 s), turns the reader off for the rest of the visit. Reads
@@ -261,7 +270,8 @@ Fuzzy scores, similar names and incomplete text never match. A household's own (
 text alone: it is not a verified identity.
 
 **Vintage.** Taken only when exactly one plausible year is printed (not a founding year such as "Depuis 1855", not
-part of the wine's name, not in the future). Otherwise it stays **unknown** (never "non-vintage"); the review says
+part of the wine's name, not in the future; the phone's two readings of a year printed alone add both, so readings
+that disagree are two years). Otherwise it stays **unknown** (never "non-vintage"); the review says
 so and the person chooses it. A read year has `medium` confidence; the person confirms or changes it.
 
 **Review and 2D artwork.** The review shows the existing wine's canonical data ("Recognised from the printed label
