@@ -1,6 +1,12 @@
 import "server-only";
 import { adviceOpenIn } from "@/lib/smart-cellar-advice-gate";
-import { parseAdminAllowlist, parseFeatures, type FeatureFlags } from "@cellr/domain";
+import {
+  parseAdminAllowlist,
+  parseFeatures,
+  parseSommelierParts,
+  type FeatureFlags,
+  type SommelierParts,
+} from "@cellr/domain";
 import { builderAccessIn, type BuilderAccess } from "@/lib/smart-cellar-builder-gate";
 import { placementAccessIn, type PlacementAccess } from "@/lib/smart-cellar-placement-gate";
 import { cellarGalleryOpenIn } from "@/lib/cellar-gallery-gate";
@@ -8,6 +14,7 @@ import { smartCellarAccessIn, type SmartCellarAccess } from "@/lib/smart-cellar-
 import { smartCellarRendererOpenIn } from "@/lib/smart-cellar-renderer-gate";
 import { demoOriginsIn } from "@/lib/demo-origins";
 import { getPublicEnv, isDevelopment, type PublicEnv } from "@/lib/public-env";
+import { logWarn } from "./log";
 
 /** Server-side view of the environment. Validated lazily, so `next build` works without secrets. */
 export type ServerEnv = PublicEnv;
@@ -169,6 +176,23 @@ export function getAdminAllowlist(): ReadonlySet<string> {
  */
 export function getFeatures(): FeatureFlags {
   return parseFeatures(process.env.CELLR_FEATURES);
+}
+
+let reportedUnknownParts = "";
+
+/**
+ * Which Sommelier V1+ parts are on in this deployment (CELLR_SOMMELIER, comma list; packages/domain
+ * sommelier-parts.ts). Unset or empty: none, and V1 answers exactly as before. Not part of CELLR_FEATURES, so `all`
+ * there never turns a part on. A name that is not a part is ignored and logged once per value, by name only.
+ */
+export function getSommelierParts(): SommelierParts {
+  const parts = parseSommelierParts(process.env.CELLR_SOMMELIER);
+  const unknown = parts.unknown.join(",");
+  if (unknown && unknown !== reportedUnknownParts) {
+    reportedUnknownParts = unknown;
+    logWarn("sommelier_parts_unknown", { names: unknown });
+  }
+  return parts;
 }
 
 /**

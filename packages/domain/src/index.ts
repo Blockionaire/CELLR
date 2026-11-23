@@ -40,6 +40,7 @@ export * from "./catalog-search";
 export * from "./catalog-providers";
 export * from "./provenance";
 export * from "./features";
+export * from "./sommelier-parts";
 export * from "./catalog-identity";
 export * from "./wine-resolver";
 export * from "./wine-knowledge";
