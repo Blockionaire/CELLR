@@ -110,10 +110,15 @@ test("a new photo of a known catalogue wine is recognised from its label text, w
   await openScan(page);
   const size = uniqueSize();
   // the model is not programmed for this photo: if it were asked, the scan would not say "label text"
+  // The vintage is printed with a word beside it. Printed alone on its line, the on-device reader (tesseract,
+  // sparse-text mode) reads "2019" right or wrong depending on where the digits fall on the pixel grid, and that
+  // changed every run with the photo's unique size: alone, 86 of 120 random sizes read 2019 (the rest "2016",
+  // "2018", "20119", "20H", ...; CI runs 45013527169, 45016236110 and 45079105123 failed so); with "Millésime"
+  // beside it, 120 of 120. The reader reads the same picture the same way every time: no race, no timing.
   const photo = await labelPhoto(size, [
     producer.toUpperCase(),
     name,
-    "2019",
+    "Millésime 2019",
     "Pouilly-Fumé",
     "Produit de France",
   ]);

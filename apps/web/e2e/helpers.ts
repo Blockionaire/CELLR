@@ -104,6 +104,23 @@ export async function api(
 
 export const stamp = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 
+/**
+ * Waits until an element and everything in it stand still: every CSS animation and transition running on it has
+ * finished (one that repeats forever is not waited for). An audit measures colours as they are at that moment, and a
+ * sheet that is still fading in (globals.css `sheet-in`: 260 ms from opacity 0) is not yet the colour it will be:
+ * axe then reports its text as low-contrast. Nothing is skipped or sped up; this only waits.
+ */
+export async function settled(locator: Locator) {
+  await locator.evaluate((el) =>
+    Promise.all(
+      el
+        .getAnimations({ subtree: true })
+        .filter((a) => a.effect?.getComputedTiming().endTime !== Infinity)
+        .map((a) => a.finished.catch(() => undefined)),
+    ),
+  );
+}
+
 /** WCAG 2.1 AA violations on the current page, as readable one-liners (empty = clean). */
 export async function audit(page: Page) {
   const results = await new AxeBuilder({ page })
