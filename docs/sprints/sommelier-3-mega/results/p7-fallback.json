@@ -1,0 +1,337 @@
+{
+  "what": "Sommelier V1+ P7 (fallback): V1 without its model with the fallback part on (engine v1-fallback: createSommelierFallback, else plain() via createSommelierService with llm = null) against V1 without its model today (engine v1-basic). Free: no model was called.",
+  "caveats": [
+    "Evidence for the owner, not a quality claim (D-50).",
+    "The scenarios and their labels (which wines are good, ok or poor for a dish) were written by an AI, not by people.",
+    "holdout-dev is no longer unseen: its failures were read in S9 and rules answer to some of them.",
+    "holdout-test is blind: its vectors are keyed by a salted hash (SOMMELIER_EVAL_BLIND_SALT, not committed) and it is reported in totals only.",
+    "The engines are deterministic: one run per engine and set; the intervals are over dishes (clusters), not runs.",
+    "Latency is wall-clock on a shared 4-core development machine with in-memory stand-ins for the database reads; production adds the reads of the engines (profiles, taste) and the engines' rate-limit check."
+  ],
+  "commands": [
+    "pnpm sommelier:eval --engine <v1-basic|v1-fallback|v1-fallback-plain> --set <main|holdout-dev|holdout-test> --vectors <abs path>/p7-vectors-<set>-<engine>.json",
+    "pnpm --filter @cellr/sommelier-eval run compare --a p7-vectors-<set>-v1-fallback.json --b p7-vectors-<set>-v1-basic.json --json <out>"
+  ],
+  "sets": {
+    "main": {
+      "scenariosPassed": {
+        "v1-basic": {
+          "passed": 13,
+          "attempted": 133
+        },
+        "v1-fallback": {
+          "passed": 93,
+          "attempted": 160
+        },
+        "v1-fallback-plain": {
+          "passed": 88,
+          "attempted": 160
+        }
+      },
+      "compared": {
+        "scenarios": 124,
+        "dishes": 100,
+        "leftOut": {
+          "v1-fallback": 22,
+          "v1-basic": 0
+        }
+      },
+      "totals": {
+        "v1-fallback": {
+          "first": 83,
+          "noPoor": 85,
+          "useful": 81,
+          "offered": 285,
+          "poor": 49,
+          "good": 158
+        },
+        "v1-basic": {
+          "first": 40,
+          "noPoor": 10,
+          "useful": 9,
+          "offered": 364,
+          "poor": 228,
+          "good": 68
+        }
+      },
+      "difference": {
+        "first": {
+          "diff": 0.3468,
+          "low": 0.2437,
+          "high": 0.4522
+        },
+        "noPoor": {
+          "diff": 0.6048,
+          "low": 0.5086,
+          "high": 0.6984
+        },
+        "useful": {
+          "diff": 0.5806,
+          "low": 0.4841,
+          "high": 0.6774
+        },
+        "poorOfOffered": {
+          "diff": -0.4544,
+          "low": -0.515,
+          "high": -0.3947
+        },
+        "goodOfOffered": {
+          "diff": 0.3676,
+          "low": 0.305,
+          "high": 0.4316
+        }
+      },
+      "latencyMs": {
+        "v1-basic": [
+          {
+            "p50": 0.67,
+            "p95": 2.4,
+            "max": 5.95
+          },
+          {
+            "p50": 0.66,
+            "p95": 2.39,
+            "max": 5.85
+          },
+          {
+            "p50": 0.72,
+            "p95": 2.46,
+            "max": 4.49
+          }
+        ],
+        "v1-fallback": [
+          {
+            "p50": 1.98,
+            "p95": 4.35,
+            "max": 7.43
+          },
+          {
+            "p50": 1.89,
+            "p95": 3.5,
+            "max": 6.08
+          },
+          {
+            "p50": 1.88,
+            "p95": 3.35,
+            "max": 7.22
+          }
+        ]
+      }
+    },
+    "holdout-dev": {
+      "scenariosPassed": {
+        "v1-basic": {
+          "passed": 2,
+          "attempted": 45
+        },
+        "v1-fallback": {
+          "passed": 18,
+          "attempted": 45
+        },
+        "v1-fallback-plain": {
+          "passed": 18,
+          "attempted": 45
+        }
+      },
+      "compared": {
+        "scenarios": 45,
+        "dishes": 22,
+        "leftOut": {
+          "v1-fallback": 0,
+          "v1-basic": 0
+        }
+      },
+      "totals": {
+        "v1-fallback": {
+          "first": 30,
+          "noPoor": 41,
+          "useful": 37,
+          "offered": 82,
+          "poor": 7,
+          "good": 48
+        },
+        "v1-basic": {
+          "first": 20,
+          "noPoor": 9,
+          "useful": 9,
+          "offered": 127,
+          "poor": 69,
+          "good": 22
+        }
+      },
+      "difference": {
+        "first": {
+          "diff": 0.2222,
+          "low": 0,
+          "high": 0.4375
+        },
+        "noPoor": {
+          "diff": 0.7111,
+          "low": 0.5652,
+          "high": 0.8444
+        },
+        "useful": {
+          "diff": 0.6222,
+          "low": 0.4255,
+          "high": 0.7907
+        },
+        "poorOfOffered": {
+          "diff": -0.4579,
+          "low": -0.5857,
+          "high": -0.3197
+        },
+        "goodOfOffered": {
+          "diff": 0.4121,
+          "low": 0.2476,
+          "high": 0.5581
+        }
+      },
+      "latencyMs": {
+        "v1-basic": [
+          {
+            "p50": 0.81,
+            "p95": 2.69,
+            "max": 7.15
+          },
+          {
+            "p50": 1.2,
+            "p95": 3.49,
+            "max": 8.71
+          },
+          {
+            "p50": 0.74,
+            "p95": 3.23,
+            "max": 4.71
+          }
+        ],
+        "v1-fallback": [
+          {
+            "p50": 2.57,
+            "p95": 6.06,
+            "max": 6.73
+          },
+          {
+            "p50": 2.17,
+            "p95": 6.44,
+            "max": 6.89
+          },
+          {
+            "p50": 1.99,
+            "p95": 3.49,
+            "max": 7.88
+          }
+        ]
+      }
+    },
+    "holdout-test": {
+      "scenariosPassed": {
+        "v1-basic": {
+          "passed": 1,
+          "attempted": 43
+        },
+        "v1-fallback": {
+          "passed": 16,
+          "attempted": 43
+        },
+        "v1-fallback-plain": {
+          "passed": 16,
+          "attempted": 43
+        }
+      },
+      "compared": {
+        "scenarios": 43,
+        "dishes": 22,
+        "leftOut": {
+          "v1-fallback": 0,
+          "v1-basic": 0
+        }
+      },
+      "totals": {
+        "v1-fallback": {
+          "first": 26,
+          "noPoor": 31,
+          "useful": 26,
+          "offered": 76,
+          "poor": 20,
+          "good": 34
+        },
+        "v1-basic": {
+          "first": 12,
+          "noPoor": 10,
+          "useful": 9,
+          "offered": 115,
+          "poor": 68,
+          "good": 18
+        }
+      },
+      "difference": {
+        "first": {
+          "diff": 0.3256,
+          "low": 0.1351,
+          "high": 0.5106
+        },
+        "noPoor": {
+          "diff": 0.4884,
+          "low": 0.35,
+          "high": 0.625
+        },
+        "useful": {
+          "diff": 0.3953,
+          "low": 0.2727,
+          "high": 0.5128
+        },
+        "poorOfOffered": {
+          "diff": -0.3281,
+          "low": -0.4515,
+          "high": -0.2175
+        },
+        "goodOfOffered": {
+          "diff": 0.2908,
+          "low": 0.1987,
+          "high": 0.3809
+        }
+      },
+      "latencyMs": {
+        "v1-basic": [
+          {
+            "p50": 1.56,
+            "p95": 4.07,
+            "max": 7.16
+          },
+          {
+            "p50": 0.95,
+            "p95": 3.17,
+            "max": 6.24
+          },
+          {
+            "p50": 0.98,
+            "p95": 2.79,
+            "max": 3.26
+          }
+        ],
+        "v1-fallback": [
+          {
+            "p50": 2.97,
+            "p95": 5.77,
+            "max": 5.94
+          },
+          {
+            "p50": 2.27,
+            "p95": 3.92,
+            "max": 5.25
+          },
+          {
+            "p50": 2.34,
+            "p95": 3.75,
+            "max": 4.93
+          }
+        ]
+      }
+    }
+  },
+  "clarifyChoice": {
+    "decision": "A plan that only asks back (kind clarify, asking for the dish or the occasion) is shown; v1-fallback-plain gives such a question to plain() instead.",
+    "measured": "main: v1-fallback 93 scenarios passed, v1-fallback-plain 88 (the 5 robustness scenarios rb-03, rb-04, rb-05, rb-08, rb-12; none fewer). The per-scenario vectors (first, noPoor, useful) are identical on all three sets: no scenario about a dish is answered by a question back when the conversation's state is sent along.",
+    "withoutState": "Replaying main with no state sent back (earlier turns answered by the model): 90 passed against 85; the same 5 robustness scenarios, and fu-08 ('not that one') offers no poor bottle with the question back but asks for a dish that was said earlier. Measured by hand once, not committed as vectors."
+  }
+}
