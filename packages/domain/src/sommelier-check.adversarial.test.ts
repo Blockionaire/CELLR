@@ -201,7 +201,7 @@ describe("text that looks like an instruction", () => {
 describe("very long text", () => {
   const good = `${ref(musar18)} suits the lamb, with soft tannins and spice. `;
   it("is read to the end: a bad sentence after many good ones still counts", () => {
-    const text = `${good.repeat(14)}Your Krug is the alternative.`;
+    const text = `${good.repeat(14)}Your Krug 1996 is the alternative.`;
     expect(text.length).toBeGreaterThan(800);
     expect(codes(text)).toEqual(["not-in-cellar"]);
     expect(check(good.repeat(15)).check).toEqual({ v: 1, text: "kept", codes: [] });
@@ -215,7 +215,9 @@ describe("very long text", () => {
     const started = Date.now();
     const r = check(`${good.repeat(10)}You have 5 bottles of the Albe.`, { items });
     expect(r.check.codes).toEqual(["wrong-count"]);
-    expect(Date.now() - started).toBeLessThan(2000);
+    // Index and one check at 3,000 wines, cold: about 30–60 ms measured here (the growth itself is tested in the
+    // review tests); this bound only catches the gross case on a busy machine.
+    expect(Date.now() - started).toBeLessThan(1500);
   });
 });
 
@@ -347,9 +349,7 @@ describe("a whole answer of the kind V1 writes", () => {
         `For the lamb, ${ref(musar18)} is the one, though your ${"Château Margaux"} 2005 is grander.`,
       ),
     ).toEqual(["wrong-vintage"]);
-    expect(codes(`Open ${ref(grandVin)}. Your Pétrus would be grander still.`)).toEqual([
-      "not-in-cellar",
-    ]);
+    expect(codes(`Open ${ref(grandVin)}. Or pour your Pétrus instead.`)).toEqual(["not-in-cellar"]);
   });
 });
 
@@ -387,7 +387,16 @@ describe("phrasing that only looks like a claim", () => {
     expect(codes("You have Bordeaux: the Pavillon Rouge.")).toEqual([]);
     expect(codes("You have whites too: the Cuvée 1522.")).toEqual([]);
     expect(codes("U heeft een prachtige Barolo.")).toEqual([]);
-    expect(codes("Your Pinot Noir is lovely.")).toEqual([]);
+    // A grape is owned only when a cellar wine's own words say it, not because the cellar has a red.
+    expect(codes("Your Pinot Noir is lovely.")).toEqual(["not-in-cellar"]);
+    const pinot = cellarItem({
+      producer: "Domaine Rion",
+      wineName: "Bourgogne Pinot Noir",
+      year: 2020,
+    });
+    expect(codes("Your Pinot Noir is lovely.", { items: [...CELLAR, pinot] })).toEqual([]);
+    expect(codes("Jouw Pinot Noir is heerlijk.", { items: [...CELLAR, pinot] })).toEqual([]);
+    expect(codes("Jouw Pinot Noir is heerlijk.")).toEqual(["not-in-cellar"]);
     expect(codes("Your Wine fridge holds 3 bottles of it.")).toEqual([]);
     expect(codes("Your Amarone will do.")).toEqual(["not-in-cellar"]);
     expect(codes("Your Rioja is the closest you have.")).toEqual(["not-in-cellar"]);

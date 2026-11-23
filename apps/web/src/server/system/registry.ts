@@ -466,7 +466,7 @@ const components = [
     sources: [
       W + "server/sommelier/service.ts",
       W + "server/sommelier/intelligence.ts",
-      W + "server/sommelier/parts/fallback.ts",
+      W + "server/sommelier/parts/",
       W + "server/ai/prompts/sommelier.ts",
       W + "server/ai/prompts/sommelier-v7.ts",
       W + "server/ai/prompts/sommelier-menu.ts",
@@ -499,6 +499,13 @@ const components = [
       },
     ],
     risks: [
+      {
+        id: "R-SOM-4",
+        severity: "medium",
+        title: "The check part's rules are heuristics, and prompt v7 is not measured",
+        detail:
+          "The check of the answer's words (packages/domain/src/sommelier-check.ts) reads English and Dutch sentences with rules that can miss a claim or remove a good sentence; its header lists what each rule cannot see. Prompt v7 changes what the model is asked, and its effect on the wines chosen has not been measured with a model. The part stays off until that comparison has been run and read (docs/sprints/sommelier-3-mega/progress/P3.md).",
+      },
       {
         id: "R-SOM-3",
         severity: "medium",

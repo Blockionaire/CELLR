@@ -900,7 +900,10 @@ describe("Sommelier V1+ `check` (P3): what the answer says is checked against th
       );
       const answer = await service.ask(ask("What goes with roast lamb?"));
       expect(answer.source).toBe("ai");
-      expect(answer.text).toBeNull();
+      // One sentence made from the first card and the verdict; never the model's words, and never empty.
+      expect(answer.text).toBe(
+        "Antinori Tignanello 2018 from your cellar will do, though it is not ideal.",
+      );
       expect(answer.check).toEqual({ v: 1, text: "replaced", codes: [code] });
       expect(answer.bottles.map((b) => b.vintageId)).toEqual([items[2]!.vintageId]);
       expect(answer.verdict).toBe("partial");
@@ -1012,8 +1015,8 @@ describe("Sommelier V1+ `check` (P3): what the answer says is checked against th
     expect(kept.text).toBe("Schenk Antinori Tignanello 2018 bij het lam.");
     const bad = world(() => raw({ answer: "Je hebt nog negen flessen Tignanello liggen." }));
     const replaced = await bad.service.ask({ messages: ask(...history, "En bij lam?").messages });
-    expect(replaced.text).toBeNull();
-    expect(replaced.check?.codes).toEqual(["wrong-count"]);
+    expect(replaced.check).toEqual({ v: 1, text: "replaced", codes: ["wrong-count"] });
+    expect(replaced.text).toMatch(/^.+ from your cellar/);
   });
 
   it("an empty cellar and an answer that fails V1's own check behave as before", async () => {

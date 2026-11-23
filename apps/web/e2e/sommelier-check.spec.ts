@@ -211,7 +211,8 @@ test.describe("the check and V1 (API)", () => {
     expect(calls[1]!.user).toEqual(calls[0]!.user);
     expect(plus).toMatchObject({
       source: "ai",
-      text: null,
+      // The model's words are gone; what is left is the sentence made from the first card, never an empty text.
+      text: "Antinori Tignanello 2018 from your cellar will do, though it is not ideal.",
       verdict: "partial",
       buy: [{ wine: "Chablis", why: "Lean.", price: "", priceBand: null }],
     });

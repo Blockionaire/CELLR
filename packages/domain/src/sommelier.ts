@@ -114,8 +114,8 @@ export interface SommelierAnswer {
   /** Wines to buy instead (or as well), within the budget. */
   buy?: BuySuggestion[];
   /**
-   * The model's words (source "ai"); null for the plain answer, whose one sentence the screen words itself, and
-   * for an AI answer whose words the check replaced (`check.text === "replaced"`: the screen words one from the cards).
+   * The model's words (source "ai"); null for the plain answer, whose one sentence the screen words itself. When
+   * the check replaced the model's words (`check.text === "replaced"`) this is one sentence made from the cards.
    */
   text: string | null;
   /**

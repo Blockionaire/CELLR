@@ -44,6 +44,7 @@ import {
 import { annotateBottles, menuContext, servingFactsBlock } from "@cellr/domain/intelligence";
 import type { SommelierIntelligence } from "@/server/sommelier/intelligence";
 import { isFactQuestion, type SommelierFallback } from "@/server/sommelier/parts/fallback";
+import { cardOnlyWords } from "@/server/sommelier/parts/check-words";
 import type { AiErrorKind, AiUsage, LlmProvider } from "@/server/ai";
 import {
   parseSommelier,
@@ -608,13 +609,16 @@ export function createSommelierService(deps: SommelierDeps) {
       // app's own sentence (never "the one to look at" for a question of how many or where).
       if (claims?.check.text === "replaced" && facts)
         return { ...plainFacts(facts, null), check: claims.check };
+      const verdict = facts || deps.intelligence ? null : checked.verdict;
       return {
         source: "ai",
-        text: claims ? claims.text : checked.text,
+        // Words the check took away are replaced by one sentence made from the cards (`check.text` says so, and
+        // the screen words it more fully): an answer is never without words.
+        text: claims ? (claims.text ?? cardOnlyWords(locale, bottles, verdict)) : checked.text,
         basic: null,
         bottles,
         ...(menuAdvice ? { menu: menuAdvice } : {}),
-        verdict: facts || deps.intelligence ? null : checked.verdict,
+        verdict,
         buy: claims ? claims.buy : buy,
         ...(claims ? { check: claims.check } : {}),
         reason: null,
