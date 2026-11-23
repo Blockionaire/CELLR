@@ -3,6 +3,7 @@ import { apiClient, arrive, audit, FEATURES_URL } from "./helpers";
 import {
   ask,
   askAt,
+  chosen,
   DEFAULT_URL,
   DUTCH,
   expectNoSidewaysScroll,
@@ -221,7 +222,8 @@ test.describe("the menu and V1 (API)", () => {
       answers.push(await askAt(request, base, token, `What goes with a grilled steak? ${q}`));
       prompts.push((await modelCalls(q))[0]!.user.replaceAll(q, "[marker]"));
     }
-    expect(answers[1]).toEqual(answers[0]);
+    expect(chosen(answers[1]!)).toEqual(chosen(answers[0]!));
+    expect(answers[1]!.menu).toBeUndefined();
     expect(prompts[1]).toEqual(prompts[0]);
   });
 });
