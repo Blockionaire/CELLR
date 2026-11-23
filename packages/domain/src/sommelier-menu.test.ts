@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { CellarItem } from "./cellar";
+import { normalizeText, type CellarItem } from "./cellar";
 import { cellarDigest, type CellarDigest } from "./sommelier";
 import {
   checkMenuAnswer,
   comparedBottles,
+  comparedCards,
   compareRequest,
   MENU_MAX_COURSES,
   MENU_SAID_MAX,
@@ -406,5 +407,220 @@ describe("a choice between two wines of the cellar", () => {
       comparedBottles(["nope", refOf(barolo)], pair, CELLAR, digest).map((b) => b.vintageId),
     ).toEqual([barolo.vintageId, muscadet.vintageId]);
     expect(comparedBottles([], pair, CELLAR, digest).map((b) => b.vintageId)).toEqual(pair);
+  });
+
+  // End review, round 2.
+  it.each([
+    "I love Sassicaia or Barolo, but tonight I want something light with the salmon. What should I open?",
+    "We usually drink Rioja or Chianti. Which white with the fish?",
+    "Ik hou van Rioja of Chianti, maar vanavond wil ik iets lichts bij de zalm. Wat open ik?",
+    "Wij hebben de Barolo of de Chablis nog liggen. Wat past bij de kaas?",
+    "My favourites: the Barolo or the Rioja. What goes with sushi?",
+  ])("is none when the 'or' is in a statement, not the question: %s", (q) => {
+    const sassicaia = item({ producer: "Tenuta San Guido", wineName: "Sassicaia" });
+    expect(ask(q, [...cellar, sassicaia])).toBeNull();
+  });
+
+  it.each([
+    ["I love them both. The Barolo or the Chablis with the lamb?", barolo, chablis],
+    ["Ik heb er zin in! De Rioja of de Chianti bij de pizza?", rioja, chianti],
+    ["Barolo or Chablis with the lamb", barolo, chablis],
+    ["Rioja of Chianti bij de stoof", rioja, chianti],
+    ["For the lamb tonight, should I open the Barolo or the Rioja", barolo, rioja],
+    ["Welke kies ik, de Chianti of de Rioja?", chianti, rioja],
+  ])("is the choice when the question itself asks it: %s", (q, a, b) => {
+    expect(ask(q)).toEqual([a.vintageId, b.vintageId]);
+  });
+
+  it("stays fast on a long question and a large cellar", () => {
+    const places = [
+      "Barolo",
+      "Chablis",
+      "Rioja",
+      "Chianti",
+      "Pauillac",
+      "Margaux",
+      "Sancerre",
+      "Fleurie",
+    ];
+    const words = [
+      "Clos",
+      "Mont",
+      "Roche",
+      "Vigne",
+      "Pierre",
+      "Coteau",
+      "Bois",
+      "Rive",
+      "Lune",
+      "Soleil",
+    ];
+    const big = Array.from({ length: 3000 }, (_, i) =>
+      item({
+        producer: `Domaine ${words[i % 10]} ${words[Math.floor(i / 10) % 10]} ${i}`,
+        wineName: `${places[i % places.length]} ${words[(i * 7) % 10]} Cuvée ${i}`,
+        appellation: places[i % places.length]!,
+      }),
+    );
+    const question =
+      `${"We are having friends over and I wonder about the Barolo or the Chablis with the lamb, ".repeat(10)}`.slice(
+        0,
+        800,
+      );
+    expect(question.length).toBe(800);
+    const fastest = (work: () => void) =>
+      Math.min(
+        ...Array.from({ length: 7 }, () => {
+          const started = performance.now();
+          work();
+          return performance.now() - started;
+        }),
+      );
+    // Measured against reading every wine's names once on the same machine at the same moment, so a busy
+    // machine does not decide it. Here: about 8 ms against about 15 ms. Before the names were indexed it took
+    // 155 ms, about ten times as long as the reading.
+    const reading = fastest(() => {
+      for (const i of big) normalizeText(`${i.producer} ${i.wineName} ${i.appellation ?? ""}`);
+    });
+    const asking = fastest(() => compareRequest(question, big));
+    expect(asking).toBeLessThan(Math.max(2 * reading, 15));
+    expect(asking).toBeLessThan(250);
+  });
+
+  it("finds names with accents, letters that fold to two, and other scripts", () => {
+    const montee = item({ wineName: "Montée de Tonnerre", type: "white" });
+    const aeble = item({ producer: "Æblegaarden", wineName: "Cider Reserve", type: "white" });
+    const greek = item({ producer: "Κτήμα Γεροβασιλείου", wineName: "Malagousia", type: "white" });
+    const cellar3 = [montee, aeble, greek, barolo];
+    expect(ask("The Montee de Tonnerre or the Barolo?", cellar3)).toEqual([
+      montee.vintageId,
+      barolo.vintageId,
+    ]);
+    expect(ask("Aeblegaarden of de Barolo bij de kaas?", cellar3)).toEqual([
+      aeble.vintageId,
+      barolo.vintageId,
+    ]);
+    expect(ask("Γεροβασιλείου or the Barolo with the fish?", cellar3)).toEqual([
+      greek.vintageId,
+      barolo.vintageId,
+    ]);
+  });
+
+  it("gives the pair's cards only when the model pointed at one of them", () => {
+    const pair: [string, string] = [barolo.vintageId, muscadet.vintageId];
+    expect(
+      comparedCards([refOf(port), refOf(muscadet)], pair, CELLAR, digest)?.map((b) => b.vintageId),
+    ).toEqual([muscadet.vintageId, barolo.vintageId]);
+    expect(comparedCards([refOf(barolo)], pair, CELLAR, digest)?.map((b) => b.vintageId)).toEqual([
+      barolo.vintageId,
+      muscadet.vintageId,
+    ]);
+    // The model chose a third wine, or none: its own cards stand.
+    expect(comparedCards([refOf(port)], pair, CELLAR, digest)).toBeNull();
+    expect(comparedCards([], pair, CELLAR, digest)).toBeNull();
+    expect(comparedCards(["zzzzzz"], pair, CELLAR, digest)).toBeNull();
+    // A wine of the pair that is no longer in the cellar: not two cards, so none.
+    expect(comparedCards([refOf(barolo)], [barolo.vintageId, "gone"], CELLAR, digest)).toBeNull();
+  });
+});
+
+describe("what the model chose for each course: round 2 of the end review", () => {
+  it("tells 'nothing suits' (the model said so) from 'no wine could be chosen'", () => {
+    const { menu } = checkMenuAnswer(
+      [
+        { course: 1, ref: null, why: "Nothing here is crisp enough." },
+        { course: 2, ref: "zzzzzz", why: "The invented one." },
+        { course: 4, ref: refOf(port), why: "out of range" },
+      ],
+      COURSES,
+      false,
+      digest,
+    );
+    expect(menu.courses.map((c) => [c.vintageId, c.why, c.unchosen ?? false])).toEqual([
+      [null, "Nothing here is crisp enough.", false],
+      [null, null, true],
+      [null, null, true],
+    ]);
+    expect(MenuAdviceSchema.safeParse(menu).success).toBe(true);
+    // A chosen wine carries no flag at all.
+    const chosen = checkMenuAnswer(
+      [{ course: 1, ref: refOf(port), why: "" }],
+      COURSES,
+      false,
+      digest,
+    );
+    expect("unchosen" in chosen.menu.courses[0]!).toBe(false);
+  });
+
+  it("still reads a menu kept before the flag existed, and only ever a true flag", () => {
+    const old = {
+      courses: [{ said: "Oysters", vintageId: null, why: null, shared: false }],
+      cut: false,
+    };
+    expect(MenuAdviceSchema.safeParse(old).success).toBe(true);
+    expect(
+      MenuAdviceSchema.safeParse({ ...old, courses: [{ ...old.courses[0], unchosen: true }] })
+        .success,
+    ).toBe(true);
+    expect(
+      MenuAdviceSchema.safeParse({ ...old, courses: [{ ...old.courses[0], unchosen: false }] })
+        .success,
+    ).toBe(false);
+  });
+
+  it("writes every form of a ref on the list as the wine's name: [[ref]], [ref] and the bare ref", () => {
+    const why = (text: string) =>
+      checkMenuAnswer([{ course: 1, ref: refOf(port), why: text }], COURSES, false, digest).menu
+        .courses[0]!.why;
+    const vajra = "G.D. Vajra Barolo Albe 2018";
+    expect(why(`[[${refOf(barolo)}]] has the tannin.`)).toBe(`${vajra} has the tannin.`);
+    expect(why(`[${refOf(barolo)}] has the tannin.`)).toBe(`${vajra} has the tannin.`);
+    expect(why(`Unlike ${refOf(barolo)}, this one is sweet.`)).toBe(
+      `Unlike ${vajra}, this one is sweet.`,
+    );
+    expect(why(`[${refOf(barolo).toUpperCase()}] too.`)).toBe(`${vajra} too.`);
+    // Een Nederlandse reden ook.
+    expect(why(`Zoeter dan [${refOf(barolo)}].`)).toBe(`Zoeter dan ${vajra}.`);
+    // A bracketed ref that is not on the list: the reason goes. Other brackets are words.
+    expect(why("Better than [c00099].")).toBeNull();
+    expect(why("Better than [[anything]].")).toBeNull();
+    expect(why("Sweet [sic] and nutty.")).toBe("Sweet [sic] and nutty.");
+    expect(why("Not c00099, but this.")).toBe("Not c00099, but this.");
+  });
+
+  it("names a wine once when its name starts with its producer", () => {
+    const yquem = item({
+      producer: "Château d'Yquem",
+      wineName: "Château d'Yquem",
+      year: 2009,
+      type: "dessert",
+    });
+    const d = cellarDigest([yquem], "");
+    const ref = [...d.refs.keys()][0]!;
+    const { menu } = checkMenuAnswer(
+      [{ course: 1, ref, why: `[[${ref}]] with the fondant.` }],
+      COURSES,
+      false,
+      d,
+    );
+    expect(menu.courses[0]!.why).toBe("Château d'Yquem 2009 with the fondant.");
+  });
+
+  it("cuts a reason after its refs are written out, so it is never longer than the bound", () => {
+    const long = item({
+      producer: "Domaine de la Très Longue Appellation Exemplaire",
+      wineName: "Cuvée Particulièrement Remarquable des Vieilles Vignes",
+    });
+    const d = cellarDigest([long], "");
+    const ref = [...d.refs.keys()][0]!;
+    for (const form of [`[[${ref}]]`, `[${ref}]`, ref]) {
+      const text = `${form} and ${form}, then again ${form} with ${form}: ${"good ".repeat(10)}`;
+      expect(text.length).toBeLessThan(MENU_WHY_MAX);
+      const { menu } = checkMenuAnswer([{ course: 1, ref, why: text }], COURSES, false, d);
+      const why = menu.courses[0]!.why!;
+      expect(why.length).toBeLessThanOrEqual(MENU_WHY_MAX);
+      expect(why).not.toContain(ref);
+      expect(MenuAdviceSchema.safeParse(menu).success).toBe(true);
+    }
   });
 });

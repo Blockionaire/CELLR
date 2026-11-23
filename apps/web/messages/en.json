@@ -394,6 +394,7 @@
       "title": "Your menu, course by course",
       "course": "Course {n}",
       "none": "Nothing in your cellar really suits this course.",
+      "unchosen": "No wine could be chosen for this course.",
       "same": "The same wine as with course {n}.",
       "cut": "Only the first {count} courses are planned."
     },

@@ -715,6 +715,101 @@ describe("a menu, course by course (parseMenu)", () => {
     expect(menu(text)).toBeNull();
   });
 
+  // End review, round 2: a course word AFTER its dish.
+  it.each([
+    [
+      "Oysters to start, then roast lamb, and chocolate fondant for dessert. Which wines?",
+      ["Oysters", "roast lamb", "chocolate fondant"],
+    ],
+    ["oysters to start, then lamb, and a fondant", ["oysters", "lamb", "a fondant"]],
+    [
+      "Carpaccio als voorgerecht, daarna eend en chocolademousse als dessert.",
+      ["Carpaccio", "eend", "chocolademousse"],
+    ],
+    ["Soup first, then steak, and ice cream for dessert.", ["Soup", "steak", "ice cream"]],
+    [
+      "Scallops as a starter, roast duck as the main and crème brûlée to finish.",
+      ["Scallops", "roast duck", "crème brûlée"],
+    ],
+    [
+      "Oesters vooraf, lamsbout als hoofdgerecht en tiramisu als toetje.",
+      ["Oesters", "lamsbout", "tiramisu"],
+    ],
+    [
+      "Gazpacho first, then grilled sardines with potatoes and salad, and cheese to finish.",
+      ["Gazpacho", "grilled sardines with potatoes and salad", "cheese"],
+    ],
+    ["Burrata to start, then osso buco, and tiramisu.", ["Burrata", "osso buco", "tiramisu"]],
+    [
+      "Zalm als voorgerecht, daarna hertenstoof, en kaas als afsluiter.",
+      ["Zalm", "hertenstoof", "kaas"],
+    ],
+    [
+      "Asperges vooraf, dan zeetong, en aardbeien als dessert",
+      ["Asperges", "zeetong", "aardbeien"],
+    ],
+    ["Eerst soep, daarna kip met rijst en als toetje ijs.", ["soep", "kip met rijst", "ijs"]],
+    [
+      "Mussels to start, then steak with fries and salad, and a cheese board.",
+      ["Mussels", "steak with fries and salad", "cheese board"],
+    ],
+    ["Surf and turf as the main, then cheesecake for dessert", ["Surf and turf", "cheesecake"]],
+    ["Fish and chips for the main, then apple pie", ["Fish and chips", "apple pie"]],
+    ["Sunday roast, then apple crumble for dessert", ["Sunday roast", "apple crumble"]],
+    [
+      "Gerookte zalm als voorgerecht, kalfsvlees als hoofdgerecht, en appeltaart toe.",
+      ["Gerookte zalm", "kalfsvlees", "appeltaart"],
+    ],
+    [
+      "Oysters as an appetiser, then lamb as the main course, and cheese for dessert",
+      ["Oysters", "lamb", "cheese"],
+    ],
+  ])("reads a course word after its dish: %s", (text, expected) => {
+    expect(courses(menu(text))).toEqual(expected);
+  });
+
+  it("keeps a side cut off by a course word after it with its course", () => {
+    expect(courses(menu("Oysters to start, then lamb, and some mushrooms."))).toEqual([
+      "Oysters",
+      "lamb and mushrooms",
+    ]);
+    expect(
+      courses(menu("Vooraf oesters, daarna lamsbout en aardappelen als hoofdgerecht")),
+    ).toEqual(["oesters", "lamsbout en aardappelen"]);
+  });
+
+  // End review, round 2: another day, or what already happened, is not a course of this meal.
+  it.each([
+    "We're having steak tonight, then salmon tomorrow. Which wine for tonight?",
+    "Wat drink ik bij de kip en dan morgen bij de vis?",
+    "Steak today and then fish on Friday, what do I open?",
+    "I had oysters, then I went for a walk. What now with lamb?",
+    "Vanavond biefstuk, daarna overmorgen zalm. Welke wijn?",
+    "Lamb tonight, then duck next week. Which bottle for the lamb?",
+    "Vandaag kip, daarna zaterdag vis. Wat schenk ik vandaag?",
+    "We ate oysters, then we had lamb. Which wine with cheese now?",
+    "Ik had vooraf oesters gegeten, daarna wil ik lamsbout. Welke wijn?",
+    "Roast chicken, then I add a cream sauce, and some mushrooms.",
+  ])("is not a menu: %s", (text) => {
+    expect(menu(text)).toBeNull();
+  });
+
+  it("takes a sentence of its own for a course, but not a question about the menu", () => {
+    expect(courses(menu("Oysters. Then roast lamb. Then cheese."))).toEqual([
+      "Oysters",
+      "roast lamb",
+      "cheese",
+    ]);
+    expect(courses(menu("Oesters vooraf, daarna lamsbout. Welke wijn bij de lamsbout?"))).toEqual([
+      "Oesters",
+      "lamsbout",
+    ]);
+    expect(courses(menu("Oysters to start, then lamb. Which bottle for the lamb?"))).toEqual([
+      "Oysters",
+      "lamb",
+    ]);
+  });
+
   it("plans at most eight courses and says when there were more", () => {
     const dishes = ["lamb", "duck", "sole", "pork", "cheese", "tiramisu", "oysters", "salmon"];
     const text = `Menu: ${Array.from({ length: 20 }, (_, i) => dishes[i % dishes.length]).join(", then ")}`;
