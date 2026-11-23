@@ -36,6 +36,7 @@ import { Chip } from "@/ui/chip";
 import { EmptyState } from "@/ui/empty-state";
 import { plainSentence } from "./plain-sentence";
 import { PlanView } from "./plan-view";
+import { MenuView } from "./menu-view";
 import { cn } from "@/ui/cn";
 import { ChevronRightIcon, ScanIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
@@ -655,7 +656,19 @@ function Answer({
           {answer.source === "ai" ? answer.text : plainSentence(answer, t)}
         </p>
       </div>
-      {answer.bottles.length > 0 && (
+      {/* V1+ `menu`: the wines are shown with their course, in the order of the meal, instead of as a plain list. */}
+      {answer.menu && (
+        <div className="reveal" style={{ "--i": i++ + 1 } as React.CSSProperties}>
+          <MenuView
+            menu={answer.menu}
+            card={(vintageId, first) => {
+              const bottle = answer.bottles.find((b) => b.vintageId === vintageId);
+              return bottle ? <BottleCard bottle={bottle} first={first} /> : null;
+            }}
+          />
+        </div>
+      )}
+      {!answer.menu && answer.bottles.length > 0 && (
         <ul className="flex flex-col gap-2.5">
           {answer.bottles.map((b, n) => (
             <li

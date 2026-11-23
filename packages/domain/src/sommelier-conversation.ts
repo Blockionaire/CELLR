@@ -2,6 +2,7 @@ import { z } from "zod";
 import { cellarQuestionKind, isCellarQuestion } from "./cellar-facts";
 import { readPlan } from "./sommelier-plan";
 import { detectIntent, type SommelierAnswer } from "./sommelier";
+import { MenuAdviceSchema } from "./sommelier-menu";
 
 /**
  * THE SOMMELIER'S MEMORY. The general sommelier keeps one conversation per person: it is there again after the
@@ -93,6 +94,8 @@ export function isStoredAnswer(value: unknown): value is SommelierAnswer {
     (a.basic === null || typeof a.basic === "string") &&
     // A kept plan is drawn as it is (links included), so it must be one; anything else is not drawn.
     (a.plan === undefined || a.plan === null || readPlan(a.plan) !== null) &&
-    (a.otherBottles === undefined || Array.isArray(a.otherBottles))
+    (a.otherBottles === undefined || Array.isArray(a.otherBottles)) &&
+    // A kept menu is drawn course by course, so it must still be one.
+    (a.menu === undefined || a.menu === null || MenuAdviceSchema.safeParse(a.menu).success)
   );
 }

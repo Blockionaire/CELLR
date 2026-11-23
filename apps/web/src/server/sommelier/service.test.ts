@@ -15,6 +15,7 @@ import {
   type TonightView,
 } from "@cellr/domain";
 import type { GenerateObjectRequest, LlmProvider } from "@/server/ai/types";
+import { SOMMELIER_SCHEMA, SOMMELIER_SYSTEM } from "@/server/ai/prompts/sommelier";
 import { createSommelierService, type SommelierDeps } from "./service";
 
 let n = 0;
@@ -60,7 +61,13 @@ const ask = (...texts: string[]) => ({
 function setup(
   options: {
     items?: CellarItem[];
-    answer?: RawSommelier | "invalid" | "unavailable" | "timeout" | "rate_limited" | "refused";
+    answer?:
+      | (RawSommelier & { courses?: unknown })
+      | "invalid"
+      | "unavailable"
+      | "timeout"
+      | "rate_limited"
+      | "refused";
     noAi?: boolean;
     spend?: () => Promise<void>;
     usageFails?: boolean;
@@ -763,8 +770,9 @@ describe("the sommelier and your own taste", () => {
   });
 });
 
-describe("Sommelier V1+ parts (CELLR_SOMMELIER, P2): none changes an answer yet", () => {
-  const all = parseSommelierParts(SOMMELIER_PARTS.join(","));
+describe("Sommelier V1+ parts (CELLR_SOMMELIER): a part that is not on, or not built, changes nothing", () => {
+  // `menu` (P6) is built: it has its own tests below. The others are not yet.
+  const all = parseSommelierParts(SOMMELIER_PARTS.filter((p) => p !== "menu").join(","));
   const questions: Array<{ texts: string[]; mode?: "tonight" }> = [
     { texts: ["What goes with roast lamb?"] },
     { texts: ["How many bottles of red do I have?"] },
@@ -774,12 +782,12 @@ describe("Sommelier V1+ parts (CELLR_SOMMELIER, P2): none changes an answer yet"
   const variants: Array<[string, SommelierParts | undefined]> = [
     ["absent", undefined],
     ["empty", parseSommelierParts("")],
-    ["every part", all],
+    ["every part that is not built", all],
     ["an unknown name", parseSommelierParts("all,bogus")],
   ];
   for (const noAi of [false, true]) {
     for (const q of questions) {
-      it(`${noAi ? "without" : "with"} a model: "${q.texts.at(-1)}" is answered the same with the parts ${variants.map((v) => v[0]).join(", ")}`, async () => {
+      it(`${noAi ? "without" : "with"} a model: "${q.texts.at(-1)}" is answered the same with ${variants.map((v) => v[0]).join(", ")}`, async () => {
         const results = [];
         for (const [, parts] of variants) {
           n = 0; // the same cellar ids for every variant
@@ -800,3 +808,175 @@ describe("Sommelier V1+ parts (CELLR_SOMMELIER, P2): none changes an answer yet"
     }
   }
 });
+
+describe("Sommelier V1+ `menu` (P6): a wine per course, and a choice between two wines", () => {
+  const menuPart = parseSommelierParts("menu");
+  const MENU =
+    "Oysters to start, then roast lamb, and for dessert a chocolate fondant. Which wine with each course?";
+  const cellar = () => {
+    n = 0;
+    return [
+      item({ producer: "Bollinger", wineName: "Special Cuvée", type: "sparkling", year: null }),
+      item({ producer: "Château Margaux", wineName: "Pavillon Rouge" }),
+      item({ producer: "Antinori", wineName: "Tignanello", year: 2018 }),
+      item({ producer: "Taylor's", wineName: "Vintage Port", type: "fortified", year: 2000 }),
+    ];
+  };
+  const ref = (i: CellarItem) => i.vintageId.replace(/-/g, "").slice(0, 6);
+  const plan = (items: CellarItem[], courses: unknown) => ({
+    answer: "A menu that goes from bubbles to port.",
+    bottle_refs: [ref(items[0]!), ref(items[1]!), ref(items[3]!)],
+    verdict: "match" as const,
+    buy: [],
+    used_taste: false,
+    courses,
+  });
+
+  it("one call: the courses numbered in the message, the schema extended, and one checked wine per course", async () => {
+    const items = cellar();
+    const { service, state } = setup({
+      items,
+      parts: menuPart,
+      answer: plan(items, [
+        { course: 1, ref: ref(items[0]!), why: "Bubbles and brine." },
+        { course: 2, ref: ref(items[1]!), why: "Cabernet for the lamb." },
+        { course: 3, ref: ref(items[3]!), why: "Port loves chocolate." },
+      ]),
+    });
+    const answer = await service.ask(ask(MENU));
+    expect(state.requests).toHaveLength(1);
+    const request = state.requests[0]!;
+    expect(request.user).toContain("Menu (the person's courses, in the order they are served):");
+    expect(request.user).toMatch(/1\. .*oysters/i);
+    expect(request.user).toMatch(/2\. .*lamb/i);
+    expect(request.user).toMatch(/3\. .*chocolate fondant/i);
+    expect(request.user.indexOf("Menu (")).toBeLessThan(request.user.indexOf("Question:"));
+    expect((request.jsonSchema as { required: string[] }).required).toContain("courses");
+    expect(request.maxOutputTokens).toBeGreaterThan(900);
+    expect(request.system).toBe(setupSystem());
+    expect(answer.menu?.courses.map((c) => [c.vintageId, c.why, c.shared])).toEqual([
+      [items[0]!.vintageId, "Bubbles and brine.", false],
+      [items[1]!.vintageId, "Cabernet for the lamb.", false],
+      [items[3]!.vintageId, "Port loves chocolate.", false],
+    ]);
+    // The cards are the menu's wines, in the order of the meal.
+    expect(answer.bottles.map((b) => b.vintageId)).toEqual([
+      items[0]!.vintageId,
+      items[1]!.vintageId,
+      items[3]!.vintageId,
+    ]);
+    expect(answer.text).toBe("A menu that goes from bubbles to port.");
+  });
+
+  it("a wine the model made up for a course is never a card; a course without a wine says so; one wine for two courses is shared", async () => {
+    const items = cellar();
+    const { service } = setup({
+      items,
+      parts: menuPart,
+      answer: plan(items, [
+        { course: 1, ref: "nosuch", why: "An invented Chablis." },
+        { course: 2, ref: ref(items[1]!), why: "For the lamb." },
+        { course: 3, ref: ref(items[1]!), why: "Nothing sweeter is there." },
+        { course: 9, ref: ref(items[2]!), why: "No such course." },
+      ]),
+    });
+    const answer = await service.ask(ask(MENU));
+    expect(answer.menu?.courses.map((c) => [c.vintageId, c.shared])).toEqual([
+      [null, false],
+      [items[1]!.vintageId, true],
+      [items[1]!.vintageId, true],
+    ]);
+    expect(answer.bottles.map((b) => b.vintageId)).toEqual([items[1]!.vintageId]);
+    expect(JSON.stringify(answer)).not.toContain("nosuch");
+    expect(JSON.stringify(answer.menu)).not.toContain("invented Chablis");
+  });
+
+  it("a plan that comes back empty or broken is V1's ordinary answer, never an error", async () => {
+    for (const courses of [[], "nonsense", undefined, [{ course: "x" }]]) {
+      const items = cellar();
+      const { service } = setup({ items, parts: menuPart, answer: plan(items, courses) });
+      const answer = await service.ask(ask(MENU));
+      expect(answer.source).toBe("ai");
+      expect(answer).not.toHaveProperty("menu");
+      expect(answer.bottles).toHaveLength(3);
+    }
+  });
+
+  it("a follow-up about the menu gets it as context, with V1's own schema; a long conversation keeps it", async () => {
+    const items = cellar();
+    const { service, state } = setup({ items, parts: menuPart });
+    await service.ask(
+      ask(
+        MENU,
+        "Bollinger, Pavillon Rouge, then the port.",
+        "Is the Pavillon Rouge not too heavy for the lamb?",
+        "No, it suits it.",
+        "And if we add a cheese course?",
+        "Stay with the red.",
+        "Which of them should I open first?",
+      ),
+    );
+    const request = state.requests[0]!;
+    expect(request.user).toContain("Menu (context only:");
+    expect(request.user).toMatch(/2\. .*lamb/i);
+    expect(request.jsonSchema).toBe(SOMMELIER_SCHEMA);
+    expect(request.maxOutputTokens).toBe(900);
+  });
+
+  it("without the part a menu question is V1's, word for word; with it, a question that is no menu is too", async () => {
+    const off = setup({ items: cellar() });
+    await off.service.ask(ask(MENU));
+    const others = setup({
+      items: cellar(),
+      parts: parseSommelierParts("check,annotate,quantities,fallback"),
+    });
+    await others.service.ask(ask(MENU));
+    expect(JSON.stringify(others.state.requests)).toEqual(JSON.stringify(off.state.requests));
+    expect(off.state.requests[0]!.user).not.toContain("Menu (");
+
+    const v1 = setup({ items: cellar() });
+    await v1.service.ask(ask("What goes with roast lamb?"));
+    const on = setup({ items: cellar(), parts: menuPart });
+    await on.service.ask(ask("What goes with roast lamb?"));
+    expect(JSON.stringify(on.state.requests)).toEqual(JSON.stringify(v1.state.requests));
+  });
+
+  it("'the Tignanello or the Pavillon Rouge?': both are put to the model, and both are the cards, its choice first", async () => {
+    const items = cellar();
+    const { service, state } = setup({
+      items,
+      parts: menuPart,
+      answer: {
+        answer: "The Tignanello: more grip for the steak.",
+        bottle_refs: [ref(items[2]!)],
+        verdict: "match",
+        buy: [],
+        used_taste: false,
+      },
+    });
+    const answer = await service.ask(ask("The Tignanello or the Pavillon Rouge with the steak?"));
+    expect(state.requests).toHaveLength(1);
+    expect(state.requests[0]!.user).toContain(
+      "Compare: the person asks to choose between two wines from the cellar list:",
+    );
+    expect(state.requests[0]!.jsonSchema).toBe(SOMMELIER_SCHEMA);
+    expect(answer.bottles.map((b) => b.wineName)).toEqual(["Tignanello", "Pavillon Rouge"]);
+    expect(answer).not.toHaveProperty("menu");
+  });
+
+  it("a question about the cellar itself, and no model, are left as they were", async () => {
+    const items = cellar();
+    const facts = setup({ items, parts: menuPart });
+    await facts.service.ask(ask("How many bottles of Tignanello or Pavillon Rouge do I have?"));
+    expect(facts.state.requests[0]!.user).not.toContain("Compare:");
+    const none = setup({ items: cellar(), parts: menuPart, noAi: true });
+    const plain = await none.service.ask(ask(MENU));
+    expect(plain.source).toBe("basic");
+    expect(plain).not.toHaveProperty("menu");
+  });
+});
+
+/** V1's system prompt, as the service sends it without the `check` part. */
+function setupSystem() {
+  return SOMMELIER_SYSTEM;
+}

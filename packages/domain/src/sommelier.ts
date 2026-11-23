@@ -6,6 +6,7 @@ import type { Reservation } from "./insights";
 import type { Occasion } from "./tonight";
 import type { RatingSummary } from "./tasting";
 import type { SommelierPlan } from "./sommelier-plan";
+import type { MenuAdvice } from "./sommelier-menu";
 
 /**
  * THE SOMMELIER. A conversation about the cellar that is only ever as smart as the cellar is real: the model is
@@ -146,6 +147,11 @@ export interface SommelierAnswer {
    * `bottles` on purpose: a screen that knows no plans draws `bottles` as suggestions, and these are not.
    */
   otherBottles?: SommelierBottle[];
+  /**
+   * V1+ part `menu`: a menu of several courses, with the wine V1's model chose for each (a wine in `bottles`, or
+   * none) and its short reason. Every wine in it was checked against the list the model was shown.
+   */
+  menu?: MenuAdvice | null;
 }
 
 export const toSommelierBottle = (item: CellarItem): SommelierBottle => ({
