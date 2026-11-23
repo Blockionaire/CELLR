@@ -9,6 +9,7 @@
  *   pnpm sommelier:eval --json out.json         write the per-scenario results (no timings: they vary per run)
  *   pnpm sommelier:eval --needs pairing,facts   only the scenarios that need no more than these capabilities
  *   pnpm sommelier:eval --engine v1-ai --estimate   what running V1 WITH its AI would cost; nothing is sent
+ *   pnpm sommelier:eval --engine v1plus-ai --parts check --estimate   the same with V1+ parts on (prompt v7)
  *
  * Nothing here calls a model or a network: the engines are run with fixed cellars and a fixed day. The one
  * exception is `--engine v1-ai` without `--estimate`, which calls the paid model and therefore refuses to run
@@ -19,6 +20,8 @@ import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { ENGINES } from "./engines";
 import { v1Ai, type V1AiRun } from "./engines/v1-ai";
+import { v1PlusAi, type ClaimsRecord, type V1PlusAiRun } from "./engines/v1plus-ai";
+import { keptSample, removedSheet } from "./review-sheet";
 import { buildFixture } from "./fixtures";
 import { formatQuality, qualityRow, qualityTotals, type QualityRow } from "./quality";
 import { BudgetReached, Ledger, paidAllowed } from "./paid";
@@ -55,12 +58,20 @@ const { values: args } = parseArgs({
      * never names a scenario.
      */
     vectors: { type: "string" },
+    /** With `--engine v1plus-ai`: the V1+ parts on, as CELLR_SOMMELIER ("none": V1 itself, prompt v6). */
+    parts: { type: "string", default: "none" },
+    /**
+     * With `--engine v1plus-ai` for real, on a readable set: write every sentence the check removed or replaced, and
+     * a sample of 100 kept sentences (<file>-kept-sample.csv), for a person to judge. Every verdict column is empty.
+     */
+    "review-sheet": { type: "string" },
   },
 });
 
 let paid: V1AiRun | null = null;
+let plus: V1PlusAiRun | null = null;
 let ledger: Ledger | null = null;
-const PAID_ENGINES = new Set(["v1-ai"]);
+const PAID_ENGINES = new Set(["v1-ai", "v1plus-ai"]);
 if (PAID_ENGINES.has(args.engine!)) {
   const maxUsd = Number(args["max-usd"]);
   if (!Number.isFinite(maxUsd) || maxUsd <= 0 || maxUsd > 25) {
@@ -76,7 +87,20 @@ if (PAID_ENGINES.has(args.engine!)) {
         throw new Error("--total-usd must be a number of dollars between 0 and 25");
       ledger = Ledger.open(args["budget-file"], Math.round(totalUsd * 1e6));
     }
-    paid = v1Ai({ estimate: args.estimate!, maxUsd, ledger });
+    if (args.engine === "v1plus-ai") {
+      if (args["review-sheet"] && holdsBlind(args.set!))
+        throw new Error(
+          `"${args.set}" holds blind scenarios: no review sheet is written for it (totals only).`,
+        );
+      plus = v1PlusAi({
+        estimate: args.estimate!,
+        maxUsd,
+        ledger,
+        parts: args.parts!,
+        set: args.set!,
+      });
+      paid = plus;
+    } else paid = v1Ai({ estimate: args.estimate!, maxUsd, ledger });
   } catch (error) {
     console.error((error as Error).message);
     process.exit(2);
@@ -116,7 +140,7 @@ try {
   console.error((error as Error).message);
   process.exit(2);
 }
-const vectors = new Map<string, ScenarioVector>();
+const vectors = new Map<string, ScenarioVector & { claims?: ClaimsRecord }>();
 // Once unmeasured, so module loading and the first call's warm-up are not counted as latency.
 // (Never for the paid engine: a warm-up there is a call that costs money and is thrown away.)
 if (scenarios[0] && !paid) await engine.run(scenarios[0]);
@@ -150,11 +174,14 @@ for (const scenario of scenarios) {
   const row = qualityRow(scenario, card, run.answer, scored, cellarKeys);
   if (row) qualityRows.push(row);
   // Clustered by dish (keyed like the scenario, so a blind set's dishes are not named either).
-  if (row && keyOf)
-    vectors.set(
-      keyOf.key(scenario.id),
-      vectorOf(row, scored, scenario.dish ? keyOf.key(`dish:${scenario.dish}`) : undefined),
-    );
+  if (row && keyOf) {
+    const claims = plus?.records.get(scenario.id);
+    vectors.set(keyOf.key(scenario.id), {
+      ...vectorOf(row, scored, scenario.dish ? keyOf.key(`dish:${scenario.dish}`) : undefined),
+      // V1+ paid plan: what the check's rules flag (heuristics), the refs, the check's outcome, tokens per call.
+      ...(claims ? { claims } : {}),
+    });
+  }
 }
 const quality = qualityTotals(
   qualityRows,
@@ -238,6 +265,15 @@ if (args.json) {
         }),
   };
   await writeFile(args.json, JSON.stringify(stable, null, 2) + "\n");
+}
+if (plus && args["review-sheet"] && paid?.mode === "paid") {
+  const runId = ledger?.run.id ?? "run";
+  const answers = plus.sheet.map((a) => ({ ...a, run: runId }));
+  await writeFile(args["review-sheet"], removedSheet(answers));
+  await writeFile(
+    args["review-sheet"].replace(/\.csv$/i, "") + "-kept-sample.csv",
+    keptSample(answers),
+  );
 }
 ledger?.end(stoppedAt === null);
 if (ledger)

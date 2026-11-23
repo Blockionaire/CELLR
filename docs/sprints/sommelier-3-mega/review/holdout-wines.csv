@@ -1,0 +1,31 @@
+﻿key,wine,type,vintage,appellation,region,country,grapes
+muscadet,Muscadet Sèvre et Maine sur lie,white,2023,Muscadet Sèvre et Maine,Loire,FR,Melon de Bourgogne
+chablis,Chablis,white,2022,Chablis,Burgundy,FR,Chardonnay
+sancerre,Sancerre,white,2023,Sancerre,Loire,FR,Sauvignon Blanc
+albarino,Albariño,white,2023,Rías Baixas,Rías Baixas,ES,Albariño
+gruner,Grüner Veltliner Federspiel,white,2022,Wachau,Wachau,AT,Grüner Veltliner
+riesling-kabinett,Riesling Kabinett,white,2022,Mosel,Mosel,DE,Riesling
+gewurztraminer,Gewurztraminer,white,2021,Alsace,Alsace,FR,Gewürztraminer
+condrieu,Condrieu,white,2021,Condrieu,Rhône,FR,Viognier
+meursault,Meursault,white,2020,Meursault,Burgundy,FR,Chardonnay
+champagne,Champagne Brut,sparkling,NV,Champagne,Champagne,FR,Chardonnay / Pinot Noir
+cava,Cava Brut Nature,sparkling,NV,Cava,Penedès,ES,Macabeo / Xarel·lo / Parellada
+provence-rose,Côtes de Provence Rosé,rose,2024,Côtes de Provence,Provence,FR,Grenache / Cinsault
+beaujolais,Fleurie,red,2022,Fleurie,Beaujolais,FR,Gamay
+bourgogne-pinot,Gevrey-Chambertin,red,2019,Gevrey-Chambertin,Burgundy,FR,Pinot Noir
+chianti,Chianti Classico,red,2020,Chianti Classico,Tuscany,IT,Sangiovese
+rioja-reserva,Rioja Reserva,red,2017,Rioja,Rioja,ES,Tempranillo
+crozes,Crozes-Hermitage,red,2020,Crozes-Hermitage,Rhône,FR,Syrah
+chateauneuf,Châteauneuf-du-Pape,red,2018,Châteauneuf-du-Pape,Rhône,FR,Grenache / Syrah / Mourvèdre
+malbec,Malbec,red,2021,Mendoza,Mendoza,AR,Malbec
+barolo,Barolo,red,2016,Barolo,Piedmont,IT,Nebbiolo
+pauillac,Pauillac,red,2015,Pauillac,Bordeaux,FR,Cabernet Sauvignon / Merlot
+napa-cab,Cabernet Sauvignon,red,2018,Napa Valley,Napa Valley,US,Cabernet Sauvignon
+amarone,Amarone della Valpolicella,red,2017,Amarone della Valpolicella,Veneto,IT,Corvina / Rondinella
+moscato,Moscato d'Asti,dessert,2023,Moscato d'Asti,Piedmont,IT,Moscato Bianco
+sauternes,Sauternes,dessert,2015,Sauternes,Bordeaux,FR,Sémillon / Sauvignon Blanc
+tawny-port,10 Year Old Tawny Port,fortified,NV,Porto,Douro,PT,Touriga Nacional
+vintage-port,Vintage Port,fortified,2011,Porto,Douro,PT,Touriga Nacional
+fino,Fino Sherry,fortified,NV,Jerez-Xérès-Sherry,Jerez,ES,Palomino
+orange,Ribolla Gialla macerata,orange,2021,Collio,Friuli,IT,Ribolla Gialla
+pinot-gris,Pinot Gris,white,2022,Alsace,Alsace,FR,Pinot Gris

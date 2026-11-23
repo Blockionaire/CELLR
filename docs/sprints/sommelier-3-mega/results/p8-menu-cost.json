@@ -1,0 +1,1177 @@
+{
+  "pricingVersion": "openai-2026-10-25",
+  "typicalOutput": {
+    "base": 180,
+    "perCourse": 45
+  },
+  "ordinary": [
+    {
+      "wines": 25,
+      "config": "V1",
+      "promptChars": 7313,
+      "tokensIn": 2438,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 1510,
+      "typicalMicro": 395,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 25,
+      "config": "check",
+      "promptChars": 7744,
+      "tokensIn": 2582,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 1546,
+      "typicalMicro": 413,
+      "vsV1": {
+        "highPct": 2.4,
+        "typicalPct": 4.6
+      }
+    },
+    {
+      "wines": 25,
+      "config": "annotate",
+      "promptChars": 7313,
+      "tokensIn": 2438,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 1510,
+      "typicalMicro": 395,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 25,
+      "config": "quantities",
+      "promptChars": 7313,
+      "tokensIn": 2438,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 1510,
+      "typicalMicro": 395,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 25,
+      "config": "menu",
+      "promptChars": 7313,
+      "tokensIn": 2438,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 1510,
+      "typicalMicro": 395,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 25,
+      "config": "fallback",
+      "promptChars": 7313,
+      "tokensIn": 2438,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 1510,
+      "typicalMicro": 395,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 25,
+      "config": "all",
+      "promptChars": 7744,
+      "tokensIn": 2582,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 1546,
+      "typicalMicro": 413,
+      "vsV1": {
+        "highPct": 2.4,
+        "typicalPct": 4.6
+      }
+    },
+    {
+      "wines": 120,
+      "config": "V1",
+      "promptChars": 17018,
+      "tokensIn": 5673,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2319,
+      "typicalMicro": 800,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 120,
+      "config": "check",
+      "promptChars": 17449,
+      "tokensIn": 5817,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2355,
+      "typicalMicro": 818,
+      "vsV1": {
+        "highPct": 1.6,
+        "typicalPct": 2.3
+      }
+    },
+    {
+      "wines": 120,
+      "config": "annotate",
+      "promptChars": 17018,
+      "tokensIn": 5673,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2319,
+      "typicalMicro": 800,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 120,
+      "config": "quantities",
+      "promptChars": 17018,
+      "tokensIn": 5673,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2319,
+      "typicalMicro": 800,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 120,
+      "config": "menu",
+      "promptChars": 17018,
+      "tokensIn": 5673,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2319,
+      "typicalMicro": 800,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 120,
+      "config": "fallback",
+      "promptChars": 17018,
+      "tokensIn": 5673,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2319,
+      "typicalMicro": 800,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 120,
+      "config": "all",
+      "promptChars": 17449,
+      "tokensIn": 5817,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2355,
+      "typicalMicro": 818,
+      "vsV1": {
+        "highPct": 1.6,
+        "typicalPct": 2.3
+      }
+    },
+    {
+      "wines": 500,
+      "config": "V1",
+      "promptChars": 17488,
+      "tokensIn": 5830,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2358,
+      "typicalMicro": 819,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 500,
+      "config": "check",
+      "promptChars": 17919,
+      "tokensIn": 5973,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2394,
+      "typicalMicro": 837,
+      "vsV1": {
+        "highPct": 1.5,
+        "typicalPct": 2.2
+      }
+    },
+    {
+      "wines": 500,
+      "config": "annotate",
+      "promptChars": 17488,
+      "tokensIn": 5830,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2358,
+      "typicalMicro": 819,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 500,
+      "config": "quantities",
+      "promptChars": 17488,
+      "tokensIn": 5830,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2358,
+      "typicalMicro": 819,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 500,
+      "config": "menu",
+      "promptChars": 17488,
+      "tokensIn": 5830,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2358,
+      "typicalMicro": 819,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 500,
+      "config": "fallback",
+      "promptChars": 17488,
+      "tokensIn": 5830,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2358,
+      "typicalMicro": 819,
+      "vsV1": {
+        "highPct": 0,
+        "typicalPct": 0
+      }
+    },
+    {
+      "wines": 500,
+      "config": "all",
+      "promptChars": 17919,
+      "tokensIn": 5973,
+      "maxOutputTokens": 900,
+      "typicalTokensOut": 180,
+      "highMicro": 2394,
+      "typicalMicro": 837,
+      "vsV1": {
+        "highPct": 1.5,
+        "typicalPct": 2.2
+      }
+    }
+  ],
+  "menus": [
+    {
+      "wines": 25,
+      "courses": 2,
+      "parts": "menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 8352,
+        "tokensIn": 2784,
+        "maxOutputTokens": 1040,
+        "typicalTokensOut": 270,
+        "highMicro": 1736,
+        "typicalMicro": 483
+      },
+      "perCourseV1": {
+        "calls": 2,
+        "tokensIn": 4856,
+        "tokensOutMax": 1800,
+        "tokensOutTypical": 360,
+        "highMicro": 3015,
+        "typicalMicro": 788
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 1510,
+        "typicalMicro": 395
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.576,
+        "typicalShareOfSeparate": 0.613,
+        "highTimesOrdinary": 1.15,
+        "typicalTimesOrdinary": 1.223,
+        "highPerCourseMicro": 868,
+        "typicalPerCourseMicro": 242,
+        "separatePerCourseHighMicro": 1508,
+        "separatePerCourseTypicalMicro": 394
+      }
+    },
+    {
+      "wines": 25,
+      "courses": 2,
+      "parts": "check,menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 8783,
+        "tokensIn": 2928,
+        "maxOutputTokens": 1040,
+        "typicalTokensOut": 270,
+        "highMicro": 1772,
+        "typicalMicro": 501
+      },
+      "perCourseV1": {
+        "calls": 2,
+        "tokensIn": 4856,
+        "tokensOutMax": 1800,
+        "tokensOutTypical": 360,
+        "highMicro": 3015,
+        "typicalMicro": 788
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 1510,
+        "typicalMicro": 395
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.588,
+        "typicalShareOfSeparate": 0.636,
+        "highTimesOrdinary": 1.174,
+        "typicalTimesOrdinary": 1.268,
+        "highPerCourseMicro": 886,
+        "typicalPerCourseMicro": 251,
+        "separatePerCourseHighMicro": 1508,
+        "separatePerCourseTypicalMicro": 394
+      }
+    },
+    {
+      "wines": 25,
+      "courses": 3,
+      "parts": "menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 8391,
+        "tokensIn": 2797,
+        "maxOutputTokens": 1110,
+        "typicalTokensOut": 315,
+        "highMicro": 1810,
+        "typicalMicro": 508
+      },
+      "perCourseV1": {
+        "calls": 3,
+        "tokensIn": 7286,
+        "tokensOutMax": 2700,
+        "tokensOutTypical": 540,
+        "highMicro": 4523,
+        "typicalMicro": 1182
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 1510,
+        "typicalMicro": 395
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.4,
+        "typicalShareOfSeparate": 0.43,
+        "highTimesOrdinary": 1.199,
+        "typicalTimesOrdinary": 1.286,
+        "highPerCourseMicro": 603,
+        "typicalPerCourseMicro": 169,
+        "separatePerCourseHighMicro": 1508,
+        "separatePerCourseTypicalMicro": 394
+      }
+    },
+    {
+      "wines": 25,
+      "courses": 3,
+      "parts": "check,menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 8822,
+        "tokensIn": 2941,
+        "maxOutputTokens": 1110,
+        "typicalTokensOut": 315,
+        "highMicro": 1846,
+        "typicalMicro": 526
+      },
+      "perCourseV1": {
+        "calls": 3,
+        "tokensIn": 7286,
+        "tokensOutMax": 2700,
+        "tokensOutTypical": 540,
+        "highMicro": 4523,
+        "typicalMicro": 1182
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 1510,
+        "typicalMicro": 395
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.408,
+        "typicalShareOfSeparate": 0.445,
+        "highTimesOrdinary": 1.223,
+        "typicalTimesOrdinary": 1.332,
+        "highPerCourseMicro": 615,
+        "typicalPerCourseMicro": 175,
+        "separatePerCourseHighMicro": 1508,
+        "separatePerCourseTypicalMicro": 394
+      }
+    },
+    {
+      "wines": 25,
+      "courses": 5,
+      "parts": "menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 8489,
+        "tokensIn": 2830,
+        "maxOutputTokens": 1250,
+        "typicalTokensOut": 405,
+        "highMicro": 1958,
+        "typicalMicro": 557
+      },
+      "perCourseV1": {
+        "calls": 5,
+        "tokensIn": 12149,
+        "tokensOutMax": 4500,
+        "tokensOutTypical": 900,
+        "highMicro": 7540,
+        "typicalMicro": 1971
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 1510,
+        "typicalMicro": 395
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.26,
+        "typicalShareOfSeparate": 0.283,
+        "highTimesOrdinary": 1.297,
+        "typicalTimesOrdinary": 1.41,
+        "highPerCourseMicro": 392,
+        "typicalPerCourseMicro": 111,
+        "separatePerCourseHighMicro": 1508,
+        "separatePerCourseTypicalMicro": 394
+      }
+    },
+    {
+      "wines": 25,
+      "courses": 5,
+      "parts": "check,menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 8920,
+        "tokensIn": 2974,
+        "maxOutputTokens": 1250,
+        "typicalTokensOut": 405,
+        "highMicro": 1994,
+        "typicalMicro": 575
+      },
+      "perCourseV1": {
+        "calls": 5,
+        "tokensIn": 12149,
+        "tokensOutMax": 4500,
+        "tokensOutTypical": 900,
+        "highMicro": 7540,
+        "typicalMicro": 1971
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 1510,
+        "typicalMicro": 395
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.264,
+        "typicalShareOfSeparate": 0.292,
+        "highTimesOrdinary": 1.321,
+        "typicalTimesOrdinary": 1.456,
+        "highPerCourseMicro": 399,
+        "typicalPerCourseMicro": 115,
+        "separatePerCourseHighMicro": 1508,
+        "separatePerCourseTypicalMicro": 394
+      }
+    },
+    {
+      "wines": 25,
+      "courses": 8,
+      "parts": "menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 8574,
+        "tokensIn": 2858,
+        "maxOutputTokens": 1460,
+        "typicalTokensOut": 540,
+        "highMicro": 2175,
+        "typicalMicro": 628
+      },
+      "perCourseV1": {
+        "calls": 8,
+        "tokensIn": 19433,
+        "tokensOutMax": 7200,
+        "tokensOutTypical": 1440,
+        "highMicro": 12061,
+        "typicalMicro": 3153
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 1510,
+        "typicalMicro": 395
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.18,
+        "typicalShareOfSeparate": 0.199,
+        "highTimesOrdinary": 1.44,
+        "typicalTimesOrdinary": 1.59,
+        "highPerCourseMicro": 272,
+        "typicalPerCourseMicro": 79,
+        "separatePerCourseHighMicro": 1508,
+        "separatePerCourseTypicalMicro": 394
+      }
+    },
+    {
+      "wines": 25,
+      "courses": 8,
+      "parts": "check,menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 9005,
+        "tokensIn": 3002,
+        "maxOutputTokens": 1460,
+        "typicalTokensOut": 540,
+        "highMicro": 2211,
+        "typicalMicro": 646
+      },
+      "perCourseV1": {
+        "calls": 8,
+        "tokensIn": 19433,
+        "tokensOutMax": 7200,
+        "tokensOutTypical": 1440,
+        "highMicro": 12061,
+        "typicalMicro": 3153
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 1510,
+        "typicalMicro": 395
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.183,
+        "typicalShareOfSeparate": 0.205,
+        "highTimesOrdinary": 1.464,
+        "typicalTimesOrdinary": 1.635,
+        "highPerCourseMicro": 276,
+        "typicalPerCourseMicro": 81,
+        "separatePerCourseHighMicro": 1508,
+        "separatePerCourseTypicalMicro": 394
+      }
+    },
+    {
+      "wines": 120,
+      "courses": 2,
+      "parts": "menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18057,
+        "tokensIn": 6019,
+        "maxOutputTokens": 1040,
+        "typicalTokensOut": 270,
+        "highMicro": 2545,
+        "typicalMicro": 888
+      },
+      "perCourseV1": {
+        "calls": 2,
+        "tokensIn": 11326,
+        "tokensOutMax": 1800,
+        "tokensOutTypical": 360,
+        "highMicro": 4632,
+        "typicalMicro": 1596
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2319,
+        "typicalMicro": 800
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.549,
+        "typicalShareOfSeparate": 0.556,
+        "highTimesOrdinary": 1.097,
+        "typicalTimesOrdinary": 1.11,
+        "highPerCourseMicro": 1273,
+        "typicalPerCourseMicro": 444,
+        "separatePerCourseHighMicro": 2316,
+        "separatePerCourseTypicalMicro": 798
+      }
+    },
+    {
+      "wines": 120,
+      "courses": 2,
+      "parts": "check,menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18488,
+        "tokensIn": 6163,
+        "maxOutputTokens": 1040,
+        "typicalTokensOut": 270,
+        "highMicro": 2581,
+        "typicalMicro": 906
+      },
+      "perCourseV1": {
+        "calls": 2,
+        "tokensIn": 11326,
+        "tokensOutMax": 1800,
+        "tokensOutTypical": 360,
+        "highMicro": 4632,
+        "typicalMicro": 1596
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2319,
+        "typicalMicro": 800
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.557,
+        "typicalShareOfSeparate": 0.568,
+        "highTimesOrdinary": 1.113,
+        "typicalTimesOrdinary": 1.133,
+        "highPerCourseMicro": 1291,
+        "typicalPerCourseMicro": 453,
+        "separatePerCourseHighMicro": 2316,
+        "separatePerCourseTypicalMicro": 798
+      }
+    },
+    {
+      "wines": 120,
+      "courses": 3,
+      "parts": "menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18096,
+        "tokensIn": 6032,
+        "maxOutputTokens": 1110,
+        "typicalTokensOut": 315,
+        "highMicro": 2618,
+        "typicalMicro": 912
+      },
+      "perCourseV1": {
+        "calls": 3,
+        "tokensIn": 16991,
+        "tokensOutMax": 2700,
+        "tokensOutTypical": 540,
+        "highMicro": 6949,
+        "typicalMicro": 2395
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2319,
+        "typicalMicro": 800
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.377,
+        "typicalShareOfSeparate": 0.381,
+        "highTimesOrdinary": 1.129,
+        "typicalTimesOrdinary": 1.14,
+        "highPerCourseMicro": 873,
+        "typicalPerCourseMicro": 304,
+        "separatePerCourseHighMicro": 2316,
+        "separatePerCourseTypicalMicro": 798
+      }
+    },
+    {
+      "wines": 120,
+      "courses": 3,
+      "parts": "check,menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18527,
+        "tokensIn": 6176,
+        "maxOutputTokens": 1110,
+        "typicalTokensOut": 315,
+        "highMicro": 2654,
+        "typicalMicro": 930
+      },
+      "perCourseV1": {
+        "calls": 3,
+        "tokensIn": 16991,
+        "tokensOutMax": 2700,
+        "tokensOutTypical": 540,
+        "highMicro": 6949,
+        "typicalMicro": 2395
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2319,
+        "typicalMicro": 800
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.382,
+        "typicalShareOfSeparate": 0.388,
+        "highTimesOrdinary": 1.144,
+        "typicalTimesOrdinary": 1.163,
+        "highPerCourseMicro": 885,
+        "typicalPerCourseMicro": 310,
+        "separatePerCourseHighMicro": 2316,
+        "separatePerCourseTypicalMicro": 798
+      }
+    },
+    {
+      "wines": 120,
+      "courses": 5,
+      "parts": "menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18194,
+        "tokensIn": 6065,
+        "maxOutputTokens": 1250,
+        "typicalTokensOut": 405,
+        "highMicro": 2767,
+        "typicalMicro": 961
+      },
+      "perCourseV1": {
+        "calls": 5,
+        "tokensIn": 28324,
+        "tokensOutMax": 4500,
+        "tokensOutTypical": 900,
+        "highMicro": 11583,
+        "typicalMicro": 3992
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2319,
+        "typicalMicro": 800
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.239,
+        "typicalShareOfSeparate": 0.241,
+        "highTimesOrdinary": 1.193,
+        "typicalTimesOrdinary": 1.201,
+        "highPerCourseMicro": 553,
+        "typicalPerCourseMicro": 192,
+        "separatePerCourseHighMicro": 2317,
+        "separatePerCourseTypicalMicro": 798
+      }
+    },
+    {
+      "wines": 120,
+      "courses": 5,
+      "parts": "check,menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18625,
+        "tokensIn": 6209,
+        "maxOutputTokens": 1250,
+        "typicalTokensOut": 405,
+        "highMicro": 2803,
+        "typicalMicro": 979
+      },
+      "perCourseV1": {
+        "calls": 5,
+        "tokensIn": 28324,
+        "tokensOutMax": 4500,
+        "tokensOutTypical": 900,
+        "highMicro": 11583,
+        "typicalMicro": 3992
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2319,
+        "typicalMicro": 800
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.242,
+        "typicalShareOfSeparate": 0.245,
+        "highTimesOrdinary": 1.209,
+        "typicalTimesOrdinary": 1.224,
+        "highPerCourseMicro": 561,
+        "typicalPerCourseMicro": 196,
+        "separatePerCourseHighMicro": 2317,
+        "separatePerCourseTypicalMicro": 798
+      }
+    },
+    {
+      "wines": 120,
+      "courses": 8,
+      "parts": "menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18279,
+        "tokensIn": 6093,
+        "maxOutputTokens": 1460,
+        "typicalTokensOut": 540,
+        "highMicro": 2984,
+        "typicalMicro": 1032
+      },
+      "perCourseV1": {
+        "calls": 8,
+        "tokensIn": 45313,
+        "tokensOutMax": 7200,
+        "tokensOutTypical": 1440,
+        "highMicro": 18531,
+        "typicalMicro": 6386
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2319,
+        "typicalMicro": 800
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.161,
+        "typicalShareOfSeparate": 0.162,
+        "highTimesOrdinary": 1.287,
+        "typicalTimesOrdinary": 1.29,
+        "highPerCourseMicro": 373,
+        "typicalPerCourseMicro": 129,
+        "separatePerCourseHighMicro": 2316,
+        "separatePerCourseTypicalMicro": 798
+      }
+    },
+    {
+      "wines": 120,
+      "courses": 8,
+      "parts": "check,menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18710,
+        "tokensIn": 6237,
+        "maxOutputTokens": 1460,
+        "typicalTokensOut": 540,
+        "highMicro": 3020,
+        "typicalMicro": 1050
+      },
+      "perCourseV1": {
+        "calls": 8,
+        "tokensIn": 45313,
+        "tokensOutMax": 7200,
+        "tokensOutTypical": 1440,
+        "highMicro": 18531,
+        "typicalMicro": 6386
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2319,
+        "typicalMicro": 800
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.163,
+        "typicalShareOfSeparate": 0.164,
+        "highTimesOrdinary": 1.302,
+        "typicalTimesOrdinary": 1.313,
+        "highPerCourseMicro": 378,
+        "typicalPerCourseMicro": 131,
+        "separatePerCourseHighMicro": 2316,
+        "separatePerCourseTypicalMicro": 798
+      }
+    },
+    {
+      "wines": 500,
+      "courses": 2,
+      "parts": "menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18527,
+        "tokensIn": 6176,
+        "maxOutputTokens": 1040,
+        "typicalTokensOut": 270,
+        "highMicro": 2584,
+        "typicalMicro": 907
+      },
+      "perCourseV1": {
+        "calls": 2,
+        "tokensIn": 11638,
+        "tokensOutMax": 1800,
+        "tokensOutTypical": 360,
+        "highMicro": 4710,
+        "typicalMicro": 1636
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2358,
+        "typicalMicro": 819
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.549,
+        "typicalShareOfSeparate": 0.554,
+        "highTimesOrdinary": 1.096,
+        "typicalTimesOrdinary": 1.107,
+        "highPerCourseMicro": 1292,
+        "typicalPerCourseMicro": 454,
+        "separatePerCourseHighMicro": 2355,
+        "separatePerCourseTypicalMicro": 818
+      }
+    },
+    {
+      "wines": 500,
+      "courses": 2,
+      "parts": "check,menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18958,
+        "tokensIn": 6320,
+        "maxOutputTokens": 1040,
+        "typicalTokensOut": 270,
+        "highMicro": 2620,
+        "typicalMicro": 925
+      },
+      "perCourseV1": {
+        "calls": 2,
+        "tokensIn": 11638,
+        "tokensOutMax": 1800,
+        "tokensOutTypical": 360,
+        "highMicro": 4710,
+        "typicalMicro": 1636
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2358,
+        "typicalMicro": 819
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.556,
+        "typicalShareOfSeparate": 0.565,
+        "highTimesOrdinary": 1.111,
+        "typicalTimesOrdinary": 1.129,
+        "highPerCourseMicro": 1310,
+        "typicalPerCourseMicro": 463,
+        "separatePerCourseHighMicro": 2355,
+        "separatePerCourseTypicalMicro": 818
+      }
+    },
+    {
+      "wines": 500,
+      "courses": 3,
+      "parts": "menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18566,
+        "tokensIn": 6189,
+        "maxOutputTokens": 1110,
+        "typicalTokensOut": 315,
+        "highMicro": 2658,
+        "typicalMicro": 932
+      },
+      "perCourseV1": {
+        "calls": 3,
+        "tokensIn": 17459,
+        "tokensOutMax": 2700,
+        "tokensOutTypical": 540,
+        "highMicro": 7066,
+        "typicalMicro": 2454
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2358,
+        "typicalMicro": 819
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.376,
+        "typicalShareOfSeparate": 0.38,
+        "highTimesOrdinary": 1.127,
+        "typicalTimesOrdinary": 1.138,
+        "highPerCourseMicro": 886,
+        "typicalPerCourseMicro": 311,
+        "separatePerCourseHighMicro": 2355,
+        "separatePerCourseTypicalMicro": 818
+      }
+    },
+    {
+      "wines": 500,
+      "courses": 3,
+      "parts": "check,menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18997,
+        "tokensIn": 6333,
+        "maxOutputTokens": 1110,
+        "typicalTokensOut": 315,
+        "highMicro": 2694,
+        "typicalMicro": 950
+      },
+      "perCourseV1": {
+        "calls": 3,
+        "tokensIn": 17459,
+        "tokensOutMax": 2700,
+        "tokensOutTypical": 540,
+        "highMicro": 7066,
+        "typicalMicro": 2454
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2358,
+        "typicalMicro": 819
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.381,
+        "typicalShareOfSeparate": 0.387,
+        "highTimesOrdinary": 1.142,
+        "typicalTimesOrdinary": 1.16,
+        "highPerCourseMicro": 898,
+        "typicalPerCourseMicro": 317,
+        "separatePerCourseHighMicro": 2355,
+        "separatePerCourseTypicalMicro": 818
+      }
+    },
+    {
+      "wines": 500,
+      "courses": 5,
+      "parts": "menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18664,
+        "tokensIn": 6222,
+        "maxOutputTokens": 1250,
+        "typicalTokensOut": 405,
+        "highMicro": 2806,
+        "typicalMicro": 981
+      },
+      "perCourseV1": {
+        "calls": 5,
+        "tokensIn": 29105,
+        "tokensOutMax": 4500,
+        "tokensOutTypical": 900,
+        "highMicro": 11778,
+        "typicalMicro": 4091
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2358,
+        "typicalMicro": 819
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.238,
+        "typicalShareOfSeparate": 0.24,
+        "highTimesOrdinary": 1.19,
+        "typicalTimesOrdinary": 1.198,
+        "highPerCourseMicro": 561,
+        "typicalPerCourseMicro": 196,
+        "separatePerCourseHighMicro": 2356,
+        "separatePerCourseTypicalMicro": 818
+      }
+    },
+    {
+      "wines": 500,
+      "courses": 5,
+      "parts": "check,menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 19095,
+        "tokensIn": 6365,
+        "maxOutputTokens": 1250,
+        "typicalTokensOut": 405,
+        "highMicro": 2842,
+        "typicalMicro": 999
+      },
+      "perCourseV1": {
+        "calls": 5,
+        "tokensIn": 29105,
+        "tokensOutMax": 4500,
+        "tokensOutTypical": 900,
+        "highMicro": 11778,
+        "typicalMicro": 4091
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2358,
+        "typicalMicro": 819
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.241,
+        "typicalShareOfSeparate": 0.244,
+        "highTimesOrdinary": 1.205,
+        "typicalTimesOrdinary": 1.22,
+        "highPerCourseMicro": 568,
+        "typicalPerCourseMicro": 200,
+        "separatePerCourseHighMicro": 2356,
+        "separatePerCourseTypicalMicro": 818
+      }
+    },
+    {
+      "wines": 500,
+      "courses": 8,
+      "parts": "menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 18749,
+        "tokensIn": 6250,
+        "maxOutputTokens": 1460,
+        "typicalTokensOut": 540,
+        "highMicro": 3023,
+        "typicalMicro": 1052
+      },
+      "perCourseV1": {
+        "calls": 8,
+        "tokensIn": 46563,
+        "tokensOutMax": 7200,
+        "tokensOutTypical": 1440,
+        "highMicro": 18843,
+        "typicalMicro": 6545
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2358,
+        "typicalMicro": 819
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.16,
+        "typicalShareOfSeparate": 0.161,
+        "highTimesOrdinary": 1.282,
+        "typicalTimesOrdinary": 1.284,
+        "highPerCourseMicro": 378,
+        "typicalPerCourseMicro": 132,
+        "separatePerCourseHighMicro": 2355,
+        "separatePerCourseTypicalMicro": 818
+      }
+    },
+    {
+      "wines": 500,
+      "courses": 8,
+      "parts": "check,menu",
+      "menu": {
+        "calls": 1,
+        "promptChars": 19180,
+        "tokensIn": 6394,
+        "maxOutputTokens": 1460,
+        "typicalTokensOut": 540,
+        "highMicro": 3059,
+        "typicalMicro": 1070
+      },
+      "perCourseV1": {
+        "calls": 8,
+        "tokensIn": 46563,
+        "tokensOutMax": 7200,
+        "tokensOutTypical": 1440,
+        "highMicro": 18843,
+        "typicalMicro": 6545
+      },
+      "oneOrdinaryV1": {
+        "highMicro": 2358,
+        "typicalMicro": 819
+      },
+      "ratios": {
+        "highShareOfSeparate": 0.162,
+        "typicalShareOfSeparate": 0.163,
+        "highTimesOrdinary": 1.297,
+        "typicalTimesOrdinary": 1.306,
+        "highPerCourseMicro": 382,
+        "typicalPerCourseMicro": 134,
+        "separatePerCourseHighMicro": 2355,
+        "separatePerCourseTypicalMicro": 818
+      }
+    }
+  ],
+  "criterion": {
+    "maxShareOfSeparate": 0.7,
+    "timesOrdinary": {
+      "base": 1.2,
+      "perCourse": 0.075
+    }
+  },
+  "met": true
+}

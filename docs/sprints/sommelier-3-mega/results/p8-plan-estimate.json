@@ -1,0 +1,120 @@
+{
+  "rows": [
+    {
+      "step": "1-main",
+      "what": "V1 with AI, prompt v6 (no part): the baseline; set main (needs pairing,facts)",
+      "runs": 3,
+      "calls": 131,
+      "highMicro": 203097,
+      "reservedMicro": 333685,
+      "maxUsd": 0.35000000000000003,
+      "required": true
+    },
+    {
+      "step": "1-holdout-dev",
+      "what": "V1 with AI, prompt v6 (no part): the baseline; set holdout-dev (needs pairing,facts)",
+      "runs": 3,
+      "calls": 45,
+      "highMicro": 66840,
+      "reservedMicro": 109137,
+      "maxUsd": 0.12,
+      "required": true
+    },
+    {
+      "step": "1-holdout-test",
+      "what": "V1 with AI, prompt v6 (no part): the baseline; set holdout-test (needs pairing,facts)",
+      "runs": 3,
+      "calls": 43,
+      "highMicro": 64251,
+      "reservedMicro": 105004,
+      "maxUsd": 0.12,
+      "required": true
+    },
+    {
+      "step": "2-main",
+      "what": "V1+ with check: prompt v7 and the check; set main (needs pairing,facts)",
+      "runs": 3,
+      "calls": 131,
+      "highMicro": 207805,
+      "reservedMicro": 342512,
+      "maxUsd": 0.36,
+      "required": true
+    },
+    {
+      "step": "2-holdout-dev",
+      "what": "V1+ with check: prompt v7 and the check; set holdout-dev (needs pairing,facts)",
+      "runs": 3,
+      "calls": 45,
+      "highMicro": 68459,
+      "reservedMicro": 112169,
+      "maxUsd": 0.13,
+      "required": true
+    },
+    {
+      "step": "2-holdout-test",
+      "what": "V1+ with check: prompt v7 and the check; set holdout-test (needs pairing,facts)",
+      "runs": 3,
+      "calls": 43,
+      "highMicro": 65799,
+      "reservedMicro": 107893,
+      "maxUsd": 0.12,
+      "required": true
+    },
+    {
+      "step": "3-menu-v1",
+      "what": "Menu set, V1 without the part (its ordinary answer)",
+      "runs": 3,
+      "calls": 21,
+      "highMicro": 31542,
+      "reservedMicro": 51587,
+      "maxUsd": 0.06999999999999999,
+      "required": true
+    },
+    {
+      "step": "3-menu-menu",
+      "what": "Menu set, the menu part on",
+      "runs": 3,
+      "calls": 21,
+      "highMicro": 36969,
+      "reservedMicro": 60030,
+      "maxUsd": 0.08,
+      "required": true
+    },
+    {
+      "step": "3-menu-check,menu",
+      "what": "Menu set, check and menu on (as it would ship)",
+      "runs": 1,
+      "calls": 21,
+      "highMicro": 37724,
+      "reservedMicro": 61440,
+      "maxUsd": 0.08,
+      "required": false
+    },
+    {
+      "step": "3-menu-per-course",
+      "what": "Menu set, V1 asked once per course (cost and quality reference)",
+      "runs": 1,
+      "calls": 53,
+      "highMicro": 79404,
+      "reservedMicro": 129817,
+      "maxUsd": 0.14,
+      "required": false
+    }
+  ],
+  "totals": {
+    "budgetUsd": 5,
+    "all": {
+      "calls": 1514,
+      "highUsd": 2.351414,
+      "reservedUsd": 3.857308
+    },
+    "required": {
+      "calls": 1440,
+      "highUsd": 2.234286,
+      "reservedUsd": 3.666051
+    },
+    "fits": true,
+    "requiredFits": true,
+    "marginUsd": 1.1427
+  }
+}
