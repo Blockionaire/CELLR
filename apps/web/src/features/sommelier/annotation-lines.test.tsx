@@ -57,25 +57,25 @@ const chablis: BottleAnnotation = {
 describe("the lines under a card", () => {
   it("by default: drink and serving in one line, what the card does not say in the other", () => {
     expect(lines(barolo, null)).toEqual([
-      "At its best now (2022–2031) · about 17–18 °C · decant about 90 min · rule of thumb",
+      "At its best now (est. 2022–2031) · about 17–18 °C · decant about 90 min · rule of thumb",
     ]);
     expect(lines(chablis, null)).toEqual([
-      "Can be opened now, still improving (2024–2030) · 12–13 °C · known for this wine",
-      "4 of 6 free to open · in Wine fridge, Rack A · 1 bottle without a place",
+      "Can be opened now, still improving (2024–2030) · 12–13 °C · from its profile",
+      "4 of 6 not reserved · in Wine fridge, Rack A · 1 bottle without a place",
     ]);
     expect(lines(chablis, null, "nl")).toEqual([
-      "Kan nu open, wordt nog beter (2024–2030) · 12–13 °C · bekend van deze wijn",
-      "4 van 6 vrij om te openen · in Wine fridge, Rack A · 1 fles zonder plek",
+      "Kan nu open, wordt nog beter (2024–2030) · 12–13 °C · uit zijn profiel",
+      "4 van 6 niet gereserveerd · in Wine fridge, Rack A · 1 fles zonder plek",
     ]);
   });
 
   it("a serving question: the serving line first and in full", () => {
     expect(lines(barolo, "serving")).toEqual([
       "about 17–18 °C · no need to chill · decant about 90 min · large red-wine glass · rule of thumb",
-      "At its best now (2022–2031)",
+      "At its best now (est. 2022–2031)",
     ]);
     expect(lines(chablis, "serving", "nl")[0]).toBe(
-      "12–13 °C · ongeveer 60 min in de koelkast · decanteren hoeft niet · wittewijnglas · bekend van deze wijn",
+      "12–13 °C · ongeveer 60 min in de koelkast · decanteren hoeft niet · wittewijnglas · uit zijn profiel",
     );
   });
 
@@ -128,8 +128,14 @@ describe("the lines under a card", () => {
 
   it("reserved: how many are free; all reserved says so", () => {
     const all = { ...barolo, reserved: { count: 3, free: 0, title: "Wedding", on: null } };
-    expect(lines(all, null)[1]).toBe("all 3 reserved");
-    expect(lines(all, null, "nl")[1]).toBe("alle 3 gereserveerd");
+    expect(lines(all, null)[1]).toBe("all reserved (3)");
+    expect(lines(all, null, "nl")[1]).toBe("alle gereserveerd (3)");
+    const only = { ...barolo, reserved: { count: 1, free: 0, title: "Wedding", on: null } };
+    expect(lines(only, null)[1]).toBe("reserved (the only bottle)");
+    expect(lines(only, null, "nl")[1]).toBe("gereserveerd (de enige fles)");
+    // The card line says what is not reserved; "free to open" is the quantity box's.
+    for (const lang of ["en", "nl"] as const)
+      expect(lines(chablis, null, lang).join(" ")).not.toMatch(/free to open|vrij om te openen/);
   });
 
   it("every advice and phase has words, in both languages, and no line is a raw key", () => {
@@ -210,13 +216,59 @@ describe("the bottles for the guests", () => {
       ],
       "sequence",
     );
+    // One bottle of each wine is more than a third of a bottle each: the box says so instead of an estimate.
     expect(qLines(q)).toEqual([
-      "For 1 person at a reception: about 2 bottles in all (an estimate of a third of a bottle each).",
+      "For 1 person at a reception: one bottle of each wine, 2 in all (there will be wine left).",
       "Barolo 2016: 1 bottle needed, 0 free to open: 1 short.",
       "Chablis 2022: 1 bottle needed, 3 free to open: enough.",
     ]);
     expect(qLines(q, "nl")[0]).toBe(
-      "Voor 1 persoon op een receptie: ongeveer 2 flessen in totaal (een schatting van een derde fles per persoon).",
+      "Voor 1 persoon op een receptie: één fles van elke wijn, 2 in totaal (er blijft wijn over).",
+    );
+  });
+
+  it("a menu shared by two courses: one bottle for two people, said honestly", () => {
+    const q = quantityFor(
+      { guests: 2, gathering: "dinner" },
+      [
+        { vintageId: "a", count: 3, reserved: 0 },
+        { vintageId: "a", count: 3, reserved: 0 },
+        { vintageId: "b", count: 3, reserved: 0 },
+      ],
+      "sequence",
+    );
+    expect(qLines(q)[0]).toBe(
+      "For 2 people at dinner: one bottle of each wine, 2 in all (there will be wine left).",
+    );
+    expect(qLines(q)[1]).toBe("Barolo 2016: 1 bottle needed, 3 free to open: enough.");
+  });
+
+  it("a menu where whole bottles add to the estimate, and one where they do not", () => {
+    const rounded = quantityFor(
+      { guests: 8, gathering: "dinner" },
+      [
+        { vintageId: "a", count: 3, reserved: 0 },
+        { vintageId: "b", count: 3, reserved: 0 },
+        { vintageId: "c", count: 3, reserved: 0, small: true },
+      ],
+      "sequence",
+    );
+    expect(qLines(rounded)[0]).toBe(
+      "For 8 people at dinner: 5 bottles in all, more than half a bottle each, as each wine is opened whole (there will be wine left).",
+    );
+    expect(qLines(rounded, "nl")[0]).toBe(
+      "Voor 8 personen aan tafel: 5 flessen in totaal, meer dan een halve fles per persoon, omdat elke wijn een hele fles is (er blijft wijn over).",
+    );
+    const even = quantityFor(
+      { guests: 12, gathering: "dinner" },
+      [
+        { vintageId: "a", count: 3, reserved: 0 },
+        { vintageId: "b", count: 3, reserved: 0 },
+      ],
+      "sequence",
+    );
+    expect(qLines(even)[0]).toBe(
+      "For 12 people at dinner: about 6 bottles in all (an estimate of half a bottle each).",
     );
   });
 
@@ -252,7 +304,7 @@ describe("the views", () => {
     expect(html).toContain("Facts from your cellar");
     expect(html).toContain("12–13 °C");
     expect(render(<AnnotationView annotation={chablis} emphasis={null} />, "nl")).toContain(
-      "4 van 6 vrij om te openen",
+      "4 van 6 niet gereserveerd",
     );
   });
 
@@ -274,5 +326,43 @@ describe("the views", () => {
     const html = render(<QuantityView quantity={q} nameOf={nameOf} />);
     expect(html).toContain('data-testid="quantity"');
     expect(html).toContain("Barolo 2016: 6 free to open, enough.");
+  });
+});
+
+describe("second review: words a wine professional would not correct", () => {
+  it("sediment: decanted gently off it, nothing said against air", () => {
+    const old = {
+      ...barolo,
+      serving: { ...barolo.serving!, decant: { kind: "sediment" as const, minutes: 0 } },
+    };
+    expect(lines(old, "serving")[0]).toContain(
+      "decant gently off the sediment shortly before serving",
+    );
+    expect(lines(old, "serving", "nl")[0]).toContain(
+      "kort voor het serveren voorzichtig van het depot decanteren",
+    );
+    for (const lang of ["en", "nl"] as const)
+      expect(lines(old, "serving", lang)[0]).not.toMatch(/no airing|niet beluchten/);
+  });
+  it("estimated years are marked as estimates in the short line too; the household's own are not", () => {
+    expect(lines(barolo, null)[0]).toMatch(/^At its best now \(est\. 2022–2031\)/);
+    expect(lines(barolo, null, "nl")[0]).toMatch(/^Nu op zijn best \(geschat 2022–2031\)/);
+    const fromProfile = { ...barolo, drink: { ...barolo.drink, basis: "profile" as const } };
+    expect(lines(fromProfile, null)[0]).toMatch(/\(est\. 2022–2031\)/);
+    expect(lines(chablis, null)[0]).toMatch(/\(2024–2030\)/);
+  });
+  it("Dutch speaks of a drinkvenster", () => {
+    const past = {
+      ...barolo,
+      drink: {
+        ...barolo.drink,
+        advice: "past-window" as const,
+        phase: "past" as const,
+        basis: "own" as const,
+      },
+    };
+    expect(lines(past, "keeping", "nl")[0]).toBe(
+      "Over zijn drinkvenster: drink hem snel · 2022–2031, je eigen drinkvenster",
+    );
   });
 });

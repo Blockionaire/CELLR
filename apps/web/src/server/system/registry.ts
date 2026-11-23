@@ -1913,11 +1913,13 @@ const edges: SystemEdge[] = [
     "inventory, storage, Tonight",
     "tonight: (request, personal) => cellar.tonight(request, personal)",
   ),
-  wired(
+  edge(
     "svc-sommelier",
     "svc-taste",
+    "request",
     "taste profile; the household's wine profiles for the cards (annotate part)",
-    "taste: () => taste.profile()",
+    web(SERVICES, "taste: () => taste.profile()"),
+    web(SERVICES, "profiles: async (vintageIds) => tasteRepo.listInsights("),
   ),
   wired(
     "svc-sommelier",

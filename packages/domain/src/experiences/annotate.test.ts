@@ -3,6 +3,8 @@ import type { CellarItem, DrinkSummary, WineType } from "../cellar";
 import { PROFILE_VERSION, type InsightOutput } from "../insights";
 import type { ChatMessage } from "../sommelier";
 import { BottleAnnotationSchema, readAnnotations } from "../sommelier-annotate";
+import { WINE_KNOWLEDGE } from "../pairing-engine/knowledge";
+import { mentionedWines, readWine } from "../pairing-engine/wine";
 import { annotateBottles, servingFactsBlock } from "./annotate";
 
 const NOW = new Date("2026-11-19T18:00:00Z");
@@ -411,15 +413,17 @@ describe("the serving facts the model is shown", () => {
     expect(b.text).toContain("r0 | Domaine Exemple — Chablis | 2021: serve at 9–11 °C");
     expect(b.text).toContain("no need to decant");
     expect(b.text).toMatch(/rule of thumb/);
-    expect(b.text.indexOf("serve at")).toBeLessThan(b.text.indexOf("drinking window"));
+    const line = b.text.split("\n").at(-1)!;
+    expect(line.indexOf("serve at")).toBeLessThan(line.indexOf("drinking window"));
   });
   it("for a keeping question: the window first, worded as the estimate it is", () => {
     const items = [barolo(2017)];
     const b = block(ask("How long can I keep my Barolo?"), items)!;
     expect(b.text).toContain(
-      "drinking window 2022–2031, in its window now (an estimate for wines like this",
+      "drinking window 2022–2031, in its window now, an estimate for wines like this [rule of thumb]",
     );
-    expect(b.text.indexOf("drinking window")).toBeLessThan(b.text.indexOf("serve at"));
+    const line = b.text.split("\n").at(-1)!;
+    expect(line.indexOf("drinking window")).toBeLessThan(line.indexOf("serve at"));
   });
   it("several named wines, a year narrowing to one vintage, at most three", () => {
     const young = barolo(2020);
@@ -521,8 +525,246 @@ describe("the serving facts the model is shown", () => {
       }),
     ];
     const b = block(ask("How cold should my Chablis be?"), items)!;
-    expect(b.text.split("\n")).toHaveLength(2);
+    // The title, how to use a rule of thumb, and one line for the wine.
+    expect(b.text.split("\n")).toHaveLength(3);
     expect(b.text).not.toContain('"Producer"');
     expect(b.text.length).toBeLessThanOrEqual(1400);
+  });
+});
+
+describe("what the model may add to the app's facts", () => {
+  const monfortino = () =>
+    wine({
+      producer: "Giacomo Conterno",
+      wineName: "Barolo Monfortino Riserva",
+      type: "red",
+      year: 2004,
+      ...at("Barolo", "Piedmont", "IT"),
+    });
+  it("an old bottle's sediment: decanted gently off it; whether it wants air is left open", () => {
+    const items = [monfortino()];
+    for (const q of ["Should I decant the Monfortino?", "Moet ik de Monfortino decanteren?"]) {
+      const b = block(ask(q), items)!;
+      expect(b.text).toContain("decant it gently off its sediment shortly before serving");
+      expect(b.text).toContain("whether it also wants air depends on the wine");
+      expect(b.text).not.toMatch(/do not air/i);
+    }
+  });
+  it("rules of thumb leave room for what the model knows of the wine, as its own view", () => {
+    const b = block(ask("How should I serve the Monfortino?"), [monfortino()])!;
+    expect(b.text).toContain("[rule of thumb]");
+    expect(b.text).toMatch(/If you know this wine better you may say so, as your own view/);
+    expect(b.text).toMatch(/must not contradict the drinking window/);
+    expect(b.text).not.toContain("[as written]");
+    expect(b.text).not.toMatch(/state them as written/);
+  });
+  it("facts about this very wine are stated as written, and only those", () => {
+    const own = monfortino();
+    own.drink = window_({ source: "own", reliable: true });
+    const b = block(ask("Hoe lang kan ik de Monfortino nog bewaren?"), [own])!;
+    const line = b.text.split("\n").at(-1)!;
+    expect(line).toContain("the window the household set itself [as written]");
+    // The serving is still the rule for the style: both instructions are given, each for its own facts.
+    expect(line).toContain("[rule of thumb]");
+    expect(b.text).toMatch(/Facts marked \[as written\] .*state them as written/);
+    const mine = chablis();
+    const exact = block(
+      ask("How cold should my Chablis be?"),
+      [{ ...mine, drink: window_({ source: "ai", reliable: true }) }],
+      new Map([[mine.vintageId, profile()]]),
+    )!;
+    expect(exact.text).not.toContain("[rule of thumb]");
+    expect(exact.text).toContain("from this wine's researched profile [as written]");
+    expect(exact.text).not.toMatch(/your own view/);
+  });
+  it("a wine with no known window: the model is told so, and to give no years as fact", () => {
+    const b = block(ask("How long can I keep the Monfortino?"), [
+      { ...monfortino(), drink: window_({ phase: "unknown", uncertain: true }) },
+    ])!;
+    expect(b.text).toContain(
+      "drinking window: not known to the app: say so, and give no years as fact",
+    );
+  });
+});
+
+describe("finding the wines asked about, fast, in a large cellar", () => {
+  const big = (n: number): CellarItem[] => {
+    const places: Array<[string, string, string, string]> = [
+      ["Barolo", "Barolo", "Piedmont", "IT"],
+      ["Chablis", "Chablis", "Burgundy", "FR"],
+      ["Pauillac", "Pauillac", "Bordeaux", "FR"],
+      ["Rioja Reserva", "Rioja", "Rioja", "ES"],
+      ["Morgon", "Morgon", "Beaujolais", "FR"],
+    ];
+    return Array.from({ length: n }, (_, i) => {
+      const [name, appellation, region, countryCode] = places[i % places.length]!;
+      return wine({
+        producer: `Producteur Numéro ${i}`,
+        wineName: `${name} Cuvée ${i}`,
+        type: name === "Chablis" ? "white" : "red",
+        year: 2000 + (i % 20),
+        appellation,
+        region,
+        countryCode,
+      });
+    });
+  };
+  const cellar = big(3000);
+  cellar[1717] = { ...cellar[1717]!, producer: "Côte-Rôtie Jamet", wineName: "Côte Brune" };
+  const time = (f: () => unknown) => {
+    f();
+    const runs = 5;
+    const start = performance.now();
+    for (let i = 0; i < runs; i++) f();
+    return (performance.now() - start) / runs;
+  };
+  // What the old way cost: every wine read with the knowledge before knowing which ones are asked about (about
+  // 90 ms at 3,000 wines). Timed in the same test, so a busy machine slows both alike.
+  const readingAll = () =>
+    time(() =>
+      cellar.map((i) =>
+        readWine(
+          {
+            type: i.type,
+            name: i.wineName,
+            region: i.region,
+            appellation: i.appellation ?? null,
+            countryCode: i.countryCode,
+            profile: null,
+          },
+          WINE_KNOWLEDGE,
+        ),
+      ),
+    );
+  it("a question naming a producer reads only that wine: a small part of reading them all", () => {
+    const b = block(ask("How should I serve the Jamet?"), cellar)!;
+    expect(b.vintageIds).toEqual([cellar[1717]!.vintageId]);
+    // Accents in the label do not hide it: "cote" finds "Côte".
+    expect(block(ask("Hoe koud moet de Cote Brune?"), cellar)!.vintageIds).toEqual([
+      cellar[1717]!.vintageId,
+    ]);
+    // Measured at about 1.5 ms against about 90 ms (3,000 wines, this machine): at least ten times less.
+    expect(time(() => block(ask("How should I serve the Jamet?"), cellar))).toBeLessThan(
+      readingAll() / 10,
+    );
+  });
+  it("a question naming no wine of the cellar costs no reading of the cellar either", () => {
+    expect(block(ask("At what temperature should I serve a Riesling?"), cellar)).toBeNull();
+    expect(
+      time(() => block(ask("At what temperature should I serve a Riesling?"), cellar)),
+    ).toBeLessThan(readingAll() / 5);
+  });
+  it("a grape the labels do not carry reads only the wines that could be it", () => {
+    // 600 Barolos could be nebbiolo and are read; the Chablis, Pauillac, Rioja and Morgon are not (about 15 ms).
+    expect(block(ask("How should I serve my nebbiolo?"), cellar)).toBeNull();
+    expect(time(() => block(ask("How should I serve my nebbiolo?"), cellar))).toBeLessThan(
+      readingAll() / 2,
+    );
+  });
+  it("by an appellation the labels carry, and by a grape they do not", () => {
+    const items = [
+      barolo(2016),
+      chablis(),
+      wine({ wineName: "Pauillac", type: "red", ...at("Pauillac", "Bordeaux", "FR") }),
+    ];
+    expect(block(ask("Should I decant the Barolo?"), items)!.vintageIds).toEqual([
+      items[0]!.vintageId,
+    ]);
+    // Nebbiolo is not on the label: the Barolo is still found, as the knowledge reads it.
+    expect(block(ask("Should I decant my nebbiolo?"), items)!.vintageIds).toEqual([
+      items[0]!.vintageId,
+    ]);
+  });
+});
+
+describe("reading only the wines that could be meant finds the same wines as reading them all", () => {
+  const varied = [
+    barolo(2016),
+    wine({ wineName: "Barbaresco", type: "red", ...at("Barbaresco", "Piedmont", "IT") }),
+    wine({ wineName: "Langhe", type: "red", ...at("Langhe", "Piedmont", "IT") }),
+    chablis(),
+    wine({ wineName: "Meursault", type: "white", ...at("Meursault", "Burgundy", "FR") }),
+    wine({ wineName: "Pauillac", type: "red", ...at("Pauillac", "Bordeaux", "FR") }),
+    wine({ wineName: "Grand Vin", type: "red", region: "Bordeaux", countryCode: "FR" }),
+    wine({ wineName: "Riesling Kabinett", type: "white", region: "Mosel", countryCode: "DE" }),
+    wine({ wineName: "Shiraz", type: "red", region: "Barossa Valley", countryCode: "AU" }),
+    wine({ wineName: "Côte-Rôtie", type: "red", ...at("Côte-Rôtie", "Rhône", "FR") }),
+    wine({ wineName: "Morgon", type: "red", ...at("Morgon", "Beaujolais", "FR") }),
+    wine({ wineName: "Brut", type: "sparkling", ...at("Champagne", "Champagne", "FR") }),
+  ];
+  it.each([
+    "Should I decant my nebbiolo?",
+    "How cold should the riesling be?",
+    "Should I decant the Bordeaux?",
+    "Hoe koud moet de chardonnay?",
+    "How should I serve the syrah?",
+    "Moet ik de Cote Rotie decanteren?",
+    "How cold should the champagne be?",
+    "How should I serve the pinot noir?",
+    "Should I decant the gamay?",
+  ])("%s", (question) => {
+    const keys = mentionedWines(question, WINE_KNOWLEDGE).map((m) => m.id);
+    const all = varied.filter((i) =>
+      keys.some((k) =>
+        readWine(
+          {
+            type: i.type,
+            name: i.wineName,
+            region: i.region,
+            appellation: i.appellation ?? null,
+            countryCode: i.countryCode,
+            profile: null,
+          },
+          WINE_KNOWLEDGE,
+        ).keys.includes(k),
+      ),
+    );
+    const expected = all.length === 0 || all.length > 3 ? null : all.map((i) => i.vintageId);
+    expect(block(ask(question), varied)?.vintageIds ?? null).toEqual(expected);
+  });
+});
+
+describe("wines a professional would check (second review)", () => {
+  it("Penfolds Grange 2008 (South Australia): full red, 17–18 °C, off its sediment", () => {
+    const grange = wine({
+      producer: "Penfolds",
+      wineName: "Grange",
+      type: "red",
+      year: 2008,
+      region: "South Australia",
+      countryCode: "AU",
+    });
+    expect(one(grange).serving).toMatchObject({
+      tempC: { min: 17, max: 18 },
+      decant: { kind: "sediment" },
+      basis: "style",
+      tier: "estimate",
+    });
+  });
+  it("Lapierre Morgon 2022: a cru Beaujolais at 14–16 °C, no decanting", () => {
+    const morgon = wine({
+      producer: "Marcel Lapierre",
+      wineName: "Morgon",
+      type: "red",
+      year: 2022,
+      ...at("Morgon", "Beaujolais", "FR"),
+    });
+    expect(one(morgon).serving).toMatchObject({
+      tempC: { min: 14, max: 16 },
+      decant: { kind: "no" },
+    });
+  });
+  it("Conterno Monfortino 2004: 17–18 °C, decanted off its sediment", () => {
+    const monfortino = wine({
+      producer: "Giacomo Conterno",
+      wineName: "Barolo Monfortino Riserva",
+      type: "red",
+      year: 2004,
+      ...at("Barolo", "Piedmont", "IT"),
+    });
+    expect(one(monfortino).serving).toMatchObject({
+      tempC: { min: 17, max: 18 },
+      decant: { kind: "sediment" },
+    });
   });
 });

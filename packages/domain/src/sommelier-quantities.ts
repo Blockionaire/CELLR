@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { normalizeText, type WineType } from "./cellar";
-import { bottlesFor, enoughFor, GATHERINGS, type Gathering } from "./experiences/quantity";
+import {
+  BOTTLES_PER_PERSON,
+  bottlesFor,
+  enoughFor,
+  GATHERINGS,
+  type Gathering,
+} from "./experiences/quantity";
 import type { ChatMessage } from "./sommelier";
 
 export { GATHERINGS, type Gathering };
@@ -108,6 +114,7 @@ const NL_COLLECTIVE: Record<string, number> = {
   veertienen: 14,
   vijftienen: 15,
   zestienen: 16,
+  tweetjes: 2,
   twintigen: 20,
   dertigen: 30,
   veertigen: 40,
@@ -150,14 +157,14 @@ function numberValue(said: string): number | null {
 
 /** Words that make a number something else than people: "we are 3 bottles short" is not three guests. */
 const NOT_PEOPLE =
-  "(?:bottles?|flessen|fles|glass(?:es)?|glazen|glas|years?|jaar|jaren|euros?|eur|dollars?|pounds?|minutes?|minuten|hours?|uur|degrees?|graden|c|cl|ml|l|liters?|litres?|kg|days?|dagen|dag|weeks?|weken|courses?|gangen|gang|wines?|wijnen|short|tekort|te weinig|percent|procent)";
+  "(?:bottles?|flessen|fles|glass(?:es)?|glazen|glas|years?|jaar|jaren|euros?|eur|dollars?|pounds?|minutes?|minuten|hours?|uur|degrees?|graden|c|cl|ml|l|liters?|litres?|kg|days?|dagen|dag|weeks?|weken|courses?|gangen|gang|wines?|wijnen|short|tekort|te weinig|percent|procent|kids?|children|child|kinderen|kind|kinders|toddlers|babies|baby)";
 
 /**
  * People, as a noun after the number ("8 guests", "12 personen", "6 man"). `couples` count double. "Friends" is
  * not read: "dinner with 4 friends" may be four or five people, and which one is a guess.
  */
 const PEOPLE =
-  "(guests?|people|persons?|adults?|pax|of us|couples|gasten|gast|personen|persoon|mensen|man|volwassenen|stellen|koppels)";
+  "(guests?|people|persons?|adults?|pax|of us|couples|gasten|gast|personen|persoon|mensen|man|eters|volwassenen|stellen|koppels)";
 
 interface Rule {
   pattern: RegExp;
@@ -169,10 +176,11 @@ interface Rule {
 const RULES: readonly Rule[] = [
   // "8 guests", "for 12 people", "the two of us", "4 couples", "8 gasten", "met 6 personen", "10 man".
   { pattern: new RegExp(`\\b${NUMBER} ${PEOPLE}\\b`, "g"), number: 1, noun: 2 },
-  // "we are 8", "we're 8", "we will be 8", "there are 8 of us" (the last also by the rule above).
+  // "we are 8", "we're 8", "we will be 8". "There are 3" is not here: "there are 3 Barolos in my cellar" counts
+  // wines. "There are 8 of us", "there will be 8 people" are read by the rule above, by their noun.
   {
     pattern: new RegExp(
-      `\\b(?:we are|we re|we ll be|we will be|we ll be with|we are with|there are|there will be) ${NUMBER}\\b(?! ${NOT_PEOPLE}\\b)`,
+      `\\b(?:we are|we re|we ll be|we will be|we ll be with|we are with) ${NUMBER}\\b(?! ${NOT_PEOPLE}\\b)`,
       "g",
     ),
     number: 1,
@@ -200,7 +208,24 @@ const RULES: readonly Rule[] = [
     ),
     number: 1,
   },
+  // "wij tweeën", "we tweetjes". Only two: "we vieren" is "we celebrate".
+  { pattern: /\b(?:wij|we|ons) (tweeen|tweetjes)\b/g, number: 1 },
 ];
+
+/**
+ * Only the person drinks ("just me", "alleen ik", "in mijn eentje"): no gathering to count bottles for. Said after a
+ * number of people, it replaces it ("we are 8 on Saturday" … "and tonight it's just me"). "Just me and my wife" is
+ * not this (and is not read as a number either); "just me, with pasta" is.
+ */
+const SOLO =
+  /\b(?:just me|only me|just myself|by myself|on my own|i am alone|i m alone|alone tonight|eating alone|drinking alone|dining alone|alleen ik|alleen mezelf|alleen voor mij|voor mij alleen|voor mezelf|in mijn eentje|in m n eentje|in mn eentje|ik ben alleen|ik eet alleen|ik drink alleen)\b(?! (?:and|en|plus)\b)/g;
+
+/** Where the last "only me" of a text is, or -1. */
+function lastSoloIn(text: string): number {
+  let at = -1;
+  for (const match of text.matchAll(SOLO)) at = match.index ?? at;
+  return at;
+}
 
 function collective(word: string): number | null {
   if (word in NL_COLLECTIVE) return NL_COLLECTIVE[word]!;
@@ -252,7 +277,11 @@ function gatheringIn(text: string): Gathering | null {
 /**
  * The most recent statement of how many people are drinking, anywhere in the person's own messages ("we are 8",
  * "for 12 people", "met z'n achten", "8 gasten", "we zijn met 6", number words EN/NL). Null when none; never a guess
- * ("a few friends" is not a number; "2015" or "3 bottles" is not a guest count). 1–500.
+ * ("a few friends" is not a number; "2015" or "3 bottles" is not a guest count). 1–500. Children are not counted:
+ * they do not drink wine ("a party of 10 kids" is none, "8 adults and 4 kids" is 8).
+ *
+ * "Just me", "alleen ik" said in a later message than the number (or later in the same one) ends it: null, not 1.
+ * One person needs no box of bottles, and an earlier evening's guests are not tonight's.
  *
  * The gathering is the most recent one said in that message or a later one of the person's; otherwise a dinner.
  */
@@ -262,6 +291,9 @@ export function guestsIn(messages: readonly ChatMessage[]): GuestCount | null {
     .map((m) => normalizeText(m.text.slice(0, 800)));
   for (let i = own.length - 1; i >= 0; i--) {
     const count = lastCountIn(own[i]!);
+    // "Just me", said last: one person is not a gathering, and the earlier number no longer holds.
+    const solo = lastSoloIn(own[i]!);
+    if (solo >= 0 && (!count || solo > count.at)) return null;
     if (!count) continue;
     let gathering: Gathering = "dinner";
     for (let j = own.length - 1; j >= i; j--) {
@@ -292,6 +324,13 @@ export interface QuantityAdvice {
    */
   mode: "alternatives" | "sequence";
   wines: Array<{ vintageId: string; needed: number; available: number; short: number }>;
+  /**
+   * True when `needed` is more than the estimate per person (`guests` × the gathering's share, rounded up) because
+   * every wine poured is a whole bottle: few people, several wines. The screen then says so ("one bottle of each
+   * wine; there will be wine left") instead of calling the total an estimate per person. Absent: false (advice kept
+   * before this field existed, and every advice where the estimate per person is the total).
+   */
+  minimum?: boolean | undefined;
 }
 
 const bottles = z.number().int().min(0).max(100_000);
@@ -310,6 +349,7 @@ export const QuantityAdviceSchema: z.ZodType<QuantityAdvice> = z.object({
       }),
     )
     .max(QUANTITY_WINES_MAX),
+  minimum: z.boolean().optional(),
 });
 
 /** A whole, non-negative number of bottles; anything else is none. */
@@ -318,10 +358,18 @@ const whole = (n: number) => (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 
 /** Dessert and fortified wines are poured small: about half a share of a menu's wine. */
 export const smallPour = (type: WineType): boolean => type === "dessert" || type === "fortified";
 
+/** Rounding up that a float's last digit cannot tip over (2.0000000001 is 2). */
+const up = (n: number) => Math.ceil(n - 1e-9);
+
 /**
  * Bottles needed for the guests, against what is free to open of each wine. Reserved bottles are never counted as
- * available. A wine poured for two courses is one line, its needs added. Guests outside 1–500 are brought within
- * (the advice says the number it used). At most eight wines.
+ * available. Guests outside 1–500 are brought within (the advice says the number it used). At most eight pours.
+ *
+ * `sequence` (a menu): the evening's wine (guests × the gathering's share) is split over the pours, a small pour
+ * (dessert, fortified) counting half. A wine poured with two courses is ONE line: its shares are added before it is
+ * rounded up to whole bottles, so two courses of the same wine for two people are one bottle, not two. Every wine
+ * poured is at least one bottle; when that, and not the estimate per person, makes the total, `minimum` says so.
+ * `alternatives`: whichever one card is poured carries the whole evening; each line is that need.
  */
 export function quantityFor(
   g: GuestCount,
@@ -337,27 +385,41 @@ export function quantityFor(
     const count = whole(p.count);
     return count - Math.min(count, whole(p.reserved));
   };
+  // The estimate per person, as one number: what the evening needs if it were all one wine.
+  const evening = guests * BOTTLES_PER_PERSON[gathering];
+  const estimate = bottlesFor(guests, { gathering }).bottles;
 
-  // Each wine's share of the evening: the whole need for any one of the alternatives, a course's share in a menu.
-  const plan =
-    mode === "sequence"
-      ? bottlesFor(guests, {
-          gathering,
-          wines: Math.max(1, poured.length),
-          smallPours: poured.flatMap((p, i) => (p.small ? [i] : [])),
-        })
-      : bottlesFor(guests, { gathering });
-  const lines: QuantityAdvice["wines"] = [];
-  poured.forEach((p, i) => {
-    const needed = mode === "sequence" ? plan.perWine[i]! : plan.bottles;
+  // One line per wine, in the order it is first poured, with its shares added up.
+  const lines: Array<QuantityAdvice["wines"][number] & { share: number }> = [];
+  for (const p of poured) {
+    const share = p.small ? 0.5 : 1;
     const known = lines.find((l) => l.vintageId === p.vintageId);
-    if (known) {
-      // The same wine with a second course (sequence) needs both shares; as an alternative it is the same line.
-      if (mode === "sequence") known.needed += needed;
-    } else lines.push({ vintageId: p.vintageId, needed, available: free(p), short: 0 });
-  });
-  for (const line of lines) line.short = enoughFor(line.needed, line.available).short;
-  return { guests, gathering, needed: plan.bottles, mode, wines: lines };
+    if (known) known.share += mode === "sequence" ? share : 0;
+    else lines.push({ vintageId: p.vintageId, needed: 0, available: free(p), short: 0, share });
+  }
+  const shares = lines.reduce((sum, l) => sum + l.share, 0);
+  for (const line of lines) {
+    line.needed = mode === "sequence" ? Math.max(1, up((evening * line.share) / shares)) : estimate;
+    line.short = enoughFor(line.needed, line.available).short;
+  }
+  const needed =
+    mode === "sequence" && lines.length > 0
+      ? lines.reduce((sum, l) => sum + l.needed, 0)
+      : estimate;
+  const wines = lines.map(({ vintageId, needed: n, available, short }) => ({
+    vintageId,
+    needed: n,
+    available,
+    short,
+  }));
+  return {
+    guests,
+    gathering,
+    needed,
+    mode,
+    wines,
+    ...(needed > estimate ? { minimum: true } : {}),
+  };
 }
 
 const GATHERING_TEXT: Record<Gathering, string> = {

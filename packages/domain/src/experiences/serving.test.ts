@@ -201,3 +201,26 @@ describe("what a serving advice may claim", () => {
     expect(oldWhite.decant.kind).not.toBe("air");
   });
 });
+
+describe("red bands, as sommeliers serve them (second review)", () => {
+  it("a full-bodied red is served full whatever its tannin: 17–18, not 15–17", () => {
+    // Penfolds Grange as read from "South Australia": body 4.3, tannin 3.3.
+    expect(advise("red", { body: 4.3, tannin: 3.3 }).tempC).toEqual({ min: 17, max: 18 });
+    expect(advise("red", { body: 4, tannin: 2.5 }).tempC).toEqual({ min: 17, max: 18 });
+  });
+  it("a soft red a little more than light (a cru Beaujolais, a Bourgogne) is 14–16", () => {
+    // Morgon as the knowledge reads it: body 3, tannin 2.2.
+    expect(advise("red", { body: 3, tannin: 2.2 }).tempC).toEqual({ min: 14, max: 16 });
+    expect(advise("red", { body: 2.6, tannin: 2.2 }).tempC).toEqual({ min: 14, max: 16 });
+    expect(advise("red", { body: 3, tannin: 2.2 }).fridgeMinutes).toBe(40);
+  });
+  it("light stays 13–15 and medium 15–17", () => {
+    expect(advise("red", { body: 2.4, tannin: 1.6 }).tempC).toEqual({ min: 13, max: 15 });
+    expect(advise("red", { body: 3.5, tannin: 3.2 }).tempC).toEqual({ min: 15, max: 17 });
+    expect(advise("red", { body: 3.3, tannin: 2.5 }).tempC).toEqual({ min: 15, max: 17 });
+  });
+  it("an old full red is still decanted off its sediment (the words leave air open)", () => {
+    expect(advise("red", { body: 4.3, tannin: 3.3 }, 2008).decant.kind).toBe("sediment");
+    expect(advise("red", { body: 4.2, tannin: 4.8 }, 2004).decant.kind).toBe("sediment");
+  });
+});

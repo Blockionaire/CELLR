@@ -32,7 +32,11 @@ function drinkText(d: BottleAnnotation["drink"], full: boolean, t: SommelierT): 
         : d.from !== null
           ? t("annotate.window.from", { from: d.from })
           : null;
-  if (!full) return years ? `${advice} (${years})` : advice;
+  // Short, the years still say whether they are an estimate: only the household's own window is stated plainly.
+  if (!full)
+    return years
+      ? `${advice} (${d.basis === "own" ? years : t("annotate.window.estimated", { years })})`
+      : advice;
   return join([advice, years && `${years}, ${t(`annotate.windowBasis.${d.basis}`)}`]);
 }
 
@@ -114,12 +118,19 @@ export function quantityLines(
   nameOf: (vintageId: string) => string | null,
   t: SommelierT,
 ): string[] {
-  const head = t("quantity.need", {
+  // The total is the estimate per person, unless whole bottles of several wines make it more: then it says so.
+  const values = {
     guests: q.guests,
     needed: q.needed,
     gathering: t(`quantity.gathering.${q.gathering}`),
     basis: t(`quantity.basis.${q.gathering}`),
-  });
+    share: t(`quantity.share.${q.gathering}`),
+  };
+  const head = !q.minimum
+    ? t("quantity.need", values)
+    : q.wines.length > 0 && q.wines.every((w) => w.needed === 1)
+      ? t("quantity.needMinimum", values)
+      : t("quantity.needRounded", values);
   const wines = q.wines.flatMap((w) => {
     const wine = nameOf(w.vintageId);
     if (wine === null) return [];
