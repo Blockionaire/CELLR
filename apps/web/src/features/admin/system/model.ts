@@ -129,8 +129,13 @@ export function emphasis(
 export const TABS = ["map", "register", "flows", "data", "review", "checks"] as const;
 export type Tab = (typeof TABS)[number];
 
+/** On a phone the Map view is a list of components first; the drawing is its own mode (`m=map`). */
+export type PhoneMode = "list" | "map";
+
 export interface HashState {
   readonly tab: Tab;
+  /** Phones and tablets only; a wide screen always shows the map with its panel. Absent: "list". */
+  readonly mode?: PhoneMode;
   readonly selected: string | null;
   readonly direction: TraceDirection;
   readonly depth: number;
@@ -152,6 +157,7 @@ export function readHash(
   const f = p.get("f");
   return {
     tab: (TABS as readonly string[]).includes(tab ?? "") ? (tab as Tab) : "map",
+    mode: p.get("m") === "map" ? "map" : "list",
     selected: c && known.has(c) ? c : null,
     direction: DIRECTIONS.includes(d as TraceDirection) ? (d as TraceDirection) : "both",
     depth: n === "all" ? Infinity : [1, 2, 3].includes(Number(n)) ? Number(n) : 1,
@@ -162,6 +168,7 @@ export function readHash(
 export function writeHash(s: HashState): string {
   const p = new URLSearchParams();
   if (s.tab !== "map") p.set("v", s.tab);
+  if (s.mode === "map") p.set("m", "map");
   if (s.selected) p.set("c", s.selected);
   if (s.direction !== "both") p.set("d", s.direction);
   if (s.depth !== 1) p.set("n", s.depth === Infinity ? "all" : String(s.depth));

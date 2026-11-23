@@ -92,10 +92,10 @@ const components = [
     status: "implemented",
     summary: "Internal dashboard: catalogue, bottle library, metrics, this map",
     responsibility:
-      "Server-rendered admin pages; each checks the admin session itself and answers 404 otherwise. Changes go through Server Actions that check again and are audited.",
+      "Server-rendered admin pages; each checks the admin session itself and answers 404 otherwise. Changes go through Server Actions that check again and are audited. Mobile-first since Mobile Admin Portal 2.0: a header and a tab bar below 1024 px (the sidebar above), lists as cards, the architecture as a list with a map mode. Installs as its own home-screen app, CELLR Admin (public manifest /admin.webmanifest: names and icons only).",
     inputs: ["Verified admin session (CELLR_ADMIN_USER_IDS)"],
     outputs: ["Catalogue decisions", "Bottle art", "Source decisions"],
-    sources: [W + "app/admin/", W + "features/admin/"],
+    sources: [W + "app/admin/", W + "app/admin.webmanifest/", W + "features/admin/"],
     hosts: ["github.com"],
   },
 
@@ -2563,7 +2563,7 @@ const edges: SystemEdge[] = [
     "admin-service",
     "health-monitor",
     "request",
-    "System › Health, the map's overlay, Measure now",
+    "System › Health, the overview's status, the map's overlay, Measure now",
     web("server/admin/service.ts", "export async function adminHealthOverlay"),
   ),
   edge(
@@ -2611,6 +2611,20 @@ const edges: SystemEdge[] = [
     "request",
     "the empty state reuses the wine card's stage",
     web("ui/empty-state.tsx", 'from "@/features/cellar/wine-card"'),
+  ),
+  edge(
+    "admin-portal",
+    "api-v1",
+    "request",
+    "sign out (the installed CELLR Admin app has no profile page)",
+    web("features/admin/sign-out-button.tsx", 'fetch("/api/v1/auth/sign-out"'),
+  ),
+  edge(
+    "admin-portal",
+    "app-pwa",
+    "request",
+    "the iOS launch images of the home-screen app",
+    web("app/admin/layout.tsx", 'from "../splash-screens"'),
   ),
   edge(
     "admin-portal",
@@ -2853,8 +2867,8 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.4.0",
-  reviewedOn: "2026-11-22",
+  version: "1.5.0",
+  reviewedOn: "2026-11-23",
   repository: "Blockionaire/CELLR",
   components,
   edges,

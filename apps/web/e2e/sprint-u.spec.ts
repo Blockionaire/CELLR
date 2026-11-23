@@ -471,7 +471,13 @@ test("a bottle photo to published 2D artwork: pending → approved → draft →
   await expect(art.getByTestId("publish-success")).toBeVisible();
   expect(await reviewed()).toEqual({ status: "used", art: firstArt });
   // publish → remove: artwork needed again; a new picture is published from the same, original contribution
+  // removing cannot be undone: the first tap only arms the button, the second removes
   await art.getByTestId("art-published").getByRole("button", { name: "Remove picture" }).click();
+  const confirm = art
+    .getByTestId("art-published")
+    .getByRole("button", { name: "Tap again to remove" });
+  await expect(confirm).toBeVisible();
+  await confirm.click();
   await expect(art.getByTestId("action-message")).toContainText("Picture removed.");
   await admin.goto(`/admin/bottle-photos/${sid}`);
   await expect(admin.getByTestId("workflow")).toHaveAttribute("data-stage", "artwork_needed");

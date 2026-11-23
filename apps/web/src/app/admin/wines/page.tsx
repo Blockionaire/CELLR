@@ -21,6 +21,7 @@ import {
 } from "@cellr/domain";
 import { adminWineMaster, getAdminSession } from "@/server/admin/service";
 import { cn } from "@/ui/cn";
+import { PhoneDisclosure } from "@/features/admin/phone-disclosure";
 import {
   FilterChip,
   Notice,
@@ -76,7 +77,7 @@ const FIRST_DIR: Record<MasterSort, boolean> = {
 };
 
 const label = (text: string, control: ReactNode) => (
-  <label className="flex min-w-36 flex-col gap-1 text-caption font-medium text-ink-2">
+  <label className="flex min-w-36 flex-col gap-1 text-caption font-medium text-ink-2 max-md:min-w-0 max-md:[&>select]:w-full">
     {text}
     {control}
   </label>
@@ -205,7 +206,7 @@ export default async function AdminWinesPage({
 
       <nav
         aria-label="Quick views"
-        className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7"
+        className="mb-6 grid grid-cols-2 gap-2 min-[400px]:grid-cols-3 sm:grid-cols-4 xl:grid-cols-7"
       >
         {stats.map((s) => (
           <Link
@@ -229,113 +230,120 @@ export default async function AdminWinesPage({
         className="rounded-t-[14px] border border-b-0 border-hairline bg-surface p-3"
         aria-label="Search and filter wines"
       >
-        <div className="flex flex-wrap items-end gap-2">
+        <div className="flex items-end gap-2">
           <input
             type="search"
             name="q"
             defaultValue={query.q}
             placeholder="Producer, wine, alias, country, region or wine id"
             aria-label="Search wines"
-            className={cn(input, "w-[26rem] max-w-full")}
+            enterKeyHint="search"
+            className={cn(input, "min-w-0 flex-1 md:w-[26rem] md:flex-none")}
           />
-          <button type="submit" className={button}>
+          <button type="submit" className={cn(button, "shrink-0")}>
             Search
           </button>
         </div>
-        <div className="mt-3 flex flex-wrap items-end gap-3">
-          {label(
-            "Scope",
-            <select name="scope" defaultValue={query.scope} className={input}>
-              {WINE_VISUAL_SCOPES.map((v) => (
-                <option key={v} value={v}>
-                  {SCOPE_LABEL[v]}
-                </option>
+        <PhoneDisclosure
+          className="mt-3"
+          testId="wine-filters"
+          active={chips.filter((x) => !x.label.startsWith("“")).length}
+        >
+          <div className="grid grid-cols-2 items-end gap-3 md:flex md:flex-wrap">
+            {label(
+              "Scope",
+              <select name="scope" defaultValue={query.scope} className={input}>
+                {WINE_VISUAL_SCOPES.map((v) => (
+                  <option key={v} value={v}>
+                    {SCOPE_LABEL[v]}
+                  </option>
+                ))}
+              </select>,
+            )}
+            {label(
+              "Type",
+              <select name="type" defaultValue={query.type ?? ""} className={input}>
+                <option value="">Any type</option>
+                {WINE_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {TYPE_LABEL[t]}
+                  </option>
+                ))}
+              </select>,
+            )}
+            {label(
+              "Country",
+              <select name="country" defaultValue={query.country ?? ""} className={input}>
+                <option value="">Any country</option>
+                {data.countries.map((x) => (
+                  <option key={x.code} value={x.code}>
+                    {x.code} ({num(x.n)})
+                  </option>
+                ))}
+              </select>,
+            )}
+            {label(
+              "Vintages",
+              <select name="vintages" defaultValue={query.vintages ?? ""} className={input}>
+                <option value="">Any number</option>
+                {VINTAGE_COUNTS.map((v) => (
+                  <option key={v} value={v}>
+                    {VINTAGE_LABEL[v]}
+                  </option>
+                ))}
+              </select>,
+            )}
+            {label(
+              "2D artwork",
+              <select name="art" defaultValue={query.art ?? ""} className={input}>
+                <option value="">Any</option>
+                {ART_FILTERS.map((v) => (
+                  <option key={v} value={v}>
+                    {ART_LABEL[v]}
+                  </option>
+                ))}
+              </select>,
+            )}
+            {label(
+              "Catalogue link",
+              <select name="link" defaultValue={query.link ?? ""} className={input}>
+                <option value="">Any</option>
+                {LINK_FILTERS.map((v) => (
+                  <option key={v} value={v}>
+                    {LINK_LABEL[v]}
+                  </option>
+                ))}
+              </select>,
+            )}
+            <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-2 text-small text-ink max-md:col-span-2">
+              <legend className="sr-only">Work to do</legend>
+              {(
+                [
+                  ["pending", "Pending photos", query.pending],
+                  ["approved", "Approved photos", query.approved],
+                  ["corrections", "Open corrections", query.corrections],
+                ] as const
+              ).map(([name, text, on]) => (
+                <label key={name} className="flex min-h-10 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name={name}
+                    value="1"
+                    defaultChecked={on}
+                    className="size-4 accent-[var(--accent-fg)]"
+                  />
+                  {text}
+                </label>
               ))}
-            </select>,
-          )}
-          {label(
-            "Type",
-            <select name="type" defaultValue={query.type ?? ""} className={input}>
-              <option value="">Any type</option>
-              {WINE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {TYPE_LABEL[t]}
-                </option>
-              ))}
-            </select>,
-          )}
-          {label(
-            "Country",
-            <select name="country" defaultValue={query.country ?? ""} className={input}>
-              <option value="">Any country</option>
-              {data.countries.map((x) => (
-                <option key={x.code} value={x.code}>
-                  {x.code} ({num(x.n)})
-                </option>
-              ))}
-            </select>,
-          )}
-          {label(
-            "Vintages",
-            <select name="vintages" defaultValue={query.vintages ?? ""} className={input}>
-              <option value="">Any number</option>
-              {VINTAGE_COUNTS.map((v) => (
-                <option key={v} value={v}>
-                  {VINTAGE_LABEL[v]}
-                </option>
-              ))}
-            </select>,
-          )}
-          {label(
-            "2D artwork",
-            <select name="art" defaultValue={query.art ?? ""} className={input}>
-              <option value="">Any</option>
-              {ART_FILTERS.map((v) => (
-                <option key={v} value={v}>
-                  {ART_LABEL[v]}
-                </option>
-              ))}
-            </select>,
-          )}
-          {label(
-            "Catalogue link",
-            <select name="link" defaultValue={query.link ?? ""} className={input}>
-              <option value="">Any</option>
-              {LINK_FILTERS.map((v) => (
-                <option key={v} value={v}>
-                  {LINK_LABEL[v]}
-                </option>
-              ))}
-            </select>,
-          )}
-          <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-2 text-small text-ink">
-            <legend className="sr-only">Work to do</legend>
-            {(
-              [
-                ["pending", "Pending photos", query.pending],
-                ["approved", "Approved photos", query.approved],
-                ["corrections", "Open corrections", query.corrections],
-              ] as const
-            ).map(([name, text, on]) => (
-              <label key={name} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name={name}
-                  value="1"
-                  defaultChecked={on}
-                  className="size-4 accent-[var(--accent-fg)]"
-                />
-                {text}
-              </label>
-            ))}
-          </fieldset>
-          {query.household && <input type="hidden" name="household" value={query.household} />}
-          {query.sort !== "name" && <input type="hidden" name="sort" value={query.sort} />}
-          {query.desc && <input type="hidden" name="dir" value="desc" />}
-          <button type="submit" className={quiet}>
-            Apply filters
-          </button>
-        </div>
+            </fieldset>
+            {query.household && <input type="hidden" name="household" value={query.household} />}
+            {query.sort !== "name" && <input type="hidden" name="sort" value={query.sort} />}
+            {query.desc && <input type="hidden" name="dir" value="desc" />}
+            <button type="submit" className={cn(quiet, "max-md:col-span-2")}>
+              Apply filters
+            </button>
+          </div>
+        </PhoneDisclosure>
       </form>
       <div
         className="flex flex-wrap items-center gap-2 border border-hairline bg-raised/60 px-3 py-2"
@@ -463,7 +471,7 @@ export default async function AdminWinesPage({
 function Scope({ row, filter }: { row: WineMasterRow; filter: string }) {
   if (row.status === "canonical") return <Pill tone="neutral">Catalogue</Pill>;
   return (
-    <span className="whitespace-nowrap">
+    <span className="md:whitespace-nowrap">
       Household:{" "}
       <Link
         href={filter}

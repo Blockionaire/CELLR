@@ -164,7 +164,7 @@ export default async function AdminBottlePhotosPage({
           defaultValue={q}
           placeholder="Producer or wine, as sent"
           aria-label="Search photos"
-          className={cn(input, "w-80 max-w-full")}
+          className={cn(input, "min-w-0 flex-1 sm:w-80 sm:flex-none")}
         />
         <button type="submit" className={button}>
           Search
