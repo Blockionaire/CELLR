@@ -3515,6 +3515,22 @@ export type Database = {
         };
         Returns: string;
       };
+      save_storage_layout_v2: {
+        Args: {
+          p_appearance: Json;
+          p_cell_capacity: number;
+          p_cols: number;
+          p_expected_updated_at: string;
+          p_household: string;
+          p_kind: Database["public"]["Enums"]["location_kind"];
+          p_location: string;
+          p_rows: number;
+          p_slot_semantics: string;
+          p_template: string;
+          p_zones: Json;
+        };
+        Returns: string;
+      };
       send_friend_request: { Args: { p_user: string }; Returns: string };
       shared_wine_profile: {
         Args: { p_language: string; p_vintage_id: string };
