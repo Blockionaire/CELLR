@@ -124,6 +124,10 @@ jobs:
         run: bash scripts/db-placement-concurrency.sh
       - name: Upgrade rehearsal · existing places and bottles are not touched
         run: bash scripts/db-smart-cellar-upgrade.sh
+      # Shared racks (migration 0052): one spot and many hands, a change racing a removal, one invitation answered
+      # twice, the owner's own cellar against the rack; the history must replay to exactly the occupancy.
+      - name: Shared racks under concurrency
+        run: bash scripts/db-shared-racks-concurrency.sh
 
   e2e:
     name: End to end · shard ${{ matrix.shard }} of ${{ strategy.job-total }}

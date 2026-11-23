@@ -20,12 +20,14 @@
 --   Whose it is, who placed it, who acts and which household the record is in are four different columns.
 --   Every change writes private.shared_rack_events, which nobody can update or delete.
 --
--- Locks. Every write to a rack takes the row lock of that rack first (FOR UPDATE) and then reads the caller's own
--- member row FOR SHARE requiring 'active': so all writes to one rack are serial, and a member who is removed either
--- had their change committed before the removal or is refused. The order is always rack, then member rows, then a
--- bottle, then a placement. The two paths that come from the owner's own side (the trigger on bottles, and
--- shared_rack_withdraw_bottle) hold a bottle and delete a placement; they never take the rack lock, so they cannot
--- deadlock with the first kind, and a private flow never waits for a rack.
+-- Locks. Every write to a rack takes the row lock of that rack first (FOR NO KEY UPDATE) and then reads the caller's
+-- own member row FOR SHARE requiring 'active': so all writes to one rack are serial, and a member who is removed
+-- either had their change committed before the removal or is refused. The order is always rack, then member rows,
+-- then a bottle, then a placement. The two paths that come from the owner's own side (the trigger on bottles, and
+-- shared_rack_withdraw_bottle) hold a bottle and delete a placement; they never ask for the rack's lock. What they do
+-- take on the rack is the FOR KEY SHARE of the foreign key when their line of history is inserted, and that is
+-- exactly what FOR NO KEY UPDATE lets through (FOR UPDATE would not: scripts/db-shared-racks-concurrency.sh found
+-- that deadlock, opening a bottle at home against a move in the rack). So a private flow never waits for a rack.
 --
 -- Rollback (only for a database on which no shared rack was ever used; it drops the history with everything else):
 --   drop trigger bottles_shared_rack_update on public.bottles; drop trigger bottles_shared_rack_delete on public.bottles;
@@ -336,7 +338,8 @@ $$;
 -- THE CHECK EVERY WRITE STARTS WITH. Returns the caller's role in this rack ('owner' | 'member'), or NULL when
 -- the caller is not an active member of it (or there is no such rack: the two are never told apart).
 --   1. a look without a lock, so that someone who is not a member never holds a lock on a rack, even briefly;
---   2. the rack row FOR UPDATE: from here on, nothing else changes this rack until this transaction ends;
+--   2. the rack row FOR NO KEY UPDATE: from here on, no other call of these functions changes this rack until this
+--      transaction ends (and a line of history written from an owner's own cellar is still let through: see the top);
 --   3. the caller's own member row again, FOR SHARE and still 'active': read after the lock, so a removal that
 --      committed while this waited is seen (and under REPEATABLE READ is a serialisation failure, never a pass).
 create function private.shared_rack_lock(p_rack uuid) returns text
@@ -347,7 +350,7 @@ begin
   perform 1 from private.shared_rack_members m
     where m.rack_id = p_rack and m.user_id = uid and m.status = 'active';
   if not found then return null; end if;
-  perform 1 from private.shared_racks r where r.id = p_rack for update;
+  perform 1 from private.shared_racks r where r.id = p_rack for no key update;
   if not found then return null; end if;
   select m.role into v_role from private.shared_rack_members m
    where m.rack_id = p_rack and m.user_id = uid and m.status = 'active'
@@ -801,7 +804,7 @@ begin
    where i.id = p_invitation and i.invited_user_id = uid;
   if not found then return jsonb_build_object('outcome', 'not_found'); end if;
   -- the rack first, as every write does: two answers to one invitation take turns here
-  select * into r from private.shared_racks x where x.id = v_rack for update;
+  select * into r from private.shared_racks x where x.id = v_rack for no key update;
   select * into inv from private.shared_rack_invitations i
    where i.id = p_invitation and i.invited_user_id = uid for update;
   if not found then return jsonb_build_object('outcome', 'not_found'); end if;
