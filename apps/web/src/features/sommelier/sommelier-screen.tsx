@@ -660,7 +660,9 @@ function Answer({
         {answer.verdict && <VerdictBadge verdict={answer.verdict} />}
         <p className="whitespace-pre-wrap font-display text-title text-ink">
           <span className="sr-only">{t("sommelier")}: </span>
-          {answer.text ?? unworded(answer, t)}
+          {answer.check?.text === "replaced" || answer.text === null
+            ? unworded(answer, t)
+            : answer.text}
         </p>
         {note && (
           <p className="mt-2 text-caption text-ink-3" data-testid="check-note">
