@@ -6,6 +6,8 @@ import type { Reservation } from "./insights";
 import type { Occasion } from "./tonight";
 import type { RatingSummary } from "./tasting";
 import type { SommelierPlan } from "./sommelier-plan";
+import type { BottleAnnotation } from "./sommelier-annotate";
+import type { QuantityAdvice } from "./sommelier-quantities";
 
 /**
  * THE SOMMELIER. A conversation about the cellar that is only ever as smart as the cellar is real: the model is
@@ -146,6 +148,16 @@ export interface SommelierAnswer {
    * `bottles` on purpose: a screen that knows no plans draws `bottles` as suggestions, and these are not.
    */
   otherBottles?: SommelierBottle[];
+  /**
+   * V1+ part `annotate`: the app's own facts for the cards in `bottles` (drink now or keep, serving, reserved,
+   * where it lies), one per card, matched by `vintageId`. Computed in code; the choice of wines is untouched.
+   */
+  annotations?: BottleAnnotation[];
+  /**
+   * V1+ part `quantities`: bottles needed for the number of people the person named, against what is free to open
+   * of each card. Counted in code, never by the model.
+   */
+  quantity?: QuantityAdvice | null;
 }
 
 export const toSommelierBottle = (item: CellarItem): SommelierBottle => ({

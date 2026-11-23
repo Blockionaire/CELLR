@@ -21,7 +21,7 @@ export function AnnotationView({
   if (lines.length === 0) return null;
   return (
     <div
-      className="min-w-0 px-1 text-small text-ink-2 break-words"
+      className="min-w-0 text-small text-ink-2 break-words"
       data-testid="annotation"
       data-emphasis={emphasis ?? "none"}
     >
