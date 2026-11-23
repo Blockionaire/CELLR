@@ -1,31 +1,43 @@
-# Sommelier 3.0 — release plan (draft, grows per phase)
+# Sommelier V1+ — release plan
 
-Nothing here has been released. Every step below is the owner's to authorise; the agent does not merge, deploy,
-push a migration or change a setting. The final version of this plan is written in S8.
+Nothing here has been released. Every step is the owner's to authorise. The agent does not merge, deploy, push a
+migration, change a setting or make a paid model call.
+
+**The plan that stood here before is void (D-46, D-47).** That plan merged the S0–S8 chain and turned on
+`sommelier_engine`, `sommelier_buying`, `sommelier_experiences` and `sommelier_social` one by one. It would have put
+the measured-weaker engine in front of V1, so it is not carried forward. Its history is in git.
+
+The plan itself, with acceptance criteria, is [`SOMMELIER_CLOSEOUT.md`](SOMMELIER_CLOSEOUT.md) §6–§7. This file keeps
+the order and the owner checks.
 
 ## Order
 
-1. PR #88 (system monitoring) first: it adds migration `20261124000047`. This work's migrations are numbered after
-   it, at merge time, and follow `docs/MIGRATIONS.md`.
-2. The pull requests of this work merge in chain order (S0 → S8). Each is safe on its own: new behaviour sits behind
-   switches that are off unless `CELLR_FEATURES` names them.
-3. Migrations (S5 consent and friend context; S7 outcomes) are released with the procedure of `docs/MIGRATIONS.md`,
-   before the switch that needs them is turned on. With the migration missing, the code fails closed.
-4. Switches are turned on one at a time, in Preview first: `sommelier_engine`, then `sommelier_buying`,
-   `sommelier_experiences`, and `sommelier_social` last.
+1. **P1, documents.** Inventory, corrected decisions and plans. No code.
+2. **P2, the gate and the release configuration.** V1-with-AI evaluation on `main`, dish-clustered statistics, and
+   `CELLR_SOMMELIER` (empty: V1 exactly as today).
+3. **P3–P6, the parts:**
+   - `check`: the answer text and buying claims;
+   - `annotate`: facts on V1's cards;
+   - `quantities`;
+   - `menu`.
+4. **P7, `fallback`:** built, **not activated** without a quality measurement and a wine expert's review (D-49).
+5. **P8, release:** Preview with the parts on, a walkthrough in the real UI, then the owner's production decision.
 
-## Owner checks before any switch is on in Production
+No migration is part of this release. 0051, 0052 and 0053 belong to the deferred social and learning projects (D-48).
 
-| Check                                                                                              | Why                                                            | State     |
-| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | --------- |
-| `CELLR_FEATURES` is not `all` in Production or Preview                                             | `all` would enable every new switch at once (R-02)             | to verify |
-| A wine professional reviews the food knowledge and the benchmark labels, or accepts them as drafts | R-01: the knowledge is AI-written and marked `reviewed: false` | open      |
-| An AI key in a test environment, to measure V1 and V3 with a model                                 | R-04: no model call has been measured                          | open      |
-| Alcohol marketing and age rules for buying advice (NL: no targeting of minors; STIVA code)         | R-07                                                           | open      |
-| A retailer source with a licence, before any live offer is shown                                   | R-05: without it, buying advice stays at "style"               | blocked   |
-| Consent wording for using a friend's taste in AI answers                                           | D-08, D-15: a privacy default the owner must approve           | open (S5) |
+## Owner checks before any part is on in Production
+
+| Check                                                                                                | Why                                                        | State                      |
+| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | -------------------------- |
+| `CELLR_SOMMELIER` is unset on Production until the decision; `CELLR_FEATURES` names no engine switch | Nothing turns on by deployment (R-02)                      | read-only check per step   |
+| Budget for paid evaluation runs                                                                      | D-51; the gate in §5 of the closeout needs V1-with-AI runs | **pending** (proposed: $3) |
+| Gate thresholds of closeout §5                                                                       | D-50; the numbers are a proposal                           | **pending**                |
+| Human holdout and wine expert(s) named                                                               | Definitive quality claims (D-50)                           | **pending**                |
+| A wine professional reviews the knowledge the fallback uses                                          | R-01; before `fallback` is active anywhere (D-49)          | open                       |
+| Alcohol marketing and age rules for buying advice                                                    | R-07                                                       | open                       |
+| A licensed retailer source, before any live offer                                                    | R-05; without it buying advice stays at a style and a band | blocked                    |
 
 ## Rollback
 
-Remove the switch from `CELLR_FEATURES`: V1 answers again, unchanged. Stored answers keep V1's kinds and shapes, so
-conversations written by the new engine still open (review finding 8).
+Remove a part from `CELLR_SOMMELIER`, or unset the variable: V1 answers exactly as before. The parts add facts to an
+answer and store nothing new, so a conversation kept while a part was on still opens.
