@@ -195,6 +195,7 @@
     "remove_friend",
     "respond_friend_request",
     "save_storage_layout",
+    "save_storage_layout_v2",
     "send_friend_request",
     "shared_wine_profile",
     "sommelier_purge_expired",
@@ -209,7 +210,7 @@
     "wine_origin_notices",
     "wine_source_notices"
   ],
-  "migrations": { "count": 48, "latest": "20261128000050_r27_wine_record_origins.sql" },
+  "migrations": { "count": 49, "latest": "20261129000051_smart_cellar_layout_cas.sql" },
   "buckets": [
     "bottle-art",
     "bottle-images",
@@ -562,6 +563,7 @@
     { "from": "app/api/", "to": "server/push/" },
     { "from": "app/api/", "to": "server/ratelimit/" },
     { "from": "app/api/", "to": "server/services.ts" },
+    { "from": "app/api/", "to": "server/smart-cellar/" },
     { "from": "app/design/", "to": "features/design/" },
     { "from": "app/design/", "to": "server/env.ts" },
     { "from": "app/design/", "to": "ui/theme-cookie.ts" },
