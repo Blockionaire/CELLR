@@ -197,10 +197,10 @@ describe("not-in-cellar", () => {
   });
 
   it("flags it in Dutch", () => {
-    replaced("Jouw Tignanello past er perfect bij.", "not-in-cellar");
+    replaced("Jouw Tignanello is nu op dronk.", "not-in-cellar");
     replaced("Je hebt een mooie Opus One in je kelder.", "not-in-cellar");
     replaced("In je kelder ligt een Sassicaia.", "not-in-cellar");
-    replaced("Je Krug is klaar.", "not-in-cellar");
+    replaced("Je Krug is klaar om te drinken.", "not-in-cellar");
     replaced("Je rosé is perfect voor het terras.", "not-in-cellar");
   });
 
@@ -366,7 +366,7 @@ describe("action", () => {
 describe("the outcome", () => {
   it("a cellar-fact failure anywhere replaces everything, and every finding is reported once, in order", () => {
     const r = check(
-      `It costs €30. Your Krug is ready. I have reserved ${ref(albe)}. It costs €20.`,
+      `It costs €30. Your Krug 1996 is ready. I have reserved ${ref(albe)}. It costs €20.`,
     );
     expect(r).toEqual({
       text: null,
