@@ -115,3 +115,26 @@ from here on this entry says how far each one binds, in three categories:
 | D-51  | The amounts: $3 for the release, $1 for the three baseline runs                                                                                                      | **Proposal**: not an approval to spend                                                               |
 | D-52  | One release configuration with independent parts, off by default                                                                                                     | **Approved direction**                                                                               |
 | D-52  | Its name `CELLR_SOMMELIER`, the part names, and keeping the inert switches                                                                                           | **Proposal**                                                                                         |
+
+## D-54 — The proposed budget for the three baseline runs is now $2 (was $1)
+
+**Proposal**, 2026-11-23. It replaces the $1 of D-51 and D-53 as the amount proposed for the three paid baseline runs
+of V1 with AI together. It is still **not an approval to spend**: D-51's rule stands, and no paid call is made until
+the owner approves an amount explicitly.
+
+Why: one run of the three sets reserves at most $0.548 before its calls (`progress/P2.md` §4).
+
+- With $1, three runs fit only if the calls cost less than their bounds. At the bounds, the third run would stop at
+  about 1.8 runs.
+- With $2, all three fit even at the bounds ($1.64).
+
+The expected cost is unchanged: about $0.06, from what S9's calls cost.
+
+The fail-closed guard does not change:
+
+- a reservation per call against the run limit (`--max-usd 0.60`) and the total (`--total-usd`);
+- the budget file outside the repository;
+- unknown costs count in full;
+- a stopped run is incomplete.
+
+The release total of $3 (D-51) is unchanged and still a proposal.

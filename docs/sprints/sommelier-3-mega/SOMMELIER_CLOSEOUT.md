@@ -311,7 +311,7 @@ How far each decision binds (D-53):
 | Social option A (no friend data, name or question to a model)                                                                                            | Proposal: to be confirmed before the social project | D-48       |
 | What counts as enough measurement and review for the fallback                                                                                            | Proposal                                            | D-49       |
 | The gate thresholds of §5                                                                                                                                | Proposal                                            | D-50       |
-| $3 for the release, $1 for the three baseline runs                                                                                                       | Proposal: not an approval to spend                  | D-51       |
+| $3 for the release, $2 for the three baseline runs (D-54; was $1)                                                                                        | Proposal: not an approval to spend                  | D-51, D-54 |
 | The name `CELLR_SOMMELIER`, the part names, keeping the inert switches                                                                                   | Proposal                                            | D-52       |
 | Variant E only in shadow; the paid shadow measurement postponed                                                                                          | Approved direction                                  | §4.4       |
 
