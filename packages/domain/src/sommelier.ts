@@ -6,6 +6,7 @@ import type { Reservation } from "./insights";
 import type { Occasion } from "./tonight";
 import type { RatingSummary } from "./tasting";
 import type { SommelierPlan } from "./sommelier-plan";
+import type { AnswerCheck } from "./sommelier-check";
 import type { MenuAdvice } from "./sommelier-menu";
 
 /**
@@ -92,8 +93,13 @@ export interface BuySuggestion {
   /** "Barolo, e.g. G.D. Vajra Albe" */
   wine: string;
   why: string;
-  /** A rough price per bottle, as the model words it ("about €20–25"). */
+  /** A rough price per bottle, as the model words it ("about €20–25"). Empty once the answer was checked. */
   price: string;
+  /**
+   * V1+ part `check`: the model's price is never shown. Present on a checked entry: the budget band the person
+   * chose themselves (euros per bottle, the upper bound null when open), or null when no price is known.
+   */
+  priceBand?: readonly [number, number | null] | null;
 }
 
 /** How well the cellar answers the question: a real match, something that will do, or nothing. */
@@ -105,8 +111,16 @@ export interface SommelierAnswer {
   verdict?: PairingVerdict | null;
   /** Wines to buy instead (or as well), within the budget. */
   buy?: BuySuggestion[];
-  /** The model's words (source "ai"); null for the plain answer, whose one sentence the screen words itself. */
+  /**
+   * The model's words (source "ai"); null for the plain answer, whose one sentence the screen words itself. When
+   * the check replaced the model's words (`check.text === "replaced"`) this is one sentence made from the cards.
+   */
   text: string | null;
+  /**
+   * V1+ part `check`: what the check of the answer's words and buying claims found, as codes. Present on every AI
+   * answer that was checked; absent from every other answer.
+   */
+  check?: AnswerCheck;
   /** Which sentence the screen shows for a plain answer. */
   basic: "pairing" | "soon" | "favorites" | "nothing" | "facts" | null;
   /** For a plain answer to a question about the cellar ("facts"): the numbers it states, counted, never guessed. */

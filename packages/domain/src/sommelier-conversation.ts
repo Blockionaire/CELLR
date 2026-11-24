@@ -2,6 +2,7 @@ import { z } from "zod";
 import { cellarQuestionKind, isCellarQuestion } from "./cellar-facts";
 import { readPlan } from "./sommelier-plan";
 import { detectIntent, type SommelierAnswer } from "./sommelier";
+import { AnswerCheckSchema, PriceBandSchema } from "./sommelier-check";
 import { MenuAdviceSchema } from "./sommelier-menu";
 
 /**
@@ -95,6 +96,16 @@ export function isStoredAnswer(value: unknown): value is SommelierAnswer {
     // A kept plan is drawn as it is (links included), so it must be one; anything else is not drawn.
     (a.plan === undefined || a.plan === null || readPlan(a.plan) !== null) &&
     (a.otherBottles === undefined || Array.isArray(a.otherBottles)) &&
+    // The check's codes decide which sentence is drawn, and a band is drawn as a price range: both must be sound.
+    (a.check === undefined || AnswerCheckSchema.safeParse(a.check).success) &&
+    (!Array.isArray(a.buy) ||
+      a.buy.every(
+        (b: unknown) =>
+          typeof b !== "object" ||
+          b === null ||
+          !("priceBand" in b) ||
+          PriceBandSchema.safeParse(b.priceBand).success,
+      )) &&
     // A kept menu is drawn course by course, so it must still be one.
     (a.menu === undefined || a.menu === null || MenuAdviceSchema.safeParse(a.menu).success)
   );
