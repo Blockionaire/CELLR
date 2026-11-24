@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   LAYOUT_FUNCTION_PARAMS,
   createSmartCellarRepository,
@@ -691,5 +691,62 @@ describe("saving a layout: the compare-and-swap of 0051, and exactly the old sav
     await expect(
       rpcOnly([{ data: "stale", error: null }]).repo.saveLayout("h-1", "p-1", layout),
     ).rejects.toMatchObject({ code: "INTERNAL" });
+  });
+});
+
+describe("the fallback to 0045 is said, once per process (a compare-and-swap that stays off must not go unnoticed)", () => {
+  const layout = {
+    kind: "rack" as const,
+    template: "rack_classic",
+    semantics: "depth",
+    rows: 4,
+    cols: 6,
+    cellCapacity: 1,
+    appearance: { v: 1 } as never,
+    zones: [],
+  };
+  const dbAnswering = (answers: Array<{ data: unknown; error: DbError | null }>) =>
+    ({ rpc: async () => answers.shift()!, from: () => ({}) }) as never;
+
+  it("falls back: one warning with the code and nothing else; a second fallback says nothing more", async () => {
+    vi.resetModules();
+    const { createSmartCellarRepository: fresh } = await import("./repository");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const missing = { code: "PGRST202", message: "Could not find the function" };
+    const repo = fresh(
+      dbAnswering([
+        { data: null, error: missing },
+        { data: "saved", error: null },
+        { data: null, error: missing },
+        { data: "saved", error: null },
+      ]),
+    );
+    await repo.saveLayout("h-1", "p-1", layout, "2026-11-29T10:00:00+00:00");
+    await repo.saveLayout("h-1", "p-1", layout, "2026-11-29T10:00:00+00:00");
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line = JSON.parse(String(warn.mock.calls[0]![0])) as Record<string, unknown>;
+    expect(line).toEqual({
+      level: "warn",
+      event: "smart_cellar.layout_cas_unavailable",
+      code: "PGRST202",
+      fallback: "save_storage_layout",
+    });
+    warn.mockRestore();
+  });
+
+  it("a genuine _v2 answer (saved or stale) says nothing", async () => {
+    vi.resetModules();
+    const { createSmartCellarRepository: fresh } = await import("./repository");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const repo = fresh(
+      dbAnswering([
+        { data: "saved", error: null },
+        { data: "stale", error: null },
+      ]),
+    );
+    await repo.saveLayout("h-1", "p-1", layout, "2026-11-29T10:00:00+00:00");
+    await repo.saveLayout("h-1", "p-1", layout, "2026-11-29T10:00:00+00:00");
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
