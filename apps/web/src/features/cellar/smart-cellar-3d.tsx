@@ -15,6 +15,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ReactNode,
 } from "react";
 import {
   ERROR_MESSAGES,
@@ -27,6 +28,7 @@ import { track } from "@/lib/analytics";
 import { errorMessage } from "@/lib/api";
 import { Button, buttonStyles } from "@/ui/button";
 import { Chip } from "@/ui/chip";
+import { cn } from "@/ui/cn";
 import { Skeleton } from "@/ui/skeleton";
 import { useToast } from "@/ui/toast";
 import { EmptyState } from "@/ui/empty-state";
@@ -136,6 +138,15 @@ export interface PlacementSwitch {
   /** Placement advice (sprint 5, lib/smart-cellar-advice-gate.ts): read-only, only where placement is open. */
   advice?: boolean;
 }
+
+/**
+ * The stage's height: the place's own proportions on a phone (a tall cooler, a wide rack), as the existing view does.
+ * The same classes and ratio hold its place while it loads, so nothing below it moves (sprint 10).
+ */
+const STAGE_HEIGHT =
+  "h-[clamp(20rem,calc((100vw-2.5rem)*var(--unit-ratio)+3rem),min(68vh,34rem))] sm:h-[min(68vh,34rem)]";
+const stageRatio = (unit: { rows: number; cols: number }) =>
+  ({ "--unit-ratio": unit.rows / Math.max(1, unit.cols) }) as CSSProperties;
 
 export default function SmartCellar3D({
   onShowRacks,
@@ -463,13 +474,12 @@ export default function SmartCellar3D({
       data-unit-renderer={unit.legacy ? "legacy" : "smart"}
     >
       {units.data.length > 1 && (
-        <div
-          className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 md:mx-0 md:px-0"
-          data-testid="smart-3d-units"
-        >
+        <PlaceStrip selected={unit.id}>
           {units.data.map((u) => (
             <Chip
               key={u.id}
+              // a thumb's height (sprint 10: 36 px was under the 44 px a touch target needs)
+              className="h-11"
               selected={u.id === unit.id}
               disabled={quickPanel !== null && u.id !== unit.id}
               onClick={() => choose(u.id)}
@@ -477,7 +487,7 @@ export default function SmartCellar3D({
               {u.label}
             </Chip>
           ))}
-        </div>
+        </PlaceStrip>
       )}
       {unit.legacy ? (
         // from before templates: the existing view, with its own details, actions and words
@@ -1181,7 +1191,12 @@ function SmartUnitStage({
     return (
       <>
         {top}
-        <Skeleton className="h-[26rem]" />
+        {/* exactly the stage's own box (sprint 10): nothing below moves when the picture comes */}
+        <Skeleton
+          className={STAGE_HEIGHT}
+          style={stageRatio(unit)}
+          data-testid="smart-3d-stage-pending"
+        />
       </>
     );
   }
@@ -1208,10 +1223,7 @@ function SmartUnitStage({
         </p>
       )}
       {/* The card takes the place's own proportions on a phone (a tall cooler, a wide rack), as the existing view does. */}
-      <div
-        className="relative h-[clamp(20rem,calc((100vw-2.5rem)*var(--unit-ratio)+3rem),min(68vh,34rem))] sm:h-[min(68vh,34rem)]"
-        style={{ "--unit-ratio": unit.rows / unit.cols } as CSSProperties}
-      >
+      <div className={cn("relative", STAGE_HEIGHT)} style={stageRatio(unit)}>
         <div
           ref={stage}
           role="group"
@@ -1348,5 +1360,59 @@ function SmartUnitStage({
         </ul>
       )}
     </>
+  );
+}
+
+/**
+ * The row of places (sprint 10). It scrolls sideways on its own when it does not fit (the page never does); a soft
+ * fade at an edge says there is more that way; the chosen place is brought into view when the row is shown and when
+ * the choice changes (within the row only: the page itself is not scrolled). Its chips are ordinary buttons, reached
+ * with Tab in order.
+ */
+function PlaceStrip({ selected, children }: { selected: string; children: ReactNode }) {
+  const strip = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState({ before: false, after: false });
+  useEffect(() => {
+    const el = strip.current;
+    if (!el) return;
+    const measure = () => {
+      const before = el.scrollLeft > 1;
+      const after = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+      setMore((m) => (m.before === before && m.after === after ? m : { before, after }));
+    };
+    measure();
+    el.addEventListener("scroll", measure, { passive: true });
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener("scroll", measure);
+      observer.disconnect();
+    };
+  }, []);
+  useEffect(() => {
+    const el = strip.current;
+    const chip = el?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!el || !chip) return;
+    const pad = 20;
+    const left = chip.offsetLeft - el.offsetLeft;
+    if (left < el.scrollLeft + pad) el.scrollLeft = Math.max(0, left - pad);
+    else if (left + chip.offsetWidth > el.scrollLeft + el.clientWidth - pad)
+      el.scrollLeft = left + chip.offsetWidth - el.clientWidth + pad;
+  }, [selected]);
+  const fade = (from: boolean, to: boolean) =>
+    `linear-gradient(to right, ${from ? "transparent, #000 2rem" : "#000"}, ${to ? "#000 calc(100% - 2rem), transparent" : "#000"})`;
+  const mask = more.before || more.after ? fade(more.before, more.after) : undefined;
+  return (
+    <div
+      ref={strip}
+      className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 md:mx-0 md:px-0"
+      style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
+      data-testid="smart-3d-units"
+      data-more={
+        more.before && more.after ? "both" : more.before ? "before" : more.after ? "after" : ""
+      }
+    >
+      {children}
+    </div>
   );
 }
