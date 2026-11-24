@@ -54,7 +54,10 @@
 -- template: a shared rack is new, there is no form from before templates. Never deleted: archived.
 create table private.shared_racks (
   id             uuid primary key default gen_random_uuid(),
-  name           text not null check (char_length(btrim(name)) between 1 and 60 and name = btrim(name)),
+  -- (>= and <=, not BETWEEN: next to another condition BETWEEN is stored as "(a AND b) AND c", which a dump and
+  -- restore reads back as "a AND b AND c": scripts/db-shared-racks-roundtrip.sh, the backup rehearsal)
+  name           text not null check (char_length(btrim(name)) >= 1 and char_length(btrim(name)) <= 60
+                                      and name = btrim(name)),
   kind           public.location_kind not null default 'rack',
   template       text not null check (template ~ '^[a-z][a-z0-9_]{0,39}$'),
   slot_semantics text not null check (slot_semantics in ('depth', 'ordinal', 'single')),

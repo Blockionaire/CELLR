@@ -390,6 +390,7 @@ describe("people", () => {
       ["no_such_user", "NOT_FOUND", M.personNotFound],
       ["already_member", "CONFLICT", M.alreadyMember],
       ["recently_declined", "CONFLICT", M.recentlyDeclined],
+      ["person_limit", "CONFLICT", M.personLimit],
       ["full", "CONFLICT", M.full],
       ["too_many", "CONFLICT", M.tooManyInvitations],
       ["archived", "CONFLICT", M.archived],
@@ -442,6 +443,7 @@ describe("people", () => {
       ["expired", "CONFLICT", M.invitationExpired],
       ["archived", "CONFLICT", M.invitationClosed],
       ["full", "CONFLICT", M.full],
+      ["too_many_racks", "CONFLICT", M.tooMany],
       ["already_declined", "CONFLICT", M.invitationClosed],
       ["already_cancelled", "CONFLICT", M.invitationClosed],
     ] as const)

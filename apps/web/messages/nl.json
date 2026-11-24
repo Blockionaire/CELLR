@@ -726,6 +726,7 @@
       "sharedRackPersonMissing": "Die persoon is niet gevonden.",
       "sharedRackAlreadyMember": "Die persoon zit al in deze kast.",
       "sharedRackRecentlyDeclined": "Die persoon heeft kortgeleden bedankt. Probeer het later opnieuw.",
+      "sharedRackPersonLimit": "Je hebt al drie open uitnodigingen aan deze persoon. Wacht eerst op een antwoord.",
       "sharedRackFull": "Deze kast heeft het maximale aantal deelnemers.",
       "sharedRackTooManyInvitations": "Er staan te veel uitnodigingen open. Trek er eerst een in.",
       "sharedRackInvitationMissing": "Die uitnodiging is er niet meer.",

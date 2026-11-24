@@ -40,8 +40,13 @@ export const SHARED_RACK_LIMITS = {
   pendingInvitations: 20,
   racksPerPerson: 20,
   invitationDays: 14,
-  /** After a decline, the same rack cannot invite that person again for this long. */
+  /**
+   * After a decline that person is not asked again for this long: not for that rack by anyone, and not by the same
+   * inviter for any rack.
+   */
   declineCoolDownDays: 7,
+  /** Open invitations one person may have to one other person, over all racks. */
+  openInvitationsPerPerson: 3,
   eventsPerPage: 100,
 } as const;
 
@@ -413,7 +418,10 @@ export interface SharedRackEventView {
   seq: number;
   type: SharedRackEventType;
   occurredAt: string;
-  /** Who did it. For a change made in the owner's own cellar this can be someone who is not in the rack. */
+  /**
+   * Who did it: named only when that person is in the rack. A change made in the owner's own cellar by someone of
+   * that household who is not in the rack has no actor here (both fields null): see `sharedRackEventByHousehold`.
+   */
   actor: SharedRackPerson;
   /** Whose bottle it was (bottle events). */
   owner: SharedRackPerson | null;
@@ -428,6 +436,13 @@ export interface SharedRackEventView {
   /** Small extras: a reason, a role, a name. Never anything private. */
   detail: Record<string, unknown> | null;
 }
+
+/**
+ * Whether a change was made in the bottle's own household by someone who is not in the rack. The rack's members are
+ * told that it happened and whose bottle it was ("by Ann's household"), never who in that household did it.
+ */
+export const sharedRackEventByHousehold = (event: Pick<SharedRackEventView, "detail">): boolean =>
+  event.detail?.by === "owners_household";
 
 export interface SharedRackEventsView {
   /** Newest first. */

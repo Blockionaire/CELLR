@@ -726,6 +726,7 @@
       "sharedRackPersonMissing": "We couldn't find that person.",
       "sharedRackAlreadyMember": "They're already in this rack.",
       "sharedRackRecentlyDeclined": "They declined a little while ago. Try again later.",
+      "sharedRackPersonLimit": "You already have three open invitations to this person. Wait for an answer first.",
       "sharedRackFull": "This rack is full.",
       "sharedRackTooManyInvitations": "There are too many open invitations. Cancel one first.",
       "sharedRackInvitationMissing": "That invitation is no longer there.",

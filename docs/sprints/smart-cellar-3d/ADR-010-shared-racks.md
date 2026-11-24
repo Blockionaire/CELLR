@@ -58,8 +58,10 @@ not a `cellar_locations` row.
 
 The owner of a bottle _record_ is still a household (as everywhere in CELLR). The owner _in the rack_ is a person:
 the member who put it there. Someone else from that person's household can still act on the bottle through the
-household's own cellar (they own the record too); such a change is attributed to them as actor, with the placing
-member as owner.
+household's own cellar (they own the record too). If that person is in the rack, the change is attributed to them
+as actor. If they are **not** in the rack, the rack's history names no actor at all: it says that it happened,
+whose bottle it was, and `"by": "owners_household"`. People of other households are not told who in someone's
+household opened a bottle at home (§14, S1).
 
 ## 4. Permissions
 
@@ -134,8 +136,9 @@ A rack is never deleted (it is archived), so its history has no cascade to fall 
 (`find_person`: an exact account name or friend code, rate limited). No new lookup exists, and inviting is not tied
 to being friends (a friendship shares ratings by default; colleagues sharing a rack should not have to). `pending` →
 `accepted` | `declined` | `cancelled`; a pending invitation past `expires_at` (14 days) is expired and can no longer
-be accepted. One pending invitation per rack and person; after a decline the same rack cannot invite that person
-again for 7 days. Before accepting, the invited person sees the rack's name and who invited them, nothing else.
+be accepted. One pending invitation per rack and person. After a decline that person is not asked again for 7
+days: not for that rack by anyone, and not by the same inviter for any rack. One person has at most three open
+invitations to another, over all racks (§14, S4). Before accepting, the invited person sees the rack's name and who invited them, nothing else.
 
 **Membership.** `active` → `left` (own choice) | `removed` (by an owner). Either ends all access at once: the next
 call, including one from a client that still shows the rack, is answered 404. A former member can be invited again.
@@ -148,9 +151,10 @@ Pending invitations issued by someone who stops being an owner are cancelled. Ar
   records taking them out, or the owner ends them from their own side: by `shared_rack_withdraw_bottle`, or simply by
   using the bottle in their own cellar (§2.9). No bottle is orphaned, none changes owner.
 - **Account deletion.** The membership rows go with the account (a `member_removed` event with reason
-  `account_deleted` is written from the name kept on the row). If the account was the last owner and other members
-  remain, the rack is **archived** in the same transaction (`rack_archived`, reason `owner_account_deleted`): the
-  others keep reading it and can take their bottles out; nobody is made owner behind their back. Bottles of
+  `account_deleted` is written from the name kept on the row). If the account was the last owner, the rack is
+  **archived** in the same transaction (`rack_archived`, reason `owner_account_deleted`), whether or not other
+  members remain: those who remain keep reading it and can take their bottles out, nobody is made owner behind their
+  back, and a rack nobody is left in does not stay looking as if it were in use. Bottles of
   households that are deleted with the account end their placements through the bottle trigger. Deleting an account
   is never blocked by a shared rack.
 
@@ -229,10 +233,42 @@ service role and the database owner (operators), who are trusted as everywhere i
    and rack owners.
 2. **Last owner deletes their account.** Built: the rack is archived. Alternatives: refuse the deletion until they
    hand over (as households do), or let a remaining member claim the rack explicitly.
-3. **Names in history after an account is deleted.** Built: the reference is cleared, the name as it was stays
-   visible to the rack's members. Alternative: clear the name too.
+3. **Names in history after an account is deleted (right to erasure).** Built: the reference to the account is
+   cleared, but the display name as it read then stays in the history's snapshots (`actor_name`, `owner_name`,
+   `subject_name`) and stays visible to the rack's members. That is personal data kept after the account is gone.
+   Alternative: clear the names too when the account is deleted (the history then says "someone"); the append-only
+   trigger would need one more proven exception for it. The owner decides, with whoever advises on privacy.
 4. **Label photos in a shared rack**: never, opt-in per bottle, or always for members.
 5. **Who may invite**: owners only (built), or every member.
 6. **What a new member sees of history**: everything (built), or only from the day they joined.
 7. **Limits**: 12 members and 20 pending invitations per rack, 20 racks per person, 14 days to accept.
 8. **Production release**: when, and with which declaration (§9).
+
+## 14. After the independent security review
+
+The review (red-team suite `supabase/tests/99_shared_racks_redteam.test.sql`, kept in the repository) found no
+blocker. These were changed in migration 0052 itself (it is applied nowhere):
+
+- **S1 Who is named in the history.** The trigger on `bottles` and `shared_rack_withdraw_bottle` wrote `auth.uid()`
+  as the actor, also for someone of the owner's household who never joined the rack. Now the actor is recorded only
+  when that person is an active member of the rack; otherwise `actor_id` and `actor_name` are null and
+  `detail.by = "owners_household"`. The owner's name stays. A former member withdrawing their own bottle is such a
+  case too: the history says it was withdrawn by the owner's household.
+- **S4 Invitations nobody asked for.** Anyone who learns a user id through the exact search could put a rack name
+  and their own name in that person's list. **Decision (owner-reversible): being friends stays NOT required.** A
+  friendship in this app shares one's ratings, taste and (when chosen) cellar with the friend; requiring it would
+  make colleagues who share a rack expose their own cellars to each other, the opposite of what a shared rack is
+  for. Instead: a decline quiets that inviter for a week for all their racks (not only the rack declined), one
+  person has at most three open invitations to another, and the hourly budget (30) stays. The alternative, friends
+  only, is one condition in `shared_rack_invite` if the owner prefers it.
+- **S3 A private action can wait for a rack call.** Contract: a household's own action on a bottle that stands in
+  a shared rack (opening it, giving it a place, deleting it) can wait for **at most one** shared-rack call that is
+  working on that same bottle at that moment; it is never refused and never deadlocks. Through the API each call is
+  one short transaction. A bottle that is not in a shared rack never waits. The locking was not changed (no `nowait`
+  in a private flow: that would turn a wait into an error); the concurrency script pins the contract with a rack
+  call held open.
+- **N1** The history's bottle-id filter answers only for the caller's own household's bottles (anyone else's bottle
+  is followed by its placement id), so a row count cannot say whether a foreign bottle was ever in the rack.
+- **N2** A rack whose last owner's account is deleted is archived also when nobody else is in it.
+- **N6** The cap of 20 racks per person holds on accepting an invitation too (`too_many_racks`; the invitation
+  stays open).

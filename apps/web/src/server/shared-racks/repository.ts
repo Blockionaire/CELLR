@@ -171,6 +171,7 @@ const INVITE = [
   "no_such_user",
   "already_member",
   "recently_declined",
+  "person_limit",
   "full",
   "too_many",
 ] as const;
@@ -181,6 +182,7 @@ const RESPOND = [
   "expired",
   "archived",
   "full",
+  "too_many_racks",
   "already_accepted",
   "already_declined",
   "already_cancelled",
