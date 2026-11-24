@@ -1,0 +1,606 @@
+import { expect as baseExpect, test } from "@playwright/test";
+import { APP_URL, FEATURES_URL, PREVIEW_URL, arrive, audit, settled, sql } from "./helpers";
+import {
+  addBottle,
+  arriveAs,
+  bottleAt,
+  eventTypes,
+  freeAt,
+  open3D,
+  openRack,
+  placements,
+  stage,
+  RACK_LAYOUT,
+} from "./shared-racks-ui";
+
+/**
+ * Shared racks in the product (ADR-010): three people from three households, each in a browser of their own, on the
+ * preview server (shared racks open, writing to the local stack: real Postgres, PostgREST and the database's own
+ * authorisation). Everything here is done through the FLAT GRID, on a device without 3D: so this is also the proof
+ * that the 2D alternative does every flow, and no 3D scene is drawn (the 3D picture has its own spec, in the 3D suite).
+ */
+test.setTimeout(240_000);
+test.use({ baseURL: PREVIEW_URL });
+const expect = baseExpect.configure({ timeout: 15_000 });
+
+test("three households share one rack: invite, place, move, take out, open at home, remove", async ({
+  browser,
+  request,
+}, info) => {
+  const ann = await arriveAs(browser, request, info, "Ann", { webgl: false });
+  const bob = await arriveAs(browser, request, info, "Bob", { webgl: false });
+  const cy = await arriveAs(browser, request, info, "Cy", { webgl: false });
+  const [annFirst, annSecond] = await ann.bottles("Ann Riesling", 2);
+  const [bobFirst, bobSecond] = await bob.bottles("Bob Barolo", 2);
+  await cy.bottles("Cy Chenin");
+  // what must never reach anyone else: Ann's private facts, on the bottles that go into the rack too
+  await sql(
+    "update public.bottles set purchase_price_cents = 987654, purchased_from = 'ANNSECRETSHOP', notes = 'ANNSECRETNOTE' where household_id = $1",
+    [ann.householdId],
+  );
+  const rackName = `Office rack ${info.project.name}`;
+
+  await test.step("Ann makes a shared rack from the cellar's 3D screen", async () => {
+    await open3D(ann.page);
+    await ann.page.getByTestId("shared-racks-entry").click();
+    await expect(ann.page.getByTestId("shared-racks-none")).toBeVisible();
+    await settled(ann.page.getByRole("dialog"));
+    expect(await audit(ann.page), "the shared racks sheet").toEqual([]);
+    await ann.page.getByTestId("shared-rack-new").click();
+    await ann.page.getByTestId("shared-rack-name").fill(rackName);
+    await ann.page.getByTestId("shared-rack-rows").fill("2");
+    await ann.page.getByTestId("shared-rack-cols").fill("3");
+    expect(await audit(ann.page), "the new rack form").toEqual([]);
+    await ann.page.getByTestId("shared-rack-create").click();
+    await expect(ann.page.getByTestId("shared-rack-name")).toHaveText(rackName);
+    // in the row of places, marked as shared in words (not by colour): its name, and how many are in it
+    await expect(
+      ann.page.getByRole("button", { name: `Shared rack ${rackName}, 1 member` }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(ann.page.getByTestId("shared-rack-meta")).toContainText("Shared rack · 1 member");
+    await expect(stage(ann.page)).toHaveAttribute("data-view", "grid");
+  });
+  const [{ id: rackId }] = (await sql<{ id: string }>(
+    "select id from private.shared_racks where name = $1",
+    [rackName],
+  )) as [{ id: string }];
+
+  await test.step("Ann invites Bob and Cy by friend code; takes one invitation back and sends it again", async () => {
+    await ann.page.getByTestId("shared-rack-people-open").click();
+    for (const person of [bob, cy]) {
+      await ann.page.getByTestId("shared-rack-invite-q").fill(person.friendCode);
+      await ann.page.getByRole("button", { name: "Find" }).click();
+      await expect(ann.page.getByTestId("shared-rack-found")).toContainText(person.name);
+      await ann.page.getByTestId("shared-rack-invite").click();
+      await expect(
+        ann.page.getByTestId("shared-rack-pending").filter({ hasText: person.name }),
+      ).toBeVisible();
+    }
+    await settled(ann.page.getByRole("dialog"));
+    expect(await audit(ann.page), "the people sheet").toEqual([]);
+    // someone who does not exist is said plainly, and is not an invitation
+    await ann.page.getByTestId("shared-rack-invite-q").fill("ZZZZZZZZ");
+    await ann.page.getByRole("button", { name: "Find" }).click();
+    await expect(ann.page.getByTestId("shared-rack-not-found")).toBeVisible();
+    // Cy's invitation is taken back, and sent again
+    await ann.page
+      .getByTestId("shared-rack-pending")
+      .filter({ hasText: "Cy" })
+      .getByTestId("shared-rack-cancel-invitation")
+      .click();
+    await expect(ann.page.getByTestId("shared-rack-pending")).toHaveCount(1);
+    await ann.page.getByTestId("shared-rack-invite-q").fill(cy.friendCode);
+    await ann.page.getByRole("button", { name: "Find" }).click();
+    await ann.page.getByTestId("shared-rack-invite").click();
+    await expect(ann.page.getByTestId("shared-rack-pending")).toHaveCount(2);
+    // the last owner is told she cannot leave, before any request is made
+    await expect(ann.page.getByTestId("shared-rack-last-owner")).toBeVisible();
+    await expect(ann.page.getByTestId("shared-rack-leave")).toHaveCount(0);
+    await ann.page.keyboard.press("Escape");
+  });
+
+  await test.step("Bob sees the invitation in his cellar and accepts; Cy reads hers in Dutch and declines", async () => {
+    await open3D(bob.page);
+    await expect(bob.page.getByTestId("shared-racks-badge")).toHaveText("1 invitation");
+    // before accepting: no rack in his row of places
+    await expect(bob.page.getByTestId("shared-rack-chip")).toHaveCount(0);
+    await bob.page.getByTestId("shared-rack-invitations-chip").click();
+    await expect(bob.page.getByTestId("shared-rack-invitation")).toContainText(
+      `Ann invites you to ${rackName}`,
+    );
+    await bob.page.getByTestId("shared-rack-accept").click();
+    // after accepting, the rack is the place on screen, and in his row of places
+    await expect(bob.page.getByTestId("shared-rack-name")).toHaveText(rackName);
+    await expect(
+      bob.page.getByRole("button", { name: `Shared rack ${rackName}, 2 members` }),
+    ).toBeVisible();
+
+    await cy.page.goto("/profile");
+    await cy.page.getByRole("radio", { name: "Nederlands" }).click();
+    await expect(cy.page.locator("html")).toHaveAttribute("lang", "nl");
+    await cy.page.goto("/cellar");
+    await cy.page.getByRole("radio", { name: "3D" }).click();
+    await cy.page.getByTestId("shared-racks-entry").click();
+    await expect(cy.page.getByRole("dialog", { name: "Gedeelde kasten" })).toBeVisible();
+    await expect(cy.page.getByTestId("shared-rack-invitation")).toContainText(
+      `Ann nodigt je uit voor ${rackName}`,
+    );
+    await cy.page.getByTestId("shared-rack-decline").click();
+    await expect(cy.page.getByText("Uitnodiging afgeslagen.")).toBeVisible();
+    await expect(cy.page.getByTestId("shared-rack-invitation")).toHaveCount(0);
+    await expect(cy.page.getByTestId("shared-racks-none")).toHaveText(
+      "Je zit nog niet in een gedeelde kast.",
+    );
+    // someone who declined is not asked again straight away: Ann is told so
+    await ann.page.getByTestId("shared-rack-people-open").click();
+    await expect(ann.page.getByTestId("shared-rack-member")).toHaveCount(2);
+    await ann.page.getByTestId("shared-rack-invite-q").fill(cy.friendCode);
+    await ann.page.getByRole("button", { name: "Find" }).click();
+    await ann.page.getByTestId("shared-rack-invite").click();
+    await expect(
+      ann.page.getByText("They declined a little while ago. Try again later."),
+    ).toBeVisible();
+    await ann.page.keyboard.press("Escape");
+  });
+
+  await test.step("Ann and Bob each put a bottle of their own in; both see the same rack with the right owners", async () => {
+    await openRack(ann.page, rackName);
+    await addBottle(ann.page, "1:1", "Ann Riesling");
+    await expect(
+      ann.page.getByText(
+        /Ann Riesling 2019 now stands on shelf 1, spot 1\. It is yours in this rack\./,
+      ),
+    ).toBeVisible();
+    await openRack(bob.page, rackName);
+    // only his own bottles are offered to him: never Ann's
+    await bob.page.getByTestId("shared-rack-add").click();
+    await freeAt(bob.page, "1:2").click();
+    await expect(bob.page.getByTestId("shared-rack-candidate")).toHaveCount(2);
+    await expect(bob.page.getByTestId("shared-rack-add-sheet")).not.toContainText("Ann Riesling");
+    await settled(bob.page.getByRole("dialog"));
+    expect(await audit(bob.page), "the add sheet").toEqual([]);
+    await bob.page.getByTestId("shared-rack-candidate").first().click();
+    await expect(bottleAt(bob.page, "1:2")).toBeVisible();
+
+    await openRack(ann.page, rackName);
+    for (const page of [ann.page, bob.page]) {
+      await expect(stage(page)).toHaveAttribute("data-bottles", "2");
+      await expect(bottleAt(page, "1:1")).toHaveAccessibleName(
+        new RegExp(
+          `Shelf 1, spot 1: Domaine Test Ann Riesling 2019, bottle of ${page === ann.page ? "you" : "Ann"}`,
+        ),
+      );
+      await expect(bottleAt(page, "1:2")).toHaveAccessibleName(
+        new RegExp(
+          `Shelf 1, spot 2: Domaine Test Bob Barolo 2019, bottle of ${page === bob.page ? "you" : "Bob"}`,
+        ),
+      );
+    }
+    expect((await placements(rackId)).map((p) => p.owner_user_id)).toEqual([
+      ann.userId,
+      bob.userId,
+    ]);
+  });
+
+  await test.step("the owner filter only chooses what is shown: nothing moves", async () => {
+    const filter = bob.page.getByTestId("shared-rack-filter");
+    await expect(filter.getByRole("button")).toHaveText(["Everyone · 2", "Mine · 1", "Ann · 1"]);
+    await filter.getByRole("button", { name: "Ann · 1" }).click();
+    await expect(bottleAt(bob.page, "1:2")).toHaveAttribute("data-dimmed", "true");
+    await expect(bottleAt(bob.page, "1:1")).toHaveAttribute("data-dimmed", "false");
+    await expect(bob.page.getByTestId("shared-rack-filter-note")).toContainText(
+      "Showing 1 of 2 bottles",
+    );
+    await expect(bottleAt(bob.page, "1:2")).toHaveAccessibleName(
+      /left out by the filter, still in the rack/,
+    );
+    await filter.getByRole("button", { name: "Mine · 1" }).click();
+    await expect(bottleAt(bob.page, "1:1")).toHaveAttribute("data-dimmed", "true");
+    await filter.getByRole("button", { name: "Everyone · 2" }).click();
+    expect(await placements(rackId)).toHaveLength(2);
+  });
+
+  await test.step("Bob moves Ann's bottle: it stays Ann's, and the history names both", async () => {
+    await bottleAt(bob.page, "1:1").click();
+    const chosen = bob.page.getByTestId("shared-rack-chosen");
+    await expect(chosen).toContainText("Ann Riesling");
+    await expect(chosen).toContainText("Owner");
+    await expect(chosen.getByText("Ann", { exact: true }).first()).toBeVisible();
+    await chosen.getByTestId("shared-rack-move").click();
+    await expect(bob.page.getByTestId("shared-rack-choosing")).toContainText(
+      "Choose a free spot for Domaine Test Ann Riesling 2019",
+    );
+    await freeAt(bob.page, "2:3").click();
+    await expect(
+      bob.page.getByText(/Ann Riesling 2019 now stands on shelf 2, spot 3\./),
+    ).toBeVisible();
+    await expect(bottleAt(bob.page, "2:3")).toHaveAccessibleName(/bottle of Ann/);
+    expect((await placements(rackId)).find((p) => p.bottle_id === annFirst)).toMatchObject({
+      owner_user_id: ann.userId,
+      loc_row: 2,
+      loc_col: 3,
+    });
+    await openRack(ann.page, rackName);
+    await expect(bottleAt(ann.page, "2:3")).toHaveAccessibleName(/bottle of you/);
+    await ann.page.getByTestId("shared-rack-activity-open").click();
+    const events = ann.page.getByTestId("shared-rack-event");
+    await expect(events.first()).toHaveText(
+      /Bob moved Ann’s Domaine Test Ann Riesling 2019 from shelf 1, spot 1 to shelf 2, spot 3\./,
+    );
+    await expect(events.first().locator("time")).toHaveText(/\d{4}/);
+    await settled(ann.page.getByRole("dialog"));
+    expect(await audit(ann.page), "the history sheet").toEqual([]);
+    // filtered by who did it
+    await ann.page.getByTestId("shared-rack-activity-actor").selectOption({ label: "Bob" });
+    await expect(events).toHaveText([
+      /Bob moved Ann’s/,
+      /Bob put .*Bob Barolo.* on shelf 1, spot 2/,
+      /Bob joined/,
+    ]);
+    await ann.page.keyboard.press("Escape");
+    // the history of one bottle, from the bottle itself
+    await bottleAt(ann.page, "2:3").click();
+    await ann.page.getByTestId("shared-rack-bottle-history").click();
+    await expect(ann.page.getByTestId("shared-rack-activity-bottle")).toContainText("Ann Riesling");
+    await expect(events).toHaveText([
+      /Bob moved Ann’s/,
+      /Ann put .*Ann Riesling.* on shelf 1, spot 1/,
+    ]);
+    await ann.page.keyboard.press("Escape");
+  });
+
+  await test.step("two browsers, one spot: one bottle gets it, the other person is told and sees the rack as it is", async () => {
+    // Bob looks at the rack and starts choosing a spot; his picture of the rack is from before Ann's bottle
+    await bob.page.getByTestId("shared-rack-add").click();
+    await expect(freeAt(bob.page, "2:1")).toBeVisible();
+    await addBottle(ann.page, "2:1", "Ann Riesling");
+    await expect(bottleAt(ann.page, "2:1")).toBeVisible();
+    await freeAt(bob.page, "2:1").click();
+    await bob.page.getByTestId("shared-rack-candidate").first().click();
+    await expect(
+      bob.page.getByText(
+        /That spot was just taken\. Pick another\. The rack was read again: this is how it is now\./,
+      ),
+    ).toBeVisible();
+    // refreshed: Ann's bottle is on that spot, Bob's second bottle is in no rack, and nothing was tried elsewhere
+    await expect(bottleAt(bob.page, "2:1")).toHaveAccessibleName(/bottle of Ann/);
+    await expect(stage(bob.page)).toHaveAttribute("data-bottles", "3");
+    expect((await placements(rackId)).filter((p) => p.bottle_id === bobSecond)).toEqual([]);
+    expect((await eventTypes(rackId)).filter((e) => e.event_type === "bottle_placed")).toHaveLength(
+      3,
+    );
+  });
+
+  await test.step("Bob takes Ann's bottle out: said honestly, recorded, and it is still Ann's, unopened, at home", async () => {
+    await bottleAt(bob.page, "2:3").click();
+    await bob.page.getByTestId("shared-rack-chosen").getByTestId("shared-rack-takeout").click();
+    const sheet = bob.page.getByTestId("shared-rack-takeout-sheet");
+    await expect(sheet).toContainText("Taking it out is not drinking it");
+    await expect(sheet).toContainText(
+      "It is Ann’s bottle and stays Ann’s. Only Ann can say it was drunk.",
+    );
+    await settled(bob.page.getByRole("dialog"));
+    expect(await audit(bob.page), "the take-out sheet").toEqual([]);
+    await bob.page.getByTestId("shared-rack-takeout-confirm").click();
+    await expect(
+      bob.page.getByText(/Recorded: you took .*Ann Riesling 2019 out\. It is still Ann’s bottle/),
+    ).toBeVisible();
+    await expect(bottleAt(bob.page, "2:3")).toHaveCount(0);
+    expect(
+      await sql(
+        "select status, household_id, location_id, opened_at from public.bottles where id = $1",
+        [annFirst],
+      ),
+    ).toEqual([
+      { status: "in_cellar", household_id: ann.householdId, location_id: null, opened_at: null },
+    ]);
+    expect((await eventTypes(rackId)).at(-1)).toEqual({
+      event_type: "bottle_taken_out",
+      actor_id: bob.userId,
+      owner_id: ann.userId,
+    });
+    await openRack(ann.page, rackName);
+    await ann.page.getByTestId("shared-rack-activity-open").click();
+    await expect(ann.page.getByTestId("shared-rack-event").first()).toHaveText(
+      /Bob took Ann’s Domaine Test Ann Riesling 2019 out \(from shelf 2, spot 3\)\. It is still Ann’s\. · left the rack/,
+    );
+    await ann.page.keyboard.press("Escape");
+  });
+
+  await test.step("Ann opens her other bottle at home: it leaves the rack, and the history says opened, by Ann", async () => {
+    await ann.call("patch", `/bottles/${annSecond}`, { action: "open" }, 200);
+    await openRack(bob.page, rackName);
+    await expect(stage(bob.page)).toHaveAttribute("data-bottles", "1");
+    await expect(bottleAt(bob.page, "2:1")).toHaveCount(0);
+    await bob.page.getByTestId("shared-rack-activity-open").click();
+    await expect(bob.page.getByTestId("shared-rack-event").first()).toHaveText(
+      /Ann opened Domaine Test Ann Riesling 2019\. · left the rack/,
+    );
+    await bob.page.keyboard.press("Escape");
+  });
+
+  await test.step("Bob takes his own bottle out and is offered his own cellar's next steps; then puts it back", async () => {
+    await bottleAt(bob.page, "1:2").click();
+    await bob.page.getByTestId("shared-rack-chosen").getByTestId("shared-rack-takeout").click();
+    await expect(bob.page.getByTestId("shared-rack-takeout-sheet")).toContainText(
+      "It is your bottle: afterwards it is in your own cellar, without a place.",
+    );
+    await bob.page.getByTestId("shared-rack-takeout-confirm").click();
+    await expect(bob.page.getByTestId("shared-rack-takeout-done")).toContainText(
+      "is out of the rack",
+    );
+    await expect(bob.page.getByTestId("shared-rack-takeout-wine")).toHaveAttribute(
+      "href",
+      /\/cellar\/[0-9a-f-]{36}$/,
+    );
+    await bob.page.getByRole("button", { name: "Later" }).click();
+    expect(
+      await sql("select status, location_id from public.bottles where id = $1", [bobFirst]),
+    ).toEqual([{ status: "in_cellar", location_id: null }]);
+    await addBottle(bob.page, "1:2", "Bob Barolo");
+    await expect(bottleAt(bob.page, "1:2")).toBeVisible();
+  });
+
+  await test.step("Ann removes Bob: his open screen stops at the next action, and his own cellar still has his bottle", async () => {
+    await openRack(ann.page, rackName);
+    await ann.page.getByTestId("shared-rack-people-open").click();
+    const row = ann.page.getByTestId("shared-rack-member").filter({ hasText: "Bob" });
+    await row.getByTestId("shared-rack-remove-member").click();
+    await expect(row.getByTestId("shared-rack-confirm")).toContainText(
+      "Bob’s bottles stay Bob’s. They stay where they stand, under Bob’s name, until someone records taking them out.",
+    );
+    await row.getByTestId("shared-rack-confirm-yes").click();
+    await expect(ann.page.getByTestId("shared-rack-member")).toHaveCount(1);
+    await ann.page.keyboard.press("Escape");
+    // Bob's bottle still stands in the rack, under his name, as someone who is no longer in it
+    await openRack(ann.page, rackName);
+    await bottleAt(ann.page, "1:2").click();
+    await expect(ann.page.getByTestId("shared-rack-chosen")).toContainText(
+      "Bob (no longer in this rack; the bottle is still theirs)",
+    );
+
+    // Bob's screen still shows the rack as he last saw it; his next action is refused, clearly, and changes nothing
+    const before = await placements(rackId);
+    await bottleAt(bob.page, "1:2").click();
+    await bob.page.getByTestId("shared-rack-chosen").getByTestId("shared-rack-move").click();
+    await freeAt(bob.page, "2:2").click();
+    await expect(
+      bob.page.getByText("You are no longer a member of this rack. Nothing was changed."),
+    ).toBeVisible();
+    await expect(bob.page.getByTestId("shared-rack-no-access")).toBeVisible();
+    // nothing of the rack is left on his screen
+    await expect(stage(bob.page)).toHaveCount(0);
+    expect(await placements(rackId)).toEqual(before);
+    await bob.page.getByTestId("shared-rack-back").click();
+    await expect(bob.page.getByTestId("shared-rack-chip")).toHaveCount(0);
+
+    // his own cellar: the bottle is his, and is said to stand in a shared rack he cannot open (not which, not where)
+    await bob.page.getByRole("radio", { name: "Racks" }).click();
+    const note = bob.page.getByTestId("shared-rack-unplaced-note");
+    await expect(note).toContainText("1 of your bottles stands in a shared rack");
+    await expect(note.getByTestId("shared-rack-unplaced-bottle")).toHaveAttribute(
+      "data-access",
+      "false",
+    );
+    await expect(note).toContainText("in a shared rack you are not (or no longer) a member of");
+    await expect(note).not.toContainText(rackName);
+    expect(await audit(bob.page), "the racks view with the note").toEqual([]);
+    await note.getByTestId("shared-rack-withdraw").click();
+    await expect(note).toContainText("The bottle itself does not change");
+    await note.getByTestId("shared-rack-withdraw-confirm").click();
+    await expect(bob.page.getByTestId("shared-rack-unplaced-note")).toHaveCount(0);
+    expect(await placements(rackId)).toEqual([]);
+    expect((await eventTypes(rackId)).at(-1)).toEqual({
+      event_type: "bottle_withdrawn",
+      actor_id: bob.userId,
+      owner_id: bob.userId,
+    });
+    expect(
+      await sql("select status, household_id from public.bottles where id = $1", [bobFirst]),
+    ).toEqual([{ status: "in_cellar", household_id: bob.householdId }]);
+  });
+
+  await test.step("nothing of Ann's own cellar ever reached Bob or Cy: not on screen, not in any answer", async () => {
+    for (const person of [bob, cy]) {
+      const everything = person.heard.join("\n");
+      expect(everything.length, `${person.name} heard the API`).toBeGreaterThan(1000);
+      for (const secret of [
+        "ANNSECRET",
+        "987654",
+        ann.householdId,
+        annFirst!,
+        annSecond!,
+        ann.email,
+      ])
+        expect(everything, `${person.name}: ${secret}`).not.toContain(secret);
+      expect(await person.page.locator("body").innerText()).not.toContain("ANNSECRET");
+    }
+    // and Bob did see what he was meant to: the label of Ann's bottle while it stood in the rack
+    expect(bob.heard.join("\n")).toContain("Ann Riesling");
+  });
+
+  await test.step("Ann archives the rack, with what that means said first", async () => {
+    await ann.page.keyboard.press("Escape");
+    await ann.page.getByTestId("shared-rack-settings-open").click();
+    await ann.page.getByTestId("shared-rack-rename").fill(`${rackName} (old)`);
+    await ann.page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(ann.page.getByTestId("shared-rack-name")).toHaveText(`${rackName} (old)`);
+    await settled(ann.page.getByRole("dialog"));
+    expect(await audit(ann.page), "the settings sheet").toEqual([]);
+    await ann.page.getByTestId("shared-rack-archive").click();
+    await expect(ann.page.getByTestId("shared-rack-confirm")).toContainText(
+      "Every bottle stays its owner’s and stays where it stands. Bottles can still be taken out.",
+    );
+    await ann.page.getByTestId("shared-rack-confirm-yes").click();
+    await expect(ann.page.getByTestId("shared-rack-restore")).toBeVisible();
+    await ann.page.keyboard.press("Escape");
+    await expect(ann.page.getByTestId("shared-rack-archived")).toBeVisible();
+    await expect(ann.page.getByTestId("shared-rack-add")).toHaveCount(0);
+  });
+
+  await Promise.all([ann.close(), bob.close(), cy.close()]);
+});
+
+test("a layout saved against an older version of the rack is refused, said, and the fields take the latest", async ({
+  browser,
+  request,
+}, info) => {
+  const ann = await arriveAs(browser, request, info, "Ann", { webgl: false });
+  const [bottle] = await ann.bottles("Ann Riesling");
+  const rack = (
+    await ann.call<{ id: string }>(
+      "post",
+      "/shared-racks",
+      { name: "Layout rack", ...RACK_LAYOUT(3, 4) },
+      201,
+    )
+  ).body.id;
+  await ann.call(
+    "post",
+    `/shared-racks/${rack}/bottles`,
+    { bottleId: bottle, to: { row: 3, col: 4, index: 1 } },
+    201,
+  );
+  await openRack(ann.page, "Layout rack");
+  await ann.page.getByTestId("shared-rack-settings-open").click();
+  // a layout that would take the bottle's spot away is not saved
+  await ann.page.getByTestId("shared-rack-rows").fill("2");
+  await ann.page.getByTestId("shared-rack-save-layout").click();
+  await expect(ann.page.getByTestId("shared-rack-layout-error")).toContainText(
+    "There are still bottles in the part you're removing. Move them first.",
+  );
+  // meanwhile the rack is changed elsewhere (another device of hers): her draft is from an older version
+  await ann.page.getByTestId("shared-rack-rows").fill("5");
+  await ann.page.route("**/api/v1/shared-racks/*/bottles", (route) => route.abort());
+  await ann.call("put", `/shared-racks/${rack}/layout`, RACK_LAYOUT(4, 4), 200);
+  await ann.page.getByTestId("shared-rack-save-layout").click();
+  await expect(ann.page.getByTestId("shared-rack-layout-error")).toContainText(
+    "This place was changed since you opened it. Reload it to see the latest version.",
+  );
+  await ann.page.unroute("**/api/v1/shared-racks/*/bottles");
+  // nothing of her stale draft was saved; the fields now start from the rack as it is
+  expect(await sql("select grid_rows from private.shared_racks where id = $1", [rack])).toEqual([
+    { grid_rows: 4 },
+  ]);
+  await ann.page.keyboard.press("Escape");
+  await openRack(ann.page, "Layout rack");
+  await ann.page.getByTestId("shared-rack-settings-open").click();
+  await expect(ann.page.getByTestId("shared-rack-rows")).toHaveValue("4");
+  await ann.page.getByTestId("shared-rack-rows").fill("6");
+  await ann.page.getByTestId("shared-rack-save-layout").click();
+  await expect(ann.page.getByText("The layout was saved.")).toBeVisible();
+  expect(await sql("select grid_rows from private.shared_racks where id = $1", [rack])).toEqual([
+    { grid_rows: 6 },
+  ]);
+  await ann.close();
+});
+
+test("a small phone (375 × 667): the rack and its sheets fit, and every control is big enough to tap", async ({
+  browser,
+  request,
+}, info) => {
+  const ann = await arriveAs(browser, request, info, "Ann", { webgl: false });
+  await ann.page.setViewportSize({ width: 375, height: 667 });
+  const [bottle] = await ann.bottles("Ann Riesling");
+  const rack = (
+    await ann.call<{ id: string }>(
+      "post",
+      "/shared-racks",
+      { name: "Small rack", ...RACK_LAYOUT(5, 12) },
+      201,
+    )
+  ).body.id;
+  await ann.call(
+    "post",
+    `/shared-racks/${rack}/bottles`,
+    { bottleId: bottle, to: { row: 1, col: 1, index: 1 } },
+    201,
+  );
+  await openRack(ann.page, "Small rack");
+  const fits = () =>
+    ann.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+  expect(await fits(), "the rack's screen does not scroll sideways").toBe(true);
+  // a rack of 12 across scrolls inside its own box, not the page
+  await expect(ann.page.getByTestId("shared-rack-grid")).toBeVisible();
+  const small = async (scope: string) =>
+    ann.page.evaluate((selector) => {
+      const out: string[] = [];
+      for (const el of document.querySelectorAll<HTMLElement>(
+        `${selector} button, ${selector} a, ${selector} select`,
+      )) {
+        const box = el.getBoundingClientRect();
+        if (box.width === 0 || box.height === 0) continue;
+        if (box.height < 44 || box.width < 44)
+          out.push(
+            `${el.textContent?.trim().slice(0, 30)} ${Math.round(box.width)}x${Math.round(box.height)}`,
+          );
+      }
+      return out;
+    }, scope);
+  expect(await small('[data-testid="shared-rack-top"]'), "the rack's actions").toEqual([]);
+  expect(await small('[data-testid="shared-rack-filter"]'), "the owner filter").toEqual([]);
+  expect(await small('[data-testid="shared-rack-grid"]'), "the grid").toEqual([]);
+  expect(await audit(ann.page), "the rack's screen").toEqual([]);
+  for (const [opener, inside] of [
+    ["shared-rack-people-open", "shared-rack-people"],
+    ["shared-rack-activity-open", "shared-rack-activity"],
+    ["shared-rack-settings-open", "shared-rack-settings"],
+  ] as const) {
+    await ann.page.getByTestId(opener).click();
+    await expect(ann.page.getByTestId(inside)).toBeVisible();
+    await settled(ann.page.getByRole("dialog"));
+    expect(await fits(), `${inside} does not scroll sideways`).toBe(true);
+    expect(await small(`[data-testid="${inside}"]`), inside).toEqual([]);
+    await ann.page.keyboard.press("Escape");
+    await expect(ann.page.getByTestId(inside)).toBeHidden();
+  }
+  await ann.close();
+});
+
+for (const [name, base] of [
+  ["not switched on", APP_URL],
+  ["switched on, on a production build", FEATURES_URL],
+] as const)
+  test.describe(`gate closed (${name})`, () => {
+    test.use({ baseURL: base });
+    test("nothing of shared racks is shown, asked for or downloaded", async ({ page }) => {
+      const asked: string[] = [];
+      const code: Array<Promise<string>> = [];
+      page.on("request", (request) => {
+        if (request.url().includes("shared-racks")) asked.push(request.url());
+      });
+      page.on("response", (response) => {
+        if (/\/_next\/static\/.*\.js/.test(response.url()))
+          code.push(response.text().catch(() => ""));
+      });
+      await arrive(page, "srclosed");
+      await page.goto("/cellar");
+      for (const view of ["3D", "Racks", "List"]) {
+        await page.getByRole("radio", { name: view }).click();
+        await page.waitForLoadState("networkidle");
+        await expect(page.locator('[data-testid^="shared-rack"]')).toHaveCount(0);
+        await expect(page.getByText("Shared racks")).toHaveCount(0);
+      }
+      expect(asked, "no request names shared racks").toEqual([]);
+      const scripts = await Promise.all(code);
+      expect(scripts.length).toBeGreaterThan(3);
+      // the rack's screen has this name in its code, and in no other code
+      expect(scripts.filter((text) => text.includes("shared-rack-stage"))).toEqual([]);
+    });
+  });
+
+test("gate open: the same check finds the code once a shared rack is opened (so the check above can see it)", async ({
+  browser,
+  request,
+}, info) => {
+  const ann = await arriveAs(browser, request, info, "Ann", { webgl: false });
+  const code: Array<Promise<string>> = [];
+  ann.page.on("response", (response) => {
+    if (/\/_next\/static\/.*\.js/.test(response.url())) code.push(response.text().catch(() => ""));
+  });
+  await ann.call("post", "/shared-racks", { name: "Seen rack", ...RACK_LAYOUT(2, 2) }, 201);
+  await openRack(ann.page, "Seen rack");
+  await ann.page.waitForLoadState("networkidle");
+  expect((await Promise.all(code)).some((text) => text.includes("shared-rack-stage"))).toBe(true);
+  await ann.close();
+});

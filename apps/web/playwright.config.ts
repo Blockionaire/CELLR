@@ -76,6 +76,7 @@ export const THREE_D_SPECS = [
   /[\\/]e2e[\\/]quick-add\.spec\.ts$/, // Smart Cellar 3D sprint 7: Quick Add in the 3D cellar
   /[\\/]e2e[\\/]visual-[^\\/]*3d[^\\/]*\.spec\.ts$/,
   /[\\/]e2e[\\/]perf-[^\\/]*3d[^\\/]*\.spec\.ts$/,
+  /[\\/]e2e[\\/]shared-racks-3d[^\\/]*\.spec\.ts$/, // shared racks drawn in 3D (ADR-010); the rest of shared racks is core
 ];
 const SUITE = process.env.E2E_SUITE || "all";
 if (!["all", "3d", "core"].includes(SUITE))

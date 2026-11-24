@@ -2,7 +2,15 @@
 
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   formatVintage,
   resolveSharedRack,
@@ -63,6 +71,24 @@ const InspectableStorage = dynamic(
   { ssr: false, loading: () => <Skeleton className="h-full w-full rounded-none" /> },
 );
 
+/**
+ * The 3D view's own readout for the browser tests (where a spot is on the screen), as the cellar's 3D screen has
+ * it: off unless this tab asked for it; it shows nothing a person does not already see.
+ */
+const noSubscription = () => () => {};
+const useDebugReadout = () =>
+  useSyncExternalStore(
+    noSubscription,
+    () => {
+      try {
+        return window.sessionStorage.getItem("cellr:3d-debug") === "1";
+      } catch {
+        return false;
+      }
+    },
+    () => false,
+  );
+
 /** What the person is doing: looking, choosing a spot for a bottle of their own, or for a bottle being moved. */
 type Mode = { kind: "view" } | { kind: "add" } | { kind: "move"; bottle: SharedRackBottleView };
 
@@ -97,6 +123,7 @@ export function SharedRackStage({
   const locale = useLocale();
   const webgl = useWebGL();
   const reduced = useReducedMotion();
+  const debug = useDebugReadout();
   const toast = useToast();
   const say = useErrorText();
 
@@ -598,6 +625,7 @@ export function SharedRackStage({
                 panelSlot={panelSlot}
                 reducedMotion={reduced}
                 onLost={() => setLost(true)}
+                debug={debug}
                 spots={offering ? (markers ?? []) : null}
                 onSpot={offering ? onSpot : undefined}
               />
