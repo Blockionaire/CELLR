@@ -1,7 +1,7 @@
 -- Shared racks (0052, ADR-010): every permission boundary, as the roles the API uses.
 -- People: 1 Ann (owner of the rack), 2 Bob and 3 Cy (members, each with a household of their own), 4 Dee (never a
 -- member: the one who knows every id), 5 Eve (in Ann's HOUSEHOLD, not in the rack), 6 Fay (an invitation that
--- expires), 7 Gus (a second rack, deleted accounts).
+-- expires), 7 Gus (a second rack, deleted accounts), 8 Hal (alone in a rack, then gone).
 begin;
 
 -- Reading the private tables for an assertion, whoever the test is acting as at that moment.
@@ -35,14 +35,14 @@ do $$
 declare
   h1 uuid; h2 uuid; h3 uuid; h4 uuid; h7 uuid; code text;
   cp uuid; cw uuid; v uuid; pw uuid; pv uuid; cel2 uuid; loc2 uuid;
-  rack uuid; rack2 uuid; rack3 uuid; deep uuid; ghost constant uuid := 'bbbbbbbb-0000-0000-0000-000000000001';
+  rack uuid; rack2 uuid; rack3 uuid; rack4 uuid; deep uuid; ghost constant uuid := 'bbbbbbbb-0000-0000-0000-000000000001';
   b1 uuid; b1b uuid; b2 uuid; b2b uuid; b2c uuid; b2d uuid; b2e uuid; b3 uuid; b4 uuid; b7 uuid; lone uuid;
   inv2 uuid; inv3 uuid; inv4 uuid; inv6 uuid; invx uuid;
   p1 uuid; p2 uuid; p3 uuid; px uuid;
   j jsonb; r text; n bigint; m bigint; t text;
   tbl text; ok boolean;
 begin
-  perform test.mk_users(7);
+  perform test.mk_users(8);
   perform test.as_user(1); h1 := public.create_household('Ann home'); code := public.create_invite(h1);
   update public.profiles set display_name = 'Ann' where id = auth.uid();
   perform test.as_user(2); h2 := public.create_household('Bob home');
@@ -400,7 +400,7 @@ begin
   perform test.rec('editing a placed bottle''s own facts leaves it where it stands',
     test.sr_count(format('select 1 from private.shared_rack_placements where bottle_id = %L', b2)) = 1);
   update public.bottles set status = 'opened' where id = b2;
-  perform test.rec('opened in my own cellar: out of the rack, and the history says opened, by me',
+  perform test.rec('opened in my own cellar by a member of the rack: out of the rack, and the history says opened, by me',
     test.sr_count(format('select 1 from private.shared_rack_placements where bottle_id = %L', b2)) = 0
     and test.sr_count(format($q$select 1 from private.shared_rack_events where rack_id = %L and event_type = 'bottle_opened' and bottle_id = %L
        and actor_id = %L and owner_id = %L and (from_row, from_col, from_index) = (1, 1, 1)$q$, rack, b2, test.uid(2), test.uid(2))) = 1
@@ -430,9 +430,20 @@ begin
 
   perform test.as_user(5);
   update public.bottles set status = 'opened' where id = b1;
-  perform test.rec('someone of the owner''s household opens the bottle at home: they are the actor, the placer stays the owner',
+  perform test.rec('someone of the owner''s household who is NOT in the rack opens the bottle at home: the history says it happened and whose bottle it was, not who did it',
     test.sr_count(format($q$select 1 from private.shared_rack_events where rack_id = %L and event_type = 'bottle_opened' and bottle_id = %L
-       and actor_id = %L and actor_name = 'Eve' and owner_id = %L and owner_name = 'Ann'$q$, rack, b1, test.uid(5), test.uid(1))) = 1);
+       and actor_id is null and actor_name is null and detail ->> 'by' = 'owners_household'
+       and owner_id = %L and owner_name = 'Ann'$q$, rack, b1, test.uid(1))) = 1);
+  perform test.rec('...that person is nowhere in the rack''s history: not by id, not by name',
+    test.sr_count(format('select 1 from private.shared_rack_events where rack_id = %L and (actor_id = %L or subject_id = %L or owner_id = %L)',
+                         rack, test.uid(5), test.uid(5), test.uid(5))) = 0
+    and test.sr_val(format('select jsonb_agg(to_jsonb(e))::text from private.shared_rack_events e where rack_id = %L', rack)) !~ 'Eve');
+  perform test.as_user(2);
+  perform test.rec('...and the members of the rack are told exactly that',
+    test.count_of(format($q$select 1 from public.shared_rack_events(%L, null, 100) where event_type = 'bottle_opened'
+       and actor_id is null and actor_name is null and owner_name = 'Ann' and detail ->> 'by' = 'owners_household'$q$, rack)) = 1
+    and (select jsonb_agg(to_jsonb(x))::text from public.shared_rack_events(rack, null, 100) x) !~ 'Eve'
+    and position(test.uid(5)::text in (select jsonb_agg(to_jsonb(x))::text from public.shared_rack_events(rack, null, 100) x)) = 0);
 
   -- ================================================================================================
   -- 10. History: chronological, filtered, a page at a time, and nobody can change it
@@ -455,6 +466,14 @@ begin
     and test.count_of(format('select 1 from public.shared_rack_events(%L, null, 100, null, %L)', rack, test.uid(3)))
       = test.sr_count(format('select 1 from private.shared_rack_events where rack_id = %L and actor_id = %L', rack, test.uid(3)))
     and test.count_of(format('select 1 from public.shared_rack_events(%L, null, 100, null, null, null, %L)', rack, b1)) = 2);
+  perform test.rec('by bottle id only for a bottle of my own: someone else''s bottle id answers nothing (also when it is in this rack)',
+    test.count_of(format('select 1 from public.shared_rack_events(%L, null, 100, null, null, null, %L)', rack, b2)) = 0
+    and test.count_of(format('select 1 from public.shared_rack_events(%L, null, 100, null, null, null, %L)', rack, lone)) = 0
+    and test.count_of(format('select 1 from public.shared_rack_events(%L, null, 100, null, null, null, %L)', rack, ghost)) = 0);
+  perform test.as_user(5);
+  perform test.rec('...someone of my household is not a member: nothing, whatever they name',
+    test.count_of(format('select 1 from public.shared_rack_events(%L, null, 100, null, null, null, %L)', rack, b1)) = 0);
+  perform test.as_user(1);
   perform test.rec('one bottle followed through the rack by a placement of it: placed, moved, taken out, placed again, opened',
     (select array_agg(event_type order by seq) from public.shared_rack_events(rack, null, 100, null, null, p2))
       = array['bottle_placed', 'bottle_moved', 'bottle_taken_out', 'bottle_placed', 'bottle_opened']);
@@ -538,7 +557,8 @@ begin
   perform test.rec('its owner withdraws it without access to the rack', public.shared_rack_withdraw_bottle(b3) ->> 'outcome' = 'withdrawn'
     and public.shared_rack_withdraw_bottle(b3) ->> 'outcome' = 'not_placed'
     and test.sr_count(format('select 1 from private.shared_rack_placements where id = %L', p3)) = 0
-    and test.sr_count(format($q$select 1 from private.shared_rack_events where rack_id = %L and event_type = 'bottle_withdrawn' and bottle_id = %L and actor_id = %L and owner_id = %L$q$, rack, b3, test.uid(3), test.uid(3))) = 1);
+    and test.sr_count(format($q$select 1 from private.shared_rack_events where rack_id = %L and event_type = 'bottle_withdrawn' and bottle_id = %L
+         and actor_id is null and actor_name is null and detail ->> 'by' = 'owners_household' and owner_id = %L and owner_name = 'Cy'$q$, rack, b3, test.uid(3))) = 1);
   perform test.as_user(1);
   j := public.shared_rack_invite(rack, test.uid(3));
   perform test.as_user(3);
@@ -635,6 +655,31 @@ begin
     and test.place(rack, b2b, 1, 1) = 'placed' and test.count_of('select 1 from public.shared_racks()') = 1);
 
   -- ================================================================================================
+  -- 15b. Invitations nobody asked for: a no holds for the inviter's other racks too; three open ones at most
+  -- ================================================================================================
+  perform test.as_user(2);
+  inv2 := (public.shared_rack_invite(rack, test.uid(5)) ->> 'invitation_id')::uuid;
+  perform test.as_user(5);
+  perform test.rec('Eve declines Bob''s invitation', public.shared_rack_respond_invitation(inv2, false) ->> 'outcome' = 'declined');
+  perform test.as_user(2);
+  rack4 := (test.new_rack('Another rack of Bob', 2, 2) ->> 'rack_id')::uuid;
+  perform test.rec('a new rack is not a way around a no: the same inviter may not ask again for a week, for any rack',
+    public.shared_rack_invite(rack4, test.uid(5)) ->> 'outcome' = 'recently_declined'
+    and test.sr_count(format($q$select 1 from private.shared_rack_invitations where invited_user_id = %L and status = 'pending'$q$, test.uid(5))) = 0);
+  perform test.as_user(3);
+  rack3 := (test.new_rack('Rack of Cy', 2, 2) ->> 'rack_id')::uuid;
+  perform test.rec('...someone else, for another rack, may', public.shared_rack_invite(rack3, test.uid(5)) ->> 'outcome' = 'invited');
+  perform test.as_user(2);
+  perform test.rec('one person has at most three open invitations to another, over all their racks',
+    public.shared_rack_invite(rack, test.uid(6)) ->> 'outcome' = 'invited'
+    and public.shared_rack_invite(rack4, test.uid(6)) ->> 'outcome' = 'invited'
+    and public.shared_rack_invite((test.new_rack('Third rack of Bob', 2, 2) ->> 'rack_id')::uuid, test.uid(6)) ->> 'outcome' = 'invited'
+    and public.shared_rack_invite((test.new_rack('Fourth rack of Bob', 2, 2) ->> 'rack_id')::uuid, test.uid(6)) ->> 'outcome' = 'person_limit'
+    and test.sr_count(format($q$select 1 from private.shared_rack_invitations where invited_user_id = %L and invited_by = %L and status = 'pending'$q$, test.uid(6), test.uid(2))) = 3);
+  perform test.su();
+  update private.shared_rack_invitations set status = 'cancelled', responded_at = now() where invited_user_id = test.uid(6) and status = 'pending';
+
+  -- ================================================================================================
   -- 16. Deleted accounts: never blocked, the history stays, nobody is made owner behind their back
   -- ================================================================================================
   perform test.as_user(7);
@@ -646,6 +691,23 @@ begin
     and test.place(rack2, b4, 2, 2) = 'placed');
   select placement_id into px from public.shared_rack_bottles(rack2) where (loc_row, loc_col) = (1, 1);
   perform test.rec('...and moves Gus''s', test.move(rack2, px, 1, 1, 1, 2) = 'moved');
+  -- the cap of 20 racks holds on accepting too
+  perform test.as_user(7);
+  invx := (public.shared_rack_invite(rack2, test.uid(5)) ->> 'invitation_id')::uuid;
+  perform test.su();
+  with made as (
+    insert into private.shared_racks (name, template, slot_semantics, grid_rows, grid_cols)
+    select 'Cap ' || g, 'rack_classic', 'depth', 1, 1 from generate_series(1, 20) g returning id)
+  insert into private.shared_rack_members (rack_id, user_id, role) select id, test.uid(5), 'owner' from made;
+  perform test.as_user(5);
+  perform test.rec('someone in 20 racks cannot accept one more: said as that, and the invitation stays open',
+    public.shared_rack_respond_invitation(invx, true) ->> 'outcome' = 'too_many_racks'
+    and test.sr_val(format('select status from private.shared_rack_invitations where id = %L', invx)) = 'pending'
+    and test.count_of(format('select 1 from public.shared_racks(%L)', rack2)) = 0);
+  perform test.su();
+  update private.shared_rack_members set status = 'left', ended_at = now() where user_id = test.uid(5) and rack_id in (select id from private.shared_racks where name like 'Cap %');
+  perform test.as_user(5);
+  perform test.rec('...with room again, the same invitation is accepted', public.shared_rack_respond_invitation(invx, true) ->> 'outcome' = 'accepted');
   perform test.su();
   n := test.sr_count(format('select 1 from private.shared_rack_events where rack_id = %L', rack2));
   perform test.rec('an account with a rack, bottles in it and history is deleted without a hitch',
@@ -662,6 +724,15 @@ begin
     and test.sr_count(format($q$select 1 from private.shared_rack_members where rack_id = %L and role = 'owner'$q$, rack2)) = 0
     and test.sr_count(format($q$select 1 from private.shared_rack_events where rack_id = %L and event_type = 'member_removed' and subject_name = 'Gus' and detail ->> 'reason' = 'account_deleted'$q$, rack2)) = 1
     and test.sr_count(format($q$select 1 from private.shared_rack_events where rack_id = %L and event_type = 'rack_archived' and detail ->> 'reason' = 'owner_account_deleted'$q$, rack2)) = 1);
+  -- alone in a rack, and the account goes: the rack is not left looking as if it were in use
+  perform test.as_user(8);
+  rack3 := (test.new_rack('Rack of Hal', 2, 2) ->> 'rack_id')::uuid;
+  perform test.su();
+  perform test.rec('the only member''s account is deleted without a hitch', test.error_of(format('delete from auth.users where id = %L', test.uid(8))) = '');
+  perform test.rec('...the rack is archived, with nobody in it, and its history says why',
+    test.sr_count(format('select 1 from private.shared_racks where id = %L and archived_at is not null', rack3)) = 1
+    and test.sr_count(format('select 1 from private.shared_rack_members where rack_id = %L', rack3)) = 0
+    and test.sr_count(format($q$select 1 from private.shared_rack_events where rack_id = %L and event_type = 'rack_archived' and detail ->> 'reason' = 'owner_account_deleted'$q$, rack3)) = 1);
   perform test.as_user(4);
   select placement_id into px from public.shared_rack_bottles(rack2) where is_mine;
   perform test.rec('the remaining member still reads it, as a member, and takes their bottle out',
