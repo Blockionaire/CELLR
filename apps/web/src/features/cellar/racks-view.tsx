@@ -19,6 +19,7 @@ import { useBottleActions } from "./use-bottle-actions";
 import { GHOST_LIFT_PX, useRackDrag, type DropTarget } from "./use-rack-drag";
 import { STAGE } from "./wine-card";
 import { shapeFor } from "./wine-visuals";
+import { SharedRackUnplacedNote } from "@/features/shared-racks/lazy";
 
 /**
  * Your racks, fridges and cabinets as they stand: every bottle in its spot, every free spot a tap away.
@@ -107,7 +108,14 @@ function SlotPreview({ unit }: { unit: RackUnit }) {
  */
 const places: { open: Set<string> | null } = { open: null };
 
-export function RacksView({ builder = false }: { builder?: boolean } = {}) {
+export function RacksView({
+  builder = false,
+  sharedRacks = false,
+}: {
+  builder?: boolean;
+  /** Shared racks are open here (ADR-010): bottles of mine that stand in one are said to, under "not placed yet". */
+  sharedRacks?: boolean;
+} = {}) {
   const tb = useTranslations("builder");
   const t = useTranslations("racks");
   const tv = useTranslations("vintage");
@@ -295,6 +303,12 @@ export function RacksView({ builder = false }: { builder?: boolean } = {}) {
             {t("unplacedTitle")} <span className="text-ink-2 tnum">· {data.unplaced.length}</span>
           </h2>
           <p className="mt-1 text-small text-ink-2">{t("unplacedHint")}</p>
+          {/* Shared racks (ADR-010): some of these have a place after all, in a shared rack */}
+          {sharedRacks && (
+            <div className="mt-3">
+              <SharedRackUnplacedNote />
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             {data.unplaced.map((b) => (
               <Chip

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   SHARED_RACKS_NOT_SET_UP,
+  SHARED_RACK_EVENT_TYPES,
   resolveStorage,
   type RackView,
   type SharedRackBottleView,
@@ -8,6 +9,8 @@ import {
   type SharedRackMemberView,
 } from "@cellr/domain";
 import { ApiError } from "@/lib/api";
+import en from "../../../messages/en.json";
+import nl from "../../../messages/nl.json";
 import {
   RACK_NOT_FOUND_MESSAGE,
   bottleName,
@@ -238,6 +241,42 @@ describe("a line of history", () => {
       ).key,
     ).toBe("rack_archived_account");
     expect(eventLine(event({ type: "member_joined", owner: null })).key).toBe("member_joined");
+  });
+});
+
+describe("the words of the history", () => {
+  it("every line the history can hold has a sentence, in both languages, for its own and for someone else's bottle", () => {
+    for (const messages of [en.sharedRacks.events, nl.sharedRacks.events] as Array<
+      Record<string, string>
+    >)
+      for (const type of SHARED_RACK_EVENT_TYPES) {
+        const mine = { userId: ANN, name: "Ann" };
+        for (const owner of type.startsWith("bottle_")
+          ? [mine, { userId: BOB, name: "Bob" }]
+          : [null])
+          for (const detail of [
+            null,
+            { reason: "deleted" },
+            { reason: "account_deleted" },
+            { reason: "owner_account_deleted" },
+          ]) {
+            const { key } = eventLine({
+              seq: 1,
+              type,
+              occurredAt: "2026-11-23T10:00:00Z",
+              actor: mine,
+              owner,
+              subject: null,
+              placementId: null,
+              bottleId: null,
+              wine: null,
+              from: null,
+              to: null,
+              detail,
+            });
+            expect(messages[key], key).toBeTruthy();
+          }
+      }
   });
 });
 

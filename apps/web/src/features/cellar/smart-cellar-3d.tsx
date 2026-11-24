@@ -69,6 +69,14 @@ import {
   type PanelAction,
 } from "./quick-add/machine";
 import { freeSpots, spotMarkers, type FreeSpot } from "./quick-add/spots";
+// Shared racks (ADR-010): the one import. It holds only lazy stubs; all logic is in features/shared-racks.
+import {
+  SharedRackChips,
+  SharedRackScreen,
+  SharedRackSingleRow,
+  SharedRacksAlone,
+  SharedRacksFooter,
+} from "@/features/shared-racks/lazy";
 
 /** three.js and the new storage view are large: downloaded only when a place with a template is opened in 3D. */
 const InspectableStorage = dynamic(() => import("./storage3d/inspectable-storage"), {
@@ -140,11 +148,14 @@ export default function SmartCellar3D({
   onShowRacks,
   placement = { open: false, canWrite: false },
   builderOpen = false,
+  sharedRacks = false,
 }: {
   onShowRacks: () => void;
   placement?: PlacementSwitch;
   /** The Rack Builder may be opened (for "Edit zones"). */
   builderOpen?: boolean;
+  /** Shared racks may be shown (the server's decision, lib/shared-racks-gate.ts). Closed: nothing of them exists here. */
+  sharedRacks?: boolean;
 }) {
   const t = useTranslations("smart3d");
   const tp = useTranslations("placement");
@@ -167,6 +178,8 @@ export default function SmartCellar3D({
   const units = useSmartUnits(true);
   const [unitId, setUnitIdState] = useState<string | null>(() => memory.unitId);
   const [selection, setSelectionState] = useState<Selection | null>(() => memory.selection);
+  // Shared racks (ADR-010): the shared rack on screen instead of one of my own places, or null.
+  const [sharedRackId, setSharedRackId] = useState<string | null>(null);
   // Counted once each time the 3D cellar is opened, as the existing view counts it.
   useEffect(() => track("3d_cellar_opened"), []);
 
@@ -305,10 +318,30 @@ export default function SmartCellar3D({
     return <Skeleton className="h-[26rem]" />;
   }
 
+  // ---- Shared racks (ADR-010): begin. A shared rack is the place on screen; its screen is features/shared-racks. ----
+  if (sharedRacks && sharedRackId)
+    return (
+      <SharedRackScreen
+        places={units.data}
+        rackId={sharedRackId}
+        onShared={setSharedRackId}
+        onOwnPlace={(id) => {
+          rememberUnit(id);
+          setUnitIdState(id);
+          setSelection(null);
+          setSharedRackId(null);
+        }}
+        onShowRacks={onShowRacks}
+      />
+    );
+  // ---- Shared racks: end ----
+
   // No place at all: the existing view's own invitation to build a cellar.
   if (units.data.length === 0)
     return (
       <div data-testid="smart-3d" data-mode="empty">
+        {/* Shared racks (ADR-010): someone without a place of their own can still be in a shared rack */}
+        {sharedRacks && <SharedRacksAlone onChoose={setSharedRackId} />}
         <Cellar3DView onShowRacks={onShowRacks} />
       </div>
     );
@@ -470,7 +503,28 @@ export default function SmartCellar3D({
               {u.label}
             </Chip>
           ))}
+          {/* Shared racks (ADR-010): my shared racks, in the same row as my own places */}
+          {sharedRacks && (
+            <SharedRackChips
+              locked={quickPanel !== null || placing !== null}
+              onChoose={(id) => {
+                quickClose();
+                setSharedRackId(id);
+              }}
+            />
+          )}
         </div>
+      )}
+      {/* Shared racks (ADR-010): with one place of my own the cellar shows no row; this one adds the shared racks */}
+      {sharedRacks && units.data.length === 1 && (
+        <SharedRackSingleRow
+          place={unit}
+          locked={quickPanel !== null || placing !== null}
+          onChoose={(id) => {
+            quickClose();
+            setSharedRackId(id);
+          }}
+        />
       )}
       {unit.legacy ? (
         // from before templates: the existing view, with its own details, actions and words
@@ -600,6 +654,8 @@ export default function SmartCellar3D({
           </ul>
         </section>
       )}
+      {/* Shared racks (ADR-010): my bottles that stand in a shared rack, and the way in to shared racks */}
+      {sharedRacks && <SharedRacksFooter onChoose={setSharedRackId} />}
     </div>
   );
 }

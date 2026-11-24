@@ -7,6 +7,7 @@ import { getPageContext } from "@/server/context";
 import {
   getBuilderAccess,
   getPlacementAccess,
+  getSharedRacksAccess,
   isAdviceOpen,
   isSmartCellarRendererEnabled,
 } from "@/server/env";
@@ -32,6 +33,7 @@ export default async function CellarPage() {
         ...(({ open, canWrite }) => ({ open, canWrite }))(getPlacementAccess()),
         advice: isAdviceOpen(),
       }}
+      sharedRacks={getSharedRacksAccess().open}
     />
   );
 }
