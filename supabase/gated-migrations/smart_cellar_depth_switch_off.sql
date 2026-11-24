@@ -1,0 +1,11 @@
+-- =====================================================================
+-- GATED, NOT A MIGRATION YET: depth placement switched OFF again (ADR-011 phase D, recovery)
+-- =====================================================================
+-- !! Only with the owner's approval. Not in supabase/migrations; numbered on the day it is released.
+--
+-- What it does: private.cellar_settings.depth_placement := false. From then on no place can be made deeper than it is
+-- (private.check_location_cells, 0043). NOTHING ELSE: no bottle is moved, renumbered or deleted; a place that is deep
+-- stays deep and its bottles stay where they are (it can still be saved at the depth it has). This is the brake, not
+-- the way back: putting the old one-bottle-per-cell index back needs every cell down to one bottle first
+-- (private.depth_occupancy_report(), smart_cellar_depth_collapse_to_front.sql; ADR-011 §6).
+update private.cellar_settings set depth_placement = false, set_at = now() where id;
