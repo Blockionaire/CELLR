@@ -67,6 +67,7 @@ import type {
   TastingRow,
 } from "./types";
 import { runImport } from "./import-run";
+import { BEHIND_ANOTHER_MESSAGE } from "@/server/db/errors";
 
 /** How many times a add retries when two people grab the same free spot at the same moment. */
 const PLACEMENT_ATTEMPTS = 3;
@@ -891,7 +892,12 @@ export function createCellarService(
               "That bottle is no longer in the cellar.",
             );
           } catch (error) {
-            if (isDomainError(error) && error.code === "CONFLICT")
+            // a bottle behind another one (only with depth on, ADR-011 §2) is said as such, not as a taken spot
+            if (
+              isDomainError(error) &&
+              error.code === "CONFLICT" &&
+              error.message !== BEHIND_ANOTHER_MESSAGE
+            )
               throw new DomainError("CONFLICT", "That spot was just taken. Pick another.");
             throw error;
           }

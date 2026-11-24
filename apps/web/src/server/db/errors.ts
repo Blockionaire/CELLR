@@ -12,6 +12,10 @@ interface DbError {
  * and since migrations 0043-0045 (Smart Cellar 3D): 23514 slot_index_ambiguous / layout_semantics_change /
  * zones_not_a_split / depth_not_enabled, and 55P03 zone_place_busy.
  */
+/** An old path moving a bottle that lies behind another one (0043's slot_index_ambiguous; only with depth on). */
+export const BEHIND_ANOTHER_MESSAGE =
+  "This bottle lies behind another one, so it can't be moved from here.";
+
 export function mapDbError(error: DbError): DomainError {
   const code = error.code ?? "";
   const message = error.message ?? "";
@@ -39,10 +43,7 @@ export function mapDbError(error: DbError): DomainError {
   // A bottle behind another one, moved by a writer that named no index: refused, never guessed (0043).
   // Only possible once depth is on (ADR-011 §2): an old path (PATCH /bottles, the racks view) moving a back bottle.
   if (message === "slot_index_ambiguous")
-    return new DomainError(
-      "CONFLICT",
-      "This bottle lies behind another one, so it can't be moved from here.",
-    );
+    return new DomainError("CONFLICT", BEHIND_ANOTHER_MESSAGE);
   // What an index means would change under the bottles of a place more than one deep (0043).
   if (message === "layout_semantics_change")
     return new DomainError("CONFLICT", "There are still bottles in it. Move them out first.");
