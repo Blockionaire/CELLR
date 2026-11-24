@@ -1170,30 +1170,31 @@ test.describe("3D Quick Add on a place from before templates", () => {
     await expect(page.getByTestId("quick-add-start")).toBeVisible();
   });
 
-  test("a pile from before templates (more than one bottle per spot): nothing is pointed at; said, and the list", async ({
+  test("a place from before templates read with a fallback (a stored kind the app does not know): nothing is pointed at; said, and the list", async ({
     page,
     request,
   }) => {
+    // The database cannot hold an ambiguous place from before templates (no template means no index meaning, so one
+    // bottle per cell, and the kind is an enum), so the read is changed on its way in, to what the server reports
+    // for a stored kind the app does not know: read as "other", with the `unknown_kind` fallback.
     await debugOn(page);
-    const { email } = await arrive(page, "qalegpile");
-    const { call } = await apiClient(request, email);
-    const pile = await addPlace(call, "Old bin", "rack", 2, 2);
-    // more than one bottle per cell without a template: only a write around the depth switch makes one today (as
-    // places stored before it could be); local to this transaction, so no other test sees depth switched on
-    await sql(`begin;
-      set local session_replication_role = replica;
-      update public.cellar_locations set cell_capacity = 3, slot_semantics = 'ordinal' where id = '${pile}';
-      commit;`);
-    await open3D(page);
-    // not a place from before templates in the domain's terms (it does not say where in a cell a bottle lies)
-    await expect(view(page)).toHaveAttribute("data-unit-renderer", "smart");
+    await legacyHousehold(page, request, "qalegfallback");
+    await page.route("**/api/v1/smart-cellar/storage/*/bottles", async (route) => {
+      const res = await route.fetch();
+      const body = (await res.json()) as { unit: { fallbacks: string[] } };
+      body.unit.fallbacks = [...body.unit.fallbacks, "unknown_kind"];
+      await route.fulfill({ response: res, json: body });
+    });
+    await openLegacy(page);
     await startQuick(page);
     await expect(page.getByTestId("quick-instruction")).toHaveText(
       "This place can't be pointed at in 3D. Choose an empty spot from the list.",
     );
-    await expect(page.getByTestId("quick-unknown")).toBeVisible();
-    await expect(page.getByTestId("smart-3d-stage")).toHaveAttribute("data-offering", "list");
-    await expect(canvas(page)).not.toHaveAttribute("data-spots", /^[1-9]/);
+    await expect(page.getByTestId("quick-spot-list")).toBeVisible();
+    await expect(legacyStage(page)).toHaveAttribute("data-offering", "list");
+    await page.waitForTimeout(500);
+    expect(await legacyGhosts(page)).toBeNull();
+    expect(await legacySpotsOnOffer(page)).toEqual([]);
   });
 
   test("without WebGL: the list of free spots stands in, and gives the same sheet", async ({
