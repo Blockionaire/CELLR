@@ -5,12 +5,21 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { AiResult, GenerateObjectRequest, LlmProvider } from "@/server/ai/types";
-import { listedWines } from "./bench-harness";
 import { compareClaims } from "./compare-claims";
 import { dishesFromForm } from "./holdout-csv";
 import { v1Ai } from "./engines/v1-ai";
 import { v1PlusAi } from "./engines/v1plus-ai";
-import { criterionMet, menuCostTable } from "./menu-cost";
+import { benchCellar } from "./bench-cellar";
+import { listedWines, messagesFor } from "./bench-harness";
+import {
+  menuQuestion,
+  ordinaryTable,
+  OWNER_COURSES,
+  OWNER_MENU_CRITERION,
+  OWNER_SIZES,
+  ownerCriterionTable,
+  requestsFor,
+} from "./menu-cost";
 import { estimateMenuArm, runMenuArm } from "./menu-run";
 import { Ledger, PAID_ENV, PAID_PHRASE } from "./paid";
 import { planRuns, planTotals } from "./plan-estimate";
@@ -304,10 +313,31 @@ describe("the menu set with the model", () => {
     );
   }, 60_000);
 
-  it("keeps to the proposed cost criterion for menus (free estimate)", async () => {
-    const result = criterionMet(await menuCostTable());
-    expect(result.over).toEqual([]);
+  it("makes exactly one model call for a menu of 2 to 8 courses, with menu and with check,menu", async () => {
+    const cellar = benchCellar(120);
+    const history = messagesFor("pairing", 12).slice(0, -1);
+    for (const n of OWNER_COURSES)
+      for (const parts of ["menu", "check,menu"])
+        for (const before of [[], history]) {
+          const sent = await requestsFor(cellar, parts, menuQuestion(n), before);
+          expect(sent, `${n} courses, ${parts}`).toHaveLength(1);
+          expect(JSON.stringify(sent[0]!.jsonSchema)).toContain('"courses"');
+        }
   }, 120_000);
+
+  it("keeps to the owner's provisional criterion: worst case at most 1.5 x one ordinary V1 answer (free estimate)", async () => {
+    const t = await ownerCriterionTable();
+    expect(t.cells).toHaveLength(OWNER_SIZES.length * 2 * OWNER_COURSES.length * 2);
+    expect(t.over).toEqual([]);
+    expect(t.maxRatio).toBeLessThanOrEqual(OWNER_MENU_CRITERION.maxWorstCaseTimesOrdinary);
+    expect(t.cells.every((c) => c.calls === 1)).toBe(true);
+  }, 300_000);
+
+  it("keeps an ordinary question within +10% on cost, per part and with all parts (not relaxed)", async () => {
+    const t = await ordinaryTable();
+    expect(t.overOnCost).toBe(0);
+    expect(t.maxCost.pct).toBeLessThanOrEqual(OWNER_MENU_CRITERION.ordinaryMaxIncreasePct);
+  }, 300_000);
 });
 
 describe("the whole plan's budget (estimate)", () => {
@@ -345,7 +375,7 @@ describe("the human review forms", () => {
       expect(rows[1], file).toEqual(FORM_PREAMBLE("")[1]!.map(String));
       expect(rows[2], file).toEqual(["Date:", ""]);
       expect(rows[3]![0], file).toMatch(/until the person named above has signed it/);
-      if (file === "holdout-template.csv") continue;
+      if (file.startsWith("holdout-template")) continue;
       const v = verdicts(text);
       expect(v.length, file).toBeGreaterThan(0);
       expect(
@@ -355,13 +385,19 @@ describe("the human review forms", () => {
     }
   }, 120_000);
 
-  it("the holdout template: 40 rows, only the ids filled; a filled form becomes the escrowed file", () => {
-    const template = readFileSync(new URL("holdout-template.csv", REVIEW_DIR), "utf8");
-    const rows = parseCsv(template);
-    const at = rows.findIndex((r) => r[0] === "id");
-    const body = rows.slice(at + 1).filter((r) => r.length > 1);
-    expect(body).toHaveLength(HOLDOUT_ROWS);
-    expect(body.every((r) => r.slice(1).every((c) => c === ""))).toBe(true);
+  it("the holdout templates: 40 and 60 rows, only the series' ids filled; a filled form becomes the file", () => {
+    for (const series of [1, 2] as const) {
+      const template = readFileSync(
+        new URL(`holdout-template-series${series}.csv`, REVIEW_DIR),
+        "utf8",
+      );
+      const rows = parseCsv(template);
+      const at = rows.findIndex((r) => r[0] === "id");
+      const body = rows.slice(at + 1).filter((r) => r.length > 1);
+      expect(body).toHaveLength(HOLDOUT_ROWS[series]);
+      expect(body.every((r) => r[0]!.startsWith(`hh-s${series}-`))).toBe(true);
+      expect(body.every((r) => r.slice(1).every((c) => c === ""))).toBe(true);
+    }
     const filled = csv([
       HOLDOUT_HEADER,
       [

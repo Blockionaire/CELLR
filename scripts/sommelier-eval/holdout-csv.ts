@@ -1,10 +1,15 @@
 /**
- * FROM THE FILLED HOLDOUT FORM TO THE ESCROWED FILE (P8). The wine-knowledgeable person fills
- * docs/sprints/sommelier-3-mega/review/holdout-template.csv in a spreadsheet, on their own computer, OUTSIDE this
- * repository. The owner then turns it into the human holdout's file (human-holdout.ts, `HumanDish` list) and seals it:
+ * FROM THE FILLED HOLDOUT FORMS TO THE ESCROWED FILES (P8), in two series (human-holdout-series.ts): the people
+ * writing it fill docs/sprints/sommelier-3-mega/review/holdout-template-series1.csv (40 dishes) and, later and without
+ * having seen any result on series 1, holdout-template-series2.csv (60), in a spreadsheet, on their own computer,
+ * OUTSIDE this repository. The owner turns each into the holdout's format (`HumanDish` list) and seals it:
  *
- *   pnpm --filter @cellr/sommelier-eval run holdout-from-csv /private/path/holdout-filled.csv /private/path/dishes.json
- *   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/path/dishes.json    # prints SEAL.json to commit
+ *   pnpm --filter @cellr/sommelier-eval run holdout-from-csv 1 /private/series1-filled.csv /private/series1.json
+ *   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/series1.json   # → human-holdout/SEAL-series1.json
+ *   ... and when series 2 exists:
+ *   pnpm --filter @cellr/sommelier-eval run holdout-from-csv 2 /private/series2-filled.csv /private/series2.json
+ *   pnpm --filter @cellr/sommelier-eval run holdout-from-csv merge /private/series1.json /private/series2.json /private/dishes.json
+ *   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/dishes.json    # → human-holdout/SEAL.json (100)
  *
  * Both paths must be outside the repository. It prints only how many dishes it wrote and any problem by row number,
  * never a dish, so whoever runs it (an agent included) learns nothing of the scenarios. Rows left empty are skipped.
@@ -13,6 +18,7 @@ import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkHumanDishes, type HumanDish } from "./human-holdout";
+import { checkSeries, mergeSeries, type Series } from "./human-holdout-series";
 import { HOLDOUT_HEADER } from "./review-forms";
 import { sheetRows } from "./review-sheet";
 import { WINE_KEYS } from "./wines";
@@ -107,20 +113,31 @@ function sheetRowsBy(text: string, first: string): Array<Record<string, string>>
   });
 }
 
+/** A filled series form as that series' file: the form's checks, then the series' ids and exact size. */
+export const seriesFromForm = (text: string, series: Series) =>
+  checkSeries(dishesFromForm(text), series);
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const [from, to] = process.argv.slice(2);
-  if (!from || !to) {
-    console.error(
-      "usage: holdout-from-csv <filled form .csv> <dishes.json to write>, both outside the repository",
-    );
+  const [what, ...paths] = process.argv.slice(2);
+  const usage =
+    "usage: holdout-from-csv <1|2> <filled form .csv> <series .json to write>, or holdout-from-csv merge <series1.json> <series2.json> <dishes.json to write>; every path outside the repository";
+  const merging = what === "merge";
+  if ((!merging && what !== "1" && what !== "2") || paths.length !== (merging ? 3 : 2)) {
+    console.error(usage);
     process.exit(2);
   }
-  if (!outsideRepository(from) || !outsideRepository(to)) {
-    console.error("Both files must be outside the repository: the holdout is kept in escrow.");
+  if (!paths.every((p) => outsideRepository(p))) {
+    console.error("Every file must be outside the repository: the holdout is kept in escrow.");
     process.exit(2);
   }
   try {
-    const dishes = dishesFromForm(readFileSync(from, "utf8"));
+    const to = paths.at(-1)!;
+    const dishes = merging
+      ? mergeSeries(
+          JSON.parse(readFileSync(paths[0]!, "utf8")),
+          JSON.parse(readFileSync(paths[1]!, "utf8")),
+        )
+      : seriesFromForm(readFileSync(paths[0]!, "utf8"), Number(what) as Series);
     writeFileSync(to, JSON.stringify(dishes, null, 2) + "\n");
     console.log(`Wrote ${dishes.length} dishes. Seal it next: seal-human-holdout ${to}`);
   } catch (error) {

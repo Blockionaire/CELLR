@@ -23,7 +23,9 @@
     "plan": "tsx --conditions=react-server plan-estimate.ts",
     "compare-claims": "tsx --conditions=react-server compare-claims.ts",
     "review-forms": "tsx --conditions=react-server review-forms.ts",
-    "holdout-from-csv": "tsx --conditions=react-server holdout-csv.ts"
+    "holdout-from-csv": "tsx --conditions=react-server holdout-csv.ts",
+    "power": "tsx --conditions=react-server power.ts",
+    "results-report": "tsx --conditions=react-server results-report.ts"
   },
   "dependencies": {
     "@cellr/domain": "workspace:*",

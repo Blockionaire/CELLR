@@ -26,6 +26,7 @@ import {
   type WineStructure,
 } from "@cellr/domain/intelligence";
 import { sampleRows } from "./annotation-sample";
+import { SERIES, type Series } from "./human-holdout-series";
 import { rng } from "./bench-cellar";
 import { DISHES } from "./dishes";
 import { ENGINES } from "./engines";
@@ -50,9 +51,10 @@ export const FORM_PREAMBLE = (title: string) => [
 /** Verdict columns start with this, so a test can find them and check that they are empty. */
 export const VERDICT = "YOUR VERDICT: ";
 
-// ---- 1. The independent holdout: a template to write 40 scenarios in ----------------------------------------
+// ---- 1. The independent holdout: a template per series (40, then 60; 100 in all) ---------------------------------
 
-export const HOLDOUT_ROWS = 40;
+/** Rows per series' template (human-holdout-series.ts: 40 and 60, the owner's provisional target of 100). */
+export const HOLDOUT_ROWS = { 1: SERIES[1].dishes, 2: SERIES[2].dishes } as const;
 export const HOLDOUT_HEADER = [
   "id",
   "dish (English)",
@@ -66,21 +68,22 @@ export const HOLDOUT_HEADER = [
   "sweet (0-3)",
   "heat / chili (0-3)",
   "umami (0-3)",
-  "right wines (keys from wines.csv, separated by spaces)",
-  "acceptable wines (keys from wines.csv, separated by spaces)",
+  "right wines (keys from holdout-wines.csv, separated by spaces)",
+  "acceptable wines (keys from holdout-wines.csv, separated by spaces)",
   "nothing suits (yes / leave empty)",
   "why (one line)",
   "written by (initials or role)",
 ];
 
-export function holdoutTemplate(): string {
-  const rows = Array.from({ length: HOLDOUT_ROWS }, (_, i) => [
-    `hh-${String(i + 1).padStart(2, "0")}`,
+export function holdoutTemplate(series: Series): string {
+  const { dishes, prefix } = SERIES[series];
+  const rows = Array.from({ length: dishes }, (_, i) => [
+    `${prefix}${String(i + 1).padStart(2, "0")}`,
     ...HOLDOUT_HEADER.slice(1).map(() => ""),
   ]);
   return csv([
     ...FORM_PREAMBLE(
-      "CELLR sommelier: independent holdout of wine-and-food pairings (40 scenarios)",
+      `CELLR sommelier: independent holdout of wine-and-food pairings, series ${series} of 2 (${dishes} dishes; 100 in all)`,
     ),
     HOLDOUT_HEADER,
     ...rows,
@@ -529,16 +532,122 @@ export async function fallbackForm(): Promise<string> {
   ]);
 }
 
+// ---- 4. The user-experience sessions (three to five real users) ------------------------------------------------
+
+/** The journey, task by task, as the facilitator says it (the same on a phone and on a desktop). */
+export const UX_TASKS: ReadonlyArray<[string, string, string]> = [
+  [
+    "Ask for advice",
+    '"You are cooking roast lamb tonight. Ask the sommelier what to open."',
+    "An answer with one or more bottles from the cellar is on screen",
+  ],
+  [
+    "Read the cards",
+    '"Look at the bottles it suggests. Tell me what the lines under each card tell you."',
+    "The participant can say whether to drink it now, and where it lies",
+  ],
+  [
+    "Ask how to serve",
+    '"Ask how warm to serve the first wine and whether to decant it."',
+    "A temperature and a decanting advice are on screen",
+  ],
+  [
+    "Plan a menu",
+    '"For Saturday: oysters, then roast lamb, then chocolate fondant. Ask for a wine per course."',
+    "One wine (or 'nothing suits') per course is on screen",
+  ],
+  [
+    "Bottles for guests",
+    '"You will be eight people. Ask how many bottles you need."',
+    "A number of bottles and what is free to open is on screen",
+  ],
+  [
+    "A follow-up",
+    '"Ask for something lighter than the first suggestion."',
+    "A new answer that follows on from the previous one",
+  ],
+  [
+    "When the AI is unavailable",
+    "(The facilitator switches the test server to 'AI unavailable' first.) \"Ask again what to open with the lamb.\"",
+    "The participant notices that this answer is the app's own, not the AI's",
+  ],
+];
+
+export function uxTasksForm(): string {
+  const header = [
+    "participant code (e.g. P1; never a name)",
+    "device (phone / desktop)",
+    "task #",
+    "task",
+    "what the facilitator says",
+    "what counts as done",
+    `${VERDICT}could they do it? (yes / with help / no)`,
+    `${VERDICT}time (mm:ss)`,
+    `${VERDICT}what confused them`,
+    `${VERDICT}would they trust it? (1 not at all - 5 fully)`,
+    `${VERDICT}remarks`,
+  ];
+  const rows = (["phone", "desktop"] as const).flatMap((device) =>
+    UX_TASKS.map(([task, say, done], i) => [
+      "",
+      device,
+      i + 1,
+      task,
+      say,
+      done,
+      "",
+      "",
+      "",
+      "",
+      "",
+    ]),
+  );
+  return csv([
+    ...FORM_PREAMBLE(
+      "CELLR sommelier: user session, tasks (one copy per participant; facilitator fills it in)",
+    ),
+    header,
+    ...rows,
+  ]);
+}
+
+export const UX_CLOSING: readonly string[] = [
+  "Overall, how useful was the sommelier to you? (1 not at all - 5 very)",
+  "Could you tell which facts came from the app and which from the AI? (yes / partly / no)",
+  "Did it say anything as certain that you doubted? What?",
+  "Would you trust it for a dinner with guests? (1 not at all - 5 fully)",
+  "Phone or desktop: which did you prefer, and why?",
+  "What was the most confusing moment?",
+  "What would you change first?",
+  "Anything else you want to tell us?",
+];
+
+export function uxClosingForm(): string {
+  return csv([
+    ...FORM_PREAMBLE("CELLR sommelier: user session, closing questions (one copy per participant)"),
+    [
+      "participant code (e.g. P1; never a name)",
+      "#",
+      "question",
+      `${VERDICT}answer (the participant's words)`,
+    ],
+    ...UX_CLOSING.map((q, i) => ["", i + 1, q, ""]),
+  ]);
+}
+
 /** Every generated form: file name → content. */
 export async function allForms(): Promise<Record<string, string>> {
   return {
-    "holdout-template.csv": holdoutTemplate(),
+    "holdout-template-series1.csv": holdoutTemplate(1),
+    "holdout-template-series2.csv": holdoutTemplate(2),
     "holdout-wines.csv": holdoutWines(),
     "annotation-review.csv": annotationForm(),
     "knowledge-serving.csv": servingForm(),
     "knowledge-windows.csv": windowsForm(),
     "knowledge-pairings.csv": pairingsForm(),
     "knowledge-fallback.csv": await fallbackForm(),
+    "ux-tasks.csv": uxTasksForm(),
+    "ux-closing.csv": uxClosingForm(),
   };
 }
 

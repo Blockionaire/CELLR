@@ -1,13 +1,25 @@
-# De onafhankelijke holdout schrijven — instructies (40 scenario's)
+# De onafhankelijke holdout schrijven — instructies (100 gerechten, in twee series)
 
 **Wie:** iemand met wijnkennis (en voor de gerechten één of twee mensen die koken), die niet aan CELLR heeft gewerkt
 en geen AI gebruikt bij het schrijven. **Waarvoor:** een blinde test of de sommelier gerechten goed combineert die hij
 nooit heeft gezien. Zolang dit er niet is, rust elke uitspraak over kwaliteit op scenario's die een AI schreef.
 
+## Twee series: 40, daarna 60
+
+Het voorlopige doel van de eigenaar (24-11-2026) is **100 onafhankelijke gerechten**, geschreven in twee series:
+
+| Serie | Formulier                      | Gerechten | ids                     | Geschreven door                                                           |
+| ----- | ------------------------------ | --------: | ----------------------- | ------------------------------------------------------------------------- |
+| 1     | `holdout-template-series1.csv` |        40 | `hh-s1-01` … `hh-s1-40` | de eerste schrijvers                                                      |
+| 2     | `holdout-template-series2.csv` |        60 | `hh-s2-01` … `hh-s2-60` | mensen die **geen** resultaat van serie 1 hebben gezien (ook geen totaal) |
+
+Een meting op serie 1 alleen wordt gerapporteerd als **voorlopig**: 40 gerechten vangen alleen een grote
+achteruitgang, en kunnen niet aantonen dat V1+ binnen 5 punten even goed is als V1 (`P8_POWER_ANALYSIS.md`). Alleen
+de volledige 100 is de holdout die de poort vraagt.
+
 ## Wat je invult
 
-Open `holdout-template.csv`. Het heeft 40 rijen; de kolom `id` is ingevuld (`hh-01` … `hh-40`), de rest is aan jou.
-Per rij één gerecht:
+Open het formulier van jouw serie. De kolom `id` is ingevuld; de rest is aan jou. Per rij één gerecht:
 
 | Kolom                         | Wat je schrijft                                                                                                 |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -35,14 +47,16 @@ kiezen omdat je verwacht dat CELLR het fout doet. Kijk niet naar de antwoorden v
 1. Vul het formulier in **op je eigen computer**. Zet het niet in de repository, niet op een gedeelde schijf die de
    ontwikkelaars kunnen lezen en niet in een chat met een AI.
 2. Stuur het alleen naar de eigenaar. De eigenaar bewaart het in een privémap buiten de repository en zet het daar om
-   en verzegelt het (`holdout-from-csv`, daarna `seal-human-holdout`; zie de Engelse versie voor de commando's). Het
+   en verzegelt het **per serie** (`holdout-from-csv 1`, `seal-human-holdout` → `SEAL-series1.json`; later serie 2,
+   `holdout-from-csv merge` en het zegel van de volledige set, `SEAL.json`; zie de Engelse versie voor de commando's). Het
    omzetprogramma weigert elk pad binnen de repository en toont alleen een aantal en rijnummers, nooit een gerecht.
-3. De eigenaar legt **alleen** het zegel vast (`SEAL.json`: de hash van het bestand en het aantal gerechten). De
-   benchmark leest het bestand van het pad van de eigenaar en weigert het als het niet bij het zegel past.
+3. De eigenaar legt **alleen** de zegels vast (`SEAL-series1.json`, later `SEAL.json`: de hash van een bestand en het
+   aantal gerechten). De benchmark leest serie 1 als set `human-series1` en de volledige 100 als set `human`, elk van
+   het pad van de eigenaar, en weigert een bestand dat niet bij zijn zegel past.
 4. **De agent die CELLR ontwikkelt of meet, mag het bestand niet zien vóór de meting**, en de set wordt alleen in
    totalen gerapporteerd. Een wijziging na de eerste meting krijgt een nieuw zegel en een geschreven reden.
 
-**Over de omvang:** het S10-plan vraagt minstens 100 gerechten; dit formulier vraagt er nu 40. Met 40 faalt de
-bewaringstest tot de eigenaar óf om 60 extra vraagt, óf schriftelijk besluit dat 40 voor deze release genoeg is.
+**Omvang:** de volledige set houdt zijn minimum van 100 gerechten; serie 1 alleen is een aparte set met een
+duidelijke naam (`human-series1`, precies 40), waarvan elk rapport begint met `PROVISIONAL` (voorlopig).
 
 Ingevuld door: ____________ Datum: ________ — niets telt voordat je hebt ondertekend.
