@@ -14,6 +14,8 @@
 #      line of history. And accepting against cancelling, 20 times: exactly one of the two wins.
 #   5. The owner's own cellar against the rack: opening a bottle while someone moves it, and giving it a private
 #      place while it is being put in the rack, 30 times each: never a bottle that is both, never a lost line.
+#      And an opening at home behind a rack call that is HELD OPEN on that bottle: it waits for that one call, then
+#      goes through (never refused, never a deadlock), and the history is in order.
 #   6. A smaller layout against a bottle being put on the last shelf, both orders and 30 times freely: never a
 #      bottle outside the rack.
 #   7. Nine sessions of three people hammer one rack (place, move, take out, at random, 40 requests each).
@@ -275,6 +277,21 @@ for round in $(seq 1 30); do
   [ "$(su "select count(*) from private.shared_rack_events where rack_id = '$RACK' and bottle_id = '$b' and event_type = 'bottle_opened' and actor_id = test.uid(2)")" = 1 ] || fail "round $round: the opening has not exactly one line of history"
   opened=$((opened + 1))
 done
+# A rack call HELD OPEN on a bottle (a move), and the owner opening that bottle at home meanwhile: the opening waits
+# for that one call and then goes through. It is never refused and never deadlocks, and the history is in order.
+b=$(bottle 2); P=$(as 2 "select public.shared_rack_place('$RACK', '$b', 5::smallint, 1::smallint, 1::smallint) ->> 'placement_id'")
+as_slow 3 "$(rpc "shared_rack_move('$RACK', '$P', 5::smallint, 1::smallint, 1::smallint, 5::smallint, 2::smallint, 1::smallint)")" >"$OUT/w-a" & sleep 0.25
+started=$(date +%s%N)
+as 2 "update public.bottles set status = 'opened' where id = '$b'" >"$OUT/w-b"
+waited=$(( ($(date +%s%N) - started) / 1000000 )); wait
+[ "$(cat "$OUT/w-a")" = moved ] || fail "the held move answered $(cat "$OUT/w-a")"
+[ "$(su "select status from public.bottles where id = '$b'")" = opened ] || fail "opening a bottle at home behind a held rack call did not go through: $(cat "$OUT/w-b")"
+[ "$waited" -lt 3000 ] || fail "opening a bottle at home waited $waited ms behind one rack call"
+[ "$(su "select string_agg(event_type || coalesce(':' || from_row || ',' || from_col, ''), ' ' order by seq) from private.shared_rack_events where rack_id = '$RACK' and bottle_id = '$b'")" = "bottle_placed bottle_moved:5,1 bottle_opened:5,2" ] \
+  || fail "the history of a move and an opening that overlapped is not in order"
+[ "$(su "select count(*) from private.shared_rack_placements where bottle_id = '$b'")" = 0 ] || fail "an opened bottle is still in the rack"
+held_wait=$waited
+
 rack_won=0; private_won=0
 for round in $(seq 1 30); do
   b=$(bottle 2); row=$((2 + (round - 1) / 12)); col=$(((round - 1) % 12 + 1))       # a spot of its own every round
@@ -287,7 +304,7 @@ for round in $(seq 1 30); do
   if [ "$inrack" = 1 ]; then rack_won=$((rack_won + 1)); else private_won=$((private_won + 1)); fi
 done
 invariants "step 5"
-echo "• the owner's own cellar against the rack: 30 openings racing a move, every one ended the placement with one line of history; 30 private placings racing a placing in the rack: $rack_won ended in the rack, $private_won in the private place, never in both"
+echo "• the owner's own cellar against the rack: 30 openings racing a move, every one ended the placement with one line of history; an opening behind a rack call held open waited ${held_wait} ms for it and went through, the history in order; 30 private placings racing a placing in the rack: $rack_won ended in the rack, $private_won in the private place, never in both"
 
 new_rack 'Office 3'
 
