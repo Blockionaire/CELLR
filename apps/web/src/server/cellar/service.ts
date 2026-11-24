@@ -918,6 +918,11 @@ export function createCellarService(
               "CONFLICT",
               "One of these bottles was just moved by someone else. Nothing was changed.",
             );
+          if (outcome === "behind")
+            throw new DomainError(
+              "CONFLICT",
+              "One of these bottles lies behind another one, so they can't trade places from here. Nothing was changed.",
+            );
           const swapped = await repo.getBottle(householdId, bottleId);
           if (!swapped) throw new DomainError("NOT_FOUND", "We couldn't find that bottle.");
           return { bottle: swapped, previous };

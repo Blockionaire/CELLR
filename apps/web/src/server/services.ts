@@ -62,6 +62,7 @@ import {
   getFeatures,
   getSommelierParts,
   getPlacementAccess,
+  isDepthGateOpen,
   isAdviceOpen,
   getPushEnv,
   getSmartCellarAccess,
@@ -116,6 +117,7 @@ export function servicesFor(ctx: RequestContext) {
     access: smartCellarAccess,
     placement: getPlacementAccess(),
     advice: isAdviceOpen(),
+    depthGate: isDepthGateOpen(),
   });
   const households = createHouseholdService(createHouseholdRepository(ctx.db), {
     userId: ctx.userId,

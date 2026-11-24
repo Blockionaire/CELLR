@@ -497,3 +497,33 @@ describe("keeping one's changes on a newer version of the place (sprint 8)", () 
     expect(strandedBy(r.draft, [{ row: 5, col: 1, index: 1 }])).toHaveLength(1);
   });
 });
+
+describe("depth in the builder's rules (sprint 9): savable only where the server says depth is open", () => {
+  it("a double-depth rack, cubes and bins: preview only by default, savable with depth open", () => {
+    for (const id of ["rack_double_depth", "cube_modular", "diamond_bins"] as const) {
+      const draft = named(id);
+      expect(assess(draft, null, []).savable, id).toBe(false);
+      expect(
+        assess(draft, null, [], false).problems.map((p) => p.kind),
+        id,
+      ).toContain("preview_only");
+      const open = assess(draft, null, [], true);
+      expect(open.problems, id).toEqual([]);
+      expect(open.savable, id).toBe(true);
+    }
+  });
+
+  it("with depth open a bottle at the back still blocks a shallower draft", () => {
+    const draft = setDimension(named("rack_double_depth"), "cellCapacity", 2).draft;
+    const current = {
+      rows: draft.rows,
+      cols: draft.cols,
+      cellCapacity: 3,
+      semantics: "depth",
+      capacity: 0,
+    };
+    const a = assess(draft, current, [{ row: 1, col: 1, index: 3 }], true);
+    expect(a.savable).toBe(false);
+    expect(a.problems).toContainEqual({ kind: "layout", problem: "in_use" });
+  });
+});

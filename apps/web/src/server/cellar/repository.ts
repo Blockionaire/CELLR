@@ -946,7 +946,18 @@ export function createCellarRepository(db: Db): CellarRepository {
       // No fallback: two separate moves are exactly what the function exists to avoid (one bottle per spot would
       // refuse the first, or leave a bottle without its place). Until migration 20261104000027 has run, it fails.
       if (error) throw mapDbError(error);
-      return data === "swapped" || data === "stale" || data === "gone" ? data : "not_found";
+      // 'stale' from this function also means "one of the two lies behind another bottle" (0045: it can only vouch
+      // for index 1). That is only possible once depth is on (ADR-011 §2); say which it is, never more.
+      if (data === "stale") {
+        const { data: rows, error: readError } = await db
+          .from("bottles")
+          .select("loc_index")
+          .eq("household_id", householdId)
+          .in("id", [a.bottleId, b.bottleId]);
+        if (readError) throw mapDbError(readError);
+        return (rows ?? []).some((r) => r.loc_index > 1) ? "behind" : "stale";
+      }
+      return data === "swapped" || data === "gone" ? data : "not_found";
     },
 
     async getBottle(householdId, bottleId) {

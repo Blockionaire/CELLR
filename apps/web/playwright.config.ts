@@ -168,6 +168,9 @@ export default defineConfig({
         // placing, moving and swapping bottles in the new 3D view, writing to the local stack (sprint 4)
         CELLR_SMART_CELLAR_PLACEMENT: "1",
         CELLR_SMART_CELLAR_ADVICE: "1",
+        // depth (sprint 9), OPT-IN: only with STACK_DEPTH=1, which also makes scripts/local-stack/up.sh run the gated
+        // depth files on its own throwaway database. Unset (always in CI): the gate stays closed, as everywhere.
+        ...(process.env.STACK_DEPTH === "1" ? { CELLR_SMART_CELLAR_DEPTH: "1" } : {}),
       },
     },
   ],

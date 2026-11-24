@@ -715,6 +715,9 @@
       "placementBehind": "Another bottle is in front of that spot.",
       "compartmentFull": "That compartment is full.",
       "placementAmbiguous": "This bottle lies behind another one. It can be moved once moving at depth is switched on.",
+      "placementFrontInTheWay": "Another bottle is in front of this one. Move that one first.",
+      "legacyBehind": "This bottle lies behind another one, so it can't be moved from here.",
+      "legacySwapBehind": "One of these bottles lies behind another one, so they can't trade places from here. Nothing was changed.",
       "placementClosed": "Moving bottles here isn't switched on yet.",
       "sameCompartment": "Two bottles in one compartment can't trade places: a compartment has no order.",
       "exportVersionUnavailable": "That export version isn't available."

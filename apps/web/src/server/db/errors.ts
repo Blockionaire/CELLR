@@ -37,7 +37,12 @@ export function mapDbError(error: DbError): DomainError {
     );
   }
   // A bottle behind another one, moved by a writer that named no index: refused, never guessed (0043).
-  if (message === "slot_index_ambiguous") return new DomainError("CONFLICT");
+  // Only possible once depth is on (ADR-011 §2): an old path (PATCH /bottles, the racks view) moving a back bottle.
+  if (message === "slot_index_ambiguous")
+    return new DomainError(
+      "CONFLICT",
+      "This bottle lies behind another one, so it can't be moved from here.",
+    );
   // What an index means would change under the bottles of a place more than one deep (0043).
   if (message === "layout_semantics_change")
     return new DomainError("CONFLICT", "There are still bottles in it. Move them out first.");

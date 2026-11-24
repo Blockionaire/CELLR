@@ -1,6 +1,7 @@
 import "server-only";
 import type {
   AdviceOccupant,
+  DepthDatabaseStatus,
   SmartSpot,
   WineType,
   OccupiedSpot,
@@ -151,6 +152,22 @@ export interface SmartCellarRepository {
     householdId: string,
     bottleId: string,
   ): Promise<{ inCellar: boolean; spot: SmartSpot | null } | null>;
+  /**
+   * What the database says about depth (public.smart_cellar_depth_status(), 0054), or null when it cannot say (no
+   * 0054: PostgREST has no such function; or an answer that is not the four facts). Read-only. Asked only where the
+   * server's depth gate is open (sprint 9).
+   */
+  depthStatus(): Promise<DepthDatabaseStatus | null>;
+  /**
+   * One call of move_bottle_v2 (0054): one bottle from the whole spot the caller saw to a whole target, depth included
+   * (a back bottle to another cell goes out first, then in), in one transaction. Used where depth is open.
+   */
+  moveBottleV2(
+    householdId: string,
+    bottleId: string,
+    from: SmartSpot | null,
+    to: SmartSpot | null,
+  ): Promise<MoveOutcome>;
   /** One call of swap_bottles_v2 (0045): both bottles on the spots the caller saw, both moved at once, or nothing. */
   swapBottles(
     householdId: string,

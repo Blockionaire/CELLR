@@ -31,6 +31,8 @@
 #      two sessions deadlock, for the update and for the delete. So step 9 can see what it guards against.
 #  12. THE GATED FILE, run here on this throwaway database: the old index goes. Then 16 sessions fill a bin of 8,
 #      two per index: exactly 8 get in, one per index; and 20 sessions on one whole spot: one gets it.
+#  13. Depth (sprint 9, move_bottle_v2 of 0054): races into one cell's indexes, one back bottle moved by many, front
+#      against back of one cell, and the old index-less move of a back bottle against move_bottle_v2.
 # After everything: no bottle outside its place, no spot taken twice, every place's zones a split of its shelves,
 # and not one deadlock outside the control.
 # Uses a throwaway Postgres like scripts/db-test.sh.   bash scripts/db-placement-concurrency.sh
@@ -375,4 +377,62 @@ n=0; for i in $(seq 1 20); do ok "$OUT/s12-$i" && n=$((n + 1)); done
 [ "$(su "select count(*) from (select 1 from public.bottles where status = 'in_cellar' and location_id is not null group by location_id, loc_row, loc_col, loc_index having count(*) > 1) d")" = 0 ] \
   || fail "after the gated file: a spot is taken twice"
 echo "• with the gated file run: 16 sessions into a bin of 8, two per index: 8 placed, one per index; 20 sessions behind a front bottle: 1 placed, 19 refused by the whole-spot index"
+
+# ---- 13. Depth (sprint 9): move_bottle_v2 (0054) and the old writers, many sessions at once ----------------------------
+# Still on this throwaway database with the old index gone and the switch on (as the gated switch file would leave it).
+su "delete from public.bottles where location_id = '$DEEP';
+    update public.cellar_locations set cell_capacity = 3 where id = '$DEEP'" >/dev/null
+mv2() { echo "select public.move_bottle_v2('$H', '$1', $2, $3)"; }   # bottle · from (location, row, col, index | null x4) · to
+nul="null, null, null, null"
+spotsql() { echo "'$1', $2::smallint, $3::smallint, $4::smallint"; }
+# a) 18 unplaced bottles, moved at once onto the three indexes of one cell (6 per index): one per index gets in
+for i in $(seq 1 18); do U[$i]=$(su "insert into public.bottles (household_id, vintage_id) values ('$H', '$V') returning id"); done
+for i in $(seq 1 18); do as $((i % 2 + 1)) "$(mv2 "${U[$i]}" "$nul" "$(spotsql "$DEEP" 3 3 $(((i - 1) % 3 + 1)))")" >"$OUT/m13a-$i" & done; wait
+[ "$(cat "$OUT"/m13a-* | grep -c '^moved$')" = 3 ] && [ "$(cat "$OUT"/m13a-* | grep -c '^taken$')" = 15 ] \
+  || fail "18 moves into the 3 indexes of one cell: $(cat "$OUT"/m13a-* | sort | uniq -c | tr '\n' ' ')"
+[ "$(su "select string_agg(loc_index::text, ',' order by loc_index) from public.bottles where location_id = '$DEEP' and loc_row = 3 and loc_col = 3")" = "1,2,3" ] \
+  || fail "the cell does not hold exactly one bottle per index"
+# b) the same back bottle moved by 10 sessions at once, each to a different free cell: one moves, nine are stale
+B=$(su "select id from public.bottles where location_id = '$DEEP' and loc_row = 3 and loc_col = 3 and loc_index = 2")
+TARGETS=(x "1 1" "1 2" "1 3" "1 4" "2 1" "2 2" "2 3" "2 4" "5 1" "5 2")   # ten different free cells
+for i in $(seq 1 10); do
+  read -r tr tc <<<"${TARGETS[$i]}"
+  as $((i % 2 + 1)) "$(mv2 "$B" "$(spotsql "$DEEP" 3 3 2)" "$(spotsql "$DEEP" "$tr" "$tc" 2)")" >"$OUT/m13b-$i" &
+done; wait
+[ "$(cat "$OUT"/m13b-* | grep -c '^moved$')" = 1 ] && [ "$(cat "$OUT"/m13b-* | grep -c '^stale$')" = 9 ] \
+  || fail "10 moves of one back bottle: $(cat "$OUT"/m13b-* | sort | uniq -c | tr '\n' ' ')"
+su "delete from public.bottles where location_id = '$DEEP' and loc_row in (1, 2, 5)" >/dev/null
+# c) front against back, 30 rounds: one session puts a bottle at the FRONT of an empty cell (the old path: no index),
+#    another moves a back bottle to the BACK of the same cell (move_bottle_v2): both may land, and the cell is then
+#    exactly front + back, never two at one index, never an index carried
+both=0
+for round in $(seq 1 30); do
+  su "delete from public.bottles where location_id = '$DEEP' and loc_row = 4" >/dev/null
+  K=$(su "insert into public.bottles (household_id, vintage_id, location_id, loc_row, loc_col, loc_index) values ('$H', '$V', '$DEEP', 5, 4, 2) on conflict do nothing returning id")
+  [ -n "$K" ] || K=$(su "select id from public.bottles where location_id = '$DEEP' and loc_row = 5 and loc_col = 4 and loc_index = 2")
+  as 1 "insert into public.bottles (household_id, vintage_id, location_id, loc_row, loc_col) values ('$H', '$V', '$DEEP', 4, 1)" >"$OUT/m13c-a" &
+  as 2 "$(mv2 "$K" "$(spotsql "$DEEP" 5 4 2)" "$(spotsql "$DEEP" 4 1 2)")" >"$OUT/m13c-b" &
+  wait
+  ok "$OUT/m13c-a" || fail "front vs back (round $round): the front placement failed: $(cat "$OUT/m13c-a")"
+  [ "$(cat "$OUT/m13c-b")" = moved ] || fail "front vs back (round $round): the back move: $(cat "$OUT/m13c-b")"
+  [ "$(su "select string_agg(loc_index::text, ',' order by loc_index) from public.bottles where location_id = '$DEEP' and loc_row = 4 and loc_col = 1")" = "1,2" ] \
+    || fail "front vs back (round $round): the cell is not front + back"
+  both=$((both + 1))
+done
+# d) the OLD move (no index) of a back bottle against move_bottle_v2 of the same bottle, 20 rounds: the old one is
+#    always refused as ambiguous, whoever is first, and the bottle ends exactly where move_bottle_v2 put it
+for round in $(seq 1 20); do
+  su "delete from public.bottles where location_id = '$DEEP' and loc_row in (1, 2)" >/dev/null
+  K=$(su "insert into public.bottles (household_id, vintage_id, location_id, loc_row, loc_col, loc_index) values ('$H', '$V', '$DEEP', 1, 1, 2) returning id")
+  as 1 "update public.bottles set location_id = '$DEEP', loc_row = 2, loc_col = 2 where id = '$K'" >"$OUT/m13d-a" &
+  as 2 "$(mv2 "$K" "$(spotsql "$DEEP" 1 1 2)" "$(spotsql "$DEEP" 2 3 2)")" >"$OUT/m13d-b" &
+  wait
+  grep -q 'slot_index_ambiguous' "$OUT/m13d-a" || fail "old move vs move_bottle_v2 (round $round): the old move was not refused: $(cat "$OUT/m13d-a")"
+  [ "$(cat "$OUT/m13d-b")" = moved ] || fail "old move vs move_bottle_v2 (round $round): $(cat "$OUT/m13d-b")"
+  [ "$(su "select loc_row || ':' || loc_col || ':' || loc_index from public.bottles where id = '$K'")" = "2:3:2" ] || fail "round $round: the bottle is not where move_bottle_v2 put it"
+done
+[ "$(outside)" = 0 ] || fail "after the depth races: a bottle is outside its place"
+[ "$(su "select count(*) from (select 1 from public.bottles where status = 'in_cellar' and location_id is not null group by location_id, loc_row, loc_col, loc_index having count(*) > 1) d")" = 0 ] \
+  || fail "after the depth races: a spot is taken twice"
+echo "• depth (0054): 18 moves into the 3 indexes of one cell: 3 moved (one per index), 15 taken; 10 moves of one back bottle: 1 moved, 9 stale; front vs back of one cell, $both rounds: front + back every time; the old move of a back bottle vs move_bottle_v2, 20 rounds: the old one refused as ambiguous every time"
 echo "• placement, resizing, zones and swaps are safe under concurrency"

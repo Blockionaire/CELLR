@@ -235,7 +235,7 @@ const components = [
     outputs: [
       "Storage unit views",
       "Layout writes (save_storage_layout; save_storage_layout_v2 compare-and-swap where 0051 is present)",
-      "Bottle moves (one conditional update) and swaps (swap_bottles_v2)",
+      "Bottle moves (one conditional update; move_bottle_v2 where depth is open) and swaps (swap_bottles_v2)",
       "Placement advice (read-only, recomputed per request, never stored)",
     ],
     sources: [W + "server/smart-cellar/"],
@@ -271,6 +271,11 @@ const components = [
         name: "CELLR_SMART_CELLAR_ADVICE",
         kind: "env",
         note: "1: read-only placement advice; internal previews or the production release, needs the placement gate, grants no write",
+      },
+      {
+        name: "CELLR_SMART_CELLAR_DEPTH",
+        kind: "env",
+        note: "1: offer depth (more than one bottle per cell) where the database says depth is on and the old index is gone; dev and internal previews ONLY, never production by configuration (ADR-011)",
       },
     ],
     risks: [
@@ -1672,8 +1677,10 @@ const edges: SystemEdge[] = [
     "svc-smart-cellar",
     "data-cellar",
     "data-write",
-    "layout and zones (save_storage_layout_v2 compare-and-swap where 0051 is there, else 0045's save)",
+    "layout and zones (save_storage_layout_v2 compare-and-swap where 0051 is there, else 0045's save); depth moves (move_bottle_v2) and the depth status (0054), only where the depth gate is open",
     web("server/smart-cellar/repository.ts", '.rpc("save_storage_layout_v2"'),
+    web("server/smart-cellar/repository.ts", '.rpc("move_bottle_v2"'),
+    web("server/smart-cellar/repository.ts", '.rpc("smart_cellar_depth_status")'),
   ),
   edge(
     "api-v1",
@@ -2888,7 +2895,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.5.3",
+  version: "1.5.4",
   reviewedOn: "2026-11-23",
   repository: "Blockionaire/CELLR",
   components,

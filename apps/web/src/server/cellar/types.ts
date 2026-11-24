@@ -280,7 +280,7 @@ export interface CellarRepository {
     householdId: string,
     a: { bottleId: string } & Spot,
     b: { bottleId: string } & Spot,
-  ): Promise<"swapped" | "stale" | "gone" | "not_found">;
+  ): Promise<"swapped" | "stale" | "behind" | "gone" | "not_found">;
   /** Updates one bottle, only if it is currently in one of `fromStatuses`. Null = no such bottle in that state. */
   updateBottle(
     householdId: string,

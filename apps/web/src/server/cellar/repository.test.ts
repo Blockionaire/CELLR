@@ -58,6 +58,45 @@ describe("a swap before the swap step has been run", () => {
   });
 });
 
+describe("the old swap's 'stale' against depth storage (sprint 9, ADR-011 §2)", () => {
+  const swapWith = async (indexes: number[]) => {
+    const { createCellarRepository } = await import("./repository");
+    const reads: string[] = [];
+    const db = {
+      rpc: async () => ({ data: "stale", error: null }),
+      from: (table: string) => {
+        reads.push(table);
+        const chain = {
+          select: () => chain,
+          eq: () => chain,
+          in: async () => ({ data: indexes.map((i) => ({ loc_index: i })), error: null }),
+        };
+        return chain;
+      },
+    };
+    const repo = createCellarRepository(
+      db as unknown as Parameters<typeof createCellarRepository>[0],
+    );
+    const spot = { locationId: "u1", row: 1, col: 1 };
+    const answer = await repo.swapBottles(
+      "h1",
+      { bottleId: "a", ...spot },
+      { bottleId: "b", ...spot, col: 2 },
+    );
+    return { answer, reads };
+  };
+
+  it("both at index 1 (every bottle while depth is off): stale, as before", async () => {
+    expect((await swapWith([1, 1])).answer).toBe("stale");
+  });
+
+  it("one of them behind another bottle: said as such, never as 'moved by someone else'", async () => {
+    const { answer, reads } = await swapWith([1, 2]);
+    expect(answer).toBe("behind");
+    expect(reads).toEqual(["bottles"]);
+  });
+});
+
 describe("the old API's edit of a place, next to Smart Cellar templates (sprint 1C)", () => {
   type Answer = { data: unknown; error: { code: string; message?: string } | null };
   /** A PostgREST client that answers from a script and writes down every statement it was asked for. */

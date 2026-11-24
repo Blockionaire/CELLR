@@ -6,6 +6,7 @@ import {
   DomainError,
   type ImageRef,
   type OccupiedSpot,
+  readDepthStatus,
   type SmartPlacementView,
   type StorageKind,
   type WineType,
@@ -592,6 +593,58 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
     },
 
     bottleSpot: readBottleSpot,
+
+    async depthStatus() {
+      const { data, error } = await db.rpc("smart_cellar_depth_status");
+      if (error) {
+        // no 0054 here (PostgREST, or Postgres, has no such function): the database cannot say, which is "off"
+        if (isFunctionMissing(error)) return null;
+        throw mapSmartCellarError(error);
+      }
+      return readDepthStatus(data);
+    },
+
+    async moveBottleV2(householdId, bottleId, from, to) {
+      const { data, error } = await db.rpc("move_bottle_v2", {
+        p_household: householdId,
+        p_bottle: bottleId,
+        p_from_location: from?.locationId ?? null,
+        p_from_row: from?.row ?? null,
+        p_from_col: from?.col ?? null,
+        p_from_index: from?.index ?? null,
+        p_to_location: to?.locationId ?? null,
+        p_to_row: to?.row ?? null,
+        p_to_col: to?.col ?? null,
+        p_to_index: to?.index ?? null,
+      } as never);
+      if (error) throw mapSmartCellarError(error);
+      switch (data) {
+        case "moved":
+          return { kind: "moved", to };
+        case "already_there":
+          return { kind: "already_there" };
+        case "taken":
+          return { kind: "taken" };
+        case "out_of_bounds":
+          return { kind: "out_of_bounds" };
+        case "gone":
+          return { kind: "gone" };
+        case "not_found":
+          return { kind: "not_found" };
+        case "stale": {
+          // where it is now, so the caller can be told (as the person: RLS)
+          const now = await readBottleSpot(householdId, bottleId);
+          if (!now) return { kind: "not_found" };
+          if (!now.inCellar) return { kind: "gone" };
+          return { kind: "stale", now: now.spot };
+        }
+        default:
+          throw new DomainError("INTERNAL", undefined, {
+            cause: { answer: data },
+            retryable: false,
+          });
+      }
+    },
 
     async swapBottles(householdId, a, b) {
       const { data, error } = await db.rpc("swap_bottles_v2", {

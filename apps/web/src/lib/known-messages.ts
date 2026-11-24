@@ -101,6 +101,11 @@ export const KNOWN_MESSAGES = {
   "Two bottles in one compartment can't trade places: a compartment has no order.":
     "sameCompartment",
   "That export version isn't available.": "exportVersionUnavailable",
+  // Smart Cellar 3D sprint 9: depth (ADR-011)
+  "Another bottle is in front of this one. Move that one first.": "placementFrontInTheWay",
+  "This bottle lies behind another one, so it can't be moved from here.": "legacyBehind",
+  "One of these bottles lies behind another one, so they can't trade places from here. Nothing was changed.":
+    "legacySwapBehind",
 } as const;
 
 /** Sentences with a part that changes, or a family of sentences that all mean the same to the person. */

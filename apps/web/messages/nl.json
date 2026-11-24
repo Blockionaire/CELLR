@@ -715,6 +715,9 @@
       "placementBehind": "Er ligt een andere fles voor die plek.",
       "compartmentFull": "Dat vak is vol.",
       "placementAmbiguous": "Deze fles ligt achter een andere. Hij kan worden verplaatst zodra verplaatsen in de diepte aan staat.",
+      "placementFrontInTheWay": "Er ligt een andere fles voor deze. Verplaats die eerst.",
+      "legacyBehind": "Deze fles ligt achter een andere en kan hier niet worden verplaatst.",
+      "legacySwapBehind": "Een van deze flessen ligt achter een andere, dus ze kunnen hier niet van plek wisselen. Er is niets veranderd.",
       "placementClosed": "Flessen verplaatsen staat hier nog niet aan.",
       "sameCompartment": "Twee flessen in één vak kunnen niet van plaats wisselen: een vak heeft geen volgorde.",
       "exportVersionUnavailable": "Die exportversie is niet beschikbaar."
