@@ -136,8 +136,9 @@ export default defineConfig({
       env: {
         ...APP_ENV,
         CELLR_FEATURES: "all",
-        // Every Sommelier V1+ part, and a name that is not one. Built so far: `fallback` (e2e/sommelier-fallback.spec.ts).
-        // With a model that answers, no part may change V1's answer or its prompt (e2e/sommelier-parts.spec.ts).
+        // Every Sommelier V1+ part, and a name that is not one (ignored). Built so far: `check`
+        // (e2e/sommelier-check.spec.ts) and `fallback` (e2e/sommelier-fallback.spec.ts). The default server names
+        // none: V1 as it was, and both specs ask it too to prove that.
         CELLR_SOMMELIER: "check,annotate,quantities,menu,fallback,not-a-part",
         CELLR_SMART_CELLAR: "write",
         CELLR_SMART_CELLAR_3D: "1",

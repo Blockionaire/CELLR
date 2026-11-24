@@ -472,6 +472,8 @@ describe("only when V1 has no model answer", () => {
       sommelierEngine?: boolean;
       /** false: CELLR_SOMMELIER does not name `fallback` (the dependency is there, the part is off). */
       part?: boolean;
+      /** The parts CELLR_SOMMELIER names, when a test needs more than `fallback`. */
+      parts?: string;
       /** The model answers with words that are empty once cleaned: V1 does not show such an answer. */
       emptyAnswer?: boolean;
     } = {},
@@ -496,7 +498,7 @@ describe("only when V1 has no model answer", () => {
     // The service as the composition root builds it with CELLR_SOMMELIER=fallback.
     const service = createSommelierService({
       ...(options.sommelierEngine ? { intelligence: engines(items, true) } : {}),
-      parts: parseSommelierParts(options.part === false ? "" : "fallback"),
+      parts: parseSommelierParts(options.parts ?? (options.part === false ? "" : "fallback")),
       fallback,
       cellar,
       storage: async () => [],
@@ -616,5 +618,21 @@ describe("only when V1 has no model answer", () => {
     expect(state.modelCalls).toBe(1);
     expect(answer.reason).toBe("ai-down");
     expect(answer.plan?.outcome).toBe("good");
+  });
+
+  it("with `check` on as well: a model that answers is checked and never the engines'; a model that is down is the engines', unchecked", async () => {
+    const up = world({ model: "answers", parts: "check,fallback" });
+    const answered = await up.ask(OYSTERS);
+    expect(answered.source).toBe("ai");
+    expect(answered.check).toEqual({ v: 1, text: "kept", codes: [] });
+    expect(answered.plan ?? null).toBeNull();
+    expect(up.calls).toEqual({ spent: 0, planned: 0 });
+
+    const down = world({ model: "unavailable", parts: "check,fallback" });
+    const planned = await down.ask(OYSTERS);
+    expect(planned.reason).toBe("ai-down");
+    expect(planned.plan?.outcome).toBe("good");
+    expect(planned).not.toHaveProperty("check");
+    expect(down.state.modelCalls).toBe(1);
   });
 });

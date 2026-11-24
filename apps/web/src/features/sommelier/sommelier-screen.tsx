@@ -36,6 +36,7 @@ import { Chip } from "@/ui/chip";
 import { EmptyState } from "@/ui/empty-state";
 import { plainSentence } from "./plain-sentence";
 import { PlanView } from "./plan-view";
+import { buyPriceLabel, checkNote, checkSentence } from "./check-sentence";
 import { cn } from "@/ui/cn";
 import { ChevronRightIcon, ScanIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
@@ -197,7 +198,9 @@ export function SommelierChat({
     end.current?.scrollIntoView({ block: "end" });
   }, [turns.length, pending]);
 
-  const basicSentence = (a: SommelierAnswer) => plainSentence(a, t);
+  // What an answer without words of its own says: the plain answer's sentence, or, for an AI answer whose words the
+  // check replaced (V1+ `check`), the sentence made from its cards. It is also what goes along as the chat so far.
+  const basicSentence = (a: SommelierAnswer) => unworded(a, t);
 
   async function send(text: string) {
     const question = text.trim();
@@ -537,6 +540,10 @@ export function SommelierChat({
   );
 }
 
+/** The sentence of an answer that has no words of its own (see `basicSentence`). */
+const unworded = (a: SommelierAnswer, t: Parameters<typeof plainSentence>[1]) =>
+  a.source === "ai" ? checkSentence(a, t) : plainSentence(a, t);
+
 const budgetLabel = (b: Budget) => {
   const [low, high] = BUDGET_EUROS[b];
   return high === null ? `€${low}+` : low === 0 ? `< €${high}` : `€${low}–${high}`;
@@ -614,6 +621,7 @@ function Answer({
 }) {
   const t = useTranslations("sommelier");
   let i = 0;
+  const note = checkNote(answer.check, t);
   // Sommelier 3.0: the engines' plan is drawn as it is; nothing below it is a model's wording.
   if (answer.plan)
     return (
@@ -665,8 +673,15 @@ function Answer({
         {answer.verdict && <VerdictBadge verdict={answer.verdict} />}
         <p className="whitespace-pre-wrap font-display text-title text-ink">
           <span className="sr-only">{t("sommelier")}: </span>
-          {answer.source === "ai" ? answer.text : plainSentence(answer, t)}
+          {answer.check?.text === "replaced" || answer.text === null
+            ? unworded(answer, t)
+            : answer.text}
         </p>
+        {note && (
+          <p className="mt-2 text-caption text-ink-3" data-testid="check-note">
+            {note}
+          </p>
+        )}
       </div>
       {answer.bottles.length > 0 && (
         <ul className="flex flex-col gap-2.5">
@@ -683,7 +698,7 @@ function Answer({
       )}
       {answer.buy && answer.buy.length > 0 && (
         <div className="reveal" style={{ "--i": i++ + 2 } as React.CSSProperties}>
-          <BuyList items={answer.buy} />
+          <BuyList items={answer.buy} checked={answer.check !== undefined} />
         </div>
       )}
       <div className="flex items-center justify-between gap-3 px-1">
@@ -872,7 +887,7 @@ function VerdictBadge({ verdict }: { verdict: PairingVerdict }) {
 }
 
 /** Wines worth buying for it: clearly not from the cellar. */
-function BuyList({ items }: { items: readonly BuySuggestion[] }) {
+function BuyList({ items, checked }: { items: readonly BuySuggestion[]; checked: boolean }) {
   const t = useTranslations("sommelier");
   return (
     <section
@@ -883,7 +898,16 @@ function BuyList({ items }: { items: readonly BuySuggestion[] }) {
       <h3 className="text-caption font-medium uppercase tracking-[0.14em] text-bronze">
         {t("buyTitle")}
       </h3>
-      <p className="mt-1 text-small text-ink-3">{t("buyHint")}</p>
+      <p className="mt-1 text-small text-ink-3">{t(checked ? "check.buyHint" : "buyHint")}</p>
+      {/* A checked answer never shows the model's price: the person's own budget once, or that none is known. */}
+      {checked && items[0] && (
+        <p
+          className="mt-2 inline-block rounded-full bg-raised px-3 py-1 text-caption font-semibold text-ink tnum"
+          data-testid="buy-price"
+        >
+          {buyPriceLabel(items[0], t)}
+        </p>
+      )}
       <ul className="mt-3 flex flex-col divide-y divide-hairline">
         {items.map((b) => (
           <li
@@ -894,7 +918,7 @@ function BuyList({ items }: { items: readonly BuySuggestion[] }) {
               <span className="block font-display text-title text-ink">{b.wine}</span>
               <span className="mt-0.5 block text-small text-ink-2">{b.why}</span>
             </span>
-            {b.price && (
+            {!checked && b.price && (
               <span className="shrink-0 rounded-full bg-raised px-3 py-1 text-caption font-semibold text-ink tnum">
                 {b.price}
               </span>
