@@ -37,6 +37,7 @@ import {
   buildGhostMaterial,
   buildStructure,
   GHOST_LIFT,
+  GHOST_TONES,
   ghostRadial,
   markerMatrix,
   poseMatrix,
@@ -926,9 +927,9 @@ function gapOnScreen(
   return gap;
 }
 
-const GHOST_REST = new THREE.Color("#efe7d6");
-const GHOST_HOVER = new THREE.Color("#ffe6b3");
-const GHOST_CHOSEN = new THREE.Color("#e9b955");
+const GHOST_REST = new THREE.Color(GHOST_TONES.rest);
+const GHOST_HOVER = new THREE.Color(GHOST_TONES.hover);
+const GHOST_CHOSEN = new THREE.Color(GHOST_TONES.chosen);
 const LIFT = new THREE.Vector3(GHOST_LIFT, GHOST_LIFT, GHOST_LIFT);
 const liftAbout = new THREE.Matrix4();
 const liftScale = new THREE.Matrix4();

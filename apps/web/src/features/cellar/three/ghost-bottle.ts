@@ -5,11 +5,11 @@ import { lathePoints } from "./layout";
  * THE PLACEHOLDER BOTTLE OF A FREE SPOT IN THE EXISTING 3D VIEW (Smart Cellar 3D, sprint 7.2 completion: Quick Add on
  * places from before templates).
  *
- * The same see-through bottle the template renderer stands on a free spot (`storage3d/resources.ts`,
- * `buildGhostBottle` / `buildGhostMaterial`), made here from the existing view's own profile (`./layout`), so the
+ * THE ONE SOURCE of the see-through bottle on a free spot, for both views (since sprint 10): the template renderer
+ * re-exports it (`storage3d/resources.ts`). It imports only three.js and this view's own profile (`./layout`), so the
  * existing view never downloads any of the new view's code (README rule 17: with the renderer gate closed nothing of
- * the new view is fetched). Kept in step with that one by `ghost-bottle.test.ts`: the outline of a Bordeaux bottle
- * and nothing else (no plus, no icon, no second part), normals for the scene's light, no texture coordinates.
+ * the new view is fetched). Keep it that way: nothing here may import from `../storage3d`. The outline of a Bordeaux
+ * bottle and nothing else (no plus, no icon, no second part), normals for the scene's light, no texture coordinates.
  */
 
 /** How much larger the chosen placeholder is drawn. */
