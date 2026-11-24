@@ -69,6 +69,7 @@ import {
   type PanelAction,
 } from "./quick-add/machine";
 import { freeSpots, spotMarkers, type FreeSpot } from "./quick-add/spots";
+import { legacyPointing } from "./quick-add/legacy-spots";
 
 /** three.js and the new storage view are large: downloaded only when a place with a template is opened in 3D. */
 const InspectableStorage = dynamic(() => import("./storage3d/inspectable-storage"), {
@@ -181,6 +182,12 @@ export default function SmartCellar3D({
   const quickClose = useCallback(() => {
     dispatchQuick({ type: "cancel" });
     dispatchQuick({ type: "reset" });
+    // out of adding: focus back on "Add bottle" (it is drawn again in the next frame), not on the page
+    requestAnimationFrame(() =>
+      document
+        .querySelector<HTMLElement>('[data-testid="quick-add-start"]')
+        ?.focus({ preventScroll: true }),
+    );
   }, []);
   const quickPick = useCallback((spot: FreeSpot) => dispatchQuick({ type: "pick", spot }), []);
   // Escape stops choosing a spot, as it puts a bottle back; with the sheet open, the sheet's own Escape goes back to
@@ -474,15 +481,13 @@ export default function SmartCellar3D({
       )}
       {unit.legacy ? (
         // from before templates: the existing view, with its own details, actions and words
-        <>
-          {addEntry && (
-            <div className="flex justify-end">
-              <AddBottleButton onClick={addEntry} />
-            </div>
-          )}
-          {stageQuick && !stageQuick.held && <LegacyQuick unit={unit} quick={stageQuick} />}
-          <Cellar3DView onShowRacks={onShowRacks} only={unit.id} />
-        </>
+        <LegacyUnitStage
+          key={unit.id}
+          unit={unit}
+          onShowRacks={onShowRacks}
+          quick={stageQuick}
+          onAdd={addEntry}
+        />
       ) : (
         <SmartUnitStage
           key={unit.id}
@@ -615,39 +620,125 @@ function AddBottleButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-/** 3D Quick Add on a place from before templates: the existing view stays; its free spots are chosen from the list. */
-function LegacyQuick({ unit, quick }: { unit: SmartStorageUnitView; quick: StageQuick }) {
-  const query = useSmartPlacements(unit.id);
-  const free = useMemo(
-    () =>
-      query.data
-        ? freeSpots(
-            resolvedFromView(query.data.unit),
-            query.data.placements.map((p) => ({
-              bottleId: p.bottleId,
-              row: p.row,
-              col: p.col,
-              index: p.index,
-            })),
-          ).length
-        : 0,
-    [query.data],
+/** A place the racks read does not have (deleted meanwhile): nothing is drawn for it, so nothing is pointed at. */
+const NOT_DRAWN = {
+  rows: 0,
+  cols: 0,
+  kind: "",
+  bottles: [] as Array<{ row: number | null; col: number | null }>,
+};
+
+/**
+ * A place from before templates: the EXISTING 3D view draws it, exactly as it always has (README rules 5, 11, 17;
+ * nothing here gives it a template). 3D Quick Add (sprint 7.2 completion): where that view has an exact place for every
+ * free spot (`legacyPointing`: one bottle per spot on its fixed grid, both reads agreeing), the free spots are drawn
+ * in it as the same placeholder bottles as on a place with a template and tapped there; anywhere else (no 3D, a lost
+ * graphics context, a place the picture cannot point into) the list of free spots is the way, and the bar says so.
+ * The same state machine, sheet, panel and writes as everywhere else.
+ */
+function LegacyUnitStage({
+  unit,
+  onShowRacks,
+  quick,
+  onAdd,
+}: {
+  unit: SmartStorageUnitView;
+  onShowRacks: () => void;
+  quick: StageQuick | null;
+  onAdd: (() => void) | undefined;
+}) {
+  // the place's bottles are asked of the Smart Cellar API only while adding (outside it, the existing view needs
+  // nothing new: smart-cellar-3d.spec holds that no legacy place's bottles are read for looking at it)
+  const offering = quick !== null;
+  const query = useSmartPlacements(offering ? unit.id : null);
+  // what the existing view draws (the same read it draws from)
+  const racks = useRacks();
+  const webgl = useWebGL();
+  const debug = useDebugReadout();
+  const [lost, setLost] = useState(false);
+  const [listShown, setListShown] = useState(false);
+  const placeView = query.data?.unit;
+  const placements = query.data?.placements;
+  const drawnUnit = racks.data
+    ? (racks.data.units.find((u) => u.id === unit.id) ?? NOT_DRAWN)
+    : undefined;
+  // the domain's free spots (the server's eligibility), and where each is in the existing view, if it is exact
+  const pointing = useMemo(() => {
+    if (!offering || !placeView || !placements || !drawnUnit) return null;
+    const resolved = resolvedFromView(placeView);
+    const free = freeSpots(
+      resolved,
+      placements.map((p) => ({ bottleId: p.bottleId, row: p.row, col: p.col, index: p.index })),
+    );
+    return {
+      free,
+      at: legacyPointing(
+        resolved,
+        {
+          rows: drawnUnit.rows,
+          cols: drawnUnit.cols,
+          kind: drawnUnit.kind,
+          taken: drawnUnit.bottles.flatMap((b) =>
+            b.row === null || b.col === null ? [] : [{ row: b.row, col: b.col }],
+          ),
+        },
+        free,
+      ),
+    };
+  }, [offering, placeView, placements, drawnUnit]);
+  const direct = webgl && !lost && pointing !== null && pointing.at.ok;
+  const spots = useMemo(() => {
+    if (!quick || !direct || !pointing?.at.ok) return null;
+    // held: only the chosen spot (it was chosen from the free ones)
+    if (quick.held) return quick.chosen ? [{ row: quick.chosen.row, col: quick.chosen.col }] : [];
+    return pointing.at.spots.map((s) => ({ row: s.spot.row, col: s.spot.col }));
+  }, [quick, direct, pointing]);
+  const onSpot = quick?.onSpot;
+  const tapped = useCallback(
+    (s: { row: number; col: number }) => onSpot?.({ row: s.row, col: s.col, index: 1 }),
+    [onSpot],
   );
+  const offeringNow = quick !== null && !quick.held;
+  const listForced = !direct;
   return (
     <>
-      <QuickPlacingBar
-        unit={unit}
-        free={free}
-        listShown
-        listForced
-        onToggleList={() => {}}
-        onClose={quick.onClose}
-      />
-      <QuickSpotList
-        unit={query.data?.unit ?? unit}
-        placements={query.data?.placements}
-        chosen={quick.chosen}
-        onSpot={quick.onSpot}
+      {offeringNow && pointing === null ? (
+        // still being read: the bar says what a tap does once it knows (it never claims "no empty spot" meanwhile)
+        <Skeleton className="h-14" data-testid="quick-placing-pending" />
+      ) : offeringNow ? (
+        <>
+          <QuickPlacingBar
+            unit={unit}
+            free={pointing?.free.length ?? 0}
+            listShown={listShown || listForced}
+            listForced={listForced}
+            onToggleList={() => setListShown((v) => !v)}
+            onClose={quick.onClose}
+          />
+          {(listShown || listForced) && (
+            <QuickSpotList
+              unit={placeView ?? unit}
+              placements={placements}
+              chosen={quick.chosen}
+              onSpot={quick.onSpot}
+            />
+          )}
+        </>
+      ) : (
+        onAdd && (
+          <div className="flex justify-end" data-testid="smart-3d-top">
+            <AddBottleButton onClick={onAdd} />
+          </div>
+        )
+      )}
+      <Cellar3DView
+        onShowRacks={onShowRacks}
+        only={unit.id}
+        quick={
+          quick ? { spots, chosen: quick.chosen, onSpot: quick.held ? undefined : tapped } : null
+        }
+        onLostChange={setLost}
+        debug={debug}
       />
     </>
   );
@@ -1039,10 +1130,34 @@ function SmartUnitStage({
   }
 
   if (!data || !model) {
+    // still being read, or the read failed: "Add bottle" stays offered at the top; adding meanwhile shows the bar (and
+    // the way out) with the list waiting for the read
+    const top =
+      quick && !quick.held ? (
+        <>
+          <QuickPlacingBar
+            unit={unit}
+            free={0}
+            listShown
+            listForced
+            onToggleList={() => {}}
+            onClose={quick.onClose}
+          />
+          <QuickSpotList unit={unit} placements={undefined} chosen={null} onSpot={quick.onSpot} />
+        </>
+      ) : (
+        <div
+          className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
+          data-testid="smart-3d-top"
+        >
+          {meta}
+          {onAdd && <AddBottleButton onClick={onAdd} />}
+        </div>
+      );
     if (query.isError && !query.isFetching)
       return (
         <>
-          {meta}
+          {top}
           <div
             role="alert"
             data-testid="smart-3d-unit-failed"
@@ -1065,14 +1180,15 @@ function SmartUnitStage({
       );
     return (
       <>
-        {meta}
+        {top}
         <Skeleton className="h-[26rem]" />
       </>
     );
   }
 
   // The place has no template any more (it was changed since the list was read): the existing view draws it.
-  if (model.renderer === "legacy") return <Cellar3DView onShowRacks={onShowRacks} only={unit.id} />;
+  if (model.renderer === "legacy")
+    return <LegacyUnitStage unit={unit} onShowRacks={onShowRacks} quick={quick} onAdd={onAdd} />;
 
   const selectedId = selectedIn(selection, unit.id, data.placements);
   const open = outId !== null;

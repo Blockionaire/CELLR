@@ -2758,7 +2758,7 @@
     "add": "Fles toevoegen",
     "placingTitle": "Tik op een lege plek om een fles toe te voegen.",
     "placingShort": "Tik op een lege plek",
-    "placingBody": "{count, plural, =0 {Er is geen lege plek in {unit}.} one {# lege plek in {unit}} other {# lege plekken in {unit}}}",
+    "placingBody": "{count, plural, =0 {Er is geen lege plek in {unit}} one {# lege plek in {unit}} other {# lege plekken in {unit}}}",
     "showList": "Kies uit een lijst",
     "hideList": "Lijst verbergen",
     "listOnly": "Deze plek kan niet in 3D worden aangewezen. Kies een lege plek uit de lijst.",

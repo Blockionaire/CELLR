@@ -190,6 +190,10 @@ test("measure 3D Quick Add", async ({ page, request, hasTouch }, info) => {
     };
     console.error(JSON.stringify(row));
     results.push(row);
+    // entering and leaving leaks nothing: the same geometries, textures and programs after every round, and the
+    // furniture built once
+    expect(new Set(heldAfterRounds).size, heldAfterRounds.join(" | ")).toBe(1);
+    expect(row.buildsAfter).toBe(before.builds);
   }
   const all = fs.existsSync(OUT) ? (JSON.parse(fs.readFileSync(OUT, "utf8")) as unknown[]) : [];
   fs.writeFileSync(OUT, JSON.stringify([...all, ...results], null, 2));
