@@ -2,6 +2,7 @@ import { z } from "zod";
 import { cellarQuestionKind, isCellarQuestion } from "./cellar-facts";
 import { readPlan } from "./sommelier-plan";
 import { detectIntent, type SommelierAnswer } from "./sommelier";
+import { AnswerCheckSchema, PriceBandSchema } from "./sommelier-check";
 import { readAnnotations } from "./sommelier-annotate";
 import { QuantityAdviceSchema } from "./sommelier-quantities";
 import { ServingCheckSchema } from "./sommelier-serving-claims";
@@ -97,6 +98,16 @@ export function isStoredAnswer(value: unknown): value is SommelierAnswer {
     // A kept plan is drawn as it is (links included), so it must be one; anything else is not drawn.
     (a.plan === undefined || a.plan === null || readPlan(a.plan) !== null) &&
     (a.otherBottles === undefined || Array.isArray(a.otherBottles)) &&
+    // The check's codes decide which sentence is drawn, and a band is drawn as a price range: both must be sound.
+    (a.check === undefined || AnswerCheckSchema.safeParse(a.check).success) &&
+    (!Array.isArray(a.buy) ||
+      a.buy.every(
+        (b: unknown) =>
+          typeof b !== "object" ||
+          b === null ||
+          !("priceBand" in b) ||
+          PriceBandSchema.safeParse(b.priceBand).success,
+      )) &&
     // The V1+ parts' facts are drawn as kept, so they must still be what the screen draws.
     (a.annotations === undefined || readAnnotations(a.annotations) !== null) &&
     (a.servingCheck === undefined || ServingCheckSchema.safeParse(a.servingCheck).success) &&

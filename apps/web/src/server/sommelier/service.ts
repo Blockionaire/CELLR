@@ -8,6 +8,7 @@ import {
   reconcileServingClaims,
   servingCheckOf,
   type InsightOutput,
+  checkAnswerClaims,
   cellarDigest,
   cellarFacts,
   cellarFactsText,
@@ -38,6 +39,7 @@ import {
 import { annotateBottles, servingFactsBlock } from "@cellr/domain/intelligence";
 import type { SommelierIntelligence } from "@/server/sommelier/intelligence";
 import { seeCardWords } from "@/server/sommelier/parts/serving-words";
+import { cardOnlyWords } from "@/server/sommelier/parts/check-words";
 import type { AiErrorKind, AiUsage, LlmProvider } from "@/server/ai";
 import {
   parseSommelier,
@@ -45,6 +47,11 @@ import {
   SOMMELIER_SYSTEM,
   sommelierUserMessage,
 } from "@/server/ai/prompts/sommelier";
+import {
+  parseSommelierV7,
+  SOMMELIER_SCHEMA_V7,
+  SOMMELIER_SYSTEM_V7,
+} from "@/server/ai/prompts/sommelier-v7";
 
 export interface SommelierDeps {
   cellar: () => Promise<CellarView>;
@@ -421,21 +428,25 @@ export function createSommelierService(deps: SommelierDeps) {
       const blocks = [serving?.text, guests ? guestsBlock(guests) : null].filter(
         (block): block is string => typeof block === "string",
       );
+      const factsText = facts ? cellarFactsText(facts, (id) => refOf.get(id) ?? null) : null;
+      // V1+ `check`: prompt v7 has the model write a cellar wine as its ref (the app renders the name) and gives it
+      // no place for a price; what it says is then checked claim by claim. Without the part: v6, exactly as before.
+      const checking = deps.parts !== undefined && hasSommelierPart(deps.parts, "check");
       const result = await deps.llm.generateObject({
         task: "sommelier_chat",
         model: "chat",
-        system: SOMMELIER_SYSTEM,
+        system: checking ? SOMMELIER_SYSTEM_V7 : SOMMELIER_SYSTEM,
         user: sommelierUserMessage(digest.text, shown, digest.total, request.messages, {
           mode: request.mode ?? "chat",
           budget: request.budget ?? null,
           locale,
-          facts: facts ? cellarFactsText(facts, (id) => refOf.get(id) ?? null) : null,
+          facts: factsText,
           taste: personal ? tasteContextText(personal, { explore }) : null,
           ...(blocks.length > 0 ? { blocks } : {}),
         }),
         schemaName: "sommelier_answer",
-        jsonSchema: SOMMELIER_SCHEMA,
-        parse: parseSommelier,
+        jsonSchema: checking ? SOMMELIER_SCHEMA_V7 : SOMMELIER_SCHEMA,
+        parse: checking ? parseSommelierV7 : parseSommelier,
         maxOutputTokens: 900,
         timeoutMs: 30_000,
       });
@@ -472,16 +483,40 @@ export function createSommelierService(deps: SommelierDeps) {
       const about = serving
         ? items.filter((i) => serving.vintageIds.includes(i.vintageId)).map(toSommelierBottle)
         : null;
+      const bottles = checked.bottles.length > 0 ? checked.bottles : (named ?? about ?? []);
+      // With the engines on, a verdict and buying advice only ever come from them: the model's own are dropped.
+      // (Also with buying advice switched off: a model-made product and price is never shown beside the
+      // engines. Buying advice then comes with `sommelier_buying`, as styles.)
+      const buy = facts || deps.intelligence ? [] : checked.buy;
+      // V1+ `check`: refs become the cellar's own names; a claim about the cellar that is not true, a price, a
+      // shop or an action is not shown. The wines V1 chose (the cards) are never changed by it.
+      const claims = checking
+        ? checkAnswerClaims({
+            text: checked.text,
+            bottles,
+            buy,
+            digest,
+            items,
+            budget: request.budget ?? null,
+            facts: factsText,
+            now: clock(),
+          })
+        : null;
+      // A question about the cellar itself whose words could not be shown: the counted facts say it, in the
+      // app's own sentence (never "the one to look at" for a question of how many or where).
+      if (claims?.check.text === "replaced" && facts)
+        return { ...plainFacts(facts, null), check: claims.check };
+      const verdict = facts || deps.intelligence ? null : checked.verdict;
       return {
         source: "ai",
-        text: checked.text,
+        // Words the check took away are replaced by one sentence made from the cards (`check.text` says so, and
+        // the screen words it more fully): an answer is never without words.
+        text: claims ? (claims.text ?? cardOnlyWords(locale, bottles, verdict)) : checked.text,
         basic: null,
-        bottles: checked.bottles.length > 0 ? checked.bottles : (named ?? about ?? []),
-        // With the engines on, a verdict and buying advice only ever come from them: the model's own are dropped.
-        // (Also with buying advice switched off: a model-made product and price is never shown beside the
-        // engines. Buying advice then comes with `sommelier_buying`, as styles.)
-        verdict: facts || deps.intelligence ? null : checked.verdict,
-        buy: facts || deps.intelligence ? [] : checked.buy,
+        bottles,
+        verdict,
+        buy: claims ? claims.buy : buy,
+        ...(claims ? { check: claims.check } : {}),
         reason: null,
         // Only when a taste was shown and the model says it shaped the answer.
         personal: personal !== null && checked.usedTaste,
