@@ -8,6 +8,7 @@ import {
   bearer,
   chooseFile,
   makeJpeg,
+  settled,
   sql,
   wineChoice,
 } from "./helpers";
@@ -935,18 +936,24 @@ test.describe("3D Quick Add", () => {
     await page.getByTestId("quick-add-start").focus();
     await page.keyboard.press("Enter");
     await expect(view(page)).toHaveAttribute("data-quick", "placing");
-    await page.getByTestId("quick-list-toggle").focus();
+    // the button that was pressed is gone: focus is on the first thing to do in the bar, never on the page
+    await expect(page.getByTestId("quick-list-toggle")).toBeFocused();
     await page.keyboard.press("Enter");
     const spot = page.getByTestId("spot-picker").locator('[data-spot="2:4:1"]');
     await spot.focus();
     await page.keyboard.press("Enter");
     await expect(quickSheet(page)).toContainText("Oak rack · shelf 2 · spot 4");
+    // measured once the sheet stands still (a sheet still fading in is not yet its own colour)
+    await settled(quickSheet(page));
     expect(await audit(page)).toEqual([]);
     await page.keyboard.press("Escape");
     await expect(sheet(page)).toBeHidden();
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("quick-placing")).toHaveCount(0);
     await expect(view(page)).toHaveAttribute("data-quick", "view");
+    // out of adding: focus is back on "Add bottle"
+    await expect(page.getByTestId("quick-add-start")).toBeFocused();
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
   });
 
   test("no regression: taking a bottle out and moving it as before; read-only shows no Add bottle", async ({
@@ -1251,11 +1258,65 @@ test.describe("3D Quick Add on a place from before templates", () => {
 
 // =================================================================================================================
 test.describe("3D Quick Add: leaving nothing behind, and a small phone", () => {
-  test("entering and leaving adding again and again leaves nothing behind (both views)", async ({
+  test("Add bottle is offered while a place's bottles are read, and on a place whose template went away since the list was read", async ({
     page,
     request,
   }) => {
     await debugOn(page);
+    const { rack } = await household(page, request, "qaentry");
+    // 1. while the place's bottles are on their way: the entry is there already, at the top
+    let release: () => void = () => {};
+    const held = new Promise<void>((r) => (release = r));
+    await page.route(`**/api/v1/smart-cellar/storage/${rack}/bottles`, async (route) => {
+      await held;
+      await route.continue();
+    });
+    await page.goto("/cellar");
+    await page.getByRole("radio", { name: "3D" }).click();
+    await expect(view(page)).toHaveAttribute("data-mode", "ready");
+    await expect(page.getByTestId("smart-3d-stage")).toHaveCount(0);
+    await expect(page.getByTestId("quick-add-start")).toBeVisible();
+    release();
+    await drawn(page);
+    await page.unroute(`**/api/v1/smart-cellar/storage/${rack}/bottles`);
+    // 2. the list of places still says "template", the place's own read says "from before templates": the existing
+    // view draws it (never the template renderer), with Add bottle and its placeholders
+    await sql(
+      "update public.cellar_locations set template = null, slot_semantics = null, appearance = null where id = $1",
+      [rack],
+    );
+    await page.route("**/api/v1/smart-cellar/storage", async (route) => {
+      const res = await route.fetch();
+      const list = (await res.json()) as Array<{
+        id: string;
+        legacy: boolean;
+        templateId: string | null;
+      }>;
+      await route.fulfill({
+        response: res,
+        json: list.map((u) =>
+          u.id === rack ? { ...u, legacy: false, templateId: "rack_classic" } : u,
+        ),
+      });
+    });
+    await open3D(page);
+    await expect(view(page)).toHaveAttribute("data-unit-renderer", "smart");
+    await legacyDrawn(page);
+    await expect(page.getByTestId("smart-3d-stage")).toHaveCount(0);
+    await startQuick(page);
+    await expect(legacyStage(page)).toHaveAttribute("data-offering", "3d");
+    await expect.poll(async () => (await legacySpotsOnOffer(page)).length).toBe(10);
+    await page.getByTestId("quick-close").click();
+    await expect(view(page)).toHaveAttribute("data-quick", "view");
+  });
+
+  test("entering and leaving adding ten times leaves nothing behind (both views)", async ({
+    page,
+    request,
+  }) => {
+    await debugOn(page);
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
     const { call } = await household(page, request, "qaleak");
     await addPlace(call, "Old rack", "rack", 3, 4);
     await open3D(page);
@@ -1269,7 +1330,7 @@ test.describe("3D Quick Add: leaving nothing behind, and a small phone", () => {
         await legacyDrawn(page);
       }
       const rounds: string[] = [];
-      for (let round = 0; round < 4; round++) {
+      for (let round = 0; round < 10; round++) {
         await startQuick(page);
         await expect(c).toHaveAttribute("data-spots", /^[1-9]/);
         await expect.poll(ghostsOf).not.toBeNull();
@@ -1282,7 +1343,13 @@ test.describe("3D Quick Add: leaving nothing behind, and a small phone", () => {
       }
       // the same geometries, textures and shader programs after every round: nothing left behind
       expect(new Set(rounds).size, `${name}: ${rounds.join(" | ")}`).toBe(1);
+      // and the screen as it was: no bar, no list, no sheet, "Add bottle" offered
+      await expect(page.getByTestId("quick-placing")).toHaveCount(0);
+      await expect(page.getByTestId("quick-spot-list")).toHaveCount(0);
+      await expect(sheet(page)).toHaveCount(0);
+      await expect(page.getByTestId("quick-add-start")).toBeVisible();
     }
+    expect(errors).toEqual([]);
   });
 
   for (const pwa of [false, true])

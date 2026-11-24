@@ -247,6 +247,7 @@ export default function CellarScene({
       />
       <pointLight ref={rimLight} intensity={0} color="#e6eeff" distance={30} decay={1.8} />
       <Prewarm />
+      <OutMark id={shown?.bottle.id ?? ""} />
       <SizeSync onResized={onResized} />
       <Rig
         rows={rows}
@@ -403,6 +404,20 @@ function Prewarm() {
       label.dispose();
     };
   }, [gl, scene, camera]);
+  return null;
+}
+
+/**
+ * Which bottle is out of its slot right now (on display, or on its way out or home), on the canvas for tests to read
+ * (`data-out`, empty when every bottle lies in its slot). Until a bottle is home its slot is empty in the live rack
+ * (it is drawn apart), so a tap there meets nothing: a test that taps the slot again waits for this, not for the still
+ * of the rack to go (which goes as the bottle lies down in front of its slot, before it slides in).
+ */
+function OutMark({ id }: { id: string }) {
+  const store = useStore();
+  useEffect(() => {
+    store.getState().gl.domElement.dataset.out = id;
+  }, [store, id]);
   return null;
 }
 

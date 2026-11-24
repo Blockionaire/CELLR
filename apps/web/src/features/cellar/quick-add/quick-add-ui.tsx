@@ -52,6 +52,13 @@ export function QuickPlacingBar({
   // mode, and a moving page would move the spots under a finger about to tap one.
   useEffect(() => {
     bar.current?.scrollIntoView({ block: "start", behavior: "auto" });
+    // the button that started adding is gone (the bar stands in its place): focus goes to the first thing to do here,
+    // never to the page, so a keyboard or a screen reader carries on from where it was
+    if (bar.current?.contains(document.activeElement)) return;
+    if (document.activeElement && document.activeElement !== document.body) return;
+    bar.current
+      ?.querySelector<HTMLElement>('[data-testid="quick-list-toggle"], [data-testid="quick-close"]')
+      ?.focus({ preventScroll: true });
   }, []);
   return (
     <div
