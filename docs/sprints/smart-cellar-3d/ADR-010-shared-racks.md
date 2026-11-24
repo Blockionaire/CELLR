@@ -93,6 +93,8 @@ nobody changes whose bottle it is.
 name, whether still a member), whether it is the caller's, who placed it and when, and of the wine: producer, name,
 vintage year, type (colour), region, country code and bottle format.
 
+Members see each other's display name and account name (`@name`), nothing else of a profile.
+
 Deliberately **not** shared, by not being selected anywhere: purchase price, currency, where and when it was bought,
 notes, ratings and tastings, drink windows and valuations, the household id, the private location, label photos, the
 ids of the wine and vintage, and anything about a bottle that is not in this rack. The **bottle id** is returned only
@@ -137,7 +139,7 @@ again for 7 days. Before accepting, the invited person sees the rack's name and 
 
 **Membership.** `active` → `left` (own choice) | `removed` (by an owner). Either ends all access at once: the next
 call, including one from a client that still shows the rack, is answered 404. A former member can be invited again.
-Pending invitations issued by someone who stops being an owner are cancelled.
+Pending invitations issued by someone who stops being an owner are cancelled. Archiving a rack cancels its open invitations.
 
 - **The last owner cannot leave.** They hand the role over explicitly (promote someone, then leave) or archive the
   rack. A role change that would leave no owner is refused. Nothing is ever transferred silently.
