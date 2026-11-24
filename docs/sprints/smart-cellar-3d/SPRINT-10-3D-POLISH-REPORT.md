@@ -97,7 +97,36 @@ and none is claimed (rule 15). What needs a real phone is in §8.
 
 ## 5. Measurements, before → after
 
-AFTER_TABLE
+Same machine, same script, base build vs this branch (gallery, `quality=auto`). Software rendering: compare columns,
+promise nothing.
+
+| Device    | Place         | Step     | Draw calls | Triangles         | Geom / tex / programs | First frame after context (ms) | Frames in 2 s at rest | Pointer-move hit test (ms, mean) | CLS             |
+| --------- | ------------- | -------- | ---------- | ----------------- | --------------------- | ------------------------------ | --------------------- | -------------------------------- | --------------- |
+| desktop   | 30 × 30 full  | low      | 12 → 12    | 355,868 → 355,868 | 25/4/8 → same         | 208 → 174                      | 0 → 0                 | 0.38 → 0.36                      | 0.0001 → 0.0001 |
+| desktop   | 30 × 30 half  | low      | 12 → 12    | 188,252 → same    | 25/4/8 → same         | 165 → 163                      | 0 → 0                 | 0.33 → 0.32                      | 0.0001 → 0.0001 |
+| desktop   | 5 × 8 default | balanced | 16 → 16    | 20,130 → same     | 27/7/11 → same        | 302 → 279                      | 0 → 0                 | 0.44 → 0.35                      | 0.0011 → 0.0001 |
+| desktop   | wall pegs     | balanced | 16 → 16    | 34,018 → same     | 27/6/12 → same        | 355 → 416                      | 0 → 0                 | 0.20 → 0.15                      | 0.0001 → 0.0001 |
+| iPhone SE | 30 × 30 full  | low      | 12 → 12    | 355,868 → same    | 25/4/8 → same         | 182 → 162                      | 0 → 0                 | 0.46 → 0.38                      | 0 → 0           |
+| iPhone SE | 5 × 8 default | balanced | 16 → 16    | 20,130 → same     | 27/7/11 → same        | 339 → 316                      | 0 → 0                 | 0.32 → 0.20                      | 0 → 0           |
+| iPhone 13 | 30 × 30 full  | low      | 12 → 12    | 355,868 → same    | 25/4/8 → same         | 168 → 170                      | 0 → 0                 | 0.40 → 0.39                      | 0 → 0           |
+| iPhone 13 | 5 × 8 default | balanced | 16 → 16    | 20,130 → same     | 27/7/11 → same        | 393 → 347                      | 0 → 0                 | 0.39 → 0.29                      | 0 → 0           |
+| Pixel 7   | 30 × 30 full  | low      | 12 → 12    | 355,868 → same    | 25/4/8 → same         | 165 → 156                      | 0 → 0                 | 0.80 → 0.37                      | 0 → 0           |
+| Pixel 7   | 5 × 8 default | balanced | 16 → 16    | 20,130 → same     | 27/7/11 → same        | 403 → 268                      | 0 → 0                 | 0.26 → 0.22                      | 0 → 0           |
+
+- **Cost of the changes: none measurable.** Draw calls, triangles and held resources are identical in every case (the
+  rings replace the old ones one for one and only exist while something is chosen). First-frame and hit-test times
+  move both ways by tens of percent between single runs on a shared machine: that is noise, not an effect, and is
+  not claimed as one.
+- Screen distance between neighbouring spots (unchanged by design, the input to §3.3): 30 × 30 — desktop 13.5 px,
+  iPhone SE 7.6, iPhone 13 9.3, Pixel 7 9.9; default 5 × 8 — 63.5 / 25.5 / 31.3 / 33.0 px.
+- Context loss, 6 forced losses each (desktop, iPhone SE): before and after, every recovery holds 27 geometries,
+  7 textures, 11 programs, 1 canvas. JS heap after GC creeps ~0.3 MB a cycle (15.2 → 16.5 MB before, 15.5 → 17.5 MB
+  after) in both builds; the GPU counts do not move. Probably collector timing; worth a look on a device (row 5 of §8).
+- Template switching, 8 rounds of 4 templates: 28/10/32 every round, before and after; heap 16–18 MB.
+- Camera inside the furniture at the closest zoom, straight on: 29 of 168 cases → 0 (unit test). Rings at ≥ 3:1 on
+  every finish: target ring under 3:1 on 10 of 14 base surfaces → none; marker ring on 7 of 14 → none (unit test). Picture:
+  [`screens/10-rings-before-after.jpg`](./screens/10-rings-before-after.jpg) (top: white lacquer, bottom: ebony in the
+  dark studio; left before, right after).
 
 ## 6. Not done, on purpose
 
@@ -146,7 +175,16 @@ with Smart Cellar 3D open. Record model, OS and browser version, pass/fail, a sc
 
 ## 9. Tests run
 
-TESTS
+| Command                                                                                                                                                                                                                                                                     | Result                                                                                                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test` (branch at `c21bc96`)                                                                                                                                                                                       | green; one existing lint warning (`playwright.webkit.config.ts`); domain 1503, web 1621 passed (13 skipped), scripts 117 + 83 + 44 + 75         |
+| `vitest run src/features/cellar`                                                                                                                                                                                                                                            | 20 files, 400 tests passed (new: camera closest/keepOutside ×5, aimZoom ×4, rings ×4)                                                           |
+| `pnpm architecture:inventory` / `architecture:impact` / `vitest run src/server/system`                                                                                                                                                                                      | inventory unchanged; "No structural change against `origin/main`. The register itself changed."; 27 passed; register 1.5.3, reviewed 2026-11-23 |
+| Under the e2e lock, one build: `playwright test storage-gallery storage-showcase storage-premium storage-touch-aim smart-cellar-3d quick-add rack-builder --workers=2 --trace off` (phone + desktop; the filter also matched `perf-quick-add` and `smart-cellar-3d-old-db`) | **314 passed, 0 failed, 26 skipped** (32.0 min). Skips are the other project's half of device-specific tests and the opt-in benches             |
+| New in that run                                                                                                                                                                                                                                                             | gallery: camera stays out of the furniture ×3 (desktop), five loss cycles (phone, desktop); `storage-touch-aim` (phone): passed                 |
+| Audit bench (scratch script, not committed), before vs after                                                                                                                                                                                                                | §5                                                                                                                                              |
+
+Not run: the full e2e suite (CI runs it), the perf specs' own benches (`PERF_*`), WebKit, any physical device.
 
 ## 10. Release and rollback
 
