@@ -200,7 +200,7 @@ service role and the database owner (operators), who are trusted as everywhere i
 
 ## 10. Not in this foundation
 
-- No screens. The API is shaped for them and for the 3D view (§ contracts in `SHARED-RACKS-REPORT.md`).
+- (Screens came in the second run: `SHARED-RACKS-REPORT.md` §9, and §13 below.)
 - No temperature zones for a shared rack; no depth (cell capacity above 1 is refused while the switch is off).
 - No swap of two bottles in one step (two moves through a free spot do it).
 - No label photos across households, no shared art by wine id.
@@ -236,3 +236,18 @@ service role and the database owner (operators), who are trusted as everywhere i
 6. **What a new member sees of history**: everything (built), or only from the day they joined.
 7. **Limits**: 12 members and 20 pending invitations per rack, 20 racks per person, 14 days to accept.
 8. **Production release**: when, and with which declaration (§9).
+
+## 13. What the screens settled (second run)
+
+- **Where a shared rack lives in the product**: in the cellar's 3D view, as one more place in the row of places,
+  marked as shared in words. Not a separate area of the app: it is a rack one walks up to like one's own.
+- **What a member sees of another's bottle** stayed exactly the projection of §5. The panel adds nothing: wine,
+  vintage, kind, format, owner, who placed it and when. No photo.
+- **The owner filter never moves or hides a fact**: it is local to the screen, a spot stays taken whatever the
+  filter shows, and the flat grid says of a dimmed bottle that it is still in the rack.
+- **Taking out is said to be what it is before it is recorded** (open decision 1 stays as built: any member may
+  record it). The follow-up for one's own bottle is one's own cellar's flows, offered after, never merged into it.
+- **The last-owner rule is explained before the request**: the Leave button is not offered to the last owner; the
+  sentence in its place says what to do instead.
+- **A removed member's screen shows nothing of the rack** once the server says so, not even what it had loaded.
+- **Open decision 4 (label photos) stays open**: the screens draw labels from names.

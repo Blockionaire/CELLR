@@ -192,3 +192,92 @@ share through; the script ran clean three times in a row afterwards and is a ste
    `lib/shared-racks-gate.ts` (an explicit release clause) plus the migration, both by owner decision.
 5. **Rollback** is unsetting `CELLR_SHARED_RACKS`: every route is 404 again and the data stays. The private flows
    keep ending placements correctly while the gate is closed (that is the database's work, not the API's).
+
+## 9. The screens (second run, branch `claude/sc3d-shared-racks-ui-bqvck4`)
+
+Everything is in `apps/web/src/features/shared-racks/` and in the message namespace `sharedRacks` (English and Dutch,
+the same keys). The screens add nothing to the contract of §3 and no function to §4: they call the routes as they are.
+
+### 9.1 Where it is, and how it is mounted
+
+- **In the cellar's 3D view** (`features/cellar/smart-cellar-3d.tsx`, mounted where the Smart Cellar renderer gate
+  is open). The page passes one more server-decided boolean, `sharedRacks` (`getSharedRacksAccess().open`), through
+  `CellarScreen`. Shared racks therefore need both gates: `CELLR_SMART_CELLAR_3D` and `CELLR_SHARED_RACKS`.
+- **`features/shared-racks/lazy.tsx`** is the only file other screens import: `next/dynamic` stubs, no logic, no
+  words. The real code is a chunk of its own, fetched when a stub is rendered, and a stub is rendered only where
+  `sharedRacks` is true. Gate closed: nothing rendered, no request, no chunk (browser test, §9.4).
+- **Additions in files outside `features/shared-racks`** (insertions only; no existing line changed, except where a
+  one-line JSX call had to become multi-line to take a prop):
+
+| File                                  | What was added                                                                                                                                                                                                                                                                                       |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/(app)/cellar/page.tsx`           | the import of `getSharedRacksAccess` and the prop `sharedRacks={getSharedRacksAccess().open}`                                                                                                                                                                                                        |
+| `features/cellar/cellar-screen.tsx`   | the prop `sharedRacks` (default false, documented) and passing it to `SmartCellar3D` and `RacksView` (those two calls)                                                                                                                                                                               |
+| `features/cellar/smart-cellar-3d.tsx` | 56 inserted lines, none changed: the import of the stubs; the prop; one `useState` (which shared rack is on screen); an early return rendering `SharedRackScreen`; one line in the empty-cellar return; the chips inside the row of places; a row for a cellar with one place; the footer at the end |
+| `features/cellar/racks-view.tsx`      | the prop `sharedRacks`, the import of the stub, and `SharedRackUnplacedNote` under "not placed yet"                                                                                                                                                                                                  |
+| `playwright.config.ts`                | one pattern in `THREE_D_SPECS` (`shared-racks-3d*.spec.ts`)                                                                                                                                                                                                                                          |
+
+### 9.2 The flows
+
+1. **In the row of places.** My shared racks are chips in the same row as my own places: an icon, the name and the
+   member count, and for a screen reader "Shared rack <name>, n members". With one place of my own (the cellar shows
+   no row then) a row appears only when there is a shared rack to show; with no place of my own, the shared racks and
+   the way in stand above the cellar's own invitation to build one.
+2. **The rack** is drawn by the existing storage view (`InspectableStorage`) from `resolveSharedRack(rack)`, bottles
+   keyed by placement id, labels drawn from the names. A bottle's panel says the wine, the vintage, **whose it is**
+   (or "no longer in this rack; the bottle is still theirs"), who put it there and when, and offers Move, Take out
+   and "History of this bottle".
+3. **Owner filter**: chips "Everyone · n", "Mine · n", one per person. Local to the screen. In the flat grid a bottle
+   that is left out is dimmed and says so; in 3D it is not drawn. It never moves, and while a spot is being chosen
+   every bottle is shown (a spot is free only when nobody's bottle is on it).
+4. **Add my bottle**: "Add my bottle" → the free spots are offered (3D placeholders, or the grid's free cells) → a
+   sheet lists MY bottles (without a place first, then those in a place of my own, searchable above six) → `place`.
+5. **Move**: a bottle → Move → a free spot. Sent with the spot the bottle was seen on.
+6. **Take out**: a sheet says first what it is: not drinking; for someone else's bottle that it stays theirs and the
+   history says who took it; for my own that it is in my cellar afterwards without a place. After my own: "Open this
+   wine" (the wine's page, where drinking and rating are) or "Give it a place in my cellar" (the racks view).
+7. **A refused change** (a spot just taken, a bottle moved or taken out meanwhile): the server's sentence plus "The
+   rack was read again", and the rack as it is now. Nothing is retried. Someone removed meanwhile is told so at their
+   next action and sees nothing of the rack any more.
+8. **People**: what each role may do, the members, make owner / make member, remove (the confirmation says the
+   bottles stay theirs and stay where they stand), invite by exact account name or friend code (the existing
+   search), open invitations with "Take back", and leaving: the last owner is told why they cannot **before** any
+   request (no Leave button is offered).
+9. **Invitations for me**: a chip in the row of places and a badge on "Shared racks" under the cellar; the sheet
+   says who invites me to which rack and what accepting shares. After accepting, the rack is on screen.
+10. **History**: newest first, localised times, "load older", filters by owner and by who did it, and one bottle's
+    history from its panel. Owner and actor are both named when they differ ("Bob moved Ann’s …").
+11. **Settings** (owners): rename, layout (the catalogue's templates that hold one bottle per spot, rows, columns),
+    saved against the rack's revision: a save against an older version is refused and said, and the fields take the
+    rack as it is. Archive and restore, with what they mean said first.
+12. **My own cellar**: under "not placed yet" (racks view) and under the 3D cellar, bottles of mine that stand in a
+    shared rack are named as such, with the rack and spot while I am a member, and "It’s no longer there" (withdraw)
+    always.
+13. **Without 3D** (no WebGL, a lost context, or by choice "Show as a list"): the flat grid of shelves and spots does
+    all of the above: every spot is a button that says in words what it is.
+
+### 9.3 Decisions and limits
+
+- **Create and layout use a small form of their own** (`sheets.tsx`), over the domain's own validation
+  (`SharedRackCreateSchema`, `SharedRackLayoutSchema`, the template catalogue and its limits). The Rack Builder is a
+  page built around one household place and its save route; reusing it would have meant editing it. Handoff to the
+  builder's owner if a shared rack should be designed there: it would need a target other than a household place.
+  **The look is the template's default** (or the rack's own, kept while the template stays): no look chooser here.
+- **The chips in the row of places are 36 px high**, like the existing place chips they sit next to. Every other
+  control of these screens is at least 44 px (browser test at 375 × 667).
+- **The invitation badge is on the 3D view only.** Someone who never opens the 3D view does not see an invitation.
+- **The lazy stubs** (`lazy.tsx`, about forty lines of `dynamic()` calls) are part of the 3D cellar's chunk. They
+  contain no logic and no text of the feature.
+- **No push notice** for an invitation or a taken-out bottle; no undo for a move (a second move does it, and the
+  history keeps both).
+- **Opening a rack from the racks view** is not offered (the rack lives in the 3D view); the note there names the
+  rack and the spot and offers the withdrawal.
+- **Dutch**: every string of these screens is translated; the server's refusals come through the existing
+  `errors.known` translations.
+- **Needs a physical device**: touch targets and scrolling of the row of places on a real small phone, the 3D
+  picture's speed with sixty bottles on a mid-range phone, VoiceOver and TalkBack reading the grid's spot names,
+  and the sheet's drag-to-close over the long people sheet.
+
+### 9.4 Tests of the screens
+
+UI_RESULTS_PLACEHOLDER
