@@ -101,6 +101,14 @@ test("a finger on a spot too small to be sure of brings the view closer, and the
   await expect(sheet(page)).toBeHidden();
   await expect(view(page)).toHaveAttribute("data-quick", "placing");
   await expect(canvas(page)).toHaveAttribute("data-spots", "897");
+  // and the instruction says why, in its polite live region
+  await expect(page.getByTestId("quick-aim-hint")).toHaveText(
+    "Zoomed in. Tap the spot again to choose it.",
+  );
+  await expect(page.getByTestId("quick-aim-hint").locator("xpath=..")).toHaveAttribute(
+    "aria-live",
+    "polite",
+  );
   // the spot that was tapped is now a fingertip clear of its neighbour, and still under where the finger was aimed
   const a2 = await spotOnPage(page, 15, 15);
   const b2 = await spotOnPage(page, 15, 16);

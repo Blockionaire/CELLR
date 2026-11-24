@@ -36,6 +36,7 @@ export function QuickPlacingBar({
   listForced,
   onToggleList,
   onClose,
+  aimed = false,
 }: {
   unit: SmartStorageUnitView;
   free: number;
@@ -44,6 +45,11 @@ export function QuickPlacingBar({
   listForced: boolean;
   onToggleList: () => void;
   onClose: () => void;
+  /**
+   * A finger's tap on a spot too small to be sure of brought the picture closer instead of choosing (sprint 10): the
+   * instruction says so, calmly, and a screen reader hears it (the region is polite).
+   */
+  aimed?: boolean | undefined;
 }) {
   const t = useTranslations("quickAdd");
   const bar = useRef<HTMLDivElement>(null);
@@ -74,6 +80,11 @@ export function QuickPlacingBar({
         {!listForced && (
           <p className="text-caption text-ink-2 tnum">
             {t("placingBody", { count: free, unit: unit.label })}
+          </p>
+        )}
+        {!listForced && aimed && (
+          <p className="text-caption text-ink-2" data-testid="quick-aim-hint">
+            {t("aimAgain")}
           </p>
         )}
       </div>

@@ -1040,6 +1040,9 @@ function SmartUnitStage({
   // The top of the place (sprint 7.2): what it holds and "Add bottle"; while spots are on offer, what a tap does now
   // and the way out, in the same place, so the instruction is seen without scrolling (and the list right under it).
   const offeringNow = quick !== null && !quick.held;
+  // a tap on a too-small spot zoomed instead of choosing (sprint 10): said in the instruction until adding ends
+  const [aimed, setAimed] = useState(false);
+  if (aimed && !offeringNow) setAimed(false);
   const header = (listForced: boolean) =>
     offeringNow && data ? (
       <>
@@ -1050,6 +1053,7 @@ function SmartUnitStage({
           listForced={listForced}
           onToggleList={() => setListShown((v) => !v)}
           onClose={quick.onClose}
+          aimed={aimed && quick.chosen === null}
         />
         {(listShown || listForced) && (
           <QuickSpotList
@@ -1263,6 +1267,7 @@ function SmartUnitStage({
               target={target}
               spots={offering ? (markers ?? []) : null}
               onSpot={quick?.held ? undefined : quick?.onSpot}
+              onAim={() => setAimed(true)}
             />
           )}
           {lost && (

@@ -87,6 +87,11 @@ export interface TemplateSceneProps {
    */
   spots?: readonly SpotMarker[] | null | undefined;
   onSpot?: ((spot: FreeSpot) => void) | undefined;
+  /**
+   * A finger tapped a spot on offer that was too small to be sure of: the view came closer instead of choosing it
+   * (sprint 10). For a hint such as "tap again"; optional.
+   */
+  onAim?: (() => void) | undefined;
 }
 
 function lowPower(): boolean {
@@ -110,6 +115,7 @@ export default function TemplateScene({
   target = null,
   spots = null,
   onSpot,
+  onAim,
 }: TemplateSceneProps) {
   if (model.renderer === "legacy")
     throw new Error(
@@ -230,6 +236,7 @@ export default function TemplateScene({
             dragged={dragged}
             aim={aim}
             onSpot={onSpot}
+            onAim={onAim}
           />
         )}
       </group>
@@ -933,6 +940,7 @@ function SpotMarkers({
   dragged,
   aim,
   onSpot,
+  onAim,
 }: {
   spots: readonly SpotMarker[];
   /** The bottles in the place: targets a finger could land on as well, so they count as neighbours of a spot. */
@@ -945,6 +953,7 @@ function SpotMarkers({
   dragged: React.RefObject<boolean>;
   aim: React.RefObject<Aim | null>;
   onSpot: ((spot: FreeSpot) => void) | undefined;
+  onAim: (() => void) | undefined;
 }) {
   const { invalidate, camera, size } = useThree();
   // what pressed the spot that is now tapped: a finger is not as sure as a mouse
@@ -1012,7 +1021,10 @@ function SpotMarkers({
           spotMatrix(m.pose, matrix);
           at.setFromMatrixPosition(matrix);
           const gap = gapOnScreen(at, i!, spots, placed, camera, size);
-          if (aim.current([at.x, at.y, at.z], gap)) return;
+          if (aim.current([at.x, at.y, at.z], gap)) {
+            onAim?.();
+            return;
+          }
         }
         onSpot(m.spot);
       }}
