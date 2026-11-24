@@ -119,3 +119,83 @@ previous deployment (or `CELLR_SMART_CELLAR=read` to stop all placement writes, 
   (`GHOST_OPACITY`).
 - **"Show empty spots" toggle** (E): not built, on purpose (see section 1).
 - Merge and deploy are the owner's.
+
+## 9. Completion (after the merge with `main`, 2026-11-23)
+
+PR #121 was merged with the current `main` (b13cf26; the only conflict was the register's version line). This section
+is what was revalidated and changed on top of it, and Quick Add on places from before templates.
+
+### 9.1 Revalidated on the merged branch
+
+Before any change, `e2e/quick-add.spec.ts` on a fresh build of the merged branch (71aa349): **37 passed, 0 failed, 5
+skipped** (phone + desktop; the skips are the other project's half of device-specific tests and the opt-in
+screenshots). Nothing of sprint 7.2 was broken by `main`. What was not asserted before, and now is:
+
+| Requirement                                                                   | New assertion (`e2e/quick-add.spec.ts`)                                                                                                                                                                                                     |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Add bottle above the furniture on an iPhone SE, also as the installed app      | "iPhone SE (375 × 667)" and "…, as the installed app": on the first screen, above the picture, **above the tab bar**, for a template place and a place from before templates; the installed app is emulated (`display-mode: standalone`, the status-bar and home-indicator insets given to `pt-safe` / `pb-safe`: Chromium cannot emulate safe areas) |
+| Placement mode usable on iPhone SE                                            | same tests: instruction and Cancel in view, a placeholder tapped on that screen opens its sheet, the chosen spot stays marked while a bottle is chosen, **no sideways page scroll** at any step                                                |
+| No plus anywhere                                                              | in the bar and over the picture: no icon (`svg`) and no "+" glyph; the placeholders are one mesh of bottle-shaped glass (both views)                                                                                                          |
+| Scan and manual add return to the selected 3D position                        | after coming back: the place that was chosen is open (`data-unit`), the new bottle is the selected one (`data-selected`) and is drawn there                                                                                                   |
+| Entering and leaving leaks nothing                                            | "entering and leaving adding again and again leaves nothing behind (both views)": four rounds each, the same geometries / textures / shader programs after every round, no placeholder left; the bench (`PERF_QUICK=1`) now also fails on a difference between rounds or a rebuilt furniture |
+
+### 9.2 Words
+
+One term for one thing across the bar, the sheet, the list and the toasts, matching the rest of the cellar: a bottle
+that is in no storage is "without a place" (as `placement.unplacedTitle` under the picture says), so the sheet's option
+is now **"Choose a bottle without a place"** and its hint "# bottles are waiting for a place" (it said "spot"). Dutch
+already said "zonder plek" everywhere; no Dutch change. `en.json` and `nl.json` keep the same keys. Not changed (not
+this workstream's files; see the hand-offs): the add flow shows the chosen spot as "Oak rack · Shelf 3 · Position 3"
+(`addBottle` / rack wording) where the sheet and the toast say "Oak rack · shelf 3 · spot 3" (`placement.where.spot`).
+
+### 9.3 Quick Add on places from before templates
+
+A place without a template is still drawn by the existing 3D view (`cellar-3d-view.tsx`, `three/scene.tsx`) and is
+never given a template (README rules 5, 11, 17). That view puts the bottle of spot (row, col) at a fixed, pinned place
+(`slotPosition` / `rackMatrix`, `three/legacy-parity.test.ts`). Where that is exactly the spot the server would use,
+its free spots are now drawn in that view and tapped there; the same state machine, bar, list, sheet, panel and writes
+(the Sprint 4 move, the exact-spot add) as everywhere else. No new write path, route, setting or migration.
+
+- **Who gets it** (`quick-add/legacy-spots.ts`, `legacyPointing`): a place the domain reads as from before templates
+  (`resolved.legacy`: no template, one bottle per cell), read without any fallback, each spot one place
+  (`placementMeaning` "single"), its layout a whole rows × cols grid of one-bottle cells, and the two reads agreeing
+  (the existing view draws the racks read; the free spots come from the Smart Cellar read: same size, same kind, no
+  drawn bottle on a spot called free). That is every kind the app knows (rack, cabinet, shelving, fridge, wall,
+  other): the existing view draws all six as the same grid, the kind only chooses materials.
+- **Who does not** (the list, and the bar says "This place can't be pointed at in 3D"): a stored kind the app does not
+  know, a size or capacity outside the limits, any other fallback; a place without a template holding more than one
+  bottle per cell (a pile or bin from before templates: the domain does not say where in the cell a bottle lies, so
+  it is not `legacy` and is drawn by the neutral picture); reads that disagree; any spot outside the grid or past
+  index 1 (the whole place then, never one spot dropped); no WebGL; a lost graphics context (until drawn again).
+- **Drawing** (`three/scene.tsx` › `GhostSpots`, `three/ghost-bottle.ts`): one instanced mesh, one geometry, one
+  material (one draw call), each placeholder in exactly the matrix a bottle on that spot has; resting pale, warmer under
+  a mouse (never a finger), chosen gold and 5 % larger; demand rendering; disposed when the spots go. The geometry and
+  material are built in `three/` from the existing view's own bottle profile, the same recipe as
+  `storage3d/resources.ts`, so the existing view downloads nothing of the new view (rule 17).
+- **Taps**: a tap that moved more than 8 px, or ended a turn, slide or pinch of the rack, is not a tap. While spots are
+  on offer no bottle is taken out, and a tap that lands on a bottle is a tap on that bottle (nothing), never on a
+  placeholder hidden behind it. Outside adding, a tap on a bottle takes it out exactly as before.
+- **Eligibility** is the domain's (`freeSpots`: `cellChoices`, index 1, depth off), the same source as everywhere.
+
+### 9.4 Tests
+
+TEST_RESULTS_PLACEHOLDER
+
+### 9.5 Limitations
+
+- **No real device.** Everything above ran in Chromium with software rendering (phone = an emulated iPhone 13 with
+  touch, resized to 375 × 667 for the SE tests). Safari/WebKit, a real iPhone's GPU and the real installed app
+  (safe areas, `display-mode`) are not verified.
+- On a phone the Quick Add sheet is a bottom sheet over the picture: while it is open it covers the lower part of the
+  picture, and with it the chosen spot when that spot is low. The sheet names the spot ("Old rack · shelf 3 · spot 4"),
+  and once a bottle is being chosen the panel sits under the picture and the chosen placeholder is marked again.
+- A place from before templates shows no target ring (the existing view never had one): the chosen spot is the gold,
+  larger placeholder.
+- After scanning or adding by hand into a place from before templates, the cellar comes back on that place, says where
+  the bottle went and draws it there; the existing view has no "selected bottle", so it is not highlighted.
+
+### 9.6 Release and rollback
+
+No migration, no new setting, no data change. Quick Add stays behind the same gates as sprint 7 (the renderer gate
+and `CELLR_SMART_CELLAR*`). Shipping is the merge and the deploy (the owner's); rollback is the previous deployment
+(or `CELLR_SMART_CELLAR=read`, which stops every placement write, as for sprint 7).
