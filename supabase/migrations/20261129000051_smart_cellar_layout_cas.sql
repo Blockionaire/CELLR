@@ -8,7 +8,8 @@
 --   * one new function, public.save_storage_layout_v2: save_storage_layout (0045) with one more argument, the
 --     revision the caller's draft started from, compared AFTER the place's row lock is taken;
 --   * one new trigger on cellar_locations that keeps the revision moving (below). For every update made in the
---     ordinary way it changes nothing: it only acts where updated_at would otherwise NOT be later than before.
+--     ordinary way it changes nothing: it only acts where updated_at would otherwise NOT be later than before;
+--   * one new trigger on cellar_location_zones: a zone written directly moves its place's revision (1b).
 -- save_storage_layout (0045) stays exactly as it is, and every caller of it keeps working: an app without this
 -- migration, or one that sends no revision, gets 0045's behaviour, unchanged.
 --
@@ -36,6 +37,31 @@ end $$;
 revoke all on function private.keep_location_revision_moving() from public, anon, authenticated, service_role;
 create trigger locations_updated_moving before update on public.cellar_locations
   for each row execute function private.keep_location_revision_moving();
+
+-- ---- 1b. A zone written directly moves its place's revision too ---------------------------------------------------
+-- A place's zones are part of the version a draft was made from, but they are rows of their own: a member may write
+-- them directly through the data API (0044 grants it), and that does not touch cellar_locations. Without this, such
+-- a change (a temperature, a split) would not move the revision, and a draft that never saw it would be saved over
+-- it. So every insert, update and delete of a zone touches its place's row (updated_at := updated_at; the triggers
+-- above then move it).
+-- LOCK ORDER (README rule 9: the place, then its zones). This runs AFTER the row's own lock trigger
+-- (zones_lock_location, 0044), which has already taken the place's row lock (FOR NO KEY UPDATE; a direct update or
+-- delete never waits for it, it is refused with zone_place_busy). Updating a row this transaction already holds that
+-- lock on is immediate, so nothing here ever waits for the place. Inside save_storage_layout the place is locked
+-- first, as always. When the place itself is being deleted (its zones go by cascade) there is no row left to touch.
+-- SECURITY DEFINER (a member may write zones but not updated_at); the household match keeps it to the zone's own place.
+create function private.touch_zone_location() returns trigger
+  language plpgsql security definer set search_path = '' as $$
+declare loc uuid; hh uuid;
+begin
+  if tg_op = 'DELETE' then loc := old.location_id; hh := old.household_id;
+  else loc := new.location_id; hh := new.household_id; end if;
+  update public.cellar_locations l set updated_at = l.updated_at where l.id = loc and l.household_id = hh;
+  return null;
+end $$;
+revoke all on function private.touch_zone_location() from public, anon, authenticated, service_role;
+create trigger zones_touch_location after insert or update or delete on public.cellar_location_zones
+  for each row execute function private.touch_zone_location();
 
 -- ---- 2. The save that compares, under the lock ---------------------------------------------------------------------
 -- The arguments and answers of save_storage_layout (0045), plus:

@@ -542,6 +542,16 @@ describe("saving a layout", () => {
     expect(writes).toEqual([]);
   });
 
+  it("the same instant written with another offset is the same revision: no false 409", async () => {
+    const { repo, writes } = fakeRepo([place({ revision: "2026-11-29T10:00:00.123456+00:00" })]);
+    await service(repo).saveLayout(
+      "p-1",
+      config("rack_classic"),
+      "2026-11-29T11:00:00.123456+01:00",
+    );
+    expect(writes).toHaveLength(1);
+  });
+
   it("the database's 'stale' (a save that landed after the app's own check) is the same 409", async () => {
     const p = place({ revision: "r1" });
     const { repo, writes } = fakeRepo([p], { outcome: "stale" });

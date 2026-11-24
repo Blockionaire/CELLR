@@ -13,6 +13,7 @@ import {
   isStorageTemplateId,
   layoutChangeProblem,
   readAppearance,
+  sameRevision,
   resolveStorage,
   structureCapacity,
   templateSavableWith,
@@ -438,40 +439,13 @@ export function strandedBy<T extends OccupiedSpot>(
 // ---- Revisions ----------------------------------------------------------------------------------------------------
 
 /**
- * Whether `candidate` is a later version of a place than `known`. Revisions are the place's updated_at as the server
- * sends it: when both read as times, later means later (an answer that left before a save and arrives after it is
- * OLDER, and must not undo what the save established). Anything else: different means newer, the cautious reading.
+ * Whether `candidate` is another version of the place than `known` (null: none known yet). EQUALITY ONLY, to the
+ * microsecond and whatever the offset (`sameRevision`): revisions are transaction start times, so "later" cannot be
+ * read from them (the writer that committed last can have the smaller one). Anything different is news: the screen
+ * takes it, or says the place changed, and a save is then checked by the database against the latest revision.
  */
 export function isNewerRevision(candidate: string, known: string | null): boolean {
-  if (known === null) return true;
-  if (candidate === known) return false;
-  const a = revisionMicros(candidate);
-  const b = revisionMicros(known);
-  return a !== null && b !== null ? a > b : true;
-}
-
-const REVISION_TIME =
-  /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.(\d{1,6}))?(Z|[+-]\d{2}(?::?\d{2})?)$/;
-
-/**
- * A revision as a count of MICROSECONDS since 1970, or null when it is not a time. The database keeps updated_at to the
- * microsecond and PostgREST writes all of it ("2026-11-29T10:00:00.123456+00:00"); a JavaScript Date keeps
- * milliseconds only, so two saves within one millisecond would read as the same time (and "later" as "not later").
- * The seconds are read by Date, the fraction digit by digit. Exported for its tests.
- */
-export function revisionMicros(revision: string): number | null {
-  const m = REVISION_TIME.exec(revision.trim());
-  if (!m) return null;
-  const [, day, time, fraction = "", zone] = m;
-  const offset =
-    zone === "Z"
-      ? "Z"
-      : zone!.length === 3
-        ? `${zone}:00`
-        : zone!.replace(/^([+-]\d{2})(\d{2})$/, "$1:$2");
-  const seconds = Date.parse(`${day}T${time}${offset}`);
-  if (!Number.isFinite(seconds)) return null;
-  return seconds * 1000 + Number(fraction.padEnd(6, "0"));
+  return known === null || !sameRevision(candidate, known);
 }
 
 /**

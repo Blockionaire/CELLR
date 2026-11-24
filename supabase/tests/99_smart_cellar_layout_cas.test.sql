@@ -190,6 +190,35 @@ begin
       where tgrelid = 'public.cellar_locations'::regclass and tgname like 'locations_updated%') = array['locations_updated', 'locations_updated_moving']);
 
   -- ================================================================================================
+  -- A zone written DIRECTLY (the data API grants it to members) moves the place's revision (E6)
+  -- ================================================================================================
+  perform test.as_user(1);
+  r := public.save_storage_layout(h1, cooler, 'fridge', 'cooler_dual', 'depth', 8::smallint, 5::smallint, one, null, zones2);
+  rev := (select updated_at from public.cellar_locations where id = cooler);
+  perform test.as_user(2);
+  update public.cellar_location_zones set target_temp_c = 9 where location_id = cooler and zone_index = 1;
+  perform test.rec('a member changes a zone''s temperature directly: the place''s revision moves',
+    (select updated_at from public.cellar_locations where id = cooler) > rev);
+  perform test.as_user(1);
+  r := public.save_storage_layout_v2(h1, cooler, 'fridge', 'cooler_dual', 'depth', 8::smallint, 5::smallint, one, null, zones2, rev);
+  perform test.rec('...so a draft made before it is stale, and the zone change is not overwritten', r = 'stale'
+    and test.val(format('select target_temp_c from public.cellar_location_zones where location_id = %L and zone_index = 1', cooler)) = '9.0');
+  rev := (select updated_at from public.cellar_locations where id = cooler);
+  delete from public.cellar_location_zones where location_id = cooler and zone_index = 2;
+  delete from public.cellar_location_zones where location_id = cooler;
+  perform test.rec('deleting zones directly moves it too', (select updated_at from public.cellar_locations where id = cooler) > rev);
+  rev := (select updated_at from public.cellar_locations where id = cooler);
+  insert into public.cellar_location_zones (location_id, household_id, zone_index, from_row, to_row, purpose)
+    values (cooler, h1, 1, 1, 8, 'storage');
+  perform test.rec('...and inserting one', (select updated_at from public.cellar_locations where id = cooler) > rev);
+  perform test.rec('a place with zones can still be deleted (its zones go by cascade, nothing left to touch)',
+    test.error_of(format('delete from public.cellar_locations where id = %L', cooler)) = ''
+    and test.count_of(format('select 1 from public.cellar_location_zones where location_id = %L', cooler)) = 0);
+  perform test.su();
+  perform test.rec('nobody but the database runs the zone trigger''s function',
+    not has_function_privilege('authenticated', 'private.touch_zone_location()', 'execute'));
+
+  -- ================================================================================================
   -- Who may call it, and how it runs
   -- ================================================================================================
   perform test.as_anon();

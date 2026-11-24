@@ -7,6 +7,8 @@ import {
   checkZones,
   defaultAppearance,
   templateSavable,
+  revisionMicros,
+  sameRevision,
   type SmartStorageUnitView,
 } from "@cellr/domain";
 import {
@@ -393,16 +395,17 @@ describe("a remembered draft", () => {
 });
 
 describe("revisions (review corrections)", () => {
-  it("a later time is newer; the same or an earlier one is not (an old answer never undoes a save)", async () => {
+  it("another revision is news, the same one is not (equality only: transaction times cannot be ordered)", async () => {
     const { isNewerRevision } = await import("./draft");
     const t1 = "2026-11-19T10:00:00.100000+00:00";
     const t2 = "2026-11-19T10:00:00.200000+00:00";
     expect(isNewerRevision(t2, t1)).toBe(true);
-    expect(isNewerRevision(t1, t2)).toBe(false);
+    // a SMALLER time is news too: its writer may have committed last
+    expect(isNewerRevision(t1, t2)).toBe(true);
     expect(isNewerRevision(t1, t1)).toBe(false);
     expect(isNewerRevision(t1, null)).toBe(true);
-    // not times: different is taken as newer (cautious)
     expect(isNewerRevision("r2", "r1")).toBe(true);
+    expect(isNewerRevision("r1", "r1")).toBe(false);
   });
 
   it("an answer after a save is the save's only when it shows what was saved", async () => {
@@ -421,19 +424,21 @@ describe("revisions (review corrections)", () => {
 });
 
 describe("revisions to the microsecond (sprint 8: the database compares them exactly)", () => {
-  it("two saves within one millisecond are still told apart, in the right order", async () => {
-    const { isNewerRevision, revisionMicros } = await import("./draft");
+  it("two saves within one millisecond are still told apart; one instant in two offsets is one revision", async () => {
+    const { isNewerRevision } = await import("./draft");
     const t1 = "2026-11-29T10:00:00.123456+00:00";
     const t2 = "2026-11-29T10:00:00.123457+00:00";
     // a JavaScript Date cannot see the difference: the bug this guards against
     expect(Date.parse(t1)).toBe(Date.parse(t2));
     expect(isNewerRevision(t2, t1)).toBe(true);
-    expect(isNewerRevision(t1, t2)).toBe(false);
+    expect(isNewerRevision(t1, t2)).toBe(true);
     expect(revisionMicros(t2)! - revisionMicros(t1)!).toBe(1);
+    // the same instant written with another session offset is NOT news
+    expect(isNewerRevision("2026-11-29T11:00:00.123456+01:00", t1)).toBe(false);
+    expect(sameRevision("2026-11-29 10:00:00.12345+00", "2026-11-29T10:00:00.123450Z")).toBe(true);
   });
 
   it("reads every form PostgREST and Postgres write: fewer digits, none, Z, +00, +0530, a space", async () => {
-    const { revisionMicros } = await import("./draft");
     const base = Date.parse("2026-11-29T10:00:00Z") * 1000;
     expect(revisionMicros("2026-11-29T10:00:00+00:00")).toBe(base);
     expect(revisionMicros("2026-11-29T10:00:00.5+00:00")).toBe(base + 500_000);

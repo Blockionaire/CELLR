@@ -6,6 +6,7 @@ import {
   SMART_CELLAR_API_VERSION,
   STORAGE_APPEARANCE_VERSION,
   STALE_LAYOUT_MESSAGE,
+  sameRevision,
   STORAGE_CATALOG_VERSION,
   STORAGE_TEMPLATES,
   indexMeaningOf,
@@ -489,7 +490,8 @@ export function createSmartCellarService({
       requireWrites();
       const { id: householdId } = await household();
       const current = await place(householdId, id);
-      if (expectedRevision && expectedRevision !== current.revision)
+      // the same instant written with another offset is the same revision (never a false 409)
+      if (expectedRevision && !sameRevision(expectedRevision, current.revision))
         throw new DomainError("CONFLICT", STALE_LAYOUT_MESSAGE);
       const template = STORAGE_TEMPLATES[config.structure.template];
       const problem = layoutChangeProblem(
