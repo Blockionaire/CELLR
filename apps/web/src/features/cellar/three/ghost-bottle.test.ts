@@ -58,3 +58,22 @@ describe("the existing view's placeholder bottle", () => {
     g.dispose();
   });
 });
+
+describe("one source for both views (sprint 10)", () => {
+  it("imports nothing of the new view, so the existing view's code stays free of it (README rule 17)", async () => {
+    const fs = await import("node:fs");
+    const src = fs.readFileSync(new URL("./ghost-bottle.ts", import.meta.url), "utf8");
+    const imports = [...src.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
+    expect(imports.sort()).toEqual(["./layout", "three"]);
+  });
+
+  it("is what the template renderer uses: the very same functions and numbers", async () => {
+    const own = await import("./ghost-bottle");
+    const theirs = await import("../storage3d/resources");
+    expect(theirs.buildGhostBottle).toBe(own.buildGhostBottle);
+    expect(theirs.buildGhostMaterial).toBe(own.buildGhostMaterial);
+    expect(theirs.ghostRadial).toBe(own.ghostRadial);
+    expect(theirs.GHOST_TONES).toBe(own.GHOST_TONES);
+    expect(theirs.GHOST_OPACITY).toBe(own.GHOST_OPACITY);
+  });
+});
