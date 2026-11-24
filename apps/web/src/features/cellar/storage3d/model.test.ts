@@ -17,6 +17,7 @@ import {
   MIN_AIM_PX,
   QUALITY,
   aimZoom,
+  sameSpot,
   START_AZIMUTH,
   buildModel,
   frameFor,
@@ -778,6 +779,24 @@ describe("the camera", () => {
     // and on the very point it looks at (a degenerate case), it is moved out towards the viewer
     expect(keepOutside(m.bounds, f.target, f.target, f.distance * 1.8, out)).toBe(true);
     expect(out[2]).toBeGreaterThan(m.bounds.max[2]);
+  });
+});
+
+describe("which spot is the chosen one (sprint 10 review)", () => {
+  it("compares the whole spot: two free indexes in one cell are two spots", () => {
+    // a double-depth rack: the cell 2:3 holds index 1 and index 2, both free
+    const m = modelOf("rack_double_depth", { rows: 3, cols: 4, cellCapacity: 2 });
+    const cell = m.resolved.layout.cells.find((c) => c.row === 2 && c.col === 3)!;
+    expect(cell.capacity).toBe(2);
+    const spots = [1, 2].map((index) => ({ row: 2, col: 3, index }));
+    const chosen = (active: { row: number; col: number; index?: number }) =>
+      spots.filter((s) => sameSpot(s, active)).map((s) => s.index);
+    expect(chosen({ row: 2, col: 3, index: 2 })).toEqual([2]);
+    expect(chosen({ row: 2, col: 3, index: 1 })).toEqual([1]);
+    // a spot without an index is index 1
+    expect(chosen({ row: 2, col: 3 })).toEqual([1]);
+    expect(chosen({ row: 2, col: 4, index: 1 })).toEqual([]);
+    expect(sameSpot(spots[0]!, null)).toBe(false);
   });
 });
 

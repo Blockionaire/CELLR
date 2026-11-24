@@ -337,6 +337,19 @@ export function keepOutside(
   return reach > length;
 }
 
+// ---- Spots ----------------------------------------------------------------------------------------------------------
+
+/**
+ * Whether two spots are the same one: row, column AND index (a missing index is index 1, as everywhere). A cell can
+ * hold several free indexes once depth is on; comparing row and column alone would mark all of them as chosen.
+ */
+export function sameSpot(
+  a: { row: number; col: number; index?: number | undefined },
+  b: { row: number; col: number; index?: number | undefined } | null | undefined,
+): boolean {
+  return !!b && a.row === b.row && a.col === b.col && (a.index ?? 1) === (b.index ?? 1);
+}
+
 // ---- Aiming with a finger (sprint 10) -------------------------------------------------------------------------------
 
 /**

@@ -13,6 +13,7 @@ import {
   START_ELEVATION,
   aimZoom,
   frameFor,
+  sameSpot,
   keepOutside,
   lowerQuality,
   placeBottles,
@@ -225,7 +226,7 @@ export default function TemplateScene({
           <SpotMarkers
             spots={spots}
             placed={placement.placed}
-            active={target ? { row: target.row, col: target.col } : null}
+            active={target}
             dragged={dragged}
             aim={aim}
             onSpot={onSpot}
@@ -661,6 +662,7 @@ function Bottles({
       {targetPose && (
         <mesh
           ref={targetRing}
+          name={TARGET_RING_NAME}
           // a wine-red core in a pale keyline: seen on dark wood and on white lacquer alike (sprint 10)
           geometry={kit.parts.targetRing}
           material={kit.parts.ringPaint}
@@ -671,6 +673,7 @@ function Bottles({
       {selected && (
         <mesh
           ref={marker}
+          name={MARKER_RING_NAME}
           // a gold core in a dark keyline: the chosen bottle, told from a target by light and dark, not by hue
           geometry={kit.parts.markerRing}
           material={kit.parts.ringPaint}
@@ -934,8 +937,11 @@ function SpotMarkers({
   spots: readonly SpotMarker[];
   /** The bottles in the place: targets a finger could land on as well, so they count as neighbours of a spot. */
   placed: readonly PlacedBottle[];
-  /** The spot that is chosen now (the sheet or the panel is about it), drawn as chosen. */
-  active: { row: number; col: number } | null;
+  /**
+   * The spot that is chosen now (the sheet or the panel is about it), drawn as chosen: the whole spot, index included
+   * (a cell with two free indexes has two placeholders, and only one of them is chosen).
+   */
+  active: { row: number; col: number; index?: number | undefined } | null;
   dragged: React.RefObject<boolean>;
   aim: React.RefObject<Aim | null>;
   onSpot: ((spot: FreeSpot) => void) | undefined;
@@ -944,38 +950,45 @@ function SpotMarkers({
   // what pressed the spot that is now tapped: a finger is not as sure as a mouse
   const pointer = useRef<string>("mouse");
   const ref = useRef<THREE.InstancedMesh>(null);
-  const [hovered, setHovered] = useState<number | null>(null);
+  // the placeholder under a mouse, for THIS list of spots only: a new list never inherits an old list's highlight
+  const [hover, setHover] = useState<{ spots: readonly SpotMarker[]; index: number } | null>(null);
+  const hovered = hover && hover.spots === spots ? hover.index : null;
+  const chosen = useMemo(() => spots.findIndex((m) => sameSpot(m.spot, active)), [spots, active]);
   const radial = ghostRadial(spots.length);
   const geometry = useMemo(() => buildGhostBottle(radial), [radial]);
+  // one material for as long as placeholders are shown: a new roundness (120 and 400 spots) is a new geometry only,
+  // so the shader program it was compiled into is kept
   const material = useMemo(() => buildGhostMaterial(), []);
-  useEffect(
-    () => () => {
-      geometry.dispose();
-      material.dispose();
-    },
-    [geometry, material],
-  );
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  useEffect(() => () => material.dispose(), [material]);
+  // every placeholder's pose and tone: when the spots or the chosen one change (not on a hover)
+  const painted = useRef<number | null>(null);
+  const hoveredNow = useRef<number | null>(hovered);
   useLayoutEffect(() => {
     const mesh = ref.current;
     if (!mesh) return;
     spots.forEach((m, i) => {
-      const chosen = active !== null && m.spot.row === active.row && m.spot.col === active.col;
-      poseMatrix(m.pose, matrix);
-      if (chosen) {
-        // larger about its own middle, not about the end it is modelled from
-        const [x, y, z] = m.pose.position;
-        matrix.premultiply(liftAbout.makeTranslation(-x, -y, -z));
-        matrix.premultiply(liftScale.makeScale(LIFT.x, LIFT.y, LIFT.z));
-        matrix.premultiply(liftAbout.makeTranslation(x, y, z));
-      }
+      ghostMatrix(m.pose, i === chosen, matrix);
       mesh.setMatrixAt(i, matrix);
-      mesh.setColorAt(i, chosen ? GHOST_CHOSEN : i === hovered ? GHOST_HOVER : GHOST_REST);
+      mesh.setColorAt(i, ghostTone(i, chosen, hoveredNow.current));
     });
+    painted.current = hoveredNow.current;
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
     invalidate();
-  }, [spots, active, hovered, invalidate]);
+  }, [spots, chosen, invalidate]);
+  // a hover changes the tone of two placeholders at most: only those are written
+  useLayoutEffect(() => {
+    hoveredNow.current = hovered;
+    const mesh = ref.current;
+    if (!mesh || painted.current === hovered) return;
+    for (const i of [painted.current, hovered])
+      if (i !== null && i < spots.length) mesh.setColorAt(i, ghostTone(i, chosen, hovered));
+    painted.current = hovered;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    invalidate();
+  }, [hovered, spots, chosen, invalidate]);
   return (
     <instancedMesh
       // a new number of spots is a new mesh (an instanced mesh's count is fixed when it is made)
@@ -1008,17 +1021,35 @@ function SpotMarkers({
         // a finger has no hover: only a mouse or a pen warms a placeholder before it is chosen
         if (!onSpot || e.pointerType === "touch") return;
         (e.nativeEvent.target as HTMLElement).style.cursor = "pointer";
-        setHovered(e.instanceId ?? null);
+        if (e.instanceId !== undefined) setHover({ spots, index: e.instanceId });
       }}
       onPointerOut={(e: ThreeEvent<PointerEvent>) => {
+        // a finger never set a hover or a cursor, so it has none to take back
+        if (e.pointerType === "touch") return;
         (e.nativeEvent.target as HTMLElement).style.cursor = "grab";
-        setHovered((h) => (h === e.instanceId ? null : h));
+        setHover((h) => (h && h.index === e.instanceId ? null : h));
       }}
     />
   );
 }
 /** The placeholders' mesh, by name: for the debug readout and its tests. */
 const GHOSTS_NAME = "quick-add-ghosts";
+/** The two rings, by name: for the debug readout and its tests. */
+const TARGET_RING_NAME = "storage3d-target-ring";
+const MARKER_RING_NAME = "storage3d-marker-ring";
+
+/** A placeholder's pose: a bottle's, and the chosen one a little larger about its own middle. */
+function ghostMatrix(pose: Pose, chosen: boolean, out: THREE.Matrix4): THREE.Matrix4 {
+  poseMatrix(pose, out);
+  if (!chosen) return out;
+  const [x, y, z] = pose.position;
+  out.premultiply(liftAbout.makeTranslation(-x, -y, -z));
+  out.premultiply(liftScale.makeScale(LIFT.x, LIFT.y, LIFT.z));
+  return out.premultiply(liftAbout.makeTranslation(x, y, z));
+}
+/** A placeholder's tone: chosen (gold), under a mouse (warmer), or resting (pale). */
+const ghostTone = (i: number, chosen: number, hovered: number | null) =>
+  i === chosen ? GHOST_CHOSEN : i === hovered ? GHOST_HOVER : GHOST_REST;
 
 // ---- Keeping pace ---------------------------------------------------------------------------------------------------
 
@@ -1166,14 +1197,46 @@ function Readout({
         const size = g.boundingBox!.getSize(new THREE.Vector3());
         const objects: string[] = [];
         mesh.traverse((o) => objects.push(o.type));
+        // per placeholder, as drawn: its tone (chosen, under a mouse, resting) and whether it is lifted (sprint 10)
+        const tone = new THREE.Color();
+        const m4 = new THREE.Matrix4();
+        const scale = new THREE.Vector3();
+        const keys = (spots ?? []).map((x) => `${x.spot.row}:${x.spot.col}:${x.spot.index}`);
+        const chosen: string[] = [];
+        const hovered: string[] = [];
+        const lifted: string[] = [];
+        for (let i = 0; i < mesh.count; i++) {
+          if (mesh.instanceColor) {
+            mesh.getColorAt(i, tone);
+            // (held as 32-bit floats: compared with a little room)
+            const near = (c: THREE.Color) =>
+              Math.abs(c.r - tone.r) + Math.abs(c.g - tone.g) + Math.abs(c.b - tone.b) < 1e-3;
+            if (near(GHOST_CHOSEN)) chosen.push(keys[i] ?? String(i));
+            else if (near(GHOST_HOVER)) hovered.push(keys[i] ?? String(i));
+          }
+          mesh.getMatrixAt(i, m4);
+          scale.setFromMatrixScale(m4);
+          if (scale.x > 1.001) lifted.push(keys[i] ?? String(i));
+        }
         return {
           count: mesh.count,
+          chosen,
+          hovered,
+          lifted,
           triangles: (g.index ? g.index.count : g.getAttribute("position").count) / 3,
           attributes: Object.keys(g.attributes).sort(),
           materials: Array.isArray(mesh.material) ? mesh.material.length : 1,
           objects: objects.length,
           length: +size.y.toFixed(3),
           width: +Math.max(size.x, size.z).toFixed(3),
+        };
+      },
+      /** Which of the two rings is drawn now: where a bottle is about to go, and round the chosen bottle. */
+      rings() {
+        const { scene } = store.getState();
+        return {
+          target: !!scene.getObjectByName(TARGET_RING_NAME),
+          marker: !!scene.getObjectByName(MARKER_RING_NAME),
         };
       },
       /** The shader programs that exist, by name and by what they were compiled for (for the prewarm tests). */
