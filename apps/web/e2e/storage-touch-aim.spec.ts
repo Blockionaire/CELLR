@@ -20,7 +20,17 @@ const sheet = (page: Page) => page.getByTestId("quick-sheet");
 type Readout = {
   locateSpot: (r: number, c: number) => { x: number; y: number } | null;
   camera: () => { position: number[]; inside: boolean };
+  ghosts: () => { count: number; chosen: string[]; hovered: string[]; lifted: string[] } | null;
+  rings: () => { target: boolean; marker: boolean };
 };
+const ghostsOf = (page: Page) =>
+  page.evaluate(() =>
+    (window as unknown as { __cellrStorage3d: Readout }).__cellrStorage3d.ghosts(),
+  );
+const ringsOf = (page: Page) =>
+  page.evaluate(() =>
+    (window as unknown as { __cellrStorage3d: Readout }).__cellrStorage3d.rings(),
+  );
 async function spotOnPage(page: Page, row: number, col: number) {
   await canvas(page).scrollIntoViewIfNeeded();
   const at = await page.evaluate(
@@ -107,4 +117,101 @@ test("a finger on a spot too small to be sure of brings the view closer, and the
   await expect(page.getByRole("dialog", { name: "Add a bottle here" })).toContainText(
     "Big rack · shelf 15 · spot 15",
   );
+  // the chosen placeholder is drawn as chosen (gold, lifted), it alone, and ringed (sprint 10 review)
+  await expect.poll(() => ghostsOf(page).then((g) => g?.chosen ?? [])).toEqual(["15:15:1"]);
+  expect((await ghostsOf(page))!.lifted).toEqual(["15:15:1"]);
+  expect((await ringsOf(page)).target).toBe(true);
+});
+
+// Sprint 10 review: a very large rack, loaded and used in the ordinary suite (the benches are opt-in). 30 x 15 = 450
+// spots, half of them taken; budgets are for software rendering on a busy CI runner and say nothing about a phone.
+test("a 450-spot rack half full loads, draws every bottle and placeholder, rests, and a tap chooses the right spot", async ({
+  page,
+  request,
+  hasTouch,
+}) => {
+  test.setTimeout(150_000);
+  const errors: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "error") errors.push(m.text());
+  });
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.addInitScript(() => window.sessionStorage.setItem("cellr:3d-debug", "1"));
+  const { email } = await arrive(page, "big450");
+  const { call } = await apiClient(request, email);
+  const rack = (
+    (await call("post", "/storage", { label: "Long rack", kind: "rack", rows: 30, cols: 15 }, 201))
+      .body as { id: string }
+  ).id;
+  await call(
+    "put",
+    `/smart-cellar/storage/${rack}/layout`,
+    {
+      structure: { template: "rack_classic", rows: 30, cols: 15, cellCapacity: 1, zones: [] },
+      appearance: OAK,
+    },
+    200,
+  );
+  const wine = (
+    (await call("post", "/wines", { producer: "Big", name: "Rouge", type: "red" }, 201)).body as {
+      id: string;
+    }
+  ).id;
+  // 225 bottles, 36 at a time (the most one add takes): the first 225 spots, the rest free
+  for (let left = 225; left > 0; left -= 36)
+    await call(
+      "post",
+      "/bottles",
+      { wineId: wine, year: 2019, quantity: Math.min(36, left), locationId: rack },
+      201,
+    );
+
+  const started = Date.now();
+  await page.goto("/cellar");
+  await page.getByRole("radio", { name: "3D" }).click();
+  await expect(view(page)).toHaveAttribute("data-mode", "ready");
+  await expect(canvas(page)).toHaveAttribute("data-frames", /^[1-9]/, { timeout: 60_000 });
+  const loaded = Date.now() - started;
+  expect(loaded, "from the cellar page to the first picture").toBeLessThan(45_000);
+  await expect(canvas(page)).toHaveAttribute("data-bottles", "225");
+  // nothing is drawn while nothing moves
+  const frames = Number(await canvas(page).getAttribute("data-frames"));
+  await page.waitForTimeout(2_000);
+  expect(Number(await canvas(page).getAttribute("data-frames"))).toBe(frames);
+
+  // the placeholders: one per free spot, none chosen yet; Add compiles no new shader (prewarmed)
+  await expect(canvas(page)).toHaveAttribute("data-prewarmed", /^\d+$/, { timeout: 60_000 });
+  const programs = Number(await canvas(page).getAttribute("data-programs"));
+  await page.getByTestId("quick-add-start").click();
+  await expect(view(page)).toHaveAttribute("data-quick", "placing");
+  await expect(canvas(page)).toHaveAttribute("data-spots", "225");
+  await expect.poll(() => ghostsOf(page).then((g) => g?.count ?? 0)).toBe(225);
+  expect((await ghostsOf(page))!.chosen).toEqual([]);
+  expect(Number(await canvas(page).getAttribute("data-programs"))).toBeLessThanOrEqual(programs);
+
+  // a free spot from the middle of those on offer: a tap there chooses exactly it. A finger on spots this close first
+  // brings the view closer (the aim help above); then the tap is clear.
+  const offered = await page.evaluate(() =>
+    (window as unknown as { __cellrStorage3d: { spots: () => string[] } }).__cellrStorage3d.spots(),
+  );
+  const [row, col] = offered[Math.floor(offered.length / 2)]!.split(":").map(Number) as [
+    number,
+    number,
+  ];
+  let at = await spotOnPage(page, row, col);
+  if (hasTouch) {
+    await page.touchscreen.tap(at.x, at.y);
+    await page.waitForTimeout(600);
+    if (!(await sheet(page).isVisible())) {
+      at = await spotOnPage(page, row, col);
+      await page.touchscreen.tap(at.x, at.y);
+    }
+  } else await page.mouse.click(at.x, at.y);
+  await expect(sheet(page)).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Add a bottle here" })).toContainText(
+    `Long rack · shelf ${row} · spot ${col}`,
+  );
+  await expect.poll(() => ghostsOf(page).then((g) => g?.chosen ?? [])).toEqual([`${row}:${col}:1`]);
+  expect(errors).toEqual([]);
+  test.info().annotations.push({ type: "loaded-ms", description: String(loaded) });
 });
