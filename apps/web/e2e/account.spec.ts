@@ -61,7 +61,8 @@ test.describe("household settings", () => {
     // An empty name is explained, not saved.
     await section.getByLabel("Household name").fill("  ");
     await section.getByRole("button", { name: "Save household" }).click();
-    await expect(page.getByRole("alert").filter({ hasText: /.+/ }).first()).toBeVisible();
+    // scoped to the section: Next.js's route announcer is also role="alert" and gets text after a navigation
+    await expect(section.getByRole("alert").filter({ hasText: /.+/ })).toBeVisible();
     const [again] = await sql<{ name: string }>(
       "select name from public.households where id = $1",
       [householdId],
