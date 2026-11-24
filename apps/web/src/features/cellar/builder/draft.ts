@@ -13,6 +13,7 @@ import {
   isStorageTemplateId,
   layoutChangeProblem,
   readAppearance,
+  sameRevision,
   resolveStorage,
   structureCapacity,
   templateSavable,
@@ -429,16 +430,13 @@ export function strandedBy<T extends OccupiedSpot>(
 // ---- Revisions ----------------------------------------------------------------------------------------------------
 
 /**
- * Whether `candidate` is a later version of a place than `known`. Revisions are the place's updated_at as the server
- * sends it: when both read as times, later means later (an answer that left before a save and arrives after it is
- * OLDER, and must not undo what the save established). Anything else: different means newer, the cautious reading.
+ * Whether `candidate` is another version of the place than `known` (null: none known yet). EQUALITY ONLY, to the
+ * microsecond and whatever the offset (`sameRevision`): revisions are transaction start times, so "later" cannot be
+ * read from them (the writer that committed last can have the smaller one). Anything different is news: the screen
+ * takes it, or says the place changed, and a save is then checked by the database against the latest revision.
  */
 export function isNewerRevision(candidate: string, known: string | null): boolean {
-  if (known === null) return true;
-  if (candidate === known) return false;
-  const a = Date.parse(candidate);
-  const b = Date.parse(known);
-  return Number.isFinite(a) && Number.isFinite(b) ? a > b : true;
+  return known === null || !sameRevision(candidate, known);
 }
 
 /**
@@ -508,6 +506,43 @@ export function changesBetween(before: BuilderDraft, after: BuilderDraft): Chang
     out.push("look");
   if (JSON.stringify(before.zones) !== JSON.stringify(after.zones)) out.push("zones");
   return out;
+}
+
+/**
+ * A draft carried over onto a newer version of its place (the person chose "keep my changes" after someone else saved
+ * it): every part the person changed is theirs, every other part is the latest version's. Nothing is guessed beyond
+ * that, and nothing is saved by this: the result is a draft, checked by assess() against the place's bottles as they
+ * are now, and saved (or not) by the person, against the latest revision.
+ *   - a new template is a new structure: its size, bottles per spot and zones come with it (they belong together);
+ *   - otherwise size, bottles per spot and zones each follow whoever changed them; the look and the name likewise.
+ * `theirs` and `mine` say what each side changed; `both` the parts both changed, where the person's version is kept.
+ */
+export function rebaseDraft(
+  mine: BuilderDraft,
+  base: BuilderDraft,
+  latest: BuilderDraft,
+): { draft: BuilderDraft; mine: ChangeKind[]; theirs: ChangeKind[]; both: ChangeKind[] } {
+  const mineChanged = changesBetween(base, mine);
+  const theirs = changesBetween(base, latest);
+  const has = (k: ChangeKind) => mineChanged.includes(k);
+  const draft: BuilderDraft = { ...latest, zones: latest.zones.map((z) => ({ ...z })) };
+  if (has("name")) draft.name = mine.name;
+  if (has("look")) draft.appearance = mine.appearance;
+  if (has("template")) {
+    Object.assign(draft, {
+      template: mine.template,
+      templateChosen: mine.templateChosen,
+      rows: mine.rows,
+      cols: mine.cols,
+      cellCapacity: mine.cellCapacity,
+      zones: mine.zones.map((z) => ({ ...z })),
+    });
+  } else {
+    if (has("size")) Object.assign(draft, { rows: mine.rows, cols: mine.cols });
+    if (has("cellCapacity")) draft.cellCapacity = mine.cellCapacity;
+    if (has("zones")) draft.zones = mine.zones.map((z) => ({ ...z }));
+  }
+  return { draft, mine: mineChanged, theirs, both: mineChanged.filter((k) => theirs.includes(k)) };
 }
 
 /** Changes that deserve a confirmation before they are saved over an existing place. */

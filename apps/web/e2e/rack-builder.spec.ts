@@ -7,6 +7,7 @@ import {
   arrive,
   audit,
   bearer,
+  signIn,
   sql,
 } from "./helpers";
 
@@ -724,6 +725,110 @@ test.describe("gate open (an internal preview on a test database)", () => {
     });
     expect(foreign.status()).toBe(404);
     expect((await placeRow(rack)).label).toBe("Rack B");
+  });
+
+  test("two sessions save one place: the second is told, sees the first's layout, keeps its own change on top, and saves (sprint 8)", async ({
+    page,
+    request,
+    browser,
+  }) => {
+    await debugOn(page);
+    const { email } = await arrive(page, "bcas");
+    const { call } = await apiClient(request, email);
+    const rack = await addPlace(call, "Shared rack", "rack", 4, 6);
+    await addBottles(call, 3, rack);
+    const bottlesBefore = await bottleRows(rack);
+    await call(
+      "put",
+      `/smart-cellar/storage/${rack}/layout`,
+      {
+        structure: { template: "rack_classic", rows: 4, cols: 6, cellCapacity: 1, zones: [] },
+        appearance: { v: 1, material: "wood", color: "walnut", lighting: "none", door: "none" },
+      },
+      200,
+    );
+    // the same person on a second device: a session of its own
+    const other = await browser.newContext({
+      baseURL: PREVIEW_URL,
+      viewport: { width: 1280, height: 800 },
+    });
+    const second = await other.newPage();
+    try {
+      await debugOn(second);
+      await signIn(second, email);
+      await page.goto(`/cellar/builder/${rack}`);
+      await second.goto(`/cellar/builder/${rack}`);
+      await drawn(page);
+      await drawn(second);
+
+      // the first session changes the colour and saves
+      await page
+        .getByRole("radiogroup", { name: "Colour" })
+        .getByRole("radio", { name: "Ebony" })
+        .click();
+      await saveButton(page).click();
+      await expect(page.getByTestId("builder-saved")).toBeVisible({ timeout: 30_000 });
+      // ...and saves again straight on, from the revision its own save answered with: never "stale" (a revision that
+      // lost its microseconds anywhere between the database, PostgREST, the app and If-Match would be)
+      await page
+        .getByRole("radiogroup", { name: "Colour" })
+        .getByRole("radio", { name: "Oak" })
+        .click();
+      await saveButton(page).click();
+      await expect(page.getByTestId("builder-saved")).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId("builder-save-failed")).toHaveCount(0);
+      expect((await placeRow(rack)).appearance).toMatchObject({ color: "oak" });
+
+      // the second session, opened before those saves, adds a shelf and saves: refused, and said
+      await step(second, "rows", "up", 1);
+      await saveButton(second).click();
+      await second.getByTestId("builder-confirm-save").click();
+      const failed = second.getByTestId("builder-save-failed");
+      await expect(failed).toHaveAttribute("data-stale", "true");
+      await expect(failed).toContainText("Someone changed this place");
+      // the newer save is what is stored, untouched; no bottle moved
+      expect(await placeRow(rack)).toMatchObject({ grid_rows: 4, template: "rack_classic" });
+      expect((await placeRow(rack)).appearance).toMatchObject({ color: "oak" });
+      expect(await bottleRows(rack)).toEqual(bottlesBefore);
+      // its own change is still there while it decides
+      expect(await value(second, "rows")).toBe(5);
+
+      // keep my change on the latest version: the first session's colour, the second's shelf, nothing saved yet
+      await failed.getByTestId("builder-keep-mine").click();
+      const rebased = second.getByTestId("builder-rebased");
+      await expect(rebased).toBeVisible();
+      await expect(rebased).toHaveAttribute("data-theirs", "look");
+      await expect(rebased).toHaveAttribute("data-mine", "size");
+      await expect(rebased).toContainText("Changed by someone else: look.");
+      await expect(second.getByTestId("builder-color")).toHaveAttribute("data-value", "oak");
+      expect(await value(second, "rows")).toBe(5);
+      await expect(builder(second)).toHaveAttribute("data-dirty", "true");
+      expect((await placeRow(rack)).grid_rows).toBe(4);
+      // undo goes back to the draft as it was before (and redo is simply choosing again)
+      await expect(second.getByTestId("builder-undo")).toBeEnabled();
+
+      // and now it saves, on the latest revision
+      await saveButton(second).click();
+      await second.getByTestId("builder-confirm-save").click();
+      await expect(second.getByTestId("builder-saved")).toBeVisible({ timeout: 30_000 });
+      const after = await placeRow(rack);
+      expect(after).toMatchObject({ grid_rows: 5, grid_cols: 6, template: "rack_classic" });
+      expect(after.appearance).toMatchObject({ color: "oak" });
+      expect(await bottleRows(rack)).toEqual(bottlesBefore);
+
+      // the first session, now behind in turn, is told the same way when it saves
+      await page
+        .getByRole("radiogroup", { name: "Colour" })
+        .getByRole("radio", { name: "Pine" })
+        .click();
+      await saveButton(page).click();
+      const firstStale = page.getByTestId("builder-save-failed");
+      const elsewhere = page.getByTestId("builder-changed-elsewhere");
+      await expect(firstStale.or(elsewhere).first()).toBeVisible();
+      expect((await placeRow(rack)).appearance).toMatchObject({ color: "oak" });
+    } finally {
+      await other.close();
+    }
   });
 
   test("the API refuses a stale revision, and takes the current one (If-Match)", async ({

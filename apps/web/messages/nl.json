@@ -2472,6 +2472,21 @@
     "partialName": "Het ontwerp is opgeslagen, maar de nieuwe naam niet: {reason}",
     "retryName": "Probeer de naam opnieuw",
     "stale": "Iemand heeft deze plek gewijzigd sinds je hem opende. Er is niets opgeslagen.",
+    "conflict": {
+      "keepMine": "Behoud mijn wijzigingen op de nieuwste versie",
+      "rebased": "Je wijzigingen staan nu op de nieuwste versie. Er is nog niets opgeslagen: controleer ze en sla dan op.",
+      "theirs": "Gewijzigd door iemand anders: {list}.",
+      "mine": "Jouw wijzigingen: {list}.",
+      "both": "Door jullie allebei gewijzigd, de jouwe behouden: {list}.",
+      "kinds": {
+        "name": "naam",
+        "template": "soort",
+        "size": "afmetingen",
+        "cellCapacity": "flessen per plek",
+        "look": "uitstraling",
+        "zones": "temperatuurzones"
+      }
+    },
     "loadLatest": "Laad de nieuwste versie",
     "reloadFailed": "De nieuwste versie kon niet worden geladen: {reason} Je wijzigingen staan er nog.",
     "saveFailed": "Er is niets opgeslagen: {reason}",
@@ -2743,7 +2758,7 @@
     "add": "Fles toevoegen",
     "placingTitle": "Tik op een lege plek om een fles toe te voegen.",
     "placingShort": "Tik op een lege plek",
-    "placingBody": "{count, plural, =0 {Er is geen lege plek in {unit}.} one {# lege plek in {unit}} other {# lege plekken in {unit}}}",
+    "placingBody": "{count, plural, =0 {Er is geen lege plek in {unit}} one {# lege plek in {unit}} other {# lege plekken in {unit}}}",
     "showList": "Kies uit een lijst",
     "hideList": "Lijst verbergen",
     "listOnly": "Deze plek kan niet in 3D worden aangewezen. Kies een lege plek uit de lijst.",
