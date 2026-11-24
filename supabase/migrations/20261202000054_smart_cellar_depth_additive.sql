@@ -4,13 +4,15 @@
 -- docs/sprints/smart-cellar-3d/ADR-011-depth-placement-rollout.md is the audit and the rollout this belongs to
 -- (phase A); SPRINT-9-DEPTH-REPORT.md says what was tested.
 --
--- ADDITIVE ONLY. Three new functions; nothing is dropped, replaced, or written:
+-- ADDITIVE ONLY. Three new functions and one new trigger; nothing is dropped, replaced, or written:
 --   1. public.move_bottle_v2           one bottle between whole spots, depth included (promoted, SQL unchanged,
 --                                      from supabase/gated-migrations/smart_cellar_move_bottle_v2.sql, sprint 4)
 --   2. public.smart_cellar_depth_status()   what the database says about depth, for the app's capability check:
 --                                      the switch, and which unique indexes are in force. Read-only, no rows.
 --   3. private.depth_occupancy_report()     for the owner only: every cell that holds more than one bottle and
 --                                      every bottle behind another, the way back of ADR-011 §6 starts here.
+--   4. trigger bottles_depth_switch          with the switch OFF, no bottle is newly put on an index above 1, in any
+--                                      place: the switch is a real kill switch, not only "no new deep places".
 -- The switch (private.cellar_settings.depth_placement) stays as it is (false in production), and so does the old
 -- one-bottle-per-cell index (bottles_slot_unique). With both, no observable behaviour changes: move_bottle_v2 is called
 -- by the app only where depth is open (never in production), and the other two only read.
@@ -131,3 +133,28 @@ returns table (household_id uuid, location_id uuid, loc_row smallint, loc_col sm
    order by b.household_id, b.location_id, b.loc_row, b.loc_col
 $$;
 revoke all on function private.depth_occupancy_report() from public, anon, authenticated, service_role;
+
+-- ---- 4. The switch is a kill switch for bottles too ------------------------------------------------------------------
+-- 0043's switch stops places from being made deeper; it does not stop a place that IS deep (after depth was on once)
+-- from taking new bottles at the back. So turning depth off would not stop depth. From here: while the switch is
+-- off, a write that puts a bottle on an index above 1 (a new bottle, or one moved to another spot) is refused,
+-- 'depth_not_enabled'. A bottle that is already at the back may stay there, be opened, taken off its place, or
+-- moved to an index 1 (the way back of ADR-011 §6 works with the switch off). Unchanged spots are not checked.
+-- Fires after bottles_location (0004/0043: names in order), so it sees the spot as that trigger left it.
+-- With every place one deep (production) an index above 1 is already out of bounds: nothing observable changes.
+create function private.check_bottle_depth_switch() returns trigger
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if new.status = 'in_cellar' and new.location_id is not null and new.loc_index > 1
+     and (tg_op = 'INSERT'
+          or (new.location_id, new.loc_row, new.loc_col, new.loc_index)
+               is distinct from (old.location_id, old.loc_row, old.loc_col, old.loc_index)
+          or old.status <> 'in_cellar')
+     and not private.depth_placement_enabled() then
+    raise exception 'depth_not_enabled' using errcode = '23514';
+  end if;
+  return new;
+end $$;
+revoke all on function private.check_bottle_depth_switch() from public, anon, authenticated, service_role;
+create trigger bottles_location_depth before insert or update on public.bottles
+  for each row execute function private.check_bottle_depth_switch();

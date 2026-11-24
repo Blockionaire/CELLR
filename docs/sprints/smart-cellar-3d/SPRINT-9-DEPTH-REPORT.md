@@ -34,8 +34,13 @@ behaviour byte for byte; the new gate `CELLR_SMART_CELLAR_DEPTH` cannot open on 
 - **Reachability is a server rule, not a constraint.** "Behind a taken front" is a valid end state; the order of
   physical operations cannot be a row constraint. Enforced on targets (existing `behind_taken`) and now on sources
   (`frontInTheWay`) where depth is open.
-- **Old paths refuse or use the front, never a guessed index** (README rule 7). Restore (Undo) of a back bottle comes
-  back at the front when free, else without a place — the old writer never named an index.
+- **Old paths refuse or use the front, never a guessed index** (README rule 7). Undo (restore) into a place more
+  than one deep restores the bottle WITHOUT a place (opening reset its index; the old depth cannot be known), one-deep
+  places as before (review finding L2).
+- **Switching off is a kill switch** (review finding L5): 0054's `bottles_location_depth` refuses any new bottle on an
+  index above 1 while the switch is off, also in places that are already deep; back bottles may stay, be opened or
+  come forward. Mapped to the existing "isn't switched on" refusal on the new move path only (the old mapping of
+  `depth_not_enabled` stays VALIDATION, as pinned).
 - **Rejected:** a DB trigger making legacy writes refuse whenever depth is on (it would break every old client of
   one-deep places, which are all places); a second `swap_bottles_v3` with the front rule in SQL (the end state is
   valid; the rule is about order, and `swap_bottles_v2` stays the one swap).
@@ -44,13 +49,13 @@ behaviour byte for byte; the new gate `CELLR_SMART_CELLAR_DEPTH` cannot open on 
 
 | Command                                     | Result                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bash scripts/db-test.sh`                   | 1,754 passed, 0 failed, 0 errors. With 0054 present and before the new file: 1,717 (= sprint 8): the existing suites unchanged. New `99_smart_cellar_depth.test.sql`: 37 checks (status as deployed / after drop / after switch; three bottles in one cell; moves and swaps across depths; every OLD writer against depth storage; the report; switch off moves nothing).                                   |
+| `bash scripts/db-test.sh`                   | final: 1,765 passed, 0 failed, 0 errors (sprint 8 tip: 1,723; the existing suites unchanged with 0054 present). New `99_smart_cellar_depth.test.sql`: 42 checks, incl. the kill switch (status as deployed / after drop / after switch; three bottles in one cell; moves and swaps across depths; every OLD writer against depth storage; the report; switch off moves nothing).                            |
 | `bash scripts/db-placement-concurrency.sh`  | green, new step 13: 18 concurrent `move_bottle_v2` into the 3 indexes of one cell → 3 moved (one per index), 15 taken; 10 concurrent moves of one back bottle → 1 moved, 9 stale; front-vs-back of one cell × 30 → front + back every round; old index-less move vs `move_bottle_v2` of the same back bottle × 20 → the old one refused as ambiguous every round. 59 s.                                     |
 | `bash scripts/db-smart-cellar-upgrade.sh`   | green: all later migrations (0051, 0054) on a filled database leave every row identical (ctid, xmin); status says off/old index; new step 7 (throwaway only): switch refuses with the old index, switches on without it; switch off moves nothing; collapse refuses with a crowded cell (nothing changed), works after the household moved one; one deep again; old index recreated; cellar rows identical. |
 | `bash scripts/db-layout-cas-concurrency.sh` | green (sprint 8 numbers, unchanged).                                                                                                                                                                                                                                                                                                                                                                        |
 | domain `storage-depth.test.ts`              | 42 tests: every template with `cellCapacity.max > 1` (the 12 deep-capable ones), depth off and on; status parsing.                                                                                                                                                                                                                                                                                          |
 | web unit                                    | service depth: 10 tests (gate closed: database never asked and capabilities have exactly the old keys; every block reason; all open; v2 moves; reachability); gate: 3; old-swap `behind`: 2; builder: 2.                                                                                                                                                                                                    |
-| e2e                                         | RESULTS_E2E                                                                                                                                                                                                                                                                                                                                                                                                 |
+| e2e                                         | desktop, local stack, after `pnpm build`: `playwright test rack-builder smart-cellar-api -g "…sprint 8 tests…                                                                                                                                                                                                                                                                                               | depth | the switch | writing a layout | reading"`: 23 passed, 2 skipped (the opt-in depth tests); after the L1 fix: `-g "old API | depth fixture | the switch | refused, and nothing changed | If-Match | two sessions"`13 passed. **Opt-in**`STACK_DEPTH=1 … smart-cellar-api -g "depth on"`: first run 1 passed, 1 FAILED — it found that the old move turned `slot_index_ambiguous`into "That spot was just taken" (fixed in`382daba`); re-run **2 passed**. The kill switch and the Undo change came after these runs and are covered by the SQL suite and unit tests, not re-run in e2e. |
 
 ## 4. Production activation sequence (each step its own owner approval)
 
@@ -66,6 +71,9 @@ behaviour byte for byte; the new gate `CELLR_SMART_CELLAR_DEPTH` cannot open on 
 6. Device checks of depth placement and of the three deep templates.
 
 ## 5. Rollback limits
+
+- **Point of no return: the first cell holding two bottles**, not the index drop (with the switch off the drop can be
+  undone). Check: `select count(*) from private.depth_occupancy_report() where bottles > 1` = 0.
 
 - A: drop the functions in a new migration (nothing calls them on production). B: app rollback.
 - C: re-create the old index (cannot fail while the switch is off: every place is one deep).
@@ -126,6 +134,14 @@ the old `POST /bottles` slot stays index 1 (and refuses a cell that holds any bo
 (`cellCapacitySavableWith`); the three deep templates then lose "Preview only". Never let a save make a place shallower
 than a back bottle (the domain already refuses: `in_use`), never change semantics under bottles
 (`semantics_change`).
+
+**Blocking preconditions of the switch (phase D)**, every one listed with its file in ADR-011 §3: `rack-grid.tsx:96`
+and `racks-view.tsx:72` (Map keyed row:col, last wins), `use-rack-drag.ts` (drags the wrong bottle), `where-sheet.tsx:13`
+and `friend-screen.tsx:492` (duplicate keys), `three/scene.tsx:998` (two bottles at one transform),
+`storage3d/template-scene.tsx` `SpotMarkers` (`active` compares row and col only: every free index of a cell drawn as
+chosen — Agent D), legacy capacity `rows × cols` (`server/cellar/service.ts:75`, stats, sommelier `cellar-facts`),
+`occupiedSlots`/`updateBottle` (`server/cellar/repository.ts`), export v1 (no index), `friend_racks` (0015), and the
+shared-rack functions (B, 0052), which must take the same front/back rule inside their transaction.
 
 **Legacy readers** (phase B blockers, unowned): racks grid and legacy 3D view must show "+n behind" per cell or route
 deep places to the new view; sommelier/tonight copy should say "behind" for index > 1; export v1 should either refuse

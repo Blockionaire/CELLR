@@ -947,7 +947,13 @@ export function createCellarService(
               { status: "in_cellar", ...to, openedAt: null },
               ["opened", "removed", "gifted"],
             );
-          const wanted = action.to;
+          // A bottle that stood in a place more than one deep may have stood behind another: opening it reset its
+          // index to 1, and this request names none. Never guess (README rule 7): it comes back without a place,
+          // and the person puts it where it belongs. (Only possible once depth is on, ADR-011 §2.)
+          const wanted =
+            action.to.locationId && (await repo.placeIsDeep?.(householdId, action.to.locationId))
+              ? { locationId: null, row: null, col: null }
+              : action.to;
           let restored;
           try {
             restored = await attempt(wanted);

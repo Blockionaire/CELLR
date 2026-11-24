@@ -159,7 +159,19 @@ begin
     and exists (select 1 from public.bottles where id = k and loc_row = 3 and loc_col = 3 and loc_index = 2));
   r := public.save_storage_layout(h1, deep, 'rack', 'rack_double_depth', 'depth', three, 4::smallint, three, null, null);
   perform test.rec('...and a deep place can still be saved at the depth it has', r = 'saved');
-  r := public.move_bottle_v2(h1, k, deep, three, three, two, deep, three, 2::smallint, two);
-  perform test.rec('...the database itself still lets a bottle move to another back spot (it is the app that stops offering depth)', r = 'moved');
+  perform test.rec('...and NO new bottle at the back, also in a place that is already deep: a new one is refused',
+    test.error_of(format('insert into public.bottles (household_id, vintage_id, location_id, loc_row, loc_col, loc_index) values (%L, %L, %L, 3, 1, 2)', h1, v, deep)) like '23514:depth_not_enabled');
+  perform test.rec('...a back bottle moved to another back spot is refused, and stays where it was',
+    test.error_of(format('select public.move_bottle_v2(%L, %L, %L, 3::smallint, 3::smallint, 2::smallint, %L, 3::smallint, 2::smallint, 2::smallint)', h1, k, deep, deep)) like '23514:depth_not_enabled'
+    and exists (select 1 from public.bottles where id = k and loc_row = 3 and loc_col = 3 and loc_index = 2));
+  perform test.rec('...a bottle moved behind a free front of another cell (index 2): refused',
+    test.error_of(format('update public.bottles set loc_row = 3, loc_col = 1, loc_index = 2 where id = %L', m)) like '23514:depth_not_enabled');
+  r := public.move_bottle_v2(h1, k, deep, three, three, two, deep, three, 2::smallint, one);
+  perform test.rec('...but a back bottle may come forward to an index 1 (the way back works with the switch off)', r = 'moved'
+    and exists (select 1 from public.bottles where id = k and loc_row = 3 and loc_col = 2 and loc_index = 1));
+  update public.bottles set status = 'opened' where id = a;
+  perform test.rec('...and a back bottle may be opened (it leaves its place)', exists (select 1 from public.bottles where id = a and location_id is null));
+  perform test.rec('...and a back bottle that stays where it is can still be edited (a note): spots that do not change are not checked',
+    test.error_of(format('update public.bottles set notes = %L where id = %L', 'kept', b2)) = '');
 end $$;
 rollback;

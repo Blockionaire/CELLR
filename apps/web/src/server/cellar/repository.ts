@@ -532,6 +532,17 @@ export function createCellarRepository(db: Db): CellarRepository {
       return (locations.data ?? []).map((r) => toStorage(r, used.get(r.id) ?? 0));
     },
 
+    async placeIsDeep(householdId, id) {
+      const { data, error } = await db
+        .from("cellar_locations")
+        .select("cell_capacity")
+        .eq("household_id", householdId)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw mapDbError(error);
+      return (data?.cell_capacity ?? 1) > 1;
+    },
+
     async getStorage(householdId, id) {
       const { data, error } = await db
         .from("cellar_locations")

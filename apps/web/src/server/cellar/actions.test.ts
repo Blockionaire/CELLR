@@ -337,6 +337,20 @@ describe("opening a bottle", () => {
     expect(late.bottle).toMatchObject({ status: "in_cellar", locationId: null });
   });
 
+  it("Undo into a place more than one deep: back WITHOUT a place, never on a guessed index (sprint 9)", async () => {
+    const { service } = fake([bottle({ id: "a", row: 1, col: 1 })], {
+      overrides: { placeIsDeep: async () => true },
+    });
+    await service.bottleAction("a", { action: "open" });
+    const back = await service.bottleAction("a", { action: "restore", to: place(1, 1) });
+    expect(back.bottle).toMatchObject({
+      status: "in_cellar",
+      locationId: null,
+      row: null,
+      col: null,
+    });
+  });
+
   it("a second Undo is harmless", async () => {
     const { service } = fake([bottle({ id: "a" })]);
     await service.bottleAction("a", { action: "open" });

@@ -617,7 +617,15 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
         p_to_col: to?.col ?? null,
         p_to_index: to?.index ?? null,
       } as never);
-      if (error) throw mapSmartCellarError(error);
+      if (error) {
+        // the database's switch is off (0054: no new bottle behind another while it is): the same refusal as the app's
+        if (error.message === "depth_not_enabled")
+          throw new DomainError(
+            "CONFLICT",
+            "More than one bottle per position isn't switched on yet.",
+          );
+        throw mapSmartCellarError(error);
+      }
       switch (data) {
         case "moved":
           return { kind: "moved", to };

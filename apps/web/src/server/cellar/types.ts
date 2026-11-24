@@ -227,6 +227,11 @@ export interface CellarRepository {
 
   listStorage(householdId: string): Promise<StorageRow[]>;
   getStorage(householdId: string, id: string): Promise<StorageRow | null>;
+  /**
+   * Whether a place holds more than one bottle per cell (cell_capacity > 1; sprint 9, ADR-011 §2). Only asked by
+   * Undo (restore), which cannot know at which depth a bottle stood. Optional: without it, every place is one deep.
+   */
+  placeIsDeep?(householdId: string, id: string): Promise<boolean>;
   occupiedSlots(locationId: string): Promise<Slot[]>;
   createStorage(householdId: string, input: CreateStorage): Promise<StorageRow>;
   /** Null = no such place in this household. */
