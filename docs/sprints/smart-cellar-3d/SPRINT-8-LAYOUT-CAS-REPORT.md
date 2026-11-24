@@ -5,15 +5,15 @@ Migration `20261129000051_smart_cellar_layout_cas.sql` — **not applied to prod
 
 ## 1. What changed
 
-| Where                                                  | What                                                                                                                                                                                                                                           |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `supabase/migrations/…051_smart_cellar_layout_cas.sql` | `public.save_storage_layout_v2(…, p_expected_updated_at)`: locks the place (`FOR NO KEY UPDATE`), compares the revision **after** the lock, answers `'stale'` (nothing changed) or calls 0045's `save_storage_layout` in the same transaction. |
-|                                                        | Trigger `locations_updated_moving` (`private.keep_location_revision_moving`): a place's `updated_at` never stays the same or goes back on an update.                                                                                           |
-| `server/smart-cellar/repository.ts`                    | `saveLayout(…, expectedRevision)`: with a revision, `_v2`; on "no such function" (PGRST202, or 42883) the 0045 save exactly as before. Without a revision: 0045 only, as before.                                                               |
-| `server/smart-cellar/service.ts`                       | The app's own revision check stays first (it answers sooner); the revision is then handed to the database; `'stale'` is the same 409 (`STALE_LAYOUT_MESSAGE`).                                                                                 |
-| `server/smart-cellar/revision.ts`                      | The If-Match parser, moved out of the route so it can be tested: the tag is passed on character for character.                                                                                                                                 |
-| `features/cellar/builder/draft.ts`                     | `isNewerRevision` compares to the microsecond (`revisionMicros`); `rebaseDraft` carries a draft over onto a newer version.                                                                                                                     |
-| `features/cellar/builder/rack-builder.tsx`             | On a conflict: "Keep my changes on the latest version" next to "Load the latest version"; a note says what each side changed.                                                                                                                  |
+| Where                                                  | What                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supabase/migrations/…051_smart_cellar_layout_cas.sql` | (also: trigger `zones_touch_location`, §4.2) `public.save_storage_layout_v2(…, p_expected_updated_at)`: locks the place (`FOR NO KEY UPDATE`), compares the revision **after** the lock, answers `'stale'` (nothing changed) or calls 0045's `save_storage_layout` in the same transaction. |
+|                                                        | Trigger `locations_updated_moving` (`private.keep_location_revision_moving`): a place's `updated_at` never stays the same or goes back on an update.                                                                                                                                        |
+| `server/smart-cellar/repository.ts`                    | `saveLayout(…, expectedRevision)`: with a revision, `_v2`; on "no such function" (PGRST202, or 42883) the 0045 save exactly as before. Without a revision: 0045 only, as before.                                                                                                            |
+| `server/smart-cellar/service.ts`                       | The app's own revision check stays first (it answers sooner); the revision is then handed to the database; `'stale'` is the same 409 (`STALE_LAYOUT_MESSAGE`).                                                                                                                              |
+| `server/smart-cellar/revision.ts`                      | The If-Match parser, moved out of the route so it can be tested: the tag is passed on character for character.                                                                                                                                                                              |
+| `features/cellar/builder/draft.ts`                     | `isNewerRevision` compares to the microsecond (`revisionMicros`); `rebaseDraft` carries a draft over onto a newer version.                                                                                                                                                                  |
+| `features/cellar/builder/rack-builder.tsx`             | On a conflict: "Keep my changes on the latest version" next to "Load the latest version"; a note says what each side changed.                                                                                                                                                               |
 
 0045 is untouched and keeps working; nothing is dropped or replaced.
 
@@ -56,11 +56,37 @@ Migration `20261129000051_smart_cellar_layout_cas.sql` — **not applied to prod
 
 ### 4.1 Browser tests
 
-RESULTS_E2E
+Local stack, desktop project, `--trace off`, after `pnpm build`, at `09460f3`:
+
+- `playwright test rack-builder -g "two sessions|changed by someone|latest version fails|rename made against|If-Match|after a save, a refresh|two saves of one place"`: **8 passed** (1.1 min), including the new two-session test (the second session is told, keeps its change on the latest version, saves; the first session's two saves in a row are never stale — the revision survives PostgREST → app → If-Match → `_v2`).
+- The same conflict, stale and If-Match tests on a stack WITHOUT 0051 (`STACK_MIGRATIONS_BEFORE=20261129000051`): **4 passed** (38 s) — app-first is exactly today's behaviour through the PGRST202 fallback.
+- Re-run on the depth branch tip (which contains every sprint 8 commit): 23 + 13 passed, 0 failed.
+
+### 4.2 After the independent review (follow-up commit)
+
+- **Zones written directly** (0044 lets members write zone rows) did not move the place's revision, so `_v2` could
+  overwrite a zone change made after the draft was opened. 0051 now also has `zones_touch_location`: every zone
+  insert, update and delete touches its place's row. It runs after 0044's lock trigger, which already holds the
+  place's row lock (and refuses rather than waits for a direct write), so it never waits for the place (README rule
+  9). SQL: a direct temperature change makes an older draft `stale` and is kept; delete and insert move it too; a
+  place with zones can still be deleted. The zone deadlock reproductions of `db-placement-concurrency.sh` stay green.
+- **Revisions are compared for equality only, by instant.** `sameRevision` (domain) compares to the microsecond
+  whatever the offset (`+01:00` and `+00:00` for one instant are one revision), in the service's own pre-check and in
+  the Builder. The Builder no longer orders revisions ("later" cannot be read from transaction start times): any other
+  revision is news.
+- **Not taken:** `_v2` returning the new revision. The service already answers with the place read back after the
+  save; if another save lands in between, the Builder sees a layout that is not its own (`savedAsDrafted`) and says
+  so, and its next save is checked by the database against the latest revision anyway. Returning it would change the
+  function's answer type for a gain that the compare-and-swap already covers.
+- Correction of wording: the rename was never racy — `renameIfCurrent` has been one conditional UPDATE since sprint 3.
+  Only the layout save had the window, and that is what 0051 closes.
 
 ## 5. Release
 
-**Both deploy orders are safe**, and so is every mix of old and new app instances during a rollout:
+**Both deploy orders are safe**, and so is every mix of old and new app instances during a rollout. Explicitly:
+migration first with the old app is safe (0045 is unchanged, the old app never calls `_v2`); app first is safe
+through the PGRST202 fallback; and the app finds `_v2` by calling it, not by the capability read, because hosted
+Supabase does not describe itself to the publishable key (the read says "unverified" there).
 
 | State                                    | What happens                                                                                                                                                                                  | Proven by                                                                                                                              |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
