@@ -181,13 +181,19 @@ test("a 450-spot rack half full loads, draws every bottle and placeholder, rests
 
   // the placeholders: one per free spot, none chosen yet; Add compiles no new shader (prewarmed)
   await expect(canvas(page)).toHaveAttribute("data-prewarmed", /^\d+$/, { timeout: 60_000 });
-  const programs = Number(await canvas(page).getAttribute("data-programs"));
+  // what exists once the warm-up is done (data-programs is only written when a frame is drawn)
+  const programs = Number(await canvas(page).getAttribute("data-prewarmed"));
   await page.getByTestId("quick-add-start").click();
   await expect(view(page)).toHaveAttribute("data-quick", "placing");
   await expect(canvas(page)).toHaveAttribute("data-spots", "225");
   await expect.poll(() => ghostsOf(page).then((g) => g?.count ?? 0)).toBe(225);
   expect((await ghostsOf(page))!.chosen).toEqual([]);
-  expect(Number(await canvas(page).getAttribute("data-programs"))).toBeLessThanOrEqual(programs);
+  const afterAdd = Number(await canvas(page).getAttribute("data-programs"));
+  test.info().annotations.push({
+    type: "programs",
+    description: `${programs} warmed, ${afterAdd} after Add`,
+  });
+  expect(afterAdd).toBeLessThanOrEqual(programs);
 
   // a free spot from the middle of those on offer: a tap there chooses exactly it. A finger on spots this close first
   // brings the view closer (the aim help above); then the tap is clear.
