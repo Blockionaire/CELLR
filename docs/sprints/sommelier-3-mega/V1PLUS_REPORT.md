@@ -63,18 +63,21 @@ The thresholds are the closeout's **proposal** (D-50), not an owner decision.
 
 ### Full CI on the branches (all 7 core and 7 3D end-to-end shards, run by hand)
 
-| Branch                        | Commit    | Run         | Result                                                                                                          |
-| ----------------------------- | --------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
-| `claude/sommelier-v1plus-p3`  | `d62156c` | 45267445415 | **Green**: every job, all 14 shards; the pull request's own checks green                                        |
-| `claude/sommelier-v1plus-p45` | `00c1184` | 45267451355 | 22 of 23 green; core shard 3 red on `scan-records.spec.ts:430` only. Superseded by the next commit              |
-| `claude/sommelier-v1plus-p45` | `439a6c8` | 45276785709 | Started for the commit that adds "the app's facts lead"; see the pull request's checks                          |
-| `claude/sommelier-v1plus-p6`  | `6000a7e` | 45267457095 | **Green**: every job, all 14 shards                                                                             |
-| `claude/sommelier-v1plus-p7`  | `642dae8` | 45267464492 | 21 of 23 green; core shard 6 red on `scan-records.spec.ts:430` only (desktop). The failed job was started again |
-| `claude/lucid-knuth-ck7ge0`   | `5c85798` | 45268693466 | **Green**: every job, all 14 shards, with all five parts on the features server and the journey test            |
+| Branch                        | Commit    | Run         | Result                                                                                                                                                                                                               |
+| ----------------------------- | --------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `claude/sommelier-v1plus-p3`  | `d62156c` | 45267445415 | **Green**: every job, all 14 shards; the pull request's own checks green                                                                                                                                             |
+| `claude/sommelier-v1plus-p45` | `00c1184` | 45267451355 | 22 of 23 green; core shard 3 red on `scan-records.spec.ts:430` only. Superseded by the next commit                                                                                                                   |
+| `claude/sommelier-v1plus-p45` | `439a6c8` | 45276785709 | **Green**: every job, all 14 shards; the pull request's own checks green                                                                                                                                             |
+| `claude/sommelier-v1plus-p6`  | `6000a7e` | 45267457095 | **Green**: every job, all 14 shards                                                                                                                                                                                  |
+| `claude/sommelier-v1plus-p7`  | `642dae8` | 45267464492 | First attempt: core shard 6 red on `scan-records.spec.ts:430` only (desktop). **Green** on the second attempt of that job                                                                                            |
+| `claude/lucid-knuth-ck7ge0`   | `5c85798` | 45268693466 | **Green**: every job, all 14 shards, with all five parts on the features server and the journey test                                                                                                                 |
+| `claude/lucid-knuth-ck7ge0`   | `7820ced` | 45277897916 | All 14 shards green with the serving comparison and the P8 preparation merged; the unit job red on `premium-look.test.ts` only (a 3D shading test that took 6.2 s against its 5 s limit). That job was started again |
 
 `scan-records.spec.ts:430` fails when Next's route announcer (`role="alert"`) is on the page together with the alert
 the test expects (`getByRole("alert")` then matches two elements). It is not Sommelier code, it passed on three of the
-five runs above, and the open #116 names the expected alert. No Sommelier test failed in any run.
+runs above, and the open #116 names the expected alert. `premium-look.test.ts` (the storage 3D look) is sensitive to how
+busy the runner is: 1.2 s alone, over 5 s beside the whole suite. Neither is Sommelier code. No Sommelier test failed
+in any run.
 
 ## 3. Performance (free: a fake model that answers at once, reads in memory, a shared four-core machine)
 
