@@ -798,6 +798,8 @@
       "importTooBig": "Dat is meer dan we in één keer kunnen binnenhalen. Probeer een kleiner bestand.",
       "settingNotYet": "Deze instelling is nog niet beschikbaar.",
       "ratingTenths": "Een beoordeling gaat in tienden van een ster.",
+      "reviewNoLinks": "Een review mag geen links bevatten.",
+      "reviewInvalid": "Een review bevat geen links en is hoogstens 1500 tekens.",
       "swapSelf": "Een fles kan niet met zichzelf van plek wisselen.",
       "swapGone": "Een van deze flessen is niet meer in de kelder of heeft geen plek. Er is niets veranderd.",
       "swapStale": "Een van deze flessen is net door iemand anders verplaatst. Er is niets veranderd.",

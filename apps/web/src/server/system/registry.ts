@@ -450,6 +450,33 @@ const components = [
     gates: [{ name: "sources_panel", kind: "feature", note: "The route answers 404 without it." }],
   },
   {
+    id: "svc-ratings",
+    name: "Ratings & community reviews",
+    layer: "service",
+    status: "gated",
+    summary: "External rating aggregates, CELLR reviews, the CELLR score",
+    responsibility:
+      "Reads a wine's or record's external rating aggregates and its published community reviews, and lets a person publish, remove or report a review; every rule (identity, rights, opt-in, one per person) is decided in the database.",
+    inputs: ["Wine or record id", "A tasting to publish"],
+    outputs: ["Ratings per vintage", "Reviews"],
+    sources: [W + "server/ratings/"],
+    routes: [
+      "/api/v1/wines/[id]/ratings",
+      "/api/v1/catalog/records/[id]/ratings",
+      "/api/v1/tastings/[id]/review",
+      "/api/v1/reviews/[id]",
+      "/api/v1/reviews/[id]/report",
+    ],
+    gates: [
+      { name: "catalog_ratings", kind: "feature", note: "Every route answers 404 without it." },
+      {
+        name: "community_reviews",
+        kind: "feature",
+        note: "Publishing, reading and reporting reviews; needs catalog_ratings.",
+      },
+    ],
+  },
+  {
     id: "svc-sommelier",
     name: "AI sommelier",
     layer: "service",
@@ -1051,6 +1078,19 @@ const components = [
           "Licence and rights handling is tested with fixture providers; an import from a real provider is not evidenced in the repository (architecture review P1).",
       },
     ],
+  },
+  {
+    id: "data-community",
+    name: "Community reviews",
+    layer: "data",
+    status: "implemented",
+    summary: "Published reviews, reports, moderation log",
+    responsibility:
+      "Public reviews people chose to publish from their own tastings, reports on them and every moderation decision; read only through gated functions.",
+    inputs: [],
+    outputs: [],
+    sources: [M + "20261130000052_community_reviews.sql"],
+    tables: ["community_review_moderation_log", "community_review_reports", "community_reviews"],
   },
   {
     id: "data-social",
@@ -1898,6 +1938,32 @@ const edges: SystemEdge[] = [
     "data-read",
     "wine_sources",
     web("server/catalog/sources.ts", '.from("wine_sources")'),
+  ),
+
+  wired("composition-root", "svc-ratings", "builds", "createRatingsService({"),
+  edge(
+    "svc-ratings",
+    "data-providers",
+    "data-read",
+    "external rating aggregates (gated by rights and identity)",
+    web("server/ratings/service.ts", '"catalog_wine_ratings"'),
+    web("server/ratings/service.ts", '"catalog_record_ratings"'),
+  ),
+  edge(
+    "svc-ratings",
+    "data-community",
+    "data-write",
+    "publish, remove, report reviews; read published ones",
+    web("server/ratings/service.ts", '"publish_community_review"'),
+    web("server/ratings/service.ts", '"report_community_review"'),
+    web("server/ratings/service.ts", '"community_reviews_for_wine"'),
+  ),
+  edge(
+    "privileged-ops",
+    "data-community",
+    "data-write",
+    "review moderation (admin, service role)",
+    web("server/privileged/reviews-admin.ts", '"admin_moderate_community_review"'),
   ),
 
   // Sommelier
