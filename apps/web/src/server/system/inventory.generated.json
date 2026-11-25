@@ -33,7 +33,7 @@
     { "name": "catalog_providers", "references": [] },
     {
       "name": "catalog_rating_aggregates",
-      "references": ["catalog_external_records", "catalog_providers", "catalog_rating_runs"]
+      "references": ["catalog_external_records", "catalog_rating_runs"]
     },
     { "name": "catalog_rating_runs", "references": ["catalog_providers"] },
     { "name": "catalog_record_links", "references": ["catalog_external_records", "wines"] },

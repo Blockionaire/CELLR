@@ -1200,14 +1200,10 @@ export type Database = {
       };
       catalog_rating_aggregates: {
         Row: {
-          content_hash: string;
-          created_at: string;
           distribution: number[];
-          first_rated_on: string | null;
-          first_run_id: string | null;
-          id: number;
-          last_rated_on: string | null;
-          last_run_id: string | null;
+          first_rated_month: string | null;
+          last_rated_month: string | null;
+          last_run_id: string;
           provider_id: string;
           rating_count: number;
           rating_sum_half: number;
@@ -1217,14 +1213,10 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
-          content_hash: string;
-          created_at?: string;
           distribution: number[];
-          first_rated_on?: string | null;
-          first_run_id?: string | null;
-          id?: never;
-          last_rated_on?: string | null;
-          last_run_id?: string | null;
+          first_rated_month?: string | null;
+          last_rated_month?: string | null;
+          last_run_id: string;
           provider_id: string;
           rating_count: number;
           rating_sum_half: number;
@@ -1233,14 +1225,10 @@ export type Database = {
           vintage_year?: number | null;
         };
         Update: {
-          content_hash?: string;
-          created_at?: string;
           distribution?: number[];
-          first_rated_on?: string | null;
-          first_run_id?: string | null;
-          id?: never;
-          last_rated_on?: string | null;
-          last_run_id?: string | null;
+          first_rated_month?: string | null;
+          last_rated_month?: string | null;
+          last_run_id?: string;
           provider_id?: string;
           rating_count?: number;
           rating_sum_half?: number;
@@ -1250,13 +1238,6 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "catalog_rating_aggregates_first_run_id_fkey";
-            columns: ["first_run_id"];
-            isOneToOne: false;
-            referencedRelation: "catalog_rating_runs";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "catalog_rating_aggregates_last_run_id_fkey";
             columns: ["last_run_id"];
             isOneToOne: false;
@@ -1264,18 +1245,11 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "catalog_rating_aggregates_provider_id_fkey";
-            columns: ["provider_id"];
-            isOneToOne: false;
-            referencedRelation: "catalog_providers";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "catalog_rating_aggregates_record_id_fkey";
-            columns: ["record_id"];
+            foreignKeyName: "catalog_rating_aggregates_record";
+            columns: ["record_id", "provider_id"];
             isOneToOne: false;
             referencedRelation: "catalog_external_records";
-            referencedColumns: ["id"];
+            referencedColumns: ["id", "provider_id"];
           },
         ];
       };
