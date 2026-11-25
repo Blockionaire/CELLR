@@ -200,15 +200,20 @@ perf16)
   synth_off() { psqlq -c "select public.admin_catalog_provider_disable('perf_synth', 'load test finished', 'staging-pilot.sh')" >/dev/null 2>&1 || true; }
   trap 'synth_off; rm -rf "${WORK:-$OUT/.none}"; "${T[@]}" redact-results.ts --dir "$OUT" || rm -rf "${OUT:?}"/*' EXIT
   echo "• the synthetic public source (100,000 invented records)"
-  psqlq -f perf-synthetic.sql 2>&1 | grep -o "synthetic source.*" || true
+  SLOG="$(mktemp)"
+  psqlq -f perf-synthetic.sql >"$SLOG" 2>&1 || { tail -3 "$SLOG" >&2; rm -f "$SLOG"; exit 1; }
+  grep -o "synthetic source.*" "$SLOG"; rm -f "$SLOG"
   PERF=("${T[@]}" perf.ts "${DB[@]}" --user "$USER_ID" --household "$HOUSEHOLD" --set "$ROOT/eval/catalog/benchmark.json"
         --mode public --synthetic perf_synth --rounds 3)
   for c in 1 16; do
     "${PERF[@]}" --concurrency $c --pooler transaction --one-trip --out "$OUT/perf-public-synthetic-c$c.json" >/dev/null
     j "$OUT/perf-public-synthetic-c$c.json" "'• people c$c (one trip, timed in the database): ' + JSON.stringify({database:r.overall,client:r.client,in_flight:r.in_flight,throughput_per_s:r.throughput_per_s,empty:r.overall.empty})"
   done
-  j "$OUT/perf-public-synthetic-c16.json" "'  target (database p95 < 250 ms at 16 in flight): ' + (r.overall.p95 < 250 && r.in_flight >= 14 ? 'MET' : 'NOT MET') + ' (p95 ' + r.overall.p95 + ' ms, ' + r.in_flight + ' in flight)'"
+  j "$OUT/perf-public-synthetic-c16.json" "'  target (database p95 < 250 ms at 16 in flight): ' + (Number.isFinite(r.overall.p95) && r.overall.n > 0 && r.overall.p95 < 250 && r.in_flight >= 14 ? 'MET' : 'NOT MET') + ' (p95 ' + r.overall.p95 + ' ms, ' + r.in_flight + ' in flight)'"
+  j "$OUT/perf-public-synthetic-c16.json" "process.exit(Number.isFinite(r.overall.p95) && r.overall.n > 0 ? 0 : 1)"
   synth_off
+  [ "$(psqlq -c "select search_scope from public.catalog_providers where id = 'perf_synth'")" = off ] ||
+    { echo "the synthetic source is still shown: switch it off by hand" >&2; exit 1; }
   "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-after.json" >/dev/null
   j "$OUT/staging-check-after.json" "'• staging check after: ' + (r.ok ? 'PASS' : 'FAIL')"
   ;;

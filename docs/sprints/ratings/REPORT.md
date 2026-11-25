@@ -138,3 +138,9 @@ the author's display name only. Reviews and reports go with the account when it 
 - **Follow-up plan:** stars and counts in search results (`SEARCH_RATINGS_PLAN.md`).
 - **A race found by the e2e test:** the review text you typed could be overwritten when your earlier review
   finished loading. Fixed: the field waits for that load.
+- **The independent review of these additions caught three problems, all fixed before the merge:**
+  - The gate first recognised people by `request.jwt.claim.sub`. Current PostgREST no longer sets that, so in
+    production the gate would have let everyone through. It now uses `auth.uid()`, and a test calls it exactly as
+    PostgREST does.
+  - The API check now also verifies that the gate triggers are in place and enabled.
+  - The perf16 "MET" no longer counts a missing measurement as a pass.

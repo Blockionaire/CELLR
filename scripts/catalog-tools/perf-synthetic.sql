@@ -48,7 +48,12 @@ create function pg_temp.synth(i int) returns jsonb language sql immutable as $$
 $$;
 
 select public.catalog_import_run_start('perf_synth', 'synthetic-1', null, null, 'CELLR synthetic load set', now()) as run \gset
-select format('select (public.catalog_external_import(%L, %L, (select jsonb_agg(pg_temp.synth(i)) from generate_series(%s, %s) i), true))->>''invalid'' as invalid',
+-- each batch must import without an invalid record: an exception stops the script (ON_ERROR_STOP)
+create function pg_temp.must_be_valid(j jsonb) returns void language plpgsql as $$
+begin
+  if (j->>'invalid')::int <> 0 then raise exception 'synthetic batch had % invalid records', j->>'invalid'; end if;
+end $$;
+select format('select pg_temp.must_be_valid(public.catalog_external_import(%L, %L, (select jsonb_agg(pg_temp.synth(i)) from generate_series(%s, %s) i), true))',
               'perf_synth', :'run', b * 1000 + 1, b * 1000 + 1000)
        || case when b in (1, 5, 20, 50) then '; analyze public.catalog_external_records, private.catalog_search_entries' else '' end
   from generate_series(0, 99) b \gexec

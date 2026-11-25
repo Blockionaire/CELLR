@@ -8,6 +8,9 @@
 --
 -- Additive: one settings row, one log, two triggers, two functions. Closing again stops new reviews and new reports at
 -- once; existing reviews are kept (their authors can still edit or remove them, and moderation goes on).
+--
+-- Applying 0052 and this migration in one `db push` leaves a window of seconds in which 0052's functions exist
+-- ungated; nothing links to them, and ACTIVATION.md step 6 checks that no review or report was made.
 
 create table private.community_settings (
   id          boolean primary key default true check (id),
@@ -30,12 +33,13 @@ alter table public.community_settings_log enable row level security;
 revoke all on public.community_settings_log from public, anon, authenticated;
 grant select on public.community_settings_log to service_role;
 
--- Writes by people (through the functions, as the signed-in person's request) are refused while closed. The service
--- role and the database owner (moderation, tests, migrations) are not people.
+-- Writes by people are refused while closed: a person is whoever auth.uid() names, which reads the JSON claims
+-- PostgREST sets (`request.jwt.claims`; current PostgREST no longer sets `request.jwt.claim.sub`). The service role
+-- and the database owner (moderation, tests, migrations) carry no person.
 create function private.community_must_be_open() returns trigger
   language plpgsql security definer set search_path = '' as $$
 begin
-  if coalesce(nullif(current_setting('request.jwt.claim.sub', true), ''), '') <> ''
+  if (select auth.uid()) is not null
      and not coalesce((select open from private.community_settings where id), false) then
     raise exception 'the CELLR community is not open yet' using errcode = '42501';
   end if;

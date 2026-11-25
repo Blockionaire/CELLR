@@ -116,7 +116,9 @@ export function createRatingsService({ repo, householdId, features }: RatingsDep
         features.community ? repo.communityOpen().catch(() => false) : Promise.resolve(false),
       ]);
       const data = mergeWineRatings(parseExternal(e), parseCommunity(c));
-      return open === true ? data : { ...data, reviewable: false };
+      return open === true
+        ? { ...data, communityOpen: true }
+        : { ...data, reviewable: false, communityOpen: false };
     },
     /** A provider record shown to people (the catalogue page of a search result). */
     async forRecord(recordId: string): Promise<WineRatingsData> {

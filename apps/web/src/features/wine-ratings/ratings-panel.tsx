@@ -330,6 +330,7 @@ export function RatingsPanel({
               {shownReviews.map((r) => (
                 <ReviewItem
                   key={r.id}
+                  canReport={data.communityOpen === true}
                   review={r}
                   subject={subject}
                   onReport={() => setReporting(r)}
@@ -391,7 +392,10 @@ function ReviewItem({
   review,
   subject,
   onReport,
+  canReport,
 }: {
+  /** Reporting is offered only while the community is open (a closed one refuses reports). */
+  canReport: boolean;
   review: CommunityReview;
   subject: RatingsSubject;
   onReport: () => void;
@@ -473,7 +477,7 @@ function ReviewItem({
               {t("remove")}
             </button>
           )
-        ) : (
+        ) : canReport ? (
           <button
             type="button"
             className="-mx-2 min-h-11 px-2 text-small text-ink-2"
@@ -481,7 +485,7 @@ function ReviewItem({
           >
             {t("report")}
           </button>
-        )}
+        ) : null}
       </div>
     </li>
   );
@@ -514,7 +518,9 @@ function PublishSheet({
   });
   const existing = mine.data?.review ?? null;
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
-  const loading = tastingId !== "" && mine.isPending;
+  // until the earlier review is known (loaded, or known not to exist) nothing can be published: a failed load must
+  // never let an empty text replace a published one
+  const loading = tastingId !== "" && (mine.isPending || mine.isError);
   if (mine.data && loadedFor !== tastingId) {
     setLoadedFor(tastingId);
     setBody(existing?.body ?? "");
@@ -594,7 +600,7 @@ function PublishSheet({
         <Button
           type="submit"
           block
-          disabled={!consent || !chosen || mine.isPending}
+          disabled={!consent || !chosen || loading}
           loading={publish.isPending}
         >
           {existing ? t("saveChanges") : t("publish")}

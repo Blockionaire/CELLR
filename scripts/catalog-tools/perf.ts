@@ -111,6 +111,8 @@ async function main() {
   // before anything is opened: a configuration the target cannot serve is refused, never run with fewer clients
   assertClientLimit(concurrency, perTransaction ? null : maxClients, pooler);
   if (oneTrip && !perTransaction) throw new Error("--one-trip needs --pooler transaction");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(household))
+    throw new Error("--household must be a uuid");
   const preamble = perTransaction ? transactionPreamble(mode, user) : null;
   // every connection is checked against the allowed targets and the database's own identity; opened one at a time,
   // and all of them closed again whatever happens
@@ -176,7 +178,7 @@ async function main() {
           }>;
           const clientMs = performance.now() - t0;
           const at = (r: { rows: Array<Record<string, unknown>> } | undefined) =>
-            Date.parse(String(r?.rows[0]?.t));
+            Number(r?.rows[0]?.t);
           // results: begin, set role, [claims], t0, search, t1, commit
           const ts = res.filter((r) => r.rows[0] && "t" in r.rows[0]);
           const n = Number(res.find((r) => r.rows[0] && "n" in r.rows[0])?.rows[0]?.n ?? 0);
@@ -238,7 +240,7 @@ async function main() {
   const report = {
     mode,
     subset,
-    queries: entries.length,
+    queries: synthetic !== null ? base.length / 6 : entries.length,
     concurrency,
     pooler: pooler ?? "direct",
     rounds,

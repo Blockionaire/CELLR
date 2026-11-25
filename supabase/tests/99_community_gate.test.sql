@@ -17,6 +17,14 @@ begin
   e := test.error_of(format($q$select public.publish_community_review(%L, 'mooi', true)$q$, t));
   perform test.rec('gate: a person cannot publish while closed (through the API, whatever the switches)', e like '42501:%not open%');
   perform test.rec('gate: a person cannot open it', test.denied($q$select public.admin_community_open(true, 'x', 'y')$q$));
+  -- exactly as PostgREST 10+ calls it: only the JSON claims, no request.jwt.claim.sub
+  perform test.su();
+  perform set_config('request.jwt.claims', json_build_object('sub', test.uid(1), 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', '', true);
+  execute 'set local role authenticated';
+  e := test.error_of(format($q$select public.publish_community_review(%L, 'mooi', true)$q$, t));
+  perform test.rec('gate: refused as PostgREST calls it too (JSON claims only, no claim.sub)', e like '42501:%not open%');
+  perform test.as_user(1);
   perform test.as_anon();
   perform test.rec('gate: anon cannot open it', test.denied($q$select public.admin_community_open(true, 'x', 'y')$q$));
   perform test.rec('gate: anon cannot even ask whether it is open', test.denied($q$select public.community_is_open()$q$));
