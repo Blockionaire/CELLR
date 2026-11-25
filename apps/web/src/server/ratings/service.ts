@@ -35,6 +35,8 @@ export interface RatingsRepository {
   report(reviewId: string, reason: ReportReason, detail: string | null): Promise<string | null>;
   mine(tastingId: string): Promise<unknown>;
   recordPage(recordId: string): Promise<unknown>;
+  /** Whether the community is open in the database (20261202000054); null before that step. */
+  communityOpen(): Promise<unknown>;
 }
 
 const MISSING = new Set(["PGRST202", "42883"]);
@@ -70,6 +72,7 @@ export function createRatingsRepository(db: Db): RatingsRepository {
       })) as string | null,
     mine: (t) => call("my_community_review", { p_tasting_id: t }),
     recordPage: (r) => call("catalog_record_page", { p_record_id: r }),
+    communityOpen: () => call("community_is_open", {}),
   };
 }
 
@@ -104,13 +107,16 @@ export function createRatingsService({ repo, householdId, features }: RatingsDep
     async forWine(wineId: string): Promise<WineRatingsData> {
       off();
       const h = await householdId();
-      const [e, c] = await Promise.all([
+      const [e, c, open] = await Promise.all([
         repo.wineExternal(h, wineId).catch(() => null),
         features.community
           ? repo.wineCommunity(h, wineId).catch(() => null)
           : Promise.resolve(null),
+        // publishing is offered only while the community is open in the database (a closed one refuses anyway)
+        features.community ? repo.communityOpen().catch(() => false) : Promise.resolve(false),
       ]);
-      return mergeWineRatings(parseExternal(e), parseCommunity(c));
+      const data = mergeWineRatings(parseExternal(e), parseCommunity(c));
+      return open === true ? data : { ...data, reviewable: false };
     },
     /** A provider record shown to people (the catalogue page of a search result). */
     async forRecord(recordId: string): Promise<WineRatingsData> {

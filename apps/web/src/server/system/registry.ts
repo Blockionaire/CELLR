@@ -1089,11 +1089,16 @@ const components = [
     status: "implemented",
     summary: "Published reviews, reports, moderation log",
     responsibility:
-      "Public reviews people chose to publish from their own tastings, reports on them and every moderation decision; read only through gated functions.",
+      "Public reviews people chose to publish from their own tastings, reports on them and every moderation decision; read only through gated functions. Closed in the database (no new review or report by a person) until the owner opens it, logged.",
     inputs: [],
     outputs: [],
-    sources: [M + "20261130000052_community_reviews.sql"],
-    tables: ["community_review_moderation_log", "community_review_reports", "community_reviews"],
+    sources: [M + "20261130000052_community_reviews.sql", M + "20261202000054_community_gate.sql"],
+    tables: [
+      "community_review_moderation_log",
+      "community_review_reports",
+      "community_reviews",
+      "community_settings_log",
+    ],
   },
   {
     id: "data-social",
@@ -2983,7 +2988,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.11.0",
+  version: "1.12.0",
   reviewedOn: "2026-11-25",
   repository: "Blockionaire/CELLR",
   components,

@@ -514,6 +514,7 @@ function PublishSheet({
   });
   const existing = mine.data?.review ?? null;
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const loading = tastingId !== "" && mine.isPending;
   if (mine.data && loadedFor !== tastingId) {
     setLoadedFor(tastingId);
     setBody(existing?.body ?? "");
@@ -564,6 +565,7 @@ function PublishSheet({
           </p>
         )}
         <Textarea
+          disabled={loading}
           label={t("bodyLabel")}
           value={body}
           maxLength={REVIEW_BODY_MAX}

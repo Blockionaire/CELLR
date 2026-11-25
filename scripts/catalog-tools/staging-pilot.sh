@@ -13,7 +13,7 @@
 # Output: only result files reduced to counts (redact-results.ts) and logs of counts. No record of the dataset, no
 # connection string, no key is ever printed: tool output goes to files, the log gets summaries.
 set -euo pipefail
-MODE="${1:?check|migrate|import|scan|ratings}"
+MODE="${1:?check|migrate|import|scan|ratings|perf16}"
 OUT="${2:?output directory}"
 XW="${3:-}"
 RT="${4:-}"
@@ -187,6 +187,30 @@ ratings)
   "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-after.json" >/dev/null
   j "$OUT/staging-check-after.json" "'• staging check after: ' + (r.ok ? 'PASS' : 'FAIL')"
   j "$OUT/staging-check-after.json" "process.exit(r.ok?0:1)"
+  ;;
+perf16)
+  # people's search over a populated PUBLIC source with 16 searches really in flight (one round trip each, timed in
+  # the database), on top of the X-Wines pilot records. The source is CELLR's own synthetic set (perf-synthetic.sql),
+  # switched off again whatever happens.
+  guard write
+  "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-before.json" >/dev/null ||
+    { j "$OUT/staging-check-before.json" "r.checks.filter(c=>!c.ok).map(c=>'  FAIL '+c.name).join('\n')"; exit 1; }
+  [ "$(psqlq -c "select count(*) from auth.users where id = '$USER_ID'")" = 1 ] ||
+    { echo "the synthetic test person is missing (run mode import first)" >&2; exit 1; }
+  synth_off() { psqlq -c "select public.admin_catalog_provider_disable('perf_synth', 'load test finished', 'staging-pilot.sh')" >/dev/null 2>&1 || true; }
+  trap 'synth_off; rm -rf "${WORK:-$OUT/.none}"; "${T[@]}" redact-results.ts --dir "$OUT" || rm -rf "${OUT:?}"/*' EXIT
+  echo "• the synthetic public source (100,000 invented records)"
+  psqlq -f perf-synthetic.sql 2>&1 | grep -o "synthetic source.*" || true
+  PERF=("${T[@]}" perf.ts "${DB[@]}" --user "$USER_ID" --household "$HOUSEHOLD" --set "$ROOT/eval/catalog/benchmark.json"
+        --mode public --synthetic perf_synth --rounds 3)
+  for c in 1 16; do
+    "${PERF[@]}" --concurrency $c --pooler transaction --one-trip --out "$OUT/perf-public-synthetic-c$c.json" >/dev/null
+    j "$OUT/perf-public-synthetic-c$c.json" "'• people c$c (one trip, timed in the database): ' + JSON.stringify({database:r.overall,client:r.client,in_flight:r.in_flight,throughput_per_s:r.throughput_per_s,empty:r.overall.empty})"
+  done
+  j "$OUT/perf-public-synthetic-c16.json" "'  target (database p95 < 250 ms at 16 in flight): ' + (r.overall.p95 < 250 && r.in_flight >= 14 ? 'MET' : 'NOT MET') + ' (p95 ' + r.overall.p95 + ' ms, ' + r.in_flight + ' in flight)'"
+  synth_off
+  "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-after.json" >/dev/null
+  j "$OUT/staging-check-after.json" "'• staging check after: ' + (r.ok ? 'PASS' : 'FAIL')"
   ;;
 scan)
   guard write

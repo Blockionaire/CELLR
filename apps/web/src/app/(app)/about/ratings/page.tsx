@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { getFeatures } from "@/server/env";
 import { PageHeader } from "@/ui/page-header";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -11,6 +13,8 @@ export async function generateMetadata(): Promise<Metadata> {
  * on every wine card; SOURCE_RIGHTS_REGISTER.md §1b). The X-Wines citation the authors require is given here.
  */
 export default async function AboutRatingsPage() {
+  // part of the ratings feature: available (and checked) before any source is public, never before the switch
+  if (!getFeatures().catalog_ratings) notFound();
   const t = await getTranslations("aboutRatings");
   return (
     <div className="mx-auto max-w-2xl px-4 pb-24">

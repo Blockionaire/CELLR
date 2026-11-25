@@ -119,3 +119,22 @@ The regression tests the brief asked for are all among them:
 No X-Wines user id or individual rating reaches any database; only counts, sums, distributions and months do. A CELLR
 review is published only by its author's explicit consent. It never contains the private tasting note, and it shows
 the author's display name only. Reviews and reports go with the account when it is deleted.
+
+## 6. Added before the merges (owner's conditions, 2026-11-25)
+
+- **Activation order** (`ACTIVATION.md`):
+  1. the credit page and the UI are switched on and checked while the source is still off;
+  2. only then is the source made public;
+  3. the community opens last, after moderation works.
+- **No unintended API access.**
+  - Migration 0054 keeps the community **closed in the database** (no review, no report by a person) until the
+    owner opens it with a logged step. Without it, the functions of 0052 would have been callable through
+    PostgREST once migrated, whatever the app's switches said.
+  - `verify-api-closed.sql` checks this before each step (18 checks, all true on a fresh database).
+- **Rights register §1b:** the terms as the owner stated them, and a safe reference to the original (kept by the
+  owner).
+- **`perf16`** (staging): 16 searches really in flight, one round trip each, timed inside the database, over a
+  public synthetic source of 100,000 invented records (generated in 53 s locally).
+- **Follow-up plan:** stars and counts in search results (`SEARCH_RATINGS_PLAN.md`).
+- **A race found by the e2e test:** the review text you typed could be overwritten when your earlier review
+  finished loading. Fixed: the field waits for that load.
