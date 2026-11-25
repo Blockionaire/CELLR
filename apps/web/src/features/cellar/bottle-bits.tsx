@@ -2,19 +2,25 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import type { BottleView } from "@cellr/domain";
+import { SharedPlaceOr } from "@/features/shared-racks/lazy";
 
 /** "Wine fridge · Shelf 2 · Position 3", or "Not placed yet". */
 export function BottleSpot({
   bottle,
   short = false,
 }: {
-  bottle: Pick<BottleView, "locationLabel" | "row" | "col">;
+  bottle: Pick<BottleView, "locationLabel" | "row" | "col"> & { id?: string | undefined };
   /** Leave out the place's name (when the surrounding text already says where). */
   short?: boolean;
 }) {
   const t = useTranslations("vintage");
   if (bottle.locationLabel === null || bottle.row === null || bottle.col === null)
-    return <>{t("notPlaced")}</>;
+    // Shared racks (ADR-010): a bottle without a place here may stand in a shared rack; then that is said instead
+    return bottle.id === undefined ? (
+      <>{t("notPlaced")}</>
+    ) : (
+      <SharedPlaceOr bottleIds={[bottle.id]}>{t("notPlaced")}</SharedPlaceOr>
+    );
   const spot = t("spot", { row: bottle.row, col: bottle.col });
   return <>{short ? spot : `${bottle.locationLabel} · ${spot}`}</>;
 }

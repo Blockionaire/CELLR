@@ -3275,7 +3275,10 @@
       "confirmWhat": "{wine} stands in the shared rack {rack}, on shelf {row}, spot {col}. Giving it a place here takes it out of the shared rack: its spot there becomes free, and the people of that rack see that it went home.",
       "confirmWhatNoAccess": "{wine} stands in a shared rack you are not (or no longer) a member of. Giving it a place here takes it out of that rack: its spot there becomes free, and the people of that rack see that it went home.",
       "confirm": "Take it out and place it here",
-      "countNote": "{count, plural, one {# of them stands in a shared rack: it has a place there.} other {# of them stand in a shared rack: they have a place there.}}"
+      "countNote": "{count, plural, one {# of them stands in a shared rack: it has a place there.} other {# of them stand in a shared rack: they have a place there.}}",
+      "several": "{count} in a shared rack",
+      "confirmWhatSeveral": "{count} of these bottles stand in a shared rack. Giving them a place here takes them out of it: their spots there become free, and the people of that rack see that they went home.",
+      "confirmSeveral": "Take them out and place them here"
     }
   }
 }

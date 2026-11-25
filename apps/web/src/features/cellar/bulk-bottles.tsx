@@ -2,12 +2,19 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { ERROR_MESSAGES, nextFreeSlots, type BottleView, type VintageDetail } from "@cellr/domain";
+import {
+  ERROR_MESSAGES,
+  formatVintage,
+  nextFreeSlots,
+  type BottleView,
+  type VintageDetail,
+} from "@cellr/domain";
 import { ConfirmSheet } from "@/features/account/confirm-sheet";
 import { errorMessage } from "@/lib/api";
 import { Button } from "@/ui/button";
 import { Sheet } from "@/ui/sheet";
 import { useToast } from "@/ui/toast";
+import { SharedPlaceAskSheet, useSharedRacksOpen } from "@/features/shared-racks/lazy";
 import { useBottleAction, useRacks } from "./hooks";
 
 type Place = { locationId: string | null; row: number | null; col: number | null };
@@ -35,6 +42,9 @@ export function BulkBar({
   const [confirm, setConfirm] = useState<"removed" | "gifted" | null>(null);
   const [moving, setMoving] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Shared racks (ADR-010): bottles without a place here may stand in a shared rack; moving them is asked first
+  const sharedRacks = useSharedRacksOpen();
+  const [sharedAsk, setSharedAsk] = useState<string | null>(null);
   const fail = (e: unknown) => errorMessage(e, (k) => te(k), ERROR_MESSAGES);
 
   const chosen = detail.bottles.filter((b) => selected.includes(b.id));
@@ -79,11 +89,14 @@ export function BulkBar({
     }
   }
 
-  async function moveTo(unitId: string) {
+  async function moveTo(unitId: string, asked = false) {
     const unit = racks.data?.units.find((u) => u.id === unitId);
     if (!unit) return;
-    setBusy(true);
     const toMove = chosen.filter((b) => b.locationId !== unitId);
+    // Shared racks (ADR-010): asked first (and nothing else is done) while shared racks are open
+    if (sharedRacks && !asked && toMove.some((b) => b.locationId === null))
+      return setSharedAsk(unitId);
+    setBusy(true);
     const slots = nextFreeSlots(
       { rows: unit.rows, cols: unit.cols },
       unit.bottles.flatMap((b) =>
@@ -208,6 +221,18 @@ export function BulkBar({
           </ul>
         )}
       </Sheet>
+      {/* Shared racks (ADR-010): the question before bottles that stand in a shared rack get a place here */}
+      {sharedAsk && (
+        <SharedPlaceAskSheet
+          bottleIds={chosen.flatMap((b) => (b.locationId === null ? [b.id] : []))}
+          wine={`${detail.wine.name} ${formatVintage(detail.year)}`}
+          onConfirm={() => {
+            setSharedAsk(null);
+            void moveTo(sharedAsk, true);
+          }}
+          onCancel={() => setSharedAsk(null)}
+        />
+      )}
     </>
   );
 }

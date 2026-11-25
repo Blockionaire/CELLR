@@ -617,6 +617,7 @@
     { "from": "app/(app)/", "to": "features/purchase-check/" },
     { "from": "app/(app)/", "to": "features/ratings/" },
     { "from": "app/(app)/", "to": "features/scan/" },
+    { "from": "app/(app)/", "to": "features/shared-racks/" },
     { "from": "app/(app)/", "to": "features/sommelier/" },
     { "from": "app/(app)/", "to": "features/stats/" },
     { "from": "app/(app)/", "to": "features/taste/" },

@@ -153,6 +153,17 @@ export const useSharedRackEvents = (rackId: string, filter: EventFilter, enabled
     retry: false,
   });
 
+/**
+ * A rack I may no longer see (removed, left, gone): everything of it leaves the cache NOW, not when the cache would
+ * have let it go by itself, so nothing of other people's bottles stays in this tab's memory. The list of my racks is
+ * read again (it still names the rack). Called only once no screen asks for the rack any more: a query that is still
+ * asked for would simply be fetched again.
+ */
+export function forgetSharedRack(queryClient: QueryClient, rackId: string) {
+  queryClient.removeQueries({ queryKey: sharedRackKey(rackId) });
+  return queryClient.invalidateQueries({ queryKey: sharedRackListKey });
+}
+
 /** Everything about shared racks is read again (after a change, and after a refusal). */
 export const refreshSharedRacks = (queryClient: QueryClient) =>
   queryClient.invalidateQueries({ queryKey: sharedRacksKey });

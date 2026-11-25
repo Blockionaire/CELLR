@@ -1857,9 +1857,14 @@ const edges: SystemEdge[] = [
     "app-pwa",
     "svc-shared-racks",
     "request",
-    "shared racks in the cellar's 3D view (only where the gate is open)",
+    "shared racks in the cellar's 3D view; where my own bottles stand in one (racks view, a wine's page, its moves); only where the gate is open",
     web("features/shared-racks/hooks.ts", 'api.get<SharedRackList>("/shared-racks")'),
+    web("features/shared-racks/hooks.ts", '"/shared-racks/bottles"'),
     web("features/cellar/smart-cellar-3d.tsx", 'from "@/features/shared-racks/lazy"'),
+    web(
+      "app/(app)/cellar/[vintageId]/page.tsx",
+      "<SharedRacksGate open={getSharedRacksAccess().open}>",
+    ),
   ),
   edge(
     "svc-shared-racks",
@@ -3155,7 +3160,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.13.2",
+  version: "1.13.3",
   reviewedOn: "2026-11-25",
   repository: "Blockionaire/CELLR",
   components,

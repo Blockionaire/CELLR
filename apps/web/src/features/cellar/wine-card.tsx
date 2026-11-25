@@ -9,6 +9,7 @@ import { WinePicture } from "./wine-picture";
 import { RatingBadge } from "./tasting-bits";
 import { SwipeFavorite } from "./swipe-favorite";
 import { labelMark, placeLine, shapeFor } from "./wine-visuals";
+import { SharedPlaceOr } from "@/features/shared-racks/lazy";
 
 interface ItemProps {
   item: CellarItem;
@@ -43,7 +44,11 @@ function usePlaces(item: CellarItem) {
     ...item.places,
     ...(item.unplaced > 0 ? [t("notPlaced", { count: item.unplaced })] : []),
   ].join(", ");
-  return { text: `${first ?? t("noPlace")}${more > 0 ? ` +${more}` : ""}`, all };
+  const text = `${first ?? t("noPlace")}${more > 0 ? ` +${more}` : ""}`;
+  // Shared racks (ADR-010): with no place here at all, the bottles may stand in a shared rack; then that is said
+  const shown =
+    first === null ? <SharedPlaceOr vintageId={item.vintageId}>{text}</SharedPlaceOr> : text;
+  return { text: shown, all };
 }
 
 function CountBadge({ count }: { count: number }) {

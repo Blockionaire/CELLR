@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -33,6 +34,7 @@ import { PlusIcon } from "@/ui/icons";
 import { Skeleton } from "@/ui/skeleton";
 import { useToast } from "@/ui/toast";
 import {
+  forgetSharedRack,
   useMoveBottle,
   usePlaceBottle,
   useSharedRackBottles,
@@ -129,9 +131,37 @@ export function SharedRackStage({
   const say = useErrorText();
 
   const list = useSharedRacks();
-  const query = useSharedRackBottles(rackId);
+  const queryClient = useQueryClient();
+  // Not mine to see any more (the server said so): from then on nothing of the rack is asked for, and what this tab
+  // still held of it is let go at once (below)
+  const [gone, setGone] = useState(false);
+  const query = useSharedRackBottles(gone ? null : rackId);
   const data = query.data;
-  const membersQuery = useSharedRackMembers(rackId, data !== undefined);
+  const membersQuery = useSharedRackMembers(gone ? null : rackId, data !== undefined);
+  if (!gone && query.isError && refusalKind(query.error, RACK_NOT_FOUND_MESSAGE) === "gone")
+    setGone(true);
+  useEffect(() => {
+    if (gone) void forgetSharedRack(queryClient, rackId);
+  }, [gone, queryClient, rackId]);
+  // A control that had the focus can go away with what it did: a free spot that holds a bottle now, a bottle taken
+  // out, a sheet whose button is gone. Then the focus goes to the bottle it was about (its button in the flat grid),
+  // or else to the rack's name; never to the page itself. Asked for where that can happen, and done once the screen
+  // shows the change (a sheet that closed gave the focus back first, when it could).
+  // (also when the rack comes on screen: the sheet or chip that brought it here may be gone, after a new rack or an
+  // accepted invitation)
+  const [refocus, setRefocus] = useState<{ placementId: string | null } | null>({
+    placementId: null,
+  });
+  const nameRef = useRef<HTMLHeadingElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  // the control that had the focus went with the rack: the focus goes to what is said instead (not to the page)
+  const goneAlert = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!gone) return;
+    const now = document.activeElement;
+    if (!now || now === document.body || !now.isConnected)
+      goneAlert.current?.focus({ preventScroll: true });
+  }, [gone]);
   const members = membersQuery.data?.members;
   const place = usePlaceBottle(rackId);
   const move = useMoveBottle(rackId);
@@ -165,6 +195,32 @@ export function SharedRackStage({
   const model = useMemo(() => (resolved ? buildModel(resolved) : null), [resolved]);
   const byId = useMemo(() => new Map(bottles.map((b) => [b.placementId, b])), [bottles]);
   const choices = useMemo(() => ownerChoices(bottles, members ?? []), [bottles, members]);
+  useEffect(() => {
+    if (!refocus) return;
+    let frames = 0;
+    let id = 0;
+    const step = () => {
+      const now = document.activeElement;
+      // a sheet that is still on its way out gives the focus back when it is gone: wait for that (a little)
+      const waiting = now?.closest("dialog[open]") != null;
+      const lost = !now || now === document.body || !now.isConnected;
+      const placed = refocus.placementId ? byId.get(refocus.placementId) : undefined;
+      const cell = placed
+        ? gridRef.current?.querySelector<HTMLElement>(
+            `[data-testid="shared-rack-cell"][data-spot="${placed.row}:${placed.col}"]`,
+          )
+        : null;
+      const target = cell ?? nameRef.current;
+      if ((waiting || (lost && !target)) && frames++ < 60) {
+        id = requestAnimationFrame(step);
+        return;
+      }
+      setRefocus(null);
+      if (lost) target?.focus({ preventScroll: true });
+    };
+    id = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(id);
+  }, [refocus, byId]);
   const active = validFilter(filter, choices);
   const offering = mode.kind !== "view";
   if (aimed && !offering) setAimed(false);
@@ -230,6 +286,7 @@ export function SharedRackStage({
           setAddSpot(null);
           setMode({ kind: "view" });
           setSelectedId(out.placementId);
+          setRefocus({ placementId: out.placementId });
         },
         onError: refused,
       },
@@ -249,6 +306,7 @@ export function SharedRackStage({
           );
           setMode({ kind: "view" });
           setSelectedId(bottle.placementId);
+          setRefocus({ placementId: bottle.placementId });
         },
         onError: refused,
       },
@@ -271,6 +329,7 @@ export function SharedRackStage({
       {
         onSuccess: () => {
           setSelectedId(null);
+          setRefocus({ placementId: null });
           if (bottle.mine) return setTakenOut({ vintageId });
           toast.show(
             t("stage.takenOutTheirs", {
@@ -404,12 +463,14 @@ export function SharedRackStage({
 
   // No longer mine to see (removed, or left on another device): that is said, and NOTHING of the rack is shown, not
   // even what this screen still remembers of it.
-  if (query.isError && refusalKind(query.error, RACK_NOT_FOUND_MESSAGE) === "gone")
+  if (gone)
     return (
       <div
+        ref={goneAlert}
+        tabIndex={-1}
         role="alert"
         data-testid="shared-rack-no-access"
-        className="flex flex-col items-start gap-3 rounded-card border border-hairline bg-raised p-4"
+        className="flex flex-col items-start gap-3 rounded-card border border-hairline bg-raised p-4 outline-none focus-visible:ring-2 focus-visible:ring-accent-fg"
       >
         <p className="font-medium text-ink">{t("stage.noAccessTitle")}</p>
         <p className="text-small text-ink-2">{t("stage.noAccessBody")}</p>
@@ -458,7 +519,12 @@ export function SharedRackStage({
         data-testid="shared-rack-top"
       >
         <div className="flex min-w-0 flex-col">
-          <h2 className="truncate font-display text-title text-ink" data-testid="shared-rack-name">
+          <h2
+            ref={nameRef}
+            tabIndex={-1}
+            className="truncate font-display text-title text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent-fg"
+            data-testid="shared-rack-name"
+          >
             {rack.name}
           </h2>
           <p
@@ -684,6 +750,7 @@ export function SharedRackStage({
         </>
       ) : (
         <div
+          ref={gridRef}
           className="flex flex-col gap-3"
           data-testid="shared-rack-stage"
           data-view="grid"
@@ -775,6 +842,7 @@ export function SharedRackStage({
         onClose={() => {
           setTakeOutFor(null);
           setTakenOut(null);
+          setRefocus({ placementId: null });
         }}
         onShowRacks={onShowRacks}
       />
@@ -786,6 +854,7 @@ export function SharedRackStage({
         writes={writes}
         onLeft={() => {
           setSheet(null);
+          void forgetSharedRack(queryClient, rackId);
           onGone();
         }}
       />

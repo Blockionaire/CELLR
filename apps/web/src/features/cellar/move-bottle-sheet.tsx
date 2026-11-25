@@ -13,6 +13,7 @@ import { Button } from "@/ui/button";
 import { Chip } from "@/ui/chip";
 import { Sheet } from "@/ui/sheet";
 import { Skeleton } from "@/ui/skeleton";
+import { SharedPlaceAskSheet, useSharedRacksOpen } from "@/features/shared-racks/lazy";
 import { BottleSpot } from "./bottle-bits";
 import { useRacks } from "./hooks";
 import { useBottleActions } from "./use-bottle-actions";
@@ -68,6 +69,10 @@ function MoveBody({
   const [bottleId, setBottleId] = useState<string | null>(null);
   const [unitId, setUnitId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Shared racks (ADR-010): a bottle without a place here may stand in a shared rack; giving it one is asked first
+  const sharedRacks = useSharedRacksOpen();
+  type Target = { locationId: string | null; row: number | null; col: number | null };
+  const [sharedAsk, setSharedAsk] = useState<{ to: Target; where: string } | null>(null);
 
   const bottles = detail.bottles;
   const bottle =
@@ -84,8 +89,12 @@ function MoveBody({
   async function move(
     to: { locationId: string | null; row: number | null; col: number | null },
     where: string,
+    asked = false,
   ) {
     if (!bottle) return;
+    // Shared racks (ADR-010): asked first (and nothing else is done) while shared racks are open
+    if (sharedRacks && !asked && bottle.locationId === null && to.locationId !== null)
+      return setSharedAsk({ to, where });
     setError(null);
     const failure = await actions.move(bottle.id, to, where);
     if (failure) return setError(failure);
@@ -194,6 +203,19 @@ function MoveBody({
         <p role="alert" className="text-small text-danger">
           {error}
         </p>
+      )}
+      {/* Shared racks (ADR-010): the question before a bottle that stands in a shared rack gets a place here */}
+      {sharedAsk && (
+        <SharedPlaceAskSheet
+          bottleId={bottle.id}
+          wine={`${detail.wine.name} ${formatVintage(detail.year)}`}
+          pending={actions.pending}
+          onConfirm={() => {
+            setSharedAsk(null);
+            void move(sharedAsk.to, sharedAsk.where, true);
+          }}
+          onCancel={() => setSharedAsk(null)}
+        />
       )}
       {bottle.locationId !== null && (
         <Button
