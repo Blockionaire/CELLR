@@ -13,6 +13,7 @@
   "wines_rated": 100646,
   "partitions": 64,
   "largest_partition": 356324,
-  "seconds": 242.3,
-  "peak_rss_mb": 510
+  "units_sha256": "eb6510f401bde821ff1fe792093a8ddb1efea938569ef718f5d80700a54b0985",
+  "seconds": 234.1,
+  "peak_rss_mb": 484
 }
