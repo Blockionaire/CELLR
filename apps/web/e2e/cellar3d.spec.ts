@@ -199,15 +199,20 @@ test.describe("the 3D cellar", () => {
     await expect(panel).toHaveAttribute("data-open", "false");
     await expect(scene).toHaveAttribute("data-showcase", "closed");
 
-    // It slides home first: the rack is live again once its still picture is gone.
+    // It slides home first: the rack is live again once its still picture is gone AND the bottle lies in its slot
+    // again (the still goes as it lies down in front of the slot; until it has slid in, the slot is empty and a tap
+    // there meets nothing: that was this test's race, on main too).
     const home = page.getByTestId("rack-backdrop");
+    const inSlot = scene.locator('canvas[data-engine][data-out=""]');
     await expect(home).toHaveCount(0, { timeout: 10_000 });
+    await expect(inSlot).toHaveCount(1, { timeout: 10_000 });
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await expect(panel).toHaveAttribute("data-open", "true");
     await page.keyboard.press("Escape");
     await expect(panel).toHaveAttribute("data-open", "false");
 
     await expect(home).toHaveCount(0, { timeout: 10_000 });
+    await expect(inSlot).toHaveCount(1, { timeout: 10_000 });
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await expect(panel).toHaveAttribute("data-open", "true");
     await page.waitForTimeout(2500); // it has settled on display

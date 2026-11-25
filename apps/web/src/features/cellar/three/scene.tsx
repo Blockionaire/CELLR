@@ -28,12 +28,19 @@ import {
   unitSize,
   type ShowcaseLayout,
 } from "./layout";
+import {
+  GHOST_LIFT,
+  GHOST_TONES,
+  buildGhostBottle,
+  buildGhostMaterial,
+  ghostRadial,
+} from "./ghost-bottle";
 import { contactShadowTexture, lookMaterials } from "./materials";
-import { rackMatrix } from "./pose";
+import { RACK_ROTATION, rackMatrix } from "./pose";
 import { Showcase, type Studio } from "./showcase";
-import type { SceneBottle, ShownBottle } from "./types";
+import type { SceneBottle, SceneSpot, ShownBottle } from "./types";
 
-export type { SceneBottle, ShownBottle } from "./types";
+export type { SceneBottle, SceneSpot, ShownBottle } from "./types";
 
 export interface SceneProps {
   rows: number;
@@ -61,6 +68,18 @@ export interface SceneProps {
   onBackdrop?: (backdrop: Backdrop | null) => void;
   /** The browser took the graphics memory back (iOS does this to a page in the background). */
   onLost?: () => void;
+  /**
+   * 3D Quick Add on a place from before templates (sprint 7.2 completion): the free spots on offer, each drawn as a
+   * see-through placeholder bottle exactly where a bottle put there would lie; null when nothing is on offer. While
+   * spots are on offer no bottle is taken out.
+   */
+  spots?: readonly SceneSpot[] | null;
+  /** The spot that is chosen now (the sheet or the panel is about it): drawn gold and a little larger. */
+  chosenSpot?: { row: number; col: number } | null;
+  /** A placeholder was tapped (a tap, not the end of a turn). Left out: the spots are only shown. */
+  onSpot?: ((spot: SceneSpot) => void) | undefined;
+  /** The view's own readout for the browser tests (counters on the canvas, where a spot is on the screen). */
+  debug?: boolean;
 }
 
 /** A still of the rack, and where on the screen (in percent) the bottle that came out of it was. */
@@ -104,6 +123,10 @@ export default function CellarScene({
   onReady,
   onBackdrop,
   onLost,
+  spots = null,
+  chosenSpot = null,
+  onSpot,
+  debug = false,
 }: SceneProps) {
   // The bottle on display stays here a little after `showcase` is cleared, while it goes back.
   const [shown, setShown] = useState<ShownBottle | null>(showcase);
@@ -117,6 +140,9 @@ export default function CellarScene({
   const onDrag = useCallback((moved: boolean) => {
     dragged.current = moved;
   }, []);
+  // a turn (or slide, or pinch) of the rack itself, for the placeholders: one that ends over a spot chooses nothing
+  const turned = useRef(false);
+  const offering = spots !== null;
   const [frozen, setFrozen] = useState(false);
   const frozenRef = useRef(frozen);
   useEffect(() => {
@@ -221,6 +247,7 @@ export default function CellarScene({
       />
       <pointLight ref={rimLight} intensity={0} color="#e6eeff" distance={30} decay={1.8} />
       <Prewarm />
+      <OutMark out={shown !== null} />
       <SizeSync onResized={onResized} />
       <Rig
         rows={rows}
@@ -228,6 +255,7 @@ export default function CellarScene({
         reducedMotion={reducedMotion}
         locked={locked}
         held={shown !== null}
+        turned={turned}
       />
       <group ref={rackRef} visible={!frozen}>
         <RackFrame rows={rows} cols={cols} kind={kind} />
@@ -238,10 +266,22 @@ export default function CellarScene({
           bottles={bottles}
           hiddenId={shown?.bottle.id ?? null}
           locked={locked}
+          offering={offering}
           onPick={onPick}
           onDismiss={onDismiss}
         />
+        {spots !== null && spots.length > 0 && (
+          <GhostSpots
+            spots={spots}
+            rows={rows}
+            cols={cols}
+            chosen={chosenSpot}
+            turned={turned}
+            onSpot={onSpot}
+          />
+        )}
       </group>
+      {debug && <Readout rows={rows} cols={cols} bottles={bottles} spots={spots} />}
       {shown && (
         <>
           <Freezer
@@ -364,6 +404,22 @@ function Prewarm() {
       label.dispose();
     };
   }, [gl, scene, camera]);
+  return null;
+}
+
+/**
+ * Whether a bottle is out of its slot right now (on display, or on its way out or home), on the canvas for tests to
+ * read (`data-out`: "1", or empty when every bottle lies in its slot; never which bottle, so nothing of the cellar is
+ * written into the page). Until a bottle is home its slot is empty in the live rack (it is drawn apart), so a tap
+ * there meets nothing: a test that taps the slot again waits for this, not for the still of the rack to go (which goes
+ * as the bottle lies down in front of its slot, before it slides in). Not behind the debug flag: the plain 3D cellar
+ * (`cellar3d.spec`, renderer gate closed) has no debug readout to put it behind.
+ */
+function OutMark({ out }: { out: boolean }) {
+  const store = useStore();
+  useEffect(() => {
+    store.getState().gl.domElement.dataset.out = out ? "1" : "";
+  }, [store, out]);
   return null;
 }
 
@@ -583,6 +639,7 @@ function Rig({
   reducedMotion,
   locked,
   held,
+  turned,
 }: {
   rows: number;
   cols: number;
@@ -591,6 +648,8 @@ function Rig({
   locked: boolean;
   /** A bottle is out of the rack (on display, or on its way back). */
   held: boolean;
+  /** Set while the camera is being turned, slid or zoomed by hand (more than a jitter). */
+  turned: React.RefObject<boolean>;
 }) {
   const { camera, gl, size, invalidate } = useThree();
   const controls = useRef<OrbitControls | null>(null);
@@ -628,17 +687,27 @@ function Rig({
     c.panSpeed = 0.9;
     // A bottle on display: the rack is not to be moved by turning it.
     c.enabled = !lockedNow.current;
+    let moved = 0;
+    const onStart = () => {
+      moved = 0;
+      turned.current = false;
+    };
     const onChange = () => {
+      moved += 1;
+      if (moved > 2) turned.current = true;
       // Where the view is looking, readable from outside (the tests use it to check where zoom goes).
       gl.domElement.dataset.target = `${c.target.x.toFixed(2)},${c.target.y.toFixed(2)}`;
       gl.domElement.dataset.distance = c.getDistance().toFixed(2);
+      gl.domElement.dataset.azimuth = c.getAzimuthalAngle().toFixed(3);
       invalidate();
     };
+    c.addEventListener("start", onStart);
     c.addEventListener("change", onChange);
     c.update();
     controls.current = c;
     invalidate();
     return () => {
+      c.removeEventListener("start", onStart);
       c.removeEventListener("change", onChange);
       c.dispose();
       controls.current = null;
@@ -856,6 +925,7 @@ function Bottles({
   bottles,
   hiddenId,
   locked,
+  offering,
   onPick,
   onDismiss,
 }: {
@@ -867,6 +937,8 @@ function Bottles({
   /** The bottle that has left its slot (drawn separately while it is out). */
   hiddenId: string | null;
   locked: boolean;
+  /** Free spots are on offer (Quick Add): a tap on a bottle takes nothing out. */
+  offering: boolean;
   onPick: (id: string) => void;
   onDismiss: () => void;
 }) {
@@ -887,6 +959,7 @@ function Bottles({
           board={board}
           hiddenId={hiddenId}
           locked={locked}
+          offering={offering}
           onPick={onPick}
           onDismiss={onDismiss}
         />
@@ -909,6 +982,7 @@ function ShapeGroup({
   board,
   hiddenId,
   locked,
+  offering,
   onPick,
   onDismiss,
 }: {
@@ -919,6 +993,7 @@ function ShapeGroup({
   board: number;
   hiddenId: string | null;
   locked: boolean;
+  offering: boolean;
   onPick: (id: string) => void;
   onDismiss: () => void;
 }) {
@@ -1035,6 +1110,9 @@ function ShapeGroup({
         frustumCulled={false}
         onClick={(e) => {
           e.stopPropagation();
+          // Spots on offer (Quick Add): a bottle is not taken out, and a tap that meets a bottle first is a tap on that
+          // bottle, never on a placeholder hidden behind it (a person never taps one thing and gets another).
+          if (offering) return;
           // Only a tap counts: a turn or slide of the rack that ends over a bottle is not a pick (R3F reports the
           // pointer-up over the same mesh as a click however far it moved).
           if (e.delta > TAP_SLOP) return;
@@ -1044,10 +1122,12 @@ function ShapeGroup({
           if (item) onPick(item.id);
         }}
         onPointerOver={(e) => {
+          if (offering) return;
           e.stopPropagation();
           (e.nativeEvent.target as HTMLElement).style.cursor = "pointer";
         }}
         onPointerOut={(e) => {
+          if (offering) return;
           (e.nativeEvent.target as HTMLElement).style.cursor = "grab";
         }}
       />
@@ -1070,4 +1150,194 @@ function ShapeGroup({
       />
     </group>
   );
+}
+
+// ---- Free spots on offer (3D Quick Add on a place from before templates, sprint 7.2 completion) ------------------
+
+const GHOST_REST = new THREE.Color(GHOST_TONES.rest);
+const GHOST_HOVER = new THREE.Color(GHOST_TONES.hover);
+const GHOST_CHOSEN = new THREE.Color(GHOST_TONES.chosen);
+const ghostAt = new THREE.Matrix4();
+const liftAbout = new THREE.Matrix4();
+const liftScale = new THREE.Matrix4().makeScale(GHOST_LIFT, GHOST_LIFT, GHOST_LIFT);
+/** The placeholders' mesh, by name: for the readout and its tests. */
+const GHOSTS_NAME = "legacy-quick-add-ghosts";
+
+/**
+ * A see-through placeholder bottle on every free spot, in exactly the matrix a bottle on that spot is drawn with
+ * (`rackMatrix`, the one `legacy-parity.test.ts` pins), so a tap on it is a tap on that spot and no other. As the
+ * template renderer's placeholders (`storage3d/template-scene.tsx` › SpotMarkers): ONE instanced mesh, one geometry,
+ * one material, one draw call however many spots; nothing allocated per frame; drawn on demand only; given back when
+ * the spots go. A tap that moved more than a few pixels, or that ended a turn of the rack, is not a tap. Resting pale,
+ * warmer under a mouse or pen (never a finger), chosen gold and a little larger.
+ */
+function GhostSpots({
+  spots,
+  rows,
+  cols,
+  chosen,
+  turned,
+  onSpot,
+}: {
+  spots: readonly SceneSpot[];
+  rows: number;
+  cols: number;
+  chosen: { row: number; col: number } | null;
+  turned: React.RefObject<boolean>;
+  onSpot: ((spot: SceneSpot) => void) | undefined;
+}) {
+  const { invalidate } = useThree();
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const [hovered, setHovered] = useState<number | null>(null);
+  // another list of spots: the index under the mouse means another spot (or none) now
+  const [hoveredIn, setHoveredIn] = useState(spots);
+  if (hoveredIn !== spots) {
+    setHoveredIn(spots);
+    setHovered(null);
+  }
+  const radial = ghostRadial(spots.length);
+  const geometry = useMemo(() => buildGhostBottle(radial), [radial]);
+  const material = useMemo(() => buildGhostMaterial(), []);
+  // each given back on its own: another level of detail is a new geometry, never a new material (and program)
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  useEffect(() => () => material.dispose(), [material]);
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    spots.forEach((s, i) => {
+      const isChosen = chosen !== null && s.row === chosen.row && s.col === chosen.col;
+      rackMatrix(s.row, s.col, rows, cols, ghostAt);
+      if (isChosen) {
+        // larger about its own middle (the spot's centre), not about the end it is modelled from
+        const [x, y, z] = slotPosition(s.row, s.col, rows, cols);
+        ghostAt.premultiply(liftAbout.makeTranslation(-x, -y, -z));
+        ghostAt.premultiply(liftScale);
+        ghostAt.premultiply(liftAbout.makeTranslation(x, y, z));
+      }
+      mesh.setMatrixAt(i, ghostAt);
+      mesh.setColorAt(i, isChosen ? GHOST_CHOSEN : i === hovered ? GHOST_HOVER : GHOST_REST);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    invalidate();
+  }, [spots, rows, cols, chosen, hovered, invalidate]);
+  return (
+    <instancedMesh
+      // a new number of spots is a new mesh (an instanced mesh's count is fixed when it is made)
+      key={spots.length}
+      ref={ref}
+      name={GHOSTS_NAME}
+      args={[geometry, material, spots.length]}
+      renderOrder={4}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.delta > TAP_SLOP || turned.current) return;
+        const s = e.instanceId === undefined ? undefined : spots[e.instanceId];
+        if (s) onSpot?.(s);
+      }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        // a finger has no hover: only a mouse or a pen warms a placeholder before it is chosen
+        if (!onSpot || e.pointerType === "touch") return;
+        (e.nativeEvent.target as HTMLElement).style.cursor = "pointer";
+        setHovered(e.instanceId ?? null);
+      }}
+      onPointerOut={(e) => {
+        if (e.pointerType === "touch") return;
+        (e.nativeEvent.target as HTMLElement).style.cursor = "grab";
+        setHovered((h) => (h === e.instanceId ? null : h));
+      }}
+    />
+  );
+}
+
+// ---- What was drawn, for the browser tests (only when the page asked for it) --------------------------------------
+
+/** A point on a lying bottle's axis, `along` from its middle towards its neck (the end that faces the viewer). */
+const AXIS = new THREE.Vector3(0, 1, 0).applyQuaternion(RACK_ROTATION);
+function onAxis(row: number, col: number, rows: number, cols: number, along: number) {
+  const [x, y, z] = slotPosition(row, col, rows, cols);
+  return new THREE.Vector3(x + AXIS.x * along, y + AXIS.y * along, z + AXIS.z * along);
+}
+
+function Readout({
+  rows,
+  cols,
+  bottles,
+  spots,
+}: {
+  rows: number;
+  cols: number;
+  bottles: readonly SceneBottle[];
+  spots: readonly SceneSpot[] | null;
+}) {
+  const store = useStore();
+  const { gl, camera, size } = useThree();
+  const frames = useRef(0);
+  useEffect(() => {
+    const el = gl.domElement;
+    const { scene } = store.getState();
+    const before = scene.onAfterRender;
+    scene.onAfterRender = () => {
+      frames.current += 1;
+      el.dataset.frames = String(frames.current);
+      el.dataset.calls = String(gl.info.render.calls);
+      el.dataset.triangles = String(gl.info.render.triangles);
+      el.dataset.geometries = String(gl.info.memory.geometries);
+      el.dataset.textures = String(gl.info.memory.textures);
+      el.dataset.programs = String(gl.info.programs?.length ?? 0);
+    };
+    return () => {
+      scene.onAfterRender = before;
+    };
+  }, [gl, store]);
+  useEffect(() => {
+    store.getState().gl.domElement.dataset.spots = spots ? String(spots.length) : "";
+  }, [store, spots]);
+  useEffect(() => {
+    const w = window as unknown as { __cellrLegacy3d?: unknown };
+    const project = (p: THREE.Vector3) => {
+      camera.updateMatrixWorld();
+      const at = p.clone().project(camera);
+      return { x: ((at.x + 1) / 2) * size.width, y: ((1 - at.y) / 2) * size.height };
+    };
+    w.__cellrLegacy3d = {
+      /** Where the end of a bottle that faces the viewer is on the canvas (CSS px), or null. */
+      locate(id: string) {
+        const b = bottles.find((x) => x.id === id);
+        return b ? project(onAxis(b.row, b.col, rows, cols, BOTTLE_LENGTH / 2 - 0.3)) : null;
+      },
+      /** A point inside a free spot's placeholder, towards the viewer (CSS px), or null when it is not on offer. */
+      locateSpot(row: number, col: number) {
+        const s = spots?.find((x) => x.row === row && x.col === col);
+        return s ? project(onAxis(row, col, rows, cols, BOTTLE_LENGTH * 0.25)) : null;
+      },
+      spots: () => (spots ?? []).map((s) => `${s.row}:${s.col}:1`),
+      /** The placeholders as drawn (how many, their triangles, what they are made of, one's size), or null. */
+      ghosts() {
+        const mesh = store.getState().scene.getObjectByName(GHOSTS_NAME) as
+          THREE.InstancedMesh | undefined;
+        if (!mesh) return null;
+        const g = mesh.geometry;
+        if (!g.boundingBox) g.computeBoundingBox();
+        const box = g.boundingBox!.getSize(new THREE.Vector3());
+        const objects: string[] = [];
+        mesh.traverse((o) => objects.push(o.type));
+        return {
+          count: mesh.count,
+          triangles: (g.index ? g.index.count : g.getAttribute("position").count) / 3,
+          attributes: Object.keys(g.attributes).sort(),
+          materials: Array.isArray(mesh.material) ? mesh.material.length : 1,
+          objects: objects.length,
+          length: +box.y.toFixed(3),
+          width: +Math.max(box.x, box.z).toFixed(3),
+        };
+      },
+    };
+    return () => {
+      delete w.__cellrLegacy3d;
+    };
+  }, [camera, size, store, rows, cols, bottles, spots]);
+  return null;
 }

@@ -15,3 +15,9 @@ export interface ShownBottle {
   bottle: SceneBottle;
   label: LabelSpec;
 }
+
+/** A free spot on offer in the existing view (3D Quick Add on a place from before templates): always index 1. */
+export interface SceneSpot {
+  row: number;
+  col: number;
+}
