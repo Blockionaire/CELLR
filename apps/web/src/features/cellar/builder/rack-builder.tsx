@@ -62,6 +62,7 @@ import {
   draftFromTemplate,
   draftFromUnit,
   isNewerRevision,
+  revisionIsNews,
   parseDraft,
   rebaseDraft,
   resolvedOfDraft,
@@ -335,7 +336,12 @@ function BuilderEditor({
 
   // The place was changed elsewhere while it is open here (the query refreshes it). Nothing edited yet: take the
   // new version as it is. Edits in progress: keep them, and say that saving them is refused until reloaded.
-  const [seenRevision, setSeenRevision] = useState(unit?.revision ?? null);
+  // every revision this screen has already handled (read, or answered by its own saves). Only one it has NOT met is
+  // news: the cached answer from before a save stays the same text after it, and must not undo the save when the
+  // refresh after it fails (revisions are compared for equality only, so "older" cannot be read from them)
+  const [knownRevisions, setKnownRevisions] = useState<string[]>(unit ? [unit.revision] : []);
+  const setSeenRevision = (revision: string) =>
+    setKnownRevisions((known) => (revisionIsNews(revision, known) ? [...known, revision] : known));
   const [changedElsewhere, setChangedElsewhere] = useState(false);
   /** Starting again from the latest version: on its way, or failed (said, with a way to try again; nothing lost). */
   const [reloading, setReloading] = useState<null | "busy" | { failed: string; keepMine: boolean }>(
@@ -350,9 +356,9 @@ function BuilderEditor({
     theirs: ChangeKind[];
     both: ChangeKind[];
   }>(null);
-  // only a LATER version is news: an answer that left before this screen's own save and arrives after it is older
-  if (unit && isNewerRevision(unit.revision, seenRevision)) {
-    setSeenRevision(unit.revision);
+  // only a version this screen has not met is news (an older answer, or the cache from before a save, is not)
+  if (unit && revisionIsNews(unit.revision, knownRevisions)) {
+    setKnownRevisions([...knownRevisions, unit.revision]);
     if (isNewerRevision(unit.revision, baseline.revision)) {
       if (!dirty) {
         const fresh = draftFromUnit(unit);

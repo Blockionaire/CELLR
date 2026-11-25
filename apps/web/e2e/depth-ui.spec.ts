@@ -125,7 +125,7 @@ test("depth on: the old racks view shows a two-bottle cell as its front bottle a
   await expect(cell).toHaveAttribute("data-bottle-id", front!);
 });
 
-test("depth on: the Rack Builder saves a double-depth rack, and refuses a shrink that strands a back bottle", async ({
+test("depth on: the Rack Builder saves a double-depth rack, and refuses a smaller layout that strands a back bottle", async ({
   page,
   request,
 }) => {
@@ -158,10 +158,11 @@ test("depth on: the Rack Builder saves a double-depth rack, and refuses a shrink
   expect(row!.cell_capacity).toBeGreaterThan(1);
   // a bottle at the deepest place, then a shallower draft: blocked, nothing saved
   const [b] = await loose(call, 1);
-  await moveTo(call, b!, rack, 1, 1, row!.cell_capacity);
+  await moveTo(call, b!, rack, 3, 1, row!.cell_capacity); // at the back of the bottom shelf
   await page.reload();
   await expect(builder).toHaveAttribute("data-mode", "edit");
-  await page.getByTestId("builder-cellCapacity").getByRole("button").first().click();
+  // the template allows no fewer than 2 per spot, so a back bottle is stranded by taking its shelf away
+  await page.getByTestId("builder-rows").getByRole("button").first().click();
   await expect(builder).toHaveAttribute("data-status", "blocked");
   await expect(page.locator('[data-problem="in_use"]')).toBeVisible();
   await expect(page.getByTestId("builder-save")).toBeDisabled();
