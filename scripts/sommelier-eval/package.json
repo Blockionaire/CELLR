@@ -25,7 +25,10 @@
     "review-forms": "tsx --conditions=react-server review-forms.ts",
     "holdout-from-csv": "tsx --conditions=react-server holdout-csv.ts",
     "power": "tsx --conditions=react-server power.ts",
-    "results-report": "tsx --conditions=react-server results-report.ts"
+    "results-report": "tsx --conditions=react-server results-report.ts",
+    "p8": "tsx --conditions=react-server p8.ts",
+    "cost-check": "tsx --conditions=react-server cost-check.ts",
+    "forms-check": "tsx --conditions=react-server forms-check.ts"
   },
   "dependencies": {
     "@cellr/domain": "workspace:*",

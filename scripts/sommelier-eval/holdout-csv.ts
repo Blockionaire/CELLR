@@ -1,15 +1,16 @@
 /**
- * FROM THE FILLED HOLDOUT FORMS TO THE ESCROWED FILES (P8), in two series (human-holdout-series.ts): the people
- * writing it fill docs/sprints/sommelier-3-mega/review/holdout-template-series1.csv (40 dishes) and, later and without
- * having seen any result on series 1, holdout-template-series2.csv (60), in a spreadsheet, on their own computer,
- * OUTSIDE this repository. The owner turns each into the holdout's format (`HumanDish` list) and seals it:
+ * FROM THE FILLED HOLDOUT FORMS TO THE ESCROWED FILES (P8; owner decision 2026-11-25: 40 exploratory + 60
+ * definitive, human-holdout-series.ts). The people writing it fill docs/sprints/sommelier-3-mega/review/
+ * holdout-template-exploratory.csv (40 dishes) and holdout-template-definitive.csv (60, blind), in a spreadsheet, on
+ * their own computer, OUTSIDE this repository. The owner turns each into the holdout's format and seals it, each
+ * on its own:
  *
- *   pnpm --filter @cellr/sommelier-eval run holdout-from-csv 1 /private/series1-filled.csv /private/series1.json
- *   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/series1.json   # → human-holdout/SEAL-series1.json
- *   ... and when series 2 exists:
- *   pnpm --filter @cellr/sommelier-eval run holdout-from-csv 2 /private/series2-filled.csv /private/series2.json
- *   pnpm --filter @cellr/sommelier-eval run holdout-from-csv merge /private/series1.json /private/series2.json /private/dishes.json
- *   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/dishes.json    # → human-holdout/SEAL.json (100)
+ *   pnpm --filter @cellr/sommelier-eval run holdout-from-csv exploratory /private/exploratory-filled.csv /private/exploratory.json
+ *   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/exploratory.json   # → human-holdout/SEAL-exploratory.json
+ *   pnpm --filter @cellr/sommelier-eval run holdout-from-csv definitive /private/definitive-filled.csv /private/definitive.json
+ *   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/definitive.json    # → human-holdout/SEAL-definitive.json
+ *   pnpm --filter @cellr/sommelier-eval run holdout-from-csv merge /private/exploratory.json /private/definitive.json /private/dishes.json
+ *   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/dishes.json         # → human-holdout/SEAL.json (the 100)
  *
  * Both paths must be outside the repository. It prints only how many dishes it wrote and any problem by row number,
  * never a dish, so whoever runs it (an agent included) learns nothing of the scenarios. Rows left empty are skipped.
@@ -120,9 +121,12 @@ export const seriesFromForm = (text: string, series: Series) =>
 if (import.meta.url === `file://${process.argv[1]}`) {
   const [what, ...paths] = process.argv.slice(2);
   const usage =
-    "usage: holdout-from-csv <1|2> <filled form .csv> <series .json to write>, or holdout-from-csv merge <series1.json> <series2.json> <dishes.json to write>; every path outside the repository";
+    "usage: holdout-from-csv <exploratory|definitive> <filled form .csv> <part .json to write>, or holdout-from-csv merge <exploratory.json> <definitive.json> <dishes.json to write>; every path outside the repository";
   const merging = what === "merge";
-  if ((!merging && what !== "1" && what !== "2") || paths.length !== (merging ? 3 : 2)) {
+  if (
+    (!merging && what !== "exploratory" && what !== "definitive") ||
+    paths.length !== (merging ? 3 : 2)
+  ) {
     console.error(usage);
     process.exit(2);
   }
@@ -137,7 +141,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
           JSON.parse(readFileSync(paths[0]!, "utf8")),
           JSON.parse(readFileSync(paths[1]!, "utf8")),
         )
-      : seriesFromForm(readFileSync(paths[0]!, "utf8"), Number(what) as Series);
+      : seriesFromForm(readFileSync(paths[0]!, "utf8"), what as Series);
     writeFileSync(to, JSON.stringify(dishes, null, 2) + "\n");
     console.log(`Wrote ${dishes.length} dishes. Seal it next: seal-human-holdout ${to}`);
   } catch (error) {

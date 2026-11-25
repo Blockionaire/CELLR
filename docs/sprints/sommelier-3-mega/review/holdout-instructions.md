@@ -1,24 +1,22 @@
-# Writing the independent holdout — instructions (100 dishes, in two series)
+# Writing the independent holdout — instructions (100 dishes: 40 exploratory, 60 definitive)
 
 **Who:** a person who knows wine (and, for the dishes, one or two people who cook), who has not worked on CELLR and
 does not use an AI to write. **What for:** a blind test of whether the sommelier pairs dishes it has never seen. Until
 you have written it, every quality claim rests on scenarios an AI wrote.
 
-## Two series: 40, then 60
+## Two parts: 40 exploratory, 60 definitive (owner decision, 2026-11-25)
 
-The owner's provisional target (2026-11-24) is **100 independent dishes**, written in two series:
+| Part               | Form                               | Dishes | ids                   | What it is for                                                                                         |
+| ------------------ | ---------------------------------- | -----: | --------------------- | ------------------------------------------------------------------------------------------------------ |
+| Exploratory        | `holdout-template-exploratory.csv` |     40 | `hh-x-01` … `hh-x-40` | A first look; every report says EXPLORATORY. Can only catch a large regression                         |
+| Definitive (blind) | `holdout-template-definitive.csv`  |     60 | `hh-d-01` … `hh-d-60` | The measure. Sealed, never seen by an agent or a developer, scored **once**, after the build is frozen |
 
-| Series | Form                           | Dishes | ids                     | Written by                                                             |
-| ------ | ------------------------------ | -----: | ----------------------- | ---------------------------------------------------------------------- |
-| 1      | `holdout-template-series1.csv` |     40 | `hh-s1-01` … `hh-s1-40` | the first writers                                                      |
-| 2      | `holdout-template-series2.csv` |     60 | `hh-s2-01` … `hh-s2-60` | people who have **not** seen any result on series 1 (not even a total) |
-
-A run on series 1 alone is reported as **provisional**: 40 dishes can catch only a large regression, not show that
-V1+ is as good as V1 within 5 points (`P8_POWER_ANALYSIS.md`). Only the full 100 is the holdout the gate asks for.
+The definitive 60 are written by people who have **not** seen any result on the exploratory 40 (not even a total).
+No claim that CELLR is "as good as" before rests on the exploratory part (`P8_POWER_ANALYSIS.md`).
 
 ## What you fill in
 
-Open your series' form. Its `id` column is filled; everything else is yours. Per row, one dish:
+Open your part's form. Its `id` column is filled; everything else is yours. Per row, one dish:
 
 | Column                        | What to write                                                                                          |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -46,30 +44,31 @@ CELLR to get it wrong. Do not look at CELLR's answers while writing.
 1. Fill the form **on your own computer**. Do not upload it to the repository, a shared drive the developers can
    read, or a chat with an AI.
 2. Send it only to the owner. The owner keeps it in a private folder outside the repository and converts and seals
-   it there, **per series**:
+   it there, **each part on its own**:
 
    ```bash
-   # Series 1 (40): its own file and its own seal
-   pnpm --filter @cellr/sommelier-eval run holdout-from-csv 1 /private/series1-filled.csv /private/series1.json
-   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/series1.json   # → human-holdout/SEAL-series1.json
-   # Series 2 (60), later; then the full 100 with the full set's seal
-   pnpm --filter @cellr/sommelier-eval run holdout-from-csv 2 /private/series2-filled.csv /private/series2.json
-   pnpm --filter @cellr/sommelier-eval run holdout-from-csv merge /private/series1.json /private/series2.json /private/dishes.json
-   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/dishes.json    # → human-holdout/SEAL.json
+   pnpm --filter @cellr/sommelier-eval run holdout-from-csv exploratory /private/exploratory-filled.csv /private/exploratory.json
+   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/exploratory.json   # → human-holdout/SEAL-exploratory.json
+   pnpm --filter @cellr/sommelier-eval run holdout-from-csv definitive /private/definitive-filled.csv /private/definitive.json
+   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/definitive.json    # → human-holdout/SEAL-definitive.json
+   pnpm --filter @cellr/sommelier-eval run holdout-from-csv merge /private/exploratory.json /private/definitive.json /private/dishes.json
+   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/dishes.json         # → human-holdout/SEAL.json (the 100)
    ```
 
-   The converter refuses any path inside the repository, checks the series' ids and exact size, and prints only a
+   The converter refuses any path inside the repository, checks the part's ids and exact size, and prints only a
    count and row numbers, never a dish.
 
-3. The owner commits **only** the seals (`scripts/sommelier-eval/human-holdout/SEAL-series1.json`, later `SEAL.json`:
-   a file's hash and its number of dishes). The benchmark reads series 1 from `SOMMELIER_EVAL_HUMAN_SERIES1_FILE`
-   (set `human-series1`) and the full 100 from `SOMMELIER_EVAL_HUMAN_FILE` (set `human`), each from the owner's path,
-   and refuses a file that does not match its seal, so neither can change unseen.
+3. The owner commits **only** the seals (a file's hash and its number of dishes). The benchmark reads the exploratory
+   part as set `human-exploratory` (`SOMMELIER_EVAL_HUMAN_EXPLORATORY_FILE`) and the definitive part as set
+   `human-definitive` (`SOMMELIER_EVAL_HUMAN_DEFINITIVE_FILE`), each from the owner's path, and refuses a file that
+   does not match its seal. The definitive set is refused unless the build is frozen and `--definitive --frozen-at
+<sha>` is given, and a second scoring of the same seal by the same engine is refused (`P8_MEASUREMENT_PLAN.md`
+   §10 step 5). Its dishes are refused in every other set.
 4. **The agent that develops or measures CELLR must not see either file before the run**, and both sets are reported
-   in totals only (`run.ts` treats them as blind). Series 2's writers see no result of series 1. A change after the first measurement gets a new seal and a written
+   in totals only (`run.ts` treats them as blind). The definitive part's writers see no result of the exploratory part. A change after the first measurement gets a new seal and a written
    reason.
 
-**Size:** the full set keeps its minimum of 100 dishes (`HUMAN_HOLDOUT_MIN_DISHES`); series 1 alone is a separate,
-clearly named set (`human-series1`, exactly 40) whose every report says `PROVISIONAL` first.
+**Size:** the full set keeps its minimum of 100 dishes (`HUMAN_HOLDOUT_MIN_DISHES`); it is a size and escrow check,
+not scored as such: the definitive dishes are scored only in their own set, once.
 
 Filled in by: ____________ Date: ________ — nothing counts until you have signed it.

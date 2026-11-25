@@ -51,10 +51,13 @@ export const FORM_PREAMBLE = (title: string) => [
 /** Verdict columns start with this, so a test can find them and check that they are empty. */
 export const VERDICT = "YOUR VERDICT: ";
 
-// ---- 1. The independent holdout: a template per series (40, then 60; 100 in all) ---------------------------------
+// ---- 1. The independent holdout: a template per part (40 exploratory, 60 definitive; 100 in all) ---------------
 
-/** Rows per series' template (human-holdout-series.ts: 40 and 60, the owner's provisional target of 100). */
-export const HOLDOUT_ROWS = { 1: SERIES[1].dishes, 2: SERIES[2].dishes } as const;
+/** Rows per part's template (human-holdout-series.ts: 40 exploratory and 60 definitive, the owner's decision). */
+export const HOLDOUT_ROWS = {
+  exploratory: SERIES.exploratory.dishes,
+  definitive: SERIES.definitive.dishes,
+} as const;
 export const HOLDOUT_HEADER = [
   "id",
   "dish (English)",
@@ -83,7 +86,9 @@ export function holdoutTemplate(series: Series): string {
   ]);
   return csv([
     ...FORM_PREAMBLE(
-      `CELLR sommelier: independent holdout of wine-and-food pairings, series ${series} of 2 (${dishes} dishes; 100 in all)`,
+      series === "exploratory"
+        ? `CELLR sommelier: independent holdout of wine-and-food pairings, EXPLORATORY part (${dishes} dishes of 100)`
+        : `CELLR sommelier: independent holdout of wine-and-food pairings, DEFINITIVE part (${dishes} dishes of 100; BLIND: never shown to developers or agents)`,
     ),
     HOLDOUT_HEADER,
     ...rows,
@@ -638,8 +643,8 @@ export function uxClosingForm(): string {
 /** Every generated form: file name → content. */
 export async function allForms(): Promise<Record<string, string>> {
   return {
-    "holdout-template-series1.csv": holdoutTemplate(1),
-    "holdout-template-series2.csv": holdoutTemplate(2),
+    "holdout-template-exploratory.csv": holdoutTemplate("exploratory"),
+    "holdout-template-definitive.csv": holdoutTemplate("definitive"),
     "holdout-wines.csv": holdoutWines(),
     "annotation-review.csv": annotationForm(),
     "knowledge-serving.csv": servingForm(),

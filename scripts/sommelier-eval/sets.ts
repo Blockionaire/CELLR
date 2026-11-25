@@ -1,9 +1,10 @@
 import { DISHES } from "./dishes";
 import { HOLDOUT_DISHES } from "./dishes-holdout";
 import { humanHoldout } from "./human-holdout";
-import { humanSeries1 } from "./human-holdout-series";
+import { humanPart } from "./human-holdout-series";
 import { SCENARIOS } from "./scenarios";
 import { HOLDOUT_SCENARIOS } from "./scenarios-holdout";
+import { PROBE_SCENARIOS } from "./scenarios-probe";
 import type { DishCard, Scenario } from "./types";
 
 /**
@@ -27,6 +28,11 @@ const SETS: Record<string, { scenarios: readonly Scenario[]; dishes: readonly Di
    * ever measured in totals. No tool lists it scenario by scenario, no recorded result names its scenarios, and
    * its test compares totals only.
    */
+  /**
+   * P8: the serving and guests probe (scenarios-probe.ts), 16 scenarios in English and Dutch: what the `annotate` and
+   * `quantities` parts act on, so the serving stop rule is measured. Readable; AI-written dish labels.
+   */
+  probe: { scenarios: PROBE_SCENARIOS, dishes: DISHES },
   "holdout-dev": half(0),
   "holdout-test": half(1),
   /**
@@ -35,10 +41,15 @@ const SETS: Record<string, { scenarios: readonly Scenario[]; dishes: readonly Di
    */
   human: humanHoldout(),
   /**
-   * P8: the human holdout's first series alone (40 dishes, human-holdout-series.ts), its own escrow and seal. Blind,
-   * and every report of it is marked PROVISIONAL: it is not the 100 the full set needs.
+   * P8 (owner decision 2026-11-25): the human holdout's exploratory 40 dishes (human-holdout-series.ts), their own
+   * escrow and seal. Blind, and every report of them is marked EXPLORATORY.
    */
-  "human-series1": humanSeries1(),
+  "human-exploratory": humanPart("exploratory"),
+  /**
+   * Owner decision 2026-11-25: the definitive 60, blind, scored once after the build is frozen (run.ts refuses it
+   * without --definitive and --frozen-at; human-holdout-series.ts). Reported apart from everything else.
+   */
+  "human-definitive": humanPart("definitive"),
 };
 function half(which: 0 | 1) {
   const middle = Math.floor(HOLDOUT_DISHES.length / 2);
@@ -47,7 +58,12 @@ function half(which: 0 | 1) {
   return { dishes, scenarios: HOLDOUT_SCENARIOS.filter((s) => s.dish && ids.has(s.dish)) };
 }
 /** Sets whose failures are not to be read one by one: they are the blind measure. */
-export const BLIND_SETS: ReadonlySet<string> = new Set(["holdout-test", "human", "human-series1"]);
+export const BLIND_SETS: ReadonlySet<string> = new Set([
+  "holdout-test",
+  "human",
+  "human-exploratory",
+  "human-definitive",
+]);
 /** Whether a set is blind or holds a blind set's scenarios ("holdout" holds "holdout-test"): totals only. */
 export function holdsBlind(name: string): boolean {
   if (BLIND_SETS.has(name)) return true;

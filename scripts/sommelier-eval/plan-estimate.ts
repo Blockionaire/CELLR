@@ -18,6 +18,14 @@ export const SETS = ["main", "holdout-dev", "holdout-test"] as const;
 
 export interface PlannedRun {
   step: string;
+  /** What runs it: a scenario set through run.ts, or an arm of the menu set through menu-run.ts. */
+  kind: "set" | "menu";
+  /** For a set: its name, the parts on, and the file side ("v6" no part, "v7" with the parts). */
+  set?: string;
+  parts?: string;
+  side?: "v6" | "v7";
+  /** For the menu set: the arm. */
+  arm?: MenuArm;
   what: string;
   runs: number;
   /** Per run. */
@@ -55,6 +63,10 @@ export async function planRuns(runsPerArm = 3): Promise<PlannedRun[]> {
       const e = await estimateSetRun(set, parts);
       rows.push({
         step: `${step}-${set}`,
+        kind: "set",
+        set,
+        parts,
+        side: parts === "none" ? "v6" : "v7",
         what: `${what}; set ${set} (needs pairing,facts)`,
         runs: runsPerArm,
         ...e,
@@ -62,6 +74,30 @@ export async function planRuns(runsPerArm = 3): Promise<PlannedRun[]> {
         required: true,
       });
     }
+  // The serving and guests probe (scenarios-probe.ts): V1, and V1+ with the check and the facts on, so the serving
+  // stop rule and the reconciliation are measured on real answers.
+  for (const [side, parts, what] of [
+    ["v6", "none", "Probe (serving, guests), V1 with AI, prompt v6"],
+    [
+      "v7",
+      "check,annotate,quantities",
+      "Probe (serving, guests), V1+ with check, annotate, quantities",
+    ],
+  ] as const) {
+    const e = await estimateSetRun("probe", parts);
+    rows.push({
+      step: `4-probe-${side}`,
+      kind: "set",
+      set: "probe",
+      parts,
+      side,
+      what,
+      runs: runsPerArm,
+      ...e,
+      maxUsd: maxUsdFor(e.reservedMicro),
+      required: true,
+    });
+  }
   const arms: Array<[MenuArm, string, number, boolean]> = [
     ["v1", "Menu set, V1 without the part (its ordinary answer)", runsPerArm, true],
     ["menu", "Menu set, the menu part on", runsPerArm, true],
@@ -72,6 +108,8 @@ export async function planRuns(runsPerArm = 3): Promise<PlannedRun[]> {
     const e = await estimateMenuArm(arm);
     rows.push({
       step: `3-menu-${arm}`,
+      kind: "menu",
+      arm,
       what,
       runs,
       calls: e.calls,

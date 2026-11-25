@@ -89,12 +89,17 @@ export function designs(): Design[] {
     {
       name: "human-40",
       clusters: Array(40).fill(2),
-      note: "series 1: 40 dishes, asked in English and Dutch (80 scenarios)",
+      note: "the exploratory part: 40 dishes, asked in English and Dutch (80 scenarios)",
+    },
+    {
+      name: "human-definitive-60",
+      clusters: Array(60).fill(2),
+      note: "the definitive part: 60 dishes, English and Dutch (120 scenarios), scored once",
     },
     {
       name: "human-100",
       clusters: Array(100).fill(2),
-      note: "series 1 + 2: 100 dishes, English and Dutch (200 scenarios)",
+      note: "exploratory and definitive together: 100 dishes, English and Dutch (200 scenarios)",
     },
   ];
 }
@@ -283,13 +288,15 @@ export function calibration() {
 export function ruleOfThree() {
   const per = [
     ["main (v7, one run)", 131],
+    ["probe (v7 with annotate, one run)", 18],
     ["holdout-dev (v7, one run)", 45],
     ["holdout-test (v7, one run)", 43],
     ["all three sets (v7, one run)", 219],
     ["all three sets, 3 runs, IF the runs were independent (they are not)", 657],
     ["menu set, menu on (one run)", 21],
     ["menu set, menu on (3 runs, IF independent)", 63],
-    ["human holdout series 1 (80 scenarios)", 80],
+    ["human holdout, exploratory 40 dishes (80 scenarios)", 80],
+    ["human holdout, definitive 60 dishes (120 scenarios)", 120],
     ["human holdout, 100 dishes (200 scenarios)", 200],
   ] as const;
   return per.map(([what, n]) => ({ what, n, upper95: r3(3 / n) }));

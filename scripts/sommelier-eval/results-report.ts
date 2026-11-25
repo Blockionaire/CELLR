@@ -1,23 +1,32 @@
 /**
- * SECTION 2 OF THE P8 RESULTS (AI quality measurement), filled ONLY from committed vectors (P8_RESULTS_TEMPLATE.md).
+ * SECTION 2 OF THE P8 RESULTS (AI quality measurement), filled ONLY from committed results (P8_RESULTS_TEMPLATE.md).
  *
  *   pnpm --filter @cellr/sommelier-eval run results-report             print section 2 as it stands
  *   pnpm --filter @cellr/sommelier-eval run results-report --write     write it into P8_RESULTS_TEMPLATE.md
  *
- * A row gets numbers only when every file it rests on exists in docs/sprints/sommelier-3-mega/results/p8-paid/ and is
- * a complete run; otherwise it says "not measured: awaits budget approval" with the command that fills it. It never
- * prints a number for a row whose source is missing, and it never computes anything from a partial run.
+ * Owner decision 2026-11-25: the benchmarks DETECT REGRESSIONS; people judge quality. So every comparison leads with
+ * "regression detected / not detected", never "equivalent" or "non-inferior". Every number carries its uncertainty:
+ * the dish-clustered 95% interval of a paired difference with its dishes and scenarios and the minimum detectable
+ * effect of the power analysis next to it; the exact (Clopper–Pearson) interval of a rate with its n. A number with
+ * too few items behind it is printed as "too few to conclude". A row whose source files are missing or incomplete
+ * says "not measured"; a run a stop rule ended says "STOPPED: <rule>".
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { compare } from "./compare";
-import { compareClaims } from "./compare-claims";
+import { costCheck } from "./cost-check";
+import type { ClaimsRecord } from "./engines/v1plus-ai";
+import { rateText, TOO_FEW, TOO_FEW_WORDS } from "./intervals";
+import type { MenuArmScenario } from "./menu-run";
+import type { Interval } from "./stats";
+import { CELLAR_FACT_CODES } from "./stop-rules";
 import type { VectorFile } from "./vectors";
 
 export const PAID_DIR = new URL(
   "../../docs/sprints/sommelier-3-mega/results/p8-paid/",
   import.meta.url,
 );
+const POWER = new URL("../../docs/sprints/sommelier-3-mega/results/p8-power.json", import.meta.url);
 export const TEMPLATE = new URL(
   "../../docs/sprints/sommelier-3-mega/P8_RESULTS_TEMPLATE.md",
   import.meta.url,
@@ -28,110 +37,219 @@ export const END = "<!-- section-2:end -->";
 export const NOT_MEASURED = "not measured: awaits budget approval";
 
 const RUNS = [1, 2, 3] as const;
-const SETS = ["main", "holdout-dev", "holdout-test"] as const;
+export const SETS = ["main", "holdout-dev", "holdout-test", "probe"] as const;
+const MEASURES = [
+  ["first", "first bottle right"],
+  ["noPoor", "no poor bottle"],
+  ["useful", "useful answer"],
+] as const;
+/** A drop larger than this, with an interval that includes 0, goes to a person. */
+export const POSSIBLE_REGRESSION = -0.05;
 
 const pts = (x: number) => `${x >= 0 ? "+" : ""}${Math.round(100 * x)}`;
-const interval = (r: { diff: number; low: number; high: number }) =>
-  `${pts(r.diff)} [${pts(r.low)}, ${pts(r.high)}]`;
 
-function load(dir: URL, names: readonly string[]): VectorFile[] | null {
-  const files: VectorFile[] = [];
+/** The regression rule (P8_MEASUREMENT_PLAN.md §9a), on one paired, dish-clustered interval. */
+export function regressionVerdict(r: Interval): string {
+  if (r.clusters < TOO_FEW.dishes) return TOO_FEW_WORDS;
+  if (r.high < 0) return "REGRESSION DETECTED";
+  if (r.diff < POSSIBLE_REGRESSION) return "possible regression: needs human review";
+  return "no regression detected";
+}
+
+type Loaded<T> = { files: T[] } | { stopped: string } | null;
+
+function load<T extends { incomplete?: boolean; stopped?: string | null }>(
+  dir: URL,
+  names: readonly string[],
+): Loaded<T> {
+  const files: T[] = [];
   for (const n of names) {
     const url = new URL(n, dir);
     if (!existsSync(url)) return null;
-    const f = JSON.parse(readFileSync(url, "utf8")) as VectorFile;
+    const f = JSON.parse(readFileSync(url, "utf8")) as T;
+    if (f.stopped) return { stopped: f.stopped };
     if (f.incomplete) return null;
     files.push(f);
   }
-  return files;
+  return { files };
 }
 
-interface MenuFile {
-  arm: string;
-  incomplete: boolean;
-  totals: {
-    strict: { courses: number; right: number; acceptable: number; poor: number };
-    byCards: { courses: number; right: number; acceptable: number; poor: number };
-    calls: number;
-    tokensIn: number;
-    tokensOut: number;
+/** The minimum detectable drop (80% power) of the power analysis for a set and measure, central assumption. */
+function mde(set: string, measure: string): string {
+  if (!existsSync(POWER)) return "-";
+  const power = JSON.parse(readFileSync(POWER, "utf8")) as {
+    central: Array<{ set: string; measure: string; minimumDetectable80: number | null }>;
   };
+  const row = power.central.find((r) => r.set === set && r.measure === measure);
+  if (!row) return "not in the power analysis";
+  return row.minimumDetectable80 === null
+    ? "> 40 points"
+    : `${Math.round(100 * row.minimumDetectable80)} points`;
 }
 
-function loadMenu(dir: URL, arm: string): MenuFile[] | null {
-  const files: MenuFile[] = [];
-  for (const n of RUNS) {
-    const url = new URL(`menu-${arm}-${n}.json`, dir);
-    if (!existsSync(url)) return null;
-    const f = JSON.parse(readFileSync(url, "utf8")) as MenuFile;
-    if (f.incomplete) return null;
-    files.push(f);
-  }
-  return files;
-}
+type Vectors = VectorFile & {
+  stopped?: string;
+  incomplete: boolean;
+  /** Claims of scenarios without a vector (no dish to score: the probe's serving questions). */
+  claims?: Record<string, ClaimsRecord>;
+};
+type Row = { claims?: ClaimsRecord };
+const claimsOf = (files: readonly Vectors[]) =>
+  files.flatMap((f) => [
+    ...Object.values(f.rows as Record<string, Row>).flatMap((r) => (r.claims ? [r.claims] : [])),
+    ...Object.values(f.claims ?? {}),
+  ]);
 
-const command = (set: string, side: "v6" | "v7") =>
-  `\`pnpm sommelier:eval --engine v1plus-ai --parts ${side === "v6" ? "none" : "check"} --set ${set} --needs pairing,facts --vectors results/p8-paid/${set}-${side}-<n>.json\` (P8_MEASUREMENT_PLAN.md step ${side === "v6" ? 1 : 2})`;
+const missingCells = (n: number) => Array(n).fill(NOT_MEASURED).join(" | ");
+const hasFact = (codes: readonly string[]) =>
+  codes.some((c) => (CELLAR_FACT_CODES as readonly string[]).includes(c));
+const complete = (l: Loaded<Vectors>): l is { files: Vectors[] } => l !== null && "files" in l;
 
 /** Section 2 as markdown, from the files in `dir` (the committed results/p8-paid/ by default). */
 export function section2(dir: URL = PAID_DIR): string {
-  const lines: string[] = [
-    START,
+  const out: string[] = [START, ""];
+  const stops: string[] = [];
+
+  out.push(
+    "### 2a. Regressions: prompt v7 with the check against V1 (v6)",
     "",
-    "### 2a. Prompt v7 with the check against V1 (v6), paired by scenario, clustered by dish",
+    "Per set and measure: a regression is DETECTED when the dish-clustered 95% interval of v7 − v6 lies below 0; a drop of more than 5 points whose interval includes 0 is a possible regression for a person to review; otherwise none was detected. Not detecting a regression is not evidence that there is none: the minimum detectable drop says how large a drop the set could have shown. The probe set's v7 arm also has `annotate` and `quantities` on.",
     "",
-    "Difference v7 − v6 in points, with the 95% interval (`compare.ts`, `compare-claims.ts`); three runs per arm. The flag measures are the check's own heuristics, not ground truth.",
-    "",
-    "| Set | First bottle right | No poor bottle | Useful answer | Shown words without a flagged claim | Model's own words without one | Source |",
+    "| Set | Measure | Outcome | v7 − v6, points [95% interval] | Dishes / scenarios | Minimum detectable drop (80% power) | Source |",
     "| --- | --- | --- | --- | --- | --- | --- |",
-  ];
+  );
+  const loaded = new Map<string, { v6: Loaded<Vectors>; v7: Loaded<Vectors> }>();
   for (const set of SETS) {
-    const v7 = load(
-      dir,
-      RUNS.map((n) => `${set}-v7-${n}.json`),
-    );
-    const v6 = load(
+    const v6 = load<Vectors>(
       dir,
       RUNS.map((n) => `${set}-v6-${n}.json`),
     );
+    const v7 = load<Vectors>(
+      dir,
+      RUNS.map((n) => `${set}-v7-${n}.json`),
+    );
+    loaded.set(set, { v6, v7 });
+    for (const [side, l] of [
+      ["v6", v6],
+      ["v7", v7],
+    ] as const)
+      if (l && "stopped" in l) stops.push(`${set}, ${side}: STOPPED: ${l.stopped}`);
     const source = `results/p8-paid/${set}-v6-{1,2,3}.json, ${set}-v7-{1,2,3}.json`;
-    if (!v7 || !v6) {
-      lines.push(
-        `| ${set} | ${NOT_MEASURED} | ${NOT_MEASURED} | ${NOT_MEASURED} | ${NOT_MEASURED} | ${NOT_MEASURED} | fills from ${source}: ${command(set, "v6")}, ${command(set, "v7")} |`,
+    const stopped = (v6 && "stopped" in v6 && v6.stopped) || (v7 && "stopped" in v7 && v7.stopped);
+    for (const [m, words] of MEASURES) {
+      if (stopped) {
+        out.push(
+          `| ${set} | ${words} | STOPPED: ${stopped} | - | - | ${mde(set, m)} | ${source} |`,
+        );
+        continue;
+      }
+      if (!complete(v6) || !complete(v7)) {
+        out.push(`| ${set} | ${words} | ${missingCells(3)} | ${mde(set, m)} | ${source} |`);
+        continue;
+      }
+      const r = compare(v7.files, v6.files)[m];
+      const verdict = regressionVerdict(r);
+      const number =
+        verdict === TOO_FEW_WORDS
+          ? TOO_FEW_WORDS
+          : `${pts(r.diff)} [${pts(r.low)}, ${pts(r.high)}]`;
+      out.push(
+        `| ${set} | ${words} | ${verdict} | ${number} | ${r.clusters} / ${r.scenarios} | ${mde(set, m)} | ${source} |`,
       );
+    }
+  }
+
+  out.push(
+    "",
+    "### 2b. Invented cellar facts (the check's own rules as an instrument: heuristics, not ground truth)",
+    "",
+    "Answers whose words name a wine the cellar lacks, an unknown ref, a wrong vintage or a wrong count, with the exact (Clopper–Pearson) 95% interval and n (answers, over the three runs: the runs ask the same questions, so they are not independent). In the model's own words before any check, for v6 and v7; and in the words SHOWN with the check on, where any single one stops the run.",
+    "",
+    "| Set | v6, model's own words | v7, model's own words | v7 + check, shown to the person |",
+    "| --- | --- | --- | --- |",
+  );
+  for (const set of SETS) {
+    const { v6, v7 } = loaded.get(set)!;
+    if (!complete(v6) || !complete(v7)) {
+      out.push(`| ${set} | ${missingCells(3)} |`);
       continue;
     }
-    const m = compare(v7, v6);
-    const c = compareClaims(v7, v6);
-    lines.push(
-      `| ${set} | ${interval(m.first)} | ${interval(m.noPoor)} | ${interval(m.useful)} | ${interval(c.measures.shownClean)} | ${interval(c.measures.rawClean)} | ${source} |`,
+    const a = claimsOf(v6.files).filter((c) => c.rawClean !== null);
+    const b = claimsOf(v7.files).filter((c) => c.rawClean !== null);
+    out.push(
+      `| ${set} | ${rateText(a.filter((c) => hasFact(c.rawCodes)).length, a.length)} | ${rateText(b.filter((c) => hasFact(c.rawCodes)).length, b.length)} | ${rateText(b.filter((c) => hasFact(c.shownCodes)).length, b.length)} |`,
     );
   }
-  lines.push(
+
+  out.push(
     "",
-    "### 2b. The menu set: V1 without the part against `menu` on (courses scored per course, AI-written labels)",
+    "### 2c. Serving claims (probe set, `annotate` on)",
     "",
-    "| Arm | Courses right / acceptable / poor (strict) | Same, by the answer's cards | Calls | Tokens in / out | Source |",
+    "| Answers | Taken out by the serving reconciliation (answers trimmed or replaced) | Contradicted serving claims still SHOWN (any one stops the run) |",
+    "| --- | --- | --- |",
+  );
+  const probe = loaded.get("probe")!.v7;
+  if (!complete(probe)) out.push(`| ${missingCells(3)} |`);
+  else {
+    const c = claimsOf(probe.files).filter((x) => x.serving !== null);
+    out.push(
+      `| ${c.length} | ${rateText(c.filter((x) => x.serving !== "kept").length, c.length)} | ${rateText(c.filter((x) => x.shownServing.length > 0).length, c.length)} |`,
+    );
+  }
+
+  out.push(
+    "",
+    "### 2d. The menu set: V1 without the part against `menu` on (per course; AI-written labels)",
+    "",
+    "| Arm | Courses right, strict (as drawn) | Courses right, by the answer's cards | Courses poor, strict | Calls | Tokens in / out |",
     "| --- | --- | --- | --- | --- | --- |",
   );
+  type MenuFile = { incomplete: boolean; stopped?: string | null; rows: MenuArmScenario[] };
   for (const arm of ["v1", "menu"]) {
-    const files = loadMenu(dir, arm);
-    const source = `results/p8-paid/menu-${arm}-{1,2,3}.json`;
-    if (!files) {
-      lines.push(
-        `| ${arm} | ${NOT_MEASURED} | ${NOT_MEASURED} | ${NOT_MEASURED} | ${NOT_MEASURED} | fills from ${source}: \`pnpm --filter @cellr/sommelier-eval run menu:run --arm ${arm} --out results/p8-paid/menu-${arm}-<n>.json\` (P8_MEASUREMENT_PLAN.md step 3) |`,
-      );
+    const l = load<MenuFile>(
+      dir,
+      RUNS.map((n) => `menu-${arm}-${n}.json`),
+    );
+    if (l && "stopped" in l) {
+      out.push(`| ${arm} | STOPPED: ${l.stopped} | - | - | - | - |`);
+      stops.push(`menu, ${arm}: STOPPED: ${l.stopped}`);
       continue;
     }
-    const sum = (f: (x: MenuFile) => number) => files.reduce((s, x) => s + f(x), 0);
-    const t = (k: "strict" | "byCards") =>
-      `${sum((x) => x.totals[k].right)} / ${sum((x) => x.totals[k].acceptable)} / ${sum((x) => x.totals[k].poor)} of ${sum((x) => x.totals[k].courses)}`;
-    lines.push(
-      `| ${arm} | ${t("strict")} | ${t("byCards")} | ${sum((x) => x.totals.calls)} | ${sum((x) => x.totals.tokensIn)} / ${sum((x) => x.totals.tokensOut)} | ${source} |`,
+    if (!l) {
+      out.push(`| ${arm} | ${missingCells(5)} |`);
+      continue;
+    }
+    const rows = l.files.flatMap((f) => f.rows);
+    const courses = (k: "strict" | "byCards") => rows.flatMap((r) => r[k].courses);
+    const right = (k: "strict" | "byCards") => courses(k).filter((c) => c.score === "right").length;
+    const calls = rows.flatMap((r) => r.calls);
+    out.push(
+      `| ${arm} | ${rateText(right("strict"), courses("strict").length)} | ${rateText(right("byCards"), courses("byCards").length)} | ${rateText(courses("strict").filter((c) => c.score === "poor").length, courses("strict").length)} | ${calls.length} | ${calls.reduce((s, c) => s + c.tokensIn, 0)} / ${calls.reduce((s, c) => s + c.tokensOut, 0)} |`,
     );
   }
-  lines.push("", END);
-  return lines.join("\n");
+
+  out.push("", "### 2e. Cost on real tokens (owner decision 2026-11-25)", "");
+  const cost = costCheck(dir);
+  if (!cost.measured)
+    out.push(`${NOT_MEASURED} (\`pnpm --filter @cellr/sommelier-eval run cost-check\`).`);
+  else {
+    const s = cost.menuTimesSameCellarV1;
+    out.push(
+      `- Criterion: ${cost.passed ? "MET" : `NOT MET: ${cost.failures.join("; ")}`}.`,
+      `- Menu question cost ÷ the same cellar's median V1 question: ${s ? `min ${s.min}, median ${s.median}, p95 ${s.p95}, max ${s.max} (n ${s.n}; limit 1.5)` : "no menu calls"}${cost.cellarsWithoutV1Data.length > 0 ? `; compared with all cellars for: ${cost.cellarsWithoutV1Data.join(", ")}` : ""}.`,
+      `- Ordinary questions, median real cost with the parts ÷ V1's: ${cost.ordinary.ratio} (limit 1.10).`,
+      `- Menu questions with more than one call: ${cost.menuCallsOver.length}.`,
+    );
+  }
+
+  out.push("", "### 2f. Stop rules", "");
+  out.push(
+    stops.length > 0
+      ? stops.map((s) => `- ${s}`).join("\n")
+      : "- No run has been stopped by a rule (or none has run: see the rows above).",
+  );
+  out.push("", END);
+  return out.join("\n");
 }
 
 /** The template with its section 2 replaced. */

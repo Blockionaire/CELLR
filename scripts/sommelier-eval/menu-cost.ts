@@ -216,7 +216,7 @@ export function criterionMet(table: Awaited<ReturnType<typeof menuCostTable>>) {
 // ---- The owner's provisional criterion (2026-11-24), the one tested -------------------------------------------
 
 /**
- * THE OWNER'S PROVISIONAL MENU COST CRITERION (2026-11-24; a starting point, not an authorisation to spend): a menu
+ * THE OWNER'S MENU COST CRITERION (decision of 2026-11-25; the factor 1.5 is provisional; not an authorisation to spend): a menu
  * question of up to eight courses makes ONE model call, and its WORST-CASE cost (the app's high estimate,
  * `estimateCost`: the full output allowance, both attempts) is at most 1.5 times the worst-case cost of one ordinary
  * V1 answer (prompt v6, no part) to an ordinary question in the same cellar and the same conversation. For an
