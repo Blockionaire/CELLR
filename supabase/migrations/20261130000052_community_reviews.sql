@@ -30,7 +30,9 @@ create table public.community_reviews (
   subject_record_id uuid references public.catalog_external_records on delete cascade,
   -- null = NV
   vintage_year      smallint check (vintage_year between 1800 and 2100),
-  score             numeric(3,1) not null check (score between 1 and 10 and (score * 5) = trunc(score * 5)),
+  -- two checks, not one: Postgres re-parses "(a and b) and c" flat after a dump, which a restore rehearsal flags
+  score             numeric(3,1) not null check (score between 1 and 10)
+                                          check ((score * 5) = trunc(score * 5)),
   body              text check (body is null or char_length(btrim(body)) between 1 and 1500),
   -- the month it was tasted (always the 1st): never the exact day next to a display name
   tasted_on         date not null check (extract(day from tasted_on) = 1),
