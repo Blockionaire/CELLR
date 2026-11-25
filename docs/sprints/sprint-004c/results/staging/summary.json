@@ -1,0 +1,196 @@
+{
+  "note": "Sprint 004C staging validation on cellr-staging (konxmgdjdewpknfqvsuq), aggregates only: no dataset record, no credential, no production data. Runs: migrate 44959754757, check 45038743438, import 45231766257 (after #119), scan 45239677349.",
+  "import": {
+    "file_rows": 100646,
+    "run_1": {
+      "inserted": 0,
+      "updated": 0,
+      "unchanged": 100646,
+      "invalid": 0,
+      "withdrawn": 0,
+      "seconds": 220.8,
+      "peak_rss_mb": 1094
+    },
+    "run_2": {
+      "inserted": 0,
+      "updated": 0,
+      "unchanged": 100646,
+      "invalid": 0,
+      "withdrawn": 0,
+      "seconds": 218.4
+    },
+    "first_load": "run 45039275216 (before #119): 100646 inserted, 0 invalid; its second round 100646 unchanged",
+    "provider": {
+      "id": "xwines",
+      "name": "X-Wines dataset",
+      "license": "CC0-1.0",
+      "may_store": true,
+      "may_display": true,
+      "commercial_use": false,
+      "rights_status": "unverified",
+      "search_scope": "pilot"
+    },
+    "cellr_wines_written": 0,
+    "records_by_status": [
+      {
+        "status": "active",
+        "n": 100646
+      }
+    ]
+  },
+  "quality": {
+    "records": 100646,
+    "identities": 100481,
+    "identical_identity_groups": 155,
+    "producer_spelling_variant_groups": 28,
+    "estate_word_only_groups": 500,
+    "records_nv_only": 97
+  },
+  "search_benchmark": {
+    "sprint_004a_set": {
+      "covered": 95,
+      "top1": 77,
+      "top3": 84,
+      "top8": 92
+    },
+    "all_positive": {
+      "covered": 151,
+      "top1": 129,
+      "top3": 139,
+      "top8": 147
+    },
+    "provider_rows_marked_verified": 0,
+    "filter_violations": 0,
+    "near_twin_sibling_first": 0,
+    "duplicate_rows": 0,
+    "errors": 0
+  },
+  "recognition": {
+    "by_reading": {
+      "clean": {
+        "readings": 101,
+        "first": 96,
+        "top3": 97,
+        "none": 0
+      },
+      "misread": {
+        "readings": 101,
+        "first": 55,
+        "top3": 56,
+        "none": 45
+      },
+      "producer": {
+        "readings": 101,
+        "first": 29,
+        "top3": 51,
+        "none": 6
+      }
+    },
+    "wrong_automatic_identities": 0,
+    "safety_violations": 0,
+    "note": "no canonical seeds on a remote database (refused by design), so every reading is not_found and only record suggestions are measured"
+  },
+  "security": {
+    "staging_check_before": "10/10",
+    "staging_check_after": "10/10",
+    "pilot_separation": "pilot separation: people's search 0 provider rows, pilot search 20, a person calling the pilot search denied: 1",
+    "nonpilot_import": "refused (unverified source)",
+    "schema_check_note": "compared by objects; the history was compared separately (identical fingerprint of 48 versions); #115 makes the tool read the history"
+  },
+  "scan_check": "PASS: fictitious public record found once; X-Wines invisible to people; R-27 origin kept from the public record, X-Wines refused, one credit; all rolled back (verified afterwards: only xwines registered, 0 origins)",
+  "performance": {
+    "target": "SQL p95 under 250 ms at 16 clients (Wine Intelligence)",
+    "client_side_from_github_runner": [
+      {
+        "route": "session",
+        "concurrency": 1,
+        "mode": "pilot",
+        "searches": 1914,
+        "throughput_per_s": 6,
+        "client_side_ms": {
+          "n": 1914,
+          "p50": 166.7,
+          "p95": 201.7,
+          "p99": 292.9,
+          "max": 417.6,
+          "mean": 172.5,
+          "empty": 27
+        }
+      },
+      {
+        "route": "session",
+        "concurrency": 8,
+        "mode": "pilot",
+        "searches": 1914,
+        "throughput_per_s": 44,
+        "client_side_ms": {
+          "n": 1914,
+          "p50": 169.4,
+          "p95": 232.3,
+          "p99": 347.9,
+          "max": 729.4,
+          "mean": 179.6,
+          "empty": 27
+        }
+      },
+      {
+        "route": "transaction",
+        "concurrency": 16,
+        "mode": "pilot",
+        "searches": 1914,
+        "throughput_per_s": 33,
+        "client_side_ms": {
+          "n": 1914,
+          "p50": 169.7,
+          "p95": 270.9,
+          "p99": 376.4,
+          "max": 1264.7,
+          "mean": 184.9,
+          "empty": 27
+        }
+      },
+      {
+        "route": "session",
+        "concurrency": 8,
+        "mode": "public",
+        "searches": 1914,
+        "throughput_per_s": 44,
+        "client_side_ms": {
+          "n": 1914,
+          "p50": 166.4,
+          "p95": 251.3,
+          "p99": 416.8,
+          "max": 516.6,
+          "mean": 180,
+          "empty": 1908
+        }
+      },
+      {
+        "route": "transaction",
+        "concurrency": 16,
+        "mode": "public",
+        "searches": 1914,
+        "throughput_per_s": 33,
+        "client_side_ms": {
+          "n": 1914,
+          "p50": 164.3,
+          "p95": 285.7,
+          "p99": 386.9,
+          "max": 553.3,
+          "mean": 179.5,
+          "empty": 1908
+        }
+      }
+    ],
+    "server_side_sql_c1": {
+      "n": 127,
+      "p50": 17.2,
+      "p95": 110.1,
+      "p99": 247.9,
+      "max": 266.8,
+      "how": "the 004A queries timed inside the database (clock_timestamp), sequentially, after one warm pass"
+    },
+    "session_pooler_limit": 15,
+    "c16_route": "transaction pooler (port 6543), set local role per search"
+  }
+}

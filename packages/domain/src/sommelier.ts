@@ -7,6 +7,9 @@ import type { Occasion } from "./tonight";
 import type { RatingSummary } from "./tasting";
 import type { SommelierPlan } from "./sommelier-plan";
 import type { AnswerCheck } from "./sommelier-check";
+import type { BottleAnnotation } from "./sommelier-annotate";
+import type { QuantityAdvice } from "./sommelier-quantities";
+import type { ServingCheck } from "./sommelier-serving-claims";
 import type { MenuAdvice } from "./sommelier-menu";
 
 /**
@@ -161,6 +164,22 @@ export interface SommelierAnswer {
    * `bottles` on purpose: a screen that knows no plans draws `bottles` as suggestions, and these are not.
    */
   otherBottles?: SommelierBottle[];
+  /**
+   * V1+ part `annotate`: the app's own facts for the cards in `bottles` (drink now or keep, serving, reserved,
+   * where it lies), one per card, matched by `vintageId`. Computed in code; the choice of wines is untouched.
+   */
+  annotations?: BottleAnnotation[];
+  /**
+   * V1+ part `annotate`: the app's facts lead. Present when the model's words were compared with the cards' facts
+   * and a sentence stating another serving temperature, decanting time or drinking years was left out (codes
+   * only, never the removed words). Absent when nothing differed.
+   */
+  servingCheck?: ServingCheck;
+  /**
+   * V1+ part `quantities`: bottles needed for the number of people the person named, against what is free to open
+   * of each card. Counted in code, never by the model.
+   */
+  quantity?: QuantityAdvice | null;
   /**
    * V1+ part `menu`: a menu of several courses, with the wine V1's model chose for each (a wine in `bottles`, or
    * none) and its short reason. Every wine in it was checked against the list the model was shown.

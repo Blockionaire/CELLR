@@ -26,3 +26,4 @@ export * from "./buying/recommend";
 export * from "./experiences/serving";
 export * from "./experiences/quantity";
 export * from "./experiences/menu";
+export * from "./experiences/annotate";

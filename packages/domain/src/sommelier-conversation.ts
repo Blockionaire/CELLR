@@ -3,6 +3,9 @@ import { cellarQuestionKind, isCellarQuestion } from "./cellar-facts";
 import { readPlan } from "./sommelier-plan";
 import { detectIntent, type SommelierAnswer } from "./sommelier";
 import { AnswerCheckSchema, PriceBandSchema } from "./sommelier-check";
+import { readAnnotations } from "./sommelier-annotate";
+import { QuantityAdviceSchema } from "./sommelier-quantities";
+import { ServingCheckSchema } from "./sommelier-serving-claims";
 import { MenuAdviceSchema } from "./sommelier-menu";
 
 /**
@@ -106,6 +109,12 @@ export function isStoredAnswer(value: unknown): value is SommelierAnswer {
           !("priceBand" in b) ||
           PriceBandSchema.safeParse(b.priceBand).success,
       )) &&
+    // The V1+ parts' facts are drawn as kept, so they must still be what the screen draws.
+    (a.annotations === undefined || readAnnotations(a.annotations) !== null) &&
+    (a.servingCheck === undefined || ServingCheckSchema.safeParse(a.servingCheck).success) &&
+    (a.quantity === undefined ||
+      a.quantity === null ||
+      QuantityAdviceSchema.safeParse(a.quantity).success) &&
     // A kept menu is drawn course by course, so it must still be one.
     (a.menu === undefined || a.menu === null || MenuAdviceSchema.safeParse(a.menu).success)
   );

@@ -9,6 +9,14 @@ import {
   compareRequest,
   hasSommelierPart,
   menuMaxOutputTokens,
+  annotationEmphasis,
+  guestsBlock,
+  guestsIn,
+  quantityFor,
+  reconcileServingClaims,
+  servingCheckOf,
+  smallPour,
+  type InsightOutput,
   cellarDigest,
   cellarFacts,
   cellarFactsText,
@@ -36,8 +44,9 @@ import {
   type TonightView,
   BUDGET_EUROS,
 } from "@cellr/domain";
-import { menuContext } from "@cellr/domain/intelligence";
+import { annotateBottles, menuContext, servingFactsBlock } from "@cellr/domain/intelligence";
 import type { SommelierIntelligence } from "@/server/sommelier/intelligence";
+import { seeCardWords } from "@/server/sommelier/parts/serving-words";
 import { cardOnlyWords } from "@/server/sommelier/parts/check-words";
 import type { AiErrorKind, AiUsage, LlmProvider } from "@/server/ai";
 import {
@@ -82,6 +91,14 @@ export interface SommelierDeps {
    * request (docs/sprints/sommelier-3-mega/SOMMELIER_CLOSEOUT.md §6). Absent or empty, V1 answers exactly as before.
    */
   parts?: SommelierParts;
+  /**
+   * V1+ part `annotate`: the household's own researched profiles of these vintages (what is known about the exact
+   * wine: its serving temperature, its decanting time). Read only when the part is on, and only for the few wines
+   * an answer shows. Absent, or failing: the rules of thumb for the wine's style, worded as such.
+   */
+  profiles?: (vintageIds: readonly string[]) => Promise<ReadonlyMap<string, InsightOutput>>;
+  /** The clock (a wine's age decides how it is decanted). Absent: now. */
+  now?: () => Date;
   /** Null = no AI configured. */
   llm: LlmProvider | null;
   /** Spends from the chat budget; throws RATE_LIMITED when it is gone. */
@@ -114,7 +131,115 @@ const STATUS: Record<
  * it says is checked in code. If there is no AI, the budget is spent, or the model fails, the same question is
  * answered by the plain pairing engine on the same cellar: never an error where an answer can be given.
  */
+/** What one question's answer was made from, for the V1+ parts that add their facts after it. */
+interface Seen {
+  /** The cellar as read for this question (it is not read twice). */
+  items: readonly CellarItem[];
+  /** A question about the cellar itself: answered from counted facts, and left as it is. */
+  facts: boolean;
+  /** The engines (`sommelier_engine`) answered: their plan is left as it is. */
+  engines: boolean;
+  /** Profiles read so far for this question, and the wines already asked for (each is asked for once). */
+  profiles: Map<string, InsightOutput>;
+  asked: Set<string>;
+}
+
 export function createSommelierService(deps: SommelierDeps) {
+  const on = (part: Parameters<typeof hasSommelierPart>[1]) =>
+    deps.parts !== undefined && hasSommelierPart(deps.parts, part);
+  const clock = () => deps.now?.() ?? new Date();
+
+  /** The household's profiles of these wines; a read that fails leaves the rules of thumb, never an error. */
+  async function profilesOf(seen: Seen, vintageIds: readonly string[]) {
+    const missing = vintageIds.filter((id) => !seen.asked.has(id));
+    if (missing.length > 0 && deps.profiles) {
+      for (const id of missing) seen.asked.add(id);
+      const read = await deps.profiles(missing).catch(() => null);
+      if (read) for (const [id, profile] of read) seen.profiles.set(id, profile);
+    }
+    return seen.profiles;
+  }
+
+  /**
+   * The V1+ parts that add the app's own facts to an answer that has been given (`annotate`, `quantities`). The
+   * wines, the words and the verdict are V1's and are not touched. Not for a question about the cellar itself, and
+   * not for the engines' own plan. A part that fails adds nothing: the answer is never lost to it.
+   */
+  async function finish(
+    answer: SommelierAnswer,
+    request: AskSommelier,
+    seen: Seen,
+  ): Promise<SommelierAnswer> {
+    const annotate = on("annotate");
+    const quantities = on("quantities");
+    if ((!annotate && !quantities) || seen.facts || seen.engines) return answer;
+    const byId = new Map(seen.items.map((i) => [i.vintageId, i]));
+    const cards = answer.bottles.flatMap((b) => byId.get(b.vintageId) ?? []);
+    let out = answer;
+    if (annotate && cards.length > 0) {
+      try {
+        const annotations = annotateBottles(cards, {
+          profiles: await profilesOf(
+            seen,
+            cards.map((c) => c.vintageId),
+          ),
+          now: clock(),
+        });
+        if (annotations.length > 0) out = { ...out, annotations };
+        // The app's facts lead: a sentence of the model's that states another serving temperature, decanting
+        // time or drinking years for a wine on the cards is left out (the card shows the facts). No second
+        // call to the model: the words are compared in code.
+        if (out.source === "ai" && out.text !== null && annotations.length > 0) {
+          const said = reconcileServingClaims(
+            out.text,
+            annotations.flatMap((annotation) => {
+              const item = byId.get(annotation.vintageId);
+              return item ? [{ item, annotation }] : [];
+            }),
+          );
+          if (said.codes.length > 0)
+            out = {
+              ...out,
+              text: said.text ?? seeCardWords(await deps.locale().catch(() => "en")),
+              servingCheck: servingCheckOf(said),
+            };
+        }
+      } catch {
+        // The cards stay as V1 gave them.
+      }
+    }
+    // Bottles for the people named: with cards, against what is free to open of each; with advice and no card
+    // (nothing suits, something to buy), the number needed alone.
+    if (quantities && (cards.length > 0 || answer.source === "ai")) {
+      try {
+        const guests = guestsIn(request.messages);
+        // A menu's wines are poured one after another (a small glass of a dessert wine or a port); any other
+        // answer's cards are alternatives, of which one is opened.
+        const courses = (answer.menu?.courses ?? []).flatMap((c) =>
+          c.vintageId !== null && byId.has(c.vintageId) ? [byId.get(c.vintageId)!] : [],
+        );
+        const pours = courses.length > 0 ? courses : cards;
+        if (guests)
+          out = {
+            ...out,
+            quantity: quantityFor(
+              guests,
+              pours.map((c) => ({
+                vintageId: c.vintageId,
+                count: c.count,
+                reserved: c.reserved?.count ?? 0,
+                ...(courses.length > 0 ? { small: smallPour(c.type) } : {}),
+              })),
+              courses.length > 0 ? "sequence" : "alternatives",
+            ),
+          };
+      } catch {
+        // No count is better than a wrong one.
+      }
+    }
+    return out;
+  }
+
   async function plain(
     items: readonly CellarItem[],
     question: string,
@@ -191,17 +316,15 @@ export function createSommelierService(deps: SommelierDeps) {
     };
   }
 
-  return {
-    /**
-     * `observe.model` hears which model wrote the answer, for an answer that is the AI's (never for a plain one):
-     * the kept conversation notes it with the answer. It changes nothing about how the question is answered.
-     */
+  const v1 = {
     async ask(
       request: AskSommelier,
-      observe?: { model?: (id: string) => void },
+      observe: { model?: (id: string) => void } | undefined,
+      seen: Seen,
     ): Promise<SommelierAnswer> {
       const question = request.messages.at(-1)!.text;
       const { items } = await deps.cellar();
+      seen.items = items;
       const tonight = request.mode === "tonight";
       const nothing: SommelierAnswer = {
         source: "basic",
@@ -225,6 +348,7 @@ export function createSommelierService(deps: SommelierDeps) {
         !tonight && isCellarQuestion(question) && !pairingInDisguise
           ? cellarFacts(items, ...(await Promise.all([deps.storage(), deps.racks()])), question)
           : null;
+      seen.facts = facts !== null;
       // The person's taste: only for advice (never for a question of fact, an empty cellar, or when they asked
       // for general advice), read at most once per question, and simply left out if it cannot be read.
       const explore = wantsSomethingDifferent(question);
@@ -255,6 +379,7 @@ export function createSommelierService(deps: SommelierDeps) {
             cellar: { items, bottleCount: items.reduce((sum, i) => sum + i.count, 0) },
           })
           .catch(() => null);
+        if (planned) seen.engines = true;
         if (planned)
           return {
             source: "basic",
@@ -298,23 +423,47 @@ export function createSommelierService(deps: SommelierDeps) {
       /** A menu said in this question is planned course by course; one from earlier is only context. */
       const planning = menu !== null && !menu.fromHistory ? menu.menu : null;
       const compare = menuOn && !planning ? compareRequest(question, items) : null;
+      // V1+ `annotate`: a question about how to serve a wine or how long to keep it gets the app's own facts for
+      // the wines it names, for the model to state as written (never its own temperature, time or years). First
+      // which wines it is about, so they are on the list the model is shown; then their facts, with their profiles.
+      const servingAbout =
+        on("annotate") && !facts && annotationEmphasis(question) !== null
+          ? servingFactsBlock(request.messages, items, () => null, {
+              profiles: new Map(),
+              now: clock(),
+            })
+          : null;
+      // V1+ `quantities`: how many people are drinking, when the person said so. The app counts the bottles.
+      const guests = on("quantities") && !facts ? guestsIn(request.messages) : null;
       const digest = cellarDigest(
         items,
         question,
         facts
           ? new Set(facts.matches.map((m) => m.item.vintageId))
-          : compare
-            ? new Set(compare.vintageIds)
+          : servingAbout || compare
+            ? new Set([...(servingAbout?.vintageIds ?? []), ...(compare?.vintageIds ?? [])])
             : undefined,
       );
       const refOf = new Map([...digest.refs].map(([ref, item]) => [item.vintageId, ref]));
       const shown = digest.refs.size;
+      const serving = servingAbout
+        ? servingFactsBlock(
+            request.messages,
+            items.filter((i) => servingAbout.vintageIds.includes(i.vintageId)),
+            (id) => refOf.get(id) ?? null,
+            { profiles: await profilesOf(seen, servingAbout.vintageIds), now: clock() },
+          )
+        : null;
       const compareRefs = compare
         ? ([refOf.get(compare.vintageIds[0]), refOf.get(compare.vintageIds[1])] as const)
         : null;
+      // What the app worked out for this question, for the model: the structure of the question first (a menu, a
+      // choice between two wines), then the facts (how to serve, who is coming).
       const blocks = [
         menu ? menuBlock(menu.menu, menu.fromHistory) : null,
         compareRefs?.[0] && compareRefs[1] ? compareBlock([compareRefs[0], compareRefs[1]]) : null,
+        serving?.text,
+        guests ? guestsBlock(guests) : null,
       ].filter((block): block is string => typeof block === "string");
       const factsText = facts ? cellarFactsText(facts, (id) => refOf.get(id) ?? null) : null;
       // V1+ `check`: prompt v7 has the model write a cellar wine as its ref (the app renders the name) and gives it
@@ -372,6 +521,11 @@ export function createSommelierService(deps: SommelierDeps) {
         facts && facts.matches.length > 0 && facts.matches.length <= 3
           ? facts.matches.map((m) => toSommelierBottle(m.item))
           : null;
+      // Asked how to serve or keep a wine: the wines the app's facts are about get their cards (with those facts)
+      // when the model pointed at none.
+      const about = serving
+        ? items.filter((i) => serving.vintageIds.includes(i.vintageId)).map(toSommelierBottle)
+        : null;
       // The model's wine per course, each checked against the list it was shown. A plan that says nothing at all
       // (no wine and no reason for any course) is not shown as one: the answer is then V1's ordinary one.
       const planned = planning
@@ -394,7 +548,7 @@ export function createSommelierService(deps: SommelierDeps) {
           ? compared
           : checked.bottles.length > 0
             ? checked.bottles
-            : (named ?? []);
+            : (named ?? about ?? []);
       // With the engines on, a verdict and buying advice only ever come from them: the model's own are dropped.
       // (Also with buying advice switched off: a model-made product and price is never shown beside the
       // engines. Buying advice then comes with `sommelier_buying`, as styles.)
@@ -408,7 +562,7 @@ export function createSommelierService(deps: SommelierDeps) {
             items,
             budget: request.budget ?? null,
             facts: factsText,
-            now: new Date(),
+            now: clock(),
           })
         : null;
       const words = claim ? claim({ text: checked.text, bottles, buy }) : null;
@@ -466,6 +620,26 @@ export function createSommelierService(deps: SommelierDeps) {
         // Only when a taste was shown and the model says it shaped the answer.
         personal: personal !== null && checked.usedTaste,
       };
+    },
+  };
+
+  return {
+    /**
+     * `observe.model` hears which model wrote the answer, for an answer that is the AI's (never for a plain one):
+     * the kept conversation notes it with the answer. It changes nothing about how the question is answered.
+     */
+    async ask(
+      request: AskSommelier,
+      observe?: { model?: (id: string) => void },
+    ): Promise<SommelierAnswer> {
+      const seen: Seen = {
+        items: [],
+        facts: false,
+        engines: false,
+        profiles: new Map(),
+        asked: new Set(),
+      };
+      return finish(await v1.ask(request, observe, seen), request, seen);
     },
   };
 }
