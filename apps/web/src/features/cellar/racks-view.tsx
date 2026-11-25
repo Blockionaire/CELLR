@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useState, type Ref } from "react";
+import { useEffect, useRef, useState, type Ref } from "react";
 import { formatVintage, type PlacedBottle, type RackUnit } from "@cellr/domain";
 import { BottleGlyph } from "@/ui/bottle-glyph";
 import { Button, buttonStyles } from "@/ui/button";
@@ -19,6 +19,11 @@ import { useBottleActions } from "./use-bottle-actions";
 import { GHOST_LIFT_PX, useRackDrag, type DropTarget } from "./use-rack-drag";
 import { STAGE } from "./wine-card";
 import { shapeFor } from "./wine-visuals";
+import {
+  SharedPlaceAskSheet,
+  SharedPlaceBadgeFor,
+  SharedRackUnplacedNote,
+} from "@/features/shared-racks/lazy";
 
 /**
  * Your racks, fridges and cabinets as they stand: every bottle in its spot, every free spot a tap away.
@@ -107,7 +112,14 @@ function SlotPreview({ unit }: { unit: RackUnit }) {
  */
 const places: { open: Set<string> | null } = { open: null };
 
-export function RacksView({ builder = false }: { builder?: boolean } = {}) {
+export function RacksView({
+  builder = false,
+  sharedRacks = false,
+}: {
+  builder?: boolean;
+  /** Shared racks are open here (ADR-010): bottles of mine that stand in one are said to, under "not placed yet". */
+  sharedRacks?: boolean;
+} = {}) {
   const tb = useTranslations("builder");
   const t = useTranslations("racks");
   const tv = useTranslations("vintage");
@@ -116,6 +128,14 @@ export function RacksView({ builder = false }: { builder?: boolean } = {}) {
   const actions = useBottleActions();
 
   const [moving, setMoving] = useState<PlacedBottle | null>(null);
+  // Shared racks (ADR-010): a bottle without a place here may stand in a shared rack; giving it a place is asked first
+  const [sharedAsk, setSharedAsk] = useState<{
+    bottle: PlacedBottle;
+    unit: RackUnit;
+    row: number;
+    col: number;
+  } | null>(null);
+  const sharedAsked = useRef<string | null>(null);
   const [peek, setPeek] = useState<PlacedBottle | null>(null);
   const [placeAt, setPlaceAt] = useState<{ unit: RackUnit; row: number; col: number } | null>(null);
   const [manageId, setManageId] = useState<string | null>(null);
@@ -164,6 +184,8 @@ export function RacksView({ builder = false }: { builder?: boolean } = {}) {
   const managed = data.units.find((u) => u.id === manageId) ?? null;
 
   async function moveTo(bottle: PlacedBottle, unit: RackUnit, row: number, col: number) {
+    if (sharedRacks && bottle.row === null && sharedAsked.current !== bottle.bottleId)
+      return setSharedAsk({ bottle, unit, row, col });
     setError(null);
     const failure = await actions.move(
       bottle.bottleId,
@@ -242,6 +264,12 @@ export function RacksView({ builder = false }: { builder?: boolean } = {}) {
             </div>
           }
         />
+        {/* Shared racks (ADR-010): a bottle of mine in a shared rack is said here too, with no place of my own */}
+        {sharedRacks && (
+          <div className="mt-6">
+            <SharedRackUnplacedNote />
+          </div>
+        )}
         <NewPlaceSheet
           open={newPlace}
           onClose={() => setNewPlace(false)}
@@ -295,6 +323,12 @@ export function RacksView({ builder = false }: { builder?: boolean } = {}) {
             {t("unplacedTitle")} <span className="text-ink-2 tnum">· {data.unplaced.length}</span>
           </h2>
           <p className="mt-1 text-small text-ink-2">{t("unplacedHint")}</p>
+          {/* Shared racks (ADR-010): some of these have a place after all, in a shared rack */}
+          {sharedRacks && (
+            <div className="mt-3">
+              <SharedRackUnplacedNote />
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             {data.unplaced.map((b) => (
               <Chip
@@ -469,7 +503,25 @@ export function RacksView({ builder = false }: { builder?: boolean } = {}) {
           setError(null);
         }}
         onPlace={(b) => placeAt && void moveTo(b, placeAt.unit, placeAt.row, placeAt.col)}
+        noteOf={
+          sharedRacks
+            ? (b) => <SharedPlaceBadgeFor bottleId={b.bottleId} className="flex" />
+            : undefined
+        }
       />
+      {/* Shared racks (ADR-010): the question before a bottle that stands in a shared rack gets a place here */}
+      {sharedAsk && (
+        <SharedPlaceAskSheet
+          bottleId={sharedAsk.bottle.bottleId}
+          wine={`${sharedAsk.bottle.wineName} ${formatVintage(sharedAsk.bottle.year)}`}
+          onConfirm={() => {
+            sharedAsked.current = sharedAsk.bottle.bottleId;
+            setSharedAsk(null);
+            void moveTo(sharedAsk.bottle, sharedAsk.unit, sharedAsk.row, sharedAsk.col);
+          }}
+          onCancel={() => setSharedAsk(null)}
+        />
+      )}
       <ManagePlaceSheet unit={managed} onClose={() => setManageId(null)} builder={builder} />
       <NewPlaceSheet
         open={newPlace}

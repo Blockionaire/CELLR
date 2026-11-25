@@ -330,9 +330,9 @@ const components = [
       {
         id: "R-SR-1",
         severity: "low",
-        title: "No product screen and no production release yet",
+        title: "No production release yet",
         detail:
-          "The foundation is the database step (migration 0056), the API and their tests. Whether the migration is applied anywhere but a throwaway database, and any production release, are the owner's decisions and cannot be read from the repository (docs/MIGRATIONS.md, ADR-010 §9).",
+          "The database step (migration 0056), the API and the screens (features/shared-racks, mounted in the cellar's 3D view through lazy stubs, only where the gate is open) are built and tested. Whether the migration is applied anywhere but a throwaway database, and any production release, are the owner's decisions and cannot be read from the repository (docs/MIGRATIONS.md, ADR-010 §9).",
       },
     ],
   },
@@ -1847,6 +1847,19 @@ const edges: SystemEdge[] = [
     web("server/shared-racks/repository.ts", '.rpc("shared_rack_events"'),
   ),
   edge(
+    "app-pwa",
+    "svc-shared-racks",
+    "request",
+    "shared racks in the cellar's 3D view; where my own bottles stand in one (racks view, a wine's page, its moves); only where the gate is open",
+    web("features/shared-racks/hooks.ts", 'api.get<SharedRackList>("/shared-racks")'),
+    web("features/shared-racks/hooks.ts", '"/shared-racks/bottles"'),
+    web("features/cellar/smart-cellar-3d.tsx", 'from "@/features/shared-racks/lazy"'),
+    web(
+      "app/(app)/cellar/[vintageId]/page.tsx",
+      "<SharedRacksGate open={getSharedRacksAccess().open}>",
+    ),
+  ),
+  edge(
     "svc-shared-racks",
     "domain-rules",
     "request",
@@ -3140,7 +3153,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.13.0",
+  version: "1.13.2",
   reviewedOn: "2026-11-25",
   repository: "Blockionaire/CELLR",
   components,

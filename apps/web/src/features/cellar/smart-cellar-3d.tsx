@@ -72,6 +72,17 @@ import {
 } from "./quick-add/machine";
 import { freeSpots, spotMarkers, type FreeSpot } from "./quick-add/spots";
 import { legacyPointing } from "./quick-add/legacy-spots";
+// Shared racks (ADR-010): the one import. It holds only lazy stubs; all logic is in features/shared-racks.
+import {
+  SharedPlaceAskSheet,
+  SharedPlaceBadgeFor,
+  SharedPlaceCount,
+  SharedRackChips,
+  SharedRackScreen,
+  SharedRackSingleRow,
+  SharedRacksAlone,
+  SharedRacksFooter,
+} from "@/features/shared-racks/lazy";
 
 /** three.js and the new storage view are large: downloaded only when a place with a template is opened in 3D. */
 const InspectableStorage = dynamic(() => import("./storage3d/inspectable-storage"), {
@@ -152,11 +163,14 @@ export default function SmartCellar3D({
   onShowRacks,
   placement = { open: false, canWrite: false },
   builderOpen = false,
+  sharedRacks = false,
 }: {
   onShowRacks: () => void;
   placement?: PlacementSwitch;
   /** The Rack Builder may be opened (for "Edit zones"). */
   builderOpen?: boolean;
+  /** Shared racks may be shown (the server's decision, lib/shared-racks-gate.ts). Closed: nothing of them exists here. */
+  sharedRacks?: boolean;
 }) {
   const t = useTranslations("smart3d");
   const tp = useTranslations("placement");
@@ -179,6 +193,8 @@ export default function SmartCellar3D({
   const units = useSmartUnits(true);
   const [unitId, setUnitIdState] = useState<string | null>(() => memory.unitId);
   const [selection, setSelectionState] = useState<Selection | null>(() => memory.selection);
+  // Shared racks (ADR-010): the shared rack on screen instead of one of my own places, or null.
+  const [sharedRackId, setSharedRackId] = useState<string | null>(null);
   // Counted once each time the 3D cellar is opened, as the existing view counts it.
   useEffect(() => track("3d_cellar_opened"), []);
 
@@ -323,10 +339,30 @@ export default function SmartCellar3D({
     return <Skeleton className="h-[26rem]" />;
   }
 
+  // ---- Shared racks (ADR-010): begin. A shared rack is the place on screen; its screen is features/shared-racks. ----
+  if (sharedRacks && sharedRackId)
+    return (
+      <SharedRackScreen
+        places={units.data}
+        rackId={sharedRackId}
+        onShared={setSharedRackId}
+        onOwnPlace={(id) => {
+          rememberUnit(id);
+          setUnitIdState(id);
+          setSelection(null);
+          setSharedRackId(null);
+        }}
+        onShowRacks={onShowRacks}
+      />
+    );
+  // ---- Shared racks: end ----
+
   // No place at all: the existing view's own invitation to build a cellar.
   if (units.data.length === 0)
     return (
       <div data-testid="smart-3d" data-mode="empty">
+        {/* Shared racks (ADR-010): someone without a place of their own can still be in a shared rack */}
+        {sharedRacks && <SharedRacksAlone onChoose={setSharedRackId} />}
         <Cellar3DView onShowRacks={onShowRacks} />
       </div>
     );
@@ -347,6 +383,21 @@ export default function SmartCellar3D({
     name: `${b.producer} ${b.wineName} ${formatVintage(b.year)}`,
     from: null,
   }));
+  // Shared racks (ADR-010): a bottle without a place here may stand in a shared rack. That is said next to it, and
+  // asked about before it gets a place here. With shared racks closed: nothing is rendered and nothing is asked.
+  const sharedExtras = sharedRacks
+    ? {
+        note: (bottleId: string) => <SharedPlaceBadgeFor bottleId={bottleId} />,
+        ask: (bottle: MovableBottle, go: () => void, cancel: () => void) => (
+          <SharedPlaceAskSheet
+            bottleId={bottle.bottleId}
+            wine={bottle.name}
+            onConfirm={go}
+            onCancel={cancel}
+          />
+        ),
+      }
+    : undefined;
   const startPlacing = (bottle: MovableBottle | null) => {
     setPlacing({ bottle });
     if (bottle?.from && bottle.from.locationId !== unit.id) choose(bottle.from.locationId);
@@ -487,7 +538,28 @@ export default function SmartCellar3D({
               {u.label}
             </Chip>
           ))}
+          {/* Shared racks (ADR-010): my shared racks, in the same row as my own places */}
+          {sharedRacks && (
+            <SharedRackChips
+              locked={quickPanel !== null || placing !== null}
+              onChoose={(id) => {
+                quickClose();
+                setSharedRackId(id);
+              }}
+            />
+          )}
         </PlaceStrip>
+      )}
+      {/* Shared racks (ADR-010): with one place of my own the cellar shows no row; this one adds the shared racks */}
+      {sharedRacks && units.data.length === 1 && (
+        <SharedRackSingleRow
+          place={unit}
+          locked={quickPanel !== null || placing !== null}
+          onChoose={(id) => {
+            quickClose();
+            setSharedRackId(id);
+          }}
+        />
       )}
       {unit.legacy ? (
         // from before templates: the existing view, with its own details, actions and words
@@ -545,6 +617,7 @@ export default function SmartCellar3D({
           canWrite={placement.canWrite}
           advice={placement.advice === true}
           builderHref={builderOpen ? "/cellar/builder" : null}
+          unplacedExtras={sharedExtras}
         />
       )}
       {quickSpotHere && (
@@ -556,6 +629,7 @@ export default function SmartCellar3D({
             col: quickSpotHere.col,
           })}
           unplacedCount={unplaced.length}
+          unplacedNote={sharedRacks ? <SharedPlaceCount /> : undefined}
           placedCount={placedBottles.length}
           scanHref={addHref("/scan", quickSpotHere, "3d")}
           manualHref={addHref("/cellar/add", quickSpotHere, "3d")}
@@ -584,6 +658,7 @@ export default function SmartCellar3D({
           canWrite={placement.canWrite}
           spotFirst={quickPanel.spot}
           candidates={quickPanel.action === "unplaced" ? "unplaced" : "placed"}
+          unplacedExtras={sharedExtras}
           placed={placedBottles}
           onPhase={(phase) =>
             dispatchQuick(phase === "saving" ? { type: "submit" } : { type: "conflict" })
@@ -601,7 +676,11 @@ export default function SmartCellar3D({
                 key={b.bottleId}
                 className="flex items-center justify-between gap-3 text-small text-ink"
               >
-                <span className="min-w-0 truncate">{b.name}</span>
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate">{b.name}</span>
+                  {/* Shared racks (ADR-010): where it stands, when it stands in a shared rack */}
+                  {sharedRacks && <SharedPlaceBadgeFor bottleId={b.bottleId} />}
+                </span>
                 <Button
                   size="sm"
                   variant="secondary"
@@ -615,6 +694,8 @@ export default function SmartCellar3D({
           </ul>
         </section>
       )}
+      {/* Shared racks (ADR-010): my bottles that stand in a shared rack, and the way in to shared racks */}
+      {sharedRacks && <SharedRacksFooter onChoose={setSharedRackId} />}
     </div>
   );
 }

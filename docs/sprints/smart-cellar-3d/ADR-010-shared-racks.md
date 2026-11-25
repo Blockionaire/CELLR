@@ -204,7 +204,7 @@ service role and the database owner (operators), who are trusted as everywhere i
 
 ## 10. Not in this foundation
 
-- No screens. The API is shaped for them and for the 3D view (§ contracts in `SHARED-RACKS-REPORT.md`).
+- (Screens came in the second run: `SHARED-RACKS-REPORT.md` §9, and §13 below.)
 - No temperature zones for a shared rack; no depth (cell capacity above 1 is refused while the switch is off).
   The switch is a kill switch for a rack that is already deep as well: with it off, `shared_rack_place` and
   `shared_rack_move` answer `depth_not_enabled` for any index above 1 and write nothing, and a layout cannot be
@@ -248,6 +248,21 @@ service role and the database owner (operators), who are trusted as everywhere i
 7. **Limits**: 12 members and 20 pending invitations per rack, 20 racks per person, 14 days to accept.
 8. **Production release**: when, and with which declaration (§9).
 
+## 13. What the screens settled (second run)
+
+- **Where a shared rack lives in the product**: in the cellar's 3D view, as one more place in the row of places,
+  marked as shared in words. Not a separate area of the app: it is a rack one walks up to like one's own.
+- **What a member sees of another's bottle** stayed exactly the projection of §5. The panel adds nothing: wine,
+  vintage, kind, format, owner, who placed it and when. No photo.
+- **The owner filter never moves or hides a fact**: it is local to the screen, a spot stays taken whatever the
+  filter shows, and the flat grid says of a dimmed bottle that it is still in the rack.
+- **Taking out is said to be what it is before it is recorded** (open decision 1 stays as built: any member may
+  record it). The follow-up for one's own bottle is one's own cellar's flows, offered after, never merged into it.
+- **The last-owner rule is explained before the request**: the Leave button is not offered to the last owner; the
+  sentence in its place says what to do instead.
+- **A removed member's screen shows nothing of the rack** once the server says so, not even what it had loaded.
+- **Open decision 4 (label photos) stays open**: the screens draw labels from names.
+
 ## 14. After the independent security review
 
 The review (red-team suite `supabase/tests/99_shared_racks_redteam.test.sql`, kept in the repository) found no
@@ -276,6 +291,12 @@ blocker. These were changed in migration 0056 itself (it is applied nowhere):
 - **N2** A rack whose last owner's account is deleted is archived also when nobody else is in it.
 - **N6** The cap of 20 racks per person holds on accepting an invitation too (`too_many_racks`; the invitation
   stays open).
+- **S2** (on the screens branch) A bottle of mine in a shared rack has no place in my own cellar, so my cellar
+  offers it "without a place". The database rule stays as it is: giving it a place at home ends its stay in the
+  shared rack, in the same transaction, and the rack's history says so (`bottle_relocated`). What changed is that
+  the screens say where the bottle stands and ask before doing it. Rejected: refusing the placement at home in the
+  database until the bottle is taken out of the rack first; the owner's own cellar would then depend on a rack they
+  may no longer be a member of.
 - **Depth kill switch** (from the review of the depth backend): the private trigger covers `public.bottles` only,
   so a shared rack made deep while depth was on would have kept accepting an index above 1 after the switch went
   off. Placing and moving now ask the switch themselves (§10).

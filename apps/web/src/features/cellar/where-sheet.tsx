@@ -6,6 +6,7 @@ import { useEffect, useMemo } from "react";
 import type { RackUnit, WhereSummary } from "@cellr/domain";
 import { Button } from "@/ui/button";
 import { Sheet } from "@/ui/sheet";
+import { SharedPlaceCount, useSharedRacksOpen } from "@/features/shared-racks/lazy";
 import { useRacks, vintageKey } from "./hooks";
 import { RackGrid } from "./rack-grid";
 
@@ -33,6 +34,8 @@ export function WhereSheet({
   const t = useTranslations("vintage");
   const racks = useRacks(open);
   const queryClient = useQueryClient();
+  // Shared racks (ADR-010): some of the bottles without a place here may stand in a shared rack
+  const sharedRacks = useSharedRacksOpen();
 
   // This vintage, as the racks have it now: its places (by id), the bottles in them, and the ones without a place.
   const fresh = useMemo(() => {
@@ -150,6 +153,14 @@ export function WhereSheet({
                 <p className="text-small text-ink-2" data-testid="where-unplaced">
                   {t("whereUnplaced", { count: fresh.unplaced })}
                 </p>
+              )}
+              {/* Shared racks (ADR-010): how many of those stand in a shared rack */}
+              {sharedRacks && fresh.unplaced > 0 && (
+                <SharedPlaceCount
+                  bottleIds={(racks.data?.unplaced ?? []).flatMap((b) =>
+                    b.vintageId === vintageId ? [b.bottleId] : [],
+                  )}
+                />
               )}
             </>
           )}

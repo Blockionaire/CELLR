@@ -205,3 +205,232 @@ share through; the script ran clean three times in a row afterwards and is a ste
    `lib/shared-racks-gate.ts` (an explicit release clause) plus the migration, both by owner decision.
 5. **Rollback** is unsetting `CELLR_SHARED_RACKS`: every route is 404 again and the data stays. The private flows
    keep ending placements correctly while the gate is closed (that is the database's work, not the API's).
+
+## 9. The screens (second run, branch `claude/sc3d-shared-racks-ui-bqvck4`)
+
+Everything is in `apps/web/src/features/shared-racks/` and in the message namespace `sharedRacks` (English and Dutch,
+the same keys). The screens add nothing to the contract of §3 and no function to §4: they call the routes as they are.
+
+### 9.1 Where it is, and how it is mounted
+
+- **In the cellar's 3D view** (`features/cellar/smart-cellar-3d.tsx`, mounted where the Smart Cellar renderer gate
+  is open). The page passes one more server-decided boolean, `sharedRacks` (`getSharedRacksAccess().open`), through
+  `CellarScreen`. Shared racks therefore need both gates: `CELLR_SMART_CELLAR_3D` and `CELLR_SHARED_RACKS`.
+- **`features/shared-racks/lazy.tsx`** is the only file other screens import: `next/dynamic` stubs, no logic, no
+  words. The real code is a chunk of its own, fetched when a stub is rendered, and a stub is rendered only where
+  `sharedRacks` is true. Gate closed: nothing rendered, no request, no chunk (browser test, §9.4).
+- **Additions in files outside `features/shared-racks`** (insertions only; no existing line changed, except where a
+  one-line JSX call had to become multi-line to take a prop):
+
+| File                                  | What was added                                                                                                                                                                                                                                                                                       |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/(app)/cellar/page.tsx`           | the import of `getSharedRacksAccess` and the prop `sharedRacks={getSharedRacksAccess().open}`                                                                                                                                                                                                        |
+| `features/cellar/cellar-screen.tsx`   | the prop `sharedRacks` (default false, documented) and passing it to `SmartCellar3D` and `RacksView` (those two calls)                                                                                                                                                                               |
+| `features/cellar/smart-cellar-3d.tsx` | 56 inserted lines, none changed: the import of the stubs; the prop; one `useState` (which shared rack is on screen); an early return rendering `SharedRackScreen`; one line in the empty-cellar return; the chips inside the row of places; a row for a cellar with one place; the footer at the end |
+| `features/cellar/racks-view.tsx`      | the prop `sharedRacks`, the import of the stub, and `SharedRackUnplacedNote` under "not placed yet"                                                                                                                                                                                                  |
+| `playwright.config.ts`                | one pattern in `THREE_D_SPECS` (`shared-racks-3d*.spec.ts`)                                                                                                                                                                                                                                          |
+
+### 9.2 The flows
+
+1. **In the row of places.** My shared racks are chips in the same row as my own places: an icon, the name and the
+   member count, and for a screen reader "Shared rack <name>, n members". With one place of my own (the cellar shows
+   no row then) a row appears only when there is a shared rack to show; with no place of my own, the shared racks and
+   the way in stand above the cellar's own invitation to build one.
+2. **The rack** is drawn by the existing storage view (`InspectableStorage`) from `resolveSharedRack(rack)`, bottles
+   keyed by placement id, labels drawn from the names. A bottle's panel says the wine, the vintage, **whose it is**
+   (or "no longer in this rack; the bottle is still theirs"), who put it there and when, and offers Move, Take out
+   and "History of this bottle".
+3. **Owner filter**: chips "Everyone · n", "Mine · n", one per person. Local to the screen. In the flat grid a bottle
+   that is left out is dimmed and says so; in 3D it is not drawn. It never moves, and while a spot is being chosen
+   every bottle is shown (a spot is free only when nobody's bottle is on it).
+4. **Add my bottle**: "Add my bottle" → the free spots are offered (3D placeholders, or the grid's free cells) → a
+   sheet lists MY bottles (without a place first, then those in a place of my own, searchable above six) → `place`.
+5. **Move**: a bottle → Move → a free spot. Sent with the spot the bottle was seen on.
+6. **Take out**: a sheet says first what it is: not drinking; for someone else's bottle that it stays theirs and the
+   history says who took it; for my own that it is in my cellar afterwards without a place. After my own: "Open this
+   wine" (the wine's page, where drinking and rating are) or "Give it a place in my cellar" (the racks view).
+7. **A refused change** (a spot just taken, a bottle moved or taken out meanwhile): the server's sentence plus "The
+   rack was read again", and the rack as it is now. Nothing is retried. Someone removed meanwhile is told so at their
+   next action and sees nothing of the rack any more.
+8. **People**: what each role may do, the members, make owner / make member, remove (the confirmation says the
+   bottles stay theirs and stay where they stand), invite by exact account name or friend code (the existing
+   search), open invitations with "Take back", and leaving: the last owner is told why they cannot **before** any
+   request (no Leave button is offered).
+9. **Invitations for me**: a chip in the row of places and a badge on "Shared racks" under the cellar; the sheet
+   says who invites me to which rack and what accepting shares. After accepting, the rack is on screen.
+10. **History**: newest first, localised times, "load older", filters by owner and by who did it, and one bottle's
+    history from its panel. Owner and actor are both named when they differ ("Bob moved Ann’s …").
+11. **Settings** (owners): rename, layout (the catalogue's templates that hold one bottle per spot, rows, columns),
+    saved against the rack's revision: a save against an older version is refused and said, and the fields take the
+    rack as it is. Archive and restore, with what they mean said first.
+12. **My own cellar**: under "not placed yet" (racks view) and under the 3D cellar, bottles of mine that stand in a
+    shared rack are named as such, with the rack and spot while I am a member, and "It’s no longer there" (withdraw)
+    always.
+13. **Without 3D** (no WebGL, a lost context, or by choice "Show as a list"): the flat grid of shelves and spots does
+    all of the above: every spot is a button that says in words what it is.
+
+### 9.3 Decisions and limits
+
+- **Create and layout use a small form of their own** (`sheets.tsx`), over the domain's own validation
+  (`SharedRackCreateSchema`, `SharedRackLayoutSchema`, the template catalogue and its limits). The Rack Builder is a
+  page built around one household place and its save route; reusing it would have meant editing it. Handoff to the
+  builder's owner if a shared rack should be designed there: it would need a target other than a household place.
+  **The look is the template's default** (or the rack's own, kept while the template stays): no look chooser here.
+- **The chips in the row of places are 44 px high**, like the place chips they sit next to (the place strip of the
+  3D polish). Every other control of these screens is at least 44 px too (browser test at 375 × 667).
+- **The invitation badge is on the 3D view only.** Someone who never opens the 3D view does not see an invitation.
+- **The lazy stubs** (`lazy.tsx`, about forty lines of `dynamic()` calls) are part of the 3D cellar's chunk. They
+  contain no logic and no text of the feature.
+- **No push notice** for an invitation or a taken-out bottle; no undo for a move (a second move does it, and the
+  history keeps both).
+- **Opening a rack from the racks view** is not offered (the rack lives in the 3D view); the note there names the
+  rack and the spot and offers the withdrawal.
+- **Dutch**: every string of these screens is translated; the server's refusals come through the existing
+  `errors.known` translations.
+- **Needs a physical device**: touch targets and scrolling of the row of places on a real small phone, the 3D
+  picture's speed with sixty bottles on a mid-range phone, VoiceOver and TalkBack reading the grid's spot names,
+  and the sheet's drag-to-close over the long people sheet.
+
+### 9.4 After the security review: what the screens changed, and what waits
+
+- **Who is named (S1).** A change made in the owner's own cellar by someone of that household who is not in the
+  rack reaches the screens without an actor. The history says it as "Someone of Ann's household opened …" (six
+  sentences, both languages; `logic.ts` `eventLine`, unit tested), never with a name the server did not give.
+- **The history starts unfiltered at every opening.** The browser run found that "History of this bottle" kept a
+  person filter chosen earlier in the full history, and so showed half of the bottle's story. Fixed in `sheets.tsx`.
+- **A bottle that stands in a shared rack, offered "without a place" (S2).** A bottle of mine in a shared rack has
+  no place in my own cellar, so every list of bottles without a place contains it. It is now said where it stands
+  ("In shared rack Cellar club · shelf 2, spot 3", or "In a shared rack" when I am no longer a member), and giving
+  it a place at home asks first: "… takes it out of the shared rack: its spot there becomes free, and the people of
+  that rack see that it went home." Yes does exactly what the screen would have done (the database ends the stay
+  in the shared rack, `bottle_relocated` in its history); No changes nothing. A bottle that stands in no shared
+  rack goes through without a question. The parts are in `features/shared-racks/in-shared-rack.tsx` (reached only
+  through `lazy.tsx`); the facts come from `GET /shared-racks/bottles`. With shared racks closed nothing of this is
+  rendered, downloaded or asked (browser test on both closed servers, including a placement).
+
+  | Where (files of other workstreams; delimited insertions marked "Shared racks (ADR-010)") | What was inserted                                                                                                                                                                   |
+  | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `features/cellar/placement/placement-panel.tsx`                                          | one optional prop `unplacedExtras { note, ask }`: the note under a candidate without a place, and the question before any such bottle is written                                    |
+  | `features/cellar/quick-add/quick-add-ui.tsx`                                             | one optional prop `unplacedNote`, shown under "Choose a bottle without a spot" and its count ("1 of them stands in a shared rack …")                                                |
+  | `features/cellar/smart-cellar-3d.tsx`                                                    | builds both and passes them to the two placement panels and the Quick Add sheet (the legacy place's Quick Add uses the same ones); the badge in the list of bottles without a place |
+  | `features/cellar/racks-view.tsx`, `rack-sheets.tsx`                                      | the question in the one function that gives a bottle a spot; the badge in the sheet of a tapped spot; the note (§9.2) also in the empty state                                       |
+
+  **The rest of the cellar** (a bottle's own page, its Move, moving several at once, the old 3D view, the wine
+  card, the edit and "where is it" sheets) followed in the third run: §9.6. S2 is complete on the screens. The
+  unplaced chips of the racks view still carry no badge of their own (the note right above them names those
+  bottles).
+
+- **Not built for these parts**: a component test (the repository has no rendering test setup for client
+  components; what they hold is a map lookup and the pass-through, both exercised in the browser test).
+- **After the stack was merged in**: the shared rack's chips are 44 px high like the place strip's, and the shared
+  rack's stage shows the 3D view's aim hint ("Zoomed in. Tap the spot again to choose it.") while a spot is chosen.
+
+### 9.5 Tests of the screens
+
+Run on this branch on 2026-11-25, after the whole stack was merged in (the foundation with the review fixes, the
+3D polish, Sprint 7.2's completion, the layout compare-and-swap), against throwaway databases and the local stack
+only. Browser runs: one production build, CI's headless shell, the projects `desktop` and `phone`, three servers
+(not switched on; switched on but an unmarked production build; a Vercel preview).
+
+| What                                                                         | Result                                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm format:check`, `pnpm lint`, `pnpm typecheck`                           | clean (lint: 0 errors, the 1 warning that is on the base)                                                                                                                                                                                                                                                                         |
+| `pnpm test`                                                                  | domain 78 files, 1631 tests; web 121 files passed and 2 skipped, 1766 tests passed and 13 skipped; scripts pass. See the note on a timing test below                                                                                                                                                                              |
+| `pnpm db:types:check`, `bash scripts/db-test.sh`                             | up to date; 1962 passed, 0 failed, 0 errors                                                                                                                                                                                                                                                                                       |
+| `pnpm architecture:inventory`, `vitest run src/server/system`                | no change to commit; 27 passed                                                                                                                                                                                                                                                                                                    |
+| `node apps/web/scripts/e2e-suites-check.mjs`                                 | 1478 tests = 396 (3d) + 1082 (core), none in both, none left out                                                                                                                                                                                                                                                                  |
+| `e2e/shared-racks.spec.ts`, both projects                                    | 14 passed (7 on each): the three-household story, the layout conflict, 375 × 667, gate closed on both closed servers, the bottle in a shared rack offered for a place at home, the gate-open check                                                                                                                                |
+| `e2e/shared-racks-3d.spec.ts` (3D suite), both projects                      | 2 passed                                                                                                                                                                                                                                                                                                                          |
+| `e2e/shared-racks-api.spec.ts` (desktop only by design)                      | 12 passed                                                                                                                                                                                                                                                                                                                         |
+| `e2e/quick-add.spec.ts`, both projects (the cellar's own flow, gate open)    | 61 passed, 5 skipped by the spec itself                                                                                                                                                                                                                                                                                           |
+| `e2e/smart-cellar-3d.spec.ts`, both projects (the closed-gate download test) | 41 passed, 2 skipped by the spec itself, 1 failed on `phone` (`:466`, changing place while a bottle is out: the stage was not back within 5 s during the 19-minute run); run alone three times afterwards it passed 3 of 3. It is a known load-sensitive test of the 3D view, being fixed in its own workstream; not touched here |
+
+`pnpm test` as one command failed once on this machine while other browser runs were going on (load average about
+12): `sommelier-check.review.test.ts`, a test that measures time, not a test of this work. The domain suite and the
+web suite each pass when run on their own (the numbers above).
+
+What the browser runs found, and what was done about each:
+
+- **"History of this bottle" inherited a person filter** from an earlier look at the whole history: fixed (§9.4).
+- **A person without a place of their own saw no note** about their bottle in a shared rack in the racks view (that
+  view has a separate empty state): the note is shown there too.
+- **In 3D, "Move" clicked with a mouse right after the keyboard list had the focus could miss**: the list is shown
+  only while it has the focus and folds away when the focus leaves it, which moves the page under a pressed mouse
+  button. The spec now does what such a person does (Enter on the button). The fold itself is unchanged and is the
+  same pattern the private 3D view uses; a physical-device check should include it.
+- **Two sheets in quick succession**: a sheet says it is closed a moment after Escape (its way out is animated),
+  and the rack's screen then closed whichever sheet was open by then, so a sheet opened right after another one
+  closed again. Fixed: each sheet closes only itself (`rack-stage.tsx`).
+- **The spec assumed which of two identical bottles a person picks first**; it now reads that back.
+
+Not run: the whole browser suite (only the specs above), the WebKit project, the restore rehearsal (needs Docker),
+anything on a real device, and anything against a hosted project.
+
+### 9.6 Third run: the rest of S2, focus, and forgetting a rack
+
+Three review items, closed on this branch on 2026-11-25.
+
+**S2 everywhere a bottle of mine is offered or moved without a place.** The screens that say "Not placed yet" for
+one bottle now say what is true ("In shared rack Club rack · shelf 2, spot 3"; for several, "2 in a shared rack",
+or the screen's own words plus " · 1 in a shared rack"), and every flow that gives such a bottle a place at home
+asks first, with the question of §9.4 (for several bottles at once: "2 of these bottles stand in a shared rack …").
+Yes does exactly what the screen did before; No changes nothing (and gives the focus back to the spot that was
+chosen); a bottle in no shared rack goes through with no question. After any change to a bottle my shared bottles
+are read again (`useRefreshCellar`), so a bottle that went home is not asked about from an old answer.
+
+- **How a screen deep inside a page knows the gate**: `features/shared-racks/gate.tsx`, a context set by the page
+  from `getSharedRacksAccess().open` (the cellar page and the wine's page). Left out, it is closed. Every part below
+  reads it and, closed, renders exactly what the screen rendered before; nothing is fetched, asked or downloaded
+  (browser test on both closed servers, now including a wine's page and its Move).
+- **The parts** (all in `features/shared-racks/`, reached through `lazy.tsx`): `SharedPlaceOr` (the words; the
+  screen's own words stay until the answer is in, so nothing blinks), `SharedPlaceTexts` (the same as plain text,
+  for a `<select>`), `SharedPlaceCount` (now also for given bottles), `SharedPlaceAskSheet` (now also for several
+  bottles). Three new keys, in both languages: `inRack.several`, `inRack.confirmWhatSeveral`,
+  `inRack.confirmSeveral`.
+
+| File (delimited insertions marked "Shared racks (ADR-010)")          | What was inserted                                                                                                                |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `app/(app)/cellar/page.tsx`, `app/(app)/cellar/[vintageId]/page.tsx` | `SharedRacksGate` around the screen, from `getSharedRacksAccess().open`                                                          |
+| `features/cellar/bottle-bits.tsx`                                    | `BottleSpot` (the wine's page, the Move and Open sheets): "Not placed yet" through `SharedPlaceOr` when the bottle's id is known |
+| `features/cellar/vintage-screen.tsx`                                 | the "Where" tile (every bottle without a place) and the heading of the group without a place, through `SharedPlaceOr`            |
+| `features/cellar/move-bottle-sheet.tsx`                              | the question before a bottle without a place gets a spot (covers the wine's page and the old 3D view's Move)                     |
+| `features/cellar/bulk-bottles.tsx`                                   | the question before several bottles, some without a place, are moved                                                             |
+| `features/cellar/bottle-showcase-panel.tsx`                          | the old 3D view's panel: "this bottle" and the places line, through `SharedPlaceOr`                                              |
+| `features/cellar/edit-sheet.tsx`                                     | the names in "which bottle" (`SharedPlaceTexts`)                                                                                 |
+| `features/cellar/where-sheet.tsx`                                    | under "n bottles have no place yet": how many of them stand in a shared rack                                                     |
+| `features/cellar/wine-card.tsx`                                      | "No place yet" through `SharedPlaceOr` by the wine (it reads my racks for that wine's bottles without a place)                   |
+| `features/cellar/hooks.ts`                                           | `useRefreshCellar` also reads my shared bottles again (the key named literally; a unit test pins it)                             |
+
+Not changed, on purpose: `bottle-details.tsx` (it places only NEW bottles, which stand in no shared rack) and
+`cellar-3d-view.tsx` / `three/**` (the old 3D view moves through `move-bottle-sheet.tsx`; its scene confirms
+nothing itself).
+
+**Focus (S-B2).** The specs now check it: opening each sheet (shared racks, people, invitations, add, the rack's
+and one bottle's history, take out, settings, the question before a bottle goes home) puts the focus in it;
+closing it with Escape puts it back on the control that opened it; where that control went away with what it did,
+the focus is still on the screen; on the no-access path the focus is on the alert. What the checks found, fixed in
+`rack-stage.tsx`: after a new rack or an accepted invitation the sheet's button was gone and the focus fell to the
+page (now: the rack's name); a free spot that became a bottle took the focus with it (now: that bottle's button);
+a taken-out bottle took the panel's button with it (now: the rack's name); the no-access alert takes the focus when
+it was lost. The question sheet gives the focus back itself (it is taken away rather than closed).
+
+**Forgetting a rack (review nit).** When the server says a rack is gone for me, or I leave it,
+`forgetSharedRack()` removes every query under that rack's key from the cache at once and reads my list again; the
+screen stops asking for the rack first. Unit test in `hooks.test.ts`.
+
+Tests of the third run (2026-11-25, this branch at `cb0746c`; local stack and throwaway databases only; one
+production build; CI's headless shell; `--trace off`; projects `phone` and `desktop`):
+
+| What                                                                                                                                         | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm format:check`, `pnpm lint`, `pnpm typecheck`                                                                                           | clean (lint: 0 errors, the 1 warning that is on the base)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `pnpm test`                                                                                                                                  | domain 86 files, 2007 tests; web 123 files passed and 2 skipped, 1828 tests passed and 13 skipped; scripts 10 + 2 + 4 + 5 files (146 + 83 + 44 + 75 tests); all passed in one run                                                                                                                                                                                                                                                                                                                                                                              |
+| `pnpm architecture:inventory`, `vitest run src/server/system`                                                                                | one new import edge (`app/(app)/ → features/shared-racks/`, inside `app-pwa`); the `app-pwa → svc-shared-racks` edge says where my bottles are said and asked about, with code evidence; version 1.13.2; 27 passed                                                                                                                                                                                                                                                                                                                                             |
+| `node apps/web/scripts/e2e-suites-check.mjs`                                                                                                 | 1496 tests = 398 (3d) + 1098 (core), none in both, none left out                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `playwright test shared-racks shared-racks-3d shared-racks-api smart-cellar-3d racks detail cellar3d three-view`, both projects, one command | 170 tests: 153 passed, 17 skipped by the specs themselves (12 of `shared-racks-api` on `phone`, by design; 2 `smart-cellar-3d-old-db`; 2 `smart-cellar-3d`; 1 `cellar3d-precision`), 0 failed. `shared-racks.spec.ts` 8 per project (with the new wine's page test and the focus checks), `shared-racks-3d` 1, `shared-racks-api` 12 (desktop), `smart-cellar-3d` 22, `racks` 6, `detail` 9, `glance-details` 3, `cellar3d` 8, `cellar3d-precision` 6, `cellar3d-premium` 4, `three-view` 5, `smart-cellar-3d-old-db` 1 (counts per project, skipped included) |
+
+What the browser runs found on the way: the focus fell to the page after a new rack was created (fixed above);
+the wine's page test first counted a fourth, hidden copy of the line and found the question's sheet inside the
+Move sheet as a second dialog (both were the test's locators, made exact). Not run in this run: the database
+suite (no migration and no database function changed), the WebKit project, the rest of the browser suite, a real
+device, anything hosted.

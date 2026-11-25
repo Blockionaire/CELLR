@@ -3,10 +3,12 @@ import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { CellarScreen } from "@/features/cellar/cellar-screen";
 import { CELLAR_VIEW_COOKIE, parseViewMode } from "@/features/cellar/view-mode";
+import { SharedRacksGate } from "@/features/shared-racks/lazy";
 import { getPageContext } from "@/server/context";
 import {
   getBuilderAccess,
   getPlacementAccess,
+  getSharedRacksAccess,
   isAdviceOpen,
   isSmartCellarRendererEnabled,
 } from "@/server/env";
@@ -22,16 +24,21 @@ export default async function CellarPage() {
   const [initial, store] = await Promise.all([servicesFor(ctx).cellar.inventory(), cookies()]);
   const view = parseViewMode(store.get(CELLAR_VIEW_COOKIE)?.value);
   // Whether the 3D view may use the new storage renderer: the server's decision, never the browser's.
+  // Shared racks (ADR-010): the server's decision, for the screens deep inside that say where a bottle stands
+  const sharedRacks = getSharedRacksAccess().open;
   return (
-    <CellarScreen
-      initial={initial}
-      initialView={view}
-      smart3d={isSmartCellarRendererEnabled()}
-      builder={getBuilderAccess().open}
-      placement={{
-        ...(({ open, canWrite }) => ({ open, canWrite }))(getPlacementAccess()),
-        advice: isAdviceOpen(),
-      }}
-    />
+    <SharedRacksGate open={sharedRacks}>
+      <CellarScreen
+        initial={initial}
+        initialView={view}
+        smart3d={isSmartCellarRendererEnabled()}
+        builder={getBuilderAccess().open}
+        placement={{
+          ...(({ open, canWrite }) => ({ open, canWrite }))(getPlacementAccess()),
+          advice: isAdviceOpen(),
+        }}
+        sharedRacks={sharedRacks}
+      />
+    </SharedRacksGate>
   );
 }

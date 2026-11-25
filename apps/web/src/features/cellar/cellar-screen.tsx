@@ -153,6 +153,7 @@ export function CellarScreen({
   smart3d = false,
   builder = false,
   placement = { open: false, canWrite: false },
+  sharedRacks = false,
 }: {
   initial: CellarView;
   initialView: CellarViewMode;
@@ -171,6 +172,11 @@ export function CellarScreen({
    * decision: lib/smart-cellar-placement-gate.ts). Shown only where the new view is (smart3d).
    */
   placement?: { open: boolean; canWrite: boolean; advice?: boolean };
+  /**
+   * Whether shared racks may be shown (the server's decision: lib/shared-racks-gate.ts; ADR-010). Shown in the new
+   * 3D view and as a note in the racks view; with it false nothing of them is rendered, asked for or downloaded.
+   */
+  sharedRacks?: boolean;
 }) {
   const t = useTranslations("cellar");
   const tTypes = useTranslations("wineTypes");
@@ -441,12 +447,17 @@ export function CellarScreen({
 
       {view === "3d" ? (
         smart3d ? (
-          <SmartCellar3D onShowRacks={showRacks} placement={placement} builderOpen={builder} />
+          <SmartCellar3D
+            onShowRacks={showRacks}
+            placement={placement}
+            builderOpen={builder}
+            sharedRacks={sharedRacks}
+          />
         ) : (
           <Cellar3DView onShowRacks={showRacks} />
         )
       ) : view === "racks" ? (
-        <RacksView builder={builder} />
+        <RacksView builder={builder} sharedRacks={sharedRacks} />
       ) : items.length === 0 ? (
         <EmptyState
           illustration={false}

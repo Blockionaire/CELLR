@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import {
   ERROR_MESSAGES,
   formatVintage,
@@ -166,6 +166,8 @@ interface PlaceHereProps {
   error: string | null;
   onClose: () => void;
   onPlace: (bottle: PlacedBottle) => void;
+  /** Shared racks (ADR-010): said under a bottle's name (it may stand in a shared rack). */
+  noteOf?: ((bottle: PlacedBottle) => ReactNode) | undefined;
 }
 
 /** "Which bottle goes here?" — the bottles without a place, one tap each. */
@@ -176,6 +178,7 @@ export function PlaceHereSheet({
   error,
   onClose,
   onPlace,
+  noteOf,
 }: PlaceHereProps) {
   const t = useTranslations("racks");
   const tv = useTranslations("vintage");
@@ -222,7 +225,10 @@ export function PlaceHereSheet({
                     >
                       <BottleGlyph shape={shapeFor(b.type)} tint={b.type} className="h-10 w-auto" />
                     </span>
-                    <span className="min-w-0 text-body text-ink">{wineLine(b)}</span>
+                    <span className="min-w-0 text-body text-ink">
+                      {wineLine(b)}
+                      {noteOf?.(b)}
+                    </span>
                   </button>
                 </li>
               ))}

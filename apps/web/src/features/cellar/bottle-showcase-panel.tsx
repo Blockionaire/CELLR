@@ -20,6 +20,7 @@ import { nameSize, SlotMap } from "./bottle-portrait";
 import { FavoriteButton } from "./favorite-button";
 import { PANEL, type ShowcaseLayout } from "./three/layout";
 import { placeLine } from "./wine-visuals";
+import { SharedPlaceOr } from "@/features/shared-racks/lazy";
 
 interface PanelProps {
   /** The bottle on display (kept after it is put back, so the panel can slide out with its content). */
@@ -190,9 +191,12 @@ export function BottleShowcasePanel({
               <SlotMap rows={grid.rows} cols={grid.cols} row={bottle.row!} col={bottle.col!} />
             )}
             <p className="min-w-0 text-body font-medium text-ink">
-              {placed
-                ? `${unitLabel ?? ""} · ${tv("spot", { row: bottle.row!, col: bottle.col! })}`
-                : tv("notPlaced")}
+              {placed ? (
+                `${unitLabel ?? ""} · ${tv("spot", { row: bottle.row!, col: bottle.col! })}`
+              ) : (
+                // Shared racks (ADR-010): it may stand in a shared rack; then that is said instead
+                <SharedPlaceOr bottleIds={[bottle.bottleId]}>{tv("notPlaced")}</SharedPlaceOr>
+              )}
             </p>
           </div>
           {detail && (
@@ -204,7 +208,17 @@ export function BottleShowcasePanel({
                   {places.map((p, i) => (
                     <span key={p.label ?? "none"}>
                       {i > 0 && " · "}
-                      {p.label ?? tv("notPlaced")} <span className="tnum">×{p.count}</span>
+                      {/* Shared racks (ADR-010): some of these may stand in a shared rack */}
+                      {p.label ?? (
+                        <SharedPlaceOr
+                          bottleIds={detail.bottles.flatMap((b) =>
+                            b.locationId === null ? [b.id] : [],
+                          )}
+                        >
+                          {tv("notPlaced")}
+                        </SharedPlaceOr>
+                      )}{" "}
+                      <span className="tnum">×{p.count}</span>
                     </span>
                   ))}
                 </>
