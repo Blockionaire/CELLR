@@ -42,6 +42,11 @@ export function sommelierUserMessage(
     facts?: string | null;
     /** The person's own taste (see tasteContextText), only for advice and pairing. */
     taste?: string | null;
+    /**
+     * Extra facts worked out by the app for this question (Sommelier V1+ parts), each a paragraph of its own that
+     * starts with a line saying what it is and how to use it. None: the message is exactly V1's.
+     */
+    blocks?: readonly string[];
   } = {},
 ): string {
   const history = messages
@@ -72,6 +77,7 @@ export function sommelierUserMessage(
     ...(total === 0 ? [] : [digest]),
     ...(options.facts ? ["", options.facts] : []),
     ...(options.taste ? ["", options.taste] : []),
+    ...(options.blocks ?? []).flatMap((block) => ["", block]),
     ...(history.length > 0 ? ["", "Chat so far:", ...history] : []),
     "",
     `Question: ${question}`,

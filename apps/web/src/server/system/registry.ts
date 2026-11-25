@@ -457,7 +457,11 @@ const components = [
     summary: "Answers from the person's own cellar, taste and Tonight",
     responsibility:
       "Answers questions with the language model over facts read from the cellar, storage, Tonight and the taste profile; recommendations come from bottles that exist.",
-    inputs: ["Question", "Cellar, storage, Tonight, taste profile"],
+    inputs: [
+      "Question",
+      "Cellar, storage, Tonight, taste profile",
+      "Wine profiles (annotate part)",
+    ],
     outputs: ["Structured answer", "AI usage records"],
     sources: [
       W + "server/sommelier/service.ts",
@@ -490,7 +494,7 @@ const components = [
       {
         name: "CELLR_SOMMELIER",
         kind: "env",
-        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. Built: check (P3: prompt v7 with refs for cellar wines and no price field; the answer's words and buying claims are checked in code, and what cannot be shown is left out or replaced by a sentence made from the cards).",
+        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. Built: check (P3: prompt v7 with refs for cellar wines and no price field; the answer's words and buying claims are checked in code, and what cannot be shown is left out or replaced by a sentence made from the cards); annotate (P4: the app's own facts on the cards, with the household's wine profiles for the wines shown) and quantities (P5: bottles for the people named, counted in code).",
       },
     ],
     risks: [
@@ -1908,7 +1912,14 @@ const edges: SystemEdge[] = [
     "inventory, storage, Tonight",
     "tonight: (request, personal) => cellar.tonight(request, personal)",
   ),
-  wired("svc-sommelier", "svc-taste", "taste profile", "taste: () => taste.profile()"),
+  edge(
+    "svc-sommelier",
+    "svc-taste",
+    "request",
+    "taste profile; the household's wine profiles for the cards (annotate part)",
+    web(SERVICES, "taste: () => taste.profile()"),
+    web(SERVICES, "profiles: async (vintageIds) => tasteRepo.listInsights("),
+  ),
   wired("svc-sommelier", "rate-limiter", "chat limit", "spend: () => limiter.enforce(LIMITS.chat)"),
   edge(
     "svc-sommelier",
@@ -2890,8 +2901,8 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.6.0",
-  reviewedOn: "2026-11-23",
+  version: "1.7.0",
+  reviewedOn: "2026-11-24",
   repository: "Blockionaire/CELLR",
   components,
   edges,
