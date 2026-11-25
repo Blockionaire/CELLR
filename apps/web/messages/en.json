@@ -274,7 +274,8 @@
         "vintage_listed": "The source lists this vintage",
         "vintage_not_listed": "The source does not list this vintage"
       },
-      "licenseLink": "Licence: {license}"
+      "licenseLink": "Licence: {license}",
+      "ratings": "See ratings and reviews"
     },
     "review": {
       "wineTitle": "The wine",
@@ -403,6 +404,91 @@
       "use": "Use my taste",
       "profile": "My taste profile",
       "used": "Based on your taste profile"
+    },
+    "annotate": {
+      "label": "Facts from your cellar",
+      "note": {
+        "trimmed": "A serving detail in the answer differed from your cellar's own facts and was left out; the card shows them.",
+        "replaced": "The answer's serving details differed from your cellar's own facts, so it was left out; the card shows them."
+      },
+      "seeCard": "How to serve it and when to drink it is on the card below.",
+      "drink": {
+        "keep": "Keep it: still young",
+        "improving": "Can be opened now, still improving",
+        "drink-now": "At its best now",
+        "drink-soon": "Drink soon",
+        "past-window": "Past its window: drink it soon",
+        "unknown": "Too little is known to say when to drink it"
+      },
+      "window": {
+        "range": "{from}–{until}",
+        "until": "until {until}",
+        "from": "from {from}",
+        "estimated": "est. {years}"
+      },
+      "windowBasis": {
+        "own": "your own window",
+        "profile": "an estimate from its profile",
+        "style": "an estimate for its style"
+      },
+      "serve": {
+        "temp": "{min}–{max} °C",
+        "tempAbout": "about {min}–{max} °C",
+        "fridge": "about {minutes} min in the fridge",
+        "noChill": "no need to chill",
+        "decant": {
+          "no": "no need to decant",
+          "air": "decant about {minutes} min",
+          "sediment": "decant gently off the sediment shortly before serving",
+          "optional": "a carafe is optional"
+        },
+        "glass": {
+          "flute-or-tulip": "tulip glass or flute",
+          "white": "white-wine glass",
+          "large-white": "large white-wine glass",
+          "red": "red-wine glass",
+          "large-red": "large red-wine glass",
+          "small": "small glass"
+        },
+        "basis": {
+          "profile": "from its profile",
+          "style": "rule of thumb",
+          "colour": "rule of thumb for its colour"
+        },
+        "unknown": "Too little is known about this wine to say how to serve it"
+      },
+      "reserved": {
+        "some": "{free} of {total} not reserved",
+        "all": "{count, plural, one {reserved (the only bottle)} other {all reserved (#)}}"
+      },
+      "where": {
+        "places": "in {places}",
+        "unplaced": "{count, plural, one {# bottle} other {# bottles}} without a place"
+      }
+    },
+    "quantity": {
+      "need": "For {guests, plural, one {# person} other {# people}} {gathering}: about {needed, plural, one {# bottle} other {# bottles}} in all ({basis}).",
+      "gathering": {
+        "dinner": "at dinner",
+        "reception": "at a reception",
+        "long-evening": "over a long evening"
+      },
+      "basis": {
+        "dinner": "an estimate of half a bottle each",
+        "reception": "an estimate of a third of a bottle each",
+        "long-evening": "an estimate of three quarters of a bottle each"
+      },
+      "enough": "{wine}: {needed, plural, one {# bottle} other {# bottles}} needed, {available} free to open: enough.",
+      "short": "{wine}: {needed, plural, one {# bottle} other {# bottles}} needed, {available} free to open: {short} short.",
+      "altEnough": "{wine}: {available} free to open, enough.",
+      "altShort": "{wine}: {available} free to open, {short} short.",
+      "needMinimum": "For {guests, plural, one {# person} other {# people}} {gathering}: one bottle of each wine, {needed} in all (there will be wine left).",
+      "needRounded": "For {guests, plural, one {# person} other {# people}} {gathering}: {needed} bottles in all, more than {share}, as each wine is opened whole (there will be wine left).",
+      "share": {
+        "dinner": "half a bottle each",
+        "reception": "a third of a bottle each",
+        "long-evening": "three quarters of a bottle each"
+      }
     },
     "personalChips": {
       "love": "What would I love tonight?",
@@ -713,6 +799,11 @@
       "importTooBig": "That is more than we can bring in at once. Try a smaller file.",
       "settingNotYet": "This setting is not available yet.",
       "ratingTenths": "Ratings go in tenths of a star.",
+      "reviewNoLinks": "Links are not allowed in a review.",
+      "reviewInvalid": "Links are not allowed, and a review is at most 1500 characters.",
+      "reviewNoScore": "Give it stars first, then share it.",
+      "reviewNoIdentity": "This wine can't be reviewed publicly yet: CELLR doesn't know it as a catalogue wine.",
+      "reviewModerated": "A moderator has looked at your review of this wine, so it can't be changed.",
       "swapSelf": "A bottle can't trade places with itself.",
       "swapGone": "One of these bottles is no longer in the cellar or has no place. Nothing was changed.",
       "swapStale": "One of these bottles was just moved by someone else. Nothing was changed.",
@@ -2789,5 +2880,104 @@
     "checkedNot": "It wasn't saved. You can try again.",
     "checkedOther": "Another bottle is on that spot now. Choose another spot.",
     "checkFailed": "We still couldn't check. Try again in a moment."
+  },
+  "ratingsPanel": {
+    "title": "Ratings",
+    "howWeScore": "How we score",
+    "vintageFilter": "Vintage",
+    "allVintages": "All vintages",
+    "nv": "NV",
+    "emptyTitle": "No ratings yet",
+    "emptyBody": "Nobody has rated {vintage} yet.",
+    "emptyBodyAll": "Nobody has rated this wine yet.",
+    "beFirst": "Be the first to share yours",
+    "cellrScore": "CELLR score",
+    "starsLabel": "{value} out of 5 stars",
+    "basedOn": "{count, plural, one {Based on # rating} other {Based on {formatted} ratings}}",
+    "external": "External ratings",
+    "community": "CELLR community",
+    "count": "{count, plural, one {# rating} other {{formatted} ratings}}",
+    "distribution": "How the ratings are spread",
+    "rowLabel": "{star, plural, one {# star} other {# stars}}: {count, plural, one {# rating} other {{formatted} ratings}}",
+    "reviewsTitle": "Reviews from the CELLR community",
+    "share": "Share your review",
+    "reviewFilter": "Show",
+    "filter": {
+      "all": "All",
+      "with_text": "With text",
+      "mine": "Mine"
+    },
+    "clearStars": "Show all stars",
+    "starsChip": "{star}★",
+    "noneYet": "No reviews here yet.",
+    "noneMine": "You haven't shared a review of this yet.",
+    "weightNote": "The CELLR score weighs every CELLR review five times, and external ratings up to 50 at most. The counts are the real numbers.",
+    "member": "CELLR member",
+    "you": "You",
+    "edited": "edited",
+    "remove": "Remove",
+    "removed": "Your review was removed.",
+    "report": "Report",
+    "publishTitle": "Share your review",
+    "publishBody": "Your stars and, if you like, a few words, for everyone who looks at this wine.",
+    "whichTasting": "Which tasting",
+    "yourScore": "Your score",
+    "scoreFromTasting": "From your tasting",
+    "bodyLabel": "Your review (optional)",
+    "bodyPlaceholder": "What stood out? No links, please.",
+    "consent": "I publish this review in the CELLR community under my display name. I can change or remove it at any time.",
+    "privateStays": "Your private tasting note stays private: it is never shared.",
+    "publish": "Publish",
+    "published": "Your review is published.",
+    "updated": "Your review is updated.",
+    "status": {
+      "no_identity": "This wine can't be reviewed publicly: CELLR doesn't know it as a catalogue wine.",
+      "no_score": "Give it stars first."
+    },
+    "reportTitle": "Report this review",
+    "reportBody": "Our moderators look at it. Three reports hide a review until they have.",
+    "reason": {
+      "spam": "Spam or advertising",
+      "offensive": "Offensive",
+      "wrong_wine": "About another wine",
+      "not_a_review": "Not a review",
+      "other": "Something else"
+    },
+    "sendReport": "Send report",
+    "reported": "Thanks. We'll take a look.",
+    "noneStars": "No CELLR reviews with {star}★ here.",
+    "edit": "Edit your review",
+    "editTitle": "Edit your review",
+    "saveChanges": "Save changes",
+    "removeConfirm": "Yes, remove it",
+    "keep": "Keep it",
+    "thisNv": "this NV",
+    "theYear": "the {year}"
+  },
+  "aboutRatings": {
+    "title": "Ratings and sources",
+    "intro": "Where CELLR's ratings come from, and how the CELLR score is calculated.",
+    "methodTitle": "The CELLR score",
+    "method1": "External ratings count once each, up to 50 in what you are looking at (one vintage, or all of them together): a famous wine's thousands of ratings don't drown out everyone else.",
+    "method2": "Every review from the CELLR community counts five times. With ten CELLR reviews, the community weighs as much as any number of external ratings.",
+    "method3": "A CELLR score of 1–10 is shown as stars: half the score (9 = 4.5 stars).",
+    "method4": "Vintages are never mixed: 2019 is rated as 2019, NV as NV. 'All vintages' adds the real numbers together.",
+    "method5": "We always show the real number of ratings, and the external and CELLR averages separately. With no ratings, we show no score.",
+    "externalTitle": "External ratings",
+    "externalBody": "The external ratings are historical ratings from the X-Wines dataset, per exact wine and vintage. CELLR stores only totals per wine and vintage, never who rated what. When one person rated the same wine and vintage more than once, only their latest rating counts.",
+    "citation": "de Azambuja, R. X., Morais, A. J., & Filipe, V. (2023). X-Wines: A Wine Dataset for Recommender Systems and Machine Learning. Big Data and Cognitive Computing, 7(1), 20.",
+    "citationLink": "Read the paper",
+    "communityTitle": "The CELLR community",
+    "communityBody": "A CELLR review is a tasting someone chose to publish. Their private note stays private. One person has one review per wine and vintage; a second bottle updates it. Reviews can be reported, and our moderators can hide them.",
+    "matchTitle": "Which wine a rating belongs to",
+    "matchBody": "Ratings are shown only for the exact wine they belong to. A wine you added from the catalogue and then renamed no longer shows them, because we can no longer be sure."
+  },
+  "catalogRecord": {
+    "addToCellar": "Add to my cellar",
+    "from": "From the catalogue",
+    "vintages": "Vintages",
+    "modified": "Names normalised by CELLR",
+    "notFound": "This wine isn't in the catalogue.",
+    "nv": "NV"
   }
 }

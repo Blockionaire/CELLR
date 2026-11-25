@@ -9,6 +9,8 @@ declare module "pg" {
     connect(): Promise<void>;
     query<R = Record<string, unknown>>(text: string, values?: unknown[]): Promise<QueryResult<R>>;
     end(): Promise<void>;
+    /** A string as a quoted, escaped SQL literal (the driver's own escaping). */
+    escapeLiteral(value: string): string;
   }
   const pg: { Client: typeof Client };
   export default pg;

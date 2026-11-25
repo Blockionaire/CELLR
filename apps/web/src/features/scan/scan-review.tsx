@@ -66,6 +66,7 @@ export function ScanReview({
   result,
   wines,
   catalogSearch,
+  catalogRatings = false,
   currency,
   mode,
   inBatch,
@@ -85,6 +86,7 @@ export function ScanReview({
   result: ScanResult;
   wines: WineSummary[];
   catalogSearch: boolean;
+  catalogRatings?: boolean | undefined;
   currency: string;
   mode: ScanMode;
   /** The photo is one of a batch (several bottles in a row). */
@@ -435,6 +437,7 @@ export function ScanReview({
                 level={3}
                 records={result.resolution?.records}
                 onUse={(s) => takeRecord(s.hit)}
+                ratingsLink={catalogRatings}
               />
             )}
 

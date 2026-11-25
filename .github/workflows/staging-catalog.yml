@@ -10,10 +10,10 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "check = read-only; migrate = schema onto the new project; import = X-Wines pilot import and validation; scan = scan chain with a fictitious public source (rolled back)"
+        description: "check = read-only; migrate = schema onto the new project; import = X-Wines pilot import and validation; scan = scan chain with a fictitious public source (rolled back); ratings = X-Wines ratings aggregated and imported (pilot); perf16 = 16 concurrent people's searches over a synthetic public source"
         required: true
         type: choice
-        options: [check, migrate, import, scan]
+        options: [check, migrate, import, scan, ratings, perf16]
         default: check
       confirm_project_ref:
         description: "Type the staging project ref to confirm (must equal the environment's configured ref)"
@@ -50,7 +50,7 @@ jobs:
           [ -n "$STAGING_PROJECT_REF" ] || { echo "no STAGING_PROJECT_REF variable in the cellr-staging environment"; exit 1; }
           [ "$CONFIRM_REF" = "$STAGING_PROJECT_REF" ] || { echo "the typed ref is not the configured staging project"; exit 1; }
           case "$STAGING_DB_URL$STAGING_PROJECT_REF" in *vvelgyhbjfmjvxkzekyz*) echo "production: refused"; exit 1;; esac
-          case "$MODE" in check|migrate|import|scan) ;; *) echo "unknown mode"; exit 1;; esac
+          case "$MODE" in check|migrate|import|scan|ratings|perf16) ;; *) echo "unknown mode"; exit 1;; esac
           # the password on its own is masked too, should a tool ever print it apart from the URL
           PW=$(node -e 'try{process.stdout.write(decodeURIComponent(new URL(process.env.STAGING_DB_URL).password))}catch{}')
           if [ -n "$PW" ]; then echo "::add-mask::$PW"; fi
@@ -64,20 +64,31 @@ jobs:
       - name: Postgres client
         run: sudo apt-get install -y -qq postgresql-client >/dev/null
       - name: The X-Wines file from its official source (checksum-verified, never stored in the repository)
-        if: inputs.mode == 'import'
+        if: inputs.mode == 'import' || inputs.mode == 'ratings'
         run: |
           set -euo pipefail
           curl -sSfL --retry 3 -o "$RUNNER_TEMP/XWines_Full_100K_wines.csv" \
             "https://drive.usercontent.google.com/download?id=1uEEipmKNxdiKUAhjH-K14JOSQ2BLRFss&export=download&confirm=t"
           echo "eac2d812b5eb94264f3c4ee1764ccdacf764cdf1c2599c26e3832ed91a4662cc  $RUNNER_TEMP/XWines_Full_100K_wines.csv" | sha256sum -c --quiet
           echo "file verified: $(wc -c < "$RUNNER_TEMP/XWines_Full_100K_wines.csv") bytes"
+      - name: The X-Wines ratings file from its official source (checksum-verified, never stored in the repository)
+        if: inputs.mode == 'ratings'
+        run: |
+          set -euo pipefail
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/XWines_Full_21M_ratings.zip" \
+            "https://drive.usercontent.google.com/download?id=1tI-3XOoD4w_hYMGgj6OXU3EUI8xMQgj2&export=download&confirm=t"
+          echo "a413529da701761ce82af14932984ea9a7cbb90b33d8c179402522df110f71ac  $RUNNER_TEMP/XWines_Full_21M_ratings.zip" | sha256sum -c --quiet
+          unzip -q -o "$RUNNER_TEMP/XWines_Full_21M_ratings.zip" XWines_Full_21M_ratings.csv -d "$RUNNER_TEMP"
+          rm -f "$RUNNER_TEMP/XWines_Full_21M_ratings.zip"
+          echo "847fb49139b7ebfc92c5745cc34e3efff9febea05e977e4332287afa2ea2ded2  $RUNNER_TEMP/XWines_Full_21M_ratings.csv" | sha256sum -c --quiet
+          echo "ratings file verified: $(wc -c < "$RUNNER_TEMP/XWines_Full_21M_ratings.csv") bytes"
       - name: Run (${{ inputs.mode }})
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
-        run: bash scripts/catalog-tools/staging-pilot.sh "$MODE" "$RUNNER_TEMP/out" "$RUNNER_TEMP/XWines_Full_100K_wines.csv"
+        run: bash scripts/catalog-tools/staging-pilot.sh "$MODE" "$RUNNER_TEMP/out" "$RUNNER_TEMP/XWines_Full_100K_wines.csv" "$RUNNER_TEMP/XWines_Full_21M_ratings.csv"
       - name: Remove the dataset from the runner
         if: always()
-        run: rm -f "$RUNNER_TEMP/XWines_Full_100K_wines.csv"
+        run: rm -rf "$RUNNER_TEMP/XWines_Full_100K_wines.csv" "$RUNNER_TEMP"/XWines_Full_21M_ratings.* "$RUNNER_TEMP/ratings-work"
       - name: Reduce the results, fail-closed, whatever happened before
         if: always()
         run: |

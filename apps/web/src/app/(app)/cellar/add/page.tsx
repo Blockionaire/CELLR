@@ -23,6 +23,8 @@ type Props = {
     from?: string;
     row?: string;
     col?: string;
+    /** From a record's catalogue page (`catalog_ratings`): start the new-wine form with that record. */
+    record?: string;
   }>;
 };
 
@@ -49,6 +51,14 @@ export default async function AddBottlePage({ searchParams }: Props) {
       ? spotFromParams(params, await servicesFor(ctx).cellar.storage())
       : undefined;
 
+  const recordId = z.uuid().safeParse(params.record);
+  const record =
+    ctx && recordId.success && !initialWine && getFeatures().catalog_ratings
+      ? await servicesFor(ctx)
+          .ratings.record(recordId.data)
+          .catch(() => null)
+      : null;
+
   return (
     <AddBottleFlow
       currency={currency}
@@ -56,6 +66,8 @@ export default async function AddBottlePage({ searchParams }: Props) {
       initialYear={initialYear}
       wishId={wishId.success ? wishId.data : undefined}
       initialSpot={initialSpot}
+      initialRecord={record ?? undefined}
+      catalogRatings={getFeatures().catalog_ratings}
       // only with a spot that is one of this household's own: otherwise there is nothing to go back to
       origin={initialSpot ? originFromParams(params) : undefined}
       catalogSearch={getFeatures().wine_search}

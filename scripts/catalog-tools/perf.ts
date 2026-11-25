@@ -18,8 +18,10 @@
  *                 evaluation set) are searched; pilot or staging databases only;
  *   --mode public public.catalog_search as the signed-in person (row-level security and the membership check apply);
  *                 only 'public' providers are searched, so in a pilot database this measures CELLR's own wines only.
- * One warm-up pass is not counted. Latency is measured at the client: database time plus the local round trip, not
- * the network or the API layer.
+ * One warm-up pass is not counted. Latency is measured at the client: database time plus the round trip to the
+ * database (on a remote target that includes the network), not the API layer. In transaction-pooler mode only the
+ * search statement is timed; the begin and commit round trips are not, so fewer searches are in flight than there
+ * are clients (throughput × mean latency gives the real number).
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import type { Client } from "pg";
@@ -85,10 +87,18 @@ async function main() {
   ])
     base.push({ q, type: null, country: null, bucket: "common-words" });
 
+  // --synthetic <provider>: queries made from that provider's own records (CELLR's synthetic load set), so people's
+  // search over a populated PUBLIC source is measured with hits, not only with empty answers
+  const synthetic = typeof args.synthetic === "string" ? args.synthetic : null;
+  if (synthetic !== null && !/^[a-z][a-z0-9_]{1,30}$/.test(synthetic))
+    throw new Error("--synthetic <provider id>");
+  // --one-trip (transaction pooler only): begin, role, search and commit in ONE round trip, timed inside the database
+  // (clock_timestamp around the search) as well as at the client, so every client keeps a search in flight
+  const oneTrip = args["one-trip"] === true;
   const mode = str(args, "mode", "pilot");
   if (mode !== "pilot" && mode !== "public") throw new Error("--mode pilot|public");
   const fn = mode === "pilot" ? "public.catalog_search_pilot" : "public.catalog_search";
-  const all: Array<{ ms: number; bucket: string; rows: number }> = [];
+  const all: Array<{ ms: number; clientMs?: number; bucket: string; rows: number }> = [];
   let seconds = 0;
   // --pooler transaction: the same Supabase pooler in transaction mode, for more clients than its session slots
   const poolerArg = str(args, "pooler", "auto");
@@ -100,6 +110,9 @@ async function main() {
   const maxClients = typeof args["max-clients"] === "string" ? Number(args["max-clients"]) : null;
   // before anything is opened: a configuration the target cannot serve is refused, never run with fewer clients
   assertClientLimit(concurrency, perTransaction ? null : maxClients, pooler);
+  if (oneTrip && !perTransaction) throw new Error("--one-trip needs --pooler transaction");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(household))
+    throw new Error("--household must be a uuid");
   const preamble = perTransaction ? transactionPreamble(mode, user) : null;
   // every connection is checked against the allowed targets and the database's own identity; opened one at a time,
   // and all of them closed again whatever happens
@@ -107,6 +120,37 @@ async function main() {
     perTransaction ? connectToTargetForTransactions(url, args) : connectToTarget(url, args),
   );
   try {
+    if (synthetic !== null) {
+      // read as the service role (the pooler connection sets it per transaction, a session connection has it)
+      const c = clients[0]!;
+      const read = `select producer || ' ' || name as q, wine_type::text as type, country_code as country
+                      from public.catalog_external_records where provider_id = $1 and status = 'active'
+                     order by md5(id::text) limit 300`;
+      type Row = { q: string; type: string | null; country: string | null };
+      let rows: Row[];
+      if (perTransaction) {
+        const multi = `begin; set local role service_role; ${read.replace("$1", c.escapeLiteral(synthetic))}; commit`;
+        const res = (await c.query(multi)) as unknown as Array<{ rows: Row[] }>;
+        rows = res[2]!.rows;
+      } else rows = (await c.query<Row>(read, [synthetic])).rows;
+      if (rows.length === 0) throw new Error(`no records of ${synthetic}`);
+      base.length = 0;
+      rows.forEach((r, i) => {
+        const q = r.q.toLowerCase();
+        for (const n of [3, 5, 8])
+          base.push({ q: q.slice(0, n), type: null, country: null, bucket: `prefix-${n}` });
+        base.push({ q, type: null, country: null, bucket: "full" });
+        base.push({ q, type: r.type, country: r.country, bucket: "full+filters" });
+        // a typo: two neighbouring letters swapped in the middle
+        const k = Math.max(1, Math.floor(q.length / 2) - (i % 3));
+        base.push({
+          q: q.slice(0, k) + (q[k + 1] ?? "") + (q[k] ?? "") + q.slice(k + 2),
+          type: null,
+          country: null,
+          bucket: "typo",
+        });
+      });
+    }
     if (mode === "public" && !perTransaction)
       for (const c of clients) {
         await c.query("reset role");
@@ -120,10 +164,34 @@ async function main() {
         const r = await c.query(sql, params);
         return { ms: performance.now() - t0, rows: r.rows.length };
       }
+      if (oneTrip) {
+        // one round trip: everything as literals (the uuid is checked, the text escaped by the driver)
+        const lit = (v: string | null) => (v === null ? "null" : c.escapeLiteral(v));
+        const text =
+          `${preamble}; select (extract(epoch from clock_timestamp()) * 1000)::float8 as t; ` +
+          `select count(*)::int as n from ${fn}(${lit(household)}::uuid, ${lit(item.q)}, ${lit(item.type)}, ${lit(item.country)}, null, 8); ` +
+          `select (extract(epoch from clock_timestamp()) * 1000)::float8 as t; commit`;
+        const t0 = performance.now();
+        try {
+          const res = (await c.query(text)) as unknown as Array<{
+            rows: Array<Record<string, unknown>>;
+          }>;
+          const clientMs = performance.now() - t0;
+          const at = (r: { rows: Array<Record<string, unknown>> } | undefined) =>
+            Number(r?.rows[0]?.t);
+          // results: begin, set role, [claims], t0, search, t1, commit
+          const ts = res.filter((r) => r.rows[0] && "t" in r.rows[0]);
+          const n = Number(res.find((r) => r.rows[0] && "n" in r.rows[0])?.rows[0]?.n ?? 0);
+          return { ms: at(ts[1]) - at(ts[0]), clientMs, rows: n };
+        } catch (e) {
+          await c.query("rollback").catch(() => undefined);
+          throw e;
+        }
+      }
       // one transaction per search; only the search statement is timed (the begin/commit round trips are the
       // pooler's cost, reported apart as throughput)
-      await c.query(preamble);
       try {
+        await c.query(preamble);
         const t0 = performance.now();
         const r = await c.query(sql, params);
         const ms = performance.now() - t0;
@@ -135,7 +203,7 @@ async function main() {
       }
     };
     const run = async (list: Q[]) => {
-      const times: Array<{ ms: number; bucket: string; rows: number }> = [];
+      const times: Array<{ ms: number; clientMs?: number; bucket: string; rows: number }> = [];
       let next = 0;
       await Promise.all(
         clients.map(async (c) => {
@@ -172,12 +240,28 @@ async function main() {
   const report = {
     mode,
     subset,
-    queries: entries.length,
+    queries: synthetic !== null ? base.length / 6 : entries.length,
     concurrency,
     pooler: pooler ?? "direct",
     rounds,
     searches: all.length,
     throughput_per_s: Math.round(all.length / seconds),
+    // what was really measured: with --one-trip the time inside the database, and how many searches were in flight
+    timing: oneTrip
+      ? "database (clock_timestamp around the search), one round trip per search"
+      : "client",
+    synthetic,
+    ...(oneTrip
+      ? {
+          client: stats(all.map((t) => ({ ...t, ms: t.clientMs ?? t.ms }))),
+          in_flight:
+            Math.round(
+              ((all.length / seconds) *
+                (all.reduce((a, t) => a + (t.clientMs ?? 0), 0) / all.length)) /
+                100,
+            ) / 10,
+        }
+      : {}),
     overall: stats(all),
     by_bucket: Object.fromEntries(
       buckets.map((b) => [b, stats(all.filter((t) => t.bucket === b))]),

@@ -7,6 +7,7 @@ import {
   SOMMELIER_PARTS,
   type SommelierParts,
   type CellarItem,
+  type InsightOutput,
   type TasteContext,
   type TasteProfileView,
   type RackView,
@@ -76,6 +77,8 @@ function setup(
     tonightPersonal?: boolean;
     /** Sommelier V1+ parts (CELLR_SOMMELIER). Left out: the dependency is absent, as before V1+. */
     parts?: SommelierParts;
+    /** The household's wine profiles (the `annotate` part); "fails" = they cannot be read. */
+    profiles?: ReadonlyMap<string, InsightOutput> | "fails";
   } = {},
 ) {
   const items = options.items ?? [
@@ -90,6 +93,7 @@ function setup(
     spent: 0,
     tasteRead: 0,
     tonightTaste: [] as Array<TasteContext | null>,
+    profilesAsked: [] as string[][],
   };
   const llm: LlmProvider = {
     async generateObject<T>(request: GenerateObjectRequest<T>) {
@@ -152,6 +156,12 @@ function setup(
         }),
     llm: options.noAi ? null : llm,
     ...(options.parts ? { parts: options.parts } : {}),
+    profiles: async (ids) => {
+      state.profilesAsked.push([...ids]);
+      if (options.profiles === "fails") throw new Error("insights table gone");
+      return options.profiles ?? new Map();
+    },
+    now: () => new Date("2026-11-23T12:00:00Z"),
     spend:
       options.spend ??
       (async () => {
@@ -766,8 +776,10 @@ describe("the sommelier and your own taste", () => {
 });
 
 describe("Sommelier V1+ parts (CELLR_SOMMELIER): a part that is not on, or not built, changes nothing", () => {
-  // `check` (P3) is built: it has its own tests below. The others are not yet.
-  const all = parseSommelierParts(SOMMELIER_PARTS.filter((p) => p !== "check").join(","));
+  // `check`, `annotate` and `quantities` (P3–P5) are built: they have their own tests below. The others are not yet.
+  const all = parseSommelierParts(
+    SOMMELIER_PARTS.filter((p) => !["check", "annotate", "quantities"].includes(p)).join(","),
+  );
   const questions: Array<{ texts: string[]; mode?: "tonight" }> = [
     { texts: ["What goes with roast lamb?"] },
     { texts: ["How many bottles of red do I have?"] },
@@ -1022,5 +1034,467 @@ describe("Sommelier V1+ `check` (P3): what the answer says is checked against th
     const fallback = await blank.service.ask(ask("What goes with a steak?"));
     expect(fallback).toMatchObject({ source: "basic", reason: "ai-down" });
     expect(fallback).not.toHaveProperty("check");
+  });
+});
+
+describe("Sommelier V1+ `annotate` (P4): the app's own facts on V1's cards", () => {
+  const annotate = parseSommelierParts("annotate");
+  const cellar = () => {
+    n = 0;
+    return [
+      item({ producer: "Château Margaux", wineName: "Pavillon Rouge", places: ["Fridge", "Rack"] }),
+      item({ producer: "Bollinger", wineName: "Special Cuvée", type: "sparkling", year: null }),
+      item({
+        producer: "Antinori",
+        wineName: "Tignanello",
+        count: 6,
+        reserved: { count: 2, title: "Anniversary", on: "2027-05-01" } as never,
+      }),
+    ];
+  };
+  const refs = (items: CellarItem[]) => items.map((i) => i.vintageId.replace(/-/g, "").slice(0, 6));
+  const pairing = (items: CellarItem[]): RawSommelier => ({
+    answer: "Open the Pavillon Rouge; the Tignanello would do too.",
+    bottle_refs: [refs(items)[0]!, refs(items)[2]!],
+    verdict: "match",
+    buy: [],
+    used_taste: false,
+  });
+
+  it("V1's choice, words, verdict and prompt are identical with the part on or off; the facts are added", async () => {
+    const off = cellar();
+    const without = setup({ items: off, answer: pairing(off) });
+    const plain = await without.service.ask(ask("What goes with roast lamb?"));
+    const onItems = cellar();
+    const withPart = setup({ items: onItems, answer: pairing(onItems), parts: annotate });
+    const { annotations, ...rest } = await withPart.service.ask(ask("What goes with roast lamb?"));
+    expect(rest).toEqual(plain);
+    expect(plain).not.toHaveProperty("annotations");
+    expect(withPart.state.requests.map((r) => JSON.stringify(r))).toEqual(
+      without.state.requests.map((r) => JSON.stringify(r)),
+    );
+    // One per card, in card order, for the cards' own wines.
+    expect(annotations?.map((a) => a.vintageId)).toEqual(rest.bottles.map((b) => b.vintageId));
+    expect(annotations?.[0]).toMatchObject({
+      drink: { advice: "drink-now", from: 2014, until: 2030, basis: "style" },
+      reserved: null,
+      where: { places: ["Fridge", "Rack"], unplaced: 0 },
+    });
+    expect(annotations?.[0]?.serving?.tempC.min).toBeGreaterThanOrEqual(13);
+    // Reserved bottles are never counted as free to open.
+    expect(annotations?.[1]?.reserved).toEqual({
+      count: 2,
+      free: 4,
+      title: "Anniversary",
+      on: "2027-05-01",
+    });
+    // Profiles are read once, for the cards only.
+    expect(withPart.state.profilesAsked).toEqual([rest.bottles.map((b) => b.vintageId)]);
+    expect(without.state.profilesAsked).toEqual([]);
+  });
+
+  it("profiles that cannot be read leave the rules of thumb, and the answer is not lost", async () => {
+    const items = cellar();
+    const { service } = setup({
+      items,
+      answer: pairing(items),
+      parts: annotate,
+      profiles: "fails",
+    });
+    const answer = await service.ask(ask("What goes with roast lamb?"));
+    expect(answer.source).toBe("ai");
+    expect(answer.annotations).toHaveLength(2);
+    expect(
+      answer.annotations?.every((a) => a.serving === null || a.serving.basis === "style"),
+    ).toBe(true);
+  });
+
+  it("an answer without cards, and a question about the cellar itself, get no facts", async () => {
+    const items = cellar();
+    const none = await setup({ items, parts: annotate }).service.ask(ask("Tell me about Barolo."));
+    expect(none).not.toHaveProperty("annotations");
+    const world = setup({ items, parts: annotate });
+    const counted = await world.service.ask(ask("How many bottles of Tignanello do I have?"));
+    expect(counted).not.toHaveProperty("annotations");
+    expect(world.state.profilesAsked).toEqual([]);
+  });
+
+  it("the plain answer (no model) gets the same facts on its cards", async () => {
+    const items = cellar();
+    const { service } = setup({ items, noAi: true, parts: annotate });
+    const answer = await service.ask(ask("What goes with a steak?"));
+    expect(answer.source).toBe("basic");
+    expect(answer.bottles.length).toBeGreaterThan(0);
+    expect(answer.annotations?.map((a) => a.vintageId)).toEqual(
+      answer.bottles.map((b) => b.vintageId),
+    );
+  });
+
+  it("asked how to serve a wine: its facts go to the model to state as written, and its card is shown", async () => {
+    const items = cellar();
+    const { service, state } = setup({
+      items,
+      answer: { answer: "Serve it at about 17 to 18 °C.", bottle_refs: [] },
+      parts: annotate,
+    });
+    const answer = await service.ask(ask("How should I serve the Tignanello?"));
+    const prompt = state.requests[0]!.user;
+    expect(prompt).toContain("Serving facts (worked out by the app");
+    expect(prompt).toContain(`- ${refs(items)[2]} | Antinori — Tignanello | 2015: serve at`);
+    // The block comes before the conversation and the question, after the cellar.
+    expect(prompt.indexOf("Serving facts")).toBeGreaterThan(prompt.indexOf("Cellar ("));
+    expect(prompt.indexOf("Serving facts")).toBeLessThan(prompt.indexOf("Question:"));
+    // The model pointed at no bottle: the wine the facts are about is the card.
+    expect(answer.bottles.map((b) => b.wineName)).toEqual(["Tignanello"]);
+    expect(answer.annotations).toHaveLength(1);
+    // Read once for that one wine.
+    expect(state.profilesAsked).toEqual([[items[2]!.vintageId]]);
+  });
+
+  it("a follow-up 'how do I serve it?' is about the wine the sommelier just named", async () => {
+    const items = cellar();
+    const { service, state } = setup({ items, parts: annotate });
+    await service.ask(
+      ask("What goes with lamb?", "Open the Pavillon Rouge.", "How long should I decant it?"),
+    );
+    expect(state.requests[0]!.user).toContain("Château Margaux — Pavillon Rouge | 2015: serve at");
+  });
+
+  it("the app's facts lead: a sentence that states another temperature, decanting time or drinking year is left out", async () => {
+    const items = cellar();
+    const { service, state } = setup({
+      items,
+      answer: {
+        answer:
+          "The Tignanello suits the lamb. Serve it at 22 °C after three hours in a carafe. Drink it before 2026.",
+        bottle_refs: [refs(items)[2]!],
+      },
+      parts: annotate,
+    });
+    const answer = await service.ask(ask("What goes with roast lamb?"));
+    // One model call; V1's wine is untouched; the sentences with the other numbers are gone, the first one stays.
+    expect(state.requests).toHaveLength(1);
+    expect(answer.bottles.map((b) => b.wineName)).toEqual(["Tignanello"]);
+    expect(answer.text).toBe("The Tignanello suits the lamb.");
+    expect(answer.servingCheck).toEqual({
+      v: 1,
+      text: "trimmed",
+      codes: ["temperature", "decanting", "window"],
+    });
+    expect(JSON.stringify(answer)).not.toMatch(/22 °C|three hours|2026/);
+  });
+
+  it("words that agree with the card are kept as they are, and nothing is noted", async () => {
+    const items = cellar();
+    const { service } = setup({
+      items,
+      answer: {
+        answer: "Serve the Tignanello at about 16 to 17 °C; it will drink well until 2030.",
+        bottle_refs: [refs(items)[2]!],
+      },
+      parts: annotate,
+    });
+    const answer = await service.ask(ask("How should I serve the Tignanello?"));
+    expect(answer.text).toBe(
+      "Serve the Tignanello at about 16 to 17 °C; it will drink well until 2030.",
+    );
+    expect(answer).not.toHaveProperty("servingCheck");
+  });
+
+  it("in Dutch, and when nothing is left of the words, the answer points at the card", async () => {
+    const items = cellar();
+    const { service } = setup({
+      items,
+      locale: "nl",
+      answer: {
+        answer: "Schenk de Tignanello op 22 graden en decanteer hem drie uur.",
+        bottle_refs: [refs(items)[2]!],
+      },
+      parts: annotate,
+    });
+    const answer = await service.ask(ask("Hoe serveer ik de Tignanello?"));
+    expect(answer.text).toBe(
+      "Hoe je hem serveert en wanneer je hem drinkt, staat op de kaart hieronder.",
+    );
+    expect(answer.servingCheck).toMatchObject({ text: "replaced" });
+    expect(answer.annotations).toHaveLength(1);
+  });
+
+  it("without the part the model's serving words are V1's, untouched", async () => {
+    const items = cellar();
+    const { service } = setup({
+      items,
+      answer: {
+        answer: "Serve it at 22 °C after three hours in a carafe.",
+        bottle_refs: [refs(items)[2]!],
+      },
+      parts: parseSommelierParts("quantities"),
+    });
+    const answer = await service.ask(ask("How should I serve the Tignanello?"));
+    expect(answer.text).toBe("Serve it at 22 °C after three hours in a carafe.");
+    expect(answer).not.toHaveProperty("servingCheck");
+  });
+
+  it("a serving question that names no wine of the cellar, and any other question, get no block", async () => {
+    const items = cellar();
+    const { service, state } = setup({ items, parts: annotate });
+    await service.ask(ask("How should I serve a Barolo?"));
+    await service.ask(ask("What goes with fish?"));
+    for (const r of state.requests) expect(r.user).not.toContain("Serving facts");
+  });
+
+  it("without the part a serving question is V1's, word for word", async () => {
+    const a = setup({ items: cellar() });
+    await a.service.ask(ask("How should I serve the Tignanello?"));
+    const b = setup({
+      items: cellar(),
+      parts: parseSommelierParts("quantities,menu,fallback"),
+    });
+    await b.service.ask(ask("How should I serve the Tignanello?"));
+    expect(JSON.stringify(b.state.requests)).toEqual(JSON.stringify(a.state.requests));
+    expect(b.state.profilesAsked).toEqual([]);
+  });
+});
+
+describe("Sommelier V1+ `quantities` (P5): bottles for the people named", () => {
+  const quantities = parseSommelierParts("quantities");
+  const cellar = () => {
+    n = 0;
+    return [
+      item({ producer: "Château Margaux", wineName: "Pavillon Rouge", count: 3 }),
+      item({
+        producer: "Antinori",
+        wineName: "Tignanello",
+        count: 6,
+        reserved: { count: 4, title: "Anniversary", on: null } as never,
+      }),
+    ];
+  };
+  const both = (items: CellarItem[]): RawSommelier => ({
+    answer: "The Pavillon Rouge, or the Tignanello.",
+    bottle_refs: items.map((i) => i.vintageId.replace(/-/g, "").slice(0, 6)),
+    verdict: "match",
+    buy: [],
+    used_taste: false,
+  });
+
+  it("counts the bottles needed against what is free to open of each card, and tells the model to leave the numbers to the app", async () => {
+    const items = cellar();
+    const { service, state } = setup({ items, answer: both(items), parts: quantities });
+    const answer = await service.ask(ask("We are 8 for dinner. What goes with roast lamb?"));
+    expect(state.requests[0]!.user).toContain("Guests (read by the app");
+    expect(state.requests[0]!.user).toContain("- 8 people, a dinner.");
+    expect(answer.quantity).toEqual({
+      guests: 8,
+      gathering: "dinner",
+      needed: 4,
+      mode: "alternatives",
+      wines: [
+        { vintageId: items[0]!.vintageId, needed: 4, available: 3, short: 1 },
+        // Six bottles, four of them kept for an occasion: two are free.
+        { vintageId: items[1]!.vintageId, needed: 4, available: 2, short: 2 },
+      ],
+    });
+  });
+
+  it("V1's choice is the same with the part on or off, and without a number of people nothing is added or said", async () => {
+    const offItems = cellar();
+    const off = setup({ items: offItems, answer: both(offItems) });
+    const plain = await off.service.ask(ask("We are 8 for dinner. What goes with roast lamb?"));
+    const onItems = cellar();
+    const on = setup({ items: onItems, answer: both(onItems), parts: quantities });
+    const { quantity, ...rest } = await on.service.ask(
+      ask("We are 8 for dinner. What goes with roast lamb?"),
+    );
+    expect(quantity).toBeDefined();
+    expect(rest).toEqual(plain);
+
+    const quietItems = cellar();
+    const quiet = setup({ items: quietItems, answer: both(quietItems), parts: quantities });
+    const noGuests = await quiet.service.ask(ask("What goes with roast lamb?"));
+    expect(noGuests).not.toHaveProperty("quantity");
+    const v1Items = cellar();
+    const v1 = setup({ items: v1Items, answer: both(v1Items) });
+    await v1.service.ask(ask("What goes with roast lamb?"));
+    expect(JSON.stringify(quiet.state.requests)).toEqual(JSON.stringify(v1.state.requests));
+  });
+
+  it("remembers the number of people from earlier in the conversation, and takes the latest", async () => {
+    const items = cellar();
+    const { service } = setup({ items, answer: both(items), parts: quantities });
+    const answer = await service.ask(
+      ask(
+        "We are 6 on Saturday.",
+        "Lovely.",
+        "Actually we will be 12 people.",
+        "Noted.",
+        "And with the cheese?",
+      ),
+    );
+    expect(answer.quantity).toMatchObject({ guests: 12, needed: 6 });
+  });
+
+  it("a question about the cellar itself is never given a guest count or a quantity", async () => {
+    const items = cellar();
+    const { service, state } = setup({ items, parts: quantities });
+    const answer = await service.ask(
+      ask("We are 8 for dinner.", "Lovely.", "How many bottles of Tignanello do I have?"),
+    );
+    expect(answer).not.toHaveProperty("quantity");
+    expect(state.requests[0]!.user).not.toContain("Guests (read by the app");
+  });
+
+  it("nothing suits and something to buy: the number needed alone; a year or a bottle count is not a guest count", async () => {
+    const items = cellar();
+    const none = setup({
+      items,
+      answer: { answer: "Nothing here suits oysters.", bottle_refs: [], verdict: "none", buy: [] },
+      parts: quantities,
+    });
+    const answer = await none.service.ask(ask("Oysters for 10 people, what do I open?"));
+    expect(answer.quantity).toMatchObject({ guests: 10, needed: 5, wines: [] });
+    const other = setup({ items, answer: both(items), parts: quantities });
+    const notGuests = await other.service.ask(ask("I have 3 bottles of the 2015. With lamb?"));
+    expect(notGuests).not.toHaveProperty("quantity");
+  });
+
+  it("without a model the plain answer's cards are counted too", async () => {
+    const items = cellar();
+    const { service } = setup({ items, noAi: true, parts: quantities });
+    const answer = await service.ask(ask("Steak for 4 people tonight"));
+    expect(answer.source).toBe("basic");
+    expect(answer.quantity).toMatchObject({ guests: 4, needed: 2, mode: "alternatives" });
+    expect(answer.quantity?.wines.map((w) => w.vintageId)).toEqual(
+      answer.bottles.map((b) => b.vintageId),
+    );
+  });
+});
+
+describe("Sommelier V1+ `annotate` and `quantities` together and apart", () => {
+  it("each adds only its own field; together both, with the same values", async () => {
+    const run = async (parts: string) => {
+      n = 0;
+      const items = [
+        item({ producer: "Château Margaux", wineName: "Pavillon Rouge", count: 3 }),
+        item({ producer: "Antinori", wineName: "Tignanello", count: 6 }),
+      ];
+      const { service } = setup({
+        items,
+        answer: {
+          answer: "The Pavillon Rouge.",
+          bottle_refs: [items[0]!.vintageId.replace(/-/g, "").slice(0, 6)],
+        },
+        parts: parseSommelierParts(parts),
+      });
+      return service.ask(ask("Dinner for 6 people: what goes with roast lamb?"));
+    };
+    const [a, q, both] = await Promise.all([
+      run("annotate"),
+      run("quantities"),
+      run("annotate,quantities"),
+    ]);
+    expect(a.annotations).toHaveLength(1);
+    expect(a).not.toHaveProperty("quantity");
+    expect(q.quantity).toMatchObject({ guests: 6, needed: 3 });
+    expect(q).not.toHaveProperty("annotations");
+    expect(both.annotations).toEqual(a.annotations);
+    expect(both.quantity).toEqual(q.quantity);
+    expect(both.bottles).toEqual(a.bottles);
+    expect(both.text).toEqual(q.text);
+  });
+});
+
+describe("Sommelier V1+ `check`, `annotate` and `quantities` together", () => {
+  const ref = (i: CellarItem) => i.vintageId.replace(/-/g, "").slice(0, 6);
+  const cellar = () => {
+    n = 0;
+    return [
+      item({ producer: "Château Margaux", wineName: "Pavillon Rouge", count: 3 }),
+      item({ producer: "Antinori", wineName: "Tignanello", year: 2018, count: 6 }),
+    ];
+  };
+  const run = async (parts: string, answer: (items: CellarItem[]) => string) => {
+    const items = cellar();
+    const world = setup({
+      items,
+      parts: parseSommelierParts(parts),
+      answer: {
+        answer: answer(items),
+        bottle_refs: [ref(items[0]!)],
+        verdict: "match",
+        buy: [],
+        used_taste: false,
+      },
+    });
+    return {
+      ...world,
+      answer: await world.service.ask(ask("We are 8. What goes with roast lamb?")),
+    };
+  };
+
+  it("one call: the ref is rendered, a price goes, a temperature that differs from the card goes, the bottles are counted", async () => {
+    const { answer, state, items } = await run(
+      "check,annotate,quantities",
+      (items) =>
+        `[[${ref(items[0]!)}]] suits the lamb. Serve it at 22 °C after three hours in a carafe. It costs about €40.`,
+    );
+    expect(state.requests).toHaveLength(1);
+    expect(state.requests[0]!.system).toBe(SOMMELIER_SYSTEM_V7);
+    expect(state.requests[0]!.user).toContain("- 8 people, a dinner.");
+    expect(answer.bottles.map((b) => b.vintageId)).toEqual([items[0]!.vintageId]);
+    expect(answer.text).toBe("Château Margaux Pavillon Rouge 2015 suits the lamb.");
+    expect(answer.check).toMatchObject({ text: "trimmed", codes: ["price"] });
+    expect(answer.servingCheck).toMatchObject({
+      text: "trimmed",
+      codes: ["temperature", "decanting"],
+    });
+    expect(answer.annotations).toHaveLength(1);
+    expect(answer.quantity).toMatchObject({ guests: 8, needed: 4, mode: "alternatives" });
+    expect(answer.quantity?.wines).toEqual([
+      { vintageId: items[0]!.vintageId, needed: 4, available: 3, short: 1 },
+    ]);
+  });
+
+  it("words the check replaced are the card sentence, and the cards still carry their facts", async () => {
+    const { answer } = await run(
+      "check,annotate,quantities",
+      () => "Your Sassicaia 2016 is perfect with this. Serve it at 22 °C.",
+    );
+    expect(answer.text).toBe(
+      "Château Margaux Pavillon Rouge 2015 from your cellar suits this best.",
+    );
+    expect(answer.check).toMatchObject({ text: "replaced" });
+    expect(answer).not.toHaveProperty("servingCheck");
+    expect(answer.annotations).toHaveLength(1);
+    expect(JSON.stringify(answer)).not.toMatch(/Sassicaia|22 °C/);
+  });
+
+  it("each part adds only its own: the same model answer with the parts one by one", async () => {
+    const words = (items: CellarItem[]) =>
+      `[[${ref(items[0]!)}]] suits the lamb. Serve it at 22 °C.`;
+    const [c, a, q] = await Promise.all([
+      run("check", words),
+      run("annotate", words),
+      run("quantities", words),
+    ]);
+    // `check` alone renders the ref and leaves the serving words (it has no card facts to compare with).
+    expect(c.answer.text).toBe(
+      "Château Margaux Pavillon Rouge 2015 suits the lamb. Serve it at 22 °C.",
+    );
+    expect(c.answer).not.toHaveProperty("annotations");
+    expect(c.answer).not.toHaveProperty("quantity");
+    // `annotate` alone asks with v6, so the ref is the model's own word; the temperature that differs goes.
+    expect(a.state.requests[0]!.system).toBe(SOMMELIER_SYSTEM);
+    expect(a.answer.text).not.toContain("22 °C");
+    expect(a.answer).not.toHaveProperty("check");
+    expect(a.answer).not.toHaveProperty("quantity");
+    // `quantities` alone changes no word.
+    expect(q.answer).not.toHaveProperty("check");
+    expect(q.answer).not.toHaveProperty("annotations");
+    expect(q.answer.text).toContain("Serve it at 22 °C.");
+    expect(q.answer.quantity).toMatchObject({ guests: 8 });
+    // V1's choice is the same in all three.
+    expect(a.answer.bottles).toEqual(c.answer.bottles);
+    expect(q.answer.bottles).toEqual(c.answer.bottles);
   });
 });

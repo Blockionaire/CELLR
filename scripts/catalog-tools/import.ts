@@ -21,7 +21,7 @@ import {
   type ProviderRecord,
 } from "@cellr/domain";
 import { parseArgs, sha256, str } from "./lib";
-import { connectToTarget } from "./target";
+import { connectForImport } from "./production";
 
 const BATCH = 500;
 
@@ -63,7 +63,7 @@ async function main() {
   const retrievedAt = str(args, "retrieved-at");
   if (Number.isNaN(Date.parse(retrievedAt))) throw new Error("--retrieved-at must be a date");
 
-  const client = await connectToTarget(db, args);
+  const client = await connectForImport(db, args);
   const started = performance.now();
   try {
     // read-only: the reviewed licence and rights as the database holds them (never the static configuration)

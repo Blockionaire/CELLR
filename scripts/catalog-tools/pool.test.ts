@@ -93,7 +93,11 @@ describe("the transaction-pooler route", () => {
     );
   });
   it("sets the role per transaction only; a person's claims only for a real uuid", () => {
-    expect(transactionPreamble("pilot", "ignored")).toBe("begin; set local role service_role");
+    const pilot = transactionPreamble("pilot", "ignored");
+    expect(pilot).toMatch(/^begin; set local role service_role; /);
+    expect(pilot).toContain("set_config('request.jwt.claims', '', true)");
+    expect(pilot).toContain("set_config('request.jwt.claim.sub', '', true)");
+    expect(pilot).not.toContain("ignored");
     const p = transactionPreamble("public", "bbbbbbbb-0000-0000-0000-000000000001");
     expect(p).toMatch(
       /^begin; set local role authenticated; select set_config\('request\.jwt\.claims'/,
