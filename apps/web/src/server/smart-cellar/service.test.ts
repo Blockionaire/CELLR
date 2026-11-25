@@ -506,7 +506,7 @@ describe("saving a layout", () => {
     expect(writes).toHaveLength(2);
   });
 
-  it("the revision is handed to the database's own compare-and-swap, unchanged to the microsecond (0051)", async () => {
+  it("the revision is handed to the database's own compare-and-swap, unchanged to the microsecond (0055)", async () => {
     const revision = "2026-11-29T10:00:00.123456+00:00";
     const { repo, writes } = fakeRepo([place({ revision })]);
     await service(repo).saveLayout("p-1", config("rack_classic"), revision);

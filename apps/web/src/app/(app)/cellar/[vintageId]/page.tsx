@@ -46,6 +46,10 @@ export default async function VintagePage({ params, searchParams }: Props) {
       initialRate={rate}
       initialPick={pick === "1"}
       sourcesPanel={getFeatures().sources_panel}
+      ratings={{
+        external: getFeatures().catalog_ratings,
+        community: getFeatures().community_reviews,
+      }}
     />
   );
 }

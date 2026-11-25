@@ -31,6 +31,7 @@ export default async function ScanPage({ searchParams }: Props) {
       // only with a spot that is one of this household's own: otherwise there is nothing to go back to
       origin={initialSpot ? originFromParams(params) : undefined}
       catalogSearch={getFeatures().wine_search}
+      catalogRatings={getFeatures().catalog_ratings}
     />
   );
 }

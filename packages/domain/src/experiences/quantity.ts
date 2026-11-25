@@ -7,7 +7,7 @@ export const GATHERINGS = ["dinner", "reception", "long-evening"] as const;
 export type Gathering = (typeof GATHERINGS)[number];
 
 /** Bottles per person, across everything poured. */
-const PER_PERSON: Record<Gathering, number> = {
+export const BOTTLES_PER_PERSON: Readonly<Record<Gathering, number>> = {
   dinner: 0.5,
   reception: 0.35,
   "long-evening": 0.75,
@@ -31,7 +31,7 @@ export function bottlesFor(
 ): QuantityPlan {
   const people = Math.max(1, Math.min(500, Math.round(guests)));
   const wines = Math.max(1, Math.min(8, options.wines ?? 1));
-  const total = people * PER_PERSON[options.gathering ?? "dinner"];
+  const total = people * BOTTLES_PER_PERSON[options.gathering ?? "dinner"];
   const small = new Set(options.smallPours ?? []);
   // A small pour (dessert wine, aperitif) is about half a share.
   const shares = Array.from({ length: wines }, (_, i) => (small.has(i) ? 0.5 : 1));
