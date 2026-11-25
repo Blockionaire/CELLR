@@ -69,7 +69,7 @@ function fakeRepo(
     now?: { inCellar: boolean; spot: SmartSpot | null };
     adviceBottle?: AdviceBottleRow;
     adviceOccupants?: AdviceOccupant[];
-    /** What the database says about depth (0054); undefined: it cannot say. */
+    /** What the database says about depth (0057); undefined: it cannot say. */
     depthStatus?: DepthDatabaseStatus | null;
   } = {},
 ) {
@@ -523,7 +523,7 @@ describe("saving a layout", () => {
     expect(writes).toHaveLength(2);
   });
 
-  it("the revision is handed to the database's own compare-and-swap, unchanged to the microsecond (0051)", async () => {
+  it("the revision is handed to the database's own compare-and-swap, unchanged to the microsecond (0055)", async () => {
     const revision = "2026-11-29T10:00:00.123456+00:00";
     const { repo, writes } = fakeRepo([place({ revision })]);
     await service(repo).saveLayout("p-1", config("rack_classic"), revision);
@@ -1057,7 +1057,7 @@ describe("depth: offered only where the gate is open AND the database says so (A
     });
   });
 
-  it("gate open, a database that cannot say (no 0054): off", async () => {
+  it("gate open, a database that cannot say (no 0057): off", async () => {
     const { repo } = fakeRepo([deepPlace()]);
     const caps = await svc(repo, true).capabilities();
     expect(caps.depth).toMatchObject({

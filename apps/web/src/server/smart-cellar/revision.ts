@@ -1,7 +1,7 @@
 import "server-only";
 
 /**
- * The revision named in an If-Match header (sprint 3; compared by the database since 0051): one entity tag, quoted or
+ * The revision named in an If-Match header (sprint 3; compared by the database since 0055): one entity tag, quoted or
  * not, weak or not. Anything else names none. The tag is passed on CHARACTER FOR CHARACTER: a revision is the place's
  * updated_at as PostgREST wrote it, to the microsecond ("2026-11-29T10:00:00.123456+00:00"), and the database reads it
  * back as a time. Nothing here parses it as a date (a JavaScript Date keeps milliseconds only, which would make it

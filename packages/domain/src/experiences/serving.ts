@@ -72,9 +72,12 @@ function temperature(type: WineType, s: WineStructure): { min: number; max: numb
     if (s.body >= 3.5 || s.oak >= 2) return { min: 11, max: 13 };
     return s.body <= 1.5 ? { min: 7, max: 9 } : { min: 9, max: 11 };
   }
-  // Red
+  // Red, in the bands sommeliers use: light 13–15, medium 15–17, full or firm 17–18 (within the usual 16–18). A
+  // full-bodied red (body 4 and up) is full whatever its tannin: a Barossa Shiraz is not served at 15. A soft red
+  // a little more than light (a cru Beaujolais, a Bourgogne) sits between, at 14–16: at 17 its fruit goes flat.
   if (s.body <= 2.5 && s.tannin <= 2.5) return { min: 13, max: 15 };
-  if (s.body >= 4.5 || s.tannin >= 4) return { min: 17, max: 18 };
+  if (s.body >= 4 || s.tannin >= 4) return { min: 17, max: 18 };
+  if (s.body <= 3 && s.tannin <= 2.5) return { min: 14, max: 16 };
   return { min: 15, max: 17 };
 }
 
@@ -97,8 +100,9 @@ function decanting(input: ServingInput, thisYear: number): DecantAdvice {
   const old = age !== null && age >= (s.tannin >= 4 ? 20 : 15);
   if (old) return { kind: "sediment", minutes: 0 };
   if (s.tannin >= 4 || (s.tannin >= 3.5 && s.body >= 4)) {
-    const young = age === null || age <= 8;
-    return { kind: "air", minutes: young ? 90 : 45 };
+    // An age that is not known is not "young": air is offered, not prescribed.
+    if (age === null) return { kind: "optional", minutes: 30 };
+    return { kind: "air", minutes: age <= 8 ? 90 : 45 };
   }
   if (s.tannin >= 3 && s.body >= 3.5) return { kind: "optional", minutes: 30 };
   return { kind: "no", minutes: 0 };
@@ -126,20 +130,29 @@ export function servingAdvice(input: ServingInput, thisYear: number): ServingAdv
       : null;
   const tempC = sound ?? temperature(input.type, input.structure);
   const ruled = decanting(input, thisYear);
-  // The profile's decanting time is used, except for an old bottle: that advice is about sediment, not air.
-  const decant: DecantAdvice =
-    stated?.decantMinutes != null && ruled.kind !== "sediment"
-      ? stated.decantMinutes === 0
-        ? { kind: "no", minutes: 0 }
-        : { kind: "air", minutes: stated.decantMinutes }
-      : ruled;
+  // The profile's decanting time is used where airing can make sense at all: never for bubbles, rosé or a sweet
+  // wine, never for an old bottle of any colour (it is fragile), and never against sediment advice.
+  const age = input.year === null ? null : Math.max(0, thisYear - input.year);
+  const airable =
+    input.type !== "sparkling" &&
+    input.type !== "rose" &&
+    input.type !== "dessert" &&
+    ruled.kind !== "sediment" &&
+    !(age !== null && age >= 15);
+  const profileDecant = stated?.decantMinutes != null && airable;
+  const decant: DecantAdvice = profileDecant
+    ? stated.decantMinutes === 0
+      ? { kind: "no", minutes: 0 }
+      : { kind: "air", minutes: Math.min(stated.decantMinutes!, 240) }
+    : ruled;
   return {
     tempC,
     fridgeMinutes: fridge((tempC.min + tempC.max) / 2),
     decant,
     glass: glass(input.type, input.structure),
-    basis:
-      sound || (stated?.decantMinutes != null && ruled.kind !== "sediment") ? "profile" : "style",
+    // "Known about this exact wine" only when everything said is: the temperature and the decanting. One of the
+    // two from the rule makes the whole a rule of thumb (under-claiming is the safe side).
+    basis: sound && profileDecant ? "profile" : "style",
     tier: input.tier,
   };
 }

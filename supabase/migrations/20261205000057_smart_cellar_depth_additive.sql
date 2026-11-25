@@ -1,5 +1,5 @@
 -- =====================================================================
--- 0054 Smart Cellar 3D, sprint 9: depth placement, the ADDITIVE half (nothing is switched on)
+-- 0057 Smart Cellar 3D, sprint 9: depth placement, the ADDITIVE half (nothing is switched on)
 -- =====================================================================
 -- docs/sprints/smart-cellar-3d/ADR-011-depth-placement-rollout.md is the audit and the rollout this belongs to
 -- (phase A); SPRINT-9-DEPTH-REPORT.md says what was tested.

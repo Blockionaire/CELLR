@@ -1,4 +1,4 @@
--- Smart Cellar 3D (0051): a layout save compares the revision the draft started from AFTER the place's row lock, so
+-- Smart Cellar 3D (0055): a layout save compares the revision the draft started from AFTER the place's row lock, so
 -- a stale draft never overwrites a newer save; and the revision always moves. AS DEPLOYED: the old one-bottle-per-cell
 -- index stays in force (nothing here needs two bottles in one cell).
 -- The five cases of PROPOSAL-layout-compare-and-swap.md, plus the precision of a revision end to end in the database,
@@ -177,7 +177,7 @@ begin
   alter table public.cellar_locations enable trigger locations_updated_moving;
   perform test.as_user(1);
   update public.cellar_locations set label = 'Rack renamed' where id = rack;
-  perform test.rec('an ordinary update gets now(), exactly as before 0051',
+  perform test.rec('an ordinary update gets now(), exactly as before 0055',
     (select updated_at from public.cellar_locations where id = rack) = now());
   update public.cellar_locations set label = 'Rack renamed again' where id = rack;
   perform test.rec('a second update in the same transaction: one microsecond later, never the same revision',

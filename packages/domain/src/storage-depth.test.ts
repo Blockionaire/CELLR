@@ -211,7 +211,7 @@ describe("depth ON (decided by the server): savable, placeable, by the meaning o
   });
 });
 
-describe("what the database says about depth (0054), read strictly", () => {
+describe("what the database says about depth (0057), read strictly", () => {
   const all = {
     depth_placement: true,
     legacy_cell_index: false,

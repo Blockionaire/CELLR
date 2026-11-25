@@ -46,6 +46,7 @@ import { createCatalogSearchRepository } from "@/server/catalog/search-repositor
 import { createCatalogSearchService } from "@/server/catalog/search";
 import { createWineResolver } from "@/server/catalog/resolver";
 import { createWineSourcesRepository, createWineSourcesService } from "@/server/catalog/sources";
+import { createRatingsRepository, createRatingsService } from "@/server/ratings/service";
 import { createScanRepository } from "@/server/scans/repository";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
@@ -66,11 +67,14 @@ import {
   isAdviceOpen,
   getPushEnv,
   getSmartCellarAccess,
+  getSharedRacksAccess,
 } from "@/server/env";
 import { createPushRepository } from "@/server/push/repository";
 import { createPushService } from "@/server/push/service";
 import { createSmartCellarRepository } from "@/server/smart-cellar/repository";
 import { createSmartCellarService, toUnitView } from "@/server/smart-cellar/service";
+import { createSharedRacksRepository } from "@/server/shared-racks/repository";
+import { createSharedRacksService } from "@/server/shared-racks/service";
 import { createTasteRepository } from "@/server/taste/repository";
 import { createTasteService } from "@/server/taste/service";
 import { createWishlistRepository } from "@/server/wishlist/repository";
@@ -184,8 +188,10 @@ export function servicesFor(ctx: RequestContext) {
     tonight: (request, personal) => cellar.tonight(request, personal),
     taste: () => taste.profile(),
     llm: getLlmProvider(),
-    // Sommelier V1+ parts (CELLR_SOMMELIER); empty unless the deployment names them, and none changes an answer yet.
+    // Sommelier V1+ parts (CELLR_SOMMELIER); empty unless the deployment names them.
     parts: getSommelierParts(),
+    // The `annotate` part: the household's own wine profiles, for the few wines an answer shows (read as the person).
+    profiles: async (vintageIds) => tasteRepo.listInsights((await household()).id, [...vintageIds]),
     spend: () => limiter.enforce(LIMITS.chat),
     householdId: async () => (await household()).id,
     locale: async () => (await households.me()).locale,
@@ -208,6 +214,15 @@ export function servicesFor(ctx: RequestContext) {
     wineSources: createWineSourcesService({
       repo: createWineSourcesRepository(ctx.db),
       householdId: async () => (await household()).id,
+    }),
+    // Ratings and community reviews (`catalog_ratings`, `community_reviews`): read and written as the person
+    ratings: createRatingsService({
+      repo: createRatingsRepository(ctx.db),
+      householdId: async () => (await household()).id,
+      features: {
+        ratings: getFeatures().catalog_ratings,
+        community: getFeatures().community_reviews,
+      },
     }),
     catalogSearch: createCatalogSearchService({
       repo: createCatalogSearchRepository(ctx.db),
@@ -264,6 +279,12 @@ export function servicesFor(ctx: RequestContext) {
     }),
     // The Smart Cellar API (sprint 1C): closed unless CELLR_SMART_CELLAR opens it, and never writing on production.
     smartCellar,
+    // Shared racks (ADR-010): closed unless CELLR_SHARED_RACKS opens it, and never on production. Everything runs
+    // as this request's person, through the database's own functions; no identity is passed along.
+    sharedRacks: createSharedRacksService({
+      repo: createSharedRacksRepository(ctx.db),
+      access: getSharedRacksAccess(),
+    }),
     export: createExportService({
       repo: createExportRepository(ctx.db),
       household,

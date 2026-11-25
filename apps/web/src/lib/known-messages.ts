@@ -23,6 +23,7 @@ export const KNOWN_MESSAGES = {
   "Say what the occasion is.": "occasion",
   "Ask a question.": "askQuestion",
   "Say something about it: give it stars, a word or a note.": "tastingEmpty",
+  "Links are not allowed in a review.": "reviewNoLinks",
   "This kind of place has no temperature zones.": "placeNoZones",
   "This kind of place has fewer temperature zones.": "placeFewerZones",
   "The zones must cover every shelf once, from top to bottom.": "zonesCoverShelves",
@@ -31,6 +32,11 @@ export const KNOWN_MESSAGES = {
   // Answers from the server.
   "This setting is not available yet.": "settingNotYet",
   "Ratings go in tenths of a star.": "ratingTenths",
+  "Links are not allowed, and a review is at most 1500 characters.": "reviewInvalid",
+  "Give it stars first, then share it.": "reviewNoScore",
+  "This wine can't be reviewed publicly yet: CELLR doesn't know it as a catalogue wine.":
+    "reviewNoIdentity",
+  "A moderator has looked at your review of this wine, so it can't be changed.": "reviewModerated",
   "Choose one of your friends.": "chooseOneFriend",
   "Create or join a household first.": "householdFirst",
   "Only the household's owner can delete a place.": "ownerDeletePlace",
@@ -101,6 +107,34 @@ export const KNOWN_MESSAGES = {
   "Two bottles in one compartment can't trade places: a compartment has no order.":
     "sameCompartment",
   "That export version isn't available.": "exportVersionUnavailable",
+  // Shared racks (ADR-010)
+  "We couldn't find that shared rack.": "sharedRackMissing",
+  "Only an owner of this rack can do that.": "sharedRackOwnerOnly",
+  "This rack is archived. Restore it first.": "sharedRackArchived",
+  "You're in as many shared racks as there can be. Leave or archive one first.":
+    "sharedRackTooMany",
+  "You can't invite yourself.": "sharedRackInviteSelf",
+  "We couldn't find that person.": "sharedRackPersonMissing",
+  "They're already in this rack.": "sharedRackAlreadyMember",
+  "They declined a little while ago. Try again later.": "sharedRackRecentlyDeclined",
+  "You already have three open invitations to this person. Wait for an answer first.":
+    "sharedRackPersonLimit",
+  "This rack is full.": "sharedRackFull",
+  "There are too many open invitations. Cancel one first.": "sharedRackTooManyInvitations",
+  "That invitation is no longer there.": "sharedRackInvitationMissing",
+  "That invitation has expired. Ask for a new one.": "sharedRackInvitationExpired",
+  "That invitation is no longer open.": "sharedRackInvitationClosed",
+  "You already accepted that invitation. Leave the rack instead.": "sharedRackAlreadyAccepted",
+  "They're not in this rack.": "sharedRackNotMember",
+  "A rack needs an owner. Make someone else an owner first.": "sharedRackNeedsOwner",
+  "To leave a rack yourself, use Leave.": "sharedRackRemoveSelf",
+  "You're the last owner. Make someone else an owner first, or archive the rack.":
+    "sharedRackLastOwner",
+  "That bottle is no longer in this rack.": "sharedRackBottleGone",
+  "That bottle is already in a shared rack. Take it out first.": "sharedRackAlreadyPlaced",
+  "That bottle isn't in a shared rack.": "sharedRackNotPlaced",
+  "Someone else was changing this rack. Try again.": "sharedRackBusy",
+  "A shared rack has no temperature zones.": "sharedRackNoZones",
   // Smart Cellar 3D sprint 9: depth (ADR-011)
   "Another bottle is in front of this one. Move that one first.": "placementFrontInTheWay",
   "This bottle lies behind another one, so it can't be moved from here.": "legacyBehind",

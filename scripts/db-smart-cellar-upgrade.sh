@@ -15,8 +15,8 @@
 #      there, or is not the right one, and leaves the database as it was. With the new index in place it drops the
 #      old one. The picture is still the same.
 #   5. After that: the same app actions again, and the switch for more than one bottle per cell is off.
-#   2b/6. Every later migration (0051, 0054) on the same filled database (untouched again), and a compare-and-swap save
-#      (0051) of a place from before templates that holds bottles: stale and saved, every bottle where it was.
+#   2b/6. Every later migration up to 0057 (0055 compare-and-swap, 0056 shared racks, 0057 depth) on the same filled database (untouched again), and a compare-and-swap save
+#      (0055) of a place from before templates that holds bottles: stale and saved, every bottle where it was.
 #   7. DEPTH (ADR-011 phases C-D and the way back), on this throwaway database only: the gated switch refuses while the
 #      old index is there; with it gone it switches on; bottles at the back; switched off again nothing moves; the
 #      gated collapse refuses (changing nothing) while a cell holds two bottles, works once the household has moved
@@ -95,19 +95,19 @@ cmp -s "$WORK/before" "$WORK/expanded" || fail "0043-0045 changed, moved or rewr
 ! grep -liE 'drop +index' "$ROOT"/supabase/migrations/2026112*.sql >/dev/null || fail "a Smart Cellar migration in supabase/migrations drops an index"
 echo "• after 0043-0045 (what a release deploys): every place and bottle is the same row, in the same spot of the table, last written by the same transaction; the old index is still in force and no migration drops it"
 
-# ---- 2b. Every later migration (0051 layout compare-and-swap, 0054 depth, additive), on the same filled database ------
+# ---- 2b. Every later migration (main's own, 0055 layout compare-and-swap, 0056 shared racks, 0057 depth; all additive), on the same filled database ------
 for f in "$ROOT"/supabase/migrations/*.sql; do
   v="$(basename "$f" | cut -c1-14)"
   [ "$v" -gt 20261122000045 ] || continue
   apply "$f" || fail "$(basename "$f") failed on a database with data: $(cat "$WORK/apply.err")"
 done
 [ "$(su "select count(*) from pg_proc where oid = 'public.save_storage_layout_v2(uuid,uuid,public.location_kind,text,text,smallint,smallint,smallint,jsonb,jsonb,timestamptz)'::regprocedure")" = 1 ] \
-  || fail "after 0051 save_storage_layout_v2 is missing"
+  || fail "after 0055 save_storage_layout_v2 is missing"
 [ "$(su "select public.smart_cellar_depth_status()::text")" = '{"move_v2": true, "index_unique": true, "depth_placement": false, "legacy_cell_index": true}' ] \
-  || fail "after 0054 the database does not say: switch off, old index in force: $(su "select public.smart_cellar_depth_status()")"
+  || fail "after 0057 the database does not say: switch off, old index in force: $(su "select public.smart_cellar_depth_status()")"
 picture "$WORK/cas"
-cmp -s "$WORK/before" "$WORK/cas" || fail "a migration up to 0051 changed, moved or rewrote a place or a bottle: $(diff "$WORK/before" "$WORK/cas" | head -5)"
-echo "• after every later migration (0051, 0054): every place and bottle still the same row, untouched; save_storage_layout_v2 and move_bottle_v2 are there; the database says depth is off and the old index in force"
+cmp -s "$WORK/before" "$WORK/cas" || fail "a migration after 0045 changed, moved or rewrote a place or a bottle: $(diff "$WORK/before" "$WORK/cas" | head -5)"
+echo "• after every later migration (up to 0057): every place and bottle still the same row, untouched; save_storage_layout_v2 and move_bottle_v2 are there; the database says depth is off and the old index in force"
 
 # ---- 3. The app of today on what is deployed: 0043-0045, the old index in force -------------------------------------
 app_still_works() {   # $1 = label
@@ -187,7 +187,7 @@ out=$(cas "2000-01-01T00:00:00+00:00"); [ "$out" = stale ] || fail "a save from 
 out=$(cas "$REV"); [ "$out" = saved ] || fail "a save from the place's own revision: $out"
 [ "$(spots)" = "$SPOTS" ] || fail "saving a layout moved a bottle"
 out=$(cas "$REV"); [ "$out" = stale ] || fail "a second save from the revision the first one replaced: $out"
-echo "• 0051 on a place from before templates: a save from another revision is stale and changes nothing; from its own revision it is saved, every bottle where it was; the same revision a second time is stale"
+echo "• 0055 on a place from before templates: a save from another revision is stale and changes nothing; from its own revision it is saved, every bottle where it was; the same revision a second time is stale"
 
 # ---- 7. Depth: the gated switch, and the way back (ADR-011 §6) -----------------------------------------------------
 picture "$WORK/before-depth"     # (step 6 saved one old place's layout on purpose: compared from here)

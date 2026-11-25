@@ -12,7 +12,7 @@ behaviour byte for byte; the new gate `CELLR_SMART_CELLAR_DEPTH` cannot open on 
 
 | Area                        | What                                                                                                                                                                                                                                                                                                                                                                                  |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Migration 0054 (additive)   | `public.move_bottle_v2` (the sprint 4 gated proposal, reviewed again, SQL unchanged); `public.smart_cellar_depth_status()` → `{depth_placement, legacy_cell_index, index_unique, move_v2}` (definer, read-only, no rows, authenticated only); `private.depth_occupancy_report()` (owner only).                                                                                        |
+| Migration 0057 (additive)   | `public.move_bottle_v2` (the sprint 4 gated proposal, reviewed again, SQL unchanged); `public.smart_cellar_depth_status()` → `{depth_placement, legacy_cell_index, index_unique, move_v2}` (definer, read-only, no rows, authenticated only); `private.depth_occupancy_report()` (owner only).                                                                                        |
 | Gated (no number)           | `smart_cellar_depth_switch_on.sql` (refuses unless the old index is gone, the new one valid and `move_bottle_v2` present), `smart_cellar_depth_switch_off.sql` (moves nothing), `smart_cellar_depth_collapse_to_front.sql` (the way back: lone back bottles to the front of their own cell; refuses, changing nothing, while a cell holds two). The index drop stays gated as it was. |
 | Domain                      | `DepthDatabaseStatus`, `readDepthStatus` (strict), `depthBlockOf`; `SmartCellarCapabilities.depthPlacement: boolean` and optional `depth`; `layoutChangeProblem(…, { depthEnabled })`; `cellCapacitySavableWith` / `templateSavableWith` (separate functions: the one-argument versions are passed to `filter`); `reachable()` — the physical front rule.                             |
 | Server gate                 | `lib/smart-cellar-depth-gate.ts`: `CELLR_SMART_CELLAR_DEPTH === "1"` AND `internalPreviewIn` (dev, Vercel preview) AND placement writes. **Not** the production release.                                                                                                                                                                                                              |
@@ -37,7 +37,7 @@ behaviour byte for byte; the new gate `CELLR_SMART_CELLAR_DEPTH` cannot open on 
 - **Old paths refuse or use the front, never a guessed index** (README rule 7). Undo (restore) into a place more
   than one deep restores the bottle WITHOUT a place (opening reset its index; the old depth cannot be known), one-deep
   places as before (review finding L2).
-- **Switching off is a kill switch** (review finding L5): 0054's `bottles_location_depth` refuses any new bottle on an
+- **Switching off is a kill switch** (review finding L5): 0057's `bottles_location_depth` refuses any new bottle on an
   index above 1 while the switch is off, also in places that are already deep; back bottles may stay, be opened or
   come forward. Mapped to the existing "isn't switched on" refusal on the new move path only (the old mapping of
   `depth_not_enabled` stays VALIDATION, as pinned).
@@ -49,9 +49,9 @@ behaviour byte for byte; the new gate `CELLR_SMART_CELLAR_DEPTH` cannot open on 
 
 | Command                                     | Result                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bash scripts/db-test.sh`                   | final: 1,765 passed, 0 failed, 0 errors (sprint 8 tip: 1,723; the existing suites unchanged with 0054 present). New `99_smart_cellar_depth.test.sql`: 42 checks, incl. the kill switch (status as deployed / after drop / after switch; three bottles in one cell; moves and swaps across depths; every OLD writer against depth storage; the report; switch off moves nothing).                            |
+| `bash scripts/db-test.sh`                   | final: 1,765 passed, 0 failed, 0 errors (sprint 8 tip: 1,723; the existing suites unchanged with 0057 present). New `99_smart_cellar_depth.test.sql`: 42 checks, incl. the kill switch (status as deployed / after drop / after switch; three bottles in one cell; moves and swaps across depths; every OLD writer against depth storage; the report; switch off moves nothing).                            |
 | `bash scripts/db-placement-concurrency.sh`  | green, new step 13: 18 concurrent `move_bottle_v2` into the 3 indexes of one cell → 3 moved (one per index), 15 taken; 10 concurrent moves of one back bottle → 1 moved, 9 stale; front-vs-back of one cell × 30 → front + back every round; old index-less move vs `move_bottle_v2` of the same back bottle × 20 → the old one refused as ambiguous every round. 59 s.                                     |
-| `bash scripts/db-smart-cellar-upgrade.sh`   | green: all later migrations (0051, 0054) on a filled database leave every row identical (ctid, xmin); status says off/old index; new step 7 (throwaway only): switch refuses with the old index, switches on without it; switch off moves nothing; collapse refuses with a crowded cell (nothing changed), works after the household moved one; one deep again; old index recreated; cellar rows identical. |
+| `bash scripts/db-smart-cellar-upgrade.sh`   | green: all later migrations (0055, 0057) on a filled database leave every row identical (ctid, xmin); status says off/old index; new step 7 (throwaway only): switch refuses with the old index, switches on without it; switch off moves nothing; collapse refuses with a crowded cell (nothing changed), works after the household moved one; one deep again; old index recreated; cellar rows identical. |
 | `bash scripts/db-layout-cas-concurrency.sh` | green (sprint 8 numbers, unchanged).                                                                                                                                                                                                                                                                                                                                                                        |
 | domain `storage-depth.test.ts`              | 42 tests: every template with `cellCapacity.max > 1` (the 12 deep-capable ones), depth off and on; status parsing.                                                                                                                                                                                                                                                                                          |
 | web unit                                    | service depth: 10 tests (gate closed: database never asked and capabilities have exactly the old keys; every block reason; all open; v2 moves; reachability); gate: 3; old-swap `behind`: 2; builder: 2.                                                                                                                                                                                                    |
@@ -59,7 +59,7 @@ behaviour byte for byte; the new gate `CELLR_SMART_CELLAR_DEPTH` cannot open on 
 
 ## 4. Production activation sequence (each step its own owner approval)
 
-1. **Phase A** — merge; apply 0054 by `docs/MIGRATIONS.md` §2. Check: `select public.smart_cellar_depth_status()` →
+1. **Phase A** — merge; apply 0057 by `docs/MIGRATIONS.md` §2. Check: `select public.smart_cellar_depth_status()` →
    switch false, `legacy_cell_index` true. Nothing visible changes.
 2. **Phase B** — the UI half (§8) and the legacy readers of ADR-011 §3; the opt-in depth e2e green.
 3. **Phase C** — release `smart_cellar_drop_legacy_slot_index.sql` as a numbered migration in a PR of its own.
@@ -141,7 +141,7 @@ and `friend-screen.tsx:492` (duplicate keys), `three/scene.tsx:998` (two bottles
 `storage3d/template-scene.tsx` `SpotMarkers` (`active` compares row and col only: every free index of a cell drawn as
 chosen — Agent D), legacy capacity `rows × cols` (`server/cellar/service.ts:75`, stats, sommelier `cellar-facts`),
 `occupiedSlots`/`updateBottle` (`server/cellar/repository.ts`), export v1 (no index), `friend_racks` (0015), and the
-shared-rack functions (B, 0052), which must take the same front/back rule inside their transaction.
+shared-rack functions (B, 0056), which must take the same front/back rule inside their transaction.
 
 **Legacy readers** (phase B blockers, unowned): racks grid and legacy 3D view must show "+n behind" per cell or route
 deep places to the new view; sommelier/tonight copy should say "behind" for index > 1; export v1 should either refuse
@@ -152,7 +152,7 @@ deep places or say it is lossy.
 **Review (Agent E) follow-up**, commit `eb6b672`: `move_bottle_v2` answers `'depth_not_enabled'` (switch off, back
 target) instead of raising; the gated collapse prints which households and places it records at the front, and ADR-011
 makes telling them a step; ADR-011 §1.3 says the Undo fix is app-side only; the shared-rack writers
-(`shared_rack_place`/`shared_rack_move`, 0052) are a write path and their kill-switch refusal a phase-D precondition.
+(`shared_rack_place`/`shared_rack_move`, 0056) are a write path and their kill-switch refusal a phase-D precondition.
 
 **UI, all behind `capabilities.depthPlacement`** (`features/cellar/depth.ts`, `useDepthOpen()`; false wherever the gate
 is closed, so nothing changes there):

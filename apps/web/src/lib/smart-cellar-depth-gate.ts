@@ -7,7 +7,7 @@ import type { PlacementAccess } from "./smart-cellar-placement-gate";
  *   1. this gate: CELLR_SMART_CELLAR_DEPTH exactly "1", on a deployment where unreleased work may be shown
  *      (`next dev`, a Vercel preview: `internalPreviewIn`), and only where placement itself writes;
  *   2. the database's own switch (private.cellar_settings.depth_placement), and
- *   3. the old one-bottle-per-cell index gone, both read through public.smart_cellar_depth_status() (0054) by the
+ *   3. the old one-bottle-per-cell index gone, both read through public.smart_cellar_depth_status() (0057) by the
  *      service, per request, and only when this gate is open.
  * All three, or depth is off and every answer is exactly what it was before sprint 9.
  *

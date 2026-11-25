@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import {
   placementMeaning,
   type SmartPlacementView,
@@ -190,7 +190,10 @@ export function QuickAddSheet({
   onOtherSpot,
   onCancel,
   onClose,
+  unplacedNote,
 }: {
+  /** Shared racks (ADR-010): said under "a bottle without a spot" (some of them may stand in a shared rack). */
+  unplacedNote?: ReactNode | undefined;
   open: boolean;
   /** "Oak rack · shelf 2 · spot 3" (and its zone, when it has one). */
   where: string;
@@ -220,6 +223,7 @@ export function QuickAddSheet({
         >
           <OptionBody label={t("unplaced")} hint={t("unplacedCount", { count: unplacedCount })} />
         </Button>
+        {unplacedCount > 0 && unplacedNote}
         <Button
           variant="secondary"
           size="lg"

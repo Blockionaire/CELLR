@@ -76,6 +76,7 @@ export const THREE_D_SPECS = [
   /[\\/]e2e[\\/]quick-add\.spec\.ts$/, // Smart Cellar 3D sprint 7: Quick Add in the 3D cellar
   /[\\/]e2e[\\/]visual-[^\\/]*3d[^\\/]*\.spec\.ts$/,
   /[\\/]e2e[\\/]perf-[^\\/]*3d[^\\/]*\.spec\.ts$/,
+  /[\\/]e2e[\\/]shared-racks-3d[^\\/]*\.spec\.ts$/, // shared racks drawn in 3D (ADR-010); the rest of shared racks is core
 ];
 const SUITE = process.env.E2E_SUITE || "all";
 if (!["all", "3d", "core"].includes(SUITE))
@@ -135,9 +136,10 @@ export default defineConfig({
       // ...and the same for the product's new 3D renderer (sprint 2B.3): asked for here, and it must stay CLOSED.
       env: {
         ...APP_ENV,
-        CELLR_FEATURES: "all",
-        // Every Sommelier V1+ part, and a name that is not one. Built so far: `check` (e2e/sommelier-check.spec.ts,
-        // which also proves the default server still asks with prompt v6 and shows V1's answer as it was).
+        CELLR_FEATURES: "all,catalog_ratings,community_reviews",
+        // Every Sommelier V1+ part, and a name that is not one (ignored). Built so far: `check`
+        // (e2e/sommelier-check.spec.ts) and `annotate`, `quantities` (e2e/sommelier-cards.spec.ts). The default
+        // server names none: V1 as it was, and both specs ask it too to prove that.
         CELLR_SOMMELIER: "check,annotate,quantities,menu,fallback,not-a-part",
         CELLR_SMART_CELLAR: "write",
         CELLR_SMART_CELLAR_3D: "1",
@@ -146,6 +148,8 @@ export default defineConfig({
         // ... and so must placement (sprint 4)
         CELLR_SMART_CELLAR_PLACEMENT: "1",
         CELLR_SMART_CELLAR_ADVICE: "1",
+        // asked for on a production build: shared racks must stay closed here, every route 404 (ADR-010)
+        CELLR_SHARED_RACKS: "1",
       },
     },
     {
@@ -168,6 +172,8 @@ export default defineConfig({
         // placing, moving and swapping bottles in the new 3D view, writing to the local stack (sprint 4)
         CELLR_SMART_CELLAR_PLACEMENT: "1",
         CELLR_SMART_CELLAR_ADVICE: "1",
+        // shared racks are open here, and write: a preview whose database is the local stack (ADR-010)
+        CELLR_SHARED_RACKS: "1",
         // depth (sprint 9), OPT-IN: only with STACK_DEPTH=1, which also makes scripts/local-stack/up.sh run the gated
         // depth files on its own throwaway database. Unset (always in CI): the gate stays closed, as everywhere.
         ...(process.env.STACK_DEPTH === "1" ? { CELLR_SMART_CELLAR_DEPTH: "1" } : {}),

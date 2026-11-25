@@ -1,4 +1,4 @@
--- Smart Cellar 3D, sprint 9 (0054 and the gated depth files): what the database says about depth, and what every
+-- Smart Cellar 3D, sprint 9 (0057 and the gated depth files): what the database says about depth, and what every
 -- writer does once depth is ON. THE FUTURE STATE, inside this transaction and rolled back with it: the gated index
 -- drop and the gated switch are run here (exactly the files that would be released), so what is tested is what would
 -- be released, and the database is left as it was. ADR-011 is the audit these tests pin.
@@ -23,7 +23,7 @@ begin
     not has_function_privilege('authenticated', 'private.depth_occupancy_report()', 'execute')
     and not has_function_privilege('service_role', 'private.depth_occupancy_report()', 'execute')
     and not has_function_privilege('anon', 'private.depth_occupancy_report()', 'execute'));
-  perform test.rec('0054 switched nothing on', not private.depth_placement_enabled());
+  perform test.rec('0057 switched nothing on', not private.depth_placement_enabled());
 end $$;
 
 \ir ../gated-migrations/smart_cellar_drop_legacy_slot_index.sql

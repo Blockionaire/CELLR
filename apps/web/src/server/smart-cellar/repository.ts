@@ -258,17 +258,17 @@ const OUTCOMES: readonly SaveLayoutOutcome[] = [
   "invalid_zones",
   "depth_not_enabled",
 ];
-/** What save_storage_layout_v2 (0051) answers on top of 0045's answers. */
+/** What save_storage_layout_v2 (0055) answers on top of 0045's answers. */
 const OUTCOMES_V2: readonly SaveLayoutOutcome[] = [...OUTCOMES, "stale"];
 
 /**
  * PostgREST's "there is no such function" (PGRST202): it is answered by PostgREST itself, from its schema cache, BEFORE
  * anything runs in the database. So a call of save_storage_layout_v2 that gets it changed nothing, and the database
- * simply does not have 0051 (or PostgREST has not seen it yet): the save is then made exactly as before 0051.
+ * simply does not have 0055 (or PostgREST has not seen it yet): the save is then made exactly as before 0055.
  */
 /**
  * The fallback to 0045 is said once per server process (warn, a fixed message and the code, nothing else): a database
- * without 0051 is expected until the owner applies it, but a call that PostgREST cannot match for another reason (an
+ * without 0055 is expected until the owner applies it, but a call that PostgREST cannot match for another reason (an
  * argument renamed by mistake) answers the same, and the compare-and-swap would otherwise stay off unnoticed.
  */
 let fallbackSaid = false;
@@ -613,7 +613,7 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
     async depthStatus() {
       const { data, error } = await db.rpc("smart_cellar_depth_status");
       if (error) {
-        // no 0054 here (PostgREST, or Postgres, has no such function): the database cannot say, which is "off"
+        // no 0057 here (PostgREST, or Postgres, has no such function): the database cannot say, which is "off"
         if (isFunctionMissing(error)) return null;
         throw mapSmartCellarError(error);
       }
@@ -634,7 +634,7 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
         p_to_index: to?.index ?? null,
       } as never);
       if (error) {
-        // the database's switch is off (0054: no new bottle behind another while it is): the same refusal as the app's
+        // the database's switch is off (0057: no new bottle behind another while it is): the same refusal as the app's
         if (error.message === "depth_not_enabled")
           throw new DomainError(
             "CONFLICT",
@@ -711,7 +711,7 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
         p_appearance: layout.appearance,
         p_zones: zonesForRpc(layout.zones),
       };
-      // With a revision: the compare-and-swap of 0051, which compares it AFTER the place's row lock, so a save that
+      // With a revision: the compare-and-swap of 0055, which compares it AFTER the place's row lock, so a save that
       // landed since is never overwritten ('stale'). The revision is passed on exactly as the database wrote it (text,
       // to the microsecond); the database reads it as a time.
       if (expectedRevision !== null) {
@@ -729,7 +729,7 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
         }
         // a revision that is not a time at all names no version of this place (as renameIfCurrent reads it)
         if (v2.error.code === "22007" || v2.error.code === "22008") return "stale";
-        // Only "no such function" falls through, and then to exactly what the app did before 0051 (its own check of
+        // Only "no such function" falls through, and then to exactly what the app did before 0055 (its own check of
         // the revision has already been made by the service). Nothing ran: PostgREST refused before the database.
         if (!isFunctionMissing(v2.error)) throw mapSmartCellarError(v2.error);
         sayFallback(v2.error.code);

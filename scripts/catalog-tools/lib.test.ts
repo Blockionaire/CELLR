@@ -41,6 +41,20 @@ describe("where the catalog tools may connect", () => {
       ).ref,
     ).toBe(STAGING);
   });
+  it("refuses query parameters that would override the URL's host or user (only sslmode is accepted)", () => {
+    const base = `postgresql://postgres@db.${STAGING}.supabase.co:5432/postgres`;
+    const args = { "staging-project": STAGING };
+    expect(() => assertSafeTarget(`${base}?host=evil.example`, args, approved)).toThrow(
+      /may not carry host/,
+    );
+    expect(() => assertSafeTarget(`${base}?user=postgres.x`, args, approved)).toThrow(
+      /may not carry user/,
+    );
+    expect(assertSafeTarget(`${base}?sslmode=require`, args, approved)).toEqual({
+      local: false,
+      ref: STAGING,
+    });
+  });
   it("refuses a staging ref that is not approved, or a URL of another project", () => {
     expect(() =>
       assertSafeTarget(

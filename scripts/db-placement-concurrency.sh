@@ -31,7 +31,7 @@
 #      two sessions deadlock, for the update and for the delete. So step 9 can see what it guards against.
 #  12. THE GATED FILE, run here on this throwaway database: the old index goes. Then 16 sessions fill a bin of 8,
 #      two per index: exactly 8 get in, one per index; and 20 sessions on one whole spot: one gets it.
-#  13. Depth (sprint 9, move_bottle_v2 of 0054): races into one cell's indexes, one back bottle moved by many, front
+#  13. Depth (sprint 9, move_bottle_v2 of 0057): races into one cell's indexes, one back bottle moved by many, front
 #      against back of one cell, and the old index-less move of a back bottle against move_bottle_v2.
 # After everything: no bottle outside its place, no spot taken twice, every place's zones a split of its shelves,
 # and not one deadlock outside the control.
@@ -392,7 +392,7 @@ n=0; for i in $(seq 1 20); do ok "$OUT/s12-$i" && n=$((n + 1)); done
   || fail "after the gated file: a spot is taken twice"
 echo "• with the gated file run: 16 sessions into a bin of 8, two per index: 8 placed, one per index; 20 sessions behind a front bottle: 1 placed, 19 refused by the whole-spot index"
 
-# ---- 13. Depth (sprint 9): move_bottle_v2 (0054) and the old writers, many sessions at once ----------------------------
+# ---- 13. Depth (sprint 9): move_bottle_v2 (0057) and the old writers, many sessions at once ----------------------------
 # Still on this throwaway database with the old index gone and the switch on (as the gated switch file would leave it).
 su "delete from public.bottles where location_id = '$DEEP';
     update public.cellar_locations set cell_capacity = 3 where id = '$DEEP'" >/dev/null
@@ -448,5 +448,5 @@ done
 [ "$(outside)" = 0 ] || fail "after the depth races: a bottle is outside its place"
 [ "$(su "select count(*) from (select 1 from public.bottles where status = 'in_cellar' and location_id is not null group by location_id, loc_row, loc_col, loc_index having count(*) > 1) d")" = 0 ] \
   || fail "after the depth races: a spot is taken twice"
-echo "• depth (0054): 18 moves into the 3 indexes of one cell: 3 moved (one per index), 15 taken; 10 moves of one back bottle: 1 moved, 9 stale; front vs back of one cell, $both rounds: front + back every time; the old move of a back bottle vs move_bottle_v2, 20 rounds: the old one refused as ambiguous every time"
+echo "• depth (0057): 18 moves into the 3 indexes of one cell: 3 moved (one per index), 15 taken; 10 moves of one back bottle: 1 moved, 9 stale; front vs back of one cell, $both rounds: front + back every time; the old move of a back bottle vs move_bottle_v2, 20 rounds: the old one refused as ambiguous every time"
 echo "• placement, resizing, zones and swaps are safe under concurrency"

@@ -14,7 +14,7 @@
 -- It stops, changing nothing, unless every precondition holds:
 --   * the old one-bottle-per-cell index is gone (smart_cellar_drop_legacy_slot_index.sql has run);
 --   * the index-aware unique index is in force (unique, valid, ready);
---   * move_bottle_v2 is there (0054): the only way the app moves a bottle behind another one to another cell.
+--   * move_bottle_v2 is there (0057): the only way the app moves a bottle behind another one to another cell.
 -- Undo (no bottle moves): smart_cellar_depth_switch_off.sql. What cannot be undone once a bottle is at index > 1:
 -- ADR-011 §6, "Rollback limits".
 do $$
@@ -28,7 +28,7 @@ begin
     raise exception 'bottles_slot_index_unique is missing or not valid: depth stays off';
   end if;
   if not (s ->> 'move_v2')::boolean then
-    raise exception 'move_bottle_v2 is missing (migration 0054): depth stays off';
+    raise exception 'move_bottle_v2 is missing (migration 0057): depth stays off';
   end if;
 end $$;
 

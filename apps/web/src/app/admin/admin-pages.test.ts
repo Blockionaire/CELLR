@@ -126,7 +126,7 @@ const files = (dir: string): string[] =>
 describe("the admin boundary", () => {
   it("every admin page checks the session itself", () => {
     const pages = files(path.join(SRC, "app/admin")).filter((f) => /(page|layout)\.tsx$/.test(f));
-    expect(pages.length).toBe(18);
+    expect(pages.length).toBe(19);
     for (const p of pages)
       expect(readFileSync(p, "utf8")).toMatch(
         /if \(!(session|\(await getAdminSession\(\)\))\) notFound\(\)/,
@@ -153,6 +153,7 @@ describe("the admin boundary", () => {
       "catalog/corrections",
       "sources",
       "system",
+      "reviews",
     ].map((d) => path.join(SRC, `app/admin/${d}/actions.ts`));
     for (const f of files(path.join(SRC, "app/admin")))
       if (!ACTIONS.includes(f) && !f.endsWith(".test.ts"))
@@ -166,6 +167,7 @@ describe("the admin boundary", () => {
     ["catalog/corrections", 1],
     ["sources", 2],
     ["system", 1],
+    ["reviews", 1],
   ] as const)(
     "every %s action checks the admin session again before anything else",
     (dir, count) => {

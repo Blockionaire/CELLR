@@ -39,7 +39,7 @@ export interface StoredPlaceRow {
 export type SchemaStatus = SmartCellarCapabilities["schema"];
 
 /**
- * What save_storage_layout (migration 0045) answers, and save_storage_layout_v2 (0051): the same, plus 'stale' (the
+ * What save_storage_layout (migration 0045) answers, and save_storage_layout_v2 (0055): the same, plus 'stale' (the
  * place is no longer at the revision the caller named; nothing changed). Anything else either does is an error.
  */
 export type SaveLayoutOutcome =
@@ -111,8 +111,8 @@ export interface SmartCellarRepository {
   occupiedSpots(householdId: string, locationId: string): Promise<OccupiedSpot[]>;
   /**
    * One save of a layout: all of it or none of it. With `expectedRevision` (the place's updated_at as the caller read
-   * it, unchanged), save_storage_layout_v2 (0051) compares it under the place's row lock and answers 'stale' when the
-   * place has moved on. Without one, or on a database without 0051 (PostgREST: no such function, nothing ran),
+   * it, unchanged), save_storage_layout_v2 (0055) compares it under the place's row lock and answers 'stale' when the
+   * place has moved on. Without one, or on a database without 0055 (PostgREST: no such function, nothing ran),
    * save_storage_layout (0045) exactly as before.
    */
   saveLayout(
@@ -153,13 +153,13 @@ export interface SmartCellarRepository {
     bottleId: string,
   ): Promise<{ inCellar: boolean; spot: SmartSpot | null } | null>;
   /**
-   * What the database says about depth (public.smart_cellar_depth_status(), 0054), or null when it cannot say (no
-   * 0054: PostgREST has no such function; or an answer that is not the four facts). Read-only. Asked only where the
+   * What the database says about depth (public.smart_cellar_depth_status(), 0057), or null when it cannot say (no
+   * 0057: PostgREST has no such function; or an answer that is not the four facts). Read-only. Asked only where the
    * server's depth gate is open (sprint 9).
    */
   depthStatus(): Promise<DepthDatabaseStatus | null>;
   /**
-   * One call of move_bottle_v2 (0054): one bottle from the whole spot the caller saw to a whole target, depth included
+   * One call of move_bottle_v2 (0057): one bottle from the whole spot the caller saw to a whole target, depth included
    * (a back bottle to another cell goes out first, then in), in one transaction. Used where depth is open.
    */
   moveBottleV2(

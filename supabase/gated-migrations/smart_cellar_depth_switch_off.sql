@@ -4,7 +4,7 @@
 -- !! Only with the owner's approval. Not in supabase/migrations; numbered on the day it is released.
 --
 -- What it does: private.cellar_settings.depth_placement := false. From then on no place can be made deeper than it is
--- (private.check_location_cells, 0043) AND no bottle is newly put on an index above 1, in any place (0054,
+-- (private.check_location_cells, 0043) AND no bottle is newly put on an index above 1, in any place (0057,
 -- bottles_location_depth): a kill switch. NOTHING ELSE: no bottle is moved, renumbered or deleted; a place that is
 -- deep stays deep and its back bottles stay where they are (they may be opened, or brought forward to an index 1). This is the brake, not
 -- the way back: putting the old one-bottle-per-cell index back needs every cell down to one bottle first

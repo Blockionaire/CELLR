@@ -32,6 +32,8 @@
     "db:test:claims": "bash scripts/db-claim-concurrency.sh",
     "db:test:placement": "bash scripts/db-placement-concurrency.sh",
     "db:test:layout-cas": "bash scripts/db-layout-cas-concurrency.sh",
+    "db:test:shared-racks": "bash scripts/db-shared-racks-concurrency.sh",
+    "db:test:shared-racks:roundtrip": "bash scripts/db-shared-racks-roundtrip.sh",
     "db:test:upgrade": "bash scripts/db-smart-cellar-upgrade.sh",
     "migrations:check": "bash scripts/check-migration-immutability.sh origin/main",
     "migrations:check:test": "bash scripts/check-migration-immutability.test.sh",
