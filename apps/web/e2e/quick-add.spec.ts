@@ -1177,6 +1177,37 @@ test.describe("3D Quick Add on a place from before templates", () => {
     await expect(page.getByTestId("quick-add-start")).toBeVisible();
   });
 
+  test("a read that fails while adding is never a dead end: said, Cancel by touch, adding ends cleanly", async ({
+    page,
+    request,
+    hasTouch,
+  }) => {
+    test.skip(!hasTouch, "a phone (no Escape key to get out)");
+    await debugOn(page);
+    const { rack } = await legacyHousehold(page, request, "qalegreadfail");
+    await openLegacy(page);
+    // the network drops right after Add bottle: the place's bottles cannot be read
+    await page.route(`**/api/v1/smart-cellar/storage/${rack}/bottles`, (route) =>
+      route.abort("internetdisconnected"),
+    );
+    await page.getByTestId("quick-add-start").tap();
+    await expect(view(page)).toHaveAttribute("data-quick", "placing");
+    await expect(page.getByTestId("quick-read-failed")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("quick-placing-pending")).toHaveCount(0);
+    const cancel = page.getByTestId("quick-close");
+    await expect(cancel).toBeInViewport();
+    await cancel.tap();
+    await expect(view(page)).toHaveAttribute("data-quick", "view");
+    await expect(page.getByTestId("quick-placing")).toHaveCount(0);
+    await expect(page.getByTestId("quick-read-failed")).toHaveCount(0);
+    await expect(page.getByTestId("quick-add-start")).toBeVisible();
+    expect(await legacyGhosts(page)).toBeNull();
+    // and with the network back, adding works again
+    await page.unroute(`**/api/v1/smart-cellar/storage/${rack}/bottles`);
+    await startQuick(page);
+    await expect.poll(async () => (await legacySpotsOnOffer(page)).length).toBe(10);
+  });
+
   test("a place from before templates read with a fallback (a stored kind the app does not know): nothing is pointed at; said, and the list", async ({
     page,
     request,
