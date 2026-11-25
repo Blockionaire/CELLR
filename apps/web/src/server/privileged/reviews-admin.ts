@@ -43,6 +43,7 @@ export const ReviewQueueItemSchema = z.object({
   body: z.string().nullable(),
   vintage: z.number().nullable(),
   publishedAt: z.string(),
+  wine: z.string().nullable().optional(),
   openReports: z.number(),
   reasons: z.array(z.string()),
 });

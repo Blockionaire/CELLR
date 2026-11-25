@@ -177,6 +177,12 @@ test.describe("ratings on the wine page and the catalogue page", () => {
     expect(
       Number((await panel.getByTestId("cellr-score").innerText()).replace(",", ".")),
     ).toBeGreaterThanOrEqual(Number(before.replace(",", ".")));
+    // editing loads the published text: publishing again never wipes it
+    await panel.getByRole("button", { name: "Edit your review" }).click();
+    await expect(page.getByRole("dialog").getByLabel("Your review (optional)")).toHaveValue(
+      "Fijne kers, lange afdronk.",
+    );
+    await page.keyboard.press("Escape");
     await panel.getByTestId("reviews").scrollIntoViewIfNeeded();
     await page.screenshot({ path: shot("wine-page-after"), fullPage: false });
 
@@ -193,6 +199,8 @@ test.describe("ratings on the wine page and the catalogue page", () => {
     await page.screenshot({ path: shot("record-page"), fullPage: true });
     await page.getByTestId("add-from-record").click();
     await expect(page).toHaveURL(/\/cellar\/add\?record=/);
+    // the record's ratings are right there in the add flow
+    await expect(page.getByTestId("ratings-panel")).toBeVisible();
     await expect(page.getByLabel(/Who makes it|Producer/).first()).toHaveValue(src.producer);
 
     // the methodology page names the source and its citation

@@ -24,3 +24,23 @@ create function public.catalog_record_page(p_record_id uuid) returns jsonb
 $$;
 revoke all on function public.catalog_record_page(uuid) from public, anon;
 grant execute on function public.catalog_record_page(uuid) to authenticated, service_role;
+
+-- The moderation queue also says which wine a reported review is about (review of PR 3: a moderator cannot judge a
+-- "wrong wine" report without it). The same function as 20261130000052, plus `wine`.
+create or replace function public.admin_community_review_queue(p_limit int default 50) returns jsonb
+  language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(s.q order by s.hidden desc, s.n desc, s.at), '[]'::jsonb) from (
+    select jsonb_build_object('reviewId', r.id, 'status', r.status, 'score', r.score, 'body', r.body,
+             'vintage', r.vintage_year, 'publishedAt', r.published_at,
+             'wine', coalesce((select p.name || ' ' || w.name from public.wines w
+                                 join public.producers p on p.id = w.producer_id where w.id = r.subject_wine_id),
+                              (select e.producer || ' ' || e.name from public.catalog_external_records e
+                                where e.id = r.subject_record_id)),
+             'openReports', count(rp.id), 'reasons', jsonb_agg(distinct rp.reason)) as q,
+           r.status = 'hidden' as hidden, count(rp.id) as n, min(rp.created_at) as at
+      from public.community_reviews r
+      join public.community_review_reports rp on rp.review_id = r.id and rp.resolved_at is null
+     group by r.id
+     order by (r.status = 'hidden') desc, count(rp.id) desc, min(rp.created_at)
+     limit least(greatest(coalesce(p_limit, 50), 1), 200)) s
+$$;

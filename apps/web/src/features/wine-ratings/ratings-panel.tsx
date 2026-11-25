@@ -9,8 +9,10 @@ import {
   REPORT_REASONS,
   REVIEW_BODY_MAX,
   selectRatings,
+  starRowOf,
   starRows,
   type CommunityReview,
+  type MyReview,
   type ReportReason,
   type ReviewFilter,
   type VintageFilter,
@@ -93,6 +95,8 @@ export function RatingsPanel({
     () => (data ? selectRatings(data, vintage, reviewFilter) : null),
     [data, vintage, reviewFilter],
   );
+  if (enabled && ratings.isPending)
+    return <div aria-hidden="true" className="my-8 h-56 animate-pulse rounded-card bg-raised" />;
   if (!enabled || !data || !data.available || !selection) return null;
 
   const one = new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -112,7 +116,7 @@ export function RatingsPanel({
   if (!years.some((y) => vintageKey(y) === vintageKey(initialVintage)))
     years.splice(1, 0, initialVintage);
   const shownReviews = selection.reviews.filter(
-    (r) => starFilter === null || Math.min(5, Math.max(1, Math.ceil(r.score / 2))) === starFilter,
+    (r) => starFilter === null || starRowOf(r.score) === starFilter,
   );
   const publishable = myTastings.filter(
     (x) =>
@@ -172,7 +176,9 @@ export function RatingsPanel({
           <p className="mt-1 text-small text-ink-2">
             {vintage === "all"
               ? t("emptyBodyAll")
-              : t("emptyBody", { vintage: vintageLabel(vintage) })}
+              : t("emptyBody", {
+                  vintage: vintage === "nv" ? t("thisNv") : t("theYear", { year: String(vintage) }),
+                })}
           </p>
           {canPublish && (
             <Button className="mt-4" size="sm" onClick={() => setPublishing(true)}>
@@ -228,25 +234,14 @@ export function RatingsPanel({
             />
           </dl>
 
-          {/* the distribution: tap a row to read the reviews with that many stars */}
+          {/* the distribution; with community reviews on, a row filters the reviews to that many stars */}
           <div className="mt-5" role="group" aria-label={t("distribution")}>
             {[5, 4, 3, 2, 1].map((star) => {
               const n = rows[star - 1] ?? 0;
               const pressed = starFilter === star;
-              return (
-                <button
-                  key={star}
-                  type="button"
-                  aria-pressed={pressed}
-                  aria-label={t("rowLabel", { star, count: n, formatted: whole.format(n) })}
-                  onClick={() => setStarFilter(pressed ? null : star)}
-                  disabled={n === 0}
-                  className={cn(
-                    "grid w-full grid-cols-[2.25rem_1fr_3.5rem] items-center gap-3 rounded-md px-1 py-1.5 text-left",
-                    "transition-colors hover:bg-raised disabled:opacity-50",
-                    pressed && "bg-raised",
-                  )}
-                >
+              const label = t("rowLabel", { star, count: n, formatted: whole.format(n) });
+              const inner = (
+                <>
                   <span className="text-small text-ink-2 tnum">{star}★</span>
                   <span className="h-2 overflow-hidden rounded-full bg-raised ring-1 ring-hairline">
                     <span
@@ -254,8 +249,31 @@ export function RatingsPanel({
                       style={{ width: `${Math.round((n / maxRow) * 100)}%` }}
                     />
                   </span>
-                  <span className="text-right text-small text-ink-3 tnum">{whole.format(n)}</span>
+                  <span className="text-right text-small text-ink-2 tnum">{whole.format(n)}</span>
+                </>
+              );
+              const grid =
+                "grid min-h-11 w-full grid-cols-[2.25rem_1fr_3.5rem] items-center gap-3 rounded-md px-1 py-1.5 text-left";
+              return communityEnabled ? (
+                <button
+                  key={star}
+                  type="button"
+                  aria-pressed={pressed}
+                  aria-label={label}
+                  onClick={() => setStarFilter(pressed ? null : star)}
+                  disabled={n === 0}
+                  className={cn(
+                    grid,
+                    "transition-colors hover:bg-raised disabled:opacity-50",
+                    pressed && "bg-raised",
+                  )}
+                >
+                  {inner}
                 </button>
+              ) : (
+                <div key={star} className={grid} role="img" aria-label={label}>
+                  {inner}
+                </div>
               );
             })}
           </div>
@@ -268,7 +286,12 @@ export function RatingsPanel({
             <h3 className="font-serif text-body-lg text-ink">{t("reviewsTitle")}</h3>
             {canPublish && score.combined !== null && (
               <Button size="sm" variant="secondary" onClick={() => setPublishing(true)}>
-                {t("share")}
+                {data.reviews.some(
+                  (r) =>
+                    r.mine && (vintage === "all" || r.year === (vintage === "nv" ? null : vintage)),
+                )
+                  ? t("edit")
+                  : t("share")}
               </Button>
             )}
           </div>
@@ -284,14 +307,23 @@ export function RatingsPanel({
               </Chip>
             ))}
             {starFilter !== null && (
-              <Chip selected onClick={() => setStarFilter(null)} aria-label={t("clearStars")}>
+              <Chip
+                selected
+                aria-pressed={undefined}
+                onClick={() => setStarFilter(null)}
+                aria-label={t("clearStars")}
+              >
                 {t("starsChip", { star: starFilter })} ×
               </Chip>
             )}
           </div>
           {shownReviews.length === 0 ? (
             <p className="rounded-card bg-surface p-4 text-small text-ink-2 ring-1 ring-hairline">
-              {reviewFilter === "mine" ? t("noneMine") : t("noneYet")}
+              {reviewFilter === "mine"
+                ? t("noneMine")
+                : starFilter !== null
+                  ? t("noneStars", { star: starFilter })
+                  : t("noneYet")}
             </p>
           ) : (
             <ul className="flex flex-col divide-y divide-hairline" data-testid="reviews">
@@ -381,6 +413,7 @@ function ReviewItem({
         { tone: "error" },
       ),
   });
+  const [confirming, setConfirming] = useState(false);
   const stars = review.score / 2;
   const date = new Intl.DateTimeFormat(locale, {
     month: "short",
@@ -411,20 +444,39 @@ function ReviewItem({
       {review.body && (
         <p className="mt-1.5 whitespace-pre-line break-words text-body text-ink-2">{review.body}</p>
       )}
-      <div className="mt-1.5 flex gap-3">
+      <div className="mt-1 flex gap-2">
         {review.mine ? (
-          <button
-            type="button"
-            className="text-[0.75rem] text-danger underline-offset-4 hover:underline"
-            onClick={() => remove.mutate()}
-            disabled={remove.isPending}
-          >
-            {t("remove")}
-          </button>
+          confirming ? (
+            <>
+              <button
+                type="button"
+                className="-mx-2 min-h-11 px-2 text-small font-medium text-danger"
+                onClick={() => remove.mutate()}
+                disabled={remove.isPending}
+              >
+                {t("removeConfirm")}
+              </button>
+              <button
+                type="button"
+                className="min-h-11 px-2 text-small text-ink-2"
+                onClick={() => setConfirming(false)}
+              >
+                {t("keep")}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="-mx-2 min-h-11 px-2 text-small text-danger"
+              onClick={() => setConfirming(true)}
+            >
+              {t("remove")}
+            </button>
+          )
         ) : (
           <button
             type="button"
-            className="text-[0.75rem] text-ink-3 underline-offset-4 hover:underline"
+            className="-mx-2 min-h-11 px-2 text-small text-ink-2"
             onClick={onReport}
           >
             {t("report")}
@@ -446,11 +498,26 @@ function PublishSheet({
 }) {
   const t = useTranslations("ratingsPanel");
   const te = useTranslations();
+  const locale = useLocale();
   const toast = useToast();
   const qc = useQueryClient();
   const [tastingId, setTastingId] = useState(tastings[0]?.id ?? "");
   const [body, setBody] = useState("");
   const [consent, setConsent] = useState(false);
+  // the person's existing review of this tasting: its text is loaded, so publishing again never wipes it
+  const mine = useQuery({
+    queryKey: ["my-review", tastingId],
+    queryFn: () => api.get<{ review: MyReview }>(`/tastings/${tastingId}/review`),
+    enabled: tastingId !== "",
+    staleTime: 0,
+    retry: false,
+  });
+  const existing = mine.data?.review ?? null;
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  if (mine.data && loadedFor !== tastingId) {
+    setLoadedFor(tastingId);
+    setBody(existing?.body ?? "");
+  }
   const [error, setError] = useState<string | null>(null);
   const chosen = tastings.find((x) => x.id === tastingId) ?? tastings[0];
   const publish = useMutation({
@@ -459,12 +526,18 @@ function PublishSheet({
     onSuccess: (r) => {
       toast.show(r.status === "updated" ? t("updated") : t("published"));
       void qc.invalidateQueries({ queryKey: ["ratings", subject.kind, subject.id] });
+      void qc.invalidateQueries({ queryKey: ["my-review"] });
       onClose();
     },
     onError: (e) => setError(errorMessage(e, (k) => te(k), ERROR_MESSAGES)),
   });
   return (
-    <Sheet open onClose={onClose} title={t("publishTitle")} description={t("publishBody")}>
+    <Sheet
+      open
+      onClose={onClose}
+      title={existing ? t("editTitle") : t("publishTitle")}
+      description={t("publishBody")}
+    >
       <form
         className="flex flex-col gap-4"
         onSubmit={(e) => {
@@ -476,7 +549,11 @@ function PublishSheet({
           <div role="group" aria-label={t("whichTasting")} className="flex flex-wrap gap-2">
             {tastings.map((x) => (
               <Chip key={x.id} selected={x.id === tastingId} onClick={() => setTastingId(x.id)}>
-                {x.year ?? t("nv")} · {((x.score ?? 0) / 2).toLocaleString()}★
+                {x.year ?? t("nv")} ·{" "}
+                {new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(
+                  (x.score ?? 0) / 2,
+                )}
+                ★
               </Chip>
             ))}
           </div>
@@ -512,8 +589,13 @@ function PublishSheet({
             {error}
           </p>
         )}
-        <Button type="submit" block disabled={!consent || !chosen} loading={publish.isPending}>
-          {t("publish")}
+        <Button
+          type="submit"
+          block
+          disabled={!consent || !chosen || mine.isPending}
+          loading={publish.isPending}
+        >
+          {existing ? t("saveChanges") : t("publish")}
         </Button>
       </form>
     </Sheet>
@@ -546,6 +628,7 @@ function ReportSheet({ review, onClose }: { review: CommunityReview; onClose: ()
               key={r}
               role="radio"
               aria-checked={reason === r}
+              aria-pressed={undefined}
               selected={reason === r}
               onClick={() => setReason(r)}
             >

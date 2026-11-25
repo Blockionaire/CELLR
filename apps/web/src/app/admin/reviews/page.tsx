@@ -60,6 +60,7 @@ export default async function AdminReviewsPage({
                     {date(q.publishedAt)}
                   </span>
                 </div>
+                <p className="mt-2 text-small font-medium text-ink">{q.wine ?? "(wine unknown)"}</p>
                 <p className="mt-2 whitespace-pre-line text-body text-ink">
                   {q.body ?? "(no text)"}
                 </p>
@@ -69,6 +70,7 @@ export default async function AdminReviewsPage({
                 >
                   <input type="hidden" name="reviewId" value={q.reviewId} />
                   <input
+                    aria-label="Reason (logged)"
                     name="reason"
                     required
                     minLength={3}

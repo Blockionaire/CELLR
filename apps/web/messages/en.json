@@ -915,8 +915,7 @@
     "spotPickBody": "Tap a free spot.",
     "spotAuto": "Let CELLR choose",
     "firstAt": "The first is on {spot}.",
-    "recordNotice": "These details come from {provider}, an external source that CELLR has not verified. Check them before you continue; the wine is added as your own.",
-    "recordRatings": "See this wine's ratings and reviews"
+    "recordNotice": "These details come from {provider}, an external source that CELLR has not verified. Check them before you continue; the wine is added as your own."
   },
   "newPlace": {
     "title": "A place for your bottles",
@@ -2887,7 +2886,7 @@
     "allVintages": "All vintages",
     "nv": "NV",
     "emptyTitle": "No ratings yet",
-    "emptyBody": "Nobody has rated the {vintage} yet.",
+    "emptyBody": "Nobody has rated {vintage} yet.",
     "emptyBodyAll": "Nobody has rated this wine yet.",
     "beFirst": "Be the first to share yours",
     "cellrScore": "CELLR score",
@@ -2897,7 +2896,7 @@
     "community": "CELLR community",
     "count": "{count, plural, one {# rating} other {{formatted} ratings}}",
     "distribution": "How the ratings are spread",
-    "rowLabel": "{star} stars: {count, plural, one {# rating} other {{formatted} ratings}}",
+    "rowLabel": "{star, plural, one {# star} other {# stars}}: {count, plural, one {# rating} other {{formatted} ratings}}",
     "reviewsTitle": "Reviews from the CELLR community",
     "share": "Share your review",
     "reviewFilter": "Show",
@@ -2943,13 +2942,21 @@
       "other": "Something else"
     },
     "sendReport": "Send report",
-    "reported": "Thanks. We'll take a look."
+    "reported": "Thanks. We'll take a look.",
+    "noneStars": "No CELLR reviews with {star}★ here.",
+    "edit": "Edit your review",
+    "editTitle": "Edit your review",
+    "saveChanges": "Save changes",
+    "removeConfirm": "Yes, remove it",
+    "keep": "Keep it",
+    "thisNv": "this NV",
+    "theYear": "the {year}"
   },
   "aboutRatings": {
     "title": "Ratings and sources",
     "intro": "Where CELLR's ratings come from, and how the CELLR score is calculated.",
     "methodTitle": "The CELLR score",
-    "method1": "External ratings count once each, up to 50 per wine and vintage: a famous wine's thousands of ratings don't drown out everyone else.",
+    "method1": "External ratings count once each, up to 50 in what you are looking at (one vintage, or all of them together): a famous wine's thousands of ratings don't drown out everyone else.",
     "method2": "Every review from the CELLR community counts five times. With ten CELLR reviews, the community weighs as much as any number of external ratings.",
     "method3": "A CELLR score of 1–10 is shown as stars: half the score (9 = 4.5 stars).",
     "method4": "Vintages are never mixed: 2019 is rated as 2019, NV as NV. 'All vintages' adds the real numbers together.",
@@ -2968,6 +2975,7 @@
     "from": "From the catalogue",
     "vintages": "Vintages",
     "modified": "Names normalised by CELLR",
-    "notFound": "This wine isn't in the catalogue."
+    "notFound": "This wine isn't in the catalogue.",
+    "nv": "NV"
   }
 }

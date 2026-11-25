@@ -2,7 +2,6 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import type {
   AddBottlesResult,
   CatalogRecordPage,
@@ -18,6 +17,7 @@ import { BottleDetails } from "./bottle-details";
 import { ChooseWine } from "./choose-wine";
 import { useForgetWish } from "@/features/wishlist/hooks";
 import { useWines } from "./hooks";
+import { RatingsPanel } from "@/features/wine-ratings/ratings-panel";
 import { draftOfRecord, draftOfRecordPage, NewWineForm, type NewWineDraft } from "./new-wine-form";
 
 type Step = "choose" | "new" | "details" | "done";
@@ -158,16 +158,9 @@ export function AddBottleFlow({
             onCreated={pick}
           />
         )}
+        {/* the record's ratings, right here: looking at them never leaves the form */}
         {step === "new" && catalogRatings && fromRecord?.draft.recordId && (
-          <p className="mt-3 text-center">
-            <Link
-              href={`/catalog/${fromRecord.draft.recordId}`}
-              className="text-small font-medium text-accent-fg underline-offset-4 hover:underline"
-              data-testid="record-ratings-link"
-            >
-              {t("recordRatings")}
-            </Link>
-          </p>
+          <RatingsPanel subject={{ kind: "record", id: fromRecord.draft.recordId }} enabled />
         )}
         {step === "details" && wine && (
           <BottleDetails

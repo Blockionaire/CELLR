@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { isDomainError } from "@cellr/domain";
@@ -9,7 +10,8 @@ import { servicesFor } from "@/server/services";
 
 type Props = { params: Promise<{ recordId: string }> };
 
-async function load(recordId: string) {
+// once per request: the metadata and the page share the answer
+const load = cache(async (recordId: string) => {
   if (!getFeatures().catalog_ratings || !z.uuid().safeParse(recordId).success) notFound();
   const ctx = await getPageContext();
   if (!ctx) redirect("/sign-in");
@@ -19,7 +21,7 @@ async function load(recordId: string) {
     if (isDomainError(error) && error.code === "NOT_FOUND") notFound();
     throw error;
   }
-}
+});
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const r = await load((await params).recordId);

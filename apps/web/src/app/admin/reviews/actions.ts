@@ -28,13 +28,19 @@ export async function moderateReviewAction(form: FormData) {
     reason: String(form.get("reason") ?? ""),
   });
   if (!parsed.success) return back("Not saved: a reason of at least three characters is needed.");
+  // The outcome first, the redirect after: `back()` redirects by throwing, and inside the `try` that redirect would
+  // be caught as a failure (the same bug /admin/sources had; found by the independent review of PR 3).
+  let outcome: string;
   try {
     const r = await adminReviews.moderate(session, parsed.data);
-    if (r === "missing")
-      return back("Not saved: the database step for reviews has not been run yet.");
-    if (r === null) return back("Not saved: no service role on the server.");
-    return back(`Saved: the review is ${r.status}.`);
+    outcome =
+      r === "missing"
+        ? "Not saved: the database step for reviews has not been run yet."
+        : r === null
+          ? "Not saved: no service role on the server."
+          : `Saved: the review is ${r.status}.`;
   } catch {
-    return back("Not saved: the review could not be changed (its tasting may be gone).");
+    outcome = "Not saved: the review could not be changed (its tasting may be gone).";
   }
+  return back(outcome);
 }

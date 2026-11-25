@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cellrBucket,
+  starRowOf,
   cellrScoreToStars,
   poolExternal,
   ratingScore,
@@ -98,5 +99,26 @@ describe("helpers", () => {
     expect(cellrBucket(1)).toBe(0);
     expect(cellrBucket(8.4)).toBe(7);
     expect(cellrBucket(9)).toBe(8);
+  });
+  it("a score's star row is the row the distribution counts it in", () => {
+    const cases: Array<[number, number]> = [
+      [1, 1],
+      [2, 1],
+      [2.2, 1],
+      [3, 2],
+      [7, 4],
+      [7.4, 4],
+      [8, 4],
+      [8.4, 4],
+      [9, 5],
+      [10, 5],
+    ];
+    for (const [score, row] of cases) expect(starRowOf(score), String(score)).toBe(row);
+    for (let tenths = 10; tenths <= 100; tenths += 2) {
+      const score = tenths / 10;
+      const dist = Array(10).fill(0);
+      dist[cellrBucket(score)] = 1;
+      expect(starRows(dist)[starRowOf(score) - 1], String(score)).toBe(1);
+    }
   });
 });

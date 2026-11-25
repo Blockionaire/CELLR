@@ -42,7 +42,7 @@ export function RecordScreen({
           <span className="font-medium text-ink">{t("vintages")}:</span>{" "}
           {vintages.slice(0, 24).join(", ")}
           {vintages.length > 24 ? " …" : ""}
-          {record.nonVintage ? " · NV" : ""}
+          {record.nonVintage ? ` · ${t("nv")}` : ""}
         </p>
       )}
       <Link
