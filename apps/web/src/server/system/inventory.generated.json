@@ -911,6 +911,7 @@
     { "from": "server/smart-cellar/", "to": "lib/smart-cellar-placement-gate.ts" },
     { "from": "server/smart-cellar/", "to": "server/cellar/" },
     { "from": "server/smart-cellar/", "to": "server/db/" },
+    { "from": "server/smart-cellar/", "to": "server/log.ts" },
     { "from": "server/sommelier/", "to": "server/ai/" },
     { "from": "server/sommelier/", "to": "server/db/" },
     { "from": "server/taste/", "to": "server/db/" },

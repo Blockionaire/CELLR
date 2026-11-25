@@ -299,6 +299,50 @@ test("the camera turns and zooms, within limits, and a drag is not a tap", async
   expect(Number(await canvas.getAttribute("data-distance"))).toBeGreaterThan(far * 0.2);
 });
 
+// Sprint 10: zoomed in as far as it went, the camera of a small place on a wide screen stood inside its front.
+for (const query of [
+  "template=rack_classic&rows=1&cols=1&fill=full",
+  "template=cabinet_closed&fill=full",
+  "template=crate_storage&rows=1&cols=1&fill=full",
+])
+  test(`zoomed in as far as it goes, straight on and at a slant, the camera stays out of the furniture (${query.split("&")[0]})`, async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(isMobile, "mouse wheel; a pinch is the same controls");
+    test.setTimeout(120_000);
+    await show(page, query);
+    const canvas = canvasOf(page);
+    const box = (await canvas.boundingBox())!;
+    const [cx, cy] = [box.x + box.width / 2, box.y + box.height / 2];
+    const camera = () =>
+      page.evaluate(() =>
+        (
+          window as unknown as {
+            __cellrStorage3d: { camera(): { position: number[]; inside: boolean } };
+          }
+        ).__cellrStorage3d.camera(),
+      );
+    const zoomIn = async () => {
+      await page.mouse.move(cx, cy);
+      for (let i = 0; i < 14; i++) await page.mouse.wheel(0, -2000);
+      await page.waitForTimeout(700);
+    };
+    await zoomIn();
+    expect((await camera()).inside, "straight on").toBe(false);
+    // turned as far as it goes to one side and down, then in again
+    for (let i = 0; i < 3; i++) {
+      await page.mouse.move(cx, cy);
+      await page.mouse.down();
+      await page.mouse.move(cx - 500, cy - 300, { steps: 3 });
+      await page.mouse.up();
+    }
+    await zoomIn();
+    expect((await camera()).inside, "at a slant").toBe(false);
+    // and it still came closer than it started
+    expect(Number(await canvas.getAttribute("data-distance"))).toBeGreaterThan(0);
+  });
+
 test("changing template gives back what the last one took", async ({ page }) => {
   test.setTimeout(180_000);
   await show(page, "template=rack_classic");
@@ -396,6 +440,53 @@ test("when the browser takes the graphics memory back, the gallery says so and c
   await expect(page.getByRole("grid")).toBeVisible();
   await page.getByRole("button", { name: "Show 3D again" }).click();
   await expect(canvasOf(page)).toHaveAttribute("data-frames", /^[1-9]/, { timeout: 30_000 });
+});
+
+test("lost and given back five times over: the notice each time, then the same picture holding the same resources", async ({
+  page,
+  hasTouch,
+}) => {
+  test.setTimeout(240_000);
+  await show(page, "template=rack_classic&rows=6&cols=8&fill=partial");
+  const lose = () =>
+    page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        '[data-testid="gallery-stage"] canvas[data-engine]',
+      )!;
+      (canvas.getContext("webgl2") ?? canvas.getContext("webgl"))!
+        .getExtension("WEBGL_lose_context")!
+        .loseContext();
+    });
+  const held = async () => ({
+    geometries: await num(page, "geometries"),
+    textures: await num(page, "textures"),
+    programs: await num(page, "programs"),
+    bottles: await num(page, "bottles"),
+    // one 3D view, never one left behind by an earlier round (the gallery's flat picture draws no canvas)
+    canvases: await page.locator('[data-testid="gallery-stage"] canvas[data-engine]').count(),
+  });
+  const rounds: Array<Awaited<ReturnType<typeof held>>> = [];
+  for (let round = 0; round < 5; round++) {
+    await lose();
+    await expect(page.getByText("The browser took the graphics memory back.")).toBeVisible();
+    // meanwhile the flat picture is complete: every spot of the place is there to choose from
+    await expect(page.getByRole("grid").getByRole("button")).toHaveCount(48);
+    await expect(canvasOf(page)).toHaveCount(0);
+    await page.getByRole("button", { name: "Show 3D again" }).click();
+    await expect(canvasOf(page)).toHaveAttribute("data-frames", /^[1-9]/, { timeout: 60_000 });
+    await expect(canvasOf(page)).toHaveAttribute("data-prewarmed", /^\d+$/, { timeout: 60_000 });
+    await page.waitForTimeout(300);
+    rounds.push(await held());
+  }
+  // built once a round, the same every round: nothing piles up across losses
+  for (const r of rounds) expect(r).toEqual(rounds[0]);
+  expect(rounds[0]!.canvases).toBe(1);
+  // and the view still answers a tap after the last one
+  const ids = await bottleIds(page);
+  await tap(page, await whereIs(page, ids[0]!), hasTouch);
+  await expect(storageOf(page)).toHaveAttribute("data-showcase-bottle", ids[0]!, {
+    timeout: 30_000,
+  });
 });
 
 test("fits a narrow phone: the page does not scroll sideways, a wide place scrolls in its own box", async ({

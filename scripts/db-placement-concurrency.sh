@@ -40,6 +40,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=lib/temp-cluster.sh
 source "$ROOT/scripts/lib/temp-cluster.sh"
+# shellcheck source=lib/session-order.sh
+source "$ROOT/scripts/lib/session-order.sh"
 OUT="$(mktemp -d)"
 cleanup() { stop_temp_cluster; rm -rf "$OUT"; }
 trap cleanup EXIT
@@ -50,8 +52,18 @@ su() { psql "$PGURL" -X -qtA -v ON_ERROR_STOP=1 -c "$1"; }
 # script: the answer (or the error) is what is looked at.
 as() { psql "$PGURL" -X -qtA -c "begin; select test.as_user($1); $2; commit;" 2>&1 | grep -v '^$' || true; }
 # The same, but holding the transaction open for a moment before it commits.
-as_slow() { psql "$PGURL" -X -qtA -c "begin; select test.as_user($1); $2; select pg_sleep(0.7); commit;" 2>&1 | grep -v '^$' || true; }
 ok() { ! grep -q 'ERROR' "$1"; }
+# order U1 "SQL1" OUT1 U2 "SQL2" OUT2: SQL1 runs first and holds its transaction open (at the gate) until SQL2 has
+# started and is either waiting for a lock or done; then SQL1 commits. No fixed sleep (scripts/lib/session-order.sh).
+order() {
+  gate_close
+  held "$1" "$2" >"$3" & local h=$!
+  parked "$h"
+  PGAPPNAME=cellr_second as "$4" "$5" >"$6" & local s=$!
+  blocked_or_done "$s"
+  gate_open
+  wait "$h" "$s"
+}
 
 setup() {   # a household with two members, a wine, a cellar; prints nothing
   psql "$PGURL" -X -q -v ON_ERROR_STOP=1 -f "$ROOT/supabase/tests/_framework.sql" >/dev/null 2>&1
@@ -80,10 +92,8 @@ for f in "$ROOT"/supabase/migrations/*.sql; do
 done
 setup
 L=$(place 'Old rack' '' '5, 4')
-as_slow 1 "insert into public.bottles (household_id, vintage_id, location_id, loc_row, loc_col) values ('$H', '$V', '$L', 5, 1)" >"$OUT/c-a" &
-sleep 0.25
-as 2 "update public.cellar_locations set grid_rows = 4 where id = '$L'" >"$OUT/c-b"
-wait
+order 1 "insert into public.bottles (household_id, vintage_id, location_id, loc_row, loc_col) values ('$H', '$V', '$L', 5, 1)" "$OUT/c-a" \
+      2 "update public.cellar_locations set grid_rows = 4 where id = '$L'" "$OUT/c-b"
 if [ "$(outside)" = 1 ]; then
   echo "• control (before 0043): a placement and a shrink both succeeded, and a bottle is outside its place: the race is real"
 else
@@ -119,13 +129,13 @@ echo "• 20 sessions on one whole spot: 1 placed, 19 refused; the same for one 
 duel() {   # $1 label · $2 the placement · $3 the resize · $4 how to undo the resize
   local label="$1" put="$2" shrink="$3" undo="$4"
   # the placement first, held open; the resize must wait for it and then be refused
-  as_slow 1 "$put" >"$OUT/d-a" & sleep 0.25; as 2 "$shrink" >"$OUT/d-b"; wait
+  order 1 "$put" "$OUT/d-a" 2 "$shrink" "$OUT/d-b"
   ok "$OUT/d-a" || fail "$label: the placement that came first failed: $(cat "$OUT/d-a")"
   grep -q 'location_in_use' "$OUT/d-b" || fail "$label: a resize after a placement was not refused: $(cat "$OUT/d-b")"
   [ "$(outside)" = 0 ] || fail "$label: a bottle is outside its place"
   su "delete from public.bottles where location_id = '$DEEP' and loc_row >= 5 or (location_id = '$DEEP' and loc_col >= 4) or (location_id = '$DEEP' and loc_index = 2 and loc_row = 3)" >/dev/null
   # the resize first, held open; the placement must wait for it and then be refused
-  as_slow 2 "$shrink" >"$OUT/d-b" & sleep 0.25; as 1 "$put" >"$OUT/d-a"; wait
+  order 2 "$shrink" "$OUT/d-b" 1 "$put" "$OUT/d-a"
   ok "$OUT/d-b" || fail "$label: the resize that came first failed: $(cat "$OUT/d-b")"
   grep -q 'slot_out_of_bounds' "$OUT/d-a" || fail "$label: a placement after a resize was not refused: $(cat "$OUT/d-a")"
   [ "$(outside)" = 0 ] || fail "$label: a bottle is outside its place"
@@ -161,13 +171,13 @@ COOLER=$(place 'Cooler' ', kind, template, slot_semantics' "8, 5, 'fridge', 'coo
 zones_ok() { su "select private.zones_split_ok(id) from public.cellar_locations where id = '$COOLER'"; }
 Z="insert into public.cellar_location_zones (location_id, household_id, zone_index, from_row, to_row, purpose, target_temp_c) values ('$COOLER', '$H', 1, 1, 4, 'serving', 8), ('$COOLER', '$H', 2, 5, 8, 'storage', 12)"
 # zones for 8 shelves first, held open; fewer shelves must wait and then be refused at commit
-as_slow 1 "$Z" >"$OUT/z-a" & sleep 0.25; as 2 "update public.cellar_locations set grid_rows = 6 where id = '$COOLER'" >"$OUT/z-b"; wait
+order 1 "$Z" "$OUT/z-a" 2 "update public.cellar_locations set grid_rows = 6 where id = '$COOLER'" "$OUT/z-b"
 ok "$OUT/z-a" || fail "zones that came first failed: $(cat "$OUT/z-a")"
 grep -q 'zones_not_a_split' "$OUT/z-b" || fail "fewer shelves after zones were written was not refused: $(cat "$OUT/z-b")"
 [ "$(zones_ok)" = t ] || fail "zones do not split the shelves"
 su "delete from public.cellar_location_zones where location_id = '$COOLER'" >/dev/null
 # fewer shelves first, held open; zones for 8 shelves must wait and then be refused at commit
-as_slow 2 "update public.cellar_locations set grid_rows = 6 where id = '$COOLER'" >"$OUT/z-b" & sleep 0.25; as 1 "$Z" >"$OUT/z-a"; wait
+order 2 "update public.cellar_locations set grid_rows = 6 where id = '$COOLER'" "$OUT/z-b" 1 "$Z" "$OUT/z-a"
 ok "$OUT/z-b" || fail "the resize that came first failed: $(cat "$OUT/z-b")"
 grep -q 'zones_not_a_split' "$OUT/z-a" || fail "zones for shelves that are gone were not refused: $(cat "$OUT/z-a")"
 [ "$(zones_ok)" = t ] || fail "zones do not split the shelves"
@@ -246,7 +256,7 @@ echo "• 20 saves of a shallower layout racing a placement at the back: never a
 ZSAVE() {   # $1 = where the upper zone ends
   echo "select public.save_storage_layout('$H', '$COOLER', 'fridge', 'cooler_dual', 'depth', 8::smallint, 5::smallint, 1::smallint, null, '[{\"from_row\":1,\"to_row\":$1,\"purpose\":\"serving\",\"target_temp_c\":7},{\"from_row\":$(($1 + 1)),\"to_row\":8,\"purpose\":\"storage\",\"target_temp_c\":12}]')"
 }
-HOLD_PLACE="select 1 from public.cellar_locations where id = '$COOLER' for no key update; select pg_sleep(0.7)"
+HOLD_PLACE="select 1 from public.cellar_locations where id = '$COOLER' for no key update"
 zone1() { su "select id from public.cellar_location_zones where location_id = '$COOLER' and zone_index = 1"; }
 direct() {   # $1 = update | delete: one statement on existing zone rows, as a client writing the table directly
   if [ "$1" = update ]; then echo "update public.cellar_location_zones set target_temp_c = 9 where id = '$(zone1)'"
@@ -257,10 +267,13 @@ zone_duel() {   # $1 = update | delete · $2 = file prefix · returns nothing; l
   as 1 "$(ZSAVE 4)" >/dev/null                                     # two zones to work on
   local w; w="$(direct "$1")"
   # the save has the place and has not reached the zones yet; the direct write takes the zone and needs the place
-  psql "$PGURL" -X -qtA -c "begin; select test.as_user(2); $HOLD_PLACE; $(ZSAVE 3); commit;" >"$2-b" 2>&1 &
-  sleep 0.25
-  local t0; t0=$(date +%s%N); as 1 "$w" >"$2-a"; echo "$(ms "$t0")" >"$2-ms"
-  wait
+  gate_close
+  held 2 "$HOLD_PLACE" "$(ZSAVE 3)" >"$2-b" & local h=$!
+  parked "$h"
+  ( t0=$(date +%s%N); PGAPPNAME=cellr_second as 1 "$w" >"$2-a"; echo "$(ms "$t0")" >"$2-ms" ) & local s=$!
+  blocked_or_done "$s"
+  gate_open
+  wait "$h" "$s"
 }
 for what in update delete; do
   zone_duel "$what" "$OUT/zd-$what"
@@ -272,7 +285,7 @@ for what in update delete; do
   [ "$(su "select to_row from public.cellar_location_zones where location_id = '$COOLER' and zone_index = 1")" = 3 ] || fail "the save's zones are not what is stored"
   # the other order: the direct write first, held open; the save waits for it and then goes through
   as 1 "$(ZSAVE 4)" >/dev/null
-  as_slow 1 "$(direct "$what")" >"$OUT/zr-$what-a" & sleep 0.25; as 2 "$(ZSAVE 2)" >"$OUT/zr-$what-b"; wait
+  order 1 "$(direct "$what")" "$OUT/zr-$what-a" 2 "$(ZSAVE 2)" "$OUT/zr-$what-b"
   ok "$OUT/zr-$what-a" || fail "a direct $what that came first failed: $(cat "$OUT/zr-$what-a")"
   grep -q '^saved$' "$OUT/zr-$what-b" || fail "a save after a direct $what did not go through: $(cat "$OUT/zr-$what-b")"
   [ "$(zones_ok)" = t ] || fail "zones do not split the shelves"
@@ -295,17 +308,18 @@ echo "• 40 direct zone writes racing 40 saves, nothing held back: every save w
 
 # the remedy for 'zone_place_busy': try again
 as 1 "$(ZSAVE 4)" >/dev/null
-psql "$PGURL" -X -qtA -c "begin; select test.as_user(2); $HOLD_PLACE; commit;" >/dev/null 2>&1 &
-sleep 0.25
+gate_close
+held 2 "$HOLD_PLACE" >/dev/null & HELD_PID=$!
+parked "$HELD_PID"
 tries=0; w="$(direct update)"
 while :; do
   tries=$((tries + 1)); as 1 "$w" >"$OUT/zt"
   ok "$OUT/zt" && break
   grep -q 'zone_place_busy' "$OUT/zt" || fail "a retried direct update answered something else: $(cat "$OUT/zt")"
   [ "$tries" -lt 10 ] || fail "a direct update was still refused after 10 tries"
-  sleep 0.2
+  # the place is let go after the first refusal; the writer then tries again
+  if [ "$tries" = 1 ]; then gate_open; wait "$HELD_PID"; fi
 done
-wait
 [ "$tries" -gt 1 ] || fail "the retry test did not meet a busy place at all"
 [ "$(su "select target_temp_c from public.cellar_location_zones where location_id = '$COOLER' and zone_index = 1")" = 9.0 ] || fail "the retried update is not what is stored"
 echo "• a writer that tries again after 'zone_place_busy' gets through (here on try $tries)"
@@ -315,16 +329,16 @@ GONE=$(place 'Gone' ', kind, template, slot_semantics' "8, 5, 'fridge', 'cooler_
 su "insert into public.cellar_location_zones (location_id, household_id, zone_index, from_row, to_row, purpose) values ('$GONE', '$H', 1, 1, 8, 'storage')" >/dev/null
 GZ=$(su "select id from public.cellar_location_zones where location_id = '$GONE'")
 # the delete of the place first, held open: the direct update waits for the zone row and then finds nothing
-as_slow 1 "delete from public.cellar_locations where id = '$GONE'" >"$OUT/g-a" & sleep 0.25
-as 2 "update public.cellar_location_zones set target_temp_c = 5 where id = '$GZ' returning 'updated'" >"$OUT/g-b"; wait
+order 1 "delete from public.cellar_locations where id = '$GONE'" "$OUT/g-a" \
+      2 "update public.cellar_location_zones set target_temp_c = 5 where id = '$GZ' returning 'updated'" "$OUT/g-b"
 ok "$OUT/g-a" && ok "$OUT/g-b" || fail "deleting a place against a direct zone update: $(cat "$OUT/g-a" "$OUT/g-b")"
 [ "$(su "select count(*) from public.cellar_location_zones where id = '$GZ'")" = 0 ] || fail "a zone outlived its place"
 GONE=$(place 'Gone 2' ', kind, template, slot_semantics' "8, 5, 'fridge', 'cooler_dual', 'depth'")
 su "insert into public.cellar_location_zones (location_id, household_id, zone_index, from_row, to_row, purpose) values ('$GONE', '$H', 1, 1, 8, 'storage')" >/dev/null
 GZ=$(su "select id from public.cellar_location_zones where location_id = '$GONE'")
 # the direct update first, held open: the delete of the place waits for it
-as_slow 2 "update public.cellar_location_zones set target_temp_c = 5 where id = '$GZ'" >"$OUT/g-b" & sleep 0.25
-as 1 "delete from public.cellar_locations where id = '$GONE'" >"$OUT/g-a"; wait
+order 2 "update public.cellar_location_zones set target_temp_c = 5 where id = '$GZ'" "$OUT/g-b" \
+      1 "delete from public.cellar_locations where id = '$GONE'" "$OUT/g-a"
 ok "$OUT/g-a" && ok "$OUT/g-b" || fail "a direct zone update against deleting its place: $(cat "$OUT/g-a" "$OUT/g-b")"
 [ "$(su "select count(*) from public.cellar_locations where id = '$GONE'")" = 0 ] || fail "the place was not deleted"
 echo "• deleting a place against a direct update of one of its zones, both orders: both finish, no deadlock"

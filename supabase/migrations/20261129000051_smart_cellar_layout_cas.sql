@@ -49,6 +49,11 @@ create trigger locations_updated_moving before update on public.cellar_locations
 -- delete never waits for it, it is refused with zone_place_busy). Updating a row this transaction already holds that
 -- lock on is immediate, so nothing here ever waits for the place. Inside save_storage_layout the place is locked
 -- first, as always. When the place itself is being deleted (its zones go by cascade) there is no row left to touch.
+-- Inside save_storage_layout_v2 the place row is written by the save itself (which moves the revision once): there the
+-- zones it replaces do not touch it again (2 extra row versions per zone otherwise). _v2 says so with a transaction-
+-- local setting naming the place, set only around its own call of the save and cleared right after; no API role can
+-- set it (PostgREST exposes no way to run set_config). Any other zone write, direct or in the same transaction after
+-- the save, still touches the place.
 -- SECURITY DEFINER (a member may write zones but not updated_at); the household match keeps it to the zone's own place.
 create function private.touch_zone_location() returns trigger
   language plpgsql security definer set search_path = '' as $$
@@ -56,6 +61,7 @@ declare loc uuid; hh uuid;
 begin
   if tg_op = 'DELETE' then loc := old.location_id; hh := old.household_id;
   else loc := new.location_id; hh := new.household_id; end if;
+  if current_setting('cellr.layout_saving', true) = loc::text then return null; end if;
   update public.cellar_locations l set updated_at = l.updated_at where l.id = loc and l.household_id = hh;
   return null;
 end $$;
@@ -84,6 +90,7 @@ create function public.save_storage_layout_v2(
 ) returns text language plpgsql volatile security invoker set search_path = '' as $$
 declare
   current_at timestamptz;
+  outcome text;
 begin
   select l.updated_at into current_at
     from public.cellar_locations l
@@ -93,9 +100,13 @@ begin
   if p_expected_updated_at is not null and current_at is distinct from p_expected_updated_at then
     return 'stale';
   end if;
-  return public.save_storage_layout(
+  -- the save writes the place row itself (the revision moves once): its own zone writes need not touch it again
+  perform set_config('cellr.layout_saving', p_location::text, true);
+  outcome := public.save_storage_layout(
     p_household, p_location, p_kind, p_template, p_slot_semantics,
     p_rows, p_cols, p_cell_capacity, p_appearance, p_zones);
+  perform set_config('cellr.layout_saving', '', true);
+  return outcome;
 end $$;
 revoke all on function public.save_storage_layout_v2(uuid, uuid, public.location_kind, text, text, smallint, smallint, smallint, jsonb, jsonb, timestamptz)
   from public, anon;

@@ -400,7 +400,7 @@ describe("revisions (review corrections)", () => {
     const t1 = "2026-11-19T10:00:00.100000+00:00";
     const t2 = "2026-11-19T10:00:00.200000+00:00";
     expect(isNewerRevision(t2, t1)).toBe(true);
-    // a SMALLER time is news too: its writer may have committed last
+    // a SMALLER time is news too: without 0051 the writer that committed last may carry it
     expect(isNewerRevision(t1, t2)).toBe(true);
     expect(isNewerRevision(t1, t1)).toBe(false);
     expect(isNewerRevision(t1, null)).toBe(true);
