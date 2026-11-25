@@ -385,17 +385,16 @@ describe("the human review forms", () => {
     }
   }, 120_000);
 
-  it("the holdout templates: 40 and 60 rows, only the series' ids filled; a filled form becomes the file", () => {
-    for (const series of [1, 2] as const) {
-      const template = readFileSync(
-        new URL(`holdout-template-series${series}.csv`, REVIEW_DIR),
-        "utf8",
-      );
+  it("the holdout templates: 40 exploratory and 60 definitive rows, only the ids filled; a filled form becomes the file", () => {
+    for (const series of ["exploratory", "definitive"] as const) {
+      const template = readFileSync(new URL(`holdout-template-${series}.csv`, REVIEW_DIR), "utf8");
       const rows = parseCsv(template);
       const at = rows.findIndex((r) => r[0] === "id");
       const body = rows.slice(at + 1).filter((r) => r.length > 1);
       expect(body).toHaveLength(HOLDOUT_ROWS[series]);
-      expect(body.every((r) => r[0]!.startsWith(`hh-s${series}-`))).toBe(true);
+      expect(
+        body.every((r) => r[0]!.startsWith(series === "exploratory" ? "hh-x-" : "hh-d-")),
+      ).toBe(true);
       expect(body.every((r) => r.slice(1).every((c) => c === ""))).toBe(true);
     }
     const filled = csv([

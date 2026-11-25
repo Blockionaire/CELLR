@@ -1,6 +1,7 @@
 import {
   detectIntent,
   parseSommelierParts,
+  reconcileServingClaims,
   type CellarItem,
   type CellarView,
   type Reservation,
@@ -8,7 +9,7 @@ import {
   type TonightView,
 } from "@cellr/domain";
 import { createOpenAiProvider } from "@/server/ai/openai";
-import { priceOf } from "@/server/ai/pricing";
+import { costOf, priceOf } from "@/server/ai/pricing";
 import type { AiResult, GenerateObjectRequest, LlmProvider } from "@/server/ai/types";
 import { aggregateInventory, buildTonight } from "@/server/cellar/service";
 import { getAiEnv } from "@/server/env";
@@ -37,6 +38,7 @@ import {
   type Meter,
 } from "../paid";
 import type { SheetAnswer } from "../review-sheet";
+import { CELLAR_FACT_CODES, RunMonitor } from "../stop-rules";
 import type { Capability, Engine, EvalAnswer, Scenario, Verdict } from "../types";
 import { profileOf } from "./v3-app";
 
@@ -106,6 +108,10 @@ export interface CallRecord {
   tokensOut: number;
   /** The provider answered with a parsed answer. */
   ok: boolean;
+  /** What the call cost as the provider reported its usage, priced with pricing.ts; null when not reported. */
+  usdMicro: number | null;
+  /** The model the provider says answered. */
+  servedModel: string | null;
 }
 
 /** What the run measured about one scenario's answers beyond the benchmark's scoring. */
@@ -122,6 +128,10 @@ export interface ClaimsRecord {
   /** The check's outcome of the last answer; null without the part. */
   check: "kept" | "trimmed" | "replaced" | null;
   removed: number;
+  /** With `annotate`: what the serving reconciliation did to the last answer (servingCheck); null without it. */
+  serving: "kept" | "trimmed" | "replaced" | null;
+  /** Serving claims still found in the SHOWN words (must be none: a stop rule). */
+  shownServing: string[];
   calls: CallRecord[];
 }
 
@@ -135,6 +145,8 @@ export interface V1PlusAiRun {
   records: Map<string, ClaimsRecord>;
   /** Every answer's sentences, for the review sheets (readable sets only). */
   sheet: SheetAnswer[];
+  /** The stop rules watched during a paid run (stop-rules.ts). */
+  monitor: RunMonitor;
 }
 
 const label = (parts: string) => (parts === "" ? "none" : parts);
@@ -160,6 +172,7 @@ export function v1PlusAi(options: {
   const paid = paidModel({ ...options, engine: "v1plus-ai" });
   const records = new Map<string, ClaimsRecord>();
   const sheet: SheetAnswer[] = [];
+  const monitor = new RunMonitor(paid.model, paid.mode === "paid");
   const run: V1PlusAiRun = {
     engine: {
       name,
@@ -169,7 +182,7 @@ export function v1PlusAi(options: {
           : `Sommelier V1 with AI and parts [${label(parts)}] (createSommelierService with the app's provider): ${paid.model}`,
       capabilities: CAPABILITIES,
       run: (scenario) =>
-        runScenario(scenario, paid, parts, (record, answers) => {
+        runScenario(scenario, paid, parts, monitor, (record, answers) => {
           records.set(scenario.id, record);
           sheet.push(...answers.map((a) => ({ ...a, set: options.set ?? "?" })));
         }),
@@ -180,6 +193,7 @@ export function v1PlusAi(options: {
     parts: label(parts),
     records,
     sheet,
+    monitor,
   };
   return run;
 }
@@ -188,6 +202,7 @@ async function runScenario(
   scenario: Scenario,
   paid: ReturnType<typeof paidModel>,
   parts: string,
+  monitor: RunMonitor,
   keep: (record: ClaimsRecord, answers: SheetAnswer[]) => void,
 ) {
   const missing = scenario.needs.filter((n) => !CAPABILITIES.has(n));
@@ -249,7 +264,10 @@ async function runScenario(
         tokensIn: result.usage.tokensIn,
         tokensOut: result.usage.tokensOut,
         ok: result.ok,
+        usdMicro: costOf(result.usage).usdMicro,
+        servedModel: result.usage.servedModel ?? null,
       });
+      monitor.call(result as AiResult<unknown>);
       return result;
     },
   };
@@ -282,12 +300,17 @@ async function runScenario(
   const shownCodes = new Set<string>();
   const sheet: SheetAnswer[] = [];
   let answer: SommelierAnswer | null = null;
-  let record: Omit<ClaimsRecord, "rawCodes" | "shownCodes" | "calls" | "removed"> = {
+  type Last = Omit<ClaimsRecord, "rawCodes" | "shownCodes" | "calls" | "removed">;
+  const none: Last = {
     rawClean: null,
     shownClean: null,
     refsAsAsked: null,
     check: null,
+    serving: null,
+    shownServing: [],
   };
+  let record: Last = none;
+  const partsOn = parseSommelierParts(parts).on;
   let removed = 0;
   let started = performance.now();
   for (const [t, turn] of scenario.turns.entries()) {
@@ -298,7 +321,7 @@ async function runScenario(
     said.push({ role: "assistant", text: (answer.text ?? "…").slice(0, 2000) });
     const seen = last as { request: GenerateObjectRequest<unknown>; raw: string | null } | null;
     if (!seen || seen.raw === null || answer.source !== "ai") {
-      record = { rawClean: null, shownClean: null, refsAsAsked: null, check: null };
+      record = none;
       continue;
     }
     const on = {
@@ -335,11 +358,31 @@ async function runScenario(
     });
     const cardIds = answer.bottles.map((b) => b.vintageId);
     const asAsked = v7 ? refsAsAsked(seen.raw, cardIds, on.digest) : null;
+    // Stop rule: an invented cellar fact shown to the person after the check (stop-rules.ts).
+    const shownFacts = shown.filter((c) => (CELLAR_FACT_CODES as readonly string[]).includes(c));
+    if (partsOn.has("check") && shownFacts.length > 0)
+      monitor.stop("shown-cellar-fact", `${scenario.id}: ${shownFacts.join(" ")}`);
+    // Stop rule: a serving claim the card contradicts got through to the shown words.
+    const byId = new Map(items.map((i) => [i.vintageId, i]));
+    const shownServing =
+      partsOn.has("annotate") && answer.text && answer.annotations
+        ? reconcileServingClaims(
+            answer.text,
+            answer.annotations.flatMap((annotation) => {
+              const item = byId.get(annotation.vintageId);
+              return item ? [{ item, annotation }] : [];
+            }),
+          ).codes
+        : [];
+    if (shownServing.length > 0)
+      monitor.stop("shown-serving-claim", `${scenario.id}: ${shownServing.join(" ")}`);
     record = {
       rawClean: raw.length === 0 ? 1 : 0,
       shownClean: shown.length === 0 ? 1 : 0,
       refsAsAsked: asAsked === null ? null : asAsked ? 1 : 0,
       check: outcome,
+      serving: partsOn.has("annotate") ? (answer.servingCheck?.text ?? "kept") : null,
+      shownServing: [...shownServing],
     };
   }
   const ms = performance.now() - started;

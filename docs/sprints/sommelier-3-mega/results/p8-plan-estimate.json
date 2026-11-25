@@ -2,6 +2,10 @@
   "rows": [
     {
       "step": "1-main",
+      "kind": "set",
+      "set": "main",
+      "parts": "none",
+      "side": "v6",
       "what": "V1 with AI, prompt v6 (no part): the baseline; set main (needs pairing,facts)",
       "runs": 3,
       "calls": 131,
@@ -12,6 +16,10 @@
     },
     {
       "step": "1-holdout-dev",
+      "kind": "set",
+      "set": "holdout-dev",
+      "parts": "none",
+      "side": "v6",
       "what": "V1 with AI, prompt v6 (no part): the baseline; set holdout-dev (needs pairing,facts)",
       "runs": 3,
       "calls": 45,
@@ -22,6 +30,10 @@
     },
     {
       "step": "1-holdout-test",
+      "kind": "set",
+      "set": "holdout-test",
+      "parts": "none",
+      "side": "v6",
       "what": "V1 with AI, prompt v6 (no part): the baseline; set holdout-test (needs pairing,facts)",
       "runs": 3,
       "calls": 43,
@@ -32,6 +44,10 @@
     },
     {
       "step": "2-main",
+      "kind": "set",
+      "set": "main",
+      "parts": "check",
+      "side": "v7",
       "what": "V1+ with check: prompt v7 and the check; set main (needs pairing,facts)",
       "runs": 3,
       "calls": 131,
@@ -42,6 +58,10 @@
     },
     {
       "step": "2-holdout-dev",
+      "kind": "set",
+      "set": "holdout-dev",
+      "parts": "check",
+      "side": "v7",
       "what": "V1+ with check: prompt v7 and the check; set holdout-dev (needs pairing,facts)",
       "runs": 3,
       "calls": 45,
@@ -52,6 +72,10 @@
     },
     {
       "step": "2-holdout-test",
+      "kind": "set",
+      "set": "holdout-test",
+      "parts": "check",
+      "side": "v7",
       "what": "V1+ with check: prompt v7 and the check; set holdout-test (needs pairing,facts)",
       "runs": 3,
       "calls": 43,
@@ -61,7 +85,37 @@
       "required": true
     },
     {
+      "step": "4-probe-v6",
+      "kind": "set",
+      "set": "probe",
+      "parts": "none",
+      "side": "v6",
+      "what": "Probe (serving, guests), V1 with AI, prompt v6",
+      "runs": 3,
+      "calls": 18,
+      "highMicro": 28369,
+      "reservedMicro": 46718,
+      "maxUsd": 0.060000000000000005,
+      "required": true
+    },
+    {
+      "step": "4-probe-v7",
+      "kind": "set",
+      "set": "probe",
+      "parts": "check,annotate,quantities",
+      "side": "v7",
+      "what": "Probe (serving, guests), V1+ with check, annotate, quantities",
+      "runs": 3,
+      "calls": 18,
+      "highMicro": 29654,
+      "reservedMicro": 49129,
+      "maxUsd": 0.060000000000000005,
+      "required": true
+    },
+    {
       "step": "3-menu-v1",
+      "kind": "menu",
+      "arm": "v1",
       "what": "Menu set, V1 without the part (its ordinary answer)",
       "runs": 3,
       "calls": 21,
@@ -72,6 +126,8 @@
     },
     {
       "step": "3-menu-menu",
+      "kind": "menu",
+      "arm": "menu",
       "what": "Menu set, the menu part on",
       "runs": 3,
       "calls": 21,
@@ -82,6 +138,8 @@
     },
     {
       "step": "3-menu-check,menu",
+      "kind": "menu",
+      "arm": "check,menu",
       "what": "Menu set, check and menu on (as it would ship)",
       "runs": 1,
       "calls": 21,
@@ -92,6 +150,8 @@
     },
     {
       "step": "3-menu-per-course",
+      "kind": "menu",
+      "arm": "per-course",
       "what": "Menu set, V1 asked once per course (cost and quality reference)",
       "runs": 1,
       "calls": 53,
@@ -104,17 +164,17 @@
   "totals": {
     "budgetUsd": 5,
     "all": {
-      "calls": 1514,
-      "highUsd": 2.351414,
-      "reservedUsd": 3.857308
+      "calls": 1622,
+      "highUsd": 2.525483,
+      "reservedUsd": 4.144849
     },
     "required": {
-      "calls": 1440,
-      "highUsd": 2.234286,
-      "reservedUsd": 3.666051
+      "calls": 1548,
+      "highUsd": 2.408355,
+      "reservedUsd": 3.953592
     },
     "fits": true,
     "requiredFits": true,
-    "marginUsd": 1.1427
+    "marginUsd": 0.8552
   }
 }

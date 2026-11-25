@@ -1,25 +1,22 @@
-# De onafhankelijke holdout schrijven — instructies (100 gerechten, in twee series)
+# De onafhankelijke holdout schrijven — instructies (100 gerechten: 40 verkennend, 60 definitief)
 
 **Wie:** iemand met wijnkennis (en voor de gerechten één of twee mensen die koken), die niet aan CELLR heeft gewerkt
 en geen AI gebruikt bij het schrijven. **Waarvoor:** een blinde test of de sommelier gerechten goed combineert die hij
 nooit heeft gezien. Zolang dit er niet is, rust elke uitspraak over kwaliteit op scenario's die een AI schreef.
 
-## Twee series: 40, daarna 60
+## Twee delen: 40 verkennend, 60 definitief (besluit van de eigenaar, 25-11-2026)
 
-Het voorlopige doel van de eigenaar (24-11-2026) is **100 onafhankelijke gerechten**, geschreven in twee series:
+| Deel               | Formulier                          | Gerechten | ids                   | Waarvoor                                                                                                             |
+| ------------------ | ---------------------------------- | --------: | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Verkennend         | `holdout-template-exploratory.csv` |        40 | `hh-x-01` … `hh-x-40` | Een eerste blik; elk rapport zegt EXPLORATORY. Vangt alleen een grote achteruitgang                                  |
+| Definitief (blind) | `holdout-template-definitive.csv`  |        60 | `hh-d-01` … `hh-d-60` | De meting. Verzegeld, nooit gezien door een agent of ontwikkelaar, **één keer** gescoord, nadat de build bevroren is |
 
-| Serie | Formulier                      | Gerechten | ids                     | Geschreven door                                                           |
-| ----- | ------------------------------ | --------: | ----------------------- | ------------------------------------------------------------------------- |
-| 1     | `holdout-template-series1.csv` |        40 | `hh-s1-01` … `hh-s1-40` | de eerste schrijvers                                                      |
-| 2     | `holdout-template-series2.csv` |        60 | `hh-s2-01` … `hh-s2-60` | mensen die **geen** resultaat van serie 1 hebben gezien (ook geen totaal) |
-
-Een meting op serie 1 alleen wordt gerapporteerd als **voorlopig**: 40 gerechten vangen alleen een grote
-achteruitgang, en kunnen niet aantonen dat V1+ binnen 5 punten even goed is als V1 (`P8_POWER_ANALYSIS.md`). Alleen
-de volledige 100 is de holdout die de poort vraagt.
+De definitieve 60 worden geschreven door mensen die **geen** resultaat van de verkennende 40 hebben gezien (ook geen
+totaal). Op het verkennende deel rust geen uitspraak dat CELLR "even goed" is als voorheen (`P8_POWER_ANALYSIS.md`).
 
 ## Wat je invult
 
-Open het formulier van jouw serie. De kolom `id` is ingevuld; de rest is aan jou. Per rij één gerecht:
+Open het formulier van jouw deel. De kolom `id` is ingevuld; de rest is aan jou. Per rij één gerecht:
 
 | Kolom                         | Wat je schrijft                                                                                                 |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -47,16 +44,18 @@ kiezen omdat je verwacht dat CELLR het fout doet. Kijk niet naar de antwoorden v
 1. Vul het formulier in **op je eigen computer**. Zet het niet in de repository, niet op een gedeelde schijf die de
    ontwikkelaars kunnen lezen en niet in een chat met een AI.
 2. Stuur het alleen naar de eigenaar. De eigenaar bewaart het in een privémap buiten de repository en zet het daar om
-   en verzegelt het **per serie** (`holdout-from-csv 1`, `seal-human-holdout` → `SEAL-series1.json`; later serie 2,
-   `holdout-from-csv merge` en het zegel van de volledige set, `SEAL.json`; zie de Engelse versie voor de commando's). Het
+   en verzegelt het **per deel** (`holdout-from-csv exploratory` en `seal-human-holdout` → `SEAL-exploratory.json`;
+   `holdout-from-csv definitive` → `SEAL-definitive.json`; daarna `merge` en het zegel van de volledige 100, `SEAL.json`;
+   zie de Engelse versie voor de commando's). Het
    omzetprogramma weigert elk pad binnen de repository en toont alleen een aantal en rijnummers, nooit een gerecht.
-3. De eigenaar legt **alleen** de zegels vast (`SEAL-series1.json`, later `SEAL.json`: de hash van een bestand en het
-   aantal gerechten). De benchmark leest serie 1 als set `human-series1` en de volledige 100 als set `human`, elk van
-   het pad van de eigenaar, en weigert een bestand dat niet bij zijn zegel past.
+3. De eigenaar legt **alleen** de zegels vast. De benchmark leest het verkennende deel als set `human-exploratory` en
+   het definitieve als set `human-definitive`, elk van het pad van de eigenaar, en weigert een bestand dat niet bij zijn
+   zegel past. De definitieve set wordt geweigerd tenzij de build bevroren is en `--definitive --frozen-at <sha>`
+   gegeven is, en een tweede scoring van hetzelfde zegel door dezelfde engine wordt geweigerd.
 4. **De agent die CELLR ontwikkelt of meet, mag het bestand niet zien vóór de meting**, en de set wordt alleen in
    totalen gerapporteerd. Een wijziging na de eerste meting krijgt een nieuw zegel en een geschreven reden.
 
-**Omvang:** de volledige set houdt zijn minimum van 100 gerechten; serie 1 alleen is een aparte set met een
-duidelijke naam (`human-series1`, precies 40), waarvan elk rapport begint met `PROVISIONAL` (voorlopig).
+**Omvang:** de volledige set houdt zijn minimum van 100 gerechten; die is een controle op omvang en bewaring en wordt
+niet als zodanig gescoord: de definitieve gerechten worden alleen in hun eigen set gescoord, één keer.
 
 Ingevuld door: ____________ Datum: ________ — niets telt voordat je hebt ondertekend.

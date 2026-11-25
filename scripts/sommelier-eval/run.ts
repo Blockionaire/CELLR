@@ -22,7 +22,20 @@ import { ENGINES } from "./engines";
 import { v1Ai, type V1AiRun } from "./engines/v1-ai";
 import { v1PlusAi, type ClaimsRecord, type V1PlusAiRun } from "./engines/v1plus-ai";
 import { keptSample, removedSheet } from "./review-sheet";
-import { PROVISIONAL_NOTE, SERIES1_SET } from "./human-holdout-series";
+import { execFileSync } from "node:child_process";
+import {
+  DEFINITIVE_NOTE,
+  DEFINITIVE_SET,
+  definitiveRefusal,
+  EXPLORATORY_NOTE,
+  EXPLORATORY_SET,
+  isDefinitive,
+  onlyResultsSince,
+  readFrozen,
+  readScored,
+  readSeal,
+  recordScoring,
+} from "./human-holdout-series";
 import { buildFixture } from "./fixtures";
 import { formatQuality, qualityRow, qualityTotals, type QualityRow } from "./quality";
 import { BudgetReached, Ledger, paidAllowed } from "./paid";
@@ -66,6 +79,10 @@ const { values: args } = parseArgs({
      * a sample of 100 kept sentences (<file>-kept-sample.csv), for a person to judge. Every verdict column is empty.
      */
     "review-sheet": { type: "string" },
+    /** The blind definitive holdout: only with this flag and --frozen-at (human-holdout-series.ts). */
+    definitive: { type: "boolean", default: false },
+    /** The commit the build was frozen at, as recorded in results/p8-build-frozen.json. */
+    "frozen-at": { type: "string" },
   },
 });
 
@@ -128,6 +145,45 @@ const scenarios = scenariosOf(args.set!).filter(
     (!args.only || s.category === args.only || s.id === args.only) &&
     (!within || s.needs.every((n) => within.has(n))),
 );
+// The blind definitive holdout: only with --definitive and the frozen build checked out, and only once per engine
+// (the scoring is recorded before the run). Its dishes are refused in any other set.
+if (args.set === DEFINITIVE_SET) {
+  const head = (() => {
+    try {
+      return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+    } catch {
+      return "";
+    }
+  })();
+  const frozen = readFrozen();
+  const refusal = definitiveRefusal({
+    definitive: args.definitive!,
+    frozenAt: args["frozen-at"],
+    head,
+    onlyResultsSince: frozen ? onlyResultsSince(frozen.commit, process.cwd()) : false,
+    frozen,
+    scored: readScored(),
+    sealSha256: readSeal("definitive")?.sha256 ?? null,
+    engine: engine.name,
+  });
+  if (refusal) {
+    console.error(refusal);
+    process.exit(2);
+  }
+  // An estimate spends nothing and does not use the one scoring.
+  if (paid?.mode === "paid")
+    recordScoring({
+      sealSha256: readSeal("definitive")!.sha256,
+      engine: engine.name,
+      frozenAt: args["frozen-at"]!,
+      scoredOn: new Date().toISOString().slice(0, 10),
+    });
+} else if (scenarios.some((s) => isDefinitive(s.id))) {
+  console.error(
+    `"${args.set}" holds dishes of the blind definitive holdout: they are scored only in "${DEFINITIVE_SET}", once.`,
+  );
+  process.exit(2);
+}
 const cards = cardsOf(args.set!);
 const results: ScenarioResult[] = [];
 const qualityRows: QualityRow[] = [];
@@ -142,10 +198,14 @@ try {
   process.exit(2);
 }
 const vectors = new Map<string, ScenarioVector & { claims?: ClaimsRecord }>();
+/** Claims of scenarios that have no vector (no dish to score): written apart, under `claims`. */
+const unscored = new Map<string, ClaimsRecord>();
 // Once unmeasured, so module loading and the first call's warm-up are not counted as latency.
 // (Never for the paid engine: a warm-up there is a call that costs money and is thrown away.)
 if (scenarios[0] && !paid) await engine.run(scenarios[0]);
 let stoppedAt: string | null = null;
+/** The stop rule that ended the run (stop-rules.ts), when one did. */
+let stoppedRule: string | null = null;
 for (const scenario of scenarios) {
   let run;
   try {
@@ -153,6 +213,7 @@ for (const scenario of scenarios) {
   } catch (error) {
     if (!(error instanceof BudgetReached)) throw error;
     stoppedAt = scenario.id;
+    stoppedRule = "budget";
     console.error(
       `Stopped before ${scenario.id}: ${error.message}. The results below are incomplete.`,
     );
@@ -161,8 +222,19 @@ for (const scenario of scenarios) {
   // The meter also says so when the limit was reached inside the app's own call.
   if (paid?.meter.stopped) {
     stoppedAt = scenario.id;
+    stoppedRule = "budget";
     console.error(
       `Stopped at ${scenario.id}: the spending limit was reached. That scenario and the rest are not counted.`,
+    );
+    break;
+  }
+  // The stop rules of the paid plan: an invented fact or a contradicted serving claim shown, another served model,
+  // too many failed calls. The answer that tripped it is not counted; a person reviews it.
+  if (plus?.monitor.stopped) {
+    stoppedAt = scenario.id;
+    stoppedRule = plus.monitor.stopped.rule;
+    console.error(
+      `STOPPED: ${stoppedRule}${blind ? "" : ` (${plus.monitor.stopped.detail})`}. The run is incomplete; that answer goes to a person for review.`,
     );
     break;
   }
@@ -182,6 +254,20 @@ for (const scenario of scenarios) {
       // V1+ paid plan: what the check's rules flag (heuristics), the refs, the check's outcome, tokens per call.
       ...(claims ? { claims } : {}),
     });
+  } else if (keyOf && plus?.records.get(scenario.id)) {
+    // A scenario without a dish to score (a serving question of the probe): its claims are still measured.
+    unscored.set(keyOf.key(scenario.id), plus.records.get(scenario.id)!);
+  }
+}
+// At the end: the share of failed calls over the whole run, however few calls there were.
+if (plus && stoppedAt === null) {
+  plus.monitor.end();
+  if (plus.monitor.stopped) {
+    stoppedAt = "the end of the run";
+    stoppedRule = plus.monitor.stopped.rule;
+    console.error(
+      `STOPPED: ${stoppedRule} (${plus.monitor.stopped.detail}). The run is incomplete.`,
+    );
   }
 }
 const quality = qualityTotals(
@@ -208,8 +294,13 @@ if (paid?.mode === "estimate") {
 }
 const summary = summarize(engine.name, results, answers);
 // The human holdout's first series alone is never a release measurement: every report of it says so first.
-const provisional = args.set === SERIES1_SET;
-if (provisional) console.log(`${PROVISIONAL_NOTE}\n`);
+const note =
+  args.set === EXPLORATORY_SET
+    ? EXPLORATORY_NOTE
+    : args.set === DEFINITIVE_SET
+      ? DEFINITIVE_NOTE
+      : null;
+if (note) console.log(`${note}\n`);
 if (stoppedAt !== null)
   console.log(
     `INCOMPLETE RUN: stopped at ${blind ? "a scenario of a blind set" : stoppedAt}. The numbers below cover only the scenarios before it; they are not a baseline and compare.ts refuses its vectors.\n`,
@@ -230,8 +321,17 @@ if (args.vectors && keyOf) {
     keyed: keyOf.keyed,
     salt: keyOf.fingerprint,
     incomplete: stoppedAt !== null,
+    ...(stoppedRule ? { stopped: stoppedRule } : {}),
+    ...(plus ? { servedModels: [...plus.monitor.served].sort() } : {}),
     // Sorted by key: in run order a blind set's rows would line up with the scenario list in the repository.
     rows: Object.fromEntries([...vectors].sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))),
+    ...(unscored.size > 0
+      ? {
+          claims: Object.fromEntries(
+            [...unscored].sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)),
+          ),
+        }
+      : {}),
   };
   keyOf.check();
   await writeFile(args.vectors, JSON.stringify(file) + "\n");
@@ -249,7 +349,8 @@ if (args.json) {
         }
       : {}),
     incomplete: stoppedAt !== null,
-    ...(provisional ? { provisional: true, note: PROVISIONAL_NOTE } : {}),
+    ...(stoppedRule ? { stopped: stoppedRule } : {}),
+    ...(note ? { part: args.set === DEFINITIVE_SET ? "definitive" : "exploratory", note } : {}),
     scenarios: summary.scenarios,
     passed: summary.passed,
     supported: summary.supported,

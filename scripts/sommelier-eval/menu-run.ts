@@ -22,7 +22,9 @@
  */
 import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import type { LlmProvider } from "@/server/ai/types";
+import { costOf } from "@/server/ai/pricing";
+import type { AiResult, LlmProvider } from "@/server/ai/types";
+import { RunMonitor, type StopRule } from "./stop-rules";
 import { paidModel, type CallRecord } from "./engines/v1plus-ai";
 import { askMenuScenario, menuTotals, scoreCourse, scoreMenu, type ScoredMenu } from "./menu-score";
 import { BudgetReached, Ledger, paidAllowed } from "./paid";
@@ -62,15 +64,28 @@ export function scoreCards(
   };
 }
 
+/** A stop rule fired mid-run (stop-rules.ts): the run ends here, incomplete. */
+export class StoppedByRule extends Error {
+  constructor(readonly rule: StopRule) {
+    super(`STOPPED: ${rule}`);
+  }
+}
+
 export interface MenuArmScenario {
   id: string;
+  /** The questions asked: one model call each at most (the cost criterion). */
+  questions: number;
   strict: ScoredMenu;
   byCards: ScoredMenu;
   calls: CallRecord[];
 }
 
 /** One arm over the menu set with the given model (an estimate, a paid provider, or a test's fake). */
-export async function runMenuArm(arm: MenuArm, llm: LlmProvider): Promise<MenuArmScenario[]> {
+export async function runMenuArm(
+  arm: MenuArm,
+  llm: LlmProvider,
+  monitor: RunMonitor | null = null,
+): Promise<MenuArmScenario[]> {
   const out: MenuArmScenario[] = [];
   for (const s of MENU_SCENARIOS) {
     const calls: CallRecord[] = [];
@@ -84,7 +99,11 @@ export async function runMenuArm(arm: MenuArm, llm: LlmProvider): Promise<MenuAr
           tokensIn: result.usage.tokensIn,
           tokensOut: result.usage.tokensOut,
           ok: result.ok,
+          usdMicro: costOf(result.usage).usdMicro,
+          servedModel: result.usage.servedModel ?? null,
         });
+        monitor?.call(result as AiResult<unknown>);
+        if (monitor?.stopped) throw new StoppedByRule(monitor.stopped.rule);
         return result;
       },
     };
@@ -105,7 +124,7 @@ export async function runMenuArm(arm: MenuArm, llm: LlmProvider): Promise<MenuAr
         acceptable: courses.filter((c) => c.score === "acceptable").length,
         poor: courses.filter((c) => c.score === "poor").length,
       };
-      out.push({ id: s.id, strict: scored, byCards: scored, calls });
+      out.push({ id: s.id, questions: s.courses.length, strict: scored, byCards: scored, calls });
       continue;
     }
     const { answer, keyOf } = await askMenuScenario(s, partsOf(arm), counted);
@@ -114,6 +133,7 @@ export async function runMenuArm(arm: MenuArm, llm: LlmProvider): Promise<MenuAr
     const cards = answer.bottles.map((b) => keyOf(b.vintageId) ?? "?");
     out.push({
       id: s.id,
+      questions: s.turns.length,
       strict,
       byCards: s.followUp ? strict : scoreCards(s, cards),
       calls,
@@ -180,14 +200,29 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
   let rows: MenuArmScenario[] = [];
   let incomplete = false;
+  let stopped: StopRule | null = null;
+  const monitor = new RunMonitor(paid.model, paid.mode === "paid");
   try {
-    rows = await runMenuArm(arm, paid.llm);
+    rows = await runMenuArm(arm, paid.llm, monitor);
   } catch (error) {
-    if (!(error instanceof BudgetReached)) throw error;
+    if (error instanceof StoppedByRule) stopped = error.rule;
+    else if (error instanceof BudgetReached) stopped = "budget";
+    else throw error;
     incomplete = true;
-    console.error(`Stopped: ${error.message}. INCOMPLETE RUN: not a measurement.`);
+    console.error(`STOPPED: ${stopped}. INCOMPLETE RUN: not a measurement.`);
   }
-  if (paid.meter.stopped) incomplete = true;
+  monitor.end();
+  if (monitor.stopped && !stopped) {
+    stopped = monitor.stopped.rule;
+    incomplete = true;
+    console.error(
+      `STOPPED: ${stopped} (${monitor.stopped.detail}). INCOMPLETE RUN: not a measurement.`,
+    );
+  }
+  if (paid.meter.stopped) {
+    incomplete = true;
+    stopped ??= "budget";
+  }
   const m = paid.meter;
   if (paid.mode === "estimate") {
     console.log(
@@ -196,12 +231,26 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(0);
   }
   const totals = armTotals(rows);
-  console.log(JSON.stringify({ arm, incomplete, ...totals, usd: m.usdMicro / 1e6 }, null, 2));
+  console.log(
+    JSON.stringify({ arm, incomplete, stopped, ...totals, usd: m.usdMicro / 1e6 }, null, 2),
+  );
   if (args.out)
     await writeFile(
       args.out,
-      JSON.stringify({ set: "menu", arm, model: paid.model, incomplete, totals, rows }, null, 2) +
-        "\n",
+      JSON.stringify(
+        {
+          set: "menu",
+          arm,
+          model: paid.model,
+          servedModels: [...monitor.served].sort(),
+          incomplete,
+          stopped,
+          totals,
+          rows,
+        },
+        null,
+        2,
+      ) + "\n",
     );
   ledger?.end(!incomplete);
   if (incomplete) process.exitCode = 3;

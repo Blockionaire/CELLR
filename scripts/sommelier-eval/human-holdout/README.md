@@ -14,17 +14,20 @@ pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/path/dishes.
 SOMMELIER_EVAL_HUMAN_FILE=/private/path/dishes.json pnpm sommelier:eval --set human --engine v1-basic
 ```
 
-## Two series (P8; the owner's provisional target of 2026-11-24)
+## Two parts (P8; owner decision 2026-11-25)
 
-The 100 dishes are written as **series 1 (40)** and **series 2 (60)**, the second by people who have seen no result
-on the first. Forms, instructions in English and Dutch, and the escrow steps per series:
-`docs/sprints/sommelier-3-mega/review/holdout-instructions.md`.
+The 100 dishes are **40 exploratory** and **60 definitive**; the definitive 60 are written by people who have seen no
+result on the exploratory part, stay blind, and are scored only once, after the build is frozen. Forms, instructions
+in English and Dutch, and the escrow steps per part: `docs/sprints/sommelier-3-mega/review/holdout-instructions.md`.
 
-- Series 1 alone is the set `human-series1`: its file from `SOMMELIER_EVAL_HUMAN_SERIES1_FILE`, its own seal
-  `SEAL-series1.json`, exactly 40 dishes with ids `hh-s1-…`, blind, and every report of it starts with `PROVISIONAL`
-  (40 dishes cannot show non-inferiority at −5 points: `P8_POWER_ANALYSIS.md`).
-- The full set (`human`, this file's `SEAL.json`) is series 1 and series 2 merged
-  (`holdout-from-csv merge`): its minimum of 100 dishes is unchanged.
+- `human-exploratory`: its file from `SOMMELIER_EVAL_HUMAN_EXPLORATORY_FILE`, its seal `SEAL-exploratory.json`, exactly
+  40 dishes `hh-x-…`, blind; every report starts with `EXPLORATORY`.
+- `human-definitive`: its file from `SOMMELIER_EVAL_HUMAN_DEFINITIVE_FILE`, its seal `SEAL-definitive.json`, exactly 60
+  dishes `hh-d-…`; refused without `--definitive --frozen-at <sha>` and a recorded freeze, scored once per engine
+  (`docs/sprints/sommelier-3-mega/results/p8-definitive-scored.json`), reported apart. Its dishes are refused in any
+  other set.
+- The full set (`human`, this file's `SEAL.json`) is both parts merged (`holdout-from-csv merge`): its minimum of 100
+  dishes is unchanged; it is a size and escrow check and is not scored as such.
 
 ## Who writes it
 
