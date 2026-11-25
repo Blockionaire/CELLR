@@ -532,6 +532,17 @@ export function createCellarRepository(db: Db): CellarRepository {
       return (locations.data ?? []).map((r) => toStorage(r, used.get(r.id) ?? 0));
     },
 
+    async placeIsDeep(householdId, id) {
+      const { data, error } = await db
+        .from("cellar_locations")
+        .select("cell_capacity")
+        .eq("household_id", householdId)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw mapDbError(error);
+      return (data?.cell_capacity ?? 1) > 1;
+    },
+
     async getStorage(householdId, id) {
       const { data, error } = await db
         .from("cellar_locations")
@@ -736,7 +747,7 @@ export function createCellarRepository(db: Db): CellarRepository {
         db
           .from("bottles")
           .select(
-            "id, created_at, front_image_id, location_id, loc_row, loc_col, purchase_price_cents, currency, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, appellation, country_code, producers!inner(name))), cellar_locations(label)",
+            "id, created_at, front_image_id, location_id, loc_row, loc_col, loc_index, purchase_price_cents, currency, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, appellation, country_code, producers!inner(name))), cellar_locations(label)",
           )
           .eq("household_id", householdId)
           .eq("status", "in_cellar")
@@ -776,6 +787,8 @@ export function createCellarRepository(db: Db): CellarRepository {
         locationLabel: b.cellar_locations?.label ?? null,
         row: b.loc_row,
         col: b.loc_col,
+        // only a bottle behind another carries its index: every answer for bottles at index 1 stays as it was
+        ...(b.loc_index > 1 ? { index: b.loc_index } : {}),
         priceCents: b.purchase_price_cents,
         currency: b.currency,
         addedAt: b.created_at,
@@ -946,7 +959,18 @@ export function createCellarRepository(db: Db): CellarRepository {
       // No fallback: two separate moves are exactly what the function exists to avoid (one bottle per spot would
       // refuse the first, or leave a bottle without its place). Until migration 20261104000027 has run, it fails.
       if (error) throw mapDbError(error);
-      return data === "swapped" || data === "stale" || data === "gone" ? data : "not_found";
+      // 'stale' from this function also means "one of the two lies behind another bottle" (0045: it can only vouch
+      // for index 1). That is only possible once depth is on (ADR-011 §2); say which it is, never more.
+      if (data === "stale") {
+        const { data: rows, error: readError } = await db
+          .from("bottles")
+          .select("loc_index")
+          .eq("household_id", householdId)
+          .in("id", [a.bottleId, b.bottleId]);
+        if (readError) throw mapDbError(readError);
+        return (rows ?? []).some((r) => r.loc_index > 1) ? "behind" : "stale";
+      }
+      return data === "swapped" || data === "gone" ? data : "not_found";
     },
 
     async getBottle(householdId, bottleId) {

@@ -488,8 +488,9 @@ function CellarTab({ wines, racks }: { wines: FriendCellarWine[]; racks: FriendR
               label={r.label}
               rows={r.rows}
               cols={r.cols}
-              bottles={r.bottles.map((b) => ({
-                bottleId: `${r.label}:${b.row}:${b.col}`,
+              bottles={r.bottles.map((b, i) => ({
+                // unique even when a cell holds two bottles (friend_racks names no index)
+                bottleId: `${r.label}:${b.row}:${b.col}:${i}`,
                 vintageId: "",
                 producer: b.producer,
                 wineName: b.wine,

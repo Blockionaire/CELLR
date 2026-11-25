@@ -24,7 +24,10 @@ import {
   type SmartSwapResult,
   type SmartBottleSpot,
   layoutChangeProblem,
+  depthBlockOf,
+  reachable,
   resolveStorage,
+  type SmartDepthCapability,
   type LayoutChangeProblem,
   type ResolvedStorage,
   type SmartCellarCapabilities,
@@ -123,6 +126,12 @@ export interface SmartCellarDeps {
   placement?: PlacementAccess | undefined;
   /** Whether placement advice may be given here (lib/smart-cellar-advice-gate.ts, sprint 5). Left out: closed. */
   advice?: boolean | undefined;
+  /**
+   * Whether this deployment's depth gate is open (lib/smart-cellar-depth-gate.ts, sprint 9). Left out: closed, and
+   * then nothing about depth is asked of the database and every answer is exactly as before sprint 9. Open, depth is
+   * offered only where the database says so too (ADR-011 §5).
+   */
+  depthGate?: boolean | undefined;
 }
 
 /** The words of a placement refusal (each has an English and a Dutch translation, lib/known-messages.ts). */
@@ -137,6 +146,7 @@ export const PLACEMENT_MESSAGES = {
   compartmentFull: "That compartment is full.",
   ambiguous:
     "This bottle lies behind another one. It can be moved once moving at depth is switched on.",
+  frontInTheWay: "Another bottle is in front of this one. Move that one first.",
   gone: "That bottle is no longer in the cellar.",
   notFound: "We couldn't find that bottle.",
   placeNotFound: "We couldn't find that place.",
@@ -168,7 +178,24 @@ export function createSmartCellarService({
   access,
   placement = PLACEMENT_CLOSED,
   advice = false,
+  depthGate = false,
 }: SmartCellarDeps) {
+  /**
+   * Whether depth is open for this request: the gate, placement writing here, AND the database's word (asked once
+   * per request, only where the gate is open). `capability` is what the API says about it; undefined where the gate
+   * is closed (the capabilities answer is then exactly what it was before sprint 9).
+   */
+  type DepthDecision = { open: boolean; capability?: SmartDepthCapability };
+  let depthDecision: Promise<DepthDecision> | null = null;
+  const depth = (): Promise<DepthDecision> => {
+    if (!depthGate) return Promise.resolve({ open: placement.depth });
+    depthDecision ??= repo.depthStatus().then((database) => {
+      const block = depthBlockOf(database);
+      const open = block === null && placement.canWrite && access.writes;
+      return { open, capability: { gate: true as const, database, open, blockedBy: block } };
+    });
+    return depthDecision;
+  };
   /** Closed is "there is no such thing here": the same answer as a route that does not exist. */
   const requireReads = () => {
     if (!access.reads) throw new DomainError("NOT_FOUND");
@@ -204,15 +231,17 @@ export function createSmartCellarService({
     async capabilities(): Promise<SmartCellarCapabilities> {
       requireReads();
       await household();
+      const decided = await depth();
       return {
         version: SMART_CELLAR_API_VERSION,
         reads: true,
         writes: access.writes,
-        depthPlacement: DEPTH_PLACEMENT_ENABLED,
+        depthPlacement: decided.open || DEPTH_PLACEMENT_ENABLED,
         schema: await repo.schemaStatus(),
         catalogVersion: STORAGE_CATALOG_VERSION,
         appearanceVersion: STORAGE_APPEARANCE_VERSION,
         exportVersions: EXPORT_VERSIONS,
+        ...(decided.capability ? { depth: decided.capability } : {}),
       };
     },
 
@@ -288,7 +317,7 @@ export function createSmartCellarService({
         places: places.map((p) => ({ id: p.id, label: p.label, resolved: resolvePlace(p) })),
         occupants,
         intent,
-        depthEnabled: placement.depth,
+        depthEnabled: (await depth()).open,
       });
       return { ...result, bottleId, canPlace: placement.canWrite && access.writes };
     },
@@ -322,6 +351,21 @@ export function createSmartCellarService({
     async moveBottle(bottleId: string, move: SmartMove): Promise<SmartMoveResult> {
       requirePlacementWrites();
       const { id: householdId } = await household();
+      const depthOpen = (await depth()).open;
+      // with depth: a bottle behind another one is reached by moving the front one first (ADR-011 §4.2)
+      if (depthOpen && move.from) {
+        const source = await repo.getPlace(householdId, move.from.locationId);
+        if (
+          source &&
+          !reachable(
+            resolvePlace(source),
+            await repo.occupants(householdId, move.from.locationId),
+            move.from,
+            [bottleId],
+          )
+        )
+          throw new DomainError("CONFLICT", PLACEMENT_MESSAGES.frontInTheWay);
+      }
       let to = move.to;
       if (to) {
         const target = await repo.getPlace(householdId, to.locationId);
@@ -331,7 +375,7 @@ export function createSmartCellarService({
         // the place's rules first: bounds (422) before depth (409), so a spot past a cell is "doesn't exist"
         const problem = placementProblem(resolved, occupants, to, {
           movingId: bottleId,
-          depthEnabled: placement.depth,
+          depthEnabled: depthOpen,
         });
         // "same_spot": the bottle is on the target now; the database is still asked (below), and decides between
         // "already there" and a stale source, so nothing is answered without it
@@ -344,9 +388,13 @@ export function createSmartCellarService({
         }
       }
       // never past index 1 while depth is off, whatever chose the index (the caller, or a compartment's counter)
-      if (to && to.index > 1 && !placement.depth)
+      if (to && to.index > 1 && !depthOpen)
         throw new DomainError("CONFLICT", PLACEMENT_MESSAGES.depth);
-      const outcome = await repo.moveBottle(householdId, bottleId, move.from, to);
+      // with depth, move_bottle_v2 (0057): it also moves a back bottle to the same index of another cell, which one
+      // conditional UPDATE cannot (0043 refuses it as ambiguous). Without depth: the one UPDATE, as before.
+      const outcome = depthOpen
+        ? await repo.moveBottleV2(householdId, bottleId, move.from, to)
+        : await repo.moveBottle(householdId, bottleId, move.from, to);
       switch (outcome.kind) {
         case "moved":
           return { bottleId, outcome: "moved", from: move.from, to };
@@ -382,6 +430,7 @@ export function createSmartCellarService({
         repo.getPlace(householdId, swap.expected.other.locationId),
       ]);
       if (!placeA || !placeB) throw new DomainError("NOT_FOUND", PLACEMENT_MESSAGES.placeNotFound);
+      const depthOpen = (await depth()).open;
       const problem = swapProblem(
         {
           bottleId,
@@ -393,7 +442,7 @@ export function createSmartCellarService({
           spot: swap.expected.other,
           meaning: placementMeaning(resolvePlace(placeB)),
         },
-        { depthEnabled: placement.depth },
+        { depthEnabled: depthOpen },
       );
       if (problem === "same_bottle")
         throw new DomainError("VALIDATION", PLACEMENT_MESSAGES.sameBottle);
@@ -403,6 +452,20 @@ export function createSmartCellarService({
         throw new DomainError("CONFLICT", PLACEMENT_MESSAGES.depth);
       if (problem === "same_compartment")
         throw new DomainError("VALIDATION", PLACEMENT_MESSAGES.sameCompartment);
+      // with depth: each bottle must be reachable, the other one of the swap aside (ADR-011 §4.2). Then each lands
+      // on a spot whose front was free but for its partner, so nothing is put behind a bottle that stays.
+      if (depthOpen) {
+        const [inA, inB] = await Promise.all([
+          repo.occupants(householdId, swap.expected.self.locationId),
+          repo.occupants(householdId, swap.expected.other.locationId),
+        ]);
+        const both = [bottleId, swap.with];
+        if (
+          !reachable(resolvePlace(placeA), inA, swap.expected.self, both) ||
+          !reachable(resolvePlace(placeB), inB, swap.expected.other, both)
+        )
+          throw new DomainError("CONFLICT", PLACEMENT_MESSAGES.frontInTheWay);
+      }
       const outcome = await repo.swapBottles(
         householdId,
         { bottleId, spot: swap.expected.self },
@@ -440,6 +503,7 @@ export function createSmartCellarService({
         },
         config.structure,
         await repo.occupiedSpots(householdId, id),
+        { depthEnabled: (await depth()).open },
       );
       if (problem) throw refusal(problem);
       const outcome = await repo.saveLayout(

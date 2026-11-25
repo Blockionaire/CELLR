@@ -3,6 +3,7 @@ import {
   STALE_LAYOUT_MESSAGE,
   SMART_CELLAR_NOT_SET_UP,
   type AdviceOccupant,
+  type DepthDatabaseStatus,
   type SmartSpot,
   STORAGE_TEMPLATES,
   STORAGE_TEMPLATE_IDS,
@@ -68,10 +69,18 @@ function fakeRepo(
     now?: { inCellar: boolean; spot: SmartSpot | null };
     adviceBottle?: AdviceBottleRow;
     adviceOccupants?: AdviceOccupant[];
+    /** What the database says about depth (0057); undefined: it cannot say. */
+    depthStatus?: DepthDatabaseStatus | null;
   } = {},
 ) {
   const writes: Array<{ id: string; layout: LayoutWrite; expectedRevision?: string | null }> = [];
-  const moves: Array<{ bottleId: string; from: SmartSpot | null; to: SmartSpot | null }> = [];
+  const moves: Array<{
+    bottleId: string;
+    from: SmartSpot | null;
+    to: SmartSpot | null;
+    v2?: boolean;
+  }> = [];
+  const depthAsked = { count: 0 };
   const swaps: Array<{ a: string; b: string }> = [];
   const repo: SmartCellarRepository = {
     schemaStatus: async () =>
@@ -88,6 +97,14 @@ function fakeRepo(
     adviceOccupants: async (h) => (h === HOUSEHOLD.id ? (options.adviceOccupants ?? []) : []),
     moveBottle: async (_h, bottleId, from, to) => {
       moves.push({ bottleId, from, to });
+      return options.move ?? { kind: "moved", to };
+    },
+    depthStatus: async () => {
+      depthAsked.count += 1;
+      return options.depthStatus ?? null;
+    },
+    moveBottleV2: async (_h, bottleId, from, to) => {
+      moves.push({ bottleId, from, to, v2: true });
       return options.move ?? { kind: "moved", to };
     },
     swapBottles: async (_h, a, b) => {
@@ -113,7 +130,7 @@ function fakeRepo(
       return outcome;
     },
   };
-  return { repo, writes, moves, swaps };
+  return { repo, writes, moves, swaps, depthAsked };
 }
 
 const service = (repo: SmartCellarRepository, access = OPEN) =>
@@ -956,5 +973,215 @@ describe("placement advice (sprint 5)", () => {
   it("another household's bottle, or none: not found", async () => {
     const { repo } = fakeRepo([place()], { adviceBottle: BOTTLE });
     expect((await fails(svc(repo).advise("someone-else", "store"))).code).toBe("NOT_FOUND");
+  });
+});
+
+// ---- Depth as a server-decided capability (sprint 9) ----------------------------------------------------------------
+
+describe("depth: offered only where the gate is open AND the database says so (ADR-011 §5)", () => {
+  const PLACE_ON = { open: true, canWrite: true, depth: false };
+  const ON: DepthDatabaseStatus = {
+    depthPlacement: true,
+    legacyCellIndex: false,
+    indexUnique: true,
+    moveV2: true,
+  };
+  const PRODUCTION_TODAY: DepthDatabaseStatus = {
+    ...ON,
+    depthPlacement: false,
+    legacyCellIndex: true,
+  };
+  const D = "p-d";
+  // a fresh place per use: a saved layout is written into the fake's place
+  const deepPlace = () =>
+    place({
+      id: D,
+      template: "rack_double_depth",
+      semantics: "depth",
+      cellCapacity: 2,
+      rows: 4,
+      cols: 6,
+    });
+  const at = (row: number, col: number, index = 1): SmartSpot => ({
+    locationId: D,
+    row,
+    col,
+    index,
+  });
+  const svc = (repo: SmartCellarRepository, depthGate: boolean, placement = PLACE_ON) =>
+    createSmartCellarService({
+      repo,
+      household: async () => HOUSEHOLD,
+      access: OPEN,
+      placement,
+      depthGate,
+    });
+
+  it("gate closed (the default, production): the database is never asked, and the capabilities are as before", async () => {
+    const { repo, depthAsked, moves } = fakeRepo([deepPlace()], { depthStatus: ON });
+    const service = svc(repo, false);
+    const caps = await service.capabilities();
+    expect(caps.depthPlacement).toBe(false);
+    expect("depth" in caps).toBe(false);
+    expect(Object.keys(caps).sort()).toEqual([
+      "appearanceVersion",
+      "catalogVersion",
+      "depthPlacement",
+      "exportVersions",
+      "reads",
+      "schema",
+      "version",
+      "writes",
+    ]);
+    expect((await fails(service.moveBottle("b", { from: null, to: at(1, 1, 2) }))).message).toMatch(
+      /isn't switched on/,
+    );
+    expect(
+      (await fails(service.saveLayout(D, config("rack_double_depth", { cellCapacity: 2 }))))
+        .message,
+    ).toMatch(/isn't switched on/);
+    await service.moveBottle("b", { from: null, to: at(1, 1) });
+    expect(moves.every((m) => !m.v2)).toBe(true);
+    expect(depthAsked.count).toBe(0);
+  });
+
+  it("gate open, database as production is today (switch off, old index): still off, and why", async () => {
+    const { repo } = fakeRepo([deepPlace()], { depthStatus: PRODUCTION_TODAY });
+    const caps = await svc(repo, true).capabilities();
+    expect(caps.depthPlacement).toBe(false);
+    expect(caps.depth).toEqual({
+      gate: true,
+      database: PRODUCTION_TODAY,
+      open: false,
+      blockedBy: "database_switch_off",
+    });
+  });
+
+  it("gate open, a database that cannot say (no 0057): off", async () => {
+    const { repo } = fakeRepo([deepPlace()]);
+    const caps = await svc(repo, true).capabilities();
+    expect(caps.depth).toMatchObject({
+      open: false,
+      blockedBy: "database_unknown",
+      database: null,
+    });
+  });
+
+  it("each missing fact keeps it off: the old index, the new index, move_bottle_v2", async () => {
+    for (const [status, block] of [
+      [{ ...ON, legacyCellIndex: true }, "legacy_index"],
+      [{ ...ON, indexUnique: false }, "index_missing"],
+      [{ ...ON, moveV2: false }, "move_missing"],
+    ] as const) {
+      const { repo } = fakeRepo([deepPlace()], { depthStatus: status });
+      expect((await svc(repo, true).capabilities()).depth).toMatchObject({
+        open: false,
+        blockedBy: block,
+      });
+    }
+  });
+
+  it("gate open but placement not writing here: off, though the database says on", async () => {
+    const { repo } = fakeRepo([deepPlace()], { depthStatus: ON });
+    const caps = await svc(repo, true, {
+      open: true,
+      canWrite: false,
+      depth: false,
+    }).capabilities();
+    expect(caps.depthPlacement).toBe(false);
+    expect(caps.depth).toMatchObject({ open: false, blockedBy: null });
+  });
+
+  it("all open: depth is offered, the database asked once per request", async () => {
+    const { repo, depthAsked } = fakeRepo([deepPlace()], { depthStatus: ON });
+    const service = svc(repo, true);
+    const caps = await service.capabilities();
+    expect(caps.depthPlacement).toBe(true);
+    expect(caps.depth).toMatchObject({ open: true, blockedBy: null });
+    await service.capabilities();
+    expect(depthAsked.count).toBe(1);
+  });
+
+  it("all open: a deep layout is saved (two per spot), bins too", async () => {
+    const { repo, writes } = fakeRepo([deepPlace()], { depthStatus: ON });
+    await svc(repo, true).saveLayout(
+      D,
+      config("rack_double_depth", { cellCapacity: 2, rows: 4, cols: 6 }),
+    );
+    expect(writes[0]!.layout).toMatchObject({
+      template: "rack_double_depth",
+      cellCapacity: 2,
+      semantics: "depth",
+    });
+    await svc(repo, true).saveLayout(D, config("diamond_bins"));
+    expect(writes[1]!.layout).toMatchObject({ template: "diamond_bins", semantics: "ordinal" });
+  });
+
+  it("all open: a move to the back of a free cell goes through move_bottle_v2", async () => {
+    const { repo, moves } = fakeRepo([deepPlace()], { depthStatus: ON });
+    const result = await svc(repo, true).moveBottle("b", { from: null, to: at(2, 2, 2) });
+    expect(result).toMatchObject({ outcome: "moved", to: at(2, 2, 2) });
+    expect(moves).toEqual([{ bottleId: "b", from: null, to: at(2, 2, 2), v2: true }]);
+  });
+
+  it("all open: behind a taken front is not a target; a bottle behind a front is not reachable", async () => {
+    const occupants = [
+      { bottleId: "front", row: 1, col: 1, index: 1 },
+      { bottleId: "back", row: 1, col: 1, index: 2 },
+      { bottleId: "lone", row: 3, col: 3, index: 2 },
+      { bottleId: "f2", row: 2, col: 2, index: 1 },
+    ];
+    const { repo, moves, swaps } = fakeRepo([deepPlace()], { depthStatus: ON, occupants });
+    const service = svc(repo, true);
+    expect((await fails(service.moveBottle("b", { from: null, to: at(2, 2, 2) }))).message).toBe(
+      "Another bottle is in front of that spot.",
+    );
+    expect(
+      (await fails(service.moveBottle("back", { from: at(1, 1, 2), to: at(2, 1) }))).message,
+    ).toBe("Another bottle is in front of this one. Move that one first.");
+    expect((await fails(service.moveBottle("back", { from: at(1, 1, 2), to: null }))).message).toBe(
+      "Another bottle is in front of this one. Move that one first.",
+    );
+    // a lone back bottle is reachable, and the front one always
+    await service.moveBottle("lone", { from: at(3, 3, 2), to: at(4, 4, 2) });
+    await service.moveBottle("front", { from: at(1, 1), to: at(2, 1) });
+    expect(moves.map((m) => m.bottleId)).toEqual(["lone", "front"]);
+    // swaps: the back bottle with anything but its own front is refused; front and back of one cell trade
+    expect(
+      (
+        await fails(
+          service.swapBottle("back", {
+            with: "lone",
+            expected: { self: at(1, 1, 2), other: at(3, 3, 2) },
+          }),
+        )
+      ).message,
+    ).toBe("Another bottle is in front of this one. Move that one first.");
+    await service.swapBottle("back", {
+      with: "front",
+      expected: { self: at(1, 1, 2), other: at(1, 1, 1) },
+    });
+    expect(swaps).toEqual([{ a: "back", b: "front" }]);
+  });
+
+  it("depth open does not change a one-deep place: a move there is the same conditional move as before", async () => {
+    const legacy = place({ id: "p-1" });
+    const { repo, moves } = fakeRepo([legacy, deepPlace()], { depthStatus: ON });
+    await svc(repo, true).moveBottle("b", {
+      from: null,
+      to: { locationId: "p-1", row: 1, col: 1, index: 1 },
+    });
+    // through move_bottle_v2 (the same outcome for index 1), never past what the place holds
+    expect(moves).toHaveLength(1);
+    expect(
+      (
+        await fails(
+          svc(repo, true).moveBottle("b", {
+            from: null,
+            to: { locationId: "p-1", row: 1, col: 1, index: 2 },
+          }),
+        )
+      ).code,
+    ).toBe("VALIDATION");
   });
 });

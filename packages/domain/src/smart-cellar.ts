@@ -144,8 +144,17 @@ export interface SmartCellarCapabilities {
   reads: boolean;
   /** Saving a layout. Off unless switched on for a non-production deployment. */
   writes: boolean;
-  /** More than one bottle per cell: always false (see DEPTH_PLACEMENT_ENABLED). */
-  depthPlacement: false;
+  /**
+   * More than one bottle per cell may be offered and written here. Decided on the server (sprint 9, ADR-011 §5):
+   * false unless the depth gate is open AND the database says depth is on and the old index is gone. Always false
+   * where the gate is closed (production, and everywhere by default).
+   */
+  depthPlacement: boolean;
+  /**
+   * Only where the server's depth gate is open (never on production): what decided `depthPlacement`. Absent
+   * everywhere else, so a server with the gate closed answers exactly what it answered before sprint 9.
+   */
+  depth?: SmartDepthCapability;
   /**
    * What the database has, for reading and for writing apart:
    * - `reads`: the Smart Cellar columns and the zones table (migrations 0043, 0044), checked with zero-row reads.
@@ -158,6 +167,70 @@ export interface SmartCellarCapabilities {
   catalogVersion: number;
   appearanceVersion: number;
   exportVersions: readonly number[];
+}
+
+// ---- Depth as a capability (sprint 9) ---------------------------------------------------------------------------------------
+
+/** What the database says about depth (public.smart_cellar_depth_status(), migration 0057), in the domain's words. */
+export interface DepthDatabaseStatus {
+  /** private.cellar_settings.depth_placement: the database's own switch. */
+  depthPlacement: boolean;
+  /** bottles_slot_unique (0004) still exists: then a cell holds one bottle whatever the switch says. */
+  legacyCellIndex: boolean;
+  /** bottles_slot_index_unique (0043) is in force. */
+  indexUnique: boolean;
+  /** move_bottle_v2 (0057) exists. */
+  moveV2: boolean;
+}
+
+export type DepthBlock =
+  /** The database cannot say (no migration 0057, or the answer could not be read): never taken as "on". */
+  | "database_unknown"
+  /** The database's switch is off. */
+  | "database_switch_off"
+  /** The old one-bottle-per-cell index is still in force. */
+  | "legacy_index"
+  /** The index-aware unique index is missing. */
+  | "index_missing"
+  /** move_bottle_v2 is missing. */
+  | "move_missing";
+
+export interface SmartDepthCapability {
+  /** The server's depth gate is open here (it is, or this would not be said). */
+  gate: true;
+  /** What the database said, or null when it could not say. */
+  database: DepthDatabaseStatus | null;
+  /** Depth may be offered and written. */
+  open: boolean;
+  /** Why not, when not. */
+  blockedBy: DepthBlock | null;
+}
+
+/**
+ * Whether depth is on as far as the database is concerned: ALL of its switch on, the old index gone, the new one in
+ * force and move_bottle_v2 there. Anything unknown is "off". Pure; the server adds its own gate (ADR-011 §5).
+ */
+export function depthBlockOf(status: DepthDatabaseStatus | null): DepthBlock | null {
+  if (!status) return "database_unknown";
+  if (!status.depthPlacement) return "database_switch_off";
+  if (status.legacyCellIndex) return "legacy_index";
+  if (!status.indexUnique) return "index_missing";
+  if (!status.moveV2) return "move_missing";
+  return null;
+}
+
+/** The database's answer (jsonb) read strictly: anything that is not exactly the four booleans is "cannot say". */
+export function readDepthStatus(value: unknown): DepthDatabaseStatus | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  const keys = ["depth_placement", "legacy_cell_index", "index_unique", "move_v2"] as const;
+  if (!keys.every((k) => typeof v[k] === "boolean")) return null;
+  return {
+    depthPlacement: v.depth_placement as boolean,
+    legacyCellIndex: v.legacy_cell_index as boolean,
+    indexUnique: v.index_unique as boolean,
+    moveV2: v.move_v2 as boolean,
+  };
 }
 
 // ---- Saving a layout ------------------------------------------------------------------------------------------------------
@@ -195,8 +268,10 @@ export function layoutChangeProblem(
   current: CurrentLayout,
   next: StorageConfig["structure"],
   occupied: readonly OccupiedSpot[],
+  options: { depthEnabled?: boolean | undefined } = {},
 ): LayoutChangeProblem | null {
-  if (next.cellCapacity > 1 && !DEPTH_PLACEMENT_ENABLED) return "depth_not_enabled";
+  const depthEnabled = options.depthEnabled ?? DEPTH_PLACEMENT_ENABLED;
+  if (next.cellCapacity > 1 && !depthEnabled) return "depth_not_enabled";
   if (occupied.some((s) => s.row > next.rows || s.col > next.cols || s.index > next.cellCapacity))
     return "in_use";
   const nextSemantics = STORAGE_TEMPLATES[next.template].semantics;
@@ -213,14 +288,26 @@ export function layoutChangeProblem(
  * placement is switched on. Anything more can be designed and looked at (a preview), never stored.
  */
 export const cellCapacitySavable = (cellCapacity: number): boolean =>
-  cellCapacity <= 1 || DEPTH_PLACEMENT_ENABLED;
+  cellCapacitySavableWith(cellCapacity, DEPTH_PLACEMENT_ENABLED);
+
+/**
+ * The same, where the SERVER has decided whether depth is open here (sprint 9: the capability `depthPlacement`). A
+ * function of its own, not an optional argument: the one-argument versions are passed to `filter` and `map`, which
+ * would hand them an index.
+ */
+export const cellCapacitySavableWith = (cellCapacity: number, depthEnabled: boolean): boolean =>
+  cellCapacity <= 1 || depthEnabled === true;
 
 /**
  * Whether a template can be saved at all in this version: it must come in a size of one bottle per cell. A template
  * that starts at two (a double-depth rack, bins) is preview only: it is never quietly saved as something it is not.
  */
 export const templateSavable = (id: StorageTemplateId): boolean =>
-  cellCapacitySavable(STORAGE_TEMPLATES[id].cellCapacity.min);
+  templateSavableWith(id, DEPTH_PLACEMENT_ENABLED);
+
+/** templateSavable where the server has decided whether depth is open here (see cellCapacitySavableWith). */
+export const templateSavableWith = (id: StorageTemplateId, depthEnabled: boolean): boolean =>
+  cellCapacitySavableWith(STORAGE_TEMPLATES[id].cellCapacity.min, depthEnabled);
 
 /** What the Smart Cellar API answers on a database without its step (migrations 0043-0045). */
 export const SMART_CELLAR_NOT_SET_UP = "The Smart Cellar isn't set up on this server yet.";

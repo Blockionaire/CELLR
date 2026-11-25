@@ -50,6 +50,8 @@ export interface InventoryRow {
   locationLabel: string | null;
   row: number | null;
   col: number | null;
+  /** Its index in the cell, ONLY when above 1 (a bottle behind another, sprint 9). Absent: index 1. */
+  index?: number;
   priceCents: number | null;
   currency: string | null;
   addedAt: string;
@@ -227,6 +229,11 @@ export interface CellarRepository {
 
   listStorage(householdId: string): Promise<StorageRow[]>;
   getStorage(householdId: string, id: string): Promise<StorageRow | null>;
+  /**
+   * Whether a place holds more than one bottle per cell (cell_capacity > 1; sprint 9, ADR-011 §2). Only asked by
+   * Undo (restore), which cannot know at which depth a bottle stood. Optional: without it, every place is one deep.
+   */
+  placeIsDeep?(householdId: string, id: string): Promise<boolean>;
   occupiedSlots(locationId: string): Promise<Slot[]>;
   createStorage(householdId: string, input: CreateStorage): Promise<StorageRow>;
   /** Null = no such place in this household. */
@@ -280,7 +287,7 @@ export interface CellarRepository {
     householdId: string,
     a: { bottleId: string } & Spot,
     b: { bottleId: string } & Spot,
-  ): Promise<"swapped" | "stale" | "gone" | "not_found">;
+  ): Promise<"swapped" | "stale" | "behind" | "gone" | "not_found">;
   /** Updates one bottle, only if it is currently in one of `fromStatuses`. Null = no such bottle in that state. */
   updateBottle(
     householdId: string,

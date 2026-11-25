@@ -3790,6 +3790,21 @@ export type Database = {
       };
       join_household: { Args: { p_code: string }; Returns: string };
       merge_wines: { Args: { p_source: string; p_target: string }; Returns: number };
+      move_bottle_v2: {
+        Args: {
+          p_bottle: string;
+          p_from_col: number;
+          p_from_index: number;
+          p_from_location: string;
+          p_from_row: number;
+          p_household: string;
+          p_to_col: number;
+          p_to_index: number;
+          p_to_location: string;
+          p_to_row: number;
+        };
+        Returns: string;
+      };
       my_community_review: { Args: { p_tasting_id: string }; Returns: Json };
       my_friends: {
         Args: Record<PropertyKey, never>;
@@ -4112,6 +4127,7 @@ export type Database = {
           output: Json;
         }[];
       };
+      smart_cellar_depth_status: { Args: Record<PropertyKey, never>; Returns: Json };
       sommelier_purge_expired: { Args: Record<PropertyKey, never>; Returns: number };
       sommelier_record_exchange: {
         Args: {

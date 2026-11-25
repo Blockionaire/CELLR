@@ -274,6 +274,32 @@ export function landingSpot(
   return firstFreeInCell(resolved.layout, others, address.row, address.col);
 }
 
+// ---- Reaching a bottle (sprint 9) ----------------------------------------------------------------------------------
+
+/**
+ * Whether the bottle on `spot` can be taken out of its cell as things are: in a place with depth, only while every
+ * index in front of it is free (a bottle behind another one is reached by moving the front one first). Bins and
+ * single places: always (a bin has no front; ADR-011 §4.2). `except` are bottles that are being moved at the same time
+ * (the other bottle of a swap): they do not stand in the way. Unknown arrangement: reachable (bottles may always
+ * leave a place whose arrangement is not known; nothing is claimed about it).
+ */
+export function reachable(
+  resolved: ResolvedStorage,
+  occupants: readonly Occupant[],
+  spot: SlotLike,
+  except: readonly string[] = [],
+): boolean {
+  if (placementMeaning(resolved) !== "depth") return true;
+  const index = spot.index ?? 1;
+  return !occupants.some(
+    (o) =>
+      !except.includes(o.bottleId) &&
+      o.row === spot.row &&
+      o.col === spot.col &&
+      (o.index ?? 1) < index,
+  );
+}
+
 // ---- Swaps ---------------------------------------------------------------------------------------------------------
 
 export type SwapProblem =

@@ -67,6 +67,7 @@ import type {
   TastingRow,
 } from "./types";
 import { runImport } from "./import-run";
+import { BEHIND_ANOTHER_MESSAGE } from "@/server/db/errors";
 
 /** How many times a add retries when two people grab the same free spot at the same moment. */
 const PLACEMENT_ATTEMPTS = 3;
@@ -385,6 +386,7 @@ export function buildRacks(units: StorageUnitView[], rows: InventoryRow[]): Rack
       countryCode: r.countryCode,
       row: r.row,
       col: r.col,
+      ...(r.index !== undefined && r.index > 1 ? { index: r.index } : {}),
       image: r.image,
       art: r.art ?? null,
     };
@@ -394,7 +396,12 @@ export function buildRacks(units: StorageUnitView[], rows: InventoryRow[]): Rack
     else unplaced.push({ ...bottle, row: null, col: null });
   }
   for (const unit of racks)
-    unit.bottles.sort((a, b) => (a.row ?? 0) - (b.row ?? 0) || (a.col ?? 0) - (b.col ?? 0));
+    unit.bottles.sort(
+      (a, b) =>
+        (a.row ?? 0) - (b.row ?? 0) ||
+        (a.col ?? 0) - (b.col ?? 0) ||
+        (a.index ?? 1) - (b.index ?? 1),
+    );
   unplaced.sort(
     (a, b) => a.producer.localeCompare(b.producer) || a.wineName.localeCompare(b.wineName),
   );
@@ -891,7 +898,12 @@ export function createCellarService(
               "That bottle is no longer in the cellar.",
             );
           } catch (error) {
-            if (isDomainError(error) && error.code === "CONFLICT")
+            // a bottle behind another one (only with depth on, ADR-011 §2) is said as such, not as a taken spot
+            if (
+              isDomainError(error) &&
+              error.code === "CONFLICT" &&
+              error.message !== BEHIND_ANOTHER_MESSAGE
+            )
               throw new DomainError("CONFLICT", "That spot was just taken. Pick another.");
             throw error;
           }
@@ -918,6 +930,11 @@ export function createCellarService(
               "CONFLICT",
               "One of these bottles was just moved by someone else. Nothing was changed.",
             );
+          if (outcome === "behind")
+            throw new DomainError(
+              "CONFLICT",
+              "One of these bottles lies behind another one, so they can't trade places from here. Nothing was changed.",
+            );
           const swapped = await repo.getBottle(householdId, bottleId);
           if (!swapped) throw new DomainError("NOT_FOUND", "We couldn't find that bottle.");
           return { bottle: swapped, previous };
@@ -936,7 +953,13 @@ export function createCellarService(
               { status: "in_cellar", ...to, openedAt: null },
               ["opened", "removed", "gifted"],
             );
-          const wanted = action.to;
+          // A bottle that stood in a place more than one deep may have stood behind another: opening it reset its
+          // index to 1, and this request names none. Never guess (README rule 7): it comes back without a place,
+          // and the person puts it where it belongs. (Only possible once depth is on, ADR-011 §2.)
+          const wanted =
+            action.to.locationId && (await repo.placeIsDeep?.(householdId, action.to.locationId))
+              ? { locationId: null, row: null, col: null }
+              : action.to;
           let restored;
           try {
             restored = await attempt(wanted);

@@ -135,6 +135,11 @@ export const KNOWN_MESSAGES = {
   "That bottle isn't in a shared rack.": "sharedRackNotPlaced",
   "Someone else was changing this rack. Try again.": "sharedRackBusy",
   "A shared rack has no temperature zones.": "sharedRackNoZones",
+  // Smart Cellar 3D sprint 9: depth (ADR-011)
+  "Another bottle is in front of this one. Move that one first.": "placementFrontInTheWay",
+  "This bottle lies behind another one, so it can't be moved from here.": "legacyBehind",
+  "One of these bottles lies behind another one, so they can't trade places from here. Nothing was changed.":
+    "legacySwapBehind",
 } as const;
 
 /** Sentences with a part that changes, or a family of sentences that all mean the same to the person. */

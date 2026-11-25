@@ -15,8 +15,12 @@
 #      there, or is not the right one, and leaves the database as it was. With the new index in place it drops the
 #      old one. The picture is still the same.
 #   5. After that: the same app actions again, and the switch for more than one bottle per cell is off.
-#   2b/6. Every later migration up to 0055 on the same filled database (untouched again), and a compare-and-swap save
+#   2b/6. Every later migration up to 0057 (0055 compare-and-swap, 0056 shared racks, 0057 depth) on the same filled database (untouched again), and a compare-and-swap save
 #      (0055) of a place from before templates that holds bottles: stale and saved, every bottle where it was.
+#   7. DEPTH (ADR-011 phases C-D and the way back), on this throwaway database only: the gated switch refuses while the
+#      old index is there; with it gone it switches on; bottles at the back; switched off again nothing moves; the
+#      gated collapse refuses (changing nothing) while a cell holds two bottles, works once the household has moved
+#      one, and then the old index can be created again. The cellar from before is untouched throughout.
 # Never point it at a real database: it builds its own.   bash scripts/db-smart-cellar-upgrade.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -91,17 +95,19 @@ cmp -s "$WORK/before" "$WORK/expanded" || fail "0043-0045 changed, moved or rewr
 ! grep -liE 'drop +index' "$ROOT"/supabase/migrations/2026112*.sql >/dev/null || fail "a Smart Cellar migration in supabase/migrations drops an index"
 echo "• after 0043-0045 (what a release deploys): every place and bottle is the same row, in the same spot of the table, last written by the same transaction; the old index is still in force and no migration drops it"
 
-# ---- 2b. Every later migration up to 0055 (layout compare-and-swap), on the same filled database --------------------
+# ---- 2b. Every later migration (main's own, 0055 layout compare-and-swap, 0056 shared racks, 0057 depth; all additive), on the same filled database ------
 for f in "$ROOT"/supabase/migrations/*.sql; do
   v="$(basename "$f" | cut -c1-14)"
-  [ "$v" -gt 20261122000045 ] && [ "$v" -le 20261203000055 ] || continue
+  [ "$v" -gt 20261122000045 ] || continue
   apply "$f" || fail "$(basename "$f") failed on a database with data: $(cat "$WORK/apply.err")"
 done
 [ "$(su "select count(*) from pg_proc where oid = 'public.save_storage_layout_v2(uuid,uuid,public.location_kind,text,text,smallint,smallint,smallint,jsonb,jsonb,timestamptz)'::regprocedure")" = 1 ] \
   || fail "after 0055 save_storage_layout_v2 is missing"
+[ "$(su "select public.smart_cellar_depth_status()::text")" = '{"move_v2": true, "index_unique": true, "depth_placement": false, "legacy_cell_index": true}' ] \
+  || fail "after 0057 the database does not say: switch off, old index in force: $(su "select public.smart_cellar_depth_status()")"
 picture "$WORK/cas"
-cmp -s "$WORK/before" "$WORK/cas" || fail "a migration up to 0055 changed, moved or rewrote a place or a bottle: $(diff "$WORK/before" "$WORK/cas" | head -5)"
-echo "• after every migration up to 0055: every place and bottle still the same row, untouched; save_storage_layout_v2 is there next to 0045's save"
+cmp -s "$WORK/before" "$WORK/cas" || fail "a migration after 0045 changed, moved or rewrote a place or a bottle: $(diff "$WORK/before" "$WORK/cas" | head -5)"
+echo "• after every later migration (up to 0057): every place and bottle still the same row, untouched; save_storage_layout_v2 and move_bottle_v2 are there; the database says depth is off and the old index in force"
 
 # ---- 3. The app of today on what is deployed: 0043-0045, the old index in force -------------------------------------
 app_still_works() {   # $1 = label
@@ -182,3 +188,44 @@ out=$(cas "$REV"); [ "$out" = saved ] || fail "a save from the place's own revis
 [ "$(spots)" = "$SPOTS" ] || fail "saving a layout moved a bottle"
 out=$(cas "$REV"); [ "$out" = stale ] || fail "a second save from the revision the first one replaced: $out"
 echo "• 0055 on a place from before templates: a save from another revision is stale and changes nothing; from its own revision it is saved, every bottle where it was; the same revision a second time is stale"
+
+# ---- 7. Depth: the gated switch, and the way back (ADR-011 §6) -----------------------------------------------------
+picture "$WORK/before-depth"     # (step 6 saved one old place's layout on purpose: compared from here)
+ON="$ROOT/supabase/gated-migrations/smart_cellar_depth_switch_on.sql"
+OFF="$ROOT/supabase/gated-migrations/smart_cellar_depth_switch_off.sql"
+COLLAPSE="$ROOT/supabase/gated-migrations/smart_cellar_depth_collapse_to_front.sql"
+LEGACY_INDEX="create unique index bottles_slot_unique on public.bottles (location_id, loc_row, loc_col) where status = 'in_cellar' and location_id is not null"
+# the old index back for a moment (possible: no cell holds two bottles): the switch must refuse
+su "$LEGACY_INDEX" >/dev/null
+if apply "$ON"; then fail "the switch turned depth on while the old index was in force"; fi
+grep -q 'bottles_slot_unique is still in force' "$WORK/apply.err" || fail "the switch failed for another reason: $(cat "$WORK/apply.err")"
+[ "$(su "select private.depth_placement_enabled()")" = f ] || fail "depth is on although the switch refused"
+su "drop index public.bottles_slot_unique" >/dev/null
+apply "$ON" || fail "the switch failed with the old index gone: $(cat "$WORK/apply.err")"
+[ "$(su "select public.smart_cellar_depth_status() ->> 'depth_placement'")" = true ] || fail "the switch did not turn depth on"
+# a household uses depth: a double-depth rack, front and back of one cell, and a lone back bottle
+as1 "insert into public.cellar_locations (cellar_id, household_id, label, template, slot_semantics, grid_rows, grid_cols, cell_capacity) values ('$C', '$H', 'Deep', 'rack_double_depth', 'depth', 3, 4, 2)" >/dev/null
+D=$(su "select id from public.cellar_locations where label = 'Deep'")
+out=$(as1 "insert into public.bottles (household_id, vintage_id, location_id, loc_row, loc_col, loc_index) values ('$H', '$V', '$D', 1, 1, 1), ('$H', '$V', '$D', 1, 1, 2), ('$H', '$V', '$D', 2, 2, 2)")
+[ -z "$out" ] || fail "with depth on, bottles at the back were refused: $out"
+FRONT=$(su "select id from public.bottles where location_id = '$D' and loc_row = 1 and loc_index = 1")
+apply "$OFF" || fail "switching off failed: $(cat "$WORK/apply.err")"
+[ "$(su "select count(*) from public.bottles where location_id = '$D' and loc_index = 2")" = 2 ] || fail "switching off moved a bottle"
+# the way back: the collapse refuses while (1,1) holds two bottles, and changes nothing
+if apply "$COLLAPSE"; then fail "the collapse ran while a cell held two bottles"; fi
+grep -q 'cells still hold more than one bottle, nothing was changed' "$WORK/apply.err" || fail "the collapse failed for another reason: $(cat "$WORK/apply.err")"
+[ "$(su "select count(*) from public.bottles where location_id = '$D' and loc_index = 2")" = 2 ] || fail "the refused collapse changed a bottle"
+[ "$(su "select count(*) from private.depth_occupancy_report()")" = 2 ] || fail "the report does not show the crowded cell and the lone back bottle"
+# the household moves the front bottle to a cell of its own (the app: move_bottle_v2), then the collapse works
+out=$(as1 "select public.move_bottle_v2('$H', '$FRONT', '$D', 1::smallint, 1::smallint, 1::smallint, '$D', 3::smallint, 4::smallint, 1::smallint)")
+[ "$out" = moved ] || fail "moving the front bottle away: $out"
+apply "$COLLAPSE" || fail "the collapse failed with every cell down to one bottle: $(cat "$WORK/apply.err")"
+[ "$(su "select string_agg(loc_row || ':' || loc_col || ':' || loc_index, ',' order by loc_row, loc_col) from public.bottles where location_id = '$D'")" = "1:1:1,2:2:1,3:4:1" ] \
+  || fail "the collapse did not put each lone back bottle at the front of its own cell"
+[ "$(su "select count(*) from private.depth_occupancy_report()")" = 0 ] || fail "after the collapse the report is not empty"
+out=$(as1 "update public.cellar_locations set cell_capacity = 1 where id = '$D'"); [ -z "$out" ] || fail "the place could not be made one deep again: $out"
+su "$LEGACY_INDEX" >/dev/null || fail "the old index could not be created again"
+[ "$(su "select public.smart_cellar_depth_status() ->> 'legacy_cell_index'")" = true ] || fail "the old index is not reported back"
+picture "$WORK/depth"
+cmp -s "$WORK/before-depth" "$WORK/depth" || fail "the depth rehearsal changed a row of the cellar from before: $(diff "$WORK/before-depth" "$WORK/depth" | head -3)"
+echo "• depth, on this throwaway database: the gated switch refuses while the old index is there and switches on once it is gone; bottles at the back; switched off nothing moves; the collapse refuses (nothing changed) while a cell holds two bottles, works after the household moved one; one deep again, the old index created again; the cellar from before untouched"

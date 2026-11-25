@@ -1238,3 +1238,129 @@ test.describe("the old API keeps working, and keeps a templated place consistent
     expect((await me.as(OPEN, "get", "/export?version=3")).status).toBe(422);
   });
 });
+
+/**
+ * DEPTH ON (sprint 9, ADR-011): OPT-IN, never in CI. Needs the local stack started with STACK_DEPTH=1, which runs the
+ * gated depth files (the old index dropped, the switch on) on the stack's own throwaway database and opens the depth
+ * gate on the preview server only. Run it alone, because the rest of this file pins depth OFF:
+ *   STACK_DEPTH=1 pnpm --filter @cellr/web e2e smart-cellar-api -g "depth on" --project=desktop --trace off
+ * Without STACK_DEPTH=1 these tests are skipped (they need a database no ordinary run has).
+ */
+test.describe("depth on: the old endpoints against storage with bottles behind others", () => {
+  test.skip(process.env.STACK_DEPTH !== "1", "opt-in: STACK_DEPTH=1 (see the comment above)");
+
+  test("depth on: the server says so on the preview, and nowhere else", async ({ request }) => {
+    const me = await household(request, "depthcaps");
+    const open = await me.as<{
+      depthPlacement: boolean;
+      depth?: { open: boolean; blockedBy: string | null };
+    }>(OPEN, "get", "/smart-cellar");
+    expect(open.body.depthPlacement).toBe(true);
+    expect(open.body.depth).toMatchObject({ open: true, blockedBy: null, gate: true });
+    // the production-like build (3101) has no depth gate whatever the database says
+    const reads = await me.as<Record<string, unknown>>(READS, "get", "/smart-cellar");
+    expect(reads.body.depthPlacement).toBe(false);
+    expect("depth" in reads.body).toBe(false);
+  });
+
+  test("depth on: old moves, adds and swaps refuse or act on the front; never a guessed index", async ({
+    request,
+  }) => {
+    const me = await household(request, "depthold");
+    const rack = await me.place("Deep", "rack", 3, 4);
+    const deep = {
+      structure: { template: "rack_double_depth", rows: 3, cols: 4, cellCapacity: 2, zones: [] },
+      appearance: { v: 1, material: "wood", color: "walnut", lighting: "none", door: "none" },
+    };
+    expect((await me.as(OPEN, "put", `/smart-cellar/storage/${rack}/layout`, deep)).status).toBe(
+      200,
+    );
+    expect((await stored(rack)).cell_capacity).toBe(2);
+    const [back, front, other] = await me.bottles(null, 3);
+    const spot = (row: number, col: number, index: number) => ({
+      locationId: rack,
+      row,
+      col,
+      index,
+    });
+    const move = (id: string, from: unknown, to: unknown) =>
+      me.as(OPEN, "post", `/smart-cellar/bottles/${id}/move`, { from, to });
+    // the new API: the back first (behind a free front), then the front
+    expect((await move(back!, null, spot(1, 1, 2))).status).toBe(200);
+    expect((await move(front!, null, spot(1, 1, 1))).status).toBe(200);
+    expect((await move(other!, null, spot(3, 4, 1))).status).toBe(200);
+    const where = async (id: string) =>
+      (
+        await sql<{ s: string }>(
+          "select loc_row || ':' || loc_col || ':' || loc_index as s from public.bottles where id = $1",
+          [id],
+        )
+      )[0]!.s;
+    expect([await where(back!), await where(front!)]).toEqual(["1:1:2", "1:1:1"]);
+
+    // the new API: a bottle behind another is not reachable; behind a taken front is not a target
+    const blocked = await move(back!, spot(1, 1, 2), spot(2, 2, 2));
+    expect(blocked.status).toBe(409);
+    expect(JSON.stringify(blocked.body)).toContain("Another bottle is in front of this one");
+
+    // OLD move (PATCH /bottles, no index) of the back bottle: refused, said plainly, nothing changed
+    const oldBack = await me.as(CLOSED, "patch", `/bottles/${back}`, {
+      action: "move",
+      to: { locationId: rack, row: 2, col: 3 },
+    });
+    expect(oldBack.status).toBe(409);
+    expect(JSON.stringify(oldBack.body)).toContain(
+      "lies behind another one, so it can't be moved from here",
+    );
+    expect(await where(back!)).toBe("1:1:2");
+    // OLD swap of the back bottle: refused, and said as such (not "moved by someone else")
+    const oldSwap = await me.as(CLOSED, "patch", `/bottles/${back}`, {
+      action: "swap",
+      with: other,
+      expected: {
+        self: { locationId: rack, row: 1, col: 1 },
+        other: { locationId: rack, row: 3, col: 4 },
+      },
+    });
+    expect(oldSwap.status).toBe(409);
+    expect(JSON.stringify(oldSwap.body)).toContain(
+      "lies behind another one, so they can't trade places",
+    );
+    // OLD move of the FRONT bottle elsewhere: as always, to the front of that cell
+    expect(
+      (
+        await me.as(CLOSED, "patch", `/bottles/${front}`, {
+          action: "move",
+          to: { locationId: rack, row: 2, col: 1 },
+        })
+      ).status,
+    ).toBe(200);
+    expect(await where(front!)).toBe("2:1:1");
+    // OLD add with a chosen spot whose cell holds a bottle at the back: refused as taken, never put in front or behind
+    const wine = await me.as<{ id: string }>(OPEN, "post", "/wines", {
+      ...wineBody,
+      name: `Deep ${stamp()}`,
+    });
+    const add = await me.as(CLOSED, "post", "/bottles", {
+      wineId: wine.body.id,
+      year: 2019,
+      quantity: 1,
+      locationId: rack,
+      slot: { row: 1, col: 1 },
+    });
+    expect(add.status).toBe(409);
+    // the back bottle, now alone, is reachable: the new API moves it to the back of another cell in one go
+    expect((await move(back!, spot(1, 1, 2), spot(2, 3, 2))).status).toBe(200);
+    expect(await where(back!)).toBe("2:3:2");
+    // a swap across depths through the new API
+    const swapped = await me.as(OPEN, "post", `/smart-cellar/bottles/${back}/swap`, {
+      with: other,
+      expected: { self: spot(2, 3, 2), other: spot(3, 4, 1) },
+    });
+    expect(swapped.status).toBe(200);
+    expect([await where(back!), await where(other!)]).toEqual(["3:4:1", "2:3:2"]);
+    // the old views still count every bottle of the place
+    const storage = await me.as<Array<{ id: string; used: number }>>(CLOSED, "get", "/storage");
+    expect(storage.body.find((u) => u.id === rack)?.used).toBe(3);
+  });
+});

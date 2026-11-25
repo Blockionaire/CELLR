@@ -502,6 +502,49 @@ describe("keeping one's changes on a newer version of the place (sprint 8)", () 
     expect(strandedBy(r.draft, [{ row: 5, col: 1, index: 1 }])).toHaveLength(1);
   });
 });
+
+describe("depth in the builder's rules (sprint 9): savable only where the server says depth is open", () => {
+  it("a double-depth rack, cubes and bins: preview only by default, savable with depth open", () => {
+    for (const id of ["rack_double_depth", "cube_modular", "diamond_bins"] as const) {
+      const draft = named(id);
+      expect(assess(draft, null, []).savable, id).toBe(false);
+      expect(
+        assess(draft, null, [], false).problems.map((p) => p.kind),
+        id,
+      ).toContain("preview_only");
+      const open = assess(draft, null, [], true);
+      expect(open.problems, id).toEqual([]);
+      expect(open.savable, id).toBe(true);
+    }
+  });
+
+  it("with depth open a bottle at the back still blocks a shallower draft", () => {
+    const draft = setDimension(named("rack_double_depth"), "cellCapacity", 2).draft;
+    const current = {
+      rows: draft.rows,
+      cols: draft.cols,
+      cellCapacity: 3,
+      semantics: "depth",
+      capacity: 0,
+    };
+    const a = assess(draft, current, [{ row: 1, col: 1, index: 3 }], true);
+    expect(a.savable).toBe(false);
+    expect(a.problems).toContainEqual({ kind: "layout", problem: "in_use" });
+  });
+});
+
+describe("the catalogue's cards follow the server's depth decision (sprint 9)", () => {
+  it("the three deep templates are preview only unless depth is open", async () => {
+    const { cardFacts } = await import("./catalogue");
+    for (const id of ["rack_double_depth", "cube_modular", "diamond_bins"] as const) {
+      expect(cardFacts(id).savable, id).toBe(false);
+      expect(cardFacts(id, false).savable, id).toBe(false);
+      expect(cardFacts(id, true).savable, id).toBe(true);
+    }
+    expect(cardFacts("rack_classic", false).savable).toBe(true);
+  });
+});
+
 describe("which revisions are news to the screen (wave 2 regression: the cache from before a save)", () => {
   it("a revision already met is not news, also in another offset; one never met is", async () => {
     const { revisionIsNews } = await import("./draft");

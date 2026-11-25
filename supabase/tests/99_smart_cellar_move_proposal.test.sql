@@ -1,11 +1,11 @@
--- Smart Cellar 3D, sprint 4: the PROPOSED move_bottle_v2 (supabase/gated-migrations/smart_cellar_move_bottle_v2.sql),
+-- Smart Cellar 3D, sprint 4: move_bottle_v2 (migration 0057 since sprint 9; proposed in sprint 4 as a gated file),
 -- tested in the future state it is for: the old one-bottle-per-cell index dropped (the gated file, run here) and
 -- depth switched on, all inside this transaction and rolled back with it. Nothing here reaches any database.
 -- Also: the single conditional UPDATE the app uses today for index-1 moves, and what stops what (mutation checks:
 -- with a protection taken away inside a savepoint, the thing it prevents happens; then it is put back).
 begin;
 \ir ../gated-migrations/smart_cellar_drop_legacy_slot_index.sql
-\ir ../gated-migrations/smart_cellar_move_bottle_v2.sql
+-- move_bottle_v2 is migration 0057 since sprint 9 (promoted from the gated folder, SQL unchanged)
 do $$
 declare h1 uuid; h2 uuid; code text; cp uuid; cw uuid; v uuid; c1 uuid; c2 uuid;
         legacy uuid; deep uuid; bins uuid; theirs uuid;

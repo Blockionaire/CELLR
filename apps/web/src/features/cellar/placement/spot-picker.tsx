@@ -1,9 +1,11 @@
 "use client";
 
+import { useDepthOpen } from "../depth";
 import { useTranslations } from "next-intl";
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   cellChoices,
+  reachable,
   type CellChoice,
   type ResolvedStorage,
   type SlotAddress,
@@ -59,9 +61,11 @@ export function SpotPicker({
   label,
 }: SpotPickerProps) {
   const t = useTranslations("placement");
+  // depth is decided by the server (sprint 9); closed, every spot past index 1 stays "not switched on yet"
+  const depth = useDepthOpen();
   const cells = useMemo(
-    () => cellChoices(resolved, occupants, { movingId }),
-    [resolved, occupants, movingId],
+    () => cellChoices(resolved, occupants, { movingId, depthEnabled: depth }),
+    [resolved, occupants, movingId, depth],
   );
   const { rows, cols } = resolved.structure;
   const byCell = new Map(cells.map((c) => [`${c.row}:${c.col}`, c]));
@@ -97,8 +101,17 @@ export function SpotPicker({
     }
     return cell.spots.map((s) => {
       const where = { row: s.address.row, col: s.address.col, index: s.address.index };
-      const deep = cell.capacity > 1;
-      type SpotKey = "free" | "taken" | "takenSwap" | "current" | "behind" | "depthOff" | "unknown";
+      // "place n from the front" only where the index IS a position (never for an arrangement that is not known)
+      const deep = cell.capacity > 1 && cell.meaning === "depth";
+      type SpotKey =
+        | "free"
+        | "taken"
+        | "takenSwap"
+        | "takenBehind"
+        | "current"
+        | "behind"
+        | "depthOff"
+        | "unknown";
       const say = (key: SpotKey, extra: Record<string, string | number> = {}) =>
         deep
           ? t(`spot.deep.${key}`, { ...where, ...extra })
@@ -111,6 +124,15 @@ export function SpotPicker({
           text = say("free");
           break;
         case "taken":
+          // a bottle behind another one is reached by moving the front one first: not a swap partner (ADR-011 §4.2)
+          if (
+            deep &&
+            swapAllowed &&
+            !reachable(resolved, occupants, s.address, movingId ? [movingId] : [])
+          ) {
+            text = say("takenBehind", { wine: nameOf(s.bottleId ?? "") });
+            break;
+          }
           if (swapAllowed && s.bottleId)
             choice = { kind: "swap", address: s.address, bottleId: s.bottleId };
           text = say(swapAllowed ? "takenSwap" : "taken", { wine: nameOf(s.bottleId ?? "") });

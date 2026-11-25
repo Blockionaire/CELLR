@@ -9,6 +9,7 @@ import {
 } from "@cellr/domain";
 import { builderAccessIn, type BuilderAccess } from "@/lib/smart-cellar-builder-gate";
 import { placementAccessIn, type PlacementAccess } from "@/lib/smart-cellar-placement-gate";
+import { depthGateOpenIn } from "@/lib/smart-cellar-depth-gate";
 import { cellarGalleryOpenIn } from "@/lib/cellar-gallery-gate";
 import { smartCellarAccessIn, type SmartCellarAccess } from "@/lib/smart-cellar-gate";
 import { smartCellarRendererOpenIn } from "@/lib/smart-cellar-renderer-gate";
@@ -78,6 +79,14 @@ export function getBuilderAccess(): BuilderAccess {
  */
 export function getPlacementAccess(): PlacementAccess {
   return placementAccessIn(process.env, getSmartCellarAccess());
+}
+
+/**
+ * Whether this deployment's depth gate is open (CELLR_SMART_CELLAR_DEPTH=1: `next dev` or a Vercel preview, never
+ * production; sprint 9). Depth is then offered only where the database says so too. lib/smart-cellar-depth-gate.ts.
+ */
+export function isDepthGateOpen(): boolean {
+  return depthGateOpenIn(process.env, getPlacementAccess());
 }
 
 /**

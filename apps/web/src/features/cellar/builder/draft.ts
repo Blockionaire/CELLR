@@ -6,7 +6,7 @@ import {
   StorageZoneSchema,
   STORAGE_TEMPLATES,
   StorageConfigSchema,
-  cellCapacitySavable,
+  cellCapacitySavableWith,
   checkZones,
   defaultStorageConfig,
   defaultZones,
@@ -16,7 +16,7 @@ import {
   sameRevision,
   resolveStorage,
   structureCapacity,
-  templateSavable,
+  templateSavableWith,
   type LayoutChangeProblem,
   type OccupiedSpot,
   type ResolvedStorage,
@@ -378,6 +378,11 @@ export function assess(
   draft: BuilderDraft,
   current: CurrentPlace | null,
   occupied: readonly OccupiedSpot[],
+  /**
+   * Whether the server says depth is open here (capabilities `depthPlacement`, sprint 9). False everywhere today;
+   * the UI half passes it through (SPRINT-9-DEPTH-REPORT §8). Only then is more than one bottle per spot savable.
+   */
+  depthEnabled = false,
 ): Assessment {
   const capacity = structureCapacity(draft);
   const problems: SaveProblem[] = [];
@@ -385,8 +390,11 @@ export function assess(
   // the name as the existing create and rename accept it (one schema, not a second rule)
   if (!CreateStorageSchema.shape.label.safeParse(draft.name).success)
     problems.push({ kind: "name" });
-  if (!cellCapacitySavable(draft.cellCapacity))
-    problems.push({ kind: "preview_only", templateNeedsDepth: !templateSavable(draft.template) });
+  if (!cellCapacitySavableWith(draft.cellCapacity, depthEnabled))
+    problems.push({
+      kind: "preview_only",
+      templateNeedsDepth: !templateSavableWith(draft.template, depthEnabled),
+    });
   const parsed = StorageConfigSchema.safeParse(toConfig(draft));
   if (!parsed.success)
     problems.push({
@@ -404,6 +412,7 @@ export function assess(
       : { rows: draft.rows, cols: draft.cols, cellCapacity: 1, semantics: null },
     toConfig(draft).structure,
     occupied,
+    { depthEnabled },
   );
   // depth is already said above, plainly; the rest are the bottles' own rules
   if (layout && layout !== "depth_not_enabled") problems.push({ kind: "layout", problem: layout });

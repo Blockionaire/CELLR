@@ -337,6 +337,20 @@ describe("opening a bottle", () => {
     expect(late.bottle).toMatchObject({ status: "in_cellar", locationId: null });
   });
 
+  it("Undo into a place more than one deep: back WITHOUT a place, never on a guessed index (sprint 9)", async () => {
+    const { service } = fake([bottle({ id: "a", row: 1, col: 1 })], {
+      overrides: { placeIsDeep: async () => true },
+    });
+    await service.bottleAction("a", { action: "open" });
+    const back = await service.bottleAction("a", { action: "restore", to: place(1, 1) });
+    expect(back.bottle).toMatchObject({
+      status: "in_cellar",
+      locationId: null,
+      row: null,
+      col: null,
+    });
+  });
+
   it("a second Undo is harmless", async () => {
     const { service } = fake([bottle({ id: "a" })]);
     await service.bottleAction("a", { action: "open" });
@@ -599,6 +613,21 @@ describe("the racks view", () => {
     expect(racks.units[0]!.bottles.map((b) => b.bottleId)).toEqual(["a", "c"]);
     expect(racks.unplaced.map((b) => b.bottleId)).toEqual(["u"]);
     expect(racks.units[0]).toMatchObject({ capacity: 6, used: 2, free: 4 });
+  });
+
+  it("depth (sprint 9): a bottle behind another carries its index, front first; a bottle at index 1 has no index field", () => {
+    const racks = buildRacks(
+      [unit],
+      [
+        row({ bottleId: "back", row: 1, col: 1, index: 2 }),
+        row({ bottleId: "front", row: 1, col: 1 }),
+      ],
+    );
+    expect(racks.units[0]!.bottles.map((b) => [b.bottleId, b.index])).toEqual([
+      ["front", undefined],
+      ["back", 2],
+    ]);
+    expect("index" in racks.units[0]!.bottles[0]!).toBe(false);
   });
 
   it("a bottle that points at a unit we do not know is treated as unplaced, never dropped", () => {

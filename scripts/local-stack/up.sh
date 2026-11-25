@@ -43,6 +43,20 @@ if [ -n "${STACK_MIGRATIONS_BEFORE:-}" ]; then
   echo "local stack: migrations before $STACK_MIGRATIONS_BEFORE only ($(ls "$SCHEMA_ROOT/supabase/migrations" | wc -l) files)"
 fi
 apply_schema "$SCHEMA_ROOT"
+# STACK_DEPTH=1 (opt-in, default off; Smart Cellar 3D sprint 9): this throwaway database gets the GATED depth files as
+# well, the old one-bottle-per-cell index dropped and depth switched on, to run the depth tests against
+# (e2e/smart-cellar-api.spec.ts, "depth"). Only ever here: the files are applied to the cluster this script just
+# created on 127.0.0.1:54997, never to anything named by the environment. Nothing in CI sets it.
+if [ "${STACK_DEPTH:-0}" = 1 ]; then
+  case "$PGURL" in
+    postgresql://postgres@127.0.0.1:54997/*) ;;
+    *) echo "local stack: STACK_DEPTH=1 refused: $PGURL is not this script's own throwaway cluster" >&2; exit 1 ;;
+  esac
+  [ -z "${STACK_MIGRATIONS_BEFORE:-}" ] || { echo "local stack: STACK_DEPTH=1 needs every migration (unset STACK_MIGRATIONS_BEFORE)" >&2; exit 1; }
+  "${PSQL[@]}" -X -q -v ON_ERROR_STOP=1 -f "$ROOT/supabase/gated-migrations/smart_cellar_drop_legacy_slot_index.sql"
+  "${PSQL[@]}" -X -q -v ON_ERROR_STOP=1 -f "$ROOT/supabase/gated-migrations/smart_cellar_depth_switch_on.sql"
+  echo "local stack: DEPTH ON (gated files applied to this throwaway database only)"
+fi
 "${PSQL[@]}" -X -q -v ON_ERROR_STOP=1 -f "$ROOT/scripts/local-stack/postgrest-setup.sql"
 
 export PGURL="$PGURL"
