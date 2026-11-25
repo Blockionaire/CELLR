@@ -19,6 +19,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=lib/temp-cluster.sh
 source "$ROOT/scripts/lib/temp-cluster.sh"
+# shellcheck source=lib/session-order.sh
+source "$ROOT/scripts/lib/session-order.sh"
 OUT="$(mktemp -d)"
 cleanup() { stop_temp_cluster; rm -rf "$OUT"; }
 trap cleanup EXIT
@@ -26,21 +28,19 @@ fail() { echo "✗ $1"; exit 1; }
 ROUNDS="${ROUNDS:-150}"
 
 su() { psql "$PGURL" -X -qtA -v ON_ERROR_STOP=1 -c "$1"; }
-# One request of a signed-in member, waiting first at the barrier (a shared advisory lock the conductor holds
-# exclusively until every session is waiting): one transaction, as `authenticated`, like one PostgREST call.
-at_barrier() { psql "$PGURL" -X -qtA -c "begin; select pg_advisory_xact_lock_shared(5151); select test.as_user($1); $2; commit;" 2>&1 | grep -v '^$' || true; }
+# One request of a signed-in member, waiting first at the barrier (the gate of scripts/lib/session-order.sh, held by
+# its own session until every request is waiting): one transaction, as `authenticated`, like one PostgREST call.
+at_barrier() { psql "$PGURL" -X -qtA -c "begin; select pg_advisory_xact_lock_shared($SESSION_GATE_KEY); select test.as_user($1); $2; commit;" 2>&1 | grep -v '^$' || true; }
 as() { psql "$PGURL" -X -qtA -c "begin; select test.as_user($1); $2; commit;" 2>&1 | grep -v '^$' || true; }
-as_slow() { psql "$PGURL" -X -qtA -c "begin; select test.as_user($1); $2; select pg_sleep(0.7); commit;" 2>&1 | grep -v '^$' || true; }
-# The conductor: holds the barrier until $1 sessions wait on it, then lets them all go at once.
-conduct() {
-  psql "$PGURL" -X -qtA -c "select pg_advisory_lock(5151);
-    do \$\$ begin
-      for i in 1..400 loop
-        exit when (select count(*) from pg_locks where locktype = 'advisory' and objid = 5151 and not granted) >= $1;
-        perform pg_sleep(0.01);
-      end loop;
-    end \$\$;
-    select pg_advisory_unlock(5151);" >/dev/null
+# release N: once N requests wait at the closed gate, open it: they all go at once. (gate_close comes first, so no
+# request can pass before the gate is there.)
+release() {
+  local i
+  for i in $(seq 1 600); do
+    [ "$(_count "select count(*) from pg_locks where locktype = 'advisory' and objid = $SESSION_GATE_KEY and not granted")" -ge "$1" ] && { gate_open; return 0; }
+    sleep 0.02
+  done
+  fail "release: $1 requests did not reach the barrier within 12 s"
 }
 
 start_temp_cluster 25487
@@ -86,9 +86,9 @@ intact() {
 # ---- 0. Control: 0045 alone, last write wins ----------------------------------------------------------------------
 both=0
 for round in $(seq 1 10); do
-  conduct 2 & sleep 0.05
+  gate_close
   at_barrier 1 "$(layout 1 "")" >"$OUT/c-a" & at_barrier 2 "$(layout 2 "")" >"$OUT/c-b" &
-  wait
+  release 2; wait
   [ "$(cat "$OUT/c-a" "$OUT/c-b" | grep -c '^saved$')" = 2 ] && both=$((both + 1))
 done
 intact "control"
@@ -99,12 +99,16 @@ echo "• control (0045, no revision): 10 of 10 times two saves made from one re
 for order in "1 2" "2 1"; do
   read -r first second <<<"$order"
   R=$(rev)
-  as_slow "$first" "$(layout "$first" "$R")" >"$OUT/h-a" & sleep 0.25
-  t0=$(date +%s%N); as "$second" "$(layout "$second" "$R")" >"$OUT/h-b"; waited=$(( ($(date +%s%N) - t0) / 1000000 ))
-  wait
+  gate_close
+  held "$first" "$(layout "$first" "$R")" >"$OUT/h-a" & h=$!
+  parked "$h"
+  PGAPPNAME=cellr_second as "$second" "$(layout "$second" "$R")" >"$OUT/h-b" & s2=$!
+  blocked_or_done "$s2"; waited=$BLOCKED
+  gate_open
+  wait "$h" "$s2"
   [ "$(cat "$OUT/h-a")" = saved ] || fail "held ($order): the save that came first: $(cat "$OUT/h-a")"
   [ "$(cat "$OUT/h-b")" = stale ] || fail "held ($order): the save from the same revision meanwhile: $(cat "$OUT/h-b")"
-  [ "$waited" -ge 250 ] || fail "held ($order): the second save did not wait for the first ($waited ms)"
+  [ "$waited" = 1 ] || fail "held ($order): the second save was not seen waiting for the first one's lock"
   [ "$(whole_of "$first")" = t ] || fail "held ($order): what is there is not the first caller's whole layout"
   [ "$(rev)" != "$R" ] || fail "held ($order): the revision did not move"
   intact "held ($order)"
@@ -116,9 +120,9 @@ wins1=0; wins2=0
 for round in $(seq 1 "$ROUNDS"); do
   R=$(rev)
   a=$(( (round % 4) + 1 )); b=$(( (round % 4) + 5 ))       # two different layouts every round
-  conduct 2 & sleep 0.03
+  gate_close
   at_barrier 1 "$(layout "$a" "$R")" >"$OUT/r-a" & at_barrier 2 "$(layout "$b" "$R")" >"$OUT/r-b" &
-  wait
+  release 2; wait
   ra=$(cat "$OUT/r-a"); rb=$(cat "$OUT/r-b")
   if [ "$ra" = saved ] && [ "$rb" = stale ]; then winner=$a; wins1=$((wins1 + 1))
   elif [ "$ra" = stale ] && [ "$rb" = saved ]; then winner=$b; wins2=$((wins2 + 1))
@@ -134,9 +138,9 @@ echo "• $ROUNDS rounds of two simultaneous saves from one revision: every roun
 # ---- 3. Eight at once ---------------------------------------------------------------------------------------------
 for round in $(seq 1 30); do
   R=$(rev)
-  conduct 8 & sleep 0.03
+  gate_close
   for i in $(seq 1 8); do at_barrier $(( i % 2 + 1 )) "$(layout "$i" "$R")" >"$OUT/e-$i" & done
-  wait
+  release 8; wait
   saved=$(cat "$OUT"/e-* | grep -c '^saved$' || true); stale=$(cat "$OUT"/e-* | grep -c '^stale$' || true)
   [ "$saved" = 1 ] && [ "$stale" = 7 ] || fail "round $round of 8: $(cat "$OUT"/e-* | sort | uniq -c | tr '\n' ' ')"
   winner=$(grep -l '^saved$' "$OUT"/e-* | sed 's/.*e-//')
@@ -149,10 +153,10 @@ echo "• 30 rounds of 8 simultaneous saves from one revision: every time 1 save
 renamed=0; saved=0
 for round in $(seq 1 40); do
   R=$(rev)
-  conduct 2 & sleep 0.03
+  gate_close
   at_barrier 1 "$(layout 3 "$R")" >"$OUT/n-a" &
   at_barrier 2 "update public.cellar_locations set label = 'Cooler $round' where id = '$P' and updated_at = '$R' returning 'renamed'" >"$OUT/n-b" &
-  wait
+  release 2; wait
   ra=$(cat "$OUT/n-a"); rb=$(cat "$OUT/n-b")
   # both conditioned on R: exactly one of the two may land
   if [ "$ra" = saved ] && [ -z "$rb" ]; then saved=$((saved + 1))
