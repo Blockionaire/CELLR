@@ -12,10 +12,16 @@ import {
 import { FOV, slotPosition } from "../three/layout";
 import { fixtureBottles, fixturePlace } from "./fixtures";
 import {
+  AIM_PX,
+  CAMERA_CLEARANCE,
+  MIN_AIM_PX,
   QUALITY,
+  aimZoom,
+  sameSpot,
   START_AZIMUTH,
   buildModel,
   frameFor,
+  keepOutside,
   lowerQuality,
   placeBottles,
   qualityFor,
@@ -23,7 +29,7 @@ import {
   type RenderModel,
 } from "./model";
 import { FIDELITIES, MATERIAL_ROLES, PREMIUM_TONES, TONES, lookFor } from "./palette";
-import { BOTTLE_L, BOTTLE_R, penetration, type Pose, poseBounds } from "./parts";
+import { BOTTLE_L, BOTTLE_R, penetration, type Pose, poseBounds, type Vec3 } from "./parts";
 
 const FAMILY_OF: Record<string, "grid" | "bins" | "wall"> = {
   rack_classic: "grid",
@@ -679,6 +685,146 @@ describe("the camera", () => {
       expect(f.target[i]).toBeCloseTo((small.bounds.min[i]! + small.bounds.max[i]!) / 2, 10);
     // nothing to look at: still a camera
     expect(frameFor({ min: [0, 0, 0], max: [0, 0, 0] }, 1).distance).toBeGreaterThan(0);
+  });
+
+  // Sprint 10. Zoomed in as far as it went (a quarter of the starting distance), the camera of a small place on a
+  // wide screen stood past the front of the furniture: 29 of the 168 cases below did at their closest (37 within the
+  // clearance): most templates at their smallest on a desktop.
+  const everySize = (id: StorageTemplateId) => {
+    const t = STORAGE_TEMPLATES[id];
+    const cols = Math.min(
+      t.cols.max,
+      Math.max(t.cols.min, Math.floor(t.maxCapacity / (t.rows.max * t.cellCapacity.max))),
+    );
+    return [
+      { rows: t.rows.min, cols: t.cols.min, cellCapacity: t.cellCapacity.min },
+      { rows: t.rows.default, cols: t.cols.default, cellCapacity: t.cellCapacity.default },
+      { rows: t.rows.max, cols, cellCapacity: t.cellCapacity.max },
+    ];
+  };
+  /** The camera at `distance` from the point it looks at, turned as far as the controls let it go. */
+  const around = (f: { target: Vec3 }, distance: number) => {
+    const out: Vec3[] = [];
+    for (let az = -1.1; az <= 1.1 + 1e-9; az += 0.1)
+      for (let polar = 0.7; polar <= 1.8 + 1e-9; polar += 0.1)
+        out.push([
+          f.target[0] + distance * Math.sin(polar) * Math.sin(az),
+          f.target[1] + distance * Math.cos(polar),
+          f.target[2] + distance * Math.sin(polar) * Math.cos(az),
+        ]);
+    return out;
+  };
+  const inside = (b: { min: Vec3; max: Vec3 }, p: Vec3, by = CAMERA_CLEARANCE) =>
+    [0, 1, 2].every((i) => p[i]! > b.min[i]! - by + 1e-9 && p[i]! < b.max[i]! + by - 1e-9);
+
+  it("zoomed in as far as it goes and looking straight at the place, the camera is in front of it", () => {
+    for (const id of STORAGE_TEMPLATE_IDS)
+      for (const c of everySize(id))
+        for (const aspect of [0.45, 1, 1.6, 2.2]) {
+          const m = modelOf(id, c);
+          const f = frameFor(m.bounds, aspect);
+          const label = `${id} ${JSON.stringify(c)} at ${aspect}`;
+          expect(f.target[2] + f.closest, label).toBeGreaterThanOrEqual(
+            m.bounds.max[2] + CAMERA_CLEARANCE - 1e-9,
+          );
+          // it can still come closer than it starts, and never closer than it could before
+          expect(f.closest, label).toBeLessThanOrEqual(f.distance);
+          expect(f.closest, label).toBeGreaterThanOrEqual(f.distance * 0.25 - 1e-9);
+        }
+  });
+
+  it("a large place keeps the zoom it had: only where the camera would be in the furniture is it held back", () => {
+    for (const aspect of [0.45, 1.6]) {
+      const f = frameFor(modelOf("rack_classic", { rows: 30, cols: 30 }).bounds, aspect);
+      expect(f.closest).toBeCloseTo(f.distance * 0.25, 10);
+    }
+  });
+
+  it("at any angle, the camera kept out of the furniture is outside it, on the same line, no farther than allowed", () => {
+    let held = 0;
+    for (const id of STORAGE_TEMPLATE_IDS)
+      for (const c of everySize(id))
+        for (const aspect of [0.45, 1.6]) {
+          const m = modelOf(id, c);
+          const f = frameFor(m.bounds, aspect);
+          for (const cam of around(f, f.closest)) {
+            const out: Vec3 = [0, 0, 0];
+            const moved = keepOutside(m.bounds, cam, f.target, f.distance * 1.8, out);
+            const at = moved ? out : cam;
+            if (moved) held += 1;
+            expect(inside(m.bounds, at), `${id} ${JSON.stringify(c)} at ${aspect}`).toBe(false);
+            if (moved) {
+              // straight back along the line it looked along: the view keeps its direction
+              const a = cam.map((v, i) => v - f.target[i]!);
+              const b = out.map((v, i) => v - f.target[i]!);
+              const cos =
+                (a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!) /
+                (Math.hypot(...a) * Math.hypot(...b));
+              expect(cos).toBeCloseTo(1, 9);
+              expect(Math.hypot(...b)).toBeLessThanOrEqual(f.distance * 1.8 + 1e-9);
+            }
+          }
+        }
+    // the case is real: some of these angles did reach into the box
+    expect(held).toBeGreaterThan(0);
+  });
+
+  it("outside the furniture, the camera is left exactly where it is", () => {
+    const m = modelOf("rack_classic");
+    const f = frameFor(m.bounds, 1);
+    const out: Vec3 = [9, 9, 9];
+    const cam: Vec3 = [f.target[0], f.target[1], f.target[2] + f.distance];
+    expect(keepOutside(m.bounds, cam, f.target, f.distance * 1.8, out)).toBe(false);
+    expect(out).toEqual([9, 9, 9]);
+    // and on the very point it looks at (a degenerate case), it is moved out towards the viewer
+    expect(keepOutside(m.bounds, f.target, f.target, f.distance * 1.8, out)).toBe(true);
+    expect(out[2]).toBeGreaterThan(m.bounds.max[2]);
+  });
+});
+
+describe("which spot is the chosen one (sprint 10 review)", () => {
+  it("compares the whole spot: two free indexes in one cell are two spots", () => {
+    // a double-depth rack: the cell 2:3 holds index 1 and index 2, both free
+    const m = modelOf("rack_double_depth", { rows: 3, cols: 4, cellCapacity: 2 });
+    const cell = m.resolved.layout.cells.find((c) => c.row === 2 && c.col === 3)!;
+    expect(cell.capacity).toBe(2);
+    const spots = [1, 2].map((index) => ({ row: 2, col: 3, index }));
+    const chosen = (active: { row: number; col: number; index?: number }) =>
+      spots.filter((s) => sameSpot(s, active)).map((s) => s.index);
+    expect(chosen({ row: 2, col: 3, index: 2 })).toEqual([2]);
+    expect(chosen({ row: 2, col: 3, index: 1 })).toEqual([1]);
+    // a spot without an index is index 1
+    expect(chosen({ row: 2, col: 3 })).toEqual([1]);
+    expect(chosen({ row: 2, col: 4, index: 1 })).toEqual([]);
+    expect(sameSpot(spots[0]!, null)).toBe(false);
+  });
+});
+
+describe("aiming with a finger (sprint 10)", () => {
+  it("a target clear of its neighbours is taken at once", () => {
+    expect(aimZoom(MIN_AIM_PX, 20, 5)).toBeNull();
+    expect(aimZoom(80, 20, 5)).toBeNull();
+    expect(aimZoom(Infinity, 20, 5)).toBeNull();
+  });
+
+  it("one too close to its neighbours brings the view closer until they are a fingertip apart", () => {
+    // 12 px apart (a 30 x 30 rack on a phone): a little under four times closer
+    const want = aimZoom(12, 40, 10)!;
+    expect(want).toBeCloseTo((40 * 12) / AIM_PX, 10);
+    expect(want).toBeLessThan(40);
+    // never closer than the camera may come
+    expect(aimZoom(2, 40, 10)).toBe(10);
+    expect(aimZoom(0, 40, 10)).toBe(10);
+  });
+
+  it("where the view cannot come closer, the tap is taken: a person is never stuck", () => {
+    expect(aimZoom(12, 10, 10)).toBeNull();
+    expect(aimZoom(12, 10.1, 10)).toBeNull();
+  });
+
+  it("nothing that is not a distance is taken as one", () => {
+    expect(aimZoom(Number.NaN, 40, 10)).toBeNull();
+    expect(aimZoom(-1, 40, 10)).toBeNull();
   });
 });
 

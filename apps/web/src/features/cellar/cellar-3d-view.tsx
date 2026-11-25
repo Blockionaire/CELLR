@@ -26,7 +26,7 @@ import { MoveBottleSheet } from "./move-bottle-sheet";
 import { NewPlaceSheet } from "./new-place-sheet";
 import { SIDE_BY_SIDE_MIN_WIDTH, type ShowcaseLayout } from "./three/layout";
 import type { Backdrop } from "./three/scene";
-import type { ShownBottle } from "./three/types";
+import type { SceneSpot, ShownBottle } from "./three/types";
 import { useBottleActions } from "./use-bottle-actions";
 import { placeLine, shapeFor } from "./wine-visuals";
 
@@ -98,6 +98,19 @@ const useSafeTop = () =>
 type SheetName = "move" | "place" | null;
 
 /**
+ * 3D Quick Add on this place (sprint 7.2 completion), as the Smart Cellar 3D view hands it in for a place from before
+ * templates. Which places get spots in the picture, and why the others do not: `quick-add/legacy-spots.ts`.
+ */
+export interface LegacyQuickProps {
+  /** The free spots drawn as placeholders, or null: nothing to point at in the picture (the list is the way). */
+  spots: readonly SceneSpot[] | null;
+  /** The spot chosen now, drawn gold. */
+  chosen: { row: number; col: number } | null;
+  /** A placeholder was tapped; undefined while a bottle is being chosen for the chosen spot (nothing else is offered). */
+  onSpot: ((spot: SceneSpot) => void) | undefined;
+}
+
+/**
  * The still of the rack behind the bottle on display. It takes over from the live rack looking exactly like it, then
  * steps back (blurred, dimmed, leaning in a little); going home it comes forward again, settled before the live rack
  * takes over (as the bottle lies down, ~0.5 s in).
@@ -155,6 +168,9 @@ function RackStill({
 export function Cellar3DView({
   onShowRacks,
   only,
+  quick = null,
+  onLostChange,
+  debug = false,
 }: {
   onShowRacks: () => void;
   /**
@@ -163,11 +179,18 @@ export function Cellar3DView({
    * every screen until now: the view chooses and shows its own row.
    */
   only?: string | undefined;
+  /** 3D Quick Add (only from the Smart Cellar 3D view); left out, the view is exactly as it always was. */
+  quick?: LegacyQuickProps | null;
+  /** The graphics memory was taken back (true) or the picture is drawn again (false): Quick Add's list stands in. */
+  onLostChange?: (lost: boolean) => void;
+  /** The view's own readout for the browser tests (only the Smart Cellar 3D view, when the tab asked for it). */
+  debug?: boolean;
 }) {
   const t = useTranslations("cellar3d");
   const tKinds = useTranslations("storageKinds");
   const tr = useTranslations("racks");
   const tRack = useTranslations("rack");
+  const tq = useTranslations("quickAdd");
   const locale = useLocale();
   const racks = useRacks();
   const actions = useBottleActions();
@@ -224,7 +247,14 @@ export function Cellar3DView({
   if (picked && picked !== lastBottle) setLastBottle(picked);
   const detail = useVintageDetail(picked?.vintageId ?? lastBottle?.vintageId ?? null).data;
 
+  // Spots on offer (Quick Add): no bottle is taken out meanwhile (taking out and choosing a spot never overlap).
+  const offering = quick !== null;
+  const offeringRef = useRef(offering);
+  useEffect(() => {
+    offeringRef.current = offering;
+  }, [offering]);
   const pick = useCallback((id: string) => {
+    if (offeringRef.current) return;
     // The bottle that is on its way home is not done yet: wait for the rack to be live again.
     if (backdropRef.current && !openRef.current) return;
     // Timing marks (cheap, local): how long from the tap to the bottle moving (see the perf e2e).
@@ -246,6 +276,17 @@ export function Cellar3DView({
     // Give the panel a moment to go inert before focus returns to what opened it.
     if (target?.isConnected) requestAnimationFrame(() => target.focus({ preventScroll: true }));
   }, []);
+
+  // Adding starts: a bottle that is out goes back first (adjusted while rendering, as React prefers to an effect).
+  const [wasOffering, setWasOffering] = useState(offering);
+  if (offering !== wasOffering) {
+    setWasOffering(offering);
+    if (offering && pickedId !== null) {
+      setExit("home");
+      setPickedId(null);
+      setError(null);
+    }
+  }
 
   // Escape puts the bottle back (unless a sheet is open: that handles Escape itself).
   useEffect(() => {
@@ -379,6 +420,7 @@ export function Cellar3DView({
           data-testid="cellar-3d"
           data-ready={ready}
           data-showcase={open ? "open" : "closed"}
+          data-offering={quick ? (quick.spots && !lost ? "3d" : "list") : ""}
           onPointerDown={() => setTouched(true)}
         >
           {backdrop && <RackStill backdrop={backdrop} open={open} reduced={reduced} />}
@@ -420,7 +462,12 @@ export function Cellar3DView({
                 setReady(false);
                 setBackdrop(null);
                 setPickedId(null);
+                onLostChange?.(true);
               }}
+              spots={quick?.spots ?? null}
+              chosenSpot={quick?.chosen ?? null}
+              onSpot={quick?.onSpot}
+              debug={debug}
             />
           </div>
           {lost && (
@@ -436,6 +483,7 @@ export function Cellar3DView({
                   onClick={() => {
                     setLost(false);
                     setAttempt((n) => n + 1);
+                    onLostChange?.(false);
                   }}
                 >
                   {t("lostRetry")}
@@ -451,7 +499,7 @@ export function Cellar3DView({
             style={{ opacity: touched || open ? 0 : 1 }}
           >
             <span className="max-w-full rounded-full bg-surface/70 px-4 py-1.5 text-center text-caption text-ink-2 ring-1 ring-hairline backdrop-blur-md">
-              {t("hint")}
+              {quick?.spots ? tq("placingShort") : t("hint")}
             </span>
           </p>
 
@@ -481,19 +529,22 @@ export function Cellar3DView({
         </div>
       </div>
 
-      {/* The same bottles for keyboard and screen-reader users; visible while one has focus. */}
-      <ul
-        className="sr-only focus-within:not-sr-only focus-within:flex focus-within:flex-col focus-within:gap-1 focus-within:rounded-card focus-within:bg-raised focus-within:p-3"
-        aria-label={t("listLabel", { unit: unit.label })}
-      >
-        {unit.bottles.map((b) => (
-          <li key={b.bottleId}>
-            <button type="button" onClick={() => pick(b.bottleId)}>
-              {tRack("cellBottle", { wine: name(b), row: b.row ?? 0, col: b.col ?? 0 })}
-            </button>
-          </li>
-        ))}
-      </ul>
+      {/* The same bottles for keyboard and screen-reader users; visible while one has focus. (While adding, the
+          list of empty spots above the picture is the way in instead.) */}
+      {!offering && (
+        <ul
+          className="sr-only focus-within:not-sr-only focus-within:flex focus-within:flex-col focus-within:gap-1 focus-within:rounded-card focus-within:bg-raised focus-within:p-3"
+          aria-label={t("listLabel", { unit: unit.label })}
+        >
+          {unit.bottles.map((b) => (
+            <li key={b.bottleId}>
+              <button type="button" onClick={() => pick(b.bottleId)}>
+                {tRack("cellBottle", { wine: name(b), row: b.row ?? 0, col: b.col ?? 0 })}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {detail && (
         <>

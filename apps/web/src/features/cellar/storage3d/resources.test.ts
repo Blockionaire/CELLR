@@ -16,7 +16,7 @@ vi.mock("../three/materials", () => {
 import { BOTTLE_LENGTH, SHAPES, lathePoints } from "../three/layout";
 import { fixtureBottles, fixturePlace } from "./fixtures";
 import { QUALITY, buildModel, placeBottles, type Quality } from "./model";
-import { MATERIAL_ROLES } from "./palette";
+import { MATERIAL_ROLES, PREMIUM_TONES, TONES, shade } from "./palette";
 import { BOTTLE_L, BOTTLE_R } from "./parts";
 import {
   Owned,
@@ -27,6 +27,9 @@ import {
   buildGhostMaterial,
   ghostRadial,
   buildStructure,
+  RING,
+  buildKeylineRing,
+  buildRingPaint,
   markerMatrix,
   poseMatrix,
   type BottleKit,
@@ -59,6 +62,8 @@ function everything(
     ...Object.values(kit.cap),
     ...[kit.shadow, kit.token, kit.dot, kit.ring],
     ...[kit.glass, kit.paper, kit.foil, kit.shade, kit.counter, kit.marker, kit.target],
+    // the rings with a keyline (sprint 10)
+    ...[kit.targetRing, kit.markerRing, kit.ringPaint],
     // the shadow a bottle throws on a wall (sprint 2B.2): there where shadows are drawn
     ...(kit.wallShadow && kit.wallShade ? [kit.wallShadow, kit.wallShade] : []),
   ];
@@ -399,5 +404,70 @@ describe("the placeholder bottle of a free spot (3D Quick Add, sprint 7.2)", () 
     // white: the tone (resting, warmer under a mouse, gold when chosen) is each instance's colour
     expect(m.color.getHexString()).toBe("ffffff");
     m.dispose();
+  });
+});
+
+describe("the rings that mark a spot are seen on every finish (sprint 10)", () => {
+  /** WCAG relative luminance and contrast ratio. */
+  const luminance = (hex: string) => {
+    const c = new THREE.Color(hex);
+    // THREE.Color holds linear values once read from a hex string under colour management: exactly what WCAG wants
+    return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+  };
+  const contrast = (a: string, b: string) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi! + 0.05) / (lo! + 0.05);
+  };
+  // every tone a place can have, in both looks, also as it is seen deep in a compartment (the vertex shading darkens
+  // the back), and the two studios behind a place
+  const surfaces = [
+    ...new Set([
+      ...Object.values(TONES),
+      ...Object.values(PREMIUM_TONES),
+      ...Object.values(PREMIUM_TONES).map((t) => shade(t, 0.5)),
+      "#121010",
+      "#f3efe7",
+    ]),
+  ];
+
+  it("the core alone was not: on dark wood a wine-red ring all but vanished, on white lacquer a gold one did", () => {
+    const weak = (core: string) => surfaces.filter((s) => contrast(core, s) < 3).length;
+    expect(weak(RING.target.core)).toBeGreaterThan(0);
+    expect(weak(RING.marker.core)).toBeGreaterThan(0);
+  });
+
+  it("with its keyline, each ring stands out at 3:1 or more against every one of them", () => {
+    for (const ring of [RING.target, RING.marker])
+      for (const s of surfaces)
+        expect(
+          Math.max(contrast(ring.core, s), contrast(ring.keyline, s)),
+          `${ring.core} on ${s}`,
+        ).toBeGreaterThanOrEqual(3);
+  });
+
+  it("the two rings differ in light and dark, not only in hue: pale round dark, and dark round light", () => {
+    expect(luminance(RING.target.keyline)).toBeGreaterThan(luminance(RING.target.core) * 3);
+    expect(luminance(RING.marker.core)).toBeGreaterThan(luminance(RING.marker.keyline) * 3);
+  });
+
+  it("is one geometry, keyline first and core over it, painted per vertex, one material that writes no depth", () => {
+    const g = buildKeylineRing(RING.target);
+    expect(Object.keys(g.attributes).sort()).toEqual(["color", "normal", "position"]);
+    const plain = new THREE.TorusGeometry(BOTTLE_R + 0.07, 0.035, 8, 40);
+    const half = plain.index!.count;
+    expect(g.index!.count).toBe(half * 2);
+    // the last half of the triangles (drawn last) is the core, in the core's colour
+    const colours = g.getAttribute("color");
+    const at = (i: number) => new THREE.Color(colours.getX(i), colours.getY(i), colours.getZ(i));
+    const n = colours.count;
+    expect(at(0).getHexString()).toBe(new THREE.Color(RING.target.keyline).getHexString());
+    expect(at(n - 1).getHexString()).toBe(new THREE.Color(RING.target.core).getHexString());
+    // the same circle as the ring always was, a little wider
+    g.computeBoundingBox();
+    expect(g.boundingBox!.max.x).toBeCloseTo(BOTTLE_R + 0.07 + 0.062, 6);
+    const paint = buildRingPaint();
+    expect(paint.vertexColors).toBe(true);
+    expect(paint.depthWrite).toBe(false);
+    expect(paint.toneMapped).toBe(false);
   });
 });
