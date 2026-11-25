@@ -246,7 +246,7 @@ headless shell was used:
 - `premium-look.test.ts` timed out at 5 s on loaded machines several times. Its per-vertex shading check now asserts
   the lowest and highest value of each mesh instead of calling `expect` once per value. The values compared are the
   same; the file went from 12.5 s to 3.9 s alone. The 252-build ownership test has an explicit 60 s timeout.
-- `architecture:impact` reports 2 structural changes against `origin/main`: migration 0051 / `save_storage_layout_v2`
+- `architecture:impact` reports 2 structural changes against `origin/main`: migration `20261203000055` (the compare-and-swap; main brought its own 0051–0054) / `save_storage_layout_v2`
   and `app/api → server/smart-cellar`. Both come from the compare-and-swap branch merged into this one, not from this
   work. `vitest run src/server/system`: 27 passed. Register unchanged by me (1.5.5).
 
