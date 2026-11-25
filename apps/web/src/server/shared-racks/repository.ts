@@ -171,6 +171,7 @@ const INVITE = [
   "no_such_user",
   "already_member",
   "recently_declined",
+  "person_limit",
   "full",
   "too_many",
 ] as const;
@@ -181,6 +182,7 @@ const RESPOND = [
   "expired",
   "archived",
   "full",
+  "too_many_racks",
   "already_accepted",
   "already_declined",
   "already_cancelled",
@@ -212,6 +214,7 @@ const PLACE = [
   "bottle_unavailable",
   "already_placed",
   "out_of_bounds",
+  "depth_not_enabled",
   "taken",
 ] as const;
 const MOVE = [
@@ -222,6 +225,7 @@ const MOVE = [
   "archived",
   "gone",
   "out_of_bounds",
+  "depth_not_enabled",
   "taken",
 ] as const;
 const TAKE_OUT = ["taken_out", "stale", "not_found", "gone"] as const;

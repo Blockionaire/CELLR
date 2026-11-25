@@ -471,6 +471,15 @@ test.describe("three households, one rack", () => {
       "bottle_moved",
       "bottle_placed",
     ]);
+    // by bottle id only for one's own bottle: someone else's bottle id answers nothing
+    expect(
+      (await ann.as<{ events: Event[] }>("get", `/shared-racks/${rack}/events?bottle=${annBottle}`))
+        .body.events,
+    ).toHaveLength(3);
+    expect(
+      (await bob.as<{ events: Event[] }>("get", `/shared-racks/${rack}/events?bottle=${annBottle}`))
+        .body.events,
+    ).toEqual([]);
     expect((await bob.as("get", `/shared-racks/${rack}/events?limit=1000`)).status).toBe(422);
   });
 
@@ -904,10 +913,22 @@ test.describe("losing access", () => {
     expect((await cy.as("delete", `/shared-racks/bottles/${cyBottle}`)).status).toBe(204);
     expect((await cy.as("delete", `/shared-racks/bottles/${cyBottle}`)).status).toBe(409);
     expect((await shown(bob, rack)).map((s) => s.placementId)).toEqual([a.body.placementId]);
+    // Cy is no longer in the rack: the history says the bottle was withdrawn and whose it was, and names no actor
     expect((await history(rack)).at(-1)).toEqual({
       event_type: "bottle_withdrawn",
-      actor_id: cy.userId,
+      actor_id: null,
       owner_id: cy.userId,
+    });
+    const last = (
+      await bob.as<{
+        events: Array<{ type: string; actor: unknown; owner: unknown; detail: unknown }>;
+      }>("get", `/shared-racks/${rack}/events?limit=1`)
+    ).body.events[0];
+    expect(last).toMatchObject({
+      type: "bottle_withdrawn",
+      actor: { userId: null, name: null },
+      owner: { userId: cy.userId, name: "Cy" },
+      detail: { by: "owners_household" },
     });
   });
 

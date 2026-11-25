@@ -111,6 +111,8 @@ export const KNOWN_MESSAGES = {
   "We couldn't find that person.": "sharedRackPersonMissing",
   "They're already in this rack.": "sharedRackAlreadyMember",
   "They declined a little while ago. Try again later.": "sharedRackRecentlyDeclined",
+  "You already have three open invitations to this person. Wait for an answer first.":
+    "sharedRackPersonLimit",
   "This rack is full.": "sharedRackFull",
   "There are too many open invitations. Cancel one first.": "sharedRackTooManyInvitations",
   "That invitation is no longer there.": "sharedRackInvitationMissing",

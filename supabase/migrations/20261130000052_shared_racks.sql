@@ -54,7 +54,10 @@
 -- template: a shared rack is new, there is no form from before templates. Never deleted: archived.
 create table private.shared_racks (
   id             uuid primary key default gen_random_uuid(),
-  name           text not null check (char_length(btrim(name)) between 1 and 60 and name = btrim(name)),
+  -- (>= and <=, not BETWEEN: next to another condition BETWEEN is stored as "(a AND b) AND c", which a dump and
+  -- restore reads back as "a AND b AND c": scripts/db-shared-racks-roundtrip.sh, the backup rehearsal)
+  name           text not null check (char_length(btrim(name)) >= 1 and char_length(btrim(name)) <= 60
+                                      and name = btrim(name)),
   kind           public.location_kind not null default 'rack',
   template       text not null check (template ~ '^[a-z][a-z0-9_]{0,39}$'),
   slot_semantics text not null check (slot_semantics in ('depth', 'ordinal', 'single')),
@@ -359,6 +362,13 @@ begin
   return v_role;
 end $$;
 
+-- Whether someone is in a rack NOW.
+create function private.shared_rack_is_member(p_rack uuid, p_user uuid) returns boolean
+  language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from private.shared_rack_members m
+                  where m.rack_id = p_rack and m.user_id = p_user and m.status = 'active')
+$$;
+
 -- How much one person may write to shared racks: the history is permanent, so it must not be fillable by a loop.
 create function private.shared_rack_spend(p_user uuid) returns void
   language plpgsql volatile security definer set search_path = '' as $$
@@ -377,8 +387,9 @@ create function private.shared_rack_cancel_invitations_by(p_rack uuid, p_user uu
 $$;
 
 -- An account that is deleted takes its membership rows along (the foreign key). This writes what happened, from
--- the name kept on the row, and, when the account was the last owner and other members remain, ARCHIVES the rack:
--- they keep reading it and can take their bottles out, and nobody is made owner behind their back.
+-- the name kept on the row, and, when the account was the last owner, ARCHIVES the rack: members who remain keep
+-- reading it and can take their bottles out, and nobody is made owner behind their back; a rack nobody is left in
+-- is not left looking as if it were in use.
 -- Leaving and being removed never delete a row (they change its status), so this runs for a deleted account only.
 create function private.shared_rack_member_gone() returns trigger
   language plpgsql security definer set search_path = '' as $$
@@ -389,9 +400,7 @@ begin
   if old.role = 'owner'
      and not exists (select 1 from private.shared_rack_members m
                       where m.rack_id = old.rack_id and m.user_id <> old.user_id
-                        and m.status = 'active' and m.role = 'owner')
-     and exists (select 1 from private.shared_rack_members m
-                  where m.rack_id = old.rack_id and m.user_id <> old.user_id and m.status = 'active') then
+                        and m.status = 'active' and m.role = 'owner') then
     update private.shared_racks set archived_at = now() where id = old.rack_id and archived_at is null;
     if found then
       perform private.shared_rack_log(old.rack_id, 'rack_archived', null,
@@ -407,7 +416,7 @@ revoke all on function private.shared_rack_touch(), private.shared_rack_check_la
   private.shared_rack_check_placement(), private.shared_rack_events_append_only(),
   private.shared_rack_person_name(uuid), private.shared_rack_wine(uuid),
   private.shared_rack_log(uuid, text, uuid, uuid, text, uuid, text, uuid, uuid, jsonb, smallint, smallint, smallint, smallint, smallint, smallint, jsonb, text),
-  private.shared_rack_lock(uuid), private.shared_rack_spend(uuid),
+  private.shared_rack_lock(uuid), private.shared_rack_is_member(uuid, uuid), private.shared_rack_spend(uuid),
   private.shared_rack_cancel_invitations_by(uuid, uuid), private.shared_rack_member_gone()
   from public, anon, authenticated, service_role;
 
@@ -419,10 +428,17 @@ revoke all on function private.shared_rack_touch(), private.shared_rack_check_la
 --
 -- For a bottle that is not in a shared rack this is ONE probe of a unique index and a return: no lock, no write,
 -- nothing that can fail. The update trigger does not even fire unless the status or the place changed.
+-- For a bottle that IS in a shared rack, the change waits for at most one call of a shared-rack function that is
+-- working on that same bottle at that moment (the placement row's lock); it is never refused and never deadlocks.
 -- SECURITY DEFINER: the person changing their own bottle holds no privilege on the shared-rack tables.
+--
+-- WHO DID IT is written into the rack's history only when that person is in the rack. A bottle belongs to a
+-- household, and someone of that household who never joined the rack may open it at home: the members of the rack
+-- (people of other households) are then told that it happened, and whose bottle it was, NOT who in that household
+-- did it. Such a line has no actor and says `"by": "owners_household"`.
 create function private.shared_rack_follow_bottle() returns trigger
   language plpgsql security definer set search_path = '' as $$
-declare p private.shared_rack_placements; v_type text; v_reason text;
+declare p private.shared_rack_placements; v_type text; v_actor uuid := auth.uid(); v_detail jsonb := '{}';
 begin
   if not exists (select 1 from private.shared_rack_placements x where x.bottle_id = old.id) then
     return old;
@@ -434,22 +450,26 @@ begin
   delete from private.shared_rack_placements x where x.bottle_id = old.id returning * into p;
   if not found then return old; end if;       -- ended by someone else while this waited for the row
   if tg_op = 'DELETE' then
-    v_type := 'bottle_removed'; v_reason := 'deleted';
+    v_type := 'bottle_removed'; v_detail := jsonb_build_object('reason', 'deleted');
   elsif new.status = 'opened' then
     v_type := 'bottle_opened';
   elsif new.status = 'gifted' then
     v_type := 'bottle_gifted';
   elsif new.status = 'removed' then
-    v_type := 'bottle_removed'; v_reason := 'removed';
+    v_type := 'bottle_removed'; v_detail := jsonb_build_object('reason', 'removed');
   else
     v_type := 'bottle_relocated';             -- given a place in its household's own cellar: still a bottle
   end if;
-  perform private.shared_rack_log(p.rack_id, v_type, auth.uid(),
+  if v_actor is not null and not private.shared_rack_is_member(p.rack_id, v_actor) then
+    v_actor := null;
+    v_detail := v_detail || jsonb_build_object('by', 'owners_household');
+  end if;
+  perform private.shared_rack_log(p.rack_id, v_type, v_actor,
     p_owner => p.owner_user_id, p_owner_name => p.owner_name,
     p_placement => p.id, p_bottle => p.bottle_id,
     p_wine => coalesce(private.shared_rack_wine(p.bottle_id), p.wine),
     p_from_row => p.loc_row, p_from_col => p.loc_col, p_from_index => p.loc_index,
-    p_detail => case when v_reason is null then null else jsonb_build_object('reason', v_reason) end);
+    p_detail => nullif(v_detail, '{}'::jsonb));
   return old;
 end $$;
 revoke all on function private.shared_rack_follow_bottle() from public, anon, authenticated, service_role;
@@ -561,7 +581,13 @@ create function public.shared_rack_events(
      and (p_before is null or e.seq < p_before)
      and (p_owner is null or e.owner_id = p_owner)
      and (p_actor is null or e.actor_id = p_actor)
-     and (p_bottle is null or e.bottle_id = p_bottle)
+     -- by bottle id only for a bottle of the caller's own (anyone else's bottle is followed by a placement id):
+     -- otherwise the count of rows would answer "was this bottle of someone else ever in this rack"
+     and (p_bottle is null
+          or (e.bottle_id = p_bottle
+              and (e.owner_id = auth.uid()
+                   or exists (select 1 from public.bottles b
+                               where b.id = p_bottle and b.household_id = any (private.my_household_ids())))))
      and (p_placement is null
           or e.bottle_id = (select x.bottle_id from private.shared_rack_events x
                              where x.rack_id = p_rack and x.placement_id = p_placement limit 1))
@@ -744,6 +770,9 @@ end $$;
 
 -- An owner invites one existing person, by id (the id comes from public.find_person: an exact account name or
 -- friend code; there is no other lookup, and this is not one: an unknown id is answered and counted like any try).
+-- Being friends is NOT required (a friendship in this app shares one's own cellar views; colleagues sharing a rack
+-- must not have to). What keeps an invitation from being a way to pester someone: 30 an hour per inviter, a week
+-- of quiet after a no (per rack, and per inviter over all racks), at most three open ones from one person to another.
 create function public.shared_rack_invite(p_rack uuid, p_user uuid) returns jsonb
   language plpgsql volatile security definer set search_path = '' as $$
 declare uid uuid := auth.uid(); me text; r private.shared_racks; inv private.shared_rack_invitations; v_id uuid;
@@ -774,10 +803,19 @@ begin
     end if;
     update private.shared_rack_invitations set status = 'cancelled', responded_at = now() where id = inv.id;
   end if;
+  -- Someone who said no is not asked again for a week: not for this rack by anyone, and not by this person for ANY
+  -- rack (a new rack with a new name is not a way around a no).
   if exists (select 1 from private.shared_rack_invitations i
-              where i.rack_id = p_rack and i.invited_user_id = p_user and i.status = 'declined'
+              where i.invited_user_id = p_user and i.status = 'declined'
+                and (i.rack_id = p_rack or i.invited_by = uid)
                 and i.responded_at > now() - interval '7 days') then
     return jsonb_build_object('outcome', 'recently_declined');
+  end if;
+  -- ...and one person does not fill another's list: at most three open invitations from me to them, over all racks.
+  if (select count(*) from private.shared_rack_invitations i
+       where i.invited_by = uid and i.invited_user_id = p_user
+         and i.status = 'pending' and i.expires_at > now()) >= 3 then
+    return jsonb_build_object('outcome', 'person_limit');
   end if;
   if (select count(*) from private.shared_rack_members m where m.rack_id = p_rack and m.status = 'active') >= 12 then
     return jsonb_build_object('outcome', 'full');
@@ -825,6 +863,12 @@ begin
   end if;
   if (select count(*) from private.shared_rack_members m where m.rack_id = v_rack and m.status = 'active') >= 12 then
     return jsonb_build_object('outcome', 'full');
+  end if;
+  -- the same cap as on making a rack: nobody is in more than 20 racks that are in use
+  if (select count(*) from private.shared_rack_members m
+        join private.shared_racks x on x.id = m.rack_id
+       where m.user_id = uid and m.status = 'active' and x.archived_at is null) >= 20 then
+    return jsonb_build_object('outcome', 'too_many_racks');
   end if;
   insert into private.shared_rack_members (rack_id, user_id, role, display_name, invited_by)
   values (v_rack, uid, 'member', private.shared_rack_person_name(uid), inv.invited_by)
@@ -965,6 +1009,10 @@ begin
      or p_row > r.grid_rows or p_col > r.grid_cols or p_index > r.cell_capacity then
     return jsonb_build_object('outcome', 'out_of_bounds');
   end if;
+  -- the switch of 0043 holds here too: a rack made deep while depth was on takes nothing past index 1 once it is off
+  if p_index > 1 and not private.depth_placement_enabled() then
+    return jsonb_build_object('outcome', 'depth_not_enabled');
+  end if;
   if exists (select 1 from private.shared_rack_placements x
               where x.rack_id = p_rack and (x.loc_row, x.loc_col, x.loc_index) = (p_row, p_col, p_index)) then
     return jsonb_build_object('outcome', 'taken');
@@ -1013,6 +1061,10 @@ begin
   if p_to_row is null or p_to_col is null or p_to_index is null or p_to_row < 1 or p_to_col < 1 or p_to_index < 1
      or p_to_row > r.grid_rows or p_to_col > r.grid_cols or p_to_index > r.cell_capacity then
     return jsonb_build_object('outcome', 'out_of_bounds');
+  end if;
+  -- with depth switched off nothing moves TO an index past 1; out of one (to index 1, or out of the rack) always goes
+  if p_to_index > 1 and not private.depth_placement_enabled() then
+    return jsonb_build_object('outcome', 'depth_not_enabled');
   end if;
   if exists (select 1 from private.shared_rack_placements x
               where x.rack_id = p_rack and (x.loc_row, x.loc_col, x.loc_index) = (p_to_row, p_to_col, p_to_index)) then
@@ -1063,9 +1115,10 @@ end $$;
 -- The owner's side: "my bottle is no longer in that rack". Allowed to the members of the BOTTLE'S HOUSEHOLD,
 -- whether or not they are (still) a member of the rack: so leaving a rack, or being removed from it, never leaves
 -- someone unable to get their own bottle's record back. It says nothing about the rack and needs no access to it.
+-- As with the trigger on bottles: who did it is named in the rack's history only when they are in the rack.
 create function public.shared_rack_withdraw_bottle(p_bottle uuid) returns jsonb
   language plpgsql volatile security definer set search_path = '' as $$
-declare uid uuid := auth.uid(); p private.shared_rack_placements;
+declare uid uuid := auth.uid(); p private.shared_rack_placements; v_known boolean;
 begin
   if uid is null then raise exception 'not_authenticated' using errcode = '42501'; end if;
   perform private.shared_rack_spend(uid);
@@ -1076,10 +1129,12 @@ begin
   end if;
   delete from private.shared_rack_placements x where x.bottle_id = p_bottle returning * into p;
   if not found then return jsonb_build_object('outcome', 'not_placed'); end if;
-  perform private.shared_rack_log(p.rack_id, 'bottle_withdrawn', uid,
+  v_known := private.shared_rack_is_member(p.rack_id, uid);
+  perform private.shared_rack_log(p.rack_id, 'bottle_withdrawn', case when v_known then uid end,
     p_owner => p.owner_user_id, p_owner_name => p.owner_name,
     p_placement => p.id, p_bottle => p.bottle_id, p_wine => coalesce(private.shared_rack_wine(p.bottle_id), p.wine),
-    p_from_row => p.loc_row, p_from_col => p.loc_col, p_from_index => p.loc_index);
+    p_from_row => p.loc_row, p_from_col => p.loc_col, p_from_index => p.loc_index,
+    p_detail => case when v_known then null else jsonb_build_object('by', 'owners_household') end);
   return jsonb_build_object('outcome', 'withdrawn');
 end $$;
 

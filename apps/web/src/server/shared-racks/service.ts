@@ -45,6 +45,7 @@ export const SHARED_RACK_MESSAGES = {
   personNotFound: "We couldn't find that person.",
   alreadyMember: "They're already in this rack.",
   recentlyDeclined: "They declined a little while ago. Try again later.",
+  personLimit: "You already have three open invitations to this person. Wait for an answer first.",
   full: "This rack is full.",
   tooManyInvitations: "There are too many open invitations. Cancel one first.",
   invitationNotFound: "That invitation is no longer there.",
@@ -332,6 +333,8 @@ export function createSharedRacksService({ repo, access }: SharedRacksDeps) {
           throw new DomainError("CONFLICT", M.alreadyMember);
         case "recently_declined":
           throw new DomainError("CONFLICT", M.recentlyDeclined);
+        case "person_limit":
+          throw new DomainError("CONFLICT", M.personLimit);
         case "full":
           throw new DomainError("CONFLICT", M.full);
         case "too_many":
@@ -372,6 +375,8 @@ export function createSharedRacksService({ repo, access }: SharedRacksDeps) {
           throw new DomainError("CONFLICT", M.invitationClosed);
         case "full":
           throw new DomainError("CONFLICT", M.full);
+        case "too_many_racks":
+          throw new DomainError("CONFLICT", M.tooMany);
         case "already_declined":
         case "already_cancelled":
           throw new DomainError("CONFLICT", M.invitationClosed);
@@ -420,6 +425,8 @@ export function createSharedRacksService({ repo, access }: SharedRacksDeps) {
           throw new DomainError("CONFLICT", M.alreadyPlaced);
         case "out_of_bounds":
           throw new DomainError("VALIDATION", M.outOfBounds);
+        case "depth_not_enabled":
+          throw new DomainError("CONFLICT", M.depth);
         case "taken":
           throw new DomainError("CONFLICT", M.taken, { retryable: true });
         default:
@@ -452,6 +459,8 @@ export function createSharedRacksService({ repo, access }: SharedRacksDeps) {
           throw new DomainError("CONFLICT", M.taken, { retryable: true });
         case "out_of_bounds":
           throw new DomainError("VALIDATION", M.outOfBounds);
+        case "depth_not_enabled":
+          throw new DomainError("CONFLICT", M.depth);
         default:
           throw refuse(answer.outcome);
       }

@@ -12,6 +12,7 @@ import {
   SharedRackSpotSchema,
   isSharedRackConsumedEvent,
   isSharedRackEndingEvent,
+  sharedRackEventByHousehold,
   replaySharedRackEvents,
   resolveSharedRack,
   sharedRackInvitationState,
@@ -313,6 +314,15 @@ describe("the vocabulary of the history", () => {
     expect(isSharedRackConsumedEvent("bottle_relocated")).toBe(false);
     expect(isSharedRackEndingEvent("bottle_moved")).toBe(false);
     expect(isSharedRackEndingEvent("member_left")).toBe(false);
+  });
+
+  it("a change by someone of the owner's household who is not in the rack is marked, and names nobody", () => {
+    expect(sharedRackEventByHousehold({ detail: { by: "owners_household" } })).toBe(true);
+    expect(
+      sharedRackEventByHousehold({ detail: { by: "owners_household", reason: "deleted" } }),
+    ).toBe(true);
+    expect(sharedRackEventByHousehold({ detail: { reason: "deleted" } })).toBe(false);
+    expect(sharedRackEventByHousehold({ detail: null })).toBe(false);
   });
 });
 

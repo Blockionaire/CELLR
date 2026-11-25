@@ -390,6 +390,7 @@ describe("people", () => {
       ["no_such_user", "NOT_FOUND", M.personNotFound],
       ["already_member", "CONFLICT", M.alreadyMember],
       ["recently_declined", "CONFLICT", M.recentlyDeclined],
+      ["person_limit", "CONFLICT", M.personLimit],
       ["full", "CONFLICT", M.full],
       ["too_many", "CONFLICT", M.tooManyInvitations],
       ["archived", "CONFLICT", M.archived],
@@ -442,6 +443,7 @@ describe("people", () => {
       ["expired", "CONFLICT", M.invitationExpired],
       ["archived", "CONFLICT", M.invitationClosed],
       ["full", "CONFLICT", M.full],
+      ["too_many_racks", "CONFLICT", M.tooMany],
       ["already_declined", "CONFLICT", M.invitationClosed],
       ["already_cancelled", "CONFLICT", M.invitationClosed],
     ] as const)
@@ -533,6 +535,7 @@ describe("placing", () => {
       ["already_placed", "CONFLICT", M.alreadyPlaced, false],
       ["taken", "CONFLICT", M.taken, true],
       ["out_of_bounds", "VALIDATION", M.outOfBounds, false],
+      ["depth_not_enabled", "CONFLICT", M.depth, false],
       ["archived", "CONFLICT", M.archived, false],
       ["not_found", "NOT_FOUND", M.rackNotFound, false],
     ] as const) {
@@ -588,6 +591,7 @@ describe("moving and taking out", () => {
       [{ outcome: "gone" }, "CONFLICT", M.gone, false],
       [{ outcome: "taken" }, "CONFLICT", M.taken, true],
       [{ outcome: "out_of_bounds" }, "VALIDATION", M.outOfBounds, false],
+      [{ outcome: "depth_not_enabled" }, "CONFLICT", M.depth, false],
       [{ outcome: "archived" }, "CONFLICT", M.archived, false],
       [{ outcome: "not_found" }, "NOT_FOUND", M.rackNotFound, false],
     ] as const) {
