@@ -462,7 +462,9 @@ const components = [
     sources: [
       W + "server/sommelier/service.ts",
       W + "server/sommelier/intelligence.ts",
+      W + "server/sommelier/parts/",
       W + "server/ai/prompts/sommelier.ts",
+      W + "server/ai/prompts/sommelier-v7.ts",
     ],
     gates: [
       {
@@ -488,10 +490,17 @@ const components = [
       {
         name: "CELLR_SOMMELIER",
         kind: "env",
-        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. In P2 no part changes an answer yet.",
+        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. Built: check (P3: prompt v7 with refs for cellar wines and no price field; the answer's words and buying claims are checked in code, and what cannot be shown is left out or replaced by a sentence made from the cards).",
       },
     ],
     risks: [
+      {
+        id: "R-SOM-4",
+        severity: "medium",
+        title: "The check part's rules are heuristics, and prompt v7 is not measured",
+        detail:
+          "The check of the answer's words (packages/domain/src/sommelier-check.ts) reads English and Dutch sentences with rules that can miss a claim or remove a good sentence; its header lists what each rule cannot see. Prompt v7 changes what the model is asked, and its effect on the wines chosen has not been measured with a model. The part stays off until that comparison has been run and read (docs/sprints/sommelier-3-mega/progress/P3.md).",
+      },
       {
         id: "R-SOM-3",
         severity: "medium",
@@ -2881,8 +2890,8 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.5.3",
-  reviewedOn: "2026-11-23",
+  version: "1.6.1",
+  reviewedOn: "2026-11-25",
   repository: "Blockionaire/CELLR",
   components,
   edges,
