@@ -485,7 +485,10 @@ test.describe("gate ON (an internal preview)", () => {
 
     // another place while a bottle is out: the inspection is over, and nothing of it comes along
     await page.getByRole("button", { name: "Rack B" }).click();
-    await expect(stage(page)).toHaveAttribute("data-template", "rack_metal");
+    // The new place's stage is in the page within a moment, but building its scene compiles its shaders on the main
+    // thread, and software rendering on a loaded runner can hold that thread for several seconds (a trace showed the
+    // stage painted at once and the page not answering for 5.2 s). The same budget as the first picture (`drawn`).
+    await expect(stage(page)).toHaveAttribute("data-template", "rack_metal", { timeout: 60_000 });
     await drawn(page);
     await phase(page, "idle");
     await expect(stage(page)).toHaveAttribute("data-selected", "");
