@@ -3050,7 +3050,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.7.1",
+  version: "1.7.2",
   reviewedOn: "2026-11-25",
   repository: "Blockionaire/CELLR",
   components,

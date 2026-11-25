@@ -291,6 +291,12 @@ blocker. These were changed in migration 0052 itself (it is applied nowhere):
 - **N2** A rack whose last owner's account is deleted is archived also when nobody else is in it.
 - **N6** The cap of 20 racks per person holds on accepting an invitation too (`too_many_racks`; the invitation
   stays open).
+- **S2** (on the screens branch) A bottle of mine in a shared rack has no place in my own cellar, so my cellar
+  offers it "without a place". The database rule stays as it is: giving it a place at home ends its stay in the
+  shared rack, in the same transaction, and the rack's history says so (`bottle_relocated`). What changed is that
+  the screens say where the bottle stands and ask before doing it. Rejected: refusing the placement at home in the
+  database until the bottle is taken out of the rack first; the owner's own cellar would then depend on a rack they
+  may no longer be a member of.
 - **Depth kill switch** (from the review of the depth backend): the private trigger covers `public.bottles` only,
   so a shared rack made deep while depth was on would have kept accepting an index above 1 after the switch went
   off. Placing and moving now ask the switch themselves (§10).

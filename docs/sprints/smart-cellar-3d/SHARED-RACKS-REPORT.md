@@ -276,8 +276,8 @@ the same keys). The screens add nothing to the contract of §3 and no function t
   page built around one household place and its save route; reusing it would have meant editing it. Handoff to the
   builder's owner if a shared rack should be designed there: it would need a target other than a household place.
   **The look is the template's default** (or the rack's own, kept while the template stays): no look chooser here.
-- **The chips in the row of places are 36 px high**, like the existing place chips they sit next to. Every other
-  control of these screens is at least 44 px (browser test at 375 × 667).
+- **The chips in the row of places are 44 px high**, like the place chips they sit next to (the place strip of the
+  3D polish). Every other control of these screens is at least 44 px too (browser test at 375 × 667).
 - **The invitation badge is on the 3D view only.** Someone who never opens the 3D view does not see an invitation.
 - **The lazy stubs** (`lazy.tsx`, about forty lines of `dynamic()` calls) are part of the 3D cellar's chunk. They
   contain no logic and no text of the feature.
@@ -298,47 +298,58 @@ the same keys). The screens add nothing to the contract of §3 and no function t
   sentences, both languages; `logic.ts` `eventLine`, unit tested), never with a name the server did not give.
 - **The history starts unfiltered at every opening.** The browser run found that "History of this bottle" kept a
   person filter chosen earlier in the full history, and so showed half of the bottle's story. Fixed in `sheets.tsx`.
-- **A bottle that stands in a shared rack, listed "without a place" (S2).** The parts are built in files of this
-  workstream (`features/shared-racks/in-shared-rack.tsx`, reached through `lazy.tsx`): the facts
-  (`useSharedPlaces`, from `GET /shared-racks/bottles`), the words next to the bottle (`SharedPlaceBadge`,
-  `SharedPlaceBadgeFor`: "In shared rack Cellar club · shelf 2, spot 3", or "In a shared rack" when I am no longer
-  a member), and the question before it gets a place at home (`SharedPlaceConfirm`, and `SharedPlaceAsk`, which
-  lets a bottle that is in no shared rack through at once). **They are not inserted in any placement screen yet**
-  (those files belong to other workstreams whose final branches are not merged into this one). Until then the
-  private cellar is honest in one place only: the note above the unplaced bottles of the racks view (§9.2), and the
-  database ends the stay in the shared rack whichever screen moves the bottle (`bottle_relocated` in the history).
-  The call sites that need the badge, and the question where a bottle is chosen for a spot:
+- **A bottle that stands in a shared rack, offered "without a place" (S2).** A bottle of mine in a shared rack has
+  no place in my own cellar, so every list of bottles without a place contains it. It is now said where it stands
+  ("In shared rack Cellar club · shelf 2, spot 3", or "In a shared rack" when I am no longer a member), and giving
+  it a place at home asks first: "… takes it out of the shared rack: its spot there becomes free, and the people of
+  that rack see that it went home." Yes does exactly what the screen would have done (the database ends the stay
+  in the shared rack, `bottle_relocated` in its history); No changes nothing. A bottle that stands in no shared
+  rack goes through without a question. The parts are in `features/shared-racks/in-shared-rack.tsx` (reached only
+  through `lazy.tsx`); the facts come from `GET /shared-racks/bottles`. With shared racks closed nothing of this is
+  rendered, downloaded or asked (browser test on both closed servers, including a placement).
 
-  | File (not owned by this workstream)                                                                                                                              | What is there                                                                       | Needs               |
-  | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------- |
-  | `features/cellar/racks-view.tsx` (the unplaced chips)                                                                                                            | tap a bottle, then a free spot                                                      | badge, question     |
-  | `features/cellar/rack-sheets.tsx` (the unplaced list of a spot)                                                                                                  | choose a bottle without a place for the tapped spot                                 | badge, question     |
-  | `features/cellar/smart-cellar-3d.tsx` (`placement-unplaced`)                                                                                                     | the 3D view's list of bottles without a place, and what it passes to the two panels | badge, question     |
-  | `features/cellar/placement/placement-panel.tsx`                                                                                                                  | the candidates "without a place" of a tapped spot                                   | badge, question     |
-  | `features/cellar/quick-add/quick-add-ui.tsx`                                                                                                                     | "Choose a bottle without a spot" and its count                                      | the count's wording |
-  | `features/cellar/move-bottle-sheet.tsx`, `bulk-bottles.tsx`                                                                                                      | "Move" from a bottle's own page and for several bottles at once                     | question            |
-  | `features/cellar/bottle-details.tsx`, `bottle-bits.tsx`, `bottle-showcase-panel.tsx`, `vintage-screen.tsx`, `where-sheet.tsx`, `wine-card.tsx`, `edit-sheet.tsx` | the words "Not placed" for one bottle or a count of them                            | badge (words only)  |
+  | Where (files of other workstreams; delimited insertions marked "Shared racks (ADR-010)") | What was inserted                                                                                                                                                                   |
+  | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `features/cellar/placement/placement-panel.tsx`                                          | one optional prop `unplacedExtras { note, ask }`: the note under a candidate without a place, and the question before any such bottle is written                                    |
+  | `features/cellar/quick-add/quick-add-ui.tsx`                                             | one optional prop `unplacedNote`, shown under "Choose a bottle without a spot" and its count ("1 of them stands in a shared rack …")                                                |
+  | `features/cellar/smart-cellar-3d.tsx`                                                    | builds both and passes them to the two placement panels and the Quick Add sheet (the legacy place's Quick Add uses the same ones); the badge in the list of bottles without a place |
+  | `features/cellar/racks-view.tsx`, `rack-sheets.tsx`                                      | the question in the one function that gives a bottle a spot; the badge in the sheet of a tapped spot; the note (§9.2) also in the empty state                                       |
 
-- **Not built for these parts**: a browser test (nothing renders them yet) and a component test (the repository has
-  no rendering test setup for client components; the logic they hold is a map lookup).
+  **Not covered**: the words "Not placed" for a single bottle on its own page, on the wine card, in the vintage
+  screen and in the "where is it" sheet (`bottle-details.tsx`, `bottle-bits.tsx`, `bottle-showcase-panel.tsx`,
+  `vintage-screen.tsx`, `where-sheet.tsx`, `wine-card.tsx`, `edit-sheet.tsx`), and "Move" from a bottle's own page
+  or for several bottles at once (`move-bottle-sheet.tsx`, `bulk-bottles.tsx`): there the bottle is still said to
+  have no place and is moved without the question (the shared rack still follows, and its history says so). The
+  unplaced chips of the racks view carry no badge of their own (the note right above them names those bottles).
+
+- **Not built for these parts**: a component test (the repository has no rendering test setup for client
+  components; what they hold is a map lookup and the pass-through, both exercised in the browser test).
+- **After the stack was merged in**: the shared rack's chips are 44 px high like the place strip's, and the shared
+  rack's stage shows the 3D view's aim hint ("Zoomed in. Tap the spot again to choose it.") while a spot is chosen.
 
 ### 9.5 Tests of the screens
 
-Run on this branch on 2026-11-25 (after the foundation with the review fixes was merged in), against throwaway
-databases and the local stack only. Browser runs: one production build, CI's headless shell, the projects `desktop`
-and `phone`, three servers (not switched on; switched on but an unmarked production build; a Vercel preview).
+Run on this branch on 2026-11-25, after the whole stack was merged in (the foundation with the review fixes, the
+3D polish, Sprint 7.2's completion, the layout compare-and-swap), against throwaway databases and the local stack
+only. Browser runs: one production build, CI's headless shell, the projects `desktop` and `phone`, three servers
+(not switched on; switched on but an unmarked production build; a Vercel preview).
 
-| What                                                                                     | Result                                                                                                          |
-| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `pnpm format:check`, `pnpm lint`, `pnpm typecheck`                                       | clean (lint: 0 errors, the 1 warning that is on the base)                                                       |
-| `pnpm test`                                                                              | domain 74 files, 1527 tests; web 116 files passed and 2 skipped, 1687 tests passed and 13 skipped; scripts pass |
-| `pnpm db:types:check`, `bash scripts/db-test.sh`                                         | up to date; 1918 passed, 0 failed, 0 errors                                                                     |
-| `pnpm architecture:inventory`, `vitest run src/server/system`                            | no change to commit; 27 passed                                                                                  |
-| `node apps/web/scripts/e2e-suites-check.mjs`                                             | 1424 tests = 352 (3d) + 1072 (core), none in both, none left out                                                |
-| `e2e/shared-racks-3d.spec.ts` (3D suite), both projects                                  | 2 passed                                                                                                        |
-| `e2e/shared-racks-api.spec.ts` (desktop only by design), on the merged branch            | 12 passed                                                                                                       |
-| `e2e/shared-racks.spec.ts`: layout conflict, 375 × 667, gate closed × 2, gate-open check | 10 passed (5 on each project)                                                                                   |
-| `e2e/shared-racks.spec.ts`: the three-household story, both projects                     | STORY_RESULT                                                                                                    |
+| What                                                                         | Result                                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm format:check`, `pnpm lint`, `pnpm typecheck`                           | clean (lint: 0 errors, the 1 warning that is on the base)                                                                                                                                                                                                                                                                         |
+| `pnpm test`                                                                  | domain 78 files, 1631 tests; web 121 files passed and 2 skipped, 1766 tests passed and 13 skipped; scripts pass. See the note on a timing test below                                                                                                                                                                              |
+| `pnpm db:types:check`, `bash scripts/db-test.sh`                             | up to date; 1962 passed, 0 failed, 0 errors                                                                                                                                                                                                                                                                                       |
+| `pnpm architecture:inventory`, `vitest run src/server/system`                | no change to commit; 27 passed                                                                                                                                                                                                                                                                                                    |
+| `node apps/web/scripts/e2e-suites-check.mjs`                                 | 1478 tests = 396 (3d) + 1082 (core), none in both, none left out                                                                                                                                                                                                                                                                  |
+| `e2e/shared-racks.spec.ts`, both projects                                    | 14 passed (7 on each): the three-household story, the layout conflict, 375 × 667, gate closed on both closed servers, the bottle in a shared rack offered for a place at home, the gate-open check                                                                                                                                |
+| `e2e/shared-racks-3d.spec.ts` (3D suite), both projects                      | 2 passed                                                                                                                                                                                                                                                                                                                          |
+| `e2e/shared-racks-api.spec.ts` (desktop only by design)                      | 12 passed                                                                                                                                                                                                                                                                                                                         |
+| `e2e/quick-add.spec.ts`, both projects (the cellar's own flow, gate open)    | 61 passed, 5 skipped by the spec itself                                                                                                                                                                                                                                                                                           |
+| `e2e/smart-cellar-3d.spec.ts`, both projects (the closed-gate download test) | 41 passed, 2 skipped by the spec itself, 1 failed on `phone` (`:466`, changing place while a bottle is out: the stage was not back within 5 s during the 19-minute run); run alone three times afterwards it passed 3 of 3. It is a known load-sensitive test of the 3D view, being fixed in its own workstream; not touched here |
+
+`pnpm test` as one command failed once on this machine while other browser runs were going on (load average about
+12): `sommelier-check.review.test.ts`, a test that measures time, not a test of this work. The domain suite and the
+web suite each pass when run on their own (the numbers above).
 
 What the browser runs found, and what was done about each:
 
@@ -354,5 +365,5 @@ What the browser runs found, and what was done about each:
   closed again. Fixed: each sheet closes only itself (`rack-stage.tsx`).
 - **The spec assumed which of two identical bottles a person picks first**; it now reads that back.
 
-Not run: the whole browser suite, the WebKit project, the restore rehearsal (needs Docker), anything on a real
-device, and anything against a hosted project.
+Not run: the whole browser suite (only the specs above), the WebKit project, the restore rehearsal (needs Docker),
+anything on a real device, and anything against a hosted project.
