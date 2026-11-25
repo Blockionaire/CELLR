@@ -1,0 +1,20 @@
+﻿"CELLR sommelier: user session, tasks (one copy per participant; facilitator fills it in)"
+"Filled in by (name, role):",
+Date:,
+"Nothing in this form counts as reviewed or approved until the person named above has signed it. Every verdict column starts empty; nothing in it was written by an AI or by code."
+
+"participant code (e.g. P1; never a name)",device (phone / desktop),task #,task,what the facilitator says,what counts as done,YOUR VERDICT: could they do it? (yes / with help / no),YOUR VERDICT: time (mm:ss),YOUR VERDICT: what confused them,YOUR VERDICT: would they trust it? (1 not at all - 5 fully),YOUR VERDICT: remarks
+,phone,1,Ask for advice,"""You are cooking roast lamb tonight. Ask the sommelier what to open.""",An answer with one or more bottles from the cellar is on screen,,,,,
+,phone,2,Read the cards,"""Look at the bottles it suggests. Tell me what the lines under each card tell you.""","The participant can say whether to drink it now, and where it lies",,,,,
+,phone,3,Ask how to serve,"""Ask how warm to serve the first wine and whether to decant it.""",A temperature and a decanting advice are on screen,,,,,
+,phone,4,Plan a menu,"""For Saturday: oysters, then roast lamb, then chocolate fondant. Ask for a wine per course.""",One wine (or 'nothing suits') per course is on screen,,,,,
+,phone,5,Bottles for guests,"""You will be eight people. Ask how many bottles you need.""",A number of bottles and what is free to open is on screen,,,,,
+,phone,6,A follow-up,"""Ask for something lighter than the first suggestion.""",A new answer that follows on from the previous one,,,,,
+,phone,7,When the AI is unavailable,"(The facilitator switches the test server to 'AI unavailable' first.) ""Ask again what to open with the lamb.""","The participant notices that this answer is the app's own, not the AI's",,,,,
+,desktop,1,Ask for advice,"""You are cooking roast lamb tonight. Ask the sommelier what to open.""",An answer with one or more bottles from the cellar is on screen,,,,,
+,desktop,2,Read the cards,"""Look at the bottles it suggests. Tell me what the lines under each card tell you.""","The participant can say whether to drink it now, and where it lies",,,,,
+,desktop,3,Ask how to serve,"""Ask how warm to serve the first wine and whether to decant it.""",A temperature and a decanting advice are on screen,,,,,
+,desktop,4,Plan a menu,"""For Saturday: oysters, then roast lamb, then chocolate fondant. Ask for a wine per course.""",One wine (or 'nothing suits') per course is on screen,,,,,
+,desktop,5,Bottles for guests,"""You will be eight people. Ask how many bottles you need.""",A number of bottles and what is free to open is on screen,,,,,
+,desktop,6,A follow-up,"""Ask for something lighter than the first suggestion.""",A new answer that follows on from the previous one,,,,,
+,desktop,7,When the AI is unavailable,"(The facilitator switches the test server to 'AI unavailable' first.) ""Ask again what to open with the lamb.""","The participant notices that this answer is the app's own, not the AI's",,,,,

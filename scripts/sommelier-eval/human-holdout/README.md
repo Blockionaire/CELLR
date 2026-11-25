@@ -14,6 +14,18 @@ pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/path/dishes.
 SOMMELIER_EVAL_HUMAN_FILE=/private/path/dishes.json pnpm sommelier:eval --set human --engine v1-basic
 ```
 
+## Two series (P8; the owner's provisional target of 2026-11-24)
+
+The 100 dishes are written as **series 1 (40)** and **series 2 (60)**, the second by people who have seen no result
+on the first. Forms, instructions in English and Dutch, and the escrow steps per series:
+`docs/sprints/sommelier-3-mega/review/holdout-instructions.md`.
+
+- Series 1 alone is the set `human-series1`: its file from `SOMMELIER_EVAL_HUMAN_SERIES1_FILE`, its own seal
+  `SEAL-series1.json`, exactly 40 dishes with ids `hh-s1-…`, blind, and every report of it starts with `PROVISIONAL`
+  (40 dishes cannot show non-inferiority at −5 points: `P8_POWER_ANALYSIS.md`).
+- The full set (`human`, this file's `SEAL.json`) is series 1 and series 2 merged
+  (`holdout-from-csv merge`): its minimum of 100 dishes is unchanged.
+
 ## Who writes it
 
 - **Dishes and questions:** at least two people who cook (at home or professionally), Dutch and English. Not the

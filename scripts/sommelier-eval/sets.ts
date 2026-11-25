@@ -1,6 +1,7 @@
 import { DISHES } from "./dishes";
 import { HOLDOUT_DISHES } from "./dishes-holdout";
 import { humanHoldout } from "./human-holdout";
+import { humanSeries1 } from "./human-holdout-series";
 import { SCENARIOS } from "./scenarios";
 import { HOLDOUT_SCENARIOS } from "./scenarios-holdout";
 import type { DishCard, Scenario } from "./types";
@@ -33,6 +34,11 @@ const SETS: Record<string, { scenarios: readonly Scenario[]; dishes: readonly Di
    * the moment it exists.
    */
   human: humanHoldout(),
+  /**
+   * P8: the human holdout's first series alone (40 dishes, human-holdout-series.ts), its own escrow and seal. Blind,
+   * and every report of it is marked PROVISIONAL: it is not the 100 the full set needs.
+   */
+  "human-series1": humanSeries1(),
 };
 function half(which: 0 | 1) {
   const middle = Math.floor(HOLDOUT_DISHES.length / 2);
@@ -41,7 +47,7 @@ function half(which: 0 | 1) {
   return { dishes, scenarios: HOLDOUT_SCENARIOS.filter((s) => s.dish && ids.has(s.dish)) };
 }
 /** Sets whose failures are not to be read one by one: they are the blind measure. */
-export const BLIND_SETS: ReadonlySet<string> = new Set(["holdout-test", "human"]);
+export const BLIND_SETS: ReadonlySet<string> = new Set(["holdout-test", "human", "human-series1"]);
 /** Whether a set is blind or holds a blind set's scenarios ("holdout" holds "holdout-test"): totals only. */
 export function holdsBlind(name: string): boolean {
   if (BLIND_SETS.has(name)) return true;

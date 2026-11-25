@@ -22,6 +22,7 @@ import { ENGINES } from "./engines";
 import { v1Ai, type V1AiRun } from "./engines/v1-ai";
 import { v1PlusAi, type ClaimsRecord, type V1PlusAiRun } from "./engines/v1plus-ai";
 import { keptSample, removedSheet } from "./review-sheet";
+import { PROVISIONAL_NOTE, SERIES1_SET } from "./human-holdout-series";
 import { buildFixture } from "./fixtures";
 import { formatQuality, qualityRow, qualityTotals, type QualityRow } from "./quality";
 import { BudgetReached, Ledger, paidAllowed } from "./paid";
@@ -206,6 +207,9 @@ if (paid?.mode === "estimate") {
   process.exit(0);
 }
 const summary = summarize(engine.name, results, answers);
+// The human holdout's first series alone is never a release measurement: every report of it says so first.
+const provisional = args.set === SERIES1_SET;
+if (provisional) console.log(`${PROVISIONAL_NOTE}\n`);
 if (stoppedAt !== null)
   console.log(
     `INCOMPLETE RUN: stopped at ${blind ? "a scenario of a blind set" : stoppedAt}. The numbers below cover only the scenarios before it; they are not a baseline and compare.ts refuses its vectors.\n`,
@@ -245,6 +249,7 @@ if (args.json) {
         }
       : {}),
     incomplete: stoppedAt !== null,
+    ...(provisional ? { provisional: true, note: PROVISIONAL_NOTE } : {}),
     scenarios: summary.scenarios,
     passed: summary.passed,
     supported: summary.supported,

@@ -1,0 +1,14 @@
+﻿"CELLR sommelier: user session, closing questions (one copy per participant)"
+"Filled in by (name, role):",
+Date:,
+"Nothing in this form counts as reviewed or approved until the person named above has signed it. Every verdict column starts empty; nothing in it was written by an AI or by code."
+
+"participant code (e.g. P1; never a name)",#,question,YOUR VERDICT: answer (the participant's words)
+,1,"Overall, how useful was the sommelier to you? (1 not at all - 5 very)",
+,2,Could you tell which facts came from the app and which from the AI? (yes / partly / no),
+,3,Did it say anything as certain that you doubted? What?,
+,4,Would you trust it for a dinner with guests? (1 not at all - 5 fully),
+,5,"Phone or desktop: which did you prefer, and why?",
+,6,What was the most confusing moment?,
+,7,What would you change first?,
+,8,Anything else you want to tell us?,

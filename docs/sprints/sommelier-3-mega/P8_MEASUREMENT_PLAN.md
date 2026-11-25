@@ -5,6 +5,20 @@ was used and no budget file exists. Every number below is the free estimate of
 `pnpm --filter @cellr/sommelier-eval run plan --estimate` (recorded in `results/p8-plan-estimate.json`). The owner's
 provisional budget of **$5 in total is a proposal and is not a permission to spend** (D-51).
 
+## 0. The owner's provisional starting points (2026-11-24) — PROVISIONAL, not an authorisation
+
+| #   | Point                                                                                                                                                                                               | What it means for this plan                                                                                                                         |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Paid evaluation: a proposed joint ceiling of **$5**                                                                                                                                                 | **Not authorised.** The budget table (§2) shows the plan fits it at the worst case; nothing is spent until the owner answers §7's question with yes |
+| 2   | Menu cost: **one model call** per menu question, at most **+50% worst-case** cost against one ordinary V1 answer, for menus of up to eight courses; **+10%** stays the limit for ordinary questions | The tested rule (§6, `paid-plan.test.ts`); the earlier proposal is kept as information only                                                         |
+| 3   | Human holdout: **100** independent dishes, a first series of **40** and a second of **60**                                                                                                          | Two forms, two seals; series 1 alone is reported as provisional (`review/holdout-instructions.md`, `P8_POWER_ANALYSIS.md`)                          |
+| 4   | Review: **one** independent wine professional for the content; **three to five** real users for the user experience                                                                                 | `review/wine-professional-cover.md`, `review/ux-protocol.md` (§8)                                                                                   |
+
+These are starting points the owner set; they are recorded here as such and change nothing by themselves. What the
+plan can and cannot show at these sizes: [`P8_POWER_ANALYSIS.md`](P8_POWER_ANALYSIS.md). Where the results will be
+written: [`P8_RESULTS_TEMPLATE.md`](P8_RESULTS_TEMPLATE.md) (technical, AI measurement and human assessment strictly
+apart).
+
 ## 1. What the plan measures, and why
 
 | Question (closeout §5, `V1PLUS_REPORT.md` §5)                                    | Measured by                                                                                                       |
@@ -136,28 +150,37 @@ written by this tool, or holds another total. **The whole plan stops** (no furth
 - after each step the owner compares the budget file's `spentMicro` with the provider's usage page for the same
   hours; a mismatch stops the plan.
 
-## 6. Menu costs (free estimate now, real tokens later)
+## 6. Menu costs against the owner's criterion (free estimate now, real tokens later)
 
-`pnpm --filter @cellr/sommelier-eval run menu:cost` (`results/p8-menu-cost.json`). An ordinary question costs what
-it did (`check`: +1.5 to +2.4% high estimate, other parts 0%): the general +10% proposal is unchanged. One menu
-question with `menu` on, against the same menu asked as N separate V1 questions, 120-wine cellar:
+`pnpm --filter @cellr/sommelier-eval run menu:cost` (`results/p8-menu-cost.json`, `owner` and `ordinary`). The
+criterion (PROVISIONAL, 2026-11-24): a menu question of up to eight courses makes **one** model call, and its
+worst-case cost (the app's high estimate: the full output allowance, both attempts) is at most **1.5 ×** the
+worst-case cost of one ordinary V1 answer (v6, no part) in the same cellar and conversation. Measured through the
+service with a fake model, for 2 to 8 courses, `menu` and `check,menu`, cellars of 25, 120, 500 and 3,000 wines,
+conversations of 1 and 12 messages (112 cells):
 
-| Courses | Menu, one call: tokens in / output cap / typical out | Menu high / typical | N V1 questions: calls / tokens in | V1 high / typical   | Menu as share of N questions (high / typical) | × one ordinary V1 answer (high / typical) |
-| ------: | ---------------------------------------------------- | ------------------- | --------------------------------- | ------------------- | --------------------------------------------- | ----------------------------------------- |
-|       3 | 6,032 / 1,110 / 315                                  | $0.00262 / $0.00091 | 3 / 16,991                        | $0.00695 / $0.00239 | 0.38 / 0.38                                   | 1.13 / 1.14                               |
-|       5 | 6,065 / 1,250 / 405                                  | $0.00277 / $0.00096 | 5 / 28,324                        | $0.01158 / $0.00399 | 0.24 / 0.24                                   | 1.19 / 1.20                               |
-|       8 | 6,093 / 1,460 / 540                                  | $0.00298 / $0.00103 | 8 / 45,313                        | $0.01853 / $0.00639 | 0.16 / 0.16                                   | 1.29 / 1.29                               |
+| Wines | Messages | Parts      | 2 courses |    3 |    4 |    5 |    6 |    7 | 8 courses |
+| ----: | -------: | ---------- | --------: | ---: | ---: | ---: | ---: | ---: | --------: |
+|    25 |        1 | menu       |      1.15 | 1.20 | 1.25 | 1.30 | 1.34 | 1.39 |      1.44 |
+|    25 |        1 | check,menu |      1.17 | 1.22 | 1.27 | 1.32 | 1.37 | 1.42 |  **1.46** |
+|    25 |       12 | check,menu |      1.17 | 1.22 | 1.26 | 1.31 | 1.36 | 1.41 |      1.45 |
+|   120 |        1 | check,menu |      1.11 | 1.14 | 1.18 | 1.21 | 1.24 | 1.27 |      1.30 |
+|   500 |        1 | check,menu |      1.11 | 1.14 | 1.17 | 1.21 | 1.24 | 1.27 |      1.30 |
+| 3,000 |        1 | check,menu |      1.11 | 1.14 | 1.17 | 1.21 | 1.24 | 1.27 |      1.30 |
 
-Typical output assumed: 180 tokens for an ordinary answer, +45 per course for a menu (one entry: course number, a
-6-character ref and a sentence of about 25 words, ~35 tokens, plus ~10 of JSON). The paid runs record the real
-tokens per call.
+(All 112 cells are in the JSON; the rows not shown lie between these.) **Every cell makes exactly one call and is
+within 1.5; the maximum is 1.464** (8 courses, 25 wines, `check,menu`), a headroom of 0.036. The headroom comes from
+the menu's output allowance (70 tokens a course): at **76** tokens a course the worst cell would reach 1.5 exactly,
+so a larger allowance than 76 would break the criterion; a 9-course menu is not planned (the reader stops at 8).
 
-**Proposed criterion (for the owner):** with `menu` on (with or without `check`), a menu question of N courses (2–8)
-costs, on the high estimate and on real tokens, **at most 70% of the same menu asked as N separate V1 questions, and
-at most (1.2 + 0.075 × N) times one ordinary V1 answer** (1.35× for 2 courses, 1.8× for 8). Free estimate, cellars of
-25, 120 and 500 wines: at most 64% and 1.27× / 1.33× / 1.46× / 1.64× for 2 / 3 / 5 / 8 courses. A test
-(`paid-plan.test.ts`) fails if the estimate ever exceeds it; after the paid runs the same check is made on the
-recorded tokens (`menu-*.json`, `calls`).
+**Ordinary questions stay within +10% on cost** (pairing, serving, guests, comparison; every part alone and all
+parts; the same cellars and conversations): the highest is **+7.3%** (a serving question, all parts, 25 wines). The
+criterion is about **cost**. On prompt characters alone, for information, 7 cells are above +10% (the highest +18.2%,
+the same serving question; the serving facts make the prompt longer, the output allowance does not grow).
+
+For information only: one menu question costs 16–59% of the same menu asked as N separate V1 questions (8 and 2
+courses). The paid runs record the real tokens of every call (`menu-*.json`, `calls`), so the criterion can be
+checked on them; a test (`paid-plan.test.ts`) fails if the estimate ever exceeds it.
 
 ## 7. What is committed, and what the owner must approve
 
@@ -168,6 +191,20 @@ prompt is recorded or committed. **Never committed:** the budget file, the key, 
 
 **The owner's decision, to answer yes or no:**
 
-> Do you approve spending at most $5.00 in total on OpenAI calls to `gpt-6-luna` (one budget file with
-> `--total-usd 5`; worst case reserved $3.86, high estimate $2.35) to run the P8 measurement plan in
-> `docs/sprints/sommelier-3-mega/P8_MEASUREMENT_PLAN.md`, steps 1 to 4, including the two optional menu runs?
+> The owner's $5 ceiling is provisional and not an authorisation. Do you now authorise spending at most $5.00 in
+> total on OpenAI calls to `gpt-6-luna` (one budget file with `--total-usd 5`; worst case reserved $3.86, high
+> estimate $2.35) to run the P8 measurement plan in `docs/sprints/sommelier-3-mega/P8_MEASUREMENT_PLAN.md`, steps 1
+> to 4, including the two optional menu runs: yes or no?
+
+## 8. People (no money involved; not part of the budget)
+
+- **One independent wine professional** reviews the content: the 50 annotations, the serving and window tables, the
+  pairing judgements and the fallback's disputed answers, and the check's review sheets from the paid run
+  (`review/wine-professional-cover.md`: what is asked, about 3–4½ hours, a sign-off block left blank).
+- **Three to five real users** try the journey on a phone and a desktop (`review/ux-protocol.md`, `ux-tasks.csv`,
+  `ux-closing.csv`): participant codes only; only aggregated counts go into the repository.
+- **The human holdout** is written in two series by people who do not develop CELLR: series 1 (40 dishes) and, by
+  people who have seen no result on series 1, series 2 (60 dishes). Each is sealed outside the repository; the full
+  100 has its own seal. A run on series 1 alone is reported as provisional: 40 dishes cannot show non-inferiority at
+  −5 points (`P8_POWER_ANALYSIS.md` §5).
+- **How many disagreements are "not acceptable"** is the owner's to fill in (`review/criteria.md`).

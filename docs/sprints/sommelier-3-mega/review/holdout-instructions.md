@@ -1,13 +1,24 @@
-# Writing the independent holdout — instructions (40 scenarios)
+# Writing the independent holdout — instructions (100 dishes, in two series)
 
 **Who:** a person who knows wine (and, for the dishes, one or two people who cook), who has not worked on CELLR and
 does not use an AI to write. **What for:** a blind test of whether the sommelier pairs dishes it has never seen. Until
 you have written it, every quality claim rests on scenarios an AI wrote.
 
+## Two series: 40, then 60
+
+The owner's provisional target (2026-11-24) is **100 independent dishes**, written in two series:
+
+| Series | Form                           | Dishes | ids                     | Written by                                                             |
+| ------ | ------------------------------ | -----: | ----------------------- | ---------------------------------------------------------------------- |
+| 1      | `holdout-template-series1.csv` |     40 | `hh-s1-01` … `hh-s1-40` | the first writers                                                      |
+| 2      | `holdout-template-series2.csv` |     60 | `hh-s2-01` … `hh-s2-60` | people who have **not** seen any result on series 1 (not even a total) |
+
+A run on series 1 alone is reported as **provisional**: 40 dishes can catch only a large regression, not show that
+V1+ is as good as V1 within 5 points (`P8_POWER_ANALYSIS.md`). Only the full 100 is the holdout the gate asks for.
+
 ## What you fill in
 
-Open `holdout-template.csv`. It has 40 rows; the `id` column is filled (`hh-01` … `hh-40`), everything else is
-yours. Per row, one dish:
+Open your series' form. Its `id` column is filled; everything else is yours. Per row, one dish:
 
 | Column                        | What to write                                                                                          |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -35,24 +46,30 @@ CELLR to get it wrong. Do not look at CELLR's answers while writing.
 1. Fill the form **on your own computer**. Do not upload it to the repository, a shared drive the developers can
    read, or a chat with an AI.
 2. Send it only to the owner. The owner keeps it in a private folder outside the repository and converts and seals
-   it there:
+   it there, **per series**:
 
    ```bash
-   pnpm --filter @cellr/sommelier-eval run holdout-from-csv /private/holdout-filled.csv /private/dishes.json
-   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/dishes.json   # prints SEAL.json
+   # Series 1 (40): its own file and its own seal
+   pnpm --filter @cellr/sommelier-eval run holdout-from-csv 1 /private/series1-filled.csv /private/series1.json
+   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/series1.json   # → human-holdout/SEAL-series1.json
+   # Series 2 (60), later; then the full 100 with the full set's seal
+   pnpm --filter @cellr/sommelier-eval run holdout-from-csv 2 /private/series2-filled.csv /private/series2.json
+   pnpm --filter @cellr/sommelier-eval run holdout-from-csv merge /private/series1.json /private/series2.json /private/dishes.json
+   pnpm --filter @cellr/sommelier-eval run seal-human-holdout /private/dishes.json    # → human-holdout/SEAL.json
    ```
 
-   The converter refuses any path inside the repository and prints only a count and row numbers, never a dish.
+   The converter refuses any path inside the repository, checks the series' ids and exact size, and prints only a
+   count and row numbers, never a dish.
 
-3. The owner commits **only** the seal (`scripts/sommelier-eval/human-holdout/SEAL.json`: the file's hash and the
-   number of dishes). The benchmark reads the file from the owner's path (`SOMMELIER_EVAL_HUMAN_FILE`) and refuses
-   it if it does not match the seal, so it cannot change unseen.
-4. **The agent that develops or measures CELLR must not see the file before the run**, and the set is reported in
-   totals only (`run.ts` treats it as blind). A change after the first measurement gets a new seal and a written
+3. The owner commits **only** the seals (`scripts/sommelier-eval/human-holdout/SEAL-series1.json`, later `SEAL.json`:
+   a file's hash and its number of dishes). The benchmark reads series 1 from `SOMMELIER_EVAL_HUMAN_SERIES1_FILE`
+   (set `human-series1`) and the full 100 from `SOMMELIER_EVAL_HUMAN_FILE` (set `human`), each from the owner's path,
+   and refuses a file that does not match its seal, so neither can change unseen.
+4. **The agent that develops or measures CELLR must not see either file before the run**, and both sets are reported
+   in totals only (`run.ts` treats them as blind). Series 2's writers see no result of series 1. A change after the first measurement gets a new seal and a written
    reason.
 
-**Note on size:** the S10 plan asks for at least 100 dishes (`HUMAN_HOLDOUT_MIN_DISHES`); 40 is what this form asks
-for now. With 40 dishes the escrow test fails until the owner either asks for 60 more or decides, in writing, that 40
-is enough for this release.
+**Size:** the full set keeps its minimum of 100 dishes (`HUMAN_HOLDOUT_MIN_DISHES`); series 1 alone is a separate,
+clearly named set (`human-series1`, exactly 40) whose every report says `PROVISIONAL` first.
 
 Filled in by: ____________ Date: ________ — nothing counts until you have signed it.
