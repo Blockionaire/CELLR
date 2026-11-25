@@ -210,6 +210,53 @@ Review-pass runs on the final tree (one build of `8f35b34`; later commits touch 
 - `architecture:inventory` unchanged; `architecture:impact` reports no structural change; `vitest run src/server/system`
   27 passed.
 
+## 9b. Pass 2: the handoff list, after Sprint 7.2's completion landed
+
+| Item                                    | Done                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Test                                                                                                                                                                                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| H1: loading stage taller than the stage | The skeleton under a place being read now has exactly the stage's classes and `--unit-ratio` (`STAGE_HEIGHT`, `stageRatio`). The other new paths: "Add" while loading keeps the same skeleton under the bar (fixed with it); a failed read shows a short alert card in the stage's place (a different, deliberate state, not a jump during loading); a template gone → the existing view (its own card, as before). The very first skeleton, before the list of places is known, cannot know a place's proportions and is unchanged. | `storage-product-layout` (phone): with the bottles' answer held back 1.5 s, the loading box and the stage have the same top and height (±1 px)                                                                                                       |
+| H2: place chips 36 px                   | Chips are 44 px tall (`h-11`); the row (`PlaceStrip`, children unchanged, so shared racks can join it) fades at an edge where there is more, brings the chosen chip into view inside the row (never scrolling the page) on load and on change; chips stay plain buttons in tab order.                                                                                                                                                                                                                                                | same spec: 6 chips ≥ 44 px, `data-more` after/before, no sideways page scroll at 375 px, keyboard Tab×5 + Enter (desktop) or a tap (phone) chooses the last place and it is in view                                                                  |
+| H3: "tap again"                         | Optional `onAim` on `TemplateScene` and `InspectableStorage`; the Quick Add instruction adds `quickAdd.aimAgain` ("Zoomed in. Tap the spot again to choose it." / "Ingezoomd. Tik nog eens op de plek om die te kiezen.") inside its existing polite live region, until adding ends or a spot is chosen                                                                                                                                                                                                                              | `storage-touch-aim` (phone): shown after the zooming tap, in the `aria-live="polite"` region                                                                                                                                                         |
+| H4: legacy view, context loss           | The pattern (notice, retry, remount) was already sound; no change needed                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `storage-legacy-loss`: a place from before templates, Quick Add on, five forced losses: notice, canvas gone, "Show 3D again", still adding, 10 placeholders back, identical geometries/textures/programs and one canvas every round                  |
+| H5: legacy feedback and targets         | Audited by reading: the chosen placeholder is gold and lifted (same numbers as the new view, now from one source); a legacy place has no target ring, so after a scan or manual add the new bottle is drawn but not highlighted; a tap during the ~0.3 s slide-in of a returning bottle does nothing. Neither is cheap to fix safely (the first needs the new bottle's id carried back through the add flows; the second touches the legacy showcase timing): documented, not changed                                                | —                                                                                                                                                                                                                                                    |
+| One placeholder source                  | `three/ghost-bottle.ts` is the one source; `storage3d/resources.ts` re-exports it. The direction is new → existing view only, so the existing view's chunk gains nothing (rule 17)                                                                                                                                                                                                                                                                                                                                                   | `ghost-bottle.test.ts`: the module imports only `three` and `./layout`; the template renderer's functions and numbers are the very same objects. The browser test "closed gate downloads none of the new view's code" is in the regression run below |
+| "Position" vs "spot"                    | Not changed: "Position" is the app's word in racks, inspection and placement (about 15 keys in each language), so it is not a same-meaning key swap. Owner's wording decision                                                                                                                                                                                                                                                                                                                                                        | —                                                                                                                                                                                                                                                    |
+
+Pass-2 runs. The app was built once from `cce6100`; the later commits change only spec files and this report. CI's
+headless shell was used:
+
+- `playwright test storage-product-layout storage-legacy-loss storage-touch-aim quick-add smart-cellar-3d cellar3d three-view --workers=2 --trace off`
+  (phone + desktop): **151 passed, 5 failed** (49.9 min). All five failures were the two new specs, and both were
+  faults in the tests, not in the app:
+  - The layout spec's household had no bottles, so the cellar showed its empty-state invitation without the 3D
+    toggle.
+  - The legacy spec expected the canvas to be gone under the notice; the existing view keeps the lost canvas under
+    its notice until "Show 3D again".
+
+  Every regression suite passed: `quick-add`, `smart-cellar-3d` (including "nothing of the new view is ... downloaded"
+  with the gate closed), `cellar3d*`, `three-view`, `storage-touch-aim`.
+
+- The two fixed specs on the same build: **5 passed, 1 skipped** (the loading-box test is phone-only), 2.5 min.
+  Legacy five-cycle test: 1.3 min on phone, 1.1 min on desktop.
+- Bundle: the chunk with the existing view's code (`__cellrLegacy3d`) and the chunk with the template renderer
+  (`storage3d-target-ring`) are different files. The shared placeholder module adds nothing of the new view to the
+  existing view's chunk.
+- `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test` on the final tree: green. Domain 1503 passed; web
+  1659 passed, 13 skipped; scripts 117, 83, 44 and 75 passed; one existing lint warning.
+- `premium-look.test.ts` timed out at 5 s on loaded machines several times. Its per-vertex shading check now asserts
+  the lowest and highest value of each mesh instead of calling `expect` once per value. The values compared are the
+  same; the file went from 12.5 s to 3.9 s alone. The 252-build ownership test has an explicit 60 s timeout.
+- `architecture:impact` reports 2 structural changes against `origin/main`: migration 0051 / `save_storage_layout_v2`
+  and `app/api → server/smart-cellar`. Both come from the compare-and-swap branch merged into this one, not from this
+  work. `vitest run src/server/system`: 27 passed. Register unchanged by me (1.5.5).
+
+Still for a physical device, in addition to §8:
+
+- The 44 px chips and the edge fade on a real phone.
+- The "tap again" line read aloud by VoiceOver and TalkBack.
+- No visible jump when a place loads over a slow network.
+- The existing view after an iOS memory-pressure loss with Quick Add open.
+
 ## 10. Release and rollback
 
 No migration, no setting, no flag, no data. Shipping is the merge and the deploy; rollback is Vercel Instant Rollback
