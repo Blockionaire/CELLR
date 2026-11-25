@@ -246,7 +246,7 @@ headless shell was used:
 - `premium-look.test.ts` timed out at 5 s on loaded machines several times. Its per-vertex shading check now asserts
   the lowest and highest value of each mesh instead of calling `expect` once per value. The values compared are the
   same; the file went from 12.5 s to 3.9 s alone. The 252-build ownership test has an explicit 60 s timeout.
-- `architecture:impact` reports 2 structural changes against `origin/main`: migration 0051 / `save_storage_layout_v2`
+- `architecture:impact` reports 2 structural changes against `origin/main`: migration `20261203000055` (the compare-and-swap; main brought its own 0051–0054) / `save_storage_layout_v2`
   and `app/api → server/smart-cellar`. Both come from the compare-and-swap branch merged into this one, not from this
   work. `vitest run src/server/system`: 27 passed. Register unchanged by me (1.5.5).
 
@@ -294,6 +294,27 @@ Final-review runs, all with CI's headless shell, `--project=desktop`, `--repeat-
 
 On the same build of `7279199`, `playwright test smart-cellar-3d quick-add storage-product-layout storage-touch-aim`
 on phone + desktop: **109 passed, 13 skipped, 0 failed** (16.6 min).
+
+## 9d. The same class of flake elsewhere (S-D3, CI evidence)
+
+- **`smart-cellar-3d.spec.ts`:** every check that comes first after a place opens now uses one budget,
+  `FIRST_PICTURE` (60 s). That covers opening the view (`openSmart`), a change of place, and the view coming back
+  after "Try again". The budget lives in one constant with two helpers, `drawn` and `stageShows`. No other timeout
+  was lengthened. Covered by this: `:243`, `:466`, `:602` and `:704`.
+- **"one place cannot be read" (was `:743`, now `:755`)** had a different race. The test let the server answer again
+  right after switching back to the rack. The rack can read again on its own when it is shown, and that read could
+  win, succeed, and leave no "Try again" to press (1 in 5 on desktop). The test now waits for the failure to be said
+  again before the server may answer. The product is correct in both orders.
+- **`storage-gallery.spec.ts:232`** (glass door, phone; it passed only on retry in CI). The CI log is not available
+  here, so the mechanism is inferred, not observed. The gallery's own `show` waited only for the first picture. The
+  shader warm-up compiles on the main thread right after it, so a tap made then waits behind that compile: the same
+  class as above. `show` now also waits for `data-prewarmed`, as the shared `storage3d.ts` helper always has.
+- **Runs, CI's headless shell, one build of `b0c8626`** (later commits change only specs and this report):
+  - `smart-cellar-3d` desktop `--repeat-each=5`: 104 passed, 1 failed, 5 skipped. The one failure was "one place
+    cannot be read", fixed above.
+  - `smart-cellar-3d` phone: 21 passed, 1 skipped.
+  - After the fix, "changing place" and "one place cannot be read" at `--repeat-each=10` on desktop: 20 of 20.
+  - On `e6e5df5`, `storage-gallery` and `smart-cellar-3d` on phone + desktop: **119 passed, 7 skipped, 0 failed** (13.4 min).
 
 ## 10. Release and rollback
 
