@@ -1,0 +1,1323 @@
+{
+  "set": "main",
+  "engine": "v1-fallback",
+  "keyed": "id",
+  "salt": null,
+  "incomplete": false,
+  "rows": {
+    "ev-01": {
+      "cluster": "dish:grilled-ribeye-steak",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ev-02": {
+      "cluster": "dish:sea-bass-lemon-butter",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ev-03": {
+      "cluster": "dish:roast-lamb",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ev-04": {
+      "cluster": "dish:raw-oysters",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ev-05": {
+      "cluster": "dish:beef-stew",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "ev-06": {
+      "cluster": "dish:salmon-fillet",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 0
+    },
+    "ev-07": {
+      "cluster": "dish:pizza-margherita",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "ev-08": {
+      "cluster": "dish:grilled-ribeye-steak",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ev-09": {
+      "cluster": "dish:roast-chicken",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 0
+    },
+    "ev-10": {
+      "cluster": "dish:raw-oysters",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "fu-08": {
+      "cluster": "dish:roast-lamb",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 2
+    },
+    "fu-10": {
+      "cluster": "dish:raw-oysters",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "inv-001": {
+      "cluster": "dish:grilled-ribeye-steak",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "inv-002": {
+      "cluster": "dish:roast-lamb",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "inv-003": {
+      "cluster": "dish:raw-oysters",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "inv-004": {
+      "cluster": "dish:venison-red-wine-cabbage",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "inv-005": {
+      "cluster": "dish:osso-buco",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "inv-006": {
+      "cluster": "dish:goat-cheese-salad",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "mm-001": {
+      "cluster": "dish:grilled-ribeye-steak",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "mm-002": {
+      "cluster": "dish:raw-oysters",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "mm-003": {
+      "cluster": "dish:sea-bass-lemon-butter",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "mm-004": {
+      "cluster": "dish:beef-stew",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "mm-005": {
+      "cluster": "dish:roast-lamb",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "mm-006": {
+      "cluster": "dish:beef-stew",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "mm-007": {
+      "cluster": "dish:goat-cheese-salad",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "mm-008": {
+      "cluster": "dish:spaghetti-bolognese",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 0,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "mm-009": {
+      "cluster": "dish:raw-oysters",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 0
+    },
+    "mm-010": {
+      "cluster": "dish:chicken-lemon-herbs",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "ns-007": {
+      "cluster": "dish:thai-green-curry",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "ns-008": {
+      "cluster": "dish:creme-brulee",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "ns-009": {
+      "cluster": "dish:sushi-sashimi",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "ns-010": {
+      "cluster": "dish:blue-cheese",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "ns-011": {
+      "cluster": "dish:ceviche",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "ns-014": {
+      "cluster": "dish:dark-chocolate-fondant",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 0,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "ns-015": {
+      "cluster": "dish:blue-cheese",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 0,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "ns-016": {
+      "cluster": "dish:goat-cheese-salad",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 0,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "ns-018": {
+      "cluster": "dish:mushroom-risotto",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 1,
+      "poor": 1,
+      "good": 0
+    },
+    "ph-001": {
+      "cluster": "dish:sea-bass-lemon-butter",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ph-002": {
+      "cluster": "dish:cod-beurre-blanc",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ph-003": {
+      "cluster": "dish:sole-meuniere",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-004": {
+      "cluster": "dish:sea-bream-fennel",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-005": {
+      "cluster": "dish:lobster-butter",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-006": {
+      "cluster": "dish:scallops-cauliflower",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-007": {
+      "cluster": "dish:chicken-cream-mushroom",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 0
+    },
+    "ph-008": {
+      "cluster": "dish:chicken-lemon-herbs",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ph-009": {
+      "cluster": "dish:duck-cherry",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ph-010": {
+      "cluster": "dish:duck-confit",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 1
+    },
+    "ph-011": {
+      "cluster": "dish:pork-belly-apple",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-012": {
+      "cluster": "dish:veal-morels",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 2
+    },
+    "ph-013": {
+      "cluster": "dish:venison-red-wine-cabbage",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-014": {
+      "cluster": "dish:braised-lamb-shank",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-015": {
+      "cluster": "dish:steak-peppercorn",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-016": {
+      "cluster": "dish:steak-bearnaise",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ph-017": {
+      "cluster": "dish:beef-bourguignon",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-018": {
+      "cluster": "dish:osso-buco",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 2
+    },
+    "ph-019": {
+      "cluster": "dish:pasta-carbonara",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 2,
+      "poor": 1,
+      "good": 0
+    },
+    "ph-020": {
+      "cluster": "dish:pasta-vongole",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-021": {
+      "cluster": "dish:pasta-pesto",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-022": {
+      "cluster": "dish:pasta-arrabbiata",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 0
+    },
+    "ph-023": {
+      "cluster": "dish:truffle-pasta",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 0
+    },
+    "ph-024": {
+      "cluster": "dish:ratatouille",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 3,
+      "good": 0
+    },
+    "ph-025": {
+      "cluster": "dish:green-asparagus-hollandaise",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-026": {
+      "cluster": "dish:white-asparagus-flemish",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ph-027": {
+      "cluster": "dish:artichoke-vinaigrette",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 0
+    },
+    "ph-028": {
+      "cluster": "dish:tomato-salad",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-029": {
+      "cluster": "dish:raw-oysters",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ph-030": {
+      "cluster": "dish:sushi-sashimi",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-031": {
+      "cluster": "dish:ceviche",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-032": {
+      "cluster": "dish:smoked-eel",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ph-033": {
+      "cluster": "dish:thai-green-curry",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 2
+    },
+    "ph-034": {
+      "cluster": "dish:vindaloo",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "ph-035": {
+      "cluster": "dish:butter-chicken",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ph-036": {
+      "cluster": "dish:mapo-tofu",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "ph-037": {
+      "cluster": "dish:miso-cod",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ph-038": {
+      "cluster": "dish:korean-bbq",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ph-039": {
+      "cluster": "dish:peking-duck",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ph-040": {
+      "cluster": "dish:pad-thai",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 1,
+      "poor": 1,
+      "good": 0
+    },
+    "ph-041": {
+      "cluster": "dish:pho",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 2,
+      "poor": 1,
+      "good": 1
+    },
+    "ph-042": {
+      "cluster": "dish:hummus-mezze",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 1,
+      "poor": 1,
+      "good": 0
+    },
+    "ph-043": {
+      "cluster": "dish:shakshuka",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 2,
+      "poor": 1,
+      "good": 0
+    },
+    "ph-044": {
+      "cluster": "dish:kibbeling-ravigote",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-045": {
+      "cluster": "dish:eggs-benedict",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ph-046": {
+      "cluster": "dish:quiche-lorraine",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ph-047": {
+      "cluster": "dish:french-onion-soup",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ph-048": {
+      "cluster": "dish:rendang",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 2
+    },
+    "ph-049": {
+      "cluster": "dish:seafood-paella",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ph-050": {
+      "cluster": "dish:hollandse-nieuwe",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-051": {
+      "cluster": "dish:teriyaki-salmon",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-052": {
+      "cluster": "dish:sate-pindasaus",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-053": {
+      "cluster": "dish:nasi-goreng",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 1,
+      "poor": 1,
+      "good": 0
+    },
+    "ph-054": {
+      "cluster": "dish:bouillabaisse",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ph-055": {
+      "cluster": "dish:bitterballen",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 2
+    },
+    "ph-056": {
+      "cluster": "dish:smoked-salmon",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ph-057": {
+      "cluster": "dish:falafel-tahini",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 0
+    },
+    "pm-001": {
+      "cluster": "dish:coq-au-vin",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "pm-002": {
+      "cluster": "dish:coq-au-vin",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 1,
+      "poor": 1,
+      "good": 0
+    },
+    "pm-003": {
+      "cluster": "dish:beef-carpaccio",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "pm-004": {
+      "cluster": "dish:beef-carpaccio",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "pm-005": {
+      "cluster": "dish:steak-tartare",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 0
+    },
+    "pm-006": {
+      "cluster": "dish:seared-tuna",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "pm-007": {
+      "cluster": "dish:seared-tuna",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "pm-008": {
+      "cluster": "dish:vitello-tonnato",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "pm-009": {
+      "cluster": "dish:chili-con-carne",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "pm-010": {
+      "cluster": "dish:cheese-fondue",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "pm-011": {
+      "cluster": "dish:fish-red-wine-sauce",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "pm-012": {
+      "cluster": "dish:fish-red-wine-sauce",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 0,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "pm-013": {
+      "cluster": "dish:lamb-rogan-josh",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "pm-014": {
+      "cluster": "dish:white-chocolate-mousse",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 1
+    },
+    "pm-015": {
+      "cluster": "dish:surf-and-turf",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "pm-016": {
+      "cluster": "dish:chili-con-carne",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "ps-001": {
+      "cluster": "dish:grilled-ribeye-steak",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ps-002": {
+      "cluster": "dish:beef-stew",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ps-003": {
+      "cluster": "dish:roast-chicken",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ps-004": {
+      "cluster": "dish:roast-lamb",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ps-005": {
+      "cluster": "dish:burger",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 0
+    },
+    "ps-006": {
+      "cluster": "dish:pork-chops",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "ps-007": {
+      "cluster": "dish:spaghetti-bolognese",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "ps-008": {
+      "cluster": "dish:pizza-margherita",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "ps-009": {
+      "cluster": "dish:salmon-fillet",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ps-010": {
+      "cluster": "dish:fish-and-chips",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ps-011": {
+      "cluster": "dish:caesar-salad",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ps-012": {
+      "cluster": "dish:mushroom-risotto",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ps-013": {
+      "cluster": "dish:cheese-board-hard",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 2,
+      "poor": 1,
+      "good": 0
+    },
+    "ps-014": {
+      "cluster": "dish:goat-cheese-salad",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 1
+    },
+    "ps-015": {
+      "cluster": "dish:charcuterie-board",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ps-016": {
+      "cluster": "dish:stamppot-boerenkool",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 1,
+      "poor": 1,
+      "good": 0
+    },
+    "ps-017": {
+      "cluster": "dish:blue-cheese",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ps-018": {
+      "cluster": "dish:brie-camembert",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ps-019": {
+      "cluster": "dish:aged-gouda",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 1
+    },
+    "ps-020": {
+      "cluster": "dish:dark-chocolate-fondant",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 2
+    },
+    "ps-021": {
+      "cluster": "dish:tiramisu",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 0
+    },
+    "ps-022": {
+      "cluster": "dish:appeltaart-slagroom",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ps-023": {
+      "cluster": "dish:nuts-olives",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ps-024": {
+      "cluster": "dish:mosselen-friet",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 0
+    },
+    "ps-025": {
+      "cluster": "dish:lasagne",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    },
+    "ps-026": {
+      "cluster": "dish:draadjesvlees",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "ps-027": {
+      "cluster": "dish:creme-brulee",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 2
+    },
+    "ps-028": {
+      "cluster": "dish:hutspot-klapstuk",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 3,
+      "good": 0
+    },
+    "ps-029": {
+      "cluster": "dish:crisps-fries",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 2
+    },
+    "ps-030": {
+      "cluster": "dish:gebakken-slibtong",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "ps-031": {
+      "cluster": "dish:cheesecake",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 2,
+      "poor": 0,
+      "good": 2
+    },
+    "ps-032": {
+      "cluster": "dish:strawberries-cream",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "rb-06": {
+      "cluster": "dish:roast-chicken",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "rb-07": {
+      "cluster": "dish:salmon-fillet",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "rb-09": {
+      "cluster": "dish:raw-oysters",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 3
+    },
+    "rb-11": {
+      "cluster": "dish:dark-chocolate-fondant",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    }
+  }
+}

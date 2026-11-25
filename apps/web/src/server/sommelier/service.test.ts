@@ -775,8 +775,10 @@ describe("the sommelier and your own taste", () => {
   });
 });
 
-describe("Sommelier V1+ parts (CELLR_SOMMELIER): a part that is not on, or not built, changes nothing", () => {
-  // `check`, `annotate` and `quantities` (P3–P5) are built: they have their own tests below. The others are not yet.
+describe("Sommelier V1+ parts (CELLR_SOMMELIER): a part that is not on, not built or not wired changes nothing", () => {
+  // `check`, `annotate` and `quantities` (P3–P5) are built: they have their own tests below. `fallback` (P7) is wired
+  // through its own dependency, absent here: naming it alone changes nothing (parts/fallback.test.ts has the service
+  // with it). `menu` is not built on this branch.
   const all = parseSommelierParts(
     SOMMELIER_PARTS.filter((p) => !["check", "annotate", "quantities"].includes(p)).join(","),
   );

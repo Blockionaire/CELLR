@@ -494,7 +494,7 @@ const components = [
       {
         name: "CELLR_SOMMELIER",
         kind: "env",
-        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. Built: check (P3: prompt v7 with refs for cellar wines and no price field; the answer's words and buying claims are checked in code, and what cannot be shown is left out or replaced by a sentence made from the cards); annotate (P4: the app's own facts on the cards, with the household's wine profiles for the wines shown) and quantities (P5: bottles for the people named, counted in code).",
+        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. Built: check (P3: prompt v7 with refs for cellar wines and no price field; the answer's words and buying claims are checked in code, and what cannot be shown is left out or replaced by a sentence made from the cards); annotate (P4: the app's own facts on the cards, with the household's wine profiles for the wines shown) and quantities (P5: bottles for the people named, counted in code); fallback (P7: the engines' plan when V1 has no model answer, without buying advice; not to be switched on in production before the knowledge is reviewed, D-49).",
       },
     ],
     risks: [
@@ -1920,7 +1920,12 @@ const edges: SystemEdge[] = [
     web(SERVICES, "taste: () => taste.profile()"),
     web(SERVICES, "profiles: async (vintageIds) => tasteRepo.listInsights("),
   ),
-  wired("svc-sommelier", "rate-limiter", "chat limit", "spend: () => limiter.enforce(LIMITS.chat)"),
+  wired(
+    "svc-sommelier",
+    "rate-limiter",
+    "chat limit; the engines' own limit (also for the fallback part)",
+    "spend: () => limiter.enforce(LIMITS.chat)",
+  ),
   edge(
     "svc-sommelier",
     "privileged-ops",
@@ -2901,8 +2906,8 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.7.0",
-  reviewedOn: "2026-11-24",
+  version: "1.9.0",
+  reviewedOn: "2026-11-25",
   repository: "Blockionaire/CELLR",
   components,
   edges,

@@ -35,7 +35,7 @@ const CAPABILITIES: ReadonlySet<Capability> = new Set([
 ]);
 
 /** A researched profile of the exact wine, as the app stores one. */
-function profileOf(f: FixtureWine): InsightOutput {
+export function profileOf(f: FixtureWine): InsightOutput {
   return {
     summary: "Benchmark profile.",
     style: "",

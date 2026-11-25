@@ -38,6 +38,7 @@ import {
 } from "@cellr/domain";
 import { annotateBottles, servingFactsBlock } from "@cellr/domain/intelligence";
 import type { SommelierIntelligence } from "@/server/sommelier/intelligence";
+import { isFactQuestion, type SommelierFallback } from "@/server/sommelier/parts/fallback";
 import { seeCardWords } from "@/server/sommelier/parts/serving-words";
 import { cardOnlyWords } from "@/server/sommelier/parts/check-words";
 import type { AiErrorKind, AiUsage, LlmProvider } from "@/server/ai";
@@ -85,6 +86,11 @@ export interface SommelierDeps {
   profiles?: (vintageIds: readonly string[]) => Promise<ReadonlyMap<string, InsightOutput>>;
   /** The clock (a wine's age decides how it is decanted). Absent: now. */
   now?: () => Date;
+  /**
+   * V1+ part `fallback` (P7): the engines' plan for a question V1 cannot put to its model, instead of the plain
+   * answer. Only asked when the part is on, and never when a model answered. Absent: the plain answer, as before.
+   */
+  fallback?: SommelierFallback | null;
   /** Null = no AI configured. */
   llm: LlmProvider | null;
   /** Spends from the chat budget; throws RATE_LIMITED when it is gone. */
@@ -342,6 +348,35 @@ export function createSommelierService(deps: SommelierDeps) {
             : Promise.resolve(null));
       /** For the plain engine: asked for something different, the usual taste is not what to steer by. */
       const plainTaste = async () => (explore ? null : taste());
+      /**
+       * The answer when V1 has no model to ask (no key, the limit, the model down, an answer that failed its check).
+       * With the `fallback` part on, the engines' plan comes first for anything that is not a question of fact; they
+       * decline what they cannot decide, and the plain answer is then given exactly as before. Never with
+       * `sommelier_engine` on: those engines were asked before the model already.
+       */
+      const fallback =
+        deps.parts && hasSommelierPart(deps.parts, "fallback") && !deps.intelligence
+          ? (deps.fallback ?? null)
+          : null;
+      const withoutModel = async (
+        reason: NonNullable<SommelierAnswer["reason"]>,
+      ): Promise<SommelierAnswer> => {
+        // "Which wine do I have for the oysters?" asks what to open: with the fallback on it is the engines'
+        // question, as it is with the engines on. "How many" and "where" stay questions of fact.
+        if (fallback && (!facts || !isFactQuestion(question))) {
+          const planned = await fallback({
+            request,
+            items,
+            reason,
+            personal: request.personal !== false && !explore,
+            locale: await deps.locale().catch(() => "en"),
+          });
+          if (planned) return planned;
+        }
+        return facts
+          ? plainFacts(facts, reason)
+          : plain(items, question, reason, await plainTaste());
+      };
       // The engines first, for what they decide themselves: no model is asked and nothing is spent. A question
       // of fact never goes to them; a failure of theirs is not the person's problem (the old path answers).
       if (deps.intelligence && !facts) {
@@ -376,19 +411,12 @@ export function createSommelierService(deps: SommelierDeps) {
       // Nothing to talk about yet: no point paying for an answer that can only say so. (For tonight there is:
       // what to buy.)
       if (items.length === 0 && (!tonight || !deps.llm)) return nothing;
-      if (!deps.llm)
-        return facts
-          ? plainFacts(facts, "ai-off")
-          : plain(items, question, "ai-off", await plainTaste());
+      if (!deps.llm) return withoutModel("ai-off");
       try {
         await deps.spend();
       } catch (error) {
         if (error instanceof DomainError && error.code === "RATE_LIMITED")
-          return items.length === 0
-            ? nothing
-            : facts
-              ? plainFacts(facts, "limit")
-              : plain(items, question, "limit", await plainTaste());
+          return items.length === 0 ? nothing : withoutModel("limit");
         throw error;
       }
 
@@ -461,16 +489,12 @@ export function createSommelierService(deps: SommelierDeps) {
       // The platform budget being used up reads to the person like any other limit.
       const why =
         !result.ok && result.kind === "budget" ? ("limit" as const) : ("ai-down" as const);
-      const fallback = async () =>
-        items.length === 0
-          ? { ...nothing, reason: why }
-          : facts
-            ? plainFacts(facts, why)
-            : plain(items, question, why, await plainTaste());
-      if (!result.ok) return fallback();
+      const unanswered = async () =>
+        items.length === 0 ? { ...nothing, reason: why } : withoutModel(why);
+      if (!result.ok) return unanswered();
 
       const checked = checkSommelierAnswer(result.value, digest);
-      if (!checked) return fallback();
+      if (!checked) return unanswered();
       observe?.model?.(result.usage.servedModel ?? result.usage.model);
       // For a question about the cellar the wines it named get their cards (and links) whatever the model pointed
       // at, as long as there are few enough to be the answer; more means the model asks which one is meant.

@@ -1,0 +1,414 @@
+{
+  "set": "holdout-dev",
+  "engine": "v1-basic",
+  "keyed": "id",
+  "salt": null,
+  "incomplete": false,
+  "rows": {
+    "ho-001": {
+      "cluster": "dish:h-gehaktballen-jus",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 3,
+      "good": 0
+    },
+    "ho-002": {
+      "cluster": "dish:h-hachee",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ho-003": {
+      "cluster": "dish:h-wiener-schnitzel",
+      "first": 0,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ho-004": {
+      "cluster": "dish:h-garnalenkroketten",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 2
+    },
+    "ho-005": {
+      "cluster": "dish:h-mac-and-cheese",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 3,
+      "good": 0
+    },
+    "ho-006": {
+      "cluster": "dish:h-pompoensoep",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 0
+    },
+    "ho-007": {
+      "cluster": "dish:h-raclette",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ho-008": {
+      "cluster": "dish:h-pasta-puttanesca",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ho-009": {
+      "cluster": "dish:h-greek-salad",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 2
+    },
+    "ho-012": {
+      "cluster": "dish:h-flammkuchen",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 0
+    },
+    "ho-013": {
+      "cluster": "dish:h-spareribs",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ho-017": {
+      "cluster": "dish:h-andijviestamppot-spek",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 0
+    },
+    "ho-018": {
+      "cluster": "dish:h-zuurkool-casselerrib",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 0
+    },
+    "ho-021": {
+      "cluster": "dish:h-saltimbocca",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 3,
+      "good": 0
+    },
+    "ho-022": {
+      "cluster": "dish:h-garnalenkroketten",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "ho-025": {
+      "cluster": "dish:h-uitsmijter",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 0
+    },
+    "ho-026": {
+      "cluster": "dish:h-aspergesoep",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ho-027": {
+      "cluster": "dish:h-gerookte-makreel",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "ho-028": {
+      "cluster": "dish:h-pannenkoek-spek-stroop",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 0
+    },
+    "ho-029": {
+      "cluster": "dish:h-babi-pangang",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 0
+    },
+    "ho-030": {
+      "cluster": "dish:h-salade-nicoise",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "ho-042": {
+      "cluster": "dish:h-witlof-ham-kaas",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ho-045": {
+      "cluster": "dish:h-zuurkool-casselerrib",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 0
+    },
+    "ho-046": {
+      "cluster": "dish:h-andijviestamppot-spek",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 3,
+      "good": 0
+    },
+    "ho-047": {
+      "cluster": "dish:h-hachee",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 1
+    },
+    "ho-048": {
+      "cluster": "dish:h-mac-and-cheese",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 3,
+      "good": 0
+    },
+    "ho-049": {
+      "cluster": "dish:h-uitsmijter",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 0
+    },
+    "ho-050": {
+      "cluster": "dish:h-pannenkoek-spek-stroop",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 3,
+      "poor": 0,
+      "good": 0
+    },
+    "ho-052": {
+      "cluster": "dish:h-babi-pangang",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 0
+    },
+    "ho-053": {
+      "cluster": "dish:h-gerookte-makreel",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 2
+    },
+    "ho-055": {
+      "cluster": "dish:h-aspergesoep",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 0
+    },
+    "ho-060": {
+      "cluster": "dish:h-flammkuchen",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 0
+    },
+    "ho-061": {
+      "cluster": "dish:h-mac-and-cheese",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 3,
+      "good": 0
+    },
+    "ho-062": {
+      "cluster": "dish:h-cassoulet",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ho-066": {
+      "cluster": "dish:h-babi-pangang",
+      "first": 1,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "ho-067": {
+      "cluster": "dish:h-gerookte-makreel",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 3,
+      "good": 0
+    },
+    "ho-069": {
+      "cluster": "dish:h-hachee",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 3,
+      "good": 0
+    },
+    "ho-071": {
+      "cluster": "dish:h-salade-nicoise",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "ho-079": {
+      "cluster": "dish:h-pannenkoek-spek-stroop",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 3,
+      "good": 0
+    },
+    "ho-080": {
+      "cluster": "dish:h-cassoulet",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 0,
+      "poor": 0,
+      "good": 0
+    },
+    "ho-081": {
+      "cluster": "dish:h-wiener-schnitzel",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 1
+    },
+    "ho-082": {
+      "cluster": "dish:h-zuurkool-casselerrib",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 0
+    },
+    "ho-083": {
+      "cluster": "dish:h-gehaktballen-jus",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 1,
+      "good": 1
+    },
+    "ho-087": {
+      "cluster": "dish:h-cassoulet",
+      "first": 0,
+      "noPoor": 0,
+      "useful": 0,
+      "offered": 3,
+      "poor": 2,
+      "good": 0
+    },
+    "ho-088": {
+      "cluster": "dish:h-greek-salad",
+      "first": 1,
+      "noPoor": 1,
+      "useful": 1,
+      "offered": 1,
+      "poor": 0,
+      "good": 1
+    }
+  }
+}
