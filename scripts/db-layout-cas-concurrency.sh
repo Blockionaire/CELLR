@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Smart Cellar 3D, migration 0051 under real concurrency: separate database sessions at the same moment, as signed-in
+# Smart Cellar 3D, migration 0055 under real concurrency: separate database sessions at the same moment, as signed-in
 # members of one household (role `authenticated`, row level security on), committing for real.
 #
 #   0. CONTROL, with save_storage_layout (0045, no revision): two saves made from one revision, released at the same
-#      moment, BOTH succeed (last write wins). This is the race 0051 closes; the control shows the checks below can
+#      moment, BOTH succeed (last write wins). This is the race 0055 closes; the control shows the checks below can
 #      see it.
 #   1. A save held open after it saved; a second save from the same revision meanwhile: it waits for the lock and is
 #      then 'stale'. Both orders (member 1 first, member 2 first).

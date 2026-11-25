@@ -69,6 +69,7 @@ export function ScanScreen({
   currency,
   initialSpot,
   catalogSearch = false,
+  catalogRatings = false,
   origin,
 }: {
   currency: string;
@@ -78,6 +79,8 @@ export function ScanScreen({
   initialSpot?: PreferredSpot | undefined;
   /** The `wine_search` feature: correcting a reading searches the database, not only the fetched list. */
   catalogSearch?: boolean | undefined;
+  /** `catalog_ratings`: a suggested record links to its catalogue page (ratings, reviews). */
+  catalogRatings?: boolean | undefined;
 }) {
   const t = useTranslations("scan");
   const tAdd = useTranslations("addBottle");
@@ -341,6 +344,7 @@ export function ScanScreen({
             result={stage.result}
             wines={wines.data ?? []}
             catalogSearch={catalogSearch}
+            catalogRatings={catalogRatings}
             currency={currency}
             mode={mode}
             inBatch={!!stage.itemId}

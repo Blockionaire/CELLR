@@ -12,7 +12,7 @@ import {
 } from "./helpers";
 
 /**
- * Shared racks (ADR-010, migration 0052): the API, end to end. Every request goes through the app (Next.js) to the
+ * Shared racks (ADR-010, migration 0056): the API, end to end. Every request goes through the app (Next.js) to the
  * real PostgREST and Postgres of the local stack, AS the signed-in person: the database's own functions decide who
  * may do what, not a mock. People here are three (or more) accounts, each with a household of their own.
  *

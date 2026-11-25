@@ -247,7 +247,7 @@ export default function CellarScene({
       />
       <pointLight ref={rimLight} intensity={0} color="#e6eeff" distance={30} decay={1.8} />
       <Prewarm />
-      <OutMark id={shown?.bottle.id ?? ""} />
+      <OutMark out={shown !== null} />
       <SizeSync onResized={onResized} />
       <Rig
         rows={rows}
@@ -408,16 +408,18 @@ function Prewarm() {
 }
 
 /**
- * Which bottle is out of its slot right now (on display, or on its way out or home), on the canvas for tests to read
- * (`data-out`, empty when every bottle lies in its slot). Until a bottle is home its slot is empty in the live rack
- * (it is drawn apart), so a tap there meets nothing: a test that taps the slot again waits for this, not for the still
- * of the rack to go (which goes as the bottle lies down in front of its slot, before it slides in).
+ * Whether a bottle is out of its slot right now (on display, or on its way out or home), on the canvas for tests to
+ * read (`data-out`: "1", or empty when every bottle lies in its slot; never which bottle, so nothing of the cellar is
+ * written into the page). Until a bottle is home its slot is empty in the live rack (it is drawn apart), so a tap
+ * there meets nothing: a test that taps the slot again waits for this, not for the still of the rack to go (which goes
+ * as the bottle lies down in front of its slot, before it slides in). Not behind the debug flag: the plain 3D cellar
+ * (`cellar3d.spec`, renderer gate closed) has no debug readout to put it behind.
  */
-function OutMark({ id }: { id: string }) {
+function OutMark({ out }: { out: boolean }) {
   const store = useStore();
   useEffect(() => {
-    store.getState().gl.domElement.dataset.out = id;
-  }, [store, id]);
+    store.getState().gl.domElement.dataset.out = out ? "1" : "";
+  }, [store, out]);
   return null;
 }
 
@@ -1187,16 +1189,18 @@ function GhostSpots({
   const { invalidate } = useThree();
   const ref = useRef<THREE.InstancedMesh>(null);
   const [hovered, setHovered] = useState<number | null>(null);
+  // another list of spots: the index under the mouse means another spot (or none) now
+  const [hoveredIn, setHoveredIn] = useState(spots);
+  if (hoveredIn !== spots) {
+    setHoveredIn(spots);
+    setHovered(null);
+  }
   const radial = ghostRadial(spots.length);
   const geometry = useMemo(() => buildGhostBottle(radial), [radial]);
   const material = useMemo(() => buildGhostMaterial(), []);
-  useEffect(
-    () => () => {
-      geometry.dispose();
-      material.dispose();
-    },
-    [geometry, material],
-  );
+  // each given back on its own: another level of detail is a new geometry, never a new material (and program)
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  useEffect(() => () => material.dispose(), [material]);
   useLayoutEffect(() => {
     const mesh = ref.current;
     if (!mesh) return;
@@ -1240,6 +1244,7 @@ function GhostSpots({
         setHovered(e.instanceId ?? null);
       }}
       onPointerOut={(e) => {
+        if (e.pointerType === "touch") return;
         (e.nativeEvent.target as HTMLElement).style.cursor = "grab";
         setHovered((h) => (h === e.instanceId ? null : h));
       }}

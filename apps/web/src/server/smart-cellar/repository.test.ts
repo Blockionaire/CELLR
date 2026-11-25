@@ -565,7 +565,7 @@ describe("the bottles of a place, with their label photos", () => {
   });
 });
 
-describe("saving a layout: the compare-and-swap of 0051, and exactly the old save without it", () => {
+describe("saving a layout: the compare-and-swap of 0055, and exactly the old save without it", () => {
   type Call = { fn: string; args: Record<string, unknown> };
   /** A data API that only takes function calls: each answer is the next one given, in order. */
   function rpcOnly(answers: Array<{ data: unknown; error: DbError | null }>) {
@@ -631,7 +631,7 @@ describe("saving a layout: the compare-and-swap of 0051, and exactly the old sav
     expect(calls).toHaveLength(1);
   });
 
-  it("a database without 0051 (no such function, nothing ran): the old save, with the old arguments, as before", async () => {
+  it("a database without 0055 (no such function, nothing ran): the old save, with the old arguments, as before", async () => {
     const { repo, calls } = rpcOnly([
       { data: null, error: missing },
       { data: "saved", error: null },

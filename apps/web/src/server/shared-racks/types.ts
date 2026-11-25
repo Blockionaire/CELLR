@@ -15,7 +15,7 @@ import type {
 } from "@cellr/domain";
 
 /**
- * What each function of migration 0052 can answer. An outcome that is not the success is a refusal: the database
+ * What each function of migration 0056 can answer. An outcome that is not the success is a refusal: the database
  * changed nothing. `not_found` is its answer to anyone who is not an active member, and to an id that does not exist.
  */
 export type CreateOutcome =
@@ -127,7 +127,7 @@ export interface RackLayoutWrite {
 }
 
 /**
- * Data access for the Shared Racks API: ONE function of migration 0052 per method, called AS the signed-in person
+ * Data access for the Shared Racks API: ONE function of migration 0056 per method, called AS the signed-in person
  * (the request's own Supabase client, never the service role). The database takes the person from the session and
  * checks their membership itself; nothing here passes an identity. The tables are not reachable at all.
  * A database without the migration is answered with a "not set up" error, never by guessing.

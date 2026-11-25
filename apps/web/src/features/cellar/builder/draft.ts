@@ -431,13 +431,18 @@ export function strandedBy<T extends OccupiedSpot>(
 
 /**
  * Whether `candidate` is another version of the place than `known` (null: none known yet). EQUALITY ONLY, to the
- * microsecond and whatever the offset (`sameRevision`). Not ordered: only a database with 0051 makes a revision
+ * microsecond and whatever the offset (`sameRevision`). Not ordered: only a database with 0055 makes a revision
  * strictly increase in commit order, and the screen also talks to databases without it. Anything different is news:
  * the screen takes it, or says the place changed, and a save is then checked by the database against the latest
  * revision.
  */
 export function isNewerRevision(candidate: string, known: string | null): boolean {
   return known === null || !sameRevision(candidate, known);
+}
+
+/** Whether `candidate` is a revision this screen has not met yet (none of `known`, by `sameRevision`). Unit-tested. */
+export function revisionIsNews(candidate: string, known: readonly string[]): boolean {
+  return !known.some((k) => sameRevision(candidate, k));
 }
 
 /**

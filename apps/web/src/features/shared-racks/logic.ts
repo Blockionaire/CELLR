@@ -254,6 +254,6 @@ export function refusalKind(error: unknown, rackMessage: string): RefusalKind {
 /** The sentence the server sends for a rack I am not (or no longer) a member of. */
 export const RACK_NOT_FOUND_MESSAGE = "We couldn't find that shared rack.";
 
-/** The database has no shared racks yet (migration 0052 is not applied there). */
+/** The database has no shared racks yet (migration 0056 is not applied there). */
 export const isNotSetUp = (error: unknown): boolean =>
   error instanceof ApiError && error.serverMessage === SHARED_RACKS_NOT_SET_UP;

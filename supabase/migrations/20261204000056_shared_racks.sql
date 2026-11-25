@@ -1,5 +1,5 @@
 -- =====================================================================
--- 0052 Shared racks: one physical rack, several households, every bottle its own owner
+-- 0056 Shared racks: one physical rack, several households, every bottle its own owner
 -- =====================================================================
 -- docs/sprints/smart-cellar-3d/ADR-010-shared-racks.md says what these mean and why.
 --

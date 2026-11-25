@@ -17,8 +17,8 @@ type Params = { id: string };
  * to be a test one (lib/smart-cellar-write-target.ts).
  *
  * Optional `If-Match: "<revision>"` (sprint 3): the revision of the place the draft started from. When the place has
- * changed since, nothing is saved (409). Where the database has migration 0051 the revision is also compared under
- * the place's row lock, so a save that lands in between is refused too (the same 409); without 0051 only the app's
+ * changed since, nothing is saved (409). Where the database has migration 0055 the revision is also compared under
+ * the place's row lock, so a save that lands in between is refused too (the same 409); without 0055 only the app's
  * own check is made (see the service).
  */
 export const PUT = authed<Params>(async ({ request, ctx, params }) => {

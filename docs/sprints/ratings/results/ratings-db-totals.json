@@ -1,0 +1,10 @@
+{
+  "units": 1008593,
+  "units_nv": 2382,
+  "ratings": 20857044,
+  "records_rated": 100646,
+  "distribution_adds_up": true,
+  "max_count": 10220,
+  "postgres": "17.12 (Ubuntu 17.12-1.pgdg24.04+1)",
+  "size_after_two_runs": "372 MB"
+}
