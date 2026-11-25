@@ -57,6 +57,9 @@ begin
     values (c1, h1, 'Bins', 'diamond_bins', 'ordinal', 2, 2, 6) returning id into bins;
   insert into public.cellar_locations (cellar_id, household_id, label, template, slot_semantics, grid_rows, grid_cols, cell_capacity)
     values (c1, h1, 'Cubes', 'cube_modular', 'ordinal', 2, 2, 4) returning id into cube;
+  perform test.rec('even with depth on, a place from before templates (no template) can never hold more than one bottle per cell, so the legacy views never meet one',
+    test.error_of(format('insert into public.cellar_locations (cellar_id, household_id, label, grid_rows, grid_cols, cell_capacity) values (%L, %L, %L, 2, 2, 2)', c1, h1, 'Legacy deep')) like '23514%cellar_locations_capacity_needs_semantics%'
+    and test.error_of(format('update public.cellar_locations set cell_capacity = 2 where id = %L', legacy)) like '23514%cellar_locations_capacity_needs_semantics%');
   perform test.rec('with depth on, places of every deep template can be made (double depth 3, bins 6, cubes 4)',
     test.count_of(format('select 1 from public.cellar_locations where household_id = %L and cell_capacity > 1', h1)) = 3);
 
