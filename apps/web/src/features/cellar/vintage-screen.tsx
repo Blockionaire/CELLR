@@ -51,6 +51,7 @@ import { Facts, Section } from "./vintage-bits";
 import { AboutSection, PairsSection, TasteSection, WorthSection } from "./wine-insight";
 import { placeLine, shapeFor } from "./wine-visuals";
 import { pictureTransition } from "./wine-picture";
+import { SharedPlaceOr } from "@/features/shared-racks/lazy";
 
 type SheetName = "open" | "move" | "edit" | "place" | "merge" | null;
 
@@ -160,6 +161,13 @@ export function VintageScreen({
       : places.length === 1
         ? (places[0]!.label ?? t("notPlaced"))
         : `${places[0]!.label ?? t("notPlaced")} +${places.length - 1}`;
+  // Shared racks (ADR-010): every bottle without a place here: they may stand in a shared rack, which is then said
+  const placeShown =
+    places.length === 1 && places[0]!.label === null ? (
+      <SharedPlaceOr bottleIds={detail.bottles.map((b) => b.id)}>{placeValue}</SharedPlaceOr>
+    ) : (
+      placeValue
+    );
   const placeDetail = located.single
     ? t("spot", { row: located.single.row!, col: located.single.col! })
     : located.spots.length === 0
@@ -204,7 +212,7 @@ export function VintageScreen({
               <span className="sr-only">{t("whereShow")}</span>
             </button>
           ) : (
-            placeValue
+            placeShown
           ),
         label: t("where"),
       },
@@ -529,7 +537,14 @@ export function VintageScreen({
                 {groupBottlesByPlace(detail.bottles).map((group) => (
                   <section key={group.label ?? "none"} aria-label={group.label ?? t("notPlaced")}>
                     <h3 className="flex items-baseline justify-between gap-3 border-b border-hairline pb-1.5 text-caption font-medium uppercase tracking-[0.14em] text-bronze">
-                      <span className="min-w-0 truncate">{group.label ?? t("notPlaced")}</span>
+                      <span className="min-w-0 truncate">
+                        {/* Shared racks (ADR-010): some of these may stand in a shared rack */}
+                        {group.label ?? (
+                          <SharedPlaceOr bottleIds={group.bottles.map((b) => b.id)}>
+                            {t("notPlaced")}
+                          </SharedPlaceOr>
+                        )}
+                      </span>
                       <span className="shrink-0 tnum">×{group.bottles.length}</span>
                     </h3>
                     <ul className="divide-y divide-hairline">

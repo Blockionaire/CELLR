@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { isDomainError } from "@cellr/domain";
 import { VintageScreen } from "@/features/cellar/vintage-screen";
+import { SharedRacksGate } from "@/features/shared-racks/lazy";
 import { getPageContext } from "@/server/context";
-import { getFeatures } from "@/server/env";
+import { getFeatures, getSharedRacksAccess } from "@/server/env";
 import { getPageMe } from "@/server/me";
 import { servicesFor } from "@/server/services";
 
@@ -40,16 +41,19 @@ export default async function VintagePage({ params, searchParams }: Props) {
   if (!detail) return null;
   const currency = me?.households.find((h) => h.id === me.activeHouseholdId)?.currency ?? "EUR";
   return (
-    <VintageScreen
-      initial={detail}
-      currency={currency}
-      initialRate={rate}
-      initialPick={pick === "1"}
-      sourcesPanel={getFeatures().sources_panel}
-      ratings={{
-        external: getFeatures().catalog_ratings,
-        community: getFeatures().community_reviews,
-      }}
-    />
+    // Shared racks (ADR-010): the server's decision; closed, the screen is exactly as before
+    <SharedRacksGate open={getSharedRacksAccess().open}>
+      <VintageScreen
+        initial={detail}
+        currency={currency}
+        initialRate={rate}
+        initialPick={pick === "1"}
+        sourcesPanel={getFeatures().sources_panel}
+        ratings={{
+          external: getFeatures().catalog_ratings,
+          community: getFeatures().community_reviews,
+        }}
+      />
+    </SharedRacksGate>
   );
 }

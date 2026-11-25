@@ -606,8 +606,27 @@ for (const [name, base] of [
       const { email } = await arrive(page, "srclosed");
       const { call } = await apiClient(request, email);
       const wine = (await call<{ id: string }>("post", "/wines", wineBody, 201)).body;
-      await call("post", "/bottles", { wineId: wine.id, year: 2019, quantity: 1 }, 201);
+      const added = await call<{ bottleIds: string[] }>(
+        "post",
+        "/bottles",
+        { wineId: wine.id, year: 2019, quantity: 2 },
+        201,
+      );
       await call("post", "/storage", { label: "Home rack", kind: "rack", rows: 2, cols: 2 }, 201);
+      // the wine's page: a bottle without a place is "Not placed yet", and Move gives it one, exactly as before
+      const [{ vintage_id: vintageId }] = (await sql<{ vintage_id: string }>(
+        "select vintage_id from public.bottles where id = $1",
+        [added.body.bottleIds[0]],
+      )) as [{ vintage_id: string }];
+      await page.goto(`/cellar/${vintageId}`);
+      await expect(page.getByTestId("bottle-places")).toContainText("Not placed yet");
+      await page.getByRole("button", { name: "Move", exact: true }).click();
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Shelf 2, position 2, empty" })
+        .click();
+      await expect(page.getByText("Moved to Home rack · Shelf 2 · Position 2.")).toBeVisible();
+      await expect(page.locator('[data-testid^="shared-"]')).toHaveCount(0);
       await page.goto("/cellar");
       for (const view of ["3D", "List", "Racks"]) {
         await page.getByRole("radio", { name: view }).click();
@@ -626,8 +645,10 @@ for (const [name, base] of [
       expect(asked, "no request names shared racks").toEqual([]);
       const scripts = await Promise.all(code);
       expect(scripts.length).toBeGreaterThan(3);
-      // the rack's screen has this name in its code, and in no other code
+      // the rack's screen has this name in its code, and in no other code; so has the line that says where a bottle
+      // of mine stands in a shared rack (the wine's page, its Move)
       expect(scripts.filter((text) => text.includes("shared-rack-stage"))).toEqual([]);
+      expect(scripts.filter((text) => text.includes("shared-place-line"))).toEqual([]);
     });
   });
 
@@ -729,6 +750,116 @@ test("my own cellar: a bottle that stands in a shared rack is said so where it i
       owner_id: ann.userId,
     });
   });
+  await ann.close();
+});
+
+test("the wine's page: a bottle in a shared rack is said to stand there, and moving it home is asked first", async ({
+  browser,
+  request,
+}, info) => {
+  const ann = await arriveAs(browser, request, info, "Ann");
+  const code: Array<Promise<string>> = [];
+  ann.page.on("response", (response) => {
+    if (/\/_next\/static\/.*\.js/.test(response.url())) code.push(response.text().catch(() => ""));
+  });
+  const [inRack] = await ann.bottles("Ann Riesling");
+  const rack = (
+    await ann.call<{ id: string }>(
+      "post",
+      "/shared-racks",
+      { name: "Club rack", ...RACK_LAYOUT(2, 3) },
+      201,
+    )
+  ).body.id;
+  await ann.call(
+    "post",
+    `/shared-racks/${rack}/bottles`,
+    { bottleId: inRack, to: { row: 2, col: 3, index: 1 } },
+    201,
+  );
+  const home = (
+    await ann.call<{ id: string }>(
+      "post",
+      "/storage",
+      { label: "Home rack", kind: "rack", rows: 2, cols: 3 },
+      201,
+    )
+  ).body.id;
+  const [{ vintage_id: vintageId }] = (await sql<{ vintage_id: string }>(
+    "select vintage_id from public.bottles where id = $1",
+    [inRack],
+  )) as [{ vintage_id: string }];
+  const where = () =>
+    sql<{ location_id: string | null; status: string }>(
+      "select location_id, status from public.bottles where id = $1",
+      [inRack],
+    );
+  // (the question is a sheet of its own, inside the Move sheet)
+  const ask = ann.page.getByRole("dialog", { name: "This bottle stands in a shared rack" });
+  const line = "In shared rack Club rack · shelf 2, spot 3";
+
+  await test.step("the page says where it stands, not that it has no place", async () => {
+    await ann.page.goto(`/cellar/${vintageId}`);
+    const places = ann.page.getByTestId("bottle-places");
+    await expect(places.getByTestId("shared-place-line").first()).toHaveText(line);
+    await expect(places).not.toContainText("Not placed yet");
+    // the group and the bottle, and the "Where" tile at the top
+    await expect(places.getByTestId("shared-place-line")).toHaveText([line, line]);
+    await expect(ann.page.locator("dd").getByTestId("shared-place-line")).toHaveText(line);
+    expect(await audit(ann.page), "the wine's page").toEqual([]);
+  });
+
+  const spot = (col: number) =>
+    ann.page.getByRole("dialog").getByRole("button", { name: `Shelf 1, position ${col}, empty` });
+  await test.step("Move to a spot at home: asked first; No changes nothing and gives the focus back", async () => {
+    await ann.page.getByRole("button", { name: "Move", exact: true }).click();
+    await expect(spot(1)).toBeVisible();
+    await spot(1).click();
+    await expect(ask).toContainText(
+      "Ann Riesling 2019 stands in the shared rack Club rack, on shelf 2, spot 3. Giving it a place here takes it out of the shared rack",
+    );
+    // the question has the focus, and nothing has moved while it is open
+    await expect.poll(() => ask.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+    expect(await where()).toEqual([{ location_id: null, status: "in_cellar" }]);
+    await settled(ask);
+    expect(await audit(ann.page), "the question").toEqual([]);
+    await ann.page.getByTestId("shared-place-confirm-no").click();
+    await expect(ann.page.getByTestId("shared-place-confirm")).toHaveCount(0);
+    await expect(spot(1)).toBeFocused();
+    expect(await where()).toEqual([{ location_id: null, status: "in_cellar" }]);
+    expect(await placements(rack)).toHaveLength(1);
+  });
+
+  await test.step("Yes does what Move does: the bottle is home, out of the rack, and the page says so", async () => {
+    await spot(1).click();
+    await ann.page.getByTestId("shared-place-confirm-yes").click();
+    await expect(ann.page.getByText("Moved to Home rack · Shelf 1 · Position 1.")).toBeVisible();
+    expect(await where()).toEqual([{ location_id: home, status: "in_cellar" }]);
+    expect(await placements(rack)).toEqual([]);
+    expect((await eventTypes(rack)).at(-1)).toEqual({
+      event_type: "bottle_relocated",
+      actor_id: ann.userId,
+      owner_id: ann.userId,
+    });
+    await expect(ann.page.getByTestId("bottle-places")).toContainText("Shelf 1 · Position 1");
+    await expect(ann.page.getByTestId("shared-place-line")).toHaveCount(0);
+  });
+
+  await test.step("without a place again it is asked about no more: it stands in no shared rack now", async () => {
+    await ann.page.getByRole("button", { name: "Move", exact: true }).click();
+    await ann.page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Take it out of its place" })
+      .click();
+    await expect(ann.page.getByText("Taken out of its place.")).toBeVisible();
+    await expect(ann.page.getByTestId("bottle-places")).toContainText("Not placed yet");
+    await ann.page.getByRole("button", { name: "Move", exact: true }).click();
+    await spot(2).click();
+    await expect(ann.page.getByText("Moved to Home rack · Shelf 1 · Position 2.")).toBeVisible();
+    await expect(ann.page.getByTestId("shared-place-confirm")).toHaveCount(0);
+  });
+  // the gate-closed test looks for this name in the downloaded code: here, with shared racks open, it is there
+  expect((await Promise.all(code)).some((text) => text.includes("shared-place-line"))).toBe(true);
   await ann.close();
 });
 

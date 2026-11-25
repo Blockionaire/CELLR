@@ -20,6 +20,7 @@ import { Button } from "@/ui/button";
 import { Field } from "@/ui/field";
 import { Sheet } from "@/ui/sheet";
 import { useToast } from "@/ui/toast";
+import { SharedPlaceTexts, useSharedRacksOpen } from "@/features/shared-racks/lazy";
 import { useSetBottleYear, useUpdatePurchase, useUpdateWine } from "./hooks";
 import { countryName } from "./wine-visuals";
 
@@ -83,9 +84,12 @@ function EditForm({ detail, onClose }: { detail: VintageDetail; onClose: () => v
   const [nonVintage, setNonVintage] = useState(detail.year === null);
   const [error, setError] = useState<string | null>(null);
   const busy = updateWine.isPending || updatePurchase.isPending || setBottleYear.isPending;
+  // Shared racks (ADR-010): what a bottle without a place here is called when it stands in a shared rack
+  const sharedRacks = useSharedRacksOpen();
+  const [sharedTexts, setSharedTexts] = useState<ReadonlyMap<string, string>>(new Map());
   const spotOf = (b: (typeof bottles)[number]) =>
     b.locationLabel === null || b.row === null || b.col === null
-      ? te("vintage.notPlaced")
+      ? (sharedTexts.get(b.id) ?? te("vintage.notPlaced"))
       : `${b.locationLabel} · ${te("vintage.spot", { row: b.row, col: b.col })}`;
 
   async function submit(event: FormEvent) {
@@ -235,6 +239,13 @@ function EditForm({ detail, onClose }: { detail: VintageDetail; onClose: () => v
             </h3>
             <p className="mt-1 text-small text-ink-2">{t("yearOne")}</p>
           </div>
+          {/* Shared racks (ADR-010): the words above, for the bottles without a place here */}
+          {sharedRacks && bottles.length > 1 && (
+            <SharedPlaceTexts
+              bottleIds={bottles.flatMap((b) => (b.locationId === null ? [b.id] : []))}
+              onChange={setSharedTexts}
+            />
+          )}
           {bottles.length > 1 && (
             <div className="flex flex-col gap-1.5">
               <label htmlFor={whichId} className="text-small font-medium text-ink-2">

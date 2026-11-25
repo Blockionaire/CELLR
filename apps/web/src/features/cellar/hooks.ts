@@ -389,6 +389,13 @@ export function useRefreshCellar() {
       queryClient.invalidateQueries({ queryKey: racksKey }),
       queryClient.invalidateQueries({ queryKey: smartStorageKey }),
       queryClient.invalidateQueries({ queryKey: storageKey }),
+      // Shared racks (ADR-010): a bottle given a place, opened or removed here leaves a shared rack it stood in, so
+      // that is read again too, also while no screen shows it (the next one to ask must not get the old answer). The
+      // key of features/shared-racks/hooks.ts `mySharedBottlesKey`; it exists only where shared racks are open.
+      queryClient.invalidateQueries({
+        queryKey: ["shared-racks", "my-bottles"],
+        refetchType: "all",
+      }),
     ]);
 }
 
