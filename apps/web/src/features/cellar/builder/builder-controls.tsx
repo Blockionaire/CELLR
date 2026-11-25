@@ -14,6 +14,7 @@ import { cn } from "@/ui/cn";
 import { CheckIcon, MinusIcon, PlusIcon } from "@/ui/icons";
 import { Segmented } from "@/ui/segmented";
 import { PREMIUM_TONES } from "../storage3d/palette";
+import { useDepthOpen } from "../depth";
 import { cardFacts, groupedTemplates, templateSnapshot } from "./catalogue";
 
 /**
@@ -63,6 +64,7 @@ export function TemplateCatalogue({
 }) {
   const t = useTranslations("builder");
   const tt = useTranslations("storageTemplates");
+  const depth = useDepthOpen();
   const groups = groupedTemplates();
   const order = groups.flatMap((g) => g.ids);
   const refs = useRef(new Map<StorageTemplateId, HTMLButtonElement>());
@@ -90,7 +92,7 @@ export function TemplateCatalogue({
           </h3>
           <div className="-mx-5 flex snap-x gap-3 overflow-x-auto px-5 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0">
             {ids.map((id) => {
-              const facts = cardFacts(id);
+              const facts = cardFacts(id, depth);
               const selected = chosen && id === value;
               return (
                 <button

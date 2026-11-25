@@ -532,3 +532,15 @@ describe("depth in the builder's rules (sprint 9): savable only where the server
     expect(a.problems).toContainEqual({ kind: "layout", problem: "in_use" });
   });
 });
+
+describe("the catalogue's cards follow the server's depth decision (sprint 9)", () => {
+  it("the three deep templates are preview only unless depth is open", async () => {
+    const { cardFacts } = await import("./catalogue");
+    for (const id of ["rack_double_depth", "cube_modular", "diamond_bins"] as const) {
+      expect(cardFacts(id).savable, id).toBe(false);
+      expect(cardFacts(id, false).savable, id).toBe(false);
+      expect(cardFacts(id, true).savable, id).toBe(true);
+    }
+    expect(cardFacts("rack_classic", false).savable).toBe(true);
+  });
+});

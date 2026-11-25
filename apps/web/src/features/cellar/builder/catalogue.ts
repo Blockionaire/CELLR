@@ -2,7 +2,7 @@ import {
   STORAGE_TEMPLATES,
   STORAGE_TEMPLATE_IDS,
   structureCapacity,
-  templateSavable,
+  templateSavableWith,
   type StorageTemplate,
   type StorageTemplateId,
 } from "@cellr/domain";
@@ -48,7 +48,8 @@ export interface CardFacts {
   savable: boolean;
 }
 
-export function cardFacts(id: StorageTemplateId): CardFacts {
+/** `depth`: whether the server says depth is open here (sprint 9); closed, the deep templates are preview only. */
+export function cardFacts(id: StorageTemplateId, depth = false): CardFacts {
   const t = STORAGE_TEMPLATES[id];
   const holds: CardFacts["holds"] =
     t.family === "bins"
@@ -65,7 +66,7 @@ export function cardFacts(id: StorageTemplateId): CardFacts {
     holds,
     zones: t.zones?.max ?? 0,
     door: t.appearance.doors.some((d) => d !== "none"),
-    savable: templateSavable(id),
+    savable: templateSavableWith(id, depth),
   };
 }
 

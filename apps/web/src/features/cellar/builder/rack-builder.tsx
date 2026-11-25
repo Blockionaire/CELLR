@@ -19,7 +19,7 @@ import {
   STORAGE_TEMPLATES,
   SMART_CELLAR_NOT_SET_UP,
   STALE_LAYOUT_MESSAGE,
-  cellCapacitySavable,
+  cellCapacitySavableWith,
   formatVintage,
   type SmartPlacementView,
   type SmartStorageUnitView,
@@ -84,6 +84,7 @@ import {
   type SaveProblem,
 } from "./draft";
 import { forgetDraft, recallDraft, rememberDraft } from "./draft-memory";
+import { useDepthOpen } from "../depth";
 
 /**
  * THE RACK BUILDER (Smart Cellar 3D, sprint 3): design a place and see it, live, with the existing renderer.
@@ -295,6 +296,8 @@ function BuilderEditor({
   const reduced = useReducedMotion();
   const debug = useDebug();
   const mode: "new" | "edit" = unit ? "edit" : "new";
+  // more than one bottle per spot is savable only where the server says depth is open (sprint 9)
+  const depth = useDepthOpen();
   const memoryKey = unit?.id ?? "new";
 
   // ---- the saved state and the draft ----
@@ -428,7 +431,7 @@ function BuilderEditor({
         capacity: unit.capacity,
       }
     : null;
-  const assessment = assess(draft, current, occupiedSpots);
+  const assessment = assess(draft, current, occupiedSpots, depth);
   const stranded = strandedBy(draft, placements);
   const previewOnly = assessment.problems.some((p) => p.kind === "preview_only");
   const status = assessment.savable ? "ready" : previewOnly ? "preview" : "blocked";
@@ -974,7 +977,8 @@ function BuilderEditor({
                     apply(change.draft, change.reconciled);
                   }}
                   note={
-                    field === "cellCapacity" && !cellCapacitySavable(draft.cellCapacity) ? (
+                    field === "cellCapacity" &&
+                    !cellCapacitySavableWith(draft.cellCapacity, depth) ? (
                       <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-caption text-ink-2">
                         <span>{t("cellCapacityPreview")}</span>
                         {range.min <= 1 && (
