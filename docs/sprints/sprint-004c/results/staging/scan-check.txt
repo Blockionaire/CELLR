@@ -1,0 +1,3 @@
+scan check: fictitious public record found once; X-Wines invisible to people
+scan check: R-27 origin kept from the public record; X-Wines refused; one credit
+scan check: PASS (everything rolled back)

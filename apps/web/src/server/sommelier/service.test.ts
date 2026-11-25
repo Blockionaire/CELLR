@@ -1618,3 +1618,98 @@ describe("Sommelier V1+ `menu` (P6): a wine per course, and a choice between two
 function setupSystem() {
   return SOMMELIER_SYSTEM;
 }
+
+describe("Sommelier V1+ `check`, `annotate` and `quantities` together", () => {
+  const ref = (i: CellarItem) => i.vintageId.replace(/-/g, "").slice(0, 6);
+  const cellar = () => {
+    n = 0;
+    return [
+      item({ producer: "Château Margaux", wineName: "Pavillon Rouge", count: 3 }),
+      item({ producer: "Antinori", wineName: "Tignanello", year: 2018, count: 6 }),
+    ];
+  };
+  const run = async (parts: string, answer: (items: CellarItem[]) => string) => {
+    const items = cellar();
+    const world = setup({
+      items,
+      parts: parseSommelierParts(parts),
+      answer: {
+        answer: answer(items),
+        bottle_refs: [ref(items[0]!)],
+        verdict: "match",
+        buy: [],
+        used_taste: false,
+      },
+    });
+    return {
+      ...world,
+      answer: await world.service.ask(ask("We are 8. What goes with roast lamb?")),
+    };
+  };
+
+  it("one call: the ref is rendered, a price goes, a temperature that differs from the card goes, the bottles are counted", async () => {
+    const { answer, state, items } = await run(
+      "check,annotate,quantities",
+      (items) =>
+        `[[${ref(items[0]!)}]] suits the lamb. Serve it at 22 °C after three hours in a carafe. It costs about €40.`,
+    );
+    expect(state.requests).toHaveLength(1);
+    expect(state.requests[0]!.system).toBe(SOMMELIER_SYSTEM_V7);
+    expect(state.requests[0]!.user).toContain("- 8 people, a dinner.");
+    expect(answer.bottles.map((b) => b.vintageId)).toEqual([items[0]!.vintageId]);
+    expect(answer.text).toBe("Château Margaux Pavillon Rouge 2015 suits the lamb.");
+    expect(answer.check).toMatchObject({ text: "trimmed", codes: ["price"] });
+    expect(answer.servingCheck).toMatchObject({
+      text: "trimmed",
+      codes: ["temperature", "decanting"],
+    });
+    expect(answer.annotations).toHaveLength(1);
+    expect(answer.quantity).toMatchObject({ guests: 8, needed: 4, mode: "alternatives" });
+    expect(answer.quantity?.wines).toEqual([
+      { vintageId: items[0]!.vintageId, needed: 4, available: 3, short: 1 },
+    ]);
+  });
+
+  it("words the check replaced are the card sentence, and the cards still carry their facts", async () => {
+    const { answer } = await run(
+      "check,annotate,quantities",
+      () => "Your Sassicaia 2016 is perfect with this. Serve it at 22 °C.",
+    );
+    expect(answer.text).toBe(
+      "Château Margaux Pavillon Rouge 2015 from your cellar suits this best.",
+    );
+    expect(answer.check).toMatchObject({ text: "replaced" });
+    expect(answer).not.toHaveProperty("servingCheck");
+    expect(answer.annotations).toHaveLength(1);
+    expect(JSON.stringify(answer)).not.toMatch(/Sassicaia|22 °C/);
+  });
+
+  it("each part adds only its own: the same model answer with the parts one by one", async () => {
+    const words = (items: CellarItem[]) =>
+      `[[${ref(items[0]!)}]] suits the lamb. Serve it at 22 °C.`;
+    const [c, a, q] = await Promise.all([
+      run("check", words),
+      run("annotate", words),
+      run("quantities", words),
+    ]);
+    // `check` alone renders the ref and leaves the serving words (it has no card facts to compare with).
+    expect(c.answer.text).toBe(
+      "Château Margaux Pavillon Rouge 2015 suits the lamb. Serve it at 22 °C.",
+    );
+    expect(c.answer).not.toHaveProperty("annotations");
+    expect(c.answer).not.toHaveProperty("quantity");
+    // `annotate` alone asks with v6, so the ref is the model's own word; the temperature that differs goes.
+    expect(a.state.requests[0]!.system).toBe(SOMMELIER_SYSTEM);
+    expect(a.answer.text).not.toContain("22 °C");
+    expect(a.answer).not.toHaveProperty("check");
+    expect(a.answer).not.toHaveProperty("quantity");
+    // `quantities` alone changes no word.
+    expect(q.answer).not.toHaveProperty("check");
+    expect(q.answer).not.toHaveProperty("annotations");
+    expect(q.answer.text).toContain("Serve it at 22 °C.");
+    expect(q.answer.quantity).toMatchObject({ guests: 8 });
+    // V1's choice is the same in all three.
+    expect(a.answer.bottles).toEqual(c.answer.bottles);
+    expect(q.answer.bottles).toEqual(c.answer.bottles);
+  });
+});
