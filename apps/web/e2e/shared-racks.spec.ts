@@ -423,6 +423,7 @@ test("three households share one rack: invite, place, move, take out, open at ho
       /Someone of Bob’s household said .*Bob Barolo.* is no longer in the rack\./,
     );
     await ann.page.keyboard.press("Escape");
+    await expect(ann.page.getByRole("dialog")).toHaveCount(0);
     expect(
       await sql("select status, household_id from public.bottles where id = $1", [bobFirst]),
     ).toEqual([{ status: "in_cellar", household_id: bob.householdId }]);
@@ -448,8 +449,8 @@ test("three households share one rack: invite, place, move, take out, open at ho
   });
 
   await test.step("Ann archives the rack, with what that means said first", async () => {
-    await ann.page.keyboard.press("Escape");
     await ann.page.getByTestId("shared-rack-settings-open").click();
+    await expect(ann.page.getByTestId("shared-rack-rename")).toBeVisible();
     await ann.page.getByTestId("shared-rack-rename").fill(`${rackName} (old)`);
     await ann.page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(ann.page.getByTestId("shared-rack-name")).toHaveText(`${rackName} (old)`);

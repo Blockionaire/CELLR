@@ -324,4 +324,35 @@ the same keys). The screens add nothing to the contract of §3 and no function t
 
 ### 9.5 Tests of the screens
 
-UI_RESULTS_PLACEHOLDER
+Run on this branch on 2026-11-25 (after the foundation with the review fixes was merged in), against throwaway
+databases and the local stack only. Browser runs: one production build, CI's headless shell, the projects `desktop`
+and `phone`, three servers (not switched on; switched on but an unmarked production build; a Vercel preview).
+
+| What                                                                                     | Result                                                                                                          |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `pnpm format:check`, `pnpm lint`, `pnpm typecheck`                                       | clean (lint: 0 errors, the 1 warning that is on the base)                                                       |
+| `pnpm test`                                                                              | domain 74 files, 1527 tests; web 116 files passed and 2 skipped, 1687 tests passed and 13 skipped; scripts pass |
+| `pnpm db:types:check`, `bash scripts/db-test.sh`                                         | up to date; 1918 passed, 0 failed, 0 errors                                                                     |
+| `pnpm architecture:inventory`, `vitest run src/server/system`                            | no change to commit; 27 passed                                                                                  |
+| `node apps/web/scripts/e2e-suites-check.mjs`                                             | 1424 tests = 352 (3d) + 1072 (core), none in both, none left out                                                |
+| `e2e/shared-racks-3d.spec.ts` (3D suite), both projects                                  | 2 passed                                                                                                        |
+| `e2e/shared-racks-api.spec.ts` (desktop only by design), on the merged branch            | 12 passed                                                                                                       |
+| `e2e/shared-racks.spec.ts`: layout conflict, 375 × 667, gate closed × 2, gate-open check | 10 passed (5 on each project)                                                                                   |
+| `e2e/shared-racks.spec.ts`: the three-household story, both projects                     | STORY_RESULT                                                                                                    |
+
+What the browser runs found, and what was done about each:
+
+- **"History of this bottle" inherited a person filter** from an earlier look at the whole history: fixed (§9.4).
+- **A person without a place of their own saw no note** about their bottle in a shared rack in the racks view (that
+  view has a separate empty state): the note is shown there too.
+- **In 3D, "Move" clicked with a mouse right after the keyboard list had the focus could miss**: the list is shown
+  only while it has the focus and folds away when the focus leaves it, which moves the page under a pressed mouse
+  button. The spec now does what such a person does (Enter on the button). The fold itself is unchanged and is the
+  same pattern the private 3D view uses; a physical-device check should include it.
+- **Two sheets in quick succession**: Escape pressed twice and a sheet opened right after closed that sheet again
+  (the shared sheet component reports its closing after the animation). The spec no longer presses Escape twice;
+  the component is not this workstream's and is unchanged.
+- **The spec assumed which of two identical bottles a person picks first**; it now reads that back.
+
+Not run: the whole browser suite, the WebKit project, the restore rehearsal (needs Docker), anything on a real
+device, and anything against a hosted project.
