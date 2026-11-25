@@ -770,6 +770,9 @@ test.describe("gate ON (an internal preview)", () => {
     await page.getByRole("button", { name: "Old fridge" }).click();
     await expect(legacyStage(page)).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
     await page.getByRole("button", { name: "Oak rack" }).click();
+    // back on the rack, it may read again on its own: the failure is said again BEFORE the server is allowed to answer,
+    // or that read can win the race, succeed, and leave no "Try again" to press (sprint 10: 1 in 5 on desktop)
+    await expect(failed).toBeVisible({ timeout: 30_000 });
     await page.unroute(`**/api/v1/smart-cellar/storage/${rack}/bottles`);
     await page
       .getByTestId("smart-3d-unit-failed")
