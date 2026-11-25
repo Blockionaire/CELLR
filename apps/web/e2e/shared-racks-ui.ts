@@ -136,6 +136,13 @@ export async function openRack(page: Page, name: string) {
 export const stage = (page: Page) => page.getByTestId("shared-rack-stage");
 export const bottleAt = (page: Page, spot: string) =>
   page.locator(`[data-testid="shared-rack-cell"][data-spot="${spot}"]`);
+/** Chooses the bottle on a spot of the flat grid (a second tap would put it back: a bottle just moved stays chosen). */
+export async function chooseBottle(page: Page, spot: string) {
+  const cell = bottleAt(page, spot);
+  await expect(cell).toBeVisible();
+  if ((await cell.getAttribute("aria-pressed")) !== "true") await cell.click();
+  await expect(cell).toHaveAttribute("aria-pressed", "true");
+}
 export const freeAt = (page: Page, spot: string) =>
   page.locator(`[data-testid="shared-rack-free"][data-spot="${spot}"]`);
 

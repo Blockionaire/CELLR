@@ -14,6 +14,7 @@ import {
   addBottle,
   arriveAs,
   bottleAt,
+  chooseBottle,
   eventTypes,
   freeAt,
   open3D,
@@ -40,8 +41,11 @@ test("three households share one rack: invite, place, move, take out, open at ho
   const ann = await arriveAs(browser, request, info, "Ann", { webgl: false });
   const bob = await arriveAs(browser, request, info, "Bob", { webgl: false });
   const cy = await arriveAs(browser, request, info, "Cy", { webgl: false });
-  const [annFirst, annSecond] = await ann.bottles("Ann Riesling", 2);
-  const [bobFirst, bobSecond] = await bob.bottles("Bob Barolo", 2);
+  const annBoth = await ann.bottles("Ann Riesling", 2);
+  const bobBoth = await bob.bottles("Bob Barolo", 2);
+  // two bottles of one wine look the same in a list: which of the two each of them puts in first is read back below
+  let [annFirst, annSecond] = annBoth;
+  let [bobFirst, bobSecond] = bobBoth;
   await cy.bottles("Cy Chenin");
   // what must never reach anyone else: Ann's private facts, on the bottles that go into the rack too
   await sql(
@@ -171,6 +175,12 @@ test("three households share one rack: invite, place, move, take out, open at ho
     expect(await audit(bob.page), "the add sheet").toEqual([]);
     await bob.page.getByTestId("shared-rack-candidate").first().click();
     await expect(bottleAt(bob.page, "1:2")).toBeVisible();
+    const first = await placements(rackId);
+    annFirst = first.find((p) => p.owner_user_id === ann.userId)?.bottle_id;
+    annSecond = annBoth.find((id) => id !== annFirst);
+    bobFirst = first.find((p) => p.owner_user_id === bob.userId)?.bottle_id;
+    bobSecond = bobBoth.find((id) => id !== bobFirst);
+    expect([annFirst, annSecond, bobFirst, bobSecond].every(Boolean)).toBe(true);
 
     await openRack(ann.page, rackName);
     for (const page of [ann.page, bob.page]) {
@@ -249,7 +259,7 @@ test("three households share one rack: invite, place, move, take out, open at ho
     ]);
     await ann.page.keyboard.press("Escape");
     // the history of one bottle, from the bottle itself
-    await bottleAt(ann.page, "2:3").click();
+    await chooseBottle(ann.page, "2:3");
     await ann.page.getByTestId("shared-rack-bottle-history").click();
     await expect(ann.page.getByTestId("shared-rack-activity-bottle")).toContainText("Ann Riesling");
     await expect(events).toHaveText([
@@ -282,7 +292,7 @@ test("three households share one rack: invite, place, move, take out, open at ho
   });
 
   await test.step("Bob takes Ann's bottle out: said honestly, recorded, and it is still Ann's, unopened, at home", async () => {
-    await bottleAt(bob.page, "2:3").click();
+    await chooseBottle(bob.page, "2:3");
     await bob.page.getByTestId("shared-rack-chosen").getByTestId("shared-rack-takeout").click();
     const sheet = bob.page.getByTestId("shared-rack-takeout-sheet");
     await expect(sheet).toContainText("Taking it out is not drinking it");
@@ -330,7 +340,7 @@ test("three households share one rack: invite, place, move, take out, open at ho
   });
 
   await test.step("Bob takes his own bottle out and is offered his own cellar's next steps; then puts it back", async () => {
-    await bottleAt(bob.page, "1:2").click();
+    await chooseBottle(bob.page, "1:2");
     await bob.page.getByTestId("shared-rack-chosen").getByTestId("shared-rack-takeout").click();
     await expect(bob.page.getByTestId("shared-rack-takeout-sheet")).toContainText(
       "It is your bottle: afterwards it is in your own cellar, without a place.",
@@ -364,14 +374,14 @@ test("three households share one rack: invite, place, move, take out, open at ho
     await ann.page.keyboard.press("Escape");
     // Bob's bottle still stands in the rack, under his name, as someone who is no longer in it
     await openRack(ann.page, rackName);
-    await bottleAt(ann.page, "1:2").click();
+    await chooseBottle(ann.page, "1:2");
     await expect(ann.page.getByTestId("shared-rack-chosen")).toContainText(
       "Bob (no longer in this rack; the bottle is still theirs)",
     );
 
     // Bob's screen still shows the rack as he last saw it; his next action is refused, clearly, and changes nothing
     const before = await placements(rackId);
-    await bottleAt(bob.page, "1:2").click();
+    await chooseBottle(bob.page, "1:2");
     await bob.page.getByTestId("shared-rack-chosen").getByTestId("shared-rack-move").click();
     await freeAt(bob.page, "2:2").click();
     await expect(
