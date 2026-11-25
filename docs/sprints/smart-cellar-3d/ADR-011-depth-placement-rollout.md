@@ -176,6 +176,16 @@ Reviewed again for this sprint (§6.1); unchanged.
 | Placement advice (`adviseStorage`), `resolveStorage`, `placements`, `occupants`                       | index-aware since sprints 1C/4/5                   | Correct; advice already takes `depthEnabled`.                                                                                                                                                                                                                                                                                                                 |
 | `occupancy()` / `occupied` counts                                                                     | counts bottles                                     | Correct.                                                                                                                                                                                                                                                                                                                                                      |
 
+### 3.1 State after sprint 9 wave 2
+
+Done: the racks grid (front bottle, "+n behind", no drag from a multi-bottle cell; `cellsOfBottles`), the friend
+screen's keys, the spot picker and placement panel (index-aware, front rule), the Rack Builder (depth templates
+savable only with depth open), `SpotMarkers` (D), places without a template pinned one deep in SQL. Still blocking
+phase D: legacy capacity (`rows × cols`), `occupiedSlots`, export v1, `friend_racks`' missing index, Quick Add at
+index > 1, the shared racks' kill switch and front rule, and opening depth only where the new renderer is on
+(`CELLR_SMART_CELLAR_3D=1`, so a templated deep place is never drawn by the legacy view). Table:
+SPRINT-9-DEPTH-REPORT §9.1.
+
 ## 4. Rules for depth (domain and server, sprint 9)
 
 ### 4.1 Identity

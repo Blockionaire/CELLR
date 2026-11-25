@@ -189,4 +189,17 @@ smart-cellar-api -g "depth on"`, counted in `e2e-result`.
 
 ### 9.2 Results
 
-RESULTS_W2
+Local stack, desktop, CI's headless shell, one build at `0598351`:
+
+- **Depth on** (`STACK_DEPTH=1 … depth-ui smart-cellar-api -g "depth on"`): **5 passed** (31 s): a back spot offered,
+  placed into and named in the list; the back of a cell with a taken front not offered; the racks view's two-bottle
+  cell ("+1 behind", front bottle, no drag); the Builder saving a double-depth rack and refusing a smaller layout that
+  strands a back bottle; old endpoints against depth storage; the capability only on the preview.
+- **Depth closed** (`rack-builder placement racks friends drag-swap add-to-spot depth-ui`): **65 passed, 10 skipped**
+  (the opt-in depth tests and existing mobile skips), 0 failed (8.4 min).
+- On the way, the closed run found a regression of the compare-and-swap follow-up 613af32 (`rack-builder.spec.ts:593`:
+  after a save whose refresh fails, the cached place from before the save read as news and disabled Save). Fixed here
+  in `0598351` and on the compare-and-swap branch in `e663b12` (`revisionIsNews`, unit-tested).
+- A first depth run with `-g "depth"` failed 2 tests because it also ran the depth-OFF "depth fixture" test, which
+  turns the stack's switch off; the CI job filters `-g "depth on"`.
+- Not re-run after these: the phone project for the depth specs, the 3D suites (`quick-add`, `storage-*`).
