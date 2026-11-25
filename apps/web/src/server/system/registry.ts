@@ -47,9 +47,19 @@ const components = [
       W + "app/(onboarding)/",
       W + "app/(public)/",
       W + "app/design/",
+      W + "app/layout.tsx",
+      W + "app/error.tsx",
+      W + "app/loading.tsx",
+      W + "app/not-found.tsx",
+      W + "app/manifest.ts",
+      W + "app/splash-screens.ts",
       W + "features/",
       W + "lib/api.ts",
+      W + "lib/analytics.ts",
+      W + "ui/providers.tsx",
     ],
+    env: ["DESIGN_GALLERY"],
+    packages: ["@tanstack/react-query", "three", "@react-three/fiber", "tesseract.js"],
     gates: [
       {
         name: "wine_search",
@@ -82,10 +92,11 @@ const components = [
     status: "implemented",
     summary: "Internal dashboard: catalogue, bottle library, metrics, this map",
     responsibility:
-      "Server-rendered admin pages; each checks the admin session itself and answers 404 otherwise. Changes go through Server Actions that check again and are audited.",
+      "Server-rendered admin pages; each checks the admin session itself and answers 404 otherwise. Changes go through Server Actions that check again and are audited. Mobile-first since Mobile Admin Portal 2.0: a header and a tab bar below 1024 px (the sidebar above), lists as cards, the architecture as a list with a map mode. Installs as its own home-screen app, CELLR Admin (public manifest /admin.webmanifest: names and icons only).",
     inputs: ["Verified admin session (CELLR_ADMIN_USER_IDS)"],
     outputs: ["Catalogue decisions", "Bottle art", "Source decisions"],
-    sources: [W + "app/admin/", W + "features/admin/"],
+    sources: [W + "app/admin/", W + "app/admin.webmanifest/", W + "features/admin/"],
+    hosts: ["github.com"],
   },
 
   // Edge & API
@@ -112,6 +123,20 @@ const components = [
     inputs: ["HTTP requests with cookie or bearer token"],
     outputs: ["JSON responses", "Calls into services"],
     sources: [W + "server/http.ts", W + "app/api/v1/"],
+    env: ["CELLR_DEMO_ORIGINS"],
+  },
+  {
+    id: "http-response",
+    name: "JSON response shape",
+    layer: "edge",
+    status: "implemented",
+    summary: "Every JSON response: no-store, nosniff",
+    responsibility:
+      "The one shape of a JSON response the server sends: private, uncacheable (Cache-Control: no-store) and never content-sniffed (X-Content-Type-Options: nosniff). No request handling of its own; the API, the health endpoints and the cron round answer through it.",
+    inputs: ["A body and a status"],
+    outputs: ["A Response"],
+    sources: [W + "server/http-response.ts"],
+    foundation: true,
   },
   {
     id: "request-context",
@@ -124,6 +149,9 @@ const components = [
     inputs: ["Session cookie or bearer token"],
     outputs: ["RequestContext { userId, db }"],
     sources: [W + "server/context.ts", W + "server/me.ts", W + "server/db/"],
+    env: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"],
+    packages: ["@supabase/supabase-js", "@supabase/ssr"],
+    foundation: true,
   },
   {
     id: "composition-root",
@@ -148,6 +176,7 @@ const components = [
     inputs: ["Scheduled GET with the cron secret"],
     outputs: ["A reminder run summary"],
     sources: [W + "app/api/cron/", W + "server/push/cron.ts"],
+    env: ["CRON_SECRET"],
     routes: ["/api/cron/drink-reminders"],
     risks: [
       {
@@ -210,6 +239,7 @@ const components = [
       "Placement advice (read-only, recomputed per request, never stored)",
     ],
     sources: [W + "server/smart-cellar/"],
+    env: ["CELLR_SMART_CELLAR_BUILDER", "CELLR_SMART_CELLAR_WRITE_DATABASE"],
     routes: [
       "/api/v1/smart-cellar",
       "/api/v1/smart-cellar/bottles/[id]",
@@ -241,6 +271,15 @@ const components = [
         name: "CELLR_SMART_CELLAR_ADVICE",
         kind: "env",
         note: "1: read-only placement advice; internal previews or the production release, needs the placement gate, grants no write",
+      },
+    ],
+    risks: [
+      {
+        id: "R-SC-1",
+        severity: "low",
+        title: "The production database host is written in code in a public repository",
+        detail:
+          "PRODUCTION_DATABASE_HOSTS (lib/smart-cellar-write-target.ts) names the production host so the write guard can refuse it whatever is configured; the storage-backup and catalogue tools hard-code the production ref for the same reason. Deliberate: the host is public in every browser bundle, and a fail-closed guard must know it. Docs no longer repeat it (CLAUDE.md, Hard rules). Whether to keep it in code or move it to configuration with a fail-closed default is the owner's decision, not yet confirmed.",
       },
     ],
   },
@@ -423,7 +462,9 @@ const components = [
     sources: [
       W + "server/sommelier/service.ts",
       W + "server/sommelier/intelligence.ts",
+      W + "server/sommelier/parts/",
       W + "server/ai/prompts/sommelier.ts",
+      W + "server/ai/prompts/sommelier-v7.ts",
     ],
     gates: [
       {
@@ -439,15 +480,27 @@ const components = [
       {
         name: "sommelier_social",
         kind: "feature",
-        note: "Friends named in a question, with their own consent. Needs sommelier_engine. Not wired yet.",
+        note: "Friends named in a question, with their own consent. Needs sommelier_engine. Read nowhere on main: inert, kept until #94 is closed (D-48).",
       },
       {
         name: "sommelier_experiences",
         kind: "feature",
-        note: "Menus, wine-to-food, comparing, serving, quantities. Needs sommelier_engine. Not wired yet.",
+        note: "Menus, wine-to-food, comparing, serving, quantities. Needs sommelier_engine. Read nowhere on main: inert, kept until #95 is closed; V1+ builds these as CELLR_SOMMELIER parts instead.",
+      },
+      {
+        name: "CELLR_SOMMELIER",
+        kind: "env",
+        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. Built: check (P3: prompt v7 with refs for cellar wines and no price field; the answer's words and buying claims are checked in code, and what cannot be shown is left out or replaced by a sentence made from the cards).",
       },
     ],
     risks: [
+      {
+        id: "R-SOM-4",
+        severity: "medium",
+        title: "The check part's rules are heuristics, and prompt v7 is not measured",
+        detail:
+          "The check of the answer's words (packages/domain/src/sommelier-check.ts) reads English and Dutch sentences with rules that can miss a claim or remove a good sentence; its header lists what each rule cannot see. Prompt v7 changes what the model is asked, and its effect on the wines chosen has not been measured with a model. The part stays off until that comparison has been run and read (docs/sprints/sommelier-3-mega/progress/P3.md).",
+      },
       {
         id: "R-SOM-3",
         severity: "medium",
@@ -615,6 +668,7 @@ const components = [
       W + "server/push/send.ts",
       W + "server/push/types.ts",
     ],
+    env: ["VAPID_PRIVATE_KEY", "VAPID_SUBJECT"],
     routes: ["/api/v1/push"],
     gates: [
       { name: "VAPID_PUBLIC_KEY", kind: "env", note: "with VAPID_PRIVATE_KEY: no keys, no push" },
@@ -669,6 +723,15 @@ const components = [
       "One LLM provider for every task: picks the model per task, enforces a strict JSON schema, holds room in the platform budget before a call, prices usage and falls back where configured.",
     inputs: ["Task, prompt, schema", "AI settings"],
     outputs: ["Structured result + usage"],
+    env: [
+      "AI_BASE_URL",
+      "AI_MODEL_CHAT",
+      "AI_MODEL_VISION",
+      "AI_MODEL_ADVICE",
+      "AI_REASONING_EFFORT",
+      "AI_BUDGET_DAILY_USD",
+      "AI_BUDGET_MONTHLY_USD",
+    ],
     sources: [
       W + "server/ai/index.ts",
       W + "server/ai/openai.ts",
@@ -709,6 +772,7 @@ const components = [
       "The only code that holds the service-role key, each operation named and narrow: AI usage and budget, scan reads, shared profiles, push runs, PINs, account deletion, admin reads and decisions.",
     inputs: ["Verified user id from the request (never from the client)"],
     outputs: ["Writes that RLS would refuse a person"],
+    env: ["SUPABASE_SERVICE_ROLE_KEY"],
     sources: [W + "server/privileged/"],
     risks: [
       {
@@ -731,6 +795,7 @@ const components = [
     inputs: ["Session", "CELLR_ADMIN_USER_IDS"],
     outputs: ["Admin views", "Audited changes"],
     sources: [W + "server/admin/"],
+    env: ["CELLR_ADMIN_USER_IDS"],
   },
   {
     id: "architecture-registry",
@@ -764,6 +829,34 @@ const components = [
     inputs: ["Plain data"],
     outputs: ["Decisions, schemas"],
     sources: [D],
+    packages: ["zod"],
+  },
+  {
+    id: "web-foundation",
+    name: "Shared UI kit, i18n & helpers",
+    layer: "client",
+    status: "implemented",
+    summary: "Design system, app shell, translations, small pure helpers",
+    responsibility:
+      "Plumbing every screen shares: UI primitives and the app shell, theming, translations (next-intl), and small helpers and switch readers without data access of their own. Imports into it need no edge; it holds no routes, tables or jobs.",
+    inputs: ["Props", "Messages", "Public configuration"],
+    outputs: ["Rendered UI", "Formatted values"],
+    sources: [W + "ui/", W + "i18n/", W + "lib/", W + "test/"],
+    packages: [
+      "next",
+      "react",
+      "react-dom",
+      "server-only",
+      "next-intl",
+      "motion",
+      "lucide-react",
+      "clsx",
+      "class-variance-authority",
+      "tailwind-merge",
+      "@fontsource-variable/geist",
+      "@fontsource/instrument-serif",
+    ],
+    foundation: true,
   },
   {
     id: "runtime-config",
@@ -776,6 +869,8 @@ const components = [
     inputs: ["Environment of the deployment"],
     outputs: ["Typed settings", "Log lines"],
     sources: [W + "server/env.ts", W + "server/log.ts", D + "features.ts"],
+    env: ["CELLR_FEATURES", "NODE_ENV"],
+    foundation: true,
     risks: [
       {
         id: "R-CFG-1",
@@ -961,7 +1056,7 @@ const components = [
       "Friendships, what is shared with whom, recommendations and contribution points.",
     inputs: [],
     outputs: [],
-    sources: [W + "server/friends/repository.ts"],
+    sources: [M + "20261020000015_friends.sql"],
     tables: [
       "account_points",
       "friendships",
@@ -1094,6 +1189,8 @@ const components = [
     inputs: ["Prompts, images, schemas"],
     outputs: ["Model output + token usage"],
     sources: [W + "server/ai/openai.ts"],
+    env: ["OPENAI_API_KEY"],
+    hosts: ["api.openai.com"],
   },
   {
     id: "web-research",
@@ -1117,6 +1214,7 @@ const components = [
     inputs: ["Signed push messages"],
     outputs: ["Notifications on devices"],
     sources: [W + "server/push/send.ts"],
+    packages: ["web-push"],
   },
   {
     id: "vercel",
@@ -1129,6 +1227,7 @@ const components = [
     inputs: ["Git pushes", "Environment variables"],
     outputs: ["Running deployment", "Scheduled calls"],
     sources: ["apps/web/vercel.json"],
+    env: ["VERCEL", "VERCEL_ENV", "VERCEL_TARGET_ENV"],
     risks: [
       {
         id: "R-HOST-1",
@@ -1149,7 +1248,7 @@ const components = [
       "Runs format, lint, types, unit tests, build, migration immutability, the database suites, e2e (main and nightly), secret scan, dependency audit and the backup round trip.",
     inputs: ["Pushes and pull requests"],
     outputs: ["Check results"],
-    sources: [".github/workflows/ci.yml"],
+    sources: [".github/workflows/ci.yml", ".github/workflows/staging-catalog.yml"],
     risks: [
       {
         id: "R-CI-1",
@@ -1202,6 +1301,12 @@ const components = [
       M + "20261124000047_system_health.sql",
       ".github/workflows/health-heartbeat.yml",
     ],
+    env: [
+      "CELLR_HEALTH_GITHUB_REPO",
+      "CELLR_HEALTH_VERCEL_PROJECT_ID",
+      "CELLR_HEALTH_VERCEL_TEAM_ID",
+    ],
+    hosts: ["api.github.com", "api.vercel.com"],
     routes: ["/api/cron/health", "/api/health", "/api/health/ready"],
     gates: [
       {
@@ -1233,10 +1338,10 @@ const components = [
     risks: [
       {
         id: "R-MON-1",
-        severity: "medium",
-        title: "No alert channel of its own yet",
+        severity: "low",
+        title: "Alerting is configured outside the repository",
         detail:
-          "Nothing outside CELLR notices a full outage until an external uptime provider (readiness check, dead man's switch, round trigger) is set up. The endpoints for it exist; choosing and configuring the provider is the owner's step.",
+          "Better Stack watches liveness, readiness and the dead man's switch, but its monitors and alert routes live in Better Stack: CI cannot see a monitor that was changed, paused or removed. Incident handling inside CELLR (thresholds, deduplication, impact, audit trail) is the planned incident engine.",
       },
       {
         id: "R-MON-2",
@@ -1246,6 +1351,19 @@ const components = [
           "Infrastructure, jobs and AI traffic are measured; whether a person can complete a flow (sign in, scan, save a bottle) is not. Each check states what it does not prove.",
       },
     ],
+  },
+  {
+    id: "better-stack",
+    name: "Better Stack (uptime & heartbeat)",
+    layer: "platform",
+    status: "unverified",
+    summary: "External liveness, readiness, round trigger, heartbeat, alerts",
+    responsibility:
+      "External monitoring outside CELLR's own infrastructure, so it notices a full outage: checks /api/health (liveness) and /api/health/ready (readiness, with the ready token), starts a probe round on /api/cron/health on a schedule, receives the dead man's switch ping after every recorded round, and alerts the owner when any of them fails or goes quiet. Configured by the owner in Better Stack, outside the repository: its monitors, schedules and alert routes cannot be checked here. The edges prove CELLR's side only (the endpoints it answers, the ping it sends).",
+    inputs: ["HTTPS answers of the health endpoints", "Heartbeat pings"],
+    outputs: ["Uptime checks and round triggers", "Alerts to the owner"],
+    // its configuration lives in Better Stack; the repository has only the setup procedure
+    sources: ["docs/sprints/system-health/OPERATIONS.md"],
   },
   {
     id: "plan-incident-engine",
@@ -1380,6 +1498,27 @@ const edges: SystemEdge[] = [
     "control",
     "session or bearer, origin check",
     web("server/http.ts", "requireContext"),
+  ),
+  edge(
+    "api-v1",
+    "http-response",
+    "control",
+    "JSON responses: no-store, nosniff",
+    web("server/http.ts", 'from "./http-response"'),
+  ),
+  edge(
+    "health-monitor",
+    "http-response",
+    "control",
+    "JSON responses: no-store, nosniff",
+    web("server/health/http.ts", 'from "@/server/http-response"'),
+  ),
+  edge(
+    "cron-endpoint",
+    "http-response",
+    "control",
+    "JSON responses: no-store, nosniff",
+    web("server/push/cron.ts", 'from "@/server/http-response"'),
   ),
   edge(
     "api-v1",
@@ -2224,8 +2363,9 @@ const edges: SystemEdge[] = [
     "github-actions",
     "architecture-registry",
     "verifies",
-    "register checked in pnpm test",
-    ev(".github/workflows/ci.yml", "pnpm test"),
+    "register checked against the code on every pull request",
+    ev(".github/workflows/ci.yml", "pnpm architecture:inventory --check"),
+    ev(".github/workflows/ci.yml", "vitest run src/server/system"),
   ),
   edge(
     "backup-tooling",
@@ -2239,7 +2379,7 @@ const edges: SystemEdge[] = [
     "supabase-storage",
     "ops",
     "Storage backup and restore",
-    ev("scripts/storage-backup/README.md", "Storage"),
+    ev("scripts/storage-backup/src/storage-client.ts", '"/storage/v1/bucket"'),
   ),
 
   // Added after the independent review (2026-11-19)
@@ -2446,8 +2586,24 @@ const edges: SystemEdge[] = [
     "admin-service",
     "health-monitor",
     "request",
-    "System › Health, the map's overlay, Measure now",
+    "System › Health, the overview's status, the map's overlay, Measure now",
     web("server/admin/service.ts", "export async function adminHealthOverlay"),
+  ),
+  edge(
+    "health-monitor",
+    "better-stack",
+    "external-call",
+    "dead man's switch ping after every recorded round",
+    web("server/health/round.ts", "await d.fetch(d.health.pingUrl"),
+  ),
+  edge(
+    "health-monitor",
+    "better-stack",
+    "ops",
+    "liveness, readiness and the round trigger answer Better Stack's checks (schedule configured there, not here)",
+    web("app/api/health/route.ts", "export const GET = () => handleLiveness();"),
+    web("server/health/http.ts", "const token = getHealthEnv().readyToken;"),
+    web("server/health/http.ts", "getHealthEnv().roundSecret ??"),
   ),
   edge(
     "pg-cron",
@@ -2464,6 +2620,179 @@ const edges: SystemEdge[] = [
     ev(".github/workflows/ci.yml", "bash scripts/db-test.sh"),
   ),
 
+  // Code dependencies between components: one module imports another (checked by registry.test.ts)
+  edge(
+    "app-pwa",
+    "composition-root",
+    "request",
+    "server-rendered pages get their services",
+    web("app/(app)/wishlist/page.tsx", 'from "@/server/services"'),
+  ),
+  edge(
+    "web-foundation",
+    "app-pwa",
+    "request",
+    "the empty state reuses the wine card's stage",
+    web("ui/empty-state.tsx", 'from "@/features/cellar/wine-card"'),
+  ),
+  edge(
+    "admin-portal",
+    "api-v1",
+    "request",
+    "sign out (the installed CELLR Admin app has no profile page)",
+    web("features/admin/sign-out-button.tsx", 'fetch("/api/v1/auth/sign-out"'),
+  ),
+  edge(
+    "admin-portal",
+    "app-pwa",
+    "request",
+    "the iOS launch images of the home-screen app",
+    web("app/admin/layout.tsx", 'from "../splash-screens"'),
+  ),
+  edge(
+    "admin-portal",
+    "api-v1",
+    "control",
+    "label upload checks the origin and reads the form",
+    web("app/admin/wines/[id]/labels/route.ts", 'from "@/server/http"'),
+  ),
+  edge(
+    "api-v1",
+    "rate-limiter",
+    "control",
+    "limits named per route",
+    web(
+      "app/api/v1/sommelier/purchase-check/recognize/route.ts",
+      'from "@/server/ratelimit/service"',
+    ),
+  ),
+  edge(
+    "request-context",
+    "composition-root",
+    "request",
+    "the signed-in person's services",
+    web("server/me.ts", 'from "./services"'),
+  ),
+  edge(
+    "composition-root",
+    "ai-gateway",
+    "request",
+    "the LLM provider",
+    web(SERVICES, 'from "@/server/ai"'),
+  ),
+  edge(
+    "composition-root",
+    "privileged-ops",
+    "request",
+    "privileged operations injected into services",
+    web(SERVICES, 'from "@/server/privileged/sommelier-conversations"'),
+  ),
+  edge(
+    "composition-root",
+    "svc-auth",
+    "request",
+    "auth service",
+    web(SERVICES, 'from "@/server/auth/service"'),
+  ),
+  edge(
+    "health-monitor",
+    "admin-service",
+    "control",
+    "admin check before reading health",
+    web("server/privileged/health.ts", 'from "@/server/admin/access"'),
+  ),
+  edge(
+    "privileged-ops",
+    "admin-service",
+    "control",
+    "admin check before every admin write",
+    web("server/privileged/wine-master.ts", 'from "@/server/admin/access"'),
+  ),
+  edge(
+    "privileged-ops",
+    "ai-gateway",
+    "request",
+    "AI cost per call",
+    web("server/privileged/ai-usage.ts", 'from "@/server/ai/pricing"'),
+  ),
+  edge(
+    "privileged-ops",
+    "svc-cellar",
+    "request",
+    "wines with a drink window",
+    web("server/privileged/drink-reminders.ts", 'from "@/server/cellar/service"'),
+  ),
+  edge(
+    "privileged-ops",
+    "svc-insights",
+    "request",
+    "drink windows",
+    web("server/privileged/drink-reminders.ts", 'from "@/server/insights/repository"'),
+  ),
+  edge(
+    "privileged-ops",
+    "svc-push",
+    "request",
+    "reminder and friend notices",
+    web("server/privileged/friend-notices.ts", 'from "@/server/push/send"'),
+  ),
+  edge(
+    "privileged-ops",
+    "svc-scans",
+    "request",
+    "scan proposals for catalogue reads",
+    web("server/privileged/catalog-reads.ts", 'from "@/server/scans/service"'),
+  ),
+  edge(
+    "privileged-ops",
+    "data-social",
+    "data-read",
+    "who to notify",
+    web("server/privileged/friend-notices.ts", '.from("friendships")'),
+  ),
+  edge(
+    "svc-export",
+    "svc-smart-cellar",
+    "request",
+    "smart places in the export",
+    web("server/export/repository.ts", 'from "@/server/smart-cellar/repository"'),
+  ),
+  edge(
+    "svc-export",
+    "data-intelligence",
+    "data-read",
+    "tastings",
+    web("server/export/repository.ts", '.from("tastings")'),
+  ),
+  edge(
+    "svc-purchase-check",
+    "svc-scans",
+    "request",
+    "label extraction prompt",
+    web("server/purchase-check/service.ts", 'from "@/server/ai/prompts/label-extraction"'),
+  ),
+  edge(
+    "svc-smart-cellar",
+    "svc-cellar",
+    "request",
+    "image references of bottles",
+    web("server/smart-cellar/repository.ts", 'from "@/server/cellar/repository"'),
+  ),
+  edge(
+    "svc-smart-cellar",
+    "data-media",
+    "data-read",
+    "bottle images",
+    web("server/smart-cellar/repository.ts", '.from("bottle_images")'),
+  ),
+  edge(
+    "svc-bottle-library",
+    "data-catalog",
+    "data-read",
+    "wine status",
+    web("server/bottle-library/repository.ts", 'db.from("wines")'),
+  ),
+
   // Planned
   planned("data-sommelier", "plan-quality-engine", "ratings into evaluation"),
   planned("plan-quality-engine", "svc-sommelier", "better prompts / model choice"),
@@ -2472,11 +2801,7 @@ const edges: SystemEdge[] = [
   planned("svc-cellar", "plan-food-engine", "dish and outcome of Tonight"),
   planned("plan-food-engine", "domain-rules", "outcome-informed pairing"),
   planned("health-monitor", "plan-incident-engine", "measurements and history"),
-  planned(
-    "plan-incident-engine",
-    "health-monitor",
-    "external uptime checks (readiness, dead man's switch)",
-  ),
+  planned("better-stack", "plan-incident-engine", "outage signals into incidents"),
   planned("plan-incident-engine", "architecture-registry", "impact via the dependency graph"),
 ];
 
@@ -2565,8 +2890,8 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.2.0",
-  reviewedOn: "2026-11-19",
+  version: "1.6.0",
+  reviewedOn: "2026-11-23",
   repository: "Blockionaire/CELLR",
   components,
   edges,

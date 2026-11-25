@@ -41,6 +41,10 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      # The end-to-end suite runs as two suites in CI (the e2e and e2e-3d jobs below): together they must be exactly
+      # the whole suite, so no test is left out or run twice when a spec is added or renamed. Lists only; runs nothing.
+      - name: End-to-end suites together are the whole suite
+        run: node apps/web/scripts/e2e-suites-check.mjs
       # Next also type-checks the e2e files; this is what the e2e job used to catch on every pull request.
       - run: pnpm build
       - name: No server secrets in the browser bundle
@@ -76,6 +80,37 @@ jobs:
             echo "nothing to compare with for a $EVENT run"
           fi
 
+  architecture:
+    # The architecture register (System Intelligence ADR-001) moves with the code: a new table, route, module, job,
+    # workflow, environment variable, external host, dependency, data access or import between components fails
+    # here until the register says who owns it, with code evidence for every confirmed edge. The impact summary lists
+    # what changed structurally. Code facts only, no live data, no secrets. Make this a required check.
+    name: Architecture · register matches the code
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 } # the impact report compares with the base branch
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Inventory is up to date
+        run: pnpm architecture:inventory --check
+      - name: Register matches the repository
+        run: pnpm --filter @cellr/web exec vitest run src/server/system
+      - name: Impact summary
+        if: always()
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then base="origin/$BASE_REF"
+          elif [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then base="$BEFORE"
+          else base="HEAD~1"; fi
+          pnpm -s architecture:impact -- --base "$base" >> "$GITHUB_STEP_SUMMARY"
+
   database:
     name: Database · migrations + permission suite (Postgres 16)
     runs-on: ubuntu-24.04
@@ -94,10 +129,14 @@ jobs:
     name: End to end · shard ${{ matrix.shard }} of ${{ strategy.job-total }}
     # The long one: not on every pull request, but on main, nightly and on demand.
     #
-    # The whole suite (about 740 tests on two projects) takes about an hour on one runner, so one job could never
-    # finish inside its limit and was cancelled every time. It is split into shards that run side by side, each with
-    # its own local stack, its own database and the same build. Every shard must finish well inside the limit below:
-    # if the suite grows until one does not, add a shard here (the number in `--shard` follows by itself).
+    # The whole suite (about 1,270 tests on two projects) takes nearly four hours of test time, so it is split into
+    # shards that run side by side, each with its own local stack, its own database and the same build. It runs as two
+    # suites (playwright.config.ts, THREE_D_SPECS; issue #77): this job takes every spec that does not draw a 3D scene
+    # (E2E_SUITE=core), the next one the 3D specs (E2E_SUITE=3d). The 3D specs are a quarter of the tests and half of
+    # the time, and a shard takes tests by count and in file order, so in one suite they piled up in the last shard
+    # until it ran into the time limit below. The checks job proves the two suites together are the whole suite.
+    # Every shard must finish well inside the limit: if a suite grows until one does not, add a shard to that suite's
+    # matrix (the number in `--shard` follows by itself).
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -105,7 +144,9 @@ jobs:
       # one red shard says which tests failed; the others still report theirs
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        # 7, not 6: run 44960108408 had one core shard of 6 at 17.4 min (placement and rack-builder land together),
+        # too little room for a slow runner; split by the same measured durations, 7 shards bring the longest to ~12.
+        shard: [1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -119,6 +160,7 @@ jobs:
       - run: pnpm --filter @cellr/web e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
         env:
           CI: "1"
+          E2E_SUITE: core
           # By hand only (Actions → CI → Run workflow → "features: on"): the same suite against the server that has
           # every Wine Intelligence feature switched on. The check to run before a feature is switched on for people.
           E2E_BASE_URL: ${{ inputs.features == 'on' && 'http://localhost:3101' || '' }}
@@ -131,16 +173,52 @@ jobs:
             apps/web/playwright-report
           retention-days: 7
 
+  e2e-3d:
+    name: End to end · 3D · shard ${{ matrix.shard }} of ${{ strategy.job-total }}
+    # The specs that draw with software WebGL (E2E_SUITE=3d), with shards of their own: one test takes 10 s to 5
+    # minutes here, so they get more, smaller shards than the rest. Same steps, same build, same limit.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @cellr/web exec playwright install --with-deps chromium
+      - run: pnpm build
+      - name: No server secrets in the browser bundle
+        run: bash scripts/check-bundle-secrets.sh
+      - run: pnpm --filter @cellr/web e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+        env:
+          CI: "1"
+          E2E_SUITE: 3d
+          E2E_BASE_URL: ${{ inputs.features == 'on' && 'http://localhost:3101' || '' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-results-3d-${{ matrix.shard }}
+          path: |
+            apps/web/test-results
+            apps/web/playwright-report
+          retention-days: 7
+
   e2e-result:
     name: End to end · whole app against the local stack
-    # One name to look at (and to require): green only when every shard was.
+    # One name to look at (and to require): green only when every shard of both suites was.
     if: always() && github.event_name != 'pull_request'
-    needs: e2e
+    needs: [e2e, e2e-3d]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - run: |
           [ "${{ needs.e2e.result }}" = "success" ] || { echo "at least one shard failed or was cancelled"; exit 1; }
+          [ "${{ needs.e2e-3d.result }}" = "success" ] || { echo "at least one 3D shard failed or was cancelled"; exit 1; }
 
   secrets:
     name: Secret scan

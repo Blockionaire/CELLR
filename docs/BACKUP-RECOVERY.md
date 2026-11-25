@@ -40,18 +40,12 @@ Supabase's own words: _"Database backups do not include objects you store via th
 includes metadata about these objects. Restoring an old backup does not restore objects you deleted after that
 backup."_ (supabase.com/docs/guides/platform/backups). A deleted photo is gone unless the Storage tool has a copy.
 
-Production baseline, read-only metadata count on 2026-11-16 (no paths, no contents): 7 private buckets, versioning off,
-**199 objects, 56,528,862 bytes**; every object has a single-part MD5 ETag, a `version` and a `cacheControl`.
-
-| Bucket                                      | Objects |      Bytes |
-| ------------------------------------------- | ------: | ---------: |
-| bottle-images                               |     169 | 35,581,738 |
-| bottle-submissions                          |      19 | 10,165,630 |
-| bottle-art                                  |      10 | 10,672,641 |
-| user-avatars                                |       1 |    108,853 |
-| catalog-labels, tasting-images, wine-labels |       0 |          0 |
-
-These are a baseline, not expected values: the backup recounts everything, and §4.3 compares it with the database.
+Production baseline: a read-only metadata count was taken on 2026-11-16 (no paths, no contents): only private buckets,
+versioning off, every object with a single-part MD5 ETag, a `version` and a `cacheControl`. The buckets are the ones
+the migrations create (`bottle-images`, `bottle-submissions`, `bottle-art`, `user-avatars`, `catalog-labels`,
+`tasting-images`, `wine-labels`). Object and byte counts are kept by the owner, not in the repository. Take your own
+baseline with `pnpm storage-backup inventory` (§4.2); it is not an expected value: the backup recounts everything,
+and §4.3 compares it with the database.
 
 ## 2. The Storage tool in one page
 
@@ -83,8 +77,8 @@ What makes it safe:
   permissions, or a hidden prompt. Every line the tool prints, and every file it writes, is redacted for keys, JWTs,
   signed-URL tokens and connection-string passwords; a test checks this.
 - **It never overwrites.** Each backup gets a new folder (refused if it exists). Restore never replaces an existing
-  object without `--overwrite`, and refuses production (`vvelgyhbjfmjvxkzekyz` is hard-coded as protected, checked before
-  any key is read) and the source project.
+  object without `--overwrite`, and refuses production (its project ref is hard-coded as protected in
+  `scripts/storage-backup/src/config.ts`, checked before any key is read) and the source project.
 - **It will not put private photos where they leak.** The destination is refused inside a Git working tree unless Git
   ignores it, and refused in a folder that looks cloud-synced (OneDrive, Dropbox, Google Drive, iCloud, ...) unless
   `--allow-synced-folder`. Folders are created `0700`, files `0600`; on Windows the backup folder's ACL is reduced to
@@ -158,7 +152,9 @@ not in Postgres).
 
 ### 4.1 Prerequisites
 
-- The repository at the commit that has this tool, `pnpm install` done, Node 22.12+.
+- The repository at the commit that has this tool, `pnpm install` done, Node 22.18+.
+- The production project ref, written `<production-ref>` below: Supabase → Project Settings → General → Project ID
+  (also the subdomain of `NEXT_PUBLIC_SUPABASE_URL`). It is not written in this public repository's docs.
 - A destination **outside the repository and outside any cloud-synced folder**, on an encrypted disk (BitLocker,
   FileVault, LUKS), with at least 3× the project's Storage size free (files + archive).
 - Optional, for the encrypted copy: [`age`](https://age-encryption.org) (Windows: `winget install FiloSottile.age`;
@@ -169,11 +165,11 @@ not in Postgres).
 From the repository folder. The key is asked for without echo when the variable is not set:
 
 ```powershell
-pnpm storage-backup inventory --url https://vvelgyhbjfmjvxkzekyz.supabase.co --project-ref vvelgyhbjfmjvxkzekyz
+pnpm storage-backup inventory --url https://<production-ref>.supabase.co --project-ref <production-ref>
 ```
 
 ```powershell
-pnpm storage-backup backup --url https://vvelgyhbjfmjvxkzekyz.supabase.co --project-ref vvelgyhbjfmjvxkzekyz --out D:\CELLR-backups\storage
+pnpm storage-backup backup --url https://<production-ref>.supabase.co --project-ref <production-ref> --out D:\CELLR-backups\storage
 ```
 
 To avoid typing the key twice in one session, set it for this PowerShell window only (it is not saved), and clear it
@@ -193,7 +189,7 @@ Check single files without the repository with `Get-FileHash -Algorithm SHA256 <
 ### 4.3 macOS / Linux (bash)
 
 ```bash
-pnpm storage-backup backup --url https://vvelgyhbjfmjvxkzekyz.supabase.co --project-ref vvelgyhbjfmjvxkzekyz --out ~/cellr-backups/storage
+pnpm storage-backup backup --url https://<production-ref>.supabase.co --project-ref <production-ref> --out ~/cellr-backups/storage
 ```
 
 ### 4.4 An independent count from the database
@@ -312,7 +308,7 @@ Supabase → Database → **Backups** → _Scheduled backups_: there must be one
 with a personal access token (Account → Access Tokens; keep it out of history and revoke it afterwards):
 
 ```bash
-curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" https://api.supabase.com/v1/projects/vvelgyhbjfmjvxkzekyz/database/backups
+curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" https://api.supabase.com/v1/projects/<production-ref>/database/backups
 ```
 
 Write the time of the newest backup in the run log (§9): it is the database half of the recovery point.

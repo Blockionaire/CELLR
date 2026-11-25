@@ -1,5 +1,6 @@
 "use client";
 
+import type { FreeSpot, SpotMarker } from "../quick-add/spots";
 import {
   useCallback,
   useEffect,
@@ -102,6 +103,9 @@ export interface InspectableStorageProps {
   className?: string | undefined;
   /** A spot a bottle is about to be put on: marked in the picture (sprint 4). */
   target?: { row: number; col: number; index: number } | null | undefined;
+  /** Free spots to tap (3D Quick Add, sprint 7): while given, a tap chooses a spot and takes no bottle out. */
+  spots?: readonly SpotMarker[] | null | undefined;
+  onSpot?: ((spot: FreeSpot) => void) | undefined;
 }
 
 export interface InspectableStorageHandle {
@@ -127,6 +131,8 @@ export default function InspectableStorage({
   labels = INSPECTION_LABELS_EN,
   className,
   target = null,
+  spots = null,
+  onSpot,
   handleRef,
 }: InspectableStorageProps & {
   handleRef?: React.RefObject<InspectableStorageHandle | null> | undefined;
@@ -211,10 +217,10 @@ export default function InspectableStorage({
   // a link to "this bottle, out": once, when the view is up
   const asked = useRef(false);
   const onReady = useCallback(() => {
-    if (asked.current || !initialInspect) return;
+    if (asked.current || !initialInspect || spots !== null) return;
     asked.current = true;
     inspect(initialInspect);
-  }, [initialInspect, inspect]);
+  }, [initialInspect, inspect, spots]);
 
   // ---- keys and focus ---------------------------------------------------------------------------------------------
   useEffect(() => {
@@ -310,6 +316,8 @@ export default function InspectableStorage({
         onLost={lost}
         debug={debug}
         target={target}
+        spots={spots}
+        onSpot={onSpot}
         inspection={{
           state,
           label: details?.label ?? null,

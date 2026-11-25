@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { redact } from "./redact-results";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { redact, redactDir } from "./redact-results";
 
 describe("result files that may be committed", () => {
   it("a benchmark keeps its summary and each query's rank, never a record's name or id", () => {
@@ -71,5 +74,44 @@ describe("result files that may be committed", () => {
 
   it("refuses a file it does not know", () => {
     expect(() => redact("perf-c8.json", {})).toThrow(/not a result file/);
+  });
+});
+
+describe("a results directory leaving the run is reduced fail-closed (staging run 45039275216)", () => {
+  it("known results are reduced, safe files kept, everything else deleted", () => {
+    const dir = mkdtempSync(join(tmpdir(), "redact-"));
+    const put = (name: string, data: unknown) =>
+      writeFileSync(join(dir, name), typeof data === "string" ? data : JSON.stringify(data));
+    put("benchmark-results.json", {
+      summary: { search: {} },
+      entries: [{ id: "b001", exact: [{ producer: "Domaine Réel" }], search: { rank: 1 } }],
+    });
+    put("recognition-results.json", {
+      summary: {},
+      readings: [{ id: "b001", suggestions: ["Domaine Réel — X"] }],
+    });
+    put("quality-xwines.json", { file: { groups: { examples: [["Domaine Réel"]] } } });
+    put("import-xwines-1.json", { rows: 1, problems: [{ producer: "Domaine Réel" }] });
+    put("perf-pilot-c8.json", { overall: { p95: 1 } });
+    put("staging-check-before.json", { ok: true });
+    put("pilot-separation.txt", "people 0");
+    put("dump.csv", "Domaine Réel,Cuvée");
+    put("unknown.json", { producer: "Domaine Réel" });
+    put("broken.json", "{not json");
+    const r = redactDir(dir);
+    expect(r.deleted.sort()).toEqual(["broken.json", "dump.csv", "unknown.json"]);
+    expect(r.kept.sort()).toEqual([
+      "perf-pilot-c8.json",
+      "pilot-separation.txt",
+      "staging-check-before.json",
+    ]);
+    expect(r.redacted.sort()).toEqual([
+      "benchmark-results.json",
+      "import-xwines-1.json",
+      "quality-xwines.json",
+      "recognition-results.json",
+    ]);
+    for (const name of readdirSync(dir))
+      expect(readFileSync(join(dir, name), "utf8")).not.toMatch(/Domaine Réel/);
   });
 });

@@ -30,11 +30,15 @@ export const date = (iso: string | null | undefined) =>
 /** A text link. */
 export const link =
   "font-medium text-accent-fg underline-offset-4 decoration-1 hover:underline focus-visible:underline";
-/** A form control: a visible boundary (≥ 3:1), hover and focus. */
+/**
+ * A form control: a visible boundary (≥ 3:1), hover and focus. On a phone it is 44 px high and 16 px text, so
+ * iOS Safari does not zoom the page in when it gets focus.
+ */
 export const input =
-  "rounded-[10px] bg-surface px-3 py-2 text-small text-ink ring-1 ring-ink-3/60 placeholder:text-ink-3 hover:ring-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg disabled:cursor-not-allowed disabled:opacity-50 read-only:bg-raised read-only:text-ink-2";
+  "max-md:min-h-11 max-md:text-[16px] max-w-full rounded-[10px] bg-surface px-3 py-2 text-small text-ink ring-1 ring-ink-3/60 placeholder:text-ink-3 hover:ring-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg disabled:cursor-not-allowed disabled:opacity-50 read-only:bg-raised read-only:text-ink-2";
+// 44 px high on a phone (a thumb's target), the desktop's compact size from 768 px
 const pill =
-  "inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-small font-medium transition-[background-color,box-shadow,filter] duration-150 disabled:cursor-not-allowed disabled:opacity-50";
+  "max-md:min-h-11 inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-small font-medium transition-[background-color,box-shadow,filter] duration-150 disabled:cursor-not-allowed disabled:opacity-50";
 /** The page's main action. */
 export const button = `${pill} bg-accent text-accent-ink hover:brightness-110 active:brightness-95`;
 /** A secondary action. */
@@ -43,16 +47,16 @@ export const quiet = `${pill} text-ink ring-1 ring-ink-3/60 hover:bg-raised hove
 export const danger = `${pill} text-danger ring-1 ring-danger/60 hover:bg-danger/10`;
 /** A small secondary action inside a table row. */
 export const small =
-  "inline-flex items-center rounded-full px-3 py-1 text-caption font-medium text-ink ring-1 ring-ink-3/60 hover:bg-raised hover:ring-ink-2";
+  "max-md:min-h-10 max-md:px-4 inline-flex items-center rounded-full px-3 py-1 text-caption font-medium text-ink ring-1 ring-ink-3/60 hover:bg-raised hover:ring-ink-2";
 export const smallDanger =
-  "inline-flex items-center rounded-full px-3 py-1 text-caption font-medium text-danger ring-1 ring-danger/60 hover:bg-danger/10";
+  "max-md:min-h-10 max-md:px-4 inline-flex items-center rounded-full px-3 py-1 text-caption font-medium text-danger ring-1 ring-danger/60 hover:bg-danger/10";
 
 export type Crumb = { label: string; href?: string };
 
 /** Where this page sits: Admin › section › this page. */
 export function Breadcrumbs({ items }: { items: ReadonlyArray<Crumb> }) {
   return (
-    <nav aria-label="Breadcrumb" className="mb-2 text-caption text-ink-2">
+    <nav aria-label="Breadcrumb" className="mb-2 hidden text-caption text-ink-2 lg:block">
       <ol className="flex flex-wrap items-center gap-1.5">
         {items.map((c, i) => (
           <li key={`${c.label}-${i}`} className="flex items-center gap-1.5">
@@ -93,7 +97,9 @@ export function PageTitle({
           <h1 className="font-display text-headline text-ink">{title}</h1>
           {note && <p className="mt-1 max-w-3xl text-small text-ink-2">{note}</p>}
         </div>
-        {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
+        {children && (
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">{children}</div>
+        )}
       </div>
     </header>
   );
@@ -122,7 +128,7 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="mb-10 scroll-mt-24" id={id} aria-label={title}>
+    <section className="mb-10 scroll-mt-36 lg:scroll-mt-24" id={id} aria-label={title}>
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-title font-semibold text-ink">{title}</h2>
         {tag && (
@@ -138,14 +144,19 @@ export function Section({
 }
 
 export function Kpis({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">{children}</div>;
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 xl:grid-cols-4">{children}</div>
+  );
 }
 
 export function Kpi({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
-    <div className="rounded-[14px] border border-hairline bg-surface p-4">
+    <div className="min-w-0 rounded-[14px] border border-hairline bg-surface p-3 sm:p-4">
       <p className="text-caption text-ink-2">{label}</p>
-      <p className="mt-1 font-display text-display tnum text-ink">{value}</p>
+      {/* a long value (an amount in dollars) wraps instead of pushing the grid past a 320 px screen */}
+      <p className="mt-1 break-words font-display text-title tnum text-ink sm:text-display">
+        {value}
+      </p>
       {hint && <p className="mt-1 text-caption text-ink-3">{hint}</p>}
     </div>
   );
@@ -175,7 +186,16 @@ export function Pill({ tone = "neutral", children }: { tone?: Tone; children: Re
 }
 
 export type SortState = { href: string; dir: "asc" | "desc" | null };
-export type Column = { label: string; numeric?: boolean; sort?: SortState; className?: string };
+export type Column = {
+  label: string;
+  numeric?: boolean;
+  sort?: SortState;
+  className?: string;
+  /** On a phone the column is left out of the card (its value is on the row's own page, or in the title). */
+  hideOnPhone?: boolean;
+  /** On a phone the cell takes the card's whole width (long text: a message, a list of names). */
+  wideOnPhone?: boolean;
+};
 export type Row = {
   key: string;
   cells: ReadonlyArray<ReactNode>;
@@ -190,6 +210,11 @@ export type Row = {
  * row is clickable anywhere, keyboard users reach it with Tab and open it with Enter, and the other links and buttons
  * in the row stay their own, separate targets (no nested links, no row-level click handlers). Sortable columns are
  * links too, with aria-sort on the header.
+ *
+ * Below 768 px the same markup is a list of cards (CSS only, one DOM): the primary cell is the card's title and every
+ * other cell a "label  value" line, so nothing scrolls sideways and nothing is lost. Sorting, which lives in the
+ * hidden header there, is offered as a row of sort links above the cards. The table keeps its roles explicitly, so
+ * a screen reader still reads a table when the CSS no longer lays one out.
  */
 export function Table({
   head,
@@ -212,114 +237,171 @@ export function Table({
     ) : (
       <>{empty}</>
     );
+  const sortable = head.filter((h) => h.sort);
   return (
-    <div
-      className={cn(
-        // relative: positioned helpers inside (screen-reader text, the rows' stretched links) scroll with the table
-        "relative overflow-x-auto rounded-[14px] border border-hairline bg-surface",
-        className,
+    <>
+      {sortable.length > 0 && (
+        <nav
+          aria-label={`Sort${caption ? ` ${caption.toLowerCase()}` : ""}`}
+          className="mb-2 flex flex-wrap items-center gap-1.5 md:hidden"
+          data-testid="phone-sort"
+        >
+          <span className="mr-1 text-caption font-medium text-ink-2">Sort</span>
+          {sortable.map((h) => (
+            <Link
+              key={h.label}
+              href={h.sort!.href}
+              prefetch={false}
+              aria-current={h.sort!.dir ? "true" : undefined}
+              className={cn(
+                "inline-flex min-h-9 items-center gap-1 rounded-full px-3 text-caption font-medium ring-1",
+                h.sort!.dir
+                  ? "bg-ink text-canvas ring-ink"
+                  : "text-ink-2 ring-ink-3/50 hover:bg-raised hover:text-ink",
+              )}
+            >
+              {h.label}
+              <span aria-hidden="true" className="text-[0.7rem]">
+                {h.sort!.dir === "asc" ? "▲" : h.sort!.dir === "desc" ? "▼" : "↕"}
+              </span>
+              <span className="sr-only">
+                {h.sort!.dir === "asc"
+                  ? ", sorted ascending; sort descending"
+                  : h.sort!.dir === "desc"
+                    ? ", sorted descending; sort ascending"
+                    : ", sort"}
+              </span>
+            </Link>
+          ))}
+        </nav>
       )}
-    >
-      <table className="w-full min-w-[640px] border-collapse text-small">
-        {caption && <caption className="sr-only">{caption}</caption>}
-        <thead>
-          <tr className="border-b border-hairline text-left">
-            {head.map((h) => (
-              <th
-                key={h.label}
-                scope="col"
-                aria-sort={
-                  h.sort?.dir === "asc"
-                    ? "ascending"
-                    : h.sort?.dir === "desc"
-                      ? "descending"
-                      : undefined
-                }
-                className={cn(
-                  "whitespace-nowrap px-3 py-2.5 text-caption font-semibold uppercase tracking-[0.06em] text-ink-2",
-                  h.numeric && "text-right",
-                  h.className,
-                )}
-              >
-                {h.sort ? (
-                  <Link
-                    href={h.sort.href}
-                    prefetch={false}
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-[6px] hover:text-ink",
-                      h.sort.dir && "text-ink",
-                    )}
-                  >
-                    {h.label}
-                    <span aria-hidden="true" className="text-[0.7rem]">
-                      {h.sort.dir === "asc" ? "▲" : h.sort.dir === "desc" ? "▼" : "↕"}
-                    </span>
-                    <span className="sr-only">
-                      {h.sort.dir === "asc"
-                        ? ", sorted ascending; sort descending"
-                        : h.sort.dir === "desc"
-                          ? ", sorted descending; sort ascending"
-                          : ", sort"}
-                    </span>
-                  </Link>
-                ) : (
-                  h.label
-                )}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => {
-            const at = r.linkCell ?? 0;
-            return (
-              <tr
-                key={r.key}
-                data-testid={r.testId}
-                data-href={r.href}
-                className={cn(
-                  "border-b border-hairline last:border-0",
-                  r.href && [
-                    "relative cursor-pointer transition-colors duration-100 hover:bg-raised",
-                    "has-[a[data-row-link]:focus-visible]:bg-raised",
-                    // the row's other controls sit above the stretched link
-                    "[&_:is(a,button,input,select,textarea,label,summary):not([data-row-link])]:relative",
-                    "[&_:is(a,button,input,select,textarea,label,summary):not([data-row-link])]:z-[1]",
-                  ],
-                )}
-              >
-                {r.cells.map((c, i) => (
-                  <td
-                    key={i}
-                    className={cn(
-                      "px-3 py-2.5 align-middle text-ink",
-                      head[i]?.numeric && "text-right tnum",
-                    )}
-                  >
-                    {r.href && i === at ? (
-                      <Link
-                        href={r.href}
-                        prefetch={false}
-                        data-row-link=""
+      <div
+        className={cn(
+          // relative: positioned helpers inside (screen-reader text, the rows' stretched links) scroll with the table
+          "relative md:overflow-x-auto md:rounded-[14px] md:border md:border-hairline md:bg-surface",
+          className,
+        )}
+        data-responsive-table=""
+      >
+        <table role="table" className="w-full border-collapse text-small md:min-w-[640px]">
+          {caption && <caption className="sr-only">{caption}</caption>}
+          <thead className="max-md:sr-only">
+            <tr role="row" className="border-b border-hairline text-left">
+              {head.map((h) => (
+                <th
+                  key={h.label}
+                  scope="col"
+                  role="columnheader"
+                  aria-sort={
+                    h.sort?.dir === "asc"
+                      ? "ascending"
+                      : h.sort?.dir === "desc"
+                        ? "descending"
+                        : undefined
+                  }
+                  className={cn(
+                    "whitespace-nowrap px-3 py-2.5 text-caption font-semibold uppercase tracking-[0.06em] text-ink-2",
+                    h.numeric && "text-right",
+                    h.className,
+                  )}
+                >
+                  {h.sort ? (
+                    <Link
+                      href={h.sort.href}
+                      prefetch={false}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-[6px] hover:text-ink",
+                        h.sort.dir && "text-ink",
+                      )}
+                    >
+                      {h.label}
+                      <span aria-hidden="true" className="text-[0.7rem]">
+                        {h.sort.dir === "asc" ? "▲" : h.sort.dir === "desc" ? "▼" : "↕"}
+                      </span>
+                      <span className="sr-only">
+                        {h.sort.dir === "asc"
+                          ? ", sorted ascending; sort descending"
+                          : h.sort.dir === "desc"
+                            ? ", sorted descending; sort ascending"
+                            : ", sort"}
+                      </span>
+                    </Link>
+                  ) : (
+                    h.label
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="max-md:flex max-md:flex-col max-md:gap-2">
+            {rows.map((r) => {
+              const at = r.linkCell ?? 0;
+              return (
+                <tr
+                  key={r.key}
+                  role="row"
+                  data-testid={r.testId}
+                  data-href={r.href}
+                  className={cn(
+                    "border-b border-hairline md:last:border-0",
+                    // a card: the title across, the other cells two by two, each label above its value
+                    "max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-2.5 max-md:rounded-[14px] max-md:border max-md:bg-surface max-md:px-3.5 max-md:py-3",
+                    r.href && [
+                      "relative cursor-pointer transition-colors duration-100 hover:bg-raised",
+                      "has-[a[data-row-link]:focus-visible]:bg-raised",
+                      // the row's other controls sit above the stretched link
+                      "[&_:is(a,button,input,select,textarea,label,summary):not([data-row-link])]:relative",
+                      "[&_:is(a,button,input,select,textarea,label,summary):not([data-row-link])]:z-[1]",
+                    ],
+                  )}
+                >
+                  {r.cells.map((c, i) => {
+                    const h = head[i];
+                    const title = i === at;
+                    return (
+                      <td
+                        key={i}
+                        role="cell"
+                        data-label={h?.label}
                         className={cn(
-                          "font-medium text-ink decoration-accent-fg underline-offset-4 hover:underline",
-                          "after:absolute after:inset-0 after:rounded-[10px] after:content-['']",
-                          "focus-visible:outline-none focus-visible:underline focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-fg",
+                          "px-3 py-2.5 align-middle text-ink md:break-normal",
+                          h?.numeric && "md:text-right tnum",
+                          title
+                            ? "max-md:order-first max-md:col-span-2 max-md:p-0 max-md:text-body max-md:font-semibold"
+                            : [
+                                "max-md:flex max-md:min-w-0 max-md:flex-col max-md:items-start max-md:gap-0.5 max-md:p-0",
+                                "max-md:before:text-caption max-md:before:font-medium max-md:before:text-ink-2 max-md:before:content-[attr(data-label)]",
+                              ],
+                          h?.hideOnPhone && "max-md:hidden",
+                          h?.wideOnPhone && "max-md:col-span-2",
                         )}
                       >
-                        {c}
-                      </Link>
-                    ) : (
-                      c
-                    )}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                        {r.href && title ? (
+                          <Link
+                            href={r.href}
+                            prefetch={false}
+                            data-row-link=""
+                            className={cn(
+                              "font-medium text-ink decoration-accent-fg underline-offset-4 hover:underline max-md:font-semibold",
+                              "after:absolute after:inset-0 after:rounded-[10px] after:content-['']",
+                              "focus-visible:outline-none focus-visible:underline focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-solid focus-visible:after:outline-accent-fg",
+                            )}
+                          >
+                            {c}
+                          </Link>
+                        ) : (
+                          c
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -366,7 +448,7 @@ export function FilterChip({ label, remove }: { label: string; remove: string })
       href={remove}
       prefetch={false}
       aria-label={`Remove filter: ${label}`}
-      className="inline-flex items-center gap-1.5 rounded-full bg-raised px-3 py-1 text-caption font-medium text-ink ring-1 ring-ink-3/40 hover:ring-ink-2"
+      className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-raised px-3 py-1 text-caption font-medium text-ink ring-1 ring-ink-3/40 hover:ring-ink-2"
     >
       {label}
       <span aria-hidden="true" className="text-ink-2">
@@ -394,7 +476,7 @@ export function Tab({
       prefetch={false}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-small font-medium ring-1",
+        "inline-flex min-h-10 items-center gap-2 rounded-full px-3 py-1.5 text-small font-medium ring-1",
         current
           ? "bg-ink text-canvas ring-ink"
           : "text-ink-2 ring-ink-3/50 hover:bg-raised hover:text-ink",
@@ -452,14 +534,17 @@ export function DayBars({
 
 export function RangeTabs({ path, current }: { path: string; current: AdminRange }) {
   return (
-    <nav aria-label="Period" className="flex gap-1 rounded-full bg-raised p-1 text-small">
+    <nav
+      aria-label="Period"
+      className="flex w-full gap-1 rounded-full bg-raised p-1 text-small sm:w-auto"
+    >
       {ADMIN_RANGES.map((r) => (
         <Link
           key={r}
           href={`${path}?days=${r}`}
           aria-current={r === current ? "page" : undefined}
           className={cn(
-            "rounded-full px-3 py-1",
+            "flex min-h-9 flex-1 items-center justify-center whitespace-nowrap rounded-full px-3 py-1 sm:flex-none",
             r === current
               ? "bg-surface font-medium text-ink shadow-sm"
               : "text-ink-2 hover:text-ink",

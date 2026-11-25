@@ -90,7 +90,7 @@ were never read; the Vercel environment could not be read at all (below).
 - The app is given placeholder keys (`sb_publishable_localstack_…`, `sb_secret_localstack_…`); no real key exists
   anywhere in this setup.
 - Writes are allowed only because `lib/smart-cellar-write-target.ts` sees a **loopback** database. The production host
-  (`vvelgyhbjfmjvxkzekyz.supabase.co`) is named in that code as never writable: even `CELLR_SMART_CELLAR=write` with
+  (the entry in `PRODUCTION_DATABASE_HOSTS`) is named in that code as never writable: even `CELLR_SMART_CELLAR=write` with
   `CELLR_SMART_CELLAR_WRITE_DATABASE` set to it is refused (unit-tested since sprint 1C).
 - `scripts/demo/seed.mjs` refuses to run unless both the app and the stack are on `localhost`/`127.0.0.1`. Its reset
   deletes only households **all** of whose members have `@demo.cellr.test` addresses, through the local stack's own

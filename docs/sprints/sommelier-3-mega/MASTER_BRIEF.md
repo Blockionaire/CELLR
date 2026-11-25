@@ -1,5 +1,9 @@
 # Sommelier 3.0 — master brief (agreed scope)
 
+> **Superseded in part (2026-11-22).** This file describes Sommelier 3.0, in which the engine chooses the wine. The
+> project now is Sommelier V1+: V1's model chooses, code adds facts, checks and a fallback (D-46). What still holds,
+> what is void and what is built where: [`SOMMELIER_CLOSEOUT.md`](SOMMELIER_CLOSEOUT.md). Kept as history.
+
 Source: the owner's brief of 2026-11-19 ("CELLR — Sommelier 3.0 mega sprint"). This file is the scope the work is
 measured against; [`ACCEPTANCE_MATRIX.md`](ACCEPTANCE_MATRIX.md) turns it into checks. A new session starts from
 [`STATUS.md`](STATUS.md), not from here.

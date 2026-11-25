@@ -11,6 +11,7 @@ import {
   Section,
   Table,
   button,
+  danger,
   date,
   input,
   link,
@@ -133,7 +134,7 @@ export default async function AdminBottlePhotoPage({
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,20rem)_1fr]">
         <div className="flex max-w-xs flex-col gap-3 lg:max-w-none">
           <h2 className="sr-only">Photos</h2>
           {(p.photos.length ? p.photos.map((x) => x.position) : [1]).map((n) => (
@@ -157,7 +158,7 @@ export default async function AdminBottlePhotoPage({
         </div>
         <div className="min-w-0">
           <Section title="About this photo" tag="Read-only">
-            <dl className="grid grid-cols-[10rem_1fr] gap-x-3 gap-y-1.5 rounded-[14px] border border-hairline bg-surface p-4 text-small">
+            <dl className="grid grid-cols-1 gap-x-3 gap-y-0.5 rounded-[14px] border border-hairline bg-surface p-4 text-small sm:grid-cols-[10rem_1fr] sm:gap-y-1.5 max-sm:[&>dt:not(:first-child)]:mt-2.5 max-sm:[&>dt]:text-caption">
               <dt className="text-ink-2">From</dt>
               <dd>
                 <Link href={`/admin/users/${p.userId}`} prefetch={false} className={link}>
@@ -284,11 +285,7 @@ export default async function AdminBottlePhotoPage({
                   </button>
                 )}
                 <span aria-hidden="true" className="mx-1 h-6 w-px bg-hairline" />
-                <button
-                  name="status"
-                  value="rejected"
-                  className="inline-flex items-center rounded-full px-4 py-2 text-small font-medium text-danger ring-1 ring-danger/60 hover:bg-danger/10"
-                >
+                <button name="status" value="rejected" className={danger}>
                   Reject
                 </button>
               </div>

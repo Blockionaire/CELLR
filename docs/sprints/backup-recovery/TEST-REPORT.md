@@ -16,7 +16,7 @@
 
 Linux container; Node 22.23.4; pnpm 10.28.0; Supabase CLI 2.120.0 (the repository's pinned version); local stack
 images `supabase/postgres:17.11.0.004`, `storage-api:v1.79.36`, `gotrue:v2.197.0`, `kong:2.8.1`; `age` 1.x.
-Production runs Postgres 17.11 (read from the project's metadata).
+Production's Postgres version was read from the project's metadata (value kept by the owner, not in the repository).
 
 ## What production was asked (read-only)
 
@@ -29,9 +29,9 @@ object paths, no file contents, no user data were returned or stored:
   case-insensitive duplicates, object-vs-folder name clashes, rows with owner or user metadata, rows without `version`;
 - totals, analytics/vector buckets, orphan rows, whether `supabase_migrations.schema_migrations` exists.
 
-Result: 7 standard private buckets, versioning disabled, 199 objects, 56,528,862 bytes; 199/199 single-part MD5 ETags,
-0 unusual names, max depth 3, no collisions, no user metadata, every row with `version` and `cacheControl`;
-no migration history table. Nothing was written, no setting was changed, no key was created.
+Result (verified read-only on 2026-11-16; bucket, object and byte counts are values kept by the owner, not in the repository): only standard
+private buckets, versioning disabled, every ETag a single-part MD5, no unusual names, no collisions, no user metadata,
+every row with `version` and `cacheControl`; no migration history table. Nothing was written, no setting was changed, no key was created.
 
 ## Behaviour of the real Storage API (probed on the local stack, synthetic files)
 

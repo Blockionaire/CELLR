@@ -370,7 +370,7 @@ function MapButton({
         e.stopPropagation();
         onClick();
       }}
-      className="grid h-10 w-10 place-items-center text-ink-2 hover:bg-raised hover:text-ink focus-visible:outline-offset-[-2px]"
+      className="grid size-11 place-items-center text-ink-2 hover:bg-raised hover:text-ink focus-visible:outline-offset-[-2px] lg:size-10"
     >
       {children}
     </button>

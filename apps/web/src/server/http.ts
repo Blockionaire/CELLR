@@ -3,24 +3,15 @@ import { z, ZodError, type ZodType } from "zod";
 import { DomainError, ERROR_HTTP_STATUS, isDomainError, type ApiErrorBody } from "@cellr/domain";
 import { requireContext, type RequestContext } from "./context";
 import { getTrustedDemoOrigins } from "./env";
+import { baseHeaders, jsonResponse } from "./http-response";
 import { logError } from "./log";
+
+// The response shape lives in http-response.ts; it is exported from here too, so route handlers keep one import.
+export { jsonResponse };
 
 export const MAX_BODY_BYTES = 64 * 1024;
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
-
-/** Every API response is private and uncacheable. */
-function baseHeaders(extra?: HeadersInit): Headers {
-  const h = new Headers(extra);
-  h.set("Cache-Control", "no-store");
-  h.set("X-Content-Type-Options", "nosniff");
-  return h;
-}
-
-export function jsonResponse(body: unknown, status = 200): Response {
-  const headers = baseHeaders({ "Content-Type": "application/json; charset=utf-8" });
-  return new Response(JSON.stringify(body), { status, headers });
-}
 
 export function errorResponse(error: unknown): Response {
   const domainError = isDomainError(error)
