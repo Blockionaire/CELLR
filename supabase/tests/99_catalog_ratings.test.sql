@@ -22,7 +22,7 @@ declare h1 uuid; h2 uuid; cp uuid; cw uuid; cw2 uuid; pp uuid; pw uuid; pw2 uuid
         rights text := '{"license":"CC0-1.0","attribution":"Fixture ratings","may_store":true,"may_display":true,"commercial_use":true,"rights_status":"verified","rights_evidence":"written by CELLR for tests","rights_verified_at":"2026-11-25","rights_verified_by":"test suite"}';
         -- R1 2019: two ratings, 4.0 and 5.0 stars (8 + 10 half stars); R1 NV: one 3.5; R2 2019: one 1.0
         units text := $u$[
-          {"external_id":"R1","vintage":2019,"count":2,"sum_half":18,"distribution":[0,0,0,0,0,0,0,1,0,1],"first":"2020-01-02","last":"2021-03-04"},
+          {"external_id":"R1","vintage":2019,"count":2,"sum_half":18,"distribution":[0,0,0,0,0,0,0,1,0,1],"first":"2020-01-01","last":"2021-03-01"},
           {"external_id":"R1","vintage":null,"count":1,"sum_half":7,"distribution":[0,0,0,0,0,0,1,0,0,0]},
           {"external_id":"R2","vintage":2019,"count":1,"sum_half":2,"distribution":[0,1,0,0,0,0,0,0,0,0]}
         ]$u$;
@@ -86,11 +86,19 @@ begin
     {"external_id":"R1","vintage":1700,"count":1,"sum_half":7,"distribution":[0,0,0,0,0,0,1,0,0,0]},
     {"external_id":"R1","vintage":2019,"count":1,"sum_half":7,"distribution":[0,0,0,0,0,0,1,0,0]},
     {"external_id":"R1","vintage":2019,"count":1,"sum_half":7,"distribution":[0,0,0,0,0,0,1,0,0,0],"first":"2021-01-01","last":"2020-01-01"},
+    {"external_id":"R1","vintage":2019,"count":1,"sum_half":7,"distribution":[0,0,0,0,0,0,1,0,0,null]},
+    {"external_id":"R1","vintage":2019,"count":1,"sum_half":7,"distribution":[0,0,0,0,0,0,"1",0,0,0]},
+    {"external_id":"R1","vintage":2019,"count":1,"sum_half":7,"distribution":[0,0,0,0,0,0,1.0,0,0,0]},
+    {"external_id":"R1","vintage":2019,"count":1,"sum_half":7,"distribution":[0,0,0,0,0,0,1,0,0,0],"first":"today"},
+    {"external_id":"R1","vintage":2019,"count":1,"sum_half":7,"distribution":[0,0,0,0,0,0,1,0,0,0],"first":"infinity"},
+    {"external_id":"R1","vintage":2019,"count":1,"sum_half":7,"distribution":[0,0,0,0,0,0,1,0,0,0],"first":"2020-01-15"},
+    {"external_id":"R1","vintage":2019,"count":1,"sum_half":7,"distribution":[0,0,0,0,0,0,1,0,0,0],"last":"2999-01-01"},
+    {"external_id":"R1","vintage":2019,"count":1.5,"sum_half":7,"distribution":[0,0,0,0,0,0,1,0,0,0]},
     {"external_id":"R9","vintage":2019,"count":1,"sum_half":7,"distribution":[0,0,0,0,0,0,1,0,0,0]},
     {"external_id":"bad id!","vintage":2019,"count":1,"sum_half":7,"distribution":[0,0,0,0,0,0,1,0,0,0]}
   ]$u$, true);
-  perform test.rec('ratings import: a sum that does not match its distribution, a count that does not add up, a text vintage, a missing vintage, a year out of range, a short distribution, reversed dates and a bad id are refused',
-    (j->>'invalid')::int = 8 and (j->>'inserted')::int = 0);
+  perform test.rec('ratings import: a sum that does not match its distribution, a count that does not add up, a text vintage, a missing vintage, a year out of range, a short distribution, reversed dates, a null, text or decimal bucket, a date that is not a month or out of range, a decimal count and a bad id are refused',
+    (j->>'invalid')::int = 16 and (j->>'inserted')::int = 0);
   perform test.rec('ratings import: a unit for a record the provider does not hold is refused, never guessed', (j->>'no_record')::int = 1);
   perform test.rec('ratings import: nothing invalid was written', test.cr_units('crsrc') = 0);
 
@@ -125,6 +133,25 @@ begin
   perform test.rec('ratings finish: totals that add up close the run, and units the complete file no longer has are removed',
     (j->>'units')::int = 2 and (j->>'ratings')::int = 3 and (j->>'removed')::int = 1 and test.cr_units('crsrc') = 2);
 
+  -- ---- a withdrawn record is skipped, not fatal; what an abandoned run wrote is hidden ----------------------------
+  perform test.su();
+  update public.catalog_external_records set status = 'withdrawn' where id = test.cr_record('crsrc','R3');
+  perform test.as_service();
+  j := public.catalog_rating_import('crsrc', null, '[{"external_id":"R3","vintage":2019,"count":4,"sum_half":32,"distribution":[0,0,0,0,0,0,0,4,0,0]}]');
+  perform test.rec('ratings withdrawn: a unit for a withdrawn record is skipped and counted with its ratings (dry run)',
+    (j->>'withdrawn_record')::int = 1 and (j->>'withdrawn_ratings')::int = 4 and (j->>'invalid')::int = 0 and (j->>'no_record')::int = 0);
+  rr2 := public.catalog_rating_run_start('crsrc', 'cr-r4', null, repeat('f', 64), '2026-11-13', 'latest-per-rater-v1', 1, 1);
+  perform public.catalog_rating_import('crsrc', rr2, '[{"external_id":"R1","vintage":null,"count":1,"sum_half":2,"distribution":[0,1,0,0,0,0,0,0,0,0]}]', true);
+  perform public.catalog_rating_run_abandon(rr2, 'failed half-way');
+  perform test.as_user(1);
+  j := public.catalog_record_ratings(test.cr_record('crsrc','R1'));
+  perform test.rec('ratings abandoned: a unit last written by an abandoned run is hidden, the rest of the record stays',
+    jsonb_array_length(j->'vintages') = 1 and (j->'vintages'->0->>'year')::int = 2019 and j->>'datasetVersion' = 'cr-r3');
+  perform test.as_service();
+  rr := public.catalog_rating_run_start('crsrc', 'cr-r5', null, repeat('a', 64), '2026-11-14', 'latest-per-rater-v1', 2, 3);
+  perform public.catalog_rating_import('crsrc', rr, (units::jsonb - 2), true);
+  perform public.catalog_rating_run_finish(rr, true);
+
   -- ---- a pilot source is never shown to people ------------------------------------------------------------------
   perform public.catalog_provider_register('{"id":"crpilot","name":"Pilot ratings"}');
   perform public.admin_catalog_provider_rights('crpilot', '{"license":"CC0-1.0","may_store":true,"may_display":true,"may_display_ratings":true,"search_scope":"pilot"}', 'evaluation', 'test suite');
@@ -143,11 +170,13 @@ begin
   perform test.rec('ratings read: a public record''s ratings, per vintage, NV last, with the exact average',
     j->'vintages'->0->>'year' = '2019' and (j->'vintages'->0->>'count')::int = 2 and (j->'vintages'->0->>'average')::numeric = 4.5
     and j->'vintages'->1->'year' = 'null'::jsonb and (j->'vintages'->1->>'average')::numeric = 3.5
-    and j->>'datasetVersion' = 'cr-r3' and j->>'method' = 'latest-per-rater-v1');
+    and j->>'datasetVersion' = 'cr-r5' and j->>'method' = 'latest-per-rater-v1');
   perform test.rec('ratings read: the distribution is returned as stored', j->'vintages'->0->'distribution' = '[0,0,0,0,0,0,0,1,0,1]'::jsonb);
+  perform test.rec('ratings privacy: months are not shown for a unit of fewer than 5 ratings',
+    j->'vintages'->0->'firstRatedOn' = 'null'::jsonb and j->'vintages'->0->'lastRatedOn' = 'null'::jsonb);
   perform test.rec('ratings read: a pilot source gives people nothing', public.catalog_record_ratings(test.cr_record('crpilot','P1')) is null);
   perform test.rec('ratings read: a record without ratings gives an empty list',
-    jsonb_array_length(public.catalog_record_ratings(test.cr_record('crsrc','R3'))->'vintages') = 0);
+    jsonb_array_length(public.catalog_record_ratings(test.cr_record('crsrc','R2'))->'vintages') = 0);
 
   -- a household wine made from R1 (R-27), one corrected from R3, one of another household
   insert into public.producers (name, country_code, status, owner_household_id, origin)
@@ -166,6 +195,29 @@ begin
   perform test.as_user(2);
   perform test.rec('ratings wine: a person outside the household gets nothing', public.catalog_wine_ratings(h1, pw) is null);
   perform test.rec('ratings wine: not through the person''s own household either', public.catalog_wine_ratings(h2, pw) is null);
+
+  -- renamed AFTER the origin was made: the record no longer matches, so its ratings are gone; renamed back, they return
+  update public.wines set name = 'Iets Heel Anders' where id = pw;
+  perform test.rec('ratings identity: a household wine renamed after it was made from a record no longer has its ratings',
+    public.catalog_wine_ratings(h1, pw) is null);
+  update public.wines set name = 'Cuvée Een' where id = pw;
+  perform test.su(); update public.wines set wine_type = 'white' where id = pw; perform test.as_user(1);
+  perform test.rec('ratings identity: retyped (white, the record is red) gives none either', public.catalog_wine_ratings(h1, pw) is null);
+  perform test.su(); update public.wines set wine_type = 'red' where id = pw; perform test.as_user(1);
+  perform test.rec('ratings identity: the same identity again gives the ratings again',
+    public.catalog_wine_ratings(h1, pw)->>'recordId' = test.cr_record('crsrc','R1')::text);
+  -- merged into another of the household's wines (a different identity): the origin moves, the ratings do not follow
+  declare mw uuid; begin
+    insert into public.wines (producer_id, name, wine_type, country_code, status, owner_household_id, origin)
+      values (pp, 'Een Andere Cuvée', 'red', 'FR', 'provisional', h1, 'user_entered') returning id into mw;
+    perform public.merge_wines(pw, mw);
+    perform test.rec('ratings identity: a wine merged into a wine with another identity does not get the record''s ratings',
+      public.catalog_wine_ratings(h1, mw) is null);
+    -- recreate the original for the tests below
+    insert into public.wines (producer_id, name, wine_type, country_code, status, owner_household_id, origin)
+      values (pp, 'Cuvée Een', 'red', 'FR', 'provisional', h1, 'user_entered') returning id into pw;
+    perform public.record_wine_origin(h1, pw, test.cr_record('crsrc','R1'));
+  end;
 
   -- an unlinked origin gives nothing
   perform test.as_user(1);

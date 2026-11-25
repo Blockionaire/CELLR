@@ -48,6 +48,8 @@ import { parseArgs, str, type Args } from "./lib";
 import { connectToTarget } from "./target";
 
 const BATCH = 1000;
+/** At most this many ratings in one partition (the real file: 356,324 at 64 partitions). */
+const MAX_PARTITION = 3_000_000;
 
 export interface AggregateReport {
   file: string;
@@ -65,6 +67,8 @@ export interface AggregateReport {
   wines_rated: number;
   partitions: number;
   largest_partition: number;
+  /** The units file this report describes (import checks it). */
+  units_sha256: string;
   seconds: number;
   peak_rss_mb: number;
 }
@@ -119,8 +123,10 @@ export async function aggregate(args: Args): Promise<AggregateReport> {
     join(typeof args.tmp === "string" ? args.tmp : tmpdir(), "cellr-ratings-"),
   );
   try {
+    // a write error (a full disk) fails the run through `failed`, so the finally below still removes every file
+    let failed: Error | null = null;
     const outs: WriteStream[] = Array.from({ length: parts }, (_, i) =>
-      createWriteStream(join(dir, `p${i}`), { mode: 0o600 }),
+      createWriteStream(join(dir, `p${i}`), { mode: 0o600 }).on("error", (e) => (failed ??= e)),
     );
     const sizes = Array.from({ length: parts }, () => 0);
     const invalid: Partial<Record<RatingRowProblem, number>> = {};
@@ -158,19 +164,27 @@ export async function aggregate(args: Args): Promise<AggregateReport> {
         continue;
       }
       const i = partitionOf(p.row.wineId, parts);
-      sizes[i]!++;
+      // the memory of step 3 is one partition's ratings: bounded here, never silently exceeded
+      if (++sizes[i]! > MAX_PARTITION)
+        throw new Error(`a partition exceeds ${MAX_PARTITION} ratings: use more --partitions`);
+      if (failed) throw failed;
       const ok = outs[i]!.write(
         `${p.row.wineId},${p.row.vintage ?? ""},${rater(p.row.raterId)},${p.row.half},${p.row.ratedAt},${p.row.ratingId}\n`,
       );
-      if (!ok) await new Promise((res) => outs[i]!.once("drain", () => res(null)));
+      if (!ok)
+        await new Promise((res, rej) => {
+          outs[i]!.once("drain", () => res(null));
+          outs[i]!.once("error", rej);
+        });
     }
+    if (failed) throw failed;
     await Promise.all(
       outs.map(
         (o) => new Promise((res, rej) => o.end((e?: Error | null) => (e ? rej(e) : res(null)))),
       ),
     );
 
-    const units = createWriteStream(unitsPath, { mode: 0o600 });
+    const units = createWriteStream(unitsPath, { mode: 0o600 }).on("error", (e) => (failed ??= e));
     let nUnits = 0;
     let nNv = 0;
     let kept = 0;
@@ -239,6 +253,7 @@ export async function aggregate(args: Args): Promise<AggregateReport> {
       wines_rated: winesRated.size,
       partitions: parts,
       largest_partition: Math.max(...sizes),
+      units_sha256: await fileSha256(unitsPath),
       seconds: Math.round((performance.now() - started) / 100) / 10,
       peak_rss_mb: Math.round(process.resourceUsage().maxRSS / 1024),
     };
@@ -260,10 +275,76 @@ async function importUnits(args: Args) {
   const retrievedAt = str(args, "retrieved-at");
   if (Number.isNaN(Date.parse(retrievedAt))) throw new Error("--retrieved-at must be a date");
   const apply = args.apply === true;
+  const unitsPath = str(args, "units");
+  // the units file must be the one this report describes
+  if (report.units_sha256 !== (await fileSha256(unitsPath)))
+    throw new Error("the units file is not the one the report was made with: nothing imported");
   const client = await connectToTarget(str(args, "db"), args);
+  type Totals = {
+    inserted: number;
+    updated: number;
+    unchanged: number;
+    invalid: number;
+    no_record: number;
+    withdrawn_record: number;
+    withdrawn_ratings: number;
+  };
+  const problems: unknown[] = [];
+  // one pass over the units file, streamed: at most one batch is held at a time
+  const pass = async (write: boolean, run: string | null): Promise<Totals & { sent: number }> => {
+    const t: Totals = {
+      inserted: 0,
+      updated: 0,
+      unchanged: 0,
+      invalid: 0,
+      no_record: 0,
+      withdrawn_record: 0,
+      withdrawn_ratings: 0,
+    };
+    let sent = 0;
+    const send = async (batch: string[]) => {
+      const j = (
+        await client.query<{ j: Record<string, number> & { problems: unknown[] } }>(
+          "select public.catalog_rating_import($1, $2, $3::jsonb, $4) as j",
+          [provider, run, `[${batch.join(",")}]`, write],
+        )
+      ).rows[0]!.j;
+      sent += batch.length;
+      for (const k of Object.keys(t) as Array<keyof Totals>) t[k] += Number(j[k] ?? 0);
+      if (problems.length < 20) problems.push(...j.problems.slice(0, 20 - problems.length));
+    };
+    let batch: string[] = [];
+    const rl = createInterface({
+      input: createReadStream(unitsPath, { encoding: "utf8" }),
+      crlfDelay: Infinity,
+    });
+    for await (const line of rl) {
+      if (line === "") continue;
+      batch.push(line);
+      if (batch.length === BATCH) {
+        await send(batch);
+        batch = [];
+      }
+    }
+    if (batch.length > 0) await send(batch);
+    if (sent !== report.units)
+      throw new Error(`the units file holds ${sent} units, the report ${report.units}`);
+    return { ...t, sent };
+  };
   try {
+    // always a dry run first: nothing is written unless every unit is valid and has a record; units of withdrawn
+    // records are left out of the totals the run declares
+    const dry = await pass(false, null);
     let run: string | null = null;
+    let applied: (Totals & { sent: number }) | null = null;
+    let finish: unknown = null;
+    const expectedUnits = report.units - dry.withdrawn_record;
+    const expectedRatings = report.ratings_kept - dry.withdrawn_ratings;
     if (apply) {
+      if (dry.invalid > 0 || dry.no_record > 0)
+        throw new Error(
+          `the dry run found ${dry.invalid} invalid and ${dry.no_record} unknown-record units: nothing written`,
+        );
       run = (
         await client.query<{ id: string }>(
           "select public.catalog_rating_run_start($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10) as id",
@@ -274,85 +355,53 @@ async function importUnits(args: Args) {
             report.sha256,
             retrievedAt,
             report.method,
-            report.units,
-            report.ratings_kept,
+            expectedUnits,
+            expectedRatings,
             JSON.stringify({
               rows: report.rows,
               invalid: report.invalid_total,
               repeated_dropped: report.repeated_dropped,
               unknown_wine: report.unknown_wine,
+              withdrawn_record_units: dry.withdrawn_record,
             }),
             args.pilot === true,
           ],
         )
       ).rows[0]!.id;
-    }
-    const totals = { inserted: 0, updated: 0, unchanged: 0, invalid: 0, no_record: 0 };
-    const problems: unknown[] = [];
-    let sent = 0;
-    const send = async (batch: string[]) => {
-      const j = (
-        await client.query<{ j: Record<string, number> & { problems: unknown[] } }>(
-          "select public.catalog_rating_import($1, $2, $3::jsonb, $4) as j",
-          [provider, run, `[${batch.join(",")}]`, apply],
-        )
-      ).rows[0]!.j;
-      sent += batch.length;
-      for (const k of Object.keys(totals) as Array<keyof typeof totals>) totals[k] += j[k] ?? 0;
-      if (problems.length < 20) problems.push(...j.problems.slice(0, 20 - problems.length));
-    };
-    try {
-      // streamed: at most one batch of units is held at a time
-      let batch: string[] = [];
-      const rl = createInterface({
-        input: createReadStream(str(args, "units"), { encoding: "utf8" }),
-        crlfDelay: Infinity,
-      });
-      for await (const line of rl) {
-        if (line === "") continue;
-        batch.push(line);
-        if (batch.length === BATCH) {
-          await send(batch);
-          batch = [];
-        }
-      }
-      if (batch.length > 0) await send(batch);
-      if (sent !== report.units)
-        throw new Error(`the units file holds ${sent} units, the report ${report.units}`);
-    } catch (e) {
-      if (run)
-        await client
-          .query("select public.catalog_rating_run_abandon($1, $2)", [
-            run,
-            `import failed: ${e instanceof Error ? e.message : "error"}`.slice(0, 300),
-          ])
-          .catch(() => {});
-      throw e;
-    }
-    let finish: unknown = null;
-    if (apply && run) {
-      if (totals.invalid > 0 || totals.no_record > 0) {
-        await client.query("select public.catalog_rating_run_abandon($1, $2)", [
-          run,
-          `${totals.invalid} invalid and ${totals.no_record} unknown-record units: not finished`,
-        ]);
-        finish = { abandoned: true };
-      } else
+      try {
+        applied = await pass(true, run);
+        // the database finishes the run only when what it stored adds up to what was declared
         finish = (
           await client.query("select public.catalog_rating_run_finish($1, $2) as j", [
             run,
             args["remove-missing"] === true,
           ])
         ).rows[0]!.j;
+      } catch (e) {
+        await client
+          .query("select public.catalog_rating_run_abandon($1, $2)", [
+            run,
+            `import failed: ${e instanceof Error ? e.message : "error"}`.slice(0, 300),
+          ])
+          .catch(() => {});
+        throw e;
+      }
     }
+    const t = applied ?? dry;
     return {
       provider,
       applied: apply,
       pilot: args.pilot === true,
       run,
-      units: sent,
+      units: t.sent,
       ratings: report.ratings_kept,
-      ...totals,
+      declared: { units: expectedUnits, ratings: expectedRatings },
+      inserted: t.inserted,
+      updated: t.updated,
+      unchanged: t.unchanged,
+      invalid: t.invalid,
+      no_record: t.no_record,
+      withdrawn_record: t.withdrawn_record,
       problems,
       finish,
       seconds: Math.round((performance.now() - started) / 100) / 10,

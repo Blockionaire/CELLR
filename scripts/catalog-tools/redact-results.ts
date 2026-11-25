@@ -87,7 +87,7 @@ const SAFE = [
   // totals, the read latency and the separation check, each a fixed line of counts
   /^ratings-aggregate\.json$/,
   /^ratings-db-totals\.json$/,
-  /^(ratings-read|ratings-separation|ratings-refusal)\.txt$/,
+  /^(ratings-read|ratings-separation|ratings-refusal|ratings-verify)\.txt$/,
 ];
 
 /**

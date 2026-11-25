@@ -5,10 +5,11 @@
 -- 1. The unit is (record, vintage): one provider record (its own wine id, so every cuvée is its own record) and one
 --    vintage year, or NV (vintage_year null). Never grouped by name: two records with the same name are two units.
 --    A vintage the file cannot state as a year or as NV is refused by the importer, never mapped to NV.
--- 2. Only aggregates are stored: the number of ratings, their sum and their distribution in half stars, and the first
---    and last rating date. No individual rating and no external user id ever reaches the database; the importer
+-- 2. Only aggregates are stored: the number of ratings, their sum and their distribution in half stars, and the MONTH
+--    of the first and the last rating. No external user id ever reaches the database; the importer
 --    (scripts/catalog-tools/ratings.ts) aggregates on the importer's machine and keeps one rating per rater, record
---    and vintage (the latest).
+--    and vintage (the latest). A unit of one rating is that one rating's stars and month; months are shown only for
+--    units of at least 5 ratings.
 -- 3. Writing follows the provider record lifecycle (20261115000038): a run per provider, at most one open; a batch is
 --    written only under the open run; a dry run writes nothing; the same file again is `unchanged`.
 -- 4. Finishing a run is an INTEGRITY CHECK: the provider's stored aggregates must add up exactly to the totals the
@@ -17,8 +18,9 @@
 --    (a separate decision per use: `may_display_ratings`, set only through admin_catalog_provider_rights). Switching a
 --    source off (admin_catalog_provider_disable) hides its ratings at once; nothing is deleted.
 -- 6. A wine's ratings come from exactly one provider record: the canonical wine's verified link, or the household
---    wine's active origin (R-27) that still matches the record's identity. Ambiguous (more than one) = none: a rating
---    is never shown for a wine it may not belong to.
+--    wine's active origin (R-27) whose record the wine still matches, checked live (a renamed or merged wine does
+--    not). Ambiguous (more than one) = none: a rating is never shown for a wine it may not belong to.
+-- 7. A unit for a withdrawn record is skipped and counted, never fatal; what an abandoned run wrote is not shown.
 --
 -- Additive: two tables, one column, functions. Until this runs, the app shows no external ratings.
 
@@ -94,29 +96,32 @@ create table public.catalog_rating_runs (
 create unique index catalog_rating_runs_one_open_idx on public.catalog_rating_runs (provider_id) where finished_at is null;
 
 -- ---- 3. The aggregates ------------------------------------------------------------------------------------------
+-- The record and its provider are tied by one foreign key, so a unit can never be filed under another provider.
+create unique index catalog_external_records_id_provider_uq on public.catalog_external_records (id, provider_id);
 create table public.catalog_rating_aggregates (
-  id            bigint generated always as identity primary key,
-  record_id     uuid not null references public.catalog_external_records on delete cascade,
-  provider_id   text not null references public.catalog_providers on delete restrict,
+  record_id     uuid not null,
+  provider_id   text not null,
   -- null = non-vintage (NV); a year otherwise. Unknown vintages are never stored.
   vintage_year  smallint check (vintage_year between 1800 and 2100),
   rating_count  int not null check (rating_count between 1 and 100000000),
   -- the sum in half stars (a 4.5-star rating adds 9), exact
   rating_sum_half bigint not null check (rating_sum_half between rating_count and 10::bigint * rating_count),
   -- how many ratings at 0.5, 1.0, … 5.0 stars (10 buckets); adds up to rating_count (checked on import)
-  distribution  int[] not null check (cardinality(distribution) = 10 and 0 <= all (distribution)),
-  first_rated_on date,
-  last_rated_on  date,
-  content_hash  text not null check (content_hash ~ '^[0-9a-f]{32}$'),
-  first_run_id  uuid references public.catalog_rating_runs on delete set null,
-  last_run_id   uuid references public.catalog_rating_runs on delete set null,
-  created_at    timestamptz not null default now(),
+  distribution  int[] not null check (cardinality(distribution) = 10 and array_position(distribution, null) is null
+                                      and 0 <= all (distribution)),
+  -- the MONTH of the first and the last rating kept (always the 1st): never a day, so a unit of one rating does not
+  -- carry the exact day it was given
+  first_rated_month date check (first_rated_month is null or extract(day from first_rated_month) = 1),
+  last_rated_month  date check (last_rated_month is null or extract(day from last_rated_month) = 1),
+  last_run_id   uuid not null references public.catalog_rating_runs on delete cascade,
   updated_at    timestamptz not null default now(),
-  constraint catalog_rating_aggregates_dates check (first_rated_on is null or last_rated_on is null
-                                                    or first_rated_on <= last_rated_on),
+  constraint catalog_rating_aggregates_record foreign key (record_id, provider_id)
+    references public.catalog_external_records (id, provider_id) on delete cascade,
+  constraint catalog_rating_aggregates_dates check (first_rated_month is null or last_rated_month is null
+                                                    or first_rated_month <= last_rated_month),
   constraint catalog_rating_aggregates_unit unique nulls not distinct (record_id, vintage_year)
-);
-create index catalog_rating_aggregates_provider_run_idx on public.catalog_rating_aggregates (provider_id, last_run_id);
+) with (fillfactor = 80);
+-- fillfactor 80 and no index on last_run_id: a re-import that only moves a unit to the new run is a HOT update
 
 -- Nobody reads these tables directly: people see aggregates only through the gated functions below.
 alter table public.catalog_rating_runs enable row level security;
@@ -166,13 +171,15 @@ end $$;
 
 -- One batch (at most 2000 units). Dry run by default: classifies every unit and writes nothing. Each unit:
 -- { external_id, vintage (a year, or null for NV), count, sum_half, distribution: [10 ints], first?, last? }
--- (dates as YYYY-MM-DD). A unit whose record this provider does not hold (active) is refused, never guessed.
+-- (months as YYYY-MM-01). A unit whose record this provider does not hold is refused, never guessed; one for a
+-- withdrawn record is skipped and counted.
 create function public.catalog_rating_import(p_provider text, p_run_id uuid, p_units jsonb,
                                              p_apply boolean default false) returns jsonb
   language plpgsql security definer set search_path = '' as $$
 declare
-  u jsonb; ext text; yr smallint; cnt int; s bigint; dist int[]; d1 date; d2 date; h text; rec uuid; old text;
-  n_ins int := 0; n_upd int := 0; n_same int := 0; n_bad int := 0; n_norec int := 0;
+  u jsonb; ext text; yr smallint; cnt int; s bigint; dist int[]; d1 date; d2 date; rec uuid; recstat text;
+  old public.catalog_rating_aggregates;
+  n_ins int := 0; n_upd int := 0; n_same int := 0; n_bad int := 0; n_norec int := 0; n_wd int := 0; r_wd bigint := 0;
   problems jsonb := '[]';
 begin
   if not exists (select 1 from public.catalog_providers where id = p_provider and may_store
@@ -194,14 +201,17 @@ begin
   for u in select * from jsonb_array_elements(p_units) loop
     begin
       ext := u->>'external_id';
-      if ext is null or ext !~ '^[A-Za-z0-9._:-]{1,64}$' then raise exception 'bad external_id'; end if;
+      if jsonb_typeof(u->'external_id') <> 'string' or ext !~ '^[A-Za-z0-9._:-]{1,64}$' then
+        raise exception 'bad external_id';
+      end if;
       if not (u ? 'vintage') then raise exception 'vintage missing (null is NV)';
       elsif jsonb_typeof(u->'vintage') = 'null' then yr := null;
       elsif jsonb_typeof(u->'vintage') = 'number' and (u->>'vintage') ~ '^[0-9]{4}$' then yr := (u->>'vintage')::smallint;
       else raise exception 'bad vintage';
       end if;
       if yr is not null and yr not between 1800 and 2100 then raise exception 'bad vintage'; end if;
-      if jsonb_typeof(u->'count') <> 'number' or jsonb_typeof(u->'sum_half') <> 'number' then
+      if jsonb_typeof(u->'count') <> 'number' or (u->>'count') !~ '^[0-9]{1,9}$'
+         or jsonb_typeof(u->'sum_half') <> 'number' or (u->>'sum_half') !~ '^[0-9]{1,10}$' then
         raise exception 'bad count or sum';
       end if;
       cnt := (u->>'count')::int;
@@ -209,18 +219,28 @@ begin
       if jsonb_typeof(u->'distribution') <> 'array' or jsonb_array_length(u->'distribution') <> 10 then
         raise exception 'bad distribution';
       end if;
+      -- every bucket a whole number, written as a number (not a string, not null, not a decimal)
+      if exists (select 1 from jsonb_array_elements(u->'distribution') x
+                  where jsonb_typeof(x) <> 'number' or x::text !~ '^[0-9]{1,9}$') then
+        raise exception 'bad distribution';
+      end if;
       select array_agg(x::int order by o) into dist
         from jsonb_array_elements_text(u->'distribution') with ordinality t(x, o);
-      if exists (select 1 from unnest(dist) x where x < 0) then raise exception 'bad distribution'; end if;
       if cnt < 1 or (select sum(x) from unnest(dist) x) <> cnt then raise exception 'distribution does not add up'; end if;
       if (select sum(x::bigint * o) from unnest(dist) with ordinality t(x, o)) <> s then
         raise exception 'sum does not match the distribution';
       end if;
-      d1 := nullif(u->>'first', '')::date;
-      d2 := nullif(u->>'last', '')::date;
-      if d1 > d2 then raise exception 'bad dates'; end if;
-      h := md5(jsonb_build_object('count', cnt, 'sum', s, 'distribution', to_jsonb(dist), 'first', d1,
-                                  'last', d2)::text);
+      -- months only (YYYY-MM-01), between 1990 and this month
+      d1 := null; d2 := null;
+      if u ? 'first' and jsonb_typeof(u->'first') <> 'null' then
+        if jsonb_typeof(u->'first') <> 'string' or (u->>'first') !~ '^[0-9]{4}-[0-9]{2}-01$' then raise exception 'bad dates'; end if;
+        d1 := (u->>'first')::date;
+      end if;
+      if u ? 'last' and jsonb_typeof(u->'last') <> 'null' then
+        if jsonb_typeof(u->'last') <> 'string' or (u->>'last') !~ '^[0-9]{4}-[0-9]{2}-01$' then raise exception 'bad dates'; end if;
+        d2 := (u->>'last')::date;
+      end if;
+      if d1 < date '1990-01-01' or d2 > date_trunc('month', now())::date or d1 > d2 then raise exception 'bad dates'; end if;
     exception when others then
       n_bad := n_bad + 1;
       if jsonb_array_length(problems) < 20 then
@@ -229,34 +249,50 @@ begin
       continue;
     end;
 
-    select e.id into rec from public.catalog_external_records e
-     where e.provider_id = p_provider and e.external_id = ext and e.status = 'active';
+    select e.id, e.status into rec, recstat from public.catalog_external_records e
+     where e.provider_id = p_provider and e.external_id = ext;
     if rec is null then
       n_norec := n_norec + 1;
       if jsonb_array_length(problems) < 20 then
-        problems := problems || jsonb_build_object('external_id', ext, 'reason', 'no active record of this provider');
+        problems := problems || jsonb_build_object('external_id', ext, 'reason', 'no record of this provider');
       end if;
       continue;
     end if;
-    select a.content_hash into old from public.catalog_rating_aggregates a
+    -- a withdrawn record keeps no ratings: skipped and counted (with its ratings), never an error, so the run's
+    -- declared totals can leave it out (ratings.ts declares them from a dry run)
+    if recstat <> 'active' then
+      n_wd := n_wd + 1;
+      r_wd := r_wd + cnt;
+      continue;
+    end if;
+    select * into old from public.catalog_rating_aggregates a
      where a.record_id = rec and a.vintage_year is not distinct from yr;
-    if old is null then n_ins := n_ins + 1; elsif old <> h then n_upd := n_upd + 1; else n_same := n_same + 1; end if;
+    if old.record_id is null then n_ins := n_ins + 1;
+    elsif (old.rating_count, old.rating_sum_half, old.distribution, old.first_rated_month, old.last_rated_month)
+          is distinct from (cnt, s, dist, d1, d2) then n_upd := n_upd + 1;
+    else n_same := n_same + 1;
+    end if;
     if not p_apply then continue; end if;
 
     insert into public.catalog_rating_aggregates as a
-      (record_id, provider_id, vintage_year, rating_count, rating_sum_half, distribution, first_rated_on,
-       last_rated_on, content_hash, first_run_id, last_run_id)
-    values (rec, p_provider, yr, cnt, s, dist, d1, d2, h, p_run_id, p_run_id)
+      (record_id, provider_id, vintage_year, rating_count, rating_sum_half, distribution, first_rated_month,
+       last_rated_month, last_run_id)
+    values (rec, p_provider, yr, cnt, s, dist, d1, d2, p_run_id)
     on conflict on constraint catalog_rating_aggregates_unit do update
       set rating_count = excluded.rating_count, rating_sum_half = excluded.rating_sum_half,
-          distribution = excluded.distribution, first_rated_on = excluded.first_rated_on,
-          last_rated_on = excluded.last_rated_on, content_hash = excluded.content_hash,
-          last_run_id = excluded.last_run_id,
-          updated_at = case when a.content_hash = excluded.content_hash then a.updated_at else now() end;
+          distribution = excluded.distribution, first_rated_month = excluded.first_rated_month,
+          last_rated_month = excluded.last_rated_month, last_run_id = excluded.last_run_id,
+          updated_at = case when (a.rating_count, a.rating_sum_half, a.distribution, a.first_rated_month,
+                                  a.last_rated_month)
+                                 is not distinct from (excluded.rating_count, excluded.rating_sum_half,
+                                                       excluded.distribution, excluded.first_rated_month,
+                                                       excluded.last_rated_month)
+                            then a.updated_at else now() end;
   end loop;
 
   return jsonb_build_object('applied', p_apply, 'inserted', n_ins, 'updated', n_upd, 'unchanged', n_same,
-                            'invalid', n_bad, 'no_record', n_norec, 'problems', problems);
+                            'invalid', n_bad, 'no_record', n_norec, 'withdrawn_record', n_wd,
+                            'withdrawn_ratings', r_wd, 'problems', problems);
 end $$;
 
 -- Closing a run. The run is locked first, so every batch of it has been written. Then the provider's aggregates seen
@@ -318,10 +354,24 @@ grant execute on function public.catalog_rating_run_start(text, text, text, text
   to service_role;
 
 -- ---- 5. Which provider record a wine's ratings come from ---------------------------------------------------------
+-- Whether a wine has, NOW, exactly the record's identity: the same normalised producer and name, and no
+-- contradicting type (the rule record_wine_origin used when the origin was made; 20261128000050). Checked live, never
+-- from the origin's snapshot: a wine renamed, retyped or merged into another wine since no longer matches.
+create function private.record_matches_wine(p_record_id uuid, p_wine_id uuid) returns boolean
+  language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1
+      from public.catalog_external_records e, public.wines w join public.producers p on p.id = w.producer_id
+     where e.id = p_record_id and w.id = p_wine_id
+       and e.normalized_producer = p.normalized_name and e.normalized_name = w.normalized_name
+       and (e.wine_type is null or e.wine_type = w.wine_type))
+$$;
+revoke all on function private.record_matches_wine(uuid, uuid) from public, anon, authenticated, service_role;
+
 -- Exactly one record, or none:
 -- - a canonical wine: the one record with a VERIFIED link to it (an admin's decision);
--- - a household's own wine (provisional): the one active R-27 origin of THAT household that still matches the
---   record's identity (matches_record), and only for a member of that household.
+-- - a household's own wine (provisional): the one active R-27 origin of THAT household whose record the wine still
+--   matches, checked live (record_matches_wine), and only for a member of that household.
 -- More than one candidate is ambiguous and gives none.
 create function private.rating_record_of_wine(p_household_id uuid, p_wine_id uuid) returns uuid
   language plpgsql stable security definer set search_path = '' as $$
@@ -337,36 +387,43 @@ begin
     select array_agg(distinct o.record_id) into recs
       from public.wine_record_origins o join public.catalog_external_records e on e.id = o.record_id
      where o.wine_id = p_wine_id and o.household_id = p_household_id and o.unlinked_at is null
-       and o.matches_record and e.status = 'active';
+       and e.status = 'active' and private.record_matches_wine(o.record_id, p_wine_id);
   end if;
   return case when cardinality(recs) = 1 then recs[1] end;
 end $$;
 revoke all on function private.rating_record_of_wine(uuid, uuid) from public, anon, authenticated, service_role;
 
 -- The aggregates of one record, per vintage (NV last), with the source's credit. scopes: which provider scopes may
--- be read ('public' for people; 'pilot' only through the pilot function).
+-- be read ('public' for people; 'pilot' only through the pilot function). Only units of a run that is finished, or
+-- the one still open, are shown: what an abandoned run left behind is hidden until a complete run replaces it, so a
+-- failed import never shows a mix of two files. The label is the newest such run among the record's units.
 create function private.record_ratings_impl(p_record_id uuid, p_scopes text[]) returns jsonb
   language sql stable security definer set search_path = '' as $$
+  with units as (
+    select a.*, r.dataset_version, r.method, r.started_at
+      from public.catalog_rating_aggregates a
+      join public.catalog_rating_runs r on r.id = a.last_run_id and not (r.counts ? 'abandoned')
+     where a.record_id = p_record_id
+  )
   select case when pr.id is null then null else jsonb_build_object(
            'recordId', e.id, 'providerId', pr.id, 'providerName', pr.name, 'scope', pr.search_scope,
-           'datasetVersion', rr.dataset_version, 'method', rr.method,
+           'datasetVersion', (select dataset_version from units order by started_at desc limit 1),
+           'method', (select method from units order by started_at desc limit 1),
            'vintages', coalesce((
              select jsonb_agg(jsonb_build_object(
-                      'year', a.vintage_year, 'count', a.rating_count,
-                      'average', round(a.rating_sum_half::numeric / (2 * a.rating_count), 2),
-                      'distribution', to_jsonb(a.distribution),
-                      'firstRatedOn', a.first_rated_on, 'lastRatedOn', a.last_rated_on)
-                    order by a.vintage_year desc nulls last)
-               from public.catalog_rating_aggregates a where a.record_id = e.id), '[]'::jsonb)) end
+                      'year', u.vintage_year, 'count', u.rating_count,
+                      'average', round(u.rating_sum_half::numeric / (2 * u.rating_count), 2),
+                      'distribution', to_jsonb(u.distribution),
+                      -- months, and only for a unit of at least 5 ratings: never the trace of one person's rating
+                      'firstRatedOn', case when u.rating_count >= 5 then u.first_rated_month end,
+                      'lastRatedOn', case when u.rating_count >= 5 then u.last_rated_month end)
+                    order by u.vintage_year desc nulls last)
+               from units u), '[]'::jsonb)) end
     from public.catalog_external_records e
     left join public.catalog_providers pr
            on pr.id = e.provider_id and pr.search_scope = any (p_scopes) and pr.may_display_ratings
               and pr.may_display
               and (pr.search_scope <> 'public' or (pr.rights_status = 'verified' and pr.commercial_use))
-    left join lateral (select r.dataset_version, r.method from public.catalog_rating_runs r
-                        where r.provider_id = e.provider_id and r.finished_at is not null
-                          and not (r.counts ? 'abandoned')
-                        order by r.finished_at desc limit 1) rr on true
    where e.id = p_record_id and e.status = 'active'
 $$;
 revoke all on function private.record_ratings_impl(uuid, text[]) from public, anon, authenticated, service_role;

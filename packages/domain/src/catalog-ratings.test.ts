@@ -125,5 +125,8 @@ describe("aggregateUnit", () => {
       first: "2020-01-01",
       last: "2020-01-01",
     });
+    expect(unitPayload("1", 2019, aggregateUnit([r("a", 7, "2020-03-17 10:00:00", 1)])).first).toBe(
+      "2020-03-01",
+    );
   });
 });

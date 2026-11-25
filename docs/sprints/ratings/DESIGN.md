@@ -21,7 +21,9 @@ PR 4's route, (c) records the rights in the database, and (d) names the feature 
 - **A wine in CELLR** gets a record's ratings only when exactly one record belongs to it:
   - a canonical wine: through the one **verified** link (`catalog_record_links`, an admin's decision);
   - a household's own wine: through its active R-27 origin (`wine_record_origins`), and only while the wine still
-    **matches** the record's identity (`matches_record`). A wine the household renamed gets none.
+    **matches** the record's identity, checked live at every read (`private.record_matches_wine`: same normalised
+    producer and name, no contradicting type), never from the origin's snapshot. A wine the household renamed,
+    retyped or merged into another wine gets none.
   - Two or more candidates are ambiguous and give none. A suggested link gives none.
 - **Vintages never mix.** 2019 ratings are shown for 2019. NV is its own vintage. A vintage the file cannot state
   as a year or as "N.V." is refused, and never turned into NV.
@@ -44,7 +46,7 @@ PR 4's route, (c) records the rights in the database, and (d) names the feature 
 - Repeated ratings are counted and dropped. They never count twice, so one account cannot push a wine up by
   rating it again and again.
 
-**Privacy.** No individual rating and no X-Wines user id reaches any database:
+**Privacy.** No X-Wines user id reaches any database:
 
 - `ratings.ts aggregate` streams the file on the importer's machine.
 - It spills valid lines into partition files by wine id. The user id is replaced by a keyed hash (HMAC-SHA-256),
@@ -52,17 +54,26 @@ PR 4's route, (c) records the rights in the database, and (d) names the feature 
 - Each partition is aggregated on its own (bounded memory), and the partition files are deleted, also after a
   failure.
 - The database receives per unit only: the count, the sum in half stars, the distribution (10 half-star buckets),
-  and the first and last dates.
+  and the **month** of the first and last rating (never the day).
+- A unit with one rating is necessarily that one rating's stars and month. The source is public, so this reveals
+  nothing new, but CELLR shows the months only for units of at least 5 ratings.
 
 **Integrity:**
 
 - The file is checked against its checksum before a line is read. A different header is refused.
 - Invalid lines are counted by reason and never used.
-- A rating run declares its totals (units, ratings) when it starts. The database refuses to finish the run unless
-  the stored aggregates add up exactly; the run then stays open, to be completed or abandoned.
-- Every unit is checked in the database: its distribution must add up to its count, and its sum must match the
-  distribution.
-- The same file again is `unchanged`, with a unit-level content hash.
+- The importer always runs a dry run first. It writes nothing when any unit is invalid or names a record the
+  provider does not hold. A unit for a **withdrawn** record is skipped and counted, never fatal.
+- A rating run declares its totals (units and ratings, without those of withdrawn records) when it starts. The
+  database refuses to finish the run unless the stored aggregates add up exactly; the run then stays open, to be
+  completed or abandoned.
+- What an abandoned run wrote is not shown: a read takes only units of a finished or open run. A failed import
+  never shows a mix of two files as one.
+- Every unit is checked in the database. Every bucket must be a whole number given as a number. The distribution
+  must add up to the count, and the sum must match the distribution. Months must be between 1990 and today.
+- The units file is tied to its report by checksum.
+- The same file again is `unchanged` (the values are compared), and is a HOT update (fillfactor 80, no index on
+  the run).
 - A complete file can remove units it no longer has, and only after the totals check passed.
 - An independent second implementation (`ratings-verify.py`) recomputes sample units from the raw file.
 

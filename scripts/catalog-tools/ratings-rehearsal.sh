@@ -33,7 +33,7 @@ j() { node -e "const r=require('$1');console.log($2)"; }
 q() { "${PSQL[@]}" -X -q -At -v ON_ERROR_STOP=1 -c "$1"; }
 
 start_temp_cluster 54995
-echo "• Postgres $(q 'show server_version')" | tee "$OUT/server.txt"
+PGV="$(q 'show server_version')"; echo "• Postgres $PGV"
 echo "• 1. schema"; apply_schema "$ROOT" >/dev/null 2>"$SCRATCH/schema.err" || { cat "$SCRATCH/schema.err"; exit 1; }
 q "insert into private.catalog_settings (environment, project_ref, set_by) values ('staging', 'localratings', 'ratings-rehearsal.sh')"
 cd "$ROOT/scripts/catalog-tools"
@@ -48,40 +48,41 @@ j "$SCRATCH/records.json" "'  records: ' + r.inserted + ' inserted, ' + r.invali
 
 echo "• 3. aggregate the ratings file"
 "${T[@]}" ratings.ts aggregate --file "$RT" --sha256 "$RT_SHA" --wines "$XW" --units "$SCRATCH/units.jsonl" \
-  --tmp "$SCRATCH" --out "$OUT/aggregate.json" >/dev/null
-j "$OUT/aggregate.json" "'  ' + r.rows + ' rows, ' + r.invalid_total + ' invalid, ' + r.repeated_dropped + ' repeated dropped, ' + r.units + ' units (' + r.units_nv + ' NV), ' + r.ratings_kept + ' ratings, ' + r.seconds + ' s, ' + r.peak_rss_mb + ' MB'"
+  --tmp "$SCRATCH" --out "$OUT/ratings-aggregate.json" >/dev/null
+j "$OUT/ratings-aggregate.json" "'  ' + r.rows + ' rows, ' + r.invalid_total + ' invalid, ' + r.repeated_dropped + ' repeated dropped, ' + r.units + ' units (' + r.units_nv + ' NV), ' + r.ratings_kept + ' ratings, ' + r.seconds + ' s, ' + r.peak_rss_mb + ' MB'"
 
-IMP=("${T[@]}" ratings.ts import --db "$PGURL" --provider xwines --units "$SCRATCH/units.jsonl" --report "$OUT/aggregate.json"
+IMP=("${T[@]}" ratings.ts import --db "$PGURL" --provider xwines --units "$SCRATCH/units.jsonl" --report "$OUT/ratings-aggregate.json"
      --dataset-version "$VERSION" --source-url "$URL" --retrieved-at 2026-11-25)
 echo "• 4. a non-pilot ratings run is refused"
-if "${IMP[@]}" --apply >/dev/null 2>"$OUT/nonpilot-refusal.txt"; then echo "  ERROR: accepted" >&2; exit 1; fi
-grep -q "only a pilot run is allowed" "$OUT/nonpilot-refusal.txt" && echo "rating run refused: ratings rights not verified" > "$OUT/nonpilot-refusal.txt"
-cat "$OUT/nonpilot-refusal.txt"
+if "${IMP[@]}" --apply >/dev/null 2>"$SCRATCH/refusal.txt"; then echo "  ERROR: accepted" >&2; exit 1; fi
+grep -q "only a pilot run is allowed" "$SCRATCH/refusal.txt" || { echo "  ERROR: refused for another reason" >&2; exit 1; }
+echo "non-pilot rating run refused: ratings rights not verified" | tee "$OUT/ratings-refusal.txt"
 
 echo "• 5. dry run, then import"
-"${IMP[@]}" --pilot --out "$OUT/import-dry.json" >/dev/null
-j "$OUT/import-dry.json" "'  dry run: ' + r.inserted + ' would be inserted, ' + r.invalid + ' invalid, ' + r.no_record + ' without record, ' + r.seconds + ' s'"
+"${IMP[@]}" --pilot --out "$OUT/import-ratings-dry.json" >/dev/null
+j "$OUT/import-ratings-dry.json" "'  dry run: ' + r.inserted + ' would be inserted, ' + r.invalid + ' invalid, ' + r.no_record + ' without record, ' + r.seconds + ' s'"
 [ "$(q 'select count(*) from public.catalog_rating_aggregates')" = 0 ] || { echo "  ERROR: the dry run wrote" >&2; exit 1; }
-"${IMP[@]}" --pilot --apply --remove-missing --out "$OUT/import-1.json" >/dev/null
-j "$OUT/import-1.json" "'  import: ' + r.inserted + ' inserted, finish ' + JSON.stringify(r.finish) + ', ' + r.seconds + ' s'"
+"${IMP[@]}" --pilot --apply --remove-missing --out "$OUT/import-ratings-1.json" >/dev/null
+j "$OUT/import-ratings-1.json" "'  import: ' + r.inserted + ' inserted, finish ' + JSON.stringify(r.finish) + ', ' + r.seconds + ' s'"
 
 echo "• 6. the same file again"
-"${IMP[@]}" --pilot --apply --remove-missing --out "$OUT/import-2.json" >/dev/null
-j "$OUT/import-2.json" "'  again: ' + r.inserted + ' inserted, ' + r.updated + ' updated, ' + r.unchanged + ' unchanged'"
+"${IMP[@]}" --pilot --apply --remove-missing --out "$OUT/import-ratings-2.json" >/dev/null
+j "$OUT/import-ratings-2.json" "'  again: ' + r.inserted + ' inserted, ' + r.updated + ' updated, ' + r.unchanged + ' unchanged'"
 
 q "select json_build_object('units', count(*), 'units_nv', count(*) filter (where vintage_year is null),
      'ratings', sum(rating_count), 'records_rated', count(distinct record_id),
      'distribution_adds_up', bool_and((select sum(x) from unnest(distribution) x) = rating_count),
-     'max_count', max(rating_count))
-   from public.catalog_rating_aggregates" > "$OUT/db-totals.json"
-cat "$OUT/db-totals.json"
+     'max_count', max(rating_count), 'postgres', '$PGV',
+     'size_after_two_runs', pg_size_pretty(pg_total_relation_size('public.catalog_rating_aggregates')))
+   from public.catalog_rating_aggregates" > "$OUT/ratings-db-totals.json"
+cat "$OUT/ratings-db-totals.json"
 
 echo "• 7. independent recomputation of sample units from the raw file"
 q "copy (select e.external_id, coalesce(a.vintage_year::text, 'N.V.'), a.rating_count, a.rating_sum_half,
             array_to_string(a.distribution, ' ')
        from public.catalog_rating_aggregates a join public.catalog_external_records e on e.id = a.record_id
-      order by md5(a.id::text) limit 400) to stdout with csv" > "$SCRATCH/sample.csv"
-python3 -I "$ROOT/scripts/catalog-tools/ratings-verify.py" "$RT" "$SCRATCH/sample.csv" | tee "$OUT/verify.txt"
+      order by md5(a.record_id::text || coalesce(a.vintage_year, 0)) limit 400) to stdout with csv" > "$SCRATCH/sample.csv"
+python3 -I "$ROOT/scripts/catalog-tools/ratings-verify.py" "$RT" "$SCRATCH/sample.csv" | tee "$OUT/ratings-verify.txt"
 
 echo "• 8. reading and sizes"
 q "do \$\$ declare t0 timestamptz; ms float8[] := '{}'; r uuid; begin
@@ -90,7 +91,9 @@ q "do \$\$ declare t0 timestamptz; ms float8[] := '{}'; r uuid; begin
        ms := ms || extract(epoch from clock_timestamp() - t0) * 1000; end loop;
      raise notice 'read p50 % ms, p95 % ms', round((select percentile_cont(0.5) within group (order by x) from unnest(ms) x)::numeric, 2),
                                             round((select percentile_cont(0.95) within group (order by x) from unnest(ms) x)::numeric, 2);
-   end \$\$" 2>&1 | sed 's/.*NOTICE: */  /' | tee "$OUT/read-latency.txt"
-q "select json_build_object('aggregates_total', pg_size_pretty(pg_total_relation_size('public.catalog_rating_aggregates')),
-     'aggregates_bytes', pg_total_relation_size('public.catalog_rating_aggregates'))" | tee "$OUT/sizes.json"
+   end \$\$" 2>&1 | sed 's/.*NOTICE: */  /' | tee "$OUT/ratings-read.txt"
+q "vacuum full public.catalog_rating_aggregates"
+q "select 'ratings size after vacuum (live): ' || pg_size_pretty(pg_total_relation_size('public.catalog_rating_aggregates'))" | tee -a "$OUT/ratings-read.txt"
+# what is kept is reduced fail-closed, as on staging: counts only, anything else deleted
+"${T[@]}" redact-results.ts --dir "$OUT"
 echo "• done"

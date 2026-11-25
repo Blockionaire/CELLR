@@ -9,7 +9,8 @@
  * - A rating is a half-star step from 0.5 to 5.0, stored as half stars (1..10); anything else is invalid.
  * - One rating per rater per unit: the latest (by date, then by the file's rating id). Repeated ratings are counted
  *   and dropped, never averaged in twice.
- * - No rater id leaves this module's caller: an aggregate holds counts, a sum, a distribution and two dates only.
+ * - No rater id leaves this module's caller: an aggregate holds counts, a sum, a distribution and two months only
+ *   (the payload drops the day).
  */
 
 /** The X-Wines ratings file's header (XWines_Full_21M_ratings.csv, verified against the real file 2026-11-25). */
@@ -154,6 +155,9 @@ export interface RatingUnitPayload {
   last: string;
 }
 
+/** YYYY-MM-DD → YYYY-MM-01: the database keeps months only, never the day of a rating. */
+export const monthOf = (day: string) => `${day.slice(0, 7)}-01`;
+
 export function unitPayload(
   wineId: string,
   vintage: number | null,
@@ -165,7 +169,7 @@ export function unitPayload(
     count: a.count,
     sum_half: a.sumHalf,
     distribution: a.distribution,
-    first: a.first,
-    last: a.last,
+    first: monthOf(a.first),
+    last: monthOf(a.last),
   };
 }
