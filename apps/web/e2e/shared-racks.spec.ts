@@ -16,6 +16,8 @@ import {
   bottleAt,
   chooseBottle,
   eventTypes,
+  focusInSheet,
+  focusKept,
   freeAt,
   open3D,
   openRack,
@@ -58,6 +60,7 @@ test("three households share one rack: invite, place, move, take out, open at ho
     await open3D(ann.page);
     await ann.page.getByTestId("shared-racks-entry").click();
     await expect(ann.page.getByTestId("shared-racks-none")).toBeVisible();
+    await focusInSheet(ann.page);
     await settled(ann.page.getByRole("dialog"));
     expect(await audit(ann.page), "the shared racks sheet").toEqual([]);
     await ann.page.getByTestId("shared-rack-new").click();
@@ -67,6 +70,7 @@ test("three households share one rack: invite, place, move, take out, open at ho
     expect(await audit(ann.page), "the new rack form").toEqual([]);
     await ann.page.getByTestId("shared-rack-create").click();
     await expect(ann.page.getByTestId("shared-rack-name")).toHaveText(rackName);
+    await focusKept(ann.page);
     // in the row of places, marked as shared in words (not by colour): its name, and how many are in it
     await expect(
       ann.page.getByRole("button", { name: `Shared rack ${rackName}, 1 member` }),
@@ -81,6 +85,7 @@ test("three households share one rack: invite, place, move, take out, open at ho
 
   await test.step("Ann invites Bob and Cy by friend code; takes one invitation back and sends it again", async () => {
     await ann.page.getByTestId("shared-rack-people-open").click();
+    await focusInSheet(ann.page);
     for (const person of [bob, cy]) {
       await ann.page.getByTestId("shared-rack-invite-q").fill(person.friendCode);
       await ann.page.getByRole("button", { name: "Find" }).click();
@@ -111,6 +116,8 @@ test("three households share one rack: invite, place, move, take out, open at ho
     await expect(ann.page.getByTestId("shared-rack-last-owner")).toBeVisible();
     await expect(ann.page.getByTestId("shared-rack-leave")).toHaveCount(0);
     await ann.page.keyboard.press("Escape");
+    // closed, the focus is back on what opened it
+    await expect(ann.page.getByTestId("shared-rack-people-open")).toBeFocused();
   });
 
   await test.step("Bob sees the invitation in his cellar and accepts; Cy reads hers in Dutch and declines", async () => {
@@ -119,12 +126,14 @@ test("three households share one rack: invite, place, move, take out, open at ho
     // before accepting: no rack in his row of places
     await expect(bob.page.getByTestId("shared-rack-chip")).toHaveCount(0);
     await bob.page.getByTestId("shared-rack-invitations-chip").click();
+    await focusInSheet(bob.page);
     await expect(bob.page.getByTestId("shared-rack-invitation")).toContainText(
       `Ann invites you to ${rackName}`,
     );
     await bob.page.getByTestId("shared-rack-accept").click();
     // after accepting, the rack is the place on screen, and in his row of places
     await expect(bob.page.getByTestId("shared-rack-name")).toHaveText(rackName);
+    await focusKept(bob.page);
     await expect(
       bob.page.getByRole("button", { name: `Shared rack ${rackName}, 2 members` }),
     ).toBeVisible();
@@ -136,6 +145,7 @@ test("three households share one rack: invite, place, move, take out, open at ho
     await cy.page.getByRole("radio", { name: "3D" }).click();
     await cy.page.getByTestId("shared-racks-entry").click();
     await expect(cy.page.getByRole("dialog", { name: "Gedeelde kasten" })).toBeVisible();
+    await focusInSheet(cy.page);
     await expect(cy.page.getByTestId("shared-rack-invitation")).toContainText(
       `Ann nodigt je uit voor ${rackName}`,
     );
@@ -155,6 +165,7 @@ test("three households share one rack: invite, place, move, take out, open at ho
       ann.page.getByText("They declined a little while ago. Try again later."),
     ).toBeVisible();
     await ann.page.keyboard.press("Escape");
+    await expect(ann.page.getByTestId("shared-rack-people-open")).toBeFocused();
   });
 
   await test.step("Ann and Bob each put a bottle of their own in; both see the same rack with the right owners", async () => {
@@ -170,11 +181,14 @@ test("three households share one rack: invite, place, move, take out, open at ho
     await bob.page.getByTestId("shared-rack-add").click();
     await freeAt(bob.page, "1:2").click();
     await expect(bob.page.getByTestId("shared-rack-candidate")).toHaveCount(2);
+    await focusInSheet(bob.page);
     await expect(bob.page.getByTestId("shared-rack-add-sheet")).not.toContainText("Ann Riesling");
     await settled(bob.page.getByRole("dialog"));
     expect(await audit(bob.page), "the add sheet").toEqual([]);
     await bob.page.getByTestId("shared-rack-candidate").first().click();
     await expect(bottleAt(bob.page, "1:2")).toBeVisible();
+    // the spot that opened the sheet is a bottle now: the focus is on that bottle
+    await expect(bottleAt(bob.page, "1:2")).toBeFocused();
     const first = await placements(rackId);
     annFirst = first.find((p) => p.owner_user_id === ann.userId)?.bottle_id;
     annSecond = annBoth.find((id) => id !== annFirst);
@@ -243,6 +257,7 @@ test("three households share one rack: invite, place, move, take out, open at ho
     await openRack(ann.page, rackName);
     await expect(bottleAt(ann.page, "2:3")).toHaveAccessibleName(/bottle of you/);
     await ann.page.getByTestId("shared-rack-activity-open").click();
+    await focusInSheet(ann.page);
     const events = ann.page.getByTestId("shared-rack-event");
     await expect(events.first()).toHaveText(
       /Bob moved Ann’s Domaine Test Ann Riesling 2019 from shelf 1, spot 1 to shelf 2, spot 3\./,
@@ -258,15 +273,18 @@ test("three households share one rack: invite, place, move, take out, open at ho
       /Bob joined/,
     ]);
     await ann.page.keyboard.press("Escape");
+    await expect(ann.page.getByTestId("shared-rack-activity-open")).toBeFocused();
     // the history of one bottle, from the bottle itself
     await chooseBottle(ann.page, "2:3");
     await ann.page.getByTestId("shared-rack-bottle-history").click();
+    await focusInSheet(ann.page);
     await expect(ann.page.getByTestId("shared-rack-activity-bottle")).toContainText("Ann Riesling");
     await expect(events).toHaveText([
       /Bob moved Ann’s/,
       /Ann put .*Ann Riesling.* on shelf 1, spot 1/,
     ]);
     await ann.page.keyboard.press("Escape");
+    await focusKept(ann.page);
   });
 
   await test.step("two browsers, one spot: one bottle gets it, the other person is told and sees the rack as it is", async () => {
@@ -294,6 +312,7 @@ test("three households share one rack: invite, place, move, take out, open at ho
   await test.step("Bob takes Ann's bottle out: said honestly, recorded, and it is still Ann's, unopened, at home", async () => {
     await chooseBottle(bob.page, "2:3");
     await bob.page.getByTestId("shared-rack-chosen").getByTestId("shared-rack-takeout").click();
+    await focusInSheet(bob.page);
     const sheet = bob.page.getByTestId("shared-rack-takeout-sheet");
     await expect(sheet).toContainText("Taking it out is not drinking it");
     await expect(sheet).toContainText(
@@ -306,6 +325,8 @@ test("three households share one rack: invite, place, move, take out, open at ho
       bob.page.getByText(/Recorded: you took .*Ann Riesling 2019 out\. It is still Ann’s bottle/),
     ).toBeVisible();
     await expect(bottleAt(bob.page, "2:3")).toHaveCount(0);
+    // the bottle that opened the sheet is gone: the focus is not lost with it
+    await focusKept(bob.page);
     expect(
       await sql(
         "select status, household_id, location_id, opened_at from public.bottles where id = $1",
@@ -388,6 +409,8 @@ test("three households share one rack: invite, place, move, take out, open at ho
       bob.page.getByText("You are no longer a member of this rack. Nothing was changed."),
     ).toBeVisible();
     await expect(bob.page.getByTestId("shared-rack-no-access")).toBeVisible();
+    // the control he used went with the rack: the focus is on what is said instead
+    await expect(bob.page.getByTestId("shared-rack-no-access")).toBeFocused();
     // nothing of the rack is left on his screen
     await expect(stage(bob.page)).toHaveCount(0);
     expect(await placements(rackId)).toEqual(before);
@@ -451,6 +474,7 @@ test("three households share one rack: invite, place, move, take out, open at ho
   await test.step("Ann archives the rack, with what that means said first", async () => {
     await ann.page.getByTestId("shared-rack-settings-open").click();
     await expect(ann.page.getByTestId("shared-rack-rename")).toBeVisible();
+    await focusInSheet(ann.page);
     await ann.page.getByTestId("shared-rack-rename").fill(`${rackName} (old)`);
     await ann.page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(ann.page.getByTestId("shared-rack-name")).toHaveText(`${rackName} (old)`);
@@ -463,6 +487,7 @@ test("three households share one rack: invite, place, move, take out, open at ho
     await ann.page.getByTestId("shared-rack-confirm-yes").click();
     await expect(ann.page.getByTestId("shared-rack-restore")).toBeVisible();
     await ann.page.keyboard.press("Escape");
+    await expect(ann.page.getByTestId("shared-rack-settings-open")).toBeFocused();
     await expect(ann.page.getByTestId("shared-rack-archived")).toBeVisible();
     await expect(ann.page.getByTestId("shared-rack-add")).toHaveCount(0);
   });
@@ -719,10 +744,13 @@ test("my own cellar: a bottle that stands in a shared rack is said so where it i
     await expect(ask).toContainText(
       "Ann Riesling 2019 stands in the shared rack Club rack, on shelf 2, spot 3. Giving it a place here takes it out of the shared rack",
     );
+    await focusInSheet(ann.page);
     await settled(ann.page.getByRole("dialog").filter({ has: ask }));
     expect(await audit(ann.page), "the question").toEqual([]);
     await ann.page.getByTestId("shared-place-confirm-no").click();
     await expect(ask).toHaveCount(0);
+    // the question is gone, and the focus is back on the bottle that was chosen
+    await expect(sheet.getByRole("button", { name: /Ann Riesling/ })).toBeFocused();
     expect(await placements(rack)).toHaveLength(1);
     expect(await where()).toEqual([{ location_id: null, status: "in_cellar" }]);
     await ann.page.keyboard.press("Escape");

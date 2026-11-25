@@ -1,6 +1,15 @@
 import { expect as baseExpect, test, type Page } from "@playwright/test";
 import { PREVIEW_URL, sql } from "./helpers";
-import { arriveAs, bottleAt, openRack, placements, stage, RACK_LAYOUT } from "./shared-racks-ui";
+import {
+  arriveAs,
+  bottleAt,
+  focusInSheet,
+  focusKept,
+  openRack,
+  placements,
+  stage,
+  RACK_LAYOUT,
+} from "./shared-racks-ui";
 
 /**
  * A shared rack DRAWN IN 3D by the cellar's own storage view (ADR-010): bottles by placement id with their owner in
@@ -116,6 +125,9 @@ test("a shared rack in 3D: whose bottle it is, adding my own on a tapped spot, m
   await bob.page.getByTestId("shared-rack-add").click();
   await expect(stage(bob.page)).toHaveAttribute("data-mode", "add");
   await tapSpot(bob.page, 1, 1, touch);
+  // the sheet of his bottles has the focus; once it is done the focus is still on the rack's screen
+  await expect(bob.page.getByTestId("shared-rack-candidate").first()).toBeVisible();
+  await focusInSheet(bob.page);
   await bob.page.getByTestId("shared-rack-candidate").first().click();
   await expect(
     bob.page.getByText(
@@ -123,6 +135,7 @@ test("a shared rack in 3D: whose bottle it is, adding my own on a tapped spot, m
     ),
   ).toBeVisible();
   await expect(stage(bob.page)).toHaveAttribute("data-bottles", "2");
+  await focusKept(bob.page);
   expect((await placements(rack)).map((p) => [p.owner_user_id, p.loc_row, p.loc_col])).toEqual([
     [bob.userId, 1, 1],
     [ann.userId, 2, 3],

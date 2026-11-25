@@ -163,3 +163,24 @@ export const eventTypes = (rackId: string) =>
     "select event_type, actor_id, owner_id from private.shared_rack_events where rack_id = $1 order by seq",
     [rackId],
   );
+
+/** The focus is inside the sheet that is open (a native modal dialog): opening a sheet moved it there. */
+export const focusInSheet = (page: Page) =>
+  expect
+    .poll(() => page.evaluate(() => document.activeElement?.closest("dialog[open]") != null), {
+      message: "the focus is in the open sheet",
+    })
+    .toBe(true);
+
+/** The focus is on something of the screen: not lost to the page itself (after a sheet closed, or a screen changed). */
+export const focusKept = (page: Page) =>
+  expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const now = document.activeElement;
+          return now !== null && now !== document.body && now.isConnected;
+        }),
+      { message: "the focus is not lost to the page" },
+    )
+    .toBe(true);
