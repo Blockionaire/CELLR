@@ -635,4 +635,18 @@ describe("only when V1 has no model answer", () => {
     expect(planned).not.toHaveProperty("check");
     expect(down.state.modelCalls).toBe(1);
   });
+
+  it("with `annotate` and `quantities` on as well: the engines' cards carry the app's facts and the bottles are counted", async () => {
+    const down = world({ model: "unavailable", parts: "fallback,annotate,quantities" });
+    const answer = await down.ask("Raw oysters for 6 people tonight. What should I open?");
+    expect(answer.reason).toBe("ai-down");
+    expect(answer.plan?.outcome).toBe("good");
+    expect(answer.bottles.length).toBeGreaterThan(0);
+    expect(answer.annotations?.map((a) => a.vintageId)).toEqual(
+      answer.bottles.map((b) => b.vintageId),
+    );
+    expect(answer.quantity).toMatchObject({ guests: 6, mode: "alternatives" });
+    expect(answer).not.toHaveProperty("servingCheck");
+    expect(down.state.modelCalls).toBe(1);
+  });
 });

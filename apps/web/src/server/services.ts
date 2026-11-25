@@ -203,6 +203,8 @@ export function servicesFor(ctx: RequestContext) {
     taste: () => taste.profile(),
     llm: getLlmProvider(),
     parts: sommelierParts,
+    // The `annotate` part: the household's own wine profiles, for the few wines an answer shows (read as the person).
+    profiles: async (vintageIds) => tasteRepo.listInsights((await household()).id, [...vintageIds]),
     spend: () => limiter.enforce(LIMITS.chat),
     householdId: async () => (await household()).id,
     locale: async () => (await households.me()).locale,

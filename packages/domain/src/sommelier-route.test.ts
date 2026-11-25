@@ -26,6 +26,40 @@ describe("what a question's wording asks for", () => {
     ])
       expect(askedFor(q)).toBeNull();
   });
+  it("an amount that is needed is a quantity question; an amount that is owned is not", () => {
+    for (const q of [
+      "How many bottles do I need for 12 people?",
+      "How much wine will we need for a dinner of eight?",
+      "Hoeveel wijn heb ik nodig voor 8 gasten?",
+      "Do I have enough of the Rioja for six?",
+      "Heb ik voldoende flessen voor zaterdag?",
+      "Kom ik uit met de Barolo voor 10 man?",
+    ])
+      expect(askedFor(q), q).toBe("quantity");
+    for (const q of [
+      "How many bottles do I have?",
+      "How many bottles of Barolo are left?",
+      "Hoeveel flessen heb ik nog?",
+      "Hoeveel wijn ligt er in de kelder?",
+      // "need" far beyond the amount is not about it.
+      `How many bottles ${"of the old Barolo from my father ".repeat(3)}do I need?`,
+    ])
+      expect(askedFor(q), q).toBeNull();
+  });
+  it("a bottle that is already open is not a question about its drinking window", () => {
+    for (const q of [
+      "How long can I keep an opened bottle of Barolo?",
+      "How long does it keep once open?",
+      "Hoe lang kan ik een geopende fles nog bewaren?",
+      "Hoe lang kan ik een aangebroken fles bewaren?",
+      "Hoe lang kan ik hem na het openen nog bewaren?",
+    ])
+      expect(askedFor(q), q).toBeNull();
+    expect(askedFor("How long can I keep the Barolo?")).toBe("keeping");
+    expect(askedFor("Hoe lang kan ik de Barolo nog bewaren?")).toBe("keeping");
+    // Opening is not the same as being open: a serving question stays one.
+    expect(askedFor("How long before opening should I decant it?")).toBe("serving");
+  });
   it("sees a choice between two", () => {
     expect(offersChoice("Rioja of Chianti bij de pizza?")).toBe(true);
     expect(offersChoice("Barolo or Pauillac with the lamb?")).toBe(true);
