@@ -45,7 +45,10 @@ function repo(over: Partial<RatingsRepository> = {}): RatingsRepository {
     wineCommunity: async () => community,
     recordExternal: async () => external,
     recordCommunity: async () => community,
-    publish: async () => ({ status: "published", reviewId: "r1" }),
+    publish: async () => ({
+      status: "published",
+      reviewId: "00000000-0000-4000-8000-0000000000aa",
+    }),
     remove: async () => "deleted",
     report: async () => "reported",
     mine: async () => null,
@@ -115,7 +118,7 @@ describe("ratings service", () => {
   it("publishing maps the database's answers", async () => {
     await expect(svc(repo()).publish("t", { body: null, consent: true })).resolves.toEqual({
       status: "published",
-      reviewId: "r1",
+      reviewId: "00000000-0000-4000-8000-0000000000aa",
     });
     await expect(
       svc(repo({ publish: async () => ({ status: "not_yours" }) })).publish("t", {
@@ -129,12 +132,19 @@ describe("ratings service", () => {
         consent: true,
       }),
     ).rejects.toMatchObject({ code: "RATE_LIMITED" });
+    for (const status of ["no_identity", "no_score", "moderated"])
+      await expect(
+        svc(repo({ publish: async () => ({ status }) })).publish("t", {
+          body: null,
+          consent: true,
+        }),
+      ).rejects.toMatchObject({ code: "CONFLICT" });
     await expect(
-      svc(repo({ publish: async () => ({ status: "no_identity" }) })).publish("t", {
+      svc(repo({ publish: async () => ({ status: "anything" }) })).publish("t", {
         body: null,
         consent: true,
       }),
-    ).resolves.toEqual({ status: "no_identity" });
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
   it("delete and report", async () => {
     await expect(svc(repo()).remove("r")).resolves.toEqual({ deleted: true });

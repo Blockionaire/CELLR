@@ -189,12 +189,33 @@ export const ReportReviewSchema = z.object({
   detail: z.string().max(300).optional(),
 });
 
-export type PublishStatus =
-  | "published"
-  | "updated"
-  | "not_yours"
-  | "no_score"
-  | "no_identity"
-  | "no_consent"
-  | "rate_limited"
-  | "invalid_text";
+export const PUBLISH_STATUSES = [
+  "published",
+  "updated",
+  "not_yours",
+  "no_score",
+  "no_identity",
+  "no_consent",
+  "rate_limited",
+  "invalid_text",
+  "moderated",
+] as const;
+export type PublishStatus = (typeof PUBLISH_STATUSES)[number];
+
+/** publish_community_review's answer, checked. */
+export const PublishResultSchema = z.object({
+  status: z.enum(PUBLISH_STATUSES),
+  reviewId: z.string().uuid().optional(),
+});
+
+/** my_community_review: the reader's own review of one tasting. */
+export const MyReviewSchema = z
+  .object({
+    id: z.string().uuid(),
+    status: z.enum(["published", "hidden", "removed"]),
+    body: z.string().max(REVIEW_BODY_MAX).nullable(),
+    score: z.number().min(1).max(10),
+    publishedAt: z.string(),
+  })
+  .nullable();
+export type MyReview = z.infer<typeof MyReviewSchema>;

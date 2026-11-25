@@ -3,12 +3,14 @@ import {
   CommunityRowSchema,
   DomainError,
   ExternalRatingsRowSchema,
+  MyReviewSchema,
+  PublishResultSchema,
   mergeWineRatings,
   NO_RATINGS,
   type CommunityRow,
   type ExternalRatingsRow,
   type PublishReview,
-  type PublishStatus,
+  type MyReview,
   type ReportReason,
   type WineRatingsData,
 } from "@cellr/domain";
@@ -124,21 +126,39 @@ export function createRatingsService({ repo, householdId, features }: RatingsDep
     async publish(
       tastingId: string,
       input: PublishReview,
-    ): Promise<{ status: PublishStatus; reviewId?: string }> {
+    ): Promise<{ status: "published" | "updated"; reviewId: string }> {
       offCommunity();
-      const raw = (await repo.publish(tastingId, input.body)) as {
-        status?: PublishStatus;
-        reviewId?: string;
-      } | null;
-      if (!raw?.status) throw new DomainError("NOT_FOUND");
-      if (raw.status === "not_yours") throw new DomainError("NOT_FOUND");
-      if (raw.status === "rate_limited") throw new DomainError("RATE_LIMITED");
-      if (raw.status === "invalid_text" || raw.status === "no_consent")
-        throw new DomainError(
-          "VALIDATION",
-          "Links are not allowed, and a review is at most 1500 characters.",
-        );
-      return raw.reviewId ? { status: raw.status, reviewId: raw.reviewId } : { status: raw.status };
+      const parsed = PublishResultSchema.safeParse(await repo.publish(tastingId, input.body));
+      if (!parsed.success) throw new DomainError("NOT_FOUND");
+      const { status, reviewId } = parsed.data;
+      switch (status) {
+        case "published":
+        case "updated":
+          if (!reviewId) throw new DomainError("NOT_FOUND");
+          return { status, reviewId };
+        case "rate_limited":
+          throw new DomainError("RATE_LIMITED");
+        case "invalid_text":
+        case "no_consent":
+          throw new DomainError(
+            "VALIDATION",
+            "Links are not allowed, and a review is at most 1500 characters.",
+          );
+        case "no_score":
+          throw new DomainError("CONFLICT", "Give it stars first, then share it.");
+        case "no_identity":
+          throw new DomainError(
+            "CONFLICT",
+            "This wine can't be reviewed publicly yet: CELLR doesn't know it as a catalogue wine.",
+          );
+        case "moderated":
+          throw new DomainError(
+            "CONFLICT",
+            "A moderator has looked at your review of this wine, so it can't be changed.",
+          );
+        default:
+          throw new DomainError("NOT_FOUND");
+      }
     },
     async remove(reviewId: string): Promise<{ deleted: boolean }> {
       offCommunity();
@@ -157,9 +177,10 @@ export function createRatingsService({ repo, householdId, features }: RatingsDep
       if (r !== "reported" && r !== "already_reported") throw new DomainError("NOT_FOUND");
       return { reported: true };
     },
-    async mine(tastingId: string): Promise<{ review: unknown }> {
+    async mine(tastingId: string): Promise<{ review: MyReview }> {
       offCommunity();
-      return { review: (await repo.mine(tastingId)) ?? null };
+      const p = MyReviewSchema.safeParse((await repo.mine(tastingId)) ?? null);
+      return { review: p.success ? p.data : null };
     },
   };
 }

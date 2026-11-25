@@ -21,7 +21,9 @@
 
 create table public.community_reviews (
   id                uuid primary key default gen_random_uuid(),
-  tasting_id        uuid not null unique references public.tastings on delete cascade,
+  -- the tasting it was published from; null only for a moderated review whose tasting is gone or moved on (the
+  -- review is kept as a tombstone so moderation can never be undone by deleting and publishing again)
+  tasting_id        uuid unique references public.tastings on delete set null,
   user_id           uuid not null references public.profiles on delete cascade,
   -- the subject: exactly one of a canonical wine or a provider record
   subject_wine_id   uuid references public.wines on delete cascade,
@@ -30,7 +32,8 @@ create table public.community_reviews (
   vintage_year      smallint check (vintage_year between 1800 and 2100),
   score             numeric(3,1) not null check (score between 1 and 10 and (score * 5) = trunc(score * 5)),
   body              text check (body is null or char_length(btrim(body)) between 1 and 1500),
-  tasted_on         date not null,
+  -- the month it was tasted (always the 1st): never the exact day next to a display name
+  tasted_on         date not null check (extract(day from tasted_on) = 1),
   status            text not null default 'published' check (status in ('published', 'hidden', 'removed')),
   -- why it is hidden or removed: 'reports' (automatic) or a moderator's reason
   status_reason     text check (char_length(status_reason) <= 300),
@@ -39,6 +42,7 @@ create table public.community_reviews (
   published_at      timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
   constraint community_reviews_one_subject check (num_nonnulls(subject_wine_id, subject_record_id) = 1),
+  constraint community_reviews_published_has_tasting check (status <> 'published' or tasting_id is not null),
   constraint community_reviews_no_links check (body is null or body !~* '(https?://|www\.)')
 );
 create unique index community_reviews_one_per_person_uq
@@ -105,11 +109,12 @@ revoke all on function private.review_subject_of_wine(uuid, uuid) from public, a
 
 -- ---- 2. Publishing (the author, opt-in) -------------------------------------------------------------------------
 -- 'published' · 'updated' · 'not_yours' (not the caller's own tasting) · 'no_score' (a review needs a score) ·
--- 'no_identity' (the wine has no catalogue identity) · 'no_consent' · 'rate_limited' · 'invalid_text'.
+-- 'no_identity' (the wine has no catalogue identity) · 'no_consent' · 'rate_limited' · 'invalid_text' ·
+-- 'moderated' (a moderator hid or removed this person's review of this wine and vintage: it stays so).
 create function public.publish_community_review(p_tasting_id uuid, p_body text, p_consent boolean)
   returns jsonb
   language plpgsql security definer set search_path = '' as $$
-declare t record; subj record; b text; rid uuid; existing uuid;
+declare t record; subj record; b text; rid uuid; ex public.community_reviews; m date;
 begin
   if auth.uid() is null then return jsonb_build_object('status', 'not_yours'); end if;
   if p_consent is not true then return jsonb_build_object('status', 'no_consent'); end if;
@@ -124,62 +129,106 @@ begin
   if subj.subject_wine_id is null and subj.subject_record_id is null then
     return jsonb_build_object('status', 'no_identity');
   end if;
-  b := nullif(btrim(regexp_replace(coalesce(p_body, ''), '[[:cntrl:]]+', ' ', 'g')), '');
-  if b is not null and (char_length(b) > 1500
-                        or b ~* '(https?://|www\.)') then
+  -- control characters out, line breaks kept (at most one empty line in a row)
+  b := regexp_replace(coalesce(p_body, ''), '[\x01-\x09\x0b-\x1f\x7f]+', ' ', 'g');
+  b := nullif(btrim(regexp_replace(b, '\n{3,}', E'\n\n', 'g')), '');
+  if b is not null and (char_length(b) > 1500 or b ~* '(https?://|www\.)') then
     return jsonb_build_object('status', 'invalid_text');
   end if;
+  -- also serialises two publishes of the same person (the advisory lock in consume_rate_limit), so the lookup
+  -- below and the insert cannot race into two reviews
   if not private.consume_rate_limit(auth.uid(), 'community_review_publish', 20, interval '1 hour') then
     return jsonb_build_object('status', 'rate_limited');
   end if;
+  m := date_trunc('month', t.tasted_at at time zone 'UTC')::date;
 
-  -- one review per person, subject and vintage: an existing one (from this or another tasting) is updated
-  select r.id into existing from public.community_reviews r
-   where r.user_id = auth.uid()
-     and coalesce(r.subject_wine_id, r.subject_record_id) = coalesce(subj.subject_wine_id, subj.subject_record_id)
-     and r.vintage_year is not distinct from t.year
+  -- one review per person, subject and vintage, also across a record and the canonical wine it is verified as
+  select r.* into ex from public.community_reviews r
+   where r.user_id = auth.uid() and r.vintage_year is not distinct from t.year
+     and (coalesce(r.subject_wine_id, r.subject_record_id) = coalesce(subj.subject_wine_id, subj.subject_record_id)
+          or (subj.subject_wine_id is not null
+              and r.subject_record_id in (select l.record_id from public.catalog_record_links l
+                                           where l.wine_id = subj.subject_wine_id and l.state = 'verified')))
+   order by (r.status <> 'published') desc, r.updated_at desc
+   limit 1
    for update;
-  if existing is null then
-    -- a review of this tasting about another subject (the wine's identity changed since) is replaced
-    delete from public.community_reviews where tasting_id = t.id;
+  -- a moderated review stays as the moderator left it: not revived, not rewritten
+  if ex.id is not null and ex.status <> 'published' then
+    return jsonb_build_object('status', 'moderated');
+  end if;
+  -- a second published review of the same wine and vintage (made before a record was verified as that wine)
+  -- gives way to this one
+  delete from public.community_reviews r
+   where r.user_id = auth.uid() and r.vintage_year is not distinct from t.year and r.status = 'published'
+     and r.id is distinct from ex.id
+     and (coalesce(r.subject_wine_id, r.subject_record_id) = coalesce(subj.subject_wine_id, subj.subject_record_id)
+          or (subj.subject_wine_id is not null
+              and r.subject_record_id in (select l.record_id from public.catalog_record_links l
+                                           where l.wine_id = subj.subject_wine_id and l.state = 'verified')));
+  -- this tasting's review about another subject (the wine's identity changed since) gives way
+  perform private.community_review_release_tasting(t.id, ex.id);
+  if ex.id is null then
     insert into public.community_reviews (tasting_id, user_id, subject_wine_id, subject_record_id, vintage_year,
                                           score, body, tasted_on)
-    values (t.id, auth.uid(), subj.subject_wine_id, subj.subject_record_id, t.year, t.score, b,
-            (t.tasted_at at time zone 'UTC')::date)
+    values (t.id, auth.uid(), subj.subject_wine_id, subj.subject_record_id, t.year, t.score, b, m)
     returning id into rid;
     return jsonb_build_object('status', 'published', 'reviewId', rid);
   end if;
-  delete from public.community_reviews where tasting_id = t.id and id <> existing;
   update public.community_reviews
-     set tasting_id = t.id, score = t.score, body = b, tasted_on = (t.tasted_at at time zone 'UTC')::date,
-         updated_at = now()
-   where id = existing;
-  return jsonb_build_object('status', 'updated', 'reviewId', existing);
+     set tasting_id = t.id, subject_wine_id = subj.subject_wine_id, subject_record_id = subj.subject_record_id,
+         score = t.score, body = b, tasted_on = m, updated_at = now()
+   where id = ex.id;
+  return jsonb_build_object('status', 'updated', 'reviewId', ex.id);
 end $$;
 
--- The author removes their review (the tasting stays). 'deleted' · 'not_found'.
+-- A tasting's review gives way (except p_keep): a published one is deleted, a moderated one is detached from the
+-- tasting and kept, so the moderation stands.
+create function private.community_review_release_tasting(p_tasting uuid, p_keep uuid) returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  delete from public.community_reviews
+   where tasting_id = p_tasting and status = 'published' and id is distinct from p_keep;
+  update public.community_reviews set tasting_id = null, updated_at = now()
+   where tasting_id = p_tasting and status <> 'published' and id is distinct from p_keep;
+end $$;
+revoke all on function private.community_review_release_tasting(uuid, uuid) from public, anon, authenticated, service_role;
+
+-- The author removes their review (the tasting stays). 'deleted' · 'not_found'. A moderated review is not deleted
+-- by its author (that would let a new one replace it); its text is cleared instead.
 create function public.delete_community_review(p_review_id uuid) returns text
   language plpgsql security definer set search_path = '' as $$
 begin
-  delete from public.community_reviews where id = p_review_id and user_id = auth.uid();
+  delete from public.community_reviews where id = p_review_id and user_id = auth.uid() and status = 'published';
+  if found then return 'deleted'; end if;
+  update public.community_reviews set body = null, tasting_id = null, updated_at = now()
+   where id = p_review_id and user_id = auth.uid() and status <> 'published';
   return case when found then 'deleted' else 'not_found' end;
 end $$;
 
--- The review follows its tasting: score and date carried over; no score any more = no review.
+-- The review follows its tasting: score and month carried over. No score any more, or the tasting moved to another
+-- vintage or wine (merge_wines): the review gives way (a moderated one is kept detached).
 create function private.community_review_follow_tasting() returns trigger
   language plpgsql security definer set search_path = '' as $$
 begin
-  if new.score is null then
-    delete from public.community_reviews where tasting_id = new.id;
+  if tg_op = 'DELETE' then
+    perform private.community_review_release_tasting(old.id, null);
+    return old;
+  end if;
+  if new.score is null or new.vintage_id is distinct from old.vintage_id then
+    perform private.community_review_release_tasting(new.id, null);
   else
     update public.community_reviews
-       set score = new.score, tasted_on = (new.tasted_at at time zone 'UTC')::date, updated_at = now()
-     where tasting_id = new.id and (score <> new.score or tasted_on <> (new.tasted_at at time zone 'UTC')::date);
+       set score = new.score, tasted_on = date_trunc('month', new.tasted_at at time zone 'UTC')::date,
+           updated_at = now()
+     where tasting_id = new.id and status = 'published'
+       and (score <> new.score or tasted_on <> date_trunc('month', new.tasted_at at time zone 'UTC')::date);
   end if;
   return null;
 end $$;
 revoke all on function private.community_review_follow_tasting() from public, anon, authenticated;
-create trigger tastings_community_review after update of score, tasted_at on public.tastings
+create trigger tastings_community_review after update of score, tasted_at, vintage_id on public.tastings
+  for each row execute function private.community_review_follow_tasting();
+create trigger tastings_community_review_delete before delete on public.tastings
   for each row execute function private.community_review_follow_tasting();
 
 -- ---- 3. Reports and moderation ----------------------------------------------------------------------------------
@@ -205,10 +254,18 @@ begin
   end if;
   insert into public.community_review_reports (review_id, reporter_id, reason, detail)
   values (p_review_id, auth.uid(), p_reason, left(nullif(btrim(p_detail), ''), 300));
-  select count(*) into n from public.community_review_reports where review_id = p_review_id and resolved_at is null;
+  -- only reports of people who use CELLR count towards hiding (a household and a tasting of their own): three
+  -- throwaway accounts cannot hide a review; and a review a moderator restored is never hidden again by reports
+  -- alone (it goes to the queue). Residual risk, accepted and documented: DESIGN.md §3.
+  select count(*) into n
+    from public.community_review_reports rp
+   where rp.review_id = p_review_id and rp.resolved_at is null
+     and exists (select 1 from public.household_members hm where hm.user_id = rp.reporter_id)
+     and exists (select 1 from public.tastings tg where tg.user_id = rp.reporter_id);
   if n >= 3 then
     update public.community_reviews set status = 'hidden', status_reason = 'reports', updated_at = now()
-     where id = p_review_id and status = 'published';
+     where id = p_review_id and status = 'published' and moderated_at is null;
+    if not found then return 'reported'; end if;
     insert into public.community_review_moderation_log (review_id, action, reason, actor)
     values (p_review_id, 'auto_hide', n || ' open reports', 'system');
   end if;
@@ -227,6 +284,9 @@ begin
     raise exception 'a reason and an actor are required' using errcode = '22023';
   end if;
   st := case p_action when 'hide' then 'hidden' when 'remove' then 'removed' else 'published' end;
+  if st = 'published' and exists (select 1 from public.community_reviews where id = p_review_id and tasting_id is null) then
+    raise exception 'this review''s tasting is gone or changed: it cannot be published again' using errcode = '22023';
+  end if;
   update public.community_reviews
      set status = st, status_reason = case when st = 'published' then null else left(btrim(p_reason), 300) end,
          moderated_by = p_moderator, moderated_at = now(), updated_at = now()
@@ -243,13 +303,15 @@ end $$;
 -- The moderation queue: reviews with open reports, hidden ones first.
 create function public.admin_community_review_queue(p_limit int default 50) returns jsonb
   language sql stable security definer set search_path = '' as $$
-  select coalesce(jsonb_agg(q order by q->>'status' desc, (q->>'openReports')::int desc), '[]'::jsonb) from (
+  select coalesce(jsonb_agg(s.q order by s.hidden desc, s.n desc, s.at), '[]'::jsonb) from (
     select jsonb_build_object('reviewId', r.id, 'status', r.status, 'score', r.score, 'body', r.body,
              'vintage', r.vintage_year, 'publishedAt', r.published_at,
-             'openReports', count(rp.id), 'reasons', jsonb_agg(distinct rp.reason)) as q
+             'openReports', count(rp.id), 'reasons', jsonb_agg(distinct rp.reason)) as q,
+           r.status = 'hidden' as hidden, count(rp.id) as n, min(rp.created_at) as at
       from public.community_reviews r
       join public.community_review_reports rp on rp.review_id = r.id and rp.resolved_at is null
      group by r.id
+     order by (r.status = 'hidden') desc, count(rp.id) desc, min(rp.created_at)
      limit least(greatest(coalesce(p_limit, 50), 1), 200)) s
 $$;
 
@@ -257,14 +319,27 @@ $$;
 -- The published reviews of one subject (a canonical wine also gathers the reviews of records verified as it), per
 -- vintage: counts and the distribution for the CELLR score, and the newest reviews with text first.
 create function private.community_reviews_impl(p_wine uuid, p_record uuid, p_viewer uuid, p_limit int) returns jsonb
-  language sql stable security definer set search_path = '' as $$
-  with subj as (
-    select r.* from public.community_reviews r
-     where r.status = 'published'
-       and ((p_wine is not null and (r.subject_wine_id = p_wine
-                                     or r.subject_record_id in (select l.record_id from public.catalog_record_links l
-                                                                 where l.wine_id = p_wine and l.state = 'verified')))
-            or (p_record is not null and r.subject_record_id = p_record))
+  language plpgsql stable security definer set search_path = '' as $$
+declare recs uuid[]; out jsonb;
+begin
+  if p_wine is not null then
+    select coalesce(array_agg(l.record_id), '{}') into recs from public.catalog_record_links l
+     where l.wine_id = p_wine and l.state = 'verified';
+  else
+    recs := array[p_record];
+  end if;
+  with found as (
+    -- each branch through its own partial index
+    (select r.* from public.community_reviews r
+      where p_wine is not null and r.subject_wine_id = p_wine and r.status = 'published')
+    union all
+    (select r.* from public.community_reviews r
+      where r.subject_record_id = any (recs) and r.status = 'published')
+  ),
+  -- one per person and vintage, also when someone reviewed a record and the canonical wine it is verified as
+  subj as (
+    select distinct on (f.user_id, f.vintage_year) f.* from found f
+     order by f.user_id, f.vintage_year, f.updated_at desc
   )
   select jsonb_build_object(
     'vintages', coalesce((select jsonb_agg(jsonb_build_object('year', v.vintage_year, 'count', v.n,
@@ -283,7 +358,9 @@ create function private.community_reviews_impl(p_wine uuid, p_record uuid, p_vie
                                    from subj s join public.profiles p on p.id = s.user_id
                                   order by (s.body is not null) desc, s.published_at desc
                                   limit least(greatest(coalesce(p_limit, 20), 1), 100)) x), '[]'::jsonb))
-$$;
+    into out;
+  return out;
+end $$;
 revoke all on function private.community_reviews_impl(uuid, uuid, uuid, int) from public, anon, authenticated, service_role;
 
 -- A household wine's community reviews, for a member of that household (its subject, as when publishing).

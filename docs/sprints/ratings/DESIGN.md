@@ -111,6 +111,28 @@ stars = score / 2):
   - a hidden or removed review counts for nothing.
 - **Profile:** the display name and avatar of `profiles`, never the household or the email.
 
+**After the independent review of PR 2:**
+
+- **Moderation cannot be undone by the author.** A hidden or removed review is never deleted by its author. The
+  author's delete clears its text and detaches it from the tasting, and it stays as a tombstone. Publishing again
+  (from the same or another tasting, or after clearing and restoring the score) answers `moderated`.
+- **One per person across a record and its canonical wine.** Reads keep one review per person and vintage. A new
+  publication replaces the person's other published review of the same wine and vintage.
+- **Reports count only from people who use CELLR** (a household and a tasting of their own). A review a moderator
+  restored is not hidden again by reports alone: it goes to the moderation queue, hidden reviews first.
+- **Months, not days:** a review shows the month it was tasted.
+- **A tasting that moves** to another vintage or wine (`merge_wines`) takes its published review down.
+
+**Accepted risks (owner to confirm before activation):**
+
+- **Few-account influence on thinly rated wines.** Weight 5 means one review is most of the score of a wine with
+  three external ratings. Ten accounts with households and tastings outweigh any external set. Mitigations in place:
+  one review per person, publish and report rate limits, moderation. Further options if needed: a minimum account
+  age, or counting CELLR reviews only from the second one per wine.
+- **Coordinated real accounts** can still hide a review until a moderator restores it. After a restore they cannot
+  hide it again.
+- **The link filter** stops `http(s)://` and `www.` only.
+
 ## 4. The weighted CELLR score (PR 2)
 
 `packages/domain/src/rating-score.ts`, pure and tested.

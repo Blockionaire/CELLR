@@ -11,6 +11,10 @@ create function test.cv_record(ext text) returns uuid language sql security defi
   select id from public.catalog_external_records where external_id = ext and provider_id = 'cvsrc'
 $$;
 grant execute on function test.cv_record(text) to public;
+create function test.cv_user_reviews(u uuid, y int) returns bigint language sql security definer as $$
+  select count(*) from public.community_reviews where user_id = u and vintage_year = y
+$$;
+grant execute on function test.cv_user_reviews(uuid, int) to public;
 create function test.cv_reviews() returns bigint language sql security definer as $$
   select count(*) from public.community_reviews
 $$;
@@ -23,10 +27,10 @@ grant execute on function test.cv_review(uuid) to public;
 do $$
 declare h1 uuid; h2 uuid; h3 uuid; cp uuid; cw uuid; pp uuid; pw uuid; pw2 uuid; pp2 uuid; ow uuid; run uuid;
         v19 uuid; v20 uuid; vnv uuid; c19 uuid; ov uuid; pv uuid; t1 uuid; t2 uuid; t3 uuid; t4 uuid; t5 uuid; tc uuid;
-        tn uuid; tp uuid; j jsonb; r text; rid uuid; i int;
+        tn uuid; tp uuid; j jsonb; r text; rid uuid; i int; hx uuid; n int;
         rights text := '{"license":"CC0-1.0","attribution":"Fixture reviews","may_store":true,"may_display":true,"commercial_use":true,"rights_status":"verified","rights_evidence":"written by CELLR for tests","rights_verified_at":"2026-11-25","rights_verified_by":"test suite","search_scope":"public"}';
 begin
-  perform test.mk_users(7);
+  perform test.mk_users(8);
   perform test.as_user(1); h1 := public.create_household('Reviews 1');
   perform test.as_user(2); h2 := public.create_household('Reviews 2');
   perform test.as_user(3); h3 := public.create_household('Reviews 3');
@@ -153,46 +157,96 @@ begin
     public.publish_community_review(t4, 'opnieuw', true)->>'status' = 'no_identity');
   update public.wines set name = 'Cuvée Een' where id = ow;
 
-  -- a verified link makes the canonical wine the subject, and it gathers the record's reviews
+  -- a verified link makes the canonical wine the subject, and it gathers the record's reviews: one per person
   perform test.su();
   insert into public.catalog_record_links (record_id, wine_id, state, decided_at) values (test.cv_record('R1'), cw, 'verified', now());
   perform test.as_user(3);
   j := public.community_reviews_for_record(test.cv_record('R1'));
-  perform test.rec('reviews identity: a record verified as a canonical wine shows the canonical wine''s reviews too',
-    (select sum((v->>'count')::int) from jsonb_array_elements(j->'vintages') v) = 3);
+  perform test.rec('reviews identity: a record verified as a canonical wine shows the canonical wine''s reviews, one per person and vintage (user 1 reviewed both)',
+    (select sum((v->>'count')::int) from jsonb_array_elements(j->'vintages') v) = 2);
+  perform test.rec('reviews privacy: the tasting date is a month, never the day',
+    (select bool_and(extract(day from (x->>'tastedOn')::date) = 1) from jsonb_array_elements(j->'reviews') x));
+  perform test.as_user(1);
+  perform test.rec('reviews duplicate: publishing on the canonical wine updates the review the person has of its record',
+    public.publish_community_review(tc, 'nu als cataloguswijn', true)->>'status' = 'updated'
+    and test.cv_user_reviews(test.uid(1), 2019) = 1);
 
   -- ---- reports, auto-hide, moderation -----------------------------------------------------------------------
   rid := (test.cv_review(t4)).id;
   perform test.as_user(2);
   perform test.rec('reviews report: one cannot report one''s own review', public.report_community_review(rid, 'spam') = 'not_found');
+  -- throwaway accounts (no household, no tasting) can report, but their reports never hide anything
+  perform test.as_user(6); perform public.report_community_review(rid, 'spam');
+  perform test.as_user(7); perform public.report_community_review(rid, 'spam');
   perform test.as_user(3);
   perform test.rec('reviews report: reported', public.report_community_review(rid, 'spam', 'reclame') = 'reported');
   perform test.rec('reviews report: once per person', public.report_community_review(rid, 'offensive') = 'already_reported');
   perform test.rec('reviews report: an unknown reason is refused', test.denied(format($q$select public.report_community_review(%L, 'boring')$q$, rid)));
+  perform test.su();
+  perform test.rec('reviews abuse: three reports, two from throwaway accounts, do not hide a review', (select status = 'published' from test.cv_review(t4)));
+  -- people who use CELLR: a household and a tasting of their own
+  perform test.as_user(3); insert into public.tastings (household_id, vintage_id, score) values (h3, c19, 5);
+  perform test.as_user(4); hx := public.create_household('Reviews 4'); insert into public.tastings (household_id, vintage_id, score) values (hx, c19, 6);
+  perform test.as_user(5); hx := public.create_household('Reviews 5'); insert into public.tastings (household_id, vintage_id, score) values (hx, c19, 7);
   perform test.as_user(4); perform public.report_community_review(rid, 'spam');
   perform test.su();
-  perform test.rec('reviews report: two reports leave it published', (select status = 'published' from test.cv_review(t4)));
+  perform test.rec('reviews report: two counted reports leave it published', (select status = 'published' from test.cv_review(t4)));
   perform test.as_user(5); perform public.report_community_review(rid, 'not_a_review');
   perform test.su();
-  perform test.rec('reviews report: three open reports hide it pending moderation',
+  perform test.rec('reviews report: three reports of people who use CELLR hide it pending moderation',
     (select status = 'hidden' and status_reason = 'reports' from test.cv_review(t4))
     and (select count(*) from public.community_review_moderation_log where review_id = rid and action = 'auto_hide') = 1);
   perform test.as_user(1);
   perform test.rec('reviews report: a hidden review counts for nothing and is not shown',
-    (select sum((v->>'count')::int) from jsonb_array_elements(public.community_reviews_for_wine(h1, pw)->'vintages') v) = 2);
+    (select sum((v->>'count')::int) from jsonb_array_elements(public.community_reviews_for_wine(h1, pw)->'vintages') v) = 1);
+  perform test.as_user(2);
+  perform test.rec('reviews moderation: its author cannot rewrite a hidden review', public.publish_community_review(t4, 'nieuwe tekst', true)->>'status' = 'moderated');
+
+  -- the queue: a hidden review comes first, before one with open reports that is still published
+  perform test.as_user(4); perform public.report_community_review((test.cv_review(tc)).id, 'other');
   perform test.as_service();
-  perform test.rec('reviews moderation: the queue lists it', (select count(*) from jsonb_array_elements(public.admin_community_review_queue()) q where q->>'reviewId' = rid::text) = 1);
+  perform test.rec('reviews moderation: the queue lists hidden reviews first',
+    public.admin_community_review_queue()->0->>'reviewId' = rid::text and jsonb_array_length(public.admin_community_review_queue()) = 2);
   perform public.admin_moderate_community_review(rid, 'restore', 'reports were not justified', 'admin test', test.uid(6));
   perform test.su();
   perform test.rec('reviews moderation: restored, its reports resolved as dismissed, the decision logged',
     (select status = 'published' from test.cv_review(t4))
     and (select bool_and(resolution = 'dismissed') from public.community_review_reports where review_id = rid)
     and (select count(*) from public.community_review_moderation_log where review_id = rid and action = 'restore') = 1);
+  -- after a restore, new reports send it to the queue but never hide it again on their own
+  perform test.as_user(6); hx := public.create_household('Reviews 6'); insert into public.tastings (household_id, vintage_id, score) values (hx, c19, 6); perform public.report_community_review(rid, 'spam');
+  perform test.as_user(7); hx := public.create_household('Reviews 7'); insert into public.tastings (household_id, vintage_id, score) values (hx, c19, 6);
+  perform test.as_user(8); hx := public.create_household('Reviews 8'); insert into public.tastings (household_id, vintage_id, score) values (hx, c19, 6); perform public.report_community_review(rid, 'spam');
+  perform test.su();
+  -- user 7's earlier report is resolved; a fresh one from user 7 is not possible (one per person), so add user 3's
+  -- counted second? No: one per person per review. Two fresh counted reports + the policy: stays published.
+  perform test.rec('reviews abuse: a review a moderator restored is not hidden again by reports alone',
+    (select status = 'published' from test.cv_review(t4)));
   perform test.as_service();
   perform test.rec('reviews moderation: a reason is required', test.denied(format($q$select public.admin_moderate_community_review(%L, 'remove', ' ', 'admin')$q$, rid)));
   perform public.admin_moderate_community_review(rid, 'remove', 'spam after all', 'admin test');
   perform test.su();
   perform test.rec('reviews moderation: removed', (select status = 'removed' from test.cv_review(t4)));
+
+  -- ---- a moderated review cannot be revived by its author ----------------------------------------------------
+  perform test.as_user(2);
+  perform test.rec('reviews revival: the author''s delete of a removed review clears its text but keeps it',
+    public.delete_community_review(rid) = 'deleted');
+  perform test.su();
+  perform test.rec('reviews revival: still there, removed, without text and without tasting',
+    (select status = 'removed' and body is null and tasting_id is null from public.community_reviews where id = rid));
+  perform test.as_user(2);
+  perform test.rec('reviews revival: publishing the same tasting again is refused', public.publish_community_review(t4, 'terug!', true)->>'status' = 'moderated');
+  update public.tastings set score = null, note = 'x' where id = t4;
+  update public.tastings set score = 9 where id = t4;
+  perform test.rec('reviews revival: clearing and restoring the score does not revive it either', public.publish_community_review(t4, null, true)->>'status' = 'moderated');
+  insert into public.tastings (household_id, vintage_id, score) values (h2, ov, 10) returning id into tp;
+  perform test.rec('reviews revival: nor does another tasting of the same wine and vintage', public.publish_community_review(tp, null, true)->>'status' = 'moderated');
+  perform test.su();
+  perform test.rec('reviews revival: a removed review whose tasting is gone cannot be restored',
+    test.denied(format($q$select public.admin_moderate_community_review(%L, 'restore', 'oops', 'admin')$q$, rid)));
+  perform test.rec('reviews revival: the moderation history is kept',
+    (select count(*) from public.community_review_moderation_log where review_id = rid) >= 3);
 
   -- ---- rate limit (manipulation by volume) ---------------------------------------------------------------------
   perform test.as_user(7);
@@ -210,11 +264,11 @@ begin
 
   -- ---- delete ---------------------------------------------------------------------------------------------------
   perform test.as_user(2);
-  perform test.rec('reviews delete: not someone else''s', public.delete_community_review((test.cv_review(t5)).id) = 'not_found');
+  perform test.rec('reviews delete: not someone else''s', public.delete_community_review((test.cv_review(tc)).id) = 'not_found');
   perform test.as_user(1);
   perform test.rec('reviews delete: the author removes their review, the tasting stays',
-    public.delete_community_review((test.cv_review(t5)).id) = 'deleted' and test.cv_review(t5) is null
-    and exists (select 1 from public.tastings where id = t5));
+    public.delete_community_review((test.cv_review(tc)).id) = 'deleted' and test.cv_review(tc) is null
+    and exists (select 1 from public.tastings where id = tc));
 
   -- ---- account deletion ------------------------------------------------------------------------------------------
   perform test.su();

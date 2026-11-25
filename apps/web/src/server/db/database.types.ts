@@ -1744,7 +1744,7 @@ export type Database = {
           subject_record_id: string | null;
           subject_wine_id: string | null;
           tasted_on: string;
-          tasting_id: string;
+          tasting_id: string | null;
           updated_at: string;
           user_id: string;
           vintage_year: number | null;
@@ -1762,7 +1762,7 @@ export type Database = {
           subject_record_id?: string | null;
           subject_wine_id?: string | null;
           tasted_on: string;
-          tasting_id: string;
+          tasting_id?: string | null;
           updated_at?: string;
           user_id: string;
           vintage_year?: number | null;
@@ -1779,7 +1779,7 @@ export type Database = {
           subject_record_id?: string | null;
           subject_wine_id?: string | null;
           tasted_on?: string;
-          tasting_id?: string;
+          tasting_id?: string | null;
           updated_at?: string;
           user_id?: string;
           vintage_year?: number | null;
