@@ -1,11 +1,11 @@
 # Sprint 004C: External wine database, full integration and production readiness
 
-**Branch:** `claude/sprint-004c-integration`, stacked on PR #96 (`claude/sprint-004b-xwines-staging`). **Date:** 2026-11-20.
+**Code:** #96 (004B) and #101 (004C) squash-merged with the owner's GO; staging tooling in #103, #110 and #119. **First version:** 2026-11-20. **Updated:** 2026-11-25, after the staging validation (§13).
 
-**Nothing is live.**
+**Nothing external is shown to people.**
 
-- No merge, no deployment, no production import and no public activation.
-- No email was sent, no paid project was created, and no rights status was changed on the basis of my own reading of a licence.
+- The code is in production with every source `off`. No production import and no public activation.
+- No email was sent by Claude. The only paid project is `cellr-staging`, created by the owner after approval. No rights status was changed on the basis of my own reading of a licence.
 - The production project and `dqwkbtsstvakcvlnwvwk` were not touched.
 - Real X-Wines data was used only on the permitted evaluation route: locally, in a throwaway Postgres 17.12, deleted after each run. Only aggregates were committed.
 
@@ -19,22 +19,22 @@ Legend:
 - **P** = production deployed
 - **U** = user activated
 
-| Item                                                                                             | I                        | L                   | S                   | P                                                                | U                                                          | Evidence                                       |
-| ------------------------------------------------------------------------------------------------ | ------------------------ | ------------------- | ------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
-| PR #96 (004B): squash-merged as 7bd0aaf, deployed                                                | ✓                        | ✓                   | —                   | ✓ (7bd0aaf, then e27e533)                                        | — (no source is public)                                    | §11                                            |
-| R-27: a wine added from a record keeps its origin                                                | ✓                        | ✓                   | ✗ (no project yet)  | code ✓ (e27e533); **migration 0050 not applied** (needs your GO) | ✗                                                          | §3, §11; `RELEASE_0050.md`, `verify-0050.sql`  |
-| Scan UX: "Could be this wine" → form → confirm → wine → credit                                   | ✓                        | ✓                   | ✗                   | ✓ (e27e533)                                                      | ✗: no source is public, so nobody sees it                  | §4; `e2e/scan-records.spec.ts`                 |
-| Never "found" for another bottling or colour of an own wine (review fix)                         | ✓                        | ✓                   | —                   | ✓ (e27e533)                                                      | ✓: applies to every scan, with and without `scan_resolver` | §8 P2-1                                        |
-| Full credit on the suggestion card                                                               | ✓                        | ✓                   | ✗                   | ✓ (e27e533)                                                      | ✗: no source is public                                     | §8 P2-2/5                                      |
-| Staging (`cellr-staging`) and its workflow (#103, #110, #119)                                    | ✓                        | ✓                   | ✓ (2026-11-23, §13) | —                                                                | —                                                          | §13; `results/staging/`                        |
-| LWIN technically complete (levels, pack, anomalies, conflicts, withdrawal, update, cross-source) | ✓                        | ✓ (fictitious only) | ✗                   | ✗                                                                | ✗                                                          | `LWIN.md`; `results/lwin/`                     |
-| Data quality and performance on the full X-Wines set                                             | ✓                        | ✓ (PG 17.12)        | ✓ (staging, §13)    | —                                                                | —                                                          | §6, §13; `results/xwines/`, `results/staging/` |
-| E-mails to the X-Wines authors and Liv-ex (contact routes verified; the owner sends them)        | ✓ (final, ready to send) | —                   | —                   | —                                                                | **not sent**                                               | `emails/`                                      |
-| E2E chain tests (phone and desktop, NL/EN, network, session, a11y, …)                            | ✓                        | ✓                   | ✗                   | —                                                                | —                                                          | §5                                             |
-| Physical iPhone checklist                                                                        | ✓                        | — (needs a device)  | ✗                   | —                                                                | —                                                          | `IPHONE_CHECKLIST.md`                          |
-| Independent review, fixes, re-runs                                                               | ✓                        | ✓                   | —                   | —                                                                | —                                                          | §8                                             |
-| Production activation plan (12 steps)                                                            | ✓                        | —                   | —                   | —                                                                | —                                                          | `ACTIVATION_PLAN.md`                           |
-| X-Wines / LWIN shown to people                                                                   | —                        | —                   | —                   | —                                                                | **no**: rights not cleared                                 | `SOURCE_RIGHTS_REGISTER.md`                    |
+| Item                                                                                             | I                        | L                   | S                   | P                                                               | U                                                          | Evidence                                       |
+| ------------------------------------------------------------------------------------------------ | ------------------------ | ------------------- | ------------------- | --------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
+| PR #96 (004B): squash-merged as 7bd0aaf, deployed                                                | ✓                        | ✓                   | —                   | ✓ (7bd0aaf, then e27e533)                                       | — (no source is public)                                    | §11                                            |
+| R-27: a wine added from a record keeps its origin                                                | ✓                        | ✓                   | ✓ (§13, scan check) | code ✓ (e27e533); migration 0050 applied by the owner (route A) | ✗                                                          | §3, §11; `RELEASE_0050.md`, `verify-0050.sql`  |
+| Scan UX: "Could be this wine" → form → confirm → wine → credit                                   | ✓                        | ✓                   | ✗                   | ✓ (e27e533)                                                     | ✗: no source is public, so nobody sees it                  | §4; `e2e/scan-records.spec.ts`                 |
+| Never "found" for another bottling or colour of an own wine (review fix)                         | ✓                        | ✓                   | —                   | ✓ (e27e533)                                                     | ✓: applies to every scan, with and without `scan_resolver` | §8 P2-1                                        |
+| Full credit on the suggestion card                                                               | ✓                        | ✓                   | ✗                   | ✓ (e27e533)                                                     | ✗: no source is public                                     | §8 P2-2/5                                      |
+| Staging (`cellr-staging`) and its workflow (#103, #110, #119)                                    | ✓                        | ✓                   | ✓ (2026-11-23, §13) | —                                                               | —                                                          | §13; `results/staging/`                        |
+| LWIN technically complete (levels, pack, anomalies, conflicts, withdrawal, update, cross-source) | ✓                        | ✓ (fictitious only) | ✗                   | ✗                                                               | ✗                                                          | `LWIN.md`; `results/lwin/`                     |
+| Data quality and performance on the full X-Wines set                                             | ✓                        | ✓ (PG 17.12)        | ✓ (staging, §13)    | —                                                               | —                                                          | §6, §13; `results/xwines/`, `results/staging/` |
+| E-mails to the X-Wines authors and Liv-ex (contact routes verified; the owner sends them)        | ✓ (final, ready to send) | —                   | —                   | —                                                               | **not sent**                                               | `emails/`                                      |
+| E2E chain tests (phone and desktop, NL/EN, network, session, a11y, …)                            | ✓                        | ✓                   | ✗                   | —                                                               | —                                                          | §5                                             |
+| Physical iPhone checklist                                                                        | ✓                        | — (needs a device)  | ✗                   | —                                                               | —                                                          | `IPHONE_CHECKLIST.md`                          |
+| Independent review, fixes, re-runs                                                               | ✓                        | ✓                   | —                   | —                                                               | —                                                          | §8                                             |
+| Production activation plan (12 steps)                                                            | ✓                        | —                   | —                   | —                                                               | —                                                          | `ACTIVATION_PLAN.md`                           |
+| X-Wines / LWIN shown to people                                                                   | —                        | —                   | —                   | —                                                               | **no**: rights not cleared                                 | `SOURCE_RIGHTS_REGISTER.md`                    |
 
 ## 2. PR #96 (Sprint 004B)
 
@@ -209,7 +209,7 @@ E2E: see §5. The only consistent failure, the 3D canvas click, fails the same w
    - `cellar3d.spec.ts:171` fails the same way on main 813fe48. It is an existing issue, tracked as #102.
    - `scan-resolver.spec.ts:145` reached its 30-second limit under load. It passes in 9–10 s alone, the same as before the merge, and the scan and search specs pass 46/46 at 3 workers.
    - `wine-search.spec.ts:224` had a test-isolation issue, fixed on #96's branch.
-5. **0050 final dry run against production (read-only):** history 0001–0047; `merge_wines` exactly what 0050 replaces; none of its objects exist; `verify-0050.sql` gives the expected "before" answers. Steps: `RELEASE_0050.md`. Waiting for your GO.
+5. **0050 final dry run against production (read-only):** every check gave what 0050 expects (the list of checks in `RELEASE_0050.md` §1; the observations are kept by the owner). The owner then applied 0050 with the Supabase CLI (route A), as the owner reported.
 6. **Staging workflow (#103):**
    - manual, `main` only, behind the `cellr-staging` environment, staging secret only;
    - the guard runs before every write;
@@ -220,12 +220,14 @@ E2E: see §5. The only consistent failure, the 3D canvas click, fails the same w
 
 ## 11. Remaining blockers for public activation
 
-| Blocker                                                                          | Who                             | Unblocks                                                |
-| -------------------------------------------------------------------------------- | ------------------------------- | ------------------------------------------------------- |
-| Written answers from the X-Wines authors and Liv-ex (e-mails ready in `emails/`) | Owner sends; the sources answer | **Any** public activation (`ACTIVATION_PLAN.md` step 1) |
-| A lawfully obtained real LWIN file, and the layout verified against it           | Owner, after Liv-ex's answer    | LWIN import (`LWIN.md` §5)                              |
-| iPhone checklist on a device                                                     | Owner                           | Activation step 10                                      |
-| #115: the staging check reads the migration history itself                       | Owner (merge)                   | A stronger schema check on the next staging run         |
+| Blocker                                                                             | Who                                     | Unblocks                                                |
+| ----------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------- |
+| Written answers from the X-Wines authors and Liv-ex (e-mails ready in `emails/`)    | Owner sends; the sources answer         | **Any** public activation (`ACTIVATION_PLAN.md` step 1) |
+| A lawfully obtained real LWIN file, and the layout verified against it              | Owner, after Liv-ex's answer            | LWIN import (`LWIN.md` §5)                              |
+| iPhone checklist on a device                                                        | Owner                                   | Activation step 10                                      |
+| #115: the staging check reads the migration history itself                          | Owner (merge)                           | A stronger schema check on the next staging run         |
+| 16 concurrent people's searches over a populated public source, measured on staging | Claude prepares; owner approves the run | The performance target (§13; `GO_LIVE.md` A3)           |
+| A production import route (the tools refuse production by design)                   | Owner decides; Claude builds            | Any production import (`GO_LIVE.md` A5)                 |
 
 Done since the first version of this table: the staging project and its environment, the approved ref (#110), migration 0050 in production (applied by the owner, route A), and the full staging validation (§13). The concrete go-live steps are in `GO_LIVE.md`.
 
@@ -239,7 +241,7 @@ Done since the first version of this table: the staging project and its environm
 
 ## 13. Staging validation on cellr-staging (2026-11-21 to 2026-11-23)
 
-Project `konxmgdjdewpknfqvsuq` (eu-central-1, Micro, Postgres 17.12), a separate project created by the owner. It is never production and never the owner's other project. Runs of the manual workflow, each approved by the owner in the `cellr-staging` environment:
+Project `konxmgdjdewpknfqvsuq` (eu-central-1, Micro, Postgres 17.12), a separate project created by the owner. It is never production and never the owner's other project. Runs of the manual workflow, each approved by the owner in the `cellr-staging` environment (its required reviewer and branch rule are owner settings, not checked by a tool):
 
 - migrate: 44959754757
 - check: 45038743438
@@ -248,32 +250,36 @@ Project `konxmgdjdewpknfqvsuq` (eu-central-1, Micro, Postgres 17.12), a separate
 
 Aggregates: `results/staging/summary.json` and `scan-check.txt`.
 
-| Area                                                                         | Result                                                                                                                                                                                                                                                            |
-| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Schema                                                                       | 48 migrations, the last 0050. The history fingerprint is identical to the repository's (compared through the Supabase connector). Staging marker `staging` / `konxmgdjdewpknfqvsuq`. Public sign-ups disabled                                                     |
-| Import                                                                       | **100,646 / 100,646** records, 0 invalid. Every later round **0 inserted, 0 updated, 0 withdrawn, 100,646 unchanged** (idempotent). A non-pilot import is refused. 0 CELLR wines written. X-Wines stays `unverified`, scope `pilot`, `commercial_use: false`      |
-| Quality                                                                      | 100,481 distinct identities. 155 groups of identical identities, 28 producer spelling-variant groups, 500 groups differing only by estate words, 97 records listing only N.V. All reported, none merged. The same as the local Postgres 17 run                    |
-| Search benchmark                                                             | 004A set: right record first in 77, in the top 3 in 84, in the top 8 in 92 of 95. All positives: 129 / 139 / 147 of 151. **Identical to local.** 0 provider rows marked verified, 0 filter violations, near twins never offered first, 0 duplicate rows, 0 errors |
-| Recognition (101 readings per kind; no canonical seeds on a remote database) | Clean labels 96 first, 97 in the top 3. Misread 55 / 56. Producer only 29 / 51. **0 wrong automatic identities, 0 safety violations**                                                                                                                             |
-| Security                                                                     | Staging check 10/10 before and after the import. People's search 0 provider rows; the pilot search 20; a person calling the pilot search is denied                                                                                                                |
-| Scan chain                                                                   | **PASS**, with a fictitious public source, rolled back: a person finds it once, X-Wines is invisible, R-27 keeps the origin and refuses an X-Wines record, one credit. Afterwards only `xwines` is registered and there are 0 origins                             |
-| Artifacts                                                                    | Counts and ranks only. No X-Wines record names, no URL, no key (scanned against the dataset). The first import run's artifact, made before the fail-closed redaction of #119, was deleted by the owner                                                            |
+| Area                                                                         | Result                                                                                                                                                                                                                                                                                              |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Schema                                                                       | 48 migrations, the last 0050. The history fingerprint is identical to the repository's (compared through the Supabase connector). Staging marker `staging` / `konxmgdjdewpknfqvsuq`. Sign-ups disabled (an owner setting, not checked by a tool)                                                    |
+| Import                                                                       | **100,646 / 100,646** records, 0 invalid. Every later round **0 inserted, 0 updated, 0 withdrawn, 100,646 unchanged** (idempotent). A non-pilot import is refused. 0 CELLR wines written. X-Wines stays `unverified`, scope `pilot`, `commercial_use: false`                                        |
+| Quality                                                                      | 100,481 distinct identities. 155 groups of identical identities, 28 producer spelling-variant groups, 500 groups differing only by estate words, 97 records listing only N.V. All reported, none merged. The same as the local Postgres 17 run                                                      |
+| Search benchmark                                                             | 004A set: right record first in 77, in the top 3 in 84, in the top 8 in 92 of 95. All positives: 129 / 139 / 147 of 151. **Identical to local.** 0 provider rows marked verified, 0 filter violations, near twins never offered first, 0 duplicate rows, 0 errors                                   |
+| Recognition (101 readings per kind; no canonical seeds on a remote database) | Clean labels 96 first, 97 in the top 3. Misread 55 / 56. Producer only 29 / 51. 0 safety violations. 0 wrong automatic identities, **by construction here**: without canonical seeds every reading is `not_found`, so no automatic identity can be made (the identity rules are tested locally, §6) |
+| Security                                                                     | Staging check 10/10 before and after the import. People's search 0 provider rows; the pilot search 20; a person calling the pilot search is denied                                                                                                                                                  |
+| Scan chain                                                                   | **PASS**, with a fictitious public source, rolled back: a person finds it once, X-Wines is invisible, R-27 keeps the origin and refuses an X-Wines record, one credit. Afterwards only `xwines` is registered and there are 0 origins                                                               |
+| Artifacts                                                                    | Counts and ranks only. No X-Wines record names, no URL, no key (scanned against the dataset). The first import run's artifact, made before the fail-closed redaction of #119, was deleted by the owner                                                                                              |
 
-**Performance against the target "SQL p95 under 250 ms at 16 clients"**
+**Performance against the target "SQL p95 under 250 ms at 16 clients": not yet shown**
 
-| Measurement                                                         | Route              | p50 / p95 (ms)         | Searches per second |
-| ------------------------------------------------------------------- | ------------------ | ---------------------- | ------------------- |
-| SQL time in the database, 1 client (127 queries, timed server-side) | —                  | **17 / 110** (p99 248) | —                   |
-| Pilot search, 1 client, from GitHub's runner                        | session pooler     | 167 / 202              | 6                   |
-| Pilot search, 8 clients                                             | session pooler     | 169 / 232              | 44                  |
-| Pilot search, 16 clients                                            | transaction pooler | 170 / **271**          | 33                  |
-| People's search, 8 clients                                          | session pooler     | 166 / **251**          | 44                  |
-| People's search, 16 clients                                         | transaction pooler | 164 / **286**          | 33                  |
+| Measurement                                                          | Route              | p50 / p95 (ms)         | Searches per second | Searches in flight (throughput × mean) | Empty results    |
+| -------------------------------------------------------------------- | ------------------ | ---------------------- | ------------------- | -------------------------------------- | ---------------- |
+| SQL time in the database, 1 client (127 queries, sequential, ad hoc) | —                  | **17 / 110** (p99 248) | —                   | 1                                      | —                |
+| Pilot search, 1 client, from GitHub's runner                         | session pooler     | 167 / 202              | 6                   | 1                                      | 27 of 1914       |
+| Pilot search, 8 clients                                              | session pooler     | 169 / 232              | 44                  | ≈ 7.9                                  | 27 of 1914       |
+| Pilot search, "16 clients"                                           | transaction pooler | 170 / 271              | 33                  | **≈ 6.1**                              | 27 of 1914       |
+| People's search, 8 clients                                           | session pooler     | 166 / 251              | 44                  | ≈ 7.9                                  | **1908 of 1914** |
+| People's search, "16 clients"                                        | transaction pooler | 164 / 286              | 33                  | **≈ 5.9**                              | **1908 of 1914** |
 
-- **SQL time is within the target:** p95 110 ms on Micro, against 29 ms locally on 4 vCPU.
-- **Measured from GitHub's runner, c16 is above 250 ms:** pilot p95 271 ms, people's 286 ms. People's c8 is just above it, at 251 ms.
-- **The constant ~150 ms on top is the network round trip** from the runner to Frankfurt: it is already there at 1 client (p50 167 ms), and the spread grows only modestly with concurrency.
-- The app runs in Frankfurt (Vercel fra1), next to the database, so the round trip there is a few milliseconds. People's search end to end through the app has **not** been measured: that needs a staging deployment of the app, and is a go-live step.
-- **Concurrency 16 does not fit through the session pooler on Micro** (15 clients). It is measured through the transaction pooler, per search in a transaction, as PostgREST does.
+What these numbers do and do not show (corrected after the final independent review):
 
-**Acceptance (staging):** the X-Wines pilot route is accepted on staging. It is complete, idempotent, shielded from people and safe, and its search and recognition match the local results. **Open for go-live:** people's latency measured through the app, and the rights.
+- **The 110 ms SQL p95 is at 1 client, not 16.** It was measured ad hoc through the Supabase connector (`clock_timestamp` around each of the 004A queries, after one warm pass). No repository tool produces it, so it is not reproducible from the repository.
+- **The "16 clients" runs did not load the database with 16 concurrent searches.** In transaction mode each search takes three round trips (preamble, search, commit), of which `perf.ts` times only the search. At about 150 ms per round trip each client spends most of its time in untimed round trips, so only about 6 searches were in flight: less than in the 8-client session run. Time spent waiting for a pooler connection at `begin` is not in the figures either.
+- **The people's runs measure an empty path.** On staging X-Wines is in the `pilot` scope, so people's search filters its records out: 1908 of 1914 searches returned nothing. A preview app pointed at staging would measure the same empty path, and X-Wines cannot be made public on staging (public needs verified commercial rights).
+- **The constant ~150 ms** in the client-side figures is the network round trip from the runner to Frankfurt (p50 167 ms at 1 client). The app runs in Frankfurt (Vercel fra1), next to the database.
+- **Concurrency 16 does not fit through the session pooler on Micro** (15 clients).
+
+**Still to measure before any activation** (`GO_LIVE.md` A3): 16 concurrent people's searches over a **populated public** source on staging (a fictitious public provider of about 100k synthetic records, as `staging-scan-check.sql` does with one record), with preamble, search and commit in one round trip and the time taken server-side (for example `pg_stat_statements` deltas), or the load generator in eu-central-1.
+
+**Acceptance (staging):** the X-Wines pilot route is accepted on staging. It is complete, idempotent, shielded from people and safe, and its search ranking matches the local results. **Not accepted yet:** the performance target at 16 concurrent searches (above). **Open for go-live:** that measurement, the production import route, and the rights.
