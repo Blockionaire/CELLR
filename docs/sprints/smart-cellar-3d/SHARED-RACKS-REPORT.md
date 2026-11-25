@@ -291,6 +291,37 @@ the same keys). The screens add nothing to the contract of §3 and no function t
   picture's speed with sixty bottles on a mid-range phone, VoiceOver and TalkBack reading the grid's spot names,
   and the sheet's drag-to-close over the long people sheet.
 
-### 9.4 Tests of the screens
+### 9.4 After the security review: what the screens changed, and what waits
+
+- **Who is named (S1).** A change made in the owner's own cellar by someone of that household who is not in the
+  rack reaches the screens without an actor. The history says it as "Someone of Ann's household opened …" (six
+  sentences, both languages; `logic.ts` `eventLine`, unit tested), never with a name the server did not give.
+- **The history starts unfiltered at every opening.** The browser run found that "History of this bottle" kept a
+  person filter chosen earlier in the full history, and so showed half of the bottle's story. Fixed in `sheets.tsx`.
+- **A bottle that stands in a shared rack, listed "without a place" (S2).** The parts are built in files of this
+  workstream (`features/shared-racks/in-shared-rack.tsx`, reached through `lazy.tsx`): the facts
+  (`useSharedPlaces`, from `GET /shared-racks/bottles`), the words next to the bottle (`SharedPlaceBadge`,
+  `SharedPlaceBadgeFor`: "In shared rack Cellar club · shelf 2, spot 3", or "In a shared rack" when I am no longer
+  a member), and the question before it gets a place at home (`SharedPlaceConfirm`, and `SharedPlaceAsk`, which
+  lets a bottle that is in no shared rack through at once). **They are not inserted in any placement screen yet**
+  (those files belong to other workstreams whose final branches are not merged into this one). Until then the
+  private cellar is honest in one place only: the note above the unplaced bottles of the racks view (§9.2), and the
+  database ends the stay in the shared rack whichever screen moves the bottle (`bottle_relocated` in the history).
+  The call sites that need the badge, and the question where a bottle is chosen for a spot:
+
+  | File (not owned by this workstream)                                                                                                                              | What is there                                                                       | Needs               |
+  | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------- |
+  | `features/cellar/racks-view.tsx` (the unplaced chips)                                                                                                            | tap a bottle, then a free spot                                                      | badge, question     |
+  | `features/cellar/rack-sheets.tsx` (the unplaced list of a spot)                                                                                                  | choose a bottle without a place for the tapped spot                                 | badge, question     |
+  | `features/cellar/smart-cellar-3d.tsx` (`placement-unplaced`)                                                                                                     | the 3D view's list of bottles without a place, and what it passes to the two panels | badge, question     |
+  | `features/cellar/placement/placement-panel.tsx`                                                                                                                  | the candidates "without a place" of a tapped spot                                   | badge, question     |
+  | `features/cellar/quick-add/quick-add-ui.tsx`                                                                                                                     | "Choose a bottle without a spot" and its count                                      | the count's wording |
+  | `features/cellar/move-bottle-sheet.tsx`, `bulk-bottles.tsx`                                                                                                      | "Move" from a bottle's own page and for several bottles at once                     | question            |
+  | `features/cellar/bottle-details.tsx`, `bottle-bits.tsx`, `bottle-showcase-panel.tsx`, `vintage-screen.tsx`, `where-sheet.tsx`, `wine-card.tsx`, `edit-sheet.tsx` | the words "Not placed" for one bottle or a count of them                            | badge (words only)  |
+
+- **Not built for these parts**: a browser test (nothing renders them yet) and a component test (the repository has
+  no rendering test setup for client components; the logic they hold is a map lookup).
+
+### 9.5 Tests of the screens
 
 UI_RESULTS_PLACEHOLDER
