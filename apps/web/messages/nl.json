@@ -2868,6 +2868,7 @@
     "add": "Fles toevoegen",
     "placingTitle": "Tik op een lege plek om een fles toe te voegen.",
     "placingShort": "Tik op een lege plek",
+    "aimAgain": "Ingezoomd. Tik nog eens op de plek om die te kiezen.",
     "placingBody": "{count, plural, =0 {Er is geen lege plek in {unit}} one {# lege plek in {unit}} other {# lege plekken in {unit}}}",
     "showList": "Kies uit een lijst",
     "hideList": "Lijst verbergen",

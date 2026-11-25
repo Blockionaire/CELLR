@@ -106,6 +106,8 @@ export interface InspectableStorageProps {
   /** Free spots to tap (3D Quick Add, sprint 7): while given, a tap chooses a spot and takes no bottle out. */
   spots?: readonly SpotMarker[] | null | undefined;
   onSpot?: ((spot: FreeSpot) => void) | undefined;
+  /** A tap on a too-small spot brought the picture closer instead of choosing (sprint 10). Optional. */
+  onAim?: (() => void) | undefined;
 }
 
 export interface InspectableStorageHandle {
@@ -133,6 +135,7 @@ export default function InspectableStorage({
   target = null,
   spots = null,
   onSpot,
+  onAim,
   handleRef,
 }: InspectableStorageProps & {
   handleRef?: React.RefObject<InspectableStorageHandle | null> | undefined;
@@ -318,6 +321,7 @@ export default function InspectableStorage({
         target={target}
         spots={spots}
         onSpot={onSpot}
+        onAim={onAim}
         inspection={{
           state,
           label: details?.label ?? null,

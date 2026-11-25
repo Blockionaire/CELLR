@@ -2868,6 +2868,7 @@
     "add": "Add bottle",
     "placingTitle": "Tap an empty spot to add a bottle.",
     "placingShort": "Tap an empty spot",
+    "aimAgain": "Zoomed in. Tap the spot again to choose it.",
     "placingBody": "{count, plural, =0 {There's no empty spot in {unit}} one {# empty spot in {unit}} other {# empty spots in {unit}}}",
     "showList": "Choose from a list",
     "hideList": "Hide the list",

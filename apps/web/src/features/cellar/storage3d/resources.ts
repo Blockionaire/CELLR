@@ -484,6 +484,15 @@ export interface BottleKit {
    */
   wallShadow: THREE.BufferGeometry | null;
   wallShade: THREE.Material | null;
+  /**
+   * The two rings as they are drawn since sprint 10: each a coloured core inside a keyline of the opposite lightness
+   * (`buildKeylineRing`), so it stands out from dark wood and from white lacquer alike, and the two can be told apart
+   * by light and dark alone (a wine-red core in a pale keyline: where a bottle is about to go; a gold core in a dark
+   * keyline: the chosen bottle), not by hue. One geometry each, painted by `ringPaint`: one draw call each, as before.
+   */
+  targetRing: THREE.BufferGeometry;
+  markerRing: THREE.BufferGeometry;
+  ringPaint: THREE.Material;
 }
 
 const BOTTLE_SHAPES: BottleShape[] = ["bordeaux", "burgundy", "champagne"];
@@ -566,6 +575,9 @@ export function buildBottleKit(
     ),
     dot: owned.add(new THREE.CylinderGeometry(0.06, 0.06, 0.03, 10).rotateX(Math.PI / 2)),
     ring: owned.add(new THREE.TorusGeometry(BOTTLE_R + 0.07, 0.035, 8, 40)),
+    targetRing: owned.add(buildKeylineRing(RING.target)),
+    markerRing: owned.add(buildKeylineRing(RING.marker)),
+    ringPaint: owned.add(buildRingPaint()),
     glass: owned.add(glass),
     // (white: each bottle's paper colour is its instance's. Premium, where the level has it: the print of a label.)
     paper: owned.add(
@@ -625,54 +637,74 @@ export function buildBottleKit(
   };
 }
 
-// ---- The placeholder of a free spot (3D Quick Add, sprint 7.2) -----------------------------------------------------
-
-/** How much larger the placeholder that is chosen is drawn: a quiet lift, nothing more. */
-export const GHOST_LIFT = 1.05;
-/** How see-through a placeholder is: there, in the furniture, but never mistaken for a real bottle. */
-export const GHOST_OPACITY = 0.3;
+// ---- The rings that mark a spot (sprint 10: legible on every finish) -------------------------------------------------
 
 /**
- * How round a placeholder is, by how many are on offer at once: smooth when a place has few free spots (and each is
- * large on screen), plainer when it has hundreds (each is small, and together they are what costs).
+ * The colours of the two rings. The cores are the colours the rings always had (the app's wine red where a bottle is
+ * about to go, gold round the chosen bottle); the keyline round each is of the opposite lightness, so that on any
+ * surface one of the two stands out (`premium-look.test.ts` holds a contrast of at least 3:1 on every finish).
  */
-export function ghostRadial(spots: number): number {
-  return spots <= 120 ? 16 : spots <= 400 ? 12 : 10;
+export const RING = {
+  target: { core: "#8c2b3a", keyline: "#fffaf2" },
+  marker: { core: "#d9a441", keyline: "#1e1611" },
+} as const;
+
+/** Where the ring lies (round a bottle's end, or round its middle on a wall), and how thick core and keyline are. */
+const RING_RADIUS = BOTTLE_R + 0.07;
+const RING_CORE = 0.035;
+const RING_KEYLINE = 0.062;
+
+/**
+ * A ring of a core inside a keyline: two tori on one centre line, the keyline's tube fatter, painted per vertex. The
+ * core's triangles come after the keyline's, and the paint writes no depth, so within the one draw call the core is
+ * drawn over the keyline from every side (a ring seen face on round a rack bottle's end, or edge on round a bottle on
+ * a wall), while the furniture and the bottles in front still hide both.
+ */
+export function buildKeylineRing(colours: { core: string; keyline: string }): THREE.BufferGeometry {
+  const paint = (g: THREE.BufferGeometry, hex: string) => {
+    const c = new THREE.Color(hex);
+    const n = g.getAttribute("position").count;
+    const data = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) c.toArray(data, i * 3);
+    g.setAttribute("color", new THREE.BufferAttribute(data, 3));
+    g.deleteAttribute("uv");
+    return g;
+  };
+  const keyline = paint(new THREE.TorusGeometry(RING_RADIUS, RING_KEYLINE, 8, 40), colours.keyline);
+  const core = paint(new THREE.TorusGeometry(RING_RADIUS, RING_CORE, 8, 40), colours.core);
+  const ring = mergeGeometries([keyline, core]);
+  keyline.dispose();
+  core.dispose();
+  ring.computeBoundingSphere();
+  return ring;
 }
 
-/**
- * The see-through bottle that stands on a free spot while a bottle can be added (sprint 7.2): the outline of a
- * Bordeaux bottle and nothing else (no icon, no plus: the empty bottle itself is what is tapped). Modelled standing on
- * y = 0, like every bottle, so `poseMatrix` puts it exactly where a bottle put there would be. Normals are kept (it is
- * lit like glass, so it sits in the furniture's light); texture coordinates are not needed. One geometry for every
- * placeholder of a place: one instanced mesh, one draw call.
- */
-export function buildGhostBottle(radial = ghostRadial(0)): THREE.BufferGeometry {
-  const g = new THREE.LatheGeometry(
-    thin(lathePoints("bordeaux"), 3).map(([r, y]) => new THREE.Vector2(r, y)),
-    radial,
-  );
-  g.deleteAttribute("uv");
-  g.computeBoundingSphere();
-  return g;
-}
-
-/**
- * The placeholder's glass: pale, faintly lit (the scene's own light and reflections), see-through and never writing
- * depth, so the furniture and the bottles behind it stay seen. White: each placeholder's tone is its instance colour
- * (resting, under a mouse, chosen).
- */
-export function buildGhostMaterial(): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({
-    color: "#ffffff",
-    roughness: 0.18,
-    metalness: 0,
-    envMapIntensity: 1.1,
+/** The rings' paint: their own colours, untouched by the light and the tone mapping, writing no depth. */
+export function buildRingPaint(): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    toneMapped: false,
     transparent: true,
-    opacity: GHOST_OPACITY,
     depthWrite: false,
   });
 }
+
+// ---- The placeholder of a free spot (3D Quick Add, sprint 7.2) -----------------------------------------------------
+
+/**
+ * The placeholder bottle itself (lift, opacity, roundness by count, geometry, material, tones) has ONE source since
+ * sprint 10: `../three/ghost-bottle.ts`, which the existing view uses as well. It imports nothing but three.js and the
+ * bottle profile, so the existing view still downloads none of this view's code (README rule 17); this view simply
+ * imports it from there.
+ */
+export {
+  GHOST_LIFT,
+  GHOST_OPACITY,
+  GHOST_TONES,
+  buildGhostBottle,
+  buildGhostMaterial,
+  ghostRadial,
+} from "../three/ghost-bottle";
 
 /**
  * The bottles as they are drawn: one group per bottle shape (one instanced mesh each), and the counters of a neutral
