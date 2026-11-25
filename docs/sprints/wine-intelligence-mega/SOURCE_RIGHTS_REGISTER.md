@@ -68,6 +68,44 @@ Comput. 7(1):20, doi:10.3390/bdcc7010020 (CC0 1.0). Names normalised and types m
 - X5. Is any attribute text taken verbatim from a source site?
 - X6. Is there an authoritative list of source attributions, and a contact for takedown requests?
 
+### 1b. Owner-reported permission (2026-11-25): records and ratings
+
+**What the owner stated** (Wine Catalogue & Community Ratings sprint brief, 2026-11-25): the X-Wines dataset and its
+ratings are released for CELLR's use, and the owner has received permission. The owner also stated that no X-Wines
+credit is required on every wine card: attribution is given on one central information page and in the rating
+methodology.
+
+**What this register can and cannot confirm.** The written permission itself is **not in this repository** (and
+should not be: it may contain names and addresses). Until its exact terms are recorded below, every row stays
+`owner-reported`, not `verified`: the database rights (`rights_status`, `commercial_use`, `may_display_ratings`,
+`search_scope`) are set only by the owner, through the logged `admin_catalog_provider_rights` step, with the
+evidence reference.
+
+| Term to record from the written permission                                   | Recorded                              |
+| ---------------------------------------------------------------------------- | ------------------------------------- |
+| Who granted it (role, not name), and on which date                           | **open: owner to fill in**            |
+| Which files it covers (Full 100K wines; Full 21M ratings; labels?)           | **open**                              |
+| Uses allowed: store, display to consumers, commercial, derived aggregates    | **open**                              |
+| Whether third-party rights (source sites, EU database right) are addressed   | **open**                              |
+| Attribution: exact wording, where (central page allowed instead of per card) | **open**: the owner's statement above |
+| Conditions on withdrawal or takedown                                         | **open**                              |
+| Where the original is kept (outside this repository)                         | **open**                              |
+
+**What CELLR checked itself (2026-11-25).**
+
+- The ratings file was downloaded from the authors' folder. `XWines_Full_21M_ratings.zip` SHA-256 `a413529d…10f71ac`
+  and `XWines_Full_21M_ratings.csv` SHA-256 `847fb491…2ded2` are both equal to the authors' `INFO_Hashing.txt`. The
+  file is kept outside Git.
+- The authors' own requirement still applies: the README and `INFO_Hashing.txt` say the paper must be cited ("Paper
+  below must be mandatory cited in publications that make use of this dataset"). The central information page
+  (PR 3) gives that citation. This fits the owner's statement: one central credit, not one per card.
+- CC0 §4(c) still disclaims third-party rights. Whether the permission covers them is the question in the table
+  above.
+
+**Ratings: what CELLR stores.** Only aggregates per X-Wines wine and vintage: count, sum, distribution, and first
+and last date. No individual rating and no X-Wines user id is stored in any database. The importer replaces user ids
+with a keyed hash that exists only in memory, and only while it runs (`docs/sprints/ratings/DESIGN.md` §2).
+
 ---
 
 ## 2. Liv-ex LWIN

@@ -13,9 +13,11 @@
 # Output: only result files reduced to counts (redact-results.ts) and logs of counts. No record of the dataset, no
 # connection string, no key is ever printed: tool output goes to files, the log gets summaries.
 set -euo pipefail
-MODE="${1:?check|migrate|import|scan}"
+MODE="${1:?check|migrate|import|scan|ratings}"
 OUT="${2:?output directory}"
 XW="${3:-}"
+RT="${4:-}"
+RT_SHA=847fb49139b7ebfc92c5745cc34e3efff9febea05e977e4332287afa2ea2ded2
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 XW_SHA=eac2d812b5eb94264f3c4ee1764ccdacf764cdf1c2599c26e3832ed91a4662cc
 XW_URL="https://drive.google.com/drive/folders/1LqguJNV-aKh1PuWMVx5ELA61LPfGfuu_"
@@ -34,7 +36,8 @@ psqlq() { psql "$STAGING_DB_URL" -X -q -At -v ON_ERROR_STOP=1 "$@"; }
 guard() { "${T[@]}" staging-guard.ts --phase "$1" "${DB[@]}" --confirm "$CONFIRM_REF"; }
 # what may leave the run, on EVERY exit (also a failure half-way, staging run 45039275216): results reduced to counts,
 # safe files kept, anything else deleted (redact-results.ts --dir is fail-closed)
-trap '"${T[@]}" redact-results.ts --dir "$OUT" || rm -rf "${OUT:?}"/*' EXIT
+# the ratings work directory (aggregates per wine) never outlives the run either
+trap 'rm -rf "${WORK:-$OUT/.none}"; "${T[@]}" redact-results.ts --dir "$OUT" || rm -rf "${OUT:?}"/*' EXIT
 # the session pooler's client limit (Supabase: the project's pool size, 15 on Micro); the load test never exceeds it
 POOL_CLIENTS="${STAGING_POOL_CLIENTS:-15}"
 
@@ -128,6 +131,59 @@ import)
   j "$OUT/perf-public-c8.json" "'• public c8 (session pooler): ' + JSON.stringify(r.overall)"
   "${PERF[@]}" --mode public --concurrency 16 --pooler transaction --out "$OUT/perf-public-c16-transaction.json" >/dev/null
   j "$OUT/perf-public-c16-transaction.json" "'• public c16 (transaction pooler): ' + JSON.stringify(r.overall)"
+  "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-after.json" >/dev/null
+  j "$OUT/staging-check-after.json" "'• staging check after: ' + (r.ok ? 'PASS' : 'FAIL')"
+  j "$OUT/staging-check-after.json" "process.exit(r.ok?0:1)"
+  ;;
+ratings)
+  [ -f "$XW" ] && [ -f "$RT" ] || { echo "the X-Wines wines or ratings file is missing" >&2; exit 1; }
+  echo "$XW_SHA  $XW" | sha256sum -c --quiet || { echo "the X-Wines file does not have the published checksum" >&2; exit 1; }
+  guard write
+  "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-before.json" >/dev/null ||
+    { j "$OUT/staging-check-before.json" "r.checks.filter(c=>!c.ok).map(c=>'  FAIL '+c.name).join('\n')"; exit 1; }
+  echo "• staging check before: PASS"
+  [ "$(psqlq -c "select count(*) from public.catalog_external_records where provider_id = 'xwines' and status = 'active'")" = 100646 ] ||
+    { echo "the X-Wines records are not imported on staging (run mode import first)" >&2; exit 1; }
+  echo "• X-Wines ratings may be shown in the PILOT only (logged admin step); rights stay unverified, scope pilot"
+  "${P[@]}" rights "${DB[@]}" --provider xwines --reason "pilot evaluation of the ratings chain; written terms to be recorded (SOURCE_RIGHTS_REGISTER.md §1b)" --actor "staging-pilot.sh" \
+    --set '{"may_display_ratings":true}' >"$OUT/xwines-provider.json"
+  j "$OUT/xwines-provider.json" "process.exit(r.rights_status==='unverified'&&r.search_scope==='pilot'?0:1)"
+  WORK="$(dirname "$OUT")/ratings-work"; mkdir -p "$WORK"; chmod 700 "$WORK"
+  "${T[@]}" ratings.ts aggregate --file "$RT" --sha256 "$RT_SHA" --wines "$XW" --units "$WORK/units.jsonl" --tmp "$WORK" \
+    --out "$OUT/ratings-aggregate.json" >/dev/null
+  j "$OUT/ratings-aggregate.json" "'• aggregated: ' + JSON.stringify({rows:r.rows,invalid:r.invalid_total,repeated_dropped:r.repeated_dropped,units:r.units,units_nv:r.units_nv,ratings:r.ratings_kept,seconds:r.seconds,peak_rss_mb:r.peak_rss_mb})"
+  IMP=("${T[@]}" ratings.ts import "${DB[@]}" --provider xwines --units "$WORK/units.jsonl" --report "$OUT/ratings-aggregate.json"
+       --dataset-version "X-Wines 1.0 (2023-01)" --source-url "$XW_URL" --retrieved-at "${RT_RETRIEVED_AT:-2026-11-25}")
+  echo "• a non-pilot ratings run must be refused"
+  if "${IMP[@]}" --apply >/dev/null 2>"$WORK/refusal.txt"; then echo "  ERROR: accepted" >&2; exit 1; fi
+  grep -q "only a pilot run is allowed" "$WORK/refusal.txt" || { echo "  ERROR: refused for another reason" >&2; exit 1; }
+  echo "non-pilot rating run refused: ratings rights not verified" | tee "$OUT/ratings-refusal.txt"
+  for n in 1 2; do
+    guard write >/dev/null
+    "${IMP[@]}" --pilot --apply --remove-missing --out "$OUT/import-ratings-$n.json" >/dev/null
+    j "$OUT/import-ratings-$n.json" "'• ratings run $n: ' + JSON.stringify({units:r.units,inserted:r.inserted,updated:r.updated,unchanged:r.unchanged,invalid:r.invalid,no_record:r.no_record,finish:r.finish,seconds:r.seconds})"
+  done
+  rm -rf "$WORK"
+  j "$OUT/import-ratings-2.json" "process.exit(r.unchanged===r.units&&r.inserted===0&&r.updated===0?0:1)"
+  psqlq -c "select json_build_object('units', count(*), 'units_nv', count(*) filter (where vintage_year is null),
+      'ratings', sum(rating_count), 'records_rated', count(distinct record_id),
+      'distribution_adds_up', bool_and((select sum(x) from unnest(distribution) x) = rating_count),
+      'size', pg_size_pretty(pg_total_relation_size('public.catalog_rating_aggregates')))
+    from public.catalog_rating_aggregates where provider_id = 'xwines'" > "$OUT/ratings-db-totals.json"
+  echo "• database totals: $(cat "$OUT/ratings-db-totals.json")"
+  j "$OUT/ratings-db-totals.json" "const a=require('$OUT/ratings-aggregate.json');process.exit(r.units===a.units&&Number(r.ratings)===a.ratings_kept&&r.distribution_adds_up?0:1)"
+  PEOPLE=$(psqlq -c "select set_config('request.jwt.claims', json_build_object('sub','$USER_ID','role','authenticated')::text, false); set role authenticated;
+    select count(*) filter (where public.catalog_record_ratings(e.id) is not null) from (select id from public.catalog_external_records where provider_id = 'xwines' order by md5(id::text) limit 200) e;" | tail -1)
+  PILOTN=$(psqlq -c "set role service_role; select count(*) filter (where jsonb_array_length(public.catalog_record_ratings_pilot(e.id)->'vintages') > 0) from (select id from public.catalog_external_records where provider_id = 'xwines' order by md5(id::text) limit 200) e;" | tail -1)
+  echo "ratings separation: of 200 records, a person sees ratings for $PEOPLE, the pilot read for $PILOTN" | tee "$OUT/ratings-separation.txt"
+  [ "$PEOPLE" = 0 ] && [ "$PILOTN" = 200 ] || { echo "  ERROR: ratings separation failed" >&2; exit 1; }
+  psqlq -c "set role service_role; do \$\$ declare t0 timestamptz; ms float8[] := '{}'; r uuid; begin
+      for r in select id from public.catalog_external_records where provider_id = 'xwines' order by md5(id::text || 'x') limit 300 loop
+        t0 := clock_timestamp(); perform public.catalog_record_ratings_pilot(r); ms := ms || extract(epoch from clock_timestamp() - t0) * 1000; end loop;
+      raise notice 'ratings read (300 records, in the database): p50 % ms, p95 % ms',
+        round((select percentile_cont(0.5) within group (order by x) from unnest(ms) x)::numeric, 2),
+        round((select percentile_cont(0.95) within group (order by x) from unnest(ms) x)::numeric, 2); end \$\$" 2>&1 |
+    grep -o "ratings read.*" | tee "$OUT/ratings-read.txt"
   "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-after.json" >/dev/null
   j "$OUT/staging-check-after.json" "'• staging check after: ' + (r.ok ? 'PASS' : 'FAIL')"
   j "$OUT/staging-check-after.json" "process.exit(r.ok?0:1)"
