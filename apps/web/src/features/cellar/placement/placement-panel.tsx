@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ERROR_MESSAGES,
   formatVintage,
@@ -92,6 +92,18 @@ export interface PlacementPanelProps {
   placed?: readonly MovableBottle[] | undefined;
   /** Told when a write starts and when it ends in a problem (not on success: that is `onDone`). */
   onPhase?: ((phase: PanelPhase) => void) | undefined;
+  // ---- Shared racks (ADR-010) ----
+  /**
+   * For a bottle WITHOUT a place here (it may stand in a shared rack): `note` is shown next to its name, and `ask`
+   * is rendered before it is placed; it calls `go` itself when there is nothing to ask. Absent: nothing changes.
+   */
+  unplacedExtras?:
+    | {
+        note: (bottleId: string) => ReactNode;
+        ask: (bottle: MovableBottle, go: () => void, cancel: () => void) => ReactNode;
+      }
+    | undefined;
+  // ---- end shared racks ----
 }
 
 /**
@@ -116,6 +128,7 @@ export function PlacementPanel({
   candidates = "unplaced",
   placed = [],
   onPhase,
+  unplacedExtras,
 }: PlacementPanelProps) {
   const tq = useTranslations("quickAdd");
   const t = useTranslations("placement");
@@ -153,6 +166,9 @@ export function PlacementPanel({
   );
   // one write at a time, even when two taps land before the next render (the button's `disabled` comes a render late)
   const inFlight = useRef(false);
+  // Shared racks (ADR-010): the question before a bottle without a place is placed, and the bottle it was answered for
+  const [asking, setAsking] = useState<{ at: SmartSpot | undefined } | null>(null);
+  const asked = useRef<string | null>(null);
   const [search, setSearch] = useState("");
   const quick = presetSpot !== undefined;
   const [intent, setIntent] = useState<AdviceIntent>("store");
@@ -229,6 +245,9 @@ export function PlacementPanel({
       ? { kind: "move", address: { row: at.row, col: at.col, index: at.index } }
       : chosenNow;
     if (!choice || !who || (!at && !unit) || inFlight.current) return;
+    // Shared racks (ADR-010): a bottle without a place may stand in a shared rack; that is asked about first
+    if (unplacedExtras && who.from === null && asked.current !== who.bottleId)
+      return setAsking({ at });
     inFlight.current = true;
     setBusy(true);
     setProblem(null);
@@ -539,7 +558,10 @@ export function PlacementPanel({
                   className="size-5 accent-[var(--color-accent)]"
                   onChange={() => setWho(b)}
                 />
-                {b.name}
+                <span className="flex min-w-0 flex-col">
+                  {b.name}
+                  {unplacedExtras?.note(b.bottleId)}
+                </span>
               </label>
             ))
           )}
@@ -605,6 +627,18 @@ export function PlacementPanel({
           {problem}
         </p>
       )}
+      {/* Shared racks (ADR-010): asked before a bottle that stands in a shared rack gets a place here */}
+      {asking &&
+        who &&
+        unplacedExtras?.ask(
+          who,
+          () => {
+            asked.current = who.bottleId;
+            setAsking(null);
+            void confirm(asking.at);
+          },
+          () => setAsking(null),
+        )}
       {!canWrite && (
         <p role="note" className="text-small text-ink-2" data-testid="placement-read-only">
           {t("readOnly")}
@@ -615,7 +649,7 @@ export function PlacementPanel({
         {canWrite && (
           <Button
             onClick={() => void confirm()}
-            disabled={!choice || !who || busy}
+            disabled={!choice || !who || busy || asking !== null}
             loading={busy}
             data-testid="placement-confirm"
           >

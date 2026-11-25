@@ -59,3 +59,15 @@ export const SharedPlaceAsk = dynamic(
   () => import("./in-shared-rack").then((m) => m.SharedPlaceAsk),
   { ssr: false },
 );
+
+/** The same question as a sheet of its own (for a screen without room for it, or one that asks from a sheet). */
+export const SharedPlaceAskSheet = dynamic(
+  () => import("./in-shared-rack").then((m) => m.SharedPlaceAskSheet),
+  { ssr: false },
+);
+
+/** Under a count of bottles without a place: how many of them stand in a shared rack. */
+export const SharedPlaceCount = dynamic(
+  () => import("./in-shared-rack").then((m) => m.SharedPlaceCount),
+  { ssr: false },
+);

@@ -42,6 +42,8 @@ export function SharedRackChips({
       {(racks.data?.racks ?? []).map((r) => (
         <Chip
           key={r.id}
+          // the same height as the cellar's own place chips (a thumb's height)
+          className="h-11"
           selected={r.id === selected}
           disabled={locked}
           onClick={() => onChoose(r.id)}
@@ -62,7 +64,7 @@ export function SharedRackChips({
         <Chip
           onClick={openManage}
           data-testid="shared-rack-invitations-chip"
-          className="border-accent-fg text-ink"
+          className="h-11 border-accent-fg text-ink"
         >
           {t("chip.invitations", { count: waiting })}
         </Chip>
@@ -88,7 +90,9 @@ export function SharedRackSingleRow({
 }) {
   return (
     <div className={`${ROW} has-[>:only-child]:hidden`} data-testid="smart-3d-units">
-      <Chip selected>{place.label}</Chip>
+      <Chip selected className="h-11">
+        {place.label}
+      </Chip>
       <SharedRackChips onChoose={onChoose} locked={locked} />
     </div>
   );
@@ -165,7 +169,7 @@ export function SharedRackScreen({
     <div className="flex flex-col gap-4" data-testid="shared-rack-screen" data-rack={rackId}>
       <div className={ROW} data-testid="smart-3d-units">
         {places.map((p) => (
-          <Chip key={p.id} onClick={() => onOwnPlace(p.id)}>
+          <Chip key={p.id} className="h-11" onClick={() => onOwnPlace(p.id)}>
             {p.label}
           </Chip>
         ))}

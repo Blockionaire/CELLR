@@ -74,6 +74,9 @@ import { freeSpots, spotMarkers, type FreeSpot } from "./quick-add/spots";
 import { legacyPointing } from "./quick-add/legacy-spots";
 // Shared racks (ADR-010): the one import. It holds only lazy stubs; all logic is in features/shared-racks.
 import {
+  SharedPlaceAskSheet,
+  SharedPlaceBadgeFor,
+  SharedPlaceCount,
   SharedRackChips,
   SharedRackScreen,
   SharedRackSingleRow,
@@ -380,6 +383,21 @@ export default function SmartCellar3D({
     name: `${b.producer} ${b.wineName} ${formatVintage(b.year)}`,
     from: null,
   }));
+  // Shared racks (ADR-010): a bottle without a place here may stand in a shared rack. That is said next to it, and
+  // asked about before it gets a place here. With shared racks closed: nothing is rendered and nothing is asked.
+  const sharedExtras = sharedRacks
+    ? {
+        note: (bottleId: string) => <SharedPlaceBadgeFor bottleId={bottleId} />,
+        ask: (bottle: MovableBottle, go: () => void, cancel: () => void) => (
+          <SharedPlaceAskSheet
+            bottleId={bottle.bottleId}
+            wine={bottle.name}
+            onConfirm={go}
+            onCancel={cancel}
+          />
+        ),
+      }
+    : undefined;
   const startPlacing = (bottle: MovableBottle | null) => {
     setPlacing({ bottle });
     if (bottle?.from && bottle.from.locationId !== unit.id) choose(bottle.from.locationId);
@@ -599,6 +617,7 @@ export default function SmartCellar3D({
           canWrite={placement.canWrite}
           advice={placement.advice === true}
           builderHref={builderOpen ? "/cellar/builder" : null}
+          unplacedExtras={sharedExtras}
         />
       )}
       {quickSpotHere && (
@@ -610,6 +629,7 @@ export default function SmartCellar3D({
             col: quickSpotHere.col,
           })}
           unplacedCount={unplaced.length}
+          unplacedNote={sharedRacks ? <SharedPlaceCount /> : undefined}
           placedCount={placedBottles.length}
           scanHref={addHref("/scan", quickSpotHere, "3d")}
           manualHref={addHref("/cellar/add", quickSpotHere, "3d")}
@@ -638,6 +658,7 @@ export default function SmartCellar3D({
           canWrite={placement.canWrite}
           spotFirst={quickPanel.spot}
           candidates={quickPanel.action === "unplaced" ? "unplaced" : "placed"}
+          unplacedExtras={sharedExtras}
           placed={placedBottles}
           onPhase={(phase) =>
             dispatchQuick(phase === "saving" ? { type: "submit" } : { type: "conflict" })
@@ -655,7 +676,11 @@ export default function SmartCellar3D({
                 key={b.bottleId}
                 className="flex items-center justify-between gap-3 text-small text-ink"
               >
-                <span className="min-w-0 truncate">{b.name}</span>
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate">{b.name}</span>
+                  {/* Shared racks (ADR-010): where it stands, when it stands in a shared rack */}
+                  {sharedRacks && <SharedPlaceBadgeFor bottleId={b.bottleId} />}
+                </span>
                 <Button
                   size="sm"
                   variant="secondary"

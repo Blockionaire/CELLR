@@ -607,13 +607,22 @@ for (const [name, base] of [
       const { call } = await apiClient(request, email);
       const wine = (await call<{ id: string }>("post", "/wines", wineBody, 201)).body;
       await call("post", "/bottles", { wineId: wine.id, year: 2019, quantity: 1 }, 201);
+      await call("post", "/storage", { label: "Home rack", kind: "rack", rows: 2, cols: 2 }, 201);
       await page.goto("/cellar");
-      for (const view of ["3D", "Racks", "List"]) {
+      for (const view of ["3D", "List", "Racks"]) {
         await page.getByRole("radio", { name: view }).click();
         await page.waitForTimeout(1_500);
-        await expect(page.locator('[data-testid^="shared-rack"]')).toHaveCount(0);
+        await expect(page.locator('[data-testid^="shared-"]')).toHaveCount(0);
         await expect(page.getByText("Shared racks")).toHaveCount(0);
       }
+      // a bottle without a place gets one, exactly as before: nothing is said about shared racks, nothing is asked
+      await page
+        .getByRole("region", { name: "Home rack" })
+        .getByRole("button", { name: "Shelf 1, position 1, empty" })
+        .click();
+      await page.getByRole("dialog").getByRole("button", { name: /2019/ }).click();
+      await expect(page.getByText("Moved to Home rack · Shelf 1 · Position 1.")).toBeVisible();
+      await expect(page.locator('[data-testid^="shared-"]')).toHaveCount(0);
       expect(asked, "no request names shared racks").toEqual([]);
       const scripts = await Promise.all(code);
       expect(scripts.length).toBeGreaterThan(3);
@@ -621,6 +630,107 @@ for (const [name, base] of [
       expect(scripts.filter((text) => text.includes("shared-rack-stage"))).toEqual([]);
     });
   });
+
+test("my own cellar: a bottle that stands in a shared rack is said so where it is offered for a place, and asked about first", async ({
+  browser,
+  request,
+}, info) => {
+  const ann = await arriveAs(browser, request, info, "Ann");
+  const [inRack] = await ann.bottles("Ann Riesling");
+  await ann.bottles("Ann Chablis");
+  const rack = (
+    await ann.call<{ id: string }>(
+      "post",
+      "/shared-racks",
+      { name: "Club rack", ...RACK_LAYOUT(2, 3) },
+      201,
+    )
+  ).body.id;
+  await ann.call(
+    "post",
+    `/shared-racks/${rack}/bottles`,
+    { bottleId: inRack, to: { row: 2, col: 3, index: 1 } },
+    201,
+  );
+  const home = (
+    await ann.call<{ id: string }>(
+      "post",
+      "/storage",
+      { label: "Home rack", kind: "rack", rows: 2, cols: 3 },
+      201,
+    )
+  ).body.id;
+  await ann.call(
+    "put",
+    `/smart-cellar/storage/${home}/layout`,
+    {
+      structure: { template: "rack_classic", rows: 2, cols: 3, cellCapacity: 1, zones: [] },
+      appearance: { v: 1, material: "wood", color: "walnut", lighting: "none", door: "none" },
+    },
+    200,
+  );
+  const where = () =>
+    sql<{ location_id: string | null; status: string }>(
+      "select location_id, status from public.bottles where id = $1",
+      [inRack],
+    );
+  const ask = ann.page.getByTestId("shared-place-confirm");
+
+  await test.step("the racks view: the list of a tapped spot says where it stands; No changes nothing", async () => {
+    await ann.page.goto("/cellar");
+    await ann.page.getByRole("radio", { name: "Racks" }).click();
+    const spot = (col: number) =>
+      ann.page
+        .getByRole("region", { name: "Home rack" })
+        .getByRole("button", { name: `Shelf 1, position ${col}, empty` });
+    await spot(1).click();
+    const sheet = ann.page.getByRole("dialog").filter({ hasText: "Place a bottle here" });
+    await expect(sheet.getByTestId("shared-place-badge")).toHaveText(
+      "In shared rack Club rack · shelf 2, spot 3",
+    );
+    // a bottle that stands in no shared rack goes through at once
+    await sheet.getByRole("button", { name: /Ann Chablis/ }).click();
+    await expect(ann.page.getByText("Moved to Home rack · Shelf 1 · Position 1.")).toBeVisible();
+    await expect(ask).toHaveCount(0);
+    // the one in the shared rack is asked about first
+    await spot(2).click();
+    await sheet.getByRole("button", { name: /Ann Riesling/ }).click();
+    await expect(ask).toContainText(
+      "Ann Riesling 2019 stands in the shared rack Club rack, on shelf 2, spot 3. Giving it a place here takes it out of the shared rack",
+    );
+    await settled(ann.page.getByRole("dialog").filter({ has: ask }));
+    expect(await audit(ann.page), "the question").toEqual([]);
+    await ann.page.getByTestId("shared-place-confirm-no").click();
+    await expect(ask).toHaveCount(0);
+    expect(await placements(rack)).toHaveLength(1);
+    expect(await where()).toEqual([{ location_id: null, status: "in_cellar" }]);
+    await ann.page.keyboard.press("Escape");
+  });
+
+  await test.step("the 3D view's placing: said in the list, asked on confirm; Yes moves it home and out of the rack", async () => {
+    await ann.page.getByRole("radio", { name: "3D" }).click();
+    const list = ann.page.getByTestId("placement-unplaced");
+    await expect(list.getByTestId("shared-place-badge")).toHaveText(
+      "In shared rack Club rack · shelf 2, spot 3",
+    );
+    await list.getByRole("button", { name: "Place" }).click();
+    await ann.page.getByTestId("spot-picker").locator('[data-spot="2:2:1"]').click();
+    await ann.page.getByTestId("placement-confirm").click();
+    await expect(ask).toContainText("takes it out of the shared rack");
+    // nothing has moved while the question is open
+    expect(await where()).toEqual([{ location_id: null, status: "in_cellar" }]);
+    await ann.page.getByTestId("shared-place-confirm-yes").click();
+    await expect(ann.page.getByText(/is now at Home rack · shelf 2 · spot 2/)).toBeVisible();
+    expect(await where()).toEqual([{ location_id: home, status: "in_cellar" }]);
+    expect(await placements(rack)).toEqual([]);
+    expect((await eventTypes(rack)).at(-1)).toEqual({
+      event_type: "bottle_relocated",
+      actor_id: ann.userId,
+      owner_id: ann.userId,
+    });
+  });
+  await ann.close();
+});
 
 test("gate open: the same check finds the code once a shared rack is opened (so the check above can see it)", async ({
   browser,

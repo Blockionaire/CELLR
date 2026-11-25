@@ -3077,7 +3077,8 @@
       "confirmTitle": "Deze fles staat in een gedeelde kast",
       "confirmWhat": "{wine} staat in de gedeelde kast {rack}, op plank {row}, plek {col}. Als je ze hier een plek geeft, gaat ze uit de gedeelde kast: haar plek daar komt vrij en de deelnemers van die kast zien dat ze naar huis is gegaan.",
       "confirmWhatNoAccess": "{wine} staat in een gedeelde kast waar je geen deelnemer (meer) van bent. Als je ze hier een plek geeft, gaat ze uit die kast: haar plek daar komt vrij en de deelnemers van die kast zien dat ze naar huis is gegaan.",
-      "confirm": "Eruit halen en hier plaatsen"
+      "confirm": "Eruit halen en hier plaatsen",
+      "countNote": "{count, plural, one {# daarvan staat in een gedeelde kast: daar heeft ze een plek.} other {# daarvan staan in een gedeelde kast: daar hebben ze een plek.}}"
     }
   }
 }

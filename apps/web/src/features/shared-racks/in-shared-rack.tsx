@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { MySharedRackBottleView } from "@cellr/domain";
 import { cn } from "@/ui/cn";
 import { Button } from "@/ui/button";
+import { Sheet } from "@/ui/sheet";
 import { useMySharedBottles } from "./hooks";
 import { PeopleIcon } from "./icons";
 
@@ -168,5 +169,88 @@ export function SharedPlaceAsk({
       onConfirm={onConfirm}
       onCancel={onCancel}
     />
+  );
+}
+
+/**
+ * The same question as a sheet of its own, for a screen that has no room of its own for it (or asks from inside
+ * another sheet). A bottle that stands in no shared rack goes through at once and nothing is shown.
+ */
+export function SharedPlaceAskSheet({
+  bottleId,
+  wine,
+  pending,
+  onConfirm,
+  onCancel,
+}: {
+  bottleId: string;
+  wine: string;
+  pending?: boolean | undefined;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const t = useTranslations("sharedRacks");
+  const tc = useTranslations("common");
+  const places = useSharedPlaces();
+  const place = places.of(bottleId);
+  const passed = useRef<string | null>(null);
+  useEffect(() => {
+    if (!places.known || place || passed.current === bottleId) return;
+    passed.current = bottleId;
+    onConfirm();
+  }, [places.known, place, bottleId, onConfirm]);
+  return (
+    <Sheet open={place !== null} onClose={onCancel} title={t("inRack.confirmTitle")}>
+      {place && (
+        <div className="flex flex-col gap-4" data-testid="shared-place-confirm">
+          <p className="text-body text-ink-2">
+            {place.hasAccess && place.spot
+              ? t("inRack.confirmWhat", {
+                  wine,
+                  rack: place.rackName ?? "",
+                  row: place.spot.row,
+                  col: place.spot.col,
+                })
+              : t("inRack.confirmWhatNoAccess", { wine })}
+          </p>
+          <div className="flex flex-col gap-2">
+            <Button
+              size="lg"
+              block
+              loading={pending}
+              onClick={onConfirm}
+              data-testid="shared-place-confirm-yes"
+            >
+              {t("inRack.confirm")}
+            </Button>
+            <Button
+              size="lg"
+              block
+              variant="ghost"
+              onClick={onCancel}
+              data-testid="shared-place-confirm-no"
+            >
+              {tc("cancel")}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Sheet>
+  );
+}
+
+/** Under a count of "bottles without a place": how many of them stand in a shared rack. Nothing when none does. */
+export function SharedPlaceCount({ className }: { className?: string | undefined }) {
+  const t = useTranslations("sharedRacks");
+  const { count } = useSharedPlaces();
+  if (count === 0) return null;
+  return (
+    <p
+      className={cn("flex items-start gap-1 text-caption text-ink-2", className)}
+      data-testid="shared-place-count"
+    >
+      <PeopleIcon size={14} className="mt-0.5 shrink-0" />
+      {t("inRack.countNote", { count })}
+    </p>
   );
 }

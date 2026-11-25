@@ -120,6 +120,7 @@ export function SharedRackStage({
   const tShowcase = useTranslations("showcase");
   const tTypes = useTranslations("wineTypes");
   const tc = useTranslations("common");
+  const tQuick = useTranslations("quickAdd");
   const locale = useLocale();
   const webgl = useWebGL();
   const reduced = useReducedMotion();
@@ -150,6 +151,8 @@ export function SharedRackStage({
   const [flat, setFlat] = useState(false);
   const [lost, setLost] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // a tap on a small spot zoomed in instead of choosing it (the 3D view's aim help): said, until a spot is chosen
+  const [aimed, setAimed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [panelSlot, setPanelSlot] = useState<HTMLElement | null>(null);
   const handle = useRef<InspectableStorageHandle | null>(null);
@@ -164,6 +167,7 @@ export function SharedRackStage({
   const choices = useMemo(() => ownerChoices(bottles, members ?? []), [bottles, members]);
   const active = validFilter(filter, choices);
   const offering = mode.kind !== "view";
+  if (aimed && !offering) setAimed(false);
   // while a spot is being chosen every bottle is shown: a spot is free only when nobody's bottle is on it
   const shown = useMemo(
     () => (offering ? bottles : bottles.filter((b) => matchesOwner(b, active))),
@@ -251,6 +255,7 @@ export function SharedRackStage({
     );
   const onSpot = (spot: FreeSpot) => {
     if (move.isPending || place.isPending) return;
+    setAimed(false);
     if (mode.kind === "add") setAddSpot(spot);
     else if (mode.kind === "move") doMove(mode.bottle, spot);
   };
@@ -554,6 +559,11 @@ export function SharedRackStage({
                 · {t("stage.choosingFree", { count: free.length })}
               </span>
             )}
+            {aimed && !addSpot && (
+              <span className="block text-ink-2" data-testid="shared-rack-aim-hint">
+                {tQuick("aimAgain")}
+              </span>
+            )}
           </span>
           <Button
             size="md"
@@ -636,6 +646,7 @@ export function SharedRackStage({
                 debug={debug}
                 spots={offering ? (markers ?? []) : null}
                 onSpot={offering ? onSpot : undefined}
+                onAim={offering ? () => setAimed(true) : undefined}
               />
               <p className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4">
                 <span className="max-w-full rounded-full bg-surface/90 px-4 py-1.5 text-center text-caption text-ink-2 ring-1 ring-hairline">
