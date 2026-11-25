@@ -21,6 +21,10 @@ export const FEATURES = [
   "sommelier_social",
   /** Sommelier 3.0: menus, wine-to-food, comparing, serving, quantities. Needs the engine. */
   "sommelier_experiences",
+  /** Ratings on the wine page and the catalogue record page: external aggregates and the CELLR score. */
+  "catalog_ratings",
+  /** CELLR community reviews: publishing a tasting as a public review, reading, reporting. Needs catalog_ratings. */
+  "community_reviews",
 ] as const;
 export type Feature = (typeof FEATURES)[number];
 export type FeatureFlags = Readonly<Record<Feature, boolean>>;
@@ -34,12 +38,15 @@ export const NAMED_ONLY: ReadonlySet<Feature> = new Set<Feature>([
   "sommelier_buying",
   "sommelier_social",
   "sommelier_experiences",
+  "catalog_ratings",
+  "community_reviews",
 ]);
 /** Switches that do nothing without another one. */
 const REQUIRES: Partial<Record<Feature, Feature>> = {
   sommelier_buying: "sommelier_engine",
   sommelier_social: "sommelier_engine",
   sommelier_experiences: "sommelier_engine",
+  community_reviews: "catalog_ratings",
 };
 
 export const NO_FEATURES: FeatureFlags = Object.freeze(

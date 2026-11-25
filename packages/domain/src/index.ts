@@ -41,6 +41,8 @@ export * from "./purchase-check";
 export * from "./catalog-search";
 export * from "./catalog-providers";
 export * from "./catalog-ratings";
+export * from "./rating-score";
+export * from "./wine-ratings";
 export * from "./provenance";
 export * from "./features";
 export * from "./sommelier-parts";

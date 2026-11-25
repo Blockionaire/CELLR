@@ -1653,6 +1653,168 @@ export type Database = {
           },
         ];
       };
+      community_review_moderation_log: {
+        Row: {
+          action: string;
+          actor: string;
+          created_at: string;
+          id: number;
+          reason: string;
+          review_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          action: string;
+          actor: string;
+          created_at?: string;
+          id?: never;
+          reason: string;
+          review_id?: string | null;
+        };
+        Update: {
+          action?: string;
+          actor?: string;
+          created_at?: string;
+          id?: never;
+          reason?: string;
+          review_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "community_review_moderation_log_review_id_fkey";
+            columns: ["review_id"];
+            isOneToOne: false;
+            referencedRelation: "community_reviews";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      community_review_reports: {
+        Row: {
+          created_at: string;
+          detail: string | null;
+          id: number;
+          reason: string;
+          reporter_id: string;
+          resolution: string | null;
+          resolved_at: string | null;
+          review_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          detail?: string | null;
+          id?: never;
+          reason: string;
+          reporter_id: string;
+          resolution?: string | null;
+          resolved_at?: string | null;
+          review_id: string;
+        };
+        Update: {
+          created_at?: string;
+          detail?: string | null;
+          id?: never;
+          reason?: string;
+          reporter_id?: string;
+          resolution?: string | null;
+          resolved_at?: string | null;
+          review_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "community_review_reports_review_id_fkey";
+            columns: ["review_id"];
+            isOneToOne: false;
+            referencedRelation: "community_reviews";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      community_reviews: {
+        Row: {
+          body: string | null;
+          id: string;
+          moderated_at: string | null;
+          moderated_by: string | null;
+          published_at: string;
+          score: number;
+          status: string;
+          status_reason: string | null;
+          subject_record_id: string | null;
+          subject_wine_id: string | null;
+          tasted_on: string;
+          tasting_id: string | null;
+          updated_at: string;
+          user_id: string;
+          vintage_year: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          body?: string | null;
+          id?: string;
+          moderated_at?: string | null;
+          moderated_by?: string | null;
+          published_at?: string;
+          score: number;
+          status?: string;
+          status_reason?: string | null;
+          subject_record_id?: string | null;
+          subject_wine_id?: string | null;
+          tasted_on: string;
+          tasting_id?: string | null;
+          updated_at?: string;
+          user_id: string;
+          vintage_year?: number | null;
+        };
+        Update: {
+          body?: string | null;
+          id?: string;
+          moderated_at?: string | null;
+          moderated_by?: string | null;
+          published_at?: string;
+          score?: number;
+          status?: string;
+          status_reason?: string | null;
+          subject_record_id?: string | null;
+          subject_wine_id?: string | null;
+          tasted_on?: string;
+          tasting_id?: string | null;
+          updated_at?: string;
+          user_id?: string;
+          vintage_year?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "community_reviews_subject_record_id_fkey";
+            columns: ["subject_record_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_external_records";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_reviews_subject_wine_id_fkey";
+            columns: ["subject_wine_id"];
+            isOneToOne: false;
+            referencedRelation: "wines";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_reviews_tasting_id_fkey";
+            columns: ["tasting_id"];
+            isOneToOne: true;
+            referencedRelation: "tastings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_reviews_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       drink_notices: {
         Row: {
           kind: string;
@@ -3154,7 +3316,18 @@ export type Database = {
         Args: { p_actor: string; p_fields: Json; p_id: string };
         Returns: boolean;
       };
+      admin_community_review_queue: { Args: { p_limit?: number }; Returns: Json };
       admin_household_label_path: { Args: { p_image: string; p_wine: string }; Returns: string };
+      admin_moderate_community_review: {
+        Args: {
+          p_action: string;
+          p_actor: string;
+          p_moderator?: string;
+          p_reason: string;
+          p_review_id: string;
+        };
+        Returns: Json;
+      };
       admin_producer_update: {
         Args: {
           p_actor: string;
@@ -3488,6 +3661,14 @@ export type Database = {
         Args: { p_language: string; p_ttl_seconds?: number; p_vintage_id: string };
         Returns: Json;
       };
+      community_reviews_for_record: {
+        Args: { p_limit?: number; p_record_id: string };
+        Returns: Json;
+      };
+      community_reviews_for_wine: {
+        Args: { p_household_id: string; p_limit?: number; p_wine_id: string };
+        Returns: Json;
+      };
       consume_rate_limit: {
         Args: { p_bucket: string; p_limit: number; p_window_seconds: number };
         Returns: boolean;
@@ -3497,6 +3678,7 @@ export type Database = {
         Args: { p_household: string; p_max_uses?: number; p_ttl_hours?: number };
         Returns: string;
       };
+      delete_community_review: { Args: { p_review_id: string }; Returns: string };
       dismiss_bottle_photo_invite: { Args: Record<PropertyKey, never>; Returns: undefined };
       find_person: {
         Args: { p_query: string };
@@ -3577,6 +3759,7 @@ export type Database = {
       };
       join_household: { Args: { p_code: string }; Returns: string };
       merge_wines: { Args: { p_source: string; p_target: string }; Returns: number };
+      my_community_review: { Args: { p_tasting_id: string }; Returns: Json };
       my_friends: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -3620,6 +3803,10 @@ export type Database = {
         }[];
       };
       platform_metrics: { Args: { p_now?: string }; Returns: Json };
+      publish_community_review: {
+        Args: { p_body: string; p_consent: boolean; p_tasting_id: string };
+        Returns: Json;
+      };
       publish_shared_wine_profile: {
         Args: {
           p_generated_at: string;
@@ -3650,6 +3837,10 @@ export type Database = {
         Returns: boolean;
       };
       remove_friend: { Args: { p_user: string }; Returns: boolean };
+      report_community_review: {
+        Args: { p_detail?: string; p_reason: string; p_review_id: string };
+        Returns: string;
+      };
       respond_friend_request: { Args: { p_accept: boolean; p_id: string }; Returns: boolean };
       save_storage_layout: {
         Args: {
