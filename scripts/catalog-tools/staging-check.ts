@@ -110,6 +110,13 @@ async function main() {
         missing.length === 0 && extra.length === 0,
         `repository ${repo.length}, target ${history.length}; missing ${missing.join(",") || "none"}; extra ${extra.join(",") || "none"}`,
       );
+    } else if (typeof args["staging-project"] === "string") {
+      // a hosted project always has a history; one that cannot be read is a failure, never a weaker check
+      add(
+        "schema: migration history",
+        false,
+        "the migration history of the hosted project could not be read as the owner role",
+      );
     } else {
       const absent: string[] = [];
       for (const f of [...REQUIRED_FUNCTIONS, ...PEOPLE_MUST_NOT_EXECUTE])

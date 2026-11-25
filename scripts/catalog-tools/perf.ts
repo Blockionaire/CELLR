@@ -18,8 +18,10 @@
  *                 evaluation set) are searched; pilot or staging databases only;
  *   --mode public public.catalog_search as the signed-in person (row-level security and the membership check apply);
  *                 only 'public' providers are searched, so in a pilot database this measures CELLR's own wines only.
- * One warm-up pass is not counted. Latency is measured at the client: database time plus the local round trip, not
- * the network or the API layer.
+ * One warm-up pass is not counted. Latency is measured at the client: database time plus the round trip to the
+ * database (on a remote target that includes the network), not the API layer. In transaction-pooler mode only the
+ * search statement is timed; the begin and commit round trips are not, so fewer searches are in flight than there
+ * are clients (throughput × mean latency gives the real number).
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import type { Client } from "pg";
@@ -122,8 +124,8 @@ async function main() {
       }
       // one transaction per search; only the search statement is timed (the begin/commit round trips are the
       // pooler's cost, reported apart as throughput)
-      await c.query(preamble);
       try {
+        await c.query(preamble);
         const t0 = performance.now();
         const r = await c.query(sql, params);
         const ms = performance.now() - t0;
