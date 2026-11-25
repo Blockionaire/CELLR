@@ -1139,6 +1139,7 @@ export type Database = {
           license: string;
           license_url: string | null;
           may_display: boolean;
+          may_display_ratings: boolean;
           may_store: boolean;
           modification_notice: string | null;
           name: string;
@@ -1161,6 +1162,7 @@ export type Database = {
           license: string;
           license_url?: string | null;
           may_display?: boolean;
+          may_display_ratings?: boolean;
           may_store?: boolean;
           modification_notice?: string | null;
           name: string;
@@ -1182,6 +1184,7 @@ export type Database = {
           license?: string;
           license_url?: string | null;
           may_display?: boolean;
+          may_display_ratings?: boolean;
           may_store?: boolean;
           modification_notice?: string | null;
           name?: string;
@@ -1194,6 +1197,127 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      catalog_rating_aggregates: {
+        Row: {
+          distribution: number[];
+          first_rated_month: string | null;
+          last_rated_month: string | null;
+          last_run_id: string;
+          provider_id: string;
+          rating_count: number;
+          rating_sum_half: number;
+          record_id: string;
+          updated_at: string;
+          vintage_year: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          distribution: number[];
+          first_rated_month?: string | null;
+          last_rated_month?: string | null;
+          last_run_id: string;
+          provider_id: string;
+          rating_count: number;
+          rating_sum_half: number;
+          record_id: string;
+          updated_at?: string;
+          vintage_year?: number | null;
+        };
+        Update: {
+          distribution?: number[];
+          first_rated_month?: string | null;
+          last_rated_month?: string | null;
+          last_run_id?: string;
+          provider_id?: string;
+          rating_count?: number;
+          rating_sum_half?: number;
+          record_id?: string;
+          updated_at?: string;
+          vintage_year?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_rating_aggregates_last_run_id_fkey";
+            columns: ["last_run_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_rating_runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catalog_rating_aggregates_record";
+            columns: ["record_id", "provider_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_external_records";
+            referencedColumns: ["id", "provider_id"];
+          },
+        ];
+      };
+      catalog_rating_runs: {
+        Row: {
+          counts: NonNullable<Json>;
+          dataset_version: string;
+          expected_ratings: number;
+          expected_units: number;
+          file_counts: NonNullable<Json>;
+          finished_at: string | null;
+          id: string;
+          license: string;
+          method: string;
+          pilot: boolean;
+          provider_id: string;
+          retrieved_at: string;
+          rights_status: string;
+          source_sha256: string;
+          source_url: string | null;
+          started_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          counts?: NonNullable<Json>;
+          dataset_version: string;
+          expected_ratings: number;
+          expected_units: number;
+          file_counts?: NonNullable<Json>;
+          finished_at?: string | null;
+          id?: string;
+          license: string;
+          method: string;
+          pilot?: boolean;
+          provider_id: string;
+          retrieved_at: string;
+          rights_status: string;
+          source_sha256: string;
+          source_url?: string | null;
+          started_at?: string;
+        };
+        Update: {
+          counts?: NonNullable<Json>;
+          dataset_version?: string;
+          expected_ratings?: number;
+          expected_units?: number;
+          file_counts?: NonNullable<Json>;
+          finished_at?: string | null;
+          id?: string;
+          license?: string;
+          method?: string;
+          pilot?: boolean;
+          provider_id?: string;
+          retrieved_at?: string;
+          rights_status?: string;
+          source_sha256?: string;
+          source_url?: string | null;
+          started_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_rating_runs_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_providers";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       catalog_record_links: {
         Row: {
@@ -3250,6 +3374,30 @@ export type Database = {
       };
       catalog_provider_register: { Args: { p: Json }; Returns: string };
       catalog_purge_scan_reads: { Args: Record<PropertyKey, never>; Returns: number };
+      catalog_rating_import: {
+        Args: { p_apply?: boolean; p_provider: string; p_run_id: string; p_units: Json };
+        Returns: Json;
+      };
+      catalog_rating_run_abandon: { Args: { p_reason: string; p_run_id: string }; Returns: Json };
+      catalog_rating_run_finish: {
+        Args: { p_remove_missing: boolean; p_run_id: string };
+        Returns: Json;
+      };
+      catalog_rating_run_start: {
+        Args: {
+          p_expected_ratings: number;
+          p_expected_units: number;
+          p_file_counts?: Json;
+          p_method: string;
+          p_pilot?: boolean;
+          p_provider: string;
+          p_retrieved_at: string;
+          p_sha256: string;
+          p_source_url: string;
+          p_version: string;
+        };
+        Returns: string;
+      };
       catalog_record_confirmation: {
         Args: { p_image_id?: string; p_wine_id: string; p_year: number };
         Returns: string;
@@ -3258,6 +3406,8 @@ export type Database = {
         Args: { p_household_id: string; p_record: string };
         Returns: Json;
       };
+      catalog_record_ratings: { Args: { p_record_id: string }; Returns: Json };
+      catalog_record_ratings_pilot: { Args: { p_record_id: string }; Returns: Json };
       catalog_record_scan_outcome: {
         Args: { p_image_id: string; p_wine_id: string; p_year: number };
         Returns: string;
@@ -3332,6 +3482,7 @@ export type Database = {
       };
       catalog_target_identity: { Args: Record<PropertyKey, never>; Returns: Json };
       catalog_vintage: { Args: { p_wine_id: string; p_year: number }; Returns: string };
+      catalog_wine_ratings: { Args: { p_household_id: string; p_wine_id: string }; Returns: Json };
       check_signup_allowed: { Args: { p_email: string }; Returns: boolean };
       claim_shared_profile_research: {
         Args: { p_language: string; p_ttl_seconds?: number; p_vintage_id: string };

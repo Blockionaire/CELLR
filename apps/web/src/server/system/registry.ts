@@ -1028,13 +1028,15 @@ const components = [
     status: "implemented",
     summary: "External sources, rights log, import runs, records",
     responsibility:
-      "External catalogue providers, their licence and rights history, import runs and the records linked to wines.",
+      "External catalogue providers, their licence and rights history, import runs, the records linked to wines, and the providers' ratings as aggregates per record and vintage (never an individual rating or rater).",
     inputs: [],
     outputs: [],
-    sources: [D + "catalog-providers.ts"],
+    sources: [D + "catalog-providers.ts", D + "catalog-ratings.ts"],
     tables: [
       "catalog_external_records",
       "catalog_import_runs",
+      "catalog_rating_aggregates",
+      "catalog_rating_runs",
       "catalog_provider_rights_log",
       "catalog_providers",
       "catalog_record_links",
@@ -1249,7 +1251,7 @@ const components = [
     status: "implemented",
     summary: "Checks, migrations, database, e2e, secrets, audit, backup",
     responsibility:
-      "Runs format, lint, types, unit tests, build, migration immutability, the database suites, e2e (main and nightly), secret scan, dependency audit and the backup round trip.",
+      "Runs format, lint, types, unit tests, build, migration immutability, the database suites, e2e (main and nightly), secret scan, dependency audit and the backup round trip; by hand only, the staging catalogue workflow (X-Wines records and ratings, pilot).",
     inputs: ["Pushes and pull requests"],
     outputs: ["Check results"],
     sources: [".github/workflows/ci.yml", ".github/workflows/staging-catalog.yml"],
@@ -2901,8 +2903,8 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.7.0",
-  reviewedOn: "2026-11-24",
+  version: "1.8.0",
+  reviewedOn: "2026-11-25",
   repository: "Blockionaire/CELLR",
   components,
   edges,
