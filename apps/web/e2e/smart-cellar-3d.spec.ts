@@ -161,8 +161,18 @@ async function openSmart(page: Page) {
   await open3D(page);
   await expect(view(page)).toHaveAttribute("data-mode", "ready", { timeout: 30_000 });
 }
+/**
+ * How long a place's first picture may take here. Building a scene compiles its shaders on the main thread, and
+ * software rendering on a loaded runner can hold that thread for several seconds: a trace showed the new stage painted
+ * at once and the page not answering a query for 5.2 s (sprint 10, review S-D1). So everything that is first seen
+ * when a place opens (after `openSmart` or a change of place) gets this budget, not the default 5 s.
+ */
+const FIRST_PICTURE = 60_000;
 const drawn = (page: Page) =>
-  expect(canvas(page)).toHaveAttribute("data-frames", /^[1-9]/, { timeout: 60_000 });
+  expect(canvas(page)).toHaveAttribute("data-frames", /^[1-9]/, { timeout: FIRST_PICTURE });
+/** The stage of the place that has just opened, once the page answers again (see FIRST_PICTURE). */
+const stageShows = (page: Page, name: string, value: string) =>
+  expect(stage(page)).toHaveAttribute(name, value, { timeout: FIRST_PICTURE });
 const placementsOf = async (call: Call, placeId: string) =>
   (
     (await call("get", `/smart-cellar/storage/${placeId}/bottles`, undefined, 200)).body as {
@@ -248,7 +258,7 @@ test.describe("gate ON (an internal preview)", () => {
     const { call, rack } = await mixedCellar(page, request, "mixed");
     await openSmart(page);
     await expect(view(page)).toHaveAttribute("data-unit-renderer", "smart");
-    await expect(stage(page)).toHaveAttribute("data-renderer", "grid");
+    await stageShows(page, "data-renderer", "grid");
     await expect(stage(page)).toHaveAttribute("data-template", "rack_classic");
     await drawn(page);
     // what is drawn is what the API says is there: the same bottles, each with its whole spot
@@ -288,7 +298,7 @@ test.describe("gate ON (an internal preview)", () => {
 
     // and back: the new view again
     await page.getByRole("button", { name: "Oak rack" }).click();
-    await expect(stage(page)).toHaveAttribute("data-renderer", "grid");
+    await stageShows(page, "data-renderer", "grid");
     await drawn(page);
     await expect(page.locator("canvas[data-engine]")).toHaveCount(1);
   });
@@ -485,10 +495,7 @@ test.describe("gate ON (an internal preview)", () => {
 
     // another place while a bottle is out: the inspection is over, and nothing of it comes along
     await page.getByRole("button", { name: "Rack B" }).click();
-    // The new place's stage is in the page within a moment, but building its scene compiles its shaders on the main
-    // thread, and software rendering on a loaded runner can hold that thread for several seconds (a trace showed the
-    // stage painted at once and the page not answering for 5.2 s). The same budget as the first picture (`drawn`).
-    await expect(stage(page)).toHaveAttribute("data-template", "rack_metal", { timeout: 60_000 });
+    await stageShows(page, "data-template", "rack_metal");
     await drawn(page);
     await phase(page, "idle");
     await expect(stage(page)).toHaveAttribute("data-selected", "");
@@ -505,7 +512,7 @@ test.describe("gate ON (an internal preview)", () => {
 
     // back in the first place: its own bottles, and no bottle of the other one chosen
     await page.getByRole("button", { name: "Rack A" }).click();
-    await expect(stage(page)).toHaveAttribute("data-template", "rack_classic");
+    await stageShows(page, "data-template", "rack_classic");
     await drawn(page);
     await expect(stage(page)).toHaveAttribute("data-selected", "");
     expect((await hooks(page)).sort()).toEqual(inA.map((p) => p.bottleId).sort());
@@ -596,7 +603,9 @@ test.describe("gate ON (an internal preview)", () => {
       .poll(() => seen.api.filter((p) => p === "/api/v1/smart-cellar/storage").length)
       .toBeGreaterThan(listed);
     await page.getByRole("button", { name: "Oak rack" }).click();
-    await expect(page.getByTestId("smart-3d-meta")).toContainText("5 of 12");
+    await expect(page.getByTestId("smart-3d-meta")).toContainText("5 of 12", {
+      timeout: FIRST_PICTURE,
+    });
   });
 
   test("a place whose arrangement is not known: the neutral picture, said plainly, and a bottle is shown, not 'taken from a spot'", async ({
@@ -614,7 +623,7 @@ test.describe("gate ON (an internal preview)", () => {
       [place],
     );
     await openSmart(page);
-    await expect(stage(page)).toHaveAttribute("data-renderer", "neutral");
+    await stageShows(page, "data-renderer", "neutral");
     await expect(page.getByTestId("smart-3d-not-known")).toBeVisible();
     await drawn(page);
     const placements = await placementsOf(call, place);
@@ -718,7 +727,7 @@ test.describe("gate ON (an internal preview)", () => {
     await page.unroute("**/api/v1/smart-cellar**");
     await failed.getByRole("button", { name: "Try again" }).click();
     await expect(view(page)).toHaveAttribute("data-mode", "ready", { timeout: 30_000 });
-    await expect(stage(page)).toHaveAttribute("data-renderer", "grid");
+    await stageShows(page, "data-renderer", "grid");
   });
 
   test("not allowed, or a server error: said as what it is, never taken for 'not set up'", async ({
@@ -761,6 +770,9 @@ test.describe("gate ON (an internal preview)", () => {
     await page.getByRole("button", { name: "Old fridge" }).click();
     await expect(legacyStage(page)).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
     await page.getByRole("button", { name: "Oak rack" }).click();
+    // back on the rack, it may read again on its own: the failure is said again BEFORE the server is allowed to answer,
+    // or that read can win the race, succeed, and leave no "Try again" to press (sprint 10: 1 in 5 on desktop)
+    await expect(failed).toBeVisible({ timeout: 30_000 });
     await page.unroute(`**/api/v1/smart-cellar/storage/${rack}/bottles`);
     await page
       .getByTestId("smart-3d-unit-failed")
@@ -920,7 +932,7 @@ test.describe("gate ON (an internal preview)", () => {
     );
     await addBottles(call, WHITE, 2019, 6, cooler);
     await openSmart(page);
-    await expect(stage(page)).toHaveAttribute("data-template", "cooler_dual");
+    await stageShows(page, "data-template", "cooler_dual");
     await drawn(page);
     // a temperature is a setting someone typed in: the 3D view shows none of them as a reading. Since sprint 4 (on
     // this preview the placement gate is open) the zone legend shows each zone's SET temperature, said as a setting;

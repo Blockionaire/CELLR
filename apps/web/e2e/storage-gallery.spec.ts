@@ -38,10 +38,16 @@ async function putBack(page: Page) {
 const num = async (page: Page, name: string) =>
   Number(await canvasOf(page).getAttribute(`data-${name}`));
 
-/** Opens a picture of the gallery and waits until the 3D view has drawn it. */
+/**
+ * Opens a picture of the gallery and waits until the 3D view has drawn it AND has warmed its shaders up. The warm-up
+ * compiles on the main thread right after the first picture; in software rendering on a loaded runner that can hold
+ * the page for seconds, and a tap or a check made meanwhile waits behind it (sprint 10, review: a phone flake here).
+ * The same wait as the shared helper (`storage3d.ts`).
+ */
 async function show(page: Page, query: string) {
   await page.goto(`/design/cellar-3d?${query}`);
   await expect(canvasOf(page)).toHaveAttribute("data-frames", /^[1-9]/, { timeout: 30_000 });
+  await expect(canvasOf(page)).toHaveAttribute("data-prewarmed", /^\d+$/, { timeout: 60_000 });
 }
 
 /** Where a bottle is on the page, from the view's own camera. */
