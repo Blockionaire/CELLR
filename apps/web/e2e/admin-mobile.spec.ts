@@ -484,8 +484,14 @@ test.describe("the admin portal on a phone", () => {
     expect(["healthy", "degraded", "failed", "unknown"]).toContain(st);
     if (st === "unknown") await expect(status).toContainText(/Unknown|unknown/);
     const actions = page.getByTestId("quick-actions").getByRole("link");
-    await expect(actions).toHaveCount(7);
-    for (const name of ["Wine Master Database", "Corrections", "Health", "Architecture"])
+    await expect(actions).toHaveCount(8);
+    for (const name of [
+      "Wine Master Database",
+      "Corrections",
+      "Community reviews",
+      "Health",
+      "Architecture",
+    ])
       await expect(page.getByTestId("quick-actions").getByRole("link", { name })).toBeVisible();
     await expect(page.getByTestId("work-queue")).toBeVisible();
     await page.screenshot({ path: `${SHOTS}/overview.png`, fullPage: true });
