@@ -3824,6 +3824,31 @@ export type Database = {
           year: number;
         }[];
       };
+      my_shared_rack_bottles: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          bottle_id: string;
+          has_access: boolean;
+          loc_col: number;
+          loc_index: number;
+          loc_row: number;
+          placed_at: string;
+          placement_id: string;
+          rack_id: string;
+          rack_name: string;
+        }[];
+      };
+      my_shared_rack_invitations: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          created_at: string;
+          expires_at: string;
+          id: string;
+          invited_by_name: string;
+          rack_id: string;
+          rack_name: string;
+        }[];
+      };
       pin_failed: { Args: { p_user: string }; Returns: number };
       pin_for_email: {
         Args: { p_email: string };
@@ -3905,6 +3930,179 @@ export type Database = {
         Returns: string;
       };
       send_friend_request: { Args: { p_user: string }; Returns: string };
+      shared_rack_bottles: {
+        Args: { p_owner?: string; p_rack: string };
+        Returns: {
+          bottle_id: string;
+          country_code: string;
+          format_ml: number;
+          is_mine: boolean;
+          loc_col: number;
+          loc_index: number;
+          loc_row: number;
+          moved_at: string;
+          owner_is_member: boolean;
+          owner_name: string;
+          owner_user_id: string;
+          placed_at: string;
+          placed_by_name: string;
+          placement_id: string;
+          producer: string;
+          region: string;
+          wine_name: string;
+          wine_type: string;
+          year: number;
+        }[];
+      };
+      shared_rack_cancel_invitation: { Args: { p_invitation: string }; Returns: Json };
+      shared_rack_create: {
+        Args: {
+          p_appearance: Json;
+          p_cell_capacity: number;
+          p_cols: number;
+          p_kind: Database["public"]["Enums"]["location_kind"];
+          p_name: string;
+          p_rows: number;
+          p_slot_semantics: string;
+          p_template: string;
+        };
+        Returns: Json;
+      };
+      shared_rack_events: {
+        Args: {
+          p_actor?: string;
+          p_before?: number;
+          p_bottle?: string;
+          p_limit?: number;
+          p_owner?: string;
+          p_placement?: string;
+          p_rack: string;
+        };
+        Returns: {
+          actor_id: string;
+          actor_name: string;
+          bottle_id: string;
+          detail: Json;
+          event_type: string;
+          from_col: number;
+          from_index: number;
+          from_row: number;
+          occurred_at: string;
+          owner_id: string;
+          owner_name: string;
+          placement_id: string;
+          seq: number;
+          subject_id: string;
+          subject_name: string;
+          to_col: number;
+          to_index: number;
+          to_row: number;
+          wine: Json;
+        }[];
+      };
+      shared_rack_invitations: {
+        Args: { p_rack: string };
+        Returns: {
+          created_at: string;
+          expires_at: string;
+          id: string;
+          invited_by_name: string;
+          invited_handle: string;
+          invited_name: string;
+          invited_user_id: string;
+          responded_at: string;
+          status: string;
+        }[];
+      };
+      shared_rack_invite: { Args: { p_rack: string; p_user: string }; Returns: Json };
+      shared_rack_leave: { Args: { p_rack: string }; Returns: Json };
+      shared_rack_members: {
+        Args: { p_rack: string };
+        Returns: {
+          bottle_count: number;
+          display_name: string;
+          handle: string;
+          is_me: boolean;
+          joined_at: string;
+          role: string;
+          user_id: string;
+        }[];
+      };
+      shared_rack_move: {
+        Args: {
+          p_from_col: number;
+          p_from_index: number;
+          p_from_row: number;
+          p_placement: string;
+          p_rack: string;
+          p_to_col: number;
+          p_to_index: number;
+          p_to_row: number;
+        };
+        Returns: Json;
+      };
+      shared_rack_place: {
+        Args: { p_bottle: string; p_col: number; p_index: number; p_rack: string; p_row: number };
+        Returns: Json;
+      };
+      shared_rack_remove_member: { Args: { p_rack: string; p_user: string }; Returns: Json };
+      shared_rack_rename: { Args: { p_name: string; p_rack: string }; Returns: Json };
+      shared_rack_respond_invitation: {
+        Args: { p_accept: boolean; p_invitation: string };
+        Returns: Json;
+      };
+      shared_rack_save_layout: {
+        Args: {
+          p_appearance: Json;
+          p_cell_capacity: number;
+          p_cols: number;
+          p_expected_revision?: number;
+          p_kind: Database["public"]["Enums"]["location_kind"];
+          p_rack: string;
+          p_rows: number;
+          p_slot_semantics: string;
+          p_template: string;
+        };
+        Returns: Json;
+      };
+      shared_rack_set_archived: { Args: { p_archived: boolean; p_rack: string }; Returns: Json };
+      shared_rack_set_member_role: {
+        Args: { p_rack: string; p_role: string; p_user: string };
+        Returns: Json;
+      };
+      shared_rack_take_out: {
+        Args: {
+          p_from_col: number;
+          p_from_index: number;
+          p_from_row: number;
+          p_placement: string;
+          p_rack: string;
+        };
+        Returns: Json;
+      };
+      shared_rack_withdraw_bottle: { Args: { p_bottle: string }; Returns: Json };
+      shared_racks: {
+        Args: { p_include_archived?: boolean; p_rack?: string };
+        Returns: {
+          appearance: Json;
+          archived_at: string;
+          bottle_count: number;
+          cell_capacity: number;
+          created_at: string;
+          grid_cols: number;
+          grid_rows: number;
+          id: string;
+          kind: string;
+          member_count: number;
+          my_bottle_count: number;
+          my_role: string;
+          name: string;
+          revision: number;
+          slot_semantics: string;
+          template: string;
+          updated_at: string;
+        }[];
+      };
       shared_wine_profile: {
         Args: { p_language: string; p_vintage_id: string };
         Returns: {

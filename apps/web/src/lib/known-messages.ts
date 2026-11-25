@@ -107,6 +107,34 @@ export const KNOWN_MESSAGES = {
   "Two bottles in one compartment can't trade places: a compartment has no order.":
     "sameCompartment",
   "That export version isn't available.": "exportVersionUnavailable",
+  // Shared racks (ADR-010)
+  "We couldn't find that shared rack.": "sharedRackMissing",
+  "Only an owner of this rack can do that.": "sharedRackOwnerOnly",
+  "This rack is archived. Restore it first.": "sharedRackArchived",
+  "You're in as many shared racks as there can be. Leave or archive one first.":
+    "sharedRackTooMany",
+  "You can't invite yourself.": "sharedRackInviteSelf",
+  "We couldn't find that person.": "sharedRackPersonMissing",
+  "They're already in this rack.": "sharedRackAlreadyMember",
+  "They declined a little while ago. Try again later.": "sharedRackRecentlyDeclined",
+  "You already have three open invitations to this person. Wait for an answer first.":
+    "sharedRackPersonLimit",
+  "This rack is full.": "sharedRackFull",
+  "There are too many open invitations. Cancel one first.": "sharedRackTooManyInvitations",
+  "That invitation is no longer there.": "sharedRackInvitationMissing",
+  "That invitation has expired. Ask for a new one.": "sharedRackInvitationExpired",
+  "That invitation is no longer open.": "sharedRackInvitationClosed",
+  "You already accepted that invitation. Leave the rack instead.": "sharedRackAlreadyAccepted",
+  "They're not in this rack.": "sharedRackNotMember",
+  "A rack needs an owner. Make someone else an owner first.": "sharedRackNeedsOwner",
+  "To leave a rack yourself, use Leave.": "sharedRackRemoveSelf",
+  "You're the last owner. Make someone else an owner first, or archive the rack.":
+    "sharedRackLastOwner",
+  "That bottle is no longer in this rack.": "sharedRackBottleGone",
+  "That bottle is already in a shared rack. Take it out first.": "sharedRackAlreadyPlaced",
+  "That bottle isn't in a shared rack.": "sharedRackNotPlaced",
+  "Someone else was changing this rack. Try again.": "sharedRackBusy",
+  "A shared rack has no temperature zones.": "sharedRackNoZones",
 } as const;
 
 /** Sentences with a part that changes, or a family of sentences that all mean the same to the person. */

@@ -286,6 +286,57 @@ const components = [
     ],
   },
   {
+    id: "svc-shared-racks",
+    name: "Shared Racks API",
+    layer: "service",
+    status: "gated",
+    summary: "One rack, several households, every bottle its own owner",
+    responsibility:
+      "A physical rack shared by people of different households (ADR-010): racks, members and invitations per person, the bottles in it as a narrow projection, placing, moving and taking out, and an append-only history. Every call runs as the signed-in person through one database function, which takes the person from the session and checks their active membership itself; the service passes no identity. Closed unless CELLR_SHARED_RACKS is 1 on `next dev` or a Vercel preview; there is no production clause (lib/shared-racks-gate.ts), so on production every route answers 404 whatever is set.",
+    inputs: ["Verified user", "Storage config", "A bottle of the person's own household"],
+    outputs: [
+      "Rack, member and invitation views",
+      "The projection of the bottles in a rack (label, owner, spot)",
+      "Placements, moves and takings-out (one function each)",
+      "Rack history (read-only)",
+    ],
+    sources: [W + "server/shared-racks/"],
+    routes: [
+      "/api/v1/shared-racks",
+      "/api/v1/shared-racks/[id]",
+      "/api/v1/shared-racks/[id]/bottles",
+      "/api/v1/shared-racks/[id]/bottles/[placementId]/move",
+      "/api/v1/shared-racks/[id]/bottles/[placementId]/take-out",
+      "/api/v1/shared-racks/[id]/events",
+      "/api/v1/shared-racks/[id]/invitations",
+      "/api/v1/shared-racks/[id]/layout",
+      "/api/v1/shared-racks/[id]/leave",
+      "/api/v1/shared-racks/[id]/members",
+      "/api/v1/shared-racks/[id]/members/[userId]",
+      "/api/v1/shared-racks/[id]/restore",
+      "/api/v1/shared-racks/bottles",
+      "/api/v1/shared-racks/bottles/[bottleId]",
+      "/api/v1/shared-racks/invitations",
+      "/api/v1/shared-racks/invitations/[id]",
+    ],
+    gates: [
+      {
+        name: "CELLR_SHARED_RACKS",
+        kind: "env",
+        note: "1: open on `next dev` and Vercel previews only, writing only to a database known not to be production; never production (not authorised, no release clause exists)",
+      },
+    ],
+    risks: [
+      {
+        id: "R-SR-1",
+        severity: "low",
+        title: "No product screen and no production release yet",
+        detail:
+          "The foundation is the database step (migration 0056), the API and their tests. Whether the migration is applied anywhere but a throwaway database, and any production release, are the owner's decisions and cannot be read from the repository (docs/MIGRATIONS.md, ADR-010 §9).",
+      },
+    ],
+  },
+  {
     id: "svc-households",
     name: "Households & profiles",
     layer: "service",
@@ -1120,6 +1171,19 @@ const components = [
     ],
   },
   {
+    id: "data-shared-racks",
+    name: "Shared racks",
+    layer: "data",
+    status: "implemented",
+    summary: "Racks, members, invitations, occupancy, history (private schema)",
+    responsibility:
+      "Five tables in the `private` schema, which the data API does not expose: shared_racks, shared_rack_members, shared_rack_invitations, shared_rack_placements (one row per bottle standing in a rack: unique per whole spot and per bottle) and shared_rack_events (append-only). Row level security without a policy and no grant to any API role: the only way in is the SECURITY DEFINER functions of migration 0056. A bottle in a shared rack stays a public.bottles row of its owner's household; a trigger on bottles ends the placement when the bottle is given a private place, leaves the cellar or is deleted. Because the tables are private they are not in the generated inventory (which lists the public schema).",
+    inputs: [],
+    outputs: [],
+    sources: [M + "20261204000056_shared_racks.sql"],
+    tables: [],
+  },
+  {
     id: "data-sommelier",
     name: "Sommelier history",
     layer: "data",
@@ -1632,6 +1696,7 @@ const edges: SystemEdge[] = [
   // Composition root → services (dependency injection)
   wired("composition-root", "svc-cellar", "builds", "createCellarService(cellars"),
   wired("composition-root", "svc-smart-cellar", "builds", "createSmartCellarService({"),
+  wired("composition-root", "svc-shared-racks", "builds", "createSharedRacksService({"),
   wired("composition-root", "svc-households", "builds", "createHouseholdService("),
   wired("composition-root", "svc-account", "builds", "createAccountService({"),
   wired("composition-root", "svc-images", "builds", "createImageService("),
@@ -1769,6 +1834,86 @@ const edges: SystemEdge[] = [
     "control",
     "CELLR_SMART_CELLAR",
     web(SERVICES, "getSmartCellarAccess()"),
+  ),
+
+  // Shared racks (ADR-010)
+  edge(
+    "svc-shared-racks",
+    "data-shared-racks",
+    "data-write",
+    "racks, members, invitations, placements; one function per write",
+    web("server/shared-racks/repository.ts", '.rpc("shared_rack_place"'),
+    web("server/shared-racks/repository.ts", '.rpc("shared_rack_respond_invitation"'),
+    web("server/shared-racks/repository.ts", '.rpc("shared_rack_events"'),
+  ),
+  edge(
+    "svc-shared-racks",
+    "domain-rules",
+    "request",
+    "layout rules, permissions, contracts",
+    web("server/shared-racks/service.ts", "resolveSharedRack(rack)"),
+  ),
+  edge(
+    "svc-shared-racks",
+    "runtime-config",
+    "control",
+    "CELLR_SHARED_RACKS",
+    web(SERVICES, "getSharedRacksAccess()"),
+  ),
+  edge(
+    "data-shared-racks",
+    "data-cellar",
+    "data-write",
+    "reads the label of a placed bottle; takes the caller's own bottle off its private place when it is put in a rack",
+    ev(M + "20261204000056_shared_racks.sql", "join public.bottles b on b.id = p.bottle_id"),
+    ev(
+      M + "20261204000056_shared_racks.sql",
+      "update public.bottles set location_id = null, loc_row = null, loc_col = null where id = b.id",
+    ),
+  ),
+  edge(
+    "data-cellar",
+    "data-shared-racks",
+    "data-write",
+    "a bottle given a private place, opened, removed or deleted ends its shared placement (trigger)",
+    ev(
+      M + "20261204000056_shared_racks.sql",
+      "create trigger bottles_shared_rack_update after update on public.bottles",
+    ),
+    ev(
+      M + "20261204000056_shared_racks.sql",
+      "create trigger bottles_shared_rack_delete before delete on public.bottles",
+    ),
+  ),
+  edge(
+    "data-shared-racks",
+    "data-catalog",
+    "data-read",
+    "producer, wine and vintage of a placed bottle",
+    ev(M + "20261204000056_shared_racks.sql", "join public.wine_vintages v on v.id = b.vintage_id"),
+  ),
+  edge(
+    "data-shared-racks",
+    "data-identity",
+    "data-read",
+    "names of members; household membership of the person placing a bottle",
+    ev(M + "20261204000056_shared_racks.sql", "from public.profiles p where p.id = p_user"),
+    ev(M + "20261204000056_shared_racks.sql", "from public.household_members hm"),
+  ),
+  edge(
+    "data-shared-racks",
+    "supabase-postgres",
+    "ops",
+    "tables in the private schema",
+    ev(M + "20261204000056_shared_racks.sql", "create table private.shared_rack_placements"),
+  ),
+  edge(
+    "github-actions",
+    "data-shared-racks",
+    "verifies",
+    "permission suite and the rack under concurrency",
+    ev(".github/workflows/ci.yml", "bash scripts/db-shared-racks-concurrency.sh"),
+    ev("supabase/tests/99_shared_racks.test.sql", "every permission boundary"),
   ),
 
   // Households, account, auth
@@ -2995,7 +3140,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.12.3",
+  version: "1.13.0",
   reviewedOn: "2026-11-25",
   repository: "Blockionaire/CELLR",
   components,

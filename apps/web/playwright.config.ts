@@ -147,6 +147,8 @@ export default defineConfig({
         // ... and so must placement (sprint 4)
         CELLR_SMART_CELLAR_PLACEMENT: "1",
         CELLR_SMART_CELLAR_ADVICE: "1",
+        // asked for on a production build: shared racks must stay closed here, every route 404 (ADR-010)
+        CELLR_SHARED_RACKS: "1",
       },
     },
     {
@@ -169,6 +171,8 @@ export default defineConfig({
         // placing, moving and swapping bottles in the new 3D view, writing to the local stack (sprint 4)
         CELLR_SMART_CELLAR_PLACEMENT: "1",
         CELLR_SMART_CELLAR_ADVICE: "1",
+        // shared racks are open here, and write: a preview whose database is the local stack (ADR-010)
+        CELLR_SHARED_RACKS: "1",
       },
     },
   ],

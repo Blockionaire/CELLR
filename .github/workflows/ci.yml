@@ -126,6 +126,14 @@ jobs:
         run: bash scripts/db-layout-cas-concurrency.sh
       - name: Upgrade rehearsal · existing places and bottles are not touched
         run: bash scripts/db-smart-cellar-upgrade.sh
+      # Shared racks (migration 0056): one spot and many hands, a change racing a removal, one invitation answered
+      # twice, the owner's own cellar against the rack; the history must replay to exactly the occupancy.
+      - name: Shared racks under concurrency
+        run: bash scripts/db-shared-racks-concurrency.sh
+      # ...and every constraint of its tables reads the same after a dump and a restore (what the backup rehearsal
+      # compares on a real Supabase stack, checked here without Docker).
+      - name: Shared racks · constraints survive a dump and restore
+        run: bash scripts/db-shared-racks-roundtrip.sh
 
   e2e:
     name: End to end · shard ${{ matrix.shard }} of ${{ strategy.job-total }}

@@ -60,6 +60,7 @@ export * from "./storage-compat";
 export * from "./smart-cellar";
 export * from "./storage-placement";
 export * from "./storage-advice";
+export * from "./shared-racks";
 export * from "./export-v2";
 export * from "./system-architecture";
 export * from "./buying/codes";
