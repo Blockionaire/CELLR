@@ -440,6 +440,11 @@ export function isNewerRevision(candidate: string, known: string | null): boolea
   return known === null || !sameRevision(candidate, known);
 }
 
+/** Whether `candidate` is a revision this screen has not met yet (none of `known`, by `sameRevision`). Unit-tested. */
+export function revisionIsNews(candidate: string, known: readonly string[]): boolean {
+  return !known.some((k) => sameRevision(candidate, k));
+}
+
 /**
  * Whether a place as the server answered after a layout save is what this draft saved (template, size, bottles per
  * spot, look, zones; the name is saved apart). When it is not, someone else's write landed in between and the
