@@ -20,7 +20,7 @@ import type { QualitySpec } from "./model";
 import type { Fidelity } from "./palette";
 import { distantLabelTexture } from "./textures";
 import { BOTTLE_L, BOTTLE_R } from "./parts";
-import { buildGhostMaterial, buildRingPaint, type Owned } from "./resources";
+import { buildRingPaint, type Owned } from "./resources";
 
 /**
  * The ONE bottle that is taken out to be looked at (Smart Cellar 3D, sprint 2B.1): finer than the bottles in the
@@ -339,17 +339,13 @@ export function prewarmSet(kit: HeroKit): { group: THREE.Group; dispose(): void 
   ];
   const group = new THREE.Group();
   for (const m of all) group.add(new THREE.Mesh(speck, m));
-  // the placeholders of 3D Quick Add (sprint 10 review): an instanced mesh with a tone per instance is its own shader,
-  // compiled here so that the first "Add bottle" does not stall on it
-  const ghost = buildGhostMaterial();
-  const ghosts = new THREE.InstancedMesh(speck, ghost, 1);
-  ghosts.setColorAt(0, new THREE.Color("#ffffff"));
-  group.add(ghosts);
+  // NOT the placeholders of 3D Quick Add (sprint 10 review, reverted): their instanced, per-instance-toned glass is a
+  // full standard shader, compiled twice here (two light sets) on EVERY opening of a place, for a mode few openings
+  // use. In software rendering that made changing place several seconds slower under load (a browser test went
+  // flaky). The first "Add bottle" compiles that one program instead, once.
   return {
     group,
     dispose() {
-      ghosts.dispose();
-      ghost.dispose();
       speck.dispose();
       coated.dispose();
       plain.dispose();

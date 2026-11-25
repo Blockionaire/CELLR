@@ -252,15 +252,9 @@ describe("warming the shaders up before the first bottle is taken out", () => {
     owned.dispose();
   });
 
-  it("compiles the placeholders of 3D Quick Add too: an instanced mesh with a tone per instance (sprint 10)", () => {
+  it("does not compile the placeholders of 3D Quick Add: that cost is paid once, on the first Add (sprint 10)", () => {
     const set = prewarmSet(buildHeroKit(new Owned()));
-    const ghosts = set.group.children.filter(
-      (c): c is THREE.InstancedMesh => (c as THREE.InstancedMesh).isInstancedMesh === true,
-    );
-    expect(ghosts).toHaveLength(1);
-    expect(ghosts[0]!.instanceColor).not.toBeNull();
-    const m = ghosts[0]!.material as THREE.MeshStandardMaterial;
-    expect(m.transparent && !m.depthWrite).toBe(true);
+    expect(set.group.children.some((c) => (c as THREE.InstancedMesh).isInstancedMesh)).toBe(false);
     set.dispose();
   });
 
@@ -288,9 +282,8 @@ describe("warming the shaders up before the first bottle is taken out", () => {
     ]);
     set.dispose();
     expect(mine.n).toBe(copies.length);
-    // the glass twice, three faded ones (wine, foil, and the paper with its print), the ring of the chosen bottle,
-    // and (sprint 10) the placeholders of 3D Quick Add
-    expect(copies.length).toBe(7);
+    // the glass twice, three faded ones (wine, foil, and the paper with its print), the ring of the chosen bottle
+    expect(copies.length).toBe(6);
     // the paper's see-through shader is warmed up with its picture on it (sprint 2B.2: found by measuring)
     const paper = copies.filter(
       (m) => (m as THREE.MeshStandardMaterial).map === kit.paper.map && m.transparent,
