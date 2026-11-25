@@ -400,11 +400,19 @@ test("three households share one rack: invite, place, move, take out, open at ho
     await note.getByTestId("shared-rack-withdraw-confirm").click();
     await expect(bob.page.getByTestId("shared-rack-unplaced-note")).toHaveCount(0);
     expect(await placements(rackId)).toEqual([]);
+    // he is no longer in the rack, so the rack's history does not name him as the one who did it: only whose
+    // bottle it was
     expect((await eventTypes(rackId)).at(-1)).toEqual({
       event_type: "bottle_withdrawn",
-      actor_id: bob.userId,
+      actor_id: null,
       owner_id: bob.userId,
     });
+    await openRack(ann.page, rackName);
+    await ann.page.getByTestId("shared-rack-activity-open").click();
+    await expect(ann.page.getByTestId("shared-rack-event").first()).toHaveText(
+      /Someone of Bob’s household said .*Bob Barolo.* is no longer in the rack\./,
+    );
+    await ann.page.keyboard.press("Escape");
     expect(
       await sql("select status, household_id from public.bottles where id = $1", [bobFirst]),
     ).toEqual([{ status: "in_cellar", household_id: bob.householdId }]);

@@ -683,6 +683,15 @@ export function ActivitySheet({
   const say = useErrorText();
   const [owner, setOwner] = useState("");
   const [actor, setActor] = useState("");
+  // every opening starts unfiltered: "the history of this bottle" must not inherit a filter chosen an hour ago
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setOwner("");
+      setActor("");
+    }
+  }
   const filter: EventFilter = useMemo(
     () => ({
       ...(owner ? { owner } : {}),

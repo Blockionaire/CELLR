@@ -217,6 +217,40 @@ describe("a line of history", () => {
     ).toBe("bottle_moved_other");
   });
 
+  it("a change in the owner's own cellar by someone who is not in the rack names the household, not a person", () => {
+    const unnamed = { actor: { userId: null, name: null }, detail: { by: "owners_household" } };
+    expect(eventLine(event({ type: "bottle_opened", ...unnamed }))).toEqual({
+      key: "bottle_opened_household",
+      forSomeoneElse: true,
+    });
+    expect(
+      eventLine(
+        event({
+          type: "bottle_removed",
+          actor: unnamed.actor,
+          detail: { by: "owners_household", reason: "deleted" },
+        }),
+      ).key,
+    ).toBe("bottle_deleted_household");
+    // only what happens in a household's own cellar has such a sentence
+    expect(eventLine(event({ type: "bottle_moved", ...unnamed })).key).toBe("bottle_moved_other");
+    // and every one of them exists in both languages
+    for (const type of [
+      "bottle_withdrawn",
+      "bottle_relocated",
+      "bottle_opened",
+      "bottle_gifted",
+      "bottle_removed",
+    ] as const) {
+      const key = eventLine(event({ type, ...unnamed })).key;
+      expect(key).toBe(`${type}_household`);
+      expect(en.sharedRacks.events).toHaveProperty(key);
+      expect(nl.sharedRacks.events).toHaveProperty(key);
+    }
+    expect(en.sharedRacks.events).toHaveProperty("bottle_deleted_household");
+    expect(nl.sharedRacks.events).toHaveProperty("bottle_deleted_household");
+  });
+
   it("says a deleted record and a deleted account as what they were", () => {
     expect(
       eventLine(

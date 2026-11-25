@@ -2979,7 +2979,13 @@
       "bottle_removed": "{actor} heeft {wine} uit de eigen kelder verwijderd.",
       "bottle_removed_other": "{actor} heeft {wine} van {owner} verwijderd uit de kelder waar ze bij hoort.",
       "bottle_deleted": "{actor} heeft {wine} uit de eigen kelder gewist.",
-      "bottle_deleted_other": "{wine} van {owner} is gewist uit de kelder waar ze bij hoort."
+      "bottle_deleted_other": "{wine} van {owner} is gewist uit de kelder waar ze bij hoort.",
+      "bottle_withdrawn_household": "Iemand uit het huishouden van {owner} gaf aan dat {wine} niet meer in de kast staat.",
+      "bottle_relocated_household": "Iemand uit het huishouden van {owner} heeft {wine} thuis een plek gegeven.",
+      "bottle_opened_household": "Iemand uit het huishouden van {owner} heeft {wine} geopend.",
+      "bottle_gifted_household": "Iemand uit het huishouden van {owner} heeft {wine} weggegeven.",
+      "bottle_removed_household": "Iemand uit het huishouden van {owner} heeft {wine} verwijderd uit de kelder waar ze bij hoort.",
+      "bottle_deleted_household": "Iemand uit het huishouden van {owner} heeft {wine} gewist uit de kelder waar ze bij hoort."
     },
     "form": {
       "template": "Soort kast",
@@ -3029,6 +3035,14 @@
       "withdrawWhat": "Je legt vast dat {wine} niet meer in die kast staat. Aan de fles zelf verandert niets: ze blijft in je kelder, zonder plek.",
       "withdrawConfirm": "Vastleggen",
       "withdrawn": "Vastgelegd: {wine} staat niet meer in de gedeelde kast."
+    },
+    "inRack": {
+      "badge": "In gedeelde kast {rack} · plank {row}, plek {col}",
+      "badgeNoAccess": "In een gedeelde kast",
+      "confirmTitle": "Deze fles staat in een gedeelde kast",
+      "confirmWhat": "{wine} staat in de gedeelde kast {rack}, op plank {row}, plek {col}. Als je ze hier een plek geeft, gaat ze uit de gedeelde kast: haar plek daar komt vrij en de deelnemers van die kast zien dat ze naar huis is gegaan.",
+      "confirmWhatNoAccess": "{wine} staat in een gedeelde kast waar je geen deelnemer (meer) van bent. Als je ze hier een plek geeft, gaat ze uit die kast: haar plek daar komt vrij en de deelnemers van die kast zien dat ze naar huis is gegaan.",
+      "confirm": "Eruit halen en hier plaatsen"
     }
   }
 }

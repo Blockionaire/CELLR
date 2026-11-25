@@ -47,3 +47,15 @@ export const SharedRackUnplacedNote = dynamic(
   () => import("./unplaced-note").then((m) => m.SharedRackUnplacedNote),
   { ssr: false },
 );
+
+/** Next to a bottle listed "without a place": where it stands in a shared rack, if it does. */
+export const SharedPlaceBadgeFor = dynamic(
+  () => import("./in-shared-rack").then((m) => m.SharedPlaceBadgeFor),
+  { ssr: false },
+);
+
+/** Before a bottle is given a place at home: asks first when it stands in a shared rack, else goes through. */
+export const SharedPlaceAsk = dynamic(
+  () => import("./in-shared-rack").then((m) => m.SharedPlaceAsk),
+  { ssr: false },
+);

@@ -2979,7 +2979,13 @@
       "bottle_removed": "{actor} removed {wine} from their own cellar.",
       "bottle_removed_other": "{actor} removed {owner}’s {wine} from the cellar it belongs to.",
       "bottle_deleted": "{actor} deleted {wine} from their own cellar.",
-      "bottle_deleted_other": "{owner}’s {wine} was deleted from the cellar it belongs to."
+      "bottle_deleted_other": "{owner}’s {wine} was deleted from the cellar it belongs to.",
+      "bottle_withdrawn_household": "Someone of {owner}’s household said {wine} is no longer in the rack.",
+      "bottle_relocated_household": "Someone of {owner}’s household gave {wine} a place at home.",
+      "bottle_opened_household": "Someone of {owner}’s household opened {wine}.",
+      "bottle_gifted_household": "Someone of {owner}’s household gave {wine} away.",
+      "bottle_removed_household": "Someone of {owner}’s household removed {wine} from the cellar it belongs to.",
+      "bottle_deleted_household": "Someone of {owner}’s household deleted {wine} from the cellar it belongs to."
     },
     "form": {
       "template": "Kind of rack",
@@ -3029,6 +3035,14 @@
       "withdrawWhat": "You record that {wine} is no longer in that rack. The bottle itself does not change: it stays in your cellar, without a place.",
       "withdrawConfirm": "Record it",
       "withdrawn": "Recorded: {wine} is no longer in the shared rack."
+    },
+    "inRack": {
+      "badge": "In shared rack {rack} · shelf {row}, spot {col}",
+      "badgeNoAccess": "In a shared rack",
+      "confirmTitle": "This bottle stands in a shared rack",
+      "confirmWhat": "{wine} stands in the shared rack {rack}, on shelf {row}, spot {col}. Giving it a place here takes it out of the shared rack: its spot there becomes free, and the people of that rack see that it went home.",
+      "confirmWhatNoAccess": "{wine} stands in a shared rack you are not (or no longer) a member of. Giving it a place here takes it out of that rack: its spot there becomes free, and the people of that rack see that it went home.",
+      "confirm": "Take it out and place it here"
     }
   }
 }

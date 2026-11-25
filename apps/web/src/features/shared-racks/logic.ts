@@ -2,6 +2,7 @@ import {
   SHARED_RACKS_NOT_SET_UP,
   formatVintage,
   isSharedRackEndingEvent,
+  sharedRackEventByHousehold,
   sharedRackLeaveProblem,
   type MySharedRackBottleView,
   type RackView,
@@ -194,6 +195,16 @@ export interface EventLine {
   forSomeoneElse: boolean;
 }
 
+/** What can happen to a bottle in its own household's cellar: the sentences that exist "by the household". */
+const BY_HOUSEHOLD: ReadonlySet<string> = new Set([
+  "bottle_withdrawn",
+  "bottle_relocated",
+  "bottle_opened",
+  "bottle_gifted",
+  "bottle_removed",
+  "bottle_deleted",
+]);
+
 export function eventLine(event: SharedRackEventView): EventLine {
   const bottle = event.type.startsWith("bottle_");
   const sameAccount =
@@ -205,7 +216,15 @@ export function eventLine(event: SharedRackEventView): EventLine {
     return { key: "member_removed_account", forSomeoneElse: false };
   if (event.type === "rack_archived" && event.detail?.reason === "owner_account_deleted")
     return { key: "rack_archived_account", forSomeoneElse: false };
-  if (event.type === "bottle_removed" && event.detail?.reason === "deleted")
+  const kind =
+    event.type === "bottle_removed" && event.detail?.reason === "deleted"
+      ? "bottle_deleted"
+      : event.type;
+  // done in the owner's own cellar by someone of that household who is not in the rack: the household is named,
+  // the person is not (the server does not say who)
+  if (sharedRackEventByHousehold(event) && event.owner !== null && BY_HOUSEHOLD.has(kind))
+    return { key: `${kind}_household`, forSomeoneElse: true };
+  if (kind === "bottle_deleted")
     return { key: forSomeoneElse ? "bottle_deleted_other" : "bottle_deleted", forSomeoneElse };
   return { key: forSomeoneElse ? `${event.type}_other` : event.type, forSomeoneElse };
 }
