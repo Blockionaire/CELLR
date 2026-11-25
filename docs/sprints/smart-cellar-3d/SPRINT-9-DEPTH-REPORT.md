@@ -146,3 +146,47 @@ shared-rack functions (B, 0052), which must take the same front/back rule inside
 **Legacy readers** (phase B blockers, unowned): racks grid and legacy 3D view must show "+n behind" per cell or route
 deep places to the new view; sommelier/tonight copy should say "behind" for index > 1; export v1 should either refuse
 deep places or say it is lossy.
+
+## 9. Wave 2: review follow-up and the UI half
+
+**Review (Agent E) follow-up**, commit `eb6b672`: `move_bottle_v2` answers `'depth_not_enabled'` (switch off, back
+target) instead of raising; the gated collapse prints which households and places it records at the front, and ADR-011
+makes telling them a step; ADR-011 §1.3 says the Undo fix is app-side only; the shared-rack writers
+(`shared_rack_place`/`shared_rack_move`, 0052) are a write path and their kill-switch refusal a phase-D precondition.
+
+**UI, all behind `capabilities.depthPlacement`** (`features/cellar/depth.ts`, `useDepthOpen()`; false wherever the gate
+is closed, so nothing changes there):
+
+| Area                                         | Done                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2D spot picker (`placement/spot-picker.tsx`) | Spots past index 1 offered only with depth open (`cellChoices(…, { depthEnabled })`); "place n from the front" only where the index is a position (never for an unknown arrangement); a taken bottle behind another is not offered as a swap partner and says "move the front one first". The panel's wording was already index-aware. |
+| 3D template renderer                         | Already drew real bottles at their index (`poseOf(row, col, index)`, piles by count: D's work) and compares markers by whole spot. A tap reaches the front bottle (geometry); a back bottle is reached through the 2D list, which is always the precise way.                                                                           |
+| Rack Builder                                 | `assess(…, depth)`, the bottles-per-spot stepper and the catalogue cards: the three deep templates savable only with depth open; closed, exactly today's "preview only" with the reason.                                                                                                                                               |
+| Racks grid (`rack-grid.tsx`)                 | Draws a cell's FRONT bottle (`cellsOfBottles`, never "last one wins"), says "+n behind … move those from the 3D view", marks a lone bottle at the back, never starts a drag from such a cell. The racks answer carries an index only when above 1 (byte-identical while depth is off).                                                 |
+| Friend screen                                | Unique synthetic ids when a cell holds two bottles.                                                                                                                                                                                                                                                                                    |
+| Legacy 3D view                               | Pinned in SQL: a place without a template can never be more than one deep, also with depth on.                                                                                                                                                                                                                                         |
+| Quick Add                                    | **Not changed**: it adds through `POST /bottles` with a slot, which names no index, so it stays at index 1 (and refuses a cell that holds any bottle). Index-aware Quick Add needs the add route to take an index, or Quick Add to add unplaced then move.                                                                             |
+
+**CI:** new job `e2e-depth` (not on pull requests, like `e2e`; desktop only): `STACK_DEPTH=1 … e2e depth-ui
+smart-cellar-api -g "depth on"`, counted in `e2e-result`.
+
+### 9.1 Preconditions of switching depth on (phase D): state after wave 2
+
+| Precondition (ADR-011 §3)                                                       | State                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Spot picker / placement panel index-aware, front rule                           | **Met**                                                                                                                                                                                                                                          |
+| Rack Builder depth configuration, validation against back bottles               | **Met**                                                                                                                                                                                                                                          |
+| Racks grid never loses a bottle; drag never moves the wrong one                 | **Met** (racks view's small slot preview colours a cell once: cosmetic)                                                                                                                                                                          |
+| Friend screen unique keys                                                       | **Met**; but `friend_racks` (0015) names no index: which of two is the front is unknown there — **not met** (needs a migration)                                                                                                                  |
+| Legacy 3D view                                                                  | **Met for places without a template** (pinned). A templated deep place drawn by the legacy view (renderer gate closed while the depth gate is open) would overlap two bottles: **precondition**: open depth only where `CELLR_SMART_CELLAR_3D=1` |
+| `SpotMarkers` whole-spot compare                                                | **Met** (D)                                                                                                                                                                                                                                      |
+| Quick Add at depth                                                              | **Not met** (stays index 1, safe)                                                                                                                                                                                                                |
+| Legacy capacity `rows × cols` (cellar service, stats, sommelier `cellar-facts`) | **Not met**: needs `cell_capacity` read in the old storage queries (and a guard for databases before 0043)                                                                                                                                       |
+| `occupiedSlots` (a free front before a back bottle counts as taken)             | **Not met** (conservative: refuses, never misplaces)                                                                                                                                                                                             |
+| Export v1 (no index)                                                            | **Not met**: document/refuse; v2 carries the index                                                                                                                                                                                               |
+| Shared racks kill switch + front rule in the transaction                        | **Not met** (Agent B)                                                                                                                                                                                                                            |
+| Depth e2e green in CI                                                           | **Job added**; first CI run pending                                                                                                                                                                                                              |
+
+### 9.2 Results
+
+RESULTS_W2

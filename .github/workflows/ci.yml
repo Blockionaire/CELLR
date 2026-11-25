@@ -210,17 +210,49 @@ jobs:
             apps/web/playwright-report
           retention-days: 7
 
+  e2e-depth:
+    name: End to end · depth on (throwaway stack only)
+    # Smart Cellar 3D sprint 9 (ADR-011): the depth specs, against a local stack whose OWN throwaway database gets the
+    # gated depth files (STACK_DEPTH=1, scripts/local-stack/up.sh) and a preview server with the depth gate open.
+    # Nothing else runs with depth on. Same conditions as the other end-to-end jobs; "depth e2e green in CI" is a
+    # precondition of switching depth on. Small: two spec files, desktop only (about 5 minutes on a runner, measured
+    # locally at about 2).
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @cellr/web exec playwright install --with-deps chromium
+      - run: pnpm build
+      - run: pnpm --filter @cellr/web e2e depth-ui smart-cellar-api --project=desktop -g "depth on"
+        env:
+          CI: "1"
+          STACK_DEPTH: "1"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-results-depth
+          path: |
+            apps/web/test-results
+            apps/web/playwright-report
+          retention-days: 7
+
   e2e-result:
     name: End to end · whole app against the local stack
     # One name to look at (and to require): green only when every shard of both suites was.
     if: always() && github.event_name != 'pull_request'
-    needs: [e2e, e2e-3d]
+    needs: [e2e, e2e-3d, e2e-depth]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - run: |
           [ "${{ needs.e2e.result }}" = "success" ] || { echo "at least one shard failed or was cancelled"; exit 1; }
           [ "${{ needs.e2e-3d.result }}" = "success" ] || { echo "at least one 3D shard failed or was cancelled"; exit 1; }
+          [ "${{ needs.e2e-depth.result }}" = "success" ] || { echo "the depth-on end-to-end job failed or was cancelled"; exit 1; }
 
   secrets:
     name: Secret scan
