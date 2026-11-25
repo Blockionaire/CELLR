@@ -427,6 +427,7 @@
       ]
     },
     { "file": ".github/workflows/health-heartbeat.yml", "jobs": ["heartbeat"] },
+    { "file": ".github/workflows/production-catalog.yml", "jobs": ["production"] },
     { "file": ".github/workflows/staging-catalog.yml", "jobs": ["staging"] }
   ],
   "envVars": [

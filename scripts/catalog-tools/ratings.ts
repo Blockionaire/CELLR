@@ -45,7 +45,7 @@ import {
   type UnitRating,
 } from "@cellr/domain";
 import { parseArgs, str, type Args } from "./lib";
-import { connectToTarget } from "./target";
+import { connectForImport } from "./production";
 
 const BATCH = 1000;
 /** At most this many ratings in one partition (the real file: 356,324 at 64 partitions). */
@@ -279,7 +279,7 @@ async function importUnits(args: Args) {
   // the units file must be the one this report describes
   if (report.units_sha256 !== (await fileSha256(unitsPath)))
     throw new Error("the units file is not the one the report was made with: nothing imported");
-  const client = await connectToTarget(str(args, "db"), args);
+  const client = await connectForImport(str(args, "db"), args);
   type Totals = {
     inserted: number;
     updated: number;
