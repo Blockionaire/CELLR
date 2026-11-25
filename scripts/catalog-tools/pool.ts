@@ -87,7 +87,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * claims) for this transaction only. The user id is checked to be a uuid before it is written into the statement.
  */
 export function transactionPreamble(mode: "pilot" | "public", userId: string): string {
-  if (mode === "pilot") return "begin; set local role service_role";
+  // the service role acts without a person's claims, as actAsService does on a session (lib.ts)
+  if (mode === "pilot")
+    return (
+      "begin; set local role service_role; " +
+      "select set_config('request.jwt.claims', '', true), set_config('request.jwt.claim.sub', '', true)"
+    );
   if (!UUID.test(userId)) throw new Error("--user must be a uuid");
   const claims = JSON.stringify({ sub: userId, role: "authenticated" }).replaceAll("'", "''");
   return (
