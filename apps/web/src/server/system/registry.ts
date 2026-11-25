@@ -59,6 +59,8 @@ const components = [
       W + "ui/providers.tsx",
     ],
     env: ["DESIGN_GALLERY"],
+    // a plain link on the ratings page (the X-Wines paper's DOI); nothing is fetched from it
+    hosts: ["doi.org"],
     packages: ["@tanstack/react-query", "three", "@react-three/fiber", "tesseract.js"],
     gates: [
       {
@@ -234,7 +236,7 @@ const components = [
     inputs: ["Household scope", "Storage config"],
     outputs: [
       "Storage unit views",
-      "Layout writes (save_storage_layout; save_storage_layout_v2 compare-and-swap where 0051 is present)",
+      "Layout writes (save_storage_layout; save_storage_layout_v2 compare-and-swap where 0055 is present)",
       "Bottle moves (one conditional update) and swaps (swap_bottles_v2)",
       "Placement advice (read-only, recomputed per request, never stored)",
     ],
@@ -279,7 +281,7 @@ const components = [
         severity: "low",
         title: "The production database host is written in code in a public repository",
         detail:
-          "PRODUCTION_DATABASE_HOSTS (lib/smart-cellar-write-target.ts) names the production host so the write guard can refuse it whatever is configured; the storage-backup and catalogue tools hard-code the production ref for the same reason. Deliberate: the host is public in every browser bundle, and a fail-closed guard must know it. Docs no longer repeat it (CLAUDE.md, Hard rules). Whether to keep it in code or move it to configuration with a fail-closed default is the owner's decision, not yet confirmed.",
+          "PRODUCTION_DATABASE_HOSTS (lib/smart-cellar-write-target.ts) names the production host so the write guard can refuse it whatever is configured; the storage-backup and catalogue tools hard-code the production ref for the same reason, and production-catalog.yml names it as the one target its production route may write (scripts/catalog-tools/production.ts). Deliberate: the host is public in every browser bundle, and a fail-closed guard must know it. Docs no longer repeat it (CLAUDE.md, Hard rules). Whether to keep it in code or move it to configuration with a fail-closed default is the owner's decision, not yet confirmed.",
       },
     ],
   },
@@ -450,6 +452,34 @@ const components = [
     gates: [{ name: "sources_panel", kind: "feature", note: "The route answers 404 without it." }],
   },
   {
+    id: "svc-ratings",
+    name: "Ratings & community reviews",
+    layer: "service",
+    status: "gated",
+    summary: "External rating aggregates, CELLR reviews, the CELLR score",
+    responsibility:
+      "Reads a wine's or record's external rating aggregates and its published community reviews, and lets a person publish, remove or report a review; every rule (identity, rights, opt-in, one per person) is decided in the database.",
+    inputs: ["Wine or record id", "A tasting to publish"],
+    outputs: ["Ratings per vintage", "Reviews"],
+    sources: [W + "server/ratings/"],
+    routes: [
+      "/api/v1/wines/[id]/ratings",
+      "/api/v1/catalog/records/[id]/ratings",
+      "/api/v1/catalog/records/[id]",
+      "/api/v1/tastings/[id]/review",
+      "/api/v1/reviews/[id]",
+      "/api/v1/reviews/[id]/report",
+    ],
+    gates: [
+      { name: "catalog_ratings", kind: "feature", note: "Every route answers 404 without it." },
+      {
+        name: "community_reviews",
+        kind: "feature",
+        note: "Publishing, reading and reporting reviews; needs catalog_ratings.",
+      },
+    ],
+  },
+  {
     id: "svc-sommelier",
     name: "AI sommelier",
     layer: "service",
@@ -457,7 +487,11 @@ const components = [
     summary: "Answers from the person's own cellar, taste and Tonight",
     responsibility:
       "Answers questions with the language model over facts read from the cellar, storage, Tonight and the taste profile; recommendations come from bottles that exist.",
-    inputs: ["Question", "Cellar, storage, Tonight, taste profile"],
+    inputs: [
+      "Question",
+      "Cellar, storage, Tonight, taste profile",
+      "Wine profiles (annotate part)",
+    ],
     outputs: ["Structured answer", "AI usage records"],
     sources: [
       W + "server/sommelier/service.ts",
@@ -490,7 +524,7 @@ const components = [
       {
         name: "CELLR_SOMMELIER",
         kind: "env",
-        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. Built: check (P3: prompt v7 with refs for cellar wines and no price field; the answer's words and buying claims are checked in code, and what cannot be shown is left out or replaced by a sentence made from the cards).",
+        note: "Sommelier V1+ parts, a comma list (check, annotate, quantities, menu, fallback; D-52). Empty or unset: V1 unchanged. Not part of CELLR_FEATURES, no `all`; unknown names are ignored and logged. Built: check (P3: prompt v7 with refs for cellar wines and no price field; the answer's words and buying claims are checked in code, and what cannot be shown is left out or replaced by a sentence made from the cards); annotate (P4: the app's own facts on the cards, with the household's wine profiles for the wines shown) and quantities (P5: bottles for the people named, counted in code).",
       },
     ],
     risks: [
@@ -1024,13 +1058,15 @@ const components = [
     status: "implemented",
     summary: "External sources, rights log, import runs, records",
     responsibility:
-      "External catalogue providers, their licence and rights history, import runs and the records linked to wines.",
+      "External catalogue providers, their licence and rights history, import runs, the records linked to wines, and the providers' ratings as aggregates per record and vintage (never an individual rating or rater).",
     inputs: [],
     outputs: [],
-    sources: [D + "catalog-providers.ts"],
+    sources: [D + "catalog-providers.ts", D + "catalog-ratings.ts"],
     tables: [
       "catalog_external_records",
       "catalog_import_runs",
+      "catalog_rating_aggregates",
+      "catalog_rating_runs",
       "catalog_provider_rights_log",
       "catalog_providers",
       "catalog_record_links",
@@ -1044,6 +1080,24 @@ const components = [
         detail:
           "Licence and rights handling is tested with fixture providers; an import from a real provider is not evidenced in the repository (architecture review P1).",
       },
+    ],
+  },
+  {
+    id: "data-community",
+    name: "Community reviews",
+    layer: "data",
+    status: "implemented",
+    summary: "Published reviews, reports, moderation log",
+    responsibility:
+      "Public reviews people chose to publish from their own tastings, reports on them and every moderation decision; read only through gated functions. Closed in the database (no new review or report by a person) until the owner opens it, logged.",
+    inputs: [],
+    outputs: [],
+    sources: [M + "20261130000052_community_reviews.sql", M + "20261202000054_community_gate.sql"],
+    tables: [
+      "community_review_moderation_log",
+      "community_review_reports",
+      "community_reviews",
+      "community_settings_log",
     ],
   },
   {
@@ -1245,11 +1299,22 @@ const components = [
     status: "implemented",
     summary: "Checks, migrations, database, e2e, secrets, audit, backup",
     responsibility:
-      "Runs format, lint, types, unit tests, build, migration immutability, the database suites, e2e (main and nightly), secret scan, dependency audit and the backup round trip.",
+      "Runs format, lint, types, unit tests, build, migration immutability, the database suites, e2e (main and nightly), secret scan, dependency audit and the backup round trip; by hand only, the staging catalogue workflow (X-Wines records and ratings, pilot) and the production catalogue workflow (records and rating aggregates; never rights, scope or feature switches). The production environment's protection (required reviewer, branch rule) is hosted configuration, unverified here.",
     inputs: ["Pushes and pull requests"],
     outputs: ["Check results"],
-    sources: [".github/workflows/ci.yml", ".github/workflows/staging-catalog.yml"],
+    sources: [
+      ".github/workflows/ci.yml",
+      ".github/workflows/staging-catalog.yml",
+      ".github/workflows/production-catalog.yml",
+    ],
     risks: [
+      {
+        id: "R-CI-2",
+        severity: "medium",
+        title: "A workflow can write the production catalogue",
+        detail:
+          "production-catalog.yml imports records and rating aggregates into production. Its safety is the production URL as an environment secret released by a required reviewer (hosted configuration, unverified here), the code's run checks (against accidents) and the database's own rights checks.",
+      },
       {
         id: "R-CI-1",
         severity: "low",
@@ -1681,7 +1746,7 @@ const edges: SystemEdge[] = [
     "svc-smart-cellar",
     "data-cellar",
     "data-write",
-    "layout and zones (save_storage_layout_v2 compare-and-swap where 0051 is there, else 0045's save)",
+    "layout and zones (save_storage_layout_v2 compare-and-swap where 0055 is there, else 0045's save)",
     web("server/smart-cellar/repository.ts", '.rpc("save_storage_layout_v2"'),
   ),
   edge(
@@ -1901,6 +1966,32 @@ const edges: SystemEdge[] = [
     web("server/catalog/sources.ts", '.from("wine_sources")'),
   ),
 
+  wired("composition-root", "svc-ratings", "builds", "createRatingsService({"),
+  edge(
+    "svc-ratings",
+    "data-providers",
+    "data-read",
+    "external rating aggregates (gated by rights and identity)",
+    web("server/ratings/service.ts", '"catalog_wine_ratings"'),
+    web("server/ratings/service.ts", '"catalog_record_ratings"'),
+  ),
+  edge(
+    "svc-ratings",
+    "data-community",
+    "data-write",
+    "publish, remove, report reviews; read published ones",
+    web("server/ratings/service.ts", '"publish_community_review"'),
+    web("server/ratings/service.ts", '"report_community_review"'),
+    web("server/ratings/service.ts", '"community_reviews_for_wine"'),
+  ),
+  edge(
+    "privileged-ops",
+    "data-community",
+    "data-write",
+    "review moderation (admin, service role)",
+    web("server/privileged/reviews-admin.ts", '"admin_moderate_community_review"'),
+  ),
+
   // Sommelier
   edge(
     "svc-sommelier",
@@ -1915,7 +2006,14 @@ const edges: SystemEdge[] = [
     "inventory, storage, Tonight",
     "tonight: (request, personal) => cellar.tonight(request, personal)",
   ),
-  wired("svc-sommelier", "svc-taste", "taste profile", "taste: () => taste.profile()"),
+  edge(
+    "svc-sommelier",
+    "svc-taste",
+    "request",
+    "taste profile; the household's wine profiles for the cards (annotate part)",
+    web(SERVICES, "taste: () => taste.profile()"),
+    web(SERVICES, "profiles: async (vintageIds) => tasteRepo.listInsights("),
+  ),
   wired("svc-sommelier", "rate-limiter", "chat limit", "spend: () => limiter.enforce(LIMITS.chat)"),
   edge(
     "svc-sommelier",
@@ -2897,7 +2995,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.6.3",
+  version: "1.12.3",
   reviewedOn: "2026-11-25",
   repository: "Blockionaire/CELLR",
   components,

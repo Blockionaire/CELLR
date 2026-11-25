@@ -8,6 +8,7 @@ import {
   Network,
   Users,
   type LucideIcon,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -296,6 +297,7 @@ const ACTIONS: ReadonlyArray<{ href: string; label: string; icon: LucideIcon }> 
   { href: "/admin/wines", label: "Wine Master Database", icon: Database },
   { href: "/admin/bottle-photos", label: "Bottle photos", icon: Images },
   { href: "/admin/catalog/corrections", label: "Corrections", icon: ListChecks },
+  { href: "/admin/reviews", label: "Community reviews", icon: MessageSquare },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/ai", label: "AI & costs", icon: Bot },
   { href: "/admin/system", label: "Architecture", icon: Network },

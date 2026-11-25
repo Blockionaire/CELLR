@@ -665,6 +665,8 @@ function LegacyUnitStage({
   const racks = useRacks();
   const webgl = useWebGL();
   const debug = useDebugReadout();
+  const t = useTranslations("smart3d");
+  const te = useTranslations();
   const [lost, setLost] = useState(false);
   const [listShown, setListShown] = useState(false);
   const placeView = query.data?.unit;
@@ -710,9 +712,46 @@ function LegacyUnitStage({
   );
   const offeringNow = quick !== null && !quick.held;
   const listForced = !direct;
+  // a read this needs failed (and is not being tried again): said, never an endless skeleton
+  const failure =
+    (query.isError && !query.isFetching && !placements ? query.error : null) ??
+    (racks.isError && !racks.isFetching && !racks.data ? racks.error : null);
   return (
     <>
-      {offeringNow && pointing === null ? (
+      {offeringNow && pointing === null && failure ? (
+        // a read failed while adding: never a dead end. The bar keeps Cancel (reachable by touch, not only Escape),
+        // and the failure is said with a way to try again
+        <>
+          <QuickPlacingBar
+            unit={unit}
+            free={0}
+            listShown={false}
+            listForced
+            onToggleList={() => {}}
+            onClose={quick.onClose}
+          />
+          <div
+            role="alert"
+            data-testid="quick-read-failed"
+            className="flex flex-col items-start gap-2 rounded-card border border-hairline bg-raised p-4"
+          >
+            <p className="font-medium text-ink">{t("unitFailedTitle")}</p>
+            <p className="text-small text-ink-2">
+              {errorMessage(failure, (key) => te(key), ERROR_MESSAGES)}
+            </p>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                if (query.isError) void query.refetch();
+                if (racks.isError) void racks.refetch();
+              }}
+            >
+              {te("common.retry")}
+            </Button>
+          </div>
+        </>
+      ) : offeringNow && pointing === null ? (
         // still being read: the bar says what a tap does once it knows (it never claims "no empty spot" meanwhile)
         <Skeleton className="h-14" data-testid="quick-placing-pending" />
       ) : offeringNow ? (

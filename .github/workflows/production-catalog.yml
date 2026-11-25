@@ -1,0 +1,93 @@
+# Ratings sprint, PR 4: the PRODUCTION catalogue import (X-Wines records and rating aggregates). Started by hand only,
+# on the reviewed main, inside the `cellr-production-catalog` GitHub Environment, whose required reviewer (the
+# owner) approves every run and which alone holds the production database URL. It never changes a provider's rights,
+# scope or the app's feature switches: those are the owner's own steps (docs/sprints/ratings/ACTIVATION.md).
+# The repository is public, so its Actions logs are too: logs carry pass/fail and the provider's catalogue counts
+# only, never anything about people, and no artifact is uploaded.
+name: Production catalogue (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "preflight = read-only checks; dry-run = classify the files, write nothing; import = records then ratings (each refuses to finish unless it adds up); verify = read-only counts after the import"
+        required: true
+        type: choice
+        options: [preflight, dry-run, import, verify]
+        default: preflight
+      confirm_project_ref:
+        description: "Type the production project ref to confirm"
+        required: true
+        type: string
+      backup_checked_on:
+        description: "The day you checked the latest production backup in Supabase (YYYY-MM-DD; today or yesterday)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-catalog
+  cancel-in-progress: false
+
+jobs:
+  production:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    environment: cellr-production-catalog
+    env:
+      CELLR_ENVIRONMENT: cellr-production-catalog
+      CONFIRM_REF: ${{ inputs.confirm_project_ref }}
+      BACKUP_CHECKED: ${{ inputs.backup_checked_on }}
+      MODE: ${{ inputs.mode }}
+      PRODUCTION_REF: vvelgyhbjfmjvxkzekyz
+      XW_SHA: eac2d812b5eb94264f3c4ee1764ccdacf764cdf1c2599c26e3832ed91a4662cc
+      RT_ZIP_SHA: a413529da701761ce82af14932984ea9a7cbb90b33d8c179402522df110f71ac
+      RT_SHA: 847fb49139b7ebfc92c5745cc34e3efff9febea05e977e4332287afa2ea2ded2
+      XW_URL: https://drive.google.com/drive/folders/1LqguJNV-aKh1PuWMVx5ELA61LPfGfuu_
+      VERSION: X-Wines 1.0 (2023-01)
+    steps:
+      - name: Refuse anything but a confirmed production run
+        env:
+          PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+        run: |
+          set -euo pipefail
+          [ -n "$PRODUCTION_DB_URL" ] || { echo "no PRODUCTION_DB_URL secret in the cellr-production-catalog environment"; exit 1; }
+          [ "$CONFIRM_REF" = "$PRODUCTION_REF" ] || { echo "the typed ref is not the production project"; exit 1; }
+          case "$MODE" in preflight|dry-run|import|verify) ;; *) echo "unknown mode"; exit 1;; esac
+          PW=$(node -e 'try{process.stdout.write(decodeURIComponent(new URL(process.env.PRODUCTION_DB_URL).password))}catch{}')
+          if [ -n "$PW" ]; then echo "::add-mask::$PW"; fi
+          echo "::add-mask::$PRODUCTION_DB_URL"
+          # the pooler host too (a connection error can name it on its own)
+          HOST=$(node -e 'try{process.stdout.write(new URL(process.env.PRODUCTION_DB_URL).hostname)}catch{}')
+          if [ -n "$HOST" ]; then echo "::add-mask::$HOST"; fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22, cache: pnpm }
+      # only the catalogue tools and their dependencies, without lifecycle scripts: the next step holds the secret
+      - run: pnpm install --frozen-lockfile --filter "@cellr/catalog-tools..." --ignore-scripts
+      - name: The X-Wines files from their official source (checksum-verified, never stored)
+        if: inputs.mode != 'preflight'
+        run: |
+          set -euo pipefail
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/XWines_Full_100K_wines.csv" \
+            "https://drive.usercontent.google.com/download?id=1uEEipmKNxdiKUAhjH-K14JOSQ2BLRFss&export=download&confirm=t"
+          echo "$XW_SHA  $RUNNER_TEMP/XWines_Full_100K_wines.csv" | sha256sum -c --quiet
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/XWines_Full_21M_ratings.zip" \
+            "https://drive.usercontent.google.com/download?id=1tI-3XOoD4w_hYMGgj6OXU3EUI8xMQgj2&export=download&confirm=t"
+          echo "$RT_ZIP_SHA  $RUNNER_TEMP/XWines_Full_21M_ratings.zip" | sha256sum -c --quiet
+          unzip -q -o "$RUNNER_TEMP/XWines_Full_21M_ratings.zip" XWines_Full_21M_ratings.csv -d "$RUNNER_TEMP"
+          rm -f "$RUNNER_TEMP/XWines_Full_21M_ratings.zip"
+          echo "$RT_SHA  $RUNNER_TEMP/XWines_Full_21M_ratings.csv" | sha256sum -c --quiet
+          echo "files verified"
+      - name: Run (${{ inputs.mode }})
+        env:
+          PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+        run: bash scripts/catalog-tools/production-run.sh "$MODE" "$RUNNER_TEMP"
+      - name: Remove the dataset and every work file from the runner
+        if: always()
+        run: rm -rf "$RUNNER_TEMP"/XWines_* "$RUNNER_TEMP/work"

@@ -400,7 +400,7 @@ describe("revisions (review corrections)", () => {
     const t1 = "2026-11-19T10:00:00.100000+00:00";
     const t2 = "2026-11-19T10:00:00.200000+00:00";
     expect(isNewerRevision(t2, t1)).toBe(true);
-    // a SMALLER time is news too: without 0051 the writer that committed last may carry it
+    // a SMALLER time is news too: without 0055 the writer that committed last may carry it
     expect(isNewerRevision(t1, t2)).toBe(true);
     expect(isNewerRevision(t1, t1)).toBe(false);
     expect(isNewerRevision(t1, null)).toBe(true);
@@ -500,5 +500,17 @@ describe("keeping one's changes on a newer version of the place (sprint 8)", () 
     const a = assess(r.draft, CURRENT, [{ row: 5, col: 1, index: 1 }]);
     expect(a.savable).toBe(false);
     expect(strandedBy(r.draft, [{ row: 5, col: 1, index: 1 }])).toHaveLength(1);
+  });
+});
+describe("which revisions are news to the screen (wave 2 regression: the cache from before a save)", () => {
+  it("a revision already met is not news, also in another offset; one never met is", async () => {
+    const { revisionIsNews } = await import("./draft");
+    const before = "2026-11-29T10:00:00.100000+00:00";
+    const saved = "2026-11-29T10:00:01.200000+00:00";
+    // after its own save the screen knows both: the cached answer from before the save is not someone's change
+    expect(revisionIsNews(before, [before, saved])).toBe(false);
+    expect(revisionIsNews("2026-11-29T11:00:00.1+01:00", [before, saved])).toBe(false);
+    expect(revisionIsNews("2026-11-29T10:00:02+00:00", [before, saved])).toBe(true);
+    expect(revisionIsNews(before, [])).toBe(true);
   });
 });

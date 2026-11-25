@@ -1,5 +1,5 @@
 -- =====================================================================
--- 0051 Smart Cellar 3D: a layout save that refuses a stale draft (compare-and-swap under the row lock)
+-- 0055 Smart Cellar 3D: a layout save that refuses a stale draft (compare-and-swap under the row lock)
 -- =====================================================================
 -- docs/sprints/smart-cellar-3d/PROPOSAL-layout-compare-and-swap.md is the proposal this implements;
 -- docs/sprints/smart-cellar-3d/SPRINT-8-LAYOUT-CAS-REPORT.md says what changed against it and why.
