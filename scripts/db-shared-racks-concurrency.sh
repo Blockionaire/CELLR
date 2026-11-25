@@ -369,7 +369,9 @@ placed=$(count_of 'h-*' 'place:placed'); moved=$(count_of 'h-*' 'move:moved'); t
 [ $(($(events bottle_placed) - before_placed)) = "$placed" ] || fail "answered 'placed' $placed times, but the history has $(($(events bottle_placed) - before_placed)) lines"
 [ $(($(events bottle_moved) - before_moved)) = "$moved" ] || fail "answered 'moved' $moved times, but the history has $(($(events bottle_moved) - before_moved)) lines"
 [ $(($(events bottle_taken_out) - before_taken)) = "$taken" ] || fail "answered 'taken_out' $taken times, but the history has $(($(events bottle_taken_out) - before_taken)) lines"
-unknown=$(cat "$OUT"/h-* | grep -vcE '^(place:(placed|taken|no_bottle|already_placed)|move:(moved|taken|stale|gone|already_there)|take:(taken_out|stale|gone)|idle:empty)$' || true)
+# 'place:already_there' is a clean answer too: two sessions of one person picked the same bottle and the same spot,
+# and the second found it already standing there (a repeat that writes nothing and no history line).
+unknown=$(cat "$OUT"/h-* | grep -vcE '^(place:(placed|taken|no_bottle|already_placed|already_there)|move:(moved|taken|stale|gone|already_there)|take:(taken_out|stale|gone)|idle:empty)$' || true)
 [ "$unknown" = 0 ] || fail "the hammer got $unknown answers that are not one of the clean ones: $(cat "$OUT"/h-* | sort | uniq -c | tr '\n' ' ')"
 [ "$(su "select count(*) from private.shared_rack_placements where rack_id = '$RACK'")" = $((placed - taken)) ] || fail "the rack does not hold placed minus taken-out bottles"
 invariants "step 7"
