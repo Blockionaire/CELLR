@@ -8,6 +8,7 @@ import {
   type RecordReason,
   type RecordSuggestion,
 } from "@cellr/domain";
+import Link from "next/link";
 import { Button } from "@/ui/button";
 import { countryName } from "@/features/cellar/wine-visuals";
 
@@ -22,11 +23,14 @@ export function RecordSuggestions({
   records,
   onUse,
   level = 2,
+  ratingsLink = false,
 }: {
   records: readonly RecordSuggestion[] | undefined;
   onUse: (suggestion: RecordSuggestion) => void;
   /** The heading's level: 3 where it sits under another section's heading ("is it one of these?"). */
   level?: 2 | 3;
+  /** `catalog_ratings`: each card links to the record's catalogue page (its ratings and reviews). */
+  ratingsLink?: boolean;
 }) {
   const t = useTranslations("scan.records");
   const tTypes = useTranslations("wineTypes");
@@ -110,6 +114,15 @@ export function RecordSuggestions({
               >
                 {t("use")}
               </Button>
+              {ratingsLink && hit.recordId && (
+                <Link
+                  href={`/catalog/${hit.recordId}`}
+                  className="self-center text-small font-medium text-accent-fg underline-offset-4 hover:underline"
+                  data-testid="record-suggestion-ratings"
+                >
+                  {t("ratings")}
+                </Link>
+              )}
             </li>
           );
         })}

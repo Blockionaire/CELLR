@@ -52,6 +52,7 @@ function repo(over: Partial<RatingsRepository> = {}): RatingsRepository {
     remove: async () => "deleted",
     report: async () => "reported",
     mine: async () => null,
+    recordPage: async () => null,
     ...over,
   };
 }

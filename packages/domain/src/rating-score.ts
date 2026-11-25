@@ -95,3 +95,6 @@ export function cellrBucket(score: number): number {
   const half = Math.floor(cellrScoreToStars(score) * 2 + 1e-9);
   return Math.min(Math.max(half, 1), 10) - 1;
 }
+
+/** The star row (1..5) of the distribution a CELLR score is counted in: the same folding as `starRows`. */
+export const starRowOf = (score: number): number => Math.floor(cellrBucket(score) / 2) + 1;
