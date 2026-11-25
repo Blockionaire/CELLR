@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -33,6 +34,7 @@ import { PlusIcon } from "@/ui/icons";
 import { Skeleton } from "@/ui/skeleton";
 import { useToast } from "@/ui/toast";
 import {
+  forgetSharedRack,
   useMoveBottle,
   usePlaceBottle,
   useSharedRackBottles,
@@ -129,6 +131,7 @@ export function SharedRackStage({
   const say = useErrorText();
 
   const list = useSharedRacks();
+  const queryClient = useQueryClient();
   // Not mine to see any more (the server said so): from then on nothing of the rack is asked for, and what this tab
   // still held of it is let go at once (below)
   const [gone, setGone] = useState(false);
@@ -137,6 +140,9 @@ export function SharedRackStage({
   const membersQuery = useSharedRackMembers(gone ? null : rackId, data !== undefined);
   if (!gone && query.isError && refusalKind(query.error, RACK_NOT_FOUND_MESSAGE) === "gone")
     setGone(true);
+  useEffect(() => {
+    if (gone) void forgetSharedRack(queryClient, rackId);
+  }, [gone, queryClient, rackId]);
   // A control that had the focus can go away with what it did: a free spot that holds a bottle now, a bottle taken
   // out, a sheet whose button is gone. Then the focus goes to the bottle it was about (its button in the flat grid),
   // or else to the rack's name; never to the page itself. Asked for where that can happen, and done once the screen
@@ -848,6 +854,7 @@ export function SharedRackStage({
         writes={writes}
         onLeft={() => {
           setSheet(null);
+          void forgetSharedRack(queryClient, rackId);
           onGone();
         }}
       />
