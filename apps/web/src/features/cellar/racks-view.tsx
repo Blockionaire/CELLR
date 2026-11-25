@@ -250,6 +250,12 @@ export function RacksView({
             </div>
           }
         />
+        {/* Shared racks (ADR-010): a bottle of mine in a shared rack is said here too, with no place of my own */}
+        {sharedRacks && (
+          <div className="mt-6">
+            <SharedRackUnplacedNote />
+          </div>
+        )}
         <NewPlaceSheet
           open={newPlace}
           onClose={() => setNewPlace(false)}
