@@ -349,9 +349,9 @@ What the browser runs found, and what was done about each:
   only while it has the focus and folds away when the focus leaves it, which moves the page under a pressed mouse
   button. The spec now does what such a person does (Enter on the button). The fold itself is unchanged and is the
   same pattern the private 3D view uses; a physical-device check should include it.
-- **Two sheets in quick succession**: Escape pressed twice and a sheet opened right after closed that sheet again
-  (the shared sheet component reports its closing after the animation). The spec no longer presses Escape twice;
-  the component is not this workstream's and is unchanged.
+- **Two sheets in quick succession**: a sheet says it is closed a moment after Escape (its way out is animated),
+  and the rack's screen then closed whichever sheet was open by then, so a sheet opened right after another one
+  closed again. Fixed: each sheet closes only itself (`rack-stage.tsx`).
 - **The spec assumed which of two identical bottles a person picks first**; it now reads that back.
 
 Not run: the whole browser suite, the WebKit project, the restore rehearsal (needs Docker), anything on a real

@@ -141,6 +141,10 @@ export function SharedRackStage({
   const [addSpot, setAddSpot] = useState<SharedRackSpot | null>(null);
   const [sheet, setSheet] = useState<"people" | "activity" | "settings" | null>(null);
   const [historyOf, setHistoryOf] = useState<{ placementId: string; name: string } | null>(null);
+  // a sheet says it is closed a moment after it was asked to (its way out is animated): by then another sheet may be
+  // the open one, and that one stays
+  const closeSheet = (which: "people" | "activity" | "settings") =>
+    setSheet((now) => (now === which ? null : now));
   const [takeOutFor, setTakeOutFor] = useState<SharedRackBottleView | null>(null);
   const [takenOut, setTakenOut] = useState<{ vintageId: string | null } | null>(null);
   const [flat, setFlat] = useState(false);
@@ -765,7 +769,7 @@ export function SharedRackStage({
       />
       <PeopleSheet
         open={sheet === "people"}
-        onClose={() => setSheet(null)}
+        onClose={() => closeSheet("people")}
         rack={rack}
         members={members}
         writes={writes}
@@ -776,14 +780,18 @@ export function SharedRackStage({
       />
       <ActivitySheet
         open={sheet === "activity"}
-        onClose={() => setSheet(null)}
+        onClose={() => closeSheet("activity")}
         rack={rack}
         members={members}
         bottle={historyOf}
         onAllBottles={() => setHistoryOf(null)}
       />
       {rack.role === "owner" && (
-        <SettingsSheet open={sheet === "settings"} onClose={() => setSheet(null)} rack={rack} />
+        <SettingsSheet
+          open={sheet === "settings"}
+          onClose={() => closeSheet("settings")}
+          rack={rack}
+        />
       )}
     </>
   );
