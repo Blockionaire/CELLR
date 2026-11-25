@@ -389,6 +389,35 @@ describe("light in the air and shadow on the floor", () => {
     owned.dispose();
   });
 
+  // The furniture's own shading is checked corner by corner above; the glow is not furniture (`buildStructure` gives
+  // it no colours), so its corners are checked here: each is exactly the colour of its own zone's light, never black
+  // and never anything else (sprint 10 review).
+  it("every corner of a glow carries its zone's light colour, and nothing else", () => {
+    let checked = 0;
+    for (const id of STORAGE_TEMPLATE_IDS) {
+      const model = modelOf(id);
+      const owned = new Owned();
+      const glow = buildAmbience(model, QUALITY.high, owned).glow;
+      if (glow) {
+        const allowed = new Set(
+          model.look.zoneLights.filter(Boolean).map((c) => new THREE.Color(c!).getHexString()),
+        );
+        const colour = glow.geometry.getAttribute("color") as THREE.BufferAttribute;
+        expect(colour.count, id).toBe(glow.geometry.getAttribute("position").count);
+        const seen = new Set<string>();
+        const c = new THREE.Color();
+        for (let i = 0; i < colour.count; i++)
+          seen.add(c.setRGB(colour.getX(i), colour.getY(i), colour.getZ(i)).getHexString());
+        for (const hex of seen) expect(allowed.has(hex), `${id}: ${hex}`).toBe(true);
+        for (const hex of seen) expect(hex, id).not.toBe("000000");
+        checked += 1;
+      }
+      owned.dispose();
+    }
+    // the coolers and the lit cabinet: the check is not empty
+    expect(checked).toBeGreaterThanOrEqual(2);
+  });
+
   it("the shadow lies on the floor under furniture, and on the wall behind a wall mount", () => {
     const owned = new Owned();
     const flat = (id: (typeof STORAGE_TEMPLATE_IDS)[number]) => {
