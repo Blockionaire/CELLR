@@ -3575,6 +3575,7 @@ export type Database = {
         Args: { p_image_id?: string; p_wine_id: string; p_year: number };
         Returns: string;
       };
+      catalog_record_page: { Args: { p_record_id: string }; Returns: Json };
       catalog_record_provenance: {
         Args: { p_household_id: string; p_record: string };
         Returns: Json;

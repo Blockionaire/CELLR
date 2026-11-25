@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  CatalogRecordPageSchema,
   CommunityRowSchema,
   DomainError,
   ExternalRatingsRowSchema,
@@ -7,6 +8,7 @@ import {
   PublishResultSchema,
   mergeWineRatings,
   NO_RATINGS,
+  type CatalogRecordPage,
   type CommunityRow,
   type ExternalRatingsRow,
   type PublishReview,
@@ -32,6 +34,7 @@ export interface RatingsRepository {
   remove(reviewId: string): Promise<string | null>;
   report(reviewId: string, reason: ReportReason, detail: string | null): Promise<string | null>;
   mine(tastingId: string): Promise<unknown>;
+  recordPage(recordId: string): Promise<unknown>;
 }
 
 const MISSING = new Set(["PGRST202", "42883"]);
@@ -66,6 +69,7 @@ export function createRatingsRepository(db: Db): RatingsRepository {
         p_detail: detail,
       })) as string | null,
     mine: (t) => call("my_community_review", { p_tasting_id: t }),
+    recordPage: (r) => call("catalog_record_page", { p_record_id: r }),
   };
 }
 
@@ -176,6 +180,13 @@ export function createRatingsService({ repo, householdId, features }: RatingsDep
       if (r === "rate_limited") throw new DomainError("RATE_LIMITED");
       if (r !== "reported" && r !== "already_reported") throw new DomainError("NOT_FOUND");
       return { reported: true };
+    },
+    /** A provider record's own catalogue page (a search or scan result shown to people); NOT_FOUND otherwise. */
+    async record(recordId: string): Promise<CatalogRecordPage> {
+      off();
+      const p = CatalogRecordPageSchema.safeParse(await repo.recordPage(recordId));
+      if (!p.success) throw new DomainError("NOT_FOUND");
+      return p.data;
     },
     async mine(tastingId: string): Promise<{ review: MyReview }> {
       offCommunity();

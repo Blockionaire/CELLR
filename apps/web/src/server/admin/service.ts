@@ -704,6 +704,15 @@ export {
  * What the admin can see and do about external sources: read their rights and imports, decide links, and switch a
  * source off. Each function checks the admin session itself. Nothing here can switch a source on.
  */
+import { ModerationSchema, moderateReview, reviewQueue } from "@/server/privileged/reviews-admin";
+
+/** Community review moderation: the reported reviews and a moderator's decision. Each checks the admin session. */
+export const adminReviews = {
+  queue: reviewQueue,
+  moderate: moderateReview,
+  schema: ModerationSchema,
+};
+
 export const adminSources = {
   overview: readSources,
   links: readLinkQueue,

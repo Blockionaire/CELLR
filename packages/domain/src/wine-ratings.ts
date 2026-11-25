@@ -219,3 +219,26 @@ export const MyReviewSchema = z
   })
   .nullable();
 export type MyReview = z.infer<typeof MyReviewSchema>;
+
+/** catalog_record_page: a provider record shown to people, on its own catalogue page. */
+export const CatalogRecordPageSchema = z.object({
+  recordId: z.string().uuid(),
+  producer: z.string().min(1).max(120),
+  name: z.string().min(1).max(160),
+  wineType: z.string().nullable(),
+  countryCode: z.string().length(2).nullable(),
+  region: z.string().max(120).nullable(),
+  appellation: z.string().max(160).nullable(),
+  vintages: z.array(z.number().int().min(1800).max(2100)).max(300),
+  nonVintage: z.boolean(),
+  modified: z.boolean(),
+  provider: z.object({
+    id: z.string(),
+    name: z.string(),
+    license: z.string(),
+    licenseUrl: z.string().nullable(),
+    attribution: z.string().nullable(),
+    homepage: z.string().nullable(),
+  }),
+});
+export type CatalogRecordPage = z.infer<typeof CatalogRecordPageSchema>;

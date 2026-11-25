@@ -2,7 +2,13 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import type { AddBottlesResult, CatalogSearchHit, WineSummary } from "@cellr/domain";
+import Link from "next/link";
+import type {
+  AddBottlesResult,
+  CatalogRecordPage,
+  CatalogSearchHit,
+  WineSummary,
+} from "@cellr/domain";
 import { Button } from "@/ui/button";
 import { ChevronRightIcon } from "@/ui/icons";
 import { PageHeader } from "@/ui/page-header";
@@ -12,7 +18,7 @@ import { BottleDetails } from "./bottle-details";
 import { ChooseWine } from "./choose-wine";
 import { useForgetWish } from "@/features/wishlist/hooks";
 import { useWines } from "./hooks";
-import { draftOfRecord, NewWineForm, type NewWineDraft } from "./new-wine-form";
+import { draftOfRecord, draftOfRecordPage, NewWineForm, type NewWineDraft } from "./new-wine-form";
 
 type Step = "choose" | "new" | "details" | "done";
 
@@ -28,6 +34,8 @@ export function AddBottleFlow({
   initialSpot,
   catalogSearch = false,
   origin,
+  initialRecord,
+  catalogRatings = false,
 }: {
   currency: string;
   /** Jump straight to "how many and where" for this wine (from "Add more"). */
@@ -41,18 +49,26 @@ export function AddBottleFlow({
   origin?: AddOrigin | undefined;
   /** The `wine_search` feature: find the wine through the database search instead of the fetched list. */
   catalogSearch?: boolean | undefined;
+  /** From a record's catalogue page: the "new wine" form starts with the record's details to check. */
+  initialRecord?: CatalogRecordPage | undefined;
+  /** `catalog_ratings`: a record chosen in search links to its catalogue page (ratings, reviews). */
+  catalogRatings?: boolean | undefined;
 }) {
   const t = useTranslations("addBottle");
   const t3 = useTranslations("quickAdd");
   const wines = useWines();
   const forgetWish = useForgetWish();
-  const [step, setStep] = useState<Step>(initialWine ? "details" : "choose");
+  const [step, setStep] = useState<Step>(
+    initialWine ? "details" : initialRecord ? "new" : "choose",
+  );
   const [query, setQuery] = useState("");
   const [wine, setWine] = useState<WineSummary | null>(initialWine ?? null);
   // A record of an external source that was chosen: its details start the "new wine" form, where the person
   // checks them. It is never used as a CELLR wine, and nothing about the record is kept.
   const [fromRecord, setFromRecord] = useState<{ draft: NewWineDraft; provider: string } | null>(
-    null,
+    initialRecord
+      ? { draft: draftOfRecordPage(initialRecord), provider: initialRecord.provider.name }
+      : null,
   );
   const [result, setResult] = useState<AddBottlesResult | null>(null);
   const [lastPlace, setLastPlace] = useState<string | null | undefined>(initialSpot?.locationId);
@@ -141,6 +157,17 @@ export function AddBottleFlow({
             producers={[...new Set((wines.data ?? []).map((w) => w.producer))]}
             onCreated={pick}
           />
+        )}
+        {step === "new" && catalogRatings && fromRecord?.draft.recordId && (
+          <p className="mt-3 text-center">
+            <Link
+              href={`/catalog/${fromRecord.draft.recordId}`}
+              className="text-small font-medium text-accent-fg underline-offset-4 hover:underline"
+              data-testid="record-ratings-link"
+            >
+              {t("recordRatings")}
+            </Link>
+          </p>
         )}
         {step === "details" && wine && (
           <BottleDetails

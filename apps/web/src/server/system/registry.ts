@@ -59,6 +59,8 @@ const components = [
       W + "ui/providers.tsx",
     ],
     env: ["DESIGN_GALLERY"],
+    // a plain link on the ratings page (the X-Wines paper's DOI); nothing is fetched from it
+    hosts: ["doi.org"],
     packages: ["@tanstack/react-query", "three", "@react-three/fiber", "tesseract.js"],
     gates: [
       {
@@ -463,6 +465,7 @@ const components = [
     routes: [
       "/api/v1/wines/[id]/ratings",
       "/api/v1/catalog/records/[id]/ratings",
+      "/api/v1/catalog/records/[id]",
       "/api/v1/tastings/[id]/review",
       "/api/v1/reviews/[id]",
       "/api/v1/reviews/[id]/report",
@@ -2969,7 +2972,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.8.0",
+  version: "1.10.0",
   reviewedOn: "2026-11-25",
   repository: "Blockionaire/CELLR",
   components,

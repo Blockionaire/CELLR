@@ -274,7 +274,8 @@
         "vintage_listed": "Bron kent deze jaargang",
         "vintage_not_listed": "Bron noemt deze jaargang niet"
       },
-      "licenseLink": "Licentie: {license}"
+      "licenseLink": "Licentie: {license}",
+      "ratings": "Bekijk beoordelingen en reviews"
     },
     "review": {
       "wineTitle": "De wijn",
@@ -914,7 +915,8 @@
     "spotPickBody": "Tik op een vrije plek.",
     "spotAuto": "Laat CELLR kiezen",
     "firstAt": "De eerste staat op {spot}.",
-    "recordNotice": "Deze gegevens komen van {provider}, een externe bron die CELLR niet heeft geverifieerd. Controleer ze voordat je verdergaat; de wijn wordt als je eigen wijn toegevoegd."
+    "recordNotice": "Deze gegevens komen van {provider}, een externe bron die CELLR niet heeft geverifieerd. Controleer ze voordat je verdergaat; de wijn wordt als je eigen wijn toegevoegd.",
+    "recordRatings": "Bekijk de beoordelingen en reviews van deze wijn"
   },
   "newPlace": {
     "title": "Een plek voor je flessen",
@@ -2877,5 +2879,95 @@
     "checkedNot": "Het is niet opgeslagen. Je kunt het opnieuw proberen.",
     "checkedOther": "Er staat nu een andere fles op die plek. Kies een andere plek.",
     "checkFailed": "We konden het nog steeds niet controleren. Probeer het zo opnieuw."
+  },
+  "ratingsPanel": {
+    "title": "Beoordelingen",
+    "howWeScore": "Hoe we scoren",
+    "vintageFilter": "Jaargang",
+    "allVintages": "Alle jaargangen",
+    "nv": "NV",
+    "emptyTitle": "Nog geen beoordelingen",
+    "emptyBody": "Niemand heeft de {vintage} nog beoordeeld.",
+    "emptyBodyAll": "Niemand heeft deze wijn nog beoordeeld.",
+    "beFirst": "Deel als eerste je beoordeling",
+    "cellrScore": "CELLR-score",
+    "starsLabel": "{value} van de 5 sterren",
+    "basedOn": "{count, plural, one {Op basis van # beoordeling} other {Op basis van {formatted} beoordelingen}}",
+    "external": "Externe beoordelingen",
+    "community": "CELLR-community",
+    "count": "{count, plural, one {# beoordeling} other {{formatted} beoordelingen}}",
+    "distribution": "Hoe de beoordelingen verdeeld zijn",
+    "rowLabel": "{star} sterren: {count, plural, one {# beoordeling} other {{formatted} beoordelingen}}",
+    "reviewsTitle": "Reviews uit de CELLR-community",
+    "share": "Deel je review",
+    "reviewFilter": "Toon",
+    "filter": {
+      "all": "Alles",
+      "with_text": "Met tekst",
+      "mine": "Van mij"
+    },
+    "clearStars": "Alle sterren tonen",
+    "starsChip": "{star}★",
+    "noneYet": "Hier zijn nog geen reviews.",
+    "noneMine": "Je hebt hier nog geen review van gedeeld.",
+    "weightNote": "De CELLR-score telt elke CELLR-review vijf keer, en externe beoordelingen tot hoogstens 50. De aantallen zijn de echte aantallen.",
+    "member": "CELLR-lid",
+    "you": "Jij",
+    "edited": "bewerkt",
+    "remove": "Verwijderen",
+    "removed": "Je review is verwijderd.",
+    "report": "Melden",
+    "publishTitle": "Deel je review",
+    "publishBody": "Je sterren en, als je wilt, een paar woorden, voor iedereen die deze wijn bekijkt.",
+    "whichTasting": "Welke proeverij",
+    "yourScore": "Jouw score",
+    "scoreFromTasting": "Uit je proeverij",
+    "bodyLabel": "Je review (optioneel)",
+    "bodyPlaceholder": "Wat viel op? Graag geen links.",
+    "consent": "Ik publiceer deze review in de CELLR-community onder mijn weergavenaam. Ik kan hem altijd aanpassen of verwijderen.",
+    "privateStays": "Je privé-proefnotitie blijft privé: die wordt nooit gedeeld.",
+    "publish": "Publiceren",
+    "published": "Je review is gepubliceerd.",
+    "updated": "Je review is bijgewerkt.",
+    "status": {
+      "no_identity": "Deze wijn kan niet openbaar beoordeeld worden: CELLR kent hem niet als cataloguswijn.",
+      "no_score": "Geef eerst sterren."
+    },
+    "reportTitle": "Deze review melden",
+    "reportBody": "Onze moderatoren bekijken hem. Na drie meldingen is een review verborgen tot zij hebben gekeken.",
+    "reason": {
+      "spam": "Spam of reclame",
+      "offensive": "Beledigend",
+      "wrong_wine": "Over een andere wijn",
+      "not_a_review": "Geen review",
+      "other": "Iets anders"
+    },
+    "sendReport": "Melding versturen",
+    "reported": "Dank je. We kijken ernaar."
+  },
+  "aboutRatings": {
+    "title": "Beoordelingen en bronnen",
+    "intro": "Waar de beoordelingen in CELLR vandaan komen, en hoe de CELLR-score wordt berekend.",
+    "methodTitle": "De CELLR-score",
+    "method1": "Externe beoordelingen tellen elk één keer, tot hoogstens 50 per wijn en jaargang: de duizenden beoordelingen van een beroemde wijn overstemmen niet de rest.",
+    "method2": "Elke review uit de CELLR-community telt vijf keer. Met tien CELLR-reviews weegt de community even zwaar als elk aantal externe beoordelingen.",
+    "method3": "Een CELLR-score van 1–10 tonen we als sterren: de helft van de score (9 = 4,5 sterren).",
+    "method4": "Jaargangen worden nooit gemengd: 2019 wordt als 2019 beoordeeld, NV als NV. 'Alle jaargangen' telt de echte aantallen bij elkaar op.",
+    "method5": "We tonen altijd het echte aantal beoordelingen, en de externe en CELLR-gemiddelden apart. Zonder beoordelingen tonen we geen score.",
+    "externalTitle": "Externe beoordelingen",
+    "externalBody": "De externe beoordelingen zijn historische beoordelingen uit de X-Wines-dataset, per exacte wijn en jaargang. CELLR bewaart alleen totalen per wijn en jaargang, nooit wie wat beoordeelde. Beoordeelde iemand dezelfde wijn en jaargang vaker, dan telt alleen de laatste.",
+    "citation": "de Azambuja, R. X., Morais, A. J., & Filipe, V. (2023). X-Wines: A Wine Dataset for Recommender Systems and Machine Learning. Big Data and Cognitive Computing, 7(1), 20.",
+    "citationLink": "Lees het artikel",
+    "communityTitle": "De CELLR-community",
+    "communityBody": "Een CELLR-review is een proeverij die iemand zelf heeft gepubliceerd. De privénotitie blijft privé. Iemand heeft één review per wijn en jaargang; een tweede fles werkt die bij. Reviews kunnen gemeld worden, en onze moderatoren kunnen ze verbergen.",
+    "matchTitle": "Bij welke wijn een beoordeling hoort",
+    "matchBody": "Beoordelingen staan alleen bij de exacte wijn waar ze bij horen. Een wijn die je uit de catalogus toevoegde en daarna een andere naam gaf, toont ze niet meer: dan weten we het niet meer zeker."
+  },
+  "catalogRecord": {
+    "addToCellar": "Toevoegen aan mijn kelder",
+    "from": "Uit de catalogus",
+    "vintages": "Jaargangen",
+    "modified": "Namen genormaliseerd door CELLR",
+    "notFound": "Deze wijn staat niet in de catalogus."
   }
 }
