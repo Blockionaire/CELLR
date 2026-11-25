@@ -122,6 +122,8 @@ jobs:
       # reproduction of the zone deadlock), and the migrations on a database that already holds a cellar.
       - name: Placement, zones and swaps under concurrency
         run: bash scripts/db-placement-concurrency.sh
+      - name: Layout saves under concurrency · compare-and-swap (0055)
+        run: bash scripts/db-layout-cas-concurrency.sh
       - name: Upgrade rehearsal · existing places and bottles are not touched
         run: bash scripts/db-smart-cellar-upgrade.sh
 

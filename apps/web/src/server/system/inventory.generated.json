@@ -225,6 +225,7 @@
     "report_community_review",
     "respond_friend_request",
     "save_storage_layout",
+    "save_storage_layout_v2",
     "send_friend_request",
     "shared_wine_profile",
     "sommelier_purge_expired",
@@ -239,7 +240,7 @@
     "wine_origin_notices",
     "wine_source_notices"
   ],
-  "migrations": { "count": 52, "latest": "20261202000054_community_gate.sql" },
+  "migrations": { "count": 53, "latest": "20261203000055_smart_cellar_layout_cas.sql" },
   "buckets": [
     "bottle-art",
     "bottle-images",
@@ -603,6 +604,7 @@
     { "from": "app/api/", "to": "server/push/" },
     { "from": "app/api/", "to": "server/ratelimit/" },
     { "from": "app/api/", "to": "server/services.ts" },
+    { "from": "app/api/", "to": "server/smart-cellar/" },
     { "from": "app/design/", "to": "features/design/" },
     { "from": "app/design/", "to": "server/env.ts" },
     { "from": "app/design/", "to": "ui/theme-cookie.ts" },
@@ -957,6 +959,7 @@
     { "from": "server/smart-cellar/", "to": "lib/smart-cellar-placement-gate.ts" },
     { "from": "server/smart-cellar/", "to": "server/cellar/" },
     { "from": "server/smart-cellar/", "to": "server/db/" },
+    { "from": "server/smart-cellar/", "to": "server/log.ts" },
     { "from": "server/sommelier/", "to": "server/ai/" },
     { "from": "server/sommelier/", "to": "server/db/" },
     { "from": "server/taste/", "to": "server/db/" },

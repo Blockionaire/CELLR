@@ -236,7 +236,7 @@ const components = [
     inputs: ["Household scope", "Storage config"],
     outputs: [
       "Storage unit views",
-      "Layout writes (save_storage_layout)",
+      "Layout writes (save_storage_layout; save_storage_layout_v2 compare-and-swap where 0055 is present)",
       "Bottle moves (one conditional update) and swaps (swap_bottles_v2)",
       "Placement advice (read-only, recomputed per request, never stored)",
     ],
@@ -1746,8 +1746,15 @@ const edges: SystemEdge[] = [
     "svc-smart-cellar",
     "data-cellar",
     "data-write",
-    "layout and zones",
-    web("server/smart-cellar/repository.ts", '.rpc("save_storage_layout"'),
+    "layout and zones (save_storage_layout_v2 compare-and-swap where 0055 is there, else 0045's save)",
+    web("server/smart-cellar/repository.ts", '.rpc("save_storage_layout_v2"'),
+  ),
+  edge(
+    "api-v1",
+    "svc-smart-cellar",
+    "control",
+    "the layout save's If-Match revision, passed on unchanged",
+    web("app/api/v1/smart-cellar/storage/[id]/layout/route.ts", "@/server/smart-cellar/revision"),
   ),
   edge(
     "svc-smart-cellar",
@@ -2988,7 +2995,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.12.1",
+  version: "1.12.2",
   reviewedOn: "2026-11-25",
   repository: "Blockionaire/CELLR",
   components,

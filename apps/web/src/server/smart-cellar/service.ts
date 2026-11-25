@@ -6,6 +6,7 @@ import {
   SMART_CELLAR_API_VERSION,
   STORAGE_APPEARANCE_VERSION,
   STALE_LAYOUT_MESSAGE,
+  sameRevision,
   STORAGE_CATALOG_VERSION,
   STORAGE_TEMPLATES,
   indexMeaningOf,
@@ -105,6 +106,8 @@ function refusal(problem: LayoutChangeProblem | Exclude<SaveLayoutOutcome, "save
       );
     case "not_found":
       return new DomainError("NOT_FOUND", "We couldn't find that place.");
+    case "stale":
+      return new DomainError("CONFLICT", STALE_LAYOUT_MESSAGE);
   }
 }
 
@@ -245,9 +248,10 @@ export function createSmartCellarService({
      * whole. There is no partial layout at any moment.
      *
      * `expectedRevision` (sprint 3): the revision the person's draft started from. When given and no longer the
-     * place's, nothing is saved (409). This narrows lost updates; it does NOT close them: a save that lands between
-     * this check and the database call still wins (last write wins under the row lock). Closing that needs the
-     * revision compared inside the transaction, which is a migration (SPRINT-3-REPORT §11), not done here.
+     * place's, nothing is saved (409). Checked twice: here first (it answers sooner and costs one read), and then by
+     * the database, under the place's row lock (save_storage_layout_v2, migration 0055), so a save that lands between
+     * this check and the database call no longer wins: it is 'stale' there too, the same 409. On a database without
+     * 0055 only the check here is made, as before 0055, and that window stays open (SPRINT-8-LAYOUT-CAS-REPORT).
      */
     /**
      * Where this bottle could go, ranked and explained (sprint 5; ADR-009). Read-only: nothing is written or kept. Every
@@ -423,7 +427,8 @@ export function createSmartCellarService({
       requireWrites();
       const { id: householdId } = await household();
       const current = await place(householdId, id);
-      if (expectedRevision && expectedRevision !== current.revision)
+      // the same instant written with another offset is the same revision (never a false 409)
+      if (expectedRevision && !sameRevision(expectedRevision, current.revision))
         throw new DomainError("CONFLICT", STALE_LAYOUT_MESSAGE);
       const template = STORAGE_TEMPLATES[config.structure.template];
       const problem = layoutChangeProblem(
@@ -437,16 +442,21 @@ export function createSmartCellarService({
         await repo.occupiedSpots(householdId, id),
       );
       if (problem) throw refusal(problem);
-      const outcome = await repo.saveLayout(householdId, id, {
-        kind: template.kind,
-        template: template.id,
-        semantics: template.semantics,
-        rows: config.structure.rows,
-        cols: config.structure.cols,
-        cellCapacity: config.structure.cellCapacity,
-        appearance: config.appearance,
-        zones: config.structure.zones,
-      });
+      const outcome = await repo.saveLayout(
+        householdId,
+        id,
+        {
+          kind: template.kind,
+          template: template.id,
+          semantics: template.semantics,
+          rows: config.structure.rows,
+          cols: config.structure.cols,
+          cellCapacity: config.structure.cellCapacity,
+          appearance: config.appearance,
+          zones: config.structure.zones,
+        },
+        expectedRevision || null,
+      );
       if (outcome !== "saved") throw refusal(outcome);
       return toUnitView(await place(householdId, id));
     },

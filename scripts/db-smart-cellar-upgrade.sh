@@ -15,6 +15,8 @@
 #      there, or is not the right one, and leaves the database as it was. With the new index in place it drops the
 #      old one. The picture is still the same.
 #   5. After that: the same app actions again, and the switch for more than one bottle per cell is off.
+#   2b/6. Every later migration up to 0055 on the same filled database (untouched again), and a compare-and-swap save
+#      (0055) of a place from before templates that holds bottles: stale and saved, every bottle where it was.
 # Never point it at a real database: it builds its own.   bash scripts/db-smart-cellar-upgrade.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -89,6 +91,18 @@ cmp -s "$WORK/before" "$WORK/expanded" || fail "0043-0045 changed, moved or rewr
 ! grep -liE 'drop +index' "$ROOT"/supabase/migrations/2026112*.sql >/dev/null || fail "a Smart Cellar migration in supabase/migrations drops an index"
 echo "• after 0043-0045 (what a release deploys): every place and bottle is the same row, in the same spot of the table, last written by the same transaction; the old index is still in force and no migration drops it"
 
+# ---- 2b. Every later migration up to 0055 (layout compare-and-swap), on the same filled database --------------------
+for f in "$ROOT"/supabase/migrations/*.sql; do
+  v="$(basename "$f" | cut -c1-14)"
+  [ "$v" -gt 20261122000045 ] && [ "$v" -le 20261203000055 ] || continue
+  apply "$f" || fail "$(basename "$f") failed on a database with data: $(cat "$WORK/apply.err")"
+done
+[ "$(su "select count(*) from pg_proc where oid = 'public.save_storage_layout_v2(uuid,uuid,public.location_kind,text,text,smallint,smallint,smallint,jsonb,jsonb,timestamptz)'::regprocedure")" = 1 ] \
+  || fail "after 0055 save_storage_layout_v2 is missing"
+picture "$WORK/cas"
+cmp -s "$WORK/before" "$WORK/cas" || fail "a migration up to 0055 changed, moved or rewrote a place or a bottle: $(diff "$WORK/before" "$WORK/cas" | head -5)"
+echo "• after every migration up to 0055: every place and bottle still the same row, untouched; save_storage_layout_v2 is there next to 0045's save"
+
 # ---- 3. The app of today on what is deployed: 0043-0045, the old index in force -------------------------------------
 app_still_works() {   # $1 = label
   local L B1 B2 out
@@ -155,3 +169,16 @@ picture "$WORK/end"
 cmp -s "$WORK/before" "$WORK/end" || fail "at the end an old row differs from the picture taken before"
 echo "• after the gated file the same actions work; more than one bottle per cell is off and refused"
 echo "• the upgrade leaves every existing place and bottle exactly as it was"
+
+# ---- 6. A compare-and-swap save of a place from before templates, with its bottles (after every check above) --------
+L=$(su "select id from public.cellar_locations where label = 'A rack'")
+spots() { su "select string_agg(id || ':' || loc_row || ':' || loc_col || ':' || loc_index, ',' order by id) from public.bottles where location_id = '$L'"; }
+SPOTS=$(spots); SIZE=$(su "select grid_rows || ',' || grid_cols from public.cellar_locations where id = '$L'")
+REV=$(su "select to_json(updated_at) #>> '{}' from public.cellar_locations where id = '$L'")
+cas() { as1 "select public.save_storage_layout_v2('$H', '$L', 'rack', 'rack_classic', 'depth', ${SIZE%,*}::smallint, ${SIZE#*,}::smallint, 1::smallint, '{\"v\":1}', '[]', '$1')"; }
+out=$(cas "2000-01-01T00:00:00+00:00"); [ "$out" = stale ] || fail "a save from a revision that is not the place's: $out"
+[ "$(su "select template is null from public.cellar_locations where id = '$L'")" = t ] || fail "a stale save changed the place"
+out=$(cas "$REV"); [ "$out" = saved ] || fail "a save from the place's own revision: $out"
+[ "$(spots)" = "$SPOTS" ] || fail "saving a layout moved a bottle"
+out=$(cas "$REV"); [ "$out" = stale ] || fail "a second save from the revision the first one replaced: $out"
+echo "• 0055 on a place from before templates: a save from another revision is stale and changes nothing; from its own revision it is saved, every bottle where it was; the same revision a second time is stale"

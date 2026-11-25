@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   LAYOUT_FUNCTION_PARAMS,
   createSmartCellarRepository,
@@ -562,5 +562,191 @@ describe("the bottles of a place, with their label photos", () => {
     const { repo, calls } = fakeDataApi(tables);
     expect((await repo.placements("h-1", "p-1")).every((p) => p.image === null)).toBe(true);
     expect(calls.ins).toEqual([]);
+  });
+});
+
+describe("saving a layout: the compare-and-swap of 0055, and exactly the old save without it", () => {
+  type Call = { fn: string; args: Record<string, unknown> };
+  /** A data API that only takes function calls: each answer is the next one given, in order. */
+  function rpcOnly(answers: Array<{ data: unknown; error: DbError | null }>) {
+    const calls: Call[] = [];
+    const db = {
+      rpc: async (fn: string, args: Record<string, unknown>) => {
+        calls.push({ fn, args });
+        const next = answers.shift();
+        if (!next) throw new Error(`unexpected call of ${fn}`);
+        return next;
+      },
+      from: () => {
+        throw new Error("no table is read when a layout is saved");
+      },
+    };
+    return {
+      repo: createSmartCellarRepository(
+        db as unknown as Parameters<typeof createSmartCellarRepository>[0],
+      ),
+      calls,
+    };
+  }
+  const layout = {
+    kind: "rack" as const,
+    template: "rack_classic",
+    semantics: "depth",
+    rows: 4,
+    cols: 6,
+    cellCapacity: 1,
+    appearance: {
+      v: 1,
+      material: "oak",
+      color: "natural",
+      lighting: "none",
+      door: "none",
+    } as never,
+    zones: [],
+  };
+  const V1_ARGS = [...LAYOUT_FUNCTION_PARAMS].sort();
+  const REVISION = "2026-11-29T10:00:00.123456+00:00";
+  const missing: DbError = { code: "PGRST202", message: "Could not find the function" };
+
+  it("without a revision: save_storage_layout (0045) alone, with exactly its ten arguments", async () => {
+    const { repo, calls } = rpcOnly([{ data: "saved", error: null }]);
+    expect(await repo.saveLayout("h-1", "p-1", layout)).toBe("saved");
+    expect(calls.map((c) => c.fn)).toEqual(["save_storage_layout"]);
+    expect(Object.keys(calls[0]!.args).sort()).toEqual(V1_ARGS);
+  });
+
+  it("with a revision: save_storage_layout_v2, the revision passed on as the very text that was read", async () => {
+    const { repo, calls } = rpcOnly([{ data: "saved", error: null }]);
+    expect(await repo.saveLayout("h-1", "p-1", layout, REVISION)).toBe("saved");
+    expect(calls.map((c) => c.fn)).toEqual(["save_storage_layout_v2"]);
+    expect(calls[0]!.args.p_expected_updated_at).toBe(REVISION);
+    expect(Object.keys(calls[0]!.args).sort()).toEqual(
+      [...V1_ARGS, "p_expected_updated_at"].sort(),
+    );
+  });
+
+  it("the database's 'stale' is answered as such, and nothing else is called", async () => {
+    const { repo, calls } = rpcOnly([{ data: "stale", error: null }]);
+    expect(await repo.saveLayout("h-1", "p-1", layout, REVISION)).toBe("stale");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("a database without 0055 (no such function, nothing ran): the old save, with the old arguments, as before", async () => {
+    const { repo, calls } = rpcOnly([
+      { data: null, error: missing },
+      { data: "saved", error: null },
+    ]);
+    expect(await repo.saveLayout("h-1", "p-1", layout, REVISION)).toBe("saved");
+    expect(calls.map((c) => c.fn)).toEqual(["save_storage_layout_v2", "save_storage_layout"]);
+    expect(Object.keys(calls[1]!.args).sort()).toEqual(V1_ARGS);
+    const rest = { ...calls[0]!.args };
+    delete rest.p_expected_updated_at;
+    expect(calls[1]!.args).toEqual(rest);
+  });
+
+  it("...also when Postgres, not PostgREST, says there is no such function (a cache that lags behind)", async () => {
+    const { repo, calls } = rpcOnly([
+      { data: null, error: { code: "42883", message: "function does not exist" } },
+      { data: "in_use", error: null },
+    ]);
+    expect(await repo.saveLayout("h-1", "p-1", layout, REVISION)).toBe("in_use");
+    expect(calls.map((c) => c.fn)).toEqual(["save_storage_layout_v2", "save_storage_layout"]);
+  });
+
+  it("...and 0045 missing too: 'not set up here', as before", async () => {
+    const { repo } = rpcOnly([
+      { data: null, error: missing },
+      { data: null, error: missing },
+    ]);
+    await expect(repo.saveLayout("h-1", "p-1", layout, REVISION)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+
+  it("a revision that is not a time names no version: stale, and the old save is NOT tried", async () => {
+    for (const code of ["22007", "22008"]) {
+      const { repo, calls } = rpcOnly([{ data: null, error: { code, message: "invalid input" } }]);
+      expect(await repo.saveLayout("h-1", "p-1", layout, "r1")).toBe("stale");
+      expect(calls).toHaveLength(1);
+    }
+  });
+
+  it("any other failure of the new save is passed on, and never falls back to the old one", async () => {
+    for (const error of [
+      { code: "42501", message: "permission denied" },
+      { code: "40P01", message: "deadlock detected" },
+      { code: "57014", message: "canceling statement due to statement timeout" },
+    ]) {
+      const { repo, calls } = rpcOnly([{ data: null, error }]);
+      await expect(repo.saveLayout("h-1", "p-1", layout, REVISION)).rejects.toBeTruthy();
+      expect(calls).toHaveLength(1);
+    }
+  });
+
+  it("an answer neither function gives is an error, not a guess", async () => {
+    await expect(
+      rpcOnly([{ data: "maybe", error: null }]).repo.saveLayout("h-1", "p-1", layout, REVISION),
+    ).rejects.toMatchObject({ code: "INTERNAL" });
+    // 'stale' is not an answer of 0045
+    await expect(
+      rpcOnly([{ data: "stale", error: null }]).repo.saveLayout("h-1", "p-1", layout),
+    ).rejects.toMatchObject({ code: "INTERNAL" });
+  });
+});
+
+describe("the fallback to 0045 is said, once per process (a compare-and-swap that stays off must not go unnoticed)", () => {
+  const layout = {
+    kind: "rack" as const,
+    template: "rack_classic",
+    semantics: "depth",
+    rows: 4,
+    cols: 6,
+    cellCapacity: 1,
+    appearance: { v: 1 } as never,
+    zones: [],
+  };
+  const dbAnswering = (answers: Array<{ data: unknown; error: DbError | null }>) =>
+    ({ rpc: async () => answers.shift()!, from: () => ({}) }) as never;
+
+  it("falls back: one warning with the code and nothing else; a second fallback says nothing more", async () => {
+    vi.resetModules();
+    const { createSmartCellarRepository: fresh } = await import("./repository");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const missing = { code: "PGRST202", message: "Could not find the function" };
+    const repo = fresh(
+      dbAnswering([
+        { data: null, error: missing },
+        { data: "saved", error: null },
+        { data: null, error: missing },
+        { data: "saved", error: null },
+      ]),
+    );
+    await repo.saveLayout("h-1", "p-1", layout, "2026-11-29T10:00:00+00:00");
+    await repo.saveLayout("h-1", "p-1", layout, "2026-11-29T10:00:00+00:00");
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line = JSON.parse(String(warn.mock.calls[0]![0])) as Record<string, unknown>;
+    expect(line).toEqual({
+      level: "warn",
+      event: "smart_cellar.layout_cas_unavailable",
+      code: "PGRST202",
+      fallback: "save_storage_layout",
+    });
+    warn.mockRestore();
+  });
+
+  it("a genuine _v2 answer (saved or stale) says nothing", async () => {
+    vi.resetModules();
+    const { createSmartCellarRepository: fresh } = await import("./repository");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const repo = fresh(
+      dbAnswering([
+        { data: "saved", error: null },
+        { data: "stale", error: null },
+      ]),
+    );
+    await repo.saveLayout("h-1", "p-1", layout, "2026-11-29T10:00:00+00:00");
+    await repo.saveLayout("h-1", "p-1", layout, "2026-11-29T10:00:00+00:00");
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
