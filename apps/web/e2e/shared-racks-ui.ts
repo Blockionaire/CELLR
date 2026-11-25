@@ -1,5 +1,5 @@
 import {
-  expect,
+  expect as baseExpect,
   type APIRequestContext,
   type Browser,
   type Page,
@@ -15,6 +15,9 @@ import {
   uniqueEmail,
   wineBody,
 } from "./helpers";
+
+// a shared machine: several browsers at once, each waiting for the same small server
+const expect = baseExpect.configure({ timeout: 30_000 });
 
 /**
  * Shared by the browser specs of shared racks (ADR-010): real people, each in a browser of their own with a

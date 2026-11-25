@@ -477,7 +477,11 @@ export function SharedRackStage({
           <Button
             size="md"
             variant="secondary"
-            onClick={() => setSheet("people")}
+            onClick={() => {
+              // who is in the rack may have changed since this screen read it (someone accepted, someone left)
+              void membersQuery.refetch();
+              setSheet("people");
+            }}
             data-testid="shared-rack-people-open"
           >
             {t("stage.people")}

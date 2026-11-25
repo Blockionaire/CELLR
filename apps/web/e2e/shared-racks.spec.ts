@@ -1,5 +1,15 @@
 import { expect as baseExpect, test } from "@playwright/test";
-import { APP_URL, FEATURES_URL, PREVIEW_URL, arrive, audit, settled, sql } from "./helpers";
+import {
+  APP_URL,
+  FEATURES_URL,
+  PREVIEW_URL,
+  apiClient,
+  arrive,
+  audit,
+  settled,
+  sql,
+  wineBody,
+} from "./helpers";
 import {
   addBottle,
   arriveAs,
@@ -563,7 +573,7 @@ for (const [name, base] of [
 ] as const)
   test.describe(`gate closed (${name})`, () => {
     test.use({ baseURL: base });
-    test("nothing of shared racks is shown, asked for or downloaded", async ({ page }) => {
+    test("nothing of shared racks is shown, asked for or downloaded", async ({ page, request }) => {
       const asked: string[] = [];
       const code: Array<Promise<string>> = [];
       page.on("request", (request) => {
@@ -573,11 +583,15 @@ for (const [name, base] of [
         if (/\/_next\/static\/.*\.js/.test(response.url()))
           code.push(response.text().catch(() => ""));
       });
-      await arrive(page, "srclosed");
+      // (a cellar with a bottle in it: an empty one has no choice of views at all)
+      const { email } = await arrive(page, "srclosed");
+      const { call } = await apiClient(request, email);
+      const wine = (await call<{ id: string }>("post", "/wines", wineBody, 201)).body;
+      await call("post", "/bottles", { wineId: wine.id, year: 2019, quantity: 1 }, 201);
       await page.goto("/cellar");
       for (const view of ["3D", "Racks", "List"]) {
         await page.getByRole("radio", { name: view }).click();
-        await page.waitForLoadState("networkidle");
+        await page.waitForTimeout(1_500);
         await expect(page.locator('[data-testid^="shared-rack"]')).toHaveCount(0);
         await expect(page.getByText("Shared racks")).toHaveCount(0);
       }
@@ -598,9 +612,10 @@ test("gate open: the same check finds the code once a shared rack is opened (so 
   ann.page.on("response", (response) => {
     if (/\/_next\/static\/.*\.js/.test(response.url())) code.push(response.text().catch(() => ""));
   });
+  await ann.bottles("Ann Riesling");
   await ann.call("post", "/shared-racks", { name: "Seen rack", ...RACK_LAYOUT(2, 2) }, 201);
   await openRack(ann.page, "Seen rack");
-  await ann.page.waitForLoadState("networkidle");
+  await ann.page.waitForTimeout(1_500);
   expect((await Promise.all(code)).some((text) => text.includes("shared-rack-stage"))).toBe(true);
   await ann.close();
 });

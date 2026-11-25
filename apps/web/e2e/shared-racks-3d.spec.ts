@@ -95,6 +95,19 @@ test("a shared rack in 3D: whose bottle it is, adding my own on a tapped spot, m
 
   // Bob moves Ann's bottle by tapping a free spot in the picture
   await bob.page.getByTestId("shared-rack-move").click();
+  {
+    // DIAGNOSTIC (temporary)
+    const seen: string[] = [];
+    for (let i = 0; i < 30; i++) {
+      seen.push(
+        `${await stage(bob.page).getAttribute("data-mode")}/${await stage(bob.page).getAttribute("data-view")}`,
+      );
+      await bob.page.waitForTimeout(100);
+    }
+    console.log("DIAG modes", seen.join(" "));
+    console.log("DIAG placements", JSON.stringify(await placements(rack)));
+    console.log("DIAG status", await bob.page.locator("body").innerText());
+  }
   await expect(stage(bob.page)).toHaveAttribute("data-mode", "move");
   await tapSpot(bob.page, 2, 3, touch);
   await expect(
