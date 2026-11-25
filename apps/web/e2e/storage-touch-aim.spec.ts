@@ -187,8 +187,7 @@ test("a 450-spot rack half full loads, draws every bottle and placeholder, rests
   await page.waitForTimeout(2_000);
   expect(Number(await canvas(page).getAttribute("data-frames"))).toBe(frames);
 
-  // the placeholders: one per free spot, none chosen yet; Add compiles at most their one shader (not prewarmed: see
-  // hero-kit.ts)
+  // the placeholders: one per free spot, none chosen yet; Add compiles no new shader (prewarmed)
   await expect(canvas(page)).toHaveAttribute("data-prewarmed", /^\d+$/, { timeout: 60_000 });
   // what exists once the warm-up is done (data-programs is only written when a frame is drawn)
   const programs = Number(await canvas(page).getAttribute("data-prewarmed"));
@@ -202,7 +201,7 @@ test("a 450-spot rack half full loads, draws every bottle and placeholder, rests
     type: "programs",
     description: `${programs} warmed, ${afterAdd} after Add`,
   });
-  expect(afterAdd).toBeLessThanOrEqual(programs + 1);
+  expect(afterAdd).toBeLessThanOrEqual(programs);
 
   // a free spot from the middle of those on offer: a tap there chooses exactly it. A finger on spots this close first
   // brings the view closer (the aim help above); then the tap is clear.
