@@ -727,7 +727,7 @@ test.describe("gate ON (an internal preview)", () => {
     await page.unroute("**/api/v1/smart-cellar**");
     await failed.getByRole("button", { name: "Try again" }).click();
     await expect(view(page)).toHaveAttribute("data-mode", "ready", { timeout: 30_000 });
-    await expect(stage(page)).toHaveAttribute("data-renderer", "grid");
+    await stageShows(page, "data-renderer", "grid");
   });
 
   test("not allowed, or a server error: said as what it is, never taken for 'not set up'", async ({
