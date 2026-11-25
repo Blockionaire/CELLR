@@ -228,6 +228,45 @@ export const SMART_CELLAR_NOT_SET_UP = "The Smart Cellar isn't set up on this se
 /** What a conditional edit of a place (If-Match) answers when it asks for more than a new name. */
 export const CONDITIONAL_RENAME_ONLY = "Only a new name can be saved against a version of a place.";
 
+// ---- Revisions (sprint 8) ---------------------------------------------------------------------------------------------
+
+const REVISION_TIME =
+  /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.(\d{1,6}))?(Z|[+-]\d{2}(?::?\d{2})?)$/;
+
+/**
+ * A place's revision (its updated_at as PostgREST writes it) as MICROSECONDS since 1970, or null when it is not a
+ * time. A JavaScript Date keeps milliseconds only, so it is never used for this: the seconds are read by Date, the
+ * fraction digit by digit.
+ */
+export function revisionMicros(revision: string): number | null {
+  const m = REVISION_TIME.exec(revision.trim());
+  if (!m) return null;
+  const [, day, time, fraction = "", zone] = m;
+  const offset =
+    zone === "Z"
+      ? "Z"
+      : zone!.length === 3
+        ? `${zone}:00`
+        : zone!.replace(/^([+-]\d{2})(\d{2})$/, "$1:$2");
+  const seconds = Date.parse(`${day}T${time}${offset}`);
+  if (!Number.isFinite(seconds)) return null;
+  return seconds * 1000 + Number(fraction.padEnd(6, "0"));
+}
+
+/**
+ * Whether two revisions name the same version: the same INSTANT to the microsecond, whatever offset or number of
+ * fraction digits it is written with ("…10:00:00+00:00" and "…11:00:00+01:00" are one revision). Text that is not a
+ * time is compared as text. Revisions are only ever compared for equality, never ordered: with migration 0051 a
+ * place's revision strictly increases in commit order, but a database without 0051 (where the revision is just the
+ * writing transaction's start time) gives no such guarantee, and equality needs none.
+ */
+export function sameRevision(a: string, b: string): boolean {
+  if (a === b) return true;
+  const x = revisionMicros(a);
+  const y = revisionMicros(b);
+  return x !== null && y !== null && x === y;
+}
+
 /** What a layout save answers when the place changed since the person opened it (If-Match did not match). */
 export const STALE_LAYOUT_MESSAGE =
   "This place was changed since you opened it. Reload it to see the latest version.";

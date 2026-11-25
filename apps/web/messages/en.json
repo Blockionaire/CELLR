@@ -371,6 +371,25 @@
       "partial": "Will do, but not ideal",
       "none": "Nothing in your cellar really fits"
     },
+    "check": {
+      "cardOnly": {
+        "match": "{wine} from your cellar suits this best.",
+        "partial": "{wine} from your cellar will do, though it is not ideal.",
+        "other": "{wine} from your cellar is the one to look at."
+      },
+      "more": "{count, plural, one {One more is shown below.} other {# more are shown below.}}",
+      "noneFits": "Nothing in your cellar is a sure fit for this.",
+      "nothing": "There is nothing certain to say about this from your cellar. Try asking it another way.",
+      "note": {
+        "trimmed": "Part of the answer was left out: it could not be checked.",
+        "replaced": "The sommelier’s own words were left out: they said something about your cellar that could not be checked."
+      },
+      "priceUnknown": "Price not known",
+      "priceBand": "€{min}–{max}, your budget",
+      "priceBandFrom": "€{min} or more, your budget",
+      "priceBandUpTo": "Up to €{max}, your budget",
+      "buyHint": "Not in your cellar: ideas to look for. No prices are shown; your budget is."
+    },
     "buyTitle": "Worth buying",
     "buyHint": "Not in your cellar: ideas for the shop, prices are rough.",
     "placeholderTonight": "What are you eating tonight?",
@@ -2496,6 +2515,21 @@
     "partialName": "The design was saved, but the new name was not: {reason}",
     "retryName": "Try the name again",
     "stale": "Someone changed this place since you opened it. Nothing was saved.",
+    "conflict": {
+      "keepMine": "Keep my changes on the latest version",
+      "rebased": "Your changes now stand on the latest version. Nothing is saved yet: check them, then save.",
+      "theirs": "Changed by someone else: {list}.",
+      "mine": "Your changes: {list}.",
+      "both": "Changed by both of you, yours kept: {list}.",
+      "kinds": {
+        "name": "name",
+        "template": "kind",
+        "size": "size",
+        "cellCapacity": "bottles per spot",
+        "look": "look",
+        "zones": "temperature zones"
+      }
+    },
     "loadLatest": "Load the latest version",
     "reloadFailed": "The latest version couldn't be loaded: {reason} Your changes are still here.",
     "saveFailed": "Nothing was saved: {reason}",
@@ -2767,15 +2801,16 @@
     "add": "Add bottle",
     "placingTitle": "Tap an empty spot to add a bottle.",
     "placingShort": "Tap an empty spot",
-    "placingBody": "{count, plural, =0 {There's no empty spot in {unit}.} one {# empty spot in {unit}} other {# empty spots in {unit}}}",
+    "aimAgain": "Zoomed in. Tap the spot again to choose it.",
+    "placingBody": "{count, plural, =0 {There's no empty spot in {unit}} one {# empty spot in {unit}} other {# empty spots in {unit}}}",
     "showList": "Choose from a list",
     "hideList": "Hide the list",
     "listOnly": "This place can't be pointed at in 3D. Choose an empty spot from the list.",
     "listLabel": "Empty spots in {unit}",
     "close": "Cancel",
     "sheetTitle": "Add a bottle here",
-    "unplaced": "Choose a bottle without a spot",
-    "unplacedCount": "{count, plural, =0 {No bottles without a spot} one {# bottle is waiting for a spot} other {# bottles are waiting for a spot}}",
+    "unplaced": "Choose a bottle without a place",
+    "unplacedCount": "{count, plural, =0 {No bottles without a place} one {# bottle is waiting for a place} other {# bottles are waiting for a place}}",
     "move": "Move an existing bottle",
     "scan": "Scan a new bottle",
     "manual": "Add a new bottle manually",

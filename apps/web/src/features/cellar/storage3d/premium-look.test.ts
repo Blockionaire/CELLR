@@ -294,6 +294,7 @@ describe("shading written into the furniture", () => {
     it(`${id}: every corner of every surface has a tone, and none is black or blown out`, () => {
       const model = modelOf(id);
       const owned = new Owned();
+      const limit = shadingOf(model).zones.length > 0 ? 1.8 : 1.08;
       for (const mesh of buildStructure(model, QUALITY.high, owned)) {
         const spec = model.look.surfaces[mesh.role];
         const colour = mesh.geometry.getAttribute("color") as THREE.BufferAttribute | undefined;
@@ -303,12 +304,17 @@ describe("shading written into the furniture", () => {
         }
         expect(colour, mesh.role).toBeDefined();
         expect(colour!.count).toBe(mesh.geometry.getAttribute("position").count);
-        for (let i = 0; i < colour!.count; i++)
-          for (const v of [colour!.getX(i), colour!.getY(i), colour!.getZ(i)]) {
-            // unlit: between the back's half tone and a light board's 1.07; under a strip of light, up to 1.8
-            expect(v).toBeGreaterThan(0.4);
-            expect(v).toBeLessThan(shadingOf(model).zones.length > 0 ? 1.8 : 1.08);
-          }
+        // every value of every corner, held by its lowest and its highest (the same check as one expect per value,
+        // which made this file take ~27 s on a loaded machine and time out)
+        let low = Infinity;
+        let high = -Infinity;
+        for (const v of colour!.array as Float32Array) {
+          if (v < low) low = v;
+          if (v > high) high = v;
+        }
+        // unlit: between the back's half tone and a light board's 1.07; under a strip of light, up to 1.8
+        expect(low, mesh.role).toBeGreaterThan(0.4);
+        expect(high, mesh.role).toBeLessThan(limit);
       }
       owned.dispose();
     });
@@ -430,7 +436,8 @@ describe("who owns the pictures", () => {
           }
     expect(freed).toBe(0);
     expect(sharedTextureCount()).toBe(before);
-  });
+    // 3 rounds x 14 places x 3 levels x 2 looks = 252 full builds: a few seconds alone, more on a loaded machine
+  }, 60_000);
 
   it("a scene's materials point at the shared pictures: no place has a picture of its own", () => {
     const owned = new Owned();

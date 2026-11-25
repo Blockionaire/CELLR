@@ -37,9 +37,18 @@ export interface StoredPlaceRow {
 
 export type SchemaStatus = SmartCellarCapabilities["schema"];
 
-/** What save_storage_layout (migration 0045) answers. Anything else it does is an error. */
+/**
+ * What save_storage_layout (migration 0045) answers, and save_storage_layout_v2 (0051): the same, plus 'stale' (the
+ * place is no longer at the revision the caller named; nothing changed). Anything else either does is an error.
+ */
 export type SaveLayoutOutcome =
-  "saved" | "not_found" | "in_use" | "semantics_change" | "invalid_zones" | "depth_not_enabled";
+  | "saved"
+  | "not_found"
+  | "in_use"
+  | "semantics_change"
+  | "invalid_zones"
+  | "depth_not_enabled"
+  | "stale";
 
 /** A bottle in a place, with its whole spot (for checking a placement before the database is asked). */
 export interface OccupantRow {
@@ -99,8 +108,18 @@ export interface SmartCellarRepository {
   placements(householdId: string, locationId: string): Promise<SmartPlacementView[]>;
   /** Just the spots that are taken in this place (for checking a change of layout). */
   occupiedSpots(householdId: string, locationId: string): Promise<OccupiedSpot[]>;
-  /** One call of save_storage_layout: all of it or none of it. */
-  saveLayout(householdId: string, id: string, layout: LayoutWrite): Promise<SaveLayoutOutcome>;
+  /**
+   * One save of a layout: all of it or none of it. With `expectedRevision` (the place's updated_at as the caller read
+   * it, unchanged), save_storage_layout_v2 (0051) compares it under the place's row lock and answers 'stale' when the
+   * place has moved on. Without one, or on a database without 0051 (PostgREST: no such function, nothing ran),
+   * save_storage_layout (0045) exactly as before.
+   */
+  saveLayout(
+    householdId: string,
+    id: string,
+    layout: LayoutWrite,
+    expectedRevision?: string | null,
+  ): Promise<SaveLayoutOutcome>;
   /** The bottles in the cellar in this place, each with its whole spot and its id. */
   occupants(householdId: string, locationId: string): Promise<OccupantRow[]>;
   /**

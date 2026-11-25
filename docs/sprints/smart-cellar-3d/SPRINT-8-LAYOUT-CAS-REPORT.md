@@ -1,0 +1,116 @@
+# Smart Cellar 3D, sprint 8 — transactional compare-and-swap for layout saves
+
+Pull request: "Rack Builder transactional concurrency protection". Branch `claude/sc3d-layout-cas-bqvck4`.
+Migration `20261129000051_smart_cellar_layout_cas.sql` — **not applied to production** (`docs/MIGRATIONS.md`).
+
+## 1. What changed
+
+| Where                                                  | What                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supabase/migrations/…051_smart_cellar_layout_cas.sql` | (also: trigger `zones_touch_location`, §4.2) `public.save_storage_layout_v2(…, p_expected_updated_at)`: locks the place (`FOR NO KEY UPDATE`), compares the revision **after** the lock, answers `'stale'` (nothing changed) or calls 0045's `save_storage_layout` in the same transaction. |
+|                                                        | Trigger `locations_updated_moving` (`private.keep_location_revision_moving`): a place's `updated_at` never stays the same or goes back on an update.                                                                                                                                        |
+| `server/smart-cellar/repository.ts`                    | `saveLayout(…, expectedRevision)`: with a revision, `_v2`; on "no such function" (PGRST202, or 42883) the 0045 save exactly as before. Without a revision: 0045 only, as before.                                                                                                            |
+| `server/smart-cellar/service.ts`                       | The app's own revision check stays first (it answers sooner); the revision is then handed to the database; `'stale'` is the same 409 (`STALE_LAYOUT_MESSAGE`).                                                                                                                              |
+| `server/smart-cellar/revision.ts`                      | The If-Match parser, moved out of the route so it can be tested: the tag is passed on character for character.                                                                                                                                                                              |
+| `features/cellar/builder/draft.ts`                     | `isNewerRevision` compares to the microsecond (`revisionMicros`); `rebaseDraft` carries a draft over onto a newer version.                                                                                                                                                                  |
+| `features/cellar/builder/rack-builder.tsx`             | On a conflict: "Keep my changes on the latest version" next to "Load the latest version"; a note says what each side changed.                                                                                                                                                               |
+
+0045 is untouched and keeps working; nothing is dropped or replaced.
+
+## 2. The proposal, checked against the code as it is now
+
+| Proposal                                                                          | Verdict and what changed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_v2` = lock, compare, call 0045                                                  | **Kept as written.** The inner `FOR NO KEY UPDATE` of 0045 is on a row this transaction already holds: immediate. Lock order (README rule 9: the place, then its zones) unchanged.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| "updated_at is set by `locations_updated` on every update", so the revision moves | **Not quite.** `private.set_updated_at()` (0001) writes `now()`, the **transaction start**. Two updates in one transaction get the same revision, and a server clock stepped back makes a revision repeat or go back. A compare-and-swap on a value that may not move can accept a draft of a version its writer never saw. **Added:** a trigger after `locations_updated` (triggers fire in name order) that makes `updated_at` at least one microsecond past the previous one. It acts only where `now()` is not later than the stored value; every ordinary update still gets exactly `now()` (tested). In production each request is one transaction, so in practice it never acts. |
+| Compare as `timestamptz`, the app sends the value back unchanged                  | **Correct, and now proven end to end** (§3). One real loss of precision was found in the app: the Rack Builder's `isNewerRevision` used `Date.parse` (milliseconds), so a newer revision within the same millisecond read as "not newer". Replaced by a microsecond comparison.                                                                                                                                                                                                                                                                                                                                                                                                         |
+| "the app switches to `_v2` where the capability check finds it (as for 0045)"     | **Changed.** The 0045 check reads PostgREST's OpenAPI description, and hosted Supabase no longer gives one to the publishable key (`writeReadiness` answers "unverified" there, which is production's state). A description-based switch would therefore never choose `_v2` in production. The app instead calls `_v2` and, on PostgREST's own "no such function" (PGRST202, answered from its schema cache before anything runs) or Postgres's 42883 (same, cache lagging), makes the 0045 call exactly as before. Every other error is passed on; there is no other fallback. A database without 0051 costs one refused round trip per save and nothing else.                         |
+| Five SQL tests                                                                    | All five, plus precision, the trigger, privileges: `supabase/tests/99_smart_cellar_layout_cas.test.sql`. Case 3 (a save in between) is meaningful inside one transaction only because of the new trigger; the two-connection race is `scripts/db-layout-cas-concurrency.sh`.                                                                                                                                                                                                                                                                                                                                                                                                            |
+| A rename makes a draft stale                                                      | Kept (the person saw another name). The race of a save against the Builder's conditional rename is in the concurrency script: exactly one of the two lands.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+## 3. Guarantees
+
+- Of any number of layout saves made from one revision, **exactly one** is saved; every other one answers `stale`
+  (409) and changes nothing — not the place row, not its zones, not a bottle. This holds against saves from other
+  sessions committing at any moment, because the comparison is made under the place's row lock.
+- What is stored is always one caller's **whole** layout (look and zones), never a mix.
+- No bottle is moved, renumbered or lost by any outcome; a layout that would strand a bottle is still refused by 0045's
+  rules (in the same transaction).
+- A revision is passed from Postgres (microseconds) → PostgREST JSON (`to_json`, all six digits, trailing zeros left
+  out) → the API (`revision`, a string, never parsed) → the Builder (a string; compared by `revisionMicros`) → `If-Match`
+  (character for character) → `_v2` (`::timestamptz`) **without loss**. A value cut to milliseconds is a different
+  revision (`stale`), the same moment written with another offset is the same revision.
+- Without a revision (an older client, or a place just made) the save is 0045's, unchanged.
+- On a database without 0051: exactly today's behaviour, including the app-side check and its known window.
+
+## 4. Tests (real results, this branch)
+
+| Command                                                                                       | Result                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bash scripts/db-test.sh`                                                                     | 1,717 passed, 0 failed, 0 errors (base `71aa349`: 1,681; +36 in the new file)                                                                                                                                                                                                                                                                                                                                                                 |
+| `bash scripts/db-layout-cas-concurrency.sh` (new; CI `database` job)                          | control: 10/10 times two 0045 saves from one revision both succeed (last write wins); held open, both orders: the second waits ≥ 250 ms and is `stale`; **150/150 rounds** of two simultaneous saves (barrier release): one `saved`, one `stale` (85/65 by member), winner's whole layout, every bottle in place; **30/30 rounds of 8**: 1 saved, 7 stale; 40 save-vs-rename races: 19 saves, 21 renames, never both; no deadlock. 1 min 3 s. |
+| `bash scripts/db-smart-cellar-upgrade.sh` (extended)                                          | green: every migration after 0045 up to 0051 applied to the filled database leaves every place and bottle the same row (ctid, xmin); a `_v2` save of a place from before templates: stale from another revision, saved from its own (no bottle moved), stale again from the replaced revision                                                                                                                                                 |
+| `bash scripts/db-placement-concurrency.sh`                                                    | see the final report of the sprint (unchanged script, run once at the end)                                                                                                                                                                                                                                                                                                                                                                    |
+| `vitest run src/server/smart-cellar src/features/cellar/builder`                              | repository: 9 new tests (both capability states, PGRST202/42883 fallback with exactly the old arguments, 22007 → stale, other errors never fall back, unknown answers are errors); service: 3 new; revision parser: 4; draft: 6 new (microsecond order, every PostgREST form, rebase)                                                                                                                                                         |
+| `playwright test rack-builder` (desktop; the conflict, stale, reload, rename, If-Match tests) | see §4.1                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+
+### 4.1 Browser tests
+
+Local stack, desktop project, `--trace off`, after `pnpm build`, at `09460f3`:
+
+- `playwright test rack-builder -g "two sessions|changed by someone|latest version fails|rename made against|If-Match|after a save, a refresh|two saves of one place"`: **8 passed** (1.1 min), including the new two-session test (the second session is told, keeps its change on the latest version, saves; the first session's two saves in a row are never stale — the revision survives PostgREST → app → If-Match → `_v2`).
+- The same conflict, stale and If-Match tests on a stack WITHOUT 0051 (`STACK_MIGRATIONS_BEFORE=20261129000051`): **4 passed** (38 s) — app-first is exactly today's behaviour through the PGRST202 fallback.
+- Re-run on the depth branch tip (which contains every sprint 8 commit): 23 + 13 passed, 0 failed.
+
+### 4.2 After the independent review (follow-up commit)
+
+- **Zones written directly** (0044 lets members write zone rows) did not move the place's revision, so `_v2` could
+  overwrite a zone change made after the draft was opened. 0051 now also has `zones_touch_location`: every zone
+  insert, update and delete touches its place's row. It runs after 0044's lock trigger, which already holds the
+  place's row lock (and refuses rather than waits for a direct write), so it never waits for the place (README rule
+  9). SQL: a direct temperature change makes an older draft `stale` and is kept; delete and insert move it too; a
+  place with zones can still be deleted. The zone deadlock reproductions of `db-placement-concurrency.sh` stay green.
+- **Revisions are compared for equality only, by instant.** `sameRevision` (domain) compares to the microsecond
+  whatever the offset (`+01:00` and `+00:00` for one instant are one revision), in the service's own pre-check and in
+  the Builder. The Builder no longer orders revisions ("later" cannot be read from transaction start times): any other
+  revision is news.
+- **Not taken:** `_v2` returning the new revision. The service already answers with the place read back after the
+  save; if another save lands in between, the Builder sees a layout that is not its own (`savedAsDrafted`) and says
+  so, and its next save is checked by the database against the latest revision anyway. Returning it would change the
+  function's answer type for a gain that the compare-and-swap already covers.
+- Correction of wording: the rename was never racy — `renameIfCurrent` has been one conditional UPDATE since sprint 3.
+  Only the layout save had the window, and that is what 0051 closes.
+
+## 5. Release
+
+**Both deploy orders are safe**, and so is every mix of old and new app instances during a rollout. Explicitly:
+migration first with the old app is safe (0045 is unchanged, the old app never calls `_v2`); app first is safe
+through the PGRST202 fallback; and the app finds `_v2` by calling it, not by the capability read, because hosted
+Supabase does not describe itself to the publishable key (the read says "unverified" there).
+
+| State                                    | What happens                                                                                                                                                                                  | Proven by                                                                                                                              |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| new app, database without 0051           | `_v2` → PGRST202 (nothing ran) → 0045 save, as today. Today's app-side check still runs first.                                                                                                | repository unit tests; the browser tests run against a local stack built without 0051 (`STACK_MIGRATIONS_BEFORE=20261129000051`), §4.1 |
+| old app, database with 0051              | The old app never calls `_v2`; 0045 is unchanged; the trigger leaves every ordinary update's `updated_at = now()`, so the old app's string check and its conditional rename behave as before. | SQL suite (every 0045 test unchanged and green with 0051 present); upgrade rehearsal; the trigger test "an ordinary update gets now()" |
+| new app, database with 0051              | Compare-and-swap.                                                                                                                                                                             | SQL suite, concurrency script, browser tests                                                                                           |
+| 0051 applied, PostgREST not yet reloaded | PostgREST does not know `_v2` yet: PGRST202 → 0045, as before, until its schema cache reloads.                                                                                                | repository unit tests                                                                                                                  |
+
+Recommended order (least surprise): deploy the app, then apply 0051 by `docs/MIGRATIONS.md` §2 (owner approval).
+
+**Rollback.** App: roll back freely in either state (the old app ignores `_v2`). Migration: not needed to undo
+behaviour (the app falls back on its own). If it must go, a **new** migration:
+`drop trigger locations_updated_moving on public.cellar_locations; drop function private.keep_location_revision_moving(); drop function public.save_storage_layout_v2(…)`.
+Between that drop and PostgREST's reload a `_v2` call gets 42883 from Postgres, which the app also treats as "not
+there" (nothing ran) and falls back. No data is written by 0051 itself; no row is touched when it is applied.
+
+## 6. Limits and what is not done
+
+- The browser recovery merges per part (name, kind with its structure, size, bottles per spot, look, zones); it does not
+  merge inside a part (two different zone splits: the person's wins, and is shown as "changed by both"). It is a draft,
+  rechecked against the bottles as they are now and saved only by the person.
+- The capability is found by calling, not by description (§2). If a future PostgREST answered a missing function with
+  another code, the save would fail loudly (500) rather than fall back; it would never write twice.
+- With 0051 a place's revision is strictly increasing on every update, whoever writes it: an update that waited for
+  another one reads that one's committed row as `old`, so even two transactions that started in the same microsecond
+  get different revisions. Before 0051 (and on a database without it) that was not guaranteed.
+- Rack Builder depth configuration and anything of depth: not part of this change (sprint 9).
