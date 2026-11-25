@@ -48,6 +48,7 @@
       "name": "community_reviews",
       "references": ["catalog_external_records", "profiles", "tastings", "wines"]
     },
+    { "name": "community_settings_log", "references": [] },
     { "name": "drink_notices", "references": ["wine_vintages"] },
     { "name": "favorites", "references": ["wines"] },
     { "name": "friendships", "references": ["profiles"] },
@@ -117,6 +118,7 @@
     "admin_catalog_source",
     "admin_catalog_sources_overview",
     "admin_catalog_update",
+    "admin_community_open",
     "admin_community_review_queue",
     "admin_household_label_path",
     "admin_moderate_community_review",
@@ -182,6 +184,7 @@
     "catalog_wine_ratings",
     "check_signup_allowed",
     "claim_shared_profile_research",
+    "community_is_open",
     "community_reviews_for_record",
     "community_reviews_for_wine",
     "consume_rate_limit",
@@ -236,7 +239,7 @@
     "wine_origin_notices",
     "wine_source_notices"
   ],
-  "migrations": { "count": 51, "latest": "20261201000053_catalog_record_page.sql" },
+  "migrations": { "count": 52, "latest": "20261202000054_community_gate.sql" },
   "buckets": [
     "bottle-art",
     "bottle-images",
@@ -427,6 +430,7 @@
       ]
     },
     { "file": ".github/workflows/health-heartbeat.yml", "jobs": ["heartbeat"] },
+    { "file": ".github/workflows/production-catalog.yml", "jobs": ["production"] },
     { "file": ".github/workflows/staging-catalog.yml", "jobs": ["staging"] }
   ],
   "envVars": [

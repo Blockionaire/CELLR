@@ -104,6 +104,8 @@ test.describe("ratings on the wine page and the catalogue page", () => {
     test.setTimeout(120_000);
     const m = `${test.info().parallelIndex}${stamp()}`;
     const src = await publicSourceWithRatings(m);
+    // the community is closed in the database until its owner opens it (20261202000054)
+    await sql("select public.admin_community_open(true, 'e2e: reviews are tested here', 'e2e')");
     const { email } = await arrive(page, "ratings-ui");
     const { call } = await apiClient(request, email);
 

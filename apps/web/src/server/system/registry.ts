@@ -281,7 +281,7 @@ const components = [
         severity: "low",
         title: "The production database host is written in code in a public repository",
         detail:
-          "PRODUCTION_DATABASE_HOSTS (lib/smart-cellar-write-target.ts) names the production host so the write guard can refuse it whatever is configured; the storage-backup and catalogue tools hard-code the production ref for the same reason. Deliberate: the host is public in every browser bundle, and a fail-closed guard must know it. Docs no longer repeat it (CLAUDE.md, Hard rules). Whether to keep it in code or move it to configuration with a fail-closed default is the owner's decision, not yet confirmed.",
+          "PRODUCTION_DATABASE_HOSTS (lib/smart-cellar-write-target.ts) names the production host so the write guard can refuse it whatever is configured; the storage-backup and catalogue tools hard-code the production ref for the same reason, and production-catalog.yml names it as the one target its production route may write (scripts/catalog-tools/production.ts). Deliberate: the host is public in every browser bundle, and a fail-closed guard must know it. Docs no longer repeat it (CLAUDE.md, Hard rules). Whether to keep it in code or move it to configuration with a fail-closed default is the owner's decision, not yet confirmed.",
       },
     ],
   },
@@ -1089,11 +1089,16 @@ const components = [
     status: "implemented",
     summary: "Published reviews, reports, moderation log",
     responsibility:
-      "Public reviews people chose to publish from their own tastings, reports on them and every moderation decision; read only through gated functions.",
+      "Public reviews people chose to publish from their own tastings, reports on them and every moderation decision; read only through gated functions. Closed in the database (no new review or report by a person) until the owner opens it, logged.",
     inputs: [],
     outputs: [],
-    sources: [M + "20261130000052_community_reviews.sql"],
-    tables: ["community_review_moderation_log", "community_review_reports", "community_reviews"],
+    sources: [M + "20261130000052_community_reviews.sql", M + "20261202000054_community_gate.sql"],
+    tables: [
+      "community_review_moderation_log",
+      "community_review_reports",
+      "community_reviews",
+      "community_settings_log",
+    ],
   },
   {
     id: "data-social",
@@ -1294,11 +1299,22 @@ const components = [
     status: "implemented",
     summary: "Checks, migrations, database, e2e, secrets, audit, backup",
     responsibility:
-      "Runs format, lint, types, unit tests, build, migration immutability, the database suites, e2e (main and nightly), secret scan, dependency audit and the backup round trip; by hand only, the staging catalogue workflow (X-Wines records and ratings, pilot).",
+      "Runs format, lint, types, unit tests, build, migration immutability, the database suites, e2e (main and nightly), secret scan, dependency audit and the backup round trip; by hand only, the staging catalogue workflow (X-Wines records and ratings, pilot) and the production catalogue workflow (records and rating aggregates; never rights, scope or feature switches). The production environment's protection (required reviewer, branch rule) is hosted configuration, unverified here.",
     inputs: ["Pushes and pull requests"],
     outputs: ["Check results"],
-    sources: [".github/workflows/ci.yml", ".github/workflows/staging-catalog.yml"],
+    sources: [
+      ".github/workflows/ci.yml",
+      ".github/workflows/staging-catalog.yml",
+      ".github/workflows/production-catalog.yml",
+    ],
     risks: [
+      {
+        id: "R-CI-2",
+        severity: "medium",
+        title: "A workflow can write the production catalogue",
+        detail:
+          "production-catalog.yml imports records and rating aggregates into production. Its safety is the production URL as an environment secret released by a required reviewer (hosted configuration, unverified here), the code's run checks (against accidents) and the database's own rights checks.",
+      },
       {
         id: "R-CI-1",
         severity: "low",
@@ -2972,7 +2988,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.10.0",
+  version: "1.12.0",
   reviewedOn: "2026-11-25",
   repository: "Blockionaire/CELLR",
   components,

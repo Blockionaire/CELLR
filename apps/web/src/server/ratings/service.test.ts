@@ -53,6 +53,7 @@ function repo(over: Partial<RatingsRepository> = {}): RatingsRepository {
     report: async () => "reported",
     mine: async () => null,
     recordPage: async () => null,
+    communityOpen: async () => true,
     ...over,
   };
 }
@@ -76,6 +77,16 @@ describe("ratings service", () => {
     expect(d.reviewable).toBe(true);
     expect(d.vintages[0]!.external!.count).toBe(2);
     expect(d.vintages[0]!.cellr.scores).toEqual([8]);
+  });
+  it("a community closed in the database offers no publishing", async () => {
+    const d = await svc(repo({ communityOpen: async () => false })).forWine("w");
+    expect(d.reviewable).toBe(false);
+    expect(d.reviews).toHaveLength(1);
+  });
+  it("before the gate's database step, publishing is not offered either", async () => {
+    expect(
+      (await svc(repo({ communityOpen: async () => undefined })).forWine("w")).reviewable,
+    ).toBe(false);
   });
   it("without the community switch, no reviews are read", async () => {
     const wineCommunity = vi.fn(async () => community);

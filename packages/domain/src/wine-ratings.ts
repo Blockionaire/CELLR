@@ -76,8 +76,10 @@ export interface VintageRatings {
 export interface WineRatingsData {
   /** Whether any ratings may be shown for this wine at all (an identity to rate by, a database step taken). */
   available: boolean;
-  /** Whether the reader can publish a review of this wine (it has a catalogue identity). */
+  /** Whether the reader can publish a review of this wine (it has a catalogue identity, and the community is open). */
   reviewable: boolean;
+  /** Whether the community is open (reviews can be published and reported); false until the owner opens it. */
+  communityOpen?: boolean;
   /** The external source behind the external numbers, for the methodology link; null without external ratings. */
   source: { providerName: string; datasetVersion: string | null } | null;
   /** Newest vintage first, NV last. */

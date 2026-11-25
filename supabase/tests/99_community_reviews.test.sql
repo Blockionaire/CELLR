@@ -42,6 +42,7 @@ begin
     values (cp, 'Cuvée Canon', 'red', 'FR', 'canonical', 'verified') returning id into cw;
   insert into public.wine_vintages (wine_id, year) values (cw, 2019) returning id into c19;
   perform test.as_service();
+  perform public.admin_community_open(true, 'tests of the reviews themselves', 'test suite');
   perform public.catalog_provider_register('{"id":"cvsrc","name":"Fixture reviews"}');
   perform public.admin_catalog_provider_rights('cvsrc', rights::jsonb, 'test data', 'test suite');
   run := public.catalog_import_run_start('cvsrc', 'cv-1', null, null, null, '2026-11-10');

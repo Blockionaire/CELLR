@@ -68,28 +68,23 @@ Comput. 7(1):20, doi:10.3390/bdcc7010020 (CC0 1.0). Names normalised and types m
 - X5. Is any attribute text taken verbatim from a source site?
 - X6. Is there an authoritative list of source attributions, and a contact for takedown requests?
 
-### 1b. Owner-reported permission (2026-11-25): records and ratings
+### 1b. Permission for commercial use: records and ratings (recorded 2026-11-25)
 
-**What the owner stated** (Wine Catalogue & Community Ratings sprint brief, 2026-11-25): the X-Wines dataset and its
-ratings are released for CELLR's use, and the owner has received permission. The owner also stated that no X-Wines
-credit is required on every wine card: attribution is given on one central information page and in the rating
-methodology.
+**Status: permission received, as stated by the owner in writing to this project** (sprint brief and the owner's
+GO of 2026-11-25). The written permission itself is **not in this repository**, because it may contain names and
+addresses. The owner keeps it, and the database's rights evidence refers to it without quoting it.
 
-**What this register can and cannot confirm.** The written permission itself is **not in this repository** (and
-should not be: it may contain names and addresses). Until its exact terms are recorded below, every row stays
-`owner-reported`, not `verified`: the database rights (`rights_status`, `commercial_use`, `may_display_ratings`,
-`search_scope`) are set only by the owner, through the logged `admin_catalog_provider_rights` step, with the
-evidence reference.
+| Term                                    | As recorded                                                                                                                                                                                                                                                                                        |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Uses permitted                          | **Commercial use** of the X-Wines dataset **and its ratings** in CELLR: storing them, showing them to consumers, and showing derived aggregates (ratings per wine and vintage)                                                                                                                     |
+| Files covered                           | The X-Wines Full set: `XWines_Full_100K_wines.csv` and `XWines_Full_21M_ratings.csv` (both checksums below). Labels are not covered and not used                                                                                                                                                   |
+| Attribution                             | **Central**: one information page with the source credit and the rating method (`/about/ratings`). **Not** required on every wine card. The authors' requested citation of the paper is given on that page                                                                                         |
+| Original                                | Kept by the owner outside the repository. The database evidence reads: _"Written permission for commercial use of the X-Wines dataset and ratings, received by the owner (owner's records, 2026-11-25); SOURCE_RIGHTS_REGISTER.md §1b"_                                                            |
+| Not stated in the permission as relayed | Who granted it (a role), conditions on withdrawal or takedown, and whether third-party rights (source sites, EU database right) are covered. **Owner: add these here if the original says them.** CELLR handles a withdrawal with `admin_catalog_provider_disable`, which hides everything at once |
 
-| Term to record from the written permission                                   | Recorded                              |
-| ---------------------------------------------------------------------------- | ------------------------------------- |
-| Who granted it (role, not name), and on which date                           | **open: owner to fill in**            |
-| Which files it covers (Full 100K wines; Full 21M ratings; labels?)           | **open**                              |
-| Uses allowed: store, display to consumers, commercial, derived aggregates    | **open**                              |
-| Whether third-party rights (source sites, EU database right) are addressed   | **open**                              |
-| Attribution: exact wording, where (central page allowed instead of per card) | **open**: the owner's statement above |
-| Conditions on withdrawal or takedown                                         | **open**                              |
-| Where the original is kept (outside this repository)                         | **open**                              |
+**What changes in the database, and when:** nothing from this register. The owner sets the provider's rights
+(`verified`, `commercial_use`, `may_display_ratings`) with the logged `admin_catalog_provider_rights` step,
+quoting the evidence line above, in `docs/sprints/ratings/ACTIVATION.md` step 7.
 
 **What CELLR checked itself (2026-11-25).**
 

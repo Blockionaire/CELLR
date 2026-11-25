@@ -1815,6 +1815,31 @@ export type Database = {
           },
         ];
       };
+      community_settings_log: {
+        Row: {
+          actor: string;
+          created_at: string;
+          id: number;
+          open: boolean;
+          reason: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          actor: string;
+          created_at?: string;
+          id?: never;
+          open: boolean;
+          reason: string;
+        };
+        Update: {
+          actor?: string;
+          created_at?: string;
+          id?: never;
+          open?: boolean;
+          reason?: string;
+        };
+        Relationships: [];
+      };
       drink_notices: {
         Row: {
           kind: string;
@@ -3316,6 +3341,10 @@ export type Database = {
         Args: { p_actor: string; p_fields: Json; p_id: string };
         Returns: boolean;
       };
+      admin_community_open: {
+        Args: { p_actor: string; p_open: boolean; p_reason: string };
+        Returns: Json;
+      };
       admin_community_review_queue: { Args: { p_limit?: number }; Returns: Json };
       admin_household_label_path: { Args: { p_image: string; p_wine: string }; Returns: string };
       admin_moderate_community_review: {
@@ -3662,6 +3691,7 @@ export type Database = {
         Args: { p_language: string; p_ttl_seconds?: number; p_vintage_id: string };
         Returns: Json;
       };
+      community_is_open: { Args: Record<PropertyKey, never>; Returns: boolean };
       community_reviews_for_record: {
         Args: { p_limit?: number; p_record_id: string };
         Returns: Json;
