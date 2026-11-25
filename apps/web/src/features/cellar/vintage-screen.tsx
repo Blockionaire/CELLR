@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { SourcesSection, useWineSources } from "@/features/sources/sources-section";
+import { RatingsPanel } from "@/features/wine-ratings/ratings-panel";
 import { useState, ViewTransition, type ReactNode } from "react";
 import {
   currentValueCents,
@@ -71,6 +72,7 @@ export function VintageScreen({
   initialRate,
   initialPick = false,
   sourcesPanel = false,
+  ratings = { external: false, community: false },
 }: {
   initial: VintageDetail;
   currency: string;
@@ -80,6 +82,8 @@ export function VintageScreen({
   initialPick?: boolean;
   /** The `sources_panel` feature: "Bronnen & betrouwbaarheid", folded, low on the page. */
   sourcesPanel?: boolean | undefined;
+  /** `catalog_ratings` / `community_reviews`: the ratings block and publishing a review. */
+  ratings?: { external: boolean; community: boolean } | undefined;
 }) {
   const t = useTranslations("vintage");
   const tTasting = useTranslations("tasting");
@@ -716,6 +720,17 @@ export function VintageScreen({
             </ol>
           </Section>
         )}
+
+        {/* Ratings: only for a wine with a catalogue identity; nothing is shown (or made up) otherwise. */}
+        <RatingsPanel
+          subject={{ kind: "wine", id: wine.id }}
+          enabled={ratings.external}
+          communityEnabled={ratings.community}
+          currentYear={detail.year}
+          myTastings={detail.tastings
+            .filter((x) => x.mine && x.score !== null)
+            .map((x) => ({ id: x.id, score: x.score, year: detail.year }))}
+        />
 
         {/* Where everything on this page comes from. Shown once the server said what may be credited. */}
         {sourcesPanel && wineSources.data && (

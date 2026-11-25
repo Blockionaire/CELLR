@@ -114,4 +114,23 @@ describe("a results directory leaving the run is reduced fail-closed (staging ru
     for (const name of readdirSync(dir))
       expect(readFileSync(join(dir, name), "utf8")).not.toMatch(/Domaine Réel/);
   });
+  it("ratings: the counts-only reports are kept, a ratings import is reduced, the units file never survives", () => {
+    const dir = mkdtempSync(join(tmpdir(), "redact-"));
+    const put = (name: string, data: unknown) =>
+      writeFileSync(join(dir, name), typeof data === "string" ? data : JSON.stringify(data));
+    put("ratings-aggregate.json", { rows: 1, units: 1 });
+    put("ratings-db-totals.json", { units: 1 });
+    put("ratings-separation.txt", "of 200 records, a person sees ratings for 0");
+    put("import-ratings-1.json", { units: 1, problems: [{ external_id: "111478", reason: "x" }] });
+    put("units.jsonl", '{"external_id":"111478","count":2}');
+    const r = redactDir(dir);
+    expect(r.kept.sort()).toEqual([
+      "ratings-aggregate.json",
+      "ratings-db-totals.json",
+      "ratings-separation.txt",
+    ]);
+    expect(r.redacted).toEqual(["import-ratings-1.json"]);
+    expect(r.deleted).toEqual(["units.jsonl"]);
+    expect(readFileSync(join(dir, "import-ratings-1.json"), "utf8")).not.toContain("111478");
+  });
 });

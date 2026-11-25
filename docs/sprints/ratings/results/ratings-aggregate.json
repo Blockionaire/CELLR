@@ -1,0 +1,19 @@
+{
+  "file": "XWines_Full_21M_ratings.csv",
+  "sha256": "847fb49139b7ebfc92c5745cc34e3efff9febea05e977e4332287afa2ea2ded2",
+  "method": "latest-per-rater-v1",
+  "rows": 21013536,
+  "invalid": {},
+  "invalid_total": 0,
+  "unknown_wine": 0,
+  "repeated_dropped": 156492,
+  "units": 1008593,
+  "units_nv": 2382,
+  "ratings_kept": 20857044,
+  "wines_rated": 100646,
+  "partitions": 64,
+  "largest_partition": 356324,
+  "units_sha256": "eb6510f401bde821ff1fe792093a8ddb1efea938569ef718f5d80700a54b0985",
+  "seconds": 234.1,
+  "peak_rss_mb": 484
+}

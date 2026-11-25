@@ -46,6 +46,7 @@ import { createCatalogSearchRepository } from "@/server/catalog/search-repositor
 import { createCatalogSearchService } from "@/server/catalog/search";
 import { createWineResolver } from "@/server/catalog/resolver";
 import { createWineSourcesRepository, createWineSourcesService } from "@/server/catalog/sources";
+import { createRatingsRepository, createRatingsService } from "@/server/ratings/service";
 import { createScanRepository } from "@/server/scans/repository";
 import { createScanService } from "@/server/scans/service";
 import { createSommelierService } from "@/server/sommelier/service";
@@ -208,6 +209,15 @@ export function servicesFor(ctx: RequestContext) {
     wineSources: createWineSourcesService({
       repo: createWineSourcesRepository(ctx.db),
       householdId: async () => (await household()).id,
+    }),
+    // Ratings and community reviews (`catalog_ratings`, `community_reviews`): read and written as the person
+    ratings: createRatingsService({
+      repo: createRatingsRepository(ctx.db),
+      householdId: async () => (await household()).id,
+      features: {
+        ratings: getFeatures().catalog_ratings,
+        community: getFeatures().community_reviews,
+      },
     }),
     catalogSearch: createCatalogSearchService({
       repo: createCatalogSearchRepository(ctx.db),

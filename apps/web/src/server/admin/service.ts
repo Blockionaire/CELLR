@@ -111,6 +111,7 @@ import { runManualRound, type RoundResult } from "@/server/health/round";
 import { logWarn } from "@/server/log";
 import { readHealth } from "@/server/privileged/health";
 import { assertAdmin, verifyAdmin, type AdminSession } from "./access";
+import { ModerationSchema, moderateReview, reviewQueue } from "@/server/privileged/reviews-admin";
 
 /**
  * The admin dashboard's data, for its Server Components only (there is no admin API: nothing here is reachable
@@ -711,4 +712,11 @@ export const adminSources = {
   decideLink,
   flagLink,
   disable: disableSource,
+};
+
+/** Community review moderation: the reported reviews and a moderator's decision. Each checks the admin session. */
+export const adminReviews = {
+  queue: reviewQueue,
+  moderate: moderateReview,
+  schema: ModerationSchema,
 };

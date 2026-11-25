@@ -83,6 +83,11 @@ const SAFE = [
   /^staging-check[\w-]*\.json$/,
   /^xwines-provider\.json$/,
   /^(pilot-separation|invariants|nonpilot-refusal|scan-check)\.txt$/,
+  // ratings: the aggregation report (counts only by construction: ratings.ts names no wine), the database's own
+  // totals, the read latency and the separation check, each a fixed line of counts
+  /^ratings-aggregate\.json$/,
+  /^ratings-db-totals\.json$/,
+  /^(ratings-read|ratings-separation|ratings-refusal|ratings-verify)\.txt$/,
 ];
 
 /**

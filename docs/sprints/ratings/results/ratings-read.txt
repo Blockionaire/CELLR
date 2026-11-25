@@ -1,0 +1,2 @@
+  read p50 0.14 ms, p95 0.26 ms
+ratings size after vacuum (live): 241 MB
