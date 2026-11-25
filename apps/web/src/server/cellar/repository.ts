@@ -747,7 +747,7 @@ export function createCellarRepository(db: Db): CellarRepository {
         db
           .from("bottles")
           .select(
-            "id, created_at, front_image_id, location_id, loc_row, loc_col, purchase_price_cents, currency, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, appellation, country_code, producers!inner(name))), cellar_locations(label)",
+            "id, created_at, front_image_id, location_id, loc_row, loc_col, loc_index, purchase_price_cents, currency, wine_vintages!inner(id, year, wines!inner(id, name, wine_type, region, appellation, country_code, producers!inner(name))), cellar_locations(label)",
           )
           .eq("household_id", householdId)
           .eq("status", "in_cellar")
@@ -787,6 +787,8 @@ export function createCellarRepository(db: Db): CellarRepository {
         locationLabel: b.cellar_locations?.label ?? null,
         row: b.loc_row,
         col: b.loc_col,
+        // only a bottle behind another carries its index: every answer for bottles at index 1 stays as it was
+        ...(b.loc_index > 1 ? { index: b.loc_index } : {}),
         priceCents: b.purchase_price_cents,
         currency: b.currency,
         addedAt: b.created_at,

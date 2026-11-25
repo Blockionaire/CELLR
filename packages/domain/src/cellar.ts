@@ -741,6 +741,11 @@ export interface PlacedBottle {
   countryCode: string | null;
   row: number | null;
   col: number | null;
+  /**
+   * Its index in the cell, ONLY when above 1: a bottle behind another (depth, sprint 9). Absent: index 1, as every
+   * bottle is while depth is off, so the racks answer is unchanged there.
+   */
+  index?: number;
   /** The label photo, when there is one. */
   image: ImageRef | null;
   /** The wine's published 2D bottle picture, when there is one. */

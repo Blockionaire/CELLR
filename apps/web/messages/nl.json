@@ -985,6 +985,8 @@
     "deleteConfirm": "Tik nogmaals om te verwijderen",
     "deleted": "Plek verwijderd.",
     "cellSwap": "Wissel met {wine}, plank {row}, positie {col}",
+    "cellAtBack": ", achteraan op zijn plek",
+    "cellBehind": ", met {count, plural, one {# fles} other {# flessen}} erachter: verplaats die vanuit de 3D-kelder",
     "dragHint": "Houd een fles ingedrukt om hem naar een andere plek te slepen.",
     "dropMove": "Naar {spot}",
     "dropSwap": "Wissel met {wine}",

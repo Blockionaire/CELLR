@@ -45,6 +45,29 @@ interface RackGridProps {
 }
 
 /** Two arrows passing: "these two trade places". */
+/**
+ * The bottles of a grid by cell: the FRONT one (the lowest index; a bottle without an index is index 1) and how many
+ * the cell holds. While depth is off every cell holds at most one, so this is exactly the one bottle of each cell, as
+ * before. Never "the last one wins": with depth a cell can hold several, and none may disappear. Unit-tested.
+ */
+export function cellsOfBottles(
+  bottles: readonly PlacedBottle[],
+): Map<string, { front: PlacedBottle; count: number }> {
+  const out = new Map<string, { front: PlacedBottle; count: number }>();
+  for (const b of bottles) {
+    if (b.row === null || b.col === null) continue;
+    const key = `${b.row}:${b.col}`;
+    const now = out.get(key);
+    if (!now) out.set(key, { front: b, count: 1 });
+    else
+      out.set(key, {
+        front: (b.index ?? 1) < (now.front.index ?? 1) ? b : now.front,
+        count: now.count + 1,
+      });
+  }
+  return out;
+}
+
 export function SwapGlyph({ size = 14 }: { size?: number }) {
   return (
     <svg
@@ -92,8 +115,7 @@ export function RackGrid({
   // a bottle is on its way (tapped Move, or dragged): free spots are where it can land
   const targeting = activeBottleId !== undefined || (drag !== undefined && drag.sourceId !== null);
   const slot = (row: number, col: number) => (slotKey ? `${slotKey}|${row}|${col}` : undefined);
-  const bySpot = new Map<string, PlacedBottle>();
-  for (const b of bottles) if (b.row !== null && b.col !== null) bySpot.set(`${b.row}:${b.col}`, b);
+  const cellsBySpot = cellsOfBottles(bottles);
 
   // Nothing to tap in it (a look, not an action): the grid itself takes focus, so a wide one scrolls by keyboard too.
   const readOnly = !onEmpty && !onBottle;
@@ -136,7 +158,11 @@ export function RackGrid({
             {Array.from({ length: cols }, (_, c) => {
               const row = r + 1;
               const col = c + 1;
-              const bottle = bySpot.get(`${row}:${col}`);
+              const cell = cellsBySpot.get(`${row}:${col}`);
+              const bottle = cell?.front;
+              // more than one bottle in the cell (depth, sprint 9): the front one is drawn, the others are said
+              const behind = cell ? cell.count - 1 : 0;
+              const atBack = (bottle?.index ?? 1) > 1;
               const key = `${row}:${col}`;
               const over = drag?.overKey === key;
               if (bottle) {
@@ -147,11 +173,16 @@ export function RackGrid({
                 const swappable = swapTargets && targeting && !active;
                 const name = `${bottle.producer} ${bottle.wineName} ${formatVintage(bottle.year)}`;
                 const marked = highlight?.has(bottle.bottleId) ?? false;
-                const label = swappable
-                  ? tr("cellSwap", { wine: name, row, col })
-                  : marked
-                    ? t("cellThisWine", { wine: name, row, col })
-                    : t("cellBottle", { wine: name, row, col });
+                const label =
+                  (swappable
+                    ? tr("cellSwap", { wine: name, row, col })
+                    : marked
+                      ? t("cellThisWine", { wine: name, row, col })
+                      : t("cellBottle", { wine: name, row, col })) +
+                  (atBack ? tr("cellAtBack") : "") +
+                  (behind > 0 ? tr("cellBehind", { count: behind }) : "");
+                // a cell of several bottles is never dragged: a drag names a cell, not which bottle in it
+                const dragStart = behind > 0 || atBack ? undefined : onBottlePointerDown;
                 const glyph = (
                   <BottleGlyph
                     shape={shapeFor(bottle.type)}
@@ -182,6 +213,15 @@ export function RackGrid({
                   swapInto && drag?.saving && "animate-pulse",
                 );
                 // "these two trade places": over the bottle that would make way
+                const more = behind > 0 && (
+                  <span
+                    aria-hidden="true"
+                    data-behind={behind}
+                    className="absolute -bottom-1 -right-1 rounded-full bg-ink px-1 text-caption leading-tight text-surface tnum"
+                  >
+                    +{behind}
+                  </span>
+                );
                 const badge = swapInto && (
                   <span
                     aria-hidden="true"
@@ -200,19 +240,19 @@ export function RackGrid({
                     data-slot={slot(row, col)}
                     data-bottle-id={bottle.bottleId}
                     onClick={() => onBottle(bottle)}
-                    onPointerDown={
-                      onBottlePointerDown ? (e) => onBottlePointerDown(e, bottle) : undefined
-                    }
+                    data-behind={behind || undefined}
+                    onPointerDown={dragStart ? (e) => dragStart(e, bottle) : undefined}
                     // a long press drags the bottle: no callout, no text selection on it
-                    onContextMenu={onBottlePointerDown ? (e) => e.preventDefault() : undefined}
+                    onContextMenu={dragStart ? (e) => e.preventDefault() : undefined}
                     className={cn(
                       base,
                       "transition-[transform,box-shadow,outline-color] duration-150 ease-cellr hover:brightness-95 active:scale-95 motion-reduce:transition-none",
-                      onBottlePointerDown && "select-none [-webkit-touch-callout:none]",
+                      dragStart && "select-none [-webkit-touch-callout:none]",
                     )}
                   >
                     {glyph}
                     {badge}
+                    {more}
                   </button>
                 ) : (
                   <span
@@ -223,10 +263,12 @@ export function RackGrid({
                     data-slot={slot(row, col)}
                     data-bottle-id={bottle.bottleId}
                     data-highlighted={marked || undefined}
+                    data-behind={behind || undefined}
                     className={base}
                   >
                     {glyph}
                     {badge}
+                    {more}
                   </span>
                 );
               }

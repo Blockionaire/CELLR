@@ -386,6 +386,7 @@ export function buildRacks(units: StorageUnitView[], rows: InventoryRow[]): Rack
       countryCode: r.countryCode,
       row: r.row,
       col: r.col,
+      ...(r.index !== undefined && r.index > 1 ? { index: r.index } : {}),
       image: r.image,
       art: r.art ?? null,
     };
@@ -395,7 +396,12 @@ export function buildRacks(units: StorageUnitView[], rows: InventoryRow[]): Rack
     else unplaced.push({ ...bottle, row: null, col: null });
   }
   for (const unit of racks)
-    unit.bottles.sort((a, b) => (a.row ?? 0) - (b.row ?? 0) || (a.col ?? 0) - (b.col ?? 0));
+    unit.bottles.sort(
+      (a, b) =>
+        (a.row ?? 0) - (b.row ?? 0) ||
+        (a.col ?? 0) - (b.col ?? 0) ||
+        (a.index ?? 1) - (b.index ?? 1),
+    );
   unplaced.sort(
     (a, b) => a.producer.localeCompare(b.producer) || a.wineName.localeCompare(b.wineName),
   );

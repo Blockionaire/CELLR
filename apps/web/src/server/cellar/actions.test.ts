@@ -615,6 +615,21 @@ describe("the racks view", () => {
     expect(racks.units[0]).toMatchObject({ capacity: 6, used: 2, free: 4 });
   });
 
+  it("depth (sprint 9): a bottle behind another carries its index, front first; a bottle at index 1 has no index field", () => {
+    const racks = buildRacks(
+      [unit],
+      [
+        row({ bottleId: "back", row: 1, col: 1, index: 2 }),
+        row({ bottleId: "front", row: 1, col: 1 }),
+      ],
+    );
+    expect(racks.units[0]!.bottles.map((b) => [b.bottleId, b.index])).toEqual([
+      ["front", undefined],
+      ["back", 2],
+    ]);
+    expect("index" in racks.units[0]!.bottles[0]!).toBe(false);
+  });
+
   it("a bottle that points at a unit we do not know is treated as unplaced, never dropped", () => {
     const racks = buildRacks([unit], [row({ bottleId: "x", locationId: "gone" })]);
     expect(racks.units[0]!.bottles).toHaveLength(0);

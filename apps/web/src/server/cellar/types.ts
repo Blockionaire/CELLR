@@ -50,6 +50,8 @@ export interface InventoryRow {
   locationLabel: string | null;
   row: number | null;
   col: number | null;
+  /** Its index in the cell, ONLY when above 1 (a bottle behind another, sprint 9). Absent: index 1. */
+  index?: number;
   priceCents: number | null;
   currency: string | null;
   addedAt: string;

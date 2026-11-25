@@ -985,6 +985,8 @@
     "deleteConfirm": "Tap again to delete it",
     "deleted": "Place deleted.",
     "cellSwap": "Swap with {wine}, shelf {row}, position {col}",
+    "cellAtBack": ", at the back of its spot",
+    "cellBehind": ", and {count, plural, one {# more bottle} other {# more bottles}} behind it: move those from the cellar's 3D view",
     "dragHint": "Press and hold a bottle to drag it to another spot.",
     "dropMove": "Move to {spot}",
     "dropSwap": "Swap with {wine}",
