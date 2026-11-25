@@ -96,6 +96,7 @@ export type PlaceOutcome =
         | "bottle_unavailable"
         | "already_placed"
         | "out_of_bounds"
+        | "depth_not_enabled"
         | "taken";
     };
 
@@ -103,7 +104,9 @@ export type MoveOutcome =
   | { outcome: "moved" | "already_there" }
   /** The bottle is not where the caller saw it; `now` is where it is. Nothing changed. */
   | { outcome: "stale"; now: SharedRackSpot | null }
-  | { outcome: "not_found" | "archived" | "gone" | "out_of_bounds" | "taken" };
+  | {
+      outcome: "not_found" | "archived" | "gone" | "out_of_bounds" | "depth_not_enabled" | "taken";
+    };
 
 export type TakeOutOutcome =
   | { outcome: "taken_out" }

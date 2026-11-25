@@ -214,6 +214,7 @@ const PLACE = [
   "bottle_unavailable",
   "already_placed",
   "out_of_bounds",
+  "depth_not_enabled",
   "taken",
 ] as const;
 const MOVE = [
@@ -224,6 +225,7 @@ const MOVE = [
   "archived",
   "gone",
   "out_of_bounds",
+  "depth_not_enabled",
   "taken",
 ] as const;
 const TAKE_OUT = ["taken_out", "stale", "not_found", "gone"] as const;

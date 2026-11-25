@@ -206,6 +206,10 @@ service role and the database owner (operators), who are trusted as everywhere i
 
 - No screens. The API is shaped for them and for the 3D view (§ contracts in `SHARED-RACKS-REPORT.md`).
 - No temperature zones for a shared rack; no depth (cell capacity above 1 is refused while the switch is off).
+  The switch is a kill switch for a rack that is already deep as well: with it off, `shared_rack_place` and
+  `shared_rack_move` answer `depth_not_enabled` for any index above 1 and write nothing, and a layout cannot be
+  made deep or deeper. The way out stays open: a bottle at the back still moves to an index-1 spot and is still
+  taken out or withdrawn. A stored depth is left as it is (changing it would need the bottles moved first).
 - No swap of two bottles in one step (two moves through a free spot do it).
 - No label photos across households, no shared art by wine id.
 - No push notifications for invitations or activity.
@@ -272,3 +276,6 @@ blocker. These were changed in migration 0052 itself (it is applied nowhere):
 - **N2** A rack whose last owner's account is deleted is archived also when nobody else is in it.
 - **N6** The cap of 20 racks per person holds on accepting an invitation too (`too_many_racks`; the invitation
   stays open).
+- **Depth kill switch** (from the review of the depth backend): the private trigger covers `public.bottles` only,
+  so a shared rack made deep while depth was on would have kept accepting an index above 1 after the switch went
+  off. Placing and moving now ask the switch themselves (§10).

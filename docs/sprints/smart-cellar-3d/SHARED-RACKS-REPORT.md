@@ -122,7 +122,7 @@ Run on this branch on 2026-11-24, against throwaway databases and the local stac
 
 | What                                                                                               | Result                                                                                                                                                                                               |
 | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bash scripts/db-test.sh` (all migrations, the whole permission suite)                             | 1911 passed, 0 failed, 0 errors; of these `99_shared_racks.test.sql` 190, the independent `99_shared_racks_redteam.test.sql` 40 and `00_hygiene.test.sql` 21                                         |
+| `bash scripts/db-test.sh` (all migrations, the whole permission suite)                             | 1918 passed, 0 failed, 0 errors; of these `99_shared_racks.test.sql` 197, the independent `99_shared_racks_redteam.test.sql` 40 and `00_hygiene.test.sql` 21                                         |
 | `bash scripts/db-shared-racks-concurrency.sh`                                                      | passed (after the review fixes too); it now also holds a rack call open over a bottle that is opened at home: the opening waited about 0.6 s and went through, the history in order                  |
 | `bash scripts/db-placement-concurrency.sh`, `bash scripts/db-smart-cellar-upgrade.sh`              | passed: the existing placement races and the upgrade rehearsal are unchanged by the new triggers                                                                                                     |
 | `bash scripts/db-shared-racks-roundtrip.sh`                                                        | 65 constraints and indexes of the shared-rack tables read the same after `pg_dump` and a restore (CI's backup rehearsal had found one that did not: the name check, written with BETWEEN; rewritten) |
@@ -161,7 +161,9 @@ share through; the script ran clean three times in a row afterwards and is a ste
    a rolled-back transaction, but the service refuses any index above 1 while `DEPTH_PLACEMENT_ENABLED` is false, and
    for a rack more than one deep it relies on `placementProblem` with the occupants read just before (the database
    then only checks bounds and uniqueness, not "behind a taken front"). When depth is released this needs the same
-   care the private cellar gets (handoff to the depth workstream).
+   care the private cellar gets (handoff to the depth workstream). With the switch OFF the database itself refuses
+   any index above 1 in a rack that is already deep (`depth_not_enabled` from place and move, tested), while moving
+   a bottle out of the back and taking it out keep working.
 3. **Account deletion racing a write that names the same person** can deadlock (the deletion holds the account row
    and wants the member or rack row; the write holds those and needs a key share on the account row). Postgres ends
    one of the two after its deadlock timeout; either can be retried; nothing is left half done. Not reproduced in a

@@ -1009,6 +1009,10 @@ begin
      or p_row > r.grid_rows or p_col > r.grid_cols or p_index > r.cell_capacity then
     return jsonb_build_object('outcome', 'out_of_bounds');
   end if;
+  -- the switch of 0043 holds here too: a rack made deep while depth was on takes nothing past index 1 once it is off
+  if p_index > 1 and not private.depth_placement_enabled() then
+    return jsonb_build_object('outcome', 'depth_not_enabled');
+  end if;
   if exists (select 1 from private.shared_rack_placements x
               where x.rack_id = p_rack and (x.loc_row, x.loc_col, x.loc_index) = (p_row, p_col, p_index)) then
     return jsonb_build_object('outcome', 'taken');
@@ -1057,6 +1061,10 @@ begin
   if p_to_row is null or p_to_col is null or p_to_index is null or p_to_row < 1 or p_to_col < 1 or p_to_index < 1
      or p_to_row > r.grid_rows or p_to_col > r.grid_cols or p_to_index > r.cell_capacity then
     return jsonb_build_object('outcome', 'out_of_bounds');
+  end if;
+  -- with depth switched off nothing moves TO an index past 1; out of one (to index 1, or out of the rack) always goes
+  if p_to_index > 1 and not private.depth_placement_enabled() then
+    return jsonb_build_object('outcome', 'depth_not_enabled');
   end if;
   if exists (select 1 from private.shared_rack_placements x
               where x.rack_id = p_rack and (x.loc_row, x.loc_col, x.loc_index) = (p_to_row, p_to_col, p_to_index)) then

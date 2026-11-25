@@ -38,7 +38,7 @@ declare
   rack uuid; rack2 uuid; rack3 uuid; rack4 uuid; deep uuid; ghost constant uuid := 'bbbbbbbb-0000-0000-0000-000000000001';
   b1 uuid; b1b uuid; b2 uuid; b2b uuid; b2c uuid; b2d uuid; b2e uuid; b3 uuid; b4 uuid; b7 uuid; lone uuid;
   inv2 uuid; inv3 uuid; inv4 uuid; inv6 uuid; invx uuid;
-  p1 uuid; p2 uuid; p3 uuid; px uuid;
+  p1 uuid; p2 uuid; p3 uuid; px uuid; py uuid; pz uuid;
   j jsonb; r text; n bigint; m bigint; t text;
   tbl text; ok boolean;
 begin
@@ -770,5 +770,31 @@ begin
     test.move(deep, px, 1, 1, 1, 1, 2, 1) = 'taken' and test.move(deep, px, 1, 1, 1, 2, 2, 3) = 'out_of_bounds'
     and test.move(deep, px, 1, 1, 2, 2, 2, 2) = 'moved');
   perform test.rec('...a shallower layout would lose the bottle at the back: refused', test.layout(deep, 2, 2, 1) = 'in_use');
+
+  -- the switch goes off again while the rack is deep and two bottles stand at the back
+  insert into public.bottles (household_id, vintage_id) values (h4, v) returning id into b2d;
+  insert into public.bottles (household_id, vintage_id) values (h4, v) returning id into b2e;
+  perform test.rec('...a second bottle goes to the back while depth is on', test.place(deep, b2d, 2, 1, 2) = 'placed');
+  perform test.su();
+  update private.cellar_settings set depth_placement = false;
+  perform test.as_user(4);
+  select placement_id into py from public.shared_rack_bottles(deep) where (loc_row, loc_col, loc_index) = (1, 1, 1);
+  select placement_id into pz from public.shared_rack_bottles(deep) where (loc_row, loc_col, loc_index) = (2, 1, 2);
+  perform test.rec('with depth switched off again a deep rack takes no new bottle past index 1: said, not thrown, nothing written',
+    test.place(deep, b2e, 1, 2, 2) = 'depth_not_enabled'
+    and test.count_of(format('select 1 from public.shared_rack_bottles(%L)', deep)) = 3);
+  perform test.rec('...and no bottle moves to an index past 1, from the front or from the back',
+    test.move(deep, py, 1, 1, 1, 2, 1, 2) = 'depth_not_enabled' and test.move(deep, px, 2, 2, 1, 2, 2, 2) = 'depth_not_enabled'
+    and test.count_of(format('select 1 from public.shared_rack_bottles(%L) where (loc_row, loc_col, loc_index) in ((1, 1, 1), (2, 2, 2))', deep)) = 2);
+  perform test.rec('...index 1 still takes a bottle, and an index outside the cell is still "outside", not "depth"',
+    test.place(deep, b2e, 1, 2, 1) = 'placed' and test.move(deep, py, 1, 1, 2, 1, 1, 3) = 'out_of_bounds');
+  perform test.rec('...a deeper layout cannot be set while it is off',
+    test.layout(deep, 2, 2, 3) = 'depth_not_enabled');
+  perform test.rec('...the way out stays open: a bottle at the back moves to the front',
+    test.move(deep, px, 2, 2, 2, 2, 2, 1) = 'moved');
+  perform test.rec('...and a bottle at the back is taken out from there',
+    test.take_out(deep, pz, 2, 1, 2) = 'taken_out'
+    and test.count_of(format('select 1 from public.shared_rack_bottles(%L) where loc_index > 1', deep)) = 0
+    and test.count_of(format('select 1 from public.shared_rack_bottles(%L)', deep)) = 3);
 end $$;
 rollback;

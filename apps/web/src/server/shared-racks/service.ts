@@ -425,6 +425,8 @@ export function createSharedRacksService({ repo, access }: SharedRacksDeps) {
           throw new DomainError("CONFLICT", M.alreadyPlaced);
         case "out_of_bounds":
           throw new DomainError("VALIDATION", M.outOfBounds);
+        case "depth_not_enabled":
+          throw new DomainError("CONFLICT", M.depth);
         case "taken":
           throw new DomainError("CONFLICT", M.taken, { retryable: true });
         default:
@@ -457,6 +459,8 @@ export function createSharedRacksService({ repo, access }: SharedRacksDeps) {
           throw new DomainError("CONFLICT", M.taken, { retryable: true });
         case "out_of_bounds":
           throw new DomainError("VALIDATION", M.outOfBounds);
+        case "depth_not_enabled":
+          throw new DomainError("CONFLICT", M.depth);
         default:
           throw refuse(answer.outcome);
       }

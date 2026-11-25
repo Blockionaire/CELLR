@@ -535,6 +535,7 @@ describe("placing", () => {
       ["already_placed", "CONFLICT", M.alreadyPlaced, false],
       ["taken", "CONFLICT", M.taken, true],
       ["out_of_bounds", "VALIDATION", M.outOfBounds, false],
+      ["depth_not_enabled", "CONFLICT", M.depth, false],
       ["archived", "CONFLICT", M.archived, false],
       ["not_found", "NOT_FOUND", M.rackNotFound, false],
     ] as const) {
@@ -590,6 +591,7 @@ describe("moving and taking out", () => {
       [{ outcome: "gone" }, "CONFLICT", M.gone, false],
       [{ outcome: "taken" }, "CONFLICT", M.taken, true],
       [{ outcome: "out_of_bounds" }, "VALIDATION", M.outOfBounds, false],
+      [{ outcome: "depth_not_enabled" }, "CONFLICT", M.depth, false],
       [{ outcome: "archived" }, "CONFLICT", M.archived, false],
       [{ outcome: "not_found" }, "NOT_FOUND", M.rackNotFound, false],
     ] as const) {
