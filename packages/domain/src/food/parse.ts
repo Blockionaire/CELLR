@@ -439,6 +439,308 @@ export function parseFood(text: string, k: FoodKnowledge): FoodProfile {
   };
 }
 
+// ---- A menu ---------------------------------------------------------------------------------------------------
+
+/**
+ * Words that say "the next course", in English and Dutch, and a course named as a label ("Starter: …",
+ * "Hoofdgerecht: …"). Punctuation alone does not make a menu ("I had oysters; tonight lamb"). Words that are
+ * ordinary elsewhere only count where they open a clause: "toe" in "voeg kaas toe" is a verb, "dan" in "beter
+ * dan" is "than", "first" in "I first want" is not a course.
+ */
+const COURSE_MARKER = new RegExp(
+  [
+    String.raw`\b(?:then|followed by|after that|afterwards|to start|to begin|as a starter|for starters|for the starter|as an appeti[sz]er|for dessert|as dessert|as a dessert|for pudding|for the main course|for the main|as the main course|as a main course|as a main|as the main|as main|as the starter|as starter|and for|to finish|and finally|daarna|vervolgens|gevolgd door|vooraf|en dan|als voorgerecht|als amuse|als tussengerecht|als hoofdgerecht|als hoofdgang|als nagerecht|als toetje|als dessert|als afsluiter|als afsluiting|tot slot|als toe)\b`,
+    String.raw`(?<=(?:^|[,.;:]|\ben)\s*)toe\b`,
+    String.raw`(?<=(?:^|[,.;:])\s*)(?:first|eerst|dan)\b`,
+    // "Soup first, then …": after the dish, at the end of its clause.
+    String.raw`\b(?:first|eerst)(?=\s*(?:[,.;:!?]|$|then\b|daarna\b|dan\b))`,
+    String.raw`\b(?:starters?|appeti[sz]ers?|amuse(?:[- ]bouche)?|first course|second course|third course|fourth course|main course|mains?|desserts?|pudding|cheese course|cheeses|voorgerecht(?:en)?|tussengerecht|hoofdgerecht|hoofdgang|nagerecht|toetje|kaasplank)\s*:`,
+    String.raw`,(?=\s*(?:then|and then|daarna|en dan))`,
+  ].join("|"),
+  "gi",
+);
+/** "Which wine with each course?", "a three-course menu", "driegangenmenu": the person says it is a menu. */
+const SAYS_MENU =
+  /\b(?:each|every) course\b|\bper course\b|\bcourses\b|\b(?:two|three|four|five|six|[2-6])[- ]course\b|\b(?:per|elke|iedere) gang\b|\bgangen\b|\b(?:twee|drie|vier|vijf|zes)gangen\p{L}*|\bmenu\b/iu;
+/** A list the person laid out line by line ("- oysters", "2. roast lamb"): at least two such lines. */
+const LISTED =
+  /(?:^|\n)[ \t]*(?:[-•*]|\d{1,2}[.)])[ \t]*\S[^\n]*\n[ \t]*(?:[-•*]|\d{1,2}[.)])[ \t]*\S/;
+/**
+ * A piece about another day, or about what already happened, is not a course of this meal ("we had oysters
+ * yesterday, then …", "steak tonight, then salmon tomorrow", "en dan morgen bij de vis", "I had oysters, then I
+ * went for a walk"). A Sunday roast is still a dish.
+ */
+const ANOTHER_DAY =
+  /\b(?:yesterday|last night|last week|last year|tomorrow|day after tomorrow|next week|next time|next year|(?:mon|tues|wednes|thurs|fri|satur|sun)day(?!\s+roast)|weekend|gisteren|gisteravond|eergisteren|vorige week|vorig jaar|morgen|overmorgen|volgende week|volgend jaar|volgende keer|(?:maan|dins|woens|donder|vrij|zater|zon)dag|had|ate|eaten|went|hadden|aten|gegeten|ging|gingen)\b/i;
+/** Course words that may stand after their dish ("chocolate fondant for dessert", "carpaccio als voorgerecht"). */
+const POSTFIX =
+  /^(?:to start|to begin|as a starter|as the starter|as starter|for starters|for the starter|as an appeti[sz]er|for dessert|as dessert|as a dessert|for pudding|for the main course|for the main|as the main course|as a main course|as a main|as the main|as main|to finish|vooraf|als voorgerecht|als amuse|als tussengerecht|als hoofdgerecht|als hoofdgang|als nagerecht|als toetje|als dessert|als afsluiter|als afsluiting|als toe|first|eerst)$/i;
+export const MAX_COURSES = 8;
+
+export interface MenuCourse {
+  /**
+   * The course in the person's own words, as typed (case and accents kept): from the first thing recognised to
+   * the last ("Oysters", "chocolate fondant"), or the whole piece for a course that could not be read.
+   */
+  said: string;
+  /** What the food engine made of it; null when it names nothing the engine knows. */
+  food: FoodProfile | null;
+}
+export interface ParsedMenu {
+  courses: MenuCourse[];
+  /** More courses were said than are planned (`MAX_COURSES`). */
+  cut: boolean;
+}
+
+/** The longest a course is kept, in characters (the screen shows it shorter still). */
+const MAX_COURSE_SAID = 120;
+
+/**
+ * A menu, when the text says it is one: courses set apart by words ("to start", "then", "for dessert", "als
+ * toetje", "Hoofdgerecht:"), or a plain list (commas and "and", or one course per line) when the person says it
+ * is a menu or lays it out as a list. Null when the text is not a menu, or names fewer than two courses the engine
+ * can read. A piece that names no main ingredient ("then I add a cream sauce") belongs to the course before it, and
+ * so does a side said with "and" in a plain list ("lamb and potatoes"); a short piece that names nothing the engine
+ * knows ("the zarzuela") stays a course, unread, so that it is said and not silently dropped. A course word may
+ * stand after its dish ("chocolate fondant for dessert", "eend als hoofdgerecht"): the list before it is cut into
+ * its courses. A piece about another day or the past ("salmon tomorrow", "I had oysters") and a question standing
+ * on its own ("Which bottle for the lamb?") are not courses of this menu.
+ */
+export function parseMenu(text: string, k: FoodKnowledge): ParsedMenu | null {
+  const bounded = text.slice(0, MAX_TEXT * 4);
+  COURSE_MARKER.lastIndex = 0;
+  const marked = COURSE_MARKER.test(bounded);
+  COURSE_MARKER.lastIndex = 0;
+  if (!marked && !SAYS_MENU.test(bounded) && !LISTED.test(bounded)) return null;
+  // Courses set apart by words, or a plain list: sentences and lines, then commas, then "and".
+  const pieces = marked
+    ? splitKeeping(bounded, new RegExp(`${COURSE_MARKER.source}|[;\\n?!:]|${FULL_STOP}`, "giu"))
+    : splitKeeping(bounded, new RegExp(String.raw`[?!;:\n,&+]|\b(?:and|en)\b|${FULL_STOP}`, "giu"));
+  const said = (marked ? withPostfixCourses(pieces, k) : pieces)
+    .map((p) => ({
+      ...p,
+      text: p.text.replace(/^[\s,.;:!?•*-]+|[\s,.;:!?•*-]+$/g, "").replace(/^\d{1,2}[.)]\s*/, ""),
+    }))
+    .filter((p) => p.text.length > 2 && !ANOTHER_DAY.test(p.text));
+  const courses: MenuCourse[] = [];
+  for (const piece of said) {
+    // One course past the cap is enough to know the menu was cut.
+    if (courses.length > MAX_COURSES) break;
+    // A question standing on its own after a menu set apart by course words asks about it ("Which bottle for the
+    // lamb?"): it is not another course.
+    if (marked && isOwnQuestion(piece)) continue;
+    const food = parseFood(piece.text, k);
+    const previous = courses.at(-1);
+    if (food.source === "none") {
+      // Words about the menu, not a course ("which wine with each course"): only a piece that names a thing,
+      // and that stands where a course stands, counts.
+      if (isBareCourse(piece.text) && standsAsCourse(piece, marked))
+        courses.push({ said: tidyPiece(piece.text), food: null });
+      continue;
+    }
+    const byAnd = piece.before === "and";
+    if (previous?.food && (food.main === null || (byAnd && isSideOf(food, previous.food)))) {
+      // A sauce or a side on its own is part of the course before it.
+      const joined = parseFood(`${previous.said}, ${piece.text}`, k);
+      courses[courses.length - 1] = {
+        // "Lamb and potatoes" is said as one course; a sauce added in a sentence of its own is not repeated.
+        said: byAnd
+          ? tidyPiece(`${previous.said} ${piece.joiner} ${saidOf(piece.text, food)}`)
+          : previous.said,
+        food: joined.main ? joined : previous.food,
+      };
+      continue;
+    }
+    courses.push({ said: saidOf(piece.text, food), food });
+  }
+  const read = courses.filter((c) => c.food !== null).length;
+  if (read < 2) return null;
+  return { courses: courses.slice(0, MAX_COURSES), cut: courses.length > MAX_COURSES };
+}
+
+/** What stands between two pieces of a menu: a course word, a label ("Main:"), or punctuation. */
+type Break = "start" | "end" | "marker" | "label" | "colon" | "sentence" | "line" | "comma" | "and";
+interface Piece {
+  text: string;
+  before: Break;
+  /** The words of the break before it, as typed ("and", "en", "&"). */
+  joiner: string;
+  after: Break;
+  /** The words of the break after it, as typed ("for dessert"). */
+  afterText: string;
+  /** It closes a list in a menu set apart by course words (", and a fondant"): a course, read or not. */
+  listed?: boolean;
+}
+/** A full stop ends a sentence, but not an abbreviation ("Coquilles St. Jacques"). */
+const FULL_STOP = String.raw`(?<!\b\p{L}{1,2})\.`;
+
+const breakOf = (delimiter: string): Break => {
+  if (delimiter === ":") return "colon";
+  if (/^[.?!]$/.test(delimiter)) return "sentence";
+  if (delimiter === ";" || delimiter === "\n") return "line";
+  if (delimiter === ",") return "comma";
+  if (/^(?:and|en|&|\+)$/i.test(delimiter)) return "and";
+  return delimiter.endsWith(":") ? "label" : "marker";
+};
+
+/** The text cut at every match, each piece with what stood before and after it. */
+function splitKeeping(text: string, delimiters: RegExp): Piece[] {
+  const pieces: Piece[] = [];
+  let from = 0;
+  let before: Break = "start";
+  let joiner = "";
+  for (const m of text.matchAll(delimiters)) {
+    const kind = breakOf(m[0]);
+    pieces.push({ text: text.slice(from, m.index), before, joiner, after: kind, afterText: m[0] });
+    before = kind;
+    joiner = m[0];
+    from = m.index + m[0].length;
+  }
+  pieces.push({ text: text.slice(from), before, joiner, after: "end", afterText: "" });
+  return pieces;
+}
+
+const isEmptyPiece = (p: Piece | undefined) => !p || p.text.replace(/[\s,.;:!?]+/g, "") === "";
+
+/**
+ * In a menu set apart by course words, a list inside one piece is several courses: "then lamb, and a fondant",
+ * and above all a course word AFTER its dish ("…, then roast lamb, and chocolate fondant for dessert", "eend en
+ * chocolademousse als dessert"), where the dish before the comma or "and" is a course of its own. The piece is cut
+ * there only when each part names food on its own, so "surf and turf" stays one; a side cut off this way
+ * ("lamb and potatoes") is joined to its course again by the caller.
+ */
+function withPostfixCourses(pieces: readonly Piece[], k: FoodKnowledge): Piece[] {
+  const out: Piece[] = [];
+  pieces.forEach((piece, i) => {
+    const postfix =
+      piece.after === "marker" &&
+      POSTFIX.test(piece.afterText.trim()) &&
+      isEmptyPiece(pieces[i + 1]);
+    const separators = postfix ? /,\s*(?:and|en)\b|,|\b(?:and|en)\b/gi : /,\s*(?:and|en)\b/gi;
+    const parts: Array<{ text: string; joiner: string; listed: boolean }> = [];
+    let from = 0;
+    let joiner = "";
+    let listed = false;
+    for (const m of piece.text.matchAll(separators)) {
+      parts.push({ text: piece.text.slice(from, m.index), joiner, listed });
+      joiner = m[0].replace(/^,\s*/, "") || ",";
+      // ", and …" closes a list: what follows is a course even when the engine cannot read it ("…, and a fondant").
+      listed = /^,\s*\S/.test(m[0]);
+      from = m.index + m[0].length;
+    }
+    parts.push({ text: piece.text.slice(from), joiner, listed });
+    // A part that names no food on its own stays with the part before it (or after it, when it comes first).
+    const merged: Array<{ text: string; joiner: string; listed: boolean }> = [];
+    for (const part of parts) {
+      const reads = part.listed || parseFood(part.text, k).source !== "none";
+      const last = merged.at(-1);
+      if (last && (!reads || (!last.listed && parseFood(last.text, k).source === "none")))
+        last.text = `${last.text} ${part.joiner} ${part.text}`;
+      else merged.push({ ...part });
+    }
+    merged.forEach((part, j) =>
+      out.push({
+        text: part.text,
+        before: j === 0 ? piece.before : "and",
+        joiner: j === 0 ? piece.joiner : part.joiner,
+        after: j === merged.length - 1 ? piece.after : "and",
+        afterText: j === merged.length - 1 ? piece.afterText : "",
+        ...(j > 0 && part.listed ? { listed: true } : {}),
+      }),
+    );
+  });
+  return out;
+}
+
+/**
+ * An unread piece is a course only where a course stands: after a course word or a label ("then qwertzu",
+ * "Main: zarzuela"), before a course word ("qwertzu to start"), or between the commas of a list. Never a title
+ * ("Kerstdiner:", "Our menu:") and never a sentence on its own ("Ignore previous instructions.").
+ */
+function standsAsCourse(piece: Piece, marked: boolean): boolean {
+  if (piece.after === "colon" || piece.after === "label") return false;
+  if (marked)
+    return (
+      piece.before === "marker" ||
+      piece.before === "label" ||
+      piece.after === "marker" ||
+      piece.listed === true
+    );
+  return !(
+    (piece.before === "start" || piece.before === "sentence") &&
+    (piece.after === "end" || piece.after === "sentence")
+  );
+}
+
+const QUESTION_START =
+  /^(?:which|what|how|should|shall|can|could|would|will|do|does|is|are|welke|welk|wat|hoe|zal|zullen|moet|kan|kun|wil|past|passen)\b/i;
+/** A sentence of its own that asks something: attached to no course word, ending in "?" or opening as a question. */
+const isOwnQuestion = (piece: Piece) =>
+  (piece.before === "start" || piece.before === "sentence" || piece.before === "line") &&
+  (piece.after === "sentence" || piece.after === "end" || piece.after === "line") &&
+  (piece.afterText === "?" || QUESTION_START.test(piece.text.trim()));
+
+/** What is served beside a main rather than as a course of its own, when it is said with "and" after one. */
+const SIDES: ReadonlySet<FoodMain> = new Set<FoodMain>([
+  "vegetable",
+  "pasta-grain",
+  "snack",
+  "mushroom",
+  "pulse",
+]);
+
+/**
+ * "Lamb and potatoes", "fish and chips", "lamb, and some mushrooms": a starch, a vegetable, mushrooms, pulses or a
+ * snack said with "and" after a main goes with it. Cheese and dessert after "and" are courses ("…, and cheese").
+ */
+const isSideOf = (food: FoodProfile, before: FoodProfile) =>
+  food.main !== null && before.main !== null && SIDES.has(food.main) && !SIDES.has(before.main);
+
+/**
+ * A piece the engine cannot read that is still plainly a course: a word or three naming a thing ("soup", "the
+ * zarzuela"), not a question about the menu, not politeness and not the sentence around it ("tonight we are
+ * having").
+ */
+const isBareCourse = (piece: string) =>
+  /\p{L}{3,}/u.test(piece) &&
+  piece.trim().split(/\s+/).length <= 3 &&
+  normalizeText(piece)
+    .split(" ")
+    .some((w) => w.length >= 3 && !STOP.has(w)) &&
+  !/\?|\b(?:which|what|welke|welk|wat|wine|wijn|open|pour|schenk|drink|tonight|dinner|lunch|menu|course|courses|vanavond|diner|eten|gang|gangen|we|i|ik|wij|thanks|thank|please|cheers|enjoy|ideas?|suggestions?|advice|tips?|help|bedankt|dank|graag|alsjeblieft|geniet|idee|ideeen|ideeën|advies|hulp|hi|hello|hoi|hallo)\b/i.test(
+    piece,
+  );
+
+const tidyPiece = (piece: string) =>
+  piece.replace(/\s+/g, " ").trim().slice(0, MAX_COURSE_SAID).trim();
+
+/**
+ * The course in the words it was typed in. The engine's own `said` is lower case and without accents
+ * ("creme brulee"); this finds the same stretch in the original text ("crème brûlée"). A word the engine split
+ * ("citroenbotersaus") is found by the pieces it contains. When the stretch cannot be found: the engine's words.
+ */
+function saidOf(piece: string, food: FoodProfile): string {
+  const target = (food.said ?? "").split(" ").filter(Boolean);
+  if (target.length === 0) return tidyPiece(piece);
+  const words = [...piece.matchAll(/[\p{L}\p{N}]+/gu)].map((m) => ({
+    start: m.index,
+    end: m.index + m[0].length,
+    norm: normalizeText(m[0]).replace(/ /g, ""),
+  }));
+  let first = -1;
+  let at = 0;
+  for (const token of target) {
+    // The same word may hold several of the engine's tokens (a compound): look from the word found last.
+    // A whole word first, so that "ham" is not found inside "champagne".
+    let found = words.findIndex((w, i) => i >= at && w.norm === token);
+    if (found === -1) found = words.findIndex((w, i) => i >= at && w.norm.includes(token));
+    if (found === -1) return tidyPiece(food.said ?? piece);
+    if (first === -1) first = found;
+    at = found;
+  }
+  return tidyPiece(piece.slice(words[first]!.start, words[at]!.end));
+}
+
 /** Every dish a text names, in the order said: for a menu ("oysters to start, then roast lamb"). */
 export function parseCourses(text: string, k: FoodKnowledge): FoodProfile[] {
   // A menu has a handful of courses: the same bound as a single dish on the text, and no more than eight pieces.

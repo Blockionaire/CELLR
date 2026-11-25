@@ -137,8 +137,8 @@ export default defineConfig({
         ...APP_ENV,
         CELLR_FEATURES: "all,catalog_ratings,community_reviews",
         // Every Sommelier V1+ part, and a name that is not one (ignored). Built so far: `check`
-        // (e2e/sommelier-check.spec.ts) and `annotate`, `quantities` (e2e/sommelier-cards.spec.ts). The default
-        // server names none: V1 as it was, and both specs ask it too to prove that.
+        // (e2e/sommelier-check.spec.ts), `annotate`, `quantities` (e2e/sommelier-cards.spec.ts) and `menu`
+        // (e2e/sommelier-menu.spec.ts). The default server names none: V1 as it was, and the specs ask it too.
         CELLR_SOMMELIER: "check,annotate,quantities,menu,fallback,not-a-part",
         CELLR_SMART_CELLAR: "write",
         CELLR_SMART_CELLAR_3D: "1",

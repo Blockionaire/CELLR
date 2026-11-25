@@ -1,14 +1,22 @@
 import "server-only";
 import {
+  CHECK_CODES,
+  type CheckCode,
+  MENU_WHY_MAX,
+  prepareAnswerCheck,
+  checkMenuAnswer,
+  comparedCards,
+  compareRequest,
+  hasSommelierPart,
+  menuMaxOutputTokens,
   annotationEmphasis,
   guestsBlock,
   guestsIn,
-  hasSommelierPart,
   quantityFor,
   reconcileServingClaims,
   servingCheckOf,
+  smallPour,
   type InsightOutput,
-  checkAnswerClaims,
   cellarDigest,
   cellarFacts,
   cellarFactsText,
@@ -36,7 +44,7 @@ import {
   type TonightView,
   BUDGET_EUROS,
 } from "@cellr/domain";
-import { annotateBottles, servingFactsBlock } from "@cellr/domain/intelligence";
+import { annotateBottles, menuContext, servingFactsBlock } from "@cellr/domain/intelligence";
 import type { SommelierIntelligence } from "@/server/sommelier/intelligence";
 import { seeCardWords } from "@/server/sommelier/parts/serving-words";
 import { cardOnlyWords } from "@/server/sommelier/parts/check-words";
@@ -47,6 +55,12 @@ import {
   SOMMELIER_SYSTEM,
   sommelierUserMessage,
 } from "@/server/ai/prompts/sommelier";
+import {
+  compareBlock,
+  menuBlock,
+  parseMenuCourses,
+  withMenuSchema,
+} from "@/server/ai/prompts/sommelier-menu";
 import {
   parseSommelierV7,
   SOMMELIER_SCHEMA_V7,
@@ -199,17 +213,24 @@ export function createSommelierService(deps: SommelierDeps) {
     if (quantities && (cards.length > 0 || answer.source === "ai")) {
       try {
         const guests = guestsIn(request.messages);
+        // A menu's wines are poured one after another (a small glass of a dessert wine or a port); any other
+        // answer's cards are alternatives, of which one is opened.
+        const courses = (answer.menu?.courses ?? []).flatMap((c) =>
+          c.vintageId !== null && byId.has(c.vintageId) ? [byId.get(c.vintageId)!] : [],
+        );
+        const pours = courses.length > 0 ? courses : cards;
         if (guests)
           out = {
             ...out,
             quantity: quantityFor(
               guests,
-              cards.map((c) => ({
+              pours.map((c) => ({
                 vintageId: c.vintageId,
                 count: c.count,
                 reserved: c.reserved?.count ?? 0,
+                ...(courses.length > 0 ? { small: smallPour(c.type) } : {}),
               })),
-              "alternatives",
+              courses.length > 0 ? "sequence" : "alternatives",
             ),
           };
       } catch {
@@ -394,6 +415,14 @@ export function createSommelierService(deps: SommelierDeps) {
 
       // Unknown language (the profile could not be read): English, as the app itself falls back.
       const [locale, personal] = await Promise.all([deps.locale().catch(() => "en"), taste()]);
+      // V1+ `menu`: a menu of several courses is put to the model as numbered courses, in this one call, and it
+      // answers with one wine per course; a follow-up about that menu gets it again as context. "The Barolo or the
+      // Chablis?" names two wines of the cellar: both are kept on the list and the model is asked to choose.
+      const menuOn = deps.parts !== undefined && hasSommelierPart(deps.parts, "menu") && !facts;
+      const menu = menuOn ? menuContext(request.messages) : null;
+      /** A menu said in this question is planned course by course; one from earlier is only context. */
+      const planning = menu !== null && !menu.fromHistory ? menu.menu : null;
+      const compare = menuOn && !planning ? compareRequest(question, items) : null;
       // V1+ `annotate`: a question about how to serve a wine or how long to keep it gets the app's own facts for
       // the wines it names, for the model to state as written (never its own temperature, time or years). First
       // which wines it is about, so they are on the list the model is shown; then their facts, with their profiles.
@@ -411,8 +440,8 @@ export function createSommelierService(deps: SommelierDeps) {
         question,
         facts
           ? new Set(facts.matches.map((m) => m.item.vintageId))
-          : servingAbout
-            ? new Set(servingAbout.vintageIds)
+          : servingAbout || compare
+            ? new Set([...(servingAbout?.vintageIds ?? []), ...(compare?.vintageIds ?? [])])
             : undefined,
       );
       const refOf = new Map([...digest.refs].map(([ref, item]) => [item.vintageId, ref]));
@@ -425,13 +454,23 @@ export function createSommelierService(deps: SommelierDeps) {
             { profiles: await profilesOf(seen, servingAbout.vintageIds), now: clock() },
           )
         : null;
-      const blocks = [serving?.text, guests ? guestsBlock(guests) : null].filter(
-        (block): block is string => typeof block === "string",
-      );
+      const compareRefs = compare
+        ? ([refOf.get(compare.vintageIds[0]), refOf.get(compare.vintageIds[1])] as const)
+        : null;
+      // What the app worked out for this question, for the model: the structure of the question first (a menu, a
+      // choice between two wines), then the facts (how to serve, who is coming).
+      const blocks = [
+        menu ? menuBlock(menu.menu, menu.fromHistory) : null,
+        compareRefs?.[0] && compareRefs[1] ? compareBlock([compareRefs[0], compareRefs[1]]) : null,
+        serving?.text,
+        guests ? guestsBlock(guests) : null,
+      ].filter((block): block is string => typeof block === "string");
       const factsText = facts ? cellarFactsText(facts, (id) => refOf.get(id) ?? null) : null;
       // V1+ `check`: prompt v7 has the model write a cellar wine as its ref (the app renders the name) and gives it
       // no place for a price; what it says is then checked claim by claim. Without the part: v6, exactly as before.
       const checking = deps.parts !== undefined && hasSommelierPart(deps.parts, "check");
+      const baseSchema = checking ? SOMMELIER_SCHEMA_V7 : SOMMELIER_SCHEMA;
+      const parseBase = checking ? parseSommelierV7 : parseSommelier;
       const result = await deps.llm.generateObject({
         task: "sommelier_chat",
         model: "chat",
@@ -445,9 +484,13 @@ export function createSommelierService(deps: SommelierDeps) {
           ...(blocks.length > 0 ? { blocks } : {}),
         }),
         schemaName: "sommelier_answer",
-        jsonSchema: checking ? SOMMELIER_SCHEMA_V7 : SOMMELIER_SCHEMA,
-        parse: checking ? parseSommelierV7 : parseSommelier,
-        maxOutputTokens: 900,
+        // Only a new menu extends the answer's shape (and its room): every other call sends V1's own schema.
+        jsonSchema: planning ? (withMenuSchema(baseSchema) as Record<string, unknown>) : baseSchema,
+        parse: (value: unknown) => ({
+          raw: parseBase(value),
+          courses: planning ? parseMenuCourses(value) : null,
+        }),
+        maxOutputTokens: planning ? menuMaxOutputTokens(900, planning.courses.length) : 900,
         timeoutMs: 30_000,
       });
       await deps
@@ -469,7 +512,7 @@ export function createSommelierService(deps: SommelierDeps) {
             : plain(items, question, why, await plainTaste());
       if (!result.ok) return fallback();
 
-      const checked = checkSommelierAnswer(result.value, digest);
+      const checked = checkSommelierAnswer(result.value.raw, digest);
       if (!checked) return fallback();
       observe?.model?.(result.usage.servedModel ?? result.usage.model);
       // For a question about the cellar the wines it named get their cards (and links) whatever the model pointed
@@ -483,18 +526,38 @@ export function createSommelierService(deps: SommelierDeps) {
       const about = serving
         ? items.filter((i) => serving.vintageIds.includes(i.vintageId)).map(toSommelierBottle)
         : null;
-      const bottles = checked.bottles.length > 0 ? checked.bottles : (named ?? about ?? []);
+      // The model's wine per course, each checked against the list it was shown. A plan that says nothing at all
+      // (no wine and no reason for any course) is not shown as one: the answer is then V1's ordinary one.
+      const planned = planning
+        ? checkMenuAnswer(result.value.courses ?? [], planning.courses, planning.cut, digest)
+        : null;
+      const coursed =
+        planned && planned.menu.courses.some((c) => c.vintageId !== null || c.why !== null)
+          ? planned
+          : null;
+      // The two wines asked about are the cards, the one the model would open first: but only when it pointed at
+      // one of them. A model that chose another wine altogether keeps its own cards (its choice is never replaced
+      // by the pair).
+      const compared =
+        compare && compareRefs?.[0] && compareRefs[1]
+          ? comparedCards(result.value.raw.bottle_refs, compare.vintageIds, items, digest)
+          : null;
+      const bottles = coursed
+        ? coursed.bottles
+        : compared && compared.length > 0
+          ? compared
+          : checked.bottles.length > 0
+            ? checked.bottles
+            : (named ?? about ?? []);
       // With the engines on, a verdict and buying advice only ever come from them: the model's own are dropped.
       // (Also with buying advice switched off: a model-made product and price is never shown beside the
       // engines. Buying advice then comes with `sommelier_buying`, as styles.)
       const buy = facts || deps.intelligence ? [] : checked.buy;
       // V1+ `check`: refs become the cellar's own names; a claim about the cellar that is not true, a price, a
-      // shop or an action is not shown. The wines V1 chose (the cards) are never changed by it.
-      const claims = checking
-        ? checkAnswerClaims({
-            text: checked.text,
-            bottles,
-            buy,
+      // shop or an action is not shown. The wines V1 chose (the cards) are never changed by it. The cellar is
+      // indexed once for the question, however many texts are checked against it.
+      const claim = checking
+        ? prepareAnswerCheck({
             digest,
             items,
             budget: request.budget ?? null,
@@ -502,6 +565,41 @@ export function createSommelierService(deps: SommelierDeps) {
             now: clock(),
           })
         : null;
+      const words = claim ? claim({ text: checked.text, bottles, buy }) : null;
+      // A menu's reasons are the model's words too: each is checked the same way, as words about that course's
+      // wine ("you have twelve of it"), and one that cannot be shown is left out (the course keeps its wine, which
+      // was checked against the list already). A reason never gets longer than a kept menu allows.
+      const reasons =
+        claim && coursed
+          ? coursed.menu.courses.map((course) => {
+              if (course.why === null) return { course, codes: [] as CheckCode[] };
+              const said = claim({
+                text: course.why,
+                bottles,
+                buy: [],
+                previous: items.find((i) => i.vintageId === course.vintageId) ?? null,
+              });
+              const why = said.text === null ? null : said.text.slice(0, MENU_WHY_MAX).trim();
+              return { course: { ...course, why: why || null }, codes: said.check.codes };
+            })
+          : null;
+      const menuAdvice = coursed
+        ? reasons
+          ? { ...coursed.menu, courses: reasons.map((r) => r.course) }
+          : coursed.menu
+        : null;
+      const found = new Set(reasons?.flatMap((r) => r.codes) ?? []);
+      const claims =
+        words && found.size > 0
+          ? {
+              ...words,
+              check: {
+                ...words.check,
+                text: words.check.text === "kept" ? ("trimmed" as const) : words.check.text,
+                codes: CHECK_CODES.filter((c) => words.check.codes.includes(c) || found.has(c)),
+              },
+            }
+          : words;
       // A question about the cellar itself whose words could not be shown: the counted facts say it, in the
       // app's own sentence (never "the one to look at" for a question of how many or where).
       if (claims?.check.text === "replaced" && facts)
@@ -514,6 +612,7 @@ export function createSommelierService(deps: SommelierDeps) {
         text: claims ? (claims.text ?? cardOnlyWords(locale, bottles, verdict)) : checked.text,
         basic: null,
         bottles,
+        ...(menuAdvice ? { menu: menuAdvice } : {}),
         verdict,
         buy: claims ? claims.buy : buy,
         ...(claims ? { check: claims.check } : {}),

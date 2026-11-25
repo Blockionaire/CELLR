@@ -3,6 +3,7 @@ import {
   buildTasteProfile,
   DomainError,
   NO_PREFERENCES,
+  isStoredAnswer,
   parseSommelierParts,
   SOMMELIER_PARTS,
   type SommelierParts,
@@ -63,7 +64,13 @@ const ask = (...texts: string[]) => ({
 function setup(
   options: {
     items?: CellarItem[];
-    answer?: RawSommelier | "invalid" | "unavailable" | "timeout" | "rate_limited" | "refused";
+    answer?:
+      | (RawSommelier & { courses?: unknown })
+      | "invalid"
+      | "unavailable"
+      | "timeout"
+      | "rate_limited"
+      | "refused";
     noAi?: boolean;
     spend?: () => Promise<void>;
     usageFails?: boolean;
@@ -776,9 +783,12 @@ describe("the sommelier and your own taste", () => {
 });
 
 describe("Sommelier V1+ parts (CELLR_SOMMELIER): a part that is not on, or not built, changes nothing", () => {
-  // `check`, `annotate` and `quantities` (P3–P5) are built: they have their own tests below. The others are not yet.
+  // `check`, `annotate`, `quantities` and `menu` (P3–P6) are built: they have their own tests below. `fallback`
+  // is not yet.
   const all = parseSommelierParts(
-    SOMMELIER_PARTS.filter((p) => !["check", "annotate", "quantities"].includes(p)).join(","),
+    SOMMELIER_PARTS.filter((p) => !["check", "annotate", "quantities", "menu"].includes(p)).join(
+      ",",
+    ),
   );
   const questions: Array<{ texts: string[]; mode?: "tonight" }> = [
     { texts: ["What goes with roast lamb?"] },
@@ -1497,4 +1507,356 @@ describe("Sommelier V1+ `check`, `annotate` and `quantities` together", () => {
     expect(a.answer.bottles).toEqual(c.answer.bottles);
     expect(q.answer.bottles).toEqual(c.answer.bottles);
   });
+});
+
+describe("Sommelier V1+ `menu` (P6): a wine per course, and a choice between two wines", () => {
+  const menuPart = parseSommelierParts("menu");
+  const MENU =
+    "Oysters to start, then roast lamb, and for dessert a chocolate fondant. Which wine with each course?";
+  const cellar = () => {
+    n = 0;
+    return [
+      item({ producer: "Bollinger", wineName: "Special Cuvée", type: "sparkling", year: null }),
+      item({ producer: "Château Margaux", wineName: "Pavillon Rouge" }),
+      item({ producer: "Antinori", wineName: "Tignanello", year: 2018 }),
+      item({ producer: "Taylor's", wineName: "Vintage Port", type: "fortified", year: 2000 }),
+    ];
+  };
+  const ref = (i: CellarItem) => i.vintageId.replace(/-/g, "").slice(0, 6);
+  const plan = (items: CellarItem[], courses: unknown) => ({
+    answer: "A menu that goes from bubbles to port.",
+    bottle_refs: [ref(items[0]!), ref(items[1]!), ref(items[3]!)],
+    verdict: "match" as const,
+    buy: [],
+    used_taste: false,
+    courses,
+  });
+
+  it("one call: the courses numbered in the message, the schema extended, and one checked wine per course", async () => {
+    const items = cellar();
+    const { service, state } = setup({
+      items,
+      parts: menuPart,
+      answer: plan(items, [
+        { course: 1, ref: ref(items[0]!), why: "Bubbles and brine." },
+        { course: 2, ref: ref(items[1]!), why: "Cabernet for the lamb." },
+        { course: 3, ref: ref(items[3]!), why: "Port loves chocolate." },
+      ]),
+    });
+    const answer = await service.ask(ask(MENU));
+    expect(state.requests).toHaveLength(1);
+    const request = state.requests[0]!;
+    expect(request.user).toContain("Menu (the person's courses, in the order they are served):");
+    expect(request.user).toMatch(/1\. .*oysters/i);
+    expect(request.user).toMatch(/2\. .*lamb/i);
+    expect(request.user).toMatch(/3\. .*chocolate fondant/i);
+    expect(request.user.indexOf("Menu (")).toBeLessThan(request.user.indexOf("Question:"));
+    expect((request.jsonSchema as { required: string[] }).required).toContain("courses");
+    expect(request.maxOutputTokens).toBeGreaterThan(900);
+    expect(request.system).toBe(setupSystem());
+    expect(answer.menu?.courses.map((c) => [c.vintageId, c.why, c.shared])).toEqual([
+      [items[0]!.vintageId, "Bubbles and brine.", false],
+      [items[1]!.vintageId, "Cabernet for the lamb.", false],
+      [items[3]!.vintageId, "Port loves chocolate.", false],
+    ]);
+    // The cards are the menu's wines, in the order of the meal.
+    expect(answer.bottles.map((b) => b.vintageId)).toEqual([
+      items[0]!.vintageId,
+      items[1]!.vintageId,
+      items[3]!.vintageId,
+    ]);
+    expect(answer.text).toBe("A menu that goes from bubbles to port.");
+  });
+
+  it("a wine the model made up for a course is never a card; a course without a wine says so; one wine for two courses is shared", async () => {
+    const items = cellar();
+    const { service } = setup({
+      items,
+      parts: menuPart,
+      answer: plan(items, [
+        { course: 1, ref: "nosuch", why: "An invented Chablis." },
+        { course: 2, ref: ref(items[1]!), why: "For the lamb." },
+        { course: 3, ref: ref(items[1]!), why: "Nothing sweeter is there." },
+        { course: 9, ref: ref(items[2]!), why: "No such course." },
+      ]),
+    });
+    const answer = await service.ask(ask(MENU));
+    expect(answer.menu?.courses.map((c) => [c.vintageId, c.shared])).toEqual([
+      [null, false],
+      [items[1]!.vintageId, true],
+      [items[1]!.vintageId, true],
+    ]);
+    expect(answer.bottles.map((b) => b.vintageId)).toEqual([items[1]!.vintageId]);
+    expect(JSON.stringify(answer)).not.toContain("nosuch");
+    expect(JSON.stringify(answer.menu)).not.toContain("invented Chablis");
+  });
+
+  it("a plan that comes back empty or broken is V1's ordinary answer, never an error", async () => {
+    for (const courses of [[], "nonsense", undefined, [{ course: "x" }]]) {
+      const items = cellar();
+      const { service } = setup({ items, parts: menuPart, answer: plan(items, courses) });
+      const answer = await service.ask(ask(MENU));
+      expect(answer.source).toBe("ai");
+      expect(answer).not.toHaveProperty("menu");
+      expect(answer.bottles).toHaveLength(3);
+    }
+  });
+
+  it("a follow-up about the menu gets it as context, with V1's own schema; a long conversation keeps it", async () => {
+    const items = cellar();
+    const { service, state } = setup({ items, parts: menuPart });
+    await service.ask(
+      ask(
+        MENU,
+        "Bollinger, Pavillon Rouge, then the port.",
+        "Is the Pavillon Rouge not too heavy for the lamb?",
+        "No, it suits it.",
+        "And if we add a cheese course?",
+        "Stay with the red.",
+        "Which of them should I open first?",
+      ),
+    );
+    const request = state.requests[0]!;
+    expect(request.user).toContain("Menu (context only:");
+    expect(request.user).toMatch(/2\. .*lamb/i);
+    expect(request.jsonSchema).toBe(SOMMELIER_SCHEMA);
+    expect(request.maxOutputTokens).toBe(900);
+  });
+
+  it("without the part a menu question is V1's, word for word; with it, a question that is no menu is too", async () => {
+    const off = setup({ items: cellar() });
+    await off.service.ask(ask(MENU));
+    const others = setup({
+      items: cellar(),
+      parts: parseSommelierParts("annotate,quantities,fallback"),
+    });
+    await others.service.ask(ask(MENU));
+    expect(JSON.stringify(others.state.requests)).toEqual(JSON.stringify(off.state.requests));
+    expect(off.state.requests[0]!.user).not.toContain("Menu (");
+
+    const v1 = setup({ items: cellar() });
+    await v1.service.ask(ask("What goes with roast lamb?"));
+    const on = setup({ items: cellar(), parts: menuPart });
+    await on.service.ask(ask("What goes with roast lamb?"));
+    expect(JSON.stringify(on.state.requests)).toEqual(JSON.stringify(v1.state.requests));
+  });
+
+  it("'the Tignanello or the Pavillon Rouge?': both are put to the model, and both are the cards, its choice first", async () => {
+    const items = cellar();
+    const { service, state } = setup({
+      items,
+      parts: menuPart,
+      answer: {
+        answer: "The Tignanello: more grip for the steak.",
+        bottle_refs: [ref(items[2]!)],
+        verdict: "match",
+        buy: [],
+        used_taste: false,
+      },
+    });
+    const answer = await service.ask(ask("The Tignanello or the Pavillon Rouge with the steak?"));
+    expect(state.requests).toHaveLength(1);
+    expect(state.requests[0]!.user).toContain(
+      "Compare: the person asks to choose between two wines from the cellar list:",
+    );
+    expect(state.requests[0]!.jsonSchema).toBe(SOMMELIER_SCHEMA);
+    expect(answer.bottles.map((b) => b.wineName)).toEqual(["Tignanello", "Pavillon Rouge"]);
+    expect(answer).not.toHaveProperty("menu");
+  });
+
+  it("a comparison the model answers with a third wine keeps the model's own card: its choice is never replaced by the pair", async () => {
+    const items = cellar();
+    const { service } = setup({
+      items,
+      parts: menuPart,
+      answer: {
+        answer: "Neither: the port is the one for this cheese.",
+        bottle_refs: [ref(items[3]!)],
+        verdict: "match",
+        buy: [],
+        used_taste: false,
+      },
+    });
+    const answer = await service.ask(ask("The Tignanello or the Pavillon Rouge with Stilton?"));
+    expect(answer.bottles.map((b) => b.wineName)).toEqual(["Vintage Port"]);
+  });
+
+  it("a postfix dessert is its own course, and a course whose wine was made up says that no wine could be chosen", async () => {
+    const items = cellar();
+    const { service, state } = setup({
+      items,
+      parts: menuPart,
+      answer: plan(items, [
+        { course: 1, ref: ref(items[0]!), why: "Bubbles and brine." },
+        { course: 2, ref: "nosuch", why: "An invented Barolo." },
+        { course: 3, ref: null, why: "Nothing sweet enough is in the cellar." },
+      ]),
+    });
+    const answer = await service.ask(
+      ask("Oysters to start, then roast lamb, and chocolate fondant for dessert. Which wines?"),
+    );
+    expect(state.requests[0]!.user).toMatch(/3\. .*chocolate fondant/i);
+    expect(answer.menu?.courses).toHaveLength(3);
+    expect(answer.menu?.courses[1]).toMatchObject({ vintageId: null, why: null, unchosen: true });
+    expect(answer.menu?.courses[2]).toMatchObject({
+      vintageId: null,
+      why: "Nothing sweet enough is in the cellar.",
+    });
+    expect(answer.menu?.courses[2]).not.toHaveProperty("unchosen", true);
+  });
+
+  it("a question about the cellar itself, and no model, are left as they were", async () => {
+    const items = cellar();
+    const facts = setup({ items, parts: menuPart });
+    await facts.service.ask(ask("How many bottles of Tignanello or Pavillon Rouge do I have?"));
+    expect(facts.state.requests[0]!.user).not.toContain("Compare:");
+    const none = setup({ items: cellar(), parts: menuPart, noAi: true });
+    const plain = await none.service.ask(ask(MENU));
+    expect(plain.source).toBe("basic");
+    expect(plain).not.toHaveProperty("menu");
+  });
+});
+
+/** V1's system prompt, as the service sends it without the `check` part. */
+function setupSystem() {
+  return SOMMELIER_SYSTEM;
+}
+
+describe("Sommelier V1+ `check` and `menu` together", () => {
+  const ref = (i: CellarItem) => i.vintageId.replace(/-/g, "").slice(0, 6);
+  const cellar = () => {
+    n = 0;
+    return [
+      item({ producer: "Bollinger", wineName: "Special Cuvée", type: "sparkling", year: null }),
+      item({ producer: "Château Margaux", wineName: "Pavillon Rouge", count: 3 }),
+      item({ producer: "Taylor's", wineName: "Vintage Port", type: "fortified", year: 2000 }),
+    ];
+  };
+  const MENU =
+    "Oysters to start, then roast lamb, and chocolate fondant for dessert. Which wine with each course?";
+
+  it("one call with prompt v7 and the courses; every reason is checked as words about its course's wine, and the answer can be kept", async () => {
+    const items = cellar();
+    const { service, state } = setup({
+      items,
+      parts: parseSommelierParts("check,menu"),
+      answer: {
+        answer: `From [[${ref(items[0]!)}]] to port. It all costs about €90.`,
+        bottle_refs: [],
+        verdict: "match",
+        buy: [],
+        used_taste: false,
+        courses: [
+          {
+            course: 1,
+            ref: ref(items[0]!),
+            why: `[[${ref(items[0]!)}]] and brine belong together.`,
+          },
+          { course: 2, ref: ref(items[1]!), why: "You have 12 bottles of it, so pour freely." },
+          { course: 3, ref: ref(items[2]!), why: "Port loves chocolate; about €40 at Sligro." },
+        ],
+      },
+    });
+    const answer = await service.ask(ask(MENU));
+    expect(state.requests).toHaveLength(1);
+    expect(state.requests[0]!.system).toBe(SOMMELIER_SYSTEM_V7);
+    expect((state.requests[0]!.jsonSchema as { required: string[] }).required).toContain("courses");
+    expect(JSON.stringify(state.requests[0]!.jsonSchema)).not.toContain("price");
+    expect(answer.text).toBe("From Bollinger Special Cuvée to port.");
+    expect(answer.menu?.courses.map((c) => [c.vintageId, c.why])).toEqual([
+      [items[0]!.vintageId, "Bollinger Special Cuvée and brine belong together."],
+      // Three bottles, not twelve: the reason goes, the wine (checked against the list) stays.
+      [items[1]!.vintageId, null],
+      [items[2]!.vintageId, null],
+    ]);
+    expect(answer.check?.text).toBe("trimmed");
+    expect(answer.check?.codes).toEqual(expect.arrayContaining(["wrong-count", "price"]));
+    expect(JSON.stringify(answer)).not.toMatch(/€|Sligro|12 bottles|\[\[/);
+    expect(isStoredAnswer(JSON.parse(JSON.stringify(answer)))).toBe(true);
+  });
+
+  it("a comparison with the check: both wines by their cellar names, the model's choice first", async () => {
+    const items = cellar();
+    const { service } = setup({
+      items,
+      parts: parseSommelierParts("check,menu"),
+      answer: {
+        answer: `[[${ref(items[1]!)}]] rather than [[${ref(items[2]!)}]] with the lamb.`,
+        bottle_refs: [ref(items[1]!)],
+        verdict: "match",
+        buy: [],
+        used_taste: false,
+      },
+    });
+    const answer = await service.ask(ask("The Pavillon Rouge or the Vintage Port with the lamb?"));
+    expect(answer.text).toBe(
+      "Château Margaux Pavillon Rouge 2015 rather than Taylor's Vintage Port 2000 with the lamb.",
+    );
+    expect(answer.bottles.map((b) => b.wineName)).toEqual(["Pavillon Rouge", "Vintage Port"]);
+    expect(answer.check).toEqual({ v: 1, text: "kept", codes: [] });
+  });
+});
+
+describe("Sommelier V1+ `menu` with `annotate` and `quantities` (and `check`)", () => {
+  const ref = (i: CellarItem) => i.vintageId.replace(/-/g, "").slice(0, 6);
+  const cellar = () => {
+    n = 0;
+    return [
+      item({
+        producer: "Bollinger",
+        wineName: "Special Cuvée",
+        type: "sparkling",
+        year: null,
+        count: 2,
+      }),
+      item({ producer: "Château Margaux", wineName: "Pavillon Rouge", count: 3 }),
+      item({
+        producer: "Taylor's",
+        wineName: "Vintage Port",
+        type: "fortified",
+        year: 2000,
+        count: 1,
+      }),
+    ];
+  };
+  const MENU =
+    "We will be 6 at dinner: oysters to start, then roast lamb, and chocolate fondant for dessert. Which wine with each course?";
+  const answer = (items: CellarItem[]) => ({
+    answer: `From [[${ref(items[0]!)}]] to port.`,
+    bottle_refs: [],
+    verdict: "match" as const,
+    buy: [],
+    used_taste: false,
+    courses: [
+      { course: 1, ref: ref(items[0]!), why: "Bubbles and brine." },
+      { course: 2, ref: ref(items[1]!), why: "Serve it at 22 °C for the lamb." },
+      { course: 3, ref: ref(items[2]!), why: "Port loves chocolate." },
+    ],
+  });
+
+  for (const parts of ["menu,annotate,quantities", "check,menu,annotate,quantities"])
+    it(`${parts}: one call; each course's wine gets its facts; the bottles are counted course by course; the answer can be kept`, async () => {
+      const items = cellar();
+      const { service, state } = setup({
+        items,
+        parts: parseSommelierParts(parts),
+        answer: answer(items),
+      });
+      const result = await service.ask(ask(MENU));
+      expect(state.requests).toHaveLength(1);
+      expect(state.requests[0]!.user).toContain("Menu (the person's courses");
+      expect(state.requests[0]!.user).toContain("- 6 people, a dinner.");
+      expect(result.menu?.courses.map((c) => c.vintageId)).toEqual(items.map((i) => i.vintageId));
+      // The cards are the menu's wines, each with the app's facts.
+      expect(result.annotations?.map((a) => a.vintageId)).toEqual(items.map((i) => i.vintageId));
+      // Poured one after another: a share per course, the port as a small glass, never fewer than one bottle each.
+      expect(result.quantity).toMatchObject({ guests: 6, mode: "sequence" });
+      expect(result.quantity?.wines.map((w) => w.vintageId)).toEqual(items.map((i) => i.vintageId));
+      expect(result.quantity?.wines[2]).toMatchObject({ needed: 1, available: 1, short: 0 });
+      expect(isStoredAnswer(JSON.parse(JSON.stringify(result)))).toBe(true);
+      if (parts.startsWith("check")) {
+        expect(state.requests[0]!.system).toBe(SOMMELIER_SYSTEM_V7);
+        expect(result.text).toBe("From Bollinger Special Cuvée to port.");
+      }
+    });
 });
