@@ -62,8 +62,8 @@ test("the existing view, lost and given back five times while adding: the same p
         .getExtension("WEBGL_lose_context")!
         .loseContext();
     });
+    // the notice stands over the picture (the existing view keeps its lost canvas under it until "Show 3D again")
     await expect(page.getByTestId("cellar-3d-lost")).toBeVisible();
-    await expect(canvas(page)).toHaveCount(0);
     await page.getByRole("button", { name: "Show 3D again" }).click();
     await expect(canvas(page)).toHaveAttribute("data-frames", /^[1-9]/, { timeout: 60_000 });
     // still adding, the placeholders back

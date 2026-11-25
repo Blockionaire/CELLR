@@ -40,6 +40,14 @@ async function household(page: Page, label: string, request: Parameters<typeof a
     );
     ids.push(id);
   }
+  // an empty cellar shows its invitation, not the views: a bottle on each place
+  const wine = (
+    (await call("post", "/wines", { producer: "Row", name: "Rouge", type: "red" }, 201)).body as {
+      id: string;
+    }
+  ).id;
+  for (const id of ids)
+    await call("post", "/bottles", { wineId: wine, year: 2017, quantity: 1, locationId: id }, 201);
   return ids;
 }
 
