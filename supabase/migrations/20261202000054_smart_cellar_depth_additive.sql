@@ -5,8 +5,9 @@
 -- (phase A); SPRINT-9-DEPTH-REPORT.md says what was tested.
 --
 -- ADDITIVE ONLY. Three new functions and one new trigger; nothing is dropped, replaced, or written:
---   1. public.move_bottle_v2           one bottle between whole spots, depth included (promoted, SQL unchanged,
---                                      from supabase/gated-migrations/smart_cellar_move_bottle_v2.sql, sprint 4)
+--   1. public.move_bottle_v2           one bottle between whole spots, depth included (promoted from
+--                                      supabase/gated-migrations/smart_cellar_move_bottle_v2.sql, sprint 4; one
+--                                      answer added in review: 'depth_not_enabled' instead of an error)
 --   2. public.smart_cellar_depth_status()   what the database says about depth, for the app's capability check:
 --                                      the switch, and which unique indexes are in force. Read-only, no rows.
 --   3. private.depth_occupancy_report()     for the owner only: every cell that holds more than one bottle and
@@ -31,6 +32,7 @@
 --   'stale'          it is not on p_from (all four fields; p_from_location NULL: it had no place). Nothing done.
 --   'taken'          another bottle holds the target (the unique index). Nothing done.
 --   'out_of_bounds'  not a spot of the target place (0043's bounds check). Nothing done.
+--   'depth_not_enabled'  (sprint 9) the target is past index 1 while the depth switch is off. Nothing done.
 --   'gone'           no longer in the cellar. 'not_found': not this household's (or not visible to the caller).
 -- Anything else is an error of the usual kind, and changes nothing.
 --
@@ -78,6 +80,8 @@ begin
     when unique_violation then return 'taken';
     when check_violation then
       if sqlerrm = 'slot_out_of_bounds' then return 'out_of_bounds'; end if;
+      -- the switch is off and the target is behind index 1 (bottles_location_depth, below): an answer, not an error
+      if sqlerrm = 'depth_not_enabled' then return 'depth_not_enabled'; end if;
       raise;
   end;
   return 'moved';

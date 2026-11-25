@@ -25,6 +25,16 @@ begin
   if crowded is not null then
     raise exception 'cells still hold more than one bottle, nothing was changed: %', crowded;
   end if;
+  -- WHO MUST BE TOLD: the record now says "front" while the bottle physically stands at the back. List the households
+  -- and places first (the owner tells them, e.g. "bring the bottle forward, or note it is at the back"); nothing here
+  -- sends anything.
+  for crowded in
+    select format('household %s, place %s: %s back bottle(s) recorded at the front', r.household_id, r.location_id, count(*))
+      from private.depth_occupancy_report() r where r.bottles = 1 and r.max_index > 1
+     group by r.household_id, r.location_id order by r.household_id, r.location_id
+  loop
+    raise notice 'depth collapse, tell: %', crowded;
+  end loop;
   -- one statement: each of these is alone in its cell, so index 1 there is free; the unique index checks it anyway
   update public.bottles b set loc_index = 1
    where b.status = 'in_cellar' and b.location_id is not null and b.loc_index > 1;

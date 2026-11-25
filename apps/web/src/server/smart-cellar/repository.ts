@@ -655,6 +655,11 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
           return { kind: "gone" };
         case "not_found":
           return { kind: "not_found" };
+        case "depth_not_enabled":
+          throw new DomainError(
+            "CONFLICT",
+            "More than one bottle per position isn't switched on yet.",
+          );
         case "stale": {
           // where it is now, so the caller can be told (as the person: RLS)
           const now = await readBottleSpot(householdId, bottleId);
