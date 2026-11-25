@@ -1,4 +1,4 @@
--- Shared racks (0052, ADR-010): every permission boundary, as the roles the API uses.
+-- Shared racks (0056, ADR-010): every permission boundary, as the roles the API uses.
 -- People: 1 Ann (owner of the rack), 2 Bob and 3 Cy (members, each with a household of their own), 4 Dee (never a
 -- member: the one who knows every id), 5 Eve (in Ann's HOUSEHOLD, not in the rack), 6 Fay (an invitation that
 -- expires), 7 Gus (a second rack, deleted accounts), 8 Hal (alone in a rack, then gone).

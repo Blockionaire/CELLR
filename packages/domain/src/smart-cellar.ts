@@ -256,8 +256,8 @@ export function revisionMicros(revision: string): number | null {
 /**
  * Whether two revisions name the same version: the same INSTANT to the microsecond, whatever offset or number of
  * fraction digits it is written with ("…10:00:00+00:00" and "…11:00:00+01:00" are one revision). Text that is not a
- * time is compared as text. Revisions are only ever compared for equality, never ordered: with migration 0051 a
- * place's revision strictly increases in commit order, but a database without 0051 (where the revision is just the
+ * time is compared as text. Revisions are only ever compared for equality, never ordered: with migration 0055 a
+ * place's revision strictly increases in commit order, but a database without 0055 (where the revision is just the
  * writing transaction's start time) gives no such guarantee, and equality needs none.
  */
 export function sameRevision(a: string, b: string): boolean {

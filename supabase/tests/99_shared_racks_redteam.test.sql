@@ -1,4 +1,4 @@
--- Shared racks (0052), red team: an independent QA pass (agent E) over every public function as a stranger, as the
+-- Shared racks (0056), red team: an independent QA pass (agent E) over every public function as a stranger, as the
 -- member of another rack, as someone without a household, as anon and the service role; direct access to the private
 -- tables; forged bottles; the projection; a revoked member; the history under the table owner; an account deleted;
 -- and the history replayed against the occupancy at the end. Two-session races are in scripts/db-shared-racks-*.sh.

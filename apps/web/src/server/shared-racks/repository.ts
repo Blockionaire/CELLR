@@ -24,7 +24,7 @@ type RackRecord = Functions["shared_racks"]["Returns"][number];
 type EventRecord = Functions["shared_rack_events"]["Returns"][number];
 
 /**
- * A database without the shared-rack step (migration 0052): PostgREST cannot find the function. ONLY these codes
+ * A database without the shared-rack step (migration 0056): PostgREST cannot find the function. ONLY these codes
  * mean that; a permission error, a timeout or anything else is passed on as what it is.
  * PGRST202: no such function in the schema cache · 42883: Postgres itself does not have it.
  */

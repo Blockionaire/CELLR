@@ -193,7 +193,7 @@ Not run: the full e2e suite (CI runs it), the perf specs' own benches (`PERF_*`)
 | 1   | `SpotMarkers` marked a placeholder chosen by row and column only: with two free indexes in a cell (depth), both would be gold                                                                                                                                                   | yes (latent while depth is off) | `sameSpot` (row, column, index; missing index = 1) in `model.ts`; `TemplateScene` passes the whole target. Unit test on a double-depth cell with index 1 and 2 free                                                                                                                                                                                                        |
 | 2   | One effect disposed geometry and material together, so crossing 120/400 spots threw away the still-used material and recompiled its program; the hover was an instance number that outlived a new list; a finger leaving set the mouse cursor; every hover rewrote every matrix | yes, all four                   | separate disposal (material lives as long as the placeholders); hover kept per list of spots; touch leaves the cursor alone; a hover recolours at most two instances and writes no matrix                                                                                                                                                                                  |
 | 3   | No test held the chosen tone or lift                                                                                                                                                                                                                                            | yes                             | debug readout `ghosts()` lists `chosen`, `hovered`, `lifted` spots; `rings()` says which ring is drawn. `storage-touch-aim`: after the tap exactly that spot is chosen, lifted, and the target ring is drawn                                                                                                                                                               |
-| 4   | The placeholders' instanced shader (tone per instance) was compiled on the first Add                                                                                                                                                                                            | yes                             | prewarmed with the others (`prewarmSet`, unit test); browser test: shader programs after the warm-up 30, after Add 30 on both projects (before this change Add added one program, as Sprint 7 §8 measured for the discs)                                                                                                                                                   |
+| 4   | The placeholders' instanced shader (tone per instance) was compiled on the first Add                                                                                                                                                                                            | yes                             | prewarmed with the others (`prewarmSet`, unit test). Browser test: 30 shader programs after the warm-up, 30 after Add. A removal tried during the final review did not change the flake (§9c) and was reverted                                                                                                                                                             |
 | 5   | Large racks only in opt-in benches                                                                                                                                                                                                                                              | yes                             | `storage-touch-aim` "a 450-spot rack half full…": 30 × 15, 225 bottles, 225 placeholders; loads within 45 s (software rendering budget), 0 frames at rest, the tap chooses exactly the spot (phone: via the aim help), no console error. Measured (headless shell, the CI browser): phone 22.1 s (8.2 s from the cellar page to the first picture), desktop 17.1 s (6.7 s) |
 
 Review-pass runs on the final tree (one build of `8f35b34`; later commits touch only this spec and this report),
@@ -256,6 +256,44 @@ Still for a physical device, in addition to §8:
 - The "tap again" line read aloud by VoiceOver and TalkBack.
 - No visible jump when a place loads over a slow network.
 - The existing view after an iOS memory-pressure loss with Quick Add open.
+
+## 9c. Final review (S-D1, S-D2)
+
+- **S-D1: changing place on desktop went flaky.** `smart-cellar-3d.spec.ts` "changing place…" failed 2 of 20
+  desktop repeats on the merged tree `9e7dae1`.
+  - **Mechanism, from the trace:**
+    - After the click on "Rack B" the chip is pressed, and the new place's bottles arrive within 0.2 s.
+    - The new stage is painted on the screencast 0.3 s after the click.
+    - Yet Playwright could not find `smart-3d-stage` for 5.2 s: an element on screen that a DOM query cannot see
+      means the page's main thread was blocked.
+    - Building the new scene compiles its shaders synchronously. SwiftShader has no parallel shader compilation, so
+      on a loaded runner that took about 5 s. The test asked with the default 5 s budget.
+  - **It is a race in the test, not a lost click or stale data.** The stage shows the new place's data as soon as the
+    page answers. This is the same load-time flake that Sprint 7 §7 already listed and that Agent A saw once without
+    any of this work.
+  - **What I tried first, and why it was not the cause:** removing the Quick Add placeholders' shader from the scene
+    warm-up (review item 4). Still 2 of 20 failed, so that change was reverted (commits `ddf1524`, `8825adf`).
+  - **Fix:** after the click, the test waits for the new stage with the same 60 s budget it already gives the first
+    picture (`drawn`). This is not a longer wait to hide a slower product: the same synchronous compile happens on
+    every first picture, which the spec already allows 60 s for.
+  - **`:743`** passed 20 of 20 in both of my repeat runs (on `9e7dae1` and on `ddf1524`); not reproduced.
+  - On a real GPU, shader compilation is much shorter. The device checklist (§8, row 12) covers switching places.
+- **S-D2: the glow strips' corner colours** were outside the cheaper `premium-look` check, because the glow is not
+  furniture and `buildStructure` gives it no colours. A new test checks every corner of every glow: exactly its zone's
+  light colour, never black, never anything else, with at least two lit templates checked. Mutation check: setting one
+  glow corner to black now fails it.
+
+Final-review runs, all with CI's headless shell, `--project=desktop`, `--repeat-each=10`, the two tests
+(`:466` "changing place…" and `:743`, now `:746`, "one place cannot be read…"):
+
+| Tree                                                                            | Result                                                                                          |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `9e7dae1` (merged tip, before)                                                  | 18 of 20: `:466` failed 2 of 10 (stage not found within 5 s), `:743` 10 of 10                   |
+| `ddf1524` (placeholder shader warm-up removed)                                  | 18 of 20: `:466` failed 2 of 10 again, so the warm-up was not the cause (reverted in `8825adf`) |
+| `7279199` (test waits with the first picture's budget), build of the final tree | `:466` 10 of 10; then both tests on the same build: **20 of 20**                                |
+
+On the same build of `7279199`, `playwright test smart-cellar-3d quick-add storage-product-layout storage-touch-aim`
+on phone + desktop: **109 passed, 13 skipped, 0 failed** (16.6 min).
 
 ## 10. Release and rollback
 

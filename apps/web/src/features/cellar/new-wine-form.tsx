@@ -7,6 +7,7 @@ import {
   ERROR_MESSAGES,
   WINE_COUNTRIES,
   WINE_TYPES,
+  type CatalogRecordPage,
   type CatalogSearchHit,
   type CreateWine,
   type WineField,
@@ -49,6 +50,22 @@ export function draftOfRecord(hit: CatalogSearchHit): NewWineDraft {
       : null,
     region: hit.region,
     recordId: hit.recordId,
+  };
+}
+
+/** The same, from a record's catalogue page ("Add to my cellar" there). */
+export function draftOfRecordPage(r: CatalogRecordPage): NewWineDraft {
+  return {
+    producer: r.producer,
+    name: r.name,
+    type: (WINE_TYPES as readonly string[]).includes(r.wineType ?? "")
+      ? (r.wineType as WineType)
+      : null,
+    countryCode: (WINE_COUNTRIES as readonly string[]).includes(r.countryCode ?? "")
+      ? r.countryCode
+      : null,
+    region: r.region,
+    recordId: r.recordId,
   };
 }
 

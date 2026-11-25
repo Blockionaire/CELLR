@@ -1139,6 +1139,7 @@ export type Database = {
           license: string;
           license_url: string | null;
           may_display: boolean;
+          may_display_ratings: boolean;
           may_store: boolean;
           modification_notice: string | null;
           name: string;
@@ -1161,6 +1162,7 @@ export type Database = {
           license: string;
           license_url?: string | null;
           may_display?: boolean;
+          may_display_ratings?: boolean;
           may_store?: boolean;
           modification_notice?: string | null;
           name: string;
@@ -1182,6 +1184,7 @@ export type Database = {
           license?: string;
           license_url?: string | null;
           may_display?: boolean;
+          may_display_ratings?: boolean;
           may_store?: boolean;
           modification_notice?: string | null;
           name?: string;
@@ -1194,6 +1197,127 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      catalog_rating_aggregates: {
+        Row: {
+          distribution: number[];
+          first_rated_month: string | null;
+          last_rated_month: string | null;
+          last_run_id: string;
+          provider_id: string;
+          rating_count: number;
+          rating_sum_half: number;
+          record_id: string;
+          updated_at: string;
+          vintage_year: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          distribution: number[];
+          first_rated_month?: string | null;
+          last_rated_month?: string | null;
+          last_run_id: string;
+          provider_id: string;
+          rating_count: number;
+          rating_sum_half: number;
+          record_id: string;
+          updated_at?: string;
+          vintage_year?: number | null;
+        };
+        Update: {
+          distribution?: number[];
+          first_rated_month?: string | null;
+          last_rated_month?: string | null;
+          last_run_id?: string;
+          provider_id?: string;
+          rating_count?: number;
+          rating_sum_half?: number;
+          record_id?: string;
+          updated_at?: string;
+          vintage_year?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_rating_aggregates_last_run_id_fkey";
+            columns: ["last_run_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_rating_runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "catalog_rating_aggregates_record";
+            columns: ["record_id", "provider_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_external_records";
+            referencedColumns: ["id", "provider_id"];
+          },
+        ];
+      };
+      catalog_rating_runs: {
+        Row: {
+          counts: NonNullable<Json>;
+          dataset_version: string;
+          expected_ratings: number;
+          expected_units: number;
+          file_counts: NonNullable<Json>;
+          finished_at: string | null;
+          id: string;
+          license: string;
+          method: string;
+          pilot: boolean;
+          provider_id: string;
+          retrieved_at: string;
+          rights_status: string;
+          source_sha256: string;
+          source_url: string | null;
+          started_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          counts?: NonNullable<Json>;
+          dataset_version: string;
+          expected_ratings: number;
+          expected_units: number;
+          file_counts?: NonNullable<Json>;
+          finished_at?: string | null;
+          id?: string;
+          license: string;
+          method: string;
+          pilot?: boolean;
+          provider_id: string;
+          retrieved_at: string;
+          rights_status: string;
+          source_sha256: string;
+          source_url?: string | null;
+          started_at?: string;
+        };
+        Update: {
+          counts?: NonNullable<Json>;
+          dataset_version?: string;
+          expected_ratings?: number;
+          expected_units?: number;
+          file_counts?: NonNullable<Json>;
+          finished_at?: string | null;
+          id?: string;
+          license?: string;
+          method?: string;
+          pilot?: boolean;
+          provider_id?: string;
+          retrieved_at?: string;
+          rights_status?: string;
+          source_sha256?: string;
+          source_url?: string | null;
+          started_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "catalog_rating_runs_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_providers";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       catalog_record_links: {
         Row: {
@@ -1528,6 +1652,193 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      community_review_moderation_log: {
+        Row: {
+          action: string;
+          actor: string;
+          created_at: string;
+          id: number;
+          reason: string;
+          review_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          action: string;
+          actor: string;
+          created_at?: string;
+          id?: never;
+          reason: string;
+          review_id?: string | null;
+        };
+        Update: {
+          action?: string;
+          actor?: string;
+          created_at?: string;
+          id?: never;
+          reason?: string;
+          review_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "community_review_moderation_log_review_id_fkey";
+            columns: ["review_id"];
+            isOneToOne: false;
+            referencedRelation: "community_reviews";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      community_review_reports: {
+        Row: {
+          created_at: string;
+          detail: string | null;
+          id: number;
+          reason: string;
+          reporter_id: string;
+          resolution: string | null;
+          resolved_at: string | null;
+          review_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          detail?: string | null;
+          id?: never;
+          reason: string;
+          reporter_id: string;
+          resolution?: string | null;
+          resolved_at?: string | null;
+          review_id: string;
+        };
+        Update: {
+          created_at?: string;
+          detail?: string | null;
+          id?: never;
+          reason?: string;
+          reporter_id?: string;
+          resolution?: string | null;
+          resolved_at?: string | null;
+          review_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "community_review_reports_review_id_fkey";
+            columns: ["review_id"];
+            isOneToOne: false;
+            referencedRelation: "community_reviews";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      community_reviews: {
+        Row: {
+          body: string | null;
+          id: string;
+          moderated_at: string | null;
+          moderated_by: string | null;
+          published_at: string;
+          score: number;
+          status: string;
+          status_reason: string | null;
+          subject_record_id: string | null;
+          subject_wine_id: string | null;
+          tasted_on: string;
+          tasting_id: string | null;
+          updated_at: string;
+          user_id: string;
+          vintage_year: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          body?: string | null;
+          id?: string;
+          moderated_at?: string | null;
+          moderated_by?: string | null;
+          published_at?: string;
+          score: number;
+          status?: string;
+          status_reason?: string | null;
+          subject_record_id?: string | null;
+          subject_wine_id?: string | null;
+          tasted_on: string;
+          tasting_id?: string | null;
+          updated_at?: string;
+          user_id: string;
+          vintage_year?: number | null;
+        };
+        Update: {
+          body?: string | null;
+          id?: string;
+          moderated_at?: string | null;
+          moderated_by?: string | null;
+          published_at?: string;
+          score?: number;
+          status?: string;
+          status_reason?: string | null;
+          subject_record_id?: string | null;
+          subject_wine_id?: string | null;
+          tasted_on?: string;
+          tasting_id?: string | null;
+          updated_at?: string;
+          user_id?: string;
+          vintage_year?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "community_reviews_subject_record_id_fkey";
+            columns: ["subject_record_id"];
+            isOneToOne: false;
+            referencedRelation: "catalog_external_records";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_reviews_subject_wine_id_fkey";
+            columns: ["subject_wine_id"];
+            isOneToOne: false;
+            referencedRelation: "wines";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_reviews_tasting_id_fkey";
+            columns: ["tasting_id"];
+            isOneToOne: true;
+            referencedRelation: "tastings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_reviews_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      community_settings_log: {
+        Row: {
+          actor: string;
+          created_at: string;
+          id: number;
+          open: boolean;
+          reason: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          actor: string;
+          created_at?: string;
+          id?: never;
+          open: boolean;
+          reason: string;
+        };
+        Update: {
+          actor?: string;
+          created_at?: string;
+          id?: never;
+          open?: boolean;
+          reason?: string;
+        };
+        Relationships: [];
       };
       drink_notices: {
         Row: {
@@ -3030,7 +3341,22 @@ export type Database = {
         Args: { p_actor: string; p_fields: Json; p_id: string };
         Returns: boolean;
       };
+      admin_community_open: {
+        Args: { p_actor: string; p_open: boolean; p_reason: string };
+        Returns: Json;
+      };
+      admin_community_review_queue: { Args: { p_limit?: number }; Returns: Json };
       admin_household_label_path: { Args: { p_image: string; p_wine: string }; Returns: string };
+      admin_moderate_community_review: {
+        Args: {
+          p_action: string;
+          p_actor: string;
+          p_moderator?: string;
+          p_reason: string;
+          p_review_id: string;
+        };
+        Returns: Json;
+      };
       admin_producer_update: {
         Args: {
           p_actor: string;
@@ -3250,14 +3576,41 @@ export type Database = {
       };
       catalog_provider_register: { Args: { p: Json }; Returns: string };
       catalog_purge_scan_reads: { Args: Record<PropertyKey, never>; Returns: number };
+      catalog_rating_import: {
+        Args: { p_apply?: boolean; p_provider: string; p_run_id: string; p_units: Json };
+        Returns: Json;
+      };
+      catalog_rating_run_abandon: { Args: { p_reason: string; p_run_id: string }; Returns: Json };
+      catalog_rating_run_finish: {
+        Args: { p_remove_missing: boolean; p_run_id: string };
+        Returns: Json;
+      };
+      catalog_rating_run_start: {
+        Args: {
+          p_expected_ratings: number;
+          p_expected_units: number;
+          p_file_counts?: Json;
+          p_method: string;
+          p_pilot?: boolean;
+          p_provider: string;
+          p_retrieved_at: string;
+          p_sha256: string;
+          p_source_url: string;
+          p_version: string;
+        };
+        Returns: string;
+      };
       catalog_record_confirmation: {
         Args: { p_image_id?: string; p_wine_id: string; p_year: number };
         Returns: string;
       };
+      catalog_record_page: { Args: { p_record_id: string }; Returns: Json };
       catalog_record_provenance: {
         Args: { p_household_id: string; p_record: string };
         Returns: Json;
       };
+      catalog_record_ratings: { Args: { p_record_id: string }; Returns: Json };
+      catalog_record_ratings_pilot: { Args: { p_record_id: string }; Returns: Json };
       catalog_record_scan_outcome: {
         Args: { p_image_id: string; p_wine_id: string; p_year: number };
         Returns: string;
@@ -3332,9 +3685,19 @@ export type Database = {
       };
       catalog_target_identity: { Args: Record<PropertyKey, never>; Returns: Json };
       catalog_vintage: { Args: { p_wine_id: string; p_year: number }; Returns: string };
+      catalog_wine_ratings: { Args: { p_household_id: string; p_wine_id: string }; Returns: Json };
       check_signup_allowed: { Args: { p_email: string }; Returns: boolean };
       claim_shared_profile_research: {
         Args: { p_language: string; p_ttl_seconds?: number; p_vintage_id: string };
+        Returns: Json;
+      };
+      community_is_open: { Args: Record<PropertyKey, never>; Returns: boolean };
+      community_reviews_for_record: {
+        Args: { p_limit?: number; p_record_id: string };
+        Returns: Json;
+      };
+      community_reviews_for_wine: {
+        Args: { p_household_id: string; p_limit?: number; p_wine_id: string };
         Returns: Json;
       };
       consume_rate_limit: {
@@ -3346,6 +3709,7 @@ export type Database = {
         Args: { p_household: string; p_max_uses?: number; p_ttl_hours?: number };
         Returns: string;
       };
+      delete_community_review: { Args: { p_review_id: string }; Returns: string };
       dismiss_bottle_photo_invite: { Args: Record<PropertyKey, never>; Returns: undefined };
       find_person: {
         Args: { p_query: string };
@@ -3426,6 +3790,7 @@ export type Database = {
       };
       join_household: { Args: { p_code: string }; Returns: string };
       merge_wines: { Args: { p_source: string; p_target: string }; Returns: number };
+      my_community_review: { Args: { p_tasting_id: string }; Returns: Json };
       my_friends: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -3494,6 +3859,10 @@ export type Database = {
         }[];
       };
       platform_metrics: { Args: { p_now?: string }; Returns: Json };
+      publish_community_review: {
+        Args: { p_body: string; p_consent: boolean; p_tasting_id: string };
+        Returns: Json;
+      };
       publish_shared_wine_profile: {
         Args: {
           p_generated_at: string;
@@ -3524,6 +3893,10 @@ export type Database = {
         Returns: boolean;
       };
       remove_friend: { Args: { p_user: string }; Returns: boolean };
+      report_community_review: {
+        Args: { p_detail?: string; p_reason: string; p_review_id: string };
+        Returns: string;
+      };
       respond_friend_request: { Args: { p_accept: boolean; p_id: string }; Returns: boolean };
       save_storage_layout: {
         Args: {

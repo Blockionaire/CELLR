@@ -274,7 +274,8 @@
         "vintage_listed": "Bron kent deze jaargang",
         "vintage_not_listed": "Bron noemt deze jaargang niet"
       },
-      "licenseLink": "Licentie: {license}"
+      "licenseLink": "Licentie: {license}",
+      "ratings": "Bekijk beoordelingen en reviews"
     },
     "review": {
       "wineTitle": "De wijn",
@@ -403,6 +404,91 @@
       "use": "Mijn smaak gebruiken",
       "profile": "Mijn smaakprofiel",
       "used": "Op basis van je smaakprofiel"
+    },
+    "annotate": {
+      "label": "Feiten uit je kelder",
+      "note": {
+        "trimmed": "Een serveerdetail in het antwoord week af van de eigen gegevens van je kelder en is weggelaten; de kaart toont ze.",
+        "replaced": "De serveerdetails in het antwoord weken af van de eigen gegevens van je kelder, dus het antwoord is weggelaten; de kaart toont ze."
+      },
+      "seeCard": "Hoe je hem serveert en wanneer je hem drinkt, staat op de kaart hieronder.",
+      "drink": {
+        "keep": "Bewaren: nog jong",
+        "improving": "Kan nu open, wordt nog beter",
+        "drink-now": "Nu op zijn best",
+        "drink-soon": "Binnenkort drinken",
+        "past-window": "Over zijn drinkvenster: drink hem snel",
+        "unknown": "Te weinig bekend om te zeggen wanneer je hem drinkt"
+      },
+      "window": {
+        "range": "{from}–{until}",
+        "until": "tot {until}",
+        "from": "vanaf {from}",
+        "estimated": "geschat {years}"
+      },
+      "windowBasis": {
+        "own": "je eigen drinkvenster",
+        "profile": "een schatting uit zijn profiel",
+        "style": "een schatting voor zijn stijl"
+      },
+      "serve": {
+        "temp": "{min}–{max} °C",
+        "tempAbout": "ongeveer {min}–{max} °C",
+        "fridge": "ongeveer {minutes} min in de koelkast",
+        "noChill": "koelen hoeft niet",
+        "decant": {
+          "no": "decanteren hoeft niet",
+          "air": "decanteer ongeveer {minutes} min",
+          "sediment": "kort voor het serveren voorzichtig van het depot decanteren",
+          "optional": "een karaf mag, hoeft niet"
+        },
+        "glass": {
+          "flute-or-tulip": "tulpglas of flûte",
+          "white": "wittewijnglas",
+          "large-white": "groot wittewijnglas",
+          "red": "rodewijnglas",
+          "large-red": "groot rodewijnglas",
+          "small": "klein glas"
+        },
+        "basis": {
+          "profile": "uit zijn profiel",
+          "style": "vuistregel",
+          "colour": "vuistregel voor zijn kleur"
+        },
+        "unknown": "Te weinig bekend over deze wijn om te zeggen hoe je hem serveert"
+      },
+      "reserved": {
+        "some": "{free} van {total} niet gereserveerd",
+        "all": "{count, plural, one {gereserveerd (de enige fles)} other {alle gereserveerd (#)}}"
+      },
+      "where": {
+        "places": "in {places}",
+        "unplaced": "{count, plural, one {# fles} other {# flessen}} zonder plek"
+      }
+    },
+    "quantity": {
+      "need": "Voor {guests, plural, one {# persoon} other {# personen}} {gathering}: ongeveer {needed, plural, one {# fles} other {# flessen}} in totaal ({basis}).",
+      "gathering": {
+        "dinner": "aan tafel",
+        "reception": "op een receptie",
+        "long-evening": "op een lange avond"
+      },
+      "basis": {
+        "dinner": "een schatting van een halve fles per persoon",
+        "reception": "een schatting van een derde fles per persoon",
+        "long-evening": "een schatting van driekwart fles per persoon"
+      },
+      "enough": "{wine}: {needed, plural, one {# fles} other {# flessen}} nodig, {available} vrij om te openen: genoeg.",
+      "short": "{wine}: {needed, plural, one {# fles} other {# flessen}} nodig, {available} vrij om te openen: {short} te weinig.",
+      "altEnough": "{wine}: {available} vrij om te openen, genoeg.",
+      "altShort": "{wine}: {available} vrij om te openen, {short} te weinig.",
+      "needMinimum": "Voor {guests, plural, one {# persoon} other {# personen}} {gathering}: één fles van elke wijn, {needed} in totaal (er blijft wijn over).",
+      "needRounded": "Voor {guests, plural, one {# persoon} other {# personen}} {gathering}: {needed} flessen in totaal, meer dan {share}, omdat elke wijn een hele fles is (er blijft wijn over).",
+      "share": {
+        "dinner": "een halve fles per persoon",
+        "reception": "een derde fles per persoon",
+        "long-evening": "driekwart fles per persoon"
+      }
     },
     "personalChips": {
       "love": "Waar zou ik vanavond van genieten?",
@@ -713,6 +799,11 @@
       "importTooBig": "Dat is meer dan we in één keer kunnen binnenhalen. Probeer een kleiner bestand.",
       "settingNotYet": "Deze instelling is nog niet beschikbaar.",
       "ratingTenths": "Een beoordeling gaat in tienden van een ster.",
+      "reviewNoLinks": "Een review mag geen links bevatten.",
+      "reviewInvalid": "Een review bevat geen links en is hoogstens 1500 tekens.",
+      "reviewNoScore": "Geef eerst sterren, deel hem dan.",
+      "reviewNoIdentity": "Deze wijn kan nog niet openbaar beoordeeld worden: CELLR kent hem niet als cataloguswijn.",
+      "reviewModerated": "Een moderator heeft naar je review van deze wijn gekeken, daarom kan hij niet meer veranderd worden.",
       "swapSelf": "Een fles kan niet met zichzelf van plek wisselen.",
       "swapGone": "Een van deze flessen is niet meer in de kelder of heeft geen plek. Er is niets veranderd.",
       "swapStale": "Een van deze flessen is net door iemand anders verplaatst. Er is niets veranderd.",
@@ -2829,5 +2920,104 @@
     "checkedNot": "Het is niet opgeslagen. Je kunt het opnieuw proberen.",
     "checkedOther": "Er staat nu een andere fles op die plek. Kies een andere plek.",
     "checkFailed": "We konden het nog steeds niet controleren. Probeer het zo opnieuw."
+  },
+  "ratingsPanel": {
+    "title": "Beoordelingen",
+    "howWeScore": "Hoe we scoren",
+    "vintageFilter": "Jaargang",
+    "allVintages": "Alle jaargangen",
+    "nv": "NV",
+    "emptyTitle": "Nog geen beoordelingen",
+    "emptyBody": "Niemand heeft {vintage} nog beoordeeld.",
+    "emptyBodyAll": "Niemand heeft deze wijn nog beoordeeld.",
+    "beFirst": "Deel als eerste je review",
+    "cellrScore": "CELLR-score",
+    "starsLabel": "{value} van de 5 sterren",
+    "basedOn": "{count, plural, one {Op basis van # beoordeling} other {Op basis van {formatted} beoordelingen}}",
+    "external": "Externe beoordelingen",
+    "community": "CELLR-community",
+    "count": "{count, plural, one {# beoordeling} other {{formatted} beoordelingen}}",
+    "distribution": "Hoe de beoordelingen verdeeld zijn",
+    "rowLabel": "{star, plural, one {# ster} other {# sterren}}: {count, plural, one {# beoordeling} other {{formatted} beoordelingen}}",
+    "reviewsTitle": "Reviews uit de CELLR-community",
+    "share": "Deel je review",
+    "reviewFilter": "Toon",
+    "filter": {
+      "all": "Alles",
+      "with_text": "Met tekst",
+      "mine": "Van mij"
+    },
+    "clearStars": "Alle sterren tonen",
+    "starsChip": "{star}★",
+    "noneYet": "Hier zijn nog geen reviews.",
+    "noneMine": "Je hebt hier nog geen review van gedeeld.",
+    "weightNote": "De CELLR-score telt elke CELLR-review vijf keer, en externe beoordelingen tot hoogstens 50. De aantallen zijn de echte aantallen.",
+    "member": "CELLR-lid",
+    "you": "Jij",
+    "edited": "bewerkt",
+    "remove": "Verwijderen",
+    "removed": "Je review is verwijderd.",
+    "report": "Melden",
+    "publishTitle": "Deel je review",
+    "publishBody": "Je sterren en, als je wilt, een paar woorden, voor iedereen die deze wijn bekijkt.",
+    "whichTasting": "Welke proeverij",
+    "yourScore": "Jouw score",
+    "scoreFromTasting": "Uit je proeverij",
+    "bodyLabel": "Je review (optioneel)",
+    "bodyPlaceholder": "Wat viel op? Graag geen links.",
+    "consent": "Ik publiceer deze review in de CELLR-community onder mijn weergavenaam. Ik kan hem altijd aanpassen of verwijderen.",
+    "privateStays": "Je privé-proefnotitie blijft privé: die wordt nooit gedeeld.",
+    "publish": "Publiceren",
+    "published": "Je review is gepubliceerd.",
+    "updated": "Je review is bijgewerkt.",
+    "status": {
+      "no_identity": "Deze wijn kan niet openbaar beoordeeld worden: CELLR kent hem niet als cataloguswijn.",
+      "no_score": "Geef eerst sterren."
+    },
+    "reportTitle": "Deze review melden",
+    "reportBody": "Onze moderatoren bekijken hem. Na drie meldingen is een review verborgen tot zij hebben gekeken.",
+    "reason": {
+      "spam": "Spam of reclame",
+      "offensive": "Beledigend",
+      "wrong_wine": "Over een andere wijn",
+      "not_a_review": "Geen review",
+      "other": "Iets anders"
+    },
+    "sendReport": "Melding versturen",
+    "reported": "Dank je. We kijken ernaar.",
+    "noneStars": "Hier zijn geen CELLR-reviews met {star}★.",
+    "edit": "Bewerk je review",
+    "editTitle": "Bewerk je review",
+    "saveChanges": "Wijzigingen opslaan",
+    "removeConfirm": "Ja, verwijderen",
+    "keep": "Laten staan",
+    "thisNv": "deze NV",
+    "theYear": "de {year}"
+  },
+  "aboutRatings": {
+    "title": "Beoordelingen en bronnen",
+    "intro": "Waar de beoordelingen in CELLR vandaan komen, en hoe de CELLR-score wordt berekend.",
+    "methodTitle": "De CELLR-score",
+    "method1": "Externe beoordelingen tellen elk één keer, tot hoogstens 50 in wat je bekijkt (één jaargang, of alle samen): de duizenden beoordelingen van een beroemde wijn overstemmen niet de rest.",
+    "method2": "Elke review uit de CELLR-community telt vijf keer. Met tien CELLR-reviews weegt de community even zwaar als elk aantal externe beoordelingen.",
+    "method3": "Een CELLR-score van 1–10 tonen we als sterren: de helft van de score (9 = 4,5 sterren).",
+    "method4": "Jaargangen worden nooit gemengd: 2019 wordt als 2019 beoordeeld, NV als NV. 'Alle jaargangen' telt de echte aantallen bij elkaar op.",
+    "method5": "We tonen altijd het echte aantal beoordelingen, en de externe en CELLR-gemiddelden apart. Zonder beoordelingen tonen we geen score.",
+    "externalTitle": "Externe beoordelingen",
+    "externalBody": "De externe beoordelingen zijn historische beoordelingen uit de X-Wines-dataset, per exacte wijn en jaargang. CELLR bewaart alleen totalen per wijn en jaargang, nooit wie wat beoordeelde. Beoordeelde iemand dezelfde wijn en jaargang vaker, dan telt alleen de laatste.",
+    "citation": "de Azambuja, R. X., Morais, A. J., & Filipe, V. (2023). X-Wines: A Wine Dataset for Recommender Systems and Machine Learning. Big Data and Cognitive Computing, 7(1), 20.",
+    "citationLink": "Lees het artikel",
+    "communityTitle": "De CELLR-community",
+    "communityBody": "Een CELLR-review is een proeverij die iemand zelf heeft gepubliceerd. De privénotitie blijft privé. Iemand heeft één review per wijn en jaargang; een tweede fles werkt die bij. Reviews kunnen gemeld worden, en onze moderatoren kunnen ze verbergen.",
+    "matchTitle": "Bij welke wijn een beoordeling hoort",
+    "matchBody": "Beoordelingen staan alleen bij de exacte wijn waar ze bij horen. Een wijn die je uit de catalogus toevoegde en daarna een andere naam gaf, toont ze niet meer: dan weten we het niet meer zeker."
+  },
+  "catalogRecord": {
+    "addToCellar": "Toevoegen aan mijn kelder",
+    "from": "Uit de catalogus",
+    "vintages": "Jaargangen",
+    "modified": "Namen genormaliseerd door CELLR",
+    "notFound": "Deze wijn staat niet in de catalogus.",
+    "nv": "NV"
   }
 }

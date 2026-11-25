@@ -26,14 +26,14 @@ import {
  * - the actor: who did a thing (`SharedRackEventView.actor`). The taker of a bottle is the actor of
  *   `bottle_taken_out`; the consumer is the actor of `bottle_opened`.
  *
- * Nothing here writes. The database decides in the end (migration 0052): these rules exist so that a screen can
+ * Nothing here writes. The database decides in the end (migration 0056): these rules exist so that a screen can
  * show what is possible and a person is told plainly, before the database is asked.
  */
 
 /** The version of this representation. A client that does not know a newer one must not guess it. */
 export const SHARED_RACKS_API_VERSION = 1;
 
-/** The limits the database enforces (0052). Here so a screen can say them. */
+/** The limits the database enforces (0056). Here so a screen can say them. */
 export const SHARED_RACK_LIMITS = {
   nameLength: 60,
   members: 12,
@@ -615,5 +615,5 @@ export interface SharedRackMoveResult {
   to: SharedRackSpot;
 }
 
-/** What the Shared Racks API answers on a database without its step (migration 0052). */
+/** What the Shared Racks API answers on a database without its step (migration 0056). */
 export const SHARED_RACKS_NOT_SET_UP = "Shared racks aren't set up on this server yet.";

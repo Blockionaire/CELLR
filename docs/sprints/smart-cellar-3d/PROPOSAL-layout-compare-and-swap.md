@@ -1,9 +1,9 @@
 # Proposal — compare-and-swap for layout saves (`save_storage_layout_v2`)
 
-Status: **implemented in migration 0051** (`supabase/migrations/20261129000051_smart_cellar_layout_cas.sql`, Smart
+Status: **implemented in migration 0055** (`supabase/migrations/20261203000055_smart_cellar_layout_cas.sql`, Smart
 Cellar 3D sprint 8, 2026-11-23), **not applied to production** (`docs/MIGRATIONS.md`). What was kept from this
 proposal, what was changed and why, the tests and the release order: `SPRINT-8-LAYOUT-CAS-REPORT.md`. In short: the
-function below is in 0051 as written; 0051 adds a trigger that keeps the revision strictly increasing (a revision is
+function below is in 0055 as written; 0055 adds a trigger that keeps the revision strictly increasing (a revision is
 `now()`, the transaction's start, which does not move within a transaction and can go back with the clock); and the
 app finds the function by calling it (PostgREST's "no such function", PGRST202, then falls back to 0045), not by the
 description, which hosted Supabase no longer gives. The text below is the proposal as it was reviewed (sprint 3).

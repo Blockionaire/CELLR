@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared racks (migration 0052): every constraint of its tables must read the same after a dump and a restore.
+# Shared racks (migration 0056): every constraint of its tables must read the same after a dump and a restore.
 #
 # The backup rehearsal (scripts/db-backup/rehearse-restore.sh, CI job "backup-recovery") compares the schema of a
 # restored database with its source, constraint definitions included. Postgres stores a CHECK as a parsed tree and

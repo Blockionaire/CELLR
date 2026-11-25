@@ -249,9 +249,9 @@ export function createSmartCellarService({
      *
      * `expectedRevision` (sprint 3): the revision the person's draft started from. When given and no longer the
      * place's, nothing is saved (409). Checked twice: here first (it answers sooner and costs one read), and then by
-     * the database, under the place's row lock (save_storage_layout_v2, migration 0051), so a save that lands between
+     * the database, under the place's row lock (save_storage_layout_v2, migration 0055), so a save that lands between
      * this check and the database call no longer wins: it is 'stale' there too, the same 409. On a database without
-     * 0051 only the check here is made, as before 0051, and that window stays open (SPRINT-8-LAYOUT-CAS-REPORT).
+     * 0055 only the check here is made, as before 0055, and that window stays open (SPRINT-8-LAYOUT-CAS-REPORT).
      */
     /**
      * Where this bottle could go, ranked and explained (sprint 5; ADR-009). Read-only: nothing is written or kept. Every

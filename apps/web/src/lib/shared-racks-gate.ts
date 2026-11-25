@@ -4,7 +4,7 @@ import { writeTargetIn } from "./smart-cellar-write-target";
 /**
  * Whether the Shared Racks API (/api/v1/shared-racks, ADR-010) answers in this deployment, and whether it may write.
  * A gate of its own, decided on the server: nothing the browser holds opens it, and the database having the
- * shared-rack step (migration 0052) switches NOTHING on. Only this does.
+ * shared-rack step (migration 0056) switches NOTHING on. Only this does.
  *
  * ONE SETTING, CELLR_SHARED_RACKS, read on the server only. OPEN only when it is exactly "1" AND the deployment is
  * one where unreleased work may be shown:

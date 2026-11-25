@@ -1,7 +1,7 @@
 # ADR-010 — Shared racks: one physical rack, several households, every bottle its own owner
 
 Status: accepted for the foundation (2026-11-23). Builds on ADR-001 (slot identity), ADR-005 (API conventions) and
-ADR-008 (conditional moves). Migration `20261130000052_shared_racks.sql`; **not applied to production**, and every
+ADR-008 (conditional moves). Migration `20261204000056_shared_racks.sql`; **not applied to production**, and every
 route is closed there (§9).
 
 ## 1. The problem
@@ -251,7 +251,7 @@ service role and the database owner (operators), who are trusted as everywhere i
 ## 14. After the independent security review
 
 The review (red-team suite `supabase/tests/99_shared_racks_redteam.test.sql`, kept in the repository) found no
-blocker. These were changed in migration 0052 itself (it is applied nowhere):
+blocker. These were changed in migration 0056 itself (it is applied nowhere):
 
 - **S1 Who is named in the history.** The trigger on `bottles` and `shared_rack_withdraw_bottle` wrote `auth.uid()`
   as the actor, also for someone of the owner's household who never joined the rack. Now the actor is recorded only

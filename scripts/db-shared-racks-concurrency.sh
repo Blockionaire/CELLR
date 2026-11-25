@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared racks (migration 0052, ADR-010) under real concurrency: separate database sessions at the same moment, as
+# Shared racks (migration 0056, ADR-010) under real concurrency: separate database sessions at the same moment, as
 # signed-in people of DIFFERENT households (role `authenticated`), each one request per transaction like PostgREST,
 # committing for real. Only the public functions are called: there is no other way in.
 #

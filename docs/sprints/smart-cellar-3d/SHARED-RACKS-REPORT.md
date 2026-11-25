@@ -8,7 +8,7 @@ tests. **No product screen. Nothing is applied to or opened on production.**
 
 | Part             | Where                                                                                     | What it is                                                                                                                                                                      |
 | ---------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Database         | `supabase/migrations/20261130000052_shared_racks.sql`                                     | Five tables in `private` (RLS on, no policy, no grant), 21 functions in `public` (the only way in), 12 private helpers and trigger functions, two triggers on `public.bottles`. |
+| Database         | `supabase/migrations/20261204000056_shared_racks.sql`                                     | Five tables in `private` (RLS on, no policy, no grant), 21 functions in `public` (the only way in), 12 private helpers and trigger functions, two triggers on `public.bottles`. |
 | Permission suite | `supabase/tests/99_shared_racks.test.sql`                                                 | 178 assertions, as the API's roles.                                                                                                                                             |
 | Concurrency      | `scripts/db-shared-racks-concurrency.sh` (`pnpm db:test:shared-racks`, CI job `database`) | Real sessions of people from different households; the history is replayed to the occupancy after every step.                                                                   |
 | Domain           | `packages/domain/src/shared-racks.ts`                                                     | Views, zod schemas, the permission matrix and lifecycle rules as pure functions, the event vocabulary, a replay of a history.                                                   |
@@ -86,7 +86,7 @@ The types are in `packages/domain/src/shared-racks.ts`. For the UI and the 3D vi
   label is drawn from the names.
 - `SharedRackEventView`: `seq`, `type`, `occurredAt`, `actor`, `owner`, `subject`, `placementId`, `bottleId` (own
   bottles only), `wine` snapshot, `from`, `to`, `detail`.
-- A database without migration 0052 answers every route 404 with "Shared racks aren't set up on this server yet."
+- A database without migration 0056 answers every route 404 with "Shared racks aren't set up on this server yet."
 
 ## 4. Database functions and who may call them
 

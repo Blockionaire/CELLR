@@ -54,6 +54,10 @@ export function assertSafeTarget(
   for (const prod of PRODUCTION_PROJECT_REFS)
     if (host.includes(prod) || user.includes(prod) || url.toLowerCase().includes(prod))
       throw new Error("refusing the production project: these tools never write to production");
+  // the driver lets query parameters (host, user, port, …) override the URL checked here: only sslmode is accepted
+  const extra = [...u.searchParams.keys()].filter((k) => k !== "sslmode");
+  if (extra.length > 0)
+    throw new Error(`refusing: the database URL may not carry ${extra.join(", ")}`);
   if (LOCAL_HOSTS.has(host)) return { local: true, ref: null };
   if (args["allow-remote-staging"] !== undefined)
     throw new Error(
