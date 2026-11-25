@@ -15,6 +15,8 @@ import {
   type TonightView,
 } from "@cellr/domain";
 import type { GenerateObjectRequest, LlmProvider } from "@/server/ai/types";
+import { SOMMELIER_SCHEMA, SOMMELIER_SYSTEM } from "@/server/ai/prompts/sommelier";
+import { SOMMELIER_SCHEMA_V7, SOMMELIER_SYSTEM_V7 } from "@/server/ai/prompts/sommelier-v7";
 import { createSommelierService, type SommelierDeps } from "./service";
 
 let n = 0;
@@ -763,8 +765,9 @@ describe("the sommelier and your own taste", () => {
   });
 });
 
-describe("Sommelier V1+ parts (CELLR_SOMMELIER, P2): none changes an answer yet", () => {
-  const all = parseSommelierParts(SOMMELIER_PARTS.join(","));
+describe("Sommelier V1+ parts (CELLR_SOMMELIER): a part that is not on, or not built, changes nothing", () => {
+  // `check` (P3) is built: it has its own tests below. The others are not yet.
+  const all = parseSommelierParts(SOMMELIER_PARTS.filter((p) => p !== "check").join(","));
   const questions: Array<{ texts: string[]; mode?: "tonight" }> = [
     { texts: ["What goes with roast lamb?"] },
     { texts: ["How many bottles of red do I have?"] },
@@ -774,12 +777,12 @@ describe("Sommelier V1+ parts (CELLR_SOMMELIER, P2): none changes an answer yet"
   const variants: Array<[string, SommelierParts | undefined]> = [
     ["absent", undefined],
     ["empty", parseSommelierParts("")],
-    ["every part", all],
+    ["every part that is not built", all],
     ["an unknown name", parseSommelierParts("all,bogus")],
   ];
   for (const noAi of [false, true]) {
     for (const q of questions) {
-      it(`${noAi ? "without" : "with"} a model: "${q.texts.at(-1)}" is answered the same with the parts ${variants.map((v) => v[0]).join(", ")}`, async () => {
+      it(`${noAi ? "without" : "with"} a model: "${q.texts.at(-1)}" is answered the same with ${variants.map((v) => v[0]).join(", ")}`, async () => {
         const results = [];
         for (const [, parts] of variants) {
           n = 0; // the same cellar ids for every variant
@@ -799,4 +802,225 @@ describe("Sommelier V1+ parts (CELLR_SOMMELIER, P2): none changes an answer yet"
       });
     }
   }
+});
+
+describe("Sommelier V1+ `check` (P3): what the answer says is checked against the cellar", () => {
+  const check = parseSommelierParts("check");
+  const cellar = () => {
+    n = 0;
+    return [
+      item({ producer: "Château Margaux", wineName: "Pavillon Rouge", count: 3 }),
+      item({ producer: "Bollinger", wineName: "Special Cuvée", type: "sparkling", year: null }),
+      item({ producer: "Antinori", wineName: "Tignanello", year: 2018, count: 6 }),
+    ];
+  };
+  const ref = (i: CellarItem) => i.vintageId.replace(/-/g, "").slice(0, 6);
+  const raw = (over: Partial<RawSommelier> & { answer: string }): RawSommelier => ({
+    bottle_refs: [],
+    verdict: "match",
+    buy: [],
+    used_taste: false,
+    ...over,
+  });
+  const world = (answer: (items: CellarItem[]) => RawSommelier, parts = check) => {
+    const items = cellar();
+    return setup({ items, answer: answer(items), parts });
+  };
+
+  it("asks with prompt v7 and its schema without a price; without the part with v6, and the question is put the same", async () => {
+    const on = world(() => raw({ answer: "Fine." }));
+    await on.service.ask(ask("What goes with roast lamb?"));
+    const off = world(() => raw({ answer: "Fine." }), parseSommelierParts(""));
+    await off.service.ask(ask("What goes with roast lamb?"));
+    expect(on.state.requests[0]!.system).toBe(SOMMELIER_SYSTEM_V7);
+    expect(on.state.requests[0]!.jsonSchema).toBe(SOMMELIER_SCHEMA_V7);
+    expect(JSON.stringify(SOMMELIER_SCHEMA_V7)).not.toContain("price");
+    expect(off.state.requests[0]!.system).toBe(SOMMELIER_SYSTEM);
+    expect(off.state.requests[0]!.jsonSchema).toBe(SOMMELIER_SCHEMA);
+    expect(on.state.requests[0]!.user).toBe(off.state.requests[0]!.user);
+    expect(on.state.requests).toHaveLength(1);
+  });
+
+  it("a ref in the words becomes the cellar's own name and vintage; the wines chosen are V1's", async () => {
+    const { service, items } = world((items) =>
+      raw({
+        answer: `Open [[${ref(items[0]!)}]] with the lamb; [[${ref(items[2]!)}]] would be too firm.`,
+        bottle_refs: [ref(items[0]!)],
+      }),
+    );
+    const answer = await service.ask(ask("What goes with roast lamb?"));
+    expect(answer.text).toBe(
+      "Open Château Margaux Pavillon Rouge 2015 with the lamb; Antinori Tignanello 2018 would be too firm.",
+    );
+    expect(answer.check).toEqual({ v: 1, text: "kept", codes: [] });
+    expect(answer.bottles.map((b) => b.vintageId)).toEqual([items[0]!.vintageId]);
+    expect(answer.verdict).toBe("match");
+  });
+
+  it.each([
+    [
+      "a ref that is not on the list",
+      (i: CellarItem[]) => `Open [[zz99zz]] or [[${ref(i[0]!)}]].`,
+      "unknown-ref",
+    ],
+    [
+      "a wine presented as owned that is not in the cellar",
+      () => "Your Sassicaia 2016 is perfect with this.",
+      "not-in-cellar",
+    ],
+    [
+      "a vintage the cellar does not have",
+      () => "Open your Tignanello 2012 tonight.",
+      "wrong-vintage",
+    ],
+    [
+      "a number of bottles the cellar does not hold",
+      () => "You have nine bottles of Tignanello, so open one.",
+      "wrong-count",
+    ],
+  ] as const)(
+    "%s: the words are replaced, the cards and the verdict stay",
+    async (_name, words, code) => {
+      const { service, items } = world((items) =>
+        raw({ answer: words(items), bottle_refs: [ref(items[2]!)], verdict: "partial" }),
+      );
+      const answer = await service.ask(ask("What goes with roast lamb?"));
+      expect(answer.source).toBe("ai");
+      // One sentence made from the first card and the verdict; never the model's words, and never empty.
+      expect(answer.text).toBe(
+        "Antinori Tignanello 2018 from your cellar will do, though it is not ideal.",
+      );
+      expect(answer.check).toEqual({ v: 1, text: "replaced", codes: [code] });
+      expect(answer.bottles.map((b) => b.vintageId)).toEqual([items[2]!.vintageId]);
+      expect(answer.verdict).toBe("partial");
+      // Nothing of the removed words is anywhere in what the screen is sent.
+      expect(JSON.stringify(answer)).not.toMatch(/Sassicaia|2012|nine|zz99zz/);
+    },
+  );
+
+  it("comparing wines and talking about a wine the person does not own is kept", async () => {
+    const words =
+      "A Barolo would be the classic choice, but you have none. Of what is there, the Tignanello suits the lamb better than the Pavillon Rouge.";
+    const { service } = world(() => raw({ answer: words, verdict: "partial" }));
+    const answer = await service.ask(ask("What goes with roast lamb?"));
+    expect(answer.text).toBe(words);
+    expect(answer.check).toEqual({ v: 1, text: "kept", codes: [] });
+  });
+
+  it("a price or a shop in the words is left out; the rest of the answer stays", async () => {
+    const { service } = world(() =>
+      raw({
+        answer:
+          "Nothing here suits oysters. A Chablis would be ideal. It costs about €25 at Gall & Gall.",
+        verdict: "none",
+      }),
+    );
+    const answer = await service.ask(ask("What goes with oysters?"));
+    expect(answer.text).toBe("Nothing here suits oysters. A Chablis would be ideal.");
+    expect(answer.check?.text).toBe("trimmed");
+    expect(answer.check?.codes).toEqual(expect.arrayContaining(["price"]));
+    expect(JSON.stringify(answer)).not.toMatch(/€|Gall/);
+  });
+
+  it("something to buy never carries the model's price: the person's own budget band, or not known", async () => {
+    const buying = () =>
+      raw({
+        answer: "Nothing here suits oysters.",
+        verdict: "none",
+        buy: [
+          { wine: "Chablis, e.g. William Fèvre", why: "Lean and mineral.", price: "about €22" },
+          { wine: "Muscadet", why: "Crisp, and only €12 a bottle.", price: "" },
+          { wine: "Antinori Tignanello 2018", why: "A classic.", price: "" },
+        ],
+      });
+    const banded = world(buying);
+    const answer = await banded.service.ask({
+      ...ask("What goes with oysters?"),
+      mode: "tonight",
+      budget: "mid",
+    });
+    expect(answer.buy).toEqual([
+      {
+        wine: "Chablis, e.g. William Fèvre",
+        why: "Lean and mineral.",
+        price: "",
+        priceBand: [15, 30],
+      },
+      { wine: "Muscadet", why: "Crisp.", price: "", priceBand: [15, 30] },
+    ]);
+    // A wine that is in the cellar is not something to buy.
+    expect(answer.check?.codes).toEqual(expect.arrayContaining(["owned-buy"]));
+    expect(JSON.stringify(answer)).not.toContain("€");
+    const open = world(buying);
+    const noBudget = await open.service.ask(ask("What goes with oysters?"));
+    expect(noBudget.buy?.map((b) => b.priceBand)).toEqual([null, null]);
+  });
+
+  it("without the part the same answer is shown as V1 shows it, price and all", async () => {
+    const { service } = world(
+      () =>
+        raw({
+          answer: "Your Sassicaia 2016 is perfect. It costs about €25.",
+          buy: [{ wine: "Chablis", why: "Lean.", price: "about €22" }],
+          verdict: "none",
+        }),
+      parseSommelierParts("annotate,quantities,menu,fallback"),
+    );
+    const answer = await service.ask(ask("What goes with oysters?"));
+    expect(answer.text).toBe("Your Sassicaia 2016 is perfect. It costs about €25.");
+    expect(answer.buy).toEqual([{ wine: "Chablis", why: "Lean.", price: "about €22" }]);
+    expect(answer).not.toHaveProperty("check");
+  });
+
+  it("a question about the cellar: the counted numbers may be said; words that cannot be shown give the counted answer", async () => {
+    const counted = world(() =>
+      raw({ answer: "You have 6 bottles of Tignanello.", verdict: "not_pairing" }),
+    );
+    const said = await counted.service.ask(ask("How many bottles of Tignanello do I have?"));
+    expect(said.text).toBe("You have 6 bottles of Tignanello.");
+    expect(said.check).toEqual({ v: 1, text: "kept", codes: [] });
+
+    const wrong = world(() =>
+      raw({ answer: "You have 60 bottles of Tignanello.", verdict: "not_pairing" }),
+    );
+    const answer = await wrong.service.ask(ask("How many bottles of Tignanello do I have?"));
+    expect(answer.check).toEqual({ v: 1, text: "replaced", codes: ["wrong-count"] });
+    // The app's own counted sentence, not the model's and not a sentence about a card.
+    expect(answer).toMatchObject({ source: "basic", basic: "facts", text: null, reason: null });
+    expect(answer.facts).toMatchObject({ matchedBottles: 6 });
+  });
+
+  it("in Dutch, and at the end of a long conversation, the same rules hold", async () => {
+    const history = Array.from({ length: 11 }, (_, i) =>
+      i % 2 === 0 ? `Vraag ${i} over de Tignanello 2018` : `Antwoord ${i}: open de Tignanello.`,
+    );
+    const good = world((items) =>
+      raw({ answer: `Schenk [[${ref(items[2]!)}]] bij het lam.`, bottle_refs: [ref(items[2]!)] }),
+    );
+    const kept = await good.service.ask({ messages: ask(...history, "En bij lam?").messages });
+    expect(kept.text).toBe("Schenk Antinori Tignanello 2018 bij het lam.");
+    const bad = world(() => raw({ answer: "Je hebt nog negen flessen Tignanello liggen." }));
+    const replaced = await bad.service.ask({ messages: ask(...history, "En bij lam?").messages });
+    expect(replaced.check).toEqual({ v: 1, text: "replaced", codes: ["wrong-count"] });
+    expect(replaced.text).toMatch(/^.+ from your cellar/);
+  });
+
+  it("an empty cellar and an answer that fails V1's own check behave as before", async () => {
+    const empty = setup({
+      items: [],
+      answer: raw({
+        answer: "Buy a Chablis.",
+        verdict: "none",
+        buy: [{ wine: "Chablis", why: "Lean.", price: "" }],
+      }),
+      parts: check,
+    });
+    const tonight = await empty.service.ask({ ...ask("Oysters tonight"), mode: "tonight" });
+    expect(tonight).toMatchObject({ source: "ai", text: "Buy a Chablis.", bottles: [] });
+    expect(tonight.buy).toEqual([{ wine: "Chablis", why: "Lean.", price: "", priceBand: null }]);
+    const blank = world(() => raw({ answer: "  " }));
+    const fallback = await blank.service.ask(ask("What goes with a steak?"));
+    expect(fallback).toMatchObject({ source: "basic", reason: "ai-down" });
+    expect(fallback).not.toHaveProperty("check");
+  });
 });

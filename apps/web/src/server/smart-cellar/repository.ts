@@ -13,6 +13,7 @@ import {
 import type { Db } from "@/server/db/clients";
 import { isMissingTable, mapDbError, missingColumn } from "@/server/db/errors";
 import { allRows } from "@/server/db/paging";
+import { logWarn } from "@/server/log";
 import { IMAGE_REF_COLUMNS, toImageRef } from "@/server/cellar/repository";
 import type {
   LayoutWrite,
@@ -264,6 +265,21 @@ const OUTCOMES_V2: readonly SaveLayoutOutcome[] = [...OUTCOMES, "stale"];
  * anything runs in the database. So a call of save_storage_layout_v2 that gets it changed nothing, and the database
  * simply does not have 0051 (or PostgREST has not seen it yet): the save is then made exactly as before 0051.
  */
+/**
+ * The fallback to 0045 is said once per server process (warn, a fixed message and the code, nothing else): a database
+ * without 0051 is expected until the owner applies it, but a call that PostgREST cannot match for another reason (an
+ * argument renamed by mistake) answers the same, and the compare-and-swap would otherwise stay off unnoticed.
+ */
+let fallbackSaid = false;
+const sayFallback = (code: string | undefined) => {
+  if (fallbackSaid) return;
+  fallbackSaid = true;
+  logWarn("smart_cellar.layout_cas_unavailable", {
+    code: code ?? null,
+    fallback: "save_storage_layout",
+  });
+};
+
 const isFunctionMissing = (error: { code?: string | undefined }) =>
   // 42883: Postgres itself found no such function (PostgREST's cache still listed it, e.g. just after the function
   // was dropped again): the call failed before anything ran, the same as PGRST202.
@@ -650,6 +666,7 @@ export function createSmartCellarRepository(db: Db): SmartCellarRepository {
         // Only "no such function" falls through, and then to exactly what the app did before 0051 (its own check of
         // the revision has already been made by the service). Nothing ran: PostgREST refused before the database.
         if (!isFunctionMissing(v2.error)) throw mapSmartCellarError(v2.error);
+        sayFallback(v2.error.code);
       }
       const { data, error } = await db.rpc("save_storage_layout", args);
       // No other fallback of any kind: a layout is written by one function, in one transaction, or not at all.

@@ -214,6 +214,23 @@ begin
   perform test.rec('a place with zones can still be deleted (its zones go by cascade, nothing left to touch)',
     test.error_of(format('delete from public.cellar_locations where id = %L', cooler)) = ''
     and test.count_of(format('select 1 from public.cellar_location_zones where location_id = %L', cooler)) = 0);
+  -- a save through _v2 writes the place row ONCE, however many zones it replaces; and the revision still moves
+  perform test.as_user(1);
+  insert into public.cellar_locations (cellar_id, household_id, label, kind, grid_rows, grid_cols)
+    values (c1, h1, 'Cooler 2', 'fridge', 8, 5) returning id into cooler;
+  rev := (select updated_at from public.cellar_locations where id = cooler);
+  n := (select n_tup_upd from pg_stat_xact_user_tables where relname = 'cellar_locations');
+  r := public.save_storage_layout_v2(h1, cooler, 'fridge', 'cooler_dual', 'depth', 8::smallint, 5::smallint, one, null, zones2, rev);
+  perform test.rec('a _v2 save with two zones: saved, the place row written once (not once per zone), the revision moved',
+    r = 'saved'
+    and (select n_tup_upd from pg_stat_xact_user_tables where relname = 'cellar_locations') - n = 1
+    and (select updated_at from public.cellar_locations where id = cooler) > rev);
+  rev := (select updated_at from public.cellar_locations where id = cooler);
+  update public.cellar_location_zones set target_temp_c = 10 where location_id = cooler and zone_index = 2;
+  perform test.rec('...and a direct zone write right after it, in the same transaction, still moves the revision',
+    (select updated_at from public.cellar_locations where id = cooler) > rev
+    and current_setting('cellr.layout_saving', true) = '');
+
   perform test.su();
   perform test.rec('nobody but the database runs the zone trigger''s function',
     not has_function_privilege('authenticated', 'private.touch_zone_location()', 'execute'));
