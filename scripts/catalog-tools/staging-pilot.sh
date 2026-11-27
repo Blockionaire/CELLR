@@ -171,7 +171,8 @@ ratings)
       'size', pg_size_pretty(pg_total_relation_size('public.catalog_rating_aggregates')))
     from public.catalog_rating_aggregates where provider_id = 'xwines'" > "$OUT/ratings-db-totals.json"
   echo "• database totals: $(cat "$OUT/ratings-db-totals.json")"
-  j "$OUT/ratings-db-totals.json" "const a=require('$OUT/ratings-aggregate.json');process.exit(r.units===a.units&&Number(r.ratings)===a.ratings_kept&&r.distribution_adds_up?0:1)"
+  # j takes an expression (console.log of it): the aggregation report is read inside it, not as a statement
+  j "$OUT/ratings-db-totals.json" "process.exit(((a)=>r.units===a.units&&Number(r.ratings)===a.ratings_kept&&r.distribution_adds_up)(require('$OUT/ratings-aggregate.json'))?0:1)"
   PEOPLE=$(psqlq -c "select set_config('request.jwt.claims', json_build_object('sub','$USER_ID','role','authenticated')::text, false); set role authenticated;
     select count(*) filter (where public.catalog_record_ratings(e.id) is not null) from (select id from public.catalog_external_records where provider_id = 'xwines' order by md5(id::text) limit 200) e;" | tail -1)
   PILOTN=$(psqlq -c "set role service_role; select count(*) filter (where jsonb_array_length(public.catalog_record_ratings_pilot(e.id)->'vintages') > 0) from (select id from public.catalog_external_records where provider_id = 'xwines' order by md5(id::text) limit 200) e;" | tail -1)
