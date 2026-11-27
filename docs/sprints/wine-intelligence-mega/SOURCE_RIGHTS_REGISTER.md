@@ -21,8 +21,8 @@ means the page was read and does not say it. Re-read every page before any real 
 | Source             | <https://github.com/rogerioxavier/X-Wines> (README, LICENSE); article <https://doi.org/10.3390/bdcc7010020>                                                                                                                                                                                                    |
 | Claimed licence    | CC0 1.0 Universal (the repository's `LICENSE` file). The README itself names no licence.                                                                                                                                                                                                                       |
 | What CELLR holds   | `XWines_Full_100K_wines.csv` (100,646 wines), in an isolated local evaluation folder outside Git. SHA-256 `eac2d812…4662cc`, equal to the authors' `INFO_Hashing.txt`. Retrieved 2026-11-13 from the authors' Drive folder linked in the README. Ratings, user files and label images were **not** downloaded. |
-| Database state     | never registered in production. In the throwaway pilot database: `rights_status = unverified`, `search_scope = pilot`.                                                                                                                                                                                         |
-| **Overall status** | **unverified — pilot only**                                                                                                                                                                                                                                                                                    |
+| Database state     | Production: not yet registered (ACTIVATION.md B3–B4). Staging: `rights_status = unverified`, `search_scope = pilot`.                                                                                                                                                                                           |
+| **Overall status** | **Commercial permission for records and ratings recorded in §1b** (owner, 2026-11-25). Open before go-live: the three terms §1b lists as not stated. The CC0 analysis below still describes the public licence on its own                                                                                      |
 
 ### Evidence
 
@@ -84,7 +84,7 @@ addresses. The owner keeps it, and the database's rights evidence refers to it w
 
 **What changes in the database, and when:** nothing from this register. The owner sets the provider's rights
 (`verified`, `commercial_use`, `may_display_ratings`) with the logged `admin_catalog_provider_rights` step,
-quoting the evidence line above, in `docs/sprints/ratings/ACTIVATION.md` step 7.
+quoting the evidence line above, in `docs/sprints/ratings/ACTIVATION.md` B4 (the payload is written out there).
 
 **What CELLR checked itself (2026-11-25).**
 
@@ -190,12 +190,12 @@ tested end to end without any third-party data.
 
 ---
 
-## 4. Explicit public-enable decision list (all NO today)
+## 4. Explicit public-enable decision list
 
-| Provider | In people's search? | Needs before YES                                                                                              | Who decides |
-| -------- | ------------------- | ------------------------------------------------------------------------------------------------------------- | ----------- |
-| X-Wines  | **NO**              | Answers to X1, X2 (at least) in writing; this register updated; `admin_catalog_provider_rights` with evidence | the owner   |
-| LWIN     | **NO**              | Answers to L1–L5 in writing; a lawfully obtained file; the adapter layout verified against it (L8)            | the owner   |
+| Provider | In people's search?                                                              | Needs before YES                                                                                                                                                                                                                         | Who decides |
+| -------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| X-Wines  | **Permitted by the written permission (§1b)**, not by CC0 alone; not enabled yet | The owner completes §1b's open terms (grantor's role, withdrawal or takedown, third-party rights) from the original, or records that it is silent on them; then `admin_catalog_provider_rights` with the §1b evidence (ACTIVATION.md B4) | the owner   |
+| LWIN     | **NO**                                                                           | Answers to L1–L5 in writing; a lawfully obtained file; the adapter layout verified against it (L8)                                                                                                                                       | the owner   |
 
 ## 4a. X-Wines content in this repository and its Git history (2026-11-20)
 

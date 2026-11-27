@@ -88,9 +88,9 @@ The regression tests the brief asked for are all among them:
 ## 2. Not done yet, and why
 
 - **Staging with the real data and the new schema.** The staging workflow runs only from `main` (by design), so it
-  can run only after the merges: ACTIVATION.md step 2.
+  can run only after the merges: ACTIVATION.md A1.
 - **People's search at 16 concurrent searches** over a populated public source (`sprint-004c/GO_LIVE.md` A3) is still
-  open. It needs measuring before the source goes public (ACTIVATION.md step 8).
+  open. It needs measuring before the source goes public (ACTIVATION.md A1, method in its perf16 section).
 - **Search results show no rating badge.** A record chosen in search shows its ratings in the add flow; a "4,1★ · 128"
   badge on each hit would need a batched lookup, and is the next step.
 
@@ -104,7 +104,7 @@ The regression tests the brief asked for are all among them:
    - the link filter is simple.
 3. **GO for merging** #137 → #138 → #139 → PR 4, in that order.
 4. **The `cellr-production-catalog` environment:** required reviewer, `main` only, the `PRODUCTION_DB_URL` secret.
-5. **The ACTIVATION.md steps 2–10**, each with its own GO.
+5. **The ACTIVATION.md phases B and C**, each step with its own GO.
 
 ## 4. Costs
 
