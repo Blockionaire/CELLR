@@ -112,6 +112,13 @@ describe("staging-pilot.sh perf16, end to end", { timeout: 120_000 }, () => {
     expect(r.accept).toBe(false);
     expect(r.scope).toBe("off");
   });
+  it("a pool that cannot run 16 at once: the gate stops the run before anything is made public", () => {
+    const r = run("perf16", met(), { POOL_PEAK: "15" });
+    expect(r.status).not.toBe(0);
+    expect(r.accept).toBe(false);
+    expect(r.scope).toBe("absent");
+    expect(r.disables).toBe(0);
+  });
   it("X-Wines not pilot: refused before anything is made public", () => {
     const r = run("perf16", met(), { XWINES: "public" });
     expect(r.status).not.toBe(0);

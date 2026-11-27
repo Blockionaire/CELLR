@@ -11,12 +11,13 @@
 #             benchmark, recognition, performance, the staging check again
 #   scan      the scan chain with a FICTITIOUS public source, as a person, rolled back (staging-scan-check.sql)
 #   ratings-verify  READ-ONLY: the imported ratings checked in place (ratings-verify.ts db), no file, no import
+#   pool-check  READ-ONLY: how many server connections the transaction pooler really gives at once (pool-probe.ts)
 #   perf16    16 concurrent people's searches over a synthetic PUBLIC source, measured in PostgreSQL, fail-closed
 #   perf16-cleanup  recovery: the synthetic source switched off and checked (also safe to run any time)
 # Output: only result files reduced to counts (redact-results.ts) and logs of counts. No record of the dataset, no
 # connection string, no key is ever printed: tool output goes to files, the log gets summaries.
 set -euo pipefail
-MODE="${1:?check|migrate|import|scan|ratings|ratings-verify|perf16|perf16-cleanup}"
+MODE="${1:?check|migrate|import|scan|ratings|ratings-verify|pool-check|perf16|perf16-cleanup}"
 OUT="${2:?output directory}"
 XW="${3:-}"
 RT="${4:-}"
@@ -222,6 +223,8 @@ perf16)
   echo "• before: $(cat "$OUT/perf-state-before.json")"
   j "$OUT/perf-state-before.json" "process.exit(r.xwines_scope==='pilot'?0:1)" ||
     { echo "X-Wines is not in pilot scope: refusing to run perf16" >&2; exit 1; }
+  # the gate, before anything is made public: can the pooler run 16 at once at all? (a pool of 15 cannot)
+  "${T[@]}" pool-probe.ts "${DB[@]}" --clients 24 --need 16 --out "$OUT/pool-probe.json"
   # from here on, every exit (success, failure, interruption) switches the synthetic source off and checks it
   trap 'rc=$?; perf16_cleanup || rc=1; rm -rf "${WORK:-$OUT/.none}"; "${T[@]}" redact-results.ts --dir "$OUT" || rm -rf "${OUT:?}"/*; exit $rc' EXIT
   echo "• the synthetic public source (100,000 invented records)"
@@ -248,6 +251,11 @@ perf16)
   "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-after.json" >/dev/null ||
     { j "$OUT/staging-check-after.json" "r.checks.filter(c=>!c.ok).map(c=>'  FAIL '+c.name).join('\n')"; exit 1; }
   echo "• staging check after: PASS"
+  ;;
+pool-check)
+  # READ-ONLY: the pooler's real concurrency (each client holds a server connection for 2 s; nothing is read or written)
+  guard write
+  "${T[@]}" pool-probe.ts "${DB[@]}" --clients 24 --need 16 --out "$OUT/pool-probe.json"
   ;;
 perf16-cleanup)
   # RECOVERY when a perf16 run could not switch the synthetic source off (or to check that it is off): switch it
