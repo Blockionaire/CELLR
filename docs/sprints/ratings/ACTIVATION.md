@@ -73,7 +73,7 @@ shown to people verbatim wherever a record is shown.
 after): 100,646 active records and none twice; the records import run finished, not abandoned, nothing withdrawn; units,
 ratings and NV units as above; every distribution adds up; ratings only on active records; real years; no open rating
 run and the last one declared these totals; no rater column; runs hold counts only; rights verified with evidence;
-scope still `off`; verified links unchanged (compare the two runs). The number of CELLR wines may change with normal use
+scope still `off`; no catalogue, rating or review function and no catalogue or community table reachable by anonymous callers (sign-in is required for every read); verified links unchanged (compare the two runs). The number of CELLR wines may change with normal use
 during the import: compare it only as a sanity check.
 
 ## Phase C: visible, one switch at a time
