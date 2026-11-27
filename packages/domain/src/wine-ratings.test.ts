@@ -69,6 +69,10 @@ const com: CommunityRow = {
 describe("mergeWineRatings", () => {
   it("nothing available: says so", () => {
     expect(mergeWineRatings(null, null)).toEqual(NO_RATINGS);
+    expect(mergeWineRatings(null, null, { cellr: 2, externalCap: 40 }).weights).toEqual({
+      cellr: 2,
+      externalCap: 40,
+    });
   });
   it("merges per vintage, newest first, NV last, never mixing vintages", () => {
     const d = mergeWineRatings(ext, com);
@@ -111,6 +115,27 @@ describe("selectRatings", () => {
   it("a vintage nobody rated: no score at all", () => {
     expect(selectRatings(d, 1999).score.combined).toBeNull();
   });
+  it("scores with the weights the data carries; counts and averages stay real", () => {
+    // external: 3 ratings, 25 half stars; CELLR: 3, 4 and 5 stars. Weight 1 each: (12.5 + 12) / 6 = 4.08
+    const heavy = mergeWineRatings(ext, com, { cellr: 1, externalCap: 10 });
+    expect(heavy.weights).toEqual({ cellr: 1, externalCap: 10 });
+    const s = selectRatings(heavy, "all");
+    expect(s.score.weights).toEqual({ external: 3, cellr: 3 });
+    expect(s.score.combined).toBe(4.1);
+    expect(s.score.external.count).toBe(3);
+    expect(s.score.cellr.count).toBe(3);
+    expect(s.score.external.average).toBe(selectRatings(d, "all").score.external.average);
+    expect(s.score.combined).not.toBe(selectRatings(d, "all").score.combined);
+    // NV stays NV under any weights
+    expect(selectRatings(heavy, "nv").score.cellr.count).toBe(0);
+  });
+  it("an answer without weights (an older server) is scored with the defaults", () => {
+    const old: Partial<typeof d> = { ...d };
+    delete old.weights;
+    const s = selectRatings(old as typeof d, "all");
+    expect(s.score).toEqual(selectRatings(d, "all").score);
+    expect(d.weights).toEqual({ cellr: 5, externalCap: 50 });
+  });
   it("review filters", () => {
     expect(selectRatings(d, "all", "with_text").reviews.map((r) => r.body)).toEqual([
       "Prachtig",
@@ -132,5 +157,12 @@ describe("PublishReviewSchema", () => {
     expect(
       PublishReviewSchema.safeParse({ body: "zie https://x.example", consent: true }).success,
     ).toBe(false);
+    expect(
+      PublishReviewSchema.safeParse({ body: "mail anna (at) wijn (dot) nl", consent: true })
+        .success,
+    ).toBe(false);
+    expect(
+      PublishReviewSchema.safeParse({ body: "St. Émilion, 13.5% alc.", consent: true }).success,
+    ).toBe(true);
   });
 });

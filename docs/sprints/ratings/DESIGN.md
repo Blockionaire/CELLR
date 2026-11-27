@@ -127,24 +127,50 @@ stars = score / 2):
 
 - **Few-account influence on thinly rated wines.** Weight 5 means one review is most of the score of a wine with
   three external ratings. Ten accounts with households and tastings outweigh any external set. Mitigations in place:
-  one review per person, publish and report rate limits, moderation. Further options if needed: a minimum account
-  age, or counting CELLR reviews only from the second one per wine.
+  one review per person, publish and report rate limits, a minimum account age (hardening below), moderation, and
+  the weights are configuration (§4). Further option if needed: counting CELLR reviews only from the second one per
+  wine.
 - **Coordinated real accounts** can still hide a review until a moderator restores it. After a restore they cannot
   hide it again.
-- **The link filter** stops `http(s)://` and `www.` only.
+- **The text filter** (hardening below) catches links, addresses and the common obfuscations, not every spelling a
+  determined spammer can invent; reports and moderation catch the rest.
+
+**Hardening before activation (migration 20261203000055):**
+
+- **One text rule, twice:** `packages/domain/src/review-text.ts` (the publish form) and
+  `private.review_text_has_link` (the publish function and a table check), the same patterns, a web test keeps them
+  identical. After Unicode NFKC it refuses a scheme (`http`, `https`, `ftp`), `www`, an e-mail address, a domain with
+  a common generic ending or any two-letter ending, and the obfuscations `[.]`, `(dot)`, ` dot com`, `(at)`. Normal
+  wine text passes ("St. Émilion", "Ch. Margaux", "D.O.Ca.", "4.5", "13.5%"); a full stop typed without its space
+  before a two-letter word can be refused, and the person adds the space.
+- **New accounts wait:** publishing and reporting need an account at least 24 hours old whose e-mail address is
+  proven: confirmed (`email_confirmed_at`) or used to sign in at least once (`last_sign_in_at`); `too_new`
+  otherwise. Reading is never blocked. Why both: CELLR signs people in only with a code or link sent to their e-mail
+  address (`server/auth/gateway.ts`, `verifyOtp`, also behind the PIN), no password, invite or admin-created
+  accounts, anonymous sign-ins off. Supabase Auth confirms the address when such a code is first used, so every
+  person who has signed in is confirmed; the sign-in clause makes sure that nobody who ever signed in is held back
+  even if a confirmation was never recorded. What it stops is an account under a day old, or one that was only
+  created (a code requested, never used). Existing users older than a day pass; the hosted Auth settings themselves
+  are not visible from the repository.
+- **Daily cap:** at most 40 publications a day next to 20 an hour; reports stay at 20 a day.
+- The gate of 20261202000054 is untouched: the community stays closed until its owner opens it.
 
 ## 4. The weighted CELLR score (PR 2)
 
 `packages/domain/src/rating-score.ts`, pure and tested.
 
-- External: mean `E` (stars) over `n` ratings. **Weight `min(n, 50)`.**
-- CELLR: per published review, stars `s_i = score_i / 2`. **Weight 5 each.**
-- **Combined** = `(E · min(n, 50) + 5 · Σ s_i) / (min(n, 50) + 5 · m)`, where `m` is the number of reviews. There is
+- External: mean `E` (stars) over `n` ratings. **Weight `min(n, C)`**, the cap `C` 50 by default.
+- CELLR: per published review, stars `s_i = score_i / 2`. **Weight `W` each**, 5 by default.
+- **Combined** = `(E · min(n, C) + W · Σ s_i) / (min(n, C) + W · m)`, where `m` is the number of reviews. There is
   no score when `n = m = 0`.
 - **Shown:** the combined score (one decimal) next to the **real** counts `n` and `m` (never a weighted count), plus
   the external and CELLR averages separately.
-- With 10 CELLR reviews (weight 50), the community weighs as much as any number of external ratings. With more, it
-  leads.
+- With `⌈C / W⌉` CELLR reviews (10 by default), the community weighs at least as much as any number of external
+  ratings. With more, it leads.
+- **Configurable, transparently:** `W` is `CELLR_COMMUNITY_WEIGHT` (an integer 1–20) and `C` is
+  `CELLR_EXTERNAL_WEIGHT_CAP` (an integer 10–500), server configuration read fail-safe by `parseRatingWeights` (unset
+  or invalid: the default). The weights used travel with the ratings (`WineRatingsData.weights`), so the screen
+  scores with them, and the panel and the methodology page show those numbers, never fixed ones.
 
 ## 5. Wine card and pages (PR 3)
 

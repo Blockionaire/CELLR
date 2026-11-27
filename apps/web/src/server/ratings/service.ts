@@ -6,6 +6,7 @@ import {
   ExternalRatingsRowSchema,
   MyReviewSchema,
   PublishResultSchema,
+  DEFAULT_RATING_WEIGHTS,
   mergeWineRatings,
   NO_RATINGS,
   type CatalogRecordPage,
@@ -13,6 +14,7 @@ import {
   type ExternalRatingsRow,
   type PublishReview,
   type MyReview,
+  type RatingWeights,
   type ReportReason,
   type WineRatingsData,
 } from "@cellr/domain";
@@ -93,9 +95,19 @@ export interface RatingsDeps {
   householdId: () => Promise<string>;
   /** Feature switches: external ratings at all; community reviews (needs the first). */
   features: { ratings: boolean; community: boolean };
+  /** The CELLR score's weights from the server's configuration (env.ts `getRatingWeights`); defaults when absent. */
+  weights?: RatingWeights;
 }
 
-export function createRatingsService({ repo, householdId, features }: RatingsDeps) {
+const TOO_NEW =
+  "New accounts can share and report reviews after a day, once their e-mail address is confirmed.";
+
+export function createRatingsService({
+  repo,
+  householdId,
+  features,
+  weights = DEFAULT_RATING_WEIGHTS,
+}: RatingsDeps) {
   const off = () => {
     if (!features.ratings) throw new DomainError("NOT_FOUND");
   };
@@ -115,7 +127,7 @@ export function createRatingsService({ repo, householdId, features }: RatingsDep
         // publishing is offered only while the community is open in the database (a closed one refuses anyway)
         features.community ? repo.communityOpen().catch(() => false) : Promise.resolve(false),
       ]);
-      const data = mergeWineRatings(parseExternal(e), parseCommunity(c));
+      const data = mergeWineRatings(parseExternal(e), parseCommunity(c), weights);
       return open === true
         ? { ...data, communityOpen: true }
         : { ...data, reviewable: false, communityOpen: false };
@@ -131,9 +143,9 @@ export function createRatingsService({ repo, householdId, features }: RatingsDep
       ]);
       const ext = parseExternal(e);
       const com = parseCommunity(c);
-      if (!ext && !com) return NO_RATINGS;
+      if (!ext && !com) return { ...NO_RATINGS, weights: { ...weights } };
       // a record page never offers publishing: a review is made from one's own tasting of one's own wine
-      return { ...mergeWineRatings(ext, com), reviewable: false };
+      return { ...mergeWineRatings(ext, com, weights), reviewable: false };
     },
     async publish(
       tastingId: string,
@@ -154,8 +166,10 @@ export function createRatingsService({ repo, householdId, features }: RatingsDep
         case "no_consent":
           throw new DomainError(
             "VALIDATION",
-            "Links are not allowed, and a review is at most 1500 characters.",
+            "Links, web addresses and e-mail addresses are not allowed, and a review is at most 1500 characters.",
           );
+        case "too_new":
+          throw new DomainError("CONFLICT", TOO_NEW);
         case "no_score":
           throw new DomainError("CONFLICT", "Give it stars first, then share it.");
         case "no_identity":
@@ -186,6 +200,7 @@ export function createRatingsService({ repo, householdId, features }: RatingsDep
       offCommunity();
       const r = await repo.report(reviewId, reason, detail?.trim() || null);
       if (r === "rate_limited") throw new DomainError("RATE_LIMITED");
+      if (r === "too_new") throw new DomainError("CONFLICT", TOO_NEW);
       if (r !== "reported" && r !== "already_reported") throw new DomainError("NOT_FOUND");
       return { reported: true };
     },

@@ -57,11 +57,17 @@ function repo(over: Partial<RatingsRepository> = {}): RatingsRepository {
     ...over,
   };
 }
-const svc = (r: RatingsRepository, ratings = true, communityOn = true) =>
+const svc = (
+  r: RatingsRepository,
+  ratings = true,
+  communityOn = true,
+  weights?: { cellr: number; externalCap: number },
+) =>
   createRatingsService({
     repo: r,
     householdId: async () => "h1",
     features: { ratings, community: communityOn },
+    ...(weights ? { weights } : {}),
   });
 
 describe("ratings service", () => {
@@ -157,6 +163,40 @@ describe("ratings service", () => {
         consent: true,
       }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+  it("the configured weights travel with the ratings, on every answer", async () => {
+    const w = { cellr: 8, externalCap: 120 };
+    expect((await svc(repo(), true, true, w).forWine("w")).weights).toEqual(w);
+    expect((await svc(repo(), true, true, w).forRecord("r")).weights).toEqual(w);
+    const empty = repo({ recordExternal: async () => null, recordCommunity: async () => null });
+    expect((await svc(empty, true, true, w).forRecord("r")).weights).toEqual(w);
+    // without configuration: the defaults
+    expect((await svc(repo()).forWine("w")).weights).toEqual({ cellr: 5, externalCap: 50 });
+  });
+  it("a new or unconfirmed account hears why it cannot publish or report yet", async () => {
+    await expect(
+      svc(repo({ publish: async () => ({ status: "too_new" }) })).publish("t", {
+        body: null,
+        consent: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: expect.stringContaining("after a day"),
+    });
+    await expect(
+      svc(repo({ report: async () => "too_new" })).report("r", "spam"),
+    ).rejects.toMatchObject({ code: "CONFLICT", message: expect.stringContaining("confirmed") });
+  });
+  it("a text the database refuses is a validation error naming links and addresses", async () => {
+    await expect(
+      svc(repo({ publish: async () => ({ status: "invalid_text" }) })).publish("t", {
+        body: "x",
+        consent: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "VALIDATION",
+      message: expect.stringContaining("e-mail addresses"),
+    });
   });
   it("delete and report", async () => {
     await expect(svc(repo()).remove("r")).resolves.toEqual({ deleted: true });

@@ -61,6 +61,7 @@ import { createInsightsRepository } from "@/server/insights/repository";
 import { createInsightsService } from "@/server/insights/service";
 import {
   getFeatures,
+  getRatingWeights,
   getSommelierParts,
   getPlacementAccess,
   isAdviceOpen,
@@ -218,6 +219,7 @@ export function servicesFor(ctx: RequestContext) {
         ratings: getFeatures().catalog_ratings,
         community: getFeatures().community_reviews,
       },
+      weights: getRatingWeights(),
     }),
     catalogSearch: createCatalogSearchService({
       repo: createCatalogSearchRepository(ctx.db),

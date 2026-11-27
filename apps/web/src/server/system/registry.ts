@@ -458,10 +458,12 @@ const components = [
     status: "gated",
     summary: "External rating aggregates, CELLR reviews, the CELLR score",
     responsibility:
-      "Reads a wine's or record's external rating aggregates and its published community reviews, and lets a person publish, remove or report a review; every rule (identity, rights, opt-in, one per person) is decided in the database.",
+      "Reads a wine's or record's external rating aggregates and its published community reviews, and lets a person publish, remove or report a review; every rule (identity, rights, opt-in, one per person, text, account age) is decided in the database. The CELLR score's two weights are server configuration, sent with the ratings so the screen scores and explains with them.",
     inputs: ["Wine or record id", "A tasting to publish"],
     outputs: ["Ratings per vintage", "Reviews"],
     sources: [W + "server/ratings/"],
+    // the CELLR score's weights (an integer each, defaults 5 and 50; invalid: the default), read by server/env.ts
+    env: ["CELLR_COMMUNITY_WEIGHT", "CELLR_EXTERNAL_WEIGHT_CAP"],
     routes: [
       "/api/v1/wines/[id]/ratings",
       "/api/v1/catalog/records/[id]/ratings",
@@ -1089,10 +1091,14 @@ const components = [
     status: "implemented",
     summary: "Published reviews, reports, moderation log",
     responsibility:
-      "Public reviews people chose to publish from their own tastings, reports on them and every moderation decision; read only through gated functions. Closed in the database (no new review or report by a person) until the owner opens it, logged.",
+      "Public reviews people chose to publish from their own tastings, reports on them and every moderation decision; read only through gated functions. Closed in the database (no new review or report by a person) until the owner opens it, logged. A review's text holds no link or address (one rule with the app's, also a table check); publishing and reporting need an account a day old with a confirmed e-mail address.",
     inputs: [],
     outputs: [],
-    sources: [M + "20261130000052_community_reviews.sql", M + "20261202000054_community_gate.sql"],
+    sources: [
+      M + "20261130000052_community_reviews.sql",
+      M + "20261202000054_community_gate.sql",
+      M + "20261203000055_community_hardening.sql",
+    ],
     tables: [
       "community_review_moderation_log",
       "community_review_reports",
@@ -1983,6 +1989,13 @@ const edges: SystemEdge[] = [
     "data-write",
     "review moderation (admin, service role)",
     web("server/privileged/reviews-admin.ts", '"admin_moderate_community_review"'),
+  ),
+  edge(
+    "data-community",
+    "supabase-auth",
+    "control",
+    "publishing and reporting need an account a day old with a confirmed e-mail address",
+    ev(M + "20261203000055_community_hardening.sql", "from auth.users u where u.id = p_user"),
   ),
 
   // Sommelier
@@ -2988,7 +3001,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.12.3",
+  version: "1.12.4",
   reviewedOn: "2026-11-27",
   repository: "Blockionaire/CELLR",
   components,

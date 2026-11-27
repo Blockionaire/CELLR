@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { getFeatures } from "@/server/env";
+import { communityParity } from "@cellr/domain";
+import { getFeatures, getRatingWeights } from "@/server/env";
 import { PageHeader } from "@/ui/page-header";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,6 +17,9 @@ export default async function AboutRatingsPage() {
   // part of the ratings feature: available (and checked) before any source is public, never before the switch
   if (!getFeatures().catalog_ratings) notFound();
   const t = await getTranslations("aboutRatings");
+  // the weights this deployment really scores with (the same the ratings API sends to every wine page)
+  const w = getRatingWeights();
+  const values = { cap: w.externalCap, weight: w.cellr, parity: communityParity(w) };
   return (
     <div className="mx-auto max-w-2xl px-4 pb-24">
       <PageHeader title={t("title")} subtitle={t("intro")} />
@@ -23,7 +27,7 @@ export default async function AboutRatingsPage() {
         <h2 className="font-serif text-title text-ink">{t("methodTitle")}</h2>
         <ul className="mt-3 flex list-disc flex-col gap-2 pl-5 text-body text-ink-2">
           {(["method1", "method2", "method3", "method4", "method5"] as const).map((k) => (
-            <li key={k}>{t(k)}</li>
+            <li key={k}>{t(k, values)}</li>
           ))}
         </ul>
       </section>
