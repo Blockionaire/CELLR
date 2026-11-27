@@ -41,18 +41,18 @@ means the page was read and does not say it. Re-read every page before any real 
 
 ### Decision per use
 
-| Intended use                               | Status           | Why                                                                                                                                        |
-| ------------------------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Download and evaluate in isolation         | **done**         | Published for download under CC0 by its authors; held locally, checksum-verified, outside Git and outside any hosted database.             |
-| Store the dataset in CELLR's production DB | **unverified**   | CC0 waives only the authors' rights. Whose data it was, and under which site terms or database right it was collected, is not established. |
-| Display records to consumers               | **unverified**   | Same question. If cleared: show the citation the authors ask for.                                                                          |
-| Combine / enrich with other providers      | **unverified**   | Same question.                                                                                                                             |
-| Pass records to a model for inference      | **unverified**   | Not used: no X-Wines field is sent to any model anywhere in CELLR.                                                                         |
-| Train or fine-tune on the dataset          | **out of scope** | Not done, not planned.                                                                                                                     |
-| Keep derived fields after a withdrawal     | **unverified**   | CELLR keeps none: nothing is derived from pilot data.                                                                                      |
+| Intended use                               | Status              | Why                                                                                                                                                                                                     |
+| ------------------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Download and evaluate in isolation         | **done**            | Published for download under CC0 by its authors; held locally, checksum-verified, outside Git and outside any hosted database.                                                                          |
+| Store the dataset in CELLR's production DB | **permitted (§1b)** | By the owner's written permission for commercial use (§1b), not by CC0 alone; the open terms of §1b still to be completed                                                                               |
+| Display records to consumers               | **permitted (§1b)** | Same permission; the citation is given centrally on `/about/ratings`                                                                                                                                    |
+| Combine / enrich with other providers      | **unverified**      | Same question.                                                                                                                                                                                          |
+| Pass records to a model for inference      | **unverified**      | Not used: no X-Wines field is sent to any model anywhere in CELLR.                                                                                                                                      |
+| Train or fine-tune on the dataset          | **out of scope**    | Not done, not planned.                                                                                                                                                                                  |
+| Keep derived fields after a withdrawal     | **open (§1b)**      | Switching the source off hides records and ratings at once, but wines people added from a record keep the details they copied; whether that is acceptable after a withdrawal is one of §1b's open terms |
 
 Fields used in the pilot: wine id, wine name, winery name, type, country code, region, grapes, ABV, "elaborate" and the
-listed vintages. **Never read:** ratings, users, websites, food pairings, body, acidity, label images. A listed
+listed vintages. **Never read:** users, websites, food pairings, body, acidity, label images. Ratings are read since the ratings sprint, as aggregates per wine and vintage only (§1b). A listed
 vintage is the dataset's statement, not proof the producer released that year; nothing in CELLR treats it as such.
 
 Proposed credit, **if** it is ever cleared: _"X-Wines dataset — de Azambuja, Morais & Filipe (2023), Big Data Cogn.

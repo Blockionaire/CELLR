@@ -1,18 +1,24 @@
 -- READ-ONLY checks of the X-Wines catalogue and ratings in PRODUCTION (ACTIVATION.md B6), for the SQL editor. The
 -- catalogue tools never connect to production except through the reviewed import route, so this is the owner's own
 -- check after the import, with the same rules as staging's ratings-verify.ts. Only SELECTs; nothing is changed.
--- Run once BEFORE the import (note the "before" row) and once AFTER; every row of the AFTER run must say ok = true.
---   wines, verified links: equal to the BEFORE run (the import writes no CELLR wine and decides no link)
+-- Run once BEFORE the import (note the "before" rows) and once AFTER; every row of the AFTER run must say ok = true.
+--   verified links: equal to the BEFORE run (the import decides no link)
+--   CELLR wines: the import writes none, but normal use may add some during it: a sanity comparison only
 with p as (select * from public.catalog_providers where id = 'xwines'),
      e as (select * from public.catalog_external_records where provider_id = 'xwines'),
      a as (select * from public.catalog_rating_aggregates where provider_id = 'xwines'),
-     r as (select * from public.catalog_rating_runs where provider_id = 'xwines')
+     r as (select * from public.catalog_rating_runs where provider_id = 'xwines'),
+     i as (select * from public.catalog_import_runs where provider_id = 'xwines')
 select * from (values
   ('before/after: CELLR wines (compare with the other run)', true, (select count(*) from public.wines)::text),
   ('before/after: verified links (compare with the other run)', true,
      (select count(*) from public.catalog_record_links where state = 'verified')::text),
   ('records: 100,646 active', (select count(*) from e where status = 'active') = 100646,
      (select count(*) from e where status = 'active')::text),
+  ('records: the last import run finished, not abandoned, nothing withdrawn',
+     coalesce((select finished_at is not null and not (counts ? 'abandoned') and coalesce((counts->>'withdrawn')::int, 0) = 0
+                 from i order by started_at desc limit 1), false),
+     (select count(*) from i)::text || ' import runs'),
   ('records: no external id twice', (select count(*) - count(distinct external_id) from e) = 0,
      (select count(*) - count(distinct external_id) from e)::text),
   ('ratings: 1,008,593 units', (select count(*) from a) = 1008593, (select count(*) from a)::text),
@@ -30,9 +36,9 @@ select * from (values
      coalesce((select min(vintage_year) >= 1800 and max(vintage_year) <= extract(year from now()) from a), false),
      (select min(vintage_year) || '–' || max(vintage_year) from a)),
   ('runs: none open; the last complete run declared these totals',
-     (select count(*) from r where finished_at is null) = 0
+     coalesce((select count(*) from r where finished_at is null) = 0
        and (select (counts->>'units')::int = 1008593 and (counts->>'ratings')::bigint = 20857044
-              from r where finished_at is not null and not (counts ? 'abandoned') order by finished_at desc limit 1),
+              from r where finished_at is not null and not (counts ? 'abandoned') order by finished_at desc limit 1), false),
      (select count(*) from r)::text || ' runs'),
   ('privacy: no rater or user column on the rating tables',
      not exists (select 1 from information_schema.columns where table_schema in ('public', 'private')
