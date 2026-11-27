@@ -95,14 +95,25 @@ describe("a results directory leaving the run is reduced fail-closed (staging ru
     put("perf-pilot-c8.json", { overall: { p95: 1 } });
     put("staging-check-before.json", { ok: true });
     put("pilot-separation.txt", "people 0");
+    put("ratings-verify.json", {
+      ok: true,
+      checks: [{ name: "totals: as expected", ok: true, detail: "1 units" }],
+    });
+    put("ratings-verify-extra.json", { producer: "Domaine Réel" });
     put("dump.csv", "Domaine Réel,Cuvée");
     put("unknown.json", { producer: "Domaine Réel" });
     put("broken.json", "{not json");
     const r = redactDir(dir);
-    expect(r.deleted.sort()).toEqual(["broken.json", "dump.csv", "unknown.json"]);
+    expect(r.deleted.sort()).toEqual([
+      "broken.json",
+      "dump.csv",
+      "ratings-verify-extra.json",
+      "unknown.json",
+    ]);
     expect(r.kept.sort()).toEqual([
       "perf-pilot-c8.json",
       "pilot-separation.txt",
+      "ratings-verify.json",
       "staging-check-before.json",
     ]);
     expect(r.redacted.sort()).toEqual([
