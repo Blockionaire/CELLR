@@ -10,10 +10,11 @@
 #             synthetic load set, two imports (the second must change nothing), quality, pilot separation,
 #             benchmark, recognition, performance, the staging check again
 #   scan      the scan chain with a FICTITIOUS public source, as a person, rolled back (staging-scan-check.sql)
+#   ratings-verify  READ-ONLY: the imported ratings checked in place (ratings-verify.ts db), no file, no import
 # Output: only result files reduced to counts (redact-results.ts) and logs of counts. No record of the dataset, no
 # connection string, no key is ever printed: tool output goes to files, the log gets summaries.
 set -euo pipefail
-MODE="${1:?check|migrate|import|scan|ratings|perf16}"
+MODE="${1:?check|migrate|import|scan|ratings|ratings-verify|perf16}"
 OUT="${2:?output directory}"
 XW="${3:-}"
 RT="${4:-}"
@@ -171,8 +172,8 @@ ratings)
       'size', pg_size_pretty(pg_total_relation_size('public.catalog_rating_aggregates')))
     from public.catalog_rating_aggregates where provider_id = 'xwines'" > "$OUT/ratings-db-totals.json"
   echo "• database totals: $(cat "$OUT/ratings-db-totals.json")"
-  # j takes an expression (console.log of it): the aggregation report is read inside it, not as a statement
-  j "$OUT/ratings-db-totals.json" "process.exit(((a)=>r.units===a.units&&Number(r.ratings)===a.ratings_kept&&r.distribution_adds_up)(require('$OUT/ratings-aggregate.json'))?0:1)"
+  # the database's totals against the aggregation report: a tested command, exit 1 on any difference (run 46012494694)
+  "${T[@]}" ratings-verify.ts totals --db-totals "$OUT/ratings-db-totals.json" --aggregate "$OUT/ratings-aggregate.json"
   PEOPLE=$(psqlq -c "select set_config('request.jwt.claims', json_build_object('sub','$USER_ID','role','authenticated')::text, false); set role authenticated;
     select count(*) filter (where public.catalog_record_ratings(e.id) is not null) from (select id from public.catalog_external_records where provider_id = 'xwines' order by md5(id::text) limit 200) e;" | tail -1)
   PILOTN=$(psqlq -c "set role service_role; select count(*) filter (where jsonb_array_length(public.catalog_record_ratings_pilot(e.id)->'vintages') > 0) from (select id from public.catalog_external_records where provider_id = 'xwines' order by md5(id::text) limit 200) e;" | tail -1)
@@ -188,6 +189,18 @@ ratings)
   "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-after.json" >/dev/null
   j "$OUT/staging-check-after.json" "'• staging check after: ' + (r.ok ? 'PASS' : 'FAIL')"
   j "$OUT/staging-check-after.json" "process.exit(r.ok?0:1)"
+  ;;
+ratings-verify)
+  # READ-ONLY: what the ratings mode imported, checked where it is (one read-only transaction, rolled back): totals,
+  # runs, vintages, privacy, rights, the pilot separation and verify-api-closed.sql. No file is downloaded, nothing
+  # is imported or written. The expected numbers are X-Wines 1.0 under latest-per-rater-v1 (ratings mode, run 46012494694).
+  guard write
+  "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check.json" >/dev/null ||
+    { j "$OUT/staging-check.json" "r.checks.filter(c=>!c.ok).map(c=>'  FAIL '+c.name).join('\n')"; exit 1; }
+  echo "• staging check: PASS"
+  "${T[@]}" ratings-verify.ts db "${DB[@]}" --provider xwines --user "$USER_ID" --expect-scope pilot \
+    --expect-units 1008593 --expect-ratings 20857044 --expect-nv 2382 --expect-wines 100646 --expect-unchanged-repeat \
+    --out "$OUT/ratings-verify.json"
   ;;
 perf16)
   # people's search over a populated PUBLIC source with 16 searches really in flight (one round trip each, timed in
