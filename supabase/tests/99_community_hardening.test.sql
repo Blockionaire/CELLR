@@ -22,7 +22,7 @@ grant execute on function test.ch_review(uuid) to public;
 
 do $$
 declare h1 uuid; h2 uuid; h3 uuid; h4 uuid; h5 uuid; cp uuid; cw uuid; c19 uuid; pp uuid; pw uuid; v19 uuid; run uuid;
-        t1 uuid; tc uuid; t2 uuid; t3 uuid; t5 uuid; s text; ok boolean; reads text;
+        t1 uuid; tc uuid; t2 uuid; t3 uuid; t5 uuid; t6 uuid; s text; ok boolean; reads text; n bigint;
         rights text := '{"license":"CC0-1.0","attribution":"Fixture hardening","may_store":true,"may_display":true,"commercial_use":true,"rights_status":"verified","rights_evidence":"written by CELLR for tests","rights_verified_at":"2026-11-25","rights_verified_by":"test suite","search_scope":"public"}';
         -- the same examples as packages/domain/src/review-text.test.ts
         bad text[] := array[
@@ -30,14 +30,21 @@ declare h1 uuid; h2 uuid; h3 uuid; h4 uuid; h5 uuid; cp uuid; cw uuid; c19 uuid;
           'ｗｗｗ．ｓｐａｍ．ｃｏｍ', 'spam.com', 'Visit SPAM.COM now', 'wijnhandel.nl', 'mail me: anna@example.org',
           'anna (at) example (dot) org', 'anna[at]example[.]nl', 'spam dot com', 'spam DOT nl', 'spam[.]com',
           'spam(.)io', 'best-wine.shop', 'x.com', 'go to cheap.wine', 'a@b.co', 'spam。com', 'foo.co.uk',
-          'ｓｐａｍ．ｎｌ'];
+          'ｓｐａｍ．ｎｌ',
+          -- closed after the review of 03f3d00
+          't.me/wijnclub', 'see t.co/x', E'example\u200b.com', E'spam\u00ad.nl', 'wijnhuis punt nl',
+          'wijnhuis PUNT com', 'example . com', 'example .com', 'example·com', 'cheap.top', 'party.live', 'wine.fun',
+          'deals.xyz', 'get.site', 'go.online', 'wine.club', 'more.info', 'spam.biz', 'spam.io'];
+        -- known, by design: a full stop typed without its space before a two-letter word or a generic ending
+        known text[] := array['Ch.de Beaucastel', 'Dom.du Pégau', 'St.Jo', 'Rhône.Vin de pays'];
         good text[] := array[
           'St. Émilion', 'Ch. Margaux', 'D.O.Ca. Rioja', 'e.g. cherry', '4.5 stars', '13.5% alc.',
           '1er Cru, vol. 13,5%', 'Awww. Lovely wine.', 'A dot of cream, served at 16 degrees',
           'Ch. de Beaucastel, Dom. du Pégau', 'N.V. Brut, A.O.C. Champagne', 'i.e. ripe', 'Served @ 16°C',
           'Top. Lange afdronk, o.a. kers.', 'Rijp en lang.', 'Côte-Rôtie 2015 — 92/100', 'Wine. It was great',
           'St.-Julien', 'St.Émilion', 'Château d''Yquem 1.5L magnum', 'Q.b.A. Mosel', 'Napa Valley, CA. Big fruit.',
-          'Grand cru. De afdronk is lang'];
+          'Grand cru. De afdronk is lang', 'It was fun. Top wine, live music. Rest: fine.', 'kers · pruim · tabak',
+          'Col·lecció, Penedès', '4.5/5', 'Op dit punt is hij klaar.'];
 begin
   perform test.mk_users(7);
   -- the established accounts: a month old, e-mail confirmed (test.mk_users); user 1 as Supabase Auth leaves someone who
@@ -79,12 +86,20 @@ begin
   select bool_and(not test.ch_has_link(x)), string_agg(case when test.ch_has_link(x) then x end, ' | ')
     into ok, s from unnest(good) x;
   perform test.rec('hardening text: normal wine text passes' || coalesce(' — refused: ' || s, ''), ok);
+  perform test.rec('hardening text: known — a missing space after a full stop is refused, and passes with the space',
+    (select bool_and(test.ch_has_link(x) and not test.ch_has_link(replace(x, '.', '. '))) from unnest(known) x));
   perform test.rec('hardening text: the table check is in place and validated',
     (select convalidated from pg_constraint where conname = 'community_reviews_no_links_v2'
        and conrelid = 'public.community_reviews'::regclass));
   perform test.rec('hardening text: the table refuses a link whoever writes the row',
     test.error_of(format($q$insert into public.community_reviews (tasting_id, user_id, subject_wine_id, score, body, tasted_on, status)
                             values (null, %L, %L, 8, 'zie spam (dot) com', '2026-11-01', 'hidden')$q$, test.uid(4), cw)) like '23514:%no_links_v2%');
+  perform test.as_service();
+  perform test.rec('hardening text: the service role writes a clean text under the new check',
+    test.error_of(format($q$insert into public.community_reviews (tasting_id, user_id, subject_wine_id, score, body, tasted_on, status)
+                            values (null, %L, %L, 8, 'Ch. de Beaucastel, St. Émilion, 13.5%%', '2026-11-01', 'hidden')$q$, test.uid(4), cw)) = '');
+  perform test.su();
+  delete from public.community_reviews where user_id = test.uid(4);
   perform test.as_user(1);
   perform test.rec('hardening perm: people cannot call the text rule or the account check',
     test.denied($q$select private.review_text_has_link('x')$q$)
@@ -105,6 +120,10 @@ begin
     public.publish_community_review(t1, 'Bestel via anna (at) wijnhuis (dot) nl', true)->>'status' = 'invalid_text');
   perform test.rec('hardening text: publishing a full-width domain is refused',
     public.publish_community_review(t1, 'ｗｉｊｎ．ｃｏｍ', true)->>'status' = 'invalid_text');
+  perform test.su();
+  perform test.rec('hardening rate: a refused text spends no rate limit (the check comes before it)',
+    (select count(*) from private.rate_events where user_id = test.uid(1) and bucket like 'community_review%') = 0);
+  perform test.as_user(1);
   perform test.rec('hardening text: an ordinary wine text is published',
     public.publish_community_review(t1, 'St. Émilion-achtig, 13.5% alc., lange afdronk.', true)->>'status' = 'published');
 
@@ -123,9 +142,10 @@ begin
     public.publish_community_review(t3, null, true)->>'status' = 'too_new');
   perform test.rec('hardening account: nor report', public.report_community_review((test.ch_review(t1)).id, 'spam') = 'too_new');
   perform test.su();
-  perform test.rec('hardening account: nothing was written for them',
+  perform test.rec('hardening account: nothing was written for them, and no rate limit spent',
     (select count(*) from public.community_reviews where user_id in (test.uid(2), test.uid(3))) = 0
-    and (select count(*) from public.community_review_reports where reporter_id in (test.uid(2), test.uid(3))) = 0);
+    and (select count(*) from public.community_review_reports where reporter_id in (test.uid(2), test.uid(3))) = 0
+    and (select count(*) from private.rate_events where user_id in (test.uid(2), test.uid(3)) and bucket like 'community_review%') = 0);
   update auth.users set created_at = now() - interval '25 hours' where id = test.uid(2);
   perform test.as_user(2);
   perform test.rec('hardening account: after 24 hours, with a confirmed e-mail, it can',
@@ -135,6 +155,7 @@ begin
   insert into public.tastings (household_id, vintage_id, score) values (h3, c19, 7) returning id into t3;
   perform test.rec('hardening account: someone who has signed in is never blocked by the e-mail rule, even without a recorded confirmation',
     public.publish_community_review(t3, null, true)->>'status' = 'published');
+  perform test.rec('hardening account: and can report', public.report_community_review((test.ch_review(t1)).id, 'other') = 'reported');
   perform test.su();
   perform test.rec('hardening account: the rule, row by row (old+confirmed, old+signed in pass; new, never proven fail)',
     private.community_account_ready(test.uid(1)) and private.community_account_ready(test.uid(7))
@@ -173,16 +194,20 @@ begin
   perform test.as_user(5);
   insert into public.tastings (household_id, vintage_id, score) values (h5, c19, 6) returning id into t5;
   perform test.su();
-  -- 40 publications earlier today, none in the last hour
+  -- 39 publications earlier today, none in the last hour: the 40th is allowed, the 41st is not
   insert into private.rate_events (user_id, bucket, at)
-    select test.uid(5), 'community_review_publish_day', now() - interval '3 hours' from generate_series(1, 40);
+    select test.uid(5), 'community_review_publish_day', now() - interval '3 hours' from generate_series(1, 39);
   perform test.as_user(5);
-  perform test.rec('hardening rate: at most 40 publications a day, also when the hour is quiet',
-    public.publish_community_review(t5, null, true)->>'status' = 'rate_limited');
+  perform test.rec('hardening rate: the 40th publication of the day is allowed',
+    public.publish_community_review(t5, null, true)->>'status' = 'published');
+  perform test.rec('hardening rate: the 41st is refused, also when the hour is quiet',
+    public.publish_community_review(t5, 'nog eens', true)->>'status' = 'rate_limited');
   perform test.su();
+  select count(*) into n from private.rate_events where user_id = test.uid(5) and bucket = 'community_review_publish_day';
+  perform test.rec('hardening rate: a refused day spends nothing more of it', n = 40);
   delete from private.rate_events where user_id = test.uid(5);
   perform test.as_user(5);
-  perform test.rec('hardening rate: a fresh day publishes', public.publish_community_review(t5, null, true)->>'status' = 'published');
+  perform test.rec('hardening rate: a fresh day publishes again', public.publish_community_review(t5, 'nog eens', true)->>'status' = 'updated');
 
   -- ---- closed again: the gate still decides ------------------------------------------------------------------
   perform test.as_service();

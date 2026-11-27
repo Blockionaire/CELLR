@@ -139,19 +139,22 @@ stars = score / 2):
 
 - **One text rule, twice:** `packages/domain/src/review-text.ts` (the publish form) and
   `private.review_text_has_link` (the publish function and a table check), the same patterns, a web test keeps them
-  identical. After Unicode NFKC it refuses a scheme (`http`, `https`, `ftp`), `www`, an e-mail address, a domain with
-  a common generic ending or any two-letter ending, and the obfuscations `[.]`, `(dot)`, ` dot com`, `(at)`. Normal
-  wine text passes ("St. Émilion", "Ch. Margaux", "D.O.Ca.", "4.5", "13.5%"); a full stop typed without its space
-  before a two-letter word can be refused, and the person adds the space.
-- **New accounts wait:** publishing and reporting need an account at least 24 hours old whose e-mail address is
-  proven: confirmed (`email_confirmed_at`) or used to sign in at least once (`last_sign_in_at`); `too_new`
-  otherwise. Reading is never blocked. Why both: CELLR signs people in only with a code or link sent to their e-mail
-  address (`server/auth/gateway.ts`, `verifyOtp`, also behind the PIN), no password, invite or admin-created
-  accounts, anonymous sign-ins off. Supabase Auth confirms the address when such a code is first used, so every
-  person who has signed in is confirmed; the sign-in clause makes sure that nobody who ever signed in is held back
-  even if a confirmation was never recorded. What it stops is an account under a day old, or one that was only
-  created (a code requested, never used). Existing users older than a day pass; the hosted Auth settings themselves
-  are not visible from the repository.
+  identical. After Unicode NFKC and with invisible format characters (zero-width spaces, soft hyphen, direction
+  marks) removed, it refuses a scheme (`http`, `https`, `ftp`), `www`, an e-mail address, a domain with a common
+  generic or spam ending (`.com`, `.top`, `.xyz`, `.live`, …, also with a space before the dot) or any two-letter
+  ending, a spelled-out `dot` or `punt`, any domain-like name followed by a slash (`t.me/x`), and the
+  obfuscations `[.]`, `(dot)`, `·`, `(at)`. Normal wine text passes ("St. Émilion", "Ch. Margaux", "D.O.Ca.", "4.5",
+  "13.5%"). Known and accepted: a full stop typed without its space before a two-letter word or a generic ending is
+  refused ("Ch.de Beaucastel", "Dom.du Pégau", "St.Jo", "Rhône.Vin de pays"); the message says to put a space after
+  the full stop.
+- **New accounts wait:** publishing and reporting need an account at least 24 hours old that is confirmed
+  (`email_confirmed_at`) or has signed in at least once (`last_sign_in_at`); `too_new` otherwise. Reading is never
+  blocked. In practice this is an account-age rule: CELLR signs people in only with a code or link sent to their
+  e-mail address (`server/auth/gateway.ts`, `verifyOtp`, also behind the PIN), every sign-in sets `last_sign_in_at`,
+  and with e-mail confirmations off (`supabase/config.toml`: `enable_confirmations = false`) Supabase Auth sets
+  `email_confirmed_at` at sign-up. Anyone who can publish has signed in, so the second half never holds back an
+  existing user; it only keeps out a row with neither value. The hosted Auth settings are not visible from the
+  repository.
 - **Daily cap:** at most 40 publications a day next to 20 an hour; reports stay at 20 a day.
 - The gate of 20261202000054 is untouched: the community stays closed until its owner opens it.
 

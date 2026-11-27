@@ -23,7 +23,8 @@ export const KNOWN_MESSAGES = {
   "Say what the occasion is.": "occasion",
   "Ask a question.": "askQuestion",
   "Say something about it: give it stars, a word or a note.": "tastingEmpty",
-  "Links, web addresses and e-mail addresses are not allowed in a review.": "reviewNoLinks",
+  "Links, web or e-mail addresses are not allowed. If you meant an abbreviation, put a space after the full stop.":
+    "reviewNoLinks",
   "This kind of place has no temperature zones.": "placeNoZones",
   "This kind of place has fewer temperature zones.": "placeFewerZones",
   "The zones must cover every shelf once, from top to bottom.": "zonesCoverShelves",
@@ -32,7 +33,7 @@ export const KNOWN_MESSAGES = {
   // Answers from the server.
   "This setting is not available yet.": "settingNotYet",
   "Ratings go in tenths of a star.": "ratingTenths",
-  "Links, web addresses and e-mail addresses are not allowed, and a review is at most 1500 characters.":
+  "Links, web or e-mail addresses are not allowed, and a review is at most 1500 characters. If you meant an abbreviation, put a space after the full stop.":
     "reviewInvalid",
   "Give it stars first, then share it.": "reviewNoScore",
   "This wine can't be reviewed publicly yet: CELLR doesn't know it as a catalogue wine.":

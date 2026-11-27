@@ -166,7 +166,7 @@ export function createRatingsService({
         case "no_consent":
           throw new DomainError(
             "VALIDATION",
-            "Links, web addresses and e-mail addresses are not allowed, and a review is at most 1500 characters.",
+            "Links, web or e-mail addresses are not allowed, and a review is at most 1500 characters. If you meant an abbreviation, put a space after the full stop.",
           );
         case "too_new":
           throw new DomainError("CONFLICT", TOO_NEW);

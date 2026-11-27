@@ -8,7 +8,7 @@ import {
   type RatingScore,
   type RatingWeights,
 } from "./rating-score";
-import { reviewTextHasLink } from "./review-text";
+import { REVIEW_LINK_MESSAGE, reviewTextHasLink } from "./review-text";
 
 /**
  * WHAT A WINE PAGE SHOWS ABOUT RATINGS (docs/sprints/ratings/DESIGN.md §4–5): per vintage, the provider's aggregate
@@ -196,10 +196,7 @@ export const PublishReviewSchema = z.object({
     .string()
     .max(REVIEW_BODY_MAX)
     .transform((s) => s.trim())
-    .refine(
-      (s) => !reviewTextHasLink(s),
-      "Links, web addresses and e-mail addresses are not allowed in a review.",
-    )
+    .refine((s) => !reviewTextHasLink(s), REVIEW_LINK_MESSAGE)
     .transform((s) => (s === "" ? null : s))
     .nullable()
     .default(null),

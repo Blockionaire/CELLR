@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { REVIEW_LINK_PATTERNS } from "@cellr/domain";
+import { REVIEW_INVISIBLE_PATTERN, REVIEW_LINK_PATTERNS } from "@cellr/domain";
 
 /**
  * The review text rule is enforced twice (packages/domain/src/review-text.ts and the database): the patterns must be
@@ -27,8 +27,12 @@ describe("the review text rule in the database", () => {
   it("has every pattern of the domain's rule, verbatim, matched case-insensitively", () => {
     for (const p of REVIEW_LINK_PATTERNS) expect(sql).toContain(`t ~* '${p}'`);
   });
-  it("has no pattern the domain does not have, and reads the text after NFKC", () => {
+  it("has no pattern the domain does not have", () => {
     expect(sql.match(/ ~\* '/g)).toHaveLength(REVIEW_LINK_PATTERNS.length);
-    expect(sql).toMatch(/normalize\(coalesce\(p, ''\), nfkc\)/);
+  });
+  it("prepares the text as the domain does: NFKC, then the same invisible characters removed", () => {
+    expect(sql).toContain(
+      `regexp_replace(normalize(coalesce(p, ''), nfkc), '${REVIEW_INVISIBLE_PATTERN}', '', 'g') as t`,
+    );
   });
 });

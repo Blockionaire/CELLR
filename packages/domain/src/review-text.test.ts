@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { REVIEW_LINK_PATTERNS, reviewTextHasLink } from "./review-text";
+import {
+  REVIEW_INVISIBLE_PATTERN,
+  REVIEW_LINK_MESSAGE,
+  REVIEW_LINK_PATTERNS,
+  reviewTextHasLink,
+} from "./review-text";
 import { PublishReviewSchema } from "./wine-ratings";
 
 // The same examples as supabase/tests/99_community_hardening.test.sql: the database applies the same rule.
@@ -27,7 +32,29 @@ const BAD = [
   "spam。com",
   "foo.co.uk",
   "ｓｐａｍ．ｎｌ",
+  // closed after the review of 03f3d00
+  "t.me/wijnclub",
+  "see t.co/x",
+  "example\u200b.com",
+  "spam\u00ad.nl",
+  "wijnhuis punt nl",
+  "wijnhuis PUNT com",
+  "example . com",
+  "example .com",
+  "example·com",
+  "cheap.top",
+  "party.live",
+  "wine.fun",
+  "deals.xyz",
+  "get.site",
+  "go.online",
+  "wine.club",
+  "more.info",
+  "spam.biz",
+  "spam.io",
 ];
+/** Normal text with a full stop typed without its space: refused by design, the message says to add the space. */
+const KNOWN_REFUSED = ["Ch.de Beaucastel", "Dom.du Pégau", "St.Jo", "Rhône.Vin de pays"];
 const GOOD = [
   "St. Émilion",
   "Ch. Margaux",
@@ -52,6 +79,11 @@ const GOOD = [
   "Q.b.A. Mosel",
   "Napa Valley, CA. Big fruit.",
   "Grand cru. De afdronk is lang",
+  "It was fun. Top wine, live music. Rest: fine.",
+  "kers · pruim · tabak",
+  "Col·lecció, Penedès",
+  "4.5/5",
+  "Op dit punt is hij klaar.",
 ];
 
 describe("the review text rule", () => {
@@ -61,13 +93,23 @@ describe("the review text rule", () => {
   it.each(GOOD)("lets normal wine text through: %s", (s) => {
     expect(reviewTextHasLink(s)).toBe(false);
   });
+  it.each(KNOWN_REFUSED)("refuses %s (known: a missing space after a full stop)", (s) => {
+    expect(reviewTextHasLink(s)).toBe(true);
+    expect(reviewTextHasLink(s.replace(".", ". "))).toBe(false);
+  });
+  it("says how to fix a refused abbreviation", () => {
+    const r = PublishReviewSchema.safeParse({ body: "Ch.de Beaucastel", consent: true });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]?.message).toBe(REVIEW_LINK_MESSAGE);
+    expect(REVIEW_LINK_MESSAGE).toContain("put a space after the full stop");
+  });
   it("reads the text after NFKC: full-width and decomposed letters are the plain ones", () => {
     expect(reviewTextHasLink("ｈｔｔｐｓ：／／ｘ")).toBe(true);
     // "St. E" + combining acute: composed to É, not a two-letter ending
     expect(reviewTextHasLink("St.Émilion")).toBe(false);
   });
   it("uses only syntax PostgreSQL reads the same way (no \\b, no lookaround, no flags inline)", () => {
-    for (const p of REVIEW_LINK_PATTERNS) {
+    for (const p of [...REVIEW_LINK_PATTERNS, REVIEW_INVISIBLE_PATTERN]) {
       expect(p).not.toMatch(/\\b|\(\?[=!<:]|\(\?[a-z]/);
       expect(p).not.toContain("'");
     }

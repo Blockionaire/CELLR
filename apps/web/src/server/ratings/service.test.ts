@@ -195,7 +195,7 @@ describe("ratings service", () => {
       }),
     ).rejects.toMatchObject({
       code: "VALIDATION",
-      message: expect.stringContaining("e-mail addresses"),
+      message: expect.stringContaining("put a space after the full stop"),
     });
   });
   it("delete and report", async () => {

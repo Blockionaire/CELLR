@@ -1,13 +1,14 @@
 -- Community reviews, hardened before activation (Ratings sprint). Design: docs/sprints/ratings/DESIGN.md §3.
 --
 -- 1. One text rule against links and contact addresses, the same as the app's (packages/domain/src/review-text.ts,
---    whose patterns a web test finds verbatim below): Unicode NFKC first, then six case-insensitive patterns, a
---    scheme (http, https, ftp), `www`, an e-mail address, a domain with a generic ending, a domain with a two-letter
---    ending, and a spelled-out "dot"; obfuscated dots and at signs ("[.]", "(dot)", "(at)") count. Publishing refuses
---    such a text ('invalid_text'), and a new table check refuses it whatever writes the row.
--- 2. A new account cannot publish or report yet: at least 24 hours old (auth.users.created_at) and with a proven
---    e-mail address: confirmed (email_confirmed_at) or signed in at least once (last_sign_in_at). Otherwise
---    'too_new'. Reading is never blocked.
+--    whose patterns a web test finds verbatim below): Unicode NFKC first, invisible format characters removed, then
+--    eight case-insensitive patterns: a scheme (http, https, ftp), `www`, an e-mail address, a domain with a generic
+--    ending (also with a space before its dot), a domain with a two-letter ending, a spelled-out "dot" or "punt", and
+--    any domain-like name followed by a slash (t.me/x); obfuscated dots and at signs ("[.]", "(dot)", "(at)", "·")
+--    count. Publishing refuses such a text ('invalid_text'), and a new table check refuses it whatever writes the row.
+-- 2. A new account cannot publish or report yet: at least 24 hours old (auth.users.created_at), and confirmed
+--    (email_confirmed_at) or signed in at least once (last_sign_in_at). Otherwise 'too_new'. Reading is never
+--    blocked. In practice this is an account-age rule: see section 2 below.
 -- 3. Publishing also has a daily cap (40 a day) next to the hourly one (20 an hour); reports keep 20 a day.
 --
 -- Unchanged: the gate of 20261202000054 (the community stays closed until its owner opens it), one review per person
@@ -23,11 +24,13 @@ create function private.review_text_has_link(p text) returns boolean
   language sql immutable parallel safe set search_path = '' as $$
   select t ~* '(https?|ftps?)\s*:\s*/'
       or t ~* '(^|[^a-z0-9])www([^a-z0-9]|$)'
-      or t ~* '[a-z0-9._%+-](\s*@\s*|\s*[[({<]\s*(@|at)\s*[)\]}>]\s*)[a-z0-9-]+(([.。]|\s*[[({<]\s*([.。]|dot|punt)\s*[)\]}>]\s*)[a-z0-9-]+)*([.。]|\s*[[({<]\s*([.。]|dot|punt)\s*[)\]}>]\s*)[a-z]{2,}'
-      or t ~* '[a-z0-9]([.。]|\s*[[({<]\s*([.。]|dot|punt)\s*[)\]}>]\s*)(com|net|org|info|biz|xyz|online|site|website|shop|store|club|app|dev|wine|vin|link|click|icu|vip|tech|blog|email|cloud|mobi|asia)([^a-z0-9]|$)'
-      or t ~* '[a-z0-9]{2}([.。]|\s*[[({<]\s*([.。]|dot|punt)\s*[)\]}>]\s*)[a-z]{2}([^a-z0-9]|$)'
-      or t ~* '[a-z0-9]\s+dot\s+(com|net|org|info|biz|xyz|online|site|website|shop|store|club|app|dev|wine|vin|link|click|icu|vip|tech|blog|email|cloud|mobi|asia|nl|be|de|fr|uk|eu|io|co|ru|cn)([^a-z0-9]|$)'
-    from (select normalize(coalesce(p, ''), nfkc) as t) n
+      or t ~* '[a-z0-9._%+-](\s*@\s*|\s*[[({<]\s*(@|at)\s*[)\]}>]\s*)[a-z0-9-]+(([.。·]|\s*[[({<]\s*([.。·]|dot|punt)\s*[)\]}>]\s*)[a-z0-9-]+)*([.。·]|\s*[[({<]\s*([.。·]|dot|punt)\s*[)\]}>]\s*)[a-z]{2,}'
+      or t ~* '[a-z0-9]([.。·]|\s*[[({<]\s*([.。·]|dot|punt)\s*[)\]}>]\s*)(com|net|org|info|biz|xyz|top|online|site|website|space|shop|store|club|app|dev|wine|vin|link|click|live|life|fun|work|buzz|rest|bond|cfd|sbs|cyou|quest|lol|monster|icu|vip|tech|blog|email|cloud|mobi|asia)([^a-z0-9]|$)'
+      or t ~* '[a-z0-9]\s+[.。·]\s*(com|net|org|info|biz|xyz|top|online|site|website|space|shop|store|club|app|dev|wine|vin|link|click|live|life|fun|work|buzz|rest|bond|cfd|sbs|cyou|quest|lol|monster|icu|vip|tech|blog|email|cloud|mobi|asia)([^a-z0-9]|$)'
+      or t ~* '[a-z0-9]{2}([.。·]|\s*[[({<]\s*([.。·]|dot|punt)\s*[)\]}>]\s*)[a-z]{2}([^a-z0-9]|$)'
+      or t ~* '[a-z0-9]\s+(dot|punt)\s+(com|net|org|info|biz|xyz|top|online|site|website|space|shop|store|club|app|dev|wine|vin|link|click|live|life|fun|work|buzz|rest|bond|cfd|sbs|cyou|quest|lol|monster|icu|vip|tech|blog|email|cloud|mobi|asia|nl|be|de|fr|uk|eu|io|co|ru|cn)([^a-z0-9]|$)'
+      or t ~* '[a-z0-9]([.。·]|\s*[[({<]\s*([.。·]|dot|punt)\s*[)\]}>]\s*)[a-z]{2,}\s*/'
+    from (select regexp_replace(normalize(coalesce(p, ''), nfkc), '[\u00ad\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]', '', 'g') as t) n
 $$;
 revoke all on function private.review_text_has_link(text) from public, anon, authenticated;
 -- the table check below runs as whoever writes the row: the functions (their owner) and the service role
@@ -35,7 +38,9 @@ grant execute on function private.review_text_has_link(text) to service_role;
 
 -- The table refuses such a text too. NOT VALID first, so that this migration can never fail on an existing row; it
 -- is validated at once when no row breaks the rule (the community is closed: there are none). Should one exist, it
--- stays NOT VALID with a notice, and a moderator removes that review before `validate constraint` is run.
+-- stays NOT VALID with a notice, and a moderator removes that review before `validate constraint` is run. Until then
+-- such a row would also refuse any later update of itself (e.g. the follow-tasting trigger carrying over a new
+-- score); unreachable while the community is closed, as no review exists.
 alter table public.community_reviews
   add constraint community_reviews_no_links_v2 check (body is null or not private.review_text_has_link(body)) not valid;
 do $$
@@ -48,12 +53,13 @@ begin
 end $$;
 
 -- ---- 2. Old enough to take part ---------------------------------------------------------------------------------
--- An account may publish and report once it is at least 24 hours old and its e-mail address is proven. CELLR signs
--- people in only with a code or link sent to their e-mail address (server/auth/gateway.ts: verifyOtp, also behind
--- the PIN), and Supabase Auth confirms the address when such a code is first used; a completed sign-in
--- (last_sign_in_at) counts as well, so that nobody who has ever signed in can be held back by the e-mail half of the
--- rule. What it stops: an account that was only created (a code requested, never used) or is under a day old. A
--- missing or unknown value counts as not yet.
+-- An account may publish and report once it is at least 24 hours old, and confirmed or signed in at least once.
+-- Honestly: the second half adds little. CELLR signs people in only with a code or link sent to their e-mail address
+-- (server/auth/gateway.ts: verifyOtp, also behind the PIN), every completed sign-in sets last_sign_in_at, and with
+-- e-mail confirmations off (supabase/config.toml: enable_confirmations = false) Supabase Auth sets
+-- email_confirmed_at at sign-up already. Anyone able to call this function has signed in, so in practice the rule
+-- is "at least 24 hours old"; the second half only keeps out a row with neither value, and can never hold back
+-- someone who has signed in. A missing or unknown value counts as not yet.
 create function private.community_account_ready(p_user uuid) returns boolean
   language sql stable security definer set search_path = '' as $$
   select coalesce((select (u.email_confirmed_at is not null or u.last_sign_in_at is not null)
@@ -64,8 +70,8 @@ revoke all on function private.community_account_ready(uuid) from public, anon, 
 
 -- ---- 3. Publishing ----------------------------------------------------------------------------------------------
 -- 'published' · 'updated' · 'not_yours' · 'no_score' · 'no_identity' · 'no_consent' · 'too_new' (0055: the account
--- is younger than 24 hours, or its e-mail address is neither confirmed nor ever used to sign in) · 'rate_limited' ·
--- 'invalid_text' · 'moderated'.
+-- is younger than 24 hours, or neither confirmed nor ever signed in) · 'rate_limited' · 'invalid_text' ·
+-- 'moderated'. Every refusal before the rate limits spends none of it.
 create or replace function public.publish_community_review(p_tasting_id uuid, p_body text, p_consent boolean)
   returns jsonb
   language plpgsql security definer set search_path = '' as $$
