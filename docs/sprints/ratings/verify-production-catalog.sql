@@ -52,5 +52,13 @@ select * from (values
                       and rights_evidence is not null from p), false),
      (select rights_status || ', scope ' || search_scope from p)),
   ('scope: still off until ACTIVATION.md C3', coalesce((select search_scope = 'off' from p), false),
-     (select search_scope from p))
+     (select search_scope from p)),
+  ('anonymous callers: no catalogue, rating or review function callable',
+     not exists (select 1 from pg_proc f join pg_namespace n on n.oid = f.pronamespace and n.nspname = 'public'
+                  where (f.proname like 'catalog%' or f.proname like '%rating%' or f.proname like 'community%'
+                         or f.proname like '%review%') and has_function_privilege('anon', f.oid, 'execute')), ''),
+  ('anonymous callers: no catalogue or community table readable',
+     not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
+                  where c.relkind in ('r', 'v', 'm') and (c.relname like 'catalog%' or c.relname like 'community%')
+                    and has_table_privilege('anon', c.oid, 'select')), '')
 ) as t(check_name, ok, detail);
