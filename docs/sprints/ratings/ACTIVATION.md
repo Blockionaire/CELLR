@@ -82,6 +82,9 @@ Every step is the **owner's** unless it says Claude, and each has its own GO. Th
   overlap), and their SQL p95 under 250 ms; at least 16 executing for at least 80% of the steady state (the window
   without its first and last 10%), on at least 16 backends, and seen by the sampler; at most 20% of searches empty; at
   least 70% answered by the synthetic source. The p95 per concurrency band (below 16, 16–19, 20 or more) is reported.
+- **The pool is checked first.** Mode `pool-check` (read-only) and the start of every `perf16` run open 24 clients
+  through the transaction pooler; each holds a server connection for 2 s, and the same server-clock overlap shows how
+  many ran at once. Below 16 the run stops before anything is made public.
 - **The pooler is a limit.** If the staging pool allows fewer than 16 server connections, 16 cannot execute at once and
   the run fails by design; the remedy is a larger staging pool (about 24, a hosted setting), not a weaker check. The
   sampler holds one session connection of its own.

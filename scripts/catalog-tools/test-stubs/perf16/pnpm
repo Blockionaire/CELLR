@@ -8,6 +8,9 @@ echo "tsx $script $*" >> "$H/calls.log"
 case "$script" in
   staging-guard.ts) exit 0 ;;
   staging-check.ts) echo '{"ok":true,"checks":[]}' > "$out" ;;
+  pool-probe.ts) p="${POOL_PEAK:-24}"; ok=$([ "$p" -ge 16 ] && echo true || echo false)
+                 echo "{\"clients\":24,\"need\":16,\"peak\":$p,\"backends\":$p,\"ok\":$ok}" > "$out"
+                 [ "$ok" = true ] || { echo "pool probe: TOO FEW" >&2; exit 1; } ;;
   perf.ts) [ "${PERF_FAIL:-0}" = 1 ] && { echo "perf.ts: simulated failure" >&2; exit 1; }
            if [ $sa = 1 ]; then cp "$H/c16.json" "$out"; else cp "$H/c1.json" "$out"; fi ;;
   *) exec node --import tsx "$script" "$@" ;;

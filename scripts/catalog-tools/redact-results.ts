@@ -84,6 +84,7 @@ const SAFE = [
   /^perf-((pilot|public|all|public-synthetic)-)?c\d+(-(transaction|before|after))?\.json$/,
   /^perf-state-(before|during|after)\.json$/,
   /^perf-accept-c\d+\.json$/,
+  /^pool-probe\.json$/,
   /^staging-check[\w-]*\.json$/,
   /^xwines-provider\.json$/,
   /^(pilot-separation|invariants|nonpilot-refusal|scan-check)\.txt$/,

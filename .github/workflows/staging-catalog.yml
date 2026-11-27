@@ -10,10 +10,21 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "check = read-only; migrate = schema onto the new project; import = X-Wines pilot import and validation; scan = scan chain with a fictitious public source (rolled back); ratings = X-Wines ratings aggregated and imported (pilot); ratings-verify = read-only check of the imported ratings (no file, no import); perf16 = 16 concurrent people's searches over a synthetic public source (fail-closed); perf16-cleanup = switch the synthetic source off and check"
+        description: "check = read-only; migrate = schema onto the new project; import = X-Wines pilot import and validation; scan = scan chain with a fictitious public source (rolled back); ratings = X-Wines ratings aggregated and imported (pilot); ratings-verify = read-only check of the imported ratings (no file, no import); pool-check = read-only: how many connections the pooler gives at once; perf16 = 16 concurrent people's searches over a synthetic public source (fail-closed); perf16-cleanup = switch the synthetic source off and check"
         required: true
         type: choice
-        options: [check, migrate, import, scan, ratings, ratings-verify, perf16, perf16-cleanup]
+        options:
+          [
+            check,
+            migrate,
+            import,
+            scan,
+            ratings,
+            ratings-verify,
+            pool-check,
+            perf16,
+            perf16-cleanup,
+          ]
         default: check
       confirm_project_ref:
         description: "Type the staging project ref to confirm (must equal the environment's configured ref)"
@@ -50,7 +61,7 @@ jobs:
           [ -n "$STAGING_PROJECT_REF" ] || { echo "no STAGING_PROJECT_REF variable in the cellr-staging environment"; exit 1; }
           [ "$CONFIRM_REF" = "$STAGING_PROJECT_REF" ] || { echo "the typed ref is not the configured staging project"; exit 1; }
           case "$STAGING_DB_URL$STAGING_PROJECT_REF" in *vvelgyhbjfmjvxkzekyz*) echo "production: refused"; exit 1;; esac
-          case "$MODE" in check|migrate|import|scan|ratings|ratings-verify|perf16|perf16-cleanup) ;; *) echo "unknown mode"; exit 1;; esac
+          case "$MODE" in check|migrate|import|scan|ratings|ratings-verify|pool-check|perf16|perf16-cleanup) ;; *) echo "unknown mode"; exit 1;; esac
           # the password on its own is masked too, should a tool ever print it apart from the URL
           PW=$(node -e 'try{process.stdout.write(decodeURIComponent(new URL(process.env.STAGING_DB_URL).password))}catch{}')
           if [ -n "$PW" ]; then echo "::add-mask::$PW"; fi
