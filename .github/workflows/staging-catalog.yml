@@ -10,10 +10,10 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "check = read-only; migrate = schema onto the new project; import = X-Wines pilot import and validation; scan = scan chain with a fictitious public source (rolled back); ratings = X-Wines ratings aggregated and imported (pilot); ratings-verify = read-only check of the imported ratings (no file, no import); perf16 = 16 concurrent people's searches over a synthetic public source"
+        description: "check = read-only; migrate = schema onto the new project; import = X-Wines pilot import and validation; scan = scan chain with a fictitious public source (rolled back); ratings = X-Wines ratings aggregated and imported (pilot); ratings-verify = read-only check of the imported ratings (no file, no import); perf16 = 16 concurrent people's searches over a synthetic public source (fail-closed); perf16-cleanup = switch the synthetic source off and check"
         required: true
         type: choice
-        options: [check, migrate, import, scan, ratings, ratings-verify, perf16]
+        options: [check, migrate, import, scan, ratings, ratings-verify, perf16, perf16-cleanup]
         default: check
       confirm_project_ref:
         description: "Type the staging project ref to confirm (must equal the environment's configured ref)"
@@ -50,7 +50,7 @@ jobs:
           [ -n "$STAGING_PROJECT_REF" ] || { echo "no STAGING_PROJECT_REF variable in the cellr-staging environment"; exit 1; }
           [ "$CONFIRM_REF" = "$STAGING_PROJECT_REF" ] || { echo "the typed ref is not the configured staging project"; exit 1; }
           case "$STAGING_DB_URL$STAGING_PROJECT_REF" in *vvelgyhbjfmjvxkzekyz*) echo "production: refused"; exit 1;; esac
-          case "$MODE" in check|migrate|import|scan|ratings|ratings-verify|perf16) ;; *) echo "unknown mode"; exit 1;; esac
+          case "$MODE" in check|migrate|import|scan|ratings|ratings-verify|perf16|perf16-cleanup) ;; *) echo "unknown mode"; exit 1;; esac
           # the password on its own is masked too, should a tool ever print it apart from the URL
           PW=$(node -e 'try{process.stdout.write(decodeURIComponent(new URL(process.env.STAGING_DB_URL).password))}catch{}')
           if [ -n "$PW" ]; then echo "::add-mask::$PW"; fi
@@ -83,9 +83,18 @@ jobs:
           echo "847fb49139b7ebfc92c5745cc34e3efff9febea05e977e4332287afa2ea2ded2  $RUNNER_TEMP/XWines_Full_21M_ratings.csv" | sha256sum -c --quiet
           echo "ratings file verified: $(wc -c < "$RUNNER_TEMP/XWines_Full_21M_ratings.csv") bytes"
       - name: Run (${{ inputs.mode }})
+        # below the job's limit, so the steps after it (the perf16 cleanup) still have time to run
+        timeout-minutes: 75
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
         run: bash scripts/catalog-tools/staging-pilot.sh "$MODE" "$RUNNER_TEMP/out" "$RUNNER_TEMP/XWines_Full_100K_wines.csv" "$RUNNER_TEMP/XWines_Full_21M_ratings.csv"
+      - name: perf16 cleanup, whatever happened (also after a cancel or a timeout)
+        # the script's own trap may be cut off when the job is cancelled; this step runs anyway (always())
+        if: always() && inputs.mode == 'perf16'
+        timeout-minutes: 5
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: bash scripts/catalog-tools/staging-pilot.sh perf16-cleanup "$RUNNER_TEMP/out-cleanup"
       - name: Remove the dataset from the runner
         if: always()
         run: rm -rf "$RUNNER_TEMP/XWines_Full_100K_wines.csv" "$RUNNER_TEMP"/XWines_Full_21M_ratings.* "$RUNNER_TEMP/ratings-work"

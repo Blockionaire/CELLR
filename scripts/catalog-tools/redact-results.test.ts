@@ -72,6 +72,29 @@ describe("result files that may be committed", () => {
     expect(JSON.stringify(out)).not.toMatch(/Domaine Z/);
   });
 
+  it("keeps only the load-test files it knows by name; another perf-*.json is not kept unreduced", () => {
+    const dir = mkdtempSync(join(tmpdir(), "redact-perf-"));
+    for (const name of [
+      "perf-public-synthetic-c16.json",
+      "perf-pilot-c16-transaction.json",
+      "perf-public-c8-after.json",
+      "perf-state-before.json",
+      "perf-state-during.json",
+      "perf-accept-c16.json",
+      "perf-queries.json",
+    ])
+      writeFileSync(join(dir, name), JSON.stringify({ overall: { p95: 1 } }));
+    const r = redactDir(dir);
+    expect(r.kept.sort()).toEqual([
+      "perf-accept-c16.json",
+      "perf-pilot-c16-transaction.json",
+      "perf-public-c8-after.json",
+      "perf-public-synthetic-c16.json",
+      "perf-state-before.json",
+      "perf-state-during.json",
+    ]);
+    expect(r.deleted).toEqual(["perf-queries.json"]);
+  });
   it("refuses a file it does not know", () => {
     expect(() => redact("perf-c8.json", {})).toThrow(/not a result file/);
   });

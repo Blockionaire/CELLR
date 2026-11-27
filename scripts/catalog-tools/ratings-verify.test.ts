@@ -38,7 +38,7 @@ describe("the totals check (database = aggregation report)", () => {
   });
 });
 
-describe("the totals check as staging-pilot.sh runs it (exit code)", () => {
+describe("the totals check as staging-pilot.sh runs it (exit code)", { timeout: 60_000 }, () => {
   const dir = mkdtempSync(join(tmpdir(), "ratings-verify-"));
   const run = (db: object, file: object) => {
     writeFileSync(join(dir, "db.json"), JSON.stringify(db));

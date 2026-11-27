@@ -79,7 +79,11 @@ export function redact(file: string, data: { [k: string]: Json }): { [k: string]
 
 /** Files that carry no record of a dataset by construction: timings, the staging check, the provider row, summaries. */
 const SAFE = [
-  /^perf-[\w-]+\.json$/,
+  // load-test reports by their known names only (timings and counts by construction: perf.ts and perf16-state.sql
+  // name no record); any other perf-*.json is not kept unreduced
+  /^perf-((pilot|public|all|public-synthetic)-)?c\d+(-(transaction|before|after))?\.json$/,
+  /^perf-state-(before|during|after)\.json$/,
+  /^perf-accept-c\d+\.json$/,
   /^staging-check[\w-]*\.json$/,
   /^xwines-provider\.json$/,
   /^(pilot-separation|invariants|nonpilot-refusal|scan-check)\.txt$/,

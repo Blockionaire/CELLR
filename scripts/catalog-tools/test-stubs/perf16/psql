@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Test stub for perf16-e2e.test.ts: a staging database reduced to the synthetic source's scope (file $H/scope).
+all="$*"; echo "psql $all" | cut -c1-160 >> "$H/calls.log"
+scope=$(cat "$H/scope")
+case "$all" in
+  *perf16-state.sql*) [ "${STATE_FAIL:-0}" = 1 ] && { echo "ERROR: simulated state failure" >&2; exit 2; }
+    s=$([ "$scope" = absent ] && echo null || echo "\"$scope\"")
+    seen=$([ "$scope" = public ] && echo "${SEEN_WHILE_PUBLIC:-3}" || echo 0)
+    echo "{\"xwines_scope\":\"${XWINES:-pilot}\",\"synth_scope\":$s,\"synth_records\":100000,\"person_sees_synth\":$seen,\"users\":1,\"households\":201,\"wines\":10300}" ;;
+  *perf-synthetic.sql*) [ "${SYNTH_FAIL:-0}" = 1 ] && { echo "ERROR: simulated import failure"; exit 3; }
+    echo public > "$H/scope"; echo "synthetic source perf_synth: 100000 records" ;;
+  *"count(*) from auth.users"*) echo 1 ;;
+  *"count(*) from public.catalog_providers"*) [ "$scope" = absent ] && echo 0 || echo 1 ;;
+  *admin_catalog_provider_disable*) n=$(cat "$H/disable-fails" 2>/dev/null || echo "${DISABLE_FAILS:-0}")
+    if [ "$n" -gt 0 ]; then echo $((n-1)) > "$H/disable-fails"; echo "ERROR: simulated denial" >&2; exit 1; fi
+    echo off > "$H/scope" ;;
+esac
