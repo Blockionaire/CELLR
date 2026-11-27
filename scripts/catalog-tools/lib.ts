@@ -35,6 +35,8 @@ export interface ApprovedTargets {
 }
 
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+/** A database on this machine (no pooler, no network): the only target besides approved staging projects. */
+export const isLocalHost = (host: string): boolean => LOCAL_HOSTS.has(host);
 
 /**
  * Where a tool may connect, decided from the URL before connecting:

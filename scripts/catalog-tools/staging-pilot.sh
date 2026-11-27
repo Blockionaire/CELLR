@@ -11,10 +11,12 @@
 #             benchmark, recognition, performance, the staging check again
 #   scan      the scan chain with a FICTITIOUS public source, as a person, rolled back (staging-scan-check.sql)
 #   ratings-verify  READ-ONLY: the imported ratings checked in place (ratings-verify.ts db), no file, no import
+#   perf16    16 concurrent people's searches over a synthetic PUBLIC source, measured in PostgreSQL, fail-closed
+#   perf16-cleanup  recovery: the synthetic source switched off and checked (also safe to run any time)
 # Output: only result files reduced to counts (redact-results.ts) and logs of counts. No record of the dataset, no
 # connection string, no key is ever printed: tool output goes to files, the log gets summaries.
 set -euo pipefail
-MODE="${1:?check|migrate|import|scan|ratings|ratings-verify|perf16}"
+MODE="${1:?check|migrate|import|scan|ratings|ratings-verify|perf16|perf16-cleanup}"
 OUT="${2:?output directory}"
 XW="${3:-}"
 RT="${4:-}"
@@ -41,6 +43,10 @@ guard() { "${T[@]}" staging-guard.ts --phase "$1" "${DB[@]}" --confirm "$CONFIRM
 trap 'rm -rf "${WORK:-$OUT/.none}"; "${T[@]}" redact-results.ts --dir "$OUT" || rm -rf "${OUT:?}"/*' EXIT
 # the session pooler's client limit (Supabase: the project's pool size, 15 on Micro); the load test never exceeds it
 POOL_CLIENTS="${STAGING_POOL_CLIENTS:-15}"
+
+# perf16 helpers: the state around the load test and the checked cleanup (perf16-lib.sh, tested on its own)
+# shellcheck source=perf16-lib.sh
+source "$ROOT/scripts/catalog-tools/perf16-lib.sh"
 
 case "$MODE" in
 check)
@@ -203,33 +209,54 @@ ratings-verify)
     --out "$OUT/ratings-verify.json"
   ;;
 perf16)
-  # people's search over a populated PUBLIC source with 16 searches really in flight (one round trip each, timed in
-  # the database), on top of the X-Wines pilot records. The source is CELLR's own synthetic set (perf-synthetic.sql),
-  # switched off again whatever happens.
+  # people's search over a populated PUBLIC source with 16 searches executing in PostgreSQL at once (measured from
+  # the searches' own server-side intervals, perf-accept.ts), on top of the X-Wines pilot records. The source is
+  # CELLR's own synthetic set (perf-synthetic.sql). FAIL-CLOSED: the run fails when the acceptance is not met, and
+  # whatever happens the source is switched off again and that is checked independently (perf16_cleanup).
   guard write
   "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-before.json" >/dev/null ||
     { j "$OUT/staging-check-before.json" "r.checks.filter(c=>!c.ok).map(c=>'  FAIL '+c.name).join('\n')"; exit 1; }
   [ "$(psqlq -c "select count(*) from auth.users where id = '$USER_ID'")" = 1 ] ||
     { echo "the synthetic test person is missing (run mode import first)" >&2; exit 1; }
-  synth_off() { psqlq -c "select public.admin_catalog_provider_disable('perf_synth', 'load test finished', 'staging-pilot.sh')" >/dev/null 2>&1 || true; }
-  trap 'synth_off; rm -rf "${WORK:-$OUT/.none}"; "${T[@]}" redact-results.ts --dir "$OUT" || rm -rf "${OUT:?}"/*' EXIT
+  perf16_state "$OUT/perf-state-before.json"
+  echo "• before: $(cat "$OUT/perf-state-before.json")"
+  j "$OUT/perf-state-before.json" "process.exit(r.xwines_scope==='pilot'?0:1)" ||
+    { echo "X-Wines is not in pilot scope: refusing to run perf16" >&2; exit 1; }
+  # from here on, every exit (success, failure, interruption) switches the synthetic source off and checks it
+  trap 'rc=$?; perf16_cleanup || rc=1; rm -rf "${WORK:-$OUT/.none}"; "${T[@]}" redact-results.ts --dir "$OUT" || rm -rf "${OUT:?}"/*; exit $rc' EXIT
   echo "• the synthetic public source (100,000 invented records)"
   SLOG="$(mktemp)"
   psqlq -f perf-synthetic.sql >"$SLOG" 2>&1 || { tail -3 "$SLOG" >&2; rm -f "$SLOG"; exit 1; }
   grep -o "synthetic source.*" "$SLOG"; rm -f "$SLOG"
+  # X-Wines must still be pilot while the synthetic source is public
+  perf16_state "$OUT/perf-state-during.json"
+  # ... and the independent check must SEE the public source now (else its "0 found" afterwards would prove nothing)
+  j "$OUT/perf-state-during.json" "process.exit(r.xwines_scope==='pilot'&&r.synth_scope==='public'&&r.synth_records>=100000&&r.person_sees_synth>0?0:1)" ||
+    { echo "unexpected state during the run: $(cat "$OUT/perf-state-during.json")" >&2; exit 1; }
   PERF=("${T[@]}" perf.ts "${DB[@]}" --user "$USER_ID" --household "$HOUSEHOLD" --set "$ROOT/eval/catalog/benchmark.json"
-        --mode public --synthetic perf_synth --rounds 3)
+        --mode public --synthetic perf_synth --rounds 3 --pooler transaction --one-trip --target 16)
+  # clients: more than 16 may be needed to keep 16 executing in PostgreSQL across the round trip (the runner is far
+  # from the database); the acceptance judges what PostgreSQL executed, never the number of clients
+  "${PERF[@]}" --concurrency 1 --out "$OUT/perf-public-synthetic-c1.json" >/dev/null
+  "${PERF[@]}" --concurrency "${PERF16_CLIENTS:-32}" --sample-activity --out "$OUT/perf-public-synthetic-c16.json" >/dev/null
   for c in 1 16; do
-    "${PERF[@]}" --concurrency $c --pooler transaction --one-trip --out "$OUT/perf-public-synthetic-c$c.json" >/dev/null
-    j "$OUT/perf-public-synthetic-c$c.json" "'• people c$c (one trip, timed in the database): ' + JSON.stringify({database:r.overall,client:r.client,in_flight:r.in_flight,throughput_per_s:r.throughput_per_s,empty:r.overall.empty})"
+    j "$OUT/perf-public-synthetic-c$c.json" "'• people c$c: ' + JSON.stringify({clients:r.clients,database:r.overall,throughput_per_s:r.throughput_per_s,synthetic_hits:r.synthetic_hits,in_postgres:r.database_concurrency,sampler:r.activity_sampler})"
   done
-  j "$OUT/perf-public-synthetic-c16.json" "'  target (database p95 < 250 ms at 16 in flight): ' + (Number.isFinite(r.overall.p95) && r.overall.n > 0 && r.overall.p95 < 250 && r.in_flight >= 14 ? 'MET' : 'NOT MET') + ' (p95 ' + r.overall.p95 + ' ms, ' + r.in_flight + ' in flight)'"
-  j "$OUT/perf-public-synthetic-c16.json" "process.exit(Number.isFinite(r.overall.p95) && r.overall.n > 0 ? 0 : 1)"
-  synth_off
-  [ "$(psqlq -c "select search_scope from public.catalog_providers where id = 'perf_synth'")" = off ] ||
-    { echo "the synthetic source is still shown: switch it off by hand" >&2; exit 1; }
-  "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-after.json" >/dev/null
-  j "$OUT/staging-check-after.json" "'• staging check after: ' + (r.ok ? 'PASS' : 'FAIL')"
+  j "$OUT/perf-public-synthetic-c16.json" "'• resources: ' + JSON.stringify(r.resources)"
+  # the acceptance (GO_LIVE.md A3): exit 1 when any check fails, which fails the run (after the cleanup)
+  "${T[@]}" perf-accept.ts --report "$OUT/perf-public-synthetic-c16.json" --target 16 --p95 250 --out "$OUT/perf-accept-c16.json"
+  "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-after.json" >/dev/null ||
+    { j "$OUT/staging-check-after.json" "r.checks.filter(c=>!c.ok).map(c=>'  FAIL '+c.name).join('\n')"; exit 1; }
+  echo "• staging check after: PASS"
+  ;;
+perf16-cleanup)
+  # RECOVERY when a perf16 run could not switch the synthetic source off (or to check that it is off): switch it
+  # off and check, the same way as at the end of every perf16 run. Changes nothing else.
+  guard write
+  trap 'rm -rf "${WORK:-$OUT/.none}"; "${T[@]}" redact-results.ts --dir "$OUT" || rm -rf "${OUT:?}"/*' EXIT
+  # never let an unreadable state stop the switch-off (a missing "before" makes the check fail, not the cleanup)
+  perf16_state "$OUT/perf-state-before.json" || { rm -f "$OUT/perf-state-before.json"; echo "  the state before could not be read" >&2; }
+  perf16_cleanup
   ;;
 scan)
   guard write

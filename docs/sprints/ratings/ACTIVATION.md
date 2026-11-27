@@ -63,11 +63,45 @@ Every step is the **owner's** unless it says Claude, and each has its own GO. Th
 
 ## Performance
 
-| Measurement                               | Where             | Result                                                                                |
-| ----------------------------------------- | ----------------- | ------------------------------------------------------------------------------------- |
-| Ratings read                              | Local Postgres 17 | p95 0.26 ms per record                                                                |
-| Reviews read                              | —                 | Uses the partial indexes (review of PR 2)                                             |
-| People's search at 16 concurrent searches | —                 | **Still open** (`sprint-004c/GO_LIVE.md` A3): to be measured on staging before step 8 |
+| Measurement                               | Where              | Result                                                                                               |
+| ----------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------- |
+| Ratings read                              | Local Postgres 17  | p95 0.26 ms per record                                                                               |
+| Reviews read                              | —                  | Uses the partial indexes (review of PR 2)                                                            |
+| People's search at 16 concurrent searches | Staging (`perf16`) | To be measured: SQL p95 under 250 ms with 16 searches executing in PostgreSQL at once (method below) |
+
+### perf16: how concurrency is measured, and what passes
+
+- **Measured inside PostgreSQL, never inferred.** Each search records with the database server's clock when its search
+  statement started and ended, and on which backend (`clock_timestamp()`, `pg_backend_pid()`). Overlapping those
+  intervals gives how many searches PostgreSQL executed at each moment: peak, time-weighted mean, median, and the share
+  of the measured window with at least 16 executing. A sampler on its own connection reads `pg_stat_activity` every
+  50 ms as an independent cross-check. The number of clients is only the means: more than 16 may be needed to keep 16
+  executing across the round trip (the runner is far from the database).
+- **Passes only when all hold** (`scripts/catalog-tools/perf-accept.ts`, the workflow fails otherwise): people's search
+  timed in the database; at least 500 searches that themselves ran with 16 or more executing (each search's own
+  overlap), and their SQL p95 under 250 ms; at least 16 executing for at least 80% of the steady state (the window
+  without its first and last 10%), on at least 16 backends, and seen by the sampler; at most 20% of searches empty; at
+  least 70% answered by the synthetic source. The p95 per concurrency band (below 16, 16–19, 20 or more) is reported.
+- **The pooler is a limit.** If the staging pool allows fewer than 16 server connections, 16 cannot execute at once and
+  the run fails by design; the remedy is a larger staging pool (about 24, a hosted setting), not a weaker check. The
+  sampler holds one session connection of its own.
+- **What it is, and is not:** the database's capacity for people's search at 16 concurrent. It leaves out PostgREST
+  (its own pool may hold fewer than 16), the app's network to the database, and a cold cache (the query set repeats).
+- **Recorded:** p50, p95, p99, throughput, empty and synthetic answers, the concurrency figures, and the resource use of
+  the measured rounds (`pg_stat_statements` for the search, `pg_stat_database`: blocks, cache hits, temp bytes).
+
+### perf16: cleanup and recovery
+
+The synthetic source `perf_synth` (invented records, staging only) is public only during the measurement. On every exit
+of the run, success or failure, it is switched off (three attempts, every error shown) and then checked independently:
+its scope is `off`, a signed-in person's search finds none of its records, X-Wines is still `pilot`, and the number of
+users, households and wines is unchanged. If any of that does not hold, the run fails and prints the recovery:
+
+1. Run the staging workflow in mode `perf16-cleanup` (switches the source off and runs the same checks), or
+2. in the staging SQL editor: `select public.admin_catalog_provider_disable('perf_synth', 'manual recovery', '<you>');`
+   then `select search_scope from public.catalog_providers where id = 'perf_synth';` must say `off`.
+
+Production is never involved: the source and the tool exist for staging only.
 
 ## Undo, honestly
 

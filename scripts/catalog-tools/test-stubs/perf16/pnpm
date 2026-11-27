@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Test stub for perf16-e2e.test.ts: `pnpm --silent exec tsx SCRIPT ...`. perf.ts answers with the report in $H;
+# the guard and the staging check pass; every other tool (perf-accept.ts, redact-results.ts) runs for real.
+shift 3; script="$1"; shift
+out=""; prev=""; sa=0
+for a in "$@"; do [ "$prev" = --out ] && out="$a"; [ "$a" = --sample-activity ] && sa=1; prev="$a"; done
+echo "tsx $script $*" >> "$H/calls.log"
+case "$script" in
+  staging-guard.ts) exit 0 ;;
+  staging-check.ts) echo '{"ok":true,"checks":[]}' > "$out" ;;
+  perf.ts) [ "${PERF_FAIL:-0}" = 1 ] && { echo "perf.ts: simulated failure" >&2; exit 1; }
+           if [ $sa = 1 ]; then cp "$H/c16.json" "$out"; else cp "$H/c1.json" "$out"; fi ;;
+  *) exec node --import tsx "$script" "$@" ;;
+esac
