@@ -1,8 +1,8 @@
 -- Read-only: is anything of the ratings and community work reachable through the API before its activation step?
--- Run in the SQL editor (production or staging) after the migrations (ACTIVATION.md step 6) and again before each
+-- Run in the SQL editor (production or staging) after the migrations (ACTIVATION.md B2) and again before each
 -- later step. Only SELECTs; nothing is changed. Every row must say ok = true, except, by design:
---   from step 11: "no provider is public yet" turns false (X-Wines is public);
---   from step 13: "the community is closed" and "no review and no report" turn false (the community is open).
+--   from C3: "no provider is public yet" turns false (X-Wines is public);
+--   from C7: "the community is closed" and "no review and no report" turn false (the community is open).
 -- Every other row must stay true at every step.
 with fn(name, args) as (values
   ('catalog_rating_run_start', 'text, text, text, text, timestamp with time zone, text, integer, bigint, jsonb, boolean'),

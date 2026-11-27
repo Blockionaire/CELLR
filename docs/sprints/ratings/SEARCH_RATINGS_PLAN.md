@@ -44,6 +44,6 @@ scores, no source named on the hit, and nothing for a wine without a catalogue i
 ## Size and order
 
 - About one day.
-- It ships behind `catalog_ratings`, after activation step 11 (source public), so it never shows anything before
+- It ships behind `catalog_ratings`, after activation step C3 (source public), so it never shows anything before
   the wine cards do.
 - It needs its own GO and its own independent review (performance and UI).
