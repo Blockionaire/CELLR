@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Test stub for ladder-e2e.test.ts: a staging database as perf-ladder reads it. Every call is logged IN FULL in
+# $H/psql.log (the test checks that nothing but reads was sent); $H/state-calls counts the state reads.
+all="$*"; echo "psql $all" >> "$H/psql.log"
+case "$all" in
+  *perf16-state.sql*) n=$(( $(cat "$H/state-calls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$H/state-calls"
+    wines=10300; [ "$n" -gt 1 ] && [ "${WINES_AFTER:-}" != "" ] && wines="$WINES_AFTER"
+    echo "{\"xwines_scope\":\"${XWINES:-pilot}\",\"synth_scope\":\"${SYNTH:-off}\",\"synth_records\":100000,\"person_sees_synth\":0,\"users\":1,\"households\":201,\"wines\":$wines}" ;;
+  *"count(*) from public.catalog_external_records"*) echo "${XWINES_RECORDS:-100646}" ;;
+  *) echo "psql stub: unexpected statement" >&2; exit 3 ;;
+esac

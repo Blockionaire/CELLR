@@ -51,7 +51,7 @@ interface Entry {
   expect?: { type: string; country: string };
 }
 
-interface Resources {
+export interface Resources {
   at: number;
   statements: {
     calls: number;
@@ -69,8 +69,14 @@ interface Resources {
   };
 }
 
-/** pg_stat_statements for the search (when installed) and pg_stat_database, read as the login role. */
-async function snapshot(c: Client): Promise<Resources> {
+/**
+ * pg_stat_statements for the search (when installed) and pg_stat_database, read as the login role. `pattern` picks
+ * the top-level search statements (default: the people's search; ladder.ts passes the path it measures).
+ */
+export async function snapshot(
+  c: Client,
+  pattern = "%public.catalog_search(%",
+): Promise<Resources> {
   const db = (
     await c.query<Resources["database"]>(
       `select (xact_commit + xact_rollback)::float8 as xact, blks_hit::float8, blks_read::float8, temp_bytes::float8,
@@ -86,8 +92,8 @@ async function snapshot(c: Client): Promise<Resources> {
                 coalesce(sum(shared_blks_hit), 0)::float8 as blks_hit, coalesce(sum(shared_blks_read), 0)::float8 as blks_read,
                 coalesce(sum(temp_blks_written), 0)::float8 as temp_written
            from pg_stat_statements where toplevel and query like $1`,
-        // a parameter, so this snapshot's own normalised text never matches; only the top-level people's search
-        ["%public.catalog_search(%"],
+        // a parameter, so this snapshot's own normalised text never matches; only the top-level search
+        [pattern],
       )
     ).rows[0]!;
   } catch {
@@ -96,7 +102,7 @@ async function snapshot(c: Client): Promise<Resources> {
   return { at: Date.now(), statements, database: db };
 }
 
-function resourcesDelta(a: Resources | null, b: Resources | null) {
+export function resourcesDelta(a: Resources | null, b: Resources | null) {
   if (!a || !b) return null;
   const d = (x: number, y: number) => Math.round(y - x);
   const hitRatio = (hit: number, read: number) =>

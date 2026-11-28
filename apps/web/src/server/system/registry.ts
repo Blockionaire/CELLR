@@ -1313,7 +1313,7 @@ const components = [
     status: "implemented",
     summary: "Checks, migrations, database, e2e, secrets, audit, backup",
     responsibility:
-      "Runs format, lint, types, unit tests, build, migration immutability, the database suites, e2e (main and nightly), secret scan, dependency audit and the backup round trip; by hand only, the staging catalogue workflow (X-Wines records and ratings, pilot; ratings-verify checks imported ratings read-only; pool-check measures the pooler's real concurrency read-only; perf16 measures concurrency inside PostgreSQL, fails closed, and switches its synthetic public source off in the run and again in an always() step) and the production catalogue workflow (records and rating aggregates; never rights, scope or feature switches). The production environment's protection (required reviewer, branch rule) is hosted configuration, unverified here.",
+      "Runs format, lint, types, unit tests, build, migration immutability, the database suites, e2e (main and nightly), secret scan, dependency audit and the backup round trip; by hand only, the staging catalogue workflow (X-Wines records and ratings, pilot; ratings-verify checks imported ratings read-only; pool-check measures the pooler's real concurrency read-only; perf16 measures concurrency inside PostgreSQL, fails closed, and switches its synthetic public source off in the run and again in an always() step; perf-ladder measures the pilot search read-only at 1, 2, 4, 8 and 16 concurrent searches and reports a proposed release gate without enforcing it) and the production catalogue workflow (records and rating aggregates; never rights, scope or feature switches). The production environment's protection (required reviewer, branch rule) is hosted configuration, unverified here.",
     inputs: ["Pushes and pull requests"],
     outputs: ["Check results"],
     sources: [
@@ -3002,7 +3002,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.12.4",
+  version: "1.12.6",
   reviewedOn: "2026-11-28",
   repository: "Blockionaire/CELLR",
   components,
