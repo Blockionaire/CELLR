@@ -82,6 +82,21 @@ addresses. The owner keeps it, and the database's rights evidence refers to it w
 | Original                                | Kept by the owner outside the repository. The database evidence reads: _"Written permission for commercial use of the X-Wines dataset and ratings, received by the owner (owner's records, 2026-11-25); SOURCE_RIGHTS_REGISTER.md §1b"_                                                            |
 | Not stated in the permission as relayed | Who granted it (a role), conditions on withdrawal or takedown, and whether third-party rights (source sites, EU database right) are covered. **Owner: add these here if the original says them.** CELLR handles a withdrawal with `admin_catalog_provider_disable`, which hides everything at once |
 
+**A3: what the owner still supplies from the original** (owner's decision of 2026-11-28: nothing is filled in from
+assumptions; the original stays outside the repository). For each line the owner writes here either what the original
+says, in a short paraphrase without names or addresses, or "the original does not say":
+
+| #    | To check in the original                                                                                                       | Why it matters for milestone 1                                                                        | Recorded |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | -------- |
+| A3.1 | **Who granted it, and in what capacity** (for example an author of the dataset, on behalf of all authors or of an institution) | Whether the grantor could grant commercial use of the whole dataset and its ratings                   | _open_   |
+| A3.2 | **Withdrawal or takedown:** can it be withdrawn, with what notice, and what must happen then                                   | CELLR's answer is `admin_catalog_provider_disable` (hides everything at once); whether that is enough | _open_   |
+| A3.3 | **Third-party rights:** does it address the sites the data came from or the EU database right (CC0 §4(c) excludes them)        | Whether the permission covers them or the risk stays with CELLR                                       | _open_   |
+| A3.4 | **Copied details after a withdrawal:** may wines people added from an X-Wines record keep the details they copied              | Switching the source off does not remove those copies (ACTIVATION.md rollback table)                  | _open_   |
+| A3.5 | **The scope as relayed above** (uses, files, central attribution) matches the original                                         | B4's payload and the evidence line rest on it                                                         | _open_   |
+
+A short legal confirmation of A3.1–A3.4 is advised. A3 is complete when every line says what the original says or that
+it is silent; a line that contradicts §1b stops B4 until the owner decides.
+
 **What changes in the database, and when:** nothing from this register. The owner sets the provider's rights
 (`verified`, `commercial_use`, `may_display_ratings`) with the logged `admin_catalog_provider_rights` step,
 quoting the evidence line above, in `docs/sprints/ratings/ACTIVATION.md` B4 (the payload is written out there).
