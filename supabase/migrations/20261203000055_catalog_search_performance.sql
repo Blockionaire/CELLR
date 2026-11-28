@@ -1,7 +1,8 @@
 -- People's catalogue search, cheaper in CPU with the same answers (docs/sprints/ratings/PERF-OPTIMISATION.md).
 --
 -- Why: the staging load test of people's search (perf16) was CPU-bound on a 2-vCPU database: about 3,700 shared
--- buffers and tens of milliseconds of CPU per search, so 16 searches at once could not stay under the p95 of 250 ms.
+-- buffers and tens of milliseconds of execution time per search; with 25 searches executing at once the p95 was about
+-- 2 s, against an acceptance of 250 ms at 16.
 -- This replaces private.catalog_search_impl (last defined in 20261119000042) with the same signature, attributes,
 -- grants and result, and the same rules: the same candidates, the same scores, the same order. What changed is how
 -- much work it takes to get there:
@@ -23,7 +24,8 @@
 -- 5. "EVERY WORD STARTS A WORD" without a regular expression: (' ' || text) like ('% ' || word || '%') is the same
 --    test as text ~ ('(^| )' || word), because a word of the normalised query holds letters and digits only.
 -- 6. One choice that was left to chance is now fixed: when two rows of the same wine (two aliases) tie on score,
---    the one with the lower index id is kept. Before, the sort order of the moment decided.
+--    the one with the lower index id is kept. Before, the sort order of the moment decided (no difference was
+--    observed in the comparisons of the report).
 --
 -- Unchanged on purpose: SECURITY DEFINER with search_path ''; not callable by any API role; public.catalog_search
 -- (membership check, scope 'public' only) and public.catalog_search_pilot are not touched; the sources whose records
@@ -34,8 +36,18 @@
 --
 -- The trigram index's pending list: an index with fast update keeps new entries in an unsorted list until a vacuum
 -- (or the list reaching gin_pending_list_limit, 4 MB by default) merges them, and every search reads that whole list.
--- After an import of 100,000 records it held 142 pages locally, about 3 ms of every search. The limit for this index is
--- lowered to 512 kB (at most 64 pages): an import merges more often, in smaller batches (measured in the report).
+-- Locally, after an import of 100,000 records, it held up to 327 pages; a nearly full list (499 pages) added about
+-- 5 ms to every search. The limit for this index is lowered to 512 kB (at most 64 pages): an import merges more often,
+-- in smaller batches (measured in the report: no measurable import cost). The change takes effect for new entries; a
+-- list that already exists is merged by the next insert over the limit or the next vacuum.
+
+-- Load pg_trgm's library in this session before the function is created. The function sets
+-- pg_trgm.word_similarity_threshold; that setting exists only once the library is loaded, and until then it is a
+-- placeholder that, since PostgreSQL 15, only a superuser may put on a function ("permission denied to set parameter").
+-- Supabase applies migrations as `postgres`, which is not a superuser, and a library is loaded per session: 0037 loaded
+-- it by building the trigram index before its function; 0042 created its function first and relied on an earlier
+-- statement of the same session having loaded it. This call (it changes nothing) makes 0055 independent of that.
+do $$ begin perform extensions.similarity('a', 'a'); end $$;
 
 create or replace function private.catalog_search_impl(p_household_id uuid, p_query text, p_type text, p_country text,
                                             p_region text, p_limit int, p_scopes text[])
@@ -197,5 +209,14 @@ end $$;
 revoke all on function private.catalog_search_impl(uuid, text, text, text, text, int, text[])
   from public, anon, authenticated, service_role;
 
--- Bounded pending list for the trigram index (see the header).
-alter index private.catalog_search_entries_trgm set (gin_pending_list_limit = 512);
+-- Bounded pending list for the trigram index (see the header). ALTER INDEX ... SET takes an ACCESS EXCLUSIVE lock on
+-- the index (no rewrite). Waiting for it behind an import batch or a long query would queue every search and every
+-- catalogue write behind it, so it gives up after 5 seconds instead: the migration then fails as a whole (the Supabase
+-- CLI applies a migration file in one transaction) and is simply applied again later. Do not apply it during an import
+-- or a load test. set_config(..., true) is local to the transaction: the DO block's own when the file is run statement
+-- by statement, the migration's when it runs in one transaction (the ALTER is its last statement).
+do $$
+begin
+  perform set_config('lock_timeout', '5s', true);
+  alter index private.catalog_search_entries_trgm set (gin_pending_list_limit = 512);
+end $$;

@@ -7,6 +7,10 @@ begin;
 -- 2. The rules it must keep, pinned one by one: scopes, household isolation, the verified link, typo tolerance next to
 --    a few regular results, filters, limits, the query cut, determinism, the result columns and the grants.
 
+-- pg_trgm's library first: the reference sets pg_trgm.word_similarity_threshold, which a non-superuser (Supabase's
+-- `postgres`) may only put on a function once the library has defined it in this session (see migration 0055)
+do $$ begin perform extensions.similarity('a', 'a'); end $$;
+
 -- ---- the reference: private.catalog_search_impl as 20261119000042 defined it, renamed ----------------------------
 create function test.catalog_search_impl_0042(p_household_id uuid, p_query text, p_type text, p_country text,
                                             p_region text, p_limit int, p_scopes text[])
@@ -187,8 +191,14 @@ create function test.p55_record(ext text) returns uuid language sql security def
 $$;
 grant execute on function test.p55_record(text) to public;
 
+create function test.p55_first_alias(w uuid) returns text language sql security definer as $$
+  select a.alias from private.catalog_search_entries e join public.wine_aliases a on a.id = e.alias_id
+   where e.wine_id = w and e.kind = 'alias' order by e.id limit 1
+$$;
+grant execute on function test.p55_first_alias(uuid) to public;
+
 do $$
-declare h1 uuid; h2 uuid; cp uuid; cp2 uuid; cp3 uuid; cp4 uuid; cp5 uuid; cw uuid; cw2 uuid; cw3 uuid; cv uuid;
+declare h1 uuid; h2 uuid; cp uuid; cp2 uuid; cp3 uuid; cp4 uuid; cp5 uuid; cw uuid; cw2 uuid; cw3 uuid; cv uuid; cg uuid;
         hp uuid; v uuid; run uuid; n int; bad int; nonempty int; first_bad text; arr text[]; arr2 text[];
         r record; rights jsonb :=
   '{"license":"CC0-1.0","attribution":"Fixture","may_store":true,"may_display":true,"commercial_use":true,"rights_status":"verified","rights_evidence":"written by CELLR for tests","rights_verified_at":"2026-11-13","rights_verified_by":"test suite"}';
@@ -282,6 +292,40 @@ begin
     public.admin_catalog_record_decide(test.p55_record('Q1'), cw, 'verified', 'same wine', test.uid(1)) = 'ok');
   perform test.su();
 
+  -- ---- edge cases the comparison alone would not catch ------------------------------------------------------------
+  -- (a) typo tolerance inside the scope rule: 450 pilot records that match a typo exactly as well as one public record
+  --     and were indexed BEFORE it (lower ids win ties among the 400 word-similarity candidates)
+  perform test.as_service();
+  run := public.catalog_import_run_start('p55pilot', 'pilot-2', null, null, null, '2026-11-02', true);
+  perform public.catalog_external_import('p55pilot', run,
+    (select jsonb_agg(jsonb_build_object('external_id', 'T' || i, 'producer', 'Bodega Tipica', 'name', 'Seleccion ' || i,
+                                         'wine_type', 'red', 'country_code', 'ES'))
+       from generate_series(1, 450) i), true);
+  perform public.catalog_import_run_finish(run, false, '{}');
+  run := public.catalog_import_run_start('p55pub', 'pub-2', null, null, null, '2026-11-02');
+  perform public.catalog_external_import('p55pub', run, $b$[
+    {"external_id":"Q9","producer":"Bodega Tipica","name":"Seleccion","wine_type":"red","country_code":"ES"}
+  ]$b$, true);
+  perform public.catalog_import_run_finish(run, false, '{}');
+  perform test.su();
+  -- (b) the "page full?" boundary: two wines contain "corvalo" inside a word (weak regular matches), and a near-miss
+  --     "Corvallo" would outrank them if typo tolerance ran on a full page
+  insert into public.producers (name, country_code, status, origin) values ('Domaine Abcorvalo', 'FR', 'canonical', 'verified')
+    returning id into cp;
+  insert into public.wines (producer_id, name, wine_type, country_code, status, origin)
+    values (cp, 'Rouge', 'red', 'FR', 'canonical', 'verified'), (cp, 'Blanc', 'white', 'FR', 'canonical', 'verified');
+  insert into public.producers (name, country_code, status, origin) values ('Corvallo', 'FR', 'canonical', 'verified')
+    returning id into cp;
+  insert into public.wines (producer_id, name, wine_type, country_code, status, origin)
+    values (cp, 'Estate', 'red', 'FR', 'canonical', 'verified');
+  -- (c) a tie inside one wine: two aliases with exactly the same score
+  insert into public.producers (name, country_code, status, origin) values ('Clos Gemini', 'FR', 'canonical', 'verified')
+    returning id into cp;
+  insert into public.wines (producer_id, name, wine_type, country_code, status, origin)
+    values (cp, 'Cuvée Stellaire Grande Réserve Spéciale', 'red', 'FR', 'canonical', 'verified') returning id into cg;
+  insert into public.wine_aliases (wine_id, alias) values (cg, 'Gemini Ab');
+  insert into public.wine_aliases (wine_id, alias) values (cg, 'Gemini Ba');
+
   -- ---- 1. the same answers as 20261119000042, column for column ---------------------------------------------------
   select count(*), count(*) filter (where not same), count(*) filter (where found_any),
          min(label) filter (where not same)
@@ -298,7 +342,7 @@ begin
               'floodgate', 'floodgte', 'floodgate huis', 'domaine alpha', 'domaine alpha cuvee', 'domaine alpha cuvee 1',
               'alpha cuvee 2', 'domaine alfa cuvee', 'cuvee', 'cuvee 7', 'zuniga', 'bodega zuniga perf', 'bodega zuniga prf',
               'reserva', 'reserva especial', 'tie wine', 'tie', 'oculto', 'ventisquero oculto', 'barton', 'leoville barton',
-              'qqqzzzxx', '', 'x', ' -- ', 'domaine alpha cuvee 1 a b c d zzzz', repeat('leoville ', 20),
+              'qqqzzzxx', '', 'x', ' -- ', 'bodega tipca seleccion', 'corvalo', 'domaine alpha cuvee 1 a b c d zzzz', repeat('leoville ', 20),
               'domaine alpha ' || repeat('x', 100)]) x (q)
            cross join (
              select null::text typ, null::text ctry, null::text reg, l.lim, s.scopes
@@ -309,7 +353,7 @@ begin
                from (values ('red', null, null), (null, 'FR', null), ('white', 'FR', 'cote de beaune'), (null, null, 'saint julien'),
                             ('red', 'CL', null), ('beer', null, null), (null, 'fra', null)) v (typ, ctry, reg)) f) c;
   perform test.rec(format('the same answers as 20261119000042: %s of %s searches identical (first difference: %s)',
-                          n - bad, n, coalesce(first_bad, 'none')), bad = 0 and n = 53 * 21);
+                          n - bad, n, coalesce(first_bad, 'none')), bad = 0 and n = 55 * 21);
   perform test.rec(format('... and most of them found something (%s of %s)', nonempty, n), nonempty > n / 2);
 
   -- ---- 2. the rules, one by one (as a signed-in person, through public.catalog_search) -----------------------------
@@ -387,6 +431,17 @@ begin
   arr := test.p55(h1, 'domaine alpha cuvee', null, null, null, 20);
   arr2 := test.p55(h1, 'domaine alpha cuvee', null, null, null, 20);
   perform test.rec('deterministic: the same search twice gives the same answer in the same order', arr = arr2 and cardinality(arr) = 20);
+  perform test.rec('scopes in typo tolerance: 450 equally close, earlier pilot records do not push the public record out',
+    test.p55(h1, 'bodega tipca seleccion') = array['Bodega Tipica | Seleccion | provider | fuzzy | false']);
+  perform test.rec('the page-full boundary: as many regular results as the limit, no typo tolerance',
+    test.p55(h1, 'corvalo', null, null, null, 2) = array['Domaine Abcorvalo | Blanc | catalog | fuzzy | true',
+                                                           'Domaine Abcorvalo | Rouge | catalog | fuzzy | true']);
+  perform test.rec('... one fewer than the limit: the near-miss is offered, and ranks first',
+    (test.p55(h1, 'corvalo', null, null, null, 3))[1] = 'Corvallo | Estate | catalog | fuzzy | true');
+  perform test.rec('a tie between two aliases of one wine: the alias indexed first is shown',
+    (select s.matched_alias from public.catalog_search(h1, 'gemini') s where s.wine_id = cg) = test.p55_first_alias(cg)
+    and test.p55_first_alias(cg) in ('Gemini Ab', 'Gemini Ba')
+    and (select count(*) from public.catalog_search(h1, 'gemini') s where s.wine_id = cg and s.match = 'alias') = 1);
 
   -- ---- 3. the contract: who may call it, what it returns, how it runs ---------------------------------------------
   perform test.as_anon();
