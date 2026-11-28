@@ -421,8 +421,22 @@ const components = [
     responsibility: "Searches the shared catalogue and the household's wines, rate-limited.",
     inputs: ["Search text"],
     outputs: ["Wine suggestions"],
-    sources: [W + "server/catalog/search.ts", W + "server/catalog/search-repository.ts"],
+    sources: [
+      W + "server/catalog/search.ts",
+      W + "server/catalog/search-repository.ts",
+      M + "20261203000055_catalog_search_performance.sql",
+      "docs/sprints/ratings/PERF-OPTIMISATION.md",
+    ],
     routes: ["/api/v1/catalog/search"],
+    risks: [
+      {
+        id: "R-SRCH-1",
+        severity: "medium",
+        title: "Search under 16 concurrent searches is not yet accepted",
+        detail:
+          "The load test of people's search (perf16) did not meet its acceptance on the staging database's compute size; migration 0055 lowers the work per search with the same answers (PERF-OPTIMISATION.md). A staging re-run decides.",
+      },
+    ],
   },
   {
     id: "svc-catalog-contribution",
@@ -2988,8 +3002,8 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.12.3",
-  reviewedOn: "2026-11-27",
+  version: "1.13.0",
+  reviewedOn: "2026-11-28",
   repository: "Blockionaire/CELLR",
   components,
   edges,
