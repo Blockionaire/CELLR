@@ -293,6 +293,8 @@ describe("shading written into the furniture", () => {
   for (const id of STORAGE_TEMPLATE_IDS)
     it(`${id}: every corner of every surface has a tone, and none is black or blown out`, () => {
       const model = modelOf(id);
+      // unlit: between the back's half tone and a light board's 1.07; under a strip of light, up to 1.8
+      const ceiling = shadingOf(model).zones.length > 0 ? 1.8 : 1.08;
       const owned = new Owned();
       for (const mesh of buildStructure(model, QUALITY.high, owned)) {
         const spec = model.look.surfaces[mesh.role];
@@ -303,12 +305,21 @@ describe("shading written into the furniture", () => {
         }
         expect(colour, mesh.role).toBeDefined();
         expect(colour!.count).toBe(mesh.geometry.getAttribute("position").count);
+        // Every channel of every corner is checked; one assertion per surface (tens of thousands of corners), which
+        // names how many are out of range and the first few of them. `!(v > low && v < high)` also catches NaN.
+        let outside = 0;
+        const first: string[] = [];
         for (let i = 0; i < colour!.count; i++)
-          for (const v of [colour!.getX(i), colour!.getY(i), colour!.getZ(i)]) {
-            // unlit: between the back's half tone and a light board's 1.07; under a strip of light, up to 1.8
-            expect(v).toBeGreaterThan(0.4);
-            expect(v).toBeLessThan(shadingOf(model).zones.length > 0 ? 1.8 : 1.08);
+          for (let channel = 0; channel < 3; channel++) {
+            const v = colour!.getComponent(i, channel);
+            if (v > 0.4 && v < ceiling) continue;
+            outside += 1;
+            if (first.length < 5) first.push(`corner ${i} ${"rgb"[channel]} = ${v}`);
           }
+        expect(
+          { outside, first },
+          `${mesh.role}: every tone in (0.4, ${ceiling}) on ${colour!.count} corners`,
+        ).toEqual({ outside: 0, first: [] });
       }
       owned.dispose();
     });
