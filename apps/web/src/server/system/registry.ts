@@ -436,6 +436,14 @@ const components = [
         detail:
           "The load test of people's search (perf16) did not meet its acceptance on the staging database's compute size; migration 0055 lowers the work per search with the same answers (PERF-OPTIMISATION.md). A staging re-run decides.",
       },
+      {
+        id: "R-SRCH-2",
+        severity: "medium",
+        title:
+          "Every search is four sequential calls to the database API, and a cancelled one is still carried out",
+        detail:
+          "One search spends from the rate limit, reads the profile and the household, then searches: four REST calls one after the other, each checking the session token. Measured on the local stack (ES256 tokens, PostgREST without a JWT cache) that check, not the SQL, took most of the CPU; whether the hosted API caches it is hosted configuration, unverified here. A statement the database already runs is finished when its caller goes away: the route passes the request's signal on so a search the browser cancelled skips the steps not yet started, but not one already running.",
+      },
     ],
   },
   {
@@ -3002,7 +3010,7 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.12.4",
+  version: "1.12.7",
   reviewedOn: "2026-11-28",
   repository: "Blockionaire/CELLR",
   components,

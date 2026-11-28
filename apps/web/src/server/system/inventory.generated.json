@@ -599,6 +599,7 @@
     { "from": "app/admin/", "to": "ui/logo.tsx" },
     { "from": "app/api/", "to": "server/env.ts" },
     { "from": "app/api/", "to": "server/health/" },
+    { "from": "app/api/", "to": "server/http-response.ts" },
     { "from": "app/api/", "to": "server/http.ts" },
     { "from": "app/api/", "to": "server/push/" },
     { "from": "app/api/", "to": "server/ratelimit/" },
