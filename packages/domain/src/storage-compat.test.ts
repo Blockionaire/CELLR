@@ -120,29 +120,48 @@ describe("the next free spots of an existing place are what they always were", (
 
 describe("a place from before templates, read in the new terms", () => {
   it("every kind and every size the database allows: the same grid, one bottle per cell, nothing replaced", () => {
+    // 5,400 places, each checked in full with one assertion (not twelve): what was read next to what it must be,
+    // with the place itself in both, so a failure names the kind and size and shows every field that differs.
+    let cases = 0;
     for (const kind of STORAGE_KINDS)
       for (let rows = 1; rows <= 30; rows++)
         for (let cols = 1; cols <= 30; cols++) {
           const r = resolveStorage({ kind, rows, cols });
-          expect(r.legacy).toBe(true);
-          expect(r.arrangementKnown).toBe(true);
-          expect(r.fallbacks).toEqual([]);
-          expect(r.template.id).toBe(DEFAULT_TEMPLATE_FOR_KIND[kind]);
-          expect(r.template.kind).toBe(kind);
-          expect(r.structure).toEqual({
-            template: r.template.id,
-            rows,
-            cols,
-            cellCapacity: 1,
-            zones: [],
+          expect({
+            place: { kind, rows, cols },
+            legacy: r.legacy,
+            arrangementKnown: r.arrangementKnown,
+            fallbacks: r.fallbacks,
+            template: { id: r.template.id, kind: r.template.kind },
+            structure: r.structure,
+            // what the storage view has always reported as its capacity
+            layout: {
+              capacity: r.layout.capacity,
+              cells: r.layout.cells.length,
+              rows: r.layout.rows,
+              cols: r.layout.cols,
+            },
+            // and it is a structure the strict write rules accept: editing an old place never fails on its size
+            writable: StorageStructureSchema.safeParse(r.structure).success,
+          }).toEqual({
+            place: { kind, rows, cols },
+            legacy: true,
+            arrangementKnown: true,
+            fallbacks: [],
+            template: { id: DEFAULT_TEMPLATE_FOR_KIND[kind], kind },
+            structure: {
+              template: DEFAULT_TEMPLATE_FOR_KIND[kind],
+              rows,
+              cols,
+              cellCapacity: 1,
+              zones: [],
+            },
+            layout: { capacity: rows * cols, cells: rows * cols, rows, cols },
+            writable: true,
           });
-          // what the storage view has always reported as its capacity
-          expect(r.layout.capacity).toBe(rows * cols);
-          expect(r.layout.cells).toHaveLength(rows * cols);
-          expect(r.layout).toMatchObject({ rows, cols });
-          // and it is a structure the strict write rules accept: editing an old place never fails on its size
-          expect(StorageStructureSchema.safeParse(r.structure).success).toBe(true);
+          cases++;
         }
+    expect(cases).toBe(STORAGE_KINDS.length * 30 * 30);
   });
 
   it("has the same spots, in the same order, as the old grid", () => {

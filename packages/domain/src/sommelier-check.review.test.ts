@@ -354,20 +354,30 @@ describe("prepareAnswerCheck", () => {
         }),
       ),
     ];
-    /** The fastest of three index builds, each on a cellar not seen before (no cached words). */
-    const indexTime = (size: number) =>
-      Math.min(
-        ...["a", "b", "c"].map((salt) => {
-          const items = cellar(size, `${size}${salt}`);
-          const digest = cellarDigest(items, "lamb");
-          const started = performance.now();
-          prepareAnswerCheck({ digest, items, budget: null, now: NOW });
-          return performance.now() - started;
-        }),
-      );
-    indexTime(300); // warm up the code itself
-    const small = indexTime(300);
-    const large = indexTime(3000);
+    /**
+     * What one index build of a cellar of this size costs, from `times` builds timed together, each on a cellar
+     * not seen before (no cached words).
+     */
+    const indexTime = (size: number, salt: string, times = 1) => {
+      const cellars = Array.from({ length: times }, (_, n) => {
+        const items = cellar(size, `${size}${salt}${n}`);
+        return { items, digest: cellarDigest(items, "lamb") };
+      });
+      const started = performance.now();
+      for (const { items, digest } of cellars)
+        prepareAnswerCheck({ digest, items, budget: null, now: NOW });
+      return (performance.now() - started) / times;
+    };
+    indexTime(300, "w", 3); // warm up the code itself
+    // The small cellar is timed as ten builds in one go, so both measurements last about as long: on a busy
+    // machine a single short build could slip in between two interruptions where the long one cannot, and the
+    // ratio would measure the machine. The fastest of three of each, small and large in turns.
+    let small = Infinity;
+    let large = Infinity;
+    for (const salt of ["a", "b", "c"]) {
+      small = Math.min(small, indexTime(300, salt, 10));
+      large = Math.min(large, indexTime(3000, salt));
+    }
     // Ten times the wines may take about ten times as long, never a hundred (the old index grew with groups ×
     // groups: about 280 ms at 3,000 wines here). Measured on the development machine (4 shared cores): about 25–55
     // ms at 3,000 wines, and the ratio about 8–12. The absolute bound only catches the gross case on a busy machine.
