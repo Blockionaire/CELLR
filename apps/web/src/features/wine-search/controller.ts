@@ -55,6 +55,11 @@ export interface SearchControllerOptions {
    * source switched off, a wine added in another tab), and the next search after this must ask the server again.
    */
   cacheTtlMs?: number;
+  /**
+   * How long a request on its way is waited for when the same search is typed again (a space after a word). An older
+   * one may have stalled (the browser sets no time limit), so it is cancelled and asked again, as before.
+   */
+  patienceMs?: number;
   now?: () => number;
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
@@ -128,6 +133,7 @@ export const SEARCH_DEFAULTS = {
   cooldownMs: 30_000,
   cacheSize: 40,
   cacheTtlMs: 60_000,
+  patienceMs: 5_000,
 } as const;
 
 const IDLE: SearchState = { input: "", query: null, status: "idle", results: [] };
@@ -137,6 +143,7 @@ export function createSearchController(options: SearchControllerOptions) {
   const cooldownMs = options.cooldownMs ?? SEARCH_DEFAULTS.cooldownMs;
   const cacheSize = options.cacheSize ?? SEARCH_DEFAULTS.cacheSize;
   const cacheTtlMs = options.cacheTtlMs ?? SEARCH_DEFAULTS.cacheTtlMs;
+  const patienceMs = options.patienceMs ?? SEARCH_DEFAULTS.patienceMs;
   const now = options.now ?? (() => Date.now());
   const setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
   const clearTimer =
@@ -147,6 +154,11 @@ export function createSearchController(options: SearchControllerOptions) {
   const cache = new Map<string, { results: CatalogSearchHit[]; at: number }>();
   let timer: unknown = null;
   let inFlight: AbortController | null = null;
+  /** The query the request in flight asks (null when none is). */
+  let inFlightQuery: string | null = null;
+  let inFlightSince = 0;
+  /** When the server gave the answer that is on screen now (for a remembered answer: when it was first given). */
+  let shownAt = 0;
   /** Only the answer to the request with this number may change what is shown. */
   let sequence = 0;
   let limitedUntil = 0;
@@ -169,6 +181,7 @@ export function createSearchController(options: SearchControllerOptions) {
     resume = null;
     inFlight?.abort();
     inFlight = null;
+    inFlightQuery = null;
     sequence++;
   };
   const remember = (query: string, results: CatalogSearchHit[]) => {
@@ -219,6 +232,8 @@ export function createSearchController(options: SearchControllerOptions) {
     inFlight?.abort();
     const controller = new AbortController();
     inFlight = controller;
+    inFlightQuery = query;
+    inFlightSince = now();
     const mine = ++sequence;
     requests++;
     const startedAt = now();
@@ -227,6 +242,7 @@ export function createSearchController(options: SearchControllerOptions) {
       seen.slowestMs = Math.max(seen.slowestMs, now() - startedAt);
       if (disposed || mine !== sequence) return; // a newer query was typed meanwhile: this answer is stale
       inFlight = null;
+      inFlightQuery = null;
       if (!response.available) {
         unavailable = true;
         return set({ ...state, status: "unavailable", query: null, results: [] });
@@ -235,10 +251,12 @@ export function createSearchController(options: SearchControllerOptions) {
       const results = response.results.slice(0, CATALOG_SEARCH.maxLimit);
       remember(query, results);
       if (results.length === 0) seen.zeroResults = true;
+      shownAt = now();
       set({ ...state, status: "ready", query, results });
     } catch (error) {
       if (disposed || mine !== sequence) return;
       inFlight = null;
+      inFlightQuery = null;
       const why = options.classify(error);
       if (why === "aborted") return;
       if (why === "rate_limited") seen.limited = true;
@@ -265,18 +283,30 @@ export function createSearchController(options: SearchControllerOptions) {
         cancelPending();
         return set({ input, query: null, status: "idle", results: [] });
       }
-      // The same search with other spacing or capitals: nothing new to ask.
+      // The same search with other spacing or capitals (a space typed after a word): nothing new to ask, and nothing
+      // on screen changes, exactly as if that key had not been pressed. Not for an answer older than the memory's
+      // limit. An answer holding an external record stays on screen here too, as it would without the key: it is
+      // still never taken from memory for a search typed again, and still confirmed with the server before it is used.
       if (
         query === state.query &&
         state.status === "ready" &&
         timer === null &&
         !inFlight &&
-        recall(query) !== null
+        now() - shownAt <= cacheTtlMs
       )
+        return set({ ...state, input });
+      // ...nor while that very search is on its way: cancelling it to send the same query again would cost the server
+      // a second, identical search, because a request cancelled here is still carried out there (the database
+      // finishes a statement whose caller went away). Unless it has been on its way for long (`patienceMs`): it may
+      // have stalled, and the same key then asks again, as it always did.
+      if (query === inFlightQuery && now() - inFlightSince < patienceMs)
         return set({ ...state, input });
       cancelPending();
       const known = recall(query);
-      if (known) return set({ input, query, status: "ready", results: known });
+      if (known) {
+        shownAt = cache.get(query)!.at;
+        return set({ input, query, status: "ready", results: known });
+      }
       if (unavailable) return set({ input, query: null, status: "unavailable", results: [] });
       if (now() < limitedUntil)
         return limited({ input, query: null, status: "limited", results: [] });

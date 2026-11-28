@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { DomainError, type CatalogSearchRow } from "@cellr/domain";
-import { createCatalogSearchService } from "./search";
+import { createCatalogSearchService, SearchCancelled } from "./search";
+import type { CatalogSearchRepository } from "./search-repository";
 
 const row: CatalogSearchRow = {
   result_kind: "record",
@@ -28,10 +29,11 @@ const row: CatalogSearchRow = {
 };
 
 function setup(rows: CatalogSearchRow[] | null = [row]) {
-  const repo = { search: vi.fn(async () => rows) };
+  const repo = { search: vi.fn<CatalogSearchRepository["search"]>(async () => rows) };
   const spend = vi.fn(async () => {});
-  const service = createCatalogSearchService({ repo, householdId: async () => "h1", spend });
-  return { repo, spend, service };
+  const householdId = vi.fn(async () => "h1");
+  const service = createCatalogSearchService({ repo, householdId, spend });
+  return { repo, spend, householdId, service };
 }
 
 describe("catalog search service", () => {
@@ -43,14 +45,17 @@ describe("catalog search service", () => {
       country: "ES",
       limit: 5,
     });
-    expect(repo.search).toHaveBeenCalledWith({
-      householdId: "h1",
-      query: "muga reserva",
-      type: "red",
-      country: "ES",
-      region: null,
-      limit: 5,
-    });
+    expect(repo.search).toHaveBeenCalledWith(
+      {
+        householdId: "h1",
+        query: "muga reserva",
+        type: "red",
+        country: "ES",
+        region: null,
+        limit: 5,
+      },
+      undefined,
+    );
     expect(out.available).toBe(true);
     expect(out.results[0]).toMatchObject({ kind: "record", verified: false, source: "provider" });
   });
@@ -90,6 +95,63 @@ describe("catalog search service", () => {
     ]);
     const out = await service.search({ q: "muga", limit: 8 });
     expect(out.results.map((r) => r.recordId)).toEqual(["r1"]);
+  });
+  it("passes the request's signal on to the database call, and answers a caller that stays as before", async () => {
+    const { repo, service } = setup();
+    const signal = new AbortController().signal;
+    const out = await service.search({ q: "muga", limit: 8 }, signal);
+    expect(repo.search.mock.calls[0]![1]).toBe(signal);
+    expect(out.results.map((r) => r.recordId)).toEqual(["r1"]);
+  });
+  it("a search the caller already cancelled spends no budget and asks the database nothing", async () => {
+    const { repo, spend, householdId, service } = setup();
+    const gone = new AbortController();
+    gone.abort();
+    await expect(service.search({ q: "muga", limit: 8 }, gone.signal)).rejects.toBeInstanceOf(
+      SearchCancelled,
+    );
+    expect(spend).not.toHaveBeenCalled();
+    expect(householdId).not.toHaveBeenCalled();
+    expect(repo.search).not.toHaveBeenCalled();
+  });
+  it("cancelled while the budget was being spent: the household is not looked up and nothing is searched", async () => {
+    const { repo, spend, householdId, service } = setup();
+    const gone = new AbortController();
+    spend.mockImplementationOnce(async () => gone.abort());
+    await expect(service.search({ q: "muga", limit: 8 }, gone.signal)).rejects.toBeInstanceOf(
+      SearchCancelled,
+    );
+    expect(householdId).not.toHaveBeenCalled();
+    expect(repo.search).not.toHaveBeenCalled();
+  });
+  it("cancelled while the household was looked up: nothing is searched", async () => {
+    const { repo, householdId, service } = setup();
+    const gone = new AbortController();
+    householdId.mockImplementationOnce(async () => {
+      gone.abort();
+      return "h1";
+    });
+    await expect(service.search({ q: "muga", limit: 8 }, gone.signal)).rejects.toBeInstanceOf(
+      SearchCancelled,
+    );
+    expect(repo.search).not.toHaveBeenCalled();
+  });
+  it("cancelled during the search: a cancellation, not a database error; a real failure is still a failure", async () => {
+    const { repo, service } = setup();
+    const gone = new AbortController();
+    repo.search.mockImplementationOnce(async () => {
+      gone.abort();
+      throw new DomainError("INTERNAL");
+    });
+    await expect(service.search({ q: "muga", limit: 8 }, gone.signal)).rejects.toBeInstanceOf(
+      SearchCancelled,
+    );
+    repo.search.mockImplementationOnce(async () => {
+      throw new DomainError("INTERNAL");
+    });
+    await expect(
+      service.search({ q: "muga", limit: 8 }, new AbortController().signal),
+    ).rejects.toMatchObject({ code: "INTERNAL" });
   });
   it("an empty answer is just empty", async () => {
     const { service } = setup([]);

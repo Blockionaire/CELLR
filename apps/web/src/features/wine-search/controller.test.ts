@@ -345,6 +345,75 @@ describe("wine search as you type", () => {
     expect(controller.getState().results).toHaveLength(20);
   });
 
+  it("a space typed after a word while that word's search is on its way: not cancelled, not sent twice", async () => {
+    const { controller, calls, advance, settle, ok } = harness();
+    controller.setInput("chateau");
+    advance(250);
+    expect(calls).toHaveLength(1);
+    controller.setInput("chateau "); // the same search: a request cancelled here would still be carried out there
+    advance(1000);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.signal.aborted).toBe(false);
+    expect(controller.getState()).toMatchObject({ input: "chateau ", status: "loading" });
+    calls[0]!.resolve(ok(["Château Margaux"], "chateau"));
+    await settle();
+    expect(controller.getState()).toMatchObject({
+      input: "chateau ",
+      status: "ready",
+      query: "chateau",
+    });
+    // typing on is a new search as before: the one on its way is cancelled
+    controller.setInput("chateau m");
+    advance(250);
+    controller.setInput("chateau ma");
+    expect(calls[1]!.signal.aborted).toBe(true);
+    advance(250);
+    expect(calls.map((c) => c.query)).toEqual(["chateau", "chateau m", "chateau ma"]);
+  });
+
+  it("a request that has been on its way for long may have stalled: the same search typed again asks again", () => {
+    const { controller, calls, advance } = harness();
+    controller.setInput("chateau");
+    advance(250);
+    advance(6_000); // no answer (the browser sets no time limit on a request)
+    controller.setInput("chateau ");
+    expect(calls[0]!.signal.aborted).toBe(true);
+    advance(250);
+    expect(calls.map((c) => c.query)).toEqual(["chateau", "chateau"]);
+  });
+
+  it("an answer from memory keeps its own age: a space on it after the memory's limit asks again", async () => {
+    const { controller, calls, advance, settle, ok } = harness({ cacheTtlMs: 60_000 });
+    controller.setInput("marg");
+    advance(250);
+    calls[0]!.resolve(ok(["Margot"], "marg")); // answered at 250 ms
+    await settle();
+    controller.setInput("marga");
+    advance(250);
+    calls[1]!.resolve(ok(["Margaux"], "marga"));
+    await settle();
+    advance(49_000);
+    controller.setInput("marg"); // from memory: an answer given 49 s ago
+    expect(controller.getState()).toMatchObject({ status: "ready", query: "marg" });
+    expect(calls).toHaveLength(2);
+    advance(11_000); // that answer is now over a minute old, though it came back on screen only 11 s ago
+    controller.setInput("marg ");
+    expect(controller.getState().status).toBe("loading");
+    advance(250);
+    expect(calls.map((c) => c.query)).toEqual(["marg", "marga", "marg"]);
+  });
+
+  it("a space typed while the pause is still awaited waits for the pause again (no request in between)", () => {
+    const { controller, calls, advance } = harness();
+    controller.setInput("chateau");
+    advance(200);
+    controller.setInput("chateau ");
+    advance(200);
+    controller.setInput("chateau m");
+    advance(250);
+    expect(calls.map((c) => c.query)).toEqual(["chateau m"]);
+  });
+
   it("fast typing, remounting and backspacing stay within a handful of requests", async () => {
     const { controller, calls, advance, settle, ok } = harness();
     const typed = "chateau leoville poyferre";
@@ -479,6 +548,29 @@ describe("records of external sources are never used from memory", () => {
     controller.setInput("tint"); // while an answer with CELLR wines only still comes from memory
     expect(controller.getState().status).toBe("ready");
     expect(calls).toHaveLength(3);
+  });
+
+  it("a space after a word whose answer holds a record: the screen stays exactly as without that key", async () => {
+    const { controller, calls, advance, settle } = harness({ cacheTtlMs: 60_000 });
+    controller.setInput("tinto");
+    advance(250);
+    calls[0]!.resolve(answer([hit("Tinto"), record("r1")], "tinto"));
+    await settle();
+    controller.setInput("Tinto "); // other capitals and a space: the same search
+    advance(1000);
+    expect(calls).toHaveLength(1);
+    expect(controller.getState()).toMatchObject({
+      input: "Tinto ",
+      status: "ready",
+      query: "tinto",
+    });
+    expect(controller.getState().results.map((r) => r.kind)).toEqual(["wine", "record"]);
+    // ...but not for an answer older than the memory's limit: then it is asked again
+    advance(61_000);
+    controller.setInput("tinto");
+    expect(controller.getState().status).toBe("loading");
+    advance(250);
+    expect(calls.map((c) => c.query)).toEqual(["tinto", "tinto"]);
   });
 
   it("choosing a record asks the server first: still offered means yes", async () => {

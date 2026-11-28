@@ -2,5 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "regions": ["fra1"],
-  "crons": [{ "path": "/api/cron/drink-reminders", "schedule": "0 8 * * *" }]
+  "crons": [{ "path": "/api/cron/drink-reminders", "schedule": "0 8 * * *" }],
+  "functions": {
+    "src/app/api/v1/catalog/search/route.ts": { "supportsCancellation": true }
+  }
 }

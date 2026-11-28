@@ -49,13 +49,13 @@ The server is the authority: `catalog_search`, the provenance read and the notic
 moment its scope or rights change. Responses under `/api/` are sent `no-store`, the service worker never caches
 them, and no query cache is written to disk. What remained was in the page's memory.
 
-| What                                          | Before                             | Now                                                                           |
-| --------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------- |
-| A search answer that holds an external record | remembered for the typing session  | never remembered: typing the same words asks the server again                 |
-| Choosing a record that is still on screen     | opened the form with its details   | asked afresh first; if it is gone, a notice, and nothing is opened or created |
-| A credit on an open wine page                 | up to 5 minutes                    | refreshed when the block is opened, on focus, and every 60 s while visible    |
-| A page in a background tab                    | as above                           | not refreshed until it is looked at again (then at once)                      |
-| A bottle already added from a record          | keeps the details the person saved | unchanged: it is the household's own wine; the credit goes with the source    |
+| What                                          | Before                             | Now                                                                                                                                                                                                                                                         |
+| --------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A search answer that holds an external record | remembered for the typing session  | never remembered: typing the same words again asks the server (since PR #154, a space or other capitals typed on the answer still on screen, within 60 s, leave it in place; changing or clearing the text asks again; choosing a record still asks afresh) |
+| Choosing a record that is still on screen     | opened the form with its details   | asked afresh first; if it is gone, a notice, and nothing is opened or created                                                                                                                                                                               |
+| A credit on an open wine page                 | up to 5 minutes                    | refreshed when the block is opened, on focus, and every 60 s while visible                                                                                                                                                                                  |
+| A page in a background tab                    | as above                           | not refreshed until it is looked at again (then at once)                                                                                                                                                                                                    |
+| A bottle already added from a record          | keeps the details the person saved | unchanged: it is the household's own wine; the credit goes with the source                                                                                                                                                                                  |
 
 Tests: five unit tests of the search controller, and `wine-search.spec.ts` "a source switched off while its record is
 on screen…" (both paths, phone and desktop). The table is also in `SECURITY_AND_PRIVACY.md`.
