@@ -52,4 +52,10 @@ The workflow uses the existing tools unchanged (`import.ts`, `quality.ts`, `benc
   - recognition: 0 wrong identities, 0 safety violations;
   - performance, measured over the network from GitHub's runner (expect higher numbers than the local ones): pilot c1 and c8, and people's c8, through the session pooler, which is limited to its pool size (`STAGING_POOL_CLIENTS`, 15 on Micro; a higher concurrency is refused, never reduced); pilot c16 and people's c16 through the same pooler in transaction mode (port 6543), each search in its own transaction with `set local role`, as PostgREST does;
   - the staging check again.
+- **`perf-ladder`:** READ-ONLY. The pilot search (the same `private.catalog_search_impl` as people's search, over the
+  100,646 X-Wines records) at 1, 2, 4, 8 and 16 concurrent searches, each search in a read-only transaction, many
+  households, a documented query mix; concurrency measured inside PostgreSQL (`ladder.ts`). It refuses unless X-Wines
+  is pilot and the synthetic source is not shown, checks that the state is unchanged afterwards, and fails only when
+  the measurement is not valid (a failed search, the concurrency not reached, too few searches). The proposed release
+  gate is reported, not enforced. Method, local results and the proposal: `docs/sprints/ratings/PERF-LADDER.md`.
 - **`scan`:** a fictitious public source is created, a person finds it, X-Wines stays invisible, and R-27 keeps the origin and refuses X-Wines. All in one transaction that is rolled back.

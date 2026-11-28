@@ -14,10 +14,12 @@
 #   pool-check  READ-ONLY: how many server connections the transaction pooler really gives at once (pool-probe.ts)
 #   perf16    16 concurrent people's searches over a synthetic PUBLIC source, measured in PostgreSQL, fail-closed
 #   perf16-cleanup  recovery: the synthetic source switched off and checked (also safe to run any time)
+#   perf-ladder  READ-ONLY: the X-Wines pilot search at 1, 2, 4, 8 and 16 concurrent searches (ladder.ts), for the
+#             proposed release gate (reported, not enforced); fails only when the measurement is not valid
 # Output: only result files reduced to counts (redact-results.ts) and logs of counts. No record of the dataset, no
 # connection string, no key is ever printed: tool output goes to files, the log gets summaries.
 set -euo pipefail
-MODE="${1:?check|migrate|import|scan|ratings|ratings-verify|pool-check|perf16|perf16-cleanup}"
+MODE="${1:?check|migrate|import|scan|ratings|ratings-verify|pool-check|perf16|perf16-cleanup|perf-ladder}"
 OUT="${2:?output directory}"
 XW="${3:-}"
 RT="${4:-}"
@@ -248,6 +250,44 @@ perf16)
   j "$OUT/perf-public-synthetic-c16.json" "'• resources: ' + JSON.stringify(r.resources)"
   # the acceptance (GO_LIVE.md A3): exit 1 when any check fails, which fails the run (after the cleanup)
   "${T[@]}" perf-accept.ts --report "$OUT/perf-public-synthetic-c16.json" --target 16 --p95 250 --out "$OUT/perf-accept-c16.json"
+  "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-after.json" >/dev/null ||
+    { j "$OUT/staging-check-after.json" "r.checks.filter(c=>!c.ok).map(c=>'  FAIL '+c.name).join('\n')"; exit 1; }
+  echo "• staging check after: PASS"
+  ;;
+perf-ladder)
+  # READ-ONLY: the search the app runs (private.catalog_search_impl, through public.catalog_search_pilot as the
+  # service role, scopes pilot + public, so over the 100,646 real X-Wines records) at 1, 2, 4, 8 and 16 concurrent
+  # searches, measured in PostgreSQL (ladder.ts; docs/sprints/ratings/PERF-LADDER.md). Every search runs in a
+  # read-only transaction; no provider is changed, nothing is written; the state is read before and after and must
+  # be equal. The exit code follows the MEASUREMENT (no failed search, the concurrency reached, enough searches);
+  # the proposed release gate is reported, never enforced.
+  guard write
+  "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-before.json" >/dev/null ||
+    { j "$OUT/staging-check-before.json" "r.checks.filter(c=>!c.ok).map(c=>'  FAIL '+c.name).join('\n')"; exit 1; }
+  echo "• staging check before: PASS"
+  [ "$(psqlq -c "select count(*) from public.catalog_external_records where provider_id = 'xwines' and status = 'active'")" = 100646 ] ||
+    { echo "the X-Wines records are not imported on staging (run mode import first)" >&2; exit 1; }
+  perf16_state "$OUT/ladder-state-before.json"
+  echo "• before: $(cat "$OUT/ladder-state-before.json")"
+  j "$OUT/ladder-state-before.json" "process.exit(r.xwines_scope==='pilot'&&r.synth_scope!=='public'&&r.person_sees_synth===0?0:1)" ||
+    { echo "X-Wines is not pilot or the synthetic source is shown: refusing (run perf16-cleanup first)" >&2; exit 1; }
+  # N at once needs N server connections from the transaction pooler (read-only: each client holds one for 2 s)
+  LEVELS="${LADDER_LEVELS:-1,2,4,8,16}"
+  NEED=$(echo "$LEVELS" | tr ',' '\n' | sort -n | tail -1)
+  "${T[@]}" pool-probe.ts "${DB[@]}" --clients 24 --need "$NEED" --out "$OUT/pool-probe.json"
+  GATE=(--gate-p95 "${LADDER_GATE_P95:-250}" --gate-level "${LADDER_GATE_LEVEL:-4}" --gate-report "${LADDER_GATE_REPORT:-8}")
+  rc=0
+  "${T[@]}" ladder.ts run "${DB[@]}" --set "$ROOT/eval/catalog/benchmark.json" --path pilot --provider xwines \
+    --levels "$LEVELS" --batch "${LADDER_BATCH:-auto}" --out-dir "$OUT" "${GATE[@]}" >/dev/null || rc=$?
+  [ -f "$OUT/ladder-summary.json" ] || { echo "the ladder wrote no summary (exit $rc)" >&2; exit 1; }
+  j "$OUT/ladder-summary.json" "r.levels.map(l=>'• c'+l.level+': '+JSON.stringify({clients:l.clients,batch:l.batch,searches:l.searches,errors:l.errors.count,sql:l.sql,client:l.client,per_s:l.throughput_per_s,in_postgres:{peak:l.database_concurrency.peak,median:l.database_concurrency.median,mean:l.database_concurrency.mean,steady:l.database_concurrency.steady_share_at_target,backends:l.database_concurrency.backends},per_search:l.per_search})).join('\n')"
+  perf16_state "$OUT/ladder-state-after.json"
+  j "$OUT/ladder-state-after.json" "process.exit(JSON.stringify(r)===JSON.stringify(require('$OUT/ladder-state-before.json'))?0:1)" ||
+    { echo "the state changed during a read-only run: $(cat "$OUT/ladder-state-after.json")" >&2; exit 1; }
+  echo "• state unchanged (scopes, records, people, households, wines)"
+  # the verdict, recomputed from the levels' numbers: exit 1 when the measurement is not valid; the gate only reported
+  "${T[@]}" ladder.ts judge --summary "$OUT/ladder-summary.json" "${GATE[@]}"
+  [ "$rc" = 0 ] || { echo "ladder.ts exited $rc" >&2; exit "$rc"; }
   "${T[@]}" staging-check.ts "${DB[@]}" --expect staging --out "$OUT/staging-check-after.json" >/dev/null ||
     { j "$OUT/staging-check-after.json" "r.checks.filter(c=>!c.ok).map(c=>'  FAIL '+c.name).join('\n')"; exit 1; }
   echo "• staging check after: PASS"

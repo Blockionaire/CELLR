@@ -95,6 +95,28 @@ describe("result files that may be committed", () => {
     ]);
     expect(r.deleted).toEqual(["perf-queries.json"]);
   });
+  it("keeps the ladder's files by name only; any other ladder-*.json is deleted", () => {
+    const dir = mkdtempSync(join(tmpdir(), "redact-ladder-"));
+    for (const name of [
+      "ladder-c1.json",
+      "ladder-c16.json",
+      "ladder-summary.json",
+      "ladder-state-before.json",
+      "ladder-state-after.json",
+      "ladder-queries.json",
+      "ladder-c16-queries.json",
+    ])
+      writeFileSync(join(dir, name), JSON.stringify({ sql: { p95: 1 } }));
+    const r = redactDir(dir);
+    expect(r.kept.sort()).toEqual([
+      "ladder-c1.json",
+      "ladder-c16.json",
+      "ladder-state-after.json",
+      "ladder-state-before.json",
+      "ladder-summary.json",
+    ]);
+    expect(r.deleted.sort()).toEqual(["ladder-c16-queries.json", "ladder-queries.json"]);
+  });
   it("refuses a file it does not know", () => {
     expect(() => redact("perf-c8.json", {})).toThrow(/not a result file/);
   });

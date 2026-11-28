@@ -84,6 +84,9 @@ const SAFE = [
   /^perf-((pilot|public|all|public-synthetic)-)?c\d+(-(transaction|before|after))?\.json$/,
   /^perf-state-(before|during|after)\.json$/,
   /^perf-accept-c\d+\.json$/,
+  // the concurrency ladder (ladder.ts): per level and the summary, counts and timings by construction (no query
+  // text, no record, no household id: ladder-lib.ts levelReport, tested), and the state around it (perf16-state.sql)
+  /^ladder-(c\d+|summary|state-(before|after))\.json$/,
   /^pool-probe\.json$/,
   /^staging-check[\w-]*\.json$/,
   /^xwines-provider\.json$/,

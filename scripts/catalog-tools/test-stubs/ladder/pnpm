@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Test stub for ladder-e2e.test.ts: `pnpm --silent exec tsx SCRIPT ...`. `ladder.ts run` hands the reports in $H/run
+# (exit $LADDER_RC); the guard, the staging check and the pool probe pass; every other tool (ladder.ts judge,
+# redact-results.ts) runs for real. Every call is logged in $H/calls.log.
+shift 3; script="$1"; shift
+out=""; dir=""; prev=""
+for a in "$@"; do [ "$prev" = --out ] && out="$a"; [ "$prev" = --out-dir ] && dir="$a"; prev="$a"; done
+echo "tsx $script $*" >> "$H/calls.log"
+case "$script" in
+  staging-guard.ts) exit 0 ;;
+  staging-check.ts) echo '{"ok":true,"checks":[]}' > "$out" ;;
+  pool-probe.ts) echo '{"clients":24,"need":16,"peak":24,"backends":24,"ok":true}' > "$out" ;;
+  ladder.ts)
+    if [ "$1" = run ]; then
+      [ "${LADDER_CRASH:-0}" = 1 ] && { echo "ladder.ts: simulated crash" >&2; exit 1; }
+      cp "$H"/run/*.json "$dir"/
+      # what a careless tool could leave behind: must never leave the run
+      echo '{"queries":["a real wine name"]}' > "$dir/ladder-queries.json"
+      exit "${LADDER_RC:-0}"
+    fi
+    exec node --import tsx "$script" "$@" ;;
+  *) exec node --import tsx "$script" "$@" ;;
+esac
