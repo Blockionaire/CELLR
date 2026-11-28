@@ -1,5 +1,5 @@
 begin;
--- Community reviews hardened (20261203000055): one text rule against links and addresses (the same as
+-- Community reviews hardened (20261204000056): one text rule against links and addresses (the same as
 -- packages/domain/src/review-text.ts), a new or unconfirmed account cannot publish or report, a daily publish cap,
 -- and what stays: the gate keeps the community closed, one review per person and wine, the private note never shown.
 
@@ -113,7 +113,7 @@ begin
   perform public.record_wine_origin(h1, pw, test.ch_record('H1'));
   insert into public.wine_vintages (wine_id, year) values (pw, 2019) returning id into v19;
   insert into public.tastings (household_id, vintage_id, score, note)
-    values (h1, v19, 9, 'SECRET-NOTE-0055 bij schoonmoeder') returning id into t1;
+    values (h1, v19, 9, 'SECRET-NOTE-0056 bij schoonmoeder') returning id into t1;
   insert into public.tastings (household_id, vintage_id, score) values (h1, c19, 7) returning id into tc;
 
   perform test.rec('hardening text: publishing an obfuscated address is refused',
@@ -178,7 +178,7 @@ begin
   perform test.as_service();
   reads := reads || coalesce(public.admin_community_review_queue()::text, '');
   perform test.rec('hardening privacy: the reads saw the review (the check below is not vacuous)', reads like '%St. Émilion-achtig%');
-  perform test.rec('hardening privacy: the private note appears in no read function''s output', reads not like '%SECRET-NOTE-0055%'
+  perform test.rec('hardening privacy: the private note appears in no read function''s output', reads not like '%SECRET-NOTE-0056%'
     and reads not like '%schoonmoeder%');
   perform test.su();
   perform test.rec('hardening privacy: nor in the stored review', (select coalesce(body, '') not like '%SECRET-NOTE%' from test.ch_review(t1)));

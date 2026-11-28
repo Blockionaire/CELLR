@@ -135,7 +135,7 @@ stars = score / 2):
 - **The text filter** (hardening below) catches links, addresses and the common obfuscations, not every spelling a
   determined spammer can invent; reports and moderation catch the rest.
 
-**Hardening before activation (migration 20261203000055):**
+**Hardening before activation (migration 20261204000056):**
 
 - **One text rule, twice:** `packages/domain/src/review-text.ts` (the publish form) and
   `private.review_text_has_link` (the publish function and a table check), the same patterns, a web test keeps them

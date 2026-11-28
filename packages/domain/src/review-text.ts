@@ -2,7 +2,7 @@
  * THE REVIEW TEXT RULE: a public CELLR review holds no link and no contact address (docs/sprints/ratings/DESIGN.md §3).
  *
  * ONE rule, enforced twice with the same patterns: here (PublishReviewSchema, so the person hears it at once) and in
- * the database (`private.review_text_has_link`, migration 20261203000055_community_hardening.sql: the publish
+ * the database (`private.review_text_has_link`, migration 20261204000056_community_hardening.sql: the publish
  * function and a table check), which is what really decides. A web test checks that the invisible-character pattern
  * and every rule pattern below appear verbatim in that migration; change both together, in a new migration.
  *

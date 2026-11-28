@@ -421,8 +421,22 @@ const components = [
     responsibility: "Searches the shared catalogue and the household's wines, rate-limited.",
     inputs: ["Search text"],
     outputs: ["Wine suggestions"],
-    sources: [W + "server/catalog/search.ts", W + "server/catalog/search-repository.ts"],
+    sources: [
+      W + "server/catalog/search.ts",
+      W + "server/catalog/search-repository.ts",
+      M + "20261203000055_catalog_search_performance.sql",
+      "docs/sprints/ratings/PERF-OPTIMISATION.md",
+    ],
     routes: ["/api/v1/catalog/search"],
+    risks: [
+      {
+        id: "R-SRCH-1",
+        severity: "medium",
+        title: "Search under 16 concurrent searches is not yet accepted",
+        detail:
+          "The load test of people's search (perf16) did not meet its acceptance on the staging database's compute size; migration 0055 lowers the work per search with the same answers (PERF-OPTIMISATION.md). A staging re-run decides.",
+      },
+    ],
   },
   {
     id: "svc-catalog-contribution",
@@ -1097,7 +1111,7 @@ const components = [
     sources: [
       M + "20261130000052_community_reviews.sql",
       M + "20261202000054_community_gate.sql",
-      M + "20261203000055_community_hardening.sql",
+      M + "20261204000056_community_hardening.sql",
     ],
     tables: [
       "community_review_moderation_log",
@@ -1995,7 +2009,7 @@ const edges: SystemEdge[] = [
     "supabase-auth",
     "control",
     "publishing and reporting need an account a day old with a confirmed e-mail address",
-    ev(M + "20261203000055_community_hardening.sql", "from auth.users u where u.id = p_user"),
+    ev(M + "20261204000056_community_hardening.sql", "from auth.users u where u.id = p_user"),
   ),
 
   // Sommelier
@@ -3001,8 +3015,8 @@ const flows: SystemFlow[] = [
 ];
 
 export const ARCHITECTURE_REGISTRY: ArchitectureRegistry = {
-  version: "1.12.4",
-  reviewedOn: "2026-11-27",
+  version: "1.12.5",
+  reviewedOn: "2026-11-28",
   repository: "Blockionaire/CELLR",
   components,
   edges,

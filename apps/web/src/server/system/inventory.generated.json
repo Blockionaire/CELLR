@@ -239,7 +239,7 @@
     "wine_origin_notices",
     "wine_source_notices"
   ],
-  "migrations": { "count": 53, "latest": "20261203000055_community_hardening.sql" },
+  "migrations": { "count": 54, "latest": "20261204000056_community_hardening.sql" },
   "buckets": [
     "bottle-art",
     "bottle-images",

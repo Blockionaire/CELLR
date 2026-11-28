@@ -1,5 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  type APIRequestContext,
+  type Locator,
+  type Page,
+  type Request,
+} from "@playwright/test";
 
 export const STACK = "http://localhost:54321";
 
@@ -66,8 +72,45 @@ export async function onboardCreate(page: Page, household: string, name: string)
   await page.getByRole("button", { name: "Create household" }).click();
   await expect(page.getByRole("heading", { name: "What should we call you?" })).toBeVisible();
   await page.getByLabel("Your name").fill(name);
-  await page.getByRole("button", { name: "Let's go" }).click();
-  await page.waitForURL((url) => url.pathname === "/");
+  // The last step ends with router.replace("/") and router.refresh() (onboarding-flow.tsx): the URL is "/" before
+  // the server has rendered the layout for them. A layout rendered after the test changed the profile (a test that
+  // makes the person Dutch next, with SQL) carries the new language, and LocaleSync then reloads the page by itself,
+  // in the middle of whatever the test does next: its page.goto fails with net::ERR_ABORTED. So the person has
+  // arrived once those renders are in, not when the address changes. (Prefetches render nothing on the page.)
+  // Both renders of "/" are asked for before the address changes; the wait counts them, so it cannot pass before
+  // it has seen one. Ended means answered or cancelled: a cancelled render is not coming either.
+  const rendering = new Set<Request>();
+  let home = 0;
+  const isRender = (r: Request) =>
+    r.headers()["rsc"] !== undefined &&
+    !Object.keys(r.headers()).some((h) => h.startsWith("next-router-") && h.includes("prefetch"));
+  const start = (r: Request) => {
+    if (!isRender(r)) return;
+    rendering.add(r);
+    if (new URL(r.url()).pathname === "/") home += 1;
+  };
+  const end = (r: Request) => void rendering.delete(r);
+  const gone = () => rendering.clear(); // a new document: what the old one was loading is not coming
+  page.on("request", start);
+  page.on("requestfinished", end);
+  page.on("requestfailed", end);
+  page.on("domcontentloaded", gone);
+  try {
+    await page.getByRole("button", { name: "Let's go" }).click();
+    await page.waitForURL((url) => url.pathname === "/");
+    // The same budget as the address change had (none of its own: the test's), so a slow first render is waited for.
+    await expect
+      .poll(() => ({ home: home > 0, inFlight: rendering.size }), {
+        message: "the layout's renders of Home are in",
+        timeout: 30_000,
+      })
+      .toEqual({ home: true, inFlight: 0 });
+  } finally {
+    page.off("request", start);
+    page.off("requestfinished", end);
+    page.off("requestfailed", end);
+    page.off("domcontentloaded", gone);
+  }
 }
 
 /** Signs in over HTTP only (what a native app does) and returns its access token. */

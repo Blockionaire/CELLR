@@ -12,7 +12,7 @@
     "build": "pnpm --filter @cellr/web build",
     "lint": "pnpm -r --parallel lint",
     "typecheck": "pnpm -r --parallel typecheck",
-    "test": "pnpm -r --parallel test",
+    "test": "pnpm -r --workspace-concurrency=1 --no-bail test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:test": "bash scripts/db-test.sh",

@@ -14,7 +14,7 @@
 -- Unchanged: the gate of 20261202000054 (the community stays closed until its owner opens it), one review per person
 -- per subject and vintage (also across a record and its canonical wine), moderation tombstones, reports counted only
 -- from people who use CELLR, and the private note never copied. The two functions are replaced with `create or
--- replace`: same signatures, same grants; their bodies are 20261130000052's plus the steps marked "(0055)".
+-- replace`: same signatures, same grants; their bodies are 20261130000052's plus the steps marked "(0056)".
 --
 -- Additive. Rolling back: re-run the two function definitions of 20261130000052 and drop the constraint
 -- community_reviews_no_links_v2 and the functions private.review_text_has_link, private.community_account_ready.
@@ -69,7 +69,7 @@ $$;
 revoke all on function private.community_account_ready(uuid) from public, anon, authenticated, service_role;
 
 -- ---- 3. Publishing ----------------------------------------------------------------------------------------------
--- 'published' · 'updated' · 'not_yours' · 'no_score' · 'no_identity' · 'no_consent' · 'too_new' (0055: the account
+-- 'published' · 'updated' · 'not_yours' · 'no_score' · 'no_identity' · 'no_consent' · 'too_new' (0056: the account
 -- is younger than 24 hours, or neither confirmed nor ever signed in) · 'rate_limited' · 'invalid_text' ·
 -- 'moderated'. Every refusal before the rate limits spends none of it.
 create or replace function public.publish_community_review(p_tasting_id uuid, p_body text, p_consent boolean)
@@ -90,14 +90,14 @@ begin
   if subj.subject_wine_id is null and subj.subject_record_id is null then
     return jsonb_build_object('status', 'no_identity');
   end if;
-  -- (0055) a new or unconfirmed account takes no part yet
+  -- (0056) a new or unconfirmed account takes no part yet
   if not private.community_account_ready(auth.uid()) then
     return jsonb_build_object('status', 'too_new');
   end if;
   -- control characters out, line breaks kept (at most one empty line in a row)
   b := regexp_replace(coalesce(p_body, ''), '[\x01-\x09\x0b-\x1f\x7f]+', ' ', 'g');
   b := nullif(btrim(regexp_replace(b, '\n{3,}', E'\n\n', 'g')), '');
-  -- (0055) the one text rule: no link, no address, also obfuscated
+  -- (0056) the one text rule: no link, no address, also obfuscated
   if b is not null and (char_length(b) > 1500 or private.review_text_has_link(b)) then
     return jsonb_build_object('status', 'invalid_text');
   end if;
@@ -106,7 +106,7 @@ begin
   if not private.consume_rate_limit(auth.uid(), 'community_review_publish', 20, interval '1 hour') then
     return jsonb_build_object('status', 'rate_limited');
   end if;
-  -- (0055) and at most 40 a day
+  -- (0056) and at most 40 a day
   if not private.consume_rate_limit(auth.uid(), 'community_review_publish_day', 40, interval '1 day') then
     return jsonb_build_object('status', 'rate_limited');
   end if;
@@ -152,7 +152,7 @@ begin
 end $$;
 
 -- ---- 4. Reporting -----------------------------------------------------------------------------------------------
--- 'reported' · 'already_reported' · 'not_found' · 'too_new' (0055, as above) · 'rate_limited'.
+-- 'reported' · 'already_reported' · 'not_found' · 'too_new' (0056, as above) · 'rate_limited'.
 create or replace function public.report_community_review(p_review_id uuid, p_reason text, p_detail text default null)
   returns text
   language plpgsql security definer set search_path = '' as $$
@@ -168,7 +168,7 @@ begin
   if exists (select 1 from public.community_review_reports where review_id = p_review_id and reporter_id = auth.uid()) then
     return 'already_reported';
   end if;
-  -- (0055) a new or unconfirmed account cannot report yet
+  -- (0056) a new or unconfirmed account cannot report yet
   if not private.community_account_ready(auth.uid()) then return 'too_new'; end if;
   if not private.consume_rate_limit(auth.uid(), 'community_review_report', 20, interval '1 day') then
     return 'rate_limited';
