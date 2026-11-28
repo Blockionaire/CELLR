@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { apiClient, arrive, sql, wineBody } from "./helpers";
+import { apiClient, arrive, settled, sql, wineBody } from "./helpers";
 
 /**
  * Four small UX fixes, end to end on a phone: a rating to a tenth of a star by sliding, correcting one bottle's
@@ -36,6 +36,10 @@ test.describe("quick UX fixes", () => {
     await page.getByRole("button", { name: "How was it?" }).click();
     const sheet = page.getByRole("dialog", { name: "How was it?" });
     const stars = sheet.getByTestId("stars-input");
+    // The sheet rises into place (globals.css `sheet-in`: 32 px in 260 ms). Measured while it moves, the stars are
+    // lower than they will be when the mouse goes down, and the press can miss them altogether.
+    await expect(stars).toBeVisible();
+    await settled(sheet);
     const box = (await stars.boundingBox())!;
     // Five 40px stars 4px apart: 4.2 stars is 4 whole stars and gaps, then a fifth of the fifth star.
     const y = box.y + box.height / 2;
@@ -47,7 +51,13 @@ test.describe("quick UX fixes", () => {
     await page.mouse.up();
     await expect(sheet.getByText("4.2 / 5")).toBeVisible();
     await expect(stars).toHaveAttribute("aria-valuenow", "4.2");
+    // Two round trips, one after the other: the rating is saved, then the sheet closes once the page has read the
+    // wine again (useSaveTasting awaits the refetch). Each is waited for as what it is.
+    const saved = page.waitForResponse(
+      (r) => r.request().method() === "PUT" && r.url().endsWith("/tasting"),
+    );
     await sheet.getByRole("button", { name: "Save" }).click();
+    expect((await saved).status()).toBe(200);
     await expect(sheet).toBeHidden();
 
     expect(

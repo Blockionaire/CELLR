@@ -614,31 +614,43 @@ describe("finding the wines asked about, fast, in a large cellar", () => {
   };
   const cellar = big(3000);
   cellar[1717] = { ...cellar[1717]!, producer: "Côte-Rôtie Jamet", wineName: "Côte Brune" };
-  const time = (f: () => unknown) => {
-    f();
-    const runs = 5;
-    const start = performance.now();
-    for (let i = 0; i < runs; i++) f();
-    return (performance.now() - start) / runs;
-  };
   // What the old way cost: every wine read with the knowledge before knowing which ones are asked about (about
-  // 90 ms at 3,000 wines). Timed in the same test, so a busy machine slows both alike.
-  const readingAll = () =>
-    time(() =>
-      cellar.map((i) =>
-        readWine(
-          {
-            type: i.type,
-            name: i.wineName,
-            region: i.region,
-            appellation: i.appellation ?? null,
-            countryCode: i.countryCode,
-            profile: null,
-          },
-          WINE_KNOWLEDGE,
-        ),
+  // 90 ms at 3,000 wines). A wine's reading does not depend on the others, and the first n wines have the cellar's
+  // own mix (the five places take turns), so reading a tenth of the cellar costs a tenth of reading them all: each
+  // test compares with that share, read for real, instead of reading every wine and dividing (a sixth of the work).
+  const reading = (n: number) => () =>
+    cellar.slice(0, n).map((i) =>
+      readWine(
+        {
+          type: i.type,
+          name: i.wineName,
+          region: i.region,
+          appellation: i.appellation ?? null,
+          countryCode: i.countryCode,
+          profile: null,
+        },
+        WINE_KNOWLEDGE,
       ),
     );
+  /**
+   * What `f` and `reference` each cost: both run once unmeasured, then five times each, in turns, so a busy machine
+   * slows both alike; the fastest run of each counts, so a run the machine happened to interrupt does not.
+   */
+  const timed = (f: () => unknown, reference: () => unknown) => {
+    f();
+    reference();
+    let cost = Infinity;
+    let against = Infinity;
+    for (let run = 0; run < 5; run++) {
+      let start = performance.now();
+      f();
+      cost = Math.min(cost, performance.now() - start);
+      start = performance.now();
+      reference();
+      against = Math.min(against, performance.now() - start);
+    }
+    return { cost, against };
+  };
   it("a question naming a producer reads only that wine: a small part of reading them all", () => {
     const b = block(ask("How should I serve the Jamet?"), cellar)!;
     expect(b.vintageIds).toEqual([cellar[1717]!.vintageId]);
@@ -646,23 +658,30 @@ describe("finding the wines asked about, fast, in a large cellar", () => {
     expect(block(ask("Hoe koud moet de Cote Brune?"), cellar)!.vintageIds).toEqual([
       cellar[1717]!.vintageId,
     ]);
-    // Measured at about 1.5 ms against about 90 ms (3,000 wines, this machine): at least ten times less.
-    expect(time(() => block(ask("How should I serve the Jamet?"), cellar))).toBeLessThan(
-      readingAll() / 10,
+    // Measured at about 1.5 ms against about 90 ms (3,000 wines, this machine): at least ten times less, so less
+    // than reading a tenth of them.
+    const { cost, against } = timed(
+      () => block(ask("How should I serve the Jamet?"), cellar),
+      reading(cellar.length / 10),
     );
+    expect(cost).toBeLessThan(against);
   });
   it("a question naming no wine of the cellar costs no reading of the cellar either", () => {
     expect(block(ask("At what temperature should I serve a Riesling?"), cellar)).toBeNull();
-    expect(
-      time(() => block(ask("At what temperature should I serve a Riesling?"), cellar)),
-    ).toBeLessThan(readingAll() / 5);
+    const { cost, against } = timed(
+      () => block(ask("At what temperature should I serve a Riesling?"), cellar),
+      reading(cellar.length / 5),
+    );
+    expect(cost).toBeLessThan(against);
   });
   it("a grape the labels do not carry reads only the wines that could be it", () => {
     // 600 Barolos could be nebbiolo and are read; the Chablis, Pauillac, Rioja and Morgon are not (about 15 ms).
     expect(block(ask("How should I serve my nebbiolo?"), cellar)).toBeNull();
-    expect(time(() => block(ask("How should I serve my nebbiolo?"), cellar))).toBeLessThan(
-      readingAll() / 2,
+    const { cost, against } = timed(
+      () => block(ask("How should I serve my nebbiolo?"), cellar),
+      reading(cellar.length / 2),
     );
+    expect(cost).toBeLessThan(against);
   });
   it("by an appellation the labels carry, and by a grape they do not", () => {
     const items = [

@@ -122,12 +122,17 @@ export async function aggregate(args: Args): Promise<AggregateReport> {
   const dir = mkdtempSync(
     join(typeof args.tmp === "string" ? args.tmp : tmpdir(), "cellr-ratings-"),
   );
+  // every partition stream, so the finally can close them before removing the folder: a stream opens its file
+  // asynchronously, and one still opening when an early refusal (layout, order, size) reaches the finally would
+  // create its file inside a folder being removed (ENOTEMPTY, or a file left behind)
+  const streams: WriteStream[] = [];
   try {
     // a write error (a full disk) fails the run through `failed`, so the finally below still removes every file
     let failed: Error | null = null;
     const outs: WriteStream[] = Array.from({ length: parts }, (_, i) =>
       createWriteStream(join(dir, `p${i}`), { mode: 0o600 }).on("error", (e) => (failed ??= e)),
     );
+    streams.push(...outs);
     const sizes = Array.from({ length: parts }, () => 0);
     const invalid: Partial<Record<RatingRowProblem, number>> = {};
     let rows = 0;
@@ -258,6 +263,11 @@ export async function aggregate(args: Args): Promise<AggregateReport> {
       peak_rss_mb: Math.round(process.resourceUsage().maxRSS / 1024),
     };
   } finally {
+    await Promise.all(
+      streams.map((o) =>
+        o.closed ? null : new Promise((res) => o.once("close", () => res(null)).destroy()),
+      ),
+    );
     rmSync(dir, { recursive: true, force: true });
   }
 }
