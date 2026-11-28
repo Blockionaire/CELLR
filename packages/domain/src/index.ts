@@ -43,6 +43,7 @@ export * from "./catalog-providers";
 export * from "./catalog-ratings";
 export * from "./rating-score";
 export * from "./wine-ratings";
+export * from "./review-text";
 export * from "./provenance";
 export * from "./features";
 export * from "./sommelier-parts";

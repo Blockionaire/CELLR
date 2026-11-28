@@ -239,7 +239,7 @@
     "wine_origin_notices",
     "wine_source_notices"
   ],
-  "migrations": { "count": 53, "latest": "20261203000055_catalog_search_performance.sql" },
+  "migrations": { "count": 54, "latest": "20261204000056_community_hardening.sql" },
   "buckets": [
     "bottle-art",
     "bottle-images",
@@ -442,7 +442,9 @@
     "AI_MODEL_VISION",
     "AI_REASONING_EFFORT",
     "CELLR_ADMIN_USER_IDS",
+    "CELLR_COMMUNITY_WEIGHT",
     "CELLR_DEMO_ORIGINS",
+    "CELLR_EXTERNAL_WEIGHT_CAP",
     "CELLR_FEATURES",
     "CELLR_HEALTH_GITHUB_REPO",
     "CELLR_HEALTH_GITHUB_TOKEN",

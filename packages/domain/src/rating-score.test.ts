@@ -8,6 +8,10 @@ import {
   starRows,
   CELLR_WEIGHT,
   EXTERNAL_WEIGHT_CAP,
+  DEFAULT_RATING_WEIGHTS,
+  checkedRatingWeights,
+  communityParity,
+  parseRatingWeights,
 } from "./rating-score";
 
 const ext = (count: number, avgStars: number) => ({
@@ -83,6 +87,67 @@ describe("ratingScore", () => {
     expect(ratingScore(ext(40, 4.3), Array(6).fill(5)).combined).toBe(3.5);
     // a rarity: 2 external at 3.0, 1 CELLR at 4.5
     expect(ratingScore(ext(2, 3), [9]).combined).toBe(4.1);
+  });
+});
+
+describe("configurable weights", () => {
+  it("the defaults are 5 per CELLR review and at most 50 external ratings", () => {
+    expect(DEFAULT_RATING_WEIGHTS).toEqual({ cellr: 5, externalCap: 50 });
+    expect(parseRatingWeights({})).toEqual({ cellr: 5, externalCap: 50 });
+  });
+  it("reads plain integers in range", () => {
+    expect(parseRatingWeights({ cellr: " 3 ", externalCap: "100" })).toEqual({
+      cellr: 3,
+      externalCap: 100,
+    });
+    expect(parseRatingWeights({ cellr: "1", externalCap: "10" })).toEqual({
+      cellr: 1,
+      externalCap: 10,
+    });
+    expect(parseRatingWeights({ cellr: "20", externalCap: "500" })).toEqual({
+      cellr: 20,
+      externalCap: 500,
+    });
+  });
+  it.each(["", "0", "21", "-5", "5.5", "1e1", "0x5", "five", "5 times", "Infinity", "NaN"])(
+    "a CELLR weight of %j falls back to the default, on its own",
+    (v) => {
+      expect(parseRatingWeights({ cellr: v, externalCap: "80" })).toEqual({
+        cellr: 5,
+        externalCap: 80,
+      });
+    },
+  );
+  it.each(["", "9", "501", "50.5", "1e2", "0x40", "fifty", "-50", "99999"])(
+    "an external cap of %j falls back to the default, on its own",
+    (v) => {
+      expect(parseRatingWeights({ cellr: "4", externalCap: v })).toEqual({
+        cellr: 4,
+        externalCap: 50,
+      });
+    },
+  );
+  it("the score uses the given weights; counts stay real", () => {
+    // external 3.0 × 10000 (cap 20 → weight 20); CELLR 5.0 stars × 1 (weight 10)
+    const r = ratingScore(ext(10000, 3), [10], { cellr: 10, externalCap: 20 });
+    expect(r.weights).toEqual({ external: 20, cellr: 10 });
+    expect(r.combined).toBe(Math.round(((3 * 20 + 5 * 10) / 30) * 10) / 10);
+    expect(r.external.count).toBe(10000);
+    expect(r.cellr.count).toBe(1);
+    // the two averages are unchanged by the weights
+    expect(r.external.average).toBe(3);
+    expect(r.cellr.average).toBe(5);
+  });
+  it("out-of-range weights are never used: the defaults are", () => {
+    const bad = ratingScore(ext(100, 3), [10], { cellr: 0, externalCap: 50 });
+    expect(bad).toEqual(ratingScore(ext(100, 3), [10]));
+    expect(checkedRatingWeights({ cellr: 5.5, externalCap: 50 })).toEqual(DEFAULT_RATING_WEIGHTS);
+    expect(checkedRatingWeights(undefined)).toEqual(DEFAULT_RATING_WEIGHTS);
+  });
+  it("parity: how many CELLR reviews outweigh any number of external ratings", () => {
+    expect(communityParity(DEFAULT_RATING_WEIGHTS)).toBe(10);
+    expect(communityParity({ cellr: 3, externalCap: 50 })).toBe(17);
+    expect(communityParity({ cellr: 20, externalCap: 10 })).toBe(1);
   });
 });
 

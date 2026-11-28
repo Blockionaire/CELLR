@@ -2,16 +2,71 @@
  * THE CELLR SCORE: external ratings and CELLR community reviews combined, transparently
  * (docs/sprints/ratings/DESIGN.md §4).
  *
- * - External ratings: their mean, weight 1 per rating, at most EXTERNAL_WEIGHT_CAP effective ratings.
- * - CELLR reviews: weight CELLR_WEIGHT per unique review. A CELLR score (tastings.score, 1–10 in tenths of a star)
- *   is stars = score / 2.
+ * - External ratings: their mean, weight 1 per rating, at most `externalCap` effective ratings (default 50).
+ * - CELLR reviews: weight `cellr` per unique review (default 5). A CELLR score (tastings.score, 1–10 in tenths of a
+ *   star) is stars = score / 2.
  * - Counts shown are always the real counts, never the weighted ones; the two averages are shown next to the
  *   combined score.
+ * The two weights are server configuration (CELLR_COMMUNITY_WEIGHT, CELLR_EXTERNAL_WEIGHT_CAP, read by
+ * `parseRatingWeights`); the ones used travel with the ratings data, so the page shows the numbers it computed with.
  * Pure: no I/O, no dates, deterministic.
  */
 
+/** The default cap on the external ratings' weight. */
 export const EXTERNAL_WEIGHT_CAP = 50;
+/** The default weight of one CELLR review. */
 export const CELLR_WEIGHT = 5;
+
+export interface RatingWeights {
+  /** The weight of one CELLR review: an integer 1..20. */
+  cellr: number;
+  /** The most effective external ratings: an integer 10..500. */
+  externalCap: number;
+}
+
+export const DEFAULT_RATING_WEIGHTS: Readonly<RatingWeights> = Object.freeze({
+  cellr: CELLR_WEIGHT,
+  externalCap: EXTERNAL_WEIGHT_CAP,
+});
+export const RATING_WEIGHT_LIMITS = {
+  cellr: { min: 1, max: 20 },
+  externalCap: { min: 10, max: 500 },
+} as const;
+
+const within = (n: unknown, l: { min: number; max: number }): n is number =>
+  typeof n === "number" && Number.isInteger(n) && n >= l.min && n <= l.max;
+
+/** The weights when both are in range, else the defaults (one bad value never makes a half-configured score). */
+export function checkedRatingWeights(w: Partial<RatingWeights> | null | undefined): RatingWeights {
+  return w &&
+    within(w.cellr, RATING_WEIGHT_LIMITS.cellr) &&
+    within(w.externalCap, RATING_WEIGHT_LIMITS.externalCap)
+    ? { cellr: w.cellr, externalCap: w.externalCap }
+    : { ...DEFAULT_RATING_WEIGHTS };
+}
+
+/**
+ * The weights from configuration, fail-safe: each value must be a plain integer in its range ("7", not "7.5",
+ * "0x7" or "7 times"); an unset or invalid value takes its default, on its own.
+ */
+export function parseRatingWeights(raw: {
+  cellr?: string | undefined;
+  externalCap?: string | undefined;
+}): RatingWeights {
+  const int = (v: string | undefined, l: { min: number; max: number }, fallback: number) => {
+    const t = v?.trim() ?? "";
+    if (!/^[0-9]{1,4}$/.test(t)) return fallback;
+    const n = Number(t);
+    return within(n, l) ? n : fallback;
+  };
+  return {
+    cellr: int(raw.cellr, RATING_WEIGHT_LIMITS.cellr, CELLR_WEIGHT),
+    externalCap: int(raw.externalCap, RATING_WEIGHT_LIMITS.externalCap, EXTERNAL_WEIGHT_CAP),
+  };
+}
+
+/** How many CELLR reviews weigh at least as much as the full external weight (for the methodology text). */
+export const communityParity = (w: RatingWeights): number => Math.ceil(w.externalCap / w.cellr);
 
 /** A CELLR score (1..10, tenths of a star allowed: multiples of 0.2) in stars (0.5..5). */
 export function cellrScoreToStars(score: number): number {
@@ -47,12 +102,14 @@ export function poolExternal(units: readonly ExternalRatings[]): ExternalRatings
 
 /**
  * The CELLR score from the external ratings (pooled for the selected vintage or vintages) and the CELLR scores
- * (1..10) of the unique published reviews in the same selection.
+ * (1..10) of the unique published reviews in the same selection, with the given weights (out-of-range: defaults).
  */
 export function ratingScore(
   external: ExternalRatings,
   cellrScores: readonly number[],
+  weights: RatingWeights = DEFAULT_RATING_WEIGHTS,
 ): RatingScore {
+  const w = checkedRatingWeights(weights);
   if (!Number.isInteger(external.count) || external.count < 0)
     throw new Error("bad external count");
   if (
@@ -63,13 +120,13 @@ export function ratingScore(
   const extAvg = external.count > 0 ? external.sumHalf / 2 / external.count : null;
   const stars = cellrScores.map(cellrScoreToStars);
   const cellrAvg = stars.length > 0 ? stars.reduce((a, b) => a + b, 0) / stars.length : null;
-  const wExt = Math.min(external.count, EXTERNAL_WEIGHT_CAP);
-  const wCellr = CELLR_WEIGHT * stars.length;
+  const wExt = Math.min(external.count, w.externalCap);
+  const wCellr = w.cellr * stars.length;
   const total = wExt + wCellr;
   const combined =
     total === 0
       ? null
-      : one(((extAvg ?? 0) * wExt + stars.reduce((a, b) => a + b, 0) * CELLR_WEIGHT) / total);
+      : one(((extAvg ?? 0) * wExt + stars.reduce((a, b) => a + b, 0) * w.cellr) / total);
   return {
     combined,
     external: {

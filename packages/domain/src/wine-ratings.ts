@@ -1,5 +1,14 @@
 import { z } from "zod";
-import { cellrBucket, poolExternal, ratingScore, type RatingScore } from "./rating-score";
+import {
+  cellrBucket,
+  checkedRatingWeights,
+  DEFAULT_RATING_WEIGHTS,
+  poolExternal,
+  ratingScore,
+  type RatingScore,
+  type RatingWeights,
+} from "./rating-score";
+import { REVIEW_LINK_MESSAGE, reviewTextHasLink } from "./review-text";
 
 /**
  * WHAT A WINE PAGE SHOWS ABOUT RATINGS (docs/sprints/ratings/DESIGN.md §4–5): per vintage, the provider's aggregate
@@ -85,6 +94,8 @@ export interface WineRatingsData {
   /** Newest vintage first, NV last. */
   vintages: VintageRatings[];
   reviews: CommunityReview[];
+  /** The weights the server's configuration sets for the CELLR score: the screen computes and explains with these. */
+  weights: RatingWeights;
 }
 
 export const NO_RATINGS: WineRatingsData = {
@@ -93,6 +104,7 @@ export const NO_RATINGS: WineRatingsData = {
   source: null,
   vintages: [],
   reviews: [],
+  weights: { ...DEFAULT_RATING_WEIGHTS },
 };
 
 const vintageKey = (y: number | null) => (y === null ? "nv" : String(y));
@@ -101,8 +113,9 @@ const vintageKey = (y: number | null) => (y === null ? "nv" : String(y));
 export function mergeWineRatings(
   external: ExternalRatingsRow | null,
   community: CommunityRow | null,
+  weights: RatingWeights = DEFAULT_RATING_WEIGHTS,
 ): WineRatingsData {
-  if (!external && !community) return NO_RATINGS;
+  if (!external && !community) return { ...NO_RATINGS, weights: checkedRatingWeights(weights) };
   const byYear = new Map<string, VintageRatings>();
   const get = (year: number | null) => {
     const k = vintageKey(year);
@@ -133,6 +146,7 @@ export function mergeWineRatings(
       : null,
     vintages,
     reviews: community?.reviews ?? [],
+    weights: checkedRatingWeights(weights),
   };
 }
 
@@ -147,7 +161,7 @@ export interface RatingsSelection {
   reviews: CommunityReview[];
 }
 
-/** The numbers for one vintage filter (all, a year, or NV) and one review filter. */
+/** The numbers for one vintage filter (all, a year, or NV) and one review filter, with the data's own weights. */
 export function selectRatings(
   data: WineRatingsData,
   vintage: VintageFilter,
@@ -161,7 +175,8 @@ export function selectRatings(
   const add = (a: number[], b: number[]) => a.map((n, i) => n + (b[i] ?? 0));
   const zero = Array(10).fill(0) as number[];
   return {
-    score: ratingScore(ext, scores),
+    // an answer without weights (an older server) is scored with the defaults
+    score: ratingScore(ext, scores, checkedRatingWeights(data.weights)),
     externalDistribution: chosen.reduce((a, v) => add(a, v.external?.distribution ?? zero), zero),
     cellrDistribution: chosen.reduce((a, v) => add(a, v.cellr.distribution), zero),
     reviews: data.reviews.filter(
@@ -172,13 +187,16 @@ export function selectRatings(
   };
 }
 
-/** Publishing a review: the text the author writes for the public (optional) and the explicit consent. */
+/**
+ * Publishing a review: the text the author writes for the public (optional) and the explicit consent. The text rule
+ * (no link, no address, also obfuscated) is review-text.ts's, the same the database applies.
+ */
 export const PublishReviewSchema = z.object({
   body: z
     .string()
     .max(REVIEW_BODY_MAX)
     .transform((s) => s.trim())
-    .refine((s) => !/(https?:\/\/|www\.)/i.test(s), "Links are not allowed in a review.")
+    .refine((s) => !reviewTextHasLink(s), REVIEW_LINK_MESSAGE)
     .transform((s) => (s === "" ? null : s))
     .nullable()
     .default(null),
@@ -198,6 +216,7 @@ export const PUBLISH_STATUSES = [
   "no_score",
   "no_identity",
   "no_consent",
+  "too_new",
   "rate_limited",
   "invalid_text",
   "moderated",

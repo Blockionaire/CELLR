@@ -11,11 +11,13 @@ grant usage on schema test to public;
 create function test.uid(n int) returns uuid language sql immutable as
   $$ select ('aaaaaaaa-0000-0000-0000-' || lpad(n::text, 12, '0'))::uuid $$;
 
--- Creates auth users (the on_auth_user_created trigger then creates their profiles).
+-- Creates auth users (the on_auth_user_created trigger then creates their profiles): established accounts, a month
+-- old with a confirmed e-mail address. A test of new accounts makes them younger itself.
 create function test.mk_users(n int) returns void language plpgsql as $$
 begin
   for i in 1..n loop
-    insert into auth.users (id, email) values (test.uid(i), 'user' || i || '@example.test');
+    insert into auth.users (id, email, created_at, email_confirmed_at)
+    values (test.uid(i), 'user' || i || '@example.test', now() - interval '30 days', now() - interval '30 days');
   end loop;
 end $$;
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import {
+  checkedRatingWeights,
   ERROR_MESSAGES,
   REPORT_REASONS,
   REVIEW_BODY_MAX,
@@ -102,6 +103,8 @@ export function RatingsPanel({
   const one = new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const whole = new Intl.NumberFormat(locale);
   const { score } = selection;
+  // the weights the server scored with (an older answer without them: the defaults)
+  const weights = checkedRatingWeights(data.weights);
   const total = score.external.count + score.cellr.count;
   const rows = starRows(
     selection.externalDistribution.map((n, i) => n + (selection.cellrDistribution[i] ?? 0)),
@@ -338,7 +341,9 @@ export function RatingsPanel({
               ))}
             </ul>
           )}
-          <p className="mt-3 text-[0.75rem] text-ink-3">{t("weightNote")}</p>
+          <p className="mt-3 text-[0.75rem] text-ink-3">
+            {t("weightNote", { weight: weights.cellr, cap: weights.externalCap })}
+          </p>
         </div>
       )}
 

@@ -107,6 +107,11 @@ test.describe("ratings on the wine page and the catalogue page", () => {
     // the community is closed in the database until its owner opens it (20261202000054)
     await sql("select public.admin_community_open(true, 'e2e: reviews are tested here', 'e2e')");
     const { email } = await arrive(page, "ratings-ui");
+    // a new account cannot publish for its first 24 hours, nor without a confirmed e-mail (20261204000056)
+    await sql(
+      "update auth.users set created_at = now() - interval '2 days', email_confirmed_at = coalesce(email_confirmed_at, now()) where lower(email) = lower($1)",
+      [email],
+    );
     const { call } = await apiClient(request, email);
 
     // the household's wine, made from the record (R-27), with a 2019 bottle opened and tasted (4.5 stars + a note)

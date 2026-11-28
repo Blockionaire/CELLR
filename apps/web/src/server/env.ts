@@ -3,8 +3,10 @@ import { adviceOpenIn } from "@/lib/smart-cellar-advice-gate";
 import {
   parseAdminAllowlist,
   parseFeatures,
+  parseRatingWeights,
   parseSommelierParts,
   type FeatureFlags,
+  type RatingWeights,
   type SommelierParts,
 } from "@cellr/domain";
 import { builderAccessIn, type BuilderAccess } from "@/lib/smart-cellar-builder-gate";
@@ -176,6 +178,19 @@ export function getAdminAllowlist(): ReadonlySet<string> {
  */
 export function getFeatures(): FeatureFlags {
   return parseFeatures(process.env.CELLR_FEATURES);
+}
+
+/**
+ * The CELLR score's weights (docs/sprints/ratings/DESIGN.md §4): CELLR_COMMUNITY_WEIGHT, the weight of one CELLR
+ * review (an integer 1–20, default 5), and CELLR_EXTERNAL_WEIGHT_CAP, the most external ratings that count (an integer
+ * 10–500, default 50). Unset or invalid: the default. The weights used are sent with the ratings and shown on the
+ * methodology page, so the score is never weighed differently from what it says.
+ */
+export function getRatingWeights(): RatingWeights {
+  return parseRatingWeights({
+    cellr: process.env.CELLR_COMMUNITY_WEIGHT,
+    externalCap: process.env.CELLR_EXTERNAL_WEIGHT_CAP,
+  });
 }
 
 let reportedUnknownParts = "";
