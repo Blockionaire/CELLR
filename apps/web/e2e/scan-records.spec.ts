@@ -522,7 +522,12 @@ test.describe("scan → an external record → a wine of your own, with where it
     await expect(page.getByLabel("Producent")).toHaveValue(second.producer);
     await page.context().clearCookies();
     await page.getByRole("button", { name: "1 fles toevoegen" }).click();
-    await expect(page.getByRole("alert")).toBeVisible();
+    // The error itself, by what it says: Next's route announcer is a role="alert" too, empty and always on the page.
+    // A bare getByRole("alert") was satisfied by the announcer before the answer came (and then checked nothing), or
+    // found both once the error was shown (a strict-mode failure), depending on which came first.
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Log in om verder te gaan." }),
+    ).toBeVisible();
     await expect(page.getByRole("heading", { name: "Toegevoegd aan je kelder." })).toHaveCount(0);
     expect(await winesOf(householdId)).toBe(1);
     expect(await originsOf(householdId)).toBe(1);
