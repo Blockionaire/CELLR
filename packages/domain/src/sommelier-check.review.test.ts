@@ -378,10 +378,13 @@ describe("prepareAnswerCheck", () => {
       small = Math.min(small, indexTime(300, salt, 10));
       large = Math.min(large, indexTime(3000, salt));
     }
-    // Ten times the wines may take about ten times as long, never a hundred (the old index grew with groups ×
-    // groups: about 280 ms at 3,000 wines here). Measured on the development machine (4 shared cores): about 25–55
-    // ms at 3,000 wines, and the ratio about 8–12. The absolute bound only catches the gross case on a busy machine.
-    expect(large / Math.max(small, 0.5)).toBeLessThan(40);
+    // Ten times the wines may take about ten times as long, not more than 17 times. Measured on two cores, quiet and
+    // beside two busy loops (25 runs each): the index as it is 7.6–13.3; the index before 7a89797, which looked a
+    // producer up over every group for every group (about 280 ms at 3,000 wines), 22–41. The bar sits between the
+    // two; at 25 that regression passed 9 times in 25. What it is meant to catch: an index that at 3,000 wines costs
+    // twice its linear time or more (a ratio near 20 and up). The absolute bound only catches the gross case on
+    // a busy machine.
+    expect(large / Math.max(small, 0.5)).toBeLessThan(17);
     expect(large).toBeLessThan(1500);
 
     const items = cellar(3000, "q");

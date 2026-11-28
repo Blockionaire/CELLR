@@ -77,11 +77,18 @@ export async function onboardCreate(page: Page, household: string, name: string)
   // makes the person Dutch next, with SQL) carries the new language, and LocaleSync then reloads the page by itself,
   // in the middle of whatever the test does next: its page.goto fails with net::ERR_ABORTED. So the person has
   // arrived once those renders are in, not when the address changes. (Prefetches render nothing on the page.)
+  // Both renders of "/" are asked for before the address changes; the wait counts them, so it cannot pass before
+  // it has seen one. Ended means answered or cancelled: a cancelled render is not coming either.
   const rendering = new Set<Request>();
+  let home = 0;
   const isRender = (r: Request) =>
     r.headers()["rsc"] !== undefined &&
     !Object.keys(r.headers()).some((h) => h.startsWith("next-router-") && h.includes("prefetch"));
-  const start = (r: Request) => void (isRender(r) && rendering.add(r));
+  const start = (r: Request) => {
+    if (!isRender(r)) return;
+    rendering.add(r);
+    if (new URL(r.url()).pathname === "/") home += 1;
+  };
   const end = (r: Request) => void rendering.delete(r);
   const gone = () => rendering.clear(); // a new document: what the old one was loading is not coming
   page.on("request", start);
@@ -91,7 +98,13 @@ export async function onboardCreate(page: Page, household: string, name: string)
   try {
     await page.getByRole("button", { name: "Let's go" }).click();
     await page.waitForURL((url) => url.pathname === "/");
-    await expect.poll(() => rendering.size, { message: "the layout's renders are in" }).toBe(0);
+    // The same budget as the address change had (none of its own: the test's), so a slow first render is waited for.
+    await expect
+      .poll(() => ({ home: home > 0, inFlight: rendering.size }), {
+        message: "the layout's renders of Home are in",
+        timeout: 30_000,
+      })
+      .toEqual({ home: true, inFlight: 0 });
   } finally {
     page.off("request", start);
     page.off("requestfinished", end);

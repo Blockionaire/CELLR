@@ -127,23 +127,26 @@ describe("a place from before templates, read in the new terms", () => {
       for (let rows = 1; rows <= 30; rows++)
         for (let cols = 1; cols <= 30; cols++) {
           const r = resolveStorage({ kind, rows, cols });
-          expect({
-            place: { kind, rows, cols },
-            legacy: r.legacy,
-            arrangementKnown: r.arrangementKnown,
-            fallbacks: r.fallbacks,
-            template: { id: r.template.id, kind: r.template.kind },
-            structure: r.structure,
-            // what the storage view has always reported as its capacity
-            layout: {
-              capacity: r.layout.capacity,
-              cells: r.layout.cells.length,
-              rows: r.layout.rows,
-              cols: r.layout.cols,
+          expect(
+            {
+              place: { kind, rows, cols },
+              legacy: r.legacy,
+              arrangementKnown: r.arrangementKnown,
+              fallbacks: r.fallbacks,
+              template: { id: r.template.id, kind: r.template.kind },
+              structure: r.structure,
+              // what the storage view has always reported as its capacity
+              layout: {
+                capacity: r.layout.capacity,
+                cells: r.layout.cells.length,
+                rows: r.layout.rows,
+                cols: r.layout.cols,
+              },
+              // and it is a structure the strict write rules accept: editing an old place never fails on its size
+              writable: StorageStructureSchema.safeParse(r.structure).success,
             },
-            // and it is a structure the strict write rules accept: editing an old place never fails on its size
-            writable: StorageStructureSchema.safeParse(r.structure).success,
-          }).toEqual({
+            `${kind} ${rows}×${cols}`,
+          ).toEqual({
             place: { kind, rows, cols },
             legacy: true,
             arrangementKnown: true,
