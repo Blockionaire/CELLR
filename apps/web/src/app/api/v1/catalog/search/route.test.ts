@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CatalogSearchQuery, CatalogSearchResponse } from "@cellr/domain";
 
@@ -58,5 +60,41 @@ describe("GET /api/v1/catalog/search", () => {
     const res = await get();
     expect(res.status).toBe(500);
     expect(logError).toHaveBeenCalled();
+  });
+});
+
+/**
+ * On Vercel, `request.signal` follows a disconnecting caller only for functions that opt in (`supportsCancellation`
+ * in vercel.json), and every function that opts in is terminated when its caller goes away, whatever its code does.
+ * So exactly this read-only route opts in: never a glob, which could cut a route that writes in the middle of it.
+ */
+describe("vercel.json: cancellation for the search route only", () => {
+  const web = path.resolve(import.meta.dirname, "../../../../../..");
+  const config = JSON.parse(fs.readFileSync(path.join(web, "vercel.json"), "utf8")) as {
+    regions?: string[];
+    functions?: Record<string, Record<string, unknown>>;
+  };
+  const functions = Object.entries(config.functions ?? {});
+
+  it("names this route's own file, relative to the project root (apps/web), and nothing else", () => {
+    const cancellable = functions.filter(([, options]) => options.supportsCancellation === true);
+    expect(cancellable.map(([key]) => key)).toEqual(["src/app/api/v1/catalog/search/route.ts"]);
+    expect(path.join(web, cancellable[0]![0])).toBe(path.join(import.meta.dirname, "route.ts"));
+    expect(fs.existsSync(path.join(web, cancellable[0]![0]))).toBe(true);
+  });
+
+  it("every functions entry is one existing file (no glob) with options Vercel documents", () => {
+    const known = new Set(["supportsCancellation", "maxDuration", "regions"]);
+    for (const [key, options] of functions) {
+      expect(key, "a glob would reach other routes").not.toMatch(/[*?[\]{}!]/);
+      expect(fs.existsSync(path.join(web, key)), key).toBe(true);
+      for (const option of Object.keys(options)) expect(known.has(option), option).toBe(true);
+    }
+    expect(config.regions).toEqual(["fra1"]); // the register's evidence for the region
+  });
+
+  it("the route only reads: it exports GET and nothing that writes", async () => {
+    const route = await import("./route");
+    expect(Object.keys(route).sort()).toEqual(["GET"]);
   });
 });

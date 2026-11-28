@@ -371,6 +371,38 @@ describe("wine search as you type", () => {
     expect(calls.map((c) => c.query)).toEqual(["chateau", "chateau m", "chateau ma"]);
   });
 
+  it("a request that has been on its way for long may have stalled: the same search typed again asks again", () => {
+    const { controller, calls, advance } = harness();
+    controller.setInput("chateau");
+    advance(250);
+    advance(6_000); // no answer (the browser sets no time limit on a request)
+    controller.setInput("chateau ");
+    expect(calls[0]!.signal.aborted).toBe(true);
+    advance(250);
+    expect(calls.map((c) => c.query)).toEqual(["chateau", "chateau"]);
+  });
+
+  it("an answer from memory keeps its own age: a space on it after the memory's limit asks again", async () => {
+    const { controller, calls, advance, settle, ok } = harness({ cacheTtlMs: 60_000 });
+    controller.setInput("marg");
+    advance(250);
+    calls[0]!.resolve(ok(["Margot"], "marg")); // answered at 250 ms
+    await settle();
+    controller.setInput("marga");
+    advance(250);
+    calls[1]!.resolve(ok(["Margaux"], "marga"));
+    await settle();
+    advance(49_000);
+    controller.setInput("marg"); // from memory: an answer given 49 s ago
+    expect(controller.getState()).toMatchObject({ status: "ready", query: "marg" });
+    expect(calls).toHaveLength(2);
+    advance(11_000); // that answer is now over a minute old, though it came back on screen only 11 s ago
+    controller.setInput("marg ");
+    expect(controller.getState().status).toBe("loading");
+    advance(250);
+    expect(calls.map((c) => c.query)).toEqual(["marg", "marga", "marg"]);
+  });
+
   it("a space typed while the pause is still awaited waits for the pause again (no request in between)", () => {
     const { controller, calls, advance } = harness();
     controller.setInput("chateau");

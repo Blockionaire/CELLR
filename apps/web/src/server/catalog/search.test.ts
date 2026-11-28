@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { DomainError, type CatalogSearchRow } from "@cellr/domain";
 import { createCatalogSearchService, SearchCancelled } from "./search";
+import type { CatalogSearchRepository } from "./search-repository";
 
 const row: CatalogSearchRow = {
   result_kind: "record",
@@ -28,9 +29,7 @@ const row: CatalogSearchRow = {
 };
 
 function setup(rows: CatalogSearchRow[] | null = [row]) {
-  const repo = {
-    search: vi.fn(async (_args: unknown, _signal?: AbortSignal) => rows),
-  };
+  const repo = { search: vi.fn<CatalogSearchRepository["search"]>(async () => rows) };
   const spend = vi.fn(async () => {});
   const householdId = vi.fn(async () => "h1");
   const service = createCatalogSearchService({ repo, householdId, spend });
